@@ -10,35 +10,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "key",
-          "description": "key specifies the key of the entry. This input accepts any data type. All the keys must be unique and of the same data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "key"
+          "python_param": "key",
+          "default_value": null,
+          "description": "key specifies the key of the entry. This input accepts any data type. All the keys must be unique and of the same data type."
         },
         {
           "name": "value",
-          "description": "value specifies the value of the entry. This input accepts any data type. All the values must be of the same data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value specifies the value of the entry. This input accepts any data type. All the values must be of the same data type."
         },
         {
           "name": "map",
-          "description": "Functions © National Instruments 1413 map returns the resulting map. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "map"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
-          "description": "",
+          "python_param": "map_",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_map_collection_comparing"
+          "description": "map returns the resulting map."
         }
       ]
     },
@@ -50,56 +52,67 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "map in",
-          "description": "map in specifies the map in which you want to insert a key-value entry. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
-          "default_value": "data type is a map of 32-bit signed integers",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "map_in"
+          "python_param": "map_in",
+          "default_value": null,
+          "description": "map in specifies the map in which you want to insert a key-value entry. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "key",
-          "description": "key specifies the key of the entry to insert into the map. The key must be of the same data type as the existing keys in the map.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "key"
+          "python_param": "key",
+          "default_value": null,
+          "description": "key specifies the key of the entry to insert into the map. The key must be of the same data type as the existing keys in the map."
         },
         {
           "name": "value",
-          "description": "value specifies the value of the entry. This input must be of the same data type as the existing values in the map.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value specifies the value of the entry. This input must be of the same data type as the existing values in the map."
         },
         {
           "name": "map out",
-          "description": "map out returns the map with the inserted entry. Functions 1414 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "map_out"
+          "python_param": "map_out",
+          "default_value": null,
+          "description": "map out returns the map with the inserted entry."
         },
         {
           "name": "key already included?",
-          "description": "key already included? returns whether map in already includes key. If key already included? is TRUE, this function replaces the associated value of key in map in with value and returns the resulting map in map out.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "key_already_included"
+          "python_param": "key_already_included",
+          "default_value": null,
+          "description": "key already included? returns whether map in already includes key . If key already included? is TRUE, this function replaces the associated value of key in map in with value and returns the resulting map in map out ."
         },
         {
           "name": "value unchanged?",
-          "description": "value unchanged? returns whether any values in the input map are updated after the insertion. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_unchanged"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
-          "description": "",
+          "python_param": "value_unchanged",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_map_collection_comparing"
+          "description": "value unchanged? returns whether any values in the input map are updated after the insertion."
         }
       ]
     },
@@ -111,49 +124,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "map in",
-          "description": "map in specifies the map from which you want to remove an entry. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
-          "default_value": "data type is a map of 32-bit signed integers",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "map_in"
+          "python_param": "map_in",
+          "default_value": null,
+          "description": "map in specifies the map from which you want to remove an entry. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "key",
-          "description": "key specifies the key of the entry to remove. This input must be of the same data type as the existing keys in the map.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "key"
+          "python_param": "key",
+          "default_value": null,
+          "description": "key specifies the key of the entry to remove. This input must be of the same data type as the existing keys in the map."
         },
         {
           "name": "map out",
-          "description": "map out returns the map with the entry of the specified key removed. Functions © National Instruments 1415",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "map_out"
+          "python_param": "map_out",
+          "default_value": null,
+          "description": "map out returns the map with the entry of the specified key removed."
         },
         {
           "name": "key not found?",
-          "description": "key not found? returns whether map in includes an entry with the specified key.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "key_not_found"
+          "python_param": "key_not_found",
+          "default_value": null,
+          "description": "key not found? returns whether map in includes an entry with the specified key."
         },
         {
           "name": "value",
-          "description": "value returns the value of the entry associated with key. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Map Collection - Word",
-          "description": "",
+          "python_param": "value",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_map_collection_word"
+          "description": "value returns the value of the entry associated with key ."
         }
       ]
     },
@@ -165,56 +186,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "map",
-          "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
-          "default_value": "data type is a map of 32-bit signed integers",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "map"
+          "python_param": "map_",
+          "default_value": null,
+          "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "key",
-          "description": "key specifies the key to look for in the map. The key must be of the same data type as the existing keys in the map.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "key"
+          "python_param": "key",
+          "default_value": null,
+          "description": "key specifies the key to look for in the map. The key must be of the same data type as the existing keys in the map."
         },
         {
           "name": "default value",
-          "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map. Functions 1416 ni.com",
-          "default_value": "value specifies the value to return in value if the specified key does not exist in the map",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "default_value"
+          "python_param": "default_value",
+          "default_value": null,
+          "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map."
         },
         {
           "name": "key not found?",
-          "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "key_not_found"
+          "python_param": "key_not_found",
+          "default_value": null,
+          "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE."
         },
         {
           "name": "value",
-          "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": "value",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
-          "description": "",
+          "python_param": "value",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_map_collection_comparing"
-        },
-        {
-          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_design_patterns_registration_map"
+          "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value ."
         }
       ]
     },
@@ -226,28 +248,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "map",
-          "description": "map specifies the map in which you want to look for the maximum and minimum keys. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
-          "default_value": "data type is a map of 32-bit signed integers",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "map"
+          "python_param": "map_",
+          "default_value": null,
+          "description": "map specifies the map in which you want to look for the maximum and minimum keys. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "maximum",
-          "description": "maximum returns the maximum key in map.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "maximum"
+          "python_param": "maximum",
+          "default_value": null,
+          "description": "maximum returns the maximum key in map ."
         },
         {
           "name": "minimum",
-          "description": "Functions © National Instruments 1417 minimum returns the minimum key in map.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "minimum"
+          "python_param": "minimum",
+          "default_value": null,
+          "description": "minimum returns the minimum key in map ."
         }
       ]
     },
@@ -259,56 +290,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "collection",
-          "description": "collection specifies the collection. This input accepts any collection data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "collection"
+          "python_param": "collection",
+          "default_value": null,
+          "description": "collection specifies the collection. This input accepts any collection data type."
         },
         {
           "name": "size",
-          "description": "size returns the number of elements or entries in collection. Functions 1418 ni.com Empty Collection? Function Empty Collection? Function Returns TRUE if the input collection contains zero elements or entries. Inputs/Outputs",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "size"
-        },
-        {
-          "name": "collection",
-          "description": "collection specifies the collection. This input accepts any collection data type.",
+          "python_param": "size",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "collection"
-        },
-        {
-          "name": "empty?",
-          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "empty"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_map_collection_comparing"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
-        },
-        {
-          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_design_patterns_registration_map"
+          "description": "size returns the number of elements or entries in collection ."
         }
       ]
     },
@@ -374,42 +376,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "collection",
-          "description": "collection specifies the collection. This input accepts any collection data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "collection"
+          "python_param": "collection",
+          "default_value": null,
+          "description": "collection specifies the collection. This input accepts any collection data type."
         },
         {
           "name": "empty?",
-          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "empty"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
-          "description": "",
+          "python_param": "empty",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_map_collection_comparing"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
-        },
-        {
-          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_design_patterns_registration_map"
+          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE."
         }
       ]
     },
@@ -528,21 +515,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "element",
-          "description": "element specifies the data you want to include in the set. This input accepts any data type. The default data type is string. All the element inputs must be Functions © National Instruments 1425 of the same data type.",
-          "default_value": "data type is string",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": "element specifies the data you want to include in the set. This input accepts any data type. The default data type is string. All the element inputs must be of the same data type."
         },
         {
           "name": "set",
-          "description": "set returns the resulting set.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "set"
+          "python_param": "set_",
+          "default_value": null,
+          "description": "set returns the resulting set."
         }
       ]
     },
@@ -554,49 +547,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set in",
-          "description": "set in specifies the set in which you want to insert an element. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_in"
+          "python_param": "set_in",
+          "default_value": null,
+          "description": "set in specifies the set in which you want to insert an element. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "element",
-          "description": "element specifies the data you want to insert into the set. This input must be of the same data type as the existing elements in the set.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": "element specifies the data you want to insert into the set. This input must be of the same data type as the existing elements in the set."
         },
         {
           "name": "set out",
-          "description": "set out returns the set with the inserted element.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_out"
+          "python_param": "set_out",
+          "default_value": null,
+          "description": "set out returns the set with the inserted element."
         },
         {
           "name": "already included?",
-          "description": "already included? returns whether set in already includes the inserted element. If already included? is TRUE, set out returns the same set as set in. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "already_included"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
+          "python_param": "already_included",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
-        },
-        {
-          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_design_patterns_registration_map"
+          "description": "already included? returns whether set in already includes the inserted element. If already included? is TRUE, set out returns the same set as set in ."
         }
       ]
     },
@@ -608,42 +599,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set in",
-          "description": "set in specifies the set in which you want to remove an element. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_in"
+          "python_param": "set_in",
+          "default_value": null,
+          "description": "set in specifies the set in which you want to remove an element. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "element",
-          "description": "element specifies the data you want to remove from the set. This input must be of the same data type as the elements in the set.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": "element specifies the data you want to remove from the set. This input must be of the same data type as the elements in the set."
         },
         {
           "name": "set out",
-          "description": "set out returns the set with the specified element removed.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_out"
+          "python_param": "set_out",
+          "default_value": null,
+          "description": "set out returns the set with the specified element removed."
         },
         {
           "name": "not included?",
-          "description": "not included? returns whether set in includes element. If not included? is TRUE, set out returns the same set as set in. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "not_included"
-        },
-        {
-          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
-          "description": "",
+          "python_param": "not_included",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_design_patterns_registration_map"
+          "description": "not included? returns whether set in includes element . If not included? is TRUE, set out returns the same set as set in ."
         }
       ]
     },
@@ -655,28 +651,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set",
-          "description": "set specifies the set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set"
+          "python_param": "set_",
+          "default_value": null,
+          "description": "set specifies the set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "element",
-          "description": "element specifies the data to look for in the set. This input must be of the same data type as the elements in set.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": "element specifies the data to look for in the set. This input must be of the same data type as the elements in set ."
         },
         {
           "name": "found?",
-          "description": "found? returns TRUE if element is included in set. Otherwise, found? returns FALSE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "found"
+          "python_param": "found",
+          "default_value": null,
+          "description": "found? returns TRUE if element is included in set . Otherwise, found? returns FALSE."
         }
       ]
     },
@@ -688,28 +693,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set",
-          "description": "set specifies the set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set"
+          "python_param": "set_",
+          "default_value": null,
+          "description": "set specifies the set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "maximum",
-          "description": "Functions 1428 ni.com maximum returns the maximum element in set.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "maximum"
+          "python_param": "maximum",
+          "default_value": null,
+          "description": "maximum returns the maximum element in set ."
         },
         {
           "name": "minimum",
-          "description": "minimum returns the minimum element in set.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "minimum"
+          "python_param": "minimum",
+          "default_value": null,
+          "description": "minimum returns the minimum element in set ."
         }
       ]
     },
@@ -721,56 +735,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "collection",
-          "description": "collection specifies the collection. This input accepts any collection data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "collection"
+          "python_param": "collection",
+          "default_value": null,
+          "description": "collection specifies the collection. This input accepts any collection data type."
         },
         {
           "name": "size",
-          "description": "size returns the number of elements or entries in collection. Empty Collection? Function Empty Collection? Function Returns TRUE if the input collection contains zero elements or entries. Functions © National Instruments 1429 Inputs/Outputs",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "size"
-        },
-        {
-          "name": "collection",
-          "description": "collection specifies the collection. This input accepts any collection data type.",
+          "python_param": "size",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "collection"
-        },
-        {
-          "name": "empty?",
-          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "empty"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_map_collection_comparing"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
-        },
-        {
-          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_design_patterns_registration_map"
+          "description": "size returns the number of elements or entries in collection ."
         }
       ]
     },
@@ -782,42 +767,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "collection",
-          "description": "collection specifies the collection. This input accepts any collection data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "collection"
+          "python_param": "collection",
+          "default_value": null,
+          "description": "collection specifies the collection. This input accepts any collection data type."
         },
         {
           "name": "empty?",
-          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "empty"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Map Collection - Comparing",
-          "description": "",
+          "python_param": "empty",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_map_collection_comparing"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
-        },
-        {
-          "name": "labview\\examples\\Design Patterns\\Registration Map\\",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_design_patterns_registration_map"
+          "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE."
         }
       ]
     },
@@ -869,35 +839,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set 1",
-          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_1"
+          "python_param": "set_1",
+          "default_value": null,
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
-          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_2"
+          "python_param": "set_2",
+          "default_value": null,
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1 . The default data type is a set of strings."
         },
         {
           "name": "union",
-          "description": "union returns the combined set. The following figure illustrates how this VI computes the union of two sets. The two circles represent the two sets. The green section is the union. Functions © National Instruments 1431 Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "union"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
+          "python_param": "union",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
+          "description": "union returns the combined set."
         }
       ]
     },
@@ -909,35 +881,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set 1",
-          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_1"
+          "python_param": "set_1",
+          "default_value": null,
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
-          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_2"
+          "python_param": "set_2",
+          "default_value": null,
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1 . The default data type is a set of strings."
         },
         {
           "name": "intersection",
-          "description": "intersection returns a set with the duplicate elements from the two input sets. The following figure illustrates how this VI computes the intersection of two sets. The two circles represent the two sets. The green section is the intersection. Functions 1432 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "intersection"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
+          "python_param": "intersection",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
+          "description": "intersection returns a set with the duplicate elements from the two input sets."
         }
       ]
     },
@@ -949,28 +923,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set 1",
-          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_1"
+          "python_param": "set_1",
+          "default_value": null,
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
-          "description": "set 2 specifies the second set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_2"
+          "python_param": "set_2",
+          "default_value": null,
+          "description": "set 2 specifies the second set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "Cartesian product",
-          "description": "Functions © National Instruments 1433 Cartesian product returns a set of 2-element clusters which covers all possible combinations of elements in set 1 and set 2. For each cluster, the first element is from set 1 and the second element is from set 2.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "cartesian_product"
+          "python_param": "cartesian_product",
+          "default_value": null,
+          "description": "Cartesian product returns a set of 2-element clusters which covers all possible combinations of elements in set 1 and set 2 . For each cluster, the first element is from set 1 and the second element is from set 2 ."
         }
       ]
     },
@@ -982,35 +965,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set 1",
-          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_1"
+          "python_param": "set_1",
+          "default_value": null,
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
-          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_2"
+          "python_param": "set_2",
+          "default_value": null,
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1 . The default data type is a set of strings."
         },
         {
           "name": "difference",
-          "description": "difference returns a set of elements from set 1 that are not included in set 2. The following figure illustrates how this VI computes the difference of two sets. The two circles represent the two sets. The green section is the difference. Functions 1434 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "difference"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
+          "python_param": "difference",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
+          "description": "difference returns a set of elements from set 1 that are not included in set 2 ."
         }
       ]
     },
@@ -1022,35 +1007,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "set 1",
-          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_1"
+          "python_param": "set_1",
+          "default_value": null,
+          "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
-          "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "set_2"
+          "python_param": "set_2",
+          "default_value": null,
+          "description": "set 2 specifies the second set. This input must be the same data type as set 1 . The default data type is a set of strings."
         },
         {
           "name": "symmetric difference",
-          "description": "symmetric difference returns a set of elements that are included in either set 1 or set 2 but not Functions © National Instruments 1435 both. The following figure illustrates how this VI computes the symmetric difference of two sets. The two circles represent the two sets. The green sections are the symmetric difference. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "symmetric_difference"
-        },
-        {
-          "name": "labview\\examples\\Collections\\Set Collection - Word",
-          "description": "",
+          "python_param": "symmetric_difference",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_collections_set_collection_word"
+          "description": "symmetric difference returns a set of elements that are included in either set 1 or set 2 but not both."
         }
       ]
     }

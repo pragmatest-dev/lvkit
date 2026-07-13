@@ -10,21 +10,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x+y",
-          "description": "Functions © National Instruments 515 x+y is the sum of x and y. Matrix Details When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the inputs. Wire other data types as inputs to restore the original function. If you wire a data type to a function and that data type causes a bas",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
-          "default_value": null,
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "python_param": "y",
+          "default_value": null,
+          "description": "y can be a scalar number, a fixed-point number, an array or cluster of numbers, an array of clusters of numbers, a time stamp, and so on."
+        },
+        {
+          "name": "x+y",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "xy",
+          "default_value": null,
+          "description": "x+y is the sum of x and y . Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
     },
@@ -36,35 +52,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "Number",
-          "description": "",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "x",
+          "default_value": null,
+          "description": ""
         },
         {
-          "name": "Timestamp",
-          "description": "",
-          "default_value": null,
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "timestamp"
-        },
-        {
-          "name": "Analog Waveform",
-          "description": "",
+          "python_param": "y",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "analog_waveform"
+          "description": "y can be a scalar number, a fixed-point number, an array or cluster of numbers, an array of clusters of numbers, a time stamp, and so on."
         },
         {
           "name": "x-y",
-          "description": "x-y is the difference between x and y. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "x_y",
+          "default_value": null,
+          "description": "x-y is the difference between x and y . Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
     },
@@ -76,14 +94,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x*y",
-          "description": "x*y is the product of x multiplied by y. You cannot use this function to multiply a matrix and a vector. Use the A x B VI instead. When multiplying two matrices, if the number of rows in the second matrix does not match the number of columns in the first matrix, this function returns an empty matrix. Refer to the A x B VI for more information about matrix multiplication. When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "x*y",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "xy",
+          "default_value": null,
+          "description": "x*y is the product of x multiplied by y ."
         }
       ]
     },
@@ -95,14 +136,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x/y",
-          "description": "x/y is a double-precision, floating-point number if both x and y are integers. In general, the output type is the widest representation of the inputs if the inputs are not integers or if their representations differ. Fixed-Point Details If you wire fixed-point values to this function, by default LabVIEW configures the integer word length of the quotient to avoid overflow for nonzero values of y. However, because the precision of the quotient can be infinite, rounding conditions always occur. Use",
-          "default_value": "LabVIEW configures the integer word length of the quotient to avoid overflow for nonzero values of y",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "x/y",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "xy",
+          "default_value": null,
+          "description": "x/y is a double-precision, floating-point number if both x and y are integers. In general, the output type is the widest representation of the inputs if the inputs are not integers or if their representations differ. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
     },
@@ -114,21 +178,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x-y*floor(x/y)",
-          "description": "x-y*floor(x/y) is the remainder. This corresponds to the modulo function of text-based programming languages. When y is 1, the remainder is the fractional part of x.",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y_floorx_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "x-y*floor(x/y)",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x_yfloor",
+          "default_value": null,
+          "description": "x-y*floor(x/y) is the remainder. This corresponds to the modulo function of text-based programming languages. When y is 1, the remainder is the fractional part of x ."
         },
         {
           "name": "floor(x/y)",
-          "description": "floor(x/y) is the integer quotient. If either input is a floating-point number, the quotient is a floating-point number with an integer value. When y is 1, the quotient is the integer part of x. If the integer input value of y is zero, the quotient is zero and remainder is dividend x. For floating-point inputs, if y is zero, the quotient is infinity and the remainder defaults to NaN. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "floorx_y"
+          "python_param": "floor",
+          "default_value": null,
+          "description": "floor(x/y) is the integer quotient. If either input is a floating-point number, the quotient is a floating-point number with an integer value. When y is 1, the quotient is the integer part of x ."
         }
       ]
     },
@@ -140,21 +230,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "extended precision float",
-          "description": "extended precision float is of the same data type structure as number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "extended_precision_float"
+          "python_param": "extended_precision_float",
+          "default_value": null,
+          "description": "extended precision float is of the same data type structure as number ."
         }
       ]
     },
@@ -166,21 +262,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on."
         },
         {
           "name": "double precision float",
-          "description": "double precision float is of the same data type structure as number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "double_precision_float"
+          "python_param": "double_precision_float",
+          "default_value": null,
+          "description": "double precision float is of the same data type structure as number ."
         }
       ]
     },
@@ -192,21 +294,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "single precision float",
-          "description": "single precision float is of the same data type structure as number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "single_precision_float"
+          "python_param": "single_precision_float",
+          "default_value": null,
+          "description": "single precision float is of the same data type structure as number ."
         }
       ]
     },
@@ -218,28 +326,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "fixed-point type",
-          "description": "fixed-point type is the fixed-point data type to which you want to convert the integer data. You can configure the fixed-point data type in the Data Type page of the Properties dialog box. LabVIEW ignores any data in the constant or control that you wire to fixed-point type. You also can leave this input unwired and configure the output data type in the Output Configuration page of the Properties dialog box.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fixed_point_type"
+          "python_param": "fixed_point_type",
+          "default_value": null,
+          "description": "fixed-point type is the fixed-point data type to which you want to convert the integer data. You can configure the fixed-point data type in the Data Type page of the Properties dialog box. LabVIEW ignores any data in the constant or control that you wire to fixed-point type . You also can leave this input unwired and configure the output data type in the Output Configuration page of the Properties dialog box."
         },
         {
           "name": "number",
-          "description": "Functions © National Instruments 527 number can be any non-complex number.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be any non-complex number."
         },
         {
           "name": "fixed-point",
-          "description": "fixed-point is the input data scaled to the requested fixed-point data type. To override the default behavior of this function, right-click the function and select Properties from the shortcut menu to display the Output Configuration page of the Properties dialog box. You can use this dialog box to configure the output settings of this function.",
-          "default_value": "behavior of this function, right-click the function and select Properties from the shortcut menu to display the Output Configuration page of the Properties dialog box",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "fixed_point"
+          "python_param": "fixed_point",
+          "default_value": null,
+          "description": "fixed-point is the input data scaled to the requested fixed-point data type."
         }
       ]
     },
@@ -251,21 +368,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on."
         },
         {
           "name": "64bit integer",
-          "description": "64bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 528 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "64bit_integer"
+          "python_param": "var_64bit_integer",
+          "default_value": null,
+          "description": "64bit integer is of the same data type structure as number ."
         }
       ]
     },
@@ -277,21 +400,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "32bit integer",
-          "description": "32bit integer is of the same data type structure as number. If the fractional part of the floating-point or fixed-point value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "32bit_integer"
+          "python_param": "var_32bit_integer",
+          "default_value": null,
+          "description": "32bit integer is of the same data type structure as number ."
         }
       ]
     },
@@ -303,21 +432,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "Functions © National Instruments 529 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "16bit integer",
-          "description": "16bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "16bit_integer"
+          "python_param": "var_16bit_integer",
+          "default_value": null,
+          "description": "16bit integer is of the same data type structure as number ."
         }
       ]
     },
@@ -329,21 +464,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "8bit integer",
-          "description": "8bit integer is of the same data type structure as number. This function rounds all floating-point numeric values to the nearest integer. If the fractional part of the floating-point value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 530 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "8bit_integer"
+          "python_param": "var_8bit_integer",
+          "default_value": null,
+          "description": "8bit integer is of the same data type structure as number ."
         }
       ]
     },
@@ -355,21 +496,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "Functions © National Instruments 531 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on."
         },
         {
           "name": "unsigned 32bit integer",
-          "description": "unsigned 32bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "unsigned_32bit_integer"
+          "python_param": "unsigned_32bit_integer",
+          "default_value": null,
+          "description": "unsigned 32bit integer is of the same data type structure as number ."
         }
       ]
     },
@@ -381,21 +528,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, a time stamp, and so on."
         },
         {
           "name": "unsigned 64bit integer",
-          "description": "unsigned 64bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "unsigned_64bit_integer"
+          "python_param": "unsigned_64bit_integer",
+          "default_value": null,
+          "description": "unsigned 64bit integer is of the same data type structure as number ."
         }
       ]
     },
@@ -407,21 +560,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "unsigned 16bit integer",
-          "description": "unsigned 16bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14. Functions 532 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "unsigned_16bit_integer"
+          "python_param": "unsigned_16bit_integer",
+          "default_value": null,
+          "description": "unsigned 16bit integer is of the same data type structure as number ."
         }
       ]
     },
@@ -433,21 +592,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "Functions © National Instruments 533 number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "extended precision complex",
-          "description": "extended precision complex is of the same data type structure as number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "extended_precision_complex"
+          "python_param": "extended_precision_complex",
+          "default_value": null,
+          "description": "extended precision complex is of the same data type structure as number ."
         }
       ]
     },
@@ -459,21 +624,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "unsigned 8bit integer",
-          "description": "unsigned 8bit integer is of the same data type structure as number. This function rounds all floating-point and fixed-point numeric values to the nearest integer. If the fractional part of the value is .5, the function rounds the value to the nearest even integer. For example, the function rounds 13.5 to 14 and rounds 14.5 to 14.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "unsigned_8bit_integer"
+          "python_param": "unsigned_8bit_integer",
+          "default_value": null,
+          "description": "unsigned 8bit integer is of the same data type structure as number ."
         }
       ]
     },
@@ -485,21 +656,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "double precision complex",
-          "description": "double precision complex is of the same data type structure as number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "double_precision_complex"
+          "python_param": "double_precision_complex",
+          "default_value": null,
+          "description": "double precision complex is of the same data type structure as number ."
         }
       ]
     },
@@ -511,21 +688,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "single precision complex",
-          "description": "single precision complex is of the same data type structure as number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "single_precision_complex"
+          "python_param": "single_precision_complex",
+          "default_value": null,
+          "description": "single precision complex is of the same data type structure as number ."
         }
       ]
     },
@@ -537,21 +720,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "type",
-          "description": "type specifies the data type to which you want to convert the input data x. To set the data type to which you want to convert the input data, wire a constant or control of the desired data type to type. LabVIEW ignores any data in the constant or control wired to type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "type"
+          "python_param": "type_",
+          "default_value": null,
+          "description": "type specifies the data type to which you want to convert the input data x . To set the data type to which you want to convert the input data, wire a constant or control of the desired data type to type . LabVIEW ignores any data in the constant or control wired to type ."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x specifies the data you want to convert. This input accepts any data type."
         },
         {
           "name": "coerced x",
-          "description": "coerced x returns the value of the input data x after the conversion. The Type Cast function also converts data to a desired data type. Unlike the Type Cast function, the Coerce To Type function allows only conversion between compatible data types to preserve the value of the input data, similar to what a coercion dot does. The Type Cast function allows conversion between incompatible data types by flattening and unflattening the input data, which allows for radical reinterpretation of the data.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "coerced_x"
+          "python_param": "coerced_x",
+          "default_value": null,
+          "description": "coerced x returns the value of the input data x after the conversion."
         }
       ]
     },
@@ -563,21 +762,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a number.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a number."
         },
         {
           "name": "Boolean array",
-          "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed- Functions 536 ni.com point number, Boolean array can have between 1 and 64 elements. If you wire a fixed-point number that includes an overflow status to number, this function ignores the overflow status and converts only the number to a Boolean array.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "boolean_array"
+          "python_param": "boolean_array",
+          "default_value": null,
+          "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed-point number, Boolean array can have between 1 and 64 elements."
         }
       ]
     },
@@ -589,42 +794,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Boolean array",
-          "description": "Boolean array is a one-dimensional array of Boolean values. This function truncates Boolean array if it is too long. If Boolean array is too short, this function pads Boolean array according to the Sign Extension Mode you can select by right-clicking the function.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "boolean_array"
-        },
-        {
-          "name": "Never",
-          "description": "This function pads Boolean array with Boolean FALSE bits.",
+          "python_param": "boolean_array",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "never"
-        },
-        {
-          "name": "If Output Is Signed",
-          "description": "(default) For an output with an unsigned representation, this function pads Boolean array with Boolean FALSE bits. For an output with a signed representation, this function pads Boolean array with the last element of the array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "if_output_is_signed"
-        },
-        {
-          "name": "Always",
-          "description": "This function pads Boolean array with the last element of the array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "always"
+          "description": ""
         },
         {
           "name": "number",
-          "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box. The following table shows the relationship between Boolean array and number. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box."
         }
       ]
     },
@@ -636,21 +826,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Boolean",
-          "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "boolean"
+          "python_param": "boolean",
+          "default_value": null,
+          "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "0, 1",
-          "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "0_1"
+          "python_param": "var_0_1",
+          "default_value": null,
+          "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE."
         }
       ]
     },
@@ -662,21 +858,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on, that represents the amount of seconds from the epoch time of 12 a.m., January 1, 1904 [01-01-1904 00:00:00].",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on, that represents the amount of seconds from the epoch time of 12 a.m., January 1, 1904 [01-01-1904 00:00:00]."
         },
         {
           "name": "time stamp",
-          "description": "time stamp is a time-zone-independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00].",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "time_stamp"
+          "python_param": "time_stamp",
+          "default_value": null,
+          "description": "time stamp is a time-zone-independent number of seconds that have elapsed since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]."
         }
       ]
     },
@@ -688,21 +890,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "unsigned byte array",
-          "description": "unsigned byte array is the array of ASCII values you want to convert.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "unsigned_byte_array"
+          "python_param": "unsigned_byte_array",
+          "default_value": null,
+          "description": "unsigned byte array is the array of ASCII values you want to convert."
         },
         {
           "name": "string",
-          "description": "string is the result of interpreting each array element as an ASCII value and forming a string out of the corresponding characters. Refer to ASCII Codes for the numbers that correspond to each character.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "string"
+          "python_param": "string",
+          "default_value": null,
+          "description": "string is the result of interpreting each array element as an ASCII value and forming a string out of the corresponding characters. Refer to ASCII Codes for the numbers that correspond to each character."
         }
       ]
     },
@@ -714,21 +922,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "string",
-          "description": "string is the input string the function converts.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "string"
+          "python_param": "string",
+          "default_value": null,
+          "description": "string is the input string the function converts."
         },
         {
           "name": "unsigned byte array",
-          "description": "unsigned byte array is the output array. The first byte in the array has the ASCII value of the first character in string, the second byte has the second value, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "unsigned_byte_array"
+          "python_param": "unsigned_byte_array",
+          "default_value": null,
+          "description": "unsigned byte array is the output array. The first byte in the array has the ASCII value of the first character in string , the second byte has the second value, and so on."
         }
       ]
     },
@@ -751,14 +965,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "unit (none)",
-          "description": "unit associates input with output results. The default is none, which does not associate any units.",
-          "default_value": "none, which does not associate any units",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "unit_none"
+          "python_param": "unit",
+          "default_value": null,
+          "description": "unit associates input with output results. The default is none , which does not associate any units."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is a floating-point number with or without a unit."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x returns the same data type and structure as x ."
         }
       ]
     },
@@ -770,21 +1007,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Color",
-          "description": "Color is the color that you want to convert to its respective red, green, and blue components.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "color"
+          "python_param": "color",
+          "default_value": null,
+          "description": "Color is the color that you want to convert to its respective red, green, and blue components."
         },
         {
           "name": "Resolved Color",
-          "description": "resolved color is the resolved color in RGB format.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "resolved_color"
+          "python_param": "resolved_color",
+          "default_value": null,
+          "description": "resolved color is the resolved color in RGB format."
+        },
+        {
+          "name": "R",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "r",
+          "default_value": null,
+          "description": "R is the red component of the RGB value, 0 to 255."
+        },
+        {
+          "name": "G",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "g",
+          "default_value": null,
+          "description": "G is the green component of the RGB value, 0 to 255."
+        },
+        {
+          "name": "B",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "b",
+          "default_value": null,
+          "description": "B is the blue component of the RGB value, 0 to 255."
         }
       ]
     },
@@ -796,21 +1069,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "enum",
-          "description": "enum specifies the input enum.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "enum"
+          "python_param": "enum",
+          "default_value": null,
+          "description": "enum specifies the input enum."
         },
         {
           "name": "array of enums",
-          "description": "array of enums returns an array containing each enum value in order. For example, if enum has values {cat, dog, bird}, array of enums returns a three-element array with values cat, dog, and bird, respectively.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "array_of_enums"
+          "python_param": "array_of_enums",
+          "default_value": null,
+          "description": "array of enums returns an array containing each enum value in order."
         }
       ]
     },
@@ -822,42 +1101,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "Number",
-          "description": "",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
-        },
-        {
-          "name": "Timestamp",
-          "description": "",
+          "python_param": "x",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "timestamp"
-        },
-        {
-          "name": "Analog Waveform",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "analog_waveform"
+          "description": ""
         },
         {
           "name": "x+1",
-          "description": "x+1 is the result of x+1. If the input is a time stamp value, this function increments the time by one second. If the input is an enumerated type value, this function increments the last enumerated value to the first. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_1"
-        },
-        {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
+          "python_param": "x1",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "description": "x+1 is the result of x +1. If the input is a time stamp value, this function increments the time by one second. If the input is an enumerated type value, this function increments the last enumerated value to the first. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
     },
@@ -869,42 +1133,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "Number",
-          "description": "",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
-        },
-        {
-          "name": "Timestamp",
-          "description": "",
+          "python_param": "x",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "timestamp"
-        },
-        {
-          "name": "Analog Waveform",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "analog_waveform"
+          "description": ""
         },
         {
           "name": "x-1",
-          "description": "x-1 is the result of x-1. If the input is a time stamp value, this function decrements the time by one second. If the input is an enumerated type value, this function decrements the first enumerated value to the last. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_1"
-        },
-        {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
+          "python_param": "x_1",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "description": "x-1 is the result of x -1. If the input is a time stamp value, this function decrements the time by one second. If the input is an enumerated type value, this function decrements the first enumerated value to the last. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
     },
@@ -916,28 +1165,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "numeric array",
-          "description": "numeric array can have any number of dimensions.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "numeric_array"
+          "python_param": "numeric_array",
+          "default_value": null,
+          "description": "numeric array can have any number of dimensions."
         },
         {
           "name": "sum",
-          "description": "sum is of the same data type and structure as the elements in numeric array. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "sum"
-        },
-        {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
+          "python_param": "sum_",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "description": "sum is of the same data type and structure as the elements in numeric array ."
         }
       ]
     },
@@ -949,28 +1197,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "numeric array",
-          "description": "numeric array can have any number of dimensions.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "numeric_array"
+          "python_param": "numeric_array",
+          "default_value": null,
+          "description": "numeric array can have any number of dimensions."
         },
         {
           "name": "product",
-          "description": "product is of the same data type and structure as the elements in numeric array. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "product"
-        },
-        {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
+          "python_param": "product",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "description": "product is of the same data type and structure as the elements in numeric array ."
         }
       ]
     },
@@ -982,28 +1229,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value",
-          "description": "Note You cannot use this function with fixed-point numbers. If you wire fixed-point numbers to this function, the VI appears with a broken Run button. Functions 548 ni.com value 0..n-1 can be a number or Boolean value, an array of numbers or Boolean values, a cluster, array of clusters, and so on. You can wire a waveform to only one value input. If an input is a waveform, you can have an unlimited number of scalar inputs of varying sizes. If value is an error cluster, only the status parameter o",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value 0..n-1 can be a number or Boolean value, an array of numbers or Boolean values, a cluster, array of clusters, and so on. You can wire a waveform to only one value input. If an input is a waveform, you can have an unlimited number of scalar inputs of varying sizes. If value is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "value",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "result",
-          "description": "result returns the result of the selected operation applied to the value 0..n-1. For AND, OR, or XOR, result returns the bitwise operations on numeric inputs and logical operations on Boolean inputs. Add inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the function. You can invert the inputs or the output of this function by right-clicking the individual terminals and selecting Invert from the shortcut menu. For Add, select Invert to neg",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "result"
+          "python_param": "result",
+          "default_value": null,
+          "description": "result returns the result of the selected operation applied to the value 0..n-1 . For AND, OR, or XOR, result returns the bitwise operations on numeric inputs and logical operations on Boolean inputs."
         }
       ]
     },
@@ -1033,21 +1289,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "type",
-          "description": "type is the data type to which you want to convert the data. Wire any constant or control to type to set the data type to which you want to convert the data. LabVIEW ignores any data in the constant or control you wire to type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "type"
+          "python_param": "type_",
+          "default_value": null,
+          "description": "type is the data type to which you want to convert the data. Wire any constant or control to type to set the data type to which you want to convert the data. LabVIEW ignores any data in the constant or control you wire to type ."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x specifies the data you want to convert. This input accepts any data type."
         },
         {
           "name": "*(type *) &x",
-          "description": "*(type *) &x is the value provided in x and converted to the same data type as type. Choosing between the Type Cast Function and the Coerce To Type Function The Coerce To Type function also converts data to a desired data type. Unlike the Coerce To Type function, the Type Cast function allows conversion between incompatible data types by flattening and unflattening the input data, which allows for radical reinterpretation of the data. When the desired data type requires a different memory size t",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "type_x"
+          "python_param": "type__x",
+          "default_value": null,
+          "description": "*(type *) &x is the value provided in x and converted to the same data type as type ."
         }
       ]
     },
@@ -1059,69 +1331,77 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "anything",
-          "description": "Functions © National Instruments 553 anything contains the data you want to convert to a UTF-8 JSON string. This input accepts arrays and clusters of Booleans, floating-point numbers, and strings. anything can also accept an array of clusters, or a cluster of arrays, of these data types. This input does not support other data types, such as enums, refnums, file paths, and fixed-point numbers. Cluster elements may be named or unnamed, but not a combination of both. If cluster elements are named, ",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "anything"
+          "python_param": "anything",
+          "default_value": null,
+          "description": "anything contains the data you want to convert to a UTF-8 JSON string. This input accepts arrays and clusters of Booleans, floating-point numbers, and strings. anything can also accept an array of clusters, or a cluster of arrays, of these data types. This input does not support other data types, such as enums, refnums, file paths, and fixed-point numbers. Cluster elements may be named or unnamed, but not a combination of both. If cluster elements are named, then each name must be unique to that cluster. If you wire an unsupported data type, LabVIEW breaks the VI."
         },
         {
           "name": "prepend array or string size? (T)",
-          "description": "prepend array or string size? specifies whether LabVIEW includes data size information at the beginning of data string when anything is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. The string created by the Flatten To String function is a LabVIEW string. If prepend array or string size? is TRUE, the LabVIEW string has a 4-byte (I32) number at the beginning of the string that tells how long the string is. This e",
-          "default_value": "TRUE",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "prepend_array_or_string_size_t"
+          "python_param": "prepend_array_or_string_size",
+          "default_value": null,
+          "description": "prepend array or string size? specifies whether LabVIEW includes data size information at the beginning of data string when anything is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. The string created by the Flatten To String function is a LabVIEW string. If prepend array or string size? is TRUE, the LabVIEW string has a 4-byte (I32) number at the beginning of the string that tells how long the string is. This enables a LabVIEW string to include NULL characters [ASCII character zero (0)]. If you pass a LabVIEW string to external code and use it as a C string, NULL characters embedded in the string may cause problems, since C strings are interpreted as terminating at the first NULL character. prepend array or string size? only controls the top-level data size information. Arrays and strings in hierarchical data types such as clusters always include size information."
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "description": "byte order sets the endian format of the data in the resulting flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most significant byte to least significant byte or vice versa. 0 big-endian, network order (default)—The most significant byte occupies the lowest memory address. 1 native, host order—Uses the byte-ordering format of the host computer. 2 little-endian—The least significant byte occupies the lowest memory address.",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "byte_order",
           "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "big-endian, network order (default)"
-            ],
-            [
-              1,
-              "native, host order"
-            ],
-            [
-              2,
-              "little-endian"
-            ]
-          ],
-          "python_param": "byte_order_0_big_endian_network_order"
+          "description": "byte order sets the endian format of the data in the resulting flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most significant byte to least significant byte or vice versa. 0 big-endian, network order (default)—The most significant byte occupies the lowest memory address. 1 native, host order —Uses the byte-ordering format of the host computer. 2 little-endian —The least significant byte occupies the lowest memory address."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "data string",
-          "description": "Functions 554 ni.com data string is the flattened data generated by the function. data string might contain header information before each non-scalar component describing its size. Such a string can be stored in a file or sent over a network. If you send the string over a network, the receiver must be able to interpret it. Usually, LabVIEW stores data as noncontiguous, indirectly referenced pieces. This function copies the data in LabVIEW form into a contiguous buffer data string. Use the Unflat",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "data_string"
+          "python_param": "data_string",
+          "default_value": null,
+          "description": "data string is the flattened data generated by the function. data string might contain header information before each non-scalar component describing its size. Such a string can be stored in a file or sent over a network. If you send the string over a network, the receiver must be able to interpret it. Usually, LabVIEW stores data as noncontiguous, indirectly referenced pieces. This function copies the data in LabVIEW form into a contiguous buffer data string . Use the Unflatten From String function to convert a data string back to any data type."
         },
         {
           "name": "type string (7.x only)",
-          "description": "type string (7.x only) is visible only if the terminal is already wired from a previous version of LabVIEW or if you right-click the function and select Convert 7.x Data from the shortcut menu. type string (7.x only) is an encoded binary description of data string. type string (7.x only) is not the same as the type input in the Unflatten From String function. If type string (7.x only) cannot represent the data type wired to anything, this function returns an error.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "type_string_7_x_only"
+          "python_param": "type_string",
+          "default_value": null,
+          "description": "type string (7.x only) is visible only if the terminal is already wired from a previous version of LabVIEW or if you right-click the function and select Convert 7.x Data from the shortcut menu. type string (7.x only) is an encoded binary description of data string . type string (7.x only) is not the same as the type input in the Unflatten From String function. If type string (7.x only) cannot represent the data type wired to anything , this function returns an error."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Use the Type Cast function for conversion of data types that does not result in flattened data. If you need to flatten type descriptor data to a string that is readable by LabVIEW 7.x or earlier, right-click this function and select Convert 7.x Data from the shortcut menu. In Convert 7.x Data mode, this function shows the type string (7.x only) output and displays the icon for this function with a red 7.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1133,76 +1413,87 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "type",
-          "description": "type is a normally constructed LabVIEW type. type is not the type string output in the Flatten To String function.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "type"
+          "python_param": "type_",
+          "default_value": null,
+          "description": "type is a normally constructed LabVIEW type. type is not the type string output in the Flatten To String function."
         },
         {
           "name": "binary string",
-          "description": "binary string is a flattened string that is typically generated by the Flatten To String function. Functions 556 ni.com If data includes array or string size? is TRUE, binary string contains header information describing its size.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "binary_string"
+          "python_param": "binary_string",
+          "default_value": null,
+          "description": "binary string is a flattened string that is typically generated by the Flatten To String function. If data includes array or string size? is TRUE, binary string contains header information describing its size."
         },
         {
           "name": "data includes array or string size? (T)",
-          "description": "data includes array or string size? indicates whether LabVIEW reads data size information from the beginning of an incoming array or string. If data includes array or string size? is TRUE, LabVIEW reads the size information from the beginning of binary string. If data includes array or string size? is FALSE, LabVIEW detects the size information from the memory size of binary string. The default is TRUE. data includes array or string size? only accesses the top-level data size information. Arrays",
-          "default_value": "TRUE",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "data_includes_array_or_string_size_t"
+          "python_param": "data_includes_array_or_string_size",
+          "default_value": null,
+          "description": "data includes array or string size? indicates whether LabVIEW reads data size information from the beginning of an incoming array or string. If data includes array or string size? is TRUE, LabVIEW reads the size information from the beginning of binary string . If data includes array or string size? is FALSE, LabVIEW detects the size information from the memory size of binary string . The default is TRUE. data includes array or string size? only accesses the top-level data size information. Arrays and strings in hierarchical data types such as clusters always include size information."
         },
         {
           "name": "byte order (0:big-endian, network order)",
-          "description": "byte order indicates the endian format of the data in the incoming flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most-significant byte to least-significant byte or vice versa. 0 big-endian, network order (default)—The most-significant byte occupies the lowest memory address. 1 native, host order—Uses the byte-ordering format of the host computer. 2 little-endian—The least-significant byte occupies the lowest memory address.",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "byte_order",
           "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "big-endian, network order (default)"
-            ],
-            [
-              1,
-              "native, host order"
-            ],
-            [
-              2,
-              "little-endian"
-            ]
-          ],
-          "python_param": "byte_order_0_big_endian_network_order"
+          "description": "byte order indicates the endian format of the data in the incoming flattened string. Byte order, or endian form, indicates whether integers are represented in memory from most-significant byte to least-significant byte or vice versa. 0 big-endian, network order (default)—The most-significant byte occupies the lowest memory address. 1 native, host order —Uses the byte-ordering format of the host computer. 2 little-endian —The least-significant byte occupies the lowest memory address."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "rest of the binary string",
-          "description": "rest of the binary string contains any leftover bytes that this function did not convert. This function does not convert all the bytes if the size of binary string is not a multiple of the size of type.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "rest_of_the_binary_string"
+          "python_param": "rest_of_the_binary_string",
+          "default_value": null,
+          "description": "rest of the binary string contains any leftover bytes that this function did not convert. This function does not convert all the bytes if the size of binary string is not a multiple of the size of type ."
         },
         {
           "name": "value",
-          "description": "value returns binary string as unflattened data of the same data type and structure as type.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value returns binary string as unflattened data of the same data type and structure as type ."
         },
         {
           "name": "error out",
-          "description": "Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1214,28 +1505,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be any decimal representation.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be any decimal representation."
         },
         {
           "name": "mantissa",
-          "description": "mantissa has the same decimal representation as number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "mantissa"
+          "python_param": "mantissa",
+          "default_value": null,
+          "description": "mantissa has the same decimal representation as number ."
         },
         {
           "name": "exponent",
-          "description": "exponent has the same decimal representation as number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "exponent"
+          "python_param": "exponent",
+          "default_value": null,
+          "description": "exponent has the same decimal representation as number ."
         }
       ]
     },
@@ -1247,35 +1547,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "carry",
-          "description": "carry is the new low-order bit of value.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "carry"
+          "python_param": "carry",
+          "default_value": null,
+          "description": "carry is the new low-order bit of value."
         },
         {
           "name": "value",
-          "description": "value must be an integer. It cannot be an array or a cluster.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value must be an integer. It cannot be an array or a cluster."
         },
         {
           "name": "msb carry out",
-          "description": "msb carry out is the former high-order bit of value.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "msb_carry_out"
+          "python_param": "msb_carry_out",
+          "default_value": null,
+          "description": "msb carry out is the former high-order bit of value ."
         },
         {
           "name": "value",
-          "description": "Functions © National Instruments 559 value is the new value. The data type of the output value is determined by the data type of the input value.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value is the new value. The data type of the output value is determined by the data type of the input value ."
         }
       ]
     },
@@ -1287,14 +1599,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x << y",
-          "description": "x << y is the result of the shift and has the same numeric representation as x.",
-          "default_value": null,
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "y",
+          "default_value": null,
+          "description": "y can be any numeric representation. If y is greater than 0, the function shifts x left y bits (from least significant to most significant bit) and inserts zeros in the low-order bits. If y is less than 0, the function shifts x right y bits in the positive direction (from most significant to least significant bit) and inserts zeros in the high-order bits."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be any integer representation. If x is an 8-, 16-, 32-, or 64-bit integer and y is greater than 8, 16, or 32, or 64 or is less than –8, –16, –32, or –64, respectively, the output value is all zeros."
+        },
+        {
+          "name": "x << y",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x__y",
+          "default_value": null,
+          "description": "x << y is the result of the shift and has the same numeric representation as x ."
         }
       ]
     },
@@ -1306,35 +1641,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "carry",
-          "description": "carry is the new high-order bit of value.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "carry"
+          "python_param": "carry",
+          "default_value": null,
+          "description": "carry is the new high-order bit of value."
         },
         {
           "name": "value",
-          "description": "value must be an integer. It cannot be an array or a cluster.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value must be an integer. It cannot be an array or a cluster."
         },
         {
           "name": "lsb carry out",
-          "description": "lsb carry out is the former low-order bit of value.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "lsb_carry_out"
+          "python_param": "lsb_carry_out",
+          "default_value": null,
+          "description": "lsb carry out is the former low-order bit of value ."
         },
         {
           "name": "value",
-          "description": "value is the new value. The data type of the output value is determined by the data type of the input value.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value is the new value. The data type of the output value is determined by the data type of the input value ."
         }
       ]
     },
@@ -1346,14 +1693,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x rotated left by y",
-          "description": "x rotated left by y is the result of the rotation. The data type of x rotated left by y is determined by the data type of the x input. The following table illustrates how x and y affect x rotated left by y: y x x rotated left by y Comments 1 3 (00000011) 6 (00000110) This function shifts the first one bit on the left, 0, to the right end. 2 3 (00000011) 12 (00001100) This function shifts the first two bits on the left, 00, to the right end. –3 3 (00000011) 96 (01100000) This function shifts the ",
-          "default_value": null,
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_rotated_left_by_y"
+          "python_param": "y",
+          "default_value": null,
+          "description": "y specifies the number of bits in x that the function rotates. If y is greater than 0, the function shifts the first y bits at the left end of x to the right end. If y is less than 0, the function shifts the first y bits at the right end of x to the left end."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "If x is an 8-, 16-, 32-, or 64-bit integer, then for any value of y , y ± 8, y ± 16, y ± 32, or y ± 64 yields the same output value, respectively, as y . For example, if x is an 8-bit integer, y = 1 and y = 9 yield the same result."
+        },
+        {
+          "name": "x rotated left by y",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x_rotated_left_by_y",
+          "default_value": null,
+          "description": "x rotated left by y is the result of the rotation. The data type of x rotated left by y is determined by the data type of the x input."
         }
       ]
     },
@@ -1365,21 +1735,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "hi(x)",
-          "description": "hi(x) and lo(x) are integers that are half the width of x. hi(x) and lo(x) are 8-bit, 16-bit, or 32-bit Functions 562 ni.com unsigned integers, respectively, or an array or cluster of those representations. hi(x) is the numerically high-order byte and lo(x) is the numerically low-order byte, regardless of the endianness of the operating system.",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "hix"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be an 8-, 16-, 32-, or 64-bit integer, or an array or cluster of those representations."
+        },
+        {
+          "name": "hi(x)",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "hi",
+          "default_value": null,
+          "description": "hi(x) and lo(x) are integers that are half the width of x . hi(x) and lo(x) are 8-bit, 16-bit, or 32-bit unsigned integers, respectively, or an array or cluster of those representations. hi(x) is the numerically high-order byte and lo(x) is the numerically low-order byte, regardless of the endianness of the operating system."
         },
         {
           "name": "lo(x)",
-          "description": "If you wire an 8-bit integer input, this function does not split the number. Instead, LabVIEW returns the same 8-bit number in the lo(x) output, and returns zero for the hi(x) output.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "lox"
+          "python_param": "lo",
+          "default_value": null,
+          "description": ""
         }
       ]
     },
@@ -1391,28 +1777,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "hi",
-          "description": "hi can be an 8-, 16-, or 32-bit number or an array or cluster of that representation.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "hi"
+          "python_param": "hi",
+          "default_value": null,
+          "description": "hi can be an 8-, 16-, or 32-bit number or an array or cluster of that representation."
         },
         {
           "name": "lo",
-          "description": "lo can be an 8-, 16-, or 32-bit number or an array or cluster of that representation.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "lo"
+          "python_param": "lo",
+          "default_value": null,
+          "description": "lo can be an 8-, 16-, or 32-bit number or an array or cluster of that representation."
         },
         {
           "name": "(hi.lo)",
-          "description": "(hi.lo) is an integer twice the width of hi and lo. (hi.lo) is a 16-, 32-, or 64-bit unsigned integer or an array or cluster of those representations. If hi and lo are of different widths, (hi.lo) is twice the width of the widest number.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "hi_lo"
+          "python_param": "hilo",
+          "default_value": null,
+          "description": "(hi.lo) is an integer twice the width of hi and lo . (hi.lo) is a 16-, 32-, or 64-bit unsigned integer or an array or cluster of those representations. If hi and lo are of different widths, (hi.lo) is twice the width of the widest number."
         }
       ]
     },
@@ -1424,21 +1819,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "data",
-          "description": "data is an integer, an array of integers, or a cluster containing integers that you want to byte swap. If data is a cluster that contains integers, this function swaps only the integer elements of the cluster. Neither refnums or variants are valid inputs. Both will break the input wire.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "data"
+          "python_param": "data",
+          "default_value": null,
+          "description": "data is an integer, an array of integers, or a cluster containing integers that you want to byte swap. If data is a cluster that contains integers, this function swaps only the integer elements of the cluster. Neither refnums or variants are valid inputs. Both will break the input wire."
         },
         {
           "name": "byte swapped",
-          "description": "byte swapped is of the same data type and structure as data.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "byte_swapped"
+          "python_param": "byte_swapped",
+          "default_value": null,
+          "description": "byte swapped is of the same data type and structure as data ."
         }
       ]
     },
@@ -1450,21 +1851,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "data",
-          "description": "Functions 564 ni.com data is an integer, an array of integers, or a cluster containing integers that you want to word swap. In the case of a cluster that contains integers, this function swaps only the integer elements of the cluster. If you want to byte-swap floating-point or fixed-point numbers, use the Type Cast function to cast the value to a 1D array of bytes. Then use the Reverse 1D Array function and type cast it back to a floating-point or fixed-point number. Neither refnums or variants ",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "data"
+          "python_param": "data",
+          "default_value": null,
+          "description": "data is an integer, an array of integers, or a cluster containing integers that you want to word swap. In the case of a cluster that contains integers, this function swaps only the integer elements of the cluster. If you want to byte-swap floating-point or fixed-point numbers, use the Type Cast function to cast the value to a 1D array of bytes. Then use the Reverse 1D Array function and type cast it back to a floating-point or fixed-point number. Neither refnums or variants are valid inputs. Both will break the input wire."
         },
         {
           "name": "word swapped",
-          "description": "word swapped is of the same data type and structure as data.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "word_swapped"
+          "python_param": "word_swapped",
+          "default_value": null,
+          "description": "word swapped is of the same data type and structure as data ."
         }
       ]
     },
@@ -1502,21 +1909,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "abs(x)",
-          "description": "abs(x) is the absolute value of x. When x is of the form x = a + bi, that is, when x is complex, the following equation defines abs(x): When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the inputs. Wire other data types as inputs to restore the original function. If you wire ",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "absx"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, a fixed-point number, an array or cluster of numbers, an array of clusters of numbers, and so on. x cannot be an unsigned integer, because unsigned integers represent only non-negative integers."
         },
         {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
-          "default_value": null,
+          "name": "abs(x)",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "python_param": "abs_",
+          "default_value": null,
+          "description": "abs(x) is the absolute value of x . When x is of the form x = a + b i , that is, when x is complex, the following equation defines abs(x) :"
         }
       ]
     },
@@ -1528,28 +1941,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "nearest integer value",
-          "description": "nearest integer value is the resulting nearest integer to number. If the input is a time stamp value, the function rounds to the nearest second. When number is in the form of a + bi, that is, when number is complex, the function returns a complex number defined by the nearest integer to the real and imaginary parts of number. The following equation defines nearest integer value: nearest integer value(x) = nearest integer value(a) + i * nearest integer value(b) Examples Refer to the following exa",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "nearest_integer_value"
-        },
-        {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
+          "python_param": "nearest_integer_value",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "description": "nearest integer value is the resulting nearest integer to number . If the input is a time stamp value, the function rounds to the nearest second. When number is in the form of a + b i , that is, when number is complex, the function returns a complex number defined by the nearest integer to the real and imaginary parts of number . The following equation defines nearest integer value : nearest integer value(x) = nearest integer value(a) + i * nearest integer value(b)"
         }
       ]
     },
@@ -1597,21 +2009,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x*2^n",
-          "description": "x*2^n is the result of multiplying x by 2, raised to the power of n. If you wire a fixed-point value to this function, the resulting output value retains the Functions 574 ni.com fixed-point configuration settings of the input value. However, the value is likely to truncate or wrap. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "name": "n",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_2_n"
+          "python_param": "n",
+          "default_value": null,
+          "description": "n can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on. If n is a floating-point number, this function rounds n before it scales x (0.5 rounds to 0; 0.51 rounds to 1). If n is a 64-bit integer, LabVIEW coerces n to a 32-bit integer."
         },
         {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "x*2^n",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x2n",
+          "default_value": null,
+          "description": "x*2^n is the result of multiplying x by 2, raised to the power of n ."
         }
       ]
     },
@@ -1623,21 +2051,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "x + iy",
-          "description": "x + iy can be a complex number, array or cluster of complex numbers, an array of cluster of complex numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_iy"
+          "python_param": "x__iy",
+          "default_value": null,
+          "description": "x + iy can be a complex number, array or cluster of complex numbers, an array of cluster of complex numbers, and so on."
         },
         {
           "name": "x - iy",
-          "description": "x - iy is the complex conjugate of x + iy.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_iy"
+          "python_param": "x___iy",
+          "default_value": null,
+          "description": "x - iy is the complex conjugate of x + iy ."
         }
       ]
     },
@@ -1649,21 +2083,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "theta",
-          "description": "Functions 576 ni.com theta can be a scalar number, an array or cluster of numbers, array of clusters of numbers, and so on. theta is in radians.",
-          "default_value": null,
+          "name": "r",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "theta"
+          "python_param": "r",
+          "default_value": null,
+          "description": "r can be a scalar number, an array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "theta",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "theta",
+          "default_value": null,
+          "description": "theta can be a scalar number, an array or cluster of numbers, array of clusters of numbers, and so on. theta is in radians."
         },
         {
           "name": "r * e^(i*theta)",
-          "description": "r * e^(i*theta) is of the same data type structure as r and theta, with complex representation instead of scalar. Given z in rectangular form z = a + bi, this function converts the polar components according to the following equation: z = r*cos(theta) + i r*sin(theta) When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node rema",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "r_e_i_theta"
+          "python_param": "r__e",
+          "default_value": null,
+          "description": "r * e^(i*theta) is of the same data type structure as r and theta , with complex representation instead of scalar."
         }
       ]
     },
@@ -1675,21 +2125,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "r * e^(i*theta)",
-          "description": "r * e^(i*theta) can be a complex number, a cluster of complex numbers, an array of complex numbers, an array of clusters of complex numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "r_e_i_theta"
+          "python_param": "r__e",
+          "default_value": null,
+          "description": "r * e^(i*theta) can be a complex number, a cluster of complex numbers, an array of complex numbers, an array of clusters of complex numbers, and so on."
+        },
+        {
+          "name": "r",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "r",
+          "default_value": null,
+          "description": "r is of the same data type structure as r * e^(i*theta) , with scalar representation instead of complex."
         },
         {
           "name": "theta",
-          "description": "theta is of the same data type structure as r * e^(i*theta), with scalar representation instead of complex. theta is in radians. Given z in rectangular form z = a + bi, this function converts the polar components of z = r * e^(i*theta) according to the following equations: r = |z| = sqrt(a² + b²) theta = arg(z) = arctan2(b,a) When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same i",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "theta"
+          "python_param": "theta",
+          "default_value": null,
+          "description": "theta is of the same data type structure as r * e^(i*theta) , with scalar representation instead of complex. theta is in radians."
         }
       ]
     },
@@ -1701,14 +2167,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x + iy",
-          "description": "x + iy has the same structure as the input, with complex representation instead of scalar. When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the function. The resulting VI has the same icon but contains a matrix-specific algorithm. The node remains a VI if you disconnect the matrix from the input(s). Wire other data types as inputs to restore the original function. If you wire a data type to a function and that data typ",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_iy"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "x + iy",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x__iy",
+          "default_value": null,
+          "description": "x + iy has the same structure as the input, with complex representation instead of scalar."
         }
       ]
     },
@@ -1720,14 +2209,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "x + iy",
-          "description": "x + iy can be a complex number, array or cluster of complex numbers, an array of cluster of complex numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_iy"
+          "python_param": "x__iy",
+          "default_value": null,
+          "description": "x + iy can be a complex number, array or cluster of complex numbers, an array of cluster of complex numbers, and so on."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is of the same data type structure as x + iy , with scalar representation instead of complex."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y is of the same data type structure as x + iy , with scalar representation instead of complex."
         }
       ]
     },
@@ -1739,14 +2251,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "theta",
-          "description": "theta is of the same data type structure as x and y. theta is in radians. This function converts the rectangular components to polar components using the following equations: r = sqrt(x² + y²) theta = arctan2(y,x) radians Functions 580 ni.com",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "theta"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "r",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "r",
+          "default_value": null,
+          "description": "r is of the same data type structure as x and y ."
+        },
+        {
+          "name": "theta",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "theta",
+          "default_value": null,
+          "description": "theta is of the same data type structure as x and y . theta is in radians."
         }
       ]
     },
@@ -1758,14 +2303,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "theta",
-          "description": "theta can be a scalar number, an array or cluster of numbers, array of clusters of numbers, and so on. theta is in radians.",
-          "default_value": null,
+          "name": "r",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "theta"
+          "python_param": "r",
+          "default_value": null,
+          "description": "r can be a scalar number, an array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "theta",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "theta",
+          "default_value": null,
+          "description": "theta can be a scalar number, an array or cluster of numbers, array of clusters of numbers, and so on. theta is in radians."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is of the same data structure as r and theta ."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y is of the same data structure as r and theta ."
         }
       ]
     },
@@ -1777,21 +2355,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "sqrt(x)",
-          "description": "sqrt(x) is a double-precision, floating-point number if x is an integer. If x is less than 0, sqrt(x) is not a number (NaN), unless x is complex. When x is of the form x = a + bi, that is, when x is complex, the function defines the magnitude and phase with the following equations: where |x| is the magnitude of x and arg(x) is the phase of x: arg(x) = arctan2(b,a) When you wire matrix data as an input to this function, a VI that includes subVIs that work with the matrix data type replaces the fu",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "sqrtx"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
-          "default_value": null,
+          "name": "sqrt(x)",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "python_param": "sqrt",
+          "default_value": null,
+          "description": "sqrt(x) is a double-precision, floating-point number if x is an integer. If x is less than 0, sqrt(x) is not a number ( NaN ), unless x is complex. When x is of the form x = a + b i , that is, when x is complex, the function defines the magnitude and phase with the following equations: where | x | is the magnitude of x and arg( x ) is the phase of x : arg( x ) = arctan2(b,a) Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
     },
@@ -1803,21 +2387,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x^2",
-          "description": "x^2 is of the same numeric representation as x. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display Functions © National Instruments 583 If you wire fixed-point values to Numeric functions such as Add, Subtract, Multiply, and Square, the functions usually return values that do not lose any bits of word length. However, if the operation creates a value that exceeds the maximum w",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_2"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
-          "default_value": null,
+          "name": "x^2",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "python_param": "x2",
+          "default_value": null,
+          "description": "x^2 is of the same numeric representation as x . Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
     },
@@ -1829,21 +2419,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "-x",
-          "description": "the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type. Functions 584 ni.com -x is the negative value of x. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, a fixed-point number, an array or cluster of numbers, an array of clusters of numbers, and so on. x cannot be an unsigned integer, because unsigned integers represent only non-negative integers."
         },
         {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
-          "default_value": null,
+          "name": "-x",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "python_param": "_x",
+          "default_value": null,
+          "description": "-x is the negative value of x ."
         }
       ]
     },
@@ -1855,14 +2451,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "1/x",
-          "description": "1/x is infinity if x is 0. If x is an integer, 1/x is a double-precision, floating-point number. Fixed-Point Details If you wire a fixed-point value to this function, by default LabVIEW configures the integer word length of the reciprocal to avoid overflow. However, because the precision of the reciprocal can be infinite, rounding conditions always occur. Use the Numeric Node Properties dialog box to configure how LabVIEW handles rounding of fixed-point data. This function always uses the Satura",
-          "default_value": "LabVIEW configures the integer word length of the reciprocal to avoid overflow",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "1_x"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
+        },
+        {
+          "name": "1/x",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "var_1x",
+          "default_value": null,
+          "description": "1/x is infinity if x is 0. If x is an integer, 1/x is a double-precision, floating-point number."
         }
       ]
     },
@@ -1874,28 +2483,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "-1, 0, 1",
-          "description": "–1, 0, 1 returns 1 if the input value is greater than 0, returns 0 if the input value is equal to 0, and returns –1 if the input value is less than 0. When number is in the form of a + bi, that is, when number is complex, the following defines -1, 0, 1: Examples Refer to the following example files included with LabVIEW. Note For nonzero complex numbers, this function returns a complex value with the same phase as the input and with a magnitude of 1. Functions 586 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "1_0_1"
-        },
-        {
-          "name": "labview\\examples\\Numerics\\Numeric Functions.vi",
-          "description": "",
+          "python_param": "_1_0_1",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_numerics_numeric_functions_vi"
+          "description": "–1, 0, 1 returns 1 if the input value is greater than 0, returns 0 if the input value is equal to 0, and returns –1 if the input value is less than 0. When number is in the form of a + b i , that is, when number is complex, the following defines -1, 0, 1 :"
         }
       ]
     },
@@ -2085,56 +2693,17 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number (0 to 1)",
-          "description": "number (0 to 1) is a double-precision, floating-point number between 0 and 1. Random Number (Range) Random Number (Range) Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions 618 ni.com",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "number",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "number_0_to_1"
-        },
-        {
-          "name": "Random Number (Range) U64 VI",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "random_number_range_u64_vi"
-        },
-        {
-          "name": "Random Number (Range) I64 VI",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "random_number_range_i64_vi"
-        },
-        {
-          "name": "Random Number (Range) DBL VI",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "random_number_range_dbl_vi"
-        },
-        {
-          "name": "upper bound (100)",
-          "description": "upper bound specifies the upper limit of the range. The default is 100.",
-          "default_value": "100",
-          "enum_values": null,
-          "python_param": "upper_bound_100"
-        },
-        {
-          "name": "lower bound (0)",
-          "description": "lower bound specifies the lower limit of the range. The default is 0.",
-          "default_value": "0",
-          "enum_values": null,
-          "python_param": "lower_bound_0"
-        },
-        {
-          "name": "number",
-          "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "number"
+          "description": "number (0 to 1) is a double-precision, floating-point number between 0 and 1."
         }
       ]
     },
@@ -2179,28 +2748,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "upper bound (100)",
-          "description": "upper bound specifies the upper limit of the range. The default is 100.",
-          "default_value": "100",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "upper_bound_100"
+          "python_param": "upper_bound",
+          "default_value": null,
+          "description": "upper bound specifies the upper limit of the range. The default is 100."
         },
         {
-          "name": "lower bound (0)",
-          "description": "lower bound specifies the lower limit of the range. The default is 0.",
-          "default_value": "0",
+          "name": "lower bound (-100)",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "lower_bound_0"
+          "python_param": "lower_bound",
+          "default_value": null,
+          "description": "lower bound specifies the lower limit of the range. The default is -100."
         },
         {
           "name": "number",
-          "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound . If upper bound is less than or equal to lower bound , this output returns lower bound ."
         }
       ]
     },
@@ -2212,28 +2790,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "upper bound (100)",
-          "description": "upper bound specifies the upper limit of the range. The default is 100.",
-          "default_value": "100",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "upper_bound_100"
+          "python_param": "upper_bound",
+          "default_value": null,
+          "description": "upper bound specifies the upper limit of the range. The default is 100."
         },
         {
           "name": "lower bound (0)",
-          "description": "lower bound specifies the lower limit of the range. The default is 0.",
-          "default_value": "0",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "lower_bound_0"
+          "python_param": "lower_bound",
+          "default_value": null,
+          "description": "lower bound specifies the lower limit of the range. The default is 0."
         },
         {
           "name": "number",
-          "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound. If upper bound is less than or equal to lower bound, this output returns lower bound. Random Number (Range) I64 VI Random Number (Range) I64 VI Generates a random value from a specified range. Wire data to the upper bound or lower bound input to determine the polymorphic instance to use or manually select the instance. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound . If upper bound is less than or equal to lower bound , this output returns lower bound ."
         }
       ]
     },
@@ -2245,28 +2832,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "upper bound (100)",
-          "description": "upper bound specifies the upper limit of the range. The default is 100.",
-          "default_value": "100",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "upper_bound_100"
+          "python_param": "upper_bound",
+          "default_value": null,
+          "description": "upper bound specifies the upper limit of the range. The default is 100."
         },
         {
           "name": "lower bound (0)",
-          "description": "lower bound specifies the lower limit of the range. The default is 0.",
-          "default_value": "0",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "lower_bound_0"
+          "python_param": "lower_bound",
+          "default_value": null,
+          "description": "lower bound specifies the lower limit of the range. The default is 0."
         },
         {
           "name": "number",
-          "description": "number returns a random number greater than or equal to lower bound and less than upper bound. Functions 620 ni.com If upper bound is less than or equal to lower bound, this output returns lower bound.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number returns a random number greater than or equal to lower bound and less than upper bound . If upper bound is less than or equal to lower bound , this output returns lower bound ."
         }
       ]
     },
@@ -2278,28 +2874,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "fixed-point",
-          "description": "fixed-point is the data you want to scale. fixed-point can be any fixed-point data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fixed_point"
+          "python_param": "fixed_point",
+          "default_value": null,
+          "description": "fixed-point is the data you want to scale. fixed-point can be any fixed-point data type."
         },
         {
           "name": "integer",
-          "description": "integer is the input data scaled to the smallest compatible integer type that prevents overflow. This output discards the overflow status. If fixed-point is a signed number, LabVIEW sign-extends the input data as necessary to ensure that the input and output data are always the same sign. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "integer"
-        },
-        {
-          "name": "labview\\examples\\Numerics\\Fixed-Point Cast.vi",
-          "description": "",
+          "python_param": "integer",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_numerics_fixed_point_cast_vi"
+          "description": "integer is the input data scaled to the smallest compatible integer type that prevents overflow. This output discards the overflow status ."
         }
       ]
     },
@@ -2311,28 +2906,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "fixed-point type",
-          "description": "fixed-point type is the fixed-point data type to which you want to convert the integer data. You can configure the fixed-point data type in the Data Type page of the Properties dialog box. LabVIEW ignores any data in the constant or control that you wire to fixed-point type. You also can leave this input unwired and configure the output data type in the Output Configuration page of the Properties dialog box.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fixed_point_type"
+          "python_param": "fixed_point_type",
+          "default_value": null,
+          "description": "fixed-point type is the fixed-point data type to which you want to convert the integer data. You can configure the fixed-point data type in the Data Type page of the Properties dialog box. LabVIEW ignores any data in the constant or control that you wire to fixed-point type . You also can leave this input unwired and configure the output data type in the Output Configuration page of the Properties dialog box."
         },
         {
           "name": "integer",
-          "description": "integer is the data you want to scale. integer can be any integer data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "integer"
+          "python_param": "integer",
+          "default_value": null,
+          "description": "integer is the data you want to scale. integer can be any integer data type."
         },
         {
           "name": "fixed-point",
-          "description": "fixed-point is the input data scaled to the requested fixed-point data type. If the word length of integer is greater than or less than the word length of fixed-point type, LabVIEW first converts integer to the integer word length of fixed-point type before casting integer to the requested fixed-point type. The least significant bit of integer becomes the least significant bit of fixed-point, so rounding is never necessary. To override the default behavior of this function, right-click the funct",
-          "default_value": "behavior of this function, right-click the function and select Properties from the shortcut menu to display the Output Configuration page of the Properties dialog box",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "fixed_point"
+          "python_param": "fixed_point",
+          "default_value": null,
+          "description": "fixed-point is the input data scaled to the requested fixed-point data type."
         }
       ]
     },
@@ -2344,28 +2948,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "FXP",
-          "description": "FXP specifies a fixed-point number.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fxp"
+          "python_param": "fxp",
+          "default_value": null,
+          "description": "FXP specifies a fixed-point number."
         },
         {
           "name": "FXP with overflow cleared",
-          "description": "FXP with overflow cleared returns FXP with an overflow status of FALSE. If FXP does not include an overflow status, FXP with overflow cleared returns FXP unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "fxp_with_overflow_cleared"
+          "python_param": "fxp_with_overflow_cleared",
+          "default_value": null,
+          "description": "FXP with overflow cleared returns FXP with an overflow status of FALSE. If FXP does not include an overflow status, FXP with overflow cleared returns FXP unchanged."
         },
         {
           "name": "overflow?",
-          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE. Note The Integer to Fixed-Point Cast function combines elements of the Conversion functions, the Type Cast function, and the Scale by Power of 2 function. The Integer to Fixed-Point Cast function performs an operation that reinterprets",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "overflow"
+          "python_param": "overflow",
+          "default_value": null,
+          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE."
         }
       ]
     },
@@ -2377,28 +2990,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "FXP",
-          "description": "Functions © National Instruments 625 FXP specifies a fixed-point number.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fxp"
+          "python_param": "fxp",
+          "default_value": null,
+          "description": "FXP specifies a fixed-point number."
         },
         {
           "name": "overflow",
-          "description": "overflow specifies whether the overflow status of FXP with overflow included is TRUE or FALSE.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "overflow"
+          "python_param": "overflow",
+          "default_value": null,
+          "description": "overflow specifies whether the overflow status of FXP with overflow included is TRUE or FALSE."
         },
         {
           "name": "FXP with overflow included",
-          "description": "FXP with overflow included returns FXP with an overflow status set to the value specified in overflow.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "fxp_with_overflow_included"
+          "python_param": "fxp_with_overflow_included",
+          "default_value": null,
+          "description": "FXP with overflow included returns FXP with an overflow status set to the value specified in overflow ."
         }
       ]
     },
@@ -2410,28 +3032,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "FXP",
-          "description": "FXP specifies a fixed-point number.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fxp"
+          "python_param": "fxp",
+          "default_value": null,
+          "description": "FXP specifies a fixed-point number."
         },
         {
           "name": "FXP with overflow removed",
-          "description": "FXP with overflow removed returns FXP without an overflow status. If FXP does not include an overflow status, FXP with overflow removed returns FXP unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "fxp_with_overflow_removed"
+          "python_param": "fxp_with_overflow_removed",
+          "default_value": null,
+          "description": "FXP with overflow removed returns FXP without an overflow status. If FXP does not include an overflow status, FXP with overflow removed returns FXP unchanged."
         },
         {
           "name": "overflow?",
-          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "overflow"
+          "python_param": "overflow",
+          "default_value": null,
+          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE."
         }
       ]
     },
@@ -2502,28 +3133,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "type",
-          "description": "type specifies the data type. This input accepts any scalar numeric data type and enum.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "type"
+          "python_param": "type_",
+          "default_value": null,
+          "description": "type specifies the data type. This input accepts any scalar numeric data type and enum."
         },
         {
           "name": "maximum value for type",
-          "description": "Functions 628 ni.com maximum value for type returns the maximum value of the data type wired to type. If type is an enum, this VI returns the last value of the enum. For example, if type is a 16-bit unsigned integer, this output returns 32767. If type is an enum with values {cat, dog, bird}, this output returns bird.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "maximum_value_for_type"
+          "python_param": "maximum_value_for_type",
+          "default_value": null,
+          "description": "maximum value for type returns the maximum value of the data type wired to type . If type is an enum, this VI returns the last value of the enum."
         },
         {
           "name": "minimum value for type",
-          "description": "minimum value for type returns the minimum value of the data type wired to type. If type is an enum, this VI returns the first value of the enum. For example, if type is a 16-bit unsigned integer, this output returns -32768. If type is an enum with values {cat, dog, bird}, this output returns cat.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "minimum_value_for_type"
+          "python_param": "minimum_value_for_type",
+          "default_value": null,
+          "description": "minimum value for type returns the minimum value of the data type wired to type . If type is an enum, this VI returns the first value of the enum."
         }
       ]
     },

@@ -104,42 +104,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "trigger ID",
-          "description": "trigger ID is the numeric identifier of the software-triggered timing source. The valid range of trigger ID values is 0-127. Because this parameter is implemented as an integer rather than a string, it is safe to use the Fire Software-Triggered Timing Source VI in time-critical code.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "trigger_id"
+          "python_param": "trigger_id",
+          "default_value": null,
+          "description": "trigger ID is the numeric identifier of the software-triggered timing source. The valid range of trigger ID values is 0-127. Because this parameter is implemented as an integer rather than a string, it is safe to use the Fire Software-Triggered Timing Source VI in time-critical code."
         },
         {
           "name": "number of ticks",
-          "description": "number of ticks specifies the number of ticks to increment the internal tick counter of the timing source. The default value is 1 tick.",
-          "default_value": "value is 1 tick",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number_of_ticks"
+          "python_param": "number_of_ticks",
+          "default_value": null,
+          "description": "number of ticks specifies the number of ticks to increment the internal tick counter of the timing source. The default value is 1 tick."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "trigger ID out",
-          "description": "trigger ID out returns trigger ID unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "trigger_id_out"
+          "python_param": "trigger_id_out",
+          "default_value": null,
+          "description": "trigger ID out returns trigger ID unchanged."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. When you use a software-triggered timing source to control a Timed Loop, you can use the number of ticks input to trigger multiple successive Timed Loop iterations. When the internal tick counter jumps past one or more Timed Loop periods, the Timed Loop regards those periods as missed periods. If you remove the checkmark from the Discard missed periods checkbox on the Configure Timed Loop dialog box, a s",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -151,35 +166,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "name",
-          "description": "name is the name of the timing source you want to stop and delete.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "name"
+          "python_param": "name",
+          "default_value": null,
+          "description": "name is the name of the timing source you want to stop and delete."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "parent",
-          "description": "parent is the name of the parent of the timing source the VI deleted. If the timing source has no parent, parent is empty.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "parent"
+          "python_param": "parent",
+          "default_value": null,
+          "description": "parent is the name of the parent of the timing source the VI deleted. If the timing source has no parent, parent is empty."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -191,49 +218,87 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "clear (F)",
-          "description": "clear, if TRUE, removes all timed structures from synchronization group name before adding the timed structures in timed structure names to the group. Set clear to TRUE to remove any timed structures that do not correspond to a Timed Loop. The default is FALSE.",
-          "default_value": "FALSE",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "clear_f"
+          "python_param": "clear",
+          "default_value": null,
+          "description": "clear , if TRUE, removes all timed structures from synchronization group name before adding the timed structures in timed structure names to the group."
         },
         {
           "name": "replace (T)",
-          "description": "replace replaces the timed structures in synchronization group name with the timed structures you enter in timed structure names. If replace is FALSE and the timing source is a member of another hierarchy, the VI returns an error.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "replace_t"
+          "python_param": "replace",
+          "default_value": null,
+          "description": "replace replaces the timed structures in synchronization group name with the timed structures you enter in timed structure names ."
         },
         {
           "name": "synchronization group name",
-          "description": "synchronization group name is the name for the group of timed structures you want to synchronize.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "synchronization_group_name"
+          "python_param": "synchronization_group_name",
+          "default_value": null,
+          "description": "synchronization group name is the name for the group of timed structures you want to synchronize."
         },
         {
           "name": "timeout ms (10000)",
-          "description": "timeout ms specifies the time, in milliseconds, that a timed structure waits on other members of the synchronization group to arrive at the synchronization point. If any of the timed structures in the group do not arrive in time, the timed structure returns an error. The default is 10,000 ms. A value of –1 indicates to wait indefinitely.",
-          "default_value": "10,000 ms",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "timeout_ms_10000"
+          "python_param": "timeout_ms",
+          "default_value": null,
+          "description": "timeout ms specifies the time, in milliseconds, that a timed structure waits on other members of the synchronization group to arrive at the synchronization point."
         },
         {
           "name": "timed structure names",
-          "description": "timed structure names specifies the names of the timed structures you want to synchronize. By default, the VI deletes the timed structure from its current group and adds it to the group you specify in synchronization group name. If you set replace to FALSE and a timed structure you specify in timed structure names is a member of another group, the VI returns an error to indicate that it could not add the timed structure to the synchronization group.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "timed_structure_names"
+          "python_param": "timed_structure_names",
+          "default_value": null,
+          "description": "timed structure names specifies the names of the timed structures you want to synchronize."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "timed structures names out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "timed_structures_names_out",
+          "default_value": null,
+          "description": "timed structures names out returns the names of all timed structures in the group after LabVIEW adds the names to the synchronization group you specify."
+        },
+        {
+          "name": "error out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -245,42 +310,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "priority",
-          "description": "priority changes the priority of the timed structure you are stopping. Use priority when you want to stop two or more timed structures and want to ensure one stops before the other.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "priority"
+          "python_param": "priority",
+          "default_value": null,
+          "description": "priority changes the priority of the timed structure you are stopping. Use priority when you want to stop two or more timed structures and want to ensure one stops before the other."
         },
         {
           "name": "name",
-          "description": "Functions 356 ni.com name is the name of the timed structure you want to stop.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "name"
+          "python_param": "name",
+          "default_value": null,
+          "description": "name is the name of the timed structure you want to stop."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Structures\\Timed Loop\\Timed Loop",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_structures_timed_loop_timed_loop"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -292,49 +362,67 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "replace (F)",
-          "description": "replace (F) replaces any timing source you entered in timing source names if a timing source by that name already exists in the hierarchy of timing sources.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "replace_f"
+          "python_param": "replace",
+          "default_value": null,
+          "description": "replace (F) replaces any timing source you entered in timing source names if a timing source by that name already exists in the hierarchy of timing sources."
         },
         {
           "name": "hierarchy name",
-          "description": "hierarchy name is the name of the timing source hierarchy you want to create. Functions © National Instruments 357",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "hierarchy_name"
+          "python_param": "hierarchy_name",
+          "default_value": null,
+          "description": "hierarchy name is the name of the timing source hierarchy you want to create."
         },
         {
           "name": "parent",
-          "description": "parent is the valid timing source you want to start after the all the timing sources in hierarchy name start.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "parent"
+          "python_param": "parent",
+          "default_value": null,
+          "description": "parent is the valid timing source you want to start after the all the timing sources in hierarchy name start."
         },
         {
           "name": "timing source names",
-          "description": "timing source names is an array of names of the timing sources you want to add to the timing source hierarchy. If replace is TRUE, the new timing source replaces any timing source with the same name that already exists in the timing source hierarchy. These timing sources start before the timing source you enter in parent.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "timing_source_names"
+          "python_param": "timing_source_names",
+          "default_value": null,
+          "description": "timing source names is an array of names of the timing sources you want to add to the timing source hierarchy."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. The hierarchy determines the order in which the timing sources start. The parent timing source does not start until after the timing sources in hierarchy name start. Use this VI when you have timing sources that have signal dependencies, such as DAQ counters routed to drive analog input connections. In such a case, the counter timing source acts as the parent.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -421,49 +509,67 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "array",
-          "description": "array specifies an n-dimensional array of any type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "array"
+          "python_param": "array",
+          "default_value": null,
+          "description": "array specifies an n-dimensional array of any type."
         },
         {
           "name": "index",
-          "description": "index specifies the element you want to replace in the array. This border node gains an additional index parameter for each additional dimension of the array in the array input.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "index"
+          "python_param": "index",
+          "default_value": null,
+          "description": "index specifies the element you want to replace in the array. This border node gains an additional index parameter for each additional dimension of the array in the array input."
         },
         {
           "name": "element",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "element",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "array",
-          "description": "array returns the array you input with the replaced element(s).",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "array"
+          "python_param": "array",
+          "default_value": null,
+          "description": "array returns the array you input with the replaced element(s)."
         },
         {
           "name": "index",
-          "description": "Functions 364 ni.com index returns the element(s) you replaced in the array. Use this border node to perform operations on an element or elements of an array and return the elements to the same location or locations in the array. Each array element you index with the border node on the left side of the structure must be placed back into the array with the border node on the right side of the structure by wiring the element back into the array. This border node allows the LabVIEW compiler to avoi",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "index"
+          "python_param": "index",
+          "default_value": null,
+          "description": "index returns the element(s) you replaced in the array."
         }
       ]
     },
@@ -475,35 +581,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "input cluster",
-          "description": "input cluster is the cluster whose elements you want to access.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "input_cluster"
+          "python_param": "input_cluster",
+          "default_value": null,
+          "description": "input cluster is the cluster whose elements you want to access."
         },
         {
           "name": "element",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "element",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "output cluster",
-          "description": "output cluster is the resulting cluster. Functions © National Instruments 365 Use this border node to perform operations on one or more cluster elements and replace the elements in the same location in the cluster. Each cluster element you unbundle with the border node on the left side of the structure must be bundled back into the cluster with the border node on the right side of the structure. This node allows the LabVIEW compiler to avoid storing a complete value copy of the cluster and clust",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "output_cluster"
+          "python_param": "output_cluster",
+          "default_value": null,
+          "description": "output cluster is the resulting cluster."
         }
       ]
     },
@@ -515,56 +633,77 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "variant",
-          "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "variant"
+          "python_param": "variant",
+          "default_value": null,
+          "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type ."
         },
         {
           "name": "type",
-          "description": "type is the LabVIEW data type to which you want to convert the variant data. type can be any data type. However, this function returns an error if LabVIEW cannot convert the data wired to variant to the data type you wire to this input. If the data is integers, you can coerce the data to another numeric representation, such as an extended-precision, floating- point number.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "type"
+          "python_param": "type_",
+          "default_value": null,
+          "description": "type is the LabVIEW data type to which you want to convert the variant data. type can be any data type. However, this function returns an error if LabVIEW cannot convert the data wired to variant to the data type you wire to this input. If the data is integers, you can coerce the data to another numeric representation, such as an extended-precision, floating-point number."
         },
         {
           "name": "data",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "data"
+          "python_param": "data",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "error out",
-          "description": "Functions 366 ni.com error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output."
         },
         {
           "name": "data",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "data"
+          "python_param": "data",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "variant",
-          "description": "variant is the resulting variant data.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "variant"
+          "python_param": "variant",
+          "default_value": null,
+          "description": "variant is the resulting variant data."
         },
         {
           "name": "error out",
-          "description": "Use this border node to perform operations on one or more variant data elements and replace the variant data with the new data type in the same location in memory. Each variant data element you retrieve with the border node on the left side of the structure must be converted back to a variant with the border node on the right side of the structure. This border node allows the LabVIEW compiler to avoid storing a complete value copy of the variant and variant data elements in memory. The border no",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": ""
         }
       ]
     },
@@ -587,21 +726,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "waveform",
-          "description": "waveform is the waveform from which you want to retrieve components.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "waveform"
+          "python_param": "waveform",
+          "default_value": null,
+          "description": "waveform is the waveform from which you want to retrieve components."
+        },
+        {
+          "name": "Y",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": ""
+        },
+        {
+          "name": "Y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "output waveform",
-          "description": "Functions 368 ni.com output waveform is the resulting waveform. If you did not wire an existing waveform, this is a new waveform. If you wired an existing waveform, this is the edited waveform. Use this border node to perform operations on one or more waveform components and replace the components to the same location in the waveform. Each waveform component you retrieve with the border node on the left side of the structure must be replaced back into the waveform with the border node on the rig",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "output_waveform"
+          "python_param": "output_waveform",
+          "default_value": null,
+          "description": "output waveform is the resulting waveform. If you did not wire an existing waveform, this is a new waveform. If you wired an existing waveform, this is the edited waveform."
         }
       ]
     },
@@ -613,49 +778,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "data value reference",
-          "description": "Functions © National Instruments 369 data value reference is the reference that points to the data you want to access.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "data_value_reference"
-        },
-        {
-          "name": "data value",
-          "description": "data value is the data the reference points to.",
+          "python_param": "data_value_reference",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "data_value"
+          "description": "data value reference is the reference that points to the data you want to access."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "data value",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "data_value"
+          "description": "error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output."
         },
         {
           "name": "data value reference",
-          "description": "data value reference is the reference that points to the new data.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "data_value_reference"
+          "python_param": "data_value_reference",
+          "default_value": null,
+          "description": "data value reference is the reference that points to the new data."
         },
         {
           "name": "error out",
-          "description": "Use this border node to operate on the data in place. If a data value reference points to a class object, you cannot replace that class object with a different LabVIEW class object inside the In Place Element structure. However, you can replace any other object with an object of the same type. Note LabVIEW cannot resize the data in an external data value reference. This node produces an error if the array in an external data value reference is a different size than the array you wire to the righ",
-          "default_value": "data to the reference array until it is filled",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": ""
         }
       ]
     },
@@ -667,56 +830,87 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "array",
-          "description": "array can be an n-dimensional array of any type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "array"
+          "python_param": "array",
+          "default_value": null,
+          "description": "array can be an n -dimensional array of any type."
         },
         {
           "name": "split length",
-          "description": "split length specifies the length of the resulting subarray. Each split length results in an additional subarray. You must wire all or none of the split length inputs. If you do not wire any split length inputs, LabVIEW automatically determines the length of the resulting subarray.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "split_length"
+          "python_param": "split_length",
+          "default_value": null,
+          "description": "split length specifies the length of the resulting subarray. Each split length results in an additional subarray. You must wire all or none of the split length inputs. If you do not wire any split length inputs, LabVIEW automatically determines the length of the resulting subarray."
         },
         {
           "name": "element",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "element",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "element",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "element",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "element"
+          "python_param": "element",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "array",
-          "description": "to access a reference twice at the same time in the same structure, LabVIEW returns a run-time error. If you attempt to access the reference after you obtain access inside the In Place Element structure, the VI might hang. You can enable multiple, concurrent read-only operations that do not modify the data value reference by right-clicking the border node on the right of the structure and selecting Allow Parallel Read-only Access. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "array"
+          "python_param": "array",
+          "default_value": null,
+          "description": "array is the array this border node returns with the replaced element(s), row(s), column(s), or page(s)."
+        },
+        {
+          "name": "split length",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "split_length",
+          "default_value": null,
+          "description": "split length indicates the length of the resulting subarray."
         }
       ]
     },
@@ -728,63 +922,87 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "variant",
-          "description": "variant specifies the variant for which you want to retrieve or change an attribute.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "variant"
+          "python_param": "variant",
+          "default_value": null,
+          "description": "variant specifies the variant for which you want to retrieve or change an attribute."
         },
         {
           "name": "attribute name",
-          "description": "Functions 372 ni.com attribute name specifies the name of the attribute whose value you want to retrieve or change.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "attribute_name"
+          "python_param": "attribute_name",
+          "default_value": null,
+          "description": "attribute name specifies the name of the attribute whose value you want to retrieve or change."
         },
         {
           "name": "attribute",
-          "description": "attribute returns the original value of the attribute if found? is TRUE. This parameter returns an empty attribute if found? is FALSE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "attribute"
+          "python_param": "attribute",
+          "default_value": null,
+          "description": "attribute returns the original value of the attribute if found? is TRUE. This parameter returns an empty attribute if found? is FALSE."
         },
         {
           "name": "found?",
-          "description": "found? returns TRUE if the attribute was found with the specified attribute name and the specified attribute name is not a duplicate name of a previously found attribute. The indicator returns FALSE if the specified attribute name was not found, or if the specified attribute name was a duplicate name of a previously found attribute.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "found"
+          "python_param": "found",
+          "default_value": null,
+          "description": "found? returns TRUE if the attribute was found with the specified attribute name and the specified attribute name is not a duplicate name of a previously found attribute. The indicator returns FALSE if the specified attribute name was not found, or if the specified attribute name was a duplicate name of a previously found attribute."
         },
         {
           "name": "attribute",
-          "description": "attribute specifies the retrieved or changed value of the attribute.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "attribute"
+          "python_param": "attribute",
+          "default_value": null,
+          "description": "attribute specifies the retrieved or changed value of the attribute."
         },
         {
           "name": "variant",
-          "description": "variant returns the variant with the retrieved or changed attribute.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "variant"
+          "python_param": "variant",
+          "default_value": null,
+          "description": "variant returns the variant with the retrieved or changed attribute."
         },
         {
           "name": "attribute name",
-          "description": "attribute name returns the name of the retrieved or changed attribute.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "attribute_name"
+          "python_param": "attribute_name",
+          "default_value": null,
+          "description": "attribute name returns the name of the retrieved or changed attribute."
         },
         {
           "name": "found?",
-          "description": "Use this border node to access and modify one or more attributes of a variant without copying the attributes out of the variant. Each attribute value you retrieve with the border node on the left side of the structure must be replaced with an attribute value using the border node on the right side of the structure. The border node on the left side of the structure is similar to the Get Variant Attribute function. The border node on the right side of the structure is similar to the Set Variant At",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "found"
+          "python_param": "found",
+          "default_value": null,
+          "description": ""
         }
       ]
     },
@@ -796,83 +1014,107 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "map",
-          "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers.",
-          "default_value": "data type is a map of 32-bit signed integers",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "map"
+          "python_param": "map_",
+          "default_value": null,
+          "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "key",
-          "description": "key specifies the key to look for in the map. The key must be of the same data type as the attribute to the variant if the attribute was not found, refer to the example listed in the Example section for an illustration of how to add the syntax to this border node. Functions 374 ni.com existing keys in the map.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "key"
+          "python_param": "key",
+          "default_value": null,
+          "description": "key specifies the key to look for in the map. The key must be of the same data type as the existing keys in the map."
         },
         {
           "name": "default value",
-          "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map.",
-          "default_value": "value specifies the value to return in value if the specified key does not exist in the map",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "default_value"
+          "python_param": "default_value",
+          "default_value": null,
+          "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map."
         },
         {
           "name": "key not found?",
-          "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE . This output exists on both the left and right border nodes. The two key not found? outputs return the same value.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "key_not_found"
+          "python_param": "key_not_found",
+          "default_value": null,
+          "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE . This output exists on both the left and right border nodes. The two key not found? outputs return the same value."
         },
         {
           "name": "value",
-          "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value.",
-          "default_value": "value",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value ."
         },
         {
           "name": "action",
-          "description": "action specifies the operation to perform on the map based on the TRUE or FALSE value of key not found?. This input assumes the value 0 if unwired. 2 Delete Entry—If key not found? is FALSE, this node deletes the entry with the specified key from the map. If key not found? is TRUE, this node does nothing. 0 Modify Entry only if found (default)—If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node does nothing. 1 Add ",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "action",
           "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "if unwired. 2 Delete Entry"
-            ],
-            [
-              0,
-              "Modify Entry only if found (default)"
-            ],
-            [
-              1,
-              "Add or Modify Entry"
-            ]
-          ],
-          "python_param": "action"
+          "description": "action specifies the operation to perform on the map based on the TRUE or FALSE value of key not found? . This input assumes the value 0 if unwired. 2 Delete Entry —If key not found? is FALSE, this node deletes the entry with the specified key from the map. If key not found? is TRUE, this node does nothing. 0 Modify Entry only if found (default)—If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node does nothing. 1 Add or Modify Entry —If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node adds the new key and the associated value to the map."
         },
         {
           "name": "value",
-          "description": "value specifies the new value of the entry with the associated key.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value specifies the new value of the entry with the associated key."
         },
         {
           "name": "map",
-          "description": "map returns the resulting map.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "map"
+          "python_param": "map_",
+          "default_value": null,
+          "description": "map returns the resulting map."
         },
         {
           "name": "key",
-          "description": "Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "key"
+          "python_param": "key",
+          "default_value": null,
+          "description": "key returns the same value as the key input on the left side of the border node."
+        },
+        {
+          "name": "key not found?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "key_not_found",
+          "default_value": null,
+          "description": ""
         }
       ]
     },
@@ -954,42 +1196,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "ms timeout (0)",
-          "description": "ms timeout specifies a timeout period in milliseconds for a Shared Variable node configured to read data. The shared variable waits the specified amount of time for updated data, and the timed out? indicator returns whether the shared variable received updated data in the specified time period or timed out. Updated data can represent a new value or an existing value that simply confirms a valid connection with the shared variable in the active project. To add a ms timeout input to the Shared Var",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "ms_timeout_0"
+          "python_param": "ms_timeout",
+          "default_value": null,
+          "description": "ms timeout specifies a timeout period in milliseconds for a Shared Variable node configured to read data. The shared variable waits the specified amount of time for updated data, and the timed out? indicator returns whether the shared variable received updated data in the specified time period or timed out. Updated data can represent a new value or an existing value that simply confirms a valid connection with the shared variable in the active project. To add a ms timeout input to the Shared Variable node, right-click the Shared Variable node and select Show Timeout from the shortcut menu. You only can enable a timeout period for Shared Variable nodes configured to read data. You cannot enable a timeout period for nodes that access I/O variables locally."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note The behavior of the Shared Variable node differs when it is bound to a physical I/O channel. Refer to the Using I/O Variables topic for information about I/O variables. Functions 382 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "timed out?",
-          "description": "timed out? displays whether a Shared Variable node read new data within the specified timeout period or timed out. To add a timed out? output to the Shared Variable node, right-click the Shared Variable node and select Show Timeout from the shortcut menu. You only can enable a timeout period for Shared Variable nodes configured to read data. You cannot enable a timeout period for nodes that access I/O variables locally. If the timeout expires, the Shared Variable node returns the last value writ",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "timed_out"
+          "python_param": "timed_out",
+          "default_value": null,
+          "description": "timed out? displays whether a Shared Variable node read new data within the specified timeout period or timed out. To add a timed out? output to the Shared Variable node, right-click the Shared Variable node and select Show Timeout from the shortcut menu. You only can enable a timeout period for Shared Variable nodes configured to read data. You cannot enable a timeout period for nodes that access I/O variables locally. If the timeout expires, the Shared Variable node returns the last value written to the variable and does not return an error."
         },
         {
           "name": "timestamp",
-          "description": "timestamp displays the timestamp data for the shared variable. To add a timestamp output to the Shared Variable node for a single-process shared variable or an I/O variable, you must first place a checkmark in the Enable timestamp checkbox on the Variable page of the Shared Variable Properties dialog box, and then right-click the Shared Variable node and select Show Timestamp from the shortcut menu. You can use this output only with shared variable nodes that are configured to read data.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "timestamp"
+          "python_param": "timestamp",
+          "default_value": null,
+          "description": "timestamp displays the timestamp data for the shared variable. To add a timestamp output to the Shared Variable node for a single-process shared variable or an I/O variable, you must first place a checkmark in the Enable timestamp checkbox on the Variable page of the Shared Variable Properties dialog box, and then right-click the Shared Variable node and select Show Timestamp from the shortcut menu. You can use this output only with shared variable nodes that are configured to read data."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. When you drag a shared variable from the Project Explorer window to the block diagram or place a Shared Variable node on the block diagram, LabVIEW configures the Shared Variable node to read data. To configure the Shared Variable node to write data, right-click the Shared Variable node and select Change to Write from the shortcut menu. Note You can create, configure, and host shared variables only on Wi",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },

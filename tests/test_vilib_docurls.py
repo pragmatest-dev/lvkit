@@ -87,6 +87,52 @@ def test_docurl_field_loads_on_model():
     assert not hasattr(e, "page")
 
 
+def test_enriched_terminals_are_well_formed():
+    """docs_enriched entries (task #88) carry doc-derived connector panes:
+    every terminal has a verbatim name, an in/out direction, a python_param,
+    and NO fabricated index (indices are learned at resolve-time by name-match,
+    never invented from doc order)."""
+    bad = []
+    for _f, e in _all_entries():
+        if e.get("status") != "docs_enriched":
+            continue
+        for t in e.get("terminals", []):
+            if (not t.get("name")
+                    or t.get("direction") not in ("in", "out")
+                    or not t.get("python_param")
+                    or t.get("index") is not None):
+                bad.append((e.get("name"), t))
+    assert bad == [], f"malformed enriched terminals: {bad[:10]}"
+
+
+def test_enrichment_did_not_clobber_resolved_entries():
+    """Entries that already had learned indices keep them (never overwritten
+    by a doc pull)."""
+    indexed = [
+        e.get("name")
+        for _f, e in _all_entries()
+        if any(t.get("index") is not None for t in e.get("terminals", []))
+    ]
+    # the resolved/observed entries survive; none became docs_enriched
+    for _f, e in _all_entries():
+        if any(t.get("index") is not None for t in e.get("terminals", [])):
+            assert e.get("status") != "docs_enriched", e.get("name")
+    assert indexed, "expected some entries to retain learned indices"
+
+
+def test_and_function_enriched_to_correct_pane():
+    """And Function was mislabeled (only its output terminal); the doc pull
+    fixes it to x, y inputs + the AND output."""
+    entry = next(
+        (e for _f, e in _all_entries() if e.get("name") == "And Function"), None
+    )
+    assert entry is not None
+    ins = [t["name"] for t in entry["terminals"] if t["direction"] == "in"]
+    outs = [t["name"] for t in entry["terminals"] if t["direction"] == "out"]
+    assert ins == ["x", "y"], ins
+    assert outs == ["x .and. y?"], outs
+
+
 def test_vilib_docurls_agree_with_primitives():
     """A vilib entry and a primitive that resolve to the same NI function name
     must not point at contradictory doc pages."""

@@ -10,35 +10,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "scans since last call",
-          "description": "scans since last call returns the number of times the scan engine has completed a scan since the last call of this VI. You can use this information to identify missed scan iterations and determine whether the synchronized code consistently finishes executing on time.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "scans_since_last_call"
+          "python_param": "scans_since_last_call",
+          "default_value": null,
+          "description": "scans since last call returns the number of times the scan engine has completed a scan since the last call of this VI. You can use this information to identify missed scan iterations and determine whether the synchronized code consistently finishes executing on time."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Use this VI for code running outside of a timed structure. For most NI Scan Engine use cases, NI recommends using a timed structure with the Synchronize to Scan Engine timing source. This VI must run on a target with the NI Scan Engine installed. Examples Refer to the following example files included with LabVIEW. Functions 2634 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Scan Engine\\Scan Engine.lvproj",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_scan_engine_scan_engine_lvproj"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -50,35 +52,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "scan period (uSec)",
-          "description": "scan period (uSec) returns the period of the scan engine running on the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "scan_period_usec"
+          "python_param": "scan_period",
+          "default_value": null,
+          "description": "scan period (uSec) returns the period of the scan engine running on the target."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -90,42 +104,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "Functions © National Instruments 2635 target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "scan period (uSec)",
-          "description": "scan period (uSec) specifies the period for the scan engine running on the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "scan_period_usec"
+          "python_param": "scan_period",
+          "default_value": null,
+          "description": "scan period (uSec) specifies the period for the scan engine running on the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Changing the scan period while the scan engine is running can take a significant amount of time, and might cause the scan engine to run late, resulting in a major fault. If changing the scan period results in a fault, you can safely clear the fault after the new scan period takes effect. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Scan Engine\\Scan Engine.lvproj",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_scan_engine_scan_engine_lvproj"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -137,52 +156,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "mode",
-          "description": "mode returns the operating mode of the NI Scan Engine. 0 Initialization Mode—Occurs only briefly during startup. 1 Configuration Mode—The required mode when configuring scan engine settings. 2 Active Mode—The mode in which the scan engine runs and updates values. 3 Fault Mode—The mode triggered when a major or unrecoverable fault occurs.",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "mode",
           "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "Initialization Mode"
-            ],
-            [
-              1,
-              "Configuration Mode"
-            ],
-            [
-              2,
-              "Active Mode"
-            ],
-            [
-              3,
-              "Fault Mode"
-            ]
-          ],
-          "python_param": "mode"
+          "description": "mode returns the operating mode of the NI Scan Engine."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -194,35 +208,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "mode (Active Mode)",
-          "description": "Functions © National Instruments 2637 mode specifies the operating mode of the scan engine running on the target. 0 Configuration Mode—The required mode when configuring scan engine settings. 1 Active Mode (default)—The mode in which the scan engine runs and updates values.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "mode_active_mode"
+          "python_param": "mode",
+          "default_value": null,
+          "description": "mode specifies the operating mode of the scan engine running on the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -234,28 +260,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "Functions 2638 ni.com error out contains error information. This output provides standard error out functionality. If you physically change an I/O module deployed from a LabVIEW project, this VI cannot overwrite the deployed configuration until you undeploy the I/O module in the LabVIEW project. However, if you physically change an I/O module that was automatically detected by this VI or the corresponding Refresh Local Modules button in the NI Distributed System Manager, this VI adds and deletes",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -267,35 +302,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Forcing must be enabled on the target for individual I/O variable or I/O alias forces to take effect. This VI affects the equivalent of a master switch for all I/O variable and I/O alias forcing on the target. Functions 2640 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Scan Engine\\Programmatic Forcing.lvproj",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_scan_engine_programmatic_forcing_lvproj"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -307,35 +344,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. This VI does not disable forcing on the target. Use the Disable Variable Forcing VI to prevent I/O variable and I/O alias forcing from taking effect on the target. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Scan Engine\\Programmatic Forcing.lvproj",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_scan_engine_programmatic_forcing_lvproj"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -347,28 +386,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Forcing must be enabled on the target for individual I/O variable or I/O alias forces to take effect. Use the Enable Variable Forcing VI to re-enable forcing on the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -380,42 +428,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "variable path (URL)",
-          "description": "Functions 2642 ni.com variable path (URL) specifies the path to the I/O variable or I/O alias. The path can be absolute or relative. The format of the variable path is \\\\<TargetName>\\<ModuleName>\\<VariableName>. You can view the variable path for an I/O variable in the Context Help window when you hover over the I/O variable node on the block diagram.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "variable_path_url"
+          "python_param": "variable_path",
+          "default_value": null,
+          "description": "variable path (URL) specifies the path to the I/O variable or I/O alias. The path can be absolute or relative. The format of the variable path is \\\\<TargetName>\\<ModuleName>\\<VariableName> . You can view the variable path for an I/O variable in the Context Help window when you hover over the I/O variable node on the block diagram."
         },
         {
           "name": "forced value",
-          "description": "forced value is the value for the I/O variable or I/O alias to assume while forcing is enabled on the target and the enable forcing input of this VI is TRUE. To ensure data integrity, you must wire a value of the same data type as the I/O variable. To verify the data type of an I/O variable, right-click the I/O variable in the Project Explorer window and select Properties to display the Shared Variable Properties dialog box.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "forced_value"
+          "python_param": "forced_value",
+          "default_value": null,
+          "description": "forced value is the value for the I/O variable or I/O alias to assume while forcing is enabled on the target and the enable forcing input of this VI is TRUE."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. To perform batch forcing on a set of I/O variables, disable forcing on the target, force each I/O variable, then enable forcing on the target. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Scan Engine\\Programmatic Forcing.lvproj",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_scan_engine_programmatic_forcing_lvproj"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -427,35 +480,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "variable path (URL)",
-          "description": "variable path (URL) specifies the path to the I/O variable or I/O alias. The path can be absolute or relative. The format of the variable path is \\\\<TargetName>\\<ModuleName>\\<VariableName>. You can view the variable path for an I/O variable in the Context Help window when you hover over the I/O variable node on the block diagram.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "variable_path_url"
+          "python_param": "variable_path",
+          "default_value": null,
+          "description": "variable path (URL) specifies the path to the I/O variable or I/O alias. The path can be absolute or relative. The format of the variable path is \\\\<TargetName>\\<ModuleName>\\<VariableName> . You can view the variable path for an I/O variable in the Context Help window when you hover over the I/O variable node on the block diagram."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Scan Engine\\Programmatic Forcing.lvproj",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_scan_engine_programmatic_forcing_lvproj"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -467,63 +522,67 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "fault list",
-          "description": "Functions © National Instruments 2645 fault list contains the list of active faults.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "fault_list"
-        },
-        {
-          "name": "code",
-          "description": "code is the fault code.",
+          "python_param": "fault_list",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "code"
+          "description": "fault list contains the list of active faults."
         },
         {
           "name": "level",
-          "description": "level is the severity level of the fault.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "level"
+          "python_param": "level",
+          "default_value": null,
+          "description": "level is the severity level of the fault."
         },
         {
           "name": "first reported time",
-          "description": "first reported time returns the time the fault first occurred since it was last cleared.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "first_reported_time"
+          "python_param": "first_reported_time",
+          "default_value": null,
+          "description": "first reported time returns the time the fault first occurred since it was last cleared."
         },
         {
           "name": "number reported",
-          "description": "number reported is the number of times the fault has occurred since it was last cleared.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "number_reported"
+          "python_param": "number_reported",
+          "default_value": null,
+          "description": "number reported is the number of times the fault has occurred since it was last cleared."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. This VI allocates memory and can affect the determinism of the application. This VI must run on a target with the NI Scan Engine installed. To obtain the fault list of a remote target from a host computer, you can use the DataSocket Read VI to subscribe to the following URL: psp:\\\\<target IP address>\\NI_SystemState\\ControllerStatus\\ FaultList The data type returned by the URL above is identical to that o",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Scan Engine\\Scan Engine.lvproj",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_scan_engine_scan_engine_lvproj"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -535,35 +594,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "major fault (F)",
-          "description": "major fault specifies whether the fault is major (TRUE) or minor (FALSE).",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "major_fault_f"
+          "python_param": "major_fault",
+          "default_value": null,
+          "description": "major fault specifies whether the fault is major (TRUE) or minor (FALSE)."
         },
         {
           "name": "error in (user fault)",
-          "description": "error in (user fault) specifies the fault code. If you do not specify a fault code, the fault code defaults to −66480. This VI triggers a fault based on the presence of a non-zero error code, regardless of the value of status. You may optionally provide additional information about the fault in source.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_user_fault"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in (user fault) specifies the fault code."
         },
         {
           "name": "error adding fault",
-          "description": "error adding fault contains error information related to the creation of the fault. Fault creation can fail if the NI Scan Engine is not installed on the target or if the target has already reached the maximum number of active faults (100). Right-click the error out front panel indicator and select Explain Error from the shortcut menu for more information about the error.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_adding_fault"
+          "python_param": "error_adding_fault",
+          "default_value": null,
+          "description": "error adding fault contains error information related to the creation of the fault. Fault creation can fail if the NI Scan Engine is not installed on the target or if the target has already reached the maximum number of active faults (100). Right-click the error out front panel indicator and select Explain Error from the shortcut menu for more information about the error."
         },
         {
           "name": "error out",
-          "description": "error out returns error in (user fault). Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out returns error in (user fault) ."
         }
       ]
     },
@@ -575,42 +646,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "fault code",
-          "description": "fault code is the code associated with the fault. The VI ignores this input if clear all? is TRUE.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fault_code"
+          "python_param": "fault_code",
+          "default_value": null,
+          "description": "fault code is the code associated with the fault. The VI ignores this input if clear all? is TRUE."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 2648 ni.com This VI does not allocate memory, so you can use this VI in a time-critical section of an application without significantly affecting determinism. This VI applies only to targets with the NI Scan Engine installed. You must either run this VI on a target with the NI Scan Engine installed or use the target address input to point to a target with the NI Scan Engine installed. Examples ",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Scan Engine\\Scan Engine.lvproj",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_scan_engine_scan_engine_lvproj"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -622,28 +698,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. This VI does not allocate memory, so you can use this VI in a time-critical section of an application without significantly affecting determinism. This VI applies only to targets with the NI Scan Engine installed. You must either run Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -729,69 +814,87 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "fault configuration",
-          "description": "fault configuration specifies the custom fault configuration to apply.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fault_configuration"
-        },
-        {
-          "name": "code",
-          "description": "code is the fault code of the configurable fault.",
+          "python_param": "fault_configuration",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "code"
+          "description": "fault configuration specifies the custom fault configuration to apply."
         },
         {
           "name": "level or level before threshold",
-          "description": "level or level before threshold specifies the level of the specified fault before the occurrence threshold is met. 0 Ignore—Each occurrence adds to the occurrence counter used to determine whether the occurrence threshold is met but does not trigger the fault. 1 Minor—Each occurrence triggers the fault as a Minor fault. 2 Major—Each occurrence triggers the fault as a Major fault.",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "level_or_level_before_threshold",
           "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "Ignore"
-            ],
-            [
-              1,
-              "Minor"
-            ],
-            [
-              2,
-              "Major"
-            ]
-          ],
-          "python_param": "level_or_level_before_threshold"
+          "description": "level or level before threshold specifies the level of the specified fault before the occurrence threshold is met."
         },
         {
           "name": "occurrence threshold",
-          "description": "occurrence threshold specifies the number of times the selected fault can occur before the level of the fault changes.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "occurrence_threshold"
+          "python_param": "occurrence_threshold",
+          "default_value": null,
+          "description": "occurrence threshold specifies the number of times the selected fault can occur before the level of the fault changes."
         },
         {
           "name": "time window in seconds",
-          "description": "time window specifies a time limit for the occurrence threshold. When the time window expires, LabVIEW resets the internal occurrence counter for the specified fault and restarts the time window. The default is 0, which specifies not to use the time window and not to reset the occurrence counter until the NI Scan Engine restarts.",
-          "default_value": "0, which specifies not to use the time window and not to reset the occurrence counter until the NI Scan Engine restarts",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "time_window_in_seconds"
+          "python_param": "time_window_in_seconds",
+          "default_value": null,
+          "description": "time window specifies a time limit for the occurrence threshold. When the time window expires, LabVIEW resets the internal occurrence counter for the specified fault and restarts the time window. The default is 0, which specifies not to use the time window and not to reset the occurrence counter until the NI Scan Engine restarts."
         },
         {
           "name": "level after threshold",
-          "description": "Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "level_after_threshold"
+          "python_param": "level_after_threshold",
+          "default_value": null,
+          "description": "level after threshold specifies the level of the specified fault after the occurrence threshold is met."
+        },
+        {
+          "name": "error in (no error)",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "error out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -803,35 +906,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "code to clear",
-          "description": "code to clear is the error code that corresponds to the configurable fault.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "code_to_clear"
+          "python_param": "code_to_clear",
+          "default_value": null,
+          "description": "code to clear is the error code that corresponds to the configurable fault."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "Functions 2652 ni.com error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -843,70 +958,87 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "target address (localhost)",
-          "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "target_address_localhost"
+          "python_param": "target_address",
+          "default_value": null,
+          "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "configured faults",
-          "description": "configured faults returns information about custom fault configurations on the target. If none of the configurable faults are currently set to use custom configurations, this output returns an empty array.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "configured_faults"
-        },
-        {
-          "name": "code",
-          "description": "",
+          "python_param": "configured_faults",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "code"
+          "description": "configured faults returns information about custom fault configurations on the target."
         },
         {
           "name": "level or level before threshold",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "level_or_level_before_threshold"
+          "python_param": "level_or_level_before_threshold",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "occurrence threshold",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "occurrence_threshold"
+          "python_param": "occurrence_threshold",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "time window in seconds",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "time_window_in_seconds"
+          "python_param": "time_window_in_seconds",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "level after threshold",
-          "description": "",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "level_after_threshold"
+          "python_param": "level_after_threshold",
+          "default_value": null,
+          "description": ""
         },
         {
           "name": "error out",
-          "description": "Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     }

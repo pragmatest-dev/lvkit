@@ -10,28 +10,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is a value to compare to y"
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be of the same type as x ."
+        },
+        {
           "name": "x = y?",
-          "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns TRUE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if they refer to the same object, they are equal. To comp",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Comparison Functions.vi",
-          "description": "",
+          "python_param": "x__y",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_comparison_functions_vi"
-        },
-        {
-          "name": "x != y?",
-          "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns FALSE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if the",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "x_y"
+          "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
     },
@@ -43,14 +52,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x != y?",
-          "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns FALSE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if the",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is a value to compare to y"
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be of the same type as x"
+        },
+        {
+          "name": "x != y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x__y",
+          "default_value": null,
+          "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
     },
@@ -62,21 +94,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x > y?",
-          "description": "x > y? returns the Boolean result of the operation. When you compare arrays, x > y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less? Function Less? Function Returns TRUE if x is less than y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cluster of Boolean values. The connector pane displays ",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is a value to compare to y"
         },
         {
-          "name": "x < y?",
-          "description": "Functions",
-          "default_value": null,
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be of the same type as x"
+        },
+        {
+          "name": "x > y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x__y",
+          "default_value": null,
+          "description": "x > y? returns the Boolean result of the operation. When you compare arrays, x > y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
     },
@@ -88,35 +136,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x < y?",
-          "description": "Functions © National Instruments 749 x < y? returns the Boolean result of the operation. When you compare arrays, x < y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Greater Or Equal? Function Greater Or Equal? Function Returns TRUE if x is greater than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. You can compare an array or cluster of a data type to a scalar of the same data type and",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
-        },
-        {
-          "name": "x >= y?",
-          "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less Or Equal? Function Less Or Equal? Function Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 750 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cl",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_y"
-        },
-        {
-          "name": "x <= y?",
-          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_y"
-        },
-        {
-          "name": "x = 0?",
-          "description": "Functions © National Instruments 751",
+          "python_param": "x",
           "default_value": null,
+          "description": "x is a value to compare to y"
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be of the same type as x"
+        },
+        {
+          "name": "x < y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x__y",
+          "default_value": null,
+          "description": "x < y? returns the Boolean result of the operation. When you compare arrays, x < y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
     },
@@ -128,28 +178,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x >= y?",
-          "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Less Or Equal? Function Less Or Equal? Function Returns TRUE if x is less than or equal to y. Otherwise, this function returns FALSE. You can change the comparison mode of this function. Functions 750 ni.com You can compare an array or cluster of a data type to a scalar of the same data type and produce an array or cl",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
-        },
-        {
-          "name": "x <= y?",
-          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_y"
-        },
-        {
-          "name": "x = 0?",
-          "description": "Functions",
+          "python_param": "x",
           "default_value": null,
+          "description": "x is a value to compare to y"
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be of the same type as x"
+        },
+        {
+          "name": "x >= y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x__y",
+          "default_value": null,
+          "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
     },
@@ -161,21 +220,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x <= y?",
-          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). Equal To 0? Function Equal To 0? Function Returns TRUE if x is equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is a value to compare to y"
         },
         {
-          "name": "x = 0?",
-          "description": "Functions",
-          "default_value": null,
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be of the same type as x"
+        },
+        {
+          "name": "x <= y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x__y",
+          "default_value": null,
+          "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
     },
@@ -187,42 +262,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x = 0?",
-          "description": "Functions © National Instruments 751 x = 0? is a Boolean value of the same data type structure as x. Not Equal To 0? Function Not Equal To 0? Function Returns TRUE if x is not equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x != 0?",
-          "description": "x!= 0? is a Boolean value of the same data type structure as x. Greater Than 0? Function Greater Than 0? Function Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x > 0?",
-          "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x < 0?",
-          "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x >= 0?",
-          "description": "Functions © National Instruments 753",
+          "python_param": "x",
           "default_value": null,
+          "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
+        },
+        {
+          "name": "x = 0?",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "x__0",
+          "default_value": null,
+          "description": "x = 0? is a Boolean value of the same data type structure as x ."
         }
       ]
     },
@@ -234,28 +294,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x > 0?",
-          "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x < 0?",
-          "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x >= 0?",
-          "description": "Functions",
+          "python_param": "x",
           "default_value": null,
+          "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
+        },
+        {
+          "name": "x > 0?",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "x__0",
+          "default_value": null,
+          "description": "x > 0? is a Boolean value of the same data type structure as x ."
         }
       ]
     },
@@ -267,35 +326,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x != 0?",
-          "description": "x!= 0? is a Boolean value of the same data type structure as x. Greater Than 0? Function Greater Than 0? Function Returns TRUE if x is greater than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x > 0?",
-          "description": "Functions 752 ni.com x > 0? is a Boolean value of the same data type structure as x. Less Than 0? Function Less Than 0? Function Returns TRUE if x is less than 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x < 0?",
-          "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "x_0"
-        },
-        {
-          "name": "x >= 0?",
-          "description": "Functions",
+          "python_param": "x",
           "default_value": null,
+          "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
+        },
+        {
+          "name": "x != 0?",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "x__0",
+          "default_value": null,
+          "description": "x!= 0? is a Boolean value of the same data type structure as x ."
         }
       ]
     },
@@ -307,21 +358,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x >= 0?",
-          "description": "Functions © National Instruments 753 x >= 0? is a Boolean value of the same data type structure as x. Less Or Equal To 0? Function Less Or Equal To 0? Function Returns TRUE if x is less than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
-          "name": "x <= 0?",
-          "description": "x ≤ 0? is a Boolean value of the same data type structure as x.",
-          "default_value": null,
+          "name": "x >= 0?",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "x__0",
+          "default_value": null,
+          "description": "x >= 0? is a Boolean value of the same data type structure as x ."
         }
       ]
     },
@@ -333,21 +390,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x < 0?",
-          "description": "x < 0? is a Boolean value of the same data type structure as x. Greater Or Equal To 0? Function Greater Or Equal To 0? Function Returns TRUE if x is greater than or equal to 0. Otherwise, this function returns FALSE. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
-          "name": "x >= 0?",
-          "description": "Functions",
-          "default_value": null,
+          "name": "x < 0?",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "x__0",
+          "default_value": null,
+          "description": "x < 0? is a Boolean value of the same data type structure as x ."
         }
       ]
     },
@@ -359,14 +422,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x <= 0?",
-          "description": "x ≤ 0? is a Boolean value of the same data type structure as x.",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_0"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
+        },
+        {
+          "name": "x <= 0?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x__0",
+          "default_value": null,
+          "description": "x ≤ 0? is a Boolean value of the same data type structure as x ."
         }
       ]
     },
@@ -378,14 +454,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "s? t:f",
-          "description": "s? t:f is the value wired to t if s is TRUE. s? t:f is the value wired to f if s is FALSE.",
-          "default_value": null,
+          "name": "t",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "s_t_f"
+          "python_param": "t",
+          "default_value": null,
+          "description": "t is the value that this function returns if s passes a TRUE value. t and f must be of the same type, but they can have different numeric representations."
+        },
+        {
+          "name": "s",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "s",
+          "default_value": null,
+          "description": "s determines whether the function returns the value of t or f in s? t:f . If you wire an error cluster to s and an error occurs, the error cluster passes a TRUE value to the function. Otherwise, the error cluster passes a FALSE value to the function."
+        },
+        {
+          "name": "f",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "f",
+          "default_value": null,
+          "description": "f is the value that this function returns if s passes a FALSE value. t and f must be of the same type, but they can have different numeric representations."
+        },
+        {
+          "name": "s? t:f",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "s_tf",
+          "default_value": null,
+          "description": "s? t:f is the value wired to t if s is TRUE. s? t:f is the value wired to f if s is FALSE."
         }
       ]
     },
@@ -397,63 +506,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "max(x,y)",
-          "description": "max(x, y) is the larger value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the maximum value. max(x, y) is an array consisting of the maximum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, max(",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "maxx_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is a value to compare to y"
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be of the same type as x"
+        },
+        {
+          "name": "max(x,y)",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "max_",
+          "default_value": null,
+          "description": "max(x, y) is the larger value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the maximum value. max(x, y) is an array consisting of the maximum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, max(x, y) returns the array that has the greater value for that element."
         },
         {
           "name": "min(x,y)",
-          "description": "min(x, y) is the smaller value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the minimum value. min(x, y) is an array consisting of the minimum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, min",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "minx_y"
-        },
-        {
-          "name": "Both inputs are NaN",
-          "description": "Both max(x,y) and min(x,y) return NaN",
+          "python_param": "min_",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "both_inputs_are_nan"
-        },
-        {
-          "name": "Only one input is NaN",
-          "description": "Both max(x,y) and min(x,y) return the non-NaN value",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "only_one_input_is_nan"
-        },
-        {
-          "name": "Inputs are arrays",
-          "description": "The function evaluates each pair of elements according to the previous rules In Compare Aggregates mode, when one or both inputs are NaN (Not-a-Number), this function produces the following results:",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "inputs_are_arrays"
-        },
-        {
-          "name": "Both inputs are NaN",
-          "description": "Both max(x,y) and min(x,y) return NaN",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "both_inputs_are_nan"
-        },
-        {
-          "name": "Only one input is NaN",
-          "description": "max(x,y) returns x and min(x,y) returns y",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "only_one_input_is_nan"
-        },
-        {
-          "name": "Inputs are arrays",
-          "description": "If the function encounters a NaN element in either input array, max(x,y) returns x and min(x,y) returns y Functions 756 ni.com",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "inputs_are_arrays"
+          "description": "min(x, y) is the smaller value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the minimum value. min(x, y) is an array consisting of the minimum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, min(x, y) returns the array that has the smaller value for that element."
         }
       ]
     },
@@ -465,77 +558,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "upper limit",
-          "description": "upper limit of the range.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "upper_limit"
+          "python_param": "upper_limit",
+          "default_value": null,
+          "description": "upper limit of the range."
+        },
+        {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x is the value to check and/or coerce."
         },
         {
           "name": "lower limit",
-          "description": "lower limit of the range.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "lower_limit"
+          "python_param": "lower_limit",
+          "default_value": null,
+          "description": "lower limit of the range."
         },
         {
           "name": "coerced(x)",
-          "description": "coerced(x) returns the coerced or unchanged value of x. If x is within the range set by the upper limit and lower limit inputs or if the function is in Compare Aggregates mode, the value is Functions © National Instruments 757 unchanged. If x is not in range and the function is in Compare Elements mode, the function converts the value to the same value as upper limit or lower limit. If upper limit, x, or lower limit is NaN, coerced(x) is NaN.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "coercedx"
+          "python_param": "coerced",
+          "default_value": null,
+          "description": "coerced(x) returns the coerced or unchanged value of x . If x is within the range set by the upper limit and lower limit inputs or if the function is in Compare Aggregates mode, the value is unchanged. If x is not in range and the function is in Compare Elements mode, the function converts the value to the same value as upper limit or lower limit . If upper limit , x , or lower limit is NaN , coerced(x) is NaN ."
         },
         {
           "name": "In Range?",
-          "description": "In Range? is a Boolean value in Compare Aggregates mode. In Compare Elements mode, the data type structure of In Range? matches the data type structure of x, with each scalar replaced by a Boolean value. If upper limit, x, or lower limit is NaN, In Range? is FALSE. This function compares the input data values according to the Boolean comparison rules. If the function is in Compare Aggregates mode, it returns the unchanged value of x in coerced(x) rather than a coerced value. The function conside",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "in_range"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\In Range and Coerce.vi",
-          "description": "",
+          "python_param": "in_range",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_in_range_and_coerce_vi"
-        },
-        {
-          "name": "number/path/refnum",
-          "description": "number/path/refnum can be a scalar number, path, or refnum, or it can be a cluster or array of numbers, paths, or refnums.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "number_path_refnum"
-        },
-        {
-          "name": "NaN/Path/Refnum?",
-          "description": "NaN/Path/Refnum? is a Boolean value of the same data type structure as number/path/refnum. This function works only on references generated by LabVIEW functions. Do not use this function to determine the validity of a rendezvous refnum, semaphore refnum, or any refnum created by the GOOP wizard, LabVIEW Database Connectivity Toolkit, or LabVIEW Internet Toolkit. For rendezvous refnums, use the Not A Rendezvous VI. For semaphore refnums, use the Not A Semaphore VI. For all other GOOP refnums or t",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "nan_path_refnum"
-        },
-        {
-          "name": "Do not use this function to evaluate whether a refnum is invalid before using the",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "do_not_use_this_function_to_evaluate_whether_a_refnum_is_invalid_before_using_the"
-        },
-        {
-          "name": "Use this function in custom probes to get the refnum status.",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "use_this_function_in_custom_probes_to_get_the_refnum_status"
-        },
-        {
-          "name": "Use this function to evaluate the status of an existing invalid refnum before",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "use_this_function_to_evaluate_the_status_of_an_existing_invalid_refnum_before"
+          "description": "In Range? is a Boolean value in Compare Aggregates mode. In Compare Elements mode, the data type structure of In Range? matches the data type structure of x , with each scalar replaced by a Boolean value. If upper limit , x , or lower limit is NaN , In Range? is FALSE."
         }
       ]
     },
@@ -547,42 +620,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number/path/refnum",
-          "description": "number/path/refnum can be a scalar number, path, or refnum, or it can be a cluster or array of numbers, paths, or refnums.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number_path_refnum"
+          "python_param": "numberpathrefnum",
+          "default_value": null,
+          "description": "number/path/refnum can be a scalar number, path, or refnum, or it can be a cluster or array of numbers, paths, or refnums."
         },
         {
           "name": "NaN/Path/Refnum?",
-          "description": "NaN/Path/Refnum? is a Boolean value of the same data type structure as number/path/refnum. This function works only on references generated by LabVIEW functions. Do not use this function to determine the validity of a rendezvous refnum, semaphore refnum, or any refnum created by the GOOP wizard, LabVIEW Database Connectivity Toolkit, or LabVIEW Internet Toolkit. For rendezvous refnums, use the Not A Rendezvous VI. For semaphore refnums, use the Not A Semaphore VI. For all other GOOP refnums or t",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "nan_path_refnum"
-        },
-        {
-          "name": "Do not use this function to evaluate whether a refnum is invalid before using the",
-          "description": "",
+          "python_param": "nanpathrefnum",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "do_not_use_this_function_to_evaluate_whether_a_refnum_is_invalid_before_using_the"
-        },
-        {
-          "name": "Use this function in custom probes to get the refnum status.",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "use_this_function_in_custom_probes_to_get_the_refnum_status"
-        },
-        {
-          "name": "Use this function to evaluate the status of an existing invalid refnum before",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "use_this_function_to_evaluate_the_status_of_an_existing_invalid_refnum_before"
+          "description": "NaN/Path/Refnum? is a Boolean value of the same data type structure as number/path/refnum ."
         }
       ]
     },
@@ -594,56 +652,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "array",
-          "description": "array specifies an n-dimensional array of any type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "array"
+          "python_param": "array",
+          "default_value": null,
+          "description": "array specifies an n-dimensional array of any type."
         },
         {
           "name": "empty?",
-          "description": "empty? is TRUE if array is empty. Otherwise, empty? is FALSE. Empty String/Path? Function Empty String/Path? Function Returns TRUE if string/path is an empty string or an empty path. Otherwise, this function returns FALSE. This function is also designed to work with variants, pictures, and DSC tags. The connector pane displays the default data types for this polymorphic function. Inputs/Outputs",
-          "default_value": "data types for this polymorphic function",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "empty"
-        },
-        {
-          "name": "string/path",
-          "description": "Functions 760 ni.com string/path can be a string, a path, a variant, a picture string, a DSC tag, or an array or a cluster of these types.",
+          "python_param": "empty",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "string_path"
-        },
-        {
-          "name": "empty?",
-          "description": "empty? is a Boolean value of the same data type structure as string/path. Decimal Digit? Function Decimal Digit? Function Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displ",
-          "default_value": "data types for this polymorphic function",
-          "enum_values": null,
-          "python_param": "empty"
-        },
-        {
-          "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
-        },
-        {
-          "name": "digit?",
-          "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "digit"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
+          "description": "empty? is TRUE if array is empty. Otherwise, empty? is FALSE."
         }
       ]
     },
@@ -655,42 +684,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "string/path",
-          "description": "Functions 760 ni.com string/path can be a string, a path, a variant, a picture string, a DSC tag, or an array or a cluster of these types.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "string_path"
+          "python_param": "stringpath",
+          "default_value": null,
+          "description": "string/path can be a string, a path, a variant, a picture string, a DSC tag, or an array or a cluster of these types."
         },
         {
           "name": "empty?",
-          "description": "empty? is a Boolean value of the same data type structure as string/path. Decimal Digit? Function Decimal Digit? Function Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. If char is a number, this function interprets it as the ASCII value of a character. If char is a floating-point number, this function rounds to the nearest integer. Otherwise, this function returns FALSE. The connector pane displ",
-          "default_value": "data types for this polymorphic function",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "empty"
-        },
-        {
-          "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
+          "python_param": "empty",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
-        },
-        {
-          "name": "digit?",
-          "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "digit"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
+          "description": "empty? is a Boolean value of the same data type structure as string/path ."
         }
       ]
     },
@@ -702,77 +716,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "char"
+          "python_param": "char",
+          "default_value": null,
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
           "name": "digit?",
-          "description": "digit? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "digit"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
+          "python_param": "digit",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
-        },
-        {
-          "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
-        },
-        {
-          "name": "hex?",
-          "description": "hex? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "hex"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
-        },
-        {
-          "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
-        },
-        {
-          "name": "octal?",
-          "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "octal"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
-        },
-        {
-          "name": "char",
-          "description": "Functions © National Instruments 763",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
+          "description": "digit? is a Boolean value of the same data type structure as char ."
         }
       ]
     },
@@ -784,56 +748,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "char"
+          "python_param": "char",
+          "default_value": null,
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
           "name": "hex?",
-          "description": "hex? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "hex"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
+          "python_param": "hex_",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
-        },
-        {
-          "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
-        },
-        {
-          "name": "octal?",
-          "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "octal"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
-        },
-        {
-          "name": "char",
-          "description": "Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
+          "description": "hex? is a Boolean value of the same data type structure as char ."
         }
       ]
     },
@@ -845,35 +780,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "char"
+          "python_param": "char",
+          "default_value": null,
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
           "name": "octal?",
-          "description": "octal? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "octal"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
+          "python_param": "octal",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
-        },
-        {
-          "name": "char",
-          "description": "Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
+          "description": "octal? is a Boolean value of the same data type structure as char ."
         }
       ]
     },
@@ -885,49 +812,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "char",
-          "description": "Functions © National Instruments 763 char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "char"
+          "python_param": "char",
+          "default_value": null,
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
           "name": "printable ASCII?",
-          "description": "printable ASCII? is a Boolean value of the same data type structure as char. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "printable_ascii"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
+          "python_param": "printable_ascii",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
-        },
-        {
-          "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "char"
-        },
-        {
-          "name": "space, h/v tab, cr, lf, ff?",
-          "description": "space, h/v tab, cr, lf, ff? is a Boolean value of the same data type structure as char. Functions 764 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "space_h_v_tab_cr_lf_ff"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
+          "description": "printable ASCII? is a Boolean value of the same data type structure as char ."
         }
       ]
     },
@@ -939,28 +844,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "char"
+          "python_param": "char",
+          "default_value": null,
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
           "name": "space, h/v tab, cr, lf, ff?",
-          "description": "space, h/v tab, cr, lf, ff? is a Boolean value of the same data type structure as char. Functions 764 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "space_h_v_tab_cr_lf_ff"
-        },
-        {
-          "name": "labview\\examples\\Comparison\\Compare Character Types.vi",
-          "description": "",
+          "python_param": "space_hv_tab_cr_lf_ff",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_comparison_compare_character_types_vi"
+          "description": "space, h/v tab, cr, lf, ff? is a Boolean value of the same data type structure as char ."
         }
       ]
     },
@@ -972,21 +876,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "char",
-          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "char"
+          "python_param": "char",
+          "default_value": null,
+          "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
           "name": "class number",
-          "description": "class number is a number that corresponds to the lexical class. Refer to the ASCII Codes table for the numbers that correspond to each character. Class Number Lexical Class 0 Extended characters (codes 128 through 255) 1 Non-displayable ASCII characters (codes 0 to 31 excluding 9 through 13) 2 White space characters: Space, Tab, Carriage Return, Form Feed, Newline, and Vertical Tab (codes 32, 9, 13, 12, 10, and 11, respectively) 3 Digits 0 through 9 4 Uppercase characters A through Z 5 Lowercase",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "class_number"
+          "python_param": "class_number",
+          "default_value": null,
+          "description": "class number is a number that corresponds to the lexical class. Refer to the ASCII Codes table for the numbers that correspond to each character. Class Number Lexical Class 0 Extended characters (codes 128 through 255) 1 Non-displayable ASCII characters (codes 0 to 31 excluding 9 through 13) 2 White space characters: Space, Tab, Carriage Return, Form Feed, Newline, and Vertical Tab (codes 32, 9, 13, 12, 10, and 11, respectively) 3 Digits 0 through 9 4 Uppercase characters A through Z 5 Lowercase characters a through z 6 All printable ASCII non-alphanumeric characters"
         }
       ]
     },
@@ -1034,21 +944,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "anything",
-          "description": "anything specifies the first input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "anything"
+          "python_param": "anything",
+          "default_value": null,
+          "description": "anything specifies the first input data type. LabVIEW ignores any run-time value on the wire connected to this input."
         },
         {
           "name": "reference",
-          "description": "reference specifies the second input data type, which you want to compare against x. To set the data type of this input, wire a constant or control of the desired data type to reference. LabVIEW ignores any run-time value on the wire connected to this input. For data types with subtypes, such as arrays, clusters, and some refnums, this function also checks array dimensions and subtypes, but not the subtype names. For example, this function causes the calling VI to break if one input data type is",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "reference"
+          "python_param": "reference",
+          "default_value": null,
+          "description": "reference specifies the second input data type, which you want to compare against x . To set the data type of this input, wire a constant or control of the desired data type to reference . LabVIEW ignores any run-time value on the wire connected to this input."
         }
       ]
     },
@@ -1060,21 +976,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "type",
-          "description": "type specifies the input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "type"
+          "python_param": "type_",
+          "default_value": null,
+          "description": "type specifies the input data type. LabVIEW ignores any run-time value on the wire connected to this input."
         },
         {
           "name": "mismatch",
-          "description": "mismatch specifies the data type that you want to compare against type. To set the data type of this input, wire a constant or control of the desired data type to mismatch. Wire one data type to each mismatch input you want to compare against type. LabVIEW ignores any run-time value on the wire connected to this input. Avoiding Unexpected Behavior in Your Malleable VI To avoid unexpected behavior in your malleable VI, you can use this function to force a specific subdiagram of your Type Speciali",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "mismatch"
+          "python_param": "mismatch",
+          "default_value": null,
+          "description": "mismatch specifies the data type that you want to compare against type . To set the data type of this input, wire a constant or control of the desired data type to mismatch . Wire one data type to each mismatch input you want to compare against type . LabVIEW ignores any run-time value on the wire connected to this input."
         }
       ]
     },
@@ -1086,21 +1008,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is an error cluster. Otherwise, this output returns an empty error cluster. Functions © National Instruments 781",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is an error cluster. Otherwise, this output returns an empty error cluster."
         }
       ]
     },
@@ -1112,28 +1040,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "array type",
-          "description": "array type specifies the input comparison array with the requirements that the input data must meet. This input accepts arrays of any data type. To set the data type of this input, wire a constant or control of the desired data type to array type. LabVIEW ignores any data in the constant or control wired to array type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "array_type"
+          "python_param": "array_type",
+          "default_value": null,
+          "description": "array type specifies the input comparison array with the requirements that the input data must meet."
         },
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts arrays that meet the requirements of array type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type ."
         }
       ]
     },
@@ -1145,28 +1082,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "array type",
-          "description": "array type specifies the input comparison array with the requirements that the input data must meet. This input accepts arrays of any data type. To set the data type of this input, wire a constant or control of the desired data type to array type. LabVIEW ignores any data in the constant or control wired to array type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "array_type"
+          "python_param": "array_type",
+          "default_value": null,
+          "description": "array type specifies the input comparison array with the requirements that the input data must meet."
         },
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts arrays that meet the requirements of array type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type ."
         }
       ]
     },
@@ -1178,28 +1124,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "ancestor type",
-          "description": "ancestor type specifies the input class or interface with the requirements that the input data must meet. This input accepts any class or interface. To set the class or interface of this input, wire a constant or control of the desired class or interface to ancestor type. LabVIEW ignores any data in the constant or control wired to ancestor type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "ancestor_type"
+          "python_param": "ancestor_type",
+          "default_value": null,
+          "description": "ancestor type specifies the input class or interface with the requirements that the input data must meet."
         },
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts the class or interface of ancestor type or descendants of ancestor type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in meets the requirements. Otherwise, this output returns the default value of ancestor type.",
-          "default_value": "value of ancestor type",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in meets the requirements. Otherwise, this output returns the default value of ancestor type ."
         }
       ]
     },
@@ -1211,21 +1166,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any scalar numeric or waveform data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a scalar numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a scalar numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
     },
@@ -1237,21 +1198,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any scalar numeric data type. Functions © National Instruments 785",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a scalar numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a scalar numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
     },
@@ -1263,21 +1230,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any non-complex numeric or waveform data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a non-complex numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a non-complex numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
     },
@@ -1289,21 +1262,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any non-complex numeric data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a non-complex numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a non-complex numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
     },
@@ -1315,21 +1294,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any floating-point, complex floating-point, or fixed-point numeric data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "Functions © National Instruments 787 value out returns the input data if value in is a floating-point, complex floating-point, or fixed- point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a floating-point, complex floating-point, or fixed-point numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
     },
@@ -1341,21 +1326,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any complex numeric data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a complex numeric type. Otherwise, this output returns a complex double-precision number 0 +0 i. This output can return any complex numeric type.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a complex numeric type. Otherwise, this output returns a complex double-precision number 0 +0 i."
         }
       ]
     },
@@ -1367,21 +1358,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any floating-point or complex floating-point numeric data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a floating-point or complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a floating-point or complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
     },
@@ -1393,21 +1390,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any non-complex floating-point numeric data type. Functions © National Instruments 789",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a non-complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a non-complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
     },
@@ -1419,21 +1422,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any integer numeric data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is an integer numeric type. Otherwise, this output returns a 32-bit signed integer 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is an integer numeric type. Otherwise, this output returns a 32-bit signed integer 0."
         }
       ]
     },
@@ -1445,21 +1454,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any signed integer numeric data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a signed integer numeric type. Otherwise, this output returns a 32-bit signed integer 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a signed integer numeric type. Otherwise, this output returns a 32-bit signed integer 0."
         }
       ]
     },
@@ -1471,21 +1486,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data. This input accepts any unsigned integer numeric data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is an unsigned integer numeric type. Otherwise, this output returns a 32-bit unsigned integer 0. Functions © National Instruments 791",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is an unsigned integer numeric type. Otherwise, this output returns a 32-bit unsigned integer 0."
         }
       ]
     },
@@ -1497,21 +1518,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value in",
-          "description": "value in specifies the input data.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_in"
+          "python_param": "value_in",
+          "default_value": null,
+          "description": "value in specifies the input data."
         },
         {
           "name": "value out",
-          "description": "value out returns the input data if value in is a fixed-point numeric type. Otherwise, this output returns a fixed-point number 0.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_out"
+          "python_param": "value_out",
+          "default_value": null,
+          "description": "value out returns the input data if value in is a fixed-point numeric type. Otherwise, this output returns a fixed-point number 0."
         }
       ]
     },
@@ -1523,42 +1550,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "value",
-          "description": "Functions 792 ni.com value specifies the value to check. This input accepts any data type.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "value"
+          "python_param": "value",
+          "default_value": null,
+          "description": "value specifies the value to check. This input accepts any data type."
         },
         {
           "name": "changed or first call?",
-          "description": "changed or first call? returns TRUE if this is the first call of this VI or if the value changed since the last time this VI was called. Otherwise, this output returns FALSE. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "changed_or_first_call"
-        },
-        {
-          "name": "labview\\examples\\Malleable VIs\\Basics\\Malleable VIs",
-          "description": "",
+          "python_param": "changed_or_first_call",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_malleable_vis_basics_malleable_vis"
-        },
-        {
-          "name": "path",
-          "description": "path specifies the path you want to check.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "path"
-        },
-        {
-          "name": "Is Path and Not Empty?",
-          "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE. Fixed-Point Overflow? Function Fixed-Point Overflow? Function Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "is_path_and_not_empty"
+          "description": "changed or first call? returns TRUE if this is the first call of this VI or if the value changed since the last time this VI was called. Otherwise, this output returns FALSE."
         }
       ]
     },
@@ -1570,21 +1582,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "FXP",
-          "description": "FXP specifies a fixed-point number.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "fxp"
+          "python_param": "fxp",
+          "default_value": null,
+          "description": "FXP specifies a fixed-point number."
         },
         {
           "name": "overflow?",
-          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "overflow"
+          "python_param": "overflow",
+          "default_value": null,
+          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE."
         }
       ]
     },
@@ -1596,35 +1614,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "path",
-          "description": "path specifies the path you want to check.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "path"
+          "python_param": "path",
+          "default_value": null,
+          "description": "path specifies the path you want to check."
         },
         {
           "name": "Is Path and Not Empty?",
-          "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE. Fixed-Point Overflow? Function Fixed-Point Overflow? Function Returns TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. Otherwise, this function returns FALSE. Functions © National Instruments 793 Inputs/Outputs",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "is_path_and_not_empty"
-        },
-        {
-          "name": "FXP",
-          "description": "FXP specifies a fixed-point number.",
+          "python_param": "is_path_and_not_empty",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "fxp"
-        },
-        {
-          "name": "overflow?",
-          "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "overflow"
+          "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE."
         }
       ]
     }

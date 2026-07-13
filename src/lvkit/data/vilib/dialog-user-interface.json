@@ -10,28 +10,37 @@
       "vi_path": "vi.lib/dialog/One Button Dialog.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "complete",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "message",
-          "description": "message is the text to display in the dialog box. The dialog box expands when you add more text. This function automatically wraps the text based on the size of the dialog box. The dialog box can display as much text as your computer screen can display. If you want a scrollbar to show when the size of the dialog box exceeds your desired size, use the Three Button Dialog VI. With this VI, you can convert a three button dialog box to a one or two button dialog box by wiring an empty string to a bu",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "message"
+          "python_param": "message",
+          "default_value": null,
+          "description": "message is the text to display in the dialog box. The dialog box expands when you add more text. This function automatically wraps the text based on the size of the dialog box. The dialog box can display as much text as your computer screen can display. If you want a scrollbar to show when the size of the dialog box exceeds your desired size, use the Three Button Dialog VI. With this VI, you can convert a three button dialog box to a one or two button dialog box by wiring an empty string to a button text input to hide that button."
         },
         {
           "name": "button name (\"OK\")",
-          "description": "button name is the name displayed in the dialog box button. The default is OK.",
-          "default_value": "OK",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "button_name_ok"
+          "python_param": "button_name",
+          "default_value": null,
+          "description": "button name is the name displayed in the dialog box button. The default is OK ."
         },
         {
           "name": "true",
-          "description": "true returns a value of TRUE when this dialog box closes, regardless of whether you close the dialog by using the dialog box button or by using the close window button. You may use this output to provide execution ordering control for downstream functions.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "true"
+          "python_param": "true",
+          "default_value": null,
+          "description": "true returns a value of TRUE when this dialog box closes, regardless of whether you close the dialog by using the dialog box button or by using the close window button. You may use this output to provide execution ordering control for downstream functions."
         }
       ],
       "imports": [],
@@ -47,35 +56,47 @@
       "vi_path": "vi.lib/dialog/Two Button Dialog.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "message",
-          "description": "Functions © National Instruments 1857 message is the text to display in the dialog box. The dialog box expands when you add more text. This function automatically wraps the text based on the size of the dialog box. The dialog box can display as much text as your computer screen can display. If you want a scrollbar to show when the size of the dialog box exceeds your desired size, use the Three Button Dialog VI. With this VI, you can convert a three button dialog box to a one or two button dialog",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "message"
+          "python_param": "message",
+          "default_value": null,
+          "description": "message is the text to display in the dialog box. The dialog box expands when you add more text. This function automatically wraps the text based on the size of the dialog box. The dialog box can display as much text as your computer screen can display. If you want a scrollbar to show when the size of the dialog box exceeds your desired size, use the Three Button Dialog VI. With this VI, you can convert a three button dialog box to a one or two button dialog box by wiring an empty string to a button text input to hide that button."
         },
         {
           "name": "T button name (\"OK\")",
-          "description": "T button name is the name displayed on one of the dialog box buttons. The default is OK.",
-          "default_value": "OK",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "t_button_name_ok"
+          "python_param": "t_button_name",
+          "default_value": null,
+          "description": "T button name is the name displayed on one of the dialog box buttons. The default is OK ."
         },
         {
           "name": "F button name (\"Cancel\")",
-          "description": "F button name is the name displayed on one of the dialog box buttons. The default is Cancel.",
-          "default_value": "Cancel",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "f_button_name_cancel"
+          "python_param": "f_button_name",
+          "default_value": null,
+          "description": "F button name is the name displayed on one of the dialog box buttons. The default is Cancel ."
         },
         {
           "name": "T button?",
-          "description": "T button? returns a value of TRUE if you click the dialog box button named T button name. If you click the dialog box button named F button name or click the close window button, T button? returns a value of FALSE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "t_button"
+          "python_param": "t_button",
+          "default_value": null,
+          "description": "T button? returns a value of TRUE if you click the dialog box button named T button name . If you click the dialog box button named F button name or click the close window button, T button? returns a value of FALSE."
         }
       ],
       "python": "two_button_dialog(message, t_btn, f_btn)"
@@ -88,79 +109,177 @@
       "vi_path": "vi.lib/dialog/Three Button Dialog.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Justify Message (Left)",
-          "description": "Justify Message sets the justification of the text that is displayed. Functions 1858 ni.com 0 Left—Justifies the text to the left. 1 Center—Centers the text. 2 Right—Justifies the text to the right.",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "justify_message",
           "default_value": null,
-          "enum_values": [
-            [
-              1,
-              "Center"
-            ],
-            [
-              2,
-              "Right"
-            ]
-          ],
-          "python_param": "justify_message_left"
+          "description": "Justify Message sets the justification of the text that is displayed."
         },
         {
           "name": "Window Title (\"\")",
-          "description": "Window Title is the text to display in the title bar of the dialog box.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "window_title"
+          "python_param": "window_title",
+          "default_value": null,
+          "description": "Window Title is the text to display in the title bar of the dialog box."
         },
         {
           "name": "message",
-          "description": "message is the text to display in the dialog box. The dialog box has a maximum size based on your computer screen resolution and system font size. If the text exceeds the maximum size of the dialog box, a vertical scrollbar appears on the right side. Scroll to display the text beyond the maximum size.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "message"
+          "python_param": "message",
+          "default_value": null,
+          "description": "message is the text to display in the dialog box. The dialog box has a maximum size based on your computer screen resolution and system font size. If the text exceeds the maximum size of the dialog box, a vertical scrollbar appears on the right side. Scroll to display the text beyond the maximum size."
         },
         {
           "name": "Left Button Text (\"Yes\")",
-          "description": "Left Button Text is the text to display on the left button. The default is Yes.",
-          "default_value": "Yes",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "left_button_text_yes"
+          "python_param": "left_button_text",
+          "default_value": null,
+          "description": "Left Button Text is the text to display on the left button. The default is Yes ."
         },
         {
           "name": "Center Button Text (\"No\")",
-          "description": "Center Button Text is the text to display on the center button. The default is No.",
-          "default_value": "No",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "center_button_text_no"
+          "python_param": "center_button_text",
+          "default_value": null,
+          "description": "Center Button Text is the text to display on the center button. The default is No ."
         },
         {
           "name": "Right Button Text (\"Cancel\")",
-          "description": "Right Button Text is the text to display on the right button. The default is Cancel.",
-          "default_value": "Cancel",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "right_button_text_cancel"
+          "python_param": "right_button_text",
+          "default_value": null,
+          "description": "Right Button Text is the text to display on the right button. The default is Cancel ."
         },
         {
           "name": "Keyboard Shortcuts (Left is <Enter>)",
-          "description": "Keyboard Shortcuts specifies keyboard shortcuts for each button in the dialog box. For example, you can specify a shortcut of <F1> for a Help button in the dialog box. The default is a shortcut of <Enter> for the left button and no shortcuts for the center and right buttons.",
-          "default_value": "a shortcut of <Enter> for the left button and no shortcuts for the center and right buttons",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "keyboard_shortcuts_left_is_enter"
+          "python_param": "keyboard_shortcuts",
+          "default_value": null,
+          "description": "Keyboard Shortcuts specifies keyboard shortcuts for each button in the dialog box."
         },
         {
-          "name": "Left Button Key Shortcut",
-          "description": "Left Button Key Shortcut specifies a keyboard shortcut for the left button.",
-          "default_value": null,
+          "name": "Shift",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "left_button_key_shortcut"
+          "python_param": "shift",
+          "default_value": null,
+          "description": "If Shift is TRUE, the keyboard shortcut includes the <Shift> key."
         },
         {
-          "name": "Control",
-          "description": "Functions",
-          "default_value": null,
+          "name": "Key",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "control"
+          "python_param": "key",
+          "default_value": null,
+          "description": "Key is the name of the shortcut key."
+        },
+        {
+          "name": "Center Button Key Shortcut",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "center_button_key_shortcut",
+          "default_value": null,
+          "description": "Center Button Key Shortcut specifies a keyboard shortcut for the center button."
+        },
+        {
+          "name": "Shift",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "shift",
+          "default_value": null,
+          "description": "If Shift is TRUE, the keyboard shortcut includes the <Shift> key."
+        },
+        {
+          "name": "Key",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "key",
+          "default_value": null,
+          "description": "Key is the name of the shortcut key."
+        },
+        {
+          "name": "Right Button Key Shortcut",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "right_button_key_shortcut",
+          "default_value": null,
+          "description": "Right Button Key Shortcut specifies a keyboard shortcut for the right button."
+        },
+        {
+          "name": "Shift",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "shift",
+          "default_value": null,
+          "description": "If Shift is TRUE, the keyboard shortcut includes the <Shift> key."
+        },
+        {
+          "name": "Key",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "key",
+          "default_value": null,
+          "description": "Key is the name of the shortcut key."
+        },
+        {
+          "name": "Allow user to close window? (TRUE)",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "allow_user_to_close_window",
+          "default_value": null,
+          "description": "If Allow user to close window? is TRUE (default), the operating system window close button appears in the dialog box, and the user can close the dialog box without clicking the left, center, or right buttons."
+        },
+        {
+          "name": "Which Button?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "which_button",
+          "default_value": null,
+          "description": "Which Button? indicates which button the user clicked."
         }
       ],
       "python": "three_button_dialog(message, btn1, btn2, btn3)"
@@ -261,93 +380,157 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "[user-defined descriptions]",
-          "description": "[user-defined descriptions] is an array of descriptions of user-defined codes. If an incoming error matches one in user-defined codes, the VI returns the corresponding description from user-defined descriptions in message.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "user_defined_descriptions"
+          "python_param": "user_defined_descriptions",
+          "default_value": null,
+          "description": "[user-defined descriptions] is an array of descriptions of user-defined codes."
         },
         {
           "name": "[user-defined codes]",
-          "description": "[user-defined codes] is an array of numeric error codes you can use to define error codes and messages for your own VIs. The VI searches this array after searching an internal database of error codes. Error codes -8999 through -8000, 5000 through 9999, and 500,000 through 599,999 are reserved for you to define your own error messages.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "user_defined_codes"
+          "python_param": "user_defined_codes",
+          "default_value": null,
+          "description": "[user-defined codes] is an array of numeric error codes you can use to define error codes and messages for your own VIs."
         },
         {
           "name": "[error code] (0)",
-          "description": "[error code] is a numeric error code. If error in indicates an error, the VI ignores error code. If not, the VI tests it. A nonzero value signifies an error.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_code_0"
+          "python_param": "error_code",
+          "default_value": null,
+          "description": "[error code] is a numeric error code."
         },
         {
           "name": "[error source] (\" \")",
-          "description": "[error source] is an optional string you can use to describe the source of error code.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_source"
+          "python_param": "error_source",
+          "default_value": null,
+          "description": "[error source] is an optional string you can use to describe the source of error code ."
         },
         {
           "name": "search ni.com link visible?(T)",
-          "description": "Functions 1864 ni.com search ni.com link visible? determines whether the Search ni.com for error hyperlink appears in the dialog box. Set to TRUE to display the hyperlink. Clicking the hyperlink opens search results for the error code on ni.com in the default web browser. The hyperlink appears only for LabVIEW-defined error codes in the development environment. The default is TRUE.",
-          "default_value": "web browser",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "search_ni_com_link_visiblet"
+          "python_param": "search_nicom_link_visible",
+          "default_value": null,
+          "description": "search ni.com link visible? determines whether the Search ni.com for error hyperlink appears in the dialog box. Set to TRUE to display the hyperlink. Clicking the hyperlink opens search results for the error code on ni.com in the default web browser. The hyperlink appears only for LabVIEW-defined error codes in the development environment. The default is TRUE."
         },
         {
           "name": "type of dialog (OK msg:1)",
-          "description": "type of dialog determines what type of dialog box to display, if any. Regardless of its value, the VI outputs the error information and message describing the error. 0 no dialog—Displays no dialog box. This is useful if you want to have programmatic control over handling errors. 1 OK message (default)—Displays a dialog box with a single Continue button. After the user acknowledges the dialog box, the VI returns control to the main VI. 2 continue or stop message—Displays a dialog box with buttons",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "type_of_dialog",
           "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "no dialog"
-            ],
-            [
-              1,
-              "OK message (default)"
-            ],
-            [
-              2,
-              "continue or stop message"
-            ],
-            [
-              3,
-              "OK message + warnings"
-            ],
-            [
-              4,
-              "continue/stop + warnings"
-            ]
-          ],
-          "python_param": "type_of_dialog_ok_msg_1"
+          "description": "type of dialog determines what type of dialog box to display, if any."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input contains status, code, and source, which provide standard error in cluster element functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input contains status , code , and source , which provide standard error in cluster element functionality."
         },
         {
           "name": "[exception action] (none:0)",
-          "description": "[exception action] is a way for you to create exceptions to error handling. The VI performs the exception action if the error code and error source match the exception code and exception source. If you use the default value for an exception source, only the exception code must match for the VI to perform the exception action. 0 No exception (default)—Performs no error exception handling, even if you wire an exception code or an exception source. 1 Cancel error on match—Treats what is normally an",
-          "default_value": "value for an exception source, only the exception code must match for the VI to perform the exception action",
-          "enum_values": [
-            [
-              0,
-              "No exception (default)"
-            ],
-            [
-              1,
-              "Cancel error on match"
-            ]
-          ],
-          "python_param": "exception_action_none_0"
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "exception_action",
+          "default_value": null,
+          "description": "[exception action] is a way for you to create exceptions to error handling."
+        },
+        {
+          "name": "[exception code]",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "exception_code",
+          "default_value": null,
+          "description": "[exception code] is the error code that you want to treat as an exception. The default is 0."
+        },
+        {
+          "name": "[exception source]",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "exception_source",
+          "default_value": null,
+          "description": "[exception source] is the error message that you want to use to test for an exception. The default is an empty string."
+        },
+        {
+          "name": "error?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error",
+          "default_value": null,
+          "description": "error? returns TRUE if an error occurs. If this VI finds an error, it sets the parameters in the error cluster."
+        },
+        {
+          "name": "code out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "code_out",
+          "default_value": null,
+          "description": "code out is the error code indicated by error in or error code ."
+        },
+        {
+          "name": "source out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "source_out",
+          "default_value": null,
+          "description": "source out indicates the source of the error."
+        },
+        {
+          "name": "message",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "message",
+          "default_value": null,
+          "description": "message describes the error code that occurred, the source of the error, and a description of the error."
+        },
+        {
+          "name": "error out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -411,14 +594,17 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error out",
-          "description": "The following is a configured Error Ring. The configured Error Ring has the following parts. Section Description Toggles between error and warning. Indicates if the error includes the call chain. 6:LabVIEW Description of the error. Right-click the Error Ring and select Visible Items»Error Explanation Text from the shortcut menu to show or hide the error description. Note To reduce unnecessary execution time in your VIs, place Error Rings inside a case structure that executes only when the error ",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": ""
         }
       ]
     },
@@ -430,28 +616,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in",
-          "description": "error in 0 describes the first error condition to check for errors.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in 0 describes the first error condition to check for errors."
         },
         {
           "name": "error in",
-          "description": "error in 1 describes the second error condition to check for errors.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in 1 describes the second error condition to check for errors."
         },
         {
           "name": "error out",
-          "description": "Functions © National Instruments 1869 error out returns the first error/warning in the specified inputs or an error cluster that combines all the specified errors/warnings. When you place this function on the block diagram, it has two inputs available. You can add additional inputs to the node by right-clicking an input and selecting Add Input from the shortcut menu or by resizing the node. To remove inputs, right-click an input and select Remove Input from the shortcut menu or use resizing hand",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out returns the first error/warning in the specified inputs or an error cluster that combines all the specified errors/warnings."
         }
       ]
     },
@@ -525,42 +720,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error codes",
-          "description": "error codes is an array of the numeric error codes assembled from local subVIs or functions. If there is no error indicated in the error in cluster, the VI tests these codes in ascending order for nonzero values. If the VI finds a nonzero value, error out reflects the error status of that input. Functions © National Instruments 1871",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_codes"
+          "python_param": "error_codes",
+          "default_value": null,
+          "description": "error codes is an array of the numeric error codes assembled from local subVIs or functions. If there is no error indicated in the error in cluster, the VI tests these codes in ascending order for nonzero values. If the VI finds a nonzero value, error out reflects the error status of that input."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "source messages",
-          "description": "source messages contains the source message you want to appear in the error out cluster if the VI finds an error in error codes. Place each message on a separate line in a string constant or control. Use of this input is optional.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "source_messages"
+          "python_param": "source_messages",
+          "default_value": null,
+          "description": "source messages contains the source message you want to appear in the error out cluster if the VI finds an error in error codes . Place each message on a separate line in a string constant or control. Use of this input is optional."
         },
         {
           "name": "error?",
-          "description": "error? is TRUE if the error in cluster or any of the error codes reflects an error.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error"
+          "python_param": "error",
+          "default_value": null,
+          "description": "error? is TRUE if the error in cluster or any of the error codes reflects an error."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. If this VI finds an error, it sets the parameters in the error out cluster. You can wire this cluster to the Simple Error Handler or General Error Handler to identify the error and describe it to the user.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -597,21 +807,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error",
-          "description": "error specifies an error cluster that you use to check for errors or warnings.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error"
+          "python_param": "error",
+          "default_value": null,
+          "description": "error specifies an error cluster that you use to check for errors or warnings."
         },
         {
           "name": "array of errors",
-          "description": "array of errors returns an array of all the error clusters, encoded in either JSON or legacy format.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "array_of_errors"
+          "python_param": "array_of_errors",
+          "default_value": null,
+          "description": "array of errors returns an array of all the error clusters, encoded in either JSON or legacy format."
         }
       ]
     },
@@ -623,21 +839,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in",
-          "description": "error in specifies an error cluster that you use to check for errors or warnings.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in specifies an error cluster that you use to check for errors or warnings."
         },
         {
           "name": "error out",
-          "description": "error out returns the error from error in, encoded in JSON format.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out returns the error from error in , encoded in JSON format."
         }
       ]
     },
@@ -649,21 +871,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in",
-          "description": "error in specifies an error cluster that you use to check for errors or warnings.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in specifies an error cluster that you use to check for errors or warnings."
         },
         {
           "name": "error out",
-          "description": "error out returns the error from error in, encoded in legacy format.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out returns the error from error in , encoded in legacy format."
         }
       ]
     },
@@ -675,42 +903,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in",
-          "description": "error in specifies an error cluster that you use to check for errors or warnings.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in specifies an error cluster that you use to check for errors or warnings."
         },
         {
           "name": "attribute name",
-          "description": "attribute name specifies the name of the attribute that you want to update.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "attribute_name"
+          "python_param": "attribute_name",
+          "default_value": null,
+          "description": "attribute name specifies the name of the attribute that you want to update."
         },
         {
           "name": "JSON value",
-          "description": "JSON value specifies the value, in JSON format, to set for the attribute.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "json_value"
+          "python_param": "json_value",
+          "default_value": null,
+          "description": "JSON value specifies the value, in JSON format, to set for the attribute."
         },
         {
           "name": "error out",
-          "description": "error out returns an error cluster with the value of the specified attribute updated or with the specified attribute added.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out returns an error cluster with the value of the specified attribute updated or with the specified attribute added."
         },
         {
           "name": "created?",
-          "description": "Functions © National Instruments 1875 created? returns TRUE if the VI added the specified attribute and value to the error cluster. This output returns FALSE if the VI found the specified attribute name in the error cluster and updated the value.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "created"
+          "python_param": "created",
+          "default_value": null,
+          "description": "created? returns TRUE if the VI added the specified attribute and value to the error cluster. This output returns FALSE if the VI found the specified attribute name in the error cluster and updated the value."
         }
       ]
     },
@@ -722,21 +965,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error",
-          "description": "error specifies an error cluster that you use to check for errors or warnings.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error"
+          "python_param": "error",
+          "default_value": null,
+          "description": "error specifies an error cluster that you use to check for errors or warnings."
         },
         {
           "name": "attribute names",
-          "description": "attribute names returns the names of all attributes stored in the error cluster.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "attribute_names"
+          "python_param": "attribute_names",
+          "default_value": null,
+          "description": "attribute names returns the names of all attributes stored in the error cluster."
         }
       ]
     },
@@ -748,35 +997,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in",
-          "description": "error in specifies an error cluster that you use to check for errors or warnings.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in specifies an error cluster that you use to check for errors or warnings."
         },
         {
           "name": "attribute name",
-          "description": "attribute name specifies the name of the attribute that you want to remove.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "attribute_name"
+          "python_param": "attribute_name",
+          "default_value": null,
+          "description": "attribute name specifies the name of the attribute that you want to remove."
         },
         {
           "name": "error out",
-          "description": "error out returns an error cluster with the attribute removed. If the attribute is not found, this output returns the same error as error in.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out returns an error cluster with the attribute removed. If the attribute is not found, this output returns the same error as error in ."
         },
         {
           "name": "deleted?",
-          "description": "deleted? indicates if the attribute is removed.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "deleted"
+          "python_param": "deleted",
+          "default_value": null,
+          "description": "deleted? indicates if the attribute is removed."
         }
       ]
     },
@@ -788,42 +1049,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error",
-          "description": "error specifies an error cluster that you use to check for errors or warnings.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error"
+          "python_param": "error",
+          "default_value": null,
+          "description": "error specifies an error cluster that you use to check for errors or warnings."
         },
         {
           "name": "attribute name",
-          "description": "attribute name specifies the name of the attribute that you want to read.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "attribute_name"
+          "python_param": "attribute_name",
+          "default_value": null,
+          "description": "attribute name specifies the name of the attribute that you want to read."
         },
         {
           "name": "JSON object string",
-          "description": "JSON object string returns the JSON objects stored in the error cluster.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "json_object_string"
+          "python_param": "json_object_string",
+          "default_value": null,
+          "description": "JSON object string returns the JSON objects stored in the error cluster."
         },
         {
           "name": "value string",
-          "description": "value string returns the value of the attribute.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "value_string"
+          "python_param": "value_string",
+          "default_value": null,
+          "description": "value string returns the value of the attribute."
         },
         {
           "name": "found?",
-          "description": "found? indicates if the attribute is found. Functions © National Instruments 1877",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "found"
+          "python_param": "found",
+          "default_value": null,
+          "description": "found? indicates if the attribute is found."
         }
       ]
     },
@@ -835,35 +1111,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in (no error)",
-          "description": "Describes error conditions that occur before this node runs.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Enable",
-          "description": "Enables or disables the Express VI. The default is ON or TRUE.",
-          "default_value": "ON or TRUE",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "enable"
+          "python_param": "enable",
+          "default_value": null,
+          "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "OK",
-          "description": "Returns TRUE when you click the first button in the dialog box and FALSE when you click the second button.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "ok"
+          "python_param": "ok",
+          "default_value": null,
+          "description": "Returns TRUE when you click the first button in the dialog box and FALSE when you click the second button."
         },
         {
           "name": "error out",
-          "description": "Contains error information. This output provides standard error out functionality. Note The behavior of this VI changes depending upon the target. If the current target does not or might not have a host computer connected, the configuration dialog box displays warnings next to options that are invalid without a host. If you configure this VI to prompt for input and run the VI on a target with no user interface, such as the Real-Time Module with no host computer connected, this VI returns an erro",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -875,42 +1163,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "error in (no error)",
-          "description": "Describes error conditions that occur before this node runs.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Enable",
-          "description": "Enables or disables the Express VI. The default is ON or TRUE.",
-          "default_value": "ON or TRUE",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "enable"
+          "python_param": "enable",
+          "default_value": null,
+          "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "Message",
-          "description": "Contains the text to display in the dialog box.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "message"
+          "python_param": "message",
+          "default_value": null,
+          "description": "Contains the text to display in the dialog box."
         },
         {
           "name": "OK?",
-          "description": "Returns TRUE when you click the first button in the dialog box and FALSE when you click the second button.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "ok"
+          "python_param": "ok",
+          "default_value": null,
+          "description": "Returns TRUE when you click the first button in the dialog box and FALSE when you click the second button."
         },
         {
           "name": "error out",
-          "description": "Contains error information. This output provides standard error out functionality. Functions © National Instruments 1881 Components Specifies whether a second button is displayed in the dialog box. Specifies the text that appears on the first button. By default, the text on the first button is OK. Contains the text to display in the dialog box. Specifies the text that appears on the second button. By default, the text on the second button is Cancel. This option is available only when you place a",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -922,48 +1225,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "message",
-          "description": "message is the text to write to the system log.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "message"
+          "python_param": "message",
+          "default_value": null,
+          "description": "message is the text to write to the system log."
         },
         {
           "name": "severity (Error)",
-          "description": "severity specifies how the system log classifies the message. 0 Error—Specifies the message as an error. 1 Warning—Specifies the message as a warning. 2 Informational—Specifies the message as informational text.",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "severity",
           "default_value": null,
-          "enum_values": [
-            [
-              0,
-              "Error"
-            ],
-            [
-              1,
-              "Warning"
-            ],
-            [
-              2,
-              "Informational"
-            ]
-          ],
-          "python_param": "severity_error"
+          "description": "severity specifies how the system log classifies the message."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Functions 1882 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. You can view the messages this VI writes using the system log viewer for your operating system. (Windows) Open the Application page of the Windows Event Viewer. (macOS) Use Console to view the system log. (Linux) Use a system log viewer appropriate to your distribution. (NI Linux Real-Time) Open the System Log Viewer page of NI Web-based Configuration & Monitoring. (Phar Lap ETS, VxWorks) Open the consol",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -975,35 +1277,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "do not wait! (False)",
-          "description": "If do not wait! is TRUE, the VI runs without pausing execution.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "do_not_wait_false"
+          "python_param": "do_not_wait",
+          "default_value": null,
+          "description": "If do not wait! is TRUE, the VI runs without pausing execution."
         },
         {
           "name": "front panel (this VI's panel)",
-          "description": "front panel is a reference to the VI you want to monitor for front panel activity. You can wire a VI, front panel, or control reference to this input. If you wire a control reference, Functions © National Instruments 1883 the function monitors the activity of the front panel containing the control. If you do not specify a reference, the function monitors the front panel activity of the VI in which you place the function. You must wire a reference to a VI or object in a local application instance",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "front_panel_this_vi_s_panel"
+          "python_param": "front_panel",
+          "default_value": null,
+          "description": "front panel is a reference to the VI you want to monitor for front panel activity. You can wire a VI, front panel, or control reference to this input. If you wire a control reference, the function monitors the activity of the front panel containing the control. If you do not specify a reference, the function monitors the front panel activity of the VI in which you place the function. You must wire a reference to a VI or object in a local application instance . You cannot wire a reference to a VI or object in a remote application instance."
         },
         {
           "name": "timeout ms (-1 never timeout)",
-          "description": "timeout ms specifies the time, in milliseconds, that the function waits before it lets the VI continue execution. The default value is –1, which indicates to wait indefinitely.",
-          "default_value": "value is –1, which indicates to wait indefinitely",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "timeout_ms_1_never_timeout"
+          "python_param": "timeout_ms",
+          "default_value": null,
+          "description": "timeout ms specifies the time, in milliseconds, that the function waits before it lets the VI continue execution. The default value is –1, which indicates to wait indefinitely."
         },
         {
           "name": "millisecond timer value",
-          "description": "millisecond timer value returns the value of the millisecond timer. This function is similar to the Occurrences functions. Use this function if you want a block diagram to execute only after a user changes the value of a front panel object, such as when the user clicks a button, turns a knob, or enters data. This function activates that block diagram if the function detects user activity on the front panel. Use this function to eliminate the need for continually polling the front panel to determ",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "millisecond_timer_value"
+          "python_param": "millisecond_timer_value",
+          "default_value": null,
+          "description": "millisecond timer value returns the value of the millisecond timer."
         }
       ]
     },
@@ -1015,14 +1329,17 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "front panel (this VI's panel)",
-          "description": "Functions © National Instruments 1885 front panel specifies which VI the function generates front panel activity for. If you do not specify a reference to a VI, the function generates front panel activity of the VI in which you place the function. You must wire a reference to a VI in a local application instance. You cannot wire a reference to a VI in a remote application instance.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "front_panel_this_vi_s_panel"
+          "python_param": "front_panel",
+          "default_value": null,
+          "description": "front panel specifies which VI the function generates front panel activity for. If you do not specify a reference to a VI, the function generates front panel activity of the VI in which you place the function. You must wire a reference to a VI in a local application instance . You cannot wire a reference to a VI in a remote application instance."
         }
       ]
     },
@@ -1034,42 +1351,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "event registration refnum",
-          "description": "event registration refnum is a reference to an existing event registration a Register For Events function created.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "event_registration_refnum"
+          "python_param": "event_registration_refnum",
+          "default_value": null,
+          "description": "event registration refnum is a reference to an existing event registration a Register For Events function created."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "event source",
-          "description": "event source 1..n is a reference to an application, VI, control, or user event. References must be to local objects. You cannot wire a reference to a remote object. If you wire an array or cluster of refnums to this input, LabVIEW registers all elements of the array or cluster for the event.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "event_source"
+          "python_param": "event_source",
+          "default_value": null,
+          "description": "event source 1..n is a reference to an application, VI, control, or user event. References must be to local objects. You cannot wire a reference to a remote object. If you wire an array or cluster of refnums to this input, LabVIEW registers all elements of the array or cluster for the event."
         },
         {
           "name": "event registration refnum",
-          "description": "event reg refnum out returns the reference to a new or existing event registration.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "event_registration_refnum"
+          "python_param": "event_registration_refnum",
+          "default_value": null,
+          "description": "event reg refnum out returns the reference to a new or existing event registration."
         },
         {
           "name": "error out",
-          "description": "Functions 1888 ni.com error out contains error information. This output provides standard error out functionality. When using dynamic registration, make sure you have a Register For Events function for each Event structure. Each event source input is a reference to an application, VI, control, or user event. Each kind of event source can produce a variety of events. To specify which event you want LabVIEW to begin detecting for a particular event source, right-click the data item for the event s",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1081,28 +1413,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "event registration refnum",
-          "description": "event registration refnum is a reference to an existing event registration a Register For Events function created.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "event_registration_refnum"
+          "python_param": "event_registration_refnum",
+          "default_value": null,
+          "description": "event registration refnum is a reference to an existing event registration a Register For Events function created."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 1890 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1114,35 +1455,97 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "oldest event time",
-          "description": "oldest event time is the event timestamp, in milliseconds, when you want to start keeping events. This function discards all events previous to the event time you specify. This millisecond timer can accept the value returned by the Tick Count (ms) function.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "oldest_event_time"
+          "python_param": "oldest_event_time",
+          "default_value": null,
+          "description": "oldest event time is the event timestamp, in milliseconds, when you want to start keeping events. This function discards all events previous to the event time you specify. This millisecond timer can accept the value returned by the Tick Count (ms) function."
         },
         {
           "name": "event registration refnum",
-          "description": "event registration refnum is a reference to an event registration refnum associated with the queue you want to flush.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "event_registration_refnum"
+          "python_param": "event_registration_refnum",
+          "default_value": null,
+          "description": "event registration refnum is a reference to an event registration refnum associated with the queue you want to flush. You can also wire a cluster of event registration refnums to flush more than one queue. This input is required unless the Flush Event Queue function is in an event case of an Event structure, in which case it will flush the enclosing Event structure's static event queue. If this input is wired, the Flush Event Queue function is in an event case of an Event structure, and include static events? is unwired or True, the function will flush both the dynamic event queue(s) associated with the wired refnum(s) and the Event structure's static queue."
         },
         {
           "name": "include static events? (T)",
-          "description": "include static events? specifies whether you want to include the enqueued static events associated with an Event structure in the flush operation. The default is TRUE if you place the Flush Event Queue function in an event case of an Event structure. Otherwise, the default is FALSE.",
-          "default_value": "TRUE if you place the Flush Event Queue function in an event case of an Event structure",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "include_static_events_t"
+          "python_param": "include_static_events",
+          "default_value": null,
+          "description": "include static events? specifies whether you want to include the enqueued static events associated with an Event structure in the flush operation. The default is TRUE if you place the Flush Event Queue function in an event case of an Event structure. Otherwise, the default is FALSE. Note If you wire include static events? , you must place this function inside the Event structure that handles the static events you want to include or omit from the flush operation."
         },
         {
           "name": "event type or object",
-          "description": "Note If you wire include static events?, you must place this function inside the Event structure that handles the static events you want to include or omit from the flush operation. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "event_type_or_object"
+          "python_param": "event_type_or_object",
+          "default_value": null,
+          "description": "event type or object specifies which notify events you want to discard within the criteria set by oldest event time and keep most recent . Refer to the Details section for more information about how to specify which events you want to discard."
+        },
+        {
+          "name": "error in (no error)",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "keep most recent",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "keep_most_recent",
+          "default_value": null,
+          "description": "keep most recent specifies the number of most recent events to keep in the event queue. If you wire the event type or object parameter, keep most recent affects only the events of the type you specify. If you flush more than one event queue, keep most recent includes the total number of events to keep from all specified event queues. Note If you leave both oldest event time and keep most recent unwired, the function discards all events in all queues that meet any criteria set by event type or object . If you wire both oldest event time and keep most recent , this function keeps all events starting at the event time you specify and all events within the number of most recent events you specify."
+        },
+        {
+          "name": "event reg refnum out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "event_reg_refnum_out",
+          "default_value": null,
+          "description": "event reg refnum out returns the event registration refnum associated with the flushed event queue."
+        },
+        {
+          "name": "number of events discarded",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "number_of_events_discarded",
+          "default_value": null,
+          "description": "number of events discarded returns the total number of discarded events."
+        },
+        {
+          "name": "error out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1154,35 +1557,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "user event data type",
-          "description": "user event data type is a cluster of elements or an individual element whose data type and label define the data type and name of the user event.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "user_event_data_type"
+          "python_param": "user_event_data_type",
+          "default_value": null,
+          "description": "user event data type is a cluster of elements or an individual element whose data type and label define the data type and name of the user event. Note LabVIEW uses owned labels to identify data the user event carries, so label each element of the input with a descriptive owned label. If you do not add a label, the user event will not appear in the Event Data Node of an Event structure when added."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "user event out",
-          "description": "user event out returns the strictly typed user event refnum.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "user_event_out"
+          "python_param": "user_event_out",
+          "default_value": null,
+          "description": "user event out returns the strictly typed user event refnum."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. The user event data type is a cluster of elements or an individual element. If you wire a cluster to the user event data type input, LabVIEW uses the type name of the cluster as the name of the user event. The names and data types of the cluster elements define the event data the user event carries. If you wire an individual data element to the user event data type input, LabVIEW uses the type name of th",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1194,49 +1609,67 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "priority (normal)",
-          "description": "priority specifies the priority of the user event. If you specify high priority, the Generate User Event function enqueues the user event and associated event data into the event queue in front of any previously generated normal priority events. The default is normal priority. 0 high priority 1 normal priority (default)",
-          "default_value": "normal priority",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "priority_normal"
+          "python_param": "priority",
+          "default_value": null,
+          "description": "priority specifies the priority of the user event. If you specify high priority , the Generate User Event function enqueues the user event and associated event data into the event queue in front of any previously generated normal priority events. The default is normal priority . 0 high priority 1 normal priority (default)"
         },
         {
           "name": "user event",
-          "description": "Note If you obtain a user event reference in one application instance, you cannot use that user event reference in another application instance. If you attempt to use a user event reference in another application instance, LabVIEW returns error 1500. Functions 1896 ni.com user event is a user event refnum the Create User Event function created.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "user_event"
+          "python_param": "user_event",
+          "default_value": null,
+          "description": "user event is a user event refnum the Create User Event function created."
         },
         {
           "name": "event data",
-          "description": "event data is the type of data you defined in the user event data type input of the Create User Event function.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "event_data"
+          "python_param": "event_data",
+          "default_value": null,
+          "description": "event data is the type of data you defined in the user event data type input of the Create User Event function."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "user event out",
-          "description": "user event out returns the strictly typed user event refnum.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "user_event_out"
+          "python_param": "user_event_out",
+          "default_value": null,
+          "description": "user event out returns the strictly typed user event refnum."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. The user event input accepts a user event refnum the Create User Event function created. The data type of the event data input must match the data type of the user event. For example, if the data type of the user event input is a string, the data type of the event data input must also be a string. The event data is the type of data you defined in the user event data type input of the Create User Event fu",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1248,28 +1681,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "user event",
-          "description": "Functions © National Instruments 1897 user event is a user event refnum the Create User Event function created.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "user_event"
+          "python_param": "user_event",
+          "default_value": null,
+          "description": "user event is a user event refnum the Create User Event function created."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1281,14 +1723,17 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "menu reference",
-          "description": "menu reference refers to the menu bar of the current VI.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference"
+          "python_param": "menu_reference",
+          "default_value": null,
+          "description": "menu reference refers to the menu bar of the current VI."
         }
       ]
     },
@@ -1300,77 +1745,97 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "menu reference",
-          "description": "menu reference is the reference to a menu bar in a VI. You can obtain this refnum with the Current VI's Menubar function.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference"
+          "python_param": "menu_reference",
+          "default_value": null,
+          "description": "menu reference is the reference to a menu bar in a VI. You can obtain this refnum with the Current VI's Menubar function."
         },
         {
           "name": "ms timeout (200)",
-          "description": "ms timeout is the maximum amount of time this function checks for a menu selection. The default is 200 ms. –1 indicates never to time out.",
-          "default_value": "200 ms",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "ms_timeout_200"
+          "python_param": "ms_timeout",
+          "default_value": null,
+          "description": "ms timeout is the maximum amount of time this function checks for a menu selection. The default is 200 ms. –1 indicates never to time out."
         },
         {
           "name": "block menu (F)",
-          "description": "If block menu is TRUE, LabVIEW disables menu tracking after reading an item tag. After you process the menu selection, you must use the Enable Menu Tracking function to enable menu tracking. The default is FALSE.",
-          "default_value": "FALSE",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "block_menu_f"
+          "python_param": "block_menu",
+          "default_value": null,
+          "description": "If block menu is TRUE, LabVIEW disables menu tracking after reading an item tag. After you process the menu selection, you must use the Enable Menu Tracking function to enable menu tracking. The default is FALSE."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "timed out",
-          "description": "If timed out is TRUE, a user selection was not made within the time specified by ms timeout.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "timed_out"
+          "python_param": "timed_out",
+          "default_value": null,
+          "description": "If timed out is TRUE, a user selection was not made within the time specified by ms timeout ."
         },
         {
           "name": "menu reference out",
-          "description": "menu reference out returns menu reference unchanged. Functions 1900 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference_out"
+          "python_param": "menu_reference_out",
+          "default_value": null,
+          "description": "menu reference out returns menu reference unchanged."
         },
         {
           "name": "item tag",
-          "description": "item tag is the menu item that was selected. Wire this value to a Case structure selector terminal to handle the menu selection. When you create a case to handle each menu item, enter application item tags in the case selector label to handle application menu items.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_tag"
+          "python_param": "item_tag",
+          "default_value": null,
+          "description": "item tag is the menu item that was selected. Wire this value to a Case structure selector terminal to handle the menu selection . When you create a case to handle each menu item, enter application item tags in the case selector label to handle application menu items."
         },
         {
           "name": "item path",
-          "description": "item path describes the position of the item in the menu hierarchy, which is in the format of a list of menu tags separated by a colon (:). For example, if you choose the Open menu item from the File menu, the item path is File:Open.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_path"
+          "python_param": "item_path",
+          "default_value": null,
+          "description": "item path describes the position of the item in the menu hierarchy, which is in the format of a list of menu tags separated by a colon (:). For example, if you choose the Open menu item from the File menu, the item path is File:Open ."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Dialog and User Interface\\Menu\\",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_dialog_and_user_interface_menu"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1382,42 +1847,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "menu reference",
-          "description": "menu reference is the reference to a menu bar in a VI. You can obtain this refnum with the Current VI's Menubar function.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference"
+          "python_param": "menu_reference",
+          "default_value": null,
+          "description": "menu reference is the reference to a menu bar in a VI. You can obtain this refnum with the Current VI's Menubar function."
         },
         {
           "name": "enable (T)",
-          "description": "enable allows you to perform menu tracking if enable is TRUE (default). If enable is FALSE, menu tracking is disabled.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "enable_t"
+          "python_param": "enable",
+          "default_value": null,
+          "description": "enable allows you to perform menu tracking if enable is TRUE (default). If enable is FALSE, menu tracking is disabled."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "menu reference out",
-          "description": "menu reference out returns menu reference unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference_out"
+          "python_param": "menu_reference_out",
+          "default_value": null,
+          "description": "menu reference out returns menu reference unchanged."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1429,63 +1909,97 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "menu tag",
-          "description": "Functions 1902 ni.com menu tag specifies the submenu in which to insert the items. If you do not specify menu tag, the function inserts the items at the top level of the menu.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_tag"
+          "python_param": "menu_tag",
+          "default_value": null,
+          "description": "menu tag specifies the submenu in which to insert the items. If you do not specify menu tag , the function inserts the items at the top level of the menu."
         },
         {
           "name": "menu reference",
-          "description": "menu reference is the reference to a menu bar in a VI or to a shortcut menu of a control. You can obtain this refnum with the Current VI's Menubar function or with the MenuRef event data field of menu events.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference"
+          "python_param": "menu_reference",
+          "default_value": null,
+          "description": "menu reference is the reference to a menu bar in a VI or to a shortcut menu of a control. You can obtain this refnum with the Current VI's Menubar function or with the MenuRef event data field of menu events."
         },
         {
           "name": "item names",
-          "description": "item names identifies the items to insert in the menu. item names is the string that appears in the menu. You can wire either item names or item tags, in which case both names and tags have the same values. If you want to insert only one item, wire a string to item names.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_names"
+          "python_param": "item_names",
+          "default_value": null,
+          "description": "item names identifies the items to insert in the menu. item names is the string that appears in the menu. You can wire either item names or item tags , in which case both names and tags have the same values. If you want to insert only one item, wire a string to item names ."
         },
         {
           "name": "item tags",
-          "description": "item tags identifies the items to insert in the menu. item tags is the string that is returned if the menu item is selected. You can wire either item names or item tags, in which case both names and tags have the same values. If you want to insert only one item, wire a string to item tags. Use application item tags to insert application menu items.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_tags"
+          "python_param": "item_tags",
+          "default_value": null,
+          "description": "item tags identifies the items to insert in the menu. item tags is the string that is returned if the menu item is selected. You can wire either item names or item tags , in which case both names and tags have the same values. If you want to insert only one item, wire a string to item tags . Use application item tags to insert application menu items."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "after item",
-          "description": "after item specifies the position where the items are inserted. after item can be a tag (string) of an existing item or a position index (zero based integer) in the menu. To insert at the beginning of the menu, wire a number less than 0 to after item. To insert at the end of the menu, wire a number larger than the number of items in the menu. You can insert application items using application tags. You can insert a separator using the application tag APP_SEPARATOR. The function always ensures th",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "after_item"
+          "python_param": "after_item",
+          "default_value": null,
+          "description": "after item specifies the position where the items are inserted. after item can be a tag (string) of an existing item or a position index (zero based integer) in the menu. To insert at the beginning of the menu, wire a number less than 0 to after item . To insert at the end of the menu, wire a number larger than the number of items in the menu. You can insert application items using application tags . You can insert a separator using the application tag APP_SEPARATOR . The function always ensures that the tags of all the inserted menu items are unique to the menu hierarchy by appending numbers to the supplied tags, if necessary."
         },
         {
           "name": "menu reference out",
-          "description": "menu reference out returns menu reference unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference_out"
+          "python_param": "menu_reference_out",
+          "default_value": null,
+          "description": "menu reference out returns menu reference unchanged."
         },
         {
           "name": "item tags out",
-          "description": "Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_tags_out"
+          "python_param": "item_tags_out",
+          "default_value": null,
+          "description": "item tags out returns the actual tags of the inserted items. If the function does not find menu tag or after item (tag), the function returns an error."
+        },
+        {
+          "name": "error out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1497,56 +2011,67 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "menu reference",
-          "description": "menu reference is the reference to a menu bar in a VI or to a shortcut menu of a control. You can obtain this refnum with the Current VI's Menubar function or with the MenuRef event data field of menu events.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference"
+          "python_param": "menu_reference",
+          "default_value": null,
+          "description": "menu reference is the reference to a menu bar in a VI or to a shortcut menu of a control. You can obtain this refnum with the Current VI's Menubar function or with the MenuRef event data field of menu events."
         },
         {
           "name": "menu tag",
-          "description": "menu tag specifies the submenu from which to delete items. If you do not specify menu tag, the function deletes all items from the menu. Functions 1904 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_tag"
+          "python_param": "menu_tag",
+          "default_value": null,
+          "description": "menu tag specifies the submenu from which to delete items. If you do not specify menu tag , the function deletes all items from the menu."
         },
         {
           "name": "items",
-          "description": "items can be a tag (string) of an existing item, an array of tags of existing items, a position index (zero-based integer) of an item in the menu, or an array of position indexes of items in the menu. The default is to delete all the items in the menu or submenu specified by menu tag. If any of the specified items have a submenu, the function deletes the submenu and all its contents. Use application item tags for menus or shortcut menus to delete application menu items. Because separators do not",
-          "default_value": "to delete all the items in the menu or submenu specified by menu tag",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "items"
+          "python_param": "items",
+          "default_value": null,
+          "description": "items can be a tag (string) of an existing item, an array of tags of existing items, a position index (zero-based integer) of an item in the menu, or an array of position indexes of items in the menu. The default is to delete all the items in the menu or submenu specified by menu tag . If any of the specified items have a submenu, the function deletes the submenu and all its contents. Use application item tags for menus or shortcut menus to delete application menu items. Because separators do not have unique tags, you can delete them using their positional indexes."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "menu reference out",
-          "description": "menu reference out returns menu reference unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference_out"
+          "python_param": "menu_reference_out",
+          "default_value": null,
+          "description": "menu reference out returns menu reference unchanged."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Dialog and User Interface\\Menu\\",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_dialog_and_user_interface_menu"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1558,91 +2083,117 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "item tag",
-          "description": "item tag identifies the menu item you want to set attributes for. If item tag is not valid, the function returns an error. Use application item tags to set attributes for application menu items.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_tag"
+          "python_param": "item_tag",
+          "default_value": null,
+          "description": "item tag identifies the menu item you want to set attributes for. If item tag is not valid, the function returns an error. Use application item tags to set attributes for application menu items."
         },
         {
           "name": "menu reference",
-          "description": "menu reference is the reference to a menu bar in a VI or to a shortcut menu of a control. You can obtain this refnum with the Current VI's Menubar function or with the MenuRef event data field of menu events.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference"
+          "python_param": "menu_reference",
+          "default_value": null,
+          "description": "menu reference is the reference to a menu bar in a VI or to a shortcut menu of a control. You can obtain this refnum with the Current VI's Menubar function or with the MenuRef event data field of menu events."
         },
         {
           "name": "item name",
-          "description": "item name is the string that appears in the menu.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_name"
+          "python_param": "item_name",
+          "default_value": null,
+          "description": "item name is the string that appears in the menu."
         },
         {
           "name": "enabled",
-          "description": "If enabled is FALSE, the menu item is grayed out.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "enabled"
+          "python_param": "enabled",
+          "default_value": null,
+          "description": "If enabled is FALSE, the menu item is grayed out."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "checked",
-          "description": "If checked is TRUE, the menu item has a checkmark next to it.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "checked"
+          "python_param": "checked",
+          "default_value": null,
+          "description": "If checked is TRUE, the menu item has a checkmark next to it."
         },
         {
           "name": "short cut",
-          "description": "short cut is the keyboard equivalent of selecting the menu item with a mouse.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "short_cut"
-        },
-        {
-          "name": "include Shift key?",
-          "description": "Functions 1906 ni.com If include Shift key? is TRUE, the shortcut includes the <Shift> key, in addition to the shortcut key.",
+          "python_param": "short_cut",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "include_shift_key"
+          "description": "short cut is the keyboard equivalent of selecting the menu item with a mouse."
         },
         {
           "name": "include Ctrl key?",
-          "description": "If include Ctrl key? is TRUE, the shortcut includes the <Ctrl> key, in addition to the shortcut key. You can set include Ctrl key? to FALSE only if you select a function key, such as <F1>, <F2>, and so on, as the shortcut key. (macOS) The key included is <Command>. (Linux) The key included is <Alt>.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "include_ctrl_key"
+          "python_param": "include_ctrl_key",
+          "default_value": null,
+          "description": "If include Ctrl key? is TRUE, the shortcut includes the <Ctrl> key, in addition to the shortcut key . You can set include Ctrl key? to FALSE only if you select a function key, such as <F1>, <F2>, and so on, as the shortcut key . (macOS) The key included is <Command>. (Linux) The key included is <Alt>."
         },
         {
           "name": "shortcut key",
-          "description": "shortcut key describes the key associated with the shortcut.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "shortcut_key"
+          "python_param": "shortcut_key",
+          "default_value": null,
+          "description": "shortcut key describes the key associated with the shortcut."
         },
         {
           "name": "menu reference out",
-          "description": "menu reference out returns menu reference unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference_out"
+          "python_param": "menu_reference_out",
+          "default_value": null,
+          "description": "menu reference out returns menu reference unchanged."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1654,98 +2205,127 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "item tag",
-          "description": "Functions © National Instruments 1907 item tag identifies the item whose attributes you want to return. The default is to return the menu bar attributes. Use application item tags to return application menu item attributes.",
-          "default_value": "to return the menu bar attributes",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_tag"
+          "python_param": "item_tag",
+          "default_value": null,
+          "description": "item tag identifies the item whose attributes you want to return. The default is to return the menu bar attributes. Use application item tags to return application menu item attributes."
         },
         {
           "name": "menu reference",
-          "description": "menu reference is the reference to a menu bar in a VI or to a shortcut menu of a control. You can obtain this refnum with the Current VI's Menubar function or with the MenuRef event data field of menu events.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference"
+          "python_param": "menu_reference",
+          "default_value": null,
+          "description": "menu reference is the reference to a menu bar in a VI or to a shortcut menu of a control. You can obtain this refnum with the Current VI's Menubar function or with the MenuRef event data field of menu events."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "submenu tags",
-          "description": "submenu tags are the submenu item tags if the item has a submenu.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "submenu_tags"
+          "python_param": "submenu_tags",
+          "default_value": null,
+          "description": "submenu tags are the submenu item tags if the item has a submenu."
         },
         {
           "name": "menu reference out",
-          "description": "menu reference out returns menu reference unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference_out"
+          "python_param": "menu_reference_out",
+          "default_value": null,
+          "description": "menu reference out returns menu reference unchanged."
         },
         {
           "name": "item name",
-          "description": "item name is the string that appears in the menu.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_name"
+          "python_param": "item_name",
+          "default_value": null,
+          "description": "item name is the string that appears in the menu."
         },
         {
           "name": "enabled",
-          "description": "If enabled is FALSE, the menu item is grayed out.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "enabled"
+          "python_param": "enabled",
+          "default_value": null,
+          "description": "If enabled is FALSE, the menu item is grayed out."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
           "name": "checked",
-          "description": "If checked is TRUE, the menu item has a checkmark next to it.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "checked"
+          "python_param": "checked",
+          "default_value": null,
+          "description": "If checked is TRUE, the menu item has a checkmark next to it."
         },
         {
           "name": "short cut",
-          "description": "short cut is the keyboard equivalent of selecting this menu item with a mouse. Functions 1908 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "short_cut"
-        },
-        {
-          "name": "include Shift key?",
-          "description": "If include Shift key? is TRUE, the shortcut includes the <Shift> key, in addition to the shortcut key.",
+          "python_param": "short_cut",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "include_shift_key"
+          "description": "short cut is the keyboard equivalent of selecting this menu item with a mouse."
         },
         {
           "name": "include Ctrl key?",
-          "description": "If include Ctrl key? is TRUE, the shortcut includes the <Ctrl> key, in addition to the shortcut key. You can set include Ctrl key? to FALSE only if you select a function key, such as <F1>, <F2>, and so on, as the shortcut key. On macOS, the key included is <Command>. On Linux, the key included is <Alt>.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "include_ctrl_key"
+          "python_param": "include_ctrl_key",
+          "default_value": null,
+          "description": "If include Ctrl key? is TRUE, the shortcut includes the <Ctrl> key, in addition to the shortcut key . You can set include Ctrl key? to FALSE only if you select a function key, such as <F1>, <F2>, and so on, as the shortcut key . On macOS, the key included is <Command>. On Linux, the key included is <Alt>."
         },
         {
           "name": "shortcut key",
-          "description": "shortcut key describes the key associated with the shortcut.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "shortcut_key"
+          "python_param": "shortcut_key",
+          "default_value": null,
+          "description": "shortcut key describes the key associated with the shortcut."
         }
       ]
     },
@@ -1757,77 +2337,97 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "menu reference",
-          "description": "menu reference is the reference to a menu bar in a VI. You can obtain this refnum with the Current VI's Menubar function.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference"
+          "python_param": "menu_reference",
+          "default_value": null,
+          "description": "menu reference is the reference to a menu bar in a VI. You can obtain this refnum with the Current VI's Menubar function."
         },
         {
           "name": "short cut",
-          "description": "short cut is the keyboard equivalent of selecting the menu item with a mouse.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "short_cut"
-        },
-        {
-          "name": "include Shift key?",
-          "description": "Functions © National Instruments 1909 If include Shift key? is TRUE, the shortcut includes the <Shift> key, in addition to the shortcut key.",
+          "python_param": "short_cut",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "include_shift_key"
+          "description": "short cut is the keyboard equivalent of selecting the menu item with a mouse."
         },
         {
           "name": "include Ctrl key?",
-          "description": "If include Ctrl key? is TRUE, the shortcut includes the <Ctrl> key, in addition to the shortcut key. You can set include Ctrl key? to FALSE only if you select a function key, such as <F1>, <F2>, and so on, as the shortcut key. (macOS) The key included is <Command>. (Linux) The key included is <Alt>.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "include_ctrl_key"
+          "python_param": "include_ctrl_key",
+          "default_value": null,
+          "description": "If include Ctrl key? is TRUE, the shortcut includes the <Ctrl> key, in addition to the shortcut key . You can set include Ctrl key? to FALSE only if you select a function key, such as <F1>, <F2>, and so on, as the shortcut key . (macOS) The key included is <Command>. (Linux) The key included is <Alt>."
         },
         {
           "name": "shortcut key",
-          "description": "shortcut key describes the key associated with the shortcut.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "shortcut_key"
+          "python_param": "shortcut_key",
+          "default_value": null,
+          "description": "shortcut key describes the key associated with the shortcut."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "menu reference out",
-          "description": "menu reference out returns menu reference unchanged.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "menu_reference_out"
+          "python_param": "menu_reference_out",
+          "default_value": null,
+          "description": "menu reference out returns menu reference unchanged."
         },
         {
           "name": "item tag",
-          "description": "item tag is the tag of the menu item that matches the shortcut.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_tag"
+          "python_param": "item_tag",
+          "default_value": null,
+          "description": "item tag is the tag of the menu item that matches the shortcut."
         },
         {
           "name": "item path",
-          "description": "item path describes the position of the item in the menu hierarchy, which is in the format of a list of menu tags separated by a colon (:). For example, on Windows, if you do not change the default shortcuts and you pass in <Ctrl-O> from the menu bar reference of a VI, item path returns File:Open.",
-          "default_value": "shortcuts and you pass in <Ctrl-O> from the menu bar reference of a VI, item path returns File:Open",
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "item_path"
+          "python_param": "item_path",
+          "default_value": null,
+          "description": "item path describes the position of the item in the menu hierarchy, which is in the format of a list of menu tags separated by a colon (:). For example, on Windows, if you do not change the default shortcuts and you pass in <Ctrl-O> from the menu bar reference of a VI, item path returns File:Open ."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 1910 ni.com",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1839,49 +2439,77 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "cursor file",
-          "description": "cursor file is the path to the file that contains the cursor for which you want a reference. If the file does not exist or if the file is not a valid cursor file, LabVIEW returns error code 7. (Windows) The file must have a .ani or .cur extension. (macOS) The file must be a resource file. You also must wire the ID of the cursor you want to use to the cursor resource ID input. If the cursor image is larger than 16 × 16 pixels, the VI crops the image to that size. (Linux) The file must have a .png",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "cursor_file"
+          "python_param": "cursor_file",
+          "default_value": null,
+          "description": "cursor file is the path to the file that contains the cursor for which you want a reference."
         },
         {
           "name": "cursor resource ID",
-          "description": "(macOS) cursor resource ID is the ID for a cursor in the resource file wired to cursor file. If the cursor is animated, cursor resource ID must be less than 128. If the cursor is not Functions 1912 ni.com animated, cursor resource ID must be equal to or greater than 128.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "cursor_resource_id"
+          "python_param": "cursor_resource_id",
+          "default_value": null,
+          "description": "(macOS) cursor resource ID is the ID for a cursor in the resource file wired to cursor file ."
         },
         {
           "name": "hotspot",
-          "description": "hotspot contains the coordinates of the cursor hot spot starting from the upper left corner. You cannot set the hot spot for animated cursors. National Instruments recommends that you set the hot spot only on Linux. Windows and macOS cursors already have hot spots, but you must set the hot spot for cursors on Linux.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "hotspot"
+          "python_param": "hotspot",
+          "default_value": null,
+          "description": "hotspot contains the coordinates of the cursor hot spot starting from the upper left corner. You cannot set the hot spot for animated cursors."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y is the vertical coordinate of the hot spot, which increases to the bottom. The default is –1, which means the VI sets the vertical coordinate of the hot spot to the vertical coordinate of the default hot spot for the cursor."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "cursor ID",
-          "description": "cursor ID is a reference to the cursor in the cursor file. If a reference to the cursor already exists, the VI returns the existing reference. Wire this reference to the Set Cursor or Set Busy VIs to change the appearance of the cursor on the front panel of the VI. Use the Destroy Cursor VI to close the cursor reference after you set the cursor.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "cursor_id"
+          "python_param": "cursor_id",
+          "default_value": null,
+          "description": "cursor ID is a reference to the cursor in the cursor file . If a reference to the cursor already exists, the VI returns the existing reference."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1912,35 +2540,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "cursor ID",
-          "description": "cursor ID is the cursor reference you want to close. Use the Create Cursor From File VI to create this reference.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "cursor_id"
+          "python_param": "cursor_id",
+          "default_value": null,
+          "description": "cursor ID is the cursor reference you want to close."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions 1918 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Dialog and User Interface\\Cursor\\Change",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_dialog_and_user_interface_cursor_change"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1952,21 +2582,67 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "cursor ID",
-          "description": "cursor ID is a reference to the cursor you want to use on the front panel of the VI. The default is the system busy cursor. Use the Create Cursor From File VI to obtain a reference to a cursor. If the cursor reference is invalid, LabVIEW changes the cursor to the default LabVIEW cursor and returns control of the cursor to LabVIEW.",
-          "default_value": "the system busy cursor",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "cursor_id"
+          "python_param": "cursor_id",
+          "default_value": null,
+          "description": "cursor ID is a reference to the cursor you want to use on the front panel of the VI. The default is the system busy cursor."
         },
         {
           "name": "VI reference (current VI)",
-          "description": "VI reference is a reference to the VI for which you want to change the cursor. The default is a reference to the current VI. Functions",
-          "default_value": "a reference to the current VI",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "vi_reference_current_vi"
+          "python_param": "vi_reference",
+          "default_value": null,
+          "description": "VI reference is a reference to the VI for which you want to change the cursor. The default is a reference to the current VI."
+        },
+        {
+          "name": "disable click? (T)",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "disable_click",
+          "default_value": null,
+          "description": "If disable click? is TRUE (default), the VI disables the mouse and keyboard on the front panel."
+        },
+        {
+          "name": "error in (no error)",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "previous cursor ID",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "previous_cursor_id",
+          "default_value": null,
+          "description": "previous cursor ID is a reference to the cursor on the front panel before this VI ran."
+        },
+        {
+          "name": "error out",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -1978,35 +2654,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "VI reference (current VI)",
-          "description": "VI reference is a reference to the VI for which you want to change the cursor. The default is a reference to the current VI. You can use the Open VI Reference function to obtain a reference to another VI. This input is useful if multiple front panels are open, but you want to change the cursor in only one front panel. If the front panel of the VI for which you want to change the cursor is not open, this VI returns an error.",
-          "default_value": "a reference to the current VI",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "vi_reference_current_vi"
+          "python_param": "vi_reference",
+          "default_value": null,
+          "description": "VI reference is a reference to the VI for which you want to change the cursor. The default is a reference to the current VI."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
-        },
-        {
-          "name": "labview\\examples\\Dialog and User Interface\\Cursor\\Set",
-          "description": "",
+          "python_param": "error_out",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "labview_examples_dialog_and_user_interface_cursor_set"
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },
@@ -2018,35 +2696,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Show",
-          "description": "If Show is TRUE, LabVIEW displays the Context Help window. If FALSE, LabVIEW hides the Context Help window. The default is to maintain the current visibility of the Context Help window.",
-          "default_value": "to maintain the current visibility of the Context Help window",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "show"
+          "python_param": "show",
+          "default_value": null,
+          "description": "If Show is TRUE, LabVIEW displays the Context Help window. If FALSE, LabVIEW hides the Context Help window. The default is to maintain the current visibility of the Context Help window."
         },
         {
           "name": "Top Left Corner",
-          "description": "Top Left Corner indicates the new position of the Context Help window and contains numbers that represent points offset from the upper left corner of the screen.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "top_left_corner"
-        },
-        {
-          "name": "Horizontal",
-          "description": "Horizontal is the number of points to place the Context Help window to the right of the upper left corner of the screen.",
+          "python_param": "top_left_corner",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "horizontal"
+          "description": "Top Left Corner indicates the new position of the Context Help window and contains numbers that represent points offset from the upper left corner of the screen."
         },
         {
           "name": "Vertical",
-          "description": "Vertical is the number of points to place the Context Help window below the upper left corner of the screen.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "vertical"
+          "python_param": "vertical",
+          "default_value": null,
+          "description": "Vertical is the number of points to place the Context Help window below the upper left corner of the screen."
         }
       ]
     },
@@ -2058,35 +2738,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Show",
-          "description": "Functions © National Instruments 1923 If Show is TRUE, the Context Help window is visible. If FALSE, the Context Help window is not visible.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "show"
+          "python_param": "show",
+          "default_value": null,
+          "description": "If Show is TRUE, the Context Help window is visible. If FALSE, the Context Help window is not visible."
         },
         {
           "name": "Top Left Corner",
-          "description": "Top Left Corner indicates the position of the Context Help window and contains numbers that represent points offset from the upper left corner of the screen.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "top_left_corner"
-        },
-        {
-          "name": "Horizontal",
-          "description": "Horizontal is the number of points that the Context Help window is to the right of the upper left corner of the screen.",
+          "python_param": "top_left_corner",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "horizontal"
+          "description": "Top Left Corner indicates the position of the Context Help window and contains numbers that represent points offset from the upper left corner of the screen."
         },
         {
           "name": "Vertical",
-          "description": "Vertical is the number of points that the Context Help window is below the upper left corner of the screen.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "vertical"
+          "python_param": "vertical",
+          "default_value": null,
+          "description": "Vertical is the number of points that the Context Help window is below the upper left corner of the screen."
         }
       ]
     },
@@ -2098,42 +2780,57 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Operation",
-          "description": "Operation is the operation to perform on the help file. Functions 1924 ni.com 0 Contents—Displays the table of contents of the help file. If you use this function to control a .chm file, setting this input to 0 displays the table of contents, index, or search tab, depending on which tab was visible the last time you closed the .chm file. 1 Key—Displays a specific topic in the help file using a keyword in the help file index or using the name of an individual HTML file in the compiled help file. ",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "operation"
+          "python_param": "operation",
+          "default_value": null,
+          "description": "Operation is the operation to perform on the help file. 0 Contents —Displays the table of contents of the help file. If you use this function to control a .chm file, setting this input to 0 displays the table of contents, index, or search tab, depending on which tab was visible the last time you closed the .chm file. 1 Key —Displays a specific topic in the help file using a keyword in the help file index or using the name of an individual HTML file in the compiled help file. 2 Close —Closes the help file."
         },
         {
           "name": "String to search for",
-          "description": "String to search for is the index keyword or HTML filename for the topic in the help file that you want to display. The default is an empty string. LabVIEW ignores this string if Operation is 0 or 2. If this string contains an index keyword, the string must match the index keyword as it appears in the help file index. To jump to a topic with a multi-level index keyword, enter the first-level index keyword, a colon, and the second-level index keyword. Do not separate the elements with spaces. For",
-          "default_value": "an empty string",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "string_to_search_for"
+          "python_param": "string_to_search_for",
+          "default_value": null,
+          "description": "String to search for is the index keyword or HTML filename for the topic in the help file that you want to display. The default is an empty string. LabVIEW ignores this string if Operation is 0 or 2. If this string contains an index keyword, the string must match the index keyword as it appears in the help file index. To jump to a topic with a multi-level index keyword, enter the first-level index keyword, a colon, and the second-level index keyword. Do not separate the elements with spaces. For example, a error codes:GPIB string jumps to a topic with a first-level index keyword of error codes and a second-level index keyword of GPIB . If Path to the help file contains a path to an HTML Help ( .chm ) file, this string can contain the filename ( .htm or .html ) of an individual HTML file in the HTML Help project."
         },
         {
           "name": "Path to the help file",
-          "description": "Path to the help file is the path or symbolic path to the compiled help file you want to control. The help file can have a .chm or .hlp extension. (macOS and Linux) If this input contains a path to a .chm file and the file does not exist, LabVIEW ignores this input. However, if String to search for contains an HTML filename and that HTML file is in the help\\html\\help.chm directory where help.chm is the filename you wire to this input, LabVIEW displays that HTML file in the default browser. If th",
-          "default_value": "browser",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "path_to_the_help_file"
+          "python_param": "path_to_the_help_file",
+          "default_value": null,
+          "description": "Path to the help file is the path or symbolic path to the compiled help file you want to control. The help file can have a .chm or .hlp extension. (macOS and Linux) If this input contains a path to a .chm file and the file does not exist, LabVIEW ignores this input. However, if String to search for contains an HTML filename and that HTML file is in the help\\html\\ help .chm directory where help .chm is the filename you wire to this input, LabVIEW displays that HTML file in the default browser. If this input contains a path to a .chm file and String to search for contains an index keyword, this function does not display an HTML file."
         },
         {
           "name": "error in (no error)",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_in_no_error"
+          "python_param": "error_in",
+          "default_value": null,
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
-          "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default_value": null,
+          "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
     },

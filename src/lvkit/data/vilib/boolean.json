@@ -10,14 +10,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x .and. y?",
-          "description": "x .and. y? is the logical AND of x and y. And Truth Table x y x .and. y?",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_and_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "x .and. y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x_and_y",
+          "default_value": null,
+          "description": "x .and. y? is the logical AND of x and y ."
         }
       ]
     },
@@ -29,8 +52,39 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_review",
-      "terminals": []
+      "status": "docs_enriched",
+      "terminals": [
+        {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "x .or. y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x_or_y",
+          "default_value": null,
+          "description": "x .or. y? is the logical Or of x and y ."
+        }
+      ]
     },
     {
       "name": "Exclusive Or Function",
@@ -40,14 +94,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x .xor. y?",
-          "description": "x .xor. y? is the logical exclusive or (XOR) of x and y. Exclusive Or Truth Table x y x .xor. y?",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_xor_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "x .xor. y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x_xor_y",
+          "default_value": null,
+          "description": "x .xor. y? is the logical exclusive or (XOR) of x and y ."
         }
       ]
     },
@@ -59,14 +136,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": ".not. x?",
-          "description": ".not. x? is the logical negation of x. Not Truth Table x .not. x? F",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "not_x"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x can be a scalar Boolean value or number, array or cluster of Boolean values or numbers, array of clusters of Boolean values or numbers, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": ".not. x?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "not_x",
+          "default_value": null,
+          "description": ".not. x? is the logical negation of x ."
         }
       ]
     },
@@ -78,14 +168,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": ".not. (x .and. y)?",
-          "description": ".not. (x .and. y)? is the logical NAND of x and y. Not And Truth Table x y .not. (x .and. y)?",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "not_x_and_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": ".not. (x .and. y)?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "not_x_and_y",
+          "default_value": null,
+          "description": ".not. (x .and. y)? is the logical NAND of x and y ."
         }
       ]
     },
@@ -97,14 +210,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": ".not. (x .or. y)?",
-          "description": ".not. (x .or. y)? is the logical NOR of x and y. Not Or Truth Table x y .not. (x .or. y)?",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "not_x_or_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": ".not. (x .or. y)?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "not_x_or_y",
+          "default_value": null,
+          "description": ".not. (x .or. y)? is the logical NOR of x and y ."
         }
       ]
     },
@@ -116,8 +252,39 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_review",
-      "terminals": []
+      "status": "docs_enriched",
+      "terminals": [
+        {
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x",
+          "default_value": null,
+          "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": ".not. (x .xor. y)?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "not_x_xor_y",
+          "default_value": null,
+          "description": ".not. (x .xor. y)? is the logical negation of the logical exclusive or (XOR) of x and y ."
+        }
+      ]
     },
     {
       "name": "Implies Function",
@@ -127,14 +294,37 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
-          "name": "x .implies. y?",
-          "description": "x .implies. y? is the logical OR of y and of the logical negation of x. Implies Truth Table x y x .implies. y?",
-          "default_value": null,
+          "name": "x",
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "x_implies_y"
+          "python_param": "x",
+          "default_value": null,
+          "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "y",
+          "index": null,
+          "direction": "in",
+          "type": null,
+          "enum_values": null,
+          "python_param": "y",
+          "default_value": null,
+          "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
+        },
+        {
+          "name": "x .implies. y?",
+          "index": null,
+          "direction": "out",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x_implies_y",
+          "default_value": null,
+          "description": "x .implies. y? is the logical OR of y and of the logical negation of x ."
         }
       ]
     },
@@ -146,21 +336,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Boolean array",
-          "description": "Boolean array can have any number of dimensions.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "boolean_array"
+          "python_param": "boolean_array",
+          "default_value": null,
+          "description": "Boolean array can have any number of dimensions."
         },
         {
           "name": "logical AND",
-          "description": "logical AND indicates if all elements in Boolean array are TRUE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "logical_and"
+          "python_param": "logical_and",
+          "default_value": null,
+          "description": "logical AND indicates if all elements in Boolean array are TRUE."
         }
       ]
     },
@@ -172,21 +368,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "number",
-          "description": "number can be a number.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
+          "python_param": "number",
+          "default_value": null,
+          "description": "number can be a number."
         },
         {
           "name": "Boolean array",
-          "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed- point number, Boolean array can have between 1 and 64 elements. If you wire a fixed-point number that includes an overflow status to number, this function ignores the overflow status and converts only the number to a Boolean array.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "boolean_array"
+          "python_param": "boolean_array",
+          "default_value": null,
+          "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed-point number, Boolean array can have between 1 and 64 elements."
         }
       ]
     },
@@ -198,21 +400,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Boolean array",
-          "description": "Boolean array can have any number of dimensions.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "boolean_array"
+          "python_param": "boolean_array",
+          "default_value": null,
+          "description": "Boolean array can have any number of dimensions."
         },
         {
           "name": "logical OR",
-          "description": "logical OR indicates if all of the elements in Boolean array are false.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "logical_or"
+          "python_param": "logical_or",
+          "default_value": null,
+          "description": "logical OR indicates if all of the elements in Boolean array are false."
         }
       ]
     },
@@ -224,56 +432,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Boolean array",
-          "description": "Boolean array is a one-dimensional array of Boolean values. This function truncates Boolean array if it is too long. If Boolean array is too short, this function Functions © National Instruments 643 pads Boolean array according to the Sign Extension Mode you can select by right-clicking the function.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "boolean_array"
-        },
-        {
-          "name": "Never",
-          "description": "This function pads Boolean array with Boolean FALSE bits.",
+          "python_param": "boolean_array",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "never"
-        },
-        {
-          "name": "If Output Is Signed",
-          "description": "(default) For an output with an unsigned representation, this function pads Boolean array with Boolean FALSE bits. For an output with a signed representation, this function pads Boolean array with the last element of the array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "if_output_is_signed"
-        },
-        {
-          "name": "Always",
-          "description": "This function pads Boolean array with the last element of the array.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "always"
+          "description": ""
         },
         {
           "name": "number",
-          "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box. The following table shows the relationship between Boolean array and number. Boolean array Output Representation Sign Extension Mode Binary Value number {FALSE, TRUE} I8 If Output Is Signed 11111110 -2 {FALSE, TRUE} U8 If Output Is Signed 00000010 2 {FAL",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "number"
-        },
-        {
-          "name": "Boolean",
-          "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
+          "python_param": "number",
           "default_value": null,
-          "enum_values": null,
-          "python_param": "boolean"
-        },
-        {
-          "name": "0, 1",
-          "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
-          "default_value": null,
-          "enum_values": null,
-          "python_param": "0_1"
+          "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box."
         }
       ]
     },
@@ -285,21 +464,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_terminals",
+      "status": "docs_enriched",
       "terminals": [
         {
           "name": "Boolean",
-          "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal.",
-          "default_value": null,
+          "index": null,
+          "direction": "in",
+          "type": null,
           "enum_values": null,
-          "python_param": "boolean"
+          "python_param": "boolean",
+          "default_value": null,
+          "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "0, 1",
-          "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE.",
-          "default_value": null,
+          "index": null,
+          "direction": "out",
+          "type": null,
           "enum_values": null,
-          "python_param": "0_1"
+          "python_param": "var_0_1",
+          "default_value": null,
+          "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE."
         }
       ]
     }
