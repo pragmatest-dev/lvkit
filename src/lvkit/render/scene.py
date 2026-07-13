@@ -41,7 +41,7 @@ from .layout import Layout, Point, Rect, build_layout
 from .nodes import _CLUSTER_MUX_TYPES, GlyphContext, resolve_glyph, string_const_display
 from .style import WireStyle, numeric_repr, type_family, wire_style
 from .wire_router import WireRouter, _compress
-from .wire_table import FAITHFUL_WIRE_TABLE, decode_wire_mid
+from .wire_table import FAITHFUL_WIRE_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -1190,41 +1190,20 @@ def _build_wire_nets(
             # anyway); plain node endpoints keep their own-box exemption.
             src_route_owner = None if src_border else src_owner
             dst_route_owner = None if dst_border else dst_owner
-            # FAITHFUL_WIRE_TABLE: when a signal's compressedWireTable heap
-            # blob decodes (2-endpoint, non-fan-out), use LabVIEW's own
-            # routed geometry instead of the auto-router. src_out/dst_in are
-            # still computed above regardless — the coercion-dot placement
-            # below (_entry_edge_point) needs dst_in even in the faithful
-            # case. Default False -> this lookup never runs, so `mid` is
-            # always `router.route(...)`, byte-identical to before task #84.
+            # FAITHFUL_WIRE_TABLE: when a signal's compressedWireTable heap blob
+            # decoded (in layout, by exact known endpoints), use LabVIEW's own
+            # routed geometry instead of the auto-router. The geometry is keyed
+            # by the DESTINATION terminal uid — the graph and the heap agree on
+            # that uid exactly, so this is a pure identity lookup, no center
+            # rounding or tolerance. src_out/dst_in are still computed above
+            # regardless — the coercion-dot placement below (_entry_edge_point)
+            # needs dst_in even in the faithful case. Default False -> this lookup
+            # never runs, so `mid` is always `router.route(...)`.
             faithful = None
             if FAITHFUL_WIRE_TABLE:
-                key = (
-                    (int(round(src_center[0])), int(round(src_center[1]))),
-                    (int(round(dst_center[0])), int(round(dst_center[1]))),
-                )
-                fan_mid = layout.fanout_geometry.get(key)
-                if fan_mid is not None:
-                    faithful = list(fan_mid)  # pre-decoded fan-out branch polyline
-                else:
-                    blob = layout.wire_geometry.get(key)
-                    if blob is not None:
-                        faithful = decode_wire_mid(blob, src_center, dst_center)
-                # IDENTITY recovery: the center-pair key misses when the graph's
-                # net-SOURCE terminal is a co-located-but-different uid than the
-                # heap signal's source (their centers sit ~a terminal-width apart,
-                # so the (src,dst) center pair never matches even though the wire
-                # decoded fine). The DESTINATION uid is exact, though — it's the
-                # heap sink the branch reaches — so follow the wire to its known
-                # endpoint and connect there. No tolerance, no router fallback.
-                if faithful is None:
-                    fan_mid = layout.fanout_by_uid.get(raw_dst)
-                    if fan_mid is not None:
-                        faithful = list(fan_mid)
-                    else:
-                        blob = layout.wire_by_uid.get(raw_dst)
-                        if blob is not None:
-                            faithful = decode_wire_mid(blob, src_center, dst_center)
+                mid_pts = layout.wire_by_uid.get(raw_dst)
+                if mid_pts is not None:
+                    faithful = list(mid_pts)
             if faithful is not None:
                 mid = faithful
             else:

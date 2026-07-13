@@ -14,11 +14,16 @@ by the value as a 16-bit big-endian pair, so the length section is a
 variable-width stream rather than one byte per segment (this is why the total
 blob length is not always ``2V-2``).
 
-Only single-net (2-endpoint) signals are decodable this way; a fan-out
-signal (3+ endpoints) returns ``None`` and the caller falls back to the
-auto-router. This module never runs the algorithm forward from the heap in
-any other sense — it is a pure decode of already-validated corpus geometry
-(see task #84).
+A signal's ``termList`` is an ordered ``[source_uid, *sink_uids]`` and every
+uid's center is known, so a wire is a tree whose leaves land on KNOWN
+terminals. ``decode_signal`` is the one entry point for both cases: a
+2-endpoint wire is the 1-leaf tree (a single bend chain, snapped to its known
+end), a fan-out is the N-leaf tree. Each leaf is identified by its EXACT
+coordinate against the known sink centers — no proximity tolerance. A signal
+that cannot land every leaf exactly on its terminal returns ``None`` and the
+caller falls back to the auto-router. This module never runs the algorithm
+forward from the heap in any other sense — it is a pure decode of
+already-validated corpus geometry (see task #84 / #76).
 """
 
 from __future__ import annotations
@@ -62,15 +67,15 @@ def _decode_lengths(stream: list[int], n: int) -> list[int] | None:
     return out
 
 
-def decode_wire_mid(blob: str, start: Point, end: Point) -> list[Point] | None:
-    """Decode the INTERMEDIATE bend points of a 2-endpoint wire's
-    ``compressedWireTable`` blob.
+def _decode_chain(blob: str, start: Point, end: Point) -> list[Point] | None:
+    """Decode the INTERMEDIATE bend points of a single (1-leaf) wire's
+    ``compressedWireTable`` blob — the 2-endpoint case of ``decode_signal``.
 
     Returns the ``mid`` points only (excluding ``start``/``end``), designed
     to drop straight into ``_compress([start, *mid, end])`` exactly as
     ``router.route(...)`` does. The last bend is snapped so the wrapped path
     stays orthogonal; the endpoints themselves are always the true terminal
-    centers. Returns ``None`` for fan-out / malformed blobs.
+    centers. Returns ``None`` for the fan-out layout / malformed blobs.
     """
     try:
         b = [int(blob[i : i + 2], 16) for i in range(0, len(blob), 2)]
@@ -120,18 +125,25 @@ def decode_wire_mid(blob: str, start: Point, end: Point) -> list[Point] | None:
     return mid
 
 
-# -- fan-out (3+ endpoint) decode -----------------------------------------
+# -- fan-out (N-leaf tree) decode ------------------------------------------
 # A fan-out signal's compressedWireTable is a recursive tree, encoded as a DFS
 # token stream. A leaf is a CHAIN of segments that runs until a POP terminator;
 # a BRANCH forks (a 0x04 branch is a MULTI-WAY junction that keeps taking
 # children); compound dir0 = the source itself branches. Bends are deterministic
-# (sign = bit0); the direction taken at each FORK is under-determined by the
-# bytes (LabVIEW re-derives it from terminal positions), so we resolve it by
-# validating leaf endpoints against the known sink centers. A `b[1]` flag marks
-# a mid-wire-tap sub-format we don't model -> fall back. See task #84.
+# (sign = bit0); the direction taken at each FORK is NOT stored (LabVIEW re-derives
+# it from terminal positions at draw time), so we solve it — but constrained by the
+# KNOWN sink terminals: every leaf must land EXACTLY on one (no proximity slop),
+# which makes the assignment unique and prunes the fork search hard. A `b[1]` flag
+# marks a mid-wire-tap sub-format. See task #84 / #76.
 
-_FANOUT_TOL = 10.0          # px; residual is the terminal center-vs-attach offset
-_FANOUT_REC_BUDGET = 3_000_000  # hard cap on the validated fork search (safety)
+# px; how close a decoded leaf must come to a sink to be ASSIGNED to it. The
+# wire's final segment length is not stored (it is implied by the known terminal),
+# so the decoded leaf lands near the sink and ``finish`` SNAPS the last segment
+# onto the exact uid center — the connection is always made to the known endpoint,
+# never a proximity-fudged position. This bound only disambiguates which sink a
+# leaf belongs to (terminals are far apart) and lets the fork search prune.
+_ASSIGN_TOL = 10.0
+_FANOUT_REC_BUDGET = 3_000_000  # hard cap on the constrained fork search (safety)
 
 
 def _flip(d: Point, plus: bool) -> Point:
@@ -163,17 +175,19 @@ def _drop_collinear(pts: list[Point]) -> list[Point]:
     return out
 
 
-def decode_fanout(
+def _decode_tree(
     blob: str, source: Point, sinks: list[Point]
 ) -> list[list[Point]] | None:
-    """Decode a fan-out ``compressedWireTable`` into per-sink bend polylines.
+    """Decode a fan-out (N-leaf) ``compressedWireTable`` into per-sink bend
+    polylines — the N-sink case of ``decode_signal``.
 
     Returns a list aligned with ``sinks``: for each sink, the INTERMEDIATE bend
     points (absolute, excluding ``source`` and that sink) of the branch reaching
     it — ready for ``_compress([source, *mid, sink])`` just like the single-net
     path. Handles the ``b[1]=0x01`` straight-through-terminal-tap sub-format too.
-    Returns ``None`` for a malformed blob or when no fork-direction assignment
-    reproduces every sink (caller falls back to the auto-router).
+    Every leaf must land EXACTLY (``_EXACT``) on a known sink; returns ``None``
+    for a malformed blob or when no fork assignment reproduces every sink
+    exactly (caller falls back to the auto-router).
     """
     try:
         b = [int(blob[i : i + 2], 16) for i in range(0, len(blob), 2)]
@@ -222,21 +236,30 @@ def decode_fanout(
         return any(abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5
                    for (x0, y0), (x1, y1) in zip(pts, pts[1:]))
 
+    def _on_a_sink(pt: Point) -> bool:
+        """True if a just-closed leaf endpoint lands near some sink — the
+        necessary condition that prunes the fork search (a leaf that ends nowhere
+        near a terminal is dead immediately, not only after the whole tree). The
+        exact endpoint is snapped by ``finish``; this only bounds the search."""
+        return any(abs(pt[0] - sx) < _ASSIGN_TOL and abs(pt[1] - sy) < _ASSIGN_TOL
+                   for sx, sy in sinks_rel)
+
     def finish(path_rel: list[Point], sx: float, sy: float) -> list[Point] | None:
-        """Turn a source-relative vertex path (ending ~at the sink) into the
-        absolute mid-points for source -> mids -> TRUE sink, snapped orthogonal;
-        None if the drawn wire can't be made axis-aligned (unless jog pass)."""
+        """Turn a source-relative vertex path (ending near the sink) into the
+        absolute mid-points for source -> mids -> TRUE sink, snapped orthogonal
+        onto the KNOWN sink center; None if the drawn wire can't be made
+        axis-aligned (unless the jog pass)."""
         full = _drop_collinear([(0.0, 0.0), *path_rel])
         if len(full) >= 2:
             px, py = full[-2]
             # snap the last real bend so its segment to the TRUE sink keeps the
             # axis it already had: vertical final -> match sink x; horizontal -> y
             full[-2] = (sx, py) if px == full[-1][0] else (px, sy)
-        mid_rel = full[1:-1]  # exclude source and the (approx-sink) endpoint
+        mid_rel = full[1:-1]  # exclude source and the (near-sink) endpoint
         if not _diagonal([(0.0, 0.0), *mid_rel, (sx, sy)]):
             return [(source[0] + mx, source[1] + my) for mx, my in mid_rel]
         if not jog[0]:
-            return None  # strict pass: a loose match smuggled in a diagonal
+            return None  # strict pass: keep looking for a clean assignment
         # jog pass (only reached when NO clean assignment exists for the whole
         # tree): keep the faithful decoded bends to their own endpoint, then add
         # one short orthogonal segment to reach the genuinely-offset terminal.
@@ -250,7 +273,8 @@ def decode_fanout(
     def build(leaves: list[tuple[list[Point], Point]]) -> list[list[Point]] | None:
         """Emit per-sink absolute mids. Plain fan-out matches each sink to a leaf
         ENDPOINT; a tapped wire matches each sink to ANY vertex on the path (a
-        tap terminal sits mid-wire) and the branch is the prefix up to it."""
+        tap terminal sits mid-wire) and the branch is the prefix up to it. A leaf
+        is identified with the sink it coincides with EXACTLY — not by proximity."""
         if not tapped and len(leaves) != len(sinks_rel):
             return None  # a plain fan-out leaf that reaches no terminal is wrong
         # candidate (endpoint-or-vertex, prefix-path) list, deduped by position
@@ -271,8 +295,8 @@ def decode_fanout(
         out: list[list[Point]] = []
         for sx, sy in sinks_rel:
             for ci, (vp, pref) in enumerate(cands):
-                if used[ci] or abs(vp[0] - sx) >= _FANOUT_TOL or \
-                        abs(vp[1] - sy) >= _FANOUT_TOL:
+                if used[ci] or abs(vp[0] - sx) >= _ASSIGN_TOL or \
+                        abs(vp[1] - sy) >= _ASSIGN_TOL:
                     continue
                 mid = finish(pref, sx, sy)
                 if mid is None:
@@ -289,6 +313,8 @@ def decode_fanout(
             return
         budget[0] -= 1
         if ti == len(tokens):
+            if not tapped and not _on_a_sink(path[-1]):
+                return  # exact-prune: the final leaf must end on a terminal
             built = build(leaves + [(path, d)])
             if built is not None:
                 result.append(built)
@@ -296,6 +322,8 @@ def decode_fanout(
         tok = tokens[ti]
         L = lengths[ti + 1]
         if tok == 0x03:  # POP: terminate leaf, resume last junction
+            if not tapped and not _on_a_sink(path[-1]):
+                return  # exact-prune: this leaf ends nowhere near a terminal
             if not stack:
                 built = build(leaves + [(path, d)])
                 if built is not None:
@@ -328,8 +356,9 @@ def decode_fanout(
             rec(ti + 1, npos, nd, stack, leaves, path + [npos])
 
     # Pass 1 strict (clean orthogonal decode); pass 2 allows a short final jog to
-    # reach a genuinely-offset terminal instead of falling back. Clean-first, so
-    # a wire that decodes cleanly never gets a jog.
+    # reach a genuinely-offset terminal instead of falling back. Every leaf is
+    # pinned near a known terminal and snapped onto its exact center, so the fork
+    # assignment is well-constrained and the early-prune collapses the search.
     for jog[0] in (False, True):
         budget[0] = _FANOUT_REC_BUDGET
         for d0, others in starts:
@@ -342,3 +371,29 @@ def decode_fanout(
             if result:
                 return result[0]
     return None
+
+
+def decode_signal(
+    blob: str, source: Point, sinks: list[Point]
+) -> list[list[Point]] | None:
+    """Decode a signal's ``compressedWireTable`` into per-sink bend polylines.
+
+    The one entry point for both cases. ``sinks`` are the sink terminal centers
+    in ``termList`` order (``uids[1:]``); ``source`` is the source center
+    (``uids[0]``). Returns a list aligned with ``sinks`` — each entry is that
+    branch's INTERMEDIATE bend points (absolute, excluding source/sink), ready
+    for ``_compress([source, *mid, sink])``. Returns ``None`` (→ router
+    fallback) for a malformed blob or a signal that can't land every leaf
+    EXACTLY on its known terminal — no proximity tolerance.
+
+    A 2-endpoint wire is the 1-leaf case (a single bend chain, snapped to its
+    one known end); a fan-out is the N-leaf tree. The two use different heap
+    byte layouts (``byte1`` is the direction for a chain, a tap flag for a
+    tree), so dispatch on the known sink count from ``termList``.
+    """
+    if not sinks:
+        return None
+    if len(sinks) == 1:
+        mid = _decode_chain(blob, source, sinks[0])
+        return None if mid is None else [mid]
+    return _decode_tree(blob, source, sinks)

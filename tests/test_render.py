@@ -47,7 +47,7 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
-from lvkit.render.wire_table import FAITHFUL_WIRE_TABLE, decode_wire_mid
+from lvkit.render.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
 
 # --------------------------------------------------------------------------- #
 # Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
@@ -2479,47 +2479,52 @@ def test_faithful_wire_table_default_on():
     assert FAITHFUL_WIRE_TABLE is True
 
 
-def test_decode_wire_mid_straight_wire_has_no_bends():
-    assert decode_wire_mid("0208", (10.0, 20.0), (60.0, 20.0)) == []
+def _chain(blob, start, end):
+    """decode_signal for the 1-leaf (2-endpoint) case -> the single mid list."""
+    res = decode_signal(blob, start, [end])
+    return None if res is None else res[0]
 
 
-def test_decode_wire_mid_fanout_blob_returns_none():
-    assert decode_wire_mid("0400080503200B18", (0.0, 0.0), (100.0, 100.0)) is None
+def test_decode_signal_straight_wire_has_no_bends():
+    assert _chain("0208", (10.0, 20.0), (60.0, 20.0)) == []
 
 
-def test_decode_wire_mid_single_vertex_is_direct_connection():
+def test_decode_signal_single_sink_fanout_layout_returns_none():
+    # A fan-out-layout blob handed to the 1-sink path can't be a chain -> None.
+    assert _chain("0400080503200B18", (0.0, 0.0), (100.0, 100.0)) is None
+
+
+def test_decode_signal_single_vertex_is_direct_connection():
     # Blob "01" = vertex count 1 (no segments): a degenerate/zero-length wire
     # whose two terminals resolve to the same center. Decodes to no bends so
     # the scene connects the endpoints directly instead of invoking the router.
     # (62 such signals in MasterAcquisitionFile_PCO_IOS.vi, all endpoints
     # coincident -- see #76.)
-    assert decode_wire_mid("01", (-1214.5, -390.5), (-1214.5, -390.5)) == []
+    assert _chain("01", (-1214.5, -390.5), (-1214.5, -390.5)) == []
 
 
-def test_decode_wire_mid_one_bend_l_shape():
+def test_decode_signal_one_bend_l_shape():
     # "2D U32 Array Changed__ogtk" corpus wire, uids 99->110.
     start, end = (314.0, 175.0), (346.0, 162.0)
-    mid = decode_wire_mid("0308011F", start, end)
+    mid = _chain("0308011F", start, end)
     assert mid is not None
     assert len(mid) == 1
     assert _ortho([start, *mid, end])
 
 
-def test_decode_wire_mid_two_bend_z_shape():
+def test_decode_signal_two_bend_z_shape():
     # "2D U32 Array Changed__ogtk" corpus wire, uids 78->84.
     start, end = (181.0, 145.0), (264.5, 164.5)
-    mid = decode_wire_mid("04040000114F", start, end)
+    mid = _chain("04040000114F", start, end)
     assert mid is not None
     assert len(mid) == 2
     assert _ortho([start, *mid, end])
 
 
-def test_decode_fanout_two_sink_tree():
+def test_decode_signal_two_sink_tree():
     # V=4, dir0=E, tokens [05 branch, 03 pop], lengths [32, 11, 24]:
     # E32 to a junction, tap S11 -> sink A, resume E24 -> sink B.
-    from lvkit.render.wire_table import decode_fanout
-
-    mids = decode_fanout("0400080503200b18", (0.0, 0.0), [(32.0, 11.0), (56.0, 0.0)])
+    mids = decode_signal("0400080503200b18", (0.0, 0.0), [(32.0, 11.0), (56.0, 0.0)])
     assert mids is not None
     assert len(mids) == 2
     for mid, sink in zip(mids, [(32.0, 11.0), (56.0, 0.0)]):
@@ -2528,14 +2533,12 @@ def test_decode_fanout_two_sink_tree():
     assert mids[1] == []  # straight run along the trunk
 
 
-def test_decode_fanout_three_way_source_branch():
+def test_decode_signal_three_way_source_branch():
     # Compound dir0=0x0D (E|S|N) => the SOURCE itself is a 3-way junction: seg0
     # leaves in one bit direction and the other two leave as deferred branches.
     # Real 6-sink signal from MasterAcquisitionFile_PCO_IOS.vi (#76); before the
     # N-way generalization this returned None (len(bits)!=2) and fell to the
     # router. Every branch must decode to a clean orthogonal run to its sink.
-    from lvkit.render.wire_table import decode_fanout
-
     blob = "0E000D000300000505050003030303FF03D5190CFF012C1ABF22199898989844"
     src = (-2253.0, 497.0)
     sinks = [
@@ -2546,21 +2549,42 @@ def test_decode_fanout_three_way_source_branch():
         (-1801.5, 785.0),
         (-1801.5, 534.5),
     ]
-    mids = decode_fanout(blob, src, sinks)
+    mids = decode_signal(blob, src, sinks)
     assert mids is not None
     assert len(mids) == len(sinks)
     for mid, sink in zip(mids, sinks):
         assert _ortho([src, *mid, sink])
 
 
-def test_decode_fanout_straight_through_terminal_tap():
+def test_decode_signal_comb_fanout_early_prune():
+    # A 12-sink "comb" (8 consecutive BRANCH taps off one trunk) from
+    # MasterAcquisitionFile_PCO_IOS.vi: ~3^15 blind fork paths blow the search
+    # budget, so it fell to the router (part of the #76 hang). The exact-endpoint
+    # early-prune collapses the search; every branch must reach its known sink.
+    blob = (
+        "1900080700030600050505050505050500030303030303030303179DFF034F188CFF"
+        "051AC6FF02DEFF0134A967E951BCFF0244FF01C6FF0196FF01C7FF01C8FF01B1FF01"
+        "CDFF0158FF01F0EC"
+    )
+    src = (-2610.5, -413.5)
+    sinks = [
+        (-2294.5, 2156.5), (-2272.0, 2325.0), (-2273.0, 2428.0), (-2322.0, 2661.0),
+        (-2231.5, 916.5), (-2274.0, 2742.0), (-2147.5, 2930.5), (-2351.5, -389.5),
+        (-2267.0, 1848.0), (-2384.0, 1114.0), (-1740.5, -570.5),
+    ]
+    mids = decode_signal(blob, src, sinks)
+    assert mids is not None
+    assert len(mids) == len(sinks)
+    for mid, sink in zip(mids, sinks):
+        assert _ortho([src, *mid, sink])
+
+
+def test_decode_signal_straight_through_terminal_tap():
     # b[1]=0x01 marks a straight-through terminal tap: a sink sits ON the path
     # (the 0x02 token continues straight through it). Both sinks must resolve to
     # clean orthogonal branches -- the mid-wire tap is a prefix of the trunk.
-    from lvkit.render.wire_table import decode_fanout
-
     sinks = [(18.0, 0.0), (27.0, -15.0)]
-    mids = decode_fanout("0501000802010012040f05", (0.0, 0.0), sinks)
+    mids = decode_signal("0501000802010012040f05", (0.0, 0.0), sinks)
     assert mids is not None
     assert len(mids) == 2
     for mid, sink in zip(mids, sinks):
@@ -2568,16 +2592,46 @@ def test_decode_fanout_straight_through_terminal_tap():
     assert mids[0] == []  # sink on the trunk -> straight branch, no bends
 
 
-def test_decode_wire_mid_escaped_length():
+def test_decode_signal_escaped_length():
     # A long segment (>=256 px) is stored as 0xff hi lo, so the blob is longer
     # than the old 2V-2 invariant. V=4, dir0=E, signs 00 00, lengths [9, 0x0464].
     start, end = (0.0, 0.0), (1124.0, 50.0)
-    mid = decode_wire_mid("0408000009ff0464", start, end)
+    mid = _chain("0408000009ff0464", start, end)
     assert mid is not None
     assert len(mid) == 2
     # first bend advances East by 9 px, staying on the source row
     assert mid[0] == (9.0, 0.0)
     assert _ortho([start, *mid, end])
+
+
+def test_layout_wire_by_uid_drives_faithful_render():
+    # End-to-end: every drawn wire's faithful geometry is keyed by its sink uid,
+    # and the whole VI renders WITHOUT invoking the auto-router (deterministic,
+    # heap-faithful). Regression guard for the unified uid-driven decoder (#76).
+    from lvkit.render import scene as scene_mod
+    from lvkit.render.layout import build_layout
+
+    layout = build_layout(NESTED_CASE_VI)
+    assert layout.wire_by_uid, "no faithful wire geometry resolved"
+    # keys are terminal uids, values are bend polylines (lists of points)
+    for uid, mid in layout.wire_by_uid.items():
+        assert isinstance(uid, str)
+        assert all(len(p) == 2 for p in mid)
+
+    orig = scene_mod.WireRouter.route
+    calls = [0]
+
+    def _counted(self, *a, **k):
+        calls[0] += 1
+        return orig(self, *a, **k)
+
+    scene_mod.WireRouter.route = _counted
+    try:
+        svg = render_vi_file(NESTED_CASE_VI, expand_subvis=False)
+    finally:
+        scene_mod.WireRouter.route = orig
+    assert svg is not None
+    assert calls[0] == 0  # fully faithful: no router fallback for this VI
 
 
 def test_mux_doc_url_resolves_by_field_direction():
