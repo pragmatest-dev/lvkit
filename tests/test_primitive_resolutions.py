@@ -70,6 +70,19 @@ def test_key_python_code_semantics():
     assert "in_1 / in_2" in str(res.resolve(prim_id=1053).python_code)
 
 
+def test_paren_if_compound_preserves_operand_precedence():
+    """An inlined compound operand must be parenthesized so its precedence
+    survives string substitution into an operator template (task #86)."""
+    from lvkit.codegen.nodes.primitive import _paren_if_compound
+    assert _paren_if_compound("z | x") == "(z | x)"   # BinOp -> wrapped
+    assert _paren_if_compound("~x") == "(~x)"         # UnaryOp -> wrapped
+    assert _paren_if_compound("a and b") == "(a and b)"  # BoolOp -> wrapped
+    assert _paren_if_compound("a < b") == "(a < b)"   # Compare -> wrapped
+    assert _paren_if_compound("x") == "x"             # Name -> unchanged
+    assert _paren_if_compound("f(a)") == "f(a)"       # Call -> unchanged
+    assert _paren_if_compound("a.b[0]") == "a.b[0]"   # Subscript -> unchanged
+
+
 def test_boolean_logic_prims_have_integer_bitwise_variant():
     """And/Or carry a python_code_int template so integer operands emit bitwise
     &/| (LabVIEW polymorphism). Not is handled in codegen (needs a width mask)."""

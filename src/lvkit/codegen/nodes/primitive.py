@@ -36,6 +36,26 @@ def _has_array_input(node: PrimitiveOperation) -> bool:
     )
 
 
+def _paren_if_compound(expr: str) -> str:
+    """Wrap an inlined operand in parens if it is a compound expression.
+
+    Operand substitution into a template is string-level, so an inlined
+    sub-expression must keep its precedence: an upstream ``z | x`` dropped into
+    ``in_1 & in_2`` has to stay ``(z | x) & …``, not collapse to ``z | x & …``
+    (``&`` binds tighter than ``|``). Wrapping is always safe — redundant parens
+    never change meaning — and also fixes ``~in_1`` / ``in_1[0]`` / etc."""
+    try:
+        node = ast.parse(expr, mode="eval").body
+    except (SyntaxError, ValueError):
+        return expr
+    if isinstance(node, (
+        ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare,
+        ast.IfExp, ast.Lambda, ast.NamedExpr, ast.Await,
+    )):
+        return f"({expr})"
+    return expr
+
+
 def _int_input_terminal(node: PrimitiveOperation) -> Terminal | None:
     """First input terminal carrying a LabVIEW integer type, else None.
 
@@ -286,11 +306,14 @@ def _build_input_map(
                     break
 
         if not matched_expandable:
+            # Parenthesize a compound operand so its precedence survives the
+            # string-level substitution into an operator template.
+            operand = _paren_if_compound(resolved_value)
             # Add index-based key so templates can use in_1, in_2 etc.
-            input_map[f"in_{term_index}"] = resolved_value
+            input_map[f"in_{term_index}"] = operand
             if term_name:
-                input_map[term_name] = resolved_value
-                input_map[to_var_name(term_name)] = resolved_value
+                input_map[term_name] = operand
+                input_map[to_var_name(term_name)] = operand
 
     # Add expandable placeholders for template substitution.
     # Single group: {expandable_inputs} for backward compat.
