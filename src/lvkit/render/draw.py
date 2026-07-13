@@ -21,6 +21,8 @@ from ..graph.models import (
     VINode,
 )
 from ..models import FPTerminal, LVType, Terminal
+from ..primitive_resolver import get_resolver as get_prim_resolver
+from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend, Point
 from .glyph import (
     CenteredSvgGlyph,
@@ -384,7 +386,24 @@ def _node_tooltip(node: AnyGraphNode) -> str | None:
     if desc:
         lines.append(desc)
     lines.extend(_terminal_help_lines(node))
+    doc_url = _node_doc_url(node)
+    if doc_url:
+        lines.append(doc_url)
     return "\n".join(lines)
+
+
+def _node_doc_url(node: AnyGraphNode) -> str | None:
+    """Public NI docs URL for a resolvable node — a primitive (primitives.json)
+    or a vi.lib VI (vilib catalog), both carrying ``doc_url`` since #87. Shown
+    as the last line of the hover ``<title>`` (task #67). None when the node has
+    no catalog page (unresolved prim, user subVI, structure, constant)."""
+    if isinstance(node, PrimitiveNode):
+        resolved = get_prim_resolver().resolve(prim_id=node.prim_id, name=node.name)
+        return resolved.doc_url if resolved else None
+    if isinstance(node, VINode):
+        entry = get_vilib_resolver().resolve_by_name(node.name or "")
+        return entry.doc_url if entry else None
+    return None
 
 
 def _terminal_label(t: Terminal) -> str:

@@ -1929,6 +1929,25 @@ def test_subvi_nodes_get_hover_tooltip_titles():
     assert re.search(r'<g class="lv-node" data-node="[^"]*">\s*<title>Parse XML', svg)
 
 
+def test_node_tooltip_includes_doc_url_for_resolved_primitive():
+    """A primitive that resolves to an NI docs page surfaces that URL as the
+    last line of its hover <title> (task #67). Add (1050) has a doc_url."""
+    from lvkit.render.draw import _node_doc_url, _node_tooltip
+    add = PrimitiveNode(id="a", vi="V", name="Add", prim_id=1050, terminals=[])
+    url = _node_doc_url(add)
+    assert url is not None and url.endswith("/functions/add.html")
+    tip = _node_tooltip(add)
+    assert tip is not None and url in tip.splitlines()
+
+
+def test_node_tooltip_has_no_doc_url_when_unresolved():
+    """An unknown primitive (no catalog page) adds no URL line."""
+    from lvkit.render.draw import _node_doc_url
+    unknown = PrimitiveNode(id="u", vi="V", name="mystery", prim_id=999999,
+                            terminals=[])
+    assert _node_doc_url(unknown) is None
+
+
 def test_case_vi_svg_is_well_formed_xml_standalone():
     """A case/stacked-seq VI embeds an inline <script> whose JS contains '<'
     (e.g. `i < n`). Opened as a standalone .svg the browser parses strict XML,

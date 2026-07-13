@@ -217,6 +217,9 @@ class ResolvedPrimitive(BaseModel):
     elementwise: bool = False
     # Optional declarative render glyph (render/nodes.py::JsonGlyphResolver).
     icon: NodeIcon | None = None
+    # Public NI docs URL (labview-api-ref bundle) — surfaced in the rendered
+    # SVG's hover tooltip (task #67). None when the primitive has no page.
+    doc_url: str | None = None
 
 
 def _collect_icon(prim: dict) -> NodeIcon | None:
@@ -438,6 +441,7 @@ class PrimitiveResolver:
                     imports=_collect_imports(prim),
                     elementwise=prim.get("elementwise", False),
                     icon=_collect_icon(prim),
+                    doc_url=prim.get("doc_url"),
                 )
 
         # Strategy 2: Name-based lookup
@@ -491,6 +495,7 @@ class PrimitiveResolver:
                 imports=_collect_imports(prim),
                 elementwise=prim.get("elementwise", False),
                 icon=_collect_icon(prim),
+                doc_url=prim.get("doc_url"),
             )
         return None
 
