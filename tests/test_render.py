@@ -1395,24 +1395,15 @@ def test_no_wire_segment_crosses_a_structure_it_is_not_inside():
     if scene is None:
         pytest.skip("scene build failed (missing geometry)")
     crossings = _count_structure_crossings(scene)
-    # KNOWN BUG (newly surfaced, not fixed here — out of scope for the test-
-    # corpus migration that changed STACKED_SEQ_VI's content): an outer-scope
-    # wire (frame_path=()) in this VI's containing While Loop crosses a Case
-    # structure that's gated to frame "2" of the inner stacked sequence
-    # (structure 737). Per _frame_compatible's own documented semantics, an
-    # unconstrained outer wire IS a real obstacle for every possible frame
-    # selection, so the router should have routed around it — this is a
-    # genuine gap in the router's per-frame obstacle set for outer wires
-    # that cross an interactive stacked sequence, not a stale expectation.
-    # The old (unreproducible, SourceForge tops out at 4.x — see
-    # docs/test-corpus-sources.md) 6.x version of this VI didn't happen to
-    # trigger it. Tracked, not silently ignored: fix the router's obstacle
-    # computation for outer wires vs. frame-gated inner structures, then
-    # tighten this back to `== 0`.
-    assert crossings <= 7, (
-        f"expected <=7 known crossings (see comment above), got {crossings} — "
-        "if this dropped to 0 the router bug was fixed, please tighten this "
-        "assertion; if it grew, that's a real new regression"
+    # Regression guard (task #68, resolved): an outer-scope wire in this VI's
+    # containing While Loop used to cross a Case gated to a frame of the inner
+    # stacked sequence — the router's per-frame obstacle set didn't treat an
+    # unconstrained outer wire as an obstacle for every possible frame. The
+    # visibility-graph router now routes it correctly (verified 0 crossings with
+    # faithful routing both on AND off), so this is tightened back to == 0.
+    assert crossings == 0, (
+        f"expected 0 structure crossings, got {crossings} — a wire is routing "
+        "through the interior of a structure it doesn't live inside (regression)"
     )
 
 
