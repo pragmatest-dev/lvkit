@@ -392,6 +392,16 @@ class LocalVariableGlyph:
         )
 
 
+def _operator_symbol_size(bounds: Rect) -> float:
+    """The interior operator-symbol font size shared by EVERY operator glyph —
+    arithmetic/comparison triangles, Select, and the boolean logic gates — so
+    the symbols read at a uniform size across the diagram. Scales to the node
+    but stays inside a small glyph; two sizes below the box-fit so it doesn't
+    crowd the edges."""
+    x1, y1, x2, y2 = bounds
+    return max(4.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85) - 2.0)
+
+
 @dataclass(frozen=True)
 class ArithGlyph:
     """The arithmetic/comparison-primitive triangle (Add/Subtract/Multiply/
@@ -412,7 +422,7 @@ class ArithGlyph:
             stroke=getattr(theme, self.stroke_attr), stroke_width=1.2,
         )
         # Scale the operator to the (often small) triangle so it doesn't overflow.
-        size = max(4.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85) - 2.0)
+        size = _operator_symbol_size(bounds)
         cy = (y1 + y2) / 2
         backend.text(x1 + (x2 - x1) * 0.36, cy + size * 0.34, self.symbol, size,
                      fill=getattr(theme, self.text_attr))
@@ -508,7 +518,7 @@ class BooleanGateGlyph:
                 out_x + r, cy, r, fill=bubble_fill, stroke=stroke, stroke_width=1.0,
             )
 
-        size = max(6.0, min(14.0, (y2 - y1) * 0.5, (x2 - x1) * 0.34))
+        size = _operator_symbol_size(bounds)
         backend.text(sym_x, cy + size * 0.34, self.symbol, size, fill=text_fill)
 
     @staticmethod
