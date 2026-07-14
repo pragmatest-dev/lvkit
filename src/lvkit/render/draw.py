@@ -1461,10 +1461,16 @@ def draw_fp_terminal(
         backend.text((x1 + x2) / 2, y1 - 4, label, size, fill=theme.text)
 
     type_label = _fp_type_label(terminal, scalar_type)
+    compact = x2 - x1 < _FP_MIN_ICON_SIZE or y2 - y1 < _FP_MIN_ICON_SIZE
     if type_label:
-        backend.text((x1 + x2) / 2, y2 - 2, type_label, 7, fill=color, bold=True)
+        # COMPACT view: too small for the index-column chrome that normally
+        # signals an array, so bracket an array's element type — "[DBL]" — to
+        # keep the array-ness obvious. The icon view leaves it bare (its index
+        # column already reads as the brackets).
+        shown = f"[{type_label}]" if compact and is_array else type_label
+        backend.text((x1 + x2) / 2, y2 - 2, shown, 7, fill=color, bold=True)
 
-    if x2 - x1 < _FP_MIN_ICON_SIZE or y2 - y1 < _FP_MIN_ICON_SIZE:
+    if compact:
         return  # too small for the wire port / index / value cells
 
     tri = 5.5

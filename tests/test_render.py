@@ -2784,3 +2784,29 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     # No properties -> None, so the caller falls back to the plain box.
     empty = PrimitiveNode(id="VI::10", vi="VI", node_type="propNode", name="Property Node")
     assert _property_node_glyph(empty) is None
+
+
+def test_compact_array_terminal_brackets_element_type():
+    """A COMPACT FP terminal (too small for the array index-column chrome)
+    brackets the element type — "[DBL]" — so array-ness stays obvious; the
+    full icon view leaves it bare (its index column already reads as brackets)."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.draw import draw_fp_terminal
+
+    arr = LVType(
+        kind="array", underlying_type="Array",
+        element_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+        dimensions=1,
+    )
+    t = FPTerminal(id="x", index=0, direction="output", name="data",
+                   lv_type=arr, is_indicator=False, control_type="stdNum")
+
+    b = SvgBackend()
+    draw_fp_terminal(t, (0, 0, 16, 16), b)
+    compact = b.render((0, 0, 20, 20))
+    assert "[DBL]" in compact and ">DBL<" not in compact
+
+    b2 = SvgBackend()
+    draw_fp_terminal(t, (0, 0, 60, 50), b2)
+    icon = b2.render((0, 0, 60, 50))
+    assert ">DBL<" in icon and "[DBL]" not in icon
