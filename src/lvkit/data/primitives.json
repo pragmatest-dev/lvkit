@@ -53,21 +53,22 @@
       "note": "class=prim primResID 1907 = Array Max & Min (NI docs functions/array-max-min.html, Programming>Array): returns max value, its first index, min value, its first index. Connector pane confirmed from OpenG samples (limitDecendantsTo1Level, Fit VI window to Largest Dec): idx0 array in; idx1 max value; idx2 max index -- feeds Index Array / Delete From Array index ports, confirming it is the index, not the value; idx3 min value; idx4 min index. 1-D scalar-index form only; multidimensional index(es) outputs (which are arrays) are not modeled. Empty array -> index -1 per NI docs, value defaults to 0."
     },
     "1083": {
-      "name": "Boolean Constant",
+      "name": "First Call?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/first-call.html",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "value",
-          "type": "polymorphic"
+          "name": "first_call",
+          "type": "Boolean"
         }
       ],
       "python_code": {
-        "value": "True"
+        "first_call": "True"
       },
       "inline": true,
-      "verified": false,
-      "note": "0 inputs, 1 Boolean output. Always primIdx 377-381. Constant primitive - actual value (True/False) determined by VI data, not primResID."
+      "verified": true,
+      "note": "Synchronization palette. 0 inputs, 1 Boolean output. Returns TRUE only the first time the section runs after the VI is run, FALSE thereafter -- stateful per instance, NOT a constant (real boolean constants are bDConstDCO nodes and store their value; this is a class='prim' function with no stored value). Identity confirmed by the NI Synchronization doc + the functional-global 'Changed?' idiom (uninitialized shift register in a run-once loop, OR'd with a comparison). python_code 'True' is a PLACEHOLDER: correct codegen needs a per-call-site first-call runtime flag (see follow-up task), which this inline expression cannot express."
     },
     "1104": {
       "name": "Greater?",
