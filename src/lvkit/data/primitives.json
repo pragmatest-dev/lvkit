@@ -127,6 +127,39 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/absolute-value.html"
     },
     "1061": {
+      "name": "And",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and.html",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "boolean"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 and in_2"
+      },
+      "python_code_int": {
+        "result": "in_1 & in_2"
+      },
+      "inline": true,
+      "verified": true
+    },
+    "1062": {
       "name": "Or",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/or.html",
       "elementwise": true,
@@ -159,9 +192,9 @@
       "inline": true,
       "verified": true
     },
-    "1062": {
-      "name": "And",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and.html",
+    "1063": {
+      "name": "Exclusive Or",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/exclusive-or.html",
       "elementwise": true,
       "terminals": [
         {
@@ -184,10 +217,10 @@
         }
       ],
       "python_code": {
-        "result": "in_1 and in_2"
+        "result": "in_1 != in_2"
       },
       "python_code_int": {
-        "result": "in_1 & in_2"
+        "result": "in_1 ^ in_2"
       },
       "inline": true,
       "verified": true

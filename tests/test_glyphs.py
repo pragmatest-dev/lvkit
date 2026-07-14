@@ -22,6 +22,7 @@ from lvkit.render.backend import SvgBackend
 from lvkit.render.glyph import (
     ArithGlyph,
     BooleanConstantGlyph,
+    BooleanGateGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
     WrappedBoxGlyph,
@@ -104,6 +105,101 @@ def test_generated_glyph_wins_over_fallback_for_known_arithmetic():
     glyph = resolve_glyph(node, _ctx())
     assert isinstance(glyph, ArithGlyph)
     assert glyph.symbol == "+"
+
+
+def test_array_reduction_primitives_resolve_to_arith_triangle():
+    """And/Or/Add/Multiply Array Elements (goal #99) are LabVIEW's own
+    borderless ``ArithGlyph`` triangle, not a gate shape — only the interior
+    symbol differs from the scalar op."""
+    cases = [
+        ("And Array Elements", 1911, "∧"),
+        ("Or Array Elements", 1910, "∨"),
+        ("Add Array Elements", 1903, "+"),
+        ("Multiply Array Elements", 1904, "×"),
+    ]
+    for name, prim_id, symbol in cases:
+        node = PrimitiveNode(
+            id=f"vi::{prim_id}", vi="vi", name=name, node_type="prim",
+            prim_id=prim_id, terminals=[],
+        )
+        glyph = resolve_glyph(node, _ctx())
+        assert isinstance(glyph, ArithGlyph), name
+        assert glyph.symbol == symbol, name
+
+
+def test_select_resolves_to_arith_triangle_with_question_mark():
+    """Select (prim_id 1516, XML class="prim") is the ternary s?t:f
+    function — a right-pointing triangle with a "?" symbol, like any other
+    arithmetic/comparison primitive. This is UNRELATED to the
+    ``node_type=="select"`` structure class used internally for In-Place-
+    Element decompose/recompose (see ``graph/builders/structures.py``) —
+    the real Select primitive's ``node_type`` is ``"prim"``."""
+    node = PrimitiveNode(
+        id="vi::1516", vi="vi", name="Select", node_type="prim", prim_id=1516,
+        terminals=[],
+    )
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, ArithGlyph)
+    assert glyph.symbol == "?"
+
+
+def test_boolean_gate_dispatch_for_and_or_not():
+    """And/Or/Not (goal #99) resolve to ``BooleanGateGlyph`` via
+    ``OriginalGlyphResolver`` — an AND-gate D-shape, an OR-gate shield, and a
+    Not triangle with an input bubble, respectively (not the labeled-box
+    fallback and not the comparison/arithmetic triangle)."""
+    cases = [
+        ("And", 1062, "and", "∧", False, False),
+        ("Or", 1061, "or", "∨", False, False),
+        ("Not", 1064, "not", "¬", False, True),
+    ]
+    for name, prim_id, kind, symbol, negated, input_bubble in cases:
+        node = PrimitiveNode(
+            id=f"vi::{prim_id}", vi="vi", name=name, node_type="prim",
+            prim_id=prim_id, terminals=[],
+        )
+        glyph = resolve_glyph(node, _ctx())
+        assert isinstance(glyph, BooleanGateGlyph), name
+        assert glyph.kind == kind
+        assert glyph.symbol == symbol
+        assert glyph.negated is negated
+        assert glyph.input_bubble is input_bubble
+
+
+def test_boolean_gate_glyph_draws_expected_backend_ops():
+    """Direct draw-level check (not resolver dispatch): an AND gate emits a
+    filled path (the D-shape) + its symbol text; a Not gate emits a triangle
+    polygon + an unfilled circle (the input bubble) on the LEFT/input side."""
+    b = SvgBackend()
+    BooleanGateGlyph("∧", kind="and").draw(b, (0.0, 0.0, 40.0, 30.0), DEFAULT_THEME)
+    and_svg = b.render((0.0, 0.0, 40.0, 30.0))
+    assert "<path " in and_svg
+    assert ">∧</text>" in and_svg
+    assert "<circle" not in and_svg  # no bubble unless negated/input_bubble
+
+    b2 = SvgBackend()
+    BooleanGateGlyph("¬", kind="not", input_bubble=True).draw(
+        b2, (0.0, 0.0, 40.0, 30.0), DEFAULT_THEME,
+    )
+    not_svg = b2.render((0.0, 0.0, 40.0, 30.0))
+    assert "<polygon" in not_svg
+    assert "<circle" in not_svg
+    # The bubble sits on the INPUT (left) side: cx < the triangle's flat edge.
+    circle_cx = float(not_svg.split('cx="')[1].split('"')[0])
+    assert circle_cx < 0.0  # left of x1=0.0 (the triangle's flat edge)
+
+
+def test_negated_gate_bubble_sits_on_output_side():
+    """Not And (an And gate with ``negated=True``) draws its bubble on the
+    OUTPUT (right) side — the opposite edge from Not's input bubble."""
+    b = SvgBackend()
+    BooleanGateGlyph("∧", kind="and", negated=True).draw(
+        b, (0.0, 0.0, 40.0, 30.0), DEFAULT_THEME,
+    )
+    svg = b.render((0.0, 0.0, 40.0, 30.0))
+    assert "<circle" in svg
+    circle_cx = float(svg.split('cx="')[1].split('"')[0])
+    assert circle_cx > 40.0  # right of x2=40.0 (the D-shape's bulge tip)
 
 
 def test_constant_node_resolves_via_generated_glyph():

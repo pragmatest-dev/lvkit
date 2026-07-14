@@ -746,7 +746,11 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     assert svg is not None
     assert ">x2<" in svg              # #59 hex radix value survives re-extraction
     assert "Open Templates" in svg   # visible owned label rendered
-    assert "Index" not in svg        # hidden auto-label NOT rendered
+    # The hidden auto-label "Index" (0x8 on the "1" constant) must NOT surface.
+    # A legit "Index Array" node name now exists and wraps to two <text> lines
+    # "Index"/"Array" in its box — so a leaked caption is a LONE "Index" text
+    # with no adjacent "Array" line, not any occurrence of the substring.
+    assert not re.search(r">Index</text>(?!\s*<text[^>]*>Array</text>)", svg)
 
 
 def test_render_vi_file_determinism_same_process():
@@ -2784,7 +2788,9 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     assert glyph.class_name == "VI"  # header names the object class
 
     # No properties -> None, so the caller falls back to the plain box.
-    empty = PrimitiveNode(id="VI::10", vi="VI", node_type="propNode", name="Property Node")
+    empty = PrimitiveNode(
+        id="VI::10", vi="VI", node_type="propNode", name="Property Node"
+    )
     assert _property_node_glyph(empty) is None
 
 

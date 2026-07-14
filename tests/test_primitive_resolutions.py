@@ -87,11 +87,13 @@ def test_boolean_logic_prims_have_integer_bitwise_variant():
     """And/Or carry a python_code_int template so integer operands emit bitwise
     &/| (LabVIEW polymorphism). Not is handled in codegen (needs a width mask)."""
     res = get_resolver()
-    assert res.resolve(prim_id=1062).python_code_int == {"result": "in_1 & in_2"}
-    assert res.resolve(prim_id=1061).python_code_int == {"result": "in_1 | in_2"}
+    # 1061 = And, 1062 = Or (resIDs verified against MD5 F/G/I dataflow; the
+    # names were previously swapped).
+    assert res.resolve(prim_id=1061).python_code_int == {"result": "in_1 & in_2"}
+    assert res.resolve(prim_id=1062).python_code_int == {"result": "in_1 | in_2"}
     # bool path unchanged (idiomatic logical operators)
-    assert "in_1 and in_2" in str(res.resolve(prim_id=1062).python_code)
-    assert "in_1 or in_2" in str(res.resolve(prim_id=1061).python_code)
+    assert "in_1 and in_2" in str(res.resolve(prim_id=1061).python_code)
+    assert "in_1 or in_2" in str(res.resolve(prim_id=1062).python_code)
 
 
 def test_numeric_primitives_are_elementwise():

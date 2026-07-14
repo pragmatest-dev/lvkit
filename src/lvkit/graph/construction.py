@@ -523,9 +523,20 @@ class ConstructionMixin:
 
             node_terminals.sort(key=lambda t: t.index)
 
-            # Resolve node name
+            # Resolve node name. A specialized node_type (subset, aIndx, ...)
+            # OWNS its name via its parser handler's display_name; only a
+            # generic class="prim" node resolves its name from primResID. This
+            # matters because some primResIDs are SHARED across XML classes
+            # (e.g. 1516 = both Select for class="prim" and Array Subset for
+            # class="subset", 1809 = both Array Size and Index Array), so a
+            # prim_id lookup would mislabel the specialized node. Mirrors
+            # codegen's node_type-first rule (codegen/nodes/primitive.py).
             node_name = node.name
-            if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
+            if (
+                isinstance(node, ParserPrimitiveNode)
+                and node.prim_res_id
+                and node.node_type == "prim"
+            ):
                 resolved = resolve_primitive(prim_id=node.prim_res_id)
                 if resolved:
                     node_name = resolved.name

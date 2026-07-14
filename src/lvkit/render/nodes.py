@@ -46,6 +46,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
     BooleanConstantGlyph,
+    BooleanGateGlyph,
     BundleByNameGlyph,
     BundleGlyph,
     CenteredSvgGlyph,
@@ -179,9 +180,21 @@ def _bool_value(raw: object) -> bool:
 
 # Arithmetic-primitive name/operation -> triangle symbol (moved here from
 # the old draw.py dispatch dict — this IS "add a code-drawn built-in").
+#
+# The four array-REDUCTION primitives (And/Or/Add/Multiply Array Elements)
+# are drawn with the SAME borderless ``ArithGlyph`` triangle as scalar
+# arithmetic — LabVIEW's own function-reference images show them as a plain
+# triangle with a symbol, not a gate shape (goal #99) — and ``Select``
+# (the ternary s?t:f primitive, prim_id 1516) likewise: a right-pointing
+# triangle with a small "?" (its "s?" selector), not the case-structure-like
+# ``node_type=="select"`` used internally for In-Place-Element decompose/
+# recompose (unrelated construct — see ``graph/builders/structures.py``).
 _ARITH_SYMBOL = {
     "Add": "+", "Subtract": "−", "Multiply": "×", "Divide": "÷",
     "Increment": "+1", "Decrement": "-1",
+    "And Array Elements": "∧", "Or Array Elements": "∨",
+    "Add Array Elements": "+", "Multiply Array Elements": "×",
+    "Select": "?",
 }
 
 # Comparison primitives — LabVIEW draws each as the same borderless triangle
@@ -192,6 +205,23 @@ _ARITH_SYMBOL = {
 _COMPARE_SYMBOL = {
     "Equal?": "=", "Not Equal?": "≠", "Greater?": ">", "Less?": "<",
     "Greater Or Equal?": "≥", "Less Or Equal?": "≤",
+    # Comparison-to-0 variants (LabVIEW draws the same triangle with a "0").
+    "Equal To 0?": "=0", "Not Equal To 0?": "≠0",
+    "Greater Than 0?": ">0", "Less Than 0?": "<0",
+    "Greater Or Equal To 0?": "≥0", "Less Or Equal To 0?": "≤0",
+}
+
+# Boolean logic-GATE primitives (goal #99) -> (BooleanGateGlyph kind, interior
+# symbol, negated-output-bubble, negated-input-bubble). Keyed by the resolved
+# primitive NAME, same convention as ``_COMPARE_SYMBOL``. Only names actually
+# present in ``primitives.json`` fire: And (1062), Or (1061), Not (1064).
+# Exclusive Or / Not And / Not Or / Not Exclusive Or / Implies have no
+# confirmed primResID yet, so they still fall through to the labeled-box
+# fallback until a future primitive-resolution pass adds them.
+_BOOLEAN_GATE = {
+    "And": ("and", "∧", False, False),
+    "Or": ("or", "∨", False, False),
+    "Not": ("not", "¬", False, True),
 }
 
 # Cluster assemble/disassemble node classes. LabVIEW parses the palette Bundle
@@ -565,6 +595,8 @@ class OriginalGlyphResolver:
     - The six comparison functions (Equal?, Not Equal?, Greater?, Less?,
       Greater Or Equal?, Less Or Equal?) — the arithmetic ``ArithGlyph``
       triangle with the comparison symbol.
+    - The boolean logic gates (And, Or, Not) — ``BooleanGateGlyph``'s
+      D-shape/shield/triangle+bubble outlines (goal #99).
     - Build Array (``aBuild``) — the name in a box, replacing the noisy
       vectorized NI pixel icon (no distinctive clean-room shape yet).
     """
@@ -581,6 +613,12 @@ class OriginalGlyphResolver:
         symbol = _COMPARE_SYMBOL.get(node.name or "")
         if symbol is not None:
             return ArithGlyph(symbol)
+        gate = _BOOLEAN_GATE.get(node.name or "")
+        if gate is not None:
+            kind, gate_symbol, negated, input_bubble = gate
+            return BooleanGateGlyph(
+                gate_symbol, kind=kind, negated=negated, input_bubble=input_bubble,
+            )
         if node.node_type == "aBuild" or node.name == "Build Array":
             # No distinctive clean-room shape yet; the vectorized NI pixel icon
             # read as a noisy little grid. The name in a box is clearer and
