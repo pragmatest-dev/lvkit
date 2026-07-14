@@ -261,6 +261,45 @@ class _LayoutBuilder:
                 uids.add(s.get("uid", ""))
         return {u for u in uids if u}
 
+    # -- shift-register pairs ---------------------------------------------
+    def _map_shift_register(
+        self, lsr: ET.Element, term_uid: str | None,
+        ox: float, oy: float, off_x: float, off_y: float,
+    ) -> None:
+        """Map both halves of a loop shift-register pair to their own borders.
+
+        A shift register is serialized as ONE heap ``term`` carrying a left
+        register (``dco class="lSR"``); the right register (``rSR``) is either a
+        SEPARATE term (for-loops) or NESTED inside the left as ``rsrDCO``
+        (while-loops). When nested, each register still has its OWN
+        ``termBounds`` (left vs right structure border) and its OWN, disjoint
+        ``termList`` of wire-endpoint uids. Map each independently so a wire
+        feeding the right register anchors to the right border rather than being
+        pulled to the left glyph by the generic descendant search (task #96). A
+        nested rsrDCO with no termBounds of its own (the empty for-loop ref) is
+        skipped — that side is a standalone term handled by ``_map_terms``.
+        """
+        rsr = lsr.find("rsrDCO")
+        for reg, extra in ((lsr, term_uid), (rsr, None)):
+            if reg is None:
+                continue
+            tb = _rect(reg, "termBounds")
+            if tb is None:
+                continue
+            abs_tb = (
+                ox + tb[0] + off_x, oy + tb[1] + off_y,
+                ox + tb[2] + off_x, oy + tb[3] + off_y,
+            )
+            center = ((abs_tb[0] + abs_tb[2]) / 2, (abs_tb[1] + abs_tb[3]) / 2)
+            uids = {u for u in (reg.get("uid"), extra) if u}
+            uids.update(
+                s.get("uid", "") for s in reg.findall("termList/SL__arrayElement")
+                if s.get("uid")
+            )
+            for u in uids:
+                self.node_bounds.setdefault(u, abs_tb)
+                self.terminal_centers.setdefault(u, center)
+
     # -- per-node terminal geometry ---------------------------------------
     def _map_terms(self, elem: ET.Element, ox: float, oy: float) -> None:
         """Record terminal centers (+ nested constant boxes) from one
@@ -311,6 +350,18 @@ class _LayoutBuilder:
             if cls != "term":
                 continue
             term_uid = term.get("uid")
+            # Shift-register pair: a loop's register is one heap `term` whose
+            # `dco class="lSR"` (left border) may carry the right register
+            # NESTED as `rsrDCO`. Each side has its OWN termBounds + DISJOINT
+            # termList; map them independently (the generic ``.//termList``
+            # search below would descend into the nested rsrDCO and give the
+            # RIGHT register's wire uids the LEFT glyph's center — a wire
+            # feeding the right register then routes back across the whole
+            # structure, task #96).
+            dco0 = term.find("dco")
+            if dco0 is not None and dco0.get("class") == "lSR":
+                self._map_shift_register(dco0, term_uid, ox, oy, off_x, off_y)
+                continue
             # termBounds is nested at varying depth (directly under a "term",
             # or under its dco/parm/overridableParm child) — search any depth.
             tb = _rect(term, ".//termBounds")
