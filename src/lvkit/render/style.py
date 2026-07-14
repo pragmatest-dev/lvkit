@@ -65,6 +65,9 @@ class Theme:
     wire_string: str = "#e05fa0"   # pink — string
     wire_path: str = "#1f8a8a"     # teal — path
     wire_cluster: str = "#8a5a2b"  # brown — clusters / typedefs
+    wire_refnum: str = "#1f6b2e"   # dark green — refnums (VI refs, driver/DAQ/
+    #                                VISA sessions, queues, notifiers, controls);
+    #                                LabVIEW's generic reference wire color
     wire_error: str = "#a88d1e"    # mustard/dark-yellow — error clusters (LV 8.2+)
     wire_variant: str = "#840984"  # purple — Variant (NI rgb(132,9,132))
     # Unresolved / unknown-type wires — a DISTINCT dark grey, NOT the float
@@ -227,14 +230,15 @@ _FAMILY_COLOR = {
     "cluster": "wire_cluster",
     "error_cluster": "wire_error",
     "variant": "wire_variant",
+    "refnum": "wire_refnum",
 }
 
 
 def type_family(lv_type: LVType | None) -> str:
     """Coarse family bucket for an LVType: "float", "int", "bool",
     "string", "path", "enum", "cluster", "error_cluster", "variant",
-    "array", or "unknown". The single source of truth for wire color and
-    front-panel terminal glyph choice.
+    "refnum", "array", or "unknown". The single source of truth for wire color
+    and front-panel terminal glyph choice.
     """
     if lv_type is None:
         return "unknown"
@@ -262,6 +266,13 @@ def type_family(lv_type: LVType | None) -> str:
             return "path"
         if ut in ("Variant", "LVVariant"):
             return "variant"
+        if ut == "Refnum" and not lv_type.classname:
+            # Generic refnum — VI reference, DAQmx/VISA driver session, queue,
+            # notifier, control refnum, etc. LabVIEW draws all of these in the
+            # same dark-green reference-wire color. An LVOOP class instance is
+            # ALSO carried as a Refnum but has a ``classname`` (its wire is the
+            # class's own colour, not the generic reference green), so exclude it.
+            return "refnum"
     return "unknown"
 
 

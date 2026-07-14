@@ -2683,3 +2683,21 @@ def test_node_type_flavor_carries_doc_url():
         "/functions/build-array.html")
     assert r.resolve_by_node_type("cpdArith").doc_url.endswith(
         "/functions/compound-arithmetic.html")
+
+
+def test_refnum_wire_is_dark_green_not_grey():
+    """Generic refnums (VI reference, driver/DAQ/VISA session, queue, ...) use
+    LabVIEW's dark-green reference-wire color — not the grey "unresolved" color.
+    An LVOOP class instance is also a Refnum but carries a classname; it must NOT
+    take the generic green (its wire is the class's own colour)."""
+    from lvkit.render.style import type_family
+
+    generic_ref = LVType(kind="primitive", underlying_type="Refnum",
+                         ref_type="DataLogRefnum")
+    assert type_family(generic_ref) == "refnum"
+    assert wire_style(generic_ref).color == DEFAULT_THEME.wire_refnum
+    assert wire_style(generic_ref).color != DEFAULT_THEME.wire_default
+
+    lvoop = LVType(kind="primitive", underlying_type="Refnum",
+                   ref_type="UDClassInst", classname="Camera.lvclass")
+    assert type_family(lvoop) != "refnum"

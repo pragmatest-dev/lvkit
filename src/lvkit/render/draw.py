@@ -1357,7 +1357,7 @@ _CONTROL_TYPE_FAMILY = {
 _FAMILY_REPR = {
     "float": "DBL", "int": "I32", "bool": "TF", "string": "abc",
     "path": "Path", "enum": "Enum",
-    "error_cluster": "err", "variant": "Var",
+    "error_cluster": "err", "variant": "Var", "refnum": "Ref",
 }
 
 
