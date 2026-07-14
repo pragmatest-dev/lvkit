@@ -2994,8 +2994,8 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preserve-run-time-class.html"
     },
     "1118": {
-      "name": "Greater Than 0?",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-than-0.html",
+      "name": "Less Than 0?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-than-0.html",
       "terminals": [
         {
           "index": 0,
@@ -3011,10 +3011,10 @@
         }
       ],
       "python_code": {
-        "result": "in_1 > 0"
+        "result": "in_1 < 0"
       },
       "inline": true,
-      "verified": false
+      "verified": true
     },
     "8018": {
       "name": "To More Specific Class",
