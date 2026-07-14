@@ -392,14 +392,17 @@ class LocalVariableGlyph:
         )
 
 
+# One FIXED font size for every operator-symbol glyph — arithmetic/comparison
+# triangles, Select, comparison-to-0, and the boolean logic gates — so the
+# symbols are identical in size everywhere on the diagram, independent of each
+# node's own bounds.
+_OPERATOR_SYMBOL_SIZE = 9.0
+
+
 def _operator_symbol_size(bounds: Rect) -> float:
-    """The interior operator-symbol font size shared by EVERY operator glyph —
-    arithmetic/comparison triangles, Select, and the boolean logic gates — so
-    the symbols read at a uniform size across the diagram. Scales to the node
-    but stays inside a small glyph; two sizes below the box-fit so it doesn't
-    crowd the edges."""
-    x1, y1, x2, y2 = bounds
-    return max(4.0, min(15.0, (y2 - y1) * 0.62, (x2 - x1) * 0.85) - 2.0)
+    """The interior operator-symbol font size shared by EVERY operator glyph, so
+    they all render at exactly the same size (see ``_OPERATOR_SYMBOL_SIZE``)."""
+    return _OPERATOR_SYMBOL_SIZE
 
 
 @dataclass(frozen=True)
