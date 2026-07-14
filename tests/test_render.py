@@ -2579,6 +2579,31 @@ def test_decode_signal_comb_fanout_early_prune():
         assert _ortho([src, *mid, sink])
 
 
+def test_decode_signal_turned_trunk_comb_backward_neg_perp():
+    # A 6-tooth comb whose trunk turns SOUTH before the taps: each 0x07 fork's
+    # base immediate N would point BACKWARD up the southbound trunk, so it is
+    # remapped to the trunk's negative-axis perpendicular (W) and taps west to its
+    # sink while the trunk continues S. This is the deterministic turned-trunk fork
+    # rule (docs/wire-compression-format.md "Layout B") — it must decode with NO
+    # fork search. Real signal from MasterAcquisitionFile_PCO_IOS.vi.
+    blob = (
+        "190008060103000700000307000003070000030700000301000016FF018DFF02AF9929"
+        "FF02621B1864971B133A971613FF0144FF025E1B16FF0119FF02551C14"
+    )
+    src = (605.0, 1765.0)
+    sinks = [
+        (-59.5, 1368.5), (648.0, 1933.0), (196.0, 2315.0),
+        (203.0, 2597.0), (648.0, 1986.0), (194.0, 1833.0),
+    ]
+    from lvkit.render.wire_table import _decode_tree_deterministic
+
+    mids = _decode_tree_deterministic(blob, src, sinks)
+    assert mids is not None, "turned-trunk comb must decode deterministically"
+    assert len(mids) == len(sinks)
+    for mid, sink in zip(mids, sinks):
+        assert _ortho([src, *mid, sink])
+
+
 def test_decode_signal_straight_through_terminal_tap():
     # b[1]=0x01 marks a straight-through terminal tap: a sink sits ON the path
     # (the 0x02 token continues straight through it). Both sinks must resolve to
