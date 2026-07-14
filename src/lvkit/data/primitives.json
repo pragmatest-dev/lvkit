@@ -1062,13 +1062,13 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-to-path.html"
     },
     "1110": {
-      "name": "Not Equal?",
+      "name": "Less?",
       "elementwise": true,
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "x_ne_y",
+          "name": "result",
           "type": "Boolean"
         },
         {
@@ -1087,11 +1087,11 @@
         }
       ],
       "python_code": {
-        "x_ne_y": "in_1 != in_2"
+        "result": "in_1 < in_2"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html"
     },
     "1108": {
       "name": "Quotient & Remainder",
@@ -1130,7 +1130,7 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/quotient-remainder.html"
     },
     "1105": {
-      "name": "Less?",
+      "name": "Not Equal?",
       "elementwise": true,
       "terminals": [
         {
@@ -1155,11 +1155,11 @@
         }
       ],
       "python_code": {
-        "result": "in_1 < in_2"
+        "result": "in_1 != in_2"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html"
     },
     "1114": {
       "name": "Greater Or Equal?",
