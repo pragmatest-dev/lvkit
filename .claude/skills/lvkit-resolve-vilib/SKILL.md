@@ -148,6 +148,6 @@ If a NEW VI fails, start this process again for that one.
 - NEVER guess terminal indices — they come from the caller's dataflow diagnostic
 - NEVER invent terminal names — they come from the documentation or real source file
 - NEVER skip the documentation/source lookup — the VI name IS searchable
-- NEVER assume terminal order from the documentation matches connector pane order — use the wire types from the diagnostic to determine actual indices
+- NEVER assume terminal order from the documentation matches connector pane order — use the wire types from the diagnostic to determine actual indices. **There is no shared index rule across VIs, not even a reliable baseline: each carries its own connector-pane pattern AND orientation, and the index origin corner + direction differ by pattern, so you must read each one individually.** For example 4x2x2x4 starts idx 0 bottom-right (Right→Left, Bottom→Top), but 5x2x2x2x5 starts idx 0 top-left and increments the other way — never infer an index from a pattern name or a "usual" rule.
 - NEVER write user-mode mappings into lvkit's `data/` (cleanroom contamination)
 - NEVER write lvkit-mode mappings into a user project's `.lvkit/` (wrong destination)
