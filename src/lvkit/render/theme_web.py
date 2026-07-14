@@ -68,6 +68,7 @@ DARK_PALETTE: dict[str, str] = {
     "wire_string": "#f284bd",
     "wire_path": "#38b6b6",
     "wire_cluster": "#c8965a",
+    "wire_refnum": "#3f9e58",
     "wire_error": "#cdb03e",
     "wire_variant": "#c452c4",
     "wire_default": "#8a8a8a",

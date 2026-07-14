@@ -2810,3 +2810,15 @@ def test_compact_array_terminal_brackets_element_type():
     draw_fp_terminal(t, (0, 0, 60, 50), b2)
     icon = b2.render((0, 0, 60, 50))
     assert ">DBL<" in icon and "[DBL]" not in icon
+
+
+def test_dark_palette_covers_every_wire_color():
+    """Every wire_* (and other themed) color in the Theme must have a dark-mode
+    entry in DARK_PALETTE, else theme_style_block() raises and the web/gallery
+    render dies. Guards against adding a wire color (e.g. wire_refnum) without
+    its dark variant."""
+    from lvkit.render.theme_web import DARK_PALETTE, theme_style_block
+
+    css = theme_style_block()  # raises if any themed color lacks a dark entry
+    assert "--lv-wire-refnum" in css
+    assert "wire_refnum" in DARK_PALETTE
