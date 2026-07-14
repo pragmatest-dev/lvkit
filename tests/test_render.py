@@ -2750,3 +2750,37 @@ def test_refnum_wire_is_dark_green_not_grey():
     lvoop = LVType(kind="primitive", underlying_type="Refnum",
                    ref_type="UDClassInst", classname="Camera.lvclass")
     assert type_family(lvoop) != "refnum"
+
+
+def test_property_node_glyph_shows_named_rows_with_read_write():
+    """A Property Node draws one row per accessed property, labelled with the
+    property NAME (from node.properties) and marked read (value out) vs write
+    (value in) by the value terminal's direction — not a blank "Property Node"
+    box. Reference (Refnum) and error-cluster terminals are excluded from the
+    rows."""
+    from lvkit.models import PropertyDef, Terminal
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.nodes import _property_node_glyph
+
+    def term(idx, direction, ut):
+        return Terminal(
+            id=f"VI::{idx}", index=idx, direction=direction,
+            lv_type=LVType(kind="primitive", underlying_type=ut),
+        )
+    node = PrimitiveNode(
+        id="VI::9", vi="VI", node_type="propNode", name="Property Node",
+        properties=[PropertyDef(name="Value"), PropertyDef(name="Visible")],
+        terminals=[
+            term(0, "input", "Refnum"),   # reference in  (excluded)
+            term(1, "output", "Refnum"),  # reference out (excluded)
+            term(2, "input", "NumFloat64"),   # Value  -> write
+            term(3, "output", "Boolean"),     # Visible -> read
+        ],
+    )
+    glyph = _property_node_glyph(node)
+    assert isinstance(glyph, PropertyNodeGlyph)
+    assert glyph.rows == (("Value", False), ("Visible", True))
+
+    # No properties -> None, so the caller falls back to the plain box.
+    empty = PrimitiveNode(id="VI::10", vi="VI", node_type="propNode", name="Property Node")
+    assert _property_node_glyph(empty) is None

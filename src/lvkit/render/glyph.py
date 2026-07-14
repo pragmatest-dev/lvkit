@@ -613,6 +613,57 @@ class BundleByNameGlyph:
 
 
 @dataclass(frozen=True)
+class PropertyNodeGlyph:
+    """A Property Node (heap class ``propNode``): a box with one row per accessed
+    property, each row LABELED with the property's NAME and marked read vs write.
+
+    LabVIEW draws a property node as a stack of named rows (the reference threads
+    the top border and the error cluster the bottom — both are ordinary terminals
+    placed by the scene, not part of this box). Each row is a READ (the property
+    value flows OUT, arrow ``▸`` on the right) or a WRITE (value flows IN, ``◂``).
+    Names come from the node's ``properties`` list; the per-row direction from the
+    matching value terminal. Grows with the row count, scaling to heap bounds."""
+
+    rows: tuple[tuple[str, bool], ...]  # (property name, is_read)
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        stroke = getattr(theme, self.stroke_attr)
+        text_fill = getattr(theme, self.text_attr)
+        backend.rect(
+            x1, y1, x2, y2, fill=getattr(theme, self.fill_attr),
+            stroke=stroke, stroke_width=1.2,
+        )
+        rows = self.rows or (("", True),)
+        n = len(rows)
+        height = y2 - y1
+        lpad = 3.0
+        arrow_w = 7.0
+        lsize = max(6.0, min(9.0, (height / n) * 0.62))
+        for i, (name, is_read) in enumerate(rows):
+            ry1 = y1 + i * height / n
+            ry2 = y1 + (i + 1) * height / n
+            if i > 0:
+                backend.line(x1, ry1, x2, ry1, stroke=stroke, stroke_width=1.0)
+            cy = (ry1 + ry2) / 2
+            label = fit_label(name, (x2 - x1) - 2 * lpad - arrow_w, backend, lsize)
+            backend.text(
+                x1 + lpad, cy + lsize * 0.34, label, lsize,
+                anchor="start", fill=text_fill,
+            )
+            # Per-row read/write marker at the right edge: ▸ = read (value out),
+            # ◂ = write (value in). Small, so it never crowds the name.
+            backend.text(
+                x2 - arrow_w * 0.55, cy + lsize * 0.34,
+                "▸" if is_read else "◂", lsize,
+                fill=text_fill,
+            )
+
+
+@dataclass(frozen=True)
 class ConstantGlyph:
     """A constant's colored box (color from its own ``LVType``, computed by
     the resolver — a literal color, not a theme attribute, since it varies

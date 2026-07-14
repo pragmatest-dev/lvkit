@@ -58,6 +58,7 @@ from .glyph import (
     IconImageGlyph,
     InlineSvgGlyph,
     LocalVariableGlyph,
+    PropertyNodeGlyph,
     UnbundleGlyph,
     VariantGlyph,
     WrappedBoxGlyph,
@@ -450,6 +451,37 @@ def _bundle_by_name_glyph(
     return BundleByNameGlyph(names=tuple(names), bundling=bundling)
 
 
+def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
+    """A Property Node glyph: one row per accessed property, labelled with the
+    property NAME and marked read/write. Names come from ``node.properties``
+    (parsed from the heap ``propItemInfo`` list). The per-row read/write flag is
+    the direction of that property's VALUE terminal — the terminals that are
+    neither the reference (``Refnum``) nor the error cluster, in index order.
+    Returns None when the node carries no property names, so the caller falls
+    back to the plain "Property Node" box rather than an empty drawer."""
+    props = getattr(node, "properties", None) or []
+    if not props:
+        return None
+    value_terms = sorted(
+        (
+            t for t in node.terminals
+            if t.lv_type is not None
+            and t.lv_type.underlying_type != "Refnum"
+            and type_family(t.lv_type) != "error_cluster"
+        ),
+        key=lambda t: t.index,
+    )
+    rows: list[tuple[str, bool]] = []
+    for i, p in enumerate(props):
+        name = (getattr(p, "name", None) or "").strip() or f"[{i}]"
+        # Value flows OUT of a read (output terminal); IN to a write. Default to
+        # read when the value terminal can't be matched (read is the common case
+        # and only flips a small marker, never the name).
+        is_read = value_terms[i].direction == "output" if i < len(value_terms) else True
+        rows.append((name, is_read))
+    return PropertyNodeGlyph(rows=tuple(rows))
+
+
 class OriginalGlyphResolver:
     """Clean-room ORIGINAL glyphs for primitives whose SHAPE we draw ourselves
     (roadmap #14). Each matched primitive gets a glyph that reproduces the real
@@ -478,6 +510,8 @@ class OriginalGlyphResolver:
             return None
         if node.node_type in _CLUSTER_MUX_TYPES:
             return self._cluster_glyph(node, ctx.graph)
+        if node.node_type == "propNode":
+            return _property_node_glyph(node)
         symbol = _COMPARE_SYMBOL.get(node.name or "")
         if symbol is not None:
             return ArithGlyph(symbol)
