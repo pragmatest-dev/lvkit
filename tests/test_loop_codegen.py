@@ -15,8 +15,9 @@ from lvkit.codegen.nodes.loop import (
     _negate_condition,
     _singularize,
 )
-from lvkit.graph.models import Wire
-from lvkit.models import LoopOperation, Tunnel
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import PrimitiveNode, Wire, WireEnd
+from lvkit.models import LoopOperation, LVType, Terminal, Tunnel, TunnelTerminal
 from tests.conftest import make_ctx
 
 
@@ -882,3 +883,190 @@ class TestForLoopConditionalTerminal:
         ifs = [s for s in for_loop.body if isinstance(s, ast.If)]
         assert ifs and isinstance(ifs[-1].test, ast.UnaryOp)  # `if not cond: break`
         assert isinstance(ifs[-1].test.op, ast.Not)
+
+
+class TestUninitializedShiftRegister:
+    """An lSR whose outer (left) terminal has nothing wired in from
+    outside the loop is the LV2/functional-global idiom: the value
+    PERSISTS ACROSS CALLS to the VI. loop.py must lower this to a
+    module-level global (CodeGenContext.module_globals) instead of
+    silently dropping the shift register (the old behavior)."""
+
+    def _ctx_and_terminals(self, lv_type: LVType) -> tuple[CodeGenContext, list]:
+        """Graph for a while loop whose rSR inner terminal is wired
+        directly from an external source ('new_val_src') -- mirrors the
+        real U16 Changed__ogtk.vi shape, where the current input value is
+        wired straight into the shift register with no inner primitive
+        nodes at all."""
+        graph = InMemoryVIGraph()
+
+        src_node = PrimitiveNode(
+            id="src", vi="test.vi", name="src",
+            terminals=[Terminal(id="new_val_src", index=0, direction="output")],
+        )
+        graph._graph.add_node("src", node=src_node)
+        graph._term_to_node["new_val_src"] = "src"
+
+        loop_terminals = [
+            TunnelTerminal(
+                id="lsr_outer", index=1, direction="input",
+                tunnel_type="lSR", boundary="outer", lv_type=lv_type,
+            ),
+            TunnelTerminal(
+                id="lsr_inner", index=2, direction="output",
+                tunnel_type="lSR", boundary="inner", lv_type=lv_type,
+            ),
+            TunnelTerminal(
+                id="rsr_outer", index=3, direction="output",
+                tunnel_type="rSR", boundary="outer", lv_type=lv_type,
+            ),
+            TunnelTerminal(
+                id="rsr_inner", index=4, direction="input",
+                tunnel_type="rSR", boundary="inner", lv_type=lv_type,
+            ),
+        ]
+        loop_node = PrimitiveNode(
+            id="loop1", vi="test.vi", name="loop1", terminals=loop_terminals,
+        )
+        graph._graph.add_node("loop1", node=loop_node)
+        for t in loop_terminals:
+            graph._term_to_node[t.id] = "loop1"
+
+        graph._graph.add_edge(
+            "src", "loop1",
+            source=WireEnd(terminal_id="new_val_src", node_id="src"),
+            dest=WireEnd(terminal_id="rsr_inner", node_id="loop1"),
+        )
+
+        ctx = CodeGenContext(graph=graph)
+        ctx.bind("new_val_src", "new_value")
+        return ctx, loop_terminals
+
+    def _loop_op(self, terminals: list) -> LoopOperation:
+        return LoopOperation(
+            id="loop1",
+            name="While Loop",
+            labels=["Loop"],
+            loop_type="whileLoop",
+            terminals=terminals,
+            tunnels=[
+                Tunnel(
+                    outer_terminal_uid="lsr_outer",
+                    inner_terminal_uid="lsr_inner",
+                    tunnel_type="lSR",
+                ),
+                Tunnel(
+                    outer_terminal_uid="rsr_outer",
+                    inner_terminal_uid="rsr_inner",
+                    tunnel_type="rSR",
+                ),
+            ],
+            inner_nodes=[],
+        )
+
+    def test_registers_module_global_seeded_to_type_default(self):
+        lv_type = LVType(kind="primitive", underlying_type="NumUInt16")
+        ctx, terminals = self._ctx_and_terminals(lv_type)
+        loop_op = self._loop_op(terminals)
+
+        loop.generate(loop_op, ctx)
+
+        assert len(ctx.module_globals) == 1
+        name = next(iter(ctx.module_globals))
+        assert name.startswith("_lv_state_")
+        stmt = ctx.module_globals[name]
+        code = ast.unparse(ast.fix_missing_locations(stmt))
+        assert code == f"{name} = 0"
+
+    def test_emits_global_declaration_and_seeds_local_from_it(self):
+        lv_type = LVType(kind="primitive", underlying_type="NumUInt16")
+        ctx, terminals = self._ctx_and_terminals(lv_type)
+        loop_op = self._loop_op(terminals)
+
+        fragment = loop.generate(loop_op, ctx)
+        global_name = next(iter(ctx.module_globals))
+
+        global_stmts = [
+            s for s in fragment.statements if isinstance(s, ast.Global)
+        ]
+        assert any(global_name in g.names for g in global_stmts)
+
+        # First statement after the global decl seeds the local from it:
+        # shift_var = <global_name>
+        seed = fragment.statements[1]
+        assert isinstance(seed, ast.Assign)
+        ast.fix_missing_locations(seed)
+        assert ast.unparse(seed).endswith(f"= {global_name}")
+
+    def test_writes_back_to_global_after_loop(self):
+        lv_type = LVType(kind="primitive", underlying_type="NumUInt16")
+        ctx, terminals = self._ctx_and_terminals(lv_type)
+        loop_op = self._loop_op(terminals)
+
+        fragment = loop.generate(loop_op, ctx)
+        global_name = next(iter(ctx.module_globals))
+
+        writeback = fragment.statements[-1]
+        assert isinstance(writeback, ast.Assign)
+        ast.fix_missing_locations(writeback)
+        assert ast.unparse(writeback).startswith(f"{global_name} =")
+
+    def test_persists_and_updates_across_two_calls_to_compiled_function(self):
+        """The real correctness bar: COMPILE the generated statements into
+        a function and CALL IT TWICE, proving the shift register value
+        (a) starts at the type default, (b) is visible to the NEXT call,
+        and (c) is updated to whatever was wired into rSR each call --
+        exactly the LV2/functional-global semantics this lowering exists
+        for."""
+        lv_type = LVType(kind="primitive", underlying_type="NumUInt16")
+        ctx, terminals = self._ctx_and_terminals(lv_type)
+        loop_op = self._loop_op(terminals)
+
+        fragment = loop.generate(loop_op, ctx)
+        global_name = next(iter(ctx.module_globals))
+        # The rSR's outer-terminal binding is the freshly WRITTEN value
+        # (matches rSR's real dataflow meaning); the lSR-bound local from
+        # the seed assignment holds the unmutated PREVIOUS value -- both
+        # must remain independently readable within the same call (see
+        # loop.py step 5's docstring for why the update does not mutate
+        # the lSR-bound local in place).
+        new_var = fragment.bindings["rsr_outer"]
+        old_var = fragment.statements[1].targets[0].id
+        assert old_var != new_var
+
+        func_def = ast.FunctionDef(
+            name="run",
+            args=ast.arguments(
+                posonlyargs=[], args=[ast.arg(arg="new_value")], vararg=None,
+                kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[],
+            ),
+            body=[
+                *fragment.statements,
+                ast.Return(
+                    value=ast.Tuple(
+                        elts=[
+                            ast.Name(id=old_var, ctx=ast.Load()),
+                            ast.Name(id=new_var, ctx=ast.Load()),
+                        ],
+                        ctx=ast.Load(),
+                    )
+                ),
+            ],
+            decorator_list=[],
+        )
+        module = ast.Module(
+            body=[ctx.module_globals[global_name], func_def], type_ignores=[],
+        )
+        ast.fix_missing_locations(module)
+        ns: dict = {}
+        exec(compile(module, "<test>", "exec"), ns)  # noqa: S102
+        run = ns["run"]
+
+        # Call 1: previous value is the type default (0); new_value=5 is
+        # written into the SR for next time.
+        assert run(5) == (0, 5)
+        assert ns[global_name] == 5
+
+        # Call 2: sees the value persisted from call 1.
+        assert run(12) == (5, 12)
+        assert ns[global_name] == 12

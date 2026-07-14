@@ -77,6 +77,16 @@ class CodeGenContext:
     # injects them above the VI function. Shared across child contexts so a
     # formula node nested in a structure still registers its helper.
     formula_helpers: list[ast.stmt] = field(default_factory=list)
+    # Module-level global variables for persistent per-call-site state:
+    # uninitialized shift registers (LV2/functional-global idiom — see
+    # codegen/nodes/loop.py) and stateful primitives like First Call?
+    # (codegen/nodes/first_call.py). Keyed by variable name so repeated
+    # registration is idempotent. Shared across child contexts (same as
+    # formula_helpers) since a loop nested inside a structure still needs
+    # to register on the one VI-wide list. The builder emits these ABOVE
+    # the VI function, sorted by name — dict/set iteration order is not
+    # a name, so insertion order alone would not be byte-reproducible.
+    module_globals: dict[str, ast.stmt] = field(default_factory=dict, repr=False)
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
@@ -312,6 +322,7 @@ class CodeGenContext:
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
             formula_helpers=self.formula_helpers,  # Shared — one list
+            module_globals=self.module_globals,  # Shared — one dict
             _body_generator=self._body_generator,
         )
 
@@ -326,6 +337,19 @@ class CodeGenContext:
     def add_import(self, import_stmt: str) -> None:
         """Add an import statement."""
         self.imports.add(import_stmt)
+
+    def add_module_global(self, name: str, value: ast.expr) -> None:
+        """Register a module-level global variable, seeded to ``value``.
+
+        Idempotent by name: a second registration for the same name is a
+        no-op (the same call site is only lowered once per generation
+        pass). The builder emits these above the VI function, sorted by
+        name (see ``module_globals`` docstring for why).
+        """
+        if name not in self.module_globals:
+            self.module_globals[name] = ast.Assign(
+                targets=[ast.Name(id=name, ctx=ast.Store())], value=value,
+            )
 
     @classmethod
     def from_graph(

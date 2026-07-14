@@ -35,6 +35,11 @@ DELETE_LINE_VI = DCAF_CONFIG_DIR / "Delete Line.vi"
 TESTRESULT_DIR = Path("samples/JKI-VI-Tester/source/Classes/TestResult")
 GET_TESTS_RUN_VI = TESTRESULT_DIR / "GetTestsRun.vi"
 TESTRESULT_INIT_VI = TESTRESULT_DIR / "TestResult_Init.vi"
+OPENG_COMPARISON_DIR = Path(
+    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/comparison/"
+    "comparison.llb"
+)
+U16_CHANGED_VI = OPENG_COMPARISON_DIR / "U16 Changed__ogtk.vi"
 
 
 def _skip_if_missing(*paths: Path) -> None:
@@ -348,3 +353,105 @@ class TestClassPrivateDataNmux:
         assert out.errors == "[]"
         assert out.failures == "[]"
         assert out.resultstatuschangedeventref == "event_ref"
+
+
+# ── Uninitialized shift register + First Call? (functional-global idiom) ──
+
+
+class TestU16ChangedPersistentState:
+    """E2E: U16 Changed__ogtk.vi -- the OpenG LV2/functional-global idiom.
+
+    An uninitialized shift register (previous value, persists ACROSS
+    CALLS) combined with a First Call? primitive (stateful per call
+    site). Both lower to module-level globals (codegen/nodes/loop.py's
+    uninitialized-SR branch, codegen/nodes/first_call.py) -- this test
+    proves the generated module actually behaves statefully across
+    repeated calls, not just that it parses.
+    """
+
+    def test_generates_module_globals_not_a_constant(self):
+        _skip_if_missing(U16_CHANGED_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(U16_CHANGED_VI))
+
+        vi_name = "U16 Changed__ogtk.vi"
+        ctx = graph.get_vi_context(vi_name)
+        code = build_module(ctx, vi_name, graph=graph)
+        assert_valid_python(code, vi_name)
+
+        assert "_lv_state_" in code
+        assert "_lv_first_call_" in code
+        # Both persist via `global` in the function body -- not just
+        # seeded once at module import and never touched again.
+        assert code.count("global") >= 2
+
+    def test_first_call_true_only_once_then_persists_previous_value(self):
+        """Call the generated function three times with the SAME u16
+        value (10, 10, 10). The First Call? term dominates on call 1
+        (changed=True unconditionally per the graph's wiring -- see
+        loop.py/first_call.py docstrings and the task report's note on
+        the 1105/"Not first_call" polarity); on later calls the
+        previous-value module global must reflect the last call's input,
+        not the type default."""
+        _skip_if_missing(U16_CHANGED_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(U16_CHANGED_VI))
+
+        vi_name = "U16 Changed__ogtk.vi"
+        ctx = graph.get_vi_context(vi_name)
+        code = build_module(ctx, vi_name, graph=graph)
+
+        ns: dict = {}
+        exec(compile(code, "<U16 Changed__ogtk.vi>", "exec"), ns)  # noqa: S102
+        func = ns["u16_changed__ogtk"]
+
+        state_globals = [k for k in ns if k.startswith("_lv_state_")]
+        first_call_globals = [k for k in ns if k.startswith("_lv_first_call_")]
+        assert len(state_globals) == 1
+        assert len(first_call_globals) == 1
+        state_name = state_globals[0]
+        first_call_name = first_call_globals[0]
+
+        # Fresh module: SR seeded to the U16 type default (0), First
+        # Call? flag seeded True.
+        assert ns[state_name] == 0
+        assert ns[first_call_name] is True
+
+        func(10)
+        # First Call? flips permanently False after the very first call.
+        assert ns[first_call_name] is False
+        # The shift register now holds the value written this call (10),
+        # NOT the stale pre-call default -- this is the exact bug this
+        # task fixes (previously the SR was silently dropped entirely).
+        assert ns[state_name] == 10
+
+        func(7)
+        assert ns[first_call_name] is False
+        assert ns[state_name] == 7
+
+        func(20)
+        assert ns[state_name] == 20
+
+    def test_state_persists_independently_per_generated_module(self):
+        """Two SEPARATE exec'd copies of the generated module (simulating
+        two independent processes/imports) must not share state -- each
+        module namespace owns its own globals."""
+        _skip_if_missing(U16_CHANGED_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(U16_CHANGED_VI))
+
+        vi_name = "U16 Changed__ogtk.vi"
+        ctx = graph.get_vi_context(vi_name)
+        code = build_module(ctx, vi_name, graph=graph)
+
+        ns_a: dict = {}
+        ns_b: dict = {}
+        exec(compile(code, "<a>", "exec"), ns_a)  # noqa: S102
+        exec(compile(code, "<b>", "exec"), ns_b)  # noqa: S102
+
+        ns_a["u16_changed__ogtk"](99)
+
+        state_name_a = next(k for k in ns_a if k.startswith("_lv_state_"))
+        state_name_b = next(k for k in ns_b if k.startswith("_lv_state_"))
+        assert ns_a[state_name_a] == 99
+        assert ns_b[state_name_b] == 0  # untouched -- separate namespace

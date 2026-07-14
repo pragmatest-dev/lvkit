@@ -6,7 +6,13 @@ import ast
 
 from lvkit.models import LoopOperation, LVType, Operation, Tunnel
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import (
+    build_assign,
+    default_value_expr,
+    parse_expr,
+    sanitize_state_var_suffix,
+    to_var_name,
+)
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
@@ -25,6 +31,18 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
 
     # Track shift register variable names for update statements
     shift_reg_vars: dict[str, str] = {}  # lSR outer_terminal -> var_name
+    # (global_name, lsr_outer_term, fallback_shift_var) for uninitialized
+    # SRs -- written back to the module global after the loop so the next
+    # VI call sees them. The final value used is looked up after step 5
+    # (falls back to fallback_shift_var if the paired rSR never got a
+    # binding, i.e. the SR is truly never written to).
+    uninitialized_sr_writebacks: list[tuple[str, str, str]] = []
+
+    # Terminal lookup for uninitialized shift registers: the outer tunnel
+    # terminal carries its own lv_type (from the connector-pane XML) even
+    # when nothing is wired in, so we don't need to trace data flow to
+    # find a default value.
+    term_by_id = {t.id: t for t in node.terminals}
 
     # 1. Process INPUT tunnels (lSR, lpTun)
     for tunnel in tunnels:
@@ -39,12 +57,43 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
             # Shift register: init variable from outer, bind inner
             outer_var = ctx.resolve(outer_term)
             if outer_var:
-                shift_var = _make_var_name(tunnel, ctx)
+                shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
                 pre_loop_stmts.append(
                     build_assign(shift_var, parse_expr(outer_var))
                 )
                 inner_ctx.bind(inner_term, shift_var)
                 shift_reg_vars[outer_term] = shift_var
+            else:
+                # Uninitialized shift register: nothing wired into the
+                # left terminal from outside the loop. In LabVIEW this is
+                # the LV2/functional-global idiom -- the value PERSISTS
+                # ACROSS CALLS to the VI. Lower to a module-level global,
+                # seeded to the SR's type default, that this call site
+                # reads at loop entry and writes back after the loop.
+                global_name = (
+                    f"_lv_state_{sanitize_state_var_suffix(outer_term)}"
+                )
+                sr_lv_type = None
+                outer_sr_term = term_by_id.get(outer_term)
+                inner_sr_term = term_by_id.get(inner_term)
+                if outer_sr_term is not None:
+                    sr_lv_type = outer_sr_term.lv_type
+                elif inner_sr_term is not None:
+                    sr_lv_type = inner_sr_term.lv_type
+                ctx.add_module_global(global_name, default_value_expr(sr_lv_type))
+
+                shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
+                pre_loop_stmts.append(ast.Global(names=[global_name]))
+                pre_loop_stmts.append(
+                    build_assign(shift_var, ast.Name(id=global_name, ctx=ast.Load()))
+                )
+                inner_ctx.bind(inner_term, shift_var)
+                shift_reg_vars[outer_term] = shift_var
+                # Resolved to the paired rSR's FINAL bound variable once
+                # step 5 runs (falls back to shift_var, unmodified, if
+                # this SR is never written to -- see step 5's docstring
+                # for why the rSR update does not mutate shift_var itself).
+                uninitialized_sr_writebacks.append((global_name, outer_term, shift_var))
 
         elif tunnel_type == "lpTun":
             # Check if input tunnel (outer has a source)
@@ -190,34 +239,85 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
             )
 
     # 5. Handle shift register updates (rSR) at end of loop body
+    #
+    # Pair each rSR with its lSR by ORDER of appearance (first lSR <-> first
+    # rSR, second <-> second, ...): the graph-based tunnel reconstruction
+    # (graph/operations.py::_tunnels_from_terminals) never populates
+    # Tunnel.paired_terminal_uid -- only the legacy parser path
+    # (parser/nodes/loop.py::_pair_shift_registers) does, using this exact
+    # same positional heuristic (LabVIEW lists shift-register tunnels in
+    # matching left/right order). Without this, rSR-to-lSR correlation was
+    # silently unreachable and the update statement below never fired for
+    # ANY shift register (init'd or not) -- a real value written into rSR
+    # would just sit in its own freshly-named variable, never written back
+    # into the lSR's local, so the next loop *iteration* (not call) would
+    # keep reading the stale initial value.
+    lsr_outers_ordered = [
+        t.outer_terminal_uid for t in tunnels if t.tunnel_type == "lSR"
+    ]
+    rsr_outers_ordered = [
+        t.outer_terminal_uid for t in tunnels if t.tunnel_type == "rSR"
+    ]
+    rsr_to_lsr_outer = dict(zip(rsr_outers_ordered, lsr_outers_ordered, strict=False))
+
     for tunnel in tunnels:
         tunnel_type = tunnel.tunnel_type
         outer_term = tunnel.outer_terminal_uid
         inner_term = tunnel.inner_terminal_uid
-        paired_uid = tunnel.paired_terminal_uid
 
         if tunnel_type != "rSR" or not outer_term or not inner_term:
             continue
 
         # Find paired lSR to get the shift variable name
         rsr_shift_var: str | None = None
-        if paired_uid:
-            # paired_uid is the lSR's DCO uid, need to find matching lSR tunnel
-            for t in tunnels:
-                if t.tunnel_type == "lSR":
-                    lsr_outer = t.outer_terminal_uid
-                    if lsr_outer in shift_reg_vars:
-                        rsr_shift_var = shift_reg_vars[lsr_outer]
-                        break
+        lsr_outer = rsr_to_lsr_outer.get(outer_term)
+        if lsr_outer and lsr_outer in shift_reg_vars:
+            rsr_shift_var = shift_reg_vars[lsr_outer]
 
         if rsr_shift_var:
             inner_val = inner_ctx.resolve(inner_term)
             if inner_val and inner_val != rsr_shift_var:
-                # Update shift register: rsr_shift_var = new_value
-                inner_stmts.append(
-                    build_assign(rsr_shift_var, parse_expr(inner_val))
+                # Write the new value into a DISTINCT variable rather than
+                # mutating rsr_shift_var (the lSR-bound local) in place.
+                # Other same-iteration consumers may still need the SR's
+                # PRE-update value after the loop exits -- e.g. an output
+                # tunnel wired straight off the lSR inner terminal (no
+                # inner computation), forwarding "old" state out for a
+                # post-loop comparison, as in the OpenG "Changed?" family
+                # (U16 Changed__ogtk.vi): rsr_shift_var stays valid for
+                # those; only the fresh variable represents the just-
+                # written value (used for rSR's own outer-terminal
+                # consumers and for persisting to a functional-global).
+                #
+                # NOTE: this means a value written into rSR is NOT yet fed
+                # back to lSR's inner terminal for a *later pass of the
+                # same LabVIEW loop* (true intra-loop accumulation, e.g.
+                # `counter = counter + 1` repeated every iteration). That
+                # was already completely unreachable before this fix (see
+                # the pairing comment above) -- still a known gap, not
+                # something this change regresses.
+                updated_var = ctx.make_output_var(
+                    f"{rsr_shift_var}_updated", node.id, terminal_id=outer_term,
                 )
-            bindings[outer_term] = rsr_shift_var
+                inner_stmts.append(build_assign(updated_var, parse_expr(inner_val)))
+                bindings[outer_term] = updated_var
+            else:
+                bindings[outer_term] = rsr_shift_var
+
+    # Resolve uninitialized-SR writebacks now that step 5 has run: use the
+    # paired rSR's final bound value (the fresh "updated" variable above)
+    # if one exists, else fall back to the unmodified seed (the SR is
+    # never written to -- persists the same value forever).
+    lsr_to_rsr_outer = {v: k for k, v in rsr_to_lsr_outer.items()}
+    resolved_sr_writebacks: list[tuple[str, str]] = []
+    for global_name, lsr_outer_term, fallback_var in uninitialized_sr_writebacks:
+        rsr_outer_term = lsr_to_rsr_outer.get(lsr_outer_term)
+        final_var = (
+            bindings.get(rsr_outer_term, fallback_var)
+            if rsr_outer_term
+            else fallback_var
+        )
+        resolved_sr_writebacks.append((global_name, final_var))
 
     # 6. Build the loop
     stop_condition_var: str | None = None
@@ -258,7 +358,14 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
                 build_assign(stop_condition_var, ast.Constant(value=False))
             )
 
-    all_stmts = pre_loop_stmts + [loop_ast]
+    # Write uninitialized-SR locals back to their module globals so the
+    # persisted value is visible on the VI's next call.
+    writeback_stmts: list[ast.stmt] = [
+        build_assign(global_name, ast.Name(id=final_var, ctx=ast.Load()))
+        for global_name, final_var in resolved_sr_writebacks
+    ]
+
+    all_stmts = pre_loop_stmts + [loop_ast] + writeback_stmts
     return CodeFragment(
         statements=all_stmts,
         bindings=bindings,
@@ -308,6 +415,26 @@ def _make_var_name(tunnel: Tunnel, ctx: CodeGenContext | None = None) -> str:
 
     # Fall back to generic tunnel name
     return "value"
+
+def _unique_shift_var_name(base_name: str, ctx: CodeGenContext) -> str:
+    """Disambiguate a shift-register variable name against ones already
+    bound in this VI.
+
+    _make_var_name() falls back to a generic name ("state", "counter", ...)
+    whenever it has no naming hint -- a loop with TWO such shift registers
+    (e.g. two independent uninitialized SRs, as in the OpenG "Periodic
+    Trigger" idiom) would otherwise both get the SAME Python variable,
+    silently clobbering one with the other's seed value. Mirrors
+    _singularize()'s conflict-resolution pattern.
+    """
+    if not ctx.var_name_in_use(base_name):
+        return base_name
+    suffix = 2
+    candidate = f"{base_name}_{suffix}"
+    while ctx.var_name_in_use(candidate):
+        suffix += 1
+        candidate = f"{base_name}_{suffix}"
+    return candidate
 
 def _pluralize(var_name: str) -> str:
     """Convert a variable name to plural form for accumulator naming.

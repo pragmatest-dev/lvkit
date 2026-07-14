@@ -31,6 +31,7 @@ from . import (
     case,
     compound,
     constant,
+    first_call,
     formula,
     in_place,
     invoke_node,
@@ -105,6 +106,10 @@ def _generate_primitive(
     # tell them apart, so dispatch by primResID before the node_type registry.
     if node.node_type == "prim" and node.primResID in queue_ops.QUEUE_PRIM_IDS:
         return queue_ops.generate(node, ctx)
+    # First Call? (1083) is likewise a generic `class="prim"` node
+    # distinguished only by primResID -- see nodes/first_call.py.
+    if node.node_type == "prim" and node.primResID == first_call.FIRST_CALL_PRIM_ID:
+        return first_call.generate(node, ctx)
     handler = _PRIM_CODEGEN.get(node.node_type or "", primitive.generate)
     return handler(node, ctx)
 

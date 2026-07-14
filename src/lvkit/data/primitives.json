@@ -64,11 +64,11 @@
         }
       ],
       "python_code": {
-        "first_call": "True"
+        "_body": "raise RuntimeError('First Call? (1083) should be dispatched to codegen/nodes/first_call.py by primResID -- this stub should be unreachable')"
       },
       "inline": true,
       "verified": true,
-      "note": "Synchronization palette. 0 inputs, 1 Boolean output. Returns TRUE only the first time the section runs after the VI is run, FALSE thereafter -- stateful per instance, NOT a constant (real boolean constants are bDConstDCO nodes and store their value; this is a class='prim' function with no stored value). Identity confirmed by the NI Synchronization doc + the functional-global 'Changed?' idiom (uninitialized shift register in a run-once loop, OR'd with a comparison). python_code 'True' is a PLACEHOLDER: correct codegen needs a per-call-site first-call runtime flag (see follow-up task), which this inline expression cannot express."
+      "note": "Synchronization palette. 0 inputs, 1 Boolean output. Returns TRUE only the first time the section runs after the VI is run, FALSE thereafter -- stateful per instance, NOT a constant (real boolean constants are bDConstDCO nodes and store their value; this is a class='prim' function with no stored value). Identity confirmed by the NI Synchronization doc + the functional-global 'Changed?' idiom (uninitialized shift register in a run-once loop, OR'd with a comparison). Handled by codegen/nodes/first_call.py (dispatched by primResID, not this template) -- emits a module-level flag seeded True, read then flipped False at each call site."
     },
     "1104": {
       "name": "Greater?",

@@ -379,18 +379,49 @@ def _generate_parallel_tier(
     return [with_stmt] + post_stmts
 
 
+class _AssignedNameVisitor(ast.NodeVisitor):
+    """Collects Name targets of Assign/AnnAssign anywhere in a statement
+    tree, including inside nested blocks (while/for/if/with/try) -- e.g. a
+    shift-register update assigned inside a while loop's body. Does NOT
+    descend into nested function/lambda defs, which introduce their own
+    scope (a name assigned there is not a name of the enclosing branch)."""
+
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                self.names.add(target.id)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if isinstance(node.target, ast.Name):
+            self.names.add(node.target.id)
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        pass  # New scope -- do not descend.
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        pass  # New scope -- do not descend.
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        pass  # New scope -- do not descend.
+
+
 def _extract_assigned_names(stmts: list[ast.stmt]) -> set[str]:
-    """Extract variable names assigned in a list of statements."""
-    names: set[str] = set()
+    """Extract variable names assigned anywhere in a list of statements.
+
+    Walks into nested blocks (while/for/if/with/try) since a value bound
+    by a node's CodeFragment may be assigned inside a loop body it
+    generated (e.g. a shift-register update) rather than as a top-level
+    statement of the fragment.
+    """
+    visitor = _AssignedNameVisitor()
     for stmt in stmts:
-        if isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
-                if isinstance(target, ast.Name):
-                    names.add(target.id)
-        elif isinstance(stmt, ast.AnnAssign):
-            if isinstance(stmt.target, ast.Name):
-                names.add(stmt.target.id)
-    return names
+        visitor.visit(stmt)
+    return visitor.names
 
 
 def _build_submit(callable_expr: ast.expr) -> ast.Call:
@@ -559,6 +590,13 @@ def build_module_ast(
 
     # Module-level helper functions generated for Formula Nodes.
     module_body.extend(ctx.formula_helpers)
+
+    # Module-level globals for persistent per-call-site state
+    # (uninitialized shift registers, First Call?). Sorted by name for
+    # deterministic output — dict iteration order is insertion order, but
+    # sorting removes any dependence on traversal order across the graph.
+    for name in sorted(ctx.module_globals):
+        module_body.append(ctx.module_globals[name])
 
     # Function definition
     func_def = build_function_def(vi_context, vi_name, body)
