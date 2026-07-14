@@ -145,6 +145,24 @@ def test_1901_search_vs_delete_collision():
     assert res.resolve_by_node_type("aDelete").name == "Delete From Array"
 
 
+def test_1142_is_to_long_integer():
+    """primResID 1142 was a generic unverified 'Type Conversion' placeholder.
+    Full-corpus dataflow shows its output is ALWAYS NumInt32 regardless of input
+    type (U8/I16/U16/F64/I64/I32 all -> I32) — the coerce-to-fixed-type signature
+    of To Long Integer (I32), sitting in the To-<T> family (1140 I8, 1141 I16).
+    Must round ties-to-even and saturate to the I32 range (matches 1140's style).
+    """
+    res = get_resolver()
+    r = res.resolve(prim_id=1142)
+    assert r.name == "To Long Integer"
+    assert [t.type for t in r.terminals if t.direction == "out"] == ["NumInt32"]
+    code = str(r.python_code)
+    # ties-to-even rounding + saturation to the signed 32-bit range
+    for value, expected in [(2.5, 2), (3.5, 4), (3e9, 2147483647),
+                            (-3e9, -2147483648)]:
+        assert eval(code, {"in_1": value}) == expected
+
+
 def test_specialized_node_types_carry_no_counter_indicated_primresid():
     """A specialized-XML-class handler (aDelete/aIndx/subset) must NOT hand-assign
     a primResID that belongs to a DIFFERENT plain-`prim` function. Codegen resolves

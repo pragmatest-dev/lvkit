@@ -279,27 +279,26 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-word-integer.html"
     },
     "1142": {
-      "name": "Type Conversion",
+      "name": "To Long Integer",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-long-integer.html",
+      "guess_reason": "Conversion to signed 32-bit integer: output is always NumInt32 regardless of input numeric type, verified across corpus (NumUInt8/NumInt16/NumUInt16/NumFloat64/NumInt64/NumInt32 inputs all -> NumInt32). Sits in the To-<T> conversion family (1140 To Byte I8, 1141 To Word I16). NI docs: rounds float to nearest (ties to even) and saturates to [-(2^31), (2^31)-1]. Scalar template; array inputs would need element-wise handling.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "output",
-          "type": "polymorphic"
+          "name": "long_integer",
+          "type": "NumInt32"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "input",
-          "type": "polymorphic"
+          "name": "number",
+          "type": "numeric"
         }
       ],
-      "python_code": {
-        "output": "int(in_1)"
-      },
+      "python_code": "max(-2147483648, min(2147483647, int(round(in_1))))",
       "inline": true,
-      "verified": false,
-      "note": "1in/1out float->int conversion. Exact function unconfirmed. Python int() as approximation."
+      "verified": true
     },
     "1540": {
       "name": "Format Value",
