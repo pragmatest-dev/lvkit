@@ -46,7 +46,7 @@ class CpdArithNode(ParsedNode):
     Combines multiple inputs with a single operation (OR, AND, ADD, etc.).
     """
 
-    operation: str = "or"  # "or", "and", "add"
+    operation: str = "add"  # "add", "or", "and", "multiply", "xor", "unsupported"
 
 
 @dataclass
@@ -353,12 +353,23 @@ class CpdArithHandler(NodeTypeHandler):
     xml_class = "cpdArith"
     display_name = "Compound Arithmetic"
 
-    # dcoFiller value -> operation name
+    # The operation lives in the LOW BYTE (& 0xFF) of the aggregate DCO's
+    # dcoFiller; the high byte is a non-operation flag (0x100 appears on
+    # OpenG-generated Add nodes -- MD5 modular sum, *Changed* detectors,
+    # Reshape). Verified from numeric-operand dataflow across the corpus:
+    #   0 = add  (Trim Whitespace: len - begin - end; MD5 UInt32 modular sum)
+    #   1 = or   (Create Dir if Non-Existant: OR of path-invalidity checks)
+    #   2 = and  (single ambiguous node, Draw Flattened Pixmap) -- UNVERIFIED
+    # Multiply and XOR never occur in the corpus, so their codes are unknown;
+    # an unrecognised low byte maps to the "unsupported" sentinel (rendered as
+    # "?", failed loudly at codegen) rather than being guessed. dcoFiller is
+    # omitted from the XML when 0, so absent == 0 == add (LabVIEW's default).
     OPERATIONS = {
+        0: "add",
         1: "or",
         2: "and",
-        256: "add",
     }
+    UNSUPPORTED = "unsupported"
 
     def parse(self, elem: ET.Element) -> CpdArithNode:
         common = self._extract_common(elem)
@@ -370,17 +381,23 @@ class CpdArithHandler(NodeTypeHandler):
         )
 
     def _extract_operation(self, elem: ET.Element) -> str:
-        """Extract operation from dcoFiller in first terminal's DCO."""
+        """Operation from the aggregate DCO's dcoFiller low byte (0 if absent).
+
+        The parser never fails on an unknown code -- it returns the
+        ``UNSUPPORTED`` sentinel so rendering degrades gracefully; codegen is
+        the layer that fails loudly.
+        """
+        filler = 0
         term_list = elem.find("termList")
         if term_list is not None:
             first_term = term_list.find("SL__arrayElement")
             if first_term is not None:
                 dco = first_term.find("dco")
                 if dco is not None:
-                    filler = dco.findtext("dcoFiller")
-                    if filler:
-                        return self.OPERATIONS.get(int(filler), "or")
-        return "or"
+                    raw = dco.findtext("dcoFiller")
+                    if raw:
+                        filler = int(raw)
+        return self.OPERATIONS.get(filler & 0xFF, self.UNSUPPORTED)
 
 
 class ArrayBuildHandler(NodeTypeHandler):

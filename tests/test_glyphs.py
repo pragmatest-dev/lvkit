@@ -350,7 +350,9 @@ def test_compound_arith_glyph_renders_at_real_bounds_with_default_operation():
     # icon — so a wider/taller node (more inputs) grows the box, not a fixed
     # asset.
     assert 'width="40.0" height="30.0"' in svg
-    assert ">∨<" in svg  # default "or" symbol when operation is unset
+    # LabVIEW's Compound Arithmetic defaults to Add (numeric palette), so an
+    # unset operation renders the "+" symbol.
+    assert ">+<" in svg
 
 
 def test_cpd_arith_boolean_add_renders_as_logical_or():

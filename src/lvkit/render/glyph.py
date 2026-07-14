@@ -657,8 +657,9 @@ def draw_split_box(
 
 # Compound Arithmetic operator -> symbol (raw ``PrimitiveNode.operation``
 # strings, lowercase — not yet boolean-translated by codegen; for rendering
-# we just show the operator's own symbol). Unknown operations fall back to
-# the raw operation string itself (see CompoundArithGlyph.draw).
+# we just show the operator's own symbol). An unmapped operation (e.g. the
+# "unsupported" sentinel for a dcoFiller code we haven't verified) degrades
+# to "?" so the node still renders (see CompoundArithGlyph.draw).
 _CPD_ARITH_SYMBOL = {
     "or": "∨", "and": "∧", "xor": "⊕", "add": "+", "multiply": "×",
 }
@@ -688,7 +689,7 @@ class CompoundArithGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         draw_split_box(
             backend, bounds, theme,
-            symbol=_CPD_ARITH_SYMBOL.get(self.operation, self.operation),
+            symbol=_CPD_ARITH_SYMBOL.get(self.operation, "?"),
             num_cells=self.num_inputs, symbol_side="right",
             fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
             text_attr=self.text_attr,

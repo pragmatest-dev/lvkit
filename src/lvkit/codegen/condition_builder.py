@@ -277,10 +277,15 @@ def _build_cpd_arith(
     Returns:
         AST BoolOp expression or None
     """
-    # Map operation name to AST operator
+    # Map operation name to AST operator. This builder is inherently
+    # Boolean-context (it assembles a loop condition), so Compound Arithmetic's
+    # "add"/"multiply" translate to logical OR/AND -- same as
+    # ``codegen/nodes/compound.py::generate_compound_arith``.
     op_map = {
         "or": ast.Or,
         "and": ast.And,
+        "add": ast.Or,
+        "multiply": ast.And,
     }
 
     operation = op.operation.lower() if op.operation else ""

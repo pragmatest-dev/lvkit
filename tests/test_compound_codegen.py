@@ -507,31 +507,64 @@ class TestCompoundArithInvert:
         exec(compiled, {}, local_vars)
         assert local_vars[output_var] is True  # not (False or False)
 
-    def test_inverted_output_numeric_uses_bitwise_invert(self):
-        """Numeric inverted output uses `~(...)`, not boolean `not`."""
+    def _invert_op(self, operation):
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
-
         op = PrimitiveOperation(
             id="cpd1",
-            name="Compound Add",
+            name=f"Compound {operation}",
             labels=["Compound"],
             node_type="cpdArith",
-            operation="add",
+            operation=operation,
             terminals=[
                 Terminal(id="term1", index=1, direction="input"),
                 Terminal(id="term2", index=2, direction="input"),
                 Terminal(id="term_out", index=0, direction="output", inverted=True),
             ],
         )
-
         fragment = compound.generate_compound_arith(op, ctx)
-
         ast.fix_missing_locations(fragment.statements[0])
-        code = ast.unparse(fragment.statements[0])
+        return ast.unparse(fragment.statements[0])
+
+    def test_inverted_output_add_negates(self):
+        """Add-mode Invert negates the output (subtraction), per NI docs -- not
+        bitwise complement."""
+        code = self._invert_op("add")
+        assert "-(a + b)" in code
+        assert "~" not in code and "not" not in code
+
+    def test_inverted_output_multiply_uses_reciprocal(self):
+        """Multiply-mode Invert produces the reciprocal (1 / product)."""
+        code = self._invert_op("multiply")
+        assert "1 / (a * b)" in code
+
+    def test_inverted_output_logical_uses_bitwise_invert(self):
+        """AND/OR/XOR-mode Invert on numeric operands uses `~(...)`, not `not`."""
+        code = self._invert_op("and")
         assert "~" in code
         assert "not" not in code
+
+    def test_unsupported_operation_fails_loud(self):
+        """An unrecognised dcoFiller code (parser sentinel 'unsupported')
+        raises at codegen rather than silently defaulting to OR."""
+        import pytest
+
+        from lvkit.codegen.nodes.base import CodeGenError
+        ctx = make_ctx("term1", "term2", "term_out")
+        ctx.bind("term1", "a")
+        ctx.bind("term2", "b")
+        op = PrimitiveOperation(
+            id="cpd1", name="Compound ?", labels=["Compound"],
+            node_type="cpdArith", operation="unsupported",
+            terminals=[
+                Terminal(id="term1", index=1, direction="input"),
+                Terminal(id="term2", index=2, direction="input"),
+                Terminal(id="term_out", index=0, direction="output"),
+            ],
+        )
+        with pytest.raises(CodeGenError, match="not supported"):
+            compound.generate_compound_arith(op, ctx)
 
     def test_multiply_boolean_translates_to_and(self):
         """multiply on Boolean terminals combines via `and`."""

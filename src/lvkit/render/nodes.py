@@ -678,7 +678,7 @@ def _cpd_arith_operation(node: PrimitiveNode) -> str:
     """The operator symbol key to feed ``CompoundArithGlyph`` for a cpdArith
     node: ``node.operation`` translated to its Boolean-context equivalent
     (add->or, multiply->and) when the node's terminals are Boolean."""
-    operation = node.operation or "or"
+    operation = node.operation or "add"
     if _cpd_arith_boolean(node):
         return _CPD_ARITH_BOOLEAN_OP.get(operation, operation)
     return operation

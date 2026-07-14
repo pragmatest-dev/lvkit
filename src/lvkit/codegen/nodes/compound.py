@@ -14,6 +14,12 @@ from .base import CodeGenError
 
 _MUTABLE_KINDS = ("array", "cluster")
 
+# The five Compound Arithmetic modes we generate code for. The parser maps a
+# node's dcoFiller to one of these, or to "unsupported" for a code it can't
+# verify (Multiply/XOR have no corpus ground truth) -- codegen fails loud on
+# anything outside this set rather than silently defaulting to OR.
+_CPD_OPERATIONS = frozenset({"add", "or", "and", "multiply", "xor"})
+
 
 def _is_mutable(term: Terminal | None) -> bool:
     """True if the terminal's LabVIEW type is a mutable aggregate.
@@ -43,14 +49,26 @@ def _is_integer(term: object) -> bool:
 
 
 def _invert_expr(
-    expr: ast.expr, boolean: bool, lv_type: LVType | None = None
+    expr: ast.expr, boolean: bool, operation: str,
+    lv_type: LVType | None = None,
 ) -> ast.expr:
-    """Wrap an expression with the terminal's "Not" invert.
+    """Wrap an expression with a Compound-Arithmetic terminal's "Invert".
 
-    Boolean -> logical ``not``; integer -> bitwise ``~``, masked to the type
-    width for unsigned ints (Python's ``~`` would otherwise yield a negative)."""
+    The invert's meaning is mode-dependent (per NI's Compound Arithmetic docs):
+    - Boolean operand -> logical ``not`` (any mode);
+    - Add mode -> arithmetic negation (``-x``), i.e. subtraction;
+    - Multiply mode -> reciprocal (``1 / x``);
+    - AND/OR/XOR mode -> bitwise ``~``, masked to the type width for unsigned
+      ints (Python's ``~`` would otherwise yield a negative).
+    """
     if boolean:
         return ast.UnaryOp(op=ast.Not(), operand=expr)
+    if operation == "add":
+        return ast.UnaryOp(op=ast.USub(), operand=expr)
+    if operation == "multiply":
+        return ast.BinOp(
+            left=ast.Constant(value=1), op=ast.Div(), right=expr
+        )
     inv: ast.expr = ast.UnaryOp(op=ast.Invert(), operand=expr)
     mask = uint_mask(lv_type)
     if mask is not None:
@@ -71,7 +89,15 @@ def generate_compound_arith(
     to logical OR/AND respectively.
     """
     terminals = node.terminals
-    operation = node.operation or "or"
+    operation = node.operation or "add"
+    if operation not in _CPD_OPERATIONS:
+        raise CodeGenError(
+            f"Compound Arithmetic: operation {operation!r} is not supported. "
+            "Its dcoFiller code was not recognised (Multiply and XOR codes are "
+            "unmapped -- no corpus ground truth). Add the code to "
+            "CpdArithHandler.OPERATIONS once verified from real dataflow.",
+            node,
+        )
 
     inputs = [t for t in terminals if t.direction == "input"]
     outputs = [t for t in terminals if t.direction == "output"]
@@ -104,7 +130,7 @@ def generate_compound_arith(
         if val:
             expr = parse_expr(val)
             if inp.inverted:
-                expr = _invert_expr(expr, boolean, inp.lv_type)
+                expr = _invert_expr(expr, boolean, operation, inp.lv_type)
                 val = ast.unparse(expr)
             input_exprs.append(val)
             input_names.append(val)
@@ -122,7 +148,9 @@ def generate_compound_arith(
     if len(input_exprs) == 1:
         combined = parse_expr(input_exprs[0])
         if output_term.inverted:
-            combined = _invert_expr(combined, boolean, output_term.lv_type)
+            combined = _invert_expr(
+                combined, boolean, operation, output_term.lv_type
+            )
             stmt = build_assign(var_name, combined)
             return CodeFragment(
                 statements=[stmt],
@@ -176,15 +204,16 @@ def generate_compound_arith(
                     op=ast.BitXor(),
                     right=right,
                 )
-    else:
-        for expr_str in input_exprs[1:]:
-            combined = ast.BoolOp(
-                op=ast.Or(),
-                values=[combined, parse_expr(expr_str)],
-            )
+    else:  # unreachable: operation validated against _CPD_OPERATIONS above
+        raise CodeGenError(
+            f"Compound Arithmetic: no combiner for operation {operation!r}.",
+            node,
+        )
 
     if output_term.inverted:
-        combined = _invert_expr(combined, boolean, output_term.lv_type)
+        combined = _invert_expr(
+            combined, boolean, operation, output_term.lv_type
+        )
 
     stmt = build_assign(var_name, combined)
     return CodeFragment(

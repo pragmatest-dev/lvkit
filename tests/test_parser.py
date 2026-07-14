@@ -215,6 +215,42 @@ class TestTerminalInvertGating:
         assert terminal_info["t2"].inverted is False
 
 
+class TestCpdArithOperation:
+    """The Compound Arithmetic operation comes from the aggregate DCO's
+    dcoFiller LOW BYTE; the high byte is a non-operation flag. Verified from
+    corpus dataflow: 0=add, 1=or, 2=and. Absent dcoFiller == 0 == add. Unknown
+    codes map to the 'unsupported' sentinel (the parser never raises)."""
+
+    def _op(self, filler):
+        import xml.etree.ElementTree as ET
+
+        from lvkit.parser.node_types import CpdArithHandler
+        dco = "" if filler is None else f"<dcoFiller>{filler}</dcoFiller>"
+        xml = (
+            '<SL__arrayElement class="cpdArith" uid="1"><termList>'
+            f'<SL__arrayElement class="term"><dco class="cpdArithDCO">{dco}'
+            "</dco></SL__arrayElement></termList></SL__arrayElement>"
+        )
+        return CpdArithHandler()._extract_operation(ET.fromstring(xml))
+
+    def test_absent_filler_is_add(self):
+        # dcoFiller is omitted when 0; LabVIEW's default mode is Add.
+        assert self._op(None) == "add"
+
+    def test_low_byte_codes(self):
+        assert self._op("0") == "add"
+        assert self._op("1") == "or"
+        assert self._op("2") == "and"
+
+    def test_high_byte_is_masked_off(self):
+        # 256 (0x100) = Add + non-operation flag (OpenG MD5/Changed/Reshape).
+        assert self._op("256") == "add"
+
+    def test_unknown_code_is_unsupported_sentinel_not_raise(self):
+        # The parser must degrade gracefully, never raise; codegen fails loud.
+        assert self._op("7") == "unsupported"
+
+
 class TestTunnelMapping:
     """Tests for the TunnelMapping dataclass."""
 
