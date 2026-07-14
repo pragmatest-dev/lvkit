@@ -612,6 +612,44 @@ class BundleByNameGlyph:
         )
 
 
+# Shared drawer-row geometry for PropertyNodeGlyph and InvokeNodeGlyph: a
+# fixed left gutter wide enough for one arrow, so a row's label starts at the
+# same x whether or not that row actually draws a left arrow.
+_ROW_LPAD = 3.0
+_ROW_ARROW_W = 7.0
+_ROW_GUTTER = _ROW_ARROW_W + _ROW_LPAD
+
+
+def _draw_drawer_row(
+    backend: Backend, x1: float, x2: float, ry1: float, ry2: float,
+    label: str, *, show_left: bool, show_right: bool,
+    text_fill: str, lsize: float,
+) -> None:
+    """Draw one property/invoke drawer row: the label plus the shared arrow
+    rule -- the glyph is always the rightward ``▸``; an INPUT terminal draws
+    it at the row's LEFT edge, an OUTPUT terminal at the RIGHT edge, and a
+    pass-through row (both present) draws both. The left gutter (one arrow's
+    width) is reserved on every row regardless of ``show_left``, so labels
+    across all rows of a node stay left-aligned at the same x."""
+    cy = (ry1 + ry2) / 2
+    if show_left:
+        backend.text(
+            x1 + _ROW_ARROW_W * 0.45, cy + lsize * 0.34, "▸", lsize,
+            fill=text_fill,
+        )
+    avail = (x2 - x1) - _ROW_GUTTER - _ROW_LPAD - (_ROW_ARROW_W if show_right else 0.0)
+    backend.text(
+        x1 + _ROW_GUTTER, cy + lsize * 0.34,
+        fit_label(label, avail, backend, lsize), lsize,
+        anchor="start", fill=text_fill,
+    )
+    if show_right:
+        backend.text(
+            x2 - _ROW_ARROW_W * 0.55, cy + lsize * 0.34, "▸", lsize,
+            fill=text_fill,
+        )
+
+
 @dataclass(frozen=True)
 class PropertyNodeGlyph:
     """A Property Node (heap class ``propNode``), matching LabVIEW's layout: a
@@ -620,10 +658,13 @@ class PropertyNodeGlyph:
     error (in/out) terminals thread the box edges at the header level and are
     placed by the scene, not drawn here.
 
-    Each drawer row is LABELED with the property's NAME and marked read (value
-    flows OUT, ``▸``) vs write (value flows IN, ``◂``). Names come from the node's
-    ``properties`` list; the per-row direction from the matching value terminal.
-    Grows with the property count, scaling to the node's heap bounds."""
+    Each drawer row is LABELED with the property's NAME and marked with the
+    shared arrow rule (see ``_draw_drawer_row``): read (value flows OUT) draws
+    ``▸`` at the RIGHT edge, write (value flows IN) draws it at the LEFT edge.
+    A property is read-or-write in practice, so a row draws at most one arrow.
+    Names come from the node's ``properties`` list; the per-row direction from
+    the matching value terminal. Grows with the property count, scaling to the
+    node's heap bounds."""
 
     rows: tuple[tuple[str, bool], ...]  # (property name, is_read)
     class_name: str = ""  # object class shown in the header (e.g. "VI")
@@ -643,7 +684,6 @@ class PropertyNodeGlyph:
         # One header cell (the class/reference row) + one cell per property.
         cell_h = (y2 - y1) / (len(rows) + 1)
         lpad = 3.0
-        arrow_w = 7.0
         lsize = max(6.0, min(9.0, cell_h * 0.62))
 
         # Header band: the object class, centered, with a divider beneath. This
@@ -664,17 +704,85 @@ class PropertyNodeGlyph:
             ry2 = hy2 + (i + 1) * cell_h
             if i > 0:
                 backend.line(x1, ry1, x2, ry1, stroke=stroke, stroke_width=1.0)
-            cy = (ry1 + ry2) / 2
-            label = fit_label(name, (x2 - x1) - 2 * lpad - arrow_w, backend, lsize)
-            backend.text(
-                x1 + lpad, cy + lsize * 0.34, label, lsize,
-                anchor="start", fill=text_fill,
+            _draw_drawer_row(
+                backend, x1, x2, ry1, ry2, name,
+                show_left=not is_read, show_right=is_read,
+                text_fill=text_fill, lsize=lsize,
             )
-            # Per-row read/write marker: ▸ = read (value out), ◂ = write (in).
-            backend.text(
-                x2 - arrow_w * 0.55, cy + lsize * 0.34,
-                "▸" if is_read else "◂", lsize,
-                fill=text_fill,
+
+
+@dataclass(frozen=True)
+class InvokeNodeGlyph:
+    """An Invoke Node (heap class ``invokeNode``): like a Property Node, but the
+    invoked METHOD name is the first drawer row, and the method's parameters
+    grow DOWNWARD beneath it. The reference (in/out) and error (in/out)
+    terminals thread the header edges and are placed by the scene.
+
+    Row count and content come from the heap's ``dcoList`` (method + params,
+    NOT one row per raw terminal — see ``render/nodes.py:_invoke_node_glyph``):
+    the method row's left side is always a Void select-slot, so it never draws
+    an arrow -- just the method name; its right side is the return value,
+    drawn with the shared arrow rule (``▸`` right, only if present). Parameter
+    NAMES aren't in the VI file (they belong to the method's VI-server
+    signature), so param rows are labeled by index (``[i]``); each side draws
+    its arrow via the same rule -- a plain input gets a left ``▸``, a plain
+    output a right ``▸``, and a pass-through param (both present) gets both.
+    Scales to the node's heap bounds."""
+
+    method: str = ""
+    return_present: bool = False  # method row's return-value terminal (right ▸)
+    # (param label, show_left, show_right)
+    rows: tuple[tuple[str, bool, bool], ...] = ()
+    class_name: str = ""  # object class shown in the header (e.g. "VI")
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        stroke = getattr(theme, self.stroke_attr)
+        text_fill = getattr(theme, self.text_attr)
+        backend.rect(
+            x1, y1, x2, y2, fill=getattr(theme, self.fill_attr),
+            stroke=stroke, stroke_width=1.2,
+        )
+        rows = self.rows
+        # header (class) + method row + one cell per parameter row.
+        cell_h = (y2 - y1) / (len(rows) + 2)
+        lpad = 3.0
+        lsize = max(6.0, min(9.0, cell_h * 0.62))
+
+        # Header band: the object class, centered, with a divider beneath.
+        hy2 = y1 + cell_h
+        header = f"⚙ {self.class_name}".strip() if self.class_name else "⚙ class"
+        backend.text(
+            (x1 + x2) / 2, y1 + cell_h / 2 + lsize * 0.34,
+            fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize), lsize,
+            fill=text_fill,
+        )
+        backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
+
+        # Method row: the invoked method name, never a left arrow (that side is
+        # always a Void select-slot); the return value (if any) draws right.
+        my2 = hy2 + cell_h
+        method = self.method or "method"
+        _draw_drawer_row(
+            backend, x1, x2, hy2, my2, method,
+            show_left=False, show_right=self.return_present,
+            text_fill=text_fill, lsize=lsize,
+        )
+        backend.line(x1, my2, x2, my2, stroke=stroke, stroke_width=1.0)
+
+        # Parameter drawer, one row per dcoList param pair below the method.
+        for i, (name, show_left, show_right) in enumerate(rows):
+            ry1 = my2 + i * cell_h
+            ry2 = my2 + (i + 1) * cell_h
+            if i > 0:
+                backend.line(x1, ry1, x2, ry1, stroke=stroke, stroke_width=1.0)
+            _draw_drawer_row(
+                backend, x1, x2, ry1, ry2, name,
+                show_left=show_left, show_right=show_right,
+                text_fill=text_fill, lsize=lsize,
             )
 
 

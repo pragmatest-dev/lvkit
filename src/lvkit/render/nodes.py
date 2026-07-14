@@ -39,7 +39,7 @@ from ..graph.models import (
     PrimitiveNode,
     VINode,
 )
-from ..models import LVType
+from ..models import LVType, Terminal
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
@@ -57,6 +57,7 @@ from .glyph import (
     Glyph,
     IconImageGlyph,
     InlineSvgGlyph,
+    InvokeNodeGlyph,
     LocalVariableGlyph,
     PropertyNodeGlyph,
     UnbundleGlyph,
@@ -483,6 +484,68 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     return PropertyNodeGlyph(rows=tuple(rows), class_name=class_name)
 
 
+def _row_terminal_present(term: Terminal | None) -> bool:
+    """Whether a dcoList row-side terminal is a real, wireable connection
+    point. LabVIEW's invoke-node heap always allocates a left+right DCO slot
+    per row (method select-slot/return-value, param-in/param-out), but an
+    unused slot resolves to a ``Void`` type -- confirmed by cross-checking the
+    VCTP-resolved types against actual wire connectivity on two real invoke
+    nodes (OpenG ``Ctrl Val.Get All`` and ``Print.VI To HTML``): every
+    genuinely-wired side resolved to a non-Void type, every never-wired side
+    resolved to Void, with 100% agreement across both samples. A row side
+    with no real type never gets an arrow, regardless of the dco's own
+    direction bit (which merely marks left-vs-right position, not presence)."""
+    return (
+        term is not None
+        and term.lv_type is not None
+        and term.lv_type.underlying_type != "Void"
+    )
+
+
+def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
+    """An Invoke Node glyph: the invoked method as the first drawer row, then one
+    row per parameter below it, built directly from the parser's ``dcoList``
+    row structure (``invoke_row_terminal_ids`` -- 2 terminal ids per row: row 0
+    = method [select-slot, return-value], rows 1..N = params [input, output]).
+    This is LabVIEW's real row count (NOT one row per raw terminal): a method
+    with N params always has 1 + N drawer rows, however many of the 2N+2
+    termList terminals actually carry data. The reference (Refnum) and
+    error-cluster rows live in ``permDCOList`` and are never in this list, so
+    no filtering is needed here (unlike the property-node glyph).
+
+    Each row's arrows follow the shared rule: an INPUT terminal draws ``▸`` at
+    the LEFT edge, an OUTPUT terminal at the RIGHT edge, both if a pass-through
+    param has both. The method row's left side is always a Void select-slot
+    (LabVIEW draws no terminal there -- just the method name); its right side
+    only draws the return-value arrow when the method actually returns
+    something (also Void otherwise). Param NAMES aren't in the VI file (they
+    belong to the method's VI-server signature), so rows are labeled by index
+    (``[i]``)."""
+    row_ids = getattr(node, "invoke_row_terminal_ids", None) or []
+    by_id = {t.id: t for t in node.terminals}
+
+    def term_at(idx: int) -> Terminal | None:
+        return by_id.get(row_ids[idx]) if 0 <= idx < len(row_ids) else None
+
+    return_present = _row_terminal_present(term_at(1))
+
+    n_params = max(0, len(row_ids) // 2 - 1)
+    rows: list[tuple[str, bool, bool]] = []
+    for i in range(n_params):
+        left = term_at(2 + 2 * i)
+        right = term_at(2 + 2 * i + 1)
+        rows.append((
+            f"[{i}]", _row_terminal_present(left), _row_terminal_present(right),
+        ))
+
+    return InvokeNodeGlyph(
+        method=(getattr(node, "method_name", None) or "").strip(),
+        return_present=return_present,
+        rows=tuple(rows),
+        class_name=(getattr(node, "object_name", None) or "").strip(),
+    )
+
+
 class OriginalGlyphResolver:
     """Clean-room ORIGINAL glyphs for primitives whose SHAPE we draw ourselves
     (roadmap #14). Each matched primitive gets a glyph that reproduces the real
@@ -513,6 +576,8 @@ class OriginalGlyphResolver:
             return self._cluster_glyph(node, ctx.graph)
         if node.node_type == "propNode":
             return _property_node_glyph(node)
+        if node.node_type == "invokeNode":
+            return _invoke_node_glyph(node)
         symbol = _COMPARE_SYMBOL.get(node.name or "")
         if symbol is not None:
             return ArithGlyph(symbol)

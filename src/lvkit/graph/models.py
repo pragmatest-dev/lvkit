@@ -82,6 +82,11 @@ class PrimitiveNode(GraphNode):
     properties: list[PropertyDef] = []
     method_name: str | None = None
     method_code: int | None = None
+    # Invoke node only: qualified terminal ids from the parser's dcoList, in
+    # row order (2 per row -- row 0 = method [select-slot, return-value],
+    # rows 1..N = params [input, output]). Ids match ``terminals[i].id``.
+    # See render/nodes.py:_invoke_node_glyph for how rows are built from this.
+    invoke_row_terminal_ids: list[str] = []
 
 
 class StructureNode(GraphNode):

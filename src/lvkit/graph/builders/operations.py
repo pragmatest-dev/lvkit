@@ -95,6 +95,9 @@ class PrimitiveBuildHandler(NodeBuildHandler):
             elif isinstance(node, InvokeNode):
                 prim_kwargs["method_name"] = node.method_name
                 prim_kwargs["method_code"] = node.method_code
+                prim_kwargs["invoke_row_terminal_ids"] = [
+                    ctx.qid(uid) for uid in node.row_terminal_uids
+                ]
 
         return GraphPrimitiveNode(
             id=q_node_uid,

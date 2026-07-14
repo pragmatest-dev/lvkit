@@ -465,12 +465,25 @@ class PropertyNode(ParsedNode):
 
 @dataclass
 class InvokeNode(ParsedNode):
-    """An invoke node (class="invokeNode")."""
+    """An invoke node (class="invokeNode").
+
+    ``row_terminal_uids`` is the node's ``dcoList`` re-expressed as TERMINAL
+    uids (one per dco, in heap order) -- 2 uids per row: row 0 is the
+    METHOD (index 0 = the void method-select slot, never a data terminal;
+    index 1 = the return value, present when the method returns something);
+    rows 1..N are the method's PARAMETERS, each a left(input)/right(output)
+    pass-through pair. A row-side terminal that resolves to a ``Void`` type
+    is a reserved-but-unused heap slot -- LabVIEW always allocates both
+    sides of a row, but only wireable sides get a real type. See the
+    render layer (``render/nodes.py:_invoke_node_glyph``), which is where
+    that Void check happens (type resolution isn't available at parse time).
+    """
 
     object_name: str = ""
     object_method_id: str = ""
     method_name: str = ""
     method_code: int = 0
+    row_terminal_uids: list[str] = field(default_factory=list)
 
 
 class PropertyNodeHandler(NodeTypeHandler):
@@ -523,7 +536,37 @@ class InvokeNodeHandler(NodeTypeHandler):
             object_method_id=elem.findtext("oMId") or "",
             method_name=clean_labview_string(elem.findtext("methName")),
             method_code=meth_code,
+            row_terminal_uids=self._extract_row_terminal_uids(elem),
         )
+
+    def _extract_row_terminal_uids(self, elem: ET.Element) -> list[str]:
+        """Map ``dcoList`` (dco uids, 2 per row: method then params) to the
+        containing TERMINAL uids, preserving dcoList order. Mirrors
+        ``CallByRefHandler``'s dco-uid -> terminal-uid mapping pattern."""
+        dco_list_elem = elem.find("dcoList")
+        dco_list_uids: list[str] = []
+        if dco_list_elem is not None:
+            for child in dco_list_elem.findall("SL__arrayElement"):
+                uid = child.get("uid")
+                if uid:
+                    dco_list_uids.append(uid)
+        if not dco_list_uids:
+            return []
+
+        dco_to_term: dict[str, str] = {}
+        term_list = elem.find("termList")
+        if term_list is not None:
+            for term_elem in term_list.findall("SL__arrayElement"):
+                t_uid = term_elem.get("uid")
+                dco_elem = term_elem.find("dco")
+                if t_uid and dco_elem is not None:
+                    d_uid = dco_elem.get("uid")
+                    if d_uid:
+                        dco_to_term[d_uid] = t_uid
+
+        return [
+            dco_to_term[d_uid] for d_uid in dco_list_uids if d_uid in dco_to_term
+        ]
 
 
 class FlatSequenceHandler(NodeTypeHandler):
