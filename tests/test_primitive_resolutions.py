@@ -103,6 +103,36 @@ def test_numeric_primitives_are_elementwise():
         assert res.resolve(prim_id=prim_id).elementwise is True
 
 
+def test_comparison_to_zero_block_verified_members():
+    """Task #107: the comparison-to-0 members pinned from full-corpus dataflow.
+    1113 (=0) and 1118 (<0) are proven; 1114 (>=0) is proven via search-result
+    'found' idioms (offset -1 when not found, hit at index 0 valid). 1115 (<=0)
+    and 1117 (>0) are the best-supported reads but NOT corpus-separable from ==0
+    / !=0 respectively (identical on non-negative feeders)."""
+    res = get_resolver()
+    assert res.resolve(prim_id=1113).name == "Equal To 0?"
+    assert res.resolve(prim_id=1114).name == "Greater Or Equal To 0?"
+    assert res.resolve(prim_id=1118).name == "Less Than 0?"
+    assert "in_1 >= 0" in str(res.resolve(prim_id=1114).python_code)
+    assert "in_1 < 0" in str(res.resolve(prim_id=1118).python_code)
+    # 1114 is the UNARY to-0 form (one data input), not the binary comparison.
+    in_terms = [t for t in res.resolve(prim_id=1114).terminals
+                if t.direction == "in"]
+    assert len(in_terms) == 1
+
+
+def test_1116_is_not_a_comparison_and_unresolved():
+    """1116 was mislabeled 'Call Chain' / a to-0 compare, but its corpus feeders
+    are boolean/cluster (not numeric). Kept only as a flagged placeholder (used
+    by TestCase.lvclass) — must never claim to be Call Chain or a comparison."""
+    res = get_resolver()
+    r = res.resolve(prim_id=1116)
+    assert r is not None
+    assert r.name == "Unresolved primitive 1116"
+    assert r.name != "Call Chain"
+    assert "Equal" not in r.name and "Greater" not in r.name and "Less" not in r.name
+
+
 def test_arithmetic_block_is_not_build_array():
     """The 2-input arithmetic block must never resolve back to Build Array —
     1050 was mis-IDed that way (a scalar+array Add read as concatenation).
