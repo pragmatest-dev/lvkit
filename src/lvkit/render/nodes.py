@@ -479,7 +479,8 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
         # and only flips a small marker, never the name).
         is_read = value_terms[i].direction == "output" if i < len(value_terms) else True
         rows.append((name, is_read))
-    return PropertyNodeGlyph(rows=tuple(rows))
+    class_name = (getattr(node, "object_name", None) or "").strip()
+    return PropertyNodeGlyph(rows=tuple(rows), class_name=class_name)
 
 
 class OriginalGlyphResolver:

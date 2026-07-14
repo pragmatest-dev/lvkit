@@ -614,17 +614,19 @@ class BundleByNameGlyph:
 
 @dataclass(frozen=True)
 class PropertyNodeGlyph:
-    """A Property Node (heap class ``propNode``): a box with one row per accessed
-    property, each row LABELED with the property's NAME and marked read vs write.
+    """A Property Node (heap class ``propNode``), matching LabVIEW's layout: a
+    HEADER band naming the object CLASS the reference is of (``⚙ <class>``), above
+    a DRAWER of one rectangle per accessed property. The reference (in/out) and
+    error (in/out) terminals thread the box edges at the header level and are
+    placed by the scene, not drawn here.
 
-    LabVIEW draws a property node as a stack of named rows (the reference threads
-    the top border and the error cluster the bottom — both are ordinary terminals
-    placed by the scene, not part of this box). Each row is a READ (the property
-    value flows OUT, arrow ``▸`` on the right) or a WRITE (value flows IN, ``◂``).
-    Names come from the node's ``properties`` list; the per-row direction from the
-    matching value terminal. Grows with the row count, scaling to heap bounds."""
+    Each drawer row is LABELED with the property's NAME and marked read (value
+    flows OUT, ``▸``) vs write (value flows IN, ``◂``). Names come from the node's
+    ``properties`` list; the per-row direction from the matching value terminal.
+    Grows with the property count, scaling to the node's heap bounds."""
 
     rows: tuple[tuple[str, bool], ...]  # (property name, is_read)
+    class_name: str = ""  # object class shown in the header (e.g. "VI")
     fill_attr: str = "prim_fill"
     stroke_attr: str = "prim_stroke"
     text_attr: str = "prim_text"
@@ -638,14 +640,28 @@ class PropertyNodeGlyph:
             stroke=stroke, stroke_width=1.2,
         )
         rows = self.rows or (("", True),)
-        n = len(rows)
-        height = y2 - y1
+        # One header cell (the class/reference row) + one cell per property.
+        cell_h = (y2 - y1) / (len(rows) + 1)
         lpad = 3.0
         arrow_w = 7.0
-        lsize = max(6.0, min(9.0, (height / n) * 0.62))
+        lsize = max(6.0, min(9.0, cell_h * 0.62))
+
+        # Header band: the object class, centered, with a divider beneath. This
+        # is the row the reference + error terminals thread through (drawn by the
+        # scene at the box edges).
+        hy2 = y1 + cell_h
+        header = f"⚙ {self.class_name}".strip() if self.class_name else "⚙ class"
+        backend.text(
+            (x1 + x2) / 2, y1 + cell_h / 2 + lsize * 0.34,
+            fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize), lsize,
+            fill=text_fill,
+        )
+        backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
+
+        # Property drawer: one named rectangle per property, below the header.
         for i, (name, is_read) in enumerate(rows):
-            ry1 = y1 + i * height / n
-            ry2 = y1 + (i + 1) * height / n
+            ry1 = hy2 + i * cell_h
+            ry2 = hy2 + (i + 1) * cell_h
             if i > 0:
                 backend.line(x1, ry1, x2, ry1, stroke=stroke, stroke_width=1.0)
             cy = (ry1 + ry2) / 2
@@ -654,8 +670,7 @@ class PropertyNodeGlyph:
                 x1 + lpad, cy + lsize * 0.34, label, lsize,
                 anchor="start", fill=text_fill,
             )
-            # Per-row read/write marker at the right edge: ▸ = read (value out),
-            # ◂ = write (value in). Small, so it never crowds the name.
+            # Per-row read/write marker: ▸ = read (value out), ◂ = write (in).
             backend.text(
                 x2 - arrow_w * 0.55, cy + lsize * 0.34,
                 "▸" if is_read else "◂", lsize,

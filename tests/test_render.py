@@ -2769,6 +2769,7 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
         )
     node = PrimitiveNode(
         id="VI::9", vi="VI", node_type="propNode", name="Property Node",
+        object_name="VI",
         properties=[PropertyDef(name="Value"), PropertyDef(name="Visible")],
         terminals=[
             term(0, "input", "Refnum"),   # reference in  (excluded)
@@ -2780,6 +2781,7 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     glyph = _property_node_glyph(node)
     assert isinstance(glyph, PropertyNodeGlyph)
     assert glyph.rows == (("Value", False), ("Visible", True))
+    assert glyph.class_name == "VI"  # header names the object class
 
     # No properties -> None, so the caller falls back to the plain box.
     empty = PrimitiveNode(id="VI::10", vi="VI", node_type="propNode", name="Property Node")
