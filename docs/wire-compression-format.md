@@ -87,6 +87,15 @@ Worked example — `"0308011F"` (V=3, dir0=E, one sign byte `0x01`, lengths
 `[0x1F]=31`): E31, then flip to vertical with sign `0x01` (N), last segment
 snapped to the sink → an L-shape.
 
+```
+   V=3  dir0=E  sign=[N]  lengths=[31, (implied)]
+
+   source ●──────────────●  (E 31)          seg0: dir0 = East, len 31
+                         │                   bend: flip to vertical, sign N (up)
+                         │  (N, implied)     last segment length is NOT stored —
+                         ○  sink             it is snapped to the known sink
+```
+
 ## Layout B — fan-out (N-leaf tree)
 
 `byte1` is a **flag** (`0x00` or `0x01`), *not* a direction. Used when
@@ -107,6 +116,21 @@ then V-1 lengths      variable-width
 ### Tokens
 
 Each token advances the current leaf by the next length, or forks/terminates:
+
+A worked fan-out — `"0400080503200B18"` (V=4, flag 0, dir0 E, tokens
+`[0x05 BRANCH, 0x03 POP]`, lengths `[32, 11, 24]`):
+
+```
+   tokens:  E32 ──▶ [0x05 fork] ──▶ [0x03 pop]
+
+   source ●═══════════════╤═════════════●  sink B   (trunk: E32, resume E24)
+          (E 32)          │
+                          │ (tap S 11)        0x05 = immediate S, sibling E:
+                          ○  sink A            tap S to sink A, then POP resumes
+                                               the pushed junction eastward.
+   DFS: walk seg0 east → BRANCH pushes a junction (sibling = E) and takes the
+        immediate (S) to sink A → POP closes A and resumes the junction east to B.
+```
 
 | token         | meaning                                                        |
 |---------------|----------------------------------------------------------------|
@@ -207,12 +231,27 @@ an **eastbound** trunk, where `left/right/straight ≡ N/S/E`.
 On a **turned trunk**, any base direction that points **backward** (opposite the
 current trunk direction) is remapped to the trunk's **negative-axis
 perpendicular** (`neg_perp` = **N** for a horizontal E/W trunk, **W** for a
-vertical N/S trunk). Examples: `0x07` on a southbound trunk — its immediate `N`
-points backward (up, against the S flow) → remapped to `neg_perp(S) = W`, giving
-tap W / sib S (the comb teeth); `0x05` on a westbound trunk — its `E` sibling
-points backward → `neg_perp(W) = N`. This is **fully endpoint-free** and lifts the
-deterministic walk to **99.48%** on the reference set (no fork search, no
-tolerance).
+vertical N/S trunk). This is **fully endpoint-free** and lifts the deterministic
+walk to **99.48%** on the reference set (no fork search, no tolerance).
+
+The same token `0x07` on different trunks — the base is `{N, S}`, and the remap
+only fires when a base direction points backward into the trunk:
+
+```
+  0x07 on an EASTBOUND trunk        0x07 on a SOUTHBOUND trunk (a comb tooth)
+  (base {N,S} unchanged: T-split)   (base N points backward → remap to W)
+
+        ○ sink (N)                        source
+        │                                   ║ (trunk came in going S)
+  ●═════╪══                          tap W  ○◀════╣          base immediate N would
+  source│  (trunk was E)                          ║ (sib S)  go back UP the trunk, so
+        │                                         ▼          it deflects to neg_perp
+        ○ sink (S)                            sink (S)       = W; sibling S continues.
+```
+
+Examples: `0x07` on a southbound trunk → tap **W** / sib **S** (the comb teeth,
+above right); `0x05` on a westbound trunk — its `E` sibling points backward →
+`neg_perp(W) = N`.
 
 This **supersedes an earlier wrong conclusion** in this doc's history that the
 `0x07` tap side was "endpoint-derived / not in the bytes." It IS in the bytes:
@@ -284,6 +323,16 @@ turns leaving the source. It is not a special case.
 A sink that sits **on** the wire (not at a leaf tip): the `0x02` token runs the
 trunk straight through the terminal. One extra header byte precedes `dir0`.
 Handled by matching a sink to any vertex on a leaf's path, not only its tip.
+
+```
+  plain fan-out: sinks at leaf TIPS      tapped: a sink sits ON the trunk
+
+  ●═══╤═══● tip                          ●═════◍═════● tip
+      │                                        ▲
+      ○ tip                                    tap sink (mid-wire); the 0x02
+                                               STRAIGHT passes through it and
+                                               the trunk continues to the tip.
+```
 
 **`0x02` STRAIGHT is the tapped-format marker (2026-07-13).** Across the whole
 reference set the `0x02` token appears exactly twice, and both occurrences are in
