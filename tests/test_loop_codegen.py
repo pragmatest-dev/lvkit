@@ -9,6 +9,7 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
 from lvkit.codegen.nodes.loop import (
     _build_while_loop,
+    _expr_references,
     _get_dest_terminal_name,
     _get_source_terminal_name,
     _make_var_name,
@@ -17,7 +18,14 @@ from lvkit.codegen.nodes.loop import (
 )
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, Wire, WireEnd
-from lvkit.models import LoopOperation, LVType, Terminal, Tunnel, TunnelTerminal
+from lvkit.models import (
+    LoopOperation,
+    LVType,
+    PrimitiveOperation,
+    Terminal,
+    Tunnel,
+    TunnelTerminal,
+)
 from tests.conftest import make_ctx
 
 
@@ -107,6 +115,24 @@ class TestMakeVarName:
 
         var_name = _make_var_name(tunnel, ctx)
         assert var_name == "value"
+
+
+class TestExprReferences:
+    """Tests for loop._expr_references (accumulation vs independent SR value)."""
+
+    def test_accumulation_references_sr(self):
+        assert _expr_references("counter + 1", "counter") is True
+        assert _expr_references("acc * factor", "acc") is True
+
+    def test_independent_value_does_not_reference_sr(self):
+        assert _expr_references("u16", "state") is False
+        assert _expr_references("some_input + 1", "state") is False
+
+    def test_name_is_not_substring_matched(self):
+        assert _expr_references("state2 + 1", "state") is False
+
+    def test_malformed_expression_is_safe(self):
+        assert _expr_references("", "state") is False
 
 
 class TestSingularize:
@@ -629,6 +655,59 @@ class TestLoopCodeGenExecutable:
         # Loop should have executed (i and item should be defined from last iteration)
         assert "i" in result
         assert result["i"] == 2  # Last index
+
+    def test_for_loop_shift_register_accumulates(self):
+        """Task #103: a shift register whose new value depends on its CURRENT
+        value must be fed back each iteration so it accumulates. SR starts at 0,
+        body computes SR = SR + 1 over range(5); result must be 5 — not 1 (the
+        pre-fix behaviour, where the lSR local was never updated so every
+        iteration recomputed seed + 1)."""
+        data_flow = [
+            Wire.from_terminals(from_terminal_id="n_src", to_terminal_id="n_outer"),
+            Wire.from_terminals(
+                from_terminal_id="seed_src", to_terminal_id="lsr_outer"
+            ),
+            Wire.from_terminals(
+                from_terminal_id="lsr_inner", to_terminal_id="add_x"
+            ),
+            Wire.from_terminals(
+                from_terminal_id="add_out", to_terminal_id="rsr_inner"
+            ),
+            Wire.from_terminals(
+                from_terminal_id="one_src", to_terminal_id="add_y"
+            ),
+        ]
+        ctx = CodeGenContext.from_wires(data_flow)
+        ctx.bind("n_src", "5")
+        ctx.bind("seed_src", "0")
+        ctx.bind("one_src", "1")
+
+        add = PrimitiveOperation(
+            id="add", name="Add", labels=["Primitive"], primResID=1050,
+            terminals=[
+                Terminal(id="add_x", index=1, direction="input", name="x"),
+                Terminal(id="add_y", index=2, direction="input", name="y"),
+                Terminal(id="add_out", index=0, direction="output", name="result"),
+            ],
+        )
+        loop_op = LoopOperation(
+            id="loop1", name="For Loop", labels=["Loop"], loop_type="forLoop",
+            tunnels=[
+                Tunnel(outer_terminal_uid="n_outer",
+                       inner_terminal_uid="n_inner", tunnel_type="lMax"),
+                Tunnel(outer_terminal_uid="lsr_outer",
+                       inner_terminal_uid="lsr_inner", tunnel_type="lSR"),
+                Tunnel(outer_terminal_uid="rsr_outer",
+                       inner_terminal_uid="rsr_inner", tunnel_type="rSR"),
+            ],
+            inner_nodes=[add],
+        )
+
+        fragment = loop.generate(loop_op, ctx)
+        acc_var = fragment.bindings.get("rsr_outer")
+        assert acc_var is not None, "rSR outer terminal should be bound"
+        result = self._compile_and_run(fragment.statements, {})
+        assert result[acc_var] == 5
 
     def test_while_loop_accumulator_initializes_empty_list(
         self    ):

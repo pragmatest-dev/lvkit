@@ -260,6 +260,11 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
     ]
     rsr_to_lsr_outer = dict(zip(rsr_outers_ordered, lsr_outers_ordered, strict=False))
 
+    # Feedback writes (lSR local <- rSR's new value) are emitted AFTER every
+    # updated_var assignment, so cross-register reads in the same iteration
+    # still see the previous values -- LabVIEW updates all shift registers
+    # together at the iteration boundary.
+    sr_feedbacks: list[tuple[str, str]] = []  # (lsr_var, updated_var)
     for tunnel in tunnels:
         tunnel_type = tunnel.tunnel_type
         outer_term = tunnel.outer_terminal_uid
@@ -279,30 +284,31 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
             if inner_val and inner_val != rsr_shift_var:
                 # Write the new value into a DISTINCT variable rather than
                 # mutating rsr_shift_var (the lSR-bound local) in place.
-                # Other same-iteration consumers may still need the SR's
-                # PRE-update value after the loop exits -- e.g. an output
-                # tunnel wired straight off the lSR inner terminal (no
-                # inner computation), forwarding "old" state out for a
-                # post-loop comparison, as in the OpenG "Changed?" family
-                # (U16 Changed__ogtk.vi): rsr_shift_var stays valid for
-                # those; only the fresh variable represents the just-
-                # written value (used for rSR's own outer-terminal
-                # consumers and for persisting to a functional-global).
-                #
-                # NOTE: this means a value written into rSR is NOT yet fed
-                # back to lSR's inner terminal for a *later pass of the
-                # same LabVIEW loop* (true intra-loop accumulation, e.g.
-                # `counter = counter + 1` repeated every iteration). That
-                # was already completely unreachable before this fix (see
-                # the pairing comment above) -- still a known gap, not
-                # something this change regresses.
                 updated_var = ctx.make_output_var(
                     f"{rsr_shift_var}_updated", node.id, terminal_id=outer_term,
                 )
                 inner_stmts.append(build_assign(updated_var, parse_expr(inner_val)))
                 bindings[outer_term] = updated_var
+                # Feed the new value back into the lSR local for the NEXT
+                # iteration ONLY when it is genuine accumulation -- i.e. the
+                # new value is computed FROM the SR's current value
+                # (`counter = counter + 1`). When the new value is INDEPENDENT
+                # of the SR (a functional global storing an external input,
+                # e.g. the OpenG "Changed?" family: `state_new = u16`), we must
+                # NOT overwrite: rsr_shift_var still holds the PRE-update value
+                # that a separate branch consumes after the loop (the
+                # `old != new` comparison). Overwriting only where there is real
+                # feedback keeps those branch consumers correct without needing
+                # a per-iteration snapshot.
+                if _expr_references(inner_val, rsr_shift_var):
+                    sr_feedbacks.append((rsr_shift_var, updated_var))
             else:
                 bindings[outer_term] = rsr_shift_var
+
+    for lsr_var, updated_var in sr_feedbacks:
+        inner_stmts.append(
+            build_assign(lsr_var, ast.Name(id=updated_var, ctx=ast.Load()))
+        )
 
     # Resolve uninitialized-SR writebacks now that step 5 has run: use the
     # paired rSR's final bound value (the fresh "updated" variable above)
@@ -371,6 +377,23 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
         bindings=bindings,
         imports=inner_ctx.imports,
     )
+
+def _expr_references(expr_str: str, var: str) -> bool:
+    """True if the Python expression ``expr_str`` reads the name ``var``.
+
+    Used to detect true shift-register accumulation: the rSR's new value is
+    computed FROM the SR's current value (so it must be fed back for the next
+    iteration), versus an independent value (which must not overwrite the lSR
+    local a separate branch still reads). AST-based so ``state`` does not match
+    ``state2``."""
+    try:
+        tree = ast.parse(expr_str, mode="eval")
+    except SyntaxError:
+        return False
+    return any(
+        isinstance(n, ast.Name) and n.id == var for n in ast.walk(tree)
+    )
+
 
 def _make_var_name(tunnel: Tunnel, ctx: CodeGenContext | None = None) -> str:
     """Generate a variable name from tunnel info.
