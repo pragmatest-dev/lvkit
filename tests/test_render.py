@@ -2130,6 +2130,55 @@ def test_pass_through_mux_is_not_a_bundle_glyph():
     assert not isinstance(glyph, (BundleGlyph, UnbundleGlyph))
 
 
+def test_bundle_by_name_never_dropped_without_field_names():
+    """A real Bundle/Unbundle By Name (has ``list`` field terminals) is NEVER
+    treated as an invisible boundary muxer — even when its cluster type's field
+    NAMES don't resolve (e.g. a typedef whose VCTP failed to serialize). Only a
+    fieldless compiler shift-register/tunnel muxer is skipped; otherwise the node
+    would become a blank hole (the MasterAcquisition regression). The
+    discriminator is the presence of ``list`` terminals, NOT field resolution."""
+    from lvkit.render.scene import _is_boundary_mux
+    g = InMemoryVIGraph()
+    real = _prim(
+        "nMux", "Bundle/Unbundle By Name",
+        dirs=("input", "output"), roles=("agg", "list"),
+    )
+    assert _is_boundary_mux(real, g) is False
+    compiler = _prim(
+        "nMux", "Bundle/Unbundle By Name",
+        dirs=("input", "output"), roles=("agg", "agg"),
+    )
+    assert _is_boundary_mux(compiler, g) is True
+
+
+def test_bundle_by_name_falls_back_to_bracketed_index_labels():
+    """When the wired cluster's field NAMES are unavailable, each accessed field
+    is labelled by its INDEX in brackets — ``[0]``, ``[3]`` — never bare, so an
+    index can't be mistaken for a field literally named "0"."""
+    from lvkit.models import Terminal
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.nodes import _bundle_by_name_glyph
+    terms = [
+        Terminal(id="agg", index=0, direction="output", nmux_role="agg"),
+        Terminal(
+            id="f0", index=1, direction="input",
+            nmux_role="list", nmux_field_index=0,
+        ),
+        Terminal(
+            id="f1", index=2, direction="input",
+            nmux_role="list", nmux_field_index=3,
+        ),
+    ]
+    node = PrimitiveNode(
+        id="n0", vi="V", name="Bundle/Unbundle By Name",
+        node_type="nMux", terminals=terms,
+    )
+    glyph = _bundle_by_name_glyph(node, InMemoryVIGraph())
+    assert isinstance(glyph, BundleByNameGlyph)
+    assert glyph.names == ("[0]", "[3]")
+    assert glyph.bundling is True  # field terminals are inputs -> bundling
+
+
 def test_comparison_primitives_use_the_arith_triangle():
     """The comparison functions reuse the borderless arithmetic triangle with
     their own symbol (same shape LabVIEW draws them with)."""

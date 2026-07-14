@@ -416,23 +416,33 @@ def _bundle_by_name_glyph(
     None if no field names are resolvable (caller falls back to the compact glyph).
     """
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
-    if agg is None or agg.lv_type is None:
-        return None
-    fields = graph.get_type_fields(agg.lv_type) or []
-    if not fields:
-        return None
+    fields = (
+        graph.get_type_fields(agg.lv_type) or []
+        if agg is not None and agg.lv_type is not None
+        else []
+    )
     field_terms = sorted(
         (t for t in node.terminals if t.nmux_role == "list"), key=lambda t: t.index,
     )
     if not field_terms:
         return None
+    # A Bundle/Unbundle By Name is ALWAYS drawn with its per-field rows. When the
+    # cluster type's field NAMES resolve, use them; otherwise fall back to the
+    # accessed field INDEX in brackets — ``[0]``, ``[1]`` — so an index is never
+    # mistaken for a field literally named "0" (the user's convention). This is
+    # the render reality when a typedef's VCTP fails to serialize (its names are
+    # unrecoverable from the XML), yet the node must still show what it accesses.
     names: list[str] = []
     for t in field_terms:
         fi = t.nmux_field_index
         if fi is not None and 0 <= fi < len(fields) and fields[fi].name:
             names.append(fields[fi].name)
+        elif t.name:
+            names.append(t.name)
+        elif fi is not None:
+            names.append(f"[{fi}]")
         else:
-            names.append(t.name or (f"field {fi}" if fi is not None else "?"))
+            names.append("[?]")
     # Direction comes from the FIELD terminals, not the aggregate — there can
     # be TWO aggregate terminals (an input source cluster and an output
     # assembled cluster) sharing one DCO, so ``agg.direction`` is ambiguous.

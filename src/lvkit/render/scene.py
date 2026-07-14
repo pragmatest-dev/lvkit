@@ -49,22 +49,22 @@ def _is_boundary_mux(node: AnyGraphNode, graph: InMemoryVIGraph) -> bool:
     """A structure-boundary data multiplexer that LabVIEW never draws as a box.
 
     An ``nMux`` ("Node Multiplexer") is EITHER a visible Bundle/Unbundle By Name
-    — a box listing accessed field NAMES, however few (a single-field access is
-    still drawn) — OR the compiler's shift-register/tunnel muxer, which carries
-    no cluster and so has no named box. The visible one always has an ``agg``
-    terminal whose CLUSTER type supplies the field names — resolved the same way
-    codegen resolves them, via ``graph.get_type_fields()`` (anonymous clusters
-    carry fields inline; class/typedef types resolve them from dep_graph) — so an
-    LVOOP private-data unbundle is recognized too, not just anonymous clusters.
-    Without any resolvable fields there's nothing to draw, so only that case is
-    skipped (its terminals stay in the layout so wires still route to the
-    SR/tunnel positions).
+    — a box listing accessed field NAMES — OR the compiler's shift-register/
+    tunnel muxer, which merges a whole value at a structure boundary and is never
+    drawn. The RELIABLE discriminator is the field-access terminals: a real
+    Bundle/Unbundle always has ``nmux_role=="list"`` terminals (one per accessed
+    field); the compiler muxer has NONE (``list`` role is only assigned to
+    Bundle/Unbundle field DCOs — see construction.py::_enrich_nmux_terminals).
+
+    So skip drawing ONLY the fieldless compiler muxer. A Bundle/Unbundle is
+    ALWAYS drawn even when its cluster type's field NAMES don't resolve (e.g. a
+    typedef whose VCTP failed to serialize): the glyph falls back to ``[index]``
+    labels rather than leaving a blank hole. Field-name resolution must never
+    decide whether a user node is visible.
     """
     if node.node_type != "nMux":
         return False
-    agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
-    fields = graph.get_type_fields(agg.lv_type) if agg and agg.lv_type else None
-    return not fields
+    return not any(t.nmux_role == "list" for t in node.terminals)
 
 
 @dataclass(frozen=True)
