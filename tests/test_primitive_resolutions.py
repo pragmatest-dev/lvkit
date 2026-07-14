@@ -145,6 +145,28 @@ def test_1901_search_vs_delete_collision():
     assert res.resolve_by_node_type("aDelete").name == "Delete From Array"
 
 
+def test_specialized_node_types_carry_no_counter_indicated_primresid():
+    """A specialized-XML-class handler (aDelete/aIndx/subset) must NOT hand-assign
+    a primResID that belongs to a DIFFERENT plain-`prim` function. Codegen resolves
+    node_type before primResID, so node-type wins — keeping both was a latent trap
+    (1901=Search 1D Array, 1809=Array Size, 1516=Select all mean something else).
+    These resolve fully via the node_types section, so their primResID must be None.
+    """
+    from lvkit.parser.node_types import NODE_HANDLERS
+    res = get_resolver()
+    for xml_class, expected in (
+        ("aDelete", "Delete From Array"),
+        ("aIndx", "Index Array"),
+        ("subset", "Array Subset"),
+    ):
+        handler = NODE_HANDLERS[xml_class]
+        assert handler.prim_res_id is None, (
+            f"{xml_class} must not carry a counter-indicated primResID"
+        )
+        # It still resolves — by node_type, independently of any primResID.
+        assert res.resolve_by_node_type(xml_class).name == expected
+
+
 def test_arithmetic_block_is_not_build_array():
     """The 2-input arithmetic block must never resolve back to Build Array —
     1050 was mis-IDed that way (a scalar+array Add read as concatenation).

@@ -968,10 +968,20 @@ _HANDLERS: list[NodeTypeHandler] = [
     DecomposeArrayHandler(),
     _DecomposeDataValRefHandler(),
     _DecomposeMatchHandler(),
-    # Built-in primitives with specialized XML classes
-    _BuiltinPrimitiveHandler("aDelete", "Delete From Array", 1901),
-    _BuiltinPrimitiveHandler("aIndx", "Index Array", 1809),
-    _BuiltinPrimitiveHandler("subset", "Array Subset", 1516),
+    # Built-in primitives with specialized XML classes.
+    # aDelete/aIndx/subset resolve by XML class via the node_types section of
+    # primitives.json, so they carry NO primResID. Their old numeric IDs were
+    # *counter-indicated* — each belongs to a DIFFERENT plain-`prim` function
+    # (1901=Search 1D Array, 1809=Array Size, 1516=Select). Since codegen
+    # resolves node_type before primResID, keeping both was a latent trap: node
+    # type wins, so the borrowed ID only ever caused wrong doc links / fallbacks.
+    _BuiltinPrimitiveHandler("aDelete", "Delete From Array", None),
+    _BuiltinPrimitiveHandler("aIndx", "Index Array", None),
+    _BuiltinPrimitiveHandler("subset", "Array Subset", None),
+    # mergeErrors/oHExt have NO node_types entry, so their primResID IS the
+    # resolution path (and is not counter-indicated: 2401 really is Merge Errors;
+    # 8069 has no competing prim-class entry). Keep them until/unless they get a
+    # node_types entry.
     _BuiltinPrimitiveHandler("mergeErrors", "Merge Errors", 2401),
     _BuiltinPrimitiveHandler("oHExt", "Obtain/Release Semaphore", 8069),
     # Class-resolved primitives — no numeric primResID. These resolve via the
