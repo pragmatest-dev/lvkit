@@ -379,7 +379,19 @@ def _decode_tree_deterministic(
     if len(cands) < len(sinks_rel):
         return None
     if not tapped:
-        # square min-cost assignment leaf-tip -> sink (no greedy cascade)
+        # The deterministic walk already produced the geometry; the sinks are
+        # known in termList order, so we only PAIR each leaf to a sink and snap
+        # its (unstored-by-design) final segment onto the true center. A plain
+        # fan-out has exactly one leaf per sink -- any other count is a
+        # STRUCTURAL decode error (fall back). We do NOT reject on leaf-to-center
+        # distance: the leaf legitimately lands at the terminal's ATTACH EDGE, a
+        # terminal-width inboard of the center (measured ~16px, y-exact, on the
+        # Slice fan-outs), and the unstored final segment is meant to be snapped
+        # to the center -- a distance gate here just dumps a correct decode. The
+        # only geometry-level error is a snap that can't be made orthogonal,
+        # which _finish_leaf already signals with None.
+        if len(cands) != len(sinks_rel):
+            return None
         cost = [
             [max(abs(cands[i][0][0] - sr[0]), abs(cands[i][0][1] - sr[1]))
              for i in range(len(cands))]
@@ -388,8 +400,6 @@ def _decode_tree_deterministic(
         assign = _hungarian(cost)
         out: list[list[Point] | None] = [None] * len(sinks_rel)
         for si, ci in enumerate(assign):
-            if cost[si][ci] > _TERM_BOX:
-                return None
             mid = _finish_leaf(cands[ci][1], sinks_rel[si], source)
             if mid is None:
                 return None
