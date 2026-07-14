@@ -9,6 +9,9 @@ complete pipeline that unit tests miss.
 from __future__ import annotations
 
 import ast
+import os
+import subprocess
+import sys
 import types
 from pathlib import Path
 
@@ -158,6 +161,54 @@ class TestGetSettingsPath:
 # non-DAQmx coverage: see test_parallel_codegen.py's synthetic
 # TestPassthroughBindingsInParallelTier / earlier classes in that file, and
 # TestGetSettingsPath above for a real-VI E2E build_module() smoke test.
+
+
+SET_FP_CONTROL_VI = Path(
+    "samples/JKI-VI-Tester/source/Utilities/"
+    "Set Front Panel Object Control Value.vi"
+)
+
+
+def _generate_cli(vi_path: Path, out_dir: Path, hashseed: str) -> None:
+    env = {**os.environ, "PYTHONHASHSEED": hashseed}
+    subprocess.run(
+        [sys.executable, "scripts/generate_python.py", str(vi_path),
+         "-o", str(out_dir), "--search-path", "samples/OpenG/extracted"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+
+
+def _tree_bytes(root: Path) -> dict[str, bytes]:
+    return {
+        str(p.relative_to(root)): p.read_bytes()
+        for p in sorted(root.rglob("*.py"))
+    }
+
+
+def test_codegen_is_hashseed_deterministic(tmp_path):
+    """Generated code must be byte-identical across PYTHONHASHSEED values
+    (task #69). The parallel-tier builder traces data dependencies through the
+    graph via get_source -> incoming_edges; those edges were yielded in
+    hash-randomized construction order, so the discovered tiers (and thus the
+    emitted _branch_N structure) varied per run. incoming_edges/outgoing_edges
+    now sort by a stable key. This VI exhibited the divergence."""
+    _skip_if_missing(SET_FP_CONTROL_VI)
+    # Several seeds — a single pair can coincidentally agree even when the bug
+    # is present (the divergence depends on which edge lands first), so compare
+    # multiple runs against a baseline.
+    seeds = ["0", "1", "7", "12345", "99999"]
+    trees = []
+    for i, seed in enumerate(seeds):
+        out = tmp_path / f"seed_{i}"
+        _generate_cli(SET_FP_CONTROL_VI, out, seed)
+        trees.append(_tree_bytes(out))
+    base = trees[0]
+    for seed, tree in zip(seeds[1:], trees[1:]):
+        assert tree.keys() == base.keys(), (
+            f"seed {seed}: different files than baseline"
+        )
+        diffs = [name for name in base if base[name] != tree[name]]
+        assert not diffs, f"seed {seed}: non-deterministic output: {diffs}"
 
 
 # ── TestCase.lvclass ─────────────────────────────────────────

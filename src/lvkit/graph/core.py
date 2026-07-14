@@ -325,6 +325,12 @@ class InMemoryVIGraph(
                 src = d.get("source")
                 if src:
                     results.append(src)
+        # NetworkX yields edges in construction-insertion order, which is
+        # hash-randomized between processes. Sort by a stable key so callers
+        # that take the first edge (get_source) or iterate (dependency tracing
+        # in topological_sort_tiered) are byte-reproducible — otherwise the
+        # discovered parallel tiers, and thus the generated code, vary by run.
+        results.sort(key=lambda w: (w.node_id, w.terminal_id, w.index))
         return results
 
     def outgoing_edges(self, terminal_id: str) -> list[WireEnd]:
@@ -339,6 +345,7 @@ class InMemoryVIGraph(
                 dst = d.get("dest")
                 if dst:
                     results.append(dst)
+        results.sort(key=lambda w: (w.node_id, w.terminal_id, w.index))
         return results
 
     def terminal_is_wired(self, terminal_id: str) -> bool:
