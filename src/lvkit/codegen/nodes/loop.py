@@ -577,6 +577,22 @@ def _build_for_loop(
     if not body:
         body = [ast.Pass()]
 
+    # A For loop may carry an OPTIONAL conditional terminal (LabVIEW 2012+:
+    # "For Loop with conditional terminal") — the same lTst stop as a while
+    # loop, tested at the END of each iteration. If present, append the guarded
+    # break so the loop can exit before N (Stop-if-True -> ``if cond: break``,
+    # Continue-if-True -> ``if not cond: break``), mirroring _build_while_loop.
+    # Placed AFTER the body's auto-indexed accumulator appends, so the stopping
+    # iteration still contributes its output — LabVIEW stops after it completes.
+    stop_terminal = node.stop_condition_terminal
+    if stop_terminal:
+        stop_condition = ctx.resolve(stop_terminal)
+        if stop_condition:
+            cond_expr = parse_expr(stop_condition)
+            if node.stop_condition_inverted:
+                cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
+            body = [*body, ast.If(test=cond_expr, body=[ast.Break()], orelse=[])]
+
     # Find ALL auto-indexing array inputs
     autoindex_arrays = _find_all_autoindex_arrays(tunnels, ctx)
 

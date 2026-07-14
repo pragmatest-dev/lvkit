@@ -834,3 +834,51 @@ class TestWhileLoopDoWhileSemantics:
         assert isinstance(last, ast.If)
         assert len(last.body) == 1
         assert isinstance(last.body[0], ast.Break)
+
+
+class TestForLoopConditionalTerminal:
+    """A For Loop may carry an OPTIONAL conditional terminal (LabVIEW 2012+).
+    When present it must emit a guarded break (tested at end of iteration, like
+    a while loop); when absent, a plain for loop with NO break."""
+
+    def _for_with_count(self, stop=None, inverted=False):
+        data_flow = [
+            Wire.from_terminals(
+                from_terminal_id="count_src", to_terminal_id="lmax_outer"
+            ),
+        ]
+        if stop is not None:
+            data_flow.append(
+                Wire.from_terminals(from_terminal_id="cond_calc", to_terminal_id=stop)
+            )
+        ctx = CodeGenContext.from_wires(data_flow)
+        ctx.bind("count_src", "10")
+        if stop is not None:
+            ctx.bind("cond_calc", "should_stop")
+        loop_op = LoopOperation(
+            id="loop1", name="For Loop", labels=["Loop"], loop_type="forLoop",
+            tunnels=[Tunnel(outer_terminal_uid="lmax_outer",
+                            inner_terminal_uid="lmax_inner", tunnel_type="lMax")],
+            inner_nodes=[],
+            stop_condition_terminal=stop,
+            stop_condition_inverted=inverted,
+        )
+        frag = loop.generate(loop_op, ctx)
+        return next(s for s in frag.statements if isinstance(s, ast.For))
+
+    def test_no_break_when_no_conditional(self):
+        for_loop = self._for_with_count(stop=None)
+        assert not any(isinstance(s, ast.Break) for s in ast.walk(for_loop))
+
+    def test_break_when_stop_if_true(self):
+        for_loop = self._for_with_count(stop="stop_term", inverted=False)
+        ifs = [s for s in for_loop.body if isinstance(s, ast.If)]
+        assert ifs and any(isinstance(b, ast.Break) for b in ifs[-1].body)
+        # Stop-if-True: break on the bare condition (no `not`)
+        assert not isinstance(ifs[-1].test, ast.UnaryOp)
+
+    def test_break_when_continue_if_true(self):
+        for_loop = self._for_with_count(stop="stop_term", inverted=True)
+        ifs = [s for s in for_loop.body if isinstance(s, ast.If)]
+        assert ifs and isinstance(ifs[-1].test, ast.UnaryOp)  # `if not cond: break`
+        assert isinstance(ifs[-1].test.op, ast.Not)
