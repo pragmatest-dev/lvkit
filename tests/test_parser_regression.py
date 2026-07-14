@@ -182,3 +182,60 @@ class TestWhileLoopNestedShiftRegister:
         # nested rSR was never extracted so there was nothing to pair).
         assert all(t.paired_terminal_uid for t in lsr)
         assert all(t.paired_terminal_uid for t in rsr)
+
+
+class TestResilientVCTPExport:
+    """A single misaligned/corrupt flat type (e.g. an ``LVVariant`` whose garbage
+    4-byte count trips ``typedesc_list_limit``, or expands to a multi-MB junk
+    DataFill) used to abort VCTP XML export at the SECTION level, dumping the
+    ENTIRE Consolidated Type Pool to raw ``.bin`` — so the main XML lost every
+    ``FlatTypeID`` TypeDesc and the ``<TopLevel>`` map, and no cluster/typedef
+    terminal could resolve its field names (Bundle/Unbundle By Name went blank /
+    [index]-only). Patch #6 (``_pylabview_patches``) makes the per-type export
+    resilient: the corrupt type becomes a position-preserving stub and the rest
+    of the pool + ``<TopLevel>`` still serialize, so field names resolve again.
+
+    Uses ``GrabWebCam_PCO_IOS.vi`` (a small IMAQ-camera VI in the affected
+    family — ~110 KB front panel) rather than ``MasterAcquisitionFile_PCO_IOS``
+    (whose front-panel heap balloons to ~150 MB from the same corrupt variant, a
+    separate blowup) so the test stays cheap."""
+
+    @pytest.fixture(scope="class")
+    def main_xml(self):
+        ms = list(Path("samples").rglob("GrabWebCam_PCO_IOS.vi"))
+        if not ms:
+            pytest.skip("GrabWebCam_PCO_IOS sample not present")
+        _bd, _fp, main = extract_vi_xml(ms[0], force=True)
+        assert main is not None
+        return Path(main)
+
+    def test_vctp_recovered_not_bin_fallback(self, main_xml):
+        text = main_xml.read_text(errors="replace")
+        # The corrupt type is stubbed (patch fired) ...
+        assert "corrupt-stub" in text
+        # ... yet the rest of the pool + the consolidated->flat map serialized,
+        # instead of the whole section collapsing to Format="bin".
+        assert "FlatTypeID" in text
+        assert "<TopLevel>" in text
+
+    def test_typedef_cluster_field_names_resolve(self, main_xml):
+        type_map = parse_type_map_rich(main_xml)
+        named = [
+            [f.name for f in lt.fields]
+            for lt in type_map.values()
+            if lt.kind == "cluster" and lt.fields
+        ]
+        # With the pool recovered, typedef/anonymous clusters carry their field
+        # names again (was zero when the whole VCTP fell back to bin).
+        assert named, "no cluster resolved its field names"
+        # The standard error cluster is present and correctly named.
+        assert ["status", "code", "source"] in named
+
+    def test_patch_is_a_wrapper_over_the_original(self):
+        # Patch #6 defers to the original export for every valid type (byte
+        # -identical); only a type that raises falls into the stub path.
+        import pylabview.LVblock as lv_block
+
+        from lvkit._pylabview_patches import install_pylabview_patches
+        install_pylabview_patches()
+        assert hasattr(lv_block.VCTP.exportXMLTypeDescList, "__wrapped__")

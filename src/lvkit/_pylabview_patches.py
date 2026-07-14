@@ -28,6 +28,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pylabview.LVblock as _lv_block  # type: ignore[import-untyped]
+import pylabview.LVdatatype as _lv_datatype  # type: ignore[import-untyped]
 import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
 import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
 import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
@@ -202,5 +203,69 @@ def install_pylabview_patches() -> None:
 
     _lv_xml.escape_attribute_control_chars = _safe_attr
     _lv_xml.escape_cdata_control_chars = _safe_cdata
+
+    # (6) VCTP.exportXMLTypeDescList — per-type resilient serialization of the
+    # Consolidated Type Pool. A single misaligned/corrupt flat type (e.g. an
+    # LVVariant whose garbage 4-byte count 1.36e9 trips ``typedesc_list_limit``,
+    # or one that expands to a multi-MB junk DataFill) raises mid-loop; the
+    # generic Block section handler (LVblock.exportXMLSection) then catches it at
+    # the SECTION level and dumps the ENTIRE VCTP to raw ``.bin`` — so the main
+    # XML loses every ``FlatTypeID`` TypeDesc AND the ``<TopLevel>`` map.
+    # Downstream, ``parse_type_map_rich`` has nothing to resolve, so every
+    # cluster/typedef terminal comes back with no fields — a Bundle/Unbundle By
+    # Name on a typedef cluster (e.g. ``binning`` = {vert, horz}) can't recover
+    # its field names (task: MasterAcquisitionFile_PCO_IOS).
+    #
+    # The type STRUCTURE parses fine (each flat type is parsed from its own
+    # offset — one bad type doesn't cascade); only serializing that one type
+    # blows up. So make the per-type export resilient: a type that fails to
+    # serialize becomes a position-preserving ``Void`` stub and the loop
+    # continues, so all the VALID types + the ``<TopLevel>`` map still reach the
+    # XML. The stub MUST occupy the slot — ``FlatTypeID`` is the ordinal
+    # position, and TopLevel maps consolidated->flat by that index.
+    #
+    # Output-safe: a valid type serializes through the byte-for-byte original
+    # code path (same ``exportXML``/``exportXMLFinish`` calls, same fname), so a
+    # VI with no corrupt type is byte-identical. ONLY a type that today forces
+    # the whole section to unusable ``.bin`` changes — it becomes one stub
+    # instead of nuking the pool. (Write caveat as above: a stubbed type can't
+    # be written back faithfully — read path only.)
+    _orig_tdlist = _lv_block.VCTP.exportXMLTypeDescList
+
+    def _resilient_tdlist(  # type: ignore[no-untyped-def]
+        self, section_elem, section_num, section, fname_base
+    ):
+        TD_FULL_TYPE = _lv_datatype.TD_FULL_TYPE
+        TDObject = _lv_datatype.TDObject
+        stringFromValEnumOrInt = _lv_datatype.stringFromValEnumOrInt
+        for i, clientTD in enumerate(section.content):
+            nested = clientTD.nested
+            desc = nested.full_name if len(nested.full_name) > 0 else "Type Descriptor"
+            if len(nested.purpose) > 0:
+                desc += "; " + nested.purpose
+            section_elem.append(
+                _lv_xml.Comment(f" FlatTypeID {nested.index:d}: {desc} ")
+            )
+            subelem = _lv_xml.SubElement(section_elem, "TypeDesc")
+            try:
+                subelem.set(
+                    "Type",
+                    f"{stringFromValEnumOrInt(TD_FULL_TYPE, nested.otype):s}",
+                )
+                fname = f"{fname_base:s}_td{i:04d}"
+                if not self.po.raw_connectors:
+                    nested.exportXML(subelem, fname)
+                    nested.exportXMLFinish(subelem)
+                else:
+                    TDObject.exportXML(nested, subelem, fname)
+                    TDObject.exportXMLFinish(nested, subelem)
+            except Exception:  # noqa: BLE001 — corrupt type -> position-holding stub
+                section_elem.remove(subelem)
+                stub = _lv_xml.SubElement(section_elem, "TypeDesc")
+                stub.set("Type", "Void")
+                stub.set("Format", "corrupt-stub")
+
+    _resilient_tdlist.__wrapped__ = _orig_tdlist  # type: ignore[attr-defined]
+    _lv_block.VCTP.exportXMLTypeDescList = _resilient_tdlist
 
     _installed = True
