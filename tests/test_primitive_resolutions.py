@@ -133,6 +133,18 @@ def test_1116_is_not_a_comparison_and_unresolved():
     assert "Equal" not in r.name and "Greater" not in r.name and "Less" not in r.name
 
 
+def test_1901_search_vs_delete_collision():
+    """primResID 1901 is shared by two XML classes (task #108): class='prim'
+    (166 corpus nodes) = Search 1D Array; class='aDelete' (expandable) = Delete
+    From Array. The prim-id entry must be Search (aDelete is resolved by
+    node_type, independently). Was mislabeled 'Delete From Array' for prim."""
+    res = get_resolver()
+    assert res.resolve(prim_id=1901).name == "Search 1D Array"
+    assert "-1" in str(res.resolve(prim_id=1901).python_code)  # not-found sentinel
+    # Delete From Array survives via the node_type section, not prim-id 1901.
+    assert res.resolve_by_node_type("aDelete").name == "Delete From Array"
+
+
 def test_arithmetic_block_is_not_build_array():
     """The 2-input arithmetic block must never resolve back to Build Array —
     1050 was mis-IDed that way (a scalar+array Add read as concatenation).

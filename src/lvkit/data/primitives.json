@@ -2158,48 +2158,41 @@
       "note": "Polymorphic variant of 1902 (Reverse 1D Array). primIndex=207. Used in OpenG Sort wrappers to flip ascending sort to descending (case frame labeled \"descending\")."
     },
     "1901": {
-      "name": "Delete From Array",
+      "name": "Search 1D Array",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "deleted portion",
-          "type": "polymorphic"
+          "name": "index_of_element",
+          "type": "NumInt32"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "array",
-          "type": "array"
+          "name": "start_index",
+          "type": "NumInt32",
+          "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "index",
-          "type": "polymorphic",
-          "default_value": "0"
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": "output array",
+          "name": "element",
           "type": "polymorphic"
         },
         {
-          "index": 4,
+          "index": 3,
           "direction": "in",
-          "name": "length",
-          "type": "polymorphic",
-          "default_value": "1"
+          "name": "array",
+          "type": "array"
         }
       ],
       "python_code": {
-        "deleted_portion": "in_1[int(in_2):int(in_2)+int(in_4)]",
-        "output_array": "in_1[:int(in_2)] + in_1[int(in_2)+int(in_4):]"
+        "index_of_element": "next((i for i in range(int(in_1), len(in_3)) if in_3[i] == in_2), -1)"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-from-array.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-1d-array.html",
+      "note": "primResID 1901 in class='prim' (166 corpus nodes) = Search 1D Array: returns the index of element in array searching from start_index, or -1 if not found. Terminal indices are REVERSED vs the doc order (idx3=array, idx2=element, idx1=start index) -- confirmed from wired types. Delete From Array (which also carries 1901 in the expandable class='aDelete') is a SEPARATE entry in the node_types section, resolved by node_type first. Was mislabeled 'Delete From Array' here, breaking all prim-class Search nodes (task #108)."
     },
     "1902": {
       "name": "Reverse 1D Array",
