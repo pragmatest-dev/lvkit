@@ -6,7 +6,13 @@ import xml.etree.ElementTree as ET
 
 from lvkit.models import Tunnel
 
-from ..constants import LOOP_NODE_CLASSES, TERMINAL_CLASS, TUNNEL_DCO_CLASSES
+from ..constants import (
+    LOOP_NODE_CLASSES,
+    TERMINAL_CLASS,
+    TUNNEL_CLASS_LEFT_SR,
+    TUNNEL_CLASS_RIGHT_SR,
+    TUNNEL_DCO_CLASSES,
+)
 from ..flags import is_inverted_terminal
 from ..models import ParsedLoopStructure
 from ..utils import safe_int
@@ -63,6 +69,25 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                         dco_class = dco.get("class", "")
                         if dco_class in TUNNEL_DCO_CLASSES:
                             tunnels.extend(extract_tunnel_mapping(dco, dco_class))
+                        # A while-loop serializes the RIGHT shift register
+                        # NESTED inside the LEFT one (``<rsrDCO class="rSR">``),
+                        # not as its own term the way a for-loop does. Extract
+                        # the nested rSR too, else the right register's
+                        # terminal, border glyph, and wire type never exist —
+                        # only the left border renders (task #96). A for-loop's
+                        # lSR carries an EMPTY ``<rsrDCO uid=.../>`` ref (no
+                        # class, no termList) whose rSR is a standalone term, so
+                        # this adds nothing there and never double-counts.
+                        if dco_class == TUNNEL_CLASS_LEFT_SR:
+                            rsr = dco.find("rsrDCO")
+                            if rsr is not None and (
+                                rsr.get("class") == TUNNEL_CLASS_RIGHT_SR
+                            ):
+                                tunnels.extend(
+                                    extract_tunnel_mapping(
+                                        rsr, TUNNEL_CLASS_RIGHT_SR
+                                    )
+                                )
 
             # Find inner diagram
             diag_list = loop_elem.find("diagramList")

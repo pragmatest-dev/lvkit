@@ -141,3 +141,44 @@ class TestMemoryGraph:
         df = graph.get_dataflow_graph("GraphicalTestRunner.lvlib:Get Settings Path.vi")
         assert df is not None
         assert df.number_of_nodes() > 0
+
+
+class TestWhileLoopNestedShiftRegister:
+    """A while-loop serializes its RIGHT shift register NESTED inside the LEFT
+    one (``<rsrDCO class="rSR">``), unlike a for-loop where the rSR is its own
+    term. The loop parser must extract the nested rSR so the pair is complete —
+    otherwise the right register's terminal, border glyph, wire type, AND
+    generated-code dataflow all silently vanish (task #96 follow-up)."""
+
+    LIST_VI = (
+        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/"
+        "appcontrol/appcontrol.llb/List VI Hierarchy__ogtk_BDHb.xml"
+    )
+
+    @pytest.fixture(scope="class")
+    def while_loop(self):
+        import xml.etree.ElementTree as ET
+
+        from lvkit.parser.nodes.loop import extract_loops
+
+        bd = Path(self.LIST_VI)
+        if not bd.exists():
+            pytest.skip("List VI Hierarchy sample not present")
+        root = ET.parse(bd).getroot()
+        inner = root.find("root")
+        if inner is not None:
+            root = inner
+        whiles = [lp for lp in extract_loops(root) if lp.loop_type == "whileLoop"]
+        assert whiles, "expected a while loop"
+        return whiles[0]
+
+    def test_both_sr_sides_extracted_and_paired(self, while_loop):
+        lsr = [t for t in while_loop.tunnels if t.tunnel_type == "lSR"]
+        rsr = [t for t in while_loop.tunnels if t.tunnel_type == "rSR"]
+        # This VI's while loop has three shift-register pairs.
+        assert len(lsr) == 3
+        assert len(rsr) == 3
+        # Every register is paired to its mate (was left None pre-fix, when the
+        # nested rSR was never extracted so there was nothing to pair).
+        assert all(t.paired_terminal_uid for t in lsr)
+        assert all(t.paired_terminal_uid for t in rsr)
