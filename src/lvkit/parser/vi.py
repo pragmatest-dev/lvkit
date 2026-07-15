@@ -381,12 +381,32 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
 
 
 def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
-    """Extract nodes from the block diagram using node type factory."""
-    nodes = []
+    """Extract nodes from the block diagram using node type factory.
+
+    Single tree walk: bucket every element by its ``class`` and collect the
+    generic-sweep candidates in one pass, then emit in ``OPERATION_NODE_CLASSES``
+    order. This replaces a per-class ``.//*[@class=X]`` findall (one full
+    descendant scan *per allowlisted class*) — identical nodes and order, but one
+    tree traversal instead of ~len(OPERATION_NODE_CLASSES).
+    """
+    allowed = frozenset(OPERATION_NODE_CLASSES)
+    by_class: dict[str, list[ET.Element]] = {}
+    generic: list[ET.Element] = []
+    for elem in root.iter():
+        # `.//*[@class=X]` matches descendants only — exclude root from buckets.
+        if elem is not root:
+            cls = elem.get("class")
+            if cls is not None and cls in allowed:
+                by_class.setdefault(cls, []).append(elem)
+        # matches `root.iter("SL__arrayElement")` (includes root if it matched).
+        if elem.tag == "SL__arrayElement":
+            generic.append(elem)
+
+    nodes: list[ParsedNode] = []
     seen_uids: set[str] = set()
 
     for cls in OPERATION_NODE_CLASSES:
-        for elem in root.findall(f".//*[@class='{cls}']"):
+        for elem in by_class.get(cls, ()):
             node = parse_node(elem)
             nodes.append(node)
             if node.uid:
@@ -396,7 +416,7 @@ def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
     # decimate, interLeave, extFunc, exprNode). parse_node falls back to
     # GenericHandler for unknown classes, so they become real ParsedNodes that
     # render as boxes with wired terminals rather than vanishing.
-    for elem in root.iter("SL__arrayElement"):
+    for elem in generic:
         uid = elem.get("uid")
         if uid and uid not in seen_uids and _is_generic_operation_node(elem):
             nodes.append(parse_node(elem))
