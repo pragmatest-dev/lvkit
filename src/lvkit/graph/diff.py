@@ -65,6 +65,36 @@ class StructureChange:
 
 
 @dataclass
+class ElementChange:
+    """One added/removed graph element, keyed by stable LabVIEW node UID."""
+    uid: str        # trailing numeric UID — matches SVG data-node / data-lv-struct
+    full_id: str    # full op id, e.g. "TestCase.lvclass:run.vi::1065"
+    kind: str       # "node" | "structure"
+    change: str     # "added" | "removed"  (modified: future)
+    label: str      # display name
+
+
+@dataclass
+class ChangeMap:
+    """UID-keyed change-map — the single source of truth for both the visual
+    overlay and the textual diff. Nodes/structures matched by stable UID (the
+    same UID the renderer stamps as data-node/data-lv-struct), never by name.
+    """
+    changes: list[ElementChange] = field(default_factory=list)
+    common_node_uids: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "changes": [
+                {"uid": c.uid, "full_id": c.full_id, "kind": c.kind,
+                 "change": c.change, "label": c.label}
+                for c in self.changes
+            ],
+            "common_nodes": len(self.common_node_uids),
+        }
+
+
+@dataclass
 class DiffReport:
     signature: list[SignatureChange] = field(default_factory=list)
     operations: list[OperationChange] = field(default_factory=list)
@@ -182,6 +212,93 @@ def diff_structured(
     report.wiring = _diff_wiring(graph_a, graph_b, vi_name_a, vi_name_b)
     report.structures = _diff_structures(graph_a, graph_b, vi_name_a, vi_name_b)
     return report
+
+
+# ── UID-keyed change-map (matches by stable node UID, not name) ────────
+
+_STRUCT_OPS = (CaseOperation, LoopOperation, SequenceOperation)
+
+
+def _uid_of(op_id: str) -> str:
+    """Trailing UID from an op.id ('...run.vi::1065' -> '1065')."""
+    return op_id.rsplit("::", 1)[-1]
+
+
+def _uid_sort(uid: str) -> tuple[int, object]:
+    return (0, int(uid)) if uid.isdigit() else (1, uid)
+
+
+def _struct_label(op: Operation) -> str:
+    if isinstance(op, CaseOperation):
+        return "Case structure"
+    if isinstance(op, LoopOperation):
+        return "While loop" if op.loop_type == "whileLoop" else "For loop"
+    if isinstance(op, SequenceOperation):
+        return "Flat sequence"
+    return op.node_type or "structure"
+
+
+def _elem_label(op: Operation, kind: str) -> str:
+    """Display label — structures name their kind, nodes use their own name."""
+    if kind == "structure":
+        return _struct_label(op)
+    return op.name or op.node_type or "node"
+
+
+def _collect_elements(
+    ops: list[Operation], out: dict[str, tuple[Operation, str]],
+) -> None:
+    """Map trailing-UID -> (op, kind) for every op, recursing structures."""
+    for op in ops:
+        kind = "structure" if isinstance(op, _STRUCT_OPS) else "node"
+        out[_uid_of(op.id)] = (op, kind)
+        if isinstance(op, (CaseOperation, SequenceOperation)):
+            for frame in op.frames:
+                _collect_elements(frame.operations, out)
+        _collect_elements(op.inner_nodes, out)
+
+
+def diff_uid(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
+    vi_name_a: str, vi_name_b: str,
+) -> ChangeMap:
+    """Build a UID-keyed change-map for two VI versions.
+
+    Unlike ``diff_structured`` (which matches operations by name/count and so
+    misses added/removed instances of repeated names), this matches every node
+    and structure by its stable LabVIEW UID. The UIDs are exactly those the
+    renderer emits as ``data-node`` / ``data-lv-struct``, so the map binds onto
+    the rendered SVG with no reconciliation. Wire endpoints and modified-node
+    detection layer on top of this (see tasks #10/#11).
+    """
+    va = graph_a.resolve_vi_name(vi_name_a)
+    vb = graph_b.resolve_vi_name(vi_name_b)
+
+    a: dict[str, tuple[Operation, str]] = {}
+    b: dict[str, tuple[Operation, str]] = {}
+    _collect_elements(graph_a.get_operations(va), a)
+    _collect_elements(graph_b.get_operations(vb), b)
+
+    cmap = ChangeMap()
+    for uid in b.keys() - a.keys():
+        op, kind = b[uid]
+        cmap.changes.append(
+            ElementChange(uid, op.id, kind, "added", _elem_label(op, kind))
+        )
+    for uid in a.keys() - b.keys():
+        op, kind = a[uid]
+        cmap.changes.append(
+            ElementChange(uid, op.id, kind, "removed", _elem_label(op, kind))
+        )
+    cmap.common_node_uids = sorted(
+        (uid for uid in a.keys() & b.keys() if a[uid][1] == "node"),
+        key=_uid_sort,
+    )
+    # stable display order: structures first, added before removed, then by UID
+    cmap.changes.sort(
+        key=lambda c: (c.kind != "structure", c.change != "added", _uid_sort(c.uid))
+    )
+    return cmap
 
 
 # ── Comparison helpers ────────────────────────────────────────────────
