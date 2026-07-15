@@ -595,14 +595,19 @@ class _LayoutBuilder:
             self.sequence_dividers.setdefault(uid, []).extend(dividers)
 
 
-def build_layout(vi_or_bd: Path) -> Layout:
-    """Build a ``Layout`` from a ``.vi`` file or a ``_BDHb.xml`` heap path."""
-    if vi_or_bd.suffix.lower() == ".vi":
-        bd_path, _, _ = extract_vi_xml(vi_or_bd)
-        bd = Path(bd_path)
-    else:
-        bd = vi_or_bd
-    root_elem = ET.parse(bd).getroot()
+def build_layout_from_root(
+    root_elem: ET.Element, *, icon_png: Path | None = None,
+) -> Layout:
+    """Build a ``Layout`` from an ALREADY-PARSED heap root element.
+
+    This is the pure geometry decode with no I/O — it takes the same top
+    element ``ET.parse(_BDHb.xml).getroot()`` yields, so ``parse_vi`` can run it
+    on the very root it already parsed (no second read). ``root_elem`` may be
+    the heap wrapper (with a ``<root>`` child) or the ``<root>`` diagram itself;
+    both are handled, exactly as :func:`build_layout` did. ``icon_png`` is the
+    connector-pane icon path (derived from the heap path by the caller, which a
+    bare root can't know) or None.
+    """
     root = root_elem.find("root")
     if root is None:
         root = root_elem
@@ -610,7 +615,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
     builder = _LayoutBuilder()
     builder.walk(root, 0.0, 0.0)
 
-    icon = bd.parent / f"{bd.stem.replace('_BDHb', '')}_ICON.png"
     return Layout(
         node_bounds=builder.node_bounds,
         terminal_centers=builder.terminal_centers,
@@ -622,5 +626,29 @@ def build_layout(vi_or_bd: Path) -> Layout:
         sequence_dividers=builder.sequence_dividers,
         label_bounds=builder.label_bounds,
         wire_by_uid=builder._resolve_wire_geometry(),
-        icon_png=icon if icon.exists() else None,
+        icon_png=icon_png,
     )
+
+
+def _icon_for_heap(bd: Path) -> Path | None:
+    """The connector-pane icon PNG beside a heap file, or None if absent."""
+    icon = bd.parent / f"{bd.stem.replace('_BDHb', '')}_ICON.png"
+    return icon if icon.exists() else None
+
+
+def build_layout(vi_or_bd: Path) -> Layout:
+    """Build a ``Layout`` from a ``.vi`` file or a ``_BDHb.xml`` heap path.
+
+    Thin I/O wrapper: it does the read (extract for a ``.vi``, ``ET.parse`` the
+    heap, locate the icon) and hands the parsed root to
+    :func:`build_layout_from_root`. Prefer ``parse_vi(..., layout=True)`` when a
+    graph is already being built — that reuses its single parse instead of
+    reading the heap a second time.
+    """
+    if vi_or_bd.suffix.lower() == ".vi":
+        bd_path, _, _ = extract_vi_xml(vi_or_bd)
+        bd = Path(bd_path)
+    else:
+        bd = vi_or_bd
+    root_elem = ET.parse(bd).getroot()
+    return build_layout_from_root(root_elem, icon_png=_icon_for_heap(bd))

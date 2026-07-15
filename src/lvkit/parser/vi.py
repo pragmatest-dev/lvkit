@@ -33,6 +33,7 @@ from .front_panel import (
     extract_fp_terminals,
     parse_connector_pane,
 )
+from .layout import Layout, _icon_for_heap, build_layout_from_root
 from .metadata import parse_iuse_from_libd
 from .models import (
     ParsedBlockDiagram,
@@ -104,6 +105,7 @@ def parse_vi(
     bd_xml: Path | str | None = None,
     fp_xml: Path | str | None = None,
     main_xml: Path | str | None = None,
+    layout: bool = False,
 ) -> ParsedVI:
     """Parse a VI file into all components.
 
@@ -115,6 +117,10 @@ def parse_vi(
         bd_xml: Path to *_BDHb.xml (for direct XML parsing)
         fp_xml: Path to *_FPHb.xml (optional)
         main_xml: Path to main *.xml (optional)
+        layout: also decode block-diagram GEOMETRY (node/terminal/wire bounds)
+            from the same parsed heap and attach it as ``ParsedVI.layout``. Off
+            by default — codegen needs no positions. Rendering passes True so
+            geometry comes from this one read instead of a second heap parse.
 
     Returns:
         ParsedVI with all components
@@ -144,9 +150,10 @@ def parse_vi(
     # does not (see parse_selector_tables / _apply_selector_tables).
     selector_tables = _parse_selector_tables(main_xml)
 
-    # Parse block diagram
-    block_diagram = _parse_block_diagram(
+    # Parse block diagram (+ optional geometry from the SAME parsed heap)
+    block_diagram, bd_layout = _parse_block_diagram(
         bd_xml, fp_xml, metadata.type_map, selector_tables,
+        want_layout=layout,
     )
 
     # Parse front panel
@@ -164,6 +171,7 @@ def parse_vi(
         block_diagram=block_diagram,
         front_panel=front_panel,
         connector_pane=connector_pane,
+        layout=bd_layout,
     )
 
 
@@ -237,8 +245,15 @@ def _parse_block_diagram(
     fp_xml: Path | str | None,
     type_map: dict[int, LVType] | None,
     selector_tables: list[SelectorTable] | None = None,
-) -> ParsedBlockDiagram:
-    """Parse block diagram from BD XML."""
+    *,
+    want_layout: bool = False,
+) -> tuple[ParsedBlockDiagram, Layout | None]:
+    """Parse block diagram from BD XML.
+
+    When ``want_layout`` is set, also decode the diagram's geometry from the
+    SAME parsed ``root`` (no second read) and return it alongside — the parser
+    owning both semantics and positions from one pass.
+    """
     tree = ET.parse(bd_xml)
     root = tree.getroot()
 
@@ -259,7 +274,7 @@ def _parse_block_diagram(
     flat_sequences = extract_flat_sequences(root)
     decompose_structures = extract_decompose_structures(root)
 
-    return ParsedBlockDiagram(
+    bd = ParsedBlockDiagram(
         nodes=nodes,
         constants=constants,
         wires=wires,
@@ -272,6 +287,12 @@ def _parse_block_diagram(
         decompose_structures=decompose_structures,
         srn_to_structure=srn_to_structure,
     )
+    layout = (
+        build_layout_from_root(root, icon_png=_icon_for_heap(Path(bd_xml)))
+        if want_layout
+        else None
+    )
+    return bd, layout
 
 
 def _parse_front_panel(

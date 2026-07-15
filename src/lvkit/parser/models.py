@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..models import ClusterField, LVType, Tunnel
+
+if TYPE_CHECKING:
+    from .layout import Layout
 
 
 @dataclass
@@ -485,3 +488,7 @@ class ParsedVI:
     block_diagram: ParsedBlockDiagram
     front_panel: ParsedFrontPanel
     connector_pane: ParsedConnectorPane | None = None
+    # Block-diagram geometry (node/terminal/wire bounds), populated only when
+    # parse_vi(..., layout=True) — the geometry half of the parse. None for
+    # codegen, which needs no positions and pays nothing. See parser/layout.py.
+    layout: Layout | None = None
