@@ -21,6 +21,7 @@ from .describe import describe_vi
 from .models import Constant, Wire, WireEnd
 
 if TYPE_CHECKING:
+    from ..parser.layout import Layout, Rect
     from .core import InMemoryVIGraph
 
 
@@ -66,19 +67,31 @@ class StructureChange:
 
 @dataclass
 class ElementChange:
-    """One added/removed graph element, keyed by stable LabVIEW node UID."""
+    """One LOGICAL change to the diagram, keyed by stable LabVIEW node UID.
+
+    Only genuine behaviour changes are emitted. "Re-indentation" noise — a node
+    wrapped in a new structure, moved, or handed a fresh UID by LabVIEW over
+    identical wiring — is collapsed to unchanged and never appears (see
+    ``diff_uid``), exactly as a code diff hides code that was only re-indented.
+    """
     uid: str        # trailing numeric UID — matches SVG data-node / data-lv-struct
     full_id: str    # full op id, e.g. "TestCase.lvclass:run.vi::1065"
     kind: str       # "node" | "structure"
     change: str     # "added" | "removed"  (modified: future)
     label: str      # display name
+    # Absolute-pixel bounds (x1, y1, x2, y2) from the owning version's Layout —
+    # the SAME coordinate space as the rendered SVG viewBox, so the viewer draws
+    # a highlight straight from these with no getBBox scrape. None when the graph
+    # was loaded without ``layout=True``. Added → head's layout; removed → base's.
+    bounds: Rect | None = None
 
 
 @dataclass
 class ChangeMap:
-    """UID-keyed change-map — the single source of truth for both the visual
-    overlay and the textual diff. Nodes/structures matched by stable UID (the
-    same UID the renderer stamps as data-node/data-lv-struct), never by name.
+    """UID-keyed change-map — the single source of truth for the visual overlay
+    and textual diff. Elements are matched by stable UID first, then unmatched
+    leftovers by KIND-ANCHORED DATAFLOW, so a LabVIEW-regenerated UID over
+    identical wiring collapses to unchanged instead of a bogus add+remove.
     """
     changes: list[ElementChange] = field(default_factory=list)
     common_node_uids: list[str] = field(default_factory=list)
@@ -87,7 +100,8 @@ class ChangeMap:
         return {
             "changes": [
                 {"uid": c.uid, "full_id": c.full_id, "kind": c.kind,
-                 "change": c.change, "label": c.label}
+                 "change": c.change, "label": c.label,
+                 "bounds": list(c.bounds) if c.bounds is not None else None}
                 for c in self.changes
             ],
             "common_nodes": len(self.common_node_uids),
@@ -258,6 +272,104 @@ def _collect_elements(
         _collect_elements(op.inner_nodes, out)
 
 
+_FUZZY_MIN = 0.5   # min Jaccard of dataflow edges for a fuzzy (modified) match
+
+
+def _incident(wires: list[Wire]) -> dict[str, list[tuple[str, str, str]]]:
+    """UID -> list of (role, neighbour-UID, neighbour-TERMINAL) over every wire it
+    touches. Routes are irrelevant — only who-connects-to-which-terminal — so wire
+    straightening is invisible. The neighbour terminal (a stable UID on the
+    neighbour) distinguishes two unbundles that feed, say, different selectors of
+    look-alike cases."""
+    inc: dict[str, list[tuple[str, str, str]]] = {}
+    for w in wires:
+        su, du = _uid_of(w.source.node_id), _uid_of(w.dest.node_id)
+        inc.setdefault(su, []).append(("out", du, w.dest.terminal_id))
+        inc.setdefault(du, []).append(("in", su, w.source.terminal_id))
+    return inc
+
+
+def _match_elements(
+    a: dict[str, tuple[Operation, str]], b: dict[str, tuple[Operation, str]],
+    inc_a: dict[str, list[tuple[str, str, str]]],
+    inc_b: dict[str, list[tuple[str, str, str]]],
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Match base-only <-> head-only elements by KIND-ANCHORED DATAFLOW and return
+    ``(exact, fuzzy)``, each ``base_uid -> head_uid``.
+
+    Each neighbour is anchored by a stable token — a UID common to both versions,
+    an already-matched peer, else the neighbour's kind — plus the neighbour's
+    terminal, never a raw self-UID, so a match survives churn in the surrounding
+    UIDs. **exact** = identical dataflow: the same node LabVIEW re-keyed (new UID,
+    same wiring) → collapses to unchanged. Found by fixpoint (each new match
+    anchors the next), 1:1 only, so ambiguous look-alikes stay unmatched.
+    **fuzzy** = same kind and dataflow overlap ≥ ``_FUZZY_MIN`` (Jaccard over the
+    edge multiset): the same node with a real wiring change → ``modified``.
+    """
+    common = a.keys() & b.keys()
+    exact: dict[str, str] = {}
+    rev: dict[str, str] = {}
+    ua, ub = set(a) - common, set(b) - common
+
+    def kind(u: str) -> tuple[str, str]:
+        op = (a.get(u) or b.get(u) or (None,))[0]
+        return (op.name or "", op.node_type or "") if op is not None else ("?", "?")
+
+    def tok(v: str, base_side: bool) -> tuple:
+        if v in common:
+            return ("c", v)
+        if base_side and v in exact:
+            return ("m", v)
+        if not base_side and v in rev:
+            return ("m", rev[v])
+        return ("k", *kind(v)) if (v in a or v in b) else ("ext", v)
+
+    def edges(inc: dict, u: str, base_side: bool) -> Counter:
+        return Counter((role, tok(v, base_side), term)
+                       for role, v, term in inc.get(u, []))
+
+    changed = True
+    while changed:
+        changed = False
+        by_a: dict[tuple, list[str]] = {}
+        by_b: dict[tuple, list[str]] = {}
+        for u in ua:
+            by_a.setdefault((kind(u), frozenset(edges(inc_a, u, True).items())),
+                            []).append(u)
+        for u in ub:
+            by_b.setdefault((kind(u), frozenset(edges(inc_b, u, False).items())),
+                            []).append(u)
+        for sig, la in by_a.items():
+            lb = by_b.get(sig)
+            if lb and len(la) == 1 and len(lb) == 1:
+                exact[la[0]] = lb[0]
+                rev[lb[0]] = la[0]
+                ua.discard(la[0])
+                ub.discard(lb[0])
+                changed = True
+
+    # Fuzzy: best Jaccard over the residual, same kind, 1:1 greedy by score.
+    ea = {u: edges(inc_a, u, True) for u in ua}
+    eb = {u: edges(inc_b, u, False) for u in ub}
+    scored: list[tuple[float, str, str]] = []
+    for u in ua:
+        for w in ub:
+            if kind(u) != kind(w):
+                continue
+            inter = sum((ea[u] & eb[w]).values())
+            union = sum((ea[u] | eb[w]).values())
+            j = inter / union if union else 0.0
+            if j >= _FUZZY_MIN:
+                scored.append((j, u, w))
+    fuzzy: dict[str, str] = {}
+    used: set[str] = set()
+    for _j, u, w in sorted(scored, key=lambda t: -t[0]):
+        if u not in fuzzy and w not in used:
+            fuzzy[u] = w
+            used.add(w)
+    return exact, fuzzy
+
+
 def diff_uid(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str,
@@ -279,17 +391,44 @@ def diff_uid(
     _collect_elements(graph_a.get_operations(va), a)
     _collect_elements(graph_b.get_operations(vb), b)
 
+    # Geometry sidecar (present only when the graph was loaded with layout=True).
+    # node_bounds is keyed by the raw heap uid, which is exactly our trailing UID.
+    layout_a = graph_a.get_layout(va)
+    layout_b = graph_b.get_layout(vb)
+
+    def _bounds(layout: Layout | None, uid: str) -> Rect | None:
+        return layout.node_bounds.get(uid) if layout is not None else None
+
+    # Match the UID-set leftovers by dataflow, and COLLAPSE every match to
+    # unchanged. EXACT = identical wiring: the same node LabVIEW re-keyed. FUZZY =
+    # the same NODE (same operation, mostly-same wiring) whose difference is a
+    # changed WIRE, not a changed node — so at the node level it's unchanged too.
+    # The wire delta itself is a WIRING change, surfaced only by a wire-level diff
+    # (task #10); we do not fake it as a node modification here.
+    exact, fuzzy = _match_elements(a, b, _incident(graph_a.get_wires(va)),
+                                   _incident(graph_b.get_wires(vb)))
+    matched_a = exact.keys() | fuzzy.keys()
+    matched_b = set(exact.values()) | set(fuzzy.values())
+
     cmap = ChangeMap()
-    for uid in b.keys() - a.keys():
+    # Added: head-only node/structure with no dataflow counterpart in base.
+    for uid in b.keys() - a.keys() - matched_b:
         op, kind = b[uid]
         cmap.changes.append(
-            ElementChange(uid, op.id, kind, "added", _elem_label(op, kind))
+            ElementChange(uid, op.id, kind, "added", _elem_label(op, kind),
+                          _bounds(layout_b, uid))
         )
-    for uid in a.keys() - b.keys():
+    # Removed: base-only node/structure with no dataflow counterpart in head.
+    for uid in a.keys() - b.keys() - matched_a:
         op, kind = a[uid]
         cmap.changes.append(
-            ElementChange(uid, op.id, kind, "removed", _elem_label(op, kind))
+            ElementChange(uid, op.id, kind, "removed", _elem_label(op, kind),
+                          _bounds(layout_a, uid))
         )
+    # Common UIDs and all matched pairs are unchanged at the node level — a node
+    # wrapped in a new case, moved, re-keyed, or with only a wire added/removed is
+    # not itself a changed node. Node-config changes and wire-level changes are
+    # future passes (a real "modified", and #10 wire-diff).
     cmap.common_node_uids = sorted(
         (uid for uid in a.keys() & b.keys() if a[uid][1] == "node"),
         key=_uid_sort,
