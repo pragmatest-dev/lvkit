@@ -31,7 +31,7 @@ from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import draw_fp_terminal, draw_node
 from lvkit.render.glyph import CompoundArithGlyph
-from lvkit.render.layout import Layout, Point, Rect, build_layout
+from lvkit.parser.layout import Layout, Point, Rect, build_layout
 from lvkit.render.nodes import _format_numeric_const, string_const_display
 from lvkit.render.scene import (
     Scene,
@@ -47,7 +47,7 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
-from lvkit.render.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
+from lvkit.parser.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
 
 # --------------------------------------------------------------------------- #
 # Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
@@ -2648,7 +2648,7 @@ def test_decode_signal_turned_trunk_comb_backward_neg_perp():
         (-59.5, 1368.5), (648.0, 1933.0), (196.0, 2315.0),
         (203.0, 2597.0), (648.0, 1986.0), (194.0, 1833.0),
     ]
-    from lvkit.render.wire_table import _decode_tree_deterministic
+    from lvkit.parser.wire_table import _decode_tree_deterministic
 
     mids = _decode_tree_deterministic(blob, src, sinks)
     assert mids is not None, "turned-trunk comb must decode deterministically"
@@ -2687,7 +2687,7 @@ def test_layout_wire_by_uid_drives_faithful_render():
     # and the whole VI renders WITHOUT invoking the auto-router (deterministic,
     # heap-faithful). Regression guard for the unified uid-driven decoder (#76).
     from lvkit.render import scene as scene_mod
-    from lvkit.render.layout import build_layout
+    from lvkit.parser.layout import build_layout
 
     layout = build_layout(NESTED_CASE_VI)
     assert layout.wire_by_uid, "no faithful wire geometry resolved"

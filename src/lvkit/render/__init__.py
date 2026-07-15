@@ -4,7 +4,7 @@ The graph (``InMemoryVIGraph``) is the single source of truth for semantics
 (wire connectivity, node kinds, names, types); the heap XML supplies ONLY
 geometry the parser otherwise discards. See ``experiments/lv-renderer/DESIGN.md``.
 
-Pipeline: ``render/layout.py`` geometry + graph semantics -> ``scene.py``
+Pipeline: ``parser/layout.py`` geometry + graph semantics -> ``scene.py``
 (``Scene`` view model, resolving each node's ``Glyph`` via ``nodes.py``'s
 resolver chain) -> ``draw.py`` (replays the resolved glyphs/structures/wires)
 -> ``backend.py`` (``SvgBackend``) -> SVG string.

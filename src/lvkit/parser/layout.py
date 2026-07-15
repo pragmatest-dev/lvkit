@@ -1,13 +1,18 @@
 """Heap XML → pure geometry.
 
-lvkit's normal parser discards block-diagram node geometry (it keeps only
-front-panel control bounds). Faithful rendering needs that geometry, so this
-is a separate, render-only pass over the same ``_BDHb.xml`` heap that
-``extractor.extract_vi_xml`` already produces. It never touches code
-generation.
+lvkit's semantic parse (``parse_vi``) keeps node kinds, wires, and types but
+discards block-diagram node geometry (it keeps only front-panel control
+bounds). Faithful rendering needs that geometry, so this is the geometry half
+of the parser: it decodes the same ``_BDHb.xml`` heap element the semantic
+parse already reads, and ``parse_vi(..., layout=True)`` runs it on that SAME
+parsed root (one read — no second ``ET.parse``). It never touches code
+generation, which parses with ``layout=False`` and pays nothing.
 
-This module supplies GEOMETRY ONLY — positions the parser discards. It knows
-nothing about node kinds, primitive names, or wire connectivity; that
+Living in ``parser/`` keeps the XML abstraction in one place: render consumes a
+``Layout`` (via the graph) and never reads heap XML itself.
+
+This module supplies GEOMETRY ONLY — positions the semantic parse discards. It
+knows nothing about node kinds, primitive names, or wire connectivity; that
 semantic information already lives in the graph (``InMemoryVIGraph``). The
 scene layer (``render/scene.py``) joins the two by UID.
 

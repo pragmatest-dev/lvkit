@@ -34,14 +34,14 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..parser.layout import Layout, Point, Rect, build_layout
+from ..parser.wire_table import FAITHFUL_WIRE_TABLE
 from .backend import SvgBackend
 from .glyph import ArithGlyph, CompoundArithGlyph, Glyph, wrap_label
 from .lane_pass import BranchCtx, apply_lane_pass
-from .layout import Layout, Point, Rect, build_layout
 from .nodes import _CLUSTER_MUX_TYPES, GlyphContext, resolve_glyph, string_const_display
 from .style import WireStyle, numeric_repr, type_family, wire_style
 from .wire_router import WireRouter, _compress
-from .wire_table import FAITHFUL_WIRE_TABLE
 
 logger = logging.getLogger(__name__)
 

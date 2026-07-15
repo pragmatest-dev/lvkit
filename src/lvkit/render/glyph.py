@@ -29,9 +29,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from ..parser.layout import Rect
 from .backend import Backend
 from .icons import icon_data_uri
-from .layout import Rect
 from .style import Theme
 
 
