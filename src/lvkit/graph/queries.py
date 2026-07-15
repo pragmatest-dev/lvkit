@@ -47,6 +47,9 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 
+if TYPE_CHECKING:
+    from ..parser.layout import Layout
+
 
 class QueryMixin:
     """Mixin providing graph query methods."""
@@ -62,6 +65,7 @@ class QueryMixin:
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
+    _layouts: dict[str, Layout]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -200,6 +204,12 @@ class QueryMixin:
     def get_vi_source_path(self, vi_name: str) -> Path | None:
         """Get the source file path for a VI."""
         return self._source_paths.get(vi_name)
+
+    def get_layout(self, vi_name: str) -> Layout | None:
+        """Get a VI's block-diagram geometry, or None if the graph was not
+        loaded with ``layout=True``. Populated from the same parse (no second
+        heap read); the renderer consumes this instead of re-reading the XML."""
+        return self._layouts.get(self.resolve_vi_name(vi_name))
 
     def is_stub_vi(self, vi_name: str) -> bool:
         """Check if a VI is a stub (missing dependency)."""

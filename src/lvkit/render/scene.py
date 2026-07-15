@@ -1352,7 +1352,12 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         logger.warning("render: no source path for VI %r", vi_name)
         return None
 
-    layout = build_layout(src_path)
+    # Prefer geometry decoded during the graph's own parse (load_vi layout=True)
+    # — one read. Fall back to a standalone heap read only when the graph wasn't
+    # loaded with geometry (keeps every caller working, byte-identically).
+    layout = graph.get_layout(vi_name)
+    if layout is None:
+        layout = build_layout(src_path)
     # Shrink oversized string-constant boxes to their wrapped-text height
     # (top-left anchored) BEFORE anything consumes geometry, so the drawn box,
     # the router obstacle, and the wire attach point all use the trimmed rect.

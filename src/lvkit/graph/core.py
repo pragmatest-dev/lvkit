@@ -8,11 +8,15 @@ _kind_to_labels, and module-level helper functions.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import networkx as nx
 
 from ..models import ClusterField, LVType
 from ..parser.models import ParsedType
+
+if TYPE_CHECKING:
+    from ..parser.layout import Layout
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .models import (
     AnyGraphNode,
@@ -154,6 +158,12 @@ class InMemoryVIGraph(
         # Optional disk roots for <vilib> / <userlib> path token resolution
         self._vilib_root: Path | None = None
         self._userlib_root: Path | None = None
+        # Per-VI block-diagram geometry, populated only when load_vi(layout=True)
+        # (rendering). Empty for codegen loads — geometry is decoded from the
+        # same parse (see parse_vi layout=), never a second heap read.
+        self._layouts: dict[str, Layout] = {}
+        # Whether the current load should decode + retain geometry.
+        self._want_layout: bool = False
 
     def set_library_roots(
         self,
@@ -181,6 +191,7 @@ class InMemoryVIGraph(
         self._loaded_vis.clear()
         self._source_paths.clear()
         self._vi_metadata.clear()
+        self._layouts.clear()
 
     @staticmethod
     def _qid(vi_name: str, uid: str) -> str:

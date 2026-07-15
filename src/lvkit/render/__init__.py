@@ -330,7 +330,9 @@ def render_vi_file(
         graph = InMemoryVIGraph()
         if vilib_root or userlib_root:
             graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-        graph.load_vi(path, expand_subvis=expand, search_paths=search_paths)
+        graph.load_vi(
+            path, expand_subvis=expand, search_paths=search_paths, layout=True,
+        )
         return graph
 
     try:

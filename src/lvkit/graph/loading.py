@@ -38,6 +38,9 @@ from ..structure import (
 )
 from .models import PolyInfo, VIMetadata
 
+if TYPE_CHECKING:
+    from ..parser.layout import Layout
+
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
     """Read the root TypeID from a .ctl's FPHb (Front Panel Heap).
@@ -77,6 +80,8 @@ class LoadingMixin:
     _vi_metadata: dict[str, VIMetadata]
     _vilib_root: Path | None
     _userlib_root: Path | None
+    _layouts: dict[str, Layout]
+    _want_layout: bool
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -100,6 +105,7 @@ class LoadingMixin:
         expand_subvis: bool = True,
         search_paths: list[Path] | None = None,
         clear_first: bool = False,
+        layout: bool = False,
     ) -> None:
         """Load a VI hierarchy into memory.
 
@@ -108,8 +114,13 @@ class LoadingMixin:
             expand_subvis: Recursively expand SubVIs
             search_paths: Directories to search for SubVIs
             clear_first: Clear existing data before loading
+            layout: decode + retain block-diagram GEOMETRY for every loaded VI
+                (see ``get_layout``). Off by default — only rendering needs it;
+                codegen/analysis loads pay nothing. Geometry comes from the same
+                parse, never a second heap read.
         """
         vi_path = Path(vi_path)
+        self._want_layout = layout
 
         if clear_first:
             self.clear()
@@ -458,11 +469,13 @@ class LoadingMixin:
 
         Returns the VI name (qualified if available) or None if already visited.
         """
-        # Parse VI using unified parse_vi()
+        # Parse VI using unified parse_vi(). When rendering (layout=True), the
+        # geometry is decoded from this SAME parse and retained — no second read.
         vi = parse_vi(
             bd_xml=bd_xml,
             fp_xml=fp_xml if fp_xml and fp_xml.exists() else None,
             main_xml=main_xml if main_xml and main_xml.exists() else None,
+            layout=self._want_layout,
         )
 
         metadata = vi.metadata
@@ -501,6 +514,10 @@ class LoadingMixin:
             self._source_paths[vi_name] = Path(metadata.source_path)
         elif caller_file.exists():
             self._source_paths[vi_name] = caller_file
+
+        # Retain geometry decoded during this parse (layout=True loads only).
+        if vi.layout is not None:
+            self._layouts[vi_name] = vi.layout
 
         # Parse wiring rules from main XML
         wiring_rules: dict[int, int] = {}
