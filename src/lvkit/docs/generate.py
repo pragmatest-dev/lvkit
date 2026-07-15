@@ -339,6 +339,8 @@ def generate_documents(
                 vi_path,
                 expand_subvis=expand_subvis,
                 search_paths=search_path_objs or None,
+                layout=True,  # docs renders every VI — carry geometry from the
+                # same parse instead of a second heap read per VI.
             )
             after_count = len(graph.list_vis())
             new_vis = after_count - before_count
