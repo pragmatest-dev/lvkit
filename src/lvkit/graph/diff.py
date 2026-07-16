@@ -380,6 +380,308 @@ def _match_elements(
     return exact, fuzzy
 
 
+# ── Wire endpoint diff (task #10) ──────────────────────────────────────
+#
+# Validated prototype: .tmp/probe_wirediff.py (20 corpus pairs). The engine
+# below ports that algorithm to terminal granularity so it can key on the
+# SINK (input) terminal, per the task spec, instead of just node pairs.
+
+
+def _effective_sinks(
+    graph: InMemoryVIGraph, vi: str, structs: set[str],
+) -> dict[str, tuple[WireEnd, WireEnd, frozenset[str]]]:
+    """Contract wires through structure tunnels.
+
+    ``get_wires(vi, include_internal=True)`` gives internal edges as
+    self-loops on the structure node bridging outer<->inner terminals. Follow
+    each real producer's wire forward through any chain of such bridges to
+    the REAL (non-structure-owned) sink terminal it ultimately feeds -- a
+    wire wrapped in a new case/loop keeps its producer->consumer identity, so
+    re-indentation is invisible to the diff.
+
+    Returns sink TERMINAL id -> (effective source end, sink dest end, crossed),
+    where ``crossed`` is the set of raw structure uids the contracted path
+    threaded through (tunnel bridges it hopped). That set is the containment
+    sieve's input: a wire whose path crosses an ADDED or REMOVED structure is
+    an enclosure artifact (the wire is logically unchanged; it was just
+    wrapped), so it must be suppressed. A LabVIEW input terminal takes exactly
+    one wire, so each sink has a single effective producer.
+    """
+    wires = graph.get_wires(vi, include_internal=True)
+
+    # terminal id -> its owning node id (raw, qualified) — from BOTH sides of
+    # every wire, so a terminal is known whether it's ever a source or dest.
+    owner: dict[str, str] = {}
+    # terminal id -> dest ends of every wire sourced there (the "adjacency").
+    out_edges: dict[str, list[WireEnd]] = {}
+    for w in wires:
+        owner[w.source.terminal_id] = w.source.node_id
+        owner[w.dest.terminal_id] = w.dest.node_id
+        out_edges.setdefault(w.source.terminal_id, []).append(w.dest)
+
+    def struct_owner(term_id: str) -> str | None:
+        node_id = owner.get(term_id)
+        if node_id is None:
+            return None
+        uid = _uid_of(node_id)
+        return uid if uid in structs else None
+
+    sinks: dict[str, tuple[WireEnd, WireEnd, frozenset[str]]] = {}
+    for w in wires:
+        if _uid_of(w.source.node_id) in structs:
+            continue  # start only from real (non-tunnel-bridge) producers
+        # DFS forward through struct-owned terminals to real sinks, carrying
+        # the set of structure uids each path has threaded through so far.
+        seen: set[str] = set()
+        stack: list[tuple[WireEnd, frozenset[str]]] = [(w.dest, frozenset())]
+        while stack:
+            dest_end, crossed = stack.pop()
+            term_id = dest_end.terminal_id
+            if term_id in seen:
+                continue
+            seen.add(term_id)
+            owning_struct = struct_owner(term_id)
+            if owning_struct is not None:
+                crossed2 = crossed | {owning_struct}
+                for nxt in out_edges.get(term_id, []):
+                    stack.append((nxt, crossed2))
+            else:
+                sinks[term_id] = (w.source, dest_end, crossed)
+    return sinks
+
+
+def _point_rect(layout: Layout | None, uid: str) -> Rect | None:
+    """A terminal's connection-point CENTER, widened to a zero-size ``Rect``
+    -- ``ElementChange.bounds``/``bounds_base`` are ``Rect`` (node bounding
+    boxes), but a wire endpoint has only a point (``Layout.terminal_centers``).
+    A degenerate rect lets the viewer treat it identically to a node highlight
+    (a single-pixel box) with no new field on ``ElementChange``."""
+    if layout is None:
+        return None
+    center = layout.terminal_centers.get(uid)
+    return (center[0], center[1], center[0], center[1]) if center else None
+
+
+# One contracted sink: (canonical source node key, source terminal key, raw
+# source end, raw sink end, canonical crossed-structure uids).
+_SinkEntry = tuple[str, object, WireEnd, WireEnd, frozenset[str]]
+
+
+def _sink_sort_key(key: tuple[str, object]) -> tuple:
+    node_key, term_key = key
+    if isinstance(term_key, int):
+        term_rank: tuple = (0, term_key)
+    elif isinstance(term_key, str):
+        term_rank = (1, term_key)
+    else:
+        term_rank = (2, "")
+    return (_uid_sort(node_key), term_rank)
+
+
+def _wire_changes(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
+    va: str, vb: str,
+    a: dict[str, tuple[Operation, str]], b: dict[str, tuple[Operation, str]],
+    exact: dict[str, str], fuzzy: dict[str, str],
+    layout_a: Layout | None, layout_b: Layout | None,
+) -> list[ElementChange]:
+    """Wire endpoint diff (task #10), keyed on the SINK (input) terminal.
+
+    For every input terminal belonging to an UNCHANGED (common/matched) real
+    node, compare its effective (contracted) source between versions:
+
+      base None  -> head X       : "added"
+      base X     -> head None    : "removed"
+      base X     -> head Y (X!=Y): "modified" -- but ONLY between two
+        unchanged nodes; if the new source is an added node, or the old
+        source a removed node, that half is already the node's own add/
+        remove story (don't-describe-twice), so it's skipped here.
+
+    Reuses the SAME node matching ``diff_uid`` already computed
+    (``exact``/``fuzzy``) for canonical cross-version node identity.
+    """
+    structs_a = {u for u, (_op, kind) in a.items() if kind == "structure"}
+    structs_b = {u for u, (_op, kind) in b.items() if kind == "structure"}
+
+    h2b = {**exact, **fuzzy}                     # base uid -> head uid
+    b_of_h = {h: bs for bs, h in h2b.items()}     # head uid -> base uid
+    matched_a = set(h2b.keys())
+    matched_b = set(h2b.values())
+    # Every node id that is the SAME logical node on both sides, in
+    # base-space canonical form: common (identical uid) or matched
+    # (exact/fuzzy dataflow match). The VI's own connector-pane/self node is
+    # always present on both sides by construction.
+    unchanged = (a.keys() & b.keys()) | matched_a | {"__self__"}
+
+    # CHANGED structures (base-space): cases/loops/sequences that are genuinely
+    # added (head-only, unmatched) or removed (base-only, unmatched). These are
+    # the enclosures whose appearance/disappearance re-wraps otherwise-
+    # unchanged wiring — the containment sieve (below) drops any wire whose
+    # contracted path threads through one of them.
+    removed_struct = {u for u in structs_a if u not in b and u not in matched_a}
+    added_struct = {u for u in structs_b if u not in a and u not in matched_b}
+    changed_structs = removed_struct | {b_of_h.get(u, u) for u in added_struct}
+
+    def canon(node_id: str, vi_self: str, base_side: bool) -> str:
+        # The VI's own connector-pane/self node id is a qualified-name STRING
+        # (the vi_name itself, not "{vi}::{uid}") that can flip on library
+        # requalification (e.g. "…lvlib:Foo.vi" -> "Foo.vi"), producing
+        # phantom wire changes. Canonicalize it to a fixed sentinel so a pure
+        # requalification yields identical identity on both sides.
+        if node_id == vi_self:
+            return "__self__"
+        uid = _uid_of(node_id)
+        return uid if base_side else b_of_h.get(uid, uid)
+
+    consts_a = {c.id: (c.name or _const_label(c)) for c in graph_a.get_constants(va)}
+    consts_b = {c.id: (c.name or _const_label(c)) for c in graph_b.get_constants(vb)}
+    self_terms_a = (
+        graph_a.get_inputs(va, public_only=False)
+        + graph_a.get_outputs(va, public_only=False)
+    )
+    self_terms_b = (
+        graph_b.get_inputs(vb, public_only=False)
+        + graph_b.get_outputs(vb, public_only=False)
+    )
+
+    def label_of(
+        end: WireEnd, vi_self: str,
+        elems: dict[str, tuple[Operation, str]], self_terms: list[Terminal],
+        consts: Mapping[str, str],
+    ) -> str:
+        """Human label for a wire endpoint. ``Wire.end.name`` is the owning
+        NODE's display name (see ``get_wires``), not the per-terminal name,
+        so recover the real terminal display name from the owning
+        Operation's (or the VI's own connector-pane's) terminal list."""
+        term_key = end.index if end.index is not None else end.name
+        terminals: list[Terminal] = []
+        owner_label: str | None = None
+        if end.node_id == vi_self:
+            terminals = self_terms
+        else:
+            entry = elems.get(_uid_of(end.node_id))
+            if entry is not None:
+                terminals = entry[0].terminals
+                owner_label = entry[0].name or entry[0].node_type
+        for t in terminals:
+            match = (
+                t.index == term_key if isinstance(term_key, int)
+                else t.name == term_key
+            )
+            if match and (t.display_name or t.name):
+                return t.display_name or t.name  # type: ignore[return-value]
+        return (
+            consts.get(end.node_id) or owner_label or end.name
+            or end.node_id.split("::")[-1]
+        )
+
+    def keyed_sinks(
+        graph: InMemoryVIGraph, vi: str,
+        structs: set[str], vi_self: str, base_side: bool,
+    ) -> dict[tuple[str, object], _SinkEntry]:
+        raw = _effective_sinks(graph, vi, structs)
+        out: dict[tuple[str, object], _SinkEntry] = {}
+        for src_end, dest_end, crossed in raw.values():
+            node_key = canon(dest_end.node_id, vi_self, base_side)
+            term_key = dest_end.index if dest_end.index is not None else dest_end.name
+            src_key = canon(src_end.node_id, vi_self, base_side)
+            src_term_key = src_end.index if src_end.index is not None else src_end.name
+            # Canonicalize crossed structure uids to base-space so they compare
+            # against ``changed_structs`` (a structure LabVIEW re-keyed is not a
+            # changed structure — only genuinely added/removed ones are).
+            crossed_canon = frozenset(
+                u if base_side else b_of_h.get(u, u) for u in crossed
+            )
+            out[(node_key, term_key)] = (
+                src_key, src_term_key, src_end, dest_end, crossed_canon,
+            )
+        return out
+
+    sinks_a = keyed_sinks(graph_a, va, structs_a, va, True)
+    sinks_b = keyed_sinks(graph_b, vb, structs_b, vb, False)
+
+    changes: list[ElementChange] = []
+    for key in sorted(set(sinks_a) | set(sinks_b), key=_sink_sort_key):
+        node_key, _term_key = key
+        if node_key not in unchanged:
+            continue  # sink itself belongs to an added/removed node
+
+        entry_a = sinks_a.get(key)
+        entry_b = sinks_b.get(key)
+
+        # CONTAINMENT SIEVE (sieve #3): if the base- or head-side contracted
+        # path threads through a genuinely added/removed structure, this wire
+        # is an ENCLOSURE artifact — the wire is logically unchanged; it was
+        # merely wrapped in (or unwrapped from) a new structure. Founding law:
+        # wrapping unchanged nodes in a new structure is NOT a change. Drop it.
+        if (entry_a is not None and entry_a[4] & changed_structs) or (
+            entry_b is not None and entry_b[4] & changed_structs
+        ):
+            continue
+
+        src_id_a = (entry_a[0], entry_a[1]) if entry_a else None
+        src_id_b = (entry_b[0], entry_b[1]) if entry_b else None
+        if src_id_a == src_id_b:
+            continue  # same effective source (or same absence) -- unchanged
+
+        # Reserve "modified" for rewires between two UNCHANGED nodes. If a
+        # source's node is itself added/removed, downgrade that endpoint to
+        # "no source" -- that node's own add/remove entry already tells its
+        # story (don't-describe-twice), and what's LEFT is the genuine
+        # add/remove of the OTHER endpoint (e.g. an unchanged sink losing its
+        # only real producer when something new displaces it).
+        if (
+            entry_a is not None and src_id_a is not None
+            and src_id_a[0] not in unchanged
+        ):
+            entry_a = None
+        if (
+            entry_b is not None and src_id_b is not None
+            and src_id_b[0] not in unchanged
+        ):
+            entry_b = None
+        if entry_a is None and entry_b is None:
+            continue  # both endpoints are already their own added/removed story
+
+        if entry_a is None:
+            change = "added"
+        elif entry_b is None:
+            change = "removed"
+        else:
+            change = "modified"
+
+        if change == "removed":
+            assert entry_a is not None
+            dest_end = entry_a[3]
+            sink_label = label_of(dest_end, va, a, self_terms_a, consts_a)
+            old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
+            bounds = _point_rect(layout_a, _uid_of(dest_end.terminal_id))
+            bounds_base = _point_rect(layout_a, _uid_of(entry_a[2].terminal_id))
+            detail = f"(was ← {old_label})"
+        else:
+            assert entry_b is not None
+            dest_end = entry_b[3]
+            sink_label = label_of(dest_end, vb, b, self_terms_b, consts_b)
+            new_label = label_of(entry_b[2], vb, b, self_terms_b, consts_b)
+            bounds = _point_rect(layout_b, _uid_of(dest_end.terminal_id))
+            if change == "added":
+                bounds_base = None
+                detail = f"← {new_label}"
+            else:
+                assert entry_a is not None
+                old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
+                bounds_base = _point_rect(
+                    layout_a, _uid_of(entry_a[2].terminal_id),
+                )
+                detail = f"← {new_label} (was {old_label})"
+
+        changes.append(ElementChange(
+            _uid_of(dest_end.terminal_id), dest_end.terminal_id, "wire", change,
+            sink_label, bounds, bounds_base=bounds_base, detail=detail,
+        ))
+    return changes
+
+
 def diff_uid(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str,
@@ -458,10 +760,18 @@ def diff_uid(
                 detail=f"{_value_disp(ca.value)} → {_value_disp(cb.value)}",
             ))
 
+    # Wire endpoint changes (#10): for every input terminal on an unchanged
+    # node, compare its effective (tunnel-contracted) source across versions.
+    # Reuses the exact/fuzzy node matching computed above.
+    cmap.changes.extend(_wire_changes(
+        graph_a, graph_b, va, vb, a, b, exact, fuzzy, layout_a, layout_b,
+    ))
+
     # Common UIDs and all matched pairs are unchanged at the node level — a node
     # wrapped in a new case, moved, re-keyed, or with only a wire added/removed is
-    # not itself a changed node. Operation-config and wire-level changes are
-    # future passes (an operation "modified", and #10 wire-diff).
+    # not itself a changed node. Operation-config changes are a future pass (an
+    # operation "modified" that must first distinguish a genuine reconfigure
+    # from a UID recycle — no test pair for that exists in the corpus yet).
     cmap.common_node_uids = sorted(
         (uid for uid in a.keys() & b.keys() if a[uid][1] == "node"),
         key=_uid_sort,
