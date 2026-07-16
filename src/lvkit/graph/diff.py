@@ -77,13 +77,21 @@ class ElementChange:
     uid: str        # trailing numeric UID — matches SVG data-node / data-lv-struct
     full_id: str    # full op id, e.g. "TestCase.lvclass:run.vi::1065"
     kind: str       # "node" | "structure"
-    change: str     # "added" | "removed"  (modified: future)
+    change: str     # "added" | "removed" | "modified"
     label: str      # display name
     # Absolute-pixel bounds (x1, y1, x2, y2) from the owning version's Layout —
     # the SAME coordinate space as the rendered SVG viewBox, so the viewer draws
     # a highlight straight from these with no getBBox scrape. None when the graph
-    # was loaded without ``layout=True``. Added → head's layout; removed → base's.
+    # was loaded without ``layout=True``. Added → head's layout; removed → base's;
+    # modified → head's (the node persists; we point at its current position).
     bounds: Rect | None = None
+    # For "modified" only: the SAME node's bounds in the BASE version, so the
+    # viewer can highlight it in both panes (old → new before/after). None for
+    # added (base has no such node) and removed (base bounds already in `bounds`).
+    bounds_base: Rect | None = None
+    # For "modified": a short human-readable "old → new" of what changed (e.g. a
+    # constant's value transition). None for added/removed (the label says it all).
+    detail: str | None = None
 
 
 @dataclass
@@ -100,8 +108,10 @@ class ChangeMap:
         return {
             "changes": [
                 {"uid": c.uid, "full_id": c.full_id, "kind": c.kind,
-                 "change": c.change, "label": c.label,
-                 "bounds": list(c.bounds) if c.bounds is not None else None}
+                 "change": c.change, "label": c.label, "detail": c.detail,
+                 "bounds": list(c.bounds) if c.bounds is not None else None,
+                 "bounds_base": list(c.bounds_base)
+                 if c.bounds_base is not None else None}
                 for c in self.changes
             ],
             "common_nodes": len(self.common_node_uids),
@@ -425,17 +435,43 @@ def diff_uid(
             ElementChange(uid, op.id, kind, "removed", _elem_label(op, kind),
                           _bounds(layout_a, uid))
         )
+    # Modified: a constant present in BOTH versions by stable UID whose VALUE
+    # changed — the canonical node-config change (e.g. a path/string/number the
+    # author edited in place). Matched by UID, not dataflow: a same-UID constant
+    # is the same constant, so this needs no fuzzy pass. Guarded by unchanged type
+    # (a differing type at a shared UID is a UID recycle, not an edit — skip it,
+    # it surfaces via the node add/remove of whatever now owns the UID). Wire and
+    # operation-config modifications are separate passes (#10, and a future
+    # operation "modified" that must first distinguish a genuine reconfigure from
+    # a UID recycle — no test pair for that exists in the corpus yet).
+    consts_a = {_uid_of(c.id): c for c in graph_a.get_constants(va)}
+    consts_b = {_uid_of(c.id): c for c in graph_b.get_constants(vb)}
+    for uid in consts_a.keys() & consts_b.keys():
+        ca, cb = consts_a[uid], consts_b[uid]
+        type_a = ca.lv_type.to_python() if ca.lv_type else None
+        type_b = cb.lv_type.to_python() if cb.lv_type else None
+        if type_a == type_b and repr(ca.value) != repr(cb.value):
+            cmap.changes.append(ElementChange(
+                uid, cb.id, "node", "modified", _const_label(cb),
+                _bounds(layout_b, uid),
+                bounds_base=_bounds(layout_a, uid),
+                detail=f"{_value_disp(ca.value)} → {_value_disp(cb.value)}",
+            ))
+
     # Common UIDs and all matched pairs are unchanged at the node level — a node
     # wrapped in a new case, moved, re-keyed, or with only a wire added/removed is
-    # not itself a changed node. Node-config changes and wire-level changes are
-    # future passes (a real "modified", and #10 wire-diff).
+    # not itself a changed node. Operation-config and wire-level changes are
+    # future passes (an operation "modified", and #10 wire-diff).
     cmap.common_node_uids = sorted(
         (uid for uid in a.keys() & b.keys() if a[uid][1] == "node"),
         key=_uid_sort,
     )
-    # stable display order: structures first, added before removed, then by UID
+    # stable display order: structures first, then added < removed < modified,
+    # then by UID
+    _rank = {"added": 0, "removed": 1, "modified": 2}
     cmap.changes.sort(
-        key=lambda c: (c.kind != "structure", c.change != "added", _uid_sort(c.uid))
+        key=lambda c: (c.kind != "structure", _rank.get(c.change, 3),
+                       _uid_sort(c.uid))
     )
     return cmap
 
@@ -768,6 +804,14 @@ def _consts_by_frame(
         if c.parent == parent_id:
             grouped.setdefault(str(c.frame), []).append(c)
     return grouped
+
+
+def _value_disp(value: object) -> str:
+    """Readable one-line display of a constant's value for a modified detail.
+    A plain string shows as-is (no repr quote noise); anything else falls back to
+    repr. Newlines/tabs are flattened so the detail stays one line."""
+    s = value if isinstance(value, str) else repr(value)
+    return " ".join(s.split())
 
 
 def _const_label(c: Constant) -> str:

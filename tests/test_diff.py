@@ -5,7 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.diff import diff_structured, diff_text
+from lvkit.graph.diff import diff_structured, diff_text, diff_uid
+from lvkit.graph.models import Constant
+from lvkit.models import LVType
+from lvkit.parser.layout import Layout
 
 # Two structurally different, real permissively-licensed VIs (no relation to
 # each other) stand in for the old In.vi/Out.vi pair — genuinely different
@@ -112,3 +115,79 @@ class TestDiffStructured:
         gb, nb = _load(VI_A)
         report = diff_structured(ga, gb, na, nb)
         assert report.format() == ""
+
+
+# ── UID change-map: constant "modified" (#11) ─────────────────────────
+#
+# A minimal stub graph exposes only the five accessors ``diff_uid`` reads, so we
+# can drive the modified-constant path directly — no binary fixture, no licence
+# entanglement. Mirrors the real corpus case (JKI-VI-Tester build.vi, a Path
+# constant edited in place at a stable UID).
+
+
+class _StubGraph:
+    def __init__(self, constants: list[Constant], layout: Layout | None = None):
+        self._constants = constants
+        self._layout = layout
+
+    def resolve_vi_name(self, vi_name: str) -> str:
+        return vi_name
+
+    def get_operations(self, _vi: str) -> list:
+        return []
+
+    def get_wires(self, _vi: str) -> list:
+        return []
+
+    def get_constants(self, _vi: str) -> list[Constant]:
+        return self._constants
+
+    def get_layout(self, _vi: str) -> Layout | None:
+        return self._layout
+
+
+def _const(uid: str, value, underlying: str = "NumInt32") -> Constant:
+    return Constant(
+        id=f"vi::{uid}",
+        value=value,
+        lv_type=LVType(kind="primitive", underlying_type=underlying),
+    )
+
+
+class TestModifiedConstant:
+    def test_value_change_at_stable_uid_is_modified(self):
+        ga = _StubGraph(
+            [_const("100", 5)],
+            layout=Layout(node_bounds={"100": (5.0, 6.0, 7.0, 8.0)}),
+        )
+        gb = _StubGraph(
+            [_const("100", 10)],
+            layout=Layout(node_bounds={"100": (1.0, 2.0, 3.0, 4.0)}),
+        )
+        cmap = diff_uid(ga, gb, "vi", "vi")
+        assert len(cmap.changes) == 1
+        c = cmap.changes[0]
+        assert c.change == "modified"
+        assert c.uid == "100"
+        assert c.detail == "5 → 10"
+        # head bounds for the after-pane, base bounds for the before-pane
+        assert c.bounds == (1.0, 2.0, 3.0, 4.0)
+        assert c.bounds_base == (5.0, 6.0, 7.0, 8.0)
+
+    def test_unchanged_value_is_no_change(self):
+        ga = _StubGraph([_const("100", 5)])
+        gb = _StubGraph([_const("100", 5)])
+        assert diff_uid(ga, gb, "vi", "vi").changes == []
+
+    def test_type_change_is_not_a_modification(self):
+        # Same UID but a different type is a LabVIEW UID recycle, not an in-place
+        # edit — must NOT be reported as modified.
+        ga = _StubGraph([_const("100", 5, "NumInt32")])
+        gb = _StubGraph([_const("100", "hi", "String")])
+        assert diff_uid(ga, gb, "vi", "vi").changes == []
+
+    def test_string_detail_has_no_repr_quotes(self):
+        ga = _StubGraph([_const("7", "old", "String")])
+        gb = _StubGraph([_const("7", "new", "String")])
+        cmap = diff_uid(ga, gb, "vi", "vi")
+        assert cmap.changes[0].detail == "old → new"
