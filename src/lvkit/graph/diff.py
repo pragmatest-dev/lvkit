@@ -21,7 +21,7 @@ from .describe import describe_vi
 from .models import Constant, Wire, WireEnd
 
 if TYPE_CHECKING:
-    from ..parser.layout import Layout, Rect
+    from ..parser.layout import Layout, Point, Rect
     from .core import InMemoryVIGraph
 
 
@@ -92,6 +92,20 @@ class ElementChange:
     # For "modified": a short human-readable "old → new" of what changed (e.g. a
     # constant's value transition). None for added/removed (the label says it all).
     detail: str | None = None
+    # ── Faithful wire geometry (increment 2a) ────────────────────────────
+    # The rendered wire's polyline — the SAME points render/scene.py draws:
+    # [source-terminal center, *Layout.wire_by_uid[sink], sink-terminal center],
+    # in absolute SVG-viewBox pixels. Set on WIRE changes so the viewer overlays
+    # the real colored wire (not a pin). None when layout is absent. For an
+    # added/modified wire it's the HEAD routing; for a removed wire the BASE.
+    path: list[Point] | None = None
+    # For a "modified" WIRE only: the OLD (base-side) routing polyline, so the
+    # viewer can draw the dashed old wire beside the new one. None otherwise.
+    path_base: list[Point] | None = None
+    # For an added/removed NODE: the polylines of every wire incident to it (its
+    # "chain"), so the viewer draws the node's wires in its add/remove color.
+    # None when layout is absent or the node has no drawable incident wire.
+    chain_paths: list[list[Point]] | None = None
 
 
 @dataclass
@@ -105,13 +119,20 @@ class ChangeMap:
     common_node_uids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        def _poly(pts: list[Point] | None) -> list[list[float]] | None:
+            return [list(p) for p in pts] if pts is not None else None
+
         return {
             "changes": [
                 {"uid": c.uid, "full_id": c.full_id, "kind": c.kind,
                  "change": c.change, "label": c.label, "detail": c.detail,
                  "bounds": list(c.bounds) if c.bounds is not None else None,
                  "bounds_base": list(c.bounds_base)
-                 if c.bounds_base is not None else None}
+                 if c.bounds_base is not None else None,
+                 "path": _poly(c.path),
+                 "path_base": _poly(c.path_base),
+                 "chain_paths": [_poly(p) for p in c.chain_paths]
+                 if c.chain_paths is not None else None}
                 for c in self.changes
             ],
             "common_nodes": len(self.common_node_uids),
@@ -462,6 +483,54 @@ def _point_rect(layout: Layout | None, uid: str) -> Rect | None:
     return (center[0], center[1], center[0], center[1]) if center else None
 
 
+def _wire_path(
+    layout: Layout | None, wires: list[Wire], sink_uid: str,
+) -> list[Point] | None:
+    """The FAITHFUL polyline of the drawn wire INTO ``sink_uid`` (a raw sink
+    terminal uid) — the exact points ``render/scene.py`` draws:
+    ``[source center, *Layout.wire_by_uid[sink], sink center]``.
+
+    Uses the IMMEDIATE non-internal wire whose destination is ``sink_uid`` (the
+    actual drawn wire), NOT any contracted effective source — this overlay must
+    trace the real wire. ``wire_by_uid`` supplies the recorded intermediate
+    bends; when absent the polyline is just the two endpoint centers (a straight
+    segment — the renderer would auto-route, which is fine for an overlay).
+    Returns None when layout is absent or an endpoint center is missing (an
+    input terminal takes exactly one wire, so the first match is the wire)."""
+    if layout is None:
+        return None
+    for w in wires:
+        if _uid_of(w.dest.terminal_id) != sink_uid:
+            continue
+        src_center = layout.terminal_centers.get(_uid_of(w.source.terminal_id))
+        sink_center = layout.terminal_centers.get(sink_uid)
+        if src_center is None or sink_center is None:
+            return None
+        return [src_center, *layout.wire_by_uid.get(sink_uid, []), sink_center]
+    return None
+
+
+def _incident_chain_paths(
+    layout: Layout | None, wires: list[Wire], node_uid: str,
+) -> list[list[Point]] | None:
+    """Polylines of every non-internal wire incident to ``node_uid`` (as source
+    OR sink) — the node's wire "chain". For an added/removed node, every
+    incident wire is itself new/gone, so the whole chain belongs to that node's
+    add/remove. Keyed per wire by its sink terminal (an input takes one wire, so
+    sinks are unique across the incident set). None when layout is absent or no
+    incident wire is drawable."""
+    if layout is None:
+        return None
+    paths: list[list[Point]] = []
+    for w in wires:
+        if node_uid not in (_uid_of(w.source.node_id), _uid_of(w.dest.node_id)):
+            continue
+        path = _wire_path(layout, wires, _uid_of(w.dest.terminal_id))
+        if path is not None:
+            paths.append(path)
+    return paths or None
+
+
 # One contracted sink: (canonical source node key, source terminal key, raw
 # source end, raw sink end, canonical crossed-structure uids).
 _SinkEntry = tuple[str, object, WireEnd, WireEnd, frozenset[str]]
@@ -502,6 +571,10 @@ def _wire_changes(
     """
     structs_a = {u for u, (_op, kind) in a.items() if kind == "structure"}
     structs_b = {u for u, (_op, kind) in b.items() if kind == "structure"}
+
+    # Non-internal (drawn) wires per version — for faithful wire-path overlay.
+    wires_a = graph_a.get_wires(va, include_internal=False)
+    wires_b = graph_b.get_wires(vb, include_internal=False)
 
     h2b = {**exact, **fuzzy}                     # base uid -> head uid
     b_of_h = {h: bs for bs, h in h2b.items()}     # head uid -> base uid
@@ -650,6 +723,10 @@ def _wire_changes(
         else:
             change = "modified"
 
+        # Faithful wire polyline: the wire lives in the version matching its
+        # change — removed → base, added & modified → head. A "modified" wire
+        # ALSO carries the OLD (base) routing so the viewer can dash it.
+        path_base: list[Point] | None = None
         if change == "removed":
             assert entry_a is not None
             dest_end = entry_a[3]
@@ -658,12 +735,14 @@ def _wire_changes(
             bounds = _point_rect(layout_a, _uid_of(dest_end.terminal_id))
             bounds_base = _point_rect(layout_a, _uid_of(entry_a[2].terminal_id))
             detail = f"(was ← {old_label})"
+            path = _wire_path(layout_a, wires_a, _uid_of(dest_end.terminal_id))
         else:
             assert entry_b is not None
             dest_end = entry_b[3]
             sink_label = label_of(dest_end, vb, b, self_terms_b, consts_b)
             new_label = label_of(entry_b[2], vb, b, self_terms_b, consts_b)
             bounds = _point_rect(layout_b, _uid_of(dest_end.terminal_id))
+            path = _wire_path(layout_b, wires_b, _uid_of(dest_end.terminal_id))
             if change == "added":
                 bounds_base = None
                 detail = f"← {new_label}"
@@ -674,10 +753,14 @@ def _wire_changes(
                     layout_a, _uid_of(entry_a[2].terminal_id),
                 )
                 detail = f"← {new_label} (was {old_label})"
+                path_base = _wire_path(
+                    layout_a, wires_a, _uid_of(entry_a[3].terminal_id),
+                )
 
         changes.append(ElementChange(
             _uid_of(dest_end.terminal_id), dest_end.terminal_id, "wire", change,
             sink_label, bounds, bounds_base=bounds_base, detail=detail,
+            path=path, path_base=path_base,
         ))
     return changes
 
@@ -717,25 +800,29 @@ def diff_uid(
     # changed WIRE, not a changed node — so at the node level it's unchanged too.
     # The wire delta itself is a WIRING change, surfaced only by a wire-level diff
     # (task #10); we do not fake it as a node modification here.
-    exact, fuzzy = _match_elements(a, b, _incident(graph_a.get_wires(va)),
-                                   _incident(graph_b.get_wires(vb)))
+    wires_a = graph_a.get_wires(va)
+    wires_b = graph_b.get_wires(vb)
+    exact, fuzzy = _match_elements(a, b, _incident(wires_a), _incident(wires_b))
     matched_a = exact.keys() | fuzzy.keys()
     matched_b = set(exact.values()) | set(fuzzy.values())
 
     cmap = ChangeMap()
     # Added: head-only node/structure with no dataflow counterpart in base.
+    # Its "chain" — every wire incident to it — is drawn in the add color.
     for uid in b.keys() - a.keys() - matched_b:
         op, kind = b[uid]
         cmap.changes.append(
             ElementChange(uid, op.id, kind, "added", _elem_label(op, kind),
-                          _bounds(layout_b, uid))
+                          _bounds(layout_b, uid),
+                          chain_paths=_incident_chain_paths(layout_b, wires_b, uid))
         )
     # Removed: base-only node/structure with no dataflow counterpart in head.
     for uid in a.keys() - b.keys() - matched_a:
         op, kind = a[uid]
         cmap.changes.append(
             ElementChange(uid, op.id, kind, "removed", _elem_label(op, kind),
-                          _bounds(layout_a, uid))
+                          _bounds(layout_a, uid),
+                          chain_paths=_incident_chain_paths(layout_a, wires_a, uid))
         )
     # Modified: a constant present in BOTH versions by stable UID whose VALUE
     # changed — the canonical node-config change (e.g. a path/string/number the

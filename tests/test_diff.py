@@ -277,6 +277,62 @@ class TestWireChanges:
         assert change.bounds is not None
         assert change.bounds_base is not None
 
+    def test_run_vi_removed_wire_has_faithful_path(self):
+        # Increment 2a: the removed wire carries the FAITHFUL drawn polyline
+        # (source center -> recorded bends -> sink center), from the BASE
+        # layout (the version the removed wire lives in). path_base is None
+        # (only "modified" wires carry an old-routing polyline).
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        change = [c for c in diff_uid(ga, gb, na, nb).changes
+                  if c.kind == "wire"][0]
+
+        assert change.path is not None
+        assert len(change.path) >= 2
+        # exact faithful routing for sink 1820 (verified via wire_by_uid):
+        # source center -> two bends -> sink center.
+        assert change.path == [
+            (1430.0, 507.5), (1414.0, 507.5), (1414.0, 707.0), (1906.5, 707.0),
+        ]
+        assert change.path[0] == (1430.0, 507.5)   # source-terminal center
+        assert change.path[-1] == (1906.5, 707.0)  # sink-terminal center
+        assert change.path_base is None
+
+        # the new geometry survives JSON-ready serialization (lists, not tuples)
+        d = diff_uid(ga, gb, na, nb).to_dict()
+        wire_dict = next(c for c in d["changes"] if c["uid"] == "1820")
+        assert wire_dict["path"] == [
+            [1430.0, 507.5], [1414.0, 507.5], [1414.0, 707.0], [1906.5, 707.0],
+        ]
+        assert wire_dict["path_base"] is None
+
+    def test_run_vi_added_node_has_chain_paths(self):
+        # Increment 2a: an added node carries its wire "chain" — the polylines
+        # of every wire incident to it — so the viewer draws them in its color.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+
+        added_nodes = [c for c in cmap.changes
+                       if c.kind == "node" and c.change == "added"]
+        assert added_nodes, "expected added nodes on the run.vi pair"
+        with_chains = [c for c in added_nodes if c.chain_paths]
+        assert with_chains, "at least one added node must carry chain_paths"
+        for c in with_chains:
+            assert c.chain_paths is not None
+            for poly in c.chain_paths:
+                assert len(poly) >= 2  # every chain wire is a real polyline
+
+    def test_no_layout_means_no_paths(self):
+        # Without layout=True there is no geometry, so no path/chain overlay.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        cmap = diff_uid(ga, gb, na, nb)
+        for c in cmap.changes:
+            assert c.path is None
+            assert c.path_base is None
+            assert c.chain_paths is None
+
 
 class TestConnectorPaneRequalification:
     """The VI's own connector-pane/self node id is the qualified-name STRING
