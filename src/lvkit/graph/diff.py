@@ -76,7 +76,7 @@ class ElementChange:
     """
     uid: str        # trailing numeric UID — matches SVG data-node / data-lv-struct
     full_id: str    # full op id, e.g. "TestCase.lvclass:run.vi::1065"
-    kind: str       # "node" | "structure"
+    kind: str       # "node" | "structure" | "wire"
     change: str     # "added" | "removed" | "modified"
     label: str      # display name
     # Absolute-pixel bounds (x1, y1, x2, y2) from the owning version's Layout —

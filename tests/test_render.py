@@ -2824,6 +2824,42 @@ def test_compact_array_terminal_brackets_element_type():
     assert ">DBL<" in icon and "[DBL]" not in icon
 
 
+def test_interactive_false_drops_script_and_root_id_keeps_data_attrs():
+    """``render_vi(..., interactive=False)`` (increment 1 of the diff-viewer
+    plan) must carry NO ``<script>`` and NO root ``<svg id=...>`` — so two
+    such SVGs can be inlined on one page with zero id collision and no
+    dueling JS controllers — while the ``data-node``/``data-lv-struct``/
+    ``data-lv-frames``/``data-lv-default``/``data-path`` attributes (drawn by
+    ``draw.py`` during scene-drawing, not by the scripts) survive untouched.
+    The default (``interactive=True``, and omitting the kwarg entirely) must
+    stay byte-identical to each other — no regression to the existing
+    interactive behavior."""
+    loaded = _load_graph(CASE_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {CASE_VI}")
+    graph, vi = loaded
+
+    default_svg = render_vi(graph, vi)
+    explicit_true_svg = render_vi(graph, vi, interactive=True)
+    noninteractive_svg = render_vi(graph, vi, interactive=False)
+    assert default_svg is not None and noninteractive_svg is not None
+    # Omitting the kwarg must be byte-identical to passing interactive=True
+    # explicitly -- no accidental change to the default rendering path.
+    assert default_svg == explicit_true_svg
+
+    assert "<script" in default_svg
+    assert re.search(r"<svg[^>]*\sid=", default_svg)
+    assert "<script" not in noninteractive_svg
+    assert not re.search(r"<svg[^>]*\sid=", noninteractive_svg)
+
+    for svg in (default_svg, noninteractive_svg):
+        assert "data-node" in svg
+        assert "data-lv-struct" in svg
+        assert "data-lv-frames" in svg
+        assert "data-lv-default" in svg
+        assert "data-path" in svg
+
+
 def test_dark_palette_covers_every_wire_color():
     """Every wire_* (and other themed) color in the Theme must have a dark-mode
     entry in DARK_PALETTE, else theme_style_block() raises and the web/gallery

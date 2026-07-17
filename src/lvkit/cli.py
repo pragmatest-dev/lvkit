@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 import traceback
+import webbrowser
 from pathlib import Path
 
 from . import __version__, primitive_resolver, vilib_resolver
@@ -322,8 +323,38 @@ def main() -> int:
         help="Path to second .vi file",
     )
     diff_parser.add_argument(
+        "--format",
+        choices=["text", "json", "html"],
+        default=None,
+        help=(
+            "Output format: 'text' (unified diff, stdout/pipe/CI-friendly, "
+            "default), 'json' (ChangeMap for scripts/agents/the VSCode "
+            "extension), or 'html' (self-contained interactive viewer file)."
+        ),
+    )
+    diff_parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help=(
+            "Show the full structured change report instead of the compact "
+            "unified diff. Only affects --format text (a detail level, "
+            "orthogonal to format)."
+        ),
+    )
+    diff_parser.add_argument(
         "--long", action="store_true",
-        help="Show structured change report instead of unified diff",
+        help="Back-compat alias for --verbose.",
+    )
+    diff_parser.add_argument(
+        "-o", "--output", default=None, metavar="FILE",
+        help=(
+            "Output file path (used by --format html; default "
+            "outputs/vi-diff/<stemA>__<stemB>.html). "
+            "text/json print to stdout unless given."
+        ),
+    )
+    diff_parser.add_argument(
+        "--open", action="store_true",
+        help="Render --format html and open it in a browser.",
     )
     diff_parser.add_argument(
         "--search-path",
@@ -755,9 +786,40 @@ def cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_diff_graphs(
+    args: argparse.Namespace, path_a: Path, path_b: Path, *, layout: bool,
+) -> tuple[InMemoryVIGraph, str, InMemoryVIGraph, str]:
+    """Load both sides of a diff pair with a shared load mode/search paths."""
+    search_paths = [Path(p) for p in args.search_paths]
+    diff_mode = _resolve_load_mode(args, LoadMode.MINIMAL)
+
+    graph_a = InMemoryVIGraph()
+    _configure_library_roots(graph_a, args)
+    graph_a.load_vi(
+        str(path_a), diff_mode, search_paths=search_paths, layout=layout,
+    )
+    vi_name_a = graph_a.resolve_vi_name(path_a.name)
+
+    graph_b = InMemoryVIGraph()
+    _configure_library_roots(graph_b, args)
+    graph_b.load_vi(
+        str(path_b), diff_mode, search_paths=search_paths, layout=layout,
+    )
+    vi_name_b = graph_b.resolve_vi_name(path_b.name)
+
+    return graph_a, vi_name_a, graph_b, vi_name_b
+
+
 def cmd_diff(args: argparse.Namespace) -> int:
-    """Handle the diff command — compare two VI versions."""
-    from .graph.diff import diff_structured, diff_text
+    """Handle the diff command — compare two VI versions.
+
+    Output is picked with ``--format {text,json,html}`` (the lvkit house
+    convention — one flag for mutually-exclusive output projections, never a
+    boolean per format). ``-v/--verbose`` (and its back-compat alias
+    ``--long``) is the orthogonal DETAIL axis: it only changes how much
+    ``text`` shows.
+    """
+    from .graph.diff import diff_structured, diff_text, diff_uid
 
     path_a = Path(args.vi_a)
     path_b = Path(args.vi_b)
@@ -767,36 +829,87 @@ def cmd_diff(args: argparse.Namespace) -> int:
             print(f"Error: Path not found: {p}", file=sys.stderr)
             return 1
 
+    fmt = args.format or ("html" if args.open else "text")
+    if args.open and args.format in ("text", "json"):
+        print("Error: --open requires --format html", file=sys.stderr)
+        return 1
+    verbose = args.verbose or args.long
+
     _configure_resolvers(args)
-    search_paths = [Path(p) for p in args.search_paths]
 
-    diff_mode = _resolve_load_mode(args, LoadMode.MINIMAL)
     try:
-        graph_a = InMemoryVIGraph()
-        _configure_library_roots(graph_a, args)
-        graph_a.load_vi(str(path_a), diff_mode, search_paths=search_paths)
-        vi_name_a = graph_a.resolve_vi_name(path_a.name)
-
-        graph_b = InMemoryVIGraph()
-        _configure_library_roots(graph_b, args)
-        graph_b.load_vi(str(path_b), diff_mode, search_paths=search_paths)
-        vi_name_b = graph_b.resolve_vi_name(path_b.name)
-
-        if args.long:
-            report = diff_structured(graph_a, graph_b, vi_name_a, vi_name_b)
-            if report.is_empty():
-                print("No changes detected.")
-            else:
-                print(report.format())
-        else:
-            result = diff_text(
-                graph_a, graph_b, vi_name_a, vi_name_b,
-                label_a=str(path_a), label_b=str(path_b),
+        if fmt == "text":
+            graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
+                args, path_a, path_b, layout=False,
             )
-            if result:
-                print(result)
+            if verbose:
+                report = diff_structured(graph_a, graph_b, vi_name_a, vi_name_b)
+                if report.is_empty():
+                    print("No changes detected.")
+                else:
+                    print(report.format())
             else:
-                print("No changes detected.")
+                result = diff_text(
+                    graph_a, graph_b, vi_name_a, vi_name_b,
+                    label_a=str(path_a), label_b=str(path_b),
+                )
+                if result:
+                    print(result)
+                else:
+                    print("No changes detected.")
+
+            if sys.stdout.isatty():
+                print(
+                    "\nTip: lvkit diff … --format html --open  for a "
+                    "visual, navigable diff."
+                )
+            return 0
+
+        graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
+            args, path_a, path_b, layout=True,
+        )
+
+        if fmt == "json":
+            cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
+            text = json.dumps(cmap.to_dict(), indent=2)
+            if args.output:
+                Path(args.output).write_text(text)
+            else:
+                print(text)
+            return 0
+
+        # fmt == "html"
+        from .render import render_vi
+        from .render.diff_viewer import build_diff_viewer
+
+        base_svg = render_vi(graph_a, vi_name_a, interactive=False)
+        head_svg = render_vi(graph_b, vi_name_b, interactive=False)
+        if base_svg is None or head_svg is None:
+            print(
+                "Error: render declined — required diagram geometry is "
+                "missing (see logs for the missing ids)",
+                file=sys.stderr,
+            )
+            return 1
+
+        cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
+        html = build_diff_viewer(
+            cmap, base_svg, head_svg,
+            title=path_a.name,
+            base_label=path_a.stem,
+            head_label=path_b.stem,
+        )
+
+        out = (
+            Path(args.output) if args.output
+            else Path("outputs/vi-diff") / f"{path_a.stem}__{path_b.stem}.html"
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html)
+        print(f"Wrote {out}")
+
+        if args.open:
+            webbrowser.open(out.resolve().as_uri())
 
         return 0
     except (ValueError, FileNotFoundError, KeyError) as e:

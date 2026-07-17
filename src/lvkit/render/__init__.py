@@ -221,7 +221,8 @@ _HOVER_PANEL_JS = """(function() {
 
 
 def render_vi(
-    graph: InMemoryVIGraph, vi_name: str, *, theme: Theme = DEFAULT_THEME,
+    graph: InMemoryVIGraph, vi_name: str, *,
+    theme: Theme = DEFAULT_THEME, interactive: bool = True,
 ) -> str | None:
     """Render one VI's block diagram to an SVG string.
 
@@ -241,11 +242,21 @@ def render_vi(
     panel, positioned clear of the node and clamped inside the viewBox (see
     ``_HOVER_PANEL_JS``); non-JS consumers still see the default frame and no
     panels (both degrade gracefully — the SVG is static without JS).
+
+    ``interactive=False`` (default ``True``) skips BOTH inline scripts and the
+    root ``<svg id=...>`` they need — no ``<script>``, no root id, at all. The
+    ``data-node``/``data-lv-struct``/``data-lv-frames``/``data-lv-default``/
+    ``data-path`` attributes are drawn regardless (they come from ``draw.py``
+    scene-drawing, not the scripts), so a consumer that drives its own frame
+    behavior (e.g. the multi-SVG diff viewer, which needs two SVGs on
+    one page with no id collision and no dueling JS) still has everything it
+    needs to query. Default (``True``) output is byte-identical to before this
+    flag existed.
     """
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None
-    return _render_scene_svg(scene, vi_name, theme)
+    return _render_scene_svg(scene, vi_name, theme, interactive=interactive)
 
 
 # Base CSS emitted with every rendered SVG: SVG <text> defaults to the text
@@ -255,7 +266,10 @@ def render_vi(
 _BASE_CSS = "text{cursor:default;-webkit-user-select:none;user-select:none}"
 
 
-def _render_scene_svg(scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME) -> str:
+def _render_scene_svg(
+    scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME, *,
+    interactive: bool = True,
+) -> str:
     """Draw an already-built ``Scene`` to a self-contained interactive SVG."""
     backend = SvgBackend()
     draw_scene(scene, backend, theme)
@@ -263,11 +277,15 @@ def _render_scene_svg(scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME) 
     # and/or at least one connector-help panel) carries the root id + inline
     # script — a diagram with neither renders byte-identically to a version
     # with no interactivity at all, no dead JS shipped in every SVG.
+    # ``interactive=False`` forces an empty list — no scripts, no root id —
+    # for a consumer (e.g. the diff viewer) that drives its own frame/hover
+    # behavior over the surviving ``data-*`` attributes instead.
     scripts = []
-    if scene.frame_values:
-        scripts.append(_FRAME_CONTROLLER_JS)
-    if scene.nodes:
-        scripts.append(_HOVER_PANEL_JS)
+    if interactive:
+        if scene.frame_values:
+            scripts.append(_FRAME_CONTROLLER_JS)
+        if scene.nodes:
+            scripts.append(_HOVER_PANEL_JS)
     if scripts:
         root_id = _root_id(vi_name)
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))

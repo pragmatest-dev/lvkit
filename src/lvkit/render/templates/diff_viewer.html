@@ -1,0 +1,472 @@
+<title>VI diff — __TITLE__</title>
+<style>
+  :root{--add:#2ea043;--del:#f85149;--mod:#d29922;--bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg);
+       display:grid;grid-template-rows:auto 1fr;height:100vh}
+  header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  header b{font-size:15px}
+  .controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  button{background:#21262d;color:var(--fg);border:1px solid var(--line);border-radius:6px;
+         padding:5px 10px;cursor:pointer;font:inherit}
+  button.active{background:#1f6feb;border-color:#1f6feb}
+  .legend{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:13px}
+  .chip{display:inline-flex;gap:6px;align-items:center}
+  .sw{width:12px;height:12px;border-radius:3px}
+  .body{display:grid;grid-template-columns:290px 1fr;min-height:0}
+  aside{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:8px}
+  aside h3{margin:8px 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;opacity:.6}
+  .nav{display:flex;gap:6px;padding:6px}.nav button{flex:1}
+  .item{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer}
+  .item:hover{background:#21262d}.item.sel{background:#1f6feb33;outline:1px solid #1f6feb}
+  .num{font-variant-numeric:tabular-nums;opacity:.6;min-width:20px}
+  .tag{font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600}
+  .tag.added{background:var(--add)}.tag.removed{background:var(--del)}.tag.modified{background:var(--mod)}
+  .lbltxt{flex:1;min-width:0}
+  .lbl{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .detail{font-size:11px;opacity:.62;font-variant-numeric:tabular-nums;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+  .stage{position:relative;padding:16px;overflow:auto}
+  .pane{position:relative}
+  .zoomgrp{display:inline-flex;gap:2px;align-items:center;margin-left:2px}
+  .zoomgrp button{padding:5px 9px;min-width:30px;font-weight:600}
+  .pane-label{position:sticky;top:8px;left:8px;z-index:60;display:inline-block;width:max-content;
+    font:700 11px system-ui,sans-serif;letter-spacing:.05em;padding:3px 9px;border-radius:11px;
+    color:#fff;pointer-events:none;box-shadow:0 1px 4px #0009}
+  .pane-label.base{background:var(--del)}   /* base = old version */
+  .pane-label.head{background:var(--add)}   /* head = new version */
+  .overlay .pane-label.head{top:36px}  /* stack below BASE so both read in onion-skin */
+  .stage.overlay{display:grid}
+  .overlay #basePane,.overlay #headPane{grid-area:1/1}   /* stack + scroll together */
+  .overlay #basePane{pointer-events:none}
+  .mode-base #headPane,.mode-head #basePane{display:none}
+  .stage.side{display:flex;flex-direction:column;gap:16px}  /* stack base over head — full width each */
+  svg{max-width:none;height:auto;background:#fff;border-radius:6px}
+  .hl{pointer-events:none;fill-opacity:.24;stroke-opacity:1;transition:fill-opacity .2s,stroke-opacity .2s}
+  .hl.node.added{fill:var(--add);stroke:var(--add);stroke-width:2}
+  .hl.node.removed{fill:var(--del);stroke:var(--del);stroke-width:2}
+  .hl.node.modified{fill:var(--mod);stroke:var(--mod);stroke-width:2}
+  .hl.structure{fill:none;stroke-width:3;stroke-dasharray:7 4}
+  .hl.structure.added{stroke:var(--add)}.hl.structure.removed{stroke:var(--del)}
+  .hl.structure.modified{stroke:var(--mod)}
+  /* Wire changes: a ringed pin at the sink terminal (grammar hue = change type). */
+  .hl.wire{fill-opacity:.9;stroke:#0d1117;stroke-width:1.5;paint-order:stroke}
+  .hl.wire.added{fill:var(--add)}.hl.wire.removed{fill:var(--del)}
+  .hl.wire.modified{fill:var(--mod)}
+  /* Faithful wire/chain polyline overlays: hue = change type, solid = current. */
+  .hl.wirepath{fill:none;fill-opacity:0;stroke-width:3.5;stroke-linejoin:round;stroke-linecap:round}
+  .hl.wirepath.added{stroke:var(--add)}.hl.wirepath.removed{stroke:var(--del)}
+  .hl.wirepath.modified{stroke:var(--mod)}
+  .hl.wirepath.old{stroke-dasharray:7 5;display:none}   /* old routing — only when selected */
+  .hl.wirepath.old.sel{display:inline}
+  .hl.wirepath.chain{display:none}                      /* node's chain — only when selected */
+  /* chain wires are CONTEXT (they belong to the node) — lighter + thinner than a
+     primary wire CHANGE, which stays full-strength. */
+  .hl.wirepath.chain.sel{display:inline;stroke-opacity:.45;stroke-width:2.5}
+  .hl.wirepath.sel{stroke-width:5;stroke-opacity:1}
+  .hl-num{pointer-events:none;font:bold 17px system-ui,sans-serif;
+          paint-order:stroke;stroke:#0d1117;stroke-width:4;stroke-linejoin:round;
+          transition:opacity .2s}
+  .hl-num.added{fill:var(--add)}.hl-num.removed{fill:var(--del)}.hl-num.modified{fill:var(--mod)}
+  /* Spotlight: once a change is picked, fade every OTHER highlight + badge. */
+  .stage.has-sel .hl:not(.sel){fill-opacity:.05;stroke-opacity:.22}
+  .stage.has-sel .hl-num:not(.sel){opacity:.18}
+  /* Selected change KEEPS its add/remove colour; stands out via spotlight-dim +
+     same-colour glow + pulse, never by recolouring. */
+  /* Selection reads via the RING + others dimming, never a heavier fill: keep the
+     selected fill LIGHTER than the calm .24 overlay so the node/text stays legible
+     underneath, and use a single soft glow instead of a stacked halo. */
+  .hl.node.sel,.hl.structure.sel{stroke-width:4;stroke-dasharray:none;stroke-opacity:1;
+          fill-opacity:.1;paint-order:stroke;animation:selpulse 1.25s ease-in-out infinite}
+  .hl.wire.sel{stroke:#fff;stroke-width:2.5;fill-opacity:1;animation:selpulse 1.25s ease-in-out infinite}
+  .hl.added.sel{filter:drop-shadow(0 0 4px var(--add))}
+  .hl.removed.sel{filter:drop-shadow(0 0 4px var(--del))}
+  .hl.modified.sel{filter:drop-shadow(0 0 4px var(--mod))}
+  .hl-num.sel{font-size:24px;stroke-width:5}
+  @keyframes selpulse{0%,100%{stroke-width:3.5}50%{stroke-width:7}}
+  .hide-hl .hl,.hide-hl .hl-num{display:none}
+</style>
+
+<header>
+  <b>VI diff · __TITLE__</b>
+  <span style="opacity:.7">__BASE_LABEL__ → __HEAD_LABEL__ · engine change-map</span>
+  <div class="controls">
+    <button data-mode="overlay" class="active">Onion-skin</button>
+    <button data-mode="head">Head</button>
+    <button data-mode="base">Base</button>
+    <button data-mode="side">Side-by-side</button>
+    <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomFit">fit</button><button id="zoomIn">+</button></span>
+    <label id="opWrap" style="display:flex;gap:6px;align-items:center">op<input id="op" type="range" min="0" max="100" value="70"></label>
+    <label style="display:flex;gap:6px;align-items:center"><input id="hlToggle" type="checkbox" checked>highlight</label>
+  </div>
+  <div class="legend">
+    <span class="chip"><span class="sw" style="background:var(--add)"></span>added __ADD__</span>
+    <span class="chip"><span class="sw" style="background:var(--del)"></span>removed __DEL__</span>
+    <span class="chip"><span class="sw" style="background:var(--mod)"></span>modified __MOD__</span>
+    <span class="chip" style="opacity:.6">unchanged __COMMON__</span>
+  </div>
+</header>
+
+<div class="body">
+  <aside>
+    <div class="nav"><button id="prev">◀ prev</button><button id="next">next ▶</button></div>
+    <h3>Changes</h3>
+    <div id="list"></div>
+  </aside>
+  <div class="stage overlay mode-overlay" id="stage">
+    <div class="pane" id="basePane"><span class="pane-label base">BASE · __BASE_LABEL__</span>__BASE_SVG__</div>
+    <div class="pane" id="headPane"><span class="pane-label head">HEAD · __HEAD_LABEL__</span>__HEAD_SVG__</div>
+  </div>
+</div>
+
+<script>
+const CHANGES = __CHANGES__;
+const SVGNS='http://www.w3.org/2000/svg';
+const stage=document.getElementById('stage');
+const headPane=document.getElementById('headPane'), basePane=document.getElementById('basePane');
+
+// added lives in head (bounds are head's); removed lives in base.
+function paneFor(c){ return c.change==='removed' ? basePane : headPane; }
+
+// Highlights come STRAIGHT from the engine change-map's bounds — absolute LV
+// pixels, the same space as each SVG's viewBox — so a rect placed at those
+// coordinates lands exactly on the node. No getBBox / data-node scrape, no
+// union-of-fragments, no help-layer exclusion (bounds = one node = one box).
+// bounds = [x1,y1,x2,y2] in the version the change appears in (added→head,
+// removed→base), matching paneFor.
+function layerOf(svg){
+  let g=svg.querySelector('.hl-layer');
+  if(!g){g=document.createElementNS(SVGNS,'g');g.setAttribute('class','hl-layer');svg.appendChild(g);}
+  return g;
+}
+// rects/nums/layers hold the PRIMARY highlight (the one focus() centres on);
+// ghosts holds the mirror box a "modified" change also gets in the BASE pane, so
+// side-by-side / onion-skin read as a before(base) → after(head) pair.
+const rects={}, nums={}, layers={}, ghosts={}, parts={};
+// A faithful wire polyline overlay (change-map `path`): a coloured stroke tracing
+// the real drawn wire. Used for wire changes AND for a node's incident "chain"
+// wires. label=null draws no badge (chain wires ride under the node's number).
+function drawPoly(pane, points, cls, label){
+  const svg=pane.querySelector('svg'); if(!svg||!points||points.length<2)return null;
+  const layer=layerOf(svg);
+  const d=points.map((p,k)=>(k?'L':'M')+p[0]+' '+p[1]).join(' ');
+  const path=document.createElementNS(SVGNS,'path');
+  path.setAttribute('d',d);
+  path.setAttribute('class','hl wirepath '+cls);
+  path.setAttribute('vector-effect','non-scaling-stroke');
+  layer.appendChild(path);
+  let t=null;
+  if(label!=null){
+    const [lx,ly]=points[points.length-1];   // badge at the sink end
+    t=document.createElementNS(SVGNS,'text');
+    t.setAttribute('x',lx-11);t.setAttribute('y',ly-13);
+    t.setAttribute('class','hl-num '+cls);
+    t.textContent=label;
+    layer.appendChild(t);
+  }
+  return {r:path, t, layer};
+}
+function drawBox(pane, bounds, cls, label){
+  const svg=pane.querySelector('svg'); if(!svg)return null;
+  const layer=layerOf(svg);
+  const [x1,y1,x2,y2]=bounds;
+  let r, bx=x1, by=y1;
+  if(cls.includes('wire')){
+    // Wire changes anchor at the SINK terminal — a point, not a box (full-wire
+    // colouring awaits faithful geometry, #84). Draw a ringed pin there.
+    r=document.createElementNS(SVGNS,'circle');
+    r.setAttribute('cx',x1);r.setAttribute('cy',y1);r.setAttribute('r',9);
+    r.setAttribute('class','hl '+cls);
+    r.setAttribute('vector-effect','non-scaling-stroke');
+    bx=x1-11; by=y1-11;
+  }else{
+    const pad=cls.includes('structure')?3:5;
+    r=document.createElementNS(SVGNS,'rect');
+    r.setAttribute('x',x1-pad);r.setAttribute('y',y1-pad);
+    r.setAttribute('width',(x2-x1)+2*pad);r.setAttribute('height',(y2-y1)+2*pad);
+    r.setAttribute('rx',6);
+    r.setAttribute('class','hl '+cls);
+    r.setAttribute('vector-effect','non-scaling-stroke');  // crisp stroke when zoomed
+    bx=x1-pad; by=y1-pad;
+  }
+  layer.appendChild(r);
+  const t=document.createElementNS(SVGNS,'text');   // correlated number badge (#110)
+  t.setAttribute('x',bx);t.setAttribute('y',by-4);
+  t.setAttribute('class','hl-num '+cls);
+  t.textContent=label;
+  layer.appendChild(t);
+  return {r, t, layer};
+}
+CHANGES.forEach((c,i)=>{
+  const cls=c.kind+' '+c.change;
+  const pane=paneFor(c);
+  parts[i]=[];
+  if(c.kind==='wire'){
+    // Wire change: overlay the faithful drawn wire, coloured by change type.
+    if(!c.path)return;
+    // NB: polylines carry ONLY the change class (added/removed/modified) — never
+    // the kind (node/wire/structure), whose fill rules (.hl.node.added, .hl.wire
+    // .removed) would fill the open path into a solid blob.
+    const prim=drawPoly(pane, c.path, c.change, i+1); if(!prim)return;
+    rects[i]=prim.r; nums[i]=prim.t; layers[i]=prim.layer;
+    // Reassigned: the OLD routing as a dashed ghost, drawn on the SAME pane as
+    // the new (the sink is unchanged, so it aligns) and revealed on select — so
+    // solid-new + dashed-old read together in any view, not split across panes.
+    if(c.change==='modified' && c.path_base)
+      ghosts[i]=drawPoly(pane, c.path_base, c.change+' old', null);  // no 2nd badge
+    return;
+  }
+  if(!c.bounds)return;                        // geometry unavailable — list only
+  const prim=drawBox(pane, c.bounds, cls, i+1); if(!prim)return;
+  rects[i]=prim.r; nums[i]=prim.t; layers[i]=prim.layer;
+  // The node's "chain": its incident wires, drawn in the node's colour so an
+  // added/removed node reads as one connected unit (node + its wiring), not a
+  // lone box. They carry no badge — they belong to the node's change number.
+  // Chains for LEAF nodes only. A structure's incident wires are its border
+  // tunnels — pre-existing dataflow merely enclosed by the new container, NOT
+  // new connections — so they must never read as "added" (green). Only genuinely
+  // new leaf-node wiring is a chain.
+  if(c.kind!=='structure') (c.chain_paths||[]).forEach(pp=>{
+    // 'chain' → hidden at rest; revealed only when this node is selected.
+    const w=drawPoly(pane, pp, c.change+' chain', null); if(w) parts[i].push(w.r);
+  });
+  // A modified node lives in BOTH versions: mirror it into the base pane.
+  if(c.change==='modified' && c.bounds_base)
+    ghosts[i]=drawBox(basePane, c.bounds_base, cls, i+1);
+});
+
+// change list (one row per change)
+const list=document.getElementById('list');
+CHANGES.forEach((c,i)=>{
+  const d=document.createElement('div');d.className='item';d.dataset.i=i;d.dataset.k=c.kind;d.dataset.d=c.change;
+  const esc=s=>s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+  // Modified rows carry the value transition (old → new) under the label so the
+  // change is legible without opening the node. Added/removed need no detail.
+  const detail=c.detail?'<div class="detail" title="'+esc(c.detail)+'">'+esc(c.detail)+'</div>':'';
+  d.innerHTML='<span class="num">'+(i+1)+'</span>'+
+    '<span class="tag '+c.change+'">'+(c.change==='added'?'+':c.change==='removed'?'−':'~')+'</span>'+
+    '<div class="lbltxt"><span class="lbl">'+(c.kind==='structure'?'⬚ ':'')+esc(c.label)+'</span>'+detail+'</div>';
+  d.onclick=()=>jump(i); list.appendChild(d);
+});
+
+let sel=-1, mode='overlay';
+const PADPANE=16;
+function svgOf(c){ return paneFor(c).querySelector('svg'); }
+
+// ── Global zoom — one scale drives BOTH panes, in every view mode ──────────
+let zoom=1;                          // 1 = whole VI fit to stage width
+function fitScale(){                  // css px per user px at zoom=1
+  const b=basePane.querySelector('svg').viewBox.baseVal.width;
+  const h=headPane.querySelector('svg').viewBox.baseVal.width;
+  // Every mode fits to full width; side-by-side stacks vertically so each pane
+  // gets the whole width (far better for wide LabVIEW diagrams).
+  return (stage.clientWidth-2*PADPANE)/Math.max(b,h);
+}
+function applyZoom(){
+  const S=fitScale()*zoom;           // shared css-per-user scale → panes stay comparable
+  [basePane,headPane].forEach(p=>{const s=p.querySelector('svg'); if(!s)return;
+    s.style.width=(s.viewBox.baseVal.width*S)+'px';
+    s.querySelectorAll('.hl-num').forEach(t=>t.style.fontSize=(15/S)+'px');});
+}
+function setZoom(z, ax, ay){          // keep viewport point (ax,ay) fixed while zooming
+  z=Math.max(1, Math.min(z, 8));
+  if(ax===undefined){ax=stage.clientWidth/2; ay=stage.clientHeight/2;}
+  const ratio=z/zoom, cx=stage.scrollLeft+ax, cy=stage.scrollTop+ay;
+  zoom=z; applyZoom();
+  stage.scrollLeft=cx*ratio-ax; stage.scrollTop=cy*ratio-ay;
+}
+
+// Zoom the selected change's pane so the change occupies a comfortable share of
+// the view, then centre it. The whole VI is otherwise fit-to-width, so a small
+// node is a speck — this is what makes "next change" actually reveal it. Badge
+// text is counter-scaled and the ring stroke is non-scaling, so both stay crisp.
+function focus(i){
+  const c=CHANGES[i], r=rects[i]; if(!r)return;
+  const stageW=stage.clientWidth-2*PADPANE, stageH=stage.clientHeight-2*PADPANE;
+  const [x1,y1,x2,y2]=c.bounds, pad=c.kind==='structure'?3:5;
+  // Zoom to a NEIGHBOURHOOD, not the bare node: fit a context window (≥340 user
+  // px, or the change itself if bigger) into ~85% of the smaller viewport axis —
+  // a tiny node shows enlarged WITH surroundings. Uses the SAME global zoom, so
+  // manual +/- and per-change focus share one scale.
+  const ctx=Math.max((x2-x1)+2*pad, (y2-y1)+2*pad, 340);
+  const S=Math.min(stageW, stageH)*0.85/ctx;   // desired css px per user px
+  zoom=Math.max(1, Math.min(S/fitScale(), 8));
+  applyZoom();
+  // Centre the change in the stage. Manual scroll (scrollIntoView is unreliable
+  // on SVG children + smooth-scroll never settles headless): read the box's
+  // on-screen rect after the width change and offset the stage's scroll.
+  requestAnimationFrame(()=>{
+    const rb=r.getBoundingClientRect(), sb=stage.getBoundingClientRect();
+    stage.scrollLeft += (rb.left+rb.width/2)-(sb.left+sb.width/2);
+    stage.scrollTop  += (rb.top +rb.height/2)-(sb.top +sb.height/2);
+  });
+}
+
+function jump(i){
+  if(i<0||i>=CHANGES.length)return; sel=i;
+  const c=CHANGES[i];
+  // Respect the user's chosen view. Onion-skin + side-by-side show BOTH versions,
+  // so never yank out of them. Only correct a single-pane mode that's on the
+  // wrong side for this change (added lives in head, removed in base) — otherwise
+  // the change's element wouldn't exist in the shown pane at all.
+  if(mode==='head' && c.change==='removed') setMode('base');
+  else if(mode==='base' && c.change!=='removed') setMode('head');
+  // Spotlight everything on the selected change: mark the row, box + badge, and
+  // fade the rest (see .stage.has-sel CSS). Re-append the selected box+badge so
+  // they draw on TOP of any neighbouring highlights.
+  stage.classList.add('has-sel');
+  document.querySelectorAll('.item').forEach(n=>n.classList.toggle('sel',+n.dataset.i===i));
+  Object.values(rects).forEach(r=>r.classList.remove('sel'));
+  Object.values(nums).forEach(t=>t.classList.remove('sel'));
+  Object.values(ghosts).forEach(g=>{if(!g)return;g.r.classList.remove('sel');if(g.t)g.t.classList.remove('sel');});
+  Object.values(parts).flat().forEach(el=>el.classList.remove('sel'));
+  const r=rects[i], t=nums[i], layer=layers[i];
+  // chain wires first (drawn UNDER the node box, so the box caps them at its border)
+  (parts[i]||[]).forEach(el=>{el.classList.add('sel'); if(layer)layer.appendChild(el);});
+  if(r&&layer){r.classList.add('sel');layer.appendChild(r);}
+  if(t&&layer){t.classList.add('sel');layer.appendChild(t);}
+  const g=ghosts[i];                             // mirror box / old routing in base pane
+  if(g){g.r.classList.add('sel');g.layer.appendChild(g.r);
+        if(g.t){g.t.classList.add('sel');g.layer.appendChild(g.t);}}
+  revealFrame(c);                                // switch case(s) to the change's frame
+  focus(i);                                      // zoom + centre
+}
+function fit(){ sel=-1; stage.classList.remove('has-sel'); setZoom(1);
+  document.querySelectorAll('.item.sel').forEach(n=>n.classList.remove('sel'));
+  Object.values(rects).forEach(r=>r.classList.remove('sel'));
+  Object.values(nums).forEach(t=>t.classList.remove('sel'));
+  Object.values(parts).flat().forEach(el=>el.classList.remove('sel'));
+  Object.values(ghosts).forEach(g=>{if(!g)return;g.r.classList.remove('sel');if(g.t)g.t.classList.remove('sel');}); }
+document.getElementById('next').onclick=()=>jump(Math.min(CHANGES.length-1,sel+1));
+document.getElementById('prev').onclick=()=>jump(Math.max(0,sel-1));
+document.getElementById('zoomIn').onclick=()=>setZoom(zoom*1.3);
+document.getElementById('zoomOut').onclick=()=>setZoom(zoom/1.3);
+document.getElementById('zoomFit').onclick=fit;
+// Ctrl/⌘ + wheel zooms about the cursor (native pinch-zoom feel).
+stage.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return; e.preventDefault();
+  const sb=stage.getBoundingClientRect();
+  setZoom(zoom*(e.deltaY<0?1.15:1/1.15), e.clientX-sb.left, e.clientY-sb.top); },{passive:false});
+addEventListener('keydown',e=>{
+  if(e.key==='n')jump(sel+1); if(e.key==='p')jump(sel-1);
+  if(e.key==='f'||e.key==='0')fit();
+  if(e.key==='+'||e.key==='=')setZoom(zoom*1.3); if(e.key==='-')setZoom(zoom/1.3);});
+
+function setMode(m){
+  mode=m;
+  const keep=(stage.classList.contains('has-sel')?' has-sel':'')
+            +(stage.classList.contains('hide-hl')?' hide-hl':'');
+  stage.className='stage '+(m==='side'?'side':m)+' mode-'+m+keep;
+  document.querySelectorAll('button[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
+  document.getElementById('opWrap').style.display=(m==='overlay')?'':'none';
+  headPane.style.opacity=(m==='overlay')?op.value/100:1;   // blend ONLY in onion-skin
+  applyZoom();   // keep the current zoom level across view switches
+}
+document.querySelectorAll('button[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+const op=document.getElementById('op');
+op.oninput=()=>headPane.style.opacity=op.value/100; headPane.style.opacity=.7;
+document.getElementById('hlToggle').onchange=e=>stage.classList.toggle('hide-hl',!e.target.checked);
+
+// ── Per-pane case-frame model (#14/#15) ─────────────────────────────────
+// The renderer bakes EVERY frame into the SVG as <g class="lv-frame"
+// data-path="...;UID=VALUE">, hiding non-default ones, plus clickable selector
+// chrome (<g class="lv-selector" data-lv-action data-lv-struct data-lv-frames>).
+// Each pane keeps its OWN frame selection. A structure is REACHED via that pane's
+// own ancestor chain (which can differ — e.g. head wraps a shared case inside a
+// NEW case that base lacks), while a structure's OWN frame is CORRELATED by UID
+// across panes so the comparison stays aligned. That split is what lets navigating
+// to a change deep inside a head-only wrapper still reveal the UID-matched inner
+// case in base.
+function paneState(pane){
+  const st={toggleable:new Set(), frames:{}, sel:{}};
+  pane.querySelectorAll('.lv-selector[data-lv-action="toggle"]').forEach(g=>{
+    const u=g.dataset.lvStruct;
+    st.toggleable.add(u);
+    st.frames[u]=(g.dataset.lvFrames||'').split(';').filter(Boolean);
+    if(!(u in st.sel)) st.sel[u]=g.dataset.lvDefault;
+  });
+  return st;
+}
+const PST={base:paneState(basePane), head:paneState(headPane)};
+function stFor(pane){ return pane===basePane ? PST.base : PST.head; }
+
+// A frame group shows iff every TOGGLEABLE struct on its path is on THAT pane's
+// selected value. Non-toggleable segments (flat-sequence frames, shown together)
+// are ignored so those keep rendering side by side.
+function pathShown(st, path){
+  return (path||'').split(';').every(seg=>{const [u,v]=seg.split('=');
+    return !st.toggleable.has(u) || st.sel[u]===v;});
+}
+function applyPane(pane){
+  const st=stFor(pane);
+  pane.querySelectorAll('.lv-frame').forEach(g=>{
+    g.style.display = pathShown(st, g.dataset.path) ? '' : 'none';});
+  pane.querySelectorAll('.lv-selector[data-lv-action="toggle"]').forEach(g=>{
+    const u=g.dataset.lvStruct, t=g.querySelector('text');
+    if(t && st.sel[u]!==undefined) t.textContent=st.sel[u];});
+}
+function applyFrames(){ applyPane(basePane); applyPane(headPane); }
+
+// Set a structure's OWN frame — CORRELATED: applied to every pane that has it, so
+// the same case shows the same frame in base and head (comparison stays aligned).
+function setFrame(u, v){
+  [PST.base, PST.head].forEach(st=>{ if(st.toggleable.has(u)) st.sel[u]=v; });
+  applyFrames();
+}
+function stepFrame(pane, u, dir){
+  const list=stFor(pane).frames[u]; if(!list||!list.length)return;
+  const cur=Math.max(0, list.indexOf(stFor(pane).sel[u]));
+  setFrame(u, list[(cur+dir+list.length)%list.length]);
+}
+// Per-pane "reach": select every toggleable ANCESTOR frame of `el` within `pane`'s
+// own state — walk THIS pane's actual DOM ancestors (which may differ from the
+// other pane's) and select their frame values.
+function revealPath(pane, el){
+  const st=stFor(pane), fr=el&&el.closest('.lv-frame'); if(!fr)return;
+  (fr.dataset.path||'').split(';').forEach(seg=>{const i=seg.indexOf('=');
+    const u=seg.slice(0,i), v=seg.slice(i+1);
+    if(u && st.toggleable.has(u)) st.sel[u]=v;});
+}
+// Reveal a change: show its frame in its OWN pane, then reveal the UID-matched
+// structures on its path in the OTHER pane via THAT pane's own ancestor chain,
+// with the shared structures' frames correlated — so a change under a head-only
+// wrapper still surfaces the matched inner case in base for comparison.
+function revealFrame(c){
+  const pane=paneFor(c), other=pane===headPane?basePane:headPane;
+  const q=c.kind==='structure' ? '[data-lv-struct="'+c.uid+'"]' : '[data-node$="::'+c.uid+'"]';
+  const el=pane.querySelector(q); if(!el)return;
+  revealPath(pane, el);                                  // reach the change in its own pane
+  const segs=(el.closest('.lv-frame')?.dataset.path||'').split(';').filter(Boolean);
+  const ost=stFor(other); let deepest=null;
+  segs.forEach(seg=>{const i=seg.indexOf('='), u=seg.slice(0,i), v=seg.slice(i+1);
+    if(u && ost.toggleable.has(u)){ ost.sel[u]=v; deepest=u; }});  // correlate shared frames
+  if(deepest){ const oel=other.querySelector('[data-lv-struct="'+deepest+'"]');
+    if(oel) revealPath(other, oel); }                    // reach the deepest match in other pane
+  applyFrames();
+}
+
+// Interception-proof click: the renderer paints frame-content rects over the
+// selector chrome, so e.target is often an unrelated rect. Scan the full stack
+// under the cursor (elementsFromPoint skips the pointer-events:none help layer).
+[basePane,headPane].forEach(p=>p.addEventListener('click',e=>{
+  let s=null;
+  for(const el of document.elementsFromPoint(e.clientX,e.clientY)){
+    s=el.closest&&el.closest('.lv-selector,.lv-option'); if(s)break;}
+  if(!s)return;
+  const u=s.dataset.lvStruct; if(!u)return;
+  if(s.classList.contains('lv-option')) setFrame(u, s.dataset.lvValue);
+  else stepFrame(p, u, s.dataset.lvAction==='prev' ? -1 : 1);
+}));
+applyFrames();
+
+// Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|head|base|side
+// sets the mode; #frame=UID=VAL,UID=VAL pre-selects case frames (correlated).
+(function(){
+  const h=new URLSearchParams(location.hash.slice(1));
+  if(h.get('view')) setMode(h.get('view'));
+  const fr=h.get('frame');
+  if(fr){ fr.split(',').forEach(p=>{const i=p.indexOf('=');
+    if(i>0) setFrame(p.slice(0,i), p.slice(i+1));}); }
+  if(h.get('c')) jump(+h.get('c')-1);
+})();
+</script>

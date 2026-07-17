@@ -1,11 +1,14 @@
 # diff
 
 Compare two versions of a VI: added/removed terminals, changed operations, and
-rewired connections. By default `diff` prints a unified diff of the two VIs'
-[`describe`](describe.md) output; pass `--long` for a structured change report
-instead. `diff` never requires primitive or vi.lib mappings, so it works on any
-two VIs out of the box. Useful in code review and CI to see what actually
-changed in a binary `.vi` file, not just that it changed.
+rewired connections. `diff` never requires primitive or vi.lib mappings, so it
+works on any two VIs out of the box. Useful in code review and CI to see what
+actually changed in a binary `.vi` file, not just that it changed.
+
+Output is picked along two independent axes: `--format` selects the
+serialization (`text`, `json`, or `html`), and `-v`/`--verbose` selects the
+detail level within `text`. They compose independently — `--format` never
+implies a detail level, and `--verbose` has no effect on `json` or `html`.
 
 ## Synopsis
 
@@ -24,8 +27,18 @@ lvkit diff <vi_a> <vi_b> [options]
 
 | Option | Description |
 |--------|-------------|
-| `--long` | Show a structured change report instead of a unified diff. |
+| `--format {text,json,html}` | Output serialization. `text` (default) is a unified diff of the two VIs' [`describe`](describe.md) output, printed to stdout. `json` serializes the diff engine's UID-correlated change map (`ChangeMap.to_dict()`) — for scripts, CI, or an AI agent reading the diff. `html` writes a self-contained [interactive diff viewer](#interactive-diff-viewer) to a file. |
+| `-v`, `--verbose` | Show the structured change report instead of the compact unified diff. Only affects `--format text` — a detail level, not a format. |
+| `--long` | Back-compat alias for `--verbose`. |
+| `-o FILE`, `--output FILE` | Output file path. Used by `--format html` (default `outputs/vi-diff/<stemA>__<stemB>.html` when omitted) and `--format json` (prints to stdout instead when omitted). Has no effect on `--format text`, which always goes to stdout. |
+| `--open` | Render `--format html` and open it in a browser. With no explicit `--format`, `--open` resolves the format to `html`; combined with `--format text` or `--format json` it's an error (`Error: --open requires --format html`, exit `1`). |
+| `--load-mode {none,minimal,full}` | How deep to load dependencies when resolving SubVI signatures. Default `minimal` — enough to compare the diagram accurately without walking the full SubVI tree. |
 | SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+
+`--format` is becoming lvkit's house convention for output selection across
+subcommands (a single flag for mutually exclusive output projections, rather
+than one boolean per format); other commands' existing `--json` booleans will
+migrate to it over time, with `--json` kept as an alias.
 
 ## Example
 
@@ -79,11 +92,12 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
 +Build Path [prim 1419]
 ```
 
-Pass `--long` for the structured report instead:
+Pass `-v`/`--verbose` (or its back-compat alias `--long`) for the structured
+report instead:
 
 ```bash
 lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
-  --search-path samples/OpenG/extracted --long
+  --search-path samples/OpenG/extracted --verbose
 ```
 
 ```text
@@ -117,25 +131,78 @@ Structures:
 
 The structured report has five sections — `Signature`, `Operations`,
 `Constants`, `Wiring`, `Structures` — each listing only the entries that
-changed; a section with no changes is omitted entirely. If the two VIs are
-identical, both the default and `--long` output print a single line, `No
-changes detected.`, instead.
+changed; a section with no changes is omitted entirely.
+
+If the two VIs are identical, `--format text` (both the default and
+`--verbose`) prints a single line, `No changes detected.`, instead of an empty
+diff/report. `--format json` and `--format html` still produce output when the
+VIs are identical — an empty `changes` list, or a viewer with nothing in the
+change list to select.
+
+## JSON output
+
+```bash
+lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
+  --search-path samples/OpenG/extracted --format json
+```
+
+Prints the diff engine's `ChangeMap` as JSON: a `changes` list — one entry per
+added/removed/modified node, wire, or structure, each with `uid`, `full_id`,
+`kind`, `change` (`added`/`removed`/`modified`), `label`, `detail`, and diagram
+geometry (`bounds`, `path`, and for a modified element the prior-version
+`bounds_base`/`path_base`) — plus `common_nodes`, the count of nodes matched
+unchanged across both VIs. This is the same change map `--format html` renders
+into the viewer below, and what an editor integration or AI agent should parse
+instead of scraping `text` output.
+
+## Interactive diff viewer
+
+```bash
+lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
+  --search-path samples/OpenG/extracted --open
+```
+
+This writes `outputs/vi-diff/Convert File Extension (String)__ogtk__Convert File Extension (Path)__ogtk.html`
+and opens it in the browser. The file is a single self-contained HTML page —
+no server, no external JS/CSS — so it works equally well opened locally, sent
+in a review, or hosted as a static CI artifact.
+
+- Four view modes, switchable from the toolbar: **onion-skin** (the default —
+  overlays both VIs with an opacity slider), **head**, **base**, and
+  **side-by-side**.
+- A numbered change list in the sidebar covers every added/removed/modified
+  node or wire; each entry's number is drawn as a badge on the diagram next to
+  the element it correlates with.
+- Clicking a change in the list (or its badge on the diagram) jumps to it;
+  **prev**/**next** buttons, or the `p`/`n` keys, step through the list in
+  order.
+- Selecting a change spotlights it — the rest of the diagram dims — and
+  zooms/centers on it. If the change lives inside a case or sequence frame
+  that isn't the one currently showing, the viewer switches that frame into
+  view first, in both panes, so a change never hides behind an unselected
+  case.
+- Independent zoom (toolbar buttons, `+`/`-` keys, or Ctrl/Cmd+scroll) is
+  shared across all four view modes.
+- The URL fragment encodes the selected change, view mode, and per-structure
+  frame selection (`#c=N&view=overlay&frame=UID=VALUE`), so a link into the
+  viewer can deep-link straight to a specific change.
 
 ## Exit codes
 
 `diff` exits `0` whenever it successfully compares the two VIs — **including
 when they're identical**. The exit code does not tell you whether the VIs
 differ; a CI step that needs to gate on "did this VI change" has to check the
-printed output (`No changes detected.` vs. a diff/report) rather than the
-exit code.
+printed output (`No changes detected.` vs. a diff/report), or parse the
+`json`/`html` output, rather than the exit code.
 
-`diff` exits `1` when `vi_a` or `vi_b` doesn't exist, or when loading either
-VI raises a `ValueError`, `FileNotFoundError`, or `KeyError` (for example, a
-path that isn't a `.vi` file) — both print a one-line `Error: ...` message to
-stderr. A `.vi` that pylabview itself can't parse (corrupt or truncated data)
-raises `RuntimeError`, which isn't one of the caught types: `diff` still
-exits `1`, but stderr gets a full Python traceback instead of a clean `Error:`
-line.
+`diff` exits `1` when `vi_a` or `vi_b` doesn't exist, when `--open` is
+combined with `--format text`/`--format json`, or when loading either VI
+raises a `ValueError`, `FileNotFoundError`, or `KeyError` (for example, a path
+that isn't a `.vi` file) — each of these prints a one-line `Error: ...`
+message to stderr. A `.vi` that pylabview itself can't parse (corrupt or
+truncated data) raises `RuntimeError`, which isn't one of the caught types:
+`diff` still exits `1`, but stderr gets a full Python traceback instead of a
+clean `Error:` line.
 
 ## Notes
 
