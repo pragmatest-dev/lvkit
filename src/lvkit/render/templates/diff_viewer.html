@@ -41,7 +41,11 @@
   .overlay #basePane,.overlay #headPane{grid-area:1/1}   /* stack + scroll together */
   .overlay #basePane{pointer-events:none}
   .mode-base #headPane,.mode-head #basePane{display:none}
-  .stage.side{display:flex;flex-direction:column;gap:16px}  /* stack base over head — full width each */
+  /* Synced-stacked (tied-pan): base above head, full width each, each pane its
+     OWN scrollable viewport — a shared pan window keeps them on the same LV
+     region (see mirrorScroll + scrollTargets in the script below). */
+  .stage.side{display:flex;flex-direction:column;gap:16px}
+  .stage.side .pane{flex:1 1 0;min-height:0;overflow:auto}
   svg{max-width:none;height:auto;background:#fff;border-radius:6px}
   .hl{pointer-events:none;fill-opacity:.24;stroke-opacity:1;transition:fill-opacity .2s,stroke-opacity .2s}
   .hl.node.added{fill:var(--add);stroke:var(--add);stroke-width:2}
@@ -95,7 +99,7 @@
     <button data-mode="overlay" class="active">Onion-skin</button>
     <button data-mode="head">Head</button>
     <button data-mode="base">Base</button>
-    <button data-mode="side">Side-by-side</button>
+    <button data-mode="side" title="Same region, base above head — scroll/zoom syncs both panes">Stacked</button>
     <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomFit">fit</button><button id="zoomIn">+</button></span>
     <label id="opWrap" style="display:flex;gap:6px;align-items:center">op<input id="op" type="range" min="0" max="100" value="70"></label>
     <label style="display:flex;gap:6px;align-items:center"><input id="hlToggle" type="checkbox" checked>highlight</label>
@@ -259,10 +263,18 @@ let zoom=1;                          // 1 = whole VI fit to stage width
 function fitScale(){                  // css px per user px at zoom=1
   const b=basePane.querySelector('svg').viewBox.baseVal.width;
   const h=headPane.querySelector('svg').viewBox.baseVal.width;
-  // Every mode fits to full width; side-by-side stacks vertically so each pane
+  // Every mode fits to full width; stacked mode stacks vertically so each pane
   // gets the whole width (far better for wide LabVIEW diagrams).
   return (stage.clientWidth-2*PADPANE)/Math.max(b,h);
 }
+// ── Synced-stacked pan (mode 'side') ────────────────────────────────────────
+// In every other mode `stage` itself is the one scroll container. In 'side'
+// mode each pane is its OWN independent scroll viewport (see .stage.side .pane
+// CSS), so zoom/focus/wheel must act on BOTH in lockstep. base/head share one
+// coordinate space and one (global) zoom scale, so mirroring raw scrollLeft/
+// scrollTop between them — or applying the identical px delta to both — keeps
+// them locked to the same LV-coordinate region without any unit conversion.
+function scrollTargets(){ return mode==='side' ? [basePane, headPane] : [stage]; }
 function applyZoom(){
   const S=fitScale()*zoom;           // shared css-per-user scale → panes stay comparable
   [basePane,headPane].forEach(p=>{const s=p.querySelector('svg'); if(!s)return;
@@ -271,10 +283,15 @@ function applyZoom(){
 }
 function setZoom(z, ax, ay){          // keep viewport point (ax,ay) fixed while zooming
   z=Math.max(1, Math.min(z, 8));
-  if(ax===undefined){ax=stage.clientWidth/2; ay=stage.clientHeight/2;}
-  const ratio=z/zoom, cx=stage.scrollLeft+ax, cy=stage.scrollTop+ay;
+  const targets=scrollTargets();
+  if(ax===undefined){ax=targets[0].clientWidth/2; ay=targets[0].clientHeight/2;}
+  const ratio=z/zoom;
+  // Snapshot each linked target's own scroll position BEFORE the rescale, then
+  // reapply the same (ax,ay)-anchored math to each — this is what keeps every
+  // synced viewport pointed at the same region through a zoom change.
+  const prev=targets.map(el=>({el, cx: el.scrollLeft+ax, cy: el.scrollTop+ay}));
   zoom=z; applyZoom();
-  stage.scrollLeft=cx*ratio-ax; stage.scrollTop=cy*ratio-ay;
+  prev.forEach(({el,cx,cy})=>{ el.scrollLeft=cx*ratio-ax; el.scrollTop=cy*ratio-ay; });
 }
 
 // Zoom the selected change's pane so the change occupies a comfortable share of
@@ -283,7 +300,14 @@ function setZoom(z, ax, ay){          // keep viewport point (ax,ay) fixed while
 // text is counter-scaled and the ring stroke is non-scaling, so both stay crisp.
 function focus(i){
   const c=CHANGES[i], r=rects[i]; if(!r)return;
-  const stageW=stage.clientWidth-2*PADPANE, stageH=stage.clientHeight-2*PADPANE;
+  // `home` is the viewport that actually contains `r` (the change's own pane in
+  // 'side' mode; `stage` everywhere else — it hosts both panes there).
+  const home = mode==='side' ? paneFor(c) : stage;
+  const targets=scrollTargets();
+  // PADPANE accounts for `.stage`'s own padding — only relevant when `home` IS
+  // the stage; a `.pane` acting as its own scroll container (side mode) has none.
+  const homePad = home===stage ? 2*PADPANE : 0;
+  const stageW=home.clientWidth-homePad, stageH=home.clientHeight-homePad;
   const [x1,y1,x2,y2]=c.bounds, pad=c.kind==='structure'?3:5;
   // Zoom to a NEIGHBOURHOOD, not the bare node: fit a context window (≥340 user
   // px, or the change itself if bigger) into ~85% of the smaller viewport axis —
@@ -293,13 +317,17 @@ function focus(i){
   const S=Math.min(stageW, stageH)*0.85/ctx;   // desired css px per user px
   zoom=Math.max(1, Math.min(S/fitScale(), 8));
   applyZoom();
-  // Centre the change in the stage. Manual scroll (scrollIntoView is unreliable
-  // on SVG children + smooth-scroll never settles headless): read the box's
-  // on-screen rect after the width change and offset the stage's scroll.
+  // Centre the change in `home`. Manual scroll (scrollIntoView is unreliable on
+  // SVG children + smooth-scroll never settles headless): read the box's
+  // on-screen rect after the width change and offset scroll by the same delta
+  // on every linked target — in 'side' mode that puts BOTH panes on the same
+  // LV region (base directly above head), since they share one coordinate
+  // space and one zoom scale.
   requestAnimationFrame(()=>{
-    const rb=r.getBoundingClientRect(), sb=stage.getBoundingClientRect();
-    stage.scrollLeft += (rb.left+rb.width/2)-(sb.left+sb.width/2);
-    stage.scrollTop  += (rb.top +rb.height/2)-(sb.top +sb.height/2);
+    const rb=r.getBoundingClientRect(), hb=home.getBoundingClientRect();
+    const dx=(rb.left+rb.width/2)-(hb.left+hb.width/2);
+    const dy=(rb.top +rb.height/2)-(hb.top +hb.height/2);
+    targets.forEach(el=>{ el.scrollLeft+=dx; el.scrollTop+=dy; });
   });
 }
 
@@ -343,10 +371,14 @@ document.getElementById('prev').onclick=()=>jump(Math.max(0,sel-1));
 document.getElementById('zoomIn').onclick=()=>setZoom(zoom*1.3);
 document.getElementById('zoomOut').onclick=()=>setZoom(zoom/1.3);
 document.getElementById('zoomFit').onclick=fit;
-// Ctrl/⌘ + wheel zooms about the cursor (native pinch-zoom feel).
+// Ctrl/⌘ + wheel zooms about the cursor (native pinch-zoom feel). Anchor on
+// whichever linked viewport the cursor is actually over (matters in 'side'
+// mode, where base/head are two separate scroll containers of equal size).
 stage.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return; e.preventDefault();
-  const sb=stage.getBoundingClientRect();
-  setZoom(zoom*(e.deltaY<0?1.15:1/1.15), e.clientX-sb.left, e.clientY-sb.top); },{passive:false});
+  const targets=scrollTargets();
+  const hovered=targets.find(el=>el.contains(e.target))||targets[0];
+  const hb=hovered.getBoundingClientRect();
+  setZoom(zoom*(e.deltaY<0?1.15:1/1.15), e.clientX-hb.left, e.clientY-hb.top); },{passive:false});
 addEventListener('keydown',e=>{
   if(e.key==='n')jump(sel+1); if(e.key==='p')jump(sel-1);
   if(e.key==='f'||e.key==='0')fit();
@@ -366,6 +398,22 @@ document.querySelectorAll('button[data-mode]').forEach(b=>b.onclick=()=>setMode(
 const op=document.getElementById('op');
 op.oninput=()=>headPane.style.opacity=op.value/100; headPane.style.opacity=.7;
 document.getElementById('hlToggle').onchange=e=>stage.classList.toggle('hide-hl',!e.target.checked);
+
+// Tied-stacked synced-pan: dragging/scrolling (wheel, trackpad, scrollbar,
+// touch) either pane's own viewport mirrors the SAME scroll offset onto the
+// other. Guarded to 'side' mode only (elsewhere the panes aren't independently
+// scrollable) and re-entrancy-guarded so mirroring one doesn't ping-pong.
+let syncingScroll=false;
+function mirrorScroll(src, dst){
+  src.addEventListener('scroll', ()=>{
+    if(mode!=='side'||syncingScroll)return;
+    syncingScroll=true;
+    dst.scrollLeft=src.scrollLeft; dst.scrollTop=src.scrollTop;
+    syncingScroll=false;
+  });
+}
+mirrorScroll(basePane, headPane);
+mirrorScroll(headPane, basePane);
 
 // ── Per-pane case-frame model (#14/#15) ─────────────────────────────────
 // The renderer bakes EVERY frame into the SVG as <g class="lv-frame"
