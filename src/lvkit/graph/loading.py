@@ -180,6 +180,10 @@ class LoadingMixin:
         # Build search paths
         if search_paths is None:
             search_paths = [vi_path.parent]
+        # Retain for decoration-only lookups (SubVI icons under a MINIMAL load
+        # that never loads the SubVIs themselves — see locate_vi_file).
+        self._search_paths = list(search_paths)
+        self._vi_file_index = None
 
         # Parse the VI hierarchy
         # source_dir is the directory of the actual .vi file, not the extracted

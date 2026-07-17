@@ -205,6 +205,27 @@ class QueryMixin:
         """Get the source file path for a VI."""
         return self._source_paths.get(vi_name)
 
+    def locate_vi_file(self, vi_name: str) -> Path | None:
+        """Best-effort on-disk ``.vi`` for a SubVI by name: an already-loaded
+        source first, else a filename search of the graph's retained search
+        paths. Decoration-only (SubVI icons) — never forces a load. Under a
+        MINIMAL load the SubVIs aren't in ``_source_paths``, so this filename
+        search is what lets a project-local SubVI's own ``_ICON.png`` resolve.
+        The search-path index is built once, lazily, and cached."""
+        loaded = self._source_paths.get(vi_name)
+        if loaded is not None:
+            return loaded
+        if self._vi_file_index is None:
+            index: dict[str, Path] = {}
+            for root in self._search_paths:
+                try:
+                    for found in sorted(root.rglob("*.vi")):
+                        index.setdefault(found.name, found)
+                except OSError:
+                    continue
+            self._vi_file_index = index
+        return self._vi_file_index.get(vi_name)
+
     def get_layout(self, vi_name: str) -> Layout | None:
         """Get a VI's block-diagram geometry, or None if the graph was not
         loaded with ``layout=True``. Populated from the same parse (no second

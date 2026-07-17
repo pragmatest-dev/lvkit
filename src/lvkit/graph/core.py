@@ -161,6 +161,11 @@ class InMemoryVIGraph(
         self._loaded_vis: set[str] = set()
         # Source file paths: vi_name -> Path to original .vi file
         self._source_paths: dict[str, Path] = {}
+        # Search paths the graph was loaded with, retained so decoration-only
+        # lookups (a SubVI's own _ICON.png) can locate a project-local .vi by
+        # name even under a MINIMAL load that never walks the SubVI tree.
+        self._search_paths: list[Path] = []
+        self._vi_file_index: dict[str, Path] | None = None  # lazy name -> path
         # VI metadata
         self._vi_metadata: dict[str, VIMetadata] = {}
         # Optional disk roots for <vilib> / <userlib> path token resolution
@@ -198,6 +203,8 @@ class InMemoryVIGraph(
         self._qualified_aliases.clear()
         self._loaded_vis.clear()
         self._source_paths.clear()
+        self._search_paths = []
+        self._vi_file_index = None
         self._vi_metadata.clear()
         self._layouts.clear()
 

@@ -352,7 +352,7 @@ class ExtractedIconResolver:
         if not name:
             return None
 
-        src_path = ctx.graph.get_vi_source_path(name)
+        src_path = ctx.graph.locate_vi_file(name)
         if src_path is None and node.qualified_path:
             candidate = Path(node.qualified_path)
             if candidate.is_file():
