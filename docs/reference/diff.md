@@ -150,7 +150,7 @@ Prints the diff engine's `ChangeMap` as JSON: a `changes` list — one entry per
 added/removed/modified node, wire, or structure, each with `uid`, `full_id`,
 `kind`, `change` (`added`/`removed`/`modified`), `label`, `detail`, and diagram
 geometry (`bounds`, `path`, and for a modified element the prior-version
-`bounds_base`/`path_base`) — plus `common_nodes`, the count of nodes matched
+`bounds_before`/`path_before`) — plus `common_nodes`, the count of nodes matched
 unchanged across both VIs. This is the same change map `--format html` renders
 into the viewer below, and what an editor integration or AI agent should parse
 instead of scraping `text` output.
@@ -168,7 +168,7 @@ no server, no external JS/CSS — so it works equally well opened locally, sent
 in a review, or hosted as a static CI artifact.
 
 - Four view modes, switchable from the toolbar: **onion-skin** (the default —
-  overlays both VIs with an opacity slider), **head**, **base**, and
+  overlays both VIs with an opacity slider), **before**, **after**, and
   **side-by-side**.
 - A numbered change list in the sidebar covers every added/removed/modified
   node or wire; each entry's number is drawn as a badge on the diagram next to

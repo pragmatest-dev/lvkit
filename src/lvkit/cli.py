@@ -882,9 +882,9 @@ def cmd_diff(args: argparse.Namespace) -> int:
         from .render import render_vi
         from .render.diff_viewer import build_diff_viewer
 
-        base_svg = render_vi(graph_a, vi_name_a, interactive=False)
-        head_svg = render_vi(graph_b, vi_name_b, interactive=False)
-        if base_svg is None or head_svg is None:
+        before_svg = render_vi(graph_a, vi_name_a, interactive=False)
+        after_svg = render_vi(graph_b, vi_name_b, interactive=False)
+        if before_svg is None or after_svg is None:
             print(
                 "Error: render declined — required diagram geometry is "
                 "missing (see logs for the missing ids)",
@@ -894,10 +894,10 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
         cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
         html = build_diff_viewer(
-            cmap, base_svg, head_svg,
+            cmap, before_svg, after_svg,
             title=path_a.name,
-            base_label=path_a.stem,
-            head_label=path_b.stem,
+            before_label=path_a.stem,
+            after_label=path_b.stem,
         )
 
         out = (

@@ -202,7 +202,7 @@ class TestSelfDiffIsEmpty:
 
     def test_self_diff_with_layout_wires_empty(self):
         # With layout=True the wire-diff path also does terminal-center
-        # lookups (bounds/bounds_base) -- exercise that against real geometry,
+        # lookups (bounds/bounds_before) -- exercise that against real geometry,
         # not just the no-layout stub path.
         cmap = self._selfdiff(VI_A, layout=True)
         assert cmap.changes == []
@@ -225,9 +225,9 @@ class TestModifiedConstant:
         assert c.change == "modified"
         assert c.uid == "100"
         assert c.detail == "5 → 10"
-        # head bounds for the after-pane, base bounds for the before-pane
+        # after bounds for the after-pane, before bounds for the before-pane
         assert c.bounds == (1.0, 2.0, 3.0, 4.0)
-        assert c.bounds_base == (5.0, 6.0, 7.0, 8.0)
+        assert c.bounds_before == (5.0, 6.0, 7.0, 8.0)
 
     def test_unchanged_value_is_no_change(self):
         ga = _StubGraph([_const("100", 5)])
@@ -522,15 +522,15 @@ class TestWireChanges:
         assert change.change == "removed"
         assert change.label == "x"
         assert change.detail == "(was ← Bundle/Unbundle By Name)"
-        # deleted wire -> both anchors come from the BASE layout: the sink it
-        # used to reach (bounds) and the source it lost (bounds_base).
+        # deleted wire -> both anchors come from the BEFORE layout: the sink it
+        # used to reach (bounds) and the source it lost (bounds_before).
         assert change.bounds is not None
-        assert change.bounds_base is not None
+        assert change.bounds_before is not None
 
     def test_run_vi_removed_wire_has_faithful_path(self):
         # Increment 2a: the removed wire carries the FAITHFUL drawn polyline
-        # (source center -> recorded bends -> sink center), from the BASE
-        # layout (the version the removed wire lives in). path_base is None
+        # (source center -> recorded bends -> sink center), from the BEFORE
+        # layout (the version the removed wire lives in). path_before is None
         # (only "modified" wires carry an old-routing polyline).
         ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
         gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
@@ -546,7 +546,7 @@ class TestWireChanges:
         ]
         assert change.path[0] == (1430.0, 507.5)   # source-terminal center
         assert change.path[-1] == (1906.5, 707.0)  # sink-terminal center
-        assert change.path_base is None
+        assert change.path_before is None
 
         # the new geometry survives JSON-ready serialization (lists, not tuples)
         d = diff_uid(ga, gb, na, nb).to_dict()
@@ -554,7 +554,7 @@ class TestWireChanges:
         assert wire_dict["path"] == [
             [1430.0, 507.5], [1414.0, 507.5], [1414.0, 707.0], [1906.5, 707.0],
         ]
-        assert wire_dict["path_base"] is None
+        assert wire_dict["path_before"] is None
 
     def test_run_vi_added_node_has_chain_paths(self):
         # Increment 2a: an added node carries its wire "chain" — the polylines
@@ -580,7 +580,7 @@ class TestWireChanges:
         cmap = diff_uid(ga, gb, na, nb)
         for c in cmap.changes:
             assert c.path is None
-            assert c.path_base is None
+            assert c.path_before is None
             assert c.chain_paths is None
 
 

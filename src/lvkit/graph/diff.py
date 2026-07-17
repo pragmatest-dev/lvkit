@@ -88,10 +88,11 @@ class ElementChange:
     # was loaded without ``layout=True``. Added → head's layout; removed → base's;
     # modified → head's (the node persists; we point at its current position).
     bounds: Rect | None = None
-    # For "modified" only: the SAME node's bounds in the BASE version, so the
+    # For "modified" only: the SAME node's bounds in the BEFORE version, so the
     # viewer can highlight it in both panes (old → new before/after). None for
-    # added (base has no such node) and removed (base bounds already in `bounds`).
-    bounds_base: Rect | None = None
+    # added (before has no such node) and removed (before bounds already in
+    # `bounds`).
+    bounds_before: Rect | None = None
     # For "modified": a short human-readable "old → new" of what changed (e.g. a
     # constant's value transition). None for added/removed (the label says it all).
     detail: str | None = None
@@ -102,9 +103,9 @@ class ElementChange:
     # the real colored wire (not a pin). None when layout is absent. For an
     # added/modified wire it's the HEAD routing; for a removed wire the BASE.
     path: list[Point] | None = None
-    # For a "modified" WIRE only: the OLD (base-side) routing polyline, so the
+    # For a "modified" WIRE only: the OLD (before) routing polyline, so the
     # viewer can draw the dashed old wire beside the new one. None otherwise.
-    path_base: list[Point] | None = None
+    path_before: list[Point] | None = None
     # For an added/removed NODE: the polylines of every wire incident to it (its
     # "chain"), so the viewer draws the node's wires in its add/remove color.
     # None when layout is absent or the node has no drawable incident wire.
@@ -148,10 +149,10 @@ class ChangeMap:
                 {"uid": c.uid, "full_id": c.full_id, "kind": c.kind,
                  "change": c.change, "label": c.label, "detail": c.detail,
                  "bounds": list(c.bounds) if c.bounds is not None else None,
-                 "bounds_base": list(c.bounds_base)
-                 if c.bounds_base is not None else None,
+                 "bounds_before": list(c.bounds_before)
+                 if c.bounds_before is not None else None,
                  "path": _poly(c.path),
-                 "path_base": _poly(c.path_base),
+                 "path_before": _poly(c.path_before),
                  "chain_paths": [_poly(p) for p in c.chain_paths]
                  if c.chain_paths is not None else None,
                  "container_uid": c.container_uid,
@@ -571,7 +572,7 @@ def _effective_sinks(
 
 def _point_rect(layout: Layout | None, uid: str) -> Rect | None:
     """A terminal's connection-point CENTER, widened to a zero-size ``Rect``
-    -- ``ElementChange.bounds``/``bounds_base`` are ``Rect`` (node bounding
+    -- ``ElementChange.bounds``/``bounds_before`` are ``Rect`` (node bounding
     boxes), but a wire endpoint has only a point (``Layout.terminal_centers``).
     A degenerate rect lets the viewer treat it identically to a node highlight
     (a single-pixel box) with no new field on ``ElementChange``."""
@@ -824,14 +825,14 @@ def _wire_changes(
         # Faithful wire polyline: the wire lives in the version matching its
         # change — removed → base, added & modified → head. A "modified" wire
         # ALSO carries the OLD (base) routing so the viewer can dash it.
-        path_base: list[Point] | None = None
+        path_before: list[Point] | None = None
         if change == "removed":
             assert entry_a is not None
             dest_end = entry_a[3]
             sink_label = label_of(dest_end, va, a, self_terms_a, consts_a)
             old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
             bounds = _point_rect(layout_a, _uid_of(dest_end.terminal_id))
-            bounds_base = _point_rect(layout_a, _uid_of(entry_a[2].terminal_id))
+            bounds_before = _point_rect(layout_a, _uid_of(entry_a[2].terminal_id))
             detail = f"(was ← {old_label})"
             path = _wire_path(layout_a, wires_a, _uid_of(dest_end.terminal_id))
         else:
@@ -842,16 +843,16 @@ def _wire_changes(
             bounds = _point_rect(layout_b, _uid_of(dest_end.terminal_id))
             path = _wire_path(layout_b, wires_b, _uid_of(dest_end.terminal_id))
             if change == "added":
-                bounds_base = None
+                bounds_before = None
                 detail = f"← {new_label}"
             else:
                 assert entry_a is not None
                 old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
-                bounds_base = _point_rect(
+                bounds_before = _point_rect(
                     layout_a, _uid_of(entry_a[2].terminal_id),
                 )
                 detail = f"← {new_label} (was {old_label})"
-                path_base = _wire_path(
+                path_before = _wire_path(
                     layout_a, wires_a, _uid_of(entry_a[3].terminal_id),
                 )
 
@@ -867,8 +868,8 @@ def _wire_changes(
 
         changes.append(ElementChange(
             _uid_of(dest_end.terminal_id), dest_end.terminal_id, "wire", change,
-            sink_label, bounds, bounds_base=bounds_base, detail=detail,
-            path=path, path_base=path_base,
+            sink_label, bounds, bounds_before=bounds_before, detail=detail,
+            path=path, path_before=path_before,
             container_uid=container_uid, frame_path=frame_path,
         ))
     return changes
@@ -1175,7 +1176,7 @@ def diff_uid(
             cmap.changes.append(ElementChange(
                 uid, cb.id, "node", "modified", _const_label(cb),
                 _bounds(layout_b, uid),
-                bounds_base=_bounds(layout_a, uid),
+                bounds_before=_bounds(layout_a, uid),
                 detail=f"{_value_disp(ca.value)} → {_value_disp(cb.value)}",
                 container_uid=container_uid, frame_path=frame_path,
             ))

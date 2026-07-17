@@ -41,16 +41,16 @@
     color:#fff;pointer-events:none;box-shadow:0 1px 4px #0009}
   /* Neutral slate, not the add/remove hues — those are reserved for the
      change grammar. BEFORE/AFTER text is what distinguishes the two panes. */
-  .pane-label.base{background:#2a3038;border:1px solid #3a414c}
-  .pane-label.head{background:#20252e;border:1px solid #3a414c}
-  .overlay .pane-label.head{top:36px}  /* stack below BASE so both read in onion-skin */
+  .pane-label.before{background:#2a3038;border:1px solid #3a414c}
+  .pane-label.after{background:#20252e;border:1px solid #3a414c}
+  .overlay .pane-label.after{top:36px}  /* stack below BEFORE so both read in onion-skin */
   .stage.overlay{display:grid}
-  .overlay #basePane,.overlay #headPane{grid-area:1/1}   /* stack + scroll together */
-  /* pointer-events on base/head are NOT static here — applyBlend() (script,
+  .overlay #beforePane,.overlay #afterPane{grid-area:1/1}   /* stack + scroll together */
+  /* pointer-events on before/after are NOT static here — applyBlend() (script,
      below) flips them to match whichever side the fader currently favours, so
      a click always lands on the pane that's actually dominant on screen. */
-  .mode-base #headPane,.mode-head #basePane{display:none}
-  /* Synced-stacked (tied-pan): base above head, full width each, each pane its
+  .mode-before #afterPane,.mode-after #beforePane{display:none}
+  /* Synced-stacked (tied-pan): before above after, full width each, each pane its
      OWN scrollable viewport — a shared pan window keeps them on the same LV
      region (see mirrorScroll + scrollTargets in the script below). */
   .stage.side{display:flex;flex-direction:column;gap:16px}
@@ -139,10 +139,10 @@
 
 <header>
   <b>VI diff · __TITLE__</b>
-  <span style="opacity:.7">__BASE_LABEL__ → __HEAD_LABEL__ · engine change-map</span>
+  <span style="opacity:.7">__BEFORE_LABEL__ → __AFTER_LABEL__ · engine change-map</span>
   <div class="controls">
     <button data-mode="overlay" class="active">Overlay</button>
-    <button data-mode="side" title="Same region, base above head — scroll/zoom syncs both panes">Stacked</button>
+    <button data-mode="side" title="Same region, before above after — scroll/zoom syncs both panes">Stacked</button>
     <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomFit">fit</button><button id="zoomIn">+</button></span>
     <span id="opWrap"><button type="button" class="op-end" data-op="0" title="show BEFORE only">before</button><input id="op" type="range" min="0" max="100" value="70"><button type="button" class="op-end" data-op="100" title="show AFTER only">after</button></span>
     <label style="display:flex;gap:6px;align-items:center"><input id="hlToggle" type="checkbox" checked>highlight</label>
@@ -162,8 +162,8 @@
     <div id="list"></div>
   </aside>
   <div class="stage overlay mode-overlay" id="stage">
-    <div class="pane" id="basePane"><span class="pane-label base">BEFORE · __BASE_LABEL__</span>__BASE_SVG__</div>
-    <div class="pane" id="headPane"><span class="pane-label head">AFTER · __HEAD_LABEL__</span>__HEAD_SVG__</div>
+    <div class="pane" id="beforePane"><span class="pane-label before">BEFORE · __BEFORE_LABEL__</span>__BEFORE_SVG__</div>
+    <div class="pane" id="afterPane"><span class="pane-label after">AFTER · __AFTER_LABEL__</span>__AFTER_SVG__</div>
   </div>
 </div>
 
@@ -171,25 +171,25 @@
 const CHANGES = __CHANGES__;
 const SVGNS='http://www.w3.org/2000/svg';
 const stage=document.getElementById('stage');
-const headPane=document.getElementById('headPane'), basePane=document.getElementById('basePane');
+const afterPane=document.getElementById('afterPane'), beforePane=document.getElementById('beforePane');
 
-// added lives in head (bounds are head's); removed lives in base.
-function paneFor(c){ return c.change==='removed' ? basePane : headPane; }
+// added lives in after (bounds are after's); removed lives in before.
+function paneFor(c){ return c.change==='removed' ? beforePane : afterPane; }
 
 // Highlights come STRAIGHT from the engine change-map's bounds — absolute LV
 // pixels, the same space as each SVG's viewBox — so a rect placed at those
 // coordinates lands exactly on the node. No getBBox / data-node scrape, no
 // union-of-fragments, no help-layer exclusion (bounds = one node = one box).
-// bounds = [x1,y1,x2,y2] in the version the change appears in (added→head,
-// removed→base), matching paneFor.
+// bounds = [x1,y1,x2,y2] in the version the change appears in (added→after,
+// removed→before), matching paneFor.
 function layerOf(svg){
   let g=svg.querySelector('.hl-layer');
   if(!g){g=document.createElementNS(SVGNS,'g');g.setAttribute('class','hl-layer');svg.appendChild(g);}
   return g;
 }
 // rects/nums/layers hold the PRIMARY highlight (the one focus() centres on);
-// ghosts holds the mirror box a "modified" change also gets in the BASE pane, so
-// side-by-side / onion-skin read as a before(base) → after(head) pair.
+// ghosts holds the mirror box a "modified" change also gets in the BEFORE pane, so
+// side-by-side / onion-skin read as a before → after pair.
 const rects={}, nums={}, layers={}, ghosts={}, parts={};
 // The renderer bakes every structure's selector as a clickable
 // <g class="lv-selector" data-lv-action="toggle" data-lv-struct="UID"> widget —
@@ -205,7 +205,7 @@ function selectorEl(pane, uid){
 }
 function selectorBounds(pane, uid){
   if(!uid)return null;
-  const key=(pane===basePane?'b:':'h:')+uid;
+  const key=(pane===beforePane?'bef:':'aft:')+uid;
   if(key in _selBoxCache)return _selBoxCache[key];
   let box=null;
   try{
@@ -292,8 +292,8 @@ CHANGES.forEach((c,i)=>{
         // as the new (the sink is unchanged, so it aligns) and revealed on
         // select — so solid-new + dashed-old read together in any view, not
         // split across panes.
-        if(c.change==='modified' && c.path_base)
-          ghosts[i]=drawPoly(pane, c.path_base, c.change+' old', null);  // no 2nd badge
+        if(c.change==='modified' && c.path_before)
+          ghosts[i]=drawPoly(pane, c.path_before, c.change+' old', null);  // no 2nd badge
       }
     }
   } else if(c.bounds){
@@ -311,9 +311,9 @@ CHANGES.forEach((c,i)=>{
         // 'chain' → hidden at rest; revealed only when this node is selected.
         const w=drawPoly(pane, pp, c.change+' chain', null); if(w) parts[i].push(w.r);
       });
-      // A modified node lives in BOTH versions: mirror it into the base pane.
-      if(c.change==='modified' && c.bounds_base)
-        ghosts[i]=drawBox(basePane, c.bounds_base, cls, i+1);
+      // A modified node lives in BOTH versions: mirror it into the before pane.
+      if(c.change==='modified' && c.bounds_before)
+        ghosts[i]=drawBox(beforePane, c.bounds_before, cls, i+1);
     }
   }
   // A node/wire/structure change whose frame isn't the pane's current selection
@@ -347,23 +347,23 @@ function svgOf(c){ return paneFor(c).querySelector('svg'); }
 // ── Global zoom — one scale drives BOTH panes, in every view mode ──────────
 let zoom=1;                          // 1 = whole VI fit to stage width
 function fitScale(){                  // css px per user px at zoom=1
-  const b=basePane.querySelector('svg').viewBox.baseVal.width;
-  const h=headPane.querySelector('svg').viewBox.baseVal.width;
+  const bw=beforePane.querySelector('svg').viewBox.baseVal.width;
+  const aw=afterPane.querySelector('svg').viewBox.baseVal.width;
   // Every mode fits to full width; stacked mode stacks vertically so each pane
   // gets the whole width (far better for wide LabVIEW diagrams).
-  return (stage.clientWidth-2*PADPANE)/Math.max(b,h);
+  return (stage.clientWidth-2*PADPANE)/Math.max(bw,aw);
 }
 // ── Synced-stacked pan (mode 'side') ────────────────────────────────────────
 // In every other mode `stage` itself is the one scroll container. In 'side'
 // mode each pane is its OWN independent scroll viewport (see .stage.side .pane
-// CSS), so zoom/focus/wheel must act on BOTH in lockstep. base/head share one
+// CSS), so zoom/focus/wheel must act on BOTH in lockstep. before/after share one
 // coordinate space and one (global) zoom scale, so mirroring raw scrollLeft/
 // scrollTop between them — or applying the identical px delta to both — keeps
 // them locked to the same LV-coordinate region without any unit conversion.
-function scrollTargets(){ return mode==='side' ? [basePane, headPane] : [stage]; }
+function scrollTargets(){ return mode==='side' ? [beforePane, afterPane] : [stage]; }
 function applyZoom(){
   const S=fitScale()*zoom;           // shared css-per-user scale → panes stay comparable
-  [basePane,headPane].forEach(p=>{const s=p.querySelector('svg'); if(!s)return;
+  [beforePane,afterPane].forEach(p=>{const s=p.querySelector('svg'); if(!s)return;
     s.style.width=(s.viewBox.baseVal.width*S)+'px';
     s.querySelectorAll('.hl-num').forEach(t=>t.style.fontSize=(15/S)+'px');});
 }
@@ -427,7 +427,7 @@ function focus(i){
   // SVG children + smooth-scroll never settles headless): read the box's
   // on-screen rect after the width change and offset scroll by the same delta
   // on every linked target — in 'side' mode that puts BOTH panes on the same
-  // LV region (base directly above head), since they share one coordinate
+  // LV region (before directly above after), since they share one coordinate
   // space and one zoom scale.
   requestAnimationFrame(()=>{
     const rb=r.getBoundingClientRect(), hb=home.getBoundingClientRect();
@@ -442,10 +442,10 @@ function jump(i){
   const c=CHANGES[i];
   // Respect the user's chosen view. Onion-skin + side-by-side show BOTH versions,
   // so never yank out of them. Only correct a single-pane mode that's on the
-  // wrong side for this change (added lives in head, removed in base) — otherwise
+  // wrong side for this change (added lives in after, removed in before) — otherwise
   // the change's element wouldn't exist in the shown pane at all.
-  if(mode==='head' && c.change==='removed') setMode('base');
-  else if(mode==='base' && c.change!=='removed') setMode('head');
+  if(mode==='after' && c.change==='removed') setMode('before');
+  else if(mode==='before' && c.change!=='removed') setMode('after');
   // Spotlight everything on the selected change: mark the row, box + badge, and
   // fade the rest (see .stage.has-sel CSS). Re-append the selected box+badge so
   // they draw on TOP of any neighbouring highlights.
@@ -460,7 +460,7 @@ function jump(i){
   (parts[i]||[]).forEach(el=>{el.classList.add('sel'); if(layer)layer.appendChild(el);});
   if(r&&layer){r.classList.add('sel');layer.appendChild(r);}
   if(t&&layer){t.classList.add('sel');layer.appendChild(t);}
-  const g=ghosts[i];                             // mirror box / old routing in base pane
+  const g=ghosts[i];                             // mirror box / old routing in before pane
   if(g){g.r.classList.add('sel');g.layer.appendChild(g.r);
         if(g.t){g.t.classList.add('sel');g.layer.appendChild(g.t);}}
   revealFrame(c);                                // switch case(s) to the change's frame
@@ -479,7 +479,7 @@ document.getElementById('zoomOut').onclick=()=>setZoom(zoom/1.3);
 document.getElementById('zoomFit').onclick=fit;
 // Ctrl/⌘ + wheel zooms about the cursor (native pinch-zoom feel). Anchor on
 // whichever linked viewport the cursor is actually over (matters in 'side'
-// mode, where base/head are two separate scroll containers of equal size).
+// mode, where before/after are two separate scroll containers of equal size).
 stage.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return; e.preventDefault();
   const targets=scrollTargets();
   const hovered=targets.find(el=>el.contains(e.target))||targets[0];
@@ -502,22 +502,22 @@ function setMode(m){
 }
 document.querySelectorAll('button[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 const op=document.getElementById('op');
-// TRUE cross-fade, overlay mode only: base and head opacities are complements
+// TRUE cross-fade, overlay mode only: before and after opacities are complements
 // of each other (1-v / v), so the slider actually fades BEFORE out as it fades
-// AFTER in — not a translucent head floating over an always-solid base. Clicks
+// AFTER in — not a translucent after floating over an always-solid before. Clicks
 // must land on whichever side is currently dominant, so pointer-events follows
-// the same split (the CSS no longer hard-codes base as click-through). Stacked
+// the same split (the CSS no longer hard-codes before as click-through). Stacked
 // mode shows both panes at full opacity, each independently clickable.
 function applyBlend(){
   const v=op.value/100;
   if(mode==='overlay'){
-    basePane.style.opacity=1-v; headPane.style.opacity=v;
+    beforePane.style.opacity=1-v; afterPane.style.opacity=v;
     const afterTop=+op.value>=50;
-    headPane.style.pointerEvents=afterTop?'auto':'none';
-    basePane.style.pointerEvents=afterTop?'none':'auto';
+    afterPane.style.pointerEvents=afterTop?'auto':'none';
+    beforePane.style.pointerEvents=afterTop?'none':'auto';
   }else{
-    basePane.style.opacity=1; headPane.style.opacity=1;
-    basePane.style.pointerEvents='auto'; headPane.style.pointerEvents='auto';
+    beforePane.style.opacity=1; afterPane.style.opacity=1;
+    beforePane.style.pointerEvents='auto'; afterPane.style.pointerEvents='auto';
   }
 }
 op.oninput=applyBlend;
@@ -538,19 +538,19 @@ function mirrorScroll(src, dst){
     syncingScroll=false;
   });
 }
-mirrorScroll(basePane, headPane);
-mirrorScroll(headPane, basePane);
+mirrorScroll(beforePane, afterPane);
+mirrorScroll(afterPane, beforePane);
 
 // ── Per-pane case-frame model (#14/#15) ─────────────────────────────────
 // The renderer bakes EVERY frame into the SVG as <g class="lv-frame"
 // data-path="...;UID=VALUE">, hiding non-default ones, plus clickable selector
 // chrome (<g class="lv-selector" data-lv-action data-lv-struct data-lv-frames>).
 // Each pane keeps its OWN frame selection. A structure is REACHED via that pane's
-// own ancestor chain (which can differ — e.g. head wraps a shared case inside a
-// NEW case that base lacks), while a structure's OWN frame is CORRELATED by UID
+// own ancestor chain (which can differ — e.g. after wraps a shared case inside a
+// NEW case that before lacks), while a structure's OWN frame is CORRELATED by UID
 // across panes so the comparison stays aligned. That split is what lets navigating
-// to a change deep inside a head-only wrapper still reveal the UID-matched inner
-// case in base.
+// to a change deep inside an after-only wrapper still reveal the UID-matched inner
+// case in before.
 function paneState(pane){
   const st={toggleable:new Set(), frames:{}, sel:{}};
   pane.querySelectorAll('.lv-selector[data-lv-action="toggle"]').forEach(g=>{
@@ -561,8 +561,8 @@ function paneState(pane){
   });
   return st;
 }
-const PST={base:paneState(basePane), head:paneState(headPane)};
-function stFor(pane){ return pane===basePane ? PST.base : PST.head; }
+const PST={before:paneState(beforePane), after:paneState(afterPane)};
+function stFor(pane){ return pane===beforePane ? PST.before : PST.after; }
 
 // A frame group shows iff every TOGGLEABLE struct on its path is on THAT pane's
 // selected value. Non-toggleable segments (flat-sequence frames, shown together)
@@ -579,7 +579,7 @@ function applyPane(pane){
     const u=g.dataset.lvStruct, t=g.querySelector('text');
     if(t && st.sel[u]!==undefined) t.textContent=st.sel[u];});
 }
-function applyFrames(){ applyPane(basePane); applyPane(headPane); updateParkState(); }
+function applyFrames(){ applyPane(beforePane); applyPane(afterPane); updateParkState(); }
 
 // ── Hidden-frame badge visibility ───────────────────────────────────────────
 // A change is "hidden" in its own pane iff its frame_path isn't fully selected
@@ -608,9 +608,9 @@ function updateParkState(){
 }
 
 // Set a structure's OWN frame — CORRELATED: applied to every pane that has it, so
-// the same case shows the same frame in base and head (comparison stays aligned).
+// the same case shows the same frame in before and after (comparison stays aligned).
 function setFrame(u, v){
-  [PST.base, PST.head].forEach(st=>{ if(st.toggleable.has(u)) st.sel[u]=v; });
+  [PST.before, PST.after].forEach(st=>{ if(st.toggleable.has(u)) st.sel[u]=v; });
   applyFrames();
 }
 function stepFrame(pane, u, dir){
@@ -629,8 +629,8 @@ function revealPath(pane, el){
 }
 // Reveal a change: put its OWN pane on frame_path's exact selection, then
 // correlate the UID-shared ancestor structures into the OTHER pane via THAT
-// pane's own ancestor chain — so a change under a head-only wrapper still
-// surfaces the matched inner case in base for comparison.
+// pane's own ancestor chain — so a change under an after-only wrapper still
+// surfaces the matched inner case in before for comparison.
 //
 // ROOT CAUSE (list-row click stopped centring): this used to reach the
 // change's OWN pane state indirectly — `pane.querySelector(q)` for a node/
@@ -647,7 +647,7 @@ function revealPath(pane, el){
 // frame/value-only branch already used) needs no DOM query at all and can
 // never early-return before applyFrames() runs.
 function revealFrame(c){
-  const pane=paneFor(c), other=pane===headPane?basePane:headPane;
+  const pane=paneFor(c), other=pane===afterPane?beforePane:afterPane;
   const st=stFor(pane), ost=stFor(other);
   const segs=(c.frame_path||'').split(';').filter(Boolean);
   let deepest=null;
@@ -662,7 +662,7 @@ function revealFrame(c){
 // Interception-proof click: the renderer paints frame-content rects over the
 // selector chrome, so e.target is often an unrelated rect. Scan the full stack
 // under the cursor (elementsFromPoint skips the pointer-events:none help layer).
-[basePane,headPane].forEach(p=>p.addEventListener('click',e=>{
+[beforePane,afterPane].forEach(p=>p.addEventListener('click',e=>{
   let s=null;
   for(const el of document.elementsFromPoint(e.clientX,e.clientY)){
     s=el.closest&&el.closest('.lv-selector,.lv-option'); if(s)break;}
@@ -708,7 +708,7 @@ function decorateMenus(){
     const seg=c.frame_path.split(';').pop(), val=seg.slice(seg.indexOf('=')+1);
     (byStruct[c.container_uid]=byStruct[c.container_uid]||[]).push({value:val, cls:c.change});
   });
-  [basePane,headPane].forEach(pane=>{
+  [beforePane,afterPane].forEach(pane=>{
     Object.keys(byStruct).forEach(uid=>{
       const box=selectorBounds(pane, uid);
       const widget=selectorEl(pane, uid);
@@ -738,7 +738,7 @@ function decorateMenus(){
 }
 decorateMenus();
 
-// Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|head|base|side
+// Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|before|after|side
 // sets the mode; #frame=UID=VAL,UID=VAL pre-selects case frames (correlated).
 (function(){
   const h=new URLSearchParams(location.hash.slice(1));

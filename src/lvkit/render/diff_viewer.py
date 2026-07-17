@@ -1,7 +1,7 @@
 """Build the interactive VI-diff viewer HTML page (roadmap #24).
 
 A PURE builder: given a change-map and two already-rendered SVGs, staples
-them into one self-contained HTML page (onion-skin/head/base/side-by-side
+them into one self-contained HTML page (onion-skin/before/after/side-by-side
 modes, global zoom, a numbered change-list sidebar, correlated highlights,
 spotlight-on-select, per-pane case-frame control, and deep-linking). No VI
 loading, no disk reads beyond the packaged template, no argv — callers (the
@@ -27,20 +27,20 @@ __all__ = ["build_diff_viewer"]
 
 def build_diff_viewer(
     change_map: ChangeMap,
-    base_svg: str,
-    head_svg: str,
+    before_svg: str,
+    after_svg: str,
     *,
     title: str,
-    base_label: str,
-    head_label: str,
+    before_label: str,
+    after_label: str,
 ) -> str:
     """Render the two-pane diff viewer page for one VI pair.
 
-    ``base_svg``/``head_svg`` are expected to be script-less/id-less (i.e.
+    ``before_svg``/``after_svg`` are expected to be script-less/id-less (i.e.
     rendered via ``render_vi(..., interactive=False)``) — the viewer drives
     its own frame/hover behavior over the ``data-*`` attributes the renderer
     still emits, so there is no id collision to work around (unlike the
-    prototype's ``.replace('id="lv-', 'id="base-lv-', 1)`` hack, dropped
+    prototype's ``.replace('id="lv-', 'id="before-lv-', 1)`` hack, dropped
     here — increment 1 made it unnecessary).
 
     Returns the full HTML document as a string, prefixed with a doctype +
@@ -59,10 +59,10 @@ def build_diff_viewer(
 
     html = (
         template.replace("__TITLE__", title)
-        .replace("__BASE_LABEL__", base_label)
-        .replace("__HEAD_LABEL__", head_label)
-        .replace("__BASE_SVG__", base_svg)
-        .replace("__HEAD_SVG__", head_svg)
+        .replace("__BEFORE_LABEL__", before_label)
+        .replace("__AFTER_LABEL__", after_label)
+        .replace("__BEFORE_SVG__", before_svg)
+        .replace("__AFTER_SVG__", after_svg)
         .replace("__CHANGES__", json.dumps(changes))
         .replace("__ADD__", str(added))
         .replace("__DEL__", str(removed))

@@ -41,19 +41,19 @@ class TestBuildDiffViewerEndToEnd:
         ga, na = _load(BASE_VI)
         gb, nb = _load(HEAD_VI)
 
-        base_svg = render_vi(ga, na, interactive=False)
-        head_svg = render_vi(gb, nb, interactive=False)
-        assert base_svg is not None and head_svg is not None
+        before_svg = render_vi(ga, na, interactive=False)
+        after_svg = render_vi(gb, nb, interactive=False)
+        assert before_svg is not None and after_svg is not None
 
         cmap = diff_uid(ga, gb, na, nb)
         html = build_diff_viewer(
-            cmap, base_svg, head_svg,
-            title="run.vi", base_label="base", head_label="head",
+            cmap, before_svg, after_svg,
+            title="run.vi", before_label="before", after_label="after",
         )
 
         assert html.startswith("<!doctype html>")
-        assert base_svg in html
-        assert head_svg in html
+        assert before_svg in html
+        assert after_svg in html
 
         # change-list JSON present: a "kind" key and (if any changes exist) a
         # known uid from the change-map show up verbatim in the embedded JSON.
@@ -71,28 +71,28 @@ class TestBuildDiffViewerEndToEnd:
 
         # inlined SVGs are script-less (increment 1) -- confirm the viewer
         # doesn't accidentally inline interactive copies.
-        assert "<script" not in base_svg
-        assert "<script" not in head_svg
+        assert "<script" not in before_svg
+        assert "<script" not in after_svg
 
     def test_labels_and_title_appear(self):
         _require_pair()
         ga, na = _load(BASE_VI)
         gb, nb = _load(HEAD_VI)
-        base_svg = render_vi(ga, na, interactive=False)
-        head_svg = render_vi(gb, nb, interactive=False)
-        assert base_svg is not None and head_svg is not None
+        before_svg = render_vi(ga, na, interactive=False)
+        after_svg = render_vi(gb, nb, interactive=False)
+        assert before_svg is not None and after_svg is not None
         cmap = diff_uid(ga, gb, na, nb)
 
         html = build_diff_viewer(
-            cmap, base_svg, head_svg,
-            title="run.vi diff", base_label="v1", head_label="v2",
+            cmap, before_svg, after_svg,
+            title="run.vi diff", before_label="v1", after_label="v2",
         )
         assert "run.vi diff" in html
         assert "v1" in html and "v2" in html
         # placeholders fully substituted -- no leftover markers.
         for marker in (
-            "__TITLE__", "__BASE_LABEL__", "__HEAD_LABEL__", "__BASE_SVG__",
-            "__HEAD_SVG__", "__CHANGES__", "__ADD__", "__DEL__", "__MOD__",
+            "__TITLE__", "__BEFORE_LABEL__", "__AFTER_LABEL__", "__BEFORE_SVG__",
+            "__AFTER_SVG__", "__CHANGES__", "__ADD__", "__DEL__", "__MOD__",
             "__COMMON__",
         ):
             assert marker not in html
@@ -121,18 +121,18 @@ class TestBuildDiffViewerPureUnit:
             ],
             common_node_uids=["1", "2", "3"],
         )
-        base_svg = "<svg id='b'>BASE-MARKER</svg>"
-        head_svg = "<svg id='h'>HEAD-MARKER</svg>"
+        before_svg = "<svg id='b'>BEFORE-MARKER</svg>"
+        after_svg = "<svg id='h'>AFTER-MARKER</svg>"
 
         html = build_diff_viewer(
-            cmap, base_svg, head_svg,
-            title="Stub VI", base_label="rev-a", head_label="rev-b",
+            cmap, before_svg, after_svg,
+            title="Stub VI", before_label="rev-a", after_label="rev-b",
         )
 
         assert html.startswith("<!doctype html>")
         assert "Stub VI" in html
         assert "rev-a" in html and "rev-b" in html
-        assert "BASE-MARKER" in html and "HEAD-MARKER" in html
+        assert "BEFORE-MARKER" in html and "AFTER-MARKER" in html
         assert "added 1" in html
         assert "removed 1" in html
         assert "modified 1" in html
