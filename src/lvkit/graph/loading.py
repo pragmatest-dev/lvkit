@@ -852,7 +852,9 @@ class LoadingMixin:
                 "direction": term.direction,
             }
             if term.lv_type:
-                t["type"] = term.lv_type.name or ""
+                # LVType has no ``.name``; its type-name string is
+                # ``underlying_type`` (e.g. "NumFloat64", a class/typedef name).
+                t["type"] = term.lv_type.underlying_type or ""
             terminals_data.append(t)
 
         if not terminals_data:
