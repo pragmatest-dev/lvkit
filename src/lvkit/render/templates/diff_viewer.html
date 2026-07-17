@@ -20,6 +20,12 @@
   .nav{display:flex;gap:6px;padding:6px}.nav button{flex:1}
   .item{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer}
   .item:hover{background:#21262d}.item.sel{background:#1f6feb33;outline:1px solid #1f6feb}
+  /* Hidden-frame rows (req #2): dimmed + an "in <frame>" chip, so the reviewer
+     still sees every change but a click-to-switch-frame one distracts less. */
+  .item.dimmed{opacity:.6}
+  .item .fchip{display:none;font-size:10px;padding:1px 5px;border-radius:8px;
+          border:1px solid var(--line);opacity:.85;white-space:nowrap}
+  .item.dimmed .fchip{display:inline-block}
   .num{font-variant-numeric:tabular-nums;opacity:.6;min-width:20px}
   .tag{font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600}
   .tag.added{background:var(--add)}.tag.removed{background:var(--del)}.tag.modified{background:var(--mod)}
@@ -47,13 +53,38 @@
   .stage.side{display:flex;flex-direction:column;gap:16px}
   .stage.side .pane{flex:1 1 0;min-height:0;overflow:auto}
   svg{max-width:none;height:auto;background:#fff;border-radius:6px}
-  .hl{pointer-events:none;fill-opacity:.24;stroke-opacity:1;transition:fill-opacity .2s,stroke-opacity .2s}
+  /* Region fill is a SELECTION-ONLY affordance (req #3) — the add/remove/modify
+     border/outline always shows (stroke-opacity:1 below), but the translucent
+     region wash only appears once a change is picked (see .hl.sel further down). */
+  .hl{pointer-events:none;fill-opacity:0;stroke-opacity:1;transition:fill-opacity .2s,stroke-opacity .2s}
   .hl.node.added{fill:var(--add);stroke:var(--add);stroke-width:2}
   .hl.node.removed{fill:var(--del);stroke:var(--del);stroke-width:2}
   .hl.node.modified{fill:var(--mod);stroke:var(--mod);stroke-width:2}
   .hl.structure{fill:none;stroke-width:3;stroke-dasharray:7 4}
   .hl.structure.added{stroke:var(--add)}.hl.structure.removed{stroke:var(--del)}
   .hl.structure.modified{stroke:var(--mod)}
+  /* Hidden-frame "parked" badge (req #2): a change whose frame isn't the pane's
+     current selection has no visible node to sit on, so its numbered badge is
+     parked on the owning structure's selector widget instead — HOLLOW/dimmed
+     (never a different hue) so it reads as "elsewhere" without competing with
+     on-screen changes. Promotes to the normal solid glyph once its frame is shown. */
+  .hl.parked{fill:none!important;stroke-width:2;stroke-dasharray:3 3;opacity:.6}
+  .hl.parked.added{stroke:var(--add)}.hl.parked.removed{stroke:var(--del)}
+  .hl.parked.modified{stroke:var(--mod)}
+  .hl-num.parked{opacity:.4}
+  /* Small "in <frame>" pill riding next to a parked badge / list row. */
+  .hl-chip{pointer-events:none;font:600 8.5px system-ui,sans-serif}
+  .hl-chip rect{fill:#0d1117;stroke-width:1}
+  .hl-chip.added rect{stroke:var(--add)}.hl-chip.added text{fill:var(--add)}
+  .hl-chip.removed rect{stroke:var(--del)}.hl-chip.removed text{fill:var(--del)}
+  .hl-chip.modified rect{stroke:var(--mod)}.hl-chip.modified text{fill:var(--mod)}
+  /* Aggregate "this structure's frame set changed" mark on the live selector
+     widget, and per-value markers on its dropdown menu rows when the renderer
+     exposes one (case structures only — see decorateMenus()). */
+  .frame-changed-dot{fill:var(--mod);stroke:#0d1117;stroke-width:.6;pointer-events:none}
+  .frame-opt-dot{stroke:#0d1117;stroke-width:.6;pointer-events:none}
+  .frame-opt-dot.added{fill:var(--add)}.frame-opt-dot.removed{fill:var(--del)}
+  .frame-opt-dot.modified{fill:var(--mod)}
   /* Wire changes: a ringed pin at the sink terminal (grammar hue = change type). */
   .hl.wire{fill-opacity:.9;stroke:#0d1117;stroke-width:1.5;paint-order:stroke}
   .hl.wire.added{fill:var(--add)}.hl.wire.removed{fill:var(--del)}
@@ -82,7 +113,7 @@
      selected fill LIGHTER than the calm .24 overlay so the node/text stays legible
      underneath, and use a single soft glow instead of a stacked halo. */
   .hl.node.sel,.hl.structure.sel{stroke-width:4;stroke-dasharray:none;stroke-opacity:1;
-          fill-opacity:.1;paint-order:stroke;animation:selpulse 1.25s ease-in-out infinite}
+          fill-opacity:.2;paint-order:stroke;animation:selpulse 1.25s ease-in-out infinite}
   .hl.wire.sel{stroke:#fff;stroke-width:2.5;fill-opacity:1;animation:selpulse 1.25s ease-in-out infinite}
   .hl.added.sel{filter:drop-shadow(0 0 4px var(--add))}
   .hl.removed.sel{filter:drop-shadow(0 0 4px var(--del))}
@@ -90,6 +121,25 @@
   .hl-num.sel{font-size:24px;stroke-width:5}
   @keyframes selpulse{0%,100%{stroke-width:3.5}50%{stroke-width:7}}
   .hide-hl .hl,.hide-hl .hl-num{display:none}
+  /* DJ-deck fader (req #5): a long, chunky, tactile onion-skin opacity slider —
+     restyled from the default hairline <input type=range>, still 0-100 driving
+     head-pane opacity 1:1. */
+  #opWrap{padding:4px 10px 4px 6px;background:#0b0e14;border:1px solid var(--line);
+          border-radius:8px}
+  #op{-webkit-appearance:none;appearance:none;width:190px;height:28px;margin:0;
+      background:linear-gradient(90deg,var(--del) 0%,#3a3f4a 50%,var(--add) 100%);
+      border-radius:14px;outline:none;cursor:grab;
+      box-shadow:inset 0 2px 4px #0009,inset 0 -1px 0 #ffffff14}
+  #op:active{cursor:grabbing}
+  #op::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:38px;
+      border-radius:5px;background:linear-gradient(180deg,#f0f3f7,#c4cad4);
+      border:1px solid #40464f;box-shadow:0 2px 6px #000a,inset 0 1px 0 #fff9;
+      cursor:grab}
+  #op::-webkit-slider-thumb:active{cursor:grabbing;background:linear-gradient(180deg,#dfe4ea,#aeb5c0)}
+  #op::-moz-range-track{width:190px;height:28px;background:transparent;border-radius:14px}
+  #op::-moz-range-thumb{width:20px;height:38px;border-radius:5px;
+      background:linear-gradient(180deg,#f0f3f7,#c4cad4);border:1px solid #40464f;
+      box-shadow:0 2px 6px #000a,inset 0 1px 0 #fff9;cursor:grab}
 </style>
 
 <header>
@@ -101,7 +151,7 @@
     <button data-mode="base">Base</button>
     <button data-mode="side" title="Same region, base above head — scroll/zoom syncs both panes">Stacked</button>
     <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomFit">fit</button><button id="zoomIn">+</button></span>
-    <label id="opWrap" style="display:flex;gap:6px;align-items:center">op<input id="op" type="range" min="0" max="100" value="70"></label>
+    <label id="opWrap" style="display:flex;gap:8px;align-items:center;font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;opacity:.85">blend<input id="op" type="range" min="0" max="100" value="70"></label>
     <label style="display:flex;gap:6px;align-items:center"><input id="hlToggle" type="checkbox" checked>highlight</label>
   </div>
   <div class="legend">
@@ -148,6 +198,68 @@ function layerOf(svg){
 // ghosts holds the mirror box a "modified" change also gets in the BASE pane, so
 // side-by-side / onion-skin read as a before(base) → after(head) pair.
 const rects={}, nums={}, layers={}, ghosts={}, parts={};
+// parked* hold the FALLBACK badge (req #2): for a change whose frame_path isn't
+// the pane's current selection, the real node/wire has no visible <g> to sit on
+// (its ancestor .lv-frame is display:none), so a hollow, dimmed badge is parked
+// on the owning structure's LIVE selector widget instead — and promoted back to
+// the normal solid glyph once that frame is shown. parkedBox[i] is the box used
+// (the selector widget's own geometry), reused by focus()/homeBox() so zooming
+// to a parked change still lands somewhere real on screen.
+const parkedRects={}, parkedNums={}, parkedLayers={}, parkedChips={}, parkedBox={};
+// The renderer bakes every structure's selector as a clickable
+// <g class="lv-selector" data-lv-action="toggle" data-lv-struct="UID"> widget —
+// same identity token as ElementChange.container_uid — so its live on-screen
+// geometry (getBBox, absolute SVG-viewBox units, no transforms anywhere in this
+// renderer) doubles as the anchor for a parked badge with zero new plumbing.
+const _selBoxCache={};
+function selectorEl(pane, uid){
+  return uid ? pane.querySelector(
+    '.lv-selector[data-lv-action="toggle"][data-lv-struct="'+uid+'"]') : null;
+}
+function selectorBounds(pane, uid){
+  if(!uid)return null;
+  const key=(pane===basePane?'b:':'h:')+uid;
+  if(key in _selBoxCache)return _selBoxCache[key];
+  let box=null;
+  try{
+    const el=selectorEl(pane, uid);
+    if(el){const b=el.getBBox(); box=[b.x,b.y,b.x+b.width,b.y+b.height];}
+  }catch(e){ box=null; }
+  _selBoxCache[key]=box;
+  return box;
+}
+// Two+ changes can anchor at the SAME structure's selector widget (e.g. a
+// frame added AND a value modified on the same case) — fan them out by a
+// fixed step so their badges/chips don't stack exactly on top of each other.
+// Called once per change (whichever anchors there first, frame/value primary
+// or the node/wire/structure parked fallback), so its offset is stable and
+// shared by that change's own chip (which just reuses parkedBox[i]).
+const _anchorSeq={};
+function nextAnchorBox(pane, uid, box){
+  if(!box)return box;
+  const key=(pane===basePane?'b:':'h:')+uid;
+  const n=_anchorSeq[key]||0; _anchorSeq[key]=n+1;
+  return n===0 ? box : [box[0]+n*16, box[1], box[2]+n*16, box[3]];
+}
+// A small "in <frame>" pill riding beside a parked badge (or, in the change
+// list, beside a dimmed row) — non-interactive, coloured by change type.
+function drawChip(pane, box, text){
+  const svg=pane.querySelector('svg'); if(!svg||!box)return null;
+  const layer=layerOf(svg);
+  const w=Math.max(24, text.length*5.6+10), h=13;
+  const cx=box[2]+3, cy=box[1]-1;
+  const g=document.createElementNS(SVGNS,'g');
+  const r=document.createElementNS(SVGNS,'rect');
+  r.setAttribute('x',cx);r.setAttribute('y',cy);r.setAttribute('width',w);r.setAttribute('height',h);
+  r.setAttribute('rx',6);
+  const t=document.createElementNS(SVGNS,'text');
+  t.setAttribute('x',cx+w/2);t.setAttribute('y',cy+h-3.4);
+  t.setAttribute('text-anchor','middle');
+  t.textContent=text;
+  g.appendChild(r);g.appendChild(t);
+  layer.appendChild(g);
+  return g;
+}
 // A faithful wire polyline overlay (change-map `path`): a coloured stroke tracing
 // the real drawn wire. Used for wire changes AND for a node's incident "chain"
 // wires. label=null draws no badge (chain wires ride under the node's number).
@@ -206,38 +318,76 @@ CHANGES.forEach((c,i)=>{
   const cls=c.kind+' '+c.change;
   const pane=paneFor(c);
   parts[i]=[];
-  if(c.kind==='wire'){
+  if(c.kind==='frame'||c.kind==='value'){
+    // A frame/value change has no node of its own — it IS the owning structure's
+    // frame set. Anchor its one-and-only badge at the structure's live selector
+    // widget always (styled as a plain 'node' box so it reads exactly like any
+    // other solid add/remove/modify glyph); updateParkState() hollows it out
+    // when that frame isn't the pane's current selection (req #1/#2).
+    const box=nextAnchorBox(pane, c.container_uid, selectorBounds(pane, c.container_uid));
+    if(box){
+      const prim=drawBox(pane, box, 'node '+c.change, i+1);
+      if(prim){ rects[i]=prim.r; nums[i]=prim.t; layers[i]=prim.layer; parkedBox[i]=box; }
+    }
+  } else if(c.kind==='wire'){
     // Wire change: overlay the faithful drawn wire, coloured by change type.
-    if(!c.path)return;
-    // NB: polylines carry ONLY the change class (added/removed/modified) — never
-    // the kind (node/wire/structure), whose fill rules (.hl.node.added, .hl.wire
-    // .removed) would fill the open path into a solid blob.
-    const prim=drawPoly(pane, c.path, c.change, i+1); if(!prim)return;
-    rects[i]=prim.r; nums[i]=prim.t; layers[i]=prim.layer;
-    // Reassigned: the OLD routing as a dashed ghost, drawn on the SAME pane as
-    // the new (the sink is unchanged, so it aligns) and revealed on select — so
-    // solid-new + dashed-old read together in any view, not split across panes.
-    if(c.change==='modified' && c.path_base)
-      ghosts[i]=drawPoly(pane, c.path_base, c.change+' old', null);  // no 2nd badge
-    return;
+    if(c.path){
+      // NB: polylines carry ONLY the change class (added/removed/modified) —
+      // never the kind (node/wire/structure), whose fill rules (.hl.node.added,
+      // .hl.wire.removed) would fill the open path into a solid blob.
+      const prim=drawPoly(pane, c.path, c.change, i+1);
+      if(prim){
+        rects[i]=prim.r; nums[i]=prim.t; layers[i]=prim.layer;
+        // Reassigned: the OLD routing as a dashed ghost, drawn on the SAME pane
+        // as the new (the sink is unchanged, so it aligns) and revealed on
+        // select — so solid-new + dashed-old read together in any view, not
+        // split across panes.
+        if(c.change==='modified' && c.path_base)
+          ghosts[i]=drawPoly(pane, c.path_base, c.change+' old', null);  // no 2nd badge
+      }
+    }
+  } else if(c.bounds){
+    const prim=drawBox(pane, c.bounds, cls, i+1);
+    if(prim){
+      rects[i]=prim.r; nums[i]=prim.t; layers[i]=prim.layer;
+      // The node's "chain": its incident wires, drawn in the node's colour so an
+      // added/removed node reads as one connected unit (node + its wiring), not
+      // a lone box. They carry no badge — they belong to the node's change
+      // number. Chains for LEAF nodes only. A structure's incident wires are
+      // its border tunnels — pre-existing dataflow merely enclosed by the new
+      // container, NOT new connections — so they must never read as "added"
+      // (green). Only genuinely new leaf-node wiring is a chain.
+      if(c.kind!=='structure') (c.chain_paths||[]).forEach(pp=>{
+        // 'chain' → hidden at rest; revealed only when this node is selected.
+        const w=drawPoly(pane, pp, c.change+' chain', null); if(w) parts[i].push(w.r);
+      });
+      // A modified node lives in BOTH versions: mirror it into the base pane.
+      if(c.change==='modified' && c.bounds_base)
+        ghosts[i]=drawBox(basePane, c.bounds_base, cls, i+1);
+    }
   }
-  if(!c.bounds)return;                        // geometry unavailable — list only
-  const prim=drawBox(pane, c.bounds, cls, i+1); if(!prim)return;
-  rects[i]=prim.r; nums[i]=prim.t; layers[i]=prim.layer;
-  // The node's "chain": its incident wires, drawn in the node's colour so an
-  // added/removed node reads as one connected unit (node + its wiring), not a
-  // lone box. They carry no badge — they belong to the node's change number.
-  // Chains for LEAF nodes only. A structure's incident wires are its border
-  // tunnels — pre-existing dataflow merely enclosed by the new container, NOT
-  // new connections — so they must never read as "added" (green). Only genuinely
-  // new leaf-node wiring is a chain.
-  if(c.kind!=='structure') (c.chain_paths||[]).forEach(pp=>{
-    // 'chain' → hidden at rest; revealed only when this node is selected.
-    const w=drawPoly(pane, pp, c.change+' chain', null); if(w) parts[i].push(w.r);
-  });
-  // A modified node lives in BOTH versions: mirror it into the base pane.
-  if(c.change==='modified' && c.bounds_base)
-    ghosts[i]=drawBox(basePane, c.bounds_base, cls, i+1);
+  // Hidden-frame fallback (req #2): a node/wire/structure change whose frame_path
+  // isn't always the pane's active selection needs a SEPARATE badge parked on the
+  // owning structure's selector widget — the primary badge above (drawn at the
+  // element's real, possibly-invisible bounds) and this one are mutually
+  // exclusive; updateParkState() toggles which is shown. (frame/value changes
+  // already anchor AT the selector above, so they need no second copy here.)
+  if(c.frame_path && c.kind!=='frame' && c.kind!=='value'){
+    const box=nextAnchorBox(pane, c.container_uid, selectorBounds(pane, c.container_uid));
+    if(box){
+      const pk=drawBox(pane, box, 'parked '+c.change, i+1);
+      if(pk){
+        pk.r.style.display='none'; pk.t.style.display='none';
+        parkedRects[i]=pk.r; parkedNums[i]=pk.t; parkedLayers[i]=pk.layer; parkedBox[i]=box;
+      }
+    }
+  }
+  if(c.frame_path){
+    const box=parkedBox[i]; if(!box)return;
+    const seg=c.frame_path.split(';').pop(), val=seg.slice(seg.indexOf('=')+1);
+    const chip=drawChip(pane, box, val+':'+(i+1));
+    if(chip){ chip.setAttribute('class','hl-chip '+c.change); chip.style.display='none'; parkedChips[i]=chip; }
+  }
 });
 
 // change list (one row per change)
@@ -248,9 +398,17 @@ CHANGES.forEach((c,i)=>{
   // Modified rows carry the value transition (old → new) under the label so the
   // change is legible without opening the node. Added/removed need no detail.
   const detail=c.detail?'<div class="detail" title="'+esc(c.detail)+'">'+esc(c.detail)+'</div>':'';
+  // Hidden-frame rows (req #2) get an "in <frame>" chip — shown/hidden by
+  // updateParkState() as the reviewer navigates frames, via the .dimmed class.
+  let fchip='';
+  if(c.frame_path){
+    const seg=c.frame_path.split(';').pop(), val=seg.slice(seg.indexOf('=')+1);
+    fchip='<span class="fchip" title="'+esc(c.frame_path)+'">in '+esc(val)+'</span>';
+  }
   d.innerHTML='<span class="num">'+(i+1)+'</span>'+
     '<span class="tag '+c.change+'">'+(c.change==='added'?'+':c.change==='removed'?'−':'~')+'</span>'+
-    '<div class="lbltxt"><span class="lbl">'+(c.kind==='structure'?'⬚ ':'')+esc(c.label)+'</span>'+detail+'</div>';
+    '<div class="lbltxt"><span class="lbl">'+(c.kind==='structure'?'⬚ ':'')+esc(c.label)+'</span>'+detail+'</div>'+
+    fchip;
   d.onclick=()=>jump(i); list.appendChild(d);
 });
 
@@ -294,12 +452,32 @@ function setZoom(z, ax, ay){          // keep viewport point (ax,ay) fixed while
   prev.forEach(({el,cx,cy})=>{ el.scrollLeft=cx*ratio-ax; el.scrollTop=cy*ratio-ay; });
 }
 
+// Which element (primary on-node badge, or the parked selector-widget fallback)
+// is CURRENTLY on screen for change `i` — updateParkState() keeps exactly one of
+// the pair visible at a time, so focus()/jump() always centre/ring the real one.
+function visibleEl(i){
+  const pr=parkedRects[i];
+  if(pr && pr.style.display!=='none') return pr;
+  return rects[i];
+}
+// The geometry to zoom/centre on for change `i` — the parked selector-widget box
+// when that's what's showing (hidden-frame case, or a frame/value change, which
+// only ever anchors there), else the change's own real bounds.
+function homeBox(i){
+  const c=CHANGES[i];
+  if(c.kind==='frame'||c.kind==='value') return parkedBox[i]||null;
+  const pr=parkedRects[i];
+  if(pr && pr.style.display!=='none') return parkedBox[i];
+  return c.bounds;
+}
+
 // Zoom the selected change's pane so the change occupies a comfortable share of
 // the view, then centre it. The whole VI is otherwise fit-to-width, so a small
 // node is a speck — this is what makes "next change" actually reveal it. Badge
 // text is counter-scaled and the ring stroke is non-scaling, so both stay crisp.
 function focus(i){
-  const c=CHANGES[i], r=rects[i]; if(!r)return;
+  const c=CHANGES[i], r=visibleEl(i); if(!r)return;
+  const box=homeBox(i); if(!box)return;
   // `home` is the viewport that actually contains `r` (the change's own pane in
   // 'side' mode; `stage` everywhere else — it hosts both panes there).
   const home = mode==='side' ? paneFor(c) : stage;
@@ -308,7 +486,7 @@ function focus(i){
   // the stage; a `.pane` acting as its own scroll container (side mode) has none.
   const homePad = home===stage ? 2*PADPANE : 0;
   const stageW=home.clientWidth-homePad, stageH=home.clientHeight-homePad;
-  const [x1,y1,x2,y2]=c.bounds, pad=c.kind==='structure'?3:5;
+  const [x1,y1,x2,y2]=box, pad=c.kind==='structure'?3:5;
   // Zoom to a NEIGHBOURHOOD, not the bare node: fit a context window (≥340 user
   // px, or the change itself if bigger) into ~85% of the smaller viewport axis —
   // a tiny node shows enlarged WITH surroundings. Uses the SAME global zoom, so
@@ -347,6 +525,8 @@ function jump(i){
   document.querySelectorAll('.item').forEach(n=>n.classList.toggle('sel',+n.dataset.i===i));
   Object.values(rects).forEach(r=>r.classList.remove('sel'));
   Object.values(nums).forEach(t=>t.classList.remove('sel'));
+  Object.values(parkedRects).forEach(r=>r.classList.remove('sel'));
+  Object.values(parkedNums).forEach(t=>t.classList.remove('sel'));
   Object.values(ghosts).forEach(g=>{if(!g)return;g.r.classList.remove('sel');if(g.t)g.t.classList.remove('sel');});
   Object.values(parts).flat().forEach(el=>el.classList.remove('sel'));
   const r=rects[i], t=nums[i], layer=layers[i];
@@ -354,6 +534,11 @@ function jump(i){
   (parts[i]||[]).forEach(el=>{el.classList.add('sel'); if(layer)layer.appendChild(el);});
   if(r&&layer){r.classList.add('sel');layer.appendChild(r);}
   if(t&&layer){t.classList.add('sel');layer.appendChild(t);}
+  // The parked fallback badge gets 'sel' too — whichever of the pair
+  // updateParkState() is actually showing is the one that visibly rings/pulses.
+  const pr=parkedRects[i], pt=parkedNums[i], player=parkedLayers[i];
+  if(pr&&player){pr.classList.add('sel');player.appendChild(pr);}
+  if(pt&&player){pt.classList.add('sel');player.appendChild(pt);}
   const g=ghosts[i];                             // mirror box / old routing in base pane
   if(g){g.r.classList.add('sel');g.layer.appendChild(g.r);
         if(g.t){g.t.classList.add('sel');g.layer.appendChild(g.t);}}
@@ -364,6 +549,8 @@ function fit(){ sel=-1; stage.classList.remove('has-sel'); setZoom(1);
   document.querySelectorAll('.item.sel').forEach(n=>n.classList.remove('sel'));
   Object.values(rects).forEach(r=>r.classList.remove('sel'));
   Object.values(nums).forEach(t=>t.classList.remove('sel'));
+  Object.values(parkedRects).forEach(r=>r.classList.remove('sel'));
+  Object.values(parkedNums).forEach(t=>t.classList.remove('sel'));
   Object.values(parts).flat().forEach(el=>el.classList.remove('sel'));
   Object.values(ghosts).forEach(g=>{if(!g)return;g.r.classList.remove('sel');if(g.t)g.t.classList.remove('sel');}); }
 document.getElementById('next').onclick=()=>jump(Math.min(CHANGES.length-1,sel+1));
@@ -453,7 +640,40 @@ function applyPane(pane){
     const u=g.dataset.lvStruct, t=g.querySelector('text');
     if(t && st.sel[u]!==undefined) t.textContent=st.sel[u];});
 }
-function applyFrames(){ applyPane(basePane); applyPane(headPane); }
+function applyFrames(){ applyPane(basePane); applyPane(headPane); updateParkState(); }
+
+// ── Hidden-frame badge parking (req #2) ─────────────────────────────────────
+// A change is "hidden" in its own pane iff its frame_path isn't fully selected
+// there — i.e. the renderer has that element's ancestor <g class="lv-frame">
+// display:none right now, so there's nothing on screen to badge. Re-run after
+// every applyFrames() (frame nav, deep-link, initial load) to keep every
+// badge/row in sync with the CURRENT frame selection.
+function isHidden(c){
+  if(!c.frame_path) return false;
+  return !pathShown(stFor(paneFor(c)), c.frame_path);
+}
+function updateParkState(){
+  CHANGES.forEach((c,i)=>{
+    if(!c.frame_path) return;               // top-level change — never parked
+    const hidden=isHidden(c);
+    if(c.kind==='frame'||c.kind==='value'){
+      // Single anchor (the selector widget) for both states — only the STYLE
+      // (solid vs hollow) promotes/demotes, never the position.
+      if(rects[i]) rects[i].classList.toggle('parked', hidden);
+      if(nums[i]) nums[i].classList.toggle('parked', hidden);
+    } else {
+      // Two anchors: the real (possibly invisible) on-node badge, and the
+      // parked selector-widget fallback — exactly one is ever shown.
+      if(rects[i]) rects[i].style.display = hidden ? 'none' : '';
+      if(nums[i]) nums[i].style.display = hidden ? 'none' : '';
+      if(parkedRects[i]) parkedRects[i].style.display = hidden ? '' : 'none';
+      if(parkedNums[i]) parkedNums[i].style.display = hidden ? '' : 'none';
+    }
+    if(parkedChips[i]) parkedChips[i].style.display = hidden ? '' : 'none';
+    const row=list.children[i];
+    if(row) row.classList.toggle('dimmed', hidden);
+  });
+}
 
 // Set a structure's OWN frame — CORRELATED: applied to every pane that has it, so
 // the same case shows the same frame in base and head (comparison stays aligned).
@@ -481,6 +701,25 @@ function revealPath(pane, el){
 // wrapper still surfaces the matched inner case in base for comparison.
 function revealFrame(c){
   const pane=paneFor(c), other=pane===headPane?basePane:headPane;
+  // A frame/value change's uid is the FRAME's own key (a LabVIEW frame uid, or
+  // the value-based fallback token — see diff.py's _frame_key), not a node or a
+  // struct — there is no '[data-node]'/'[data-lv-struct]' to query for it. Its
+  // frame_path already names every ancestor segment root->leaf (INCLUDING its
+  // own, per _frame_locality), so walk that string directly instead of reaching
+  // it via a DOM element.
+  if(c.kind==='frame'||c.kind==='value'){
+    const segs=(c.frame_path||'').split(';').filter(Boolean);
+    const st=stFor(pane);
+    segs.forEach(seg=>{const i=seg.indexOf('='), u=seg.slice(0,i), v=seg.slice(i+1);
+      if(u && st.toggleable.has(u)) st.sel[u]=v;});
+    const ost=stFor(other); let deepest=null;
+    segs.forEach(seg=>{const i=seg.indexOf('='), u=seg.slice(0,i), v=seg.slice(i+1);
+      if(u && ost.toggleable.has(u)){ ost.sel[u]=v; deepest=u; }});
+    if(deepest){ const oel=other.querySelector('[data-lv-struct="'+deepest+'"]');
+      if(oel) revealPath(other, oel); }
+    applyFrames();
+    return;
+  }
   const q=c.kind==='structure' ? '[data-lv-struct="'+c.uid+'"]' : '[data-node$="::'+c.uid+'"]';
   const el=pane.querySelector(q); if(!el)return;
   revealPath(pane, el);                                  // reach the change in its own pane
@@ -503,9 +742,66 @@ function revealFrame(c){
   if(!s)return;
   const u=s.dataset.lvStruct; if(!u)return;
   if(s.classList.contains('lv-option')) setFrame(u, s.dataset.lvValue);
+  else if(s.dataset.lvAction==='toggle'){
+    // The renderer bakes a REAL per-value dropdown for case structures (see
+    // draw.py's _draw_frame_menu: one <g class="lv-menu"><g class="lv-option"
+    // data-lv-value=...> row per frame value), baked start-hidden
+    // (style="display:none") because it's normally opened by the renderer's
+    // OWN inline controller — which this script-less (interactive=False) diff
+    // SVG never gets. Wire the same toggle here so decorateMenus()'s per-value
+    // change markers (req #4) are actually reachable, not just present in the DOM.
+    const m=p.querySelector('.lv-menu[data-lv-struct="'+u+'"]');
+    if(m) m.style.display = (m.style.display==='none') ? '' : 'none';
+  }
   else stepFrame(p, u, s.dataset.lvAction==='prev' ? -1 : 1);
 }));
 applyFrames();
+
+// ── Structure-level frame-change decoration (req #4) ────────────────────────
+// Investigation: the renderer DOES bake a full per-value list for CASE
+// structures — draw.py's _draw_frame_menu emits one <g class="lv-menu"><g
+// class="lv-option" data-lv-struct data-lv-value> row per case value (start
+// hidden, opened above). Stacked sequences get no such menu (draw.py: "Only
+// cases get a menu") — only the ◄ value ► widget. So: real per-value markers on
+// the actual dropdown rows where one exists, and an aggregate "changed" dot on
+// the live selector widget everywhere (including sequences) — nothing here is
+// fabricated; both are genuine baked elements this only decorates.
+function decorateMenus(){
+  const byStruct={};
+  CHANGES.forEach(c=>{
+    if((c.kind!=='frame' && c.kind!=='value') || !c.container_uid || !c.frame_path) return;
+    const seg=c.frame_path.split(';').pop(), val=seg.slice(seg.indexOf('=')+1);
+    (byStruct[c.container_uid]=byStruct[c.container_uid]||[]).push({value:val, cls:c.change});
+  });
+  [basePane,headPane].forEach(pane=>{
+    Object.keys(byStruct).forEach(uid=>{
+      const box=selectorBounds(pane, uid);
+      const widget=selectorEl(pane, uid);
+      if(widget && box){
+        const dot=document.createElementNS(SVGNS,'circle');
+        dot.setAttribute('cx',box[2]-3);dot.setAttribute('cy',box[1]+3);dot.setAttribute('r',3.2);
+        dot.setAttribute('class','frame-changed-dot');
+        const title=document.createElementNS(SVGNS,'title');
+        title.textContent=byStruct[uid].length+' frame change(s) in this structure — open the ▼ dropdown for per-value markers';
+        dot.appendChild(title);
+        widget.appendChild(dot);
+      }
+      byStruct[uid].forEach(({value,cls})=>{
+        const opt=pane.querySelector(
+          '.lv-menu[data-lv-struct="'+uid+'"] .lv-option[data-lv-value="'+CSS.escape(value)+'"]');
+        if(!opt)return;                       // no menu for this structure kind (e.g. a sequence)
+        const rect=opt.querySelector('rect'); if(!rect)return;
+        const rx2=parseFloat(rect.getAttribute('x'))+parseFloat(rect.getAttribute('width'));
+        const ry1=parseFloat(rect.getAttribute('y')), ry2=ry1+parseFloat(rect.getAttribute('height'));
+        const mk=document.createElementNS(SVGNS,'circle');
+        mk.setAttribute('cx',rx2-7);mk.setAttribute('cy',(ry1+ry2)/2);mk.setAttribute('r',3.4);
+        mk.setAttribute('class','frame-opt-dot '+cls);
+        opt.appendChild(mk);                  // rides inside the row -- shows/hides WITH the menu
+      });
+    });
+  });
+}
+decorateMenus();
 
 // Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|head|base|side
 // sets the mode; #frame=UID=VAL,UID=VAL pre-selects case frames (correlated).

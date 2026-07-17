@@ -9,7 +9,14 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.diff import diff_structured, diff_text, diff_uid
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
-from lvkit.models import LVType
+from lvkit.models import (
+    CaseFrame,
+    CaseOperation,
+    LVType,
+    SelectorRange,
+    SequenceFrame,
+    SequenceOperation,
+)
 from lvkit.parser.layout import Layout
 
 # Two structurally different, real permissively-licensed VIs (no relation to
@@ -128,15 +135,21 @@ class TestDiffStructured:
 
 
 class _StubGraph:
-    def __init__(self, constants: list[Constant], layout: Layout | None = None):
+    def __init__(
+        self,
+        constants: list[Constant],
+        layout: Layout | None = None,
+        operations: list | None = None,
+    ):
         self._constants = constants
         self._layout = layout
+        self._operations = operations if operations is not None else []
 
     def resolve_vi_name(self, vi_name: str) -> str:
         return vi_name
 
     def get_operations(self, _vi: str) -> list:
-        return []
+        return self._operations
 
     def get_wires(self, _vi: str, include_internal: bool = False) -> list:
         return []
@@ -233,6 +246,242 @@ class TestModifiedConstant:
         gb = _StubGraph([_const("7", "new", "String")])
         cmap = diff_uid(ga, gb, "vi", "vi")
         assert cmap.changes[0].detail == "old → new"
+
+
+# ── Locality stamping: container_uid / frame_path ───────────────────────
+#
+# Every ElementChange records WHERE it lives: the innermost enclosing Case/
+# stacked-Sequence structure (container_uid) and the full frame-addressing
+# chain (frame_path), formatted exactly like render/draw.py's
+# ``encode_frame_path`` token baked into the SVG's ``<g class="lv-frame"
+# data-path="...">`` attribute, so a downstream viewer can correlate a change
+# straight onto the rendered frame group with no reconciliation.
+
+
+class TestLocalityStamping:
+    def test_node_inside_added_case_carries_its_container(self):
+        # run_base/run_head (see TestWireChanges' docstring for the full
+        # anatomy): head wraps several existing nodes in a NEW case structure
+        # (uid 3870). Node 4117 ("addSkipped.vi") is a genuinely NEW node
+        # placed INSIDE that new case.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+
+        by_uid = {c.uid: c for c in cmap.changes if c.kind == "node"}
+        inside_new_case = by_uid["4117"]
+        assert inside_new_case.container_uid == "3870"
+        assert inside_new_case.frame_path is not None
+        assert inside_new_case.frame_path.endswith("3870=True")
+
+        # A DIFFERENT added node (1065) sits in an existing, UNRELATED case
+        # (753) -- not the new one -- proving container_uid is the actual
+        # innermost enclosing structure, not just "some truthy value".
+        elsewhere = by_uid["1065"]
+        assert elsewhere.container_uid == "753"
+        assert elsewhere.container_uid != inside_new_case.container_uid
+
+    def test_top_level_change_has_no_container(self):
+        # run_base/run_head happens to have every change nested inside some
+        # case, so the "top-level" side of this property needs a different
+        # real fixture: VI_A/VI_B (used throughout this file) diffs almost
+        # entirely at the top level. "Tick Count (ms)" (509) is added at the
+        # very top of VI_B's diagram, outside any structure.
+        ga, na = _load(VI_A, layout=True)
+        gb, nb = _load(VI_B, layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+
+        by_uid = {c.uid: c for c in cmap.changes if c.kind == "node"}
+        top_level = by_uid["509"]
+        assert top_level.label == "Tick Count (ms)"
+        assert top_level.container_uid is None
+        assert top_level.frame_path is None
+
+    def test_to_dict_serializes_locality_fields(self):
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        d = diff_uid(ga, gb, na, nb).to_dict()
+
+        entry = next(c for c in d["changes"] if c["uid"] == "4117")
+        assert entry["container_uid"] == "3870"
+        assert entry["frame_path"] is not None
+
+
+# ── Frame set diff: added/removed/value-changed frames ──────────────────
+#
+# We cannot author .vi files (no LabVIEW), so these drive a synthetic
+# CaseOperation/SequenceOperation straight through diff_uid via a stub graph
+# -- the lightest-weight route, mirroring TestModifiedConstant's _StubGraph
+# pattern above.
+
+
+class TestFrameSetChanges:
+    def test_case_structure_frame_added_removed_and_value_changed(self):
+        # One CaseOperation (uid "500"), matched across versions by its own
+        # (common) uid, whose FRAME SET differs by exactly:
+        #   - frame "1": base-only -> REMOVED
+        #   - frame "2": present both sides, key-matched by FALLBACK (its
+        #     CaseFrame.uid is None -- true of every real corpus case frame
+        #     today, see _frame_key's docstring); selector_ranges gained a
+        #     value (LabVIEW's "add value to this case") -> VALUE changed,
+        #     "2 → 2, 3".
+        #   - frame uid="900": present both sides, matched by its OWN real
+        #     uid (LabVIEW's "make this the default case" -- selector_value
+        #     AND is_default change while the frame's identity is preserved)
+        #     -> VALUE changed, "2 → Default".
+        #   - frame "4": head-only -> ADDED
+        case_a = CaseOperation(
+            id="vi::500", name="Case", labels=["CaseStructure"],
+            node_type="caseStructure",
+            frames=[
+                CaseFrame(selector_value="1"),
+                CaseFrame(
+                    selector_value="2",
+                    selector_ranges=[SelectorRange(start=2, end=2)],
+                ),
+                CaseFrame(uid="900", selector_value="2", is_default=False),
+            ],
+        )
+        case_b = CaseOperation(
+            id="vi::500", name="Case", labels=["CaseStructure"],
+            node_type="caseStructure",
+            frames=[
+                CaseFrame(
+                    selector_value="2",
+                    selector_ranges=[
+                        SelectorRange(start=2, end=2),
+                        SelectorRange(start=3, end=3),
+                    ],
+                ),
+                CaseFrame(uid="900", selector_value="Default", is_default=True),
+                CaseFrame(selector_value="4"),
+            ],
+        )
+        ga = _StubGraph([], operations=[case_a])
+        gb = _StubGraph([], operations=[case_b])
+        cmap = diff_uid(ga, gb, "vi", "vi")
+
+        frame_changes = {
+            c.uid: c for c in cmap.changes if c.kind in ("frame", "value")
+        }
+        assert set(frame_changes) == {"~1", "~2", "900", "~4"}
+
+        removed = frame_changes["~1"]
+        assert removed.kind == "frame"
+        assert removed.change == "removed"
+        assert removed.label == "1"
+        assert removed.container_uid == "500"
+        assert removed.frame_path == "500=1"
+
+        added = frame_changes["~4"]
+        assert added.kind == "frame"
+        assert added.change == "added"
+        assert added.label == "4"
+        assert added.container_uid == "500"
+        assert added.frame_path == "500=4"
+
+        value_by_fallback = frame_changes["~2"]
+        assert value_by_fallback.kind == "value"
+        assert value_by_fallback.change == "modified"
+        assert value_by_fallback.detail == "2 → 2, 3"
+        assert value_by_fallback.container_uid == "500"
+        assert value_by_fallback.frame_path == "500=2"
+
+        value_by_uid = frame_changes["900"]
+        assert value_by_uid.kind == "value"
+        assert value_by_uid.change == "modified"
+        assert value_by_uid.detail == "2 → Default"
+        assert value_by_uid.container_uid == "500"
+        assert value_by_uid.frame_path == "500=Default"
+
+    def test_unchanged_case_frame_set_has_no_frame_changes(self):
+        case_a = CaseOperation(
+            id="vi::500", name="Case", labels=["CaseStructure"],
+            node_type="caseStructure",
+            frames=[CaseFrame(selector_value="1"), CaseFrame(selector_value="2")],
+        )
+        case_b = CaseOperation(
+            id="vi::500", name="Case", labels=["CaseStructure"],
+            node_type="caseStructure",
+            frames=[CaseFrame(selector_value="1"), CaseFrame(selector_value="2")],
+        )
+        ga = _StubGraph([], operations=[case_a])
+        gb = _StubGraph([], operations=[case_b])
+        cmap = diff_uid(ga, gb, "vi", "vi")
+        assert [c for c in cmap.changes if c.kind in ("frame", "value")] == []
+
+    def test_stacked_sequence_frame_reorder_by_real_uid(self):
+        # SequenceFrame DOES get a real, stable uid from the parser (see
+        # parser/nodes/sequence.py) -- unlike CaseFrame. A stacked sequence
+        # (node_type != "flatSequence") is INTERACTIVE (render/scene.py wraps
+        # it in a togglable lv-frame group), so its frame changes extend the
+        # frame_path with their own segment.
+        seq_a = SequenceOperation(
+            id="vi::700", name="Sequence", labels=["StackedSequence"],
+            node_type="stackedSequence",
+            frames=[
+                SequenceFrame(uid="10", index=0),
+                SequenceFrame(uid="11", index=1),
+            ],
+        )
+        seq_b = SequenceOperation(
+            id="vi::700", name="Sequence", labels=["StackedSequence"],
+            node_type="stackedSequence",
+            frames=[
+                SequenceFrame(uid="11", index=0),
+                SequenceFrame(uid="12", index=1),
+            ],
+        )
+        ga = _StubGraph([], operations=[seq_a])
+        gb = _StubGraph([], operations=[seq_b])
+        cmap = diff_uid(ga, gb, "vi", "vi")
+
+        frame_changes = {
+            c.uid: c for c in cmap.changes if c.kind in ("frame", "value")
+        }
+        assert set(frame_changes) == {"10", "11", "12"}
+        assert frame_changes["10"].kind == "frame"
+        assert frame_changes["10"].change == "removed"
+        assert frame_changes["12"].kind == "frame"
+        assert frame_changes["12"].change == "added"
+
+        reordered = frame_changes["11"]
+        assert reordered.kind == "value"
+        assert reordered.change == "modified"
+        assert reordered.detail == "1 → 0"
+        assert reordered.container_uid == "700"
+        assert reordered.frame_path == "700=0"
+
+    def test_flat_sequence_frame_change_gets_no_new_frame_path_segment(self):
+        # A FLAT sequence shows every frame simultaneously (film-strip) --
+        # never hidden -- so render/scene.py never wraps it in a togglable
+        # lv-frame group (_is_interactive_struct is False for it). Its frame
+        # changes still get a real container_uid (the structure exists) but
+        # must NOT gain a frame_path segment nothing in the SVG would match.
+        seq_a = SequenceOperation(
+            id="vi::800", name="Flat Sequence", labels=["FlatSequence"],
+            node_type="flatSequence",
+            frames=[SequenceFrame(uid="20", index=0)],
+        )
+        seq_b = SequenceOperation(
+            id="vi::800", name="Flat Sequence", labels=["FlatSequence"],
+            node_type="flatSequence",
+            frames=[
+                SequenceFrame(uid="20", index=0),
+                SequenceFrame(uid="21", index=1),
+            ],
+        )
+        ga = _StubGraph([], operations=[seq_a])
+        gb = _StubGraph([], operations=[seq_b])
+        cmap = diff_uid(ga, gb, "vi", "vi")
+
+        frame_changes = [c for c in cmap.changes if c.kind in ("frame", "value")]
+        assert len(frame_changes) == 1
+        added = frame_changes[0]
+        assert added.uid == "21"
+        assert added.change == "added"
+        assert added.container_uid == "800"
+        assert added.frame_path is None  # non-interactive: no new segment
 
 
 # ── Wire endpoint diff (#10) ────────────────────────────────────────────
