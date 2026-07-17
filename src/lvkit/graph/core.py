@@ -21,6 +21,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .models import (
     AnyGraphNode,
     ConstantNode,
+    DisableStructureNode,
     LocalVariableNode,
     PolyInfo,
     StructureNode,
@@ -45,6 +46,7 @@ _NODE_TYPE_NAMES: dict[str, str] = {
     "flatSequence": "Flat Sequence",
     "seq": "Stacked Sequence",
     "decomposeRecomposeStructure": "In Place Element",
+    "commentNode": "Disable Structure",
 }
 
 # Map operation kind to labels
@@ -57,10 +59,14 @@ _KIND_TO_LABELS: dict[str, list[str]] = {
     "constant": ["Constant"],
     "formula": ["FormulaNode"],
     "local_variable": ["LocalVariable"],
+    "disableStruct": ["DisableStructure"],
 }
 
 # Graph node kinds that represent executable operations
-_OPERATION_KINDS = ("vi", "primitive", "operation", "caseStruct", "loop", "formula")
+_OPERATION_KINDS = (
+    "vi", "primitive", "operation", "caseStruct", "loop", "formula",
+    "disableStruct",
+)
 
 
 def _node_order_key(uid: str) -> tuple[str, int, str]:
@@ -90,6 +96,8 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
         return "formula"
     if isinstance(node, GraphPrimitiveNode):
         return "primitive"
+    if isinstance(node, DisableStructureNode):
+        return "disableStruct"
     if isinstance(node, StructureNode):
         if node.node_type in ("caseStruct", "select"):
             return "caseStruct"

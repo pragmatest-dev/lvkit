@@ -379,6 +379,19 @@ class SequenceOperation(Operation):
     frames: list[SequenceFrame] = []
 
 
+class DisableStructureOperation(Operation):
+    """Diagram/Conditional Disable structure -- frame-bearing like a case,
+    but the active frame is fixed at compile/edit time (no runtime
+    selector_terminal -- unlike CaseOperation). Kept as a distinct type so it
+    does NOT enter case codegen (a match/case over a selector that doesn't
+    exist); codegen has no dedicated generator for it yet, so it falls
+    through to the existing "unknown node type" comment fallback. Render
+    draws it like a case (see render/scene.py, render/draw.py).
+    """
+
+    frames: list[CaseFrame] = []
+
+
 class InPlaceOperation(Operation):
     """In Place Element Structure (decompose/recompose).
 

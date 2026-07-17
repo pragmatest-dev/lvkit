@@ -146,6 +146,29 @@ class InPlaceNode(StructureNode):
     pass
 
 
+class DisableStructureNode(StructureNode):
+    """A Diagram/Conditional Disable structure.
+
+    Frame-bearing like a case (one of several subdiagrams is active), but
+    has NO selector terminal -- the active frame is fixed at compile/edit
+    time (the heap's ``activeDiag``, driven by a conditional-compile symbol
+    or the user's Enable/Disable toggle), not chosen by a runtime wire
+    value. Kept as its own type (NOT a CaseStructureNode subclass) so it
+    does not fall into case-structure codegen, which assumes a real runtime
+    selector -- render treats it like a case (see render/scene.py,
+    render/draw.py); codegen has no dedicated generator for it yet (falls
+    through to the existing "unknown node type" comment fallback).
+    """
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    frames: list[CaseFrame] = []
+    # Index into ``frames`` of the enabled/active subdiagram at compile/edit
+    # time (heap ``activeDiag``) -- the faithful initial view. None if
+    # unresolved.
+    active_frame: int | None = None
+
+
 class FormulaNode(GraphNode):
     """A Formula Node (fBox) — an embedded C-like script over typed terminals.
 
@@ -196,7 +219,7 @@ class LocalVariableNode(GraphNode):
 # Discriminated union of all node types
 AnyGraphNode = (
     VINode | PrimitiveNode | StructureNode | ConstantNode | InPlaceNode
-    | FormulaNode | LocalVariableNode
+    | FormulaNode | LocalVariableNode | DisableStructureNode
 )
 
 

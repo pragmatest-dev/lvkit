@@ -18,6 +18,7 @@ from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
     ConstantNode,
+    DisableStructureNode,
     FormulaNode,
     LoopNode,
     SequenceNode,
@@ -282,7 +283,8 @@ def _frame_path(
         parent = by_id.get(cur.parent)
         if parent is None:
             break
-        if isinstance(parent, CaseStructureNode) or _is_stacked_sequence(parent):
+        if isinstance(parent, (CaseStructureNode, DisableStructureNode)) \
+                or _is_stacked_sequence(parent):
             segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
         cur = parent
     segs.reverse()
@@ -427,6 +429,32 @@ def _frame_info(
                     str(f.selector_value): str(f.selector_value) == "0"
                     for f in node.frames
                 }
+        elif isinstance(node, DisableStructureNode) and node.frames:
+            # Disable structure: no runtime selector / no lv_type to derive a
+            # faithful display label from — CaseFrame.selector_value already
+            # IS the display text ("Enabled"/"Disabled"/a symbol condition/
+            # "Frame N"), so frame_labels is left unpopulated and
+            # _frame_display's raw-value fallback (draw.py) handles it.
+            raw = _strip_prefix(node.id, vi_name)
+            frame_values[raw] = [str(f.selector_value) for f in node.frames]
+            # Always show the ENABLED subdiagram — the code that actually
+            # compiles/runs — with the disabled one(s) hidden by default. The
+            # heap's active_frame reflects the editor's last-shown diagram, NOT
+            # which subdiagram is enabled, so prefer the "Enabled"-labelled
+            # frame. A Conditional Disable uses condition labels (no "Enabled"),
+            # so there fall back to active_frame, then default/first.
+            shown = next(
+                (f for f in node.frames if str(f.selector_value) == "Enabled"),
+                None,
+            )
+            if shown is None and node.active_frame is not None \
+                    and 0 <= node.active_frame < len(node.frames):
+                shown = node.frames[node.active_frame]
+            if shown is None:
+                shown = next(
+                    (f for f in node.frames if f.is_default), node.frames[0],
+                )
+            default_frame[raw] = str(shown.selector_value)
         elif (
             isinstance(node, SequenceNode)
             and node.node_type != "flatSequence"

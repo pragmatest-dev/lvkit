@@ -24,6 +24,7 @@ class GraphBuildContext:
     case_by_uid: dict[str, Any]
     flatseq_by_uid: dict[str, Any]
     decompose_by_uid: dict[str, Any]
+    disable_by_uid: dict[str, Any]
     iuse_to_qname: dict[str, str]   # iUse uid -> qualified callee name
     iuse_to_qpath: dict[str, str]   # iUse uid -> qualified on-disk path
     # For the early ref handlers (ctlRefConst / gRef / statVIRef):

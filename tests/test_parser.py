@@ -961,11 +961,21 @@ def test_every_registered_handler_is_reachable_by_extraction() -> None:
     _extract_nodes iterates. A handler that is registered but not whitelisted
     is never reached, so those nodes vanish from the diagram (the aReplace /
     'Replace Array Subset' drop). This test fails loudly if the two lists
-    diverge again."""
+    diverge again.
+
+    "commentNode" is the one intentional exception: class="commentNode" is
+    used for BOTH a Disable structure (has subdiagrams) and, in principle, a
+    plain free-text comment -- so it can't be bucketed unconditionally like
+    every other OPERATION_NODE_CLASSES member (that would misparse a plain
+    comment as a structure). _extract_nodes instead reaches it through a
+    separate, gated pass keyed on
+    parser.nodes.disable.is_disable_structure -- see that module's docstring
+    and DisableStructureHandler's."""
     from lvkit.parser.constants import OPERATION_NODE_CLASSES
     from lvkit.parser.node_types import NODE_HANDLERS
 
-    unreachable = sorted(set(NODE_HANDLERS) - set(OPERATION_NODE_CLASSES))
+    reachable = set(OPERATION_NODE_CLASSES) | {"commentNode"}
+    unreachable = sorted(set(NODE_HANDLERS) - reachable)
     assert not unreachable, (
         f"Node handlers registered but not in OPERATION_NODE_CLASSES "
         f"(they will be silently dropped by _extract_nodes): {unreachable}"

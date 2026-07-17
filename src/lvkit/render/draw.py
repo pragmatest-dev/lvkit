@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
+    DisableStructureNode,
     FormulaNode,
     LocalVariableNode,
     PrimitiveNode,
@@ -71,6 +72,10 @@ _STRUCTURE_STYLE = {
     "flatSequence": "flatSequence",
     "seq": "stackedSequence",
     "sequence": "stackedSequence",
+    # Diagram/Conditional Disable structure — drawn like a case (bordered
+    # box + subdiagram selector) for now; faithful greyed-out styling of
+    # disabled diagrams is a follow-up.
+    "commentNode": "case",
 }
 
 # LabVIEW's array-control terminal icon always shows a 3-row index display
@@ -79,10 +84,10 @@ _ARRAY_INDEX_ROWS = 3
 
 
 def _is_interactive_structure(node: object) -> bool:
-    """Case structures and STACKED sequences get selector chrome + per-frame
-    ``lv-frame``/``lv-selector`` groups; flat sequences (film-strip, every
-    frame always visible) and loops do not."""
-    return isinstance(node, CaseStructureNode) or (
+    """Case structures, Disable structures, and STACKED sequences get
+    selector chrome + per-frame ``lv-frame``/``lv-selector`` groups; flat
+    sequences (film-strip, every frame always visible) and loops do not."""
+    return isinstance(node, (CaseStructureNode, DisableStructureNode)) or (
         isinstance(node, SequenceNode) and node.node_type != "flatSequence"
     )
 
@@ -1142,18 +1147,33 @@ def _draw_frame_border(
     (green No Error / red Error) so the static SVG is correct; per-frame colored
     borders drawn in ``draw_scene`` recolor it as the viewer switches frames."""
     x1, y1, x2, y2 = structure.bounds
+    node = structure.node
     default = scene.default_frame.get(structure.raw_uid, "")
     color = _error_border_color(scene, structure.raw_uid, default, theme)
+    # A Diagram/Conditional Disable structure draws a DOTTED boundary (LabVIEW's
+    # signature for a disable frame — see reference), distinguishing it from the
+    # solid case/sequence box.
+    dash = "1.5,2.5" if isinstance(node, DisableStructureNode) else None
     if color is not None:
-        backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.6)
+        backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.6,
+                     stroke_dasharray=dash)
     else:
         backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                     stroke_width=1.2)
+                     stroke_width=1.2, stroke_dasharray=dash)
+
+    # A STACKED sequence shares the flat sequence's top/bottom rails (the
+    # film-strip "3D frame" look) — the selector + single-frame layout is all
+    # that distinguishes stacked from flat. (Flat sequences never reach here;
+    # they draw in _draw_sequence_border.)
+    if isinstance(node, SequenceNode):
+        backend.line(x1, y1 + 4, x2, y1 + 4, stroke=theme.struct_border,
+                     stroke_width=1)
+        backend.line(x1, y2 - 4, x2, y2 - 4, stroke=theme.struct_border,
+                     stroke_width=1)
 
     # "Case Insensitive Match" badge — LabVIEW 2015+ draws "A=a" at the
     # bottom-left corner of a string case structure when the match is
     # case-insensitive (the non-default mode). See CaseStructureNode.
-    node = structure.node
     if isinstance(node, CaseStructureNode) and node.case_insensitive:
         # "A=a" is drawn in the string wire color (pink) — it is an attribute
         # of the string selector, matching LabVIEW's own coloring.
@@ -1642,6 +1662,24 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
         for fp in fps:
             draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
         _draw_layer_coercion_dots(nets, dots, backend, theme)
+        # Disable structure: every frame EXCEPT the enabled/default one is a
+        # disabled subdiagram — wash it with a translucent grey mask so its
+        # contents read as inactive (matches LabVIEW). The mask is the LAST thing
+        # in the frame group so it sits over all the frame's nodes/wires; it is
+        # pointer-events:none so clicks fall through, and the selector chrome is
+        # redrawn ON TOP (outside the opacity group) so ◄ value ▼ ► stays crisp.
+        if (
+            enclosing is not None
+            and isinstance(enclosing.node, DisableStructureNode)
+            and path[-1][1] != scene.default_frame.get(enclosing.raw_uid)
+        ):
+            mx1, my1, mx2, my2 = enclosing.bounds
+            backend.begin_group(
+                cls="lv-disabled-mask", style="pointer-events:none;opacity:0.5",
+            )
+            backend.rect(mx1, my1, mx2, my2, fill=theme.disabled_mask)
+            backend.end_group()
+            _draw_frame_selector(enclosing, scene, backend, theme)
         backend.end_group()
 
     # Dedicated single-segment value-label groups (see _draw_frame_border /

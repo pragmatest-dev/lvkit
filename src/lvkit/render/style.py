@@ -38,6 +38,11 @@ class Theme:
     case_bar_text: str = "#4a4636"
     case_no_error_border: str = "#2e9e3f"  # green — error-cluster "No Error" frame
     case_error_border: str = "#d32f2f"     # red — error-cluster "Error" frame
+    # Translucent wash painted over a DISABLED subdiagram of a Diagram/
+    # Conditional Disable structure (every frame except the enabled one), so
+    # its greyed-out contents read as inactive — matches LabVIEW. Applied at
+    # ~0.5 group opacity (see draw_scene); this is the solid grey it washes to.
+    disabled_mask: str = "#9a9a9a"
     selector_fill: str = "#e6f4d9"
     selector_stroke: str = "#5a8f3a"
     selector_text: str = "#3f6b28"

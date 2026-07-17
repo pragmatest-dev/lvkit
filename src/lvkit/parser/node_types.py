@@ -630,6 +630,34 @@ class _SequenceAliasHandler(StackedSequenceHandler):
     xml_class = "sequence"
 
 
+class DisableStructureHandler(NodeTypeHandler):
+    """Handler for Diagram/Conditional Disable structures.
+
+    Serialized as class="commentNode" -- the same class a plain free-text
+    comment might use, but every commentNode this parser reaches here IS a
+    real Disable structure: _extract_nodes only calls parse_node() on
+    commentNode elements that already passed
+    parser.nodes.disable.is_disable_structure (a plain comment never has
+    subdiagrams, so it never reaches this handler). Frame content itself
+    lives in ParsedDisableStructure (parser.nodes.disable), mirroring how
+    case-frame content lives in ParsedCaseStructure separately from the bare
+    SelectNode.
+    """
+
+    xml_class = "commentNode"
+    display_name = "Disable Structure"
+
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        input_types, output_types = extract_terminal_types(elem)
+        return ParsedNode(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=self.display_name,
+            input_types=input_types,
+            output_types=output_types,
+        )
+
+
 class PrintfHandler(NodeTypeHandler):
     """Handler for Format String nodes (class="printf").
 
@@ -972,6 +1000,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     FlatSequenceHandler(),
     StackedSequenceHandler(),
     _SequenceAliasHandler(),
+    DisableStructureHandler(),
     PrintfHandler(),
     ScanfHandler(),
     NMuxHandler(),

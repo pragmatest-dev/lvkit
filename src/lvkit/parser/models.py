@@ -208,6 +208,34 @@ class ParsedCaseStructure:
 
 
 @dataclass
+class ParsedDisableStructure:
+    """A Diagram/Conditional Disable structure on the block diagram.
+
+    Serialized as ``class="commentNode"`` in the heap -- the SAME element
+    class name suggested a plain free-text comment might share, but every
+    ``commentNode`` observed in the corpus (152 instances / 112 real VIs)
+    carries subdiagrams; a plain label is a separate element
+    (``class="label"``). See ``parser/nodes/disable.py:is_disable_structure``,
+    which still gates on the actual structural feature (a ``diagramList`` of
+    >=1 ``diag`` children) rather than trusting that invariant blindly.
+
+    Frame-bearing like a case (each ``diag`` child is a frame; exactly one is
+    "active") but has NO selector terminal -- the active frame is fixed at
+    compile/edit time (the heap's ``activeDiag`` index, driven by a
+    conditional-compile symbol for a Conditional Disable Structure, or by the
+    user's Enable/Disable toggle for a plain Diagram Disable Structure), not
+    chosen by a runtime wire value.
+    """
+
+    uid: str
+    frames: list[CaseFrame] = field(default_factory=list)
+    tunnels: list[Tunnel] = field(default_factory=list)
+    # Index into ``frames`` of the enabled/active subdiagram (heap
+    # ``activeDiag``). None if the heap value didn't parse.
+    active_frame: int | None = None
+
+
+@dataclass
 class ParsedFlatSequenceStructure:
     """A flat sequence structure on the block diagram."""
 
@@ -417,6 +445,7 @@ class ParsedBlockDiagram:
     decompose_structures: list[ParsedDecomposeRecomposeStructure] = field(
         default_factory=list,
     )
+    disable_structures: list[ParsedDisableStructure] = field(default_factory=list)
     # Maps sRN UID → containing structure UID (for scoped terminal collection)
     srn_to_structure: dict[str, str] = field(default_factory=dict)
 

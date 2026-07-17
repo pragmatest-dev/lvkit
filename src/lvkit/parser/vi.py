@@ -20,6 +20,7 @@ from lvkit.models import LVType
 
 from .constants import (
     MULTI_LABEL_CLASS,
+    NODE_CLASS_COMMENT,
     NODE_CLASS_CPD_ARITH,
     NODE_CLASS_SHIFT_REG,
     OPERATION_NODE_CLASSES,
@@ -54,8 +55,10 @@ from .nodes import (
     extract_case_structures,
     extract_constants,
     extract_decompose_structures,
+    extract_disable_structures,
     extract_flat_sequences,
     extract_loops,
+    is_disable_structure,
     parse_selector_tables,
 )
 from .type_mapping import parse_type_map_rich
@@ -273,6 +276,7 @@ def _parse_block_diagram(
     )
     flat_sequences = extract_flat_sequences(root)
     decompose_structures = extract_decompose_structures(root)
+    disable_structures = extract_disable_structures(root)
 
     bd = ParsedBlockDiagram(
         nodes=nodes,
@@ -285,6 +289,7 @@ def _parse_block_diagram(
         case_structures=case_structures,
         flat_sequences=flat_sequences,
         decompose_structures=decompose_structures,
+        disable_structures=disable_structures,
         srn_to_structure=srn_to_structure,
     )
     layout = (
@@ -413,12 +418,15 @@ def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
     allowed = frozenset(OPERATION_NODE_CLASSES)
     by_class: dict[str, list[ET.Element]] = {}
     generic: list[ET.Element] = []
+    disable_elems: list[ET.Element] = []
     for elem in root.iter():
         # `.//*[@class=X]` matches descendants only — exclude root from buckets.
         if elem is not root:
             cls = elem.get("class")
             if cls is not None and cls in allowed:
                 by_class.setdefault(cls, []).append(elem)
+            elif cls == NODE_CLASS_COMMENT and is_disable_structure(elem):
+                disable_elems.append(elem)
         # matches `root.iter("SL__arrayElement")` (includes root if it matched).
         if elem.tag == "SL__arrayElement":
             generic.append(elem)
@@ -432,6 +440,16 @@ def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
             nodes.append(node)
             if node.uid:
                 seen_uids.add(node.uid)
+
+    # Disable structures (class="commentNode" with subdiagrams) — same
+    # tree-shaped-node treatment as case/loop/sequence structures. Gated by
+    # is_disable_structure above since a plain free-text comment never
+    # carries a diagramList and must stay a no-op (SKIP_NODE_CLASSES).
+    for elem in disable_elems:
+        node = parse_node(elem)
+        nodes.append(node)
+        if node.uid:
+            seen_uids.add(node.uid)
 
     # Generic capture: node-shaped elements the allowlist above misses (e.g.
     # decimate, interLeave, extFunc, exprNode). parse_node falls back to
@@ -653,10 +671,19 @@ def _walk_and_extract_terminals(
     elem_uid = elem.get("uid")
     elem_class = elem.get("class", "")
 
+    # A Disable structure's own boundary terminals (commentTun) live in its
+    # DIRECT termList, exactly like a case structure's csTun/selTun — but
+    # commentNode isn't in TERMINAL_CONTAINER_CLASSES (a plain comment has no
+    # terminals worth extracting), so it needs its own is_disable_structure
+    # gate here, same as the structure-context check below.
+    is_disable_elem = elem_class == NODE_CLASS_COMMENT and is_disable_structure(elem)
+
     # Extract terminals from this element if it's a terminal container — known
-    # operation nodes, or a generically-captured unknown node (so its wires
-    # still connect through the placeholder box).
+    # operation nodes, a Disable structure's own boundary terminals, or a
+    # generically-captured unknown node (so its wires still connect through
+    # the placeholder box).
     if elem_uid and (elem_class in TERMINAL_CONTAINER_CLASSES
+                     or is_disable_elem
                      or _is_generic_operation_node(elem)):
         _process_element_terminals(
             elem, wire_sources, wire_sinks, type_map, terminal_info,
@@ -667,7 +694,7 @@ def _walk_and_extract_terminals(
         srn_to_structure[elem_uid] = current_structure_uid
 
     # Update structure context for children
-    if elem_uid and elem_class in STRUCTURE_NODE_CLASSES:
+    if elem_uid and (elem_class in STRUCTURE_NODE_CLASSES or is_disable_elem):
         next_structure_uid = elem_uid
     else:
         next_structure_uid = current_structure_uid
