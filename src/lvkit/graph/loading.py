@@ -266,8 +266,18 @@ class LoadingMixin:
         expand_subvis: bool = True,
         search_paths: list[Path] | None = None,
         owner_chain: list[str] | None = None,
+        fields_only: bool = False,
     ) -> None:
-        """Load all VIs from a .lvclass file."""
+        """Load a .lvclass file.
+
+        ``fields_only`` is an INTERFACE load: add the class's private-data fields
+        (and its parent chain's, via walk-up — nMux field indices run into the
+        parent+own combined list) but load NONE of its method VIs. Used to
+        resolve unbundle-by-name field names for a class referenced only by type
+        (e.g. a member VI in a subfolder whose ``.lvclass`` sits one dir up),
+        without the expensive method tree. A later reference that resolves the
+        class on disk upgrades this placeholder to a full load (see
+        ``_load_dependency``)."""
         lvclass_path = Path(lvclass_path)
         cls = parse_lvclass(lvclass_path)
 
@@ -317,7 +327,22 @@ class LoadingMixin:
             node_type="class",
             fields=fields,
             parent_class=cls.parent_class,
+            fields_only=fields_only,
         )
+
+        if fields_only:
+            # Resolve inherited fields by field-loading the parent chain (found
+            # via walk-up from this class's own dir), then STOP — no methods.
+            parent = cls.parent_class
+            if parent and parent != "LabVIEW Object":
+                parent_key = parent + ".lvclass"
+                if not self._dep_graph.has_node(parent_key):
+                    parent_file = self._walk_up_find(lvclass_path.parent, parent_key)
+                    if parent_file is not None:
+                        self.load_lvclass(
+                            parent_file, search_paths=search_paths, fields_only=True,
+                        )
+            return
 
         for method in cls.methods:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
@@ -335,6 +360,23 @@ class LoadingMixin:
                         accessor_type=method.accessor_type,
                         accessor_field=method.accessor_field,
                     )
+
+    def _walk_up_find(
+        self, start_dir: Path, filename: str, max_levels: int = 16,
+    ) -> Path | None:
+        """Walk up from ``start_dir`` looking for ``filename`` — e.g. an owning
+        ``<Class>.lvclass`` that sits above a member VI's ``private/``/``protected/``
+        subfolder. Filesystem-only (no parsing), bounded by ``max_levels`` so a
+        deep tree can't run away. Returns the first match, else None."""
+        d = start_dir.resolve()
+        for _ in range(max_levels):
+            candidate = d / filename
+            if candidate.exists():
+                return candidate
+            if d.parent == d:
+                break
+            d = d.parent
+        return None
 
     def _resolve_class_vi_path(self, cls_dir: Path, relative_path: str) -> Path | None:
         """Resolve VI path from lvclass relative URL."""
@@ -682,7 +724,11 @@ class LoadingMixin:
         if self._dep_graph.has_node(qualified_name):
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, qualified_name)
-            return
+            # A fields-only class placeholder (walk-up interface load) is NOT the
+            # definitive dedup — if THIS reference can resolve the class on disk,
+            # fall through so a full load (with methods) upgrades it.
+            if not self._dep_graph.nodes[qualified_name].get("fields_only"):
+                return
 
         leaf = qualified_name.rsplit(":", 1)[-1]
 
@@ -708,6 +754,25 @@ class LoadingMixin:
                 resolved = self._find_file(leaf, search_paths, caller_file.parent)
 
         if resolved is None:
+            # A class referenced only by TYPE whose .lvclass isn't on a search
+            # path (e.g. a member VI in a subfolder, class one dir up) would stub
+            # with no fields -> unbundle-by-name shows [0]/[1]. Walk up to find it
+            # and INTERFACE-load its fields (no methods) so the names resolve. A
+            # later resolvable reference still upgrades it to a full load.
+            if leaf.endswith(".lvclass"):
+                if self._dep_graph.has_node(qualified_name):
+                    return  # already field-loaded, still unresolvable — done
+                found = self._walk_up_find(caller_file.parent, leaf)
+                if found is not None:
+                    parts = qualified_name.split(":")
+                    owner_chain = parts[:-1] if len(parts) > 1 else None
+                    self.load_lvclass(
+                        found, search_paths=search_paths,
+                        owner_chain=owner_chain, fields_only=True,
+                    )
+                    if caller_qname:
+                        self._dep_graph.add_edge(caller_qname, qualified_name)
+                    return
             node_type = (
                 "class" if leaf.endswith(".lvclass") else
                 "typedef" if leaf.endswith(".ctl") else
