@@ -357,6 +357,12 @@ class ExtractedIconResolver:
             candidate = Path(node.qualified_path)
             if candidate.is_file():
                 src_path = candidate
+        # A user's LOCAL vi.lib/user.lib (their own licensed install): resolve
+        # the <vilib>/<userlib> token to a real on-disk .vi. Rendering it
+        # locally is not distribution; lvkit never ships this art, and a hosted
+        # service has no roots set so this stays None. Fail-soft to name-box.
+        if src_path is None:
+            src_path = ctx.graph.resolve_library_vi_path(node.qualified_path)
         if src_path is None:
             return None
 

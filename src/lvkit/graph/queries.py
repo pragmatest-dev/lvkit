@@ -226,6 +226,31 @@ class QueryMixin:
             self._vi_file_index = index
         return self._vi_file_index.get(vi_name)
 
+    def resolve_library_vi_path(self, qualified_path: str | None) -> Path | None:
+        """Resolve a ``<vilib>``/``<userlib>`` token path to a real ``.vi``
+        under the user's LOCAL library roots (``set_library_roots`` from
+        ``--vilib``/``--userlib`` or auto-detect). Decoration-only (icons).
+
+        Rendering a user's own licensed vi.lib icon on their own machine is
+        NOT distribution — lvkit never ships this art, and a hosted service
+        simply has no roots set (falls through to None). Loose ``.vi`` only:
+        a member packed inside a ``.llb`` isn't addressable as a file and
+        returns None (deferred). Token order mirrors the loader's
+        ``path_tokens`` (``["<vilib>", "Utility", ...]``)."""
+        if not qualified_path:
+            return None
+        for token, root in (
+            ("<vilib>", self._vilib_root),
+            ("<userlib>", self._userlib_root),
+        ):
+            if qualified_path.startswith(token) and root is not None:
+                rel = qualified_path[len(token):].lstrip("/\\")
+                if ".llb/" in rel.replace("\\", "/").lower():
+                    return None  # packed member — needs archive extraction
+                candidate = root / rel
+                return candidate if candidate.is_file() else None
+        return None
+
     def get_layout(self, vi_name: str) -> Layout | None:
         """Get a VI's block-diagram geometry, or None if the graph was not
         loaded with ``layout=True``. Populated from the same parse (no second
