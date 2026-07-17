@@ -26,10 +26,15 @@ TOOL_DEFINITIONS = {
                     "items": {"type": "string"},
                     "description": "Directories to search for SubVI dependencies",
                 },
-                "expand_subvis": {
-                    "type": "boolean",
-                    "description": "Load all SubVI dependencies recursively",
-                    "default": True,
+                "load_mode": {
+                    "type": "string",
+                    "enum": ["none", "minimal", "full"],
+                    "description": (
+                        "Dependency depth: 'minimal' (default; this VI + direct "
+                        "SubVI connector panes + type fields), 'full' (whole "
+                        "tree), or 'none' (this VI only)."
+                    ),
+                    "default": "minimal",
                 },
             },
             "required": ["vi_path"],
@@ -53,10 +58,14 @@ TOOL_DEFINITIONS = {
                     "items": {"type": "string"},
                     "description": "Directories to search for dependencies",
                 },
-                "expand_subvis": {
-                    "type": "boolean",
-                    "description": "Load SubVI dependencies",
-                    "default": True,
+                "load_mode": {
+                    "type": "string",
+                    "enum": ["none", "minimal", "full"],
+                    "description": (
+                        "Dependency depth: 'full' (default; complete "
+                        "cross-references), 'minimal', or 'none'."
+                    ),
+                    "default": "full",
                 },
             },
             "required": ["library_path", "output_dir"],
@@ -92,10 +101,14 @@ TOOL_DEFINITIONS = {
                     "items": {"type": "string"},
                     "description": "Directories to search for SubVI dependencies",
                 },
-                "expand_subvis": {
-                    "type": "boolean",
-                    "description": "Load all SubVI dependencies recursively",
-                    "default": True,
+                "load_mode": {
+                    "type": "string",
+                    "enum": ["none", "minimal", "full"],
+                    "description": (
+                        "Dependency depth: 'minimal' (default), 'full' (needed "
+                        "before codegen), or 'none'."
+                    ),
+                    "default": "minimal",
                 },
             },
             "required": ["vi_path"],

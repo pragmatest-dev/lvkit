@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import __version__, primitive_resolver, vilib_resolver
 from .graph import InMemoryVIGraph
+from .graph.loading import LoadMode
 from .lv_detect import detect_labview
 from .project_store import (
     find_project_store,
@@ -23,6 +24,31 @@ from .structure import (
     parse_lvclass,
     parse_lvlib,
 )
+
+
+def _add_load_mode_arg(parser: argparse.ArgumentParser) -> None:
+    """Add ``--load-mode {none,minimal,full}`` to a subparser. Each command
+    picks its own default when it resolves the value (see _resolve_load_mode)."""
+    parser.add_argument(
+        "--load-mode",
+        choices=[m.value for m in LoadMode],
+        default=None,
+        help=(
+            "How deep to load dependencies: 'none' (this VI only), 'minimal' "
+            "(this VI + direct SubVI connector panes + referenced-type fields; "
+            "faithful render/diff), or 'full' (whole SubVI/class-method tree). "
+            "Defaults per command."
+        ),
+    )
+
+
+def _resolve_load_mode(
+    args: argparse.Namespace, default: LoadMode,
+) -> LoadMode:
+    """Resolve the effective LoadMode for a command: an explicit ``--load-mode``
+    wins, else the command's default."""
+    chosen = getattr(args, "load_mode", None)
+    return LoadMode(chosen) if chosen else default
 
 
 def _add_project_root_arg(parser: argparse.ArgumentParser) -> None:
@@ -184,6 +210,7 @@ def main() -> int:
         help="Search paths for SubVI resolution (can be repeated)",
     )
     _add_project_root_arg(desc_parser)
+    _add_load_mode_arg(desc_parser)
     _add_library_root_args(desc_parser)
 
     # Generate command - deterministic AST-based Python generation
@@ -206,10 +233,6 @@ def main() -> int:
         default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
-    gen_parser.add_argument(
-        "--no-expand", action="store_true",
-        help="Don't expand SubVIs",
-    )
     # User-facing name is --placeholder-on-unresolved (descriptive of the
     # output the user sees in their generated Python). Internally this
     # flows to CodeGenContext.soft_unresolved (the codegen-time mode).
@@ -224,6 +247,7 @@ def main() -> int:
         ),
     )
     _add_project_root_arg(gen_parser)
+    _add_load_mode_arg(gen_parser)
     _add_library_root_args(gen_parser)
 
     # Docs command - generate HTML documentation
@@ -245,11 +269,8 @@ def main() -> int:
         default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
-    docs_parser.add_argument(
-        "--no-expand", action="store_true",
-        help="Don't expand SubVIs",
-    )
     _add_project_root_arg(docs_parser)
+    _add_load_mode_arg(docs_parser)
     _add_library_root_args(docs_parser)
 
     # Visualize command - interactive graph visualization
@@ -274,10 +295,6 @@ def main() -> int:
         help="Search paths for SubVI resolution (can be repeated)",
     )
     viz_parser.add_argument(
-        "--no-expand", action="store_true",
-        help="Don't expand SubVIs",
-    )
-    viz_parser.add_argument(
         "--open", action="store_true",
         help="Open in browser after generating",
     )
@@ -288,6 +305,7 @@ def main() -> int:
         help="Graph type: dataflow (operations within VI) or deps (VI dependencies)",
     )
     _add_project_root_arg(viz_parser)
+    _add_load_mode_arg(viz_parser)
     _add_library_root_args(viz_parser)
 
     # Diff command - compare two VIs
@@ -315,6 +333,7 @@ def main() -> int:
         help="Search paths for SubVI resolution (can be repeated)",
     )
     _add_project_root_arg(diff_parser)
+    _add_load_mode_arg(diff_parser)
     _add_library_root_args(diff_parser)
 
     # Setup command - install AI editor skills and create .lvkit/ store
@@ -378,12 +397,8 @@ def main() -> int:
         "--search-path", action="append", dest="search_paths", default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
-    render_parser.add_argument(
-        "--no-expand", action="store_true",
-        help="Don't resolve SubVIs — faster, but SubVIs render as boxes without "
-             "their real icons",
-    )
     _add_project_root_arg(render_parser)
+    _add_load_mode_arg(render_parser)
     _add_library_root_args(render_parser)
 
     args = parser.parse_args()
@@ -540,7 +555,10 @@ def cmd_describe(args: argparse.Namespace) -> int:
         graph = InMemoryVIGraph()
         _configure_library_roots(graph, args)
         search_paths = [Path(p) for p in args.search_paths]
-        graph.load_vi(str(input_path), search_paths=search_paths)
+        graph.load_vi(
+            str(input_path), _resolve_load_mode(args, LoadMode.MINIMAL),
+            search_paths=search_paths,
+        )
 
         # Disambiguate by parent dir when multiple loaded VIs share the
         # input's leaf name (e.g. TestCase.lvclass:run.vi vs TestSuite's)
@@ -712,7 +730,7 @@ def cmd_render(args: argparse.Namespace) -> int:
             search_paths=search_paths,
             vilib_root=vilib_root,
             userlib_root=userlib_root,
-            expand_subvis=not args.no_expand,
+            mode=_resolve_load_mode(args, LoadMode.MINIMAL),
         )
     except Exception as e:
         print(f"Error: render failed: {e}", file=sys.stderr)
@@ -752,15 +770,16 @@ def cmd_diff(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
     search_paths = [Path(p) for p in args.search_paths]
 
+    diff_mode = _resolve_load_mode(args, LoadMode.MINIMAL)
     try:
         graph_a = InMemoryVIGraph()
         _configure_library_roots(graph_a, args)
-        graph_a.load_vi(str(path_a), search_paths=search_paths)
+        graph_a.load_vi(str(path_a), diff_mode, search_paths=search_paths)
         vi_name_a = graph_a.resolve_vi_name(path_a.name)
 
         graph_b = InMemoryVIGraph()
         _configure_library_roots(graph_b, args)
-        graph_b.load_vi(str(path_b), search_paths=search_paths)
+        graph_b.load_vi(str(path_b), diff_mode, search_paths=search_paths)
         vi_name_b = graph_b.resolve_vi_name(path_b.name)
 
         if args.long:
@@ -804,7 +823,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             input_path,
             args.output,
             search_paths=sp,
-            expand_subvis=not args.no_expand,
+            mode=_resolve_load_mode(args, LoadMode.FULL),
             soft_unresolved=args.placeholder_on_unresolved,
             vilib_root=vilib_root,
             userlib_root=userlib_root,
@@ -835,7 +854,7 @@ def cmd_docs(args: argparse.Namespace) -> int:
             library_path=str(input_path),
             output_dir=args.output_dir,
             search_paths=args.search_paths if args.search_paths else None,
-            expand_subvis=not args.no_expand,
+            mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
         )
@@ -862,17 +881,17 @@ def cmd_visualize(args: argparse.Namespace) -> int:
     search_paths = (
         [Path(p) for p in args.search_paths] if args.search_paths else None
     )
-    expand = not args.no_expand
+    vmode = _resolve_load_mode(args, LoadMode.FULL)
 
     suffix = input_path.suffix.lower()
     if suffix == ".lvclass":
-        graph.load_lvclass(str(input_path), expand, search_paths)
+        graph.load_lvclass(str(input_path), vmode, search_paths)
     elif suffix == ".lvlib":
-        graph.load_lvlib(str(input_path), expand, search_paths)
+        graph.load_lvlib(str(input_path), vmode, search_paths)
     elif input_path.is_dir():
-        graph.load_directory(str(input_path), expand, search_paths)
+        graph.load_directory(str(input_path), vmode, search_paths)
     else:
-        graph.load_vi(str(input_path), expand, search_paths)
+        graph.load_vi(str(input_path), vmode, search_paths)
 
     output = Path(args.output)
 

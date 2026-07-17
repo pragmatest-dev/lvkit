@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph import InMemoryVIGraph, connect
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import ConstantNode, PrimitiveNode, VINode, WireEnd
 from lvkit.models import FPTerminal, Terminal
 
@@ -220,7 +221,7 @@ class TestRealVILoading:
             pytest.skip("Sample VI not available")
 
         graph = InMemoryVIGraph()
-        graph.load_vi(sample_vi_path, expand_subvis=False)
+        graph.load_vi(sample_vi_path, mode=LoadMode.NONE)
 
         vis = graph.list_vis()
         assert len(vis) >= 1
@@ -236,7 +237,7 @@ class TestRealVILoading:
         graph = InMemoryVIGraph()
         graph.load_vi(
             sample_vi_path,
-            expand_subvis=True,
+            mode=LoadMode.FULL,
             search_paths=[Path("samples/OpenG/extracted")],
         )
         assert len(graph.list_vis()) >= 1

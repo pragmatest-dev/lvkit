@@ -19,6 +19,7 @@ import pytest
 
 from lvkit.codegen.builder import build_module
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.models import InPlaceOperation
 
 SEARCH_PATHS = [Path("samples/OpenG/extracted")]
@@ -273,7 +274,7 @@ def delete_line_graph() -> InMemoryVIGraph:
     g = InMemoryVIGraph()
     g.load_vi(
         str(DELETE_LINE_VI),
-        expand_subvis=True,
+        mode=LoadMode.FULL,
         search_paths=DCAF_SEARCH_PATHS,
     )
     return g

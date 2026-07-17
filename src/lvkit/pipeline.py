@@ -21,6 +21,7 @@ from typing import Any
 from lvkit.codegen import ClassBuilder, ClassConfig, build_module
 from lvkit.codegen.ast_utils import to_function_name, to_module_name
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
 from lvkit.terminal_collector import get_collector
@@ -357,7 +358,7 @@ def generate_python(
     input_path: Path | str,
     output_dir: Path | str,
     search_paths: list[Path] | None = None,
-    expand_subvis: bool = True,
+    mode: LoadMode = LoadMode.FULL,
     soft_unresolved: bool = False,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
@@ -368,7 +369,8 @@ def generate_python(
         input_path: Path to .vi, .lvlib, .lvclass, or directory
         output_dir: Output directory for generated Python
         search_paths: Additional paths for SubVI resolution
-        expand_subvis: If True, recursively load SubVIs
+        mode: dependency depth (``LoadMode``). Codegen defaults to ``FULL`` (the
+            whole SubVI/class-method tree); ``NONE`` generates this VI only.
         soft_unresolved: When True, unknown primitives / vi.lib VIs are
             emitted as inline `raise` statements instead of failing the
             build. See build_module() docstring for details.
@@ -403,28 +405,23 @@ def generate_python(
     # Detect input type and load appropriately
     if input_path.suffix.lower() == ".lvclass":
         graph.load_lvclass(
-            str(input_path), expand_subvis=expand_subvis,
-            search_paths=search_path_list,
+            str(input_path), mode, search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".lvlib":
         graph.load_lvlib(
-            str(input_path), expand_subvis=expand_subvis,
-            search_paths=search_path_list,
+            str(input_path), mode, search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".llb":
         graph.load_llb(
-            str(input_path), expand_subvis=expand_subvis,
-            search_paths=search_path_list,
+            str(input_path), mode, search_paths=search_path_list,
         )
     elif input_path.is_dir():
         graph.load_directory(
-            str(input_path), expand_subvis=expand_subvis,
-            search_paths=search_path_list,
+            str(input_path), mode, search_paths=search_path_list,
         )
     else:
         graph.load_vi(
-            str(input_path), expand_subvis=expand_subvis,
-            search_paths=search_path_list,
+            str(input_path), mode, search_paths=search_path_list,
         )
 
     order = graph.get_conversion_order()

@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import ConstantNode, InPlaceNode, PrimitiveNode, VINode
 from lvkit.models import LVType, Terminal
 from lvkit.primitive_resolver import NodeIcon, PrimitiveEntry, ResolvedPrimitive
@@ -437,7 +438,7 @@ def test_ground_truth_add_still_resolves_to_arith_glyph():
     if not GROUND_TRUTH_VI.exists():
         pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
     graph = InMemoryVIGraph()
-    graph.load_vi(GROUND_TRUTH_VI, expand_subvis=False)
+    graph.load_vi(GROUND_TRUTH_VI, mode=LoadMode.NONE)
     vi = graph.resolve_vi_name(GROUND_TRUTH_VI.name)
     scene = build_scene(graph, vi)
     assert scene is not None

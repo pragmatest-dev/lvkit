@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.models import (
     CaseOperation,
     Operation,
@@ -38,7 +39,7 @@ def _skip_if_missing(*paths: Path) -> None:
 def daqmx_graph() -> InMemoryVIGraph:
     _skip_if_missing(DAQMX_CALLER_VI)
     g = InMemoryVIGraph()
-    g.load_vi(str(DAQMX_CALLER_VI), expand_subvis=False, search_paths=SEARCH_PATHS)
+    g.load_vi(str(DAQMX_CALLER_VI), mode=LoadMode.NONE, search_paths=SEARCH_PATHS)
     return g
 
 
@@ -47,7 +48,7 @@ def testcase_graph() -> InMemoryVIGraph:
     _skip_if_missing(TESTCASE_CLASS)
     g = InMemoryVIGraph()
     g.load_lvclass(
-        str(TESTCASE_CLASS), expand_subvis=True, search_paths=TESTCASE_SEARCH
+        str(TESTCASE_CLASS), mode=LoadMode.FULL, search_paths=TESTCASE_SEARCH
     )
     return g
 

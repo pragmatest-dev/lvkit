@@ -30,7 +30,7 @@ CLASS_VI = Path(
 
 def _render(vi: Path, mode: LoadMode) -> tuple[str, int]:
     g = InMemoryVIGraph()
-    g.load_vi(vi, expand_subvis=True, search_paths=None, layout=True, mode=mode)
+    g.load_vi(vi, search_paths=None, layout=True, mode=mode)
     n_vis = sum(
         1 for _, d in g._dep_graph.nodes(data=True)
         if d.get("node_type") not in ("class", "typedef", "library")

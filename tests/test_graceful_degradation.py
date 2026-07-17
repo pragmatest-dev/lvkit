@@ -30,6 +30,7 @@ from lvkit.graph.describe import (
     describe_vi,
 )
 from lvkit.graph.diff import diff_structured, diff_text
+from lvkit.graph.loading import LoadMode
 
 SAMPLE_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
@@ -152,7 +153,7 @@ def test_generate_documents_with_no_resolutions(
     summary = generate_documents(
         library_path=str(SAMPLE_VI),
         output_dir=str(output_dir),
-        expand_subvis=False,
+        mode=LoadMode.NONE,
     )
     assert summary  # Non-empty status string
     assert output_dir.is_dir()

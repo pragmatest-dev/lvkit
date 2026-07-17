@@ -16,6 +16,7 @@ import ast
 
 from lvkit.codegen.ast_optimizer import eliminate_dead_code
 from lvkit.codegen.context import _format_constant
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
 from lvkit.models import LVType, SubVIOperation
 
@@ -216,7 +217,7 @@ class TestPolyVariantExtraction:
         """DAQ AO.vi's Create Virtual Channel should resolve to 'AO Voltage'."""
         from lvkit.graph import connect
         mg = connect()
-        mg.load_vi(DAQMX_CALLER_VI, expand_subvis=False)
+        mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
         for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
             is_target = (
@@ -232,7 +233,7 @@ class TestPolyVariantExtraction:
         """DAQ AO.vi's Write should have an Analog variant name."""
         from lvkit.graph import connect
         mg = connect()
-        mg.load_vi(DAQMX_CALLER_VI, expand_subvis=False)
+        mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
         for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
             if isinstance(op, SubVIOperation) and op.name == "DAQmx Write.vi":
@@ -245,7 +246,7 @@ class TestPolyVariantExtraction:
         """Non-polymorphic nodes should have poly_variant_name=None."""
         from lvkit.graph import connect
         mg = connect()
-        mg.load_vi(DAQMX_CALLER_VI, expand_subvis=False)
+        mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
         for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
             if isinstance(op, SubVIOperation) and op.name == "DAQmx Start Task.vi":

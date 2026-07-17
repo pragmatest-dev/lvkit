@@ -44,22 +44,26 @@ if TYPE_CHECKING:
 
 
 class LoadMode(Enum):
-    """How deep a load pulls in a VI's dependencies.
+    """How deep a load pulls in a VI's dependencies. One knob, three states.
 
-    ``FULL`` walks the entire transitive SubVI + class-method tree — required by
-    codegen, which compiles the whole call tree.
+    ``NONE`` — the target VI ONLY. No SubVIs, no classes, no typedefs. SubVI
+    calls resolve to nothing (render draws fallback boxes; codegen emits
+    unresolved-call placeholders). The old ``expand_subvis=False``.
 
-    ``MINIMAL`` loads the target VI, LEAF-loads its DIRECT SubVIs (their
-    connector panes, so the caller's param-name hovers resolve — but not THEIR
-    SubVIs), and field-loads the classes/typedefs its wires reference (no class
-    methods). It is the minimum set to FAITHFULLY render/diff/describe one VI:
-    byte-identical output to FULL (verified across the corpus), while skipping
-    the transitive tree — typically 8-40x cheaper because a deep call tree
-    collapses to its shallow direct fan-out.
+    ``MINIMAL`` — the target VI, its DIRECT SubVIs LEAF-loaded (their connector
+    panes, so the caller's param-name hovers resolve — but not THEIR SubVIs),
+    and the classes/typedefs its wires reference field-loaded (no class methods).
+    The minimum set to FAITHFULLY render/diff/describe one VI: byte-identical
+    render to FULL (verified across the corpus), typically 8-40x cheaper because
+    the deep call tree collapses to its shallow direct fan-out.
+
+    ``FULL`` — the entire transitive SubVI + class-method tree. Required by
+    codegen, which compiles the whole call tree. The old ``expand_subvis=True``.
     """
 
-    FULL = "full"
+    NONE = "none"
     MINIMAL = "minimal"
+    FULL = "full"
 
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
@@ -122,25 +126,22 @@ class LoadingMixin:
     def load_vi(
         self,
         vi_path: Path | str,
-        expand_subvis: bool = True,
+        mode: LoadMode = LoadMode.FULL,
         search_paths: list[Path] | None = None,
         clear_first: bool = False,
         layout: bool = False,
-        mode: LoadMode = LoadMode.FULL,
     ) -> None:
         """Load a VI hierarchy into memory.
 
         Args:
             vi_path: Path to .vi file or *_BDHb.xml file
-            expand_subvis: Recursively expand SubVIs
+            mode: dependency depth (see ``LoadMode``). ``FULL`` (default) loads
+                the whole SubVI/class-method tree (codegen); ``MINIMAL`` loads
+                this VI + its direct SubVIs' connector panes + referenced-type
+                fields (render/diff/describe — byte-identical to FULL, far
+                cheaper); ``NONE`` loads this VI only.
             search_paths: Directories to search for SubVIs
             clear_first: Clear existing data before loading
-            mode: ``LoadMode.FULL`` (default) loads the whole SubVI/class-method
-                tree; ``LoadMode.MINIMAL`` loads this VI, leaf-loads its direct
-                SubVIs (connector panes only) and field-loads referenced
-                classes/typedefs — the minimum set to render/diff/describe it,
-                byte-identical to FULL but far cheaper. Ignored when
-                ``expand_subvis`` is False (nothing beyond this VI loads either way).
             layout: decode + retain block-diagram GEOMETRY for every loaded VI
                 (see ``get_layout``). Off by default — only rendering needs it;
                 codegen/analysis loads pay nothing. Geometry comes from the same
@@ -154,7 +155,7 @@ class LoadingMixin:
 
         # Handle .llb containers by extracting members and loading each
         if vi_path.suffix.lower() == ".llb":
-            self.load_llb(vi_path, expand_subvis, search_paths)
+            self.load_llb(vi_path, mode, search_paths)
             return
 
         # Handle .vi files by extracting first
@@ -189,7 +190,6 @@ class LoadingMixin:
             bd_xml,
             fp_xml,
             main_xml,
-            expand_subvis=expand_subvis,
             search_paths=search_paths,
             visited=set(),
             source_dir=source_dir,
@@ -205,7 +205,7 @@ class LoadingMixin:
     def load_lvlib(
         self,
         lvlib_path: Path | str,
-        expand_subvis: bool = True,
+        mode: LoadMode = LoadMode.FULL,
         search_paths: list[Path] | None = None,
         owner_chain: list[str] | None = None,
     ) -> None:
@@ -254,7 +254,7 @@ class LoadingMixin:
                             member_name, search_paths, lvlib_path.parent,
                         )
                     if vi_path and vi_path.exists():
-                        self.load_vi(vi_path, expand_subvis, search_paths)
+                        self.load_vi(vi_path, mode, search_paths)
                         # Ownership edge
                         vi_qname = lib_qname + ":" + member_name
                         if vi_qname in self._dep_graph:
@@ -270,7 +270,7 @@ class LoadingMixin:
                         class_path = found
                 if class_path.exists():
                     self.load_lvclass(
-                        class_path, expand_subvis, search_paths,
+                        class_path, mode, search_paths,
                         owner_chain=chain + [lib.name + ".lvlib"],
                     )
             elif member.member_type == "Library":
@@ -284,29 +284,30 @@ class LoadingMixin:
                         nested_path = found
                 if nested_path.exists():
                     self.load_lvlib(
-                        nested_path, expand_subvis, search_paths,
+                        nested_path, mode, search_paths,
                         owner_chain=chain + [lib.name + ".lvlib"],
                     )
 
     def load_lvclass(
         self,
         lvclass_path: Path | str,
-        expand_subvis: bool = True,
+        mode: LoadMode = LoadMode.FULL,
         search_paths: list[Path] | None = None,
         owner_chain: list[str] | None = None,
-        fields_only: bool = False,
     ) -> None:
         """Load a .lvclass file.
 
-        ``fields_only`` is an INTERFACE load: add the class's private-data fields
+        ``MINIMAL`` is an INTERFACE load: add the class's private-data fields
         (and its parent chain's, via walk-up — nMux field indices run into the
         parent+own combined list) but load NONE of its method VIs. Used to
         resolve unbundle-by-name field names for a class referenced only by type
         (e.g. a member VI in a subfolder whose ``.lvclass`` sits one dir up),
         without the expensive method tree. A later reference that resolves the
         class on disk upgrades this placeholder to a full load (see
-        ``_load_dependency``)."""
+        ``_load_dependency``). ``FULL``/``NONE`` load every method VI (each at
+        that same mode)."""
         lvclass_path = Path(lvclass_path)
+        fields_only = mode is LoadMode.MINIMAL
         cls = parse_lvclass(lvclass_path)
 
         if search_paths is None:
@@ -368,14 +369,14 @@ class LoadingMixin:
                     parent_file = self._walk_up_find(lvclass_path.parent, parent_key)
                     if parent_file is not None:
                         self.load_lvclass(
-                            parent_file, search_paths=search_paths, fields_only=True,
+                            parent_file, LoadMode.MINIMAL, search_paths=search_paths,
                         )
             return
 
         for method in cls.methods:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
             if vi_path and vi_path.exists():
-                self.load_vi(vi_path, expand_subvis, search_paths)
+                self.load_vi(vi_path, mode, search_paths)
                 # Ownership edge — carries scope/accessor info for docs
                 # (class landing pages, access-level badges).
                 vi_name = cls_qname + ":" + Path(method.vi_path).name
@@ -425,7 +426,7 @@ class LoadingMixin:
     def load_lvproj(
         self,
         lvproj_path: Path | str,
-        expand_subvis: bool = True,
+        mode: LoadMode = LoadMode.FULL,
         search_paths: list[Path] | None = None,
     ) -> None:
         """Load all VIs referenced by a .lvproj file."""
@@ -438,20 +439,20 @@ class LoadingMixin:
 
         for lib_name, lib_path in get_project_libraries(proj):
             if lib_path.exists():
-                self.load_lvlib(lib_path, expand_subvis, search_paths)
+                self.load_lvlib(lib_path, mode, search_paths)
 
         for class_name, class_path in get_project_classes(proj):
             if class_path.exists():
-                self.load_lvclass(class_path, expand_subvis, search_paths)
+                self.load_lvclass(class_path, mode, search_paths)
 
         for vi_name, vi_path in get_project_vis(proj):
             if vi_path.exists():
-                self.load_vi(vi_path, expand_subvis, search_paths)
+                self.load_vi(vi_path, mode, search_paths)
 
     def load_directory(
         self,
         dir_path: Path | str,
-        expand_subvis: bool = True,
+        mode: LoadMode = LoadMode.FULL,
         search_paths: list[Path] | None = None,
     ) -> None:
         """Load all VIs from a directory recursively."""
@@ -463,16 +464,16 @@ class LoadingMixin:
         # Sorted: load order decides which same-named file claims a name first
         # when SubVI deps resolve, so filesystem order made loads irreproducible.
         for vi_path in sorted(dir_path.rglob("*.vi")):
-            self.load_vi(vi_path, expand_subvis, search_paths)
+            self.load_vi(vi_path, mode, search_paths)
 
         for llb_path in sorted(dir_path.rglob("*.llb")):
             if llb_path.is_file():
-                self.load_llb(llb_path, expand_subvis, search_paths)
+                self.load_llb(llb_path, mode, search_paths)
 
     def load_llb(
         self,
         llb_path: Path | str,
-        expand_subvis: bool = True,
+        mode: LoadMode = LoadMode.FULL,
         search_paths: list[Path] | None = None,
     ) -> None:
         """Load all VIs from an LLB container archive.
@@ -483,7 +484,7 @@ class LoadingMixin:
         """
         llb_path = Path(llb_path)
         if llb_path.is_dir():
-            self.load_directory(llb_path, expand_subvis, search_paths)
+            self.load_directory(llb_path, mode, search_paths)
             return
 
         try:
@@ -496,7 +497,7 @@ class LoadingMixin:
 
         for vi_path in cache_dir.glob("*.vi"):
             try:
-                self.load_vi(vi_path, expand_subvis, search_paths)
+                self.load_vi(vi_path, mode, search_paths)
             except (RuntimeError, ValueError):
                 pass  # Skip VIs that have no block diagram (compiled-only)
 
@@ -530,7 +531,6 @@ class LoadingMixin:
         bd_xml: Path,
         fp_xml: Path | None,
         main_xml: Path | None,
-        expand_subvis: bool,
         search_paths: list[Path],
         visited: set[str],
         source_dir: Path | None = None,
@@ -628,8 +628,9 @@ class LoadingMixin:
             else {}
         )
 
-        # Load all dependencies through the single generic walker.
-        if expand_subvis and main_xml and main_xml.exists():
+        # Load all dependencies through the single generic walker. NONE stops
+        # here — the target VI only, no dependencies at all.
+        if mode is not LoadMode.NONE and main_xml and main_xml.exists():
             # Collect all dependency qnames: SubVI/class refs + type_map deps.
             # MINIMAL and FULL both collect the same set — what differs is DEPTH
             # (see _load_dependency): MINIMAL leaf-loads each SubVI (its connector
@@ -802,8 +803,8 @@ class LoadingMixin:
                     parts = qualified_name.split(":")
                     owner_chain = parts[:-1] if len(parts) > 1 else None
                     self.load_lvclass(
-                        found, search_paths=search_paths,
-                        owner_chain=owner_chain, fields_only=True,
+                        found, LoadMode.MINIMAL, search_paths=search_paths,
+                        owner_chain=owner_chain,
                     )
                     if caller_qname:
                         self._dep_graph.add_edge(caller_qname, qualified_name)
@@ -833,16 +834,16 @@ class LoadingMixin:
         if leaf.endswith(".vi"):
             try:
                 bd_xml, fp_xml, main_xml = extract_vi_xml(resolved)
+                # MINIMAL leaf-loads a SubVI: its own connector pane (for the
+                # caller's param-name hovers) but NOT its own SubVIs (child NONE)
+                # — so the transitive tree is never walked. FULL recurses fully.
+                child_mode = LoadMode.FULL if mode is LoadMode.FULL else LoadMode.NONE
                 loaded_name = self._load_vi_recursive(
                     bd_xml, fp_xml, main_xml,
-                    # MINIMAL leaf-loads a SubVI: its own connector pane (for the
-                    # caller's param-name hovers) but NOT its own SubVIs — so the
-                    # transitive tree is never walked. FULL recurses everything.
-                    expand_subvis=mode is LoadMode.FULL,
                     search_paths=search_paths,
                     visited=set(),
                     source_dir=resolved.parent,
-                    mode=mode,
+                    mode=child_mode,
                 )
                 if loaded_name:
                     if caller_qname:
@@ -864,14 +865,13 @@ class LoadingMixin:
             # MINIMAL: field-load the class (no method bodies) — enough for
             # by-name field names. FULL: load its whole method tree for codegen.
             self.load_lvclass(
-                resolved, expand_subvis=True,
+                resolved, mode,
                 search_paths=search_paths, owner_chain=owner_chain,
-                fields_only=mode is LoadMode.MINIMAL,
             )
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, qualified_name)
         elif leaf.endswith(".lvlib"):
-            self.load_lvlib(resolved, expand_subvis=True, search_paths=search_paths)
+            self.load_lvlib(resolved, mode, search_paths=search_paths)
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, qualified_name)
         elif leaf.endswith(".ctl"):

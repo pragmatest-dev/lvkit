@@ -14,6 +14,7 @@ from pathlib import Path
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.models import CaseOperation, SequenceOperation
 from lvkit.render import render_vi_with_subvis
 from lvkit.structure import parse_lvclass, parse_lvlib
@@ -273,7 +274,7 @@ def generate_documents(
     library_path: str,
     output_dir: str,
     search_paths: list[str] | None = None,
-    expand_subvis: bool = True,
+    mode: LoadMode = LoadMode.FULL,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
 ) -> str:
@@ -315,8 +316,7 @@ def generate_documents(
         return f"No VIs found in {library_path}"
 
     # Load all VIs into graph
-    expand_msg = "expand_subvis=True" if expand_subvis else "expand_subvis=False"
-    print(f"[TIMING] Starting VI loading ({expand_msg})...")
+    print(f"[TIMING] Starting VI loading (mode={mode.value})...")
     t0 = time.time()
     graph = InMemoryVIGraph()
     if vilib_root or userlib_root:
@@ -337,7 +337,7 @@ def generate_documents(
         try:
             graph.load_vi(
                 vi_path,
-                expand_subvis=expand_subvis,
+                mode=mode,
                 search_paths=search_path_objs or None,
                 layout=True,  # docs renders every VI — carry geometry from the
                 # same parse instead of a second heap read per VI.

@@ -309,17 +309,19 @@ def render_vi_file(
     search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
-    expand_subvis: bool = True,
+    mode: LoadMode = LoadMode.MINIMAL,
     theme: Theme = DEFAULT_THEME,
 ) -> str | None:
     """Render a ``.vi`` file (or ``_BDHb.xml`` heap) straight from disk,
     building a fresh graph.
 
-    ``expand_subvis`` defaults to True so SubVI calls resolve to their real
-    ``.vi`` files and their extracted icons appear on the diagram; pass the
-    library roots / search paths so vi.lib / user.lib SubVIs resolve. If
-    expansion fails (unresolvable deps), it degrades to a diagram-only load so
-    the VI still renders (fallback boxes for unresolved SubVIs)."""
+    ``mode`` defaults to ``LoadMode.MINIMAL`` — the target VI plus its direct
+    SubVIs' connector panes and referenced-type fields, which renders
+    byte-identically to a full load but never walks the transitive SubVI tree
+    (8-40x faster on a deep hierarchy). Pass the library roots / search paths so
+    vi.lib / user.lib SubVIs resolve. If the load fails (unresolvable deps), it
+    degrades to ``LoadMode.NONE`` (this VI's own diagram only, fallback boxes for
+    SubVIs) so the VI still renders."""
     path = Path(path)
     vi_name_hint = (
         path.name.replace("_BDHb.xml", ".vi")
@@ -327,23 +329,17 @@ def render_vi_file(
         else path.name
     )
 
-    def _load(expand: bool) -> InMemoryVIGraph:
+    def _load(load_mode: LoadMode) -> InMemoryVIGraph:
         graph = InMemoryVIGraph()
         if vilib_root or userlib_root:
             graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-        # MINIMAL: render loads only this VI + its direct SubVIs' connector panes
-        # + referenced-type fields — byte-identical to a full load, but it never
-        # walks the transitive SubVI tree (8-40x faster on a deep hierarchy).
-        graph.load_vi(
-            path, expand_subvis=expand, search_paths=search_paths, layout=True,
-            mode=LoadMode.MINIMAL,
-        )
+        graph.load_vi(path, mode=load_mode, search_paths=search_paths, layout=True)
         return graph
 
     try:
-        graph = _load(expand_subvis)
+        graph = _load(mode)
     except Exception:
-        if not expand_subvis:
+        if mode is LoadMode.NONE:
             raise
-        graph = _load(False)  # degrade: still render this VI's own diagram
+        graph = _load(LoadMode.NONE)  # degrade: still render this VI's own diagram
     return render_vi(graph, graph.resolve_vi_name(vi_name_hint), theme=theme)

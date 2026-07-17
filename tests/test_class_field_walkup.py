@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import PrimitiveNode
 
 # A class member VI whose .lvclass sits one directory up (subfolder case).
@@ -45,7 +46,7 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
         pytest.skip(f"Sample VI not available: {SUBFOLDER_VI}")
 
     g = InMemoryVIGraph()
-    g.load_vi(SUBFOLDER_VI, expand_subvis=True, search_paths=None)
+    g.load_vi(SUBFOLDER_VI, mode=LoadMode.FULL, search_paths=None)
 
     # The owning class resolves its private-data fields...
     fields = g.get_class_fields("TextTestRunner.JUnitXML.lvclass")

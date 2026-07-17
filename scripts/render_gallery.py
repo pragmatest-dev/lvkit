@@ -27,6 +27,7 @@ import html
 from dataclasses import dataclass
 from pathlib import Path
 
+from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi_file
 from lvkit.render.style import css_var_theme
 from lvkit.render.theme_web import (
@@ -213,7 +214,7 @@ def main() -> int:
             skipped += 1
             continue
         try:
-            svg = render_vi_file(vi, expand_subvis=False, theme=sampler_theme)
+            svg = render_vi_file(vi, mode=LoadMode.NONE, theme=sampler_theme)
         except Exception as e:  # noqa: BLE001 — report, never abort the run
             print(f"  FAIL  {s.name:22} {type(e).__name__}: {e}")
             cards.append(

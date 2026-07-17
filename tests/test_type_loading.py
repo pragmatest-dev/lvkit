@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
 TESTCASE_DIR = SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestCase"
@@ -33,7 +34,7 @@ class TestLoadVIWithTypeDependencies:
     def test_class_dependency_loaded(self):
         """addError.vi references TestResult.lvclass — it should appear in dep_graph."""
         graph = InMemoryVIGraph()
-        graph.load_vi(ADDERROR_VI, expand_subvis=True, search_paths=SEARCH_PATHS)
+        graph.load_vi(ADDERROR_VI, mode=LoadMode.FULL, search_paths=SEARCH_PATHS)
 
         # TestResult.lvclass should be in dep_graph as a class node
         # (not just as part of the VI name "TestResult.lvclass:addError.vi")
@@ -49,7 +50,7 @@ class TestLoadVIWithTypeDependencies:
     def test_typedef_dependency_loaded(self):
         """addError.vi references .ctl typedefs — they should be in dep_graph."""
         graph = InMemoryVIGraph()
-        graph.load_vi(ADDERROR_VI, expand_subvis=True, search_paths=SEARCH_PATHS)
+        graph.load_vi(ADDERROR_VI, mode=LoadMode.FULL, search_paths=SEARCH_PATHS)
 
         all_nodes = list(graph._dep_graph.nodes)
         ctl_refs = [n for n in all_nodes if ".ctl" in n]

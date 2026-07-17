@@ -7,6 +7,7 @@ from pathlib import Path
 
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.diff import diff_structured, diff_text, diff_uid
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
 from lvkit.models import LVType
 from lvkit.parser.layout import Layout
@@ -28,7 +29,7 @@ VI_B = Path(
 
 def _load(vi_path: Path, *, layout: bool = False) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), expand_subvis=False, layout=layout)
+    graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=layout)
     vi_name = graph.resolve_vi_name(vi_path.name)
     return graph, vi_name
 

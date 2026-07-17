@@ -17,6 +17,7 @@ from lvkit import docs as docs_pkg  # noqa: F401  (ensures package import works)
 from lvkit.docs.generate import _prepare_vi_documentation_data
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 
 SAMPLE_VI = Path(".tmp/array average 1.vi")
 
@@ -26,7 +27,7 @@ def _load_sample() -> tuple[InMemoryVIGraph, str] | None:
         return None
     graph = InMemoryVIGraph()
     try:
-        graph.load_vi(SAMPLE_VI, expand_subvis=False)
+        graph.load_vi(SAMPLE_VI, mode=LoadMode.NONE)
     except Exception:
         return None
     return graph, graph.resolve_vi_name(SAMPLE_VI.name)

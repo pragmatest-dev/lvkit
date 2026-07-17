@@ -6,6 +6,7 @@ import pytest
 
 from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.parser import ParsedVI, ParsedVIMetadata, parse_vi
 from lvkit.parser.metadata import parse_subvi_paths, parse_vi_metadata
 from lvkit.parser.type_mapping import parse_type_map_rich
@@ -46,7 +47,7 @@ def parsed_metadata(parsed_vi) -> ParsedVIMetadata:
 @pytest.fixture(scope="module")
 def graph():
     g = InMemoryVIGraph()
-    g.load_vi(TEST_VI, expand_subvis=True, search_paths=SEARCH_PATHS)
+    g.load_vi(TEST_VI, mode=LoadMode.FULL, search_paths=SEARCH_PATHS)
     return g
 
 

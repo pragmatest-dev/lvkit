@@ -130,7 +130,7 @@ class InMemoryVIGraph(
 
     Usage:
         graph = InMemoryVIGraph()
-        graph.load_vi("/path/to/Main.vi", expand_subvis=True)
+        graph.load_vi("/path/to/Main.vi", LoadMode.FULL)
 
         # Process VIs in dependency order (handles recursive VIs)
         for vi_group in graph.get_generation_order():

@@ -18,7 +18,7 @@ from mcp.types import TextContent, Tool
 
 from .. import primitive_resolver, vilib_resolver
 from ..codegen import build_module
-from ..graph import InMemoryVIGraph
+from ..graph import InMemoryVIGraph, LoadMode
 from ..graph.describe import (
     describe_constants as describe_constants_text,
 )
@@ -116,13 +116,17 @@ async def list_tools() -> list[Tool]:
                         ),
                         "default": [],
                     },
-                    "expand_subvis": {
-                        "type": "boolean",
+                    "load_mode": {
+                        "type": "string",
+                        "enum": ["none", "minimal", "full"],
                         "description": (
-                            "Load SubVI dependencies for complete cross-references "
-                            "(slower) or just library VIs (faster)"
+                            "Dependency depth. 'full' (default): whole SubVI/"
+                            "class-method tree — complete cross-references. "
+                            "'minimal': each VI + its direct SubVIs' connector "
+                            "panes + referenced-type fields — faithful, far "
+                            "cheaper. 'none': each VI alone."
                         ),
-                        "default": True,
+                        "default": "full",
                     },
                     "vilib_root": {
                         "type": "string",
@@ -241,7 +245,7 @@ async def list_tools() -> list[Tool]:
                 "Use this to load VIs before querying them with get_context, "
                 "get_operations, get_dataflow, get_structure, or get_constants.\n\n"
                 "Returns list of loaded VIs "
-                "(includes dependencies if expand_subvis=true)."
+                "(includes dependencies unless load_mode is 'none')."
             ),
             inputSchema={
                 "type": "object",
@@ -256,10 +260,17 @@ async def list_tools() -> list[Tool]:
                         "description": "Directories to search for SubVI dependencies",
                         "default": [],
                     },
-                    "expand_subvis": {
-                        "type": "boolean",
-                        "description": "Load all SubVI dependencies recursively",
-                        "default": True,
+                    "load_mode": {
+                        "type": "string",
+                        "enum": ["none", "minimal", "full"],
+                        "description": (
+                            "Dependency depth. 'minimal' (default): this VI + its "
+                            "direct SubVIs' connector panes + referenced-type "
+                            "fields — the faithful minimum for inspecting one VI. "
+                            "'full': the whole SubVI/class-method tree (needed "
+                            "before codegen). 'none': this VI alone."
+                        ),
+                        "default": "minimal",
                     },
                     "vilib_root": {
                         "type": "string",
@@ -466,7 +477,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         library_path = arguments.get("library_path")
         output_dir = arguments.get("output_dir")
         search_paths = arguments.get("search_paths", [])
-        expand_subvis = arguments.get("expand_subvis", True)
+        load_mode = arguments.get("load_mode", "full")
         vilib_root = arguments.get("vilib_root")
         userlib_root = arguments.get("userlib_root")
         auto_vilib = arguments.get("auto_vilib", True)
@@ -480,7 +491,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         # Run documentation generation (synchronous function in async context)
         result = await asyncio.to_thread(
-            generate_documents, library_path, output_dir, search_paths, expand_subvis,
+            generate_documents, library_path, output_dir, search_paths, load_mode,
             vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
         )
 
@@ -518,7 +529,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     elif name == "load":
         vi_path = arguments.get("vi_path")
         search_paths = arguments.get("search_paths", [])
-        expand_subvis = arguments.get("expand_subvis", True)
+        load_mode = arguments.get("load_mode", "minimal")
         vilib_root = arguments.get("vilib_root")
         userlib_root = arguments.get("userlib_root")
         auto_vilib = arguments.get("auto_vilib", True)
@@ -547,7 +558,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             search_path_objs = [Path(p) for p in search_paths] if search_paths else None
             graph.load_vi(
                 Path(vi_path),
-                expand_subvis=expand_subvis,
+                LoadMode(load_mode),
                 search_paths=search_path_objs,
             )
             return list(graph.list_vis())

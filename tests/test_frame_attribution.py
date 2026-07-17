@@ -22,6 +22,7 @@ from lvkit.graph.diff import (
     _frame_content_delta,
     _structure_content_summary,
 )
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
 from lvkit.models import (
     CaseFrame,
@@ -93,7 +94,7 @@ class TestErrorClusterFormatting:
 class TestConstructionAttribution:
     def test_in_vi_has_frame_attributed_constants(self):
         graph = InMemoryVIGraph()
-        graph.load_vi(str(IN_VI), expand_subvis=False)
+        graph.load_vi(str(IN_VI), mode=LoadMode.NONE)
         vi_name = graph.resolve_vi_name(IN_VI.name)
 
         consts = graph.get_constants(vi_name)

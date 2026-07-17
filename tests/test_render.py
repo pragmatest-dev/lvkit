@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     CaseStructureNode,
     ConstantNode,
@@ -27,11 +28,12 @@ from lvkit.graph.models import (
     StructureNode,
 )
 from lvkit.models import FPTerminal, LVType
+from lvkit.parser.layout import Layout, Point, Rect, build_layout
+from lvkit.parser.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
 from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import draw_fp_terminal, draw_node
 from lvkit.render.glyph import CompoundArithGlyph
-from lvkit.parser.layout import Layout, Point, Rect, build_layout
 from lvkit.render.nodes import _format_numeric_const, string_const_display
 from lvkit.render.scene import (
     Scene,
@@ -47,7 +49,6 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
-from lvkit.parser.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
 
 # --------------------------------------------------------------------------- #
 # Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
@@ -614,7 +615,7 @@ def _load_graph(path: Path) -> tuple[InMemoryVIGraph, str] | None:
         return None
     graph = InMemoryVIGraph()
     try:
-        graph.load_vi(path, expand_subvis=False)
+        graph.load_vi(path, mode=LoadMode.NONE)
     except Exception:
         return None
     return graph, graph.resolve_vi_name(path.name)
@@ -719,7 +720,7 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     if not CONST_LABEL_VI.exists():
         pytest.skip(f"sample VI not available: {CONST_LABEL_VI}")
     graph = InMemoryVIGraph()
-    graph.load_vi(CONST_LABEL_VI, expand_subvis=False, search_paths=OPENG_SEARCH)
+    graph.load_vi(CONST_LABEL_VI, mode=LoadMode.NONE, search_paths=OPENG_SEARCH)
     name = graph.resolve_vi_name(CONST_LABEL_VI.name)
     scene = build_scene(graph, name)
 
@@ -741,7 +742,7 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     assert by_val["1"].owned_label is None
 
     svg = render_vi_file(
-        CONST_LABEL_VI, expand_subvis=False, search_paths=OPENG_SEARCH,
+        CONST_LABEL_VI, mode=LoadMode.NONE, search_paths=OPENG_SEARCH,
     )
     assert svg is not None
     assert ">x2<" in svg              # #59 hex radix value survives re-extraction
@@ -968,7 +969,7 @@ def test_flat_sequence_frames_tile_and_have_dividers():
         "frame 0 and frame 1 node x-ranges overlap — tiling offset not applied"
     )
 
-    svg = render_vi_file(FLAT_SEQ_VI, expand_subvis=False)
+    svg = render_vi_file(FLAT_SEQ_VI, mode=LoadMode.NONE)
     assert svg is not None
     assert svg.count("<line") >= len(structure.dividers)
 
@@ -1057,8 +1058,9 @@ def test_render_vi_file_determinism_across_hash_seeds_stacked_seq():
 
     script = (
         "import hashlib\n"
+        "from lvkit.graph.loading import LoadMode\n"
         "from lvkit.render import render_vi_file\n"
-        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, expand_subvis=False)\n"
+        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, mode=LoadMode.NONE)\n"
         "assert svg is not None\n"
         "print(hashlib.sha256(svg.encode()).hexdigest())\n"
     )
@@ -1085,8 +1087,9 @@ def test_render_vi_file_determinism_across_hash_seeds_case_vi():
 
     script = (
         "import hashlib\n"
+        "from lvkit.graph.loading import LoadMode\n"
         "from lvkit.render import render_vi_file\n"
-        f"svg = render_vi_file({str(CASE_VI)!r}, expand_subvis=False)\n"
+        f"svg = render_vi_file({str(CASE_VI)!r}, mode=LoadMode.NONE)\n"
         "assert svg is not None\n"
         "print(hashlib.sha256(svg.encode()).hexdigest())\n"
     )
@@ -1194,8 +1197,9 @@ def test_render_vi_file_determinism_cpdarith_invert_bubble():
 
     script = (
         "import hashlib\n"
+        "from lvkit.graph.loading import LoadMode\n"
         "from lvkit.render import render_vi_file\n"
-        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, expand_subvis=False)\n"
+        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, mode=LoadMode.NONE)\n"
         "assert svg is not None\n"
         "print(hashlib.sha256(svg.encode()).hexdigest())\n"
     )
@@ -2686,8 +2690,8 @@ def test_layout_wire_by_uid_drives_faithful_render():
     # End-to-end: every drawn wire's faithful geometry is keyed by its sink uid,
     # and the whole VI renders WITHOUT invoking the auto-router (deterministic,
     # heap-faithful). Regression guard for the unified uid-driven decoder (#76).
-    from lvkit.render import scene as scene_mod
     from lvkit.parser.layout import build_layout
+    from lvkit.render import scene as scene_mod
 
     layout = build_layout(NESTED_CASE_VI)
     assert layout.wire_by_uid, "no faithful wire geometry resolved"
@@ -2705,7 +2709,7 @@ def test_layout_wire_by_uid_drives_faithful_render():
 
     scene_mod.WireRouter.route = _counted
     try:
-        svg = render_vi_file(NESTED_CASE_VI, expand_subvis=False)
+        svg = render_vi_file(NESTED_CASE_VI, mode=LoadMode.NONE)
     finally:
         scene_mod.WireRouter.route = orig
     assert svg is not None
