@@ -1,0 +1,53 @@
+{
+  "name": "lvkit-vi",
+  "displayName": "lvkit — LabVIEW VI Viewer & Diff",
+  "description": "View LabVIEW .vi block diagrams and see visual before/after diffs in VS Code — no LabVIEW license required.",
+  "version": "0.0.1",
+  "publisher": "pragmatest",
+  "license": "Apache-2.0",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Visualization", "SCM Providers", "Other"],
+  "keywords": ["labview", "vi", "diff", "block diagram", "ni", "test"],
+  "activationEvents": ["onCommand:lvkit.diffVI", "onCustomEditor:lvkit.viPreview"],
+  "main": "./extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "lvkit",
+      "properties": {
+        "lvkit.path": {
+          "type": "string",
+          "default": "lvkit",
+          "markdownDescription": "Path to the `lvkit` executable. Use just `lvkit` if it is on your PATH, or an absolute path (e.g. a project venv's `.venv/bin/lvkit`)."
+        },
+        "lvkit.searchPaths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "Extra directories to search for SubVIs, in addition to the auto-detected repository root."
+        }
+      }
+    },
+    "commands": [
+      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "lvkit" }
+    ],
+    "customEditors": [
+      {
+        "viewType": "lvkit.viPreview",
+        "displayName": "lvkit VI Preview",
+        "selector": [{ "filenamePattern": "*.vi" }],
+        "priority": "default"
+      }
+    ],
+    "menus": {
+      "scm/resourceState/context": [
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
+      ],
+      "explorer/context": [
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
+      ],
+      "editor/title/context": [
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" }
+      ]
+    }
+  }
+}

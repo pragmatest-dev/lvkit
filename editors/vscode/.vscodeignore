@@ -1,0 +1,5 @@
+.vscode/**
+.gitignore
+setup-jki-demo.sh
+**/*.vsix
+node_modules/**
