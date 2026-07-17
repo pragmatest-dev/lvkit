@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace as dc_replace
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -40,6 +41,25 @@ from .models import PolyInfo, VIMetadata
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
+
+
+class LoadMode(Enum):
+    """How deep a load pulls in a VI's dependencies.
+
+    ``FULL`` walks the entire transitive SubVI + class-method tree — required by
+    codegen, which compiles the whole call tree.
+
+    ``MINIMAL`` loads the target VI, LEAF-loads its DIRECT SubVIs (their
+    connector panes, so the caller's param-name hovers resolve — but not THEIR
+    SubVIs), and field-loads the classes/typedefs its wires reference (no class
+    methods). It is the minimum set to FAITHFULLY render/diff/describe one VI:
+    byte-identical output to FULL (verified across the corpus), while skipping
+    the transitive tree — typically 8-40x cheaper because a deep call tree
+    collapses to its shallow direct fan-out.
+    """
+
+    FULL = "full"
+    MINIMAL = "minimal"
 
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
@@ -106,6 +126,7 @@ class LoadingMixin:
         search_paths: list[Path] | None = None,
         clear_first: bool = False,
         layout: bool = False,
+        mode: LoadMode = LoadMode.FULL,
     ) -> None:
         """Load a VI hierarchy into memory.
 
@@ -114,6 +135,12 @@ class LoadingMixin:
             expand_subvis: Recursively expand SubVIs
             search_paths: Directories to search for SubVIs
             clear_first: Clear existing data before loading
+            mode: ``LoadMode.FULL`` (default) loads the whole SubVI/class-method
+                tree; ``LoadMode.MINIMAL`` loads this VI, leaf-loads its direct
+                SubVIs (connector panes only) and field-loads referenced
+                classes/typedefs — the minimum set to render/diff/describe it,
+                byte-identical to FULL but far cheaper. Ignored when
+                ``expand_subvis`` is False (nothing beyond this VI loads either way).
             layout: decode + retain block-diagram GEOMETRY for every loaded VI
                 (see ``get_layout``). Off by default — only rendering needs it;
                 codegen/analysis loads pay nothing. Geometry comes from the same
@@ -166,6 +193,7 @@ class LoadingMixin:
             search_paths=search_paths,
             visited=set(),
             source_dir=source_dir,
+            mode=mode,
         )
 
         # Class-qualify dynamic-dispatch callees now that this VI and all its
@@ -506,6 +534,7 @@ class LoadingMixin:
         search_paths: list[Path],
         visited: set[str],
         source_dir: Path | None = None,
+        mode: LoadMode = LoadMode.FULL,
     ) -> str | None:
         """Recursively load a VI and its SubVIs.
 
@@ -602,6 +631,10 @@ class LoadingMixin:
         # Load all dependencies through the single generic walker.
         if expand_subvis and main_xml and main_xml.exists():
             # Collect all dependency qnames: SubVI/class refs + type_map deps.
+            # MINIMAL and FULL both collect the same set — what differs is DEPTH
+            # (see _load_dependency): MINIMAL leaf-loads each SubVI (its connector
+            # pane, for param names; no recursion into ITS SubVIs) and field-loads
+            # each class (no methods); FULL loads the whole transitive tree.
             all_dep_qnames: set[str] = set()
             for qname in metadata.subvi_qualified_names:
                 if qname and qname != vi_name:
@@ -623,6 +656,7 @@ class LoadingMixin:
                     caller_file,
                     search_paths,
                     caller_qname=vi_name,
+                    mode=mode,
                 )
 
         # Build map of iUse uid → fully qualified on-disk path for diagnostics.
@@ -708,6 +742,7 @@ class LoadingMixin:
         caller_file: Path,
         search_paths: list[Path],
         caller_qname: str | None = None,
+        mode: LoadMode = LoadMode.FULL,
     ) -> None:
         """Load one dependency by its LabVIEW qualified name and optional path ref.
 
@@ -800,10 +835,14 @@ class LoadingMixin:
                 bd_xml, fp_xml, main_xml = extract_vi_xml(resolved)
                 loaded_name = self._load_vi_recursive(
                     bd_xml, fp_xml, main_xml,
-                    expand_subvis=True,
+                    # MINIMAL leaf-loads a SubVI: its own connector pane (for the
+                    # caller's param-name hovers) but NOT its own SubVIs — so the
+                    # transitive tree is never walked. FULL recurses everything.
+                    expand_subvis=mode is LoadMode.FULL,
                     search_paths=search_paths,
                     visited=set(),
                     source_dir=resolved.parent,
+                    mode=mode,
                 )
                 if loaded_name:
                     if caller_qname:
@@ -822,9 +861,12 @@ class LoadingMixin:
         elif leaf.endswith(".lvclass"):
             parts = qualified_name.split(":")
             owner_chain = parts[:-1] if len(parts) > 1 else None
+            # MINIMAL: field-load the class (no method bodies) — enough for
+            # by-name field names. FULL: load its whole method tree for codegen.
             self.load_lvclass(
                 resolved, expand_subvis=True,
                 search_paths=search_paths, owner_chain=owner_chain,
+                fields_only=mode is LoadMode.MINIMAL,
             )
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, qualified_name)

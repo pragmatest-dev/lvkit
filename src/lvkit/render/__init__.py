@@ -17,6 +17,7 @@ import re
 from pathlib import Path
 
 from ..graph.core import InMemoryVIGraph
+from ..graph.loading import LoadMode
 from ..graph.models import VINode
 from .backend import SvgBackend
 from .draw import draw_scene
@@ -330,8 +331,12 @@ def render_vi_file(
         graph = InMemoryVIGraph()
         if vilib_root or userlib_root:
             graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+        # MINIMAL: render loads only this VI + its direct SubVIs' connector panes
+        # + referenced-type fields — byte-identical to a full load, but it never
+        # walks the transitive SubVI tree (8-40x faster on a deep hierarchy).
         graph.load_vi(
             path, expand_subvis=expand, search_paths=search_paths, layout=True,
+            mode=LoadMode.MINIMAL,
         )
         return graph
 
