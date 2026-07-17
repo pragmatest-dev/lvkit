@@ -8,7 +8,7 @@ from lvkit.models import SequenceFrame, Tunnel
 
 from ..constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from ..models import ParsedFlatSequenceStructure
-from .base import extract_tunnel_mapping
+from .base import extract_tunnel_mapping, frame_inner_node_uids
 
 # Both flat and stacked sequences enforce sequential execution.
 # Flat: class="flatSequence", frames under <sequenceList>
@@ -124,25 +124,16 @@ def _extract_inner_node_uids(frame_elem: ET.Element) -> list[str]:
     """
     inner_node_uids: list[str] = []
 
-    # For sequenceFrame: look inside diagramList
+    # For sequenceFrame: look inside diagramList. For stacked seq diag frames:
+    # the frame element IS the diagram. Either way, frame_inner_node_uids reads
+    # nodeList + zPlaneList structures (so a nested flat sequence isn't orphaned).
     diag_list = frame_elem.find("diagramList")
     if diag_list is not None:
         for diag_elem in diag_list.findall(
             "SL__arrayElement[@class='diag']"
         ):
-            node_list = diag_elem.find("nodeList")
-            if node_list is not None:
-                for node_elem in node_list.findall("SL__arrayElement"):
-                    node_uid = node_elem.get("uid")
-                    if node_uid:
-                        inner_node_uids.append(node_uid)
+            inner_node_uids.extend(frame_inner_node_uids(diag_elem))
     else:
-        # For stacked seq diag frames: nodeList is directly inside
-        node_list = frame_elem.find("nodeList")
-        if node_list is not None:
-            for node_elem in node_list.findall("SL__arrayElement"):
-                node_uid = node_elem.get("uid")
-                if node_uid:
-                    inner_node_uids.append(node_uid)
+        inner_node_uids.extend(frame_inner_node_uids(frame_elem))
 
     return inner_node_uids
