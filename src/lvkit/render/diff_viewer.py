@@ -1,7 +1,7 @@
 """Build the interactive VI-diff viewer HTML page (roadmap #24).
 
 A PURE builder: given a change-map and two already-rendered SVGs, staples
-them into one self-contained HTML page (onion-skin/before/after/side-by-side
+them into one self-contained HTML page (overlay/before/after/split
 modes, global zoom, a numbered change-list sidebar, correlated highlights,
 spotlight-on-select, per-pane case-frame control, and deep-linking). No VI
 loading, no disk reads beyond the packaged template, no argv — callers (the

@@ -112,18 +112,18 @@
      grammar. BEFORE/AFTER text is what distinguishes the two panes. */
   .pane-label.before{background:var(--chip-before);border:1px solid var(--chip-border)}
   .pane-label.after{background:var(--chip-after);border:1px solid var(--chip-border)}
-  .overlay .pane-label.after{top:36px}  /* stack below BEFORE so both read in onion-skin */
+  .overlay .pane-label.after{top:36px}  /* stack below BEFORE so both read in Overlay */
   .stage.overlay{display:grid}
   .overlay #beforePane,.overlay #afterPane{grid-area:1/1}   /* stack + scroll together */
   /* pointer-events on before/after are NOT static here — applyBlend() (script,
      below) flips them to match whichever side the fader currently favours, so
      a click always lands on the pane that's actually dominant on screen. */
   .mode-before #afterPane,.mode-after #beforePane{display:none}
-  /* Synced-stacked (tied-pan): before above after, full width each, each pane its
+  /* Split view synced (tied-pan): before above after, full width each, each pane its
      OWN scrollable viewport — a shared pan window keeps them on the same LV
      region (see mirrorScroll + scrollTargets in the script below). */
-  .stage.side{display:flex;flex-direction:column;gap:16px}
-  .stage.side .pane{flex:1 1 0;min-height:0;overflow:auto}
+  .stage.split{display:flex;flex-direction:column;gap:16px}
+  .stage.split .pane{flex:1 1 0;min-height:0;overflow:auto}
   svg{max-width:none;height:auto;background:var(--canvas);border-radius:6px}
   /* Region fill is a SELECTION-ONLY affordance (req #3) — the add/remove/modify
      border/outline always shows (stroke-opacity:1 below), but the translucent
@@ -214,7 +214,7 @@
   <span style="opacity:.7">__BEFORE_LABEL__ → __AFTER_LABEL__ · engine change-map</span>
   <div class="controls">
     <button data-mode="overlay" class="active">Overlay</button>
-    <button data-mode="side" title="Same region, before above after — scroll/zoom syncs both panes">Stacked</button>
+    <button data-mode="split" title="Before above, after below — scroll and zoom stay in sync">Split</button>
     <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomFit">fit</button><button id="zoomIn">+</button></span>
     <span id="opWrap"><button type="button" class="op-end" data-op="0" title="show BEFORE only">before</button><input id="op" type="range" min="0" max="100" value="70"><button type="button" class="op-end" data-op="100" title="show AFTER only">after</button></span>
     <label style="display:flex;gap:6px;align-items:center"><input id="hlToggle" type="checkbox" checked>highlight</label>
@@ -293,7 +293,7 @@ function layerOf(svg){
 }
 // rects/nums/layers hold the PRIMARY highlight (the one focus() centres on);
 // ghosts holds the mirror box a "modified" change also gets in the BEFORE pane, so
-// side-by-side / onion-skin read as a before → after pair.
+// Split / Overlay read as a before → after pair.
 const rects={}, nums={}, layers={}, ghosts={}, parts={};
 // The renderer bakes every structure's selector as a clickable
 // <g class="lv-selector" data-lv-action="toggle" data-lv-struct="UID"> widget —
@@ -642,18 +642,18 @@ let zoom=1;                          // 1 = whole VI fit to stage width
 function fitScale(){                  // css px per user px at zoom=1
   const bw=beforePane.querySelector('svg').viewBox.baseVal.width;
   const aw=afterPane.querySelector('svg').viewBox.baseVal.width;
-  // Every mode fits to full width; stacked mode stacks vertically so each pane
+  // Every mode fits to full width; Split mode stacks the panes vertically so each pane
   // gets the whole width (far better for wide LabVIEW diagrams).
   return (stage.clientWidth-2*PADPANE)/Math.max(bw,aw);
 }
-// ── Synced-stacked pan (mode 'side') ────────────────────────────────────────
-// In every other mode `stage` itself is the one scroll container. In 'side'
-// mode each pane is its OWN independent scroll viewport (see .stage.side .pane
+// ── Split view synced pan (mode 'split') ────────────────────────────────────────
+// In every other mode `stage` itself is the one scroll container. In 'split'
+// mode each pane is its OWN independent scroll viewport (see .stage.split .pane
 // CSS), so zoom/focus/wheel must act on BOTH in lockstep. before/after share one
 // coordinate space and one (global) zoom scale, so mirroring raw scrollLeft/
 // scrollTop between them — or applying the identical px delta to both — keeps
 // them locked to the same LV-coordinate region without any unit conversion.
-function scrollTargets(){ return mode==='side' ? [beforePane, afterPane] : [stage]; }
+function scrollTargets(){ return mode==='split' ? [beforePane, afterPane] : [stage]; }
 function applyZoom(){
   const S=fitScale()*zoom;           // shared css-per-user scale → panes stay comparable
   [beforePane,afterPane].forEach(p=>{const s=p.querySelector('svg'); if(!s)return;
@@ -712,8 +712,8 @@ function focus(i){
   const c=CHANGES[i], r=visibleEl(i); if(!r)return;
   const box=homeBox(i); if(!box)return;
   // `home` is the viewport that actually contains `r` (the change's own pane in
-  // 'side' mode; `stage` everywhere else — it hosts both panes there).
-  const home = mode==='side' ? paneFor(c) : stage;
+  // 'split' mode; `stage` everywhere else — it hosts both panes there).
+  const home = mode==='split' ? paneFor(c) : stage;
   const targets=scrollTargets();
   // PADPANE accounts for `.stage`'s own padding — only relevant when `home` IS
   // the stage; a `.pane` acting as its own scroll container (side mode) has none.
@@ -796,7 +796,7 @@ function focus(i){
 function jump(i){
   if(i<0||i>=CHANGES.length)return; sel=i;
   const c=CHANGES[i];
-  // Respect the user's chosen view. Onion-skin + side-by-side show BOTH versions,
+  // Respect the user's chosen view. Overlay + Split show BOTH versions,
   // so never yank out of them. Only correct a single-pane mode that's on the
   // wrong side for this change (added lives in after, removed in before) — otherwise
   // the change's element wouldn't exist in the shown pane at all.
@@ -835,7 +835,7 @@ document.getElementById('zoomIn').onclick=()=>setZoom(zoom*1.3);
 document.getElementById('zoomOut').onclick=()=>setZoom(zoom/1.3);
 document.getElementById('zoomFit').onclick=fit;
 // Ctrl/⌘ + wheel zooms about the cursor (native pinch-zoom feel). Anchor on
-// whichever linked viewport the cursor is actually over (matters in 'side'
+// whichever linked viewport the cursor is actually over (matters in 'split'
 // mode, where before/after are two separate scroll containers of equal size).
 stage.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return; e.preventDefault();
   const targets=scrollTargets();
@@ -854,10 +854,11 @@ addEventListener('keydown',e=>{
   if(e.key==='+'||e.key==='=')setZoom(zoom*1.3); if(e.key==='-')setZoom(zoom/1.3);});
 
 function setMode(m){
+  if(m==='side')m='split';
   mode=m;
   const keep=(stage.classList.contains('has-sel')?' has-sel':'')
             +(stage.classList.contains('hide-hl')?' hide-hl':'');
-  stage.className='stage '+(m==='side'?'side':m)+' mode-'+m+keep;
+  stage.className='stage '+(m==='split'?'split':m)+' mode-'+m+keep;
   document.querySelectorAll('button[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
   document.getElementById('opWrap').style.display=(m==='overlay')?'':'none';
   applyBlend();  // opacity/pointer-events only matter in overlay — see applyBlend()
@@ -869,7 +870,7 @@ const op=document.getElementById('op');
 // of each other (1-v / v), so the slider actually fades BEFORE out as it fades
 // AFTER in — not a translucent after floating over an always-solid before. Clicks
 // must land on whichever side is currently dominant, so pointer-events follows
-// the same split (the CSS no longer hard-codes before as click-through). Stacked
+// the same split (the CSS no longer hard-codes before as click-through). Split
 // mode shows both panes at full opacity, each independently clickable.
 function applyBlend(){
   const v=op.value/100;
@@ -885,17 +886,17 @@ function applyBlend(){
 }
 op.oninput=applyBlend;
 document.querySelectorAll('#opWrap .op-end').forEach(b=>b.addEventListener('click',()=>{op.value=b.dataset.op;applyBlend();}));
-applyBlend();   // initial state (op.value defaults to 70 — mostly-AFTER onion-skin)
+applyBlend();   // initial state (op.value defaults to 70 — mostly-AFTER Overlay)
 document.getElementById('hlToggle').onchange=e=>stage.classList.toggle('hide-hl',!e.target.checked);
 
 // Tied-stacked synced-pan: dragging/scrolling (wheel, trackpad, scrollbar,
 // touch) either pane's own viewport mirrors the SAME scroll offset onto the
-// other. Guarded to 'side' mode only (elsewhere the panes aren't independently
+// other. Guarded to 'split' mode only (elsewhere the panes aren't independently
 // scrollable) and re-entrancy-guarded so mirroring one doesn't ping-pong.
 let syncingScroll=false;
 function mirrorScroll(src, dst){
   src.addEventListener('scroll', ()=>{
-    if(mode!=='side'||syncingScroll)return;
+    if(mode!=='split'||syncingScroll)return;
     syncingScroll=true;
     dst.scrollLeft=src.scrollLeft; dst.scrollTop=src.scrollTop;
     syncingScroll=false;
@@ -1103,7 +1104,7 @@ function decorateMenus(){
 }
 decorateMenus();
 
-// Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|before|after|side
+// Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|before|after|split
 // sets the mode; #list=flat|tree sets the change-list mode (#31);
 // #frame=UID=VAL,UID=VAL pre-selects case frames (correlated).
 (function(){

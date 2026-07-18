@@ -193,9 +193,10 @@ and opens it in the browser. The file is a single self-contained HTML page —
 no server, no external JS/CSS — so it works equally well opened locally, sent
 in a review, or hosted as a static CI artifact.
 
-- Four view modes, switchable from the toolbar: **onion-skin** (the default —
+- Four view modes, switchable from the toolbar: **overlay** (the default —
   overlays both VIs with an opacity slider), **before**, **after**, and
-  **side-by-side**.
+  **split** (two panes — before above, after below — that pan and zoom
+  together).
 - A numbered change list in the sidebar covers every added/removed/modified
   node or wire; each entry's number is drawn as a badge on the diagram next to
   the element it correlates with.
