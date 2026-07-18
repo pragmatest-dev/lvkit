@@ -14,10 +14,19 @@
   .legend{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:13px}
   .chip{display:inline-flex;gap:6px;align-items:center}
   .sw{width:12px;height:12px;border-radius:3px}
-  .body{display:grid;grid-template-columns:290px 1fr;min-height:0}
-  aside{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:8px}
+  .body{display:grid;grid-template-columns:var(--aside-w,290px) 6px 1fr;
+        grid-template-rows:minmax(0,1fr);min-height:0}
+  aside{background:var(--panel);border-right:1px solid var(--line);overflow:hidden;
+        padding:8px;display:flex;flex-direction:column;min-height:0}
   aside h3{margin:8px 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;opacity:.6}
   .nav{display:flex;gap:6px;padding:6px}.nav button{flex:1}
+  /* Only the list scrolls; prev/next + Flat/Tree stay pinned (aside is a flex
+     column). The netlist Tree can be far taller than the viewport. */
+  #list{flex:1 1 auto;overflow-y:auto;overflow-x:auto;min-height:0}
+  /* Draggable splitter between the change panel and the canvas — the netlist
+     lines are wide, so the panel needs to widen. */
+  .divider{cursor:col-resize;background:var(--line)}
+  .divider:hover,.divider.drag{background:#1f6feb}
   .item{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer}
   .item:hover{background:#21262d}.item.sel{background:#1f6feb33;outline:1px solid #1f6feb}
   /* Hidden-frame rows: dimmed so the reviewer still sees every change but a
@@ -25,6 +34,13 @@
      structure's own "changed" dot (.frame-changed-dot, further down) is the
      sole extra indicator that a hidden change lives inside it. */
   .item.dimmed{opacity:.6}
+  /* Tree view: a scope/frame CONTEXT header (its case/frame is unchanged --
+     only its contents changed) has no matching CHANGES entry, so it's not
+     clickable -- there is no ElementChange to jump() to. A row that DOES
+     correlate to a real node/wire/structure/frame change keeps the plain
+     .item look (clickable). */
+  .item.header{cursor:default}
+  .item.header:hover{background:none}
   .num{font-variant-numeric:tabular-nums;opacity:.6;min-width:20px}
   .tag{font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600}
   .tag.added{background:var(--add)}.tag.removed{background:var(--del)}.tag.modified{background:var(--mod)}
@@ -32,6 +48,38 @@
   .lbl{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .detail{font-size:11px;opacity:.62;font-variant-numeric:tabular-nums;
           overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+  /* Tree view (Phase 3): row text is netlist SYNTAX (instance_line/
+     scope_header from diff.py), so it reads monospace like code/a diff. */
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  /* Tree mode: netlist lines are WIDE -- do NOT ellipsis-truncate them. Each row
+     grows to its content width and #list scrolls horizontally (panel also resizes
+     via the divider). Flat mode keeps its ellipsis (short labels). */
+  #list.tree .item{width:max-content;min-width:100%}
+  #list.tree .lbl.mono{overflow:visible;text-overflow:clip;white-space:pre}
+  #list.tree .lbltxt{flex:0 0 auto}
+  /* Tree view (Phase 4): a REAL nested collapsible tree -- folders (scope/
+     frame rows) own a .tchildren container holding their nested children,
+     purely for COLLAPSE logic (display:none while collapsed). It carries NO
+     visual indent of its own -- indent is a per-row .tindent spacer sized
+     from the row's own depth (see rowContent/buildTreeDOM below), so the
+     number badge + change tag ahead of it stay pinned at the list's left
+     edge at every depth (#42: they used to travel with the indented row). */
+  #list.tree .tnode{position:relative}
+  #list.tree .tchildren{margin:0;padding:0}
+  #list.tree .tnode.collapsed>.tchildren{display:none}
+  /* Compact, file-tree-like spacing in Tree mode only (Flat keeps the base
+     8px .item gap) -- both the per-level indent step (tindent's inline
+     width, ~13px) and the gap between the chevron and the netlist text. */
+  #list.tree .item{gap:4px}
+  .tindent{display:inline-block;flex:0 0 auto}
+  .tchev{display:inline-block;width:13px;flex:0 0 auto;text-align:center;
+         cursor:pointer;opacity:.65;transition:transform .15s;user-select:none}
+  .tchev:hover{opacity:1}
+  /* A leaf has no chevron to show, but keeps an empty same-width .tchev so
+     its glyph+text lines up with a folder row's at the same depth. */
+  .tchev.leaf{cursor:default;opacity:0}
+  .tchev.leaf:hover{opacity:0}
+  #list.tree .tnode.collapsed>.item>.tchev{transform:rotate(-90deg)}
   .stage{position:relative;padding:16px;overflow:auto}
   .pane{position:relative}
   .zoomgrp{display:inline-flex;gap:2px;align-items:center;margin-left:2px}
@@ -158,9 +206,18 @@
 <div class="body">
   <aside>
     <div class="nav"><button id="prev">◀ prev</button><button id="next">next ▶</button></div>
-    <h3>Changes</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 6px">
+      <h3 style="margin:0">Changes</h3>
+      <span class="controls" style="gap:4px">
+        <button id="flatViewBtn" class="active" data-list="flat" style="padding:3px 8px;font-size:11px">Flat</button>
+        <button id="treeViewBtn" data-list="tree" style="padding:3px 8px;font-size:11px">Tree</button>
+        <button id="treeExpandBtn" style="padding:3px 8px;font-size:11px;display:none">Expand all</button>
+        <button id="treeCollapseBtn" style="padding:3px 8px;font-size:11px;display:none">Collapse all</button>
+      </span>
+    </div>
     <div id="list"></div>
   </aside>
+  <div class="divider" id="divider" title="Drag to resize"></div>
   <div class="stage overlay mode-overlay" id="stage">
     <div class="pane" id="beforePane"><span class="pane-label before">BEFORE · __BEFORE_LABEL__</span>__BEFORE_SVG__</div>
     <div class="pane" id="afterPane"><span class="pane-label after">AFTER · __AFTER_LABEL__</span>__AFTER_SVG__</div>
@@ -168,7 +225,30 @@
 </div>
 
 <script>
+// Resizable sidebar (drag the divider) -- the netlist Tree can be tall AND wide.
+(function(){
+  const body=document.querySelector('.body'),div=document.getElementById('divider');
+  let drag=false;
+  div.addEventListener('mousedown',e=>{drag=true;div.classList.add('drag');
+    document.body.style.cursor='col-resize';document.body.style.userSelect='none';
+    e.preventDefault();});
+  window.addEventListener('mousemove',e=>{if(!drag)return;
+    const w=Math.max(180,Math.min(e.clientX,window.innerWidth*0.6));
+    body.style.setProperty('--aside-w',w+'px');});
+  window.addEventListener('mouseup',()=>{if(!drag)return;drag=false;
+    div.classList.remove('drag');
+    document.body.style.cursor='';document.body.style.userSelect='';});
+})();
+</script>
+
+<script>
 const CHANGES = __CHANGES__;
+// Structured netlist-diff rows (diff.py's NetlistDiffRow, JSON via
+// rows_to_json()) -- the SAME rows format_diff renders to text, so the Tree
+// view (below) can render the identical diff instead of regrouping CHANGES
+// client-side (see .tmp/netlist-spec.md Phase 3). [] when the CLI didn't
+// pass any (e.g. an older caller, or no changes at all).
+const NETLIST_TREE = __NETLIST_TREE__;
 const SVGNS='http://www.w3.org/2000/svg';
 const stage=document.getElementById('stage');
 const afterPane=document.getElementById('afterPane'), beforePane=document.getElementById('beforePane');
@@ -324,21 +404,210 @@ CHANGES.forEach((c,i)=>{
   // "changed" dot (decorateMenus()) is the only indicator while it's hidden.
 });
 
-// change list (one row per change)
+// ── Change list: Flat / Tree (#31, Phase 3) ─────────────────────────────
+// Flat is today's behaviour: one numbered row per CHANGES entry, in engine
+// order. Tree renders NETLIST_TREE -- the SAME structured netlist-diff rows
+// (diff.py's NetlistDiffRow, built server-side by netlist_diff_rows() and
+// serialized via rows_to_json()) that back the TEXT report (format_diff) --
+// so Tree finally shows the IDENTICAL diff as `lvkit diff`'s text output,
+// not a client-side reconstruction of CHANGES by frame_path (see
+// ``.tmp/netlist-spec.md`` Phase 3). Flat's own row rendering (kind glyph,
+// flat label) is untouched and stays its own visual language.
 const list=document.getElementById('list');
-CHANGES.forEach((c,i)=>{
-  const d=document.createElement('div');d.className='item';d.dataset.i=i;d.dataset.k=c.kind;d.dataset.d=c.change;
-  const esc=s=>s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+const esc=s=>s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+// KIND is orthogonal to the +/−/~ CHANGE tag — which of node/wire/structure
+// this change IS, not what happened to it. This viewer's OWN glyph scheme
+// for the change-list UI (independent of the TEXT report's netlist-syntax
+// rendering -- see the note above). A "frame"/
+// "value"-kind change has no glyph of its own — the quoted frame token
+// ("True":) is its own visual tell (see frameHeaderRow below).
+const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚'};
+const CHANGE_TAG={added:'+', removed:'−', modified:'~'};
+function kindPrefix(kind){ return KIND_GLYPH[kind] ? KIND_GLYPH[kind]+' ' : ''; }
+function changeRowHtml(i){
+  const c=CHANGES[i];
   // Modified rows carry the value transition (old → new) under the label so the
   // change is legible without opening the node. Added/removed need no detail.
   const detail=c.detail?'<div class="detail" title="'+esc(c.detail)+'">'+esc(c.detail)+'</div>':'';
   // Hidden-frame rows just dim (.dimmed, toggled by updateParkState()) — no
   // pill; the owning selector's own "changed" dot already says "elsewhere".
-  d.innerHTML='<span class="num">'+(i+1)+'</span>'+
-    '<span class="tag '+c.change+'">'+(c.change==='added'?'+':c.change==='removed'?'−':'~')+'</span>'+
-    '<div class="lbltxt"><span class="lbl">'+(c.kind==='structure'?'⬚ ':'')+esc(c.label)+'</span>'+detail+'</div>';
-  d.onclick=()=>jump(i); list.appendChild(d);
-});
+  return '<span class="num">'+(i+1)+'</span>'+
+    '<span class="tag '+c.change+'">'+CHANGE_TAG[c.change]+'</span>'+
+    '<div class="lbltxt"><span class="lbl">'+kindPrefix(c.kind)+esc(c.label)+'</span>'+detail+'</div>';
+}
+function rowEl(i, indent, html){
+  const d=document.createElement('div');
+  d.className='item'+(i==null?' header':'');
+  if(i!=null){ d.dataset.i=i; d.dataset.k=CHANGES[i].kind; d.dataset.d=CHANGES[i].change; d.onclick=()=>jump(i); }
+  // Fixed 8px gutter so the number + change-type tag stay LEFT-JUSTIFIED (aligned
+  // straight down the column); tree nesting indents only the label, not the gutter.
+  d.style.paddingLeft='8px';
+  d.innerHTML=html;
+  if(indent){ const lt=d.querySelector('.lbltxt'); if(lt) lt.style.marginLeft=(indent*16)+'px'; }
+  return d;
+}
+function renderFlatList(){
+  list.innerHTML='';
+  CHANGES.forEach((c,i)=>list.appendChild(rowEl(i, 0, changeRowHtml(i))));
+}
+
+// uid -> CHANGES index, built once. NETLIST_TREE rows carry the SAME stable
+// uid ElementChange.uid does (a node/wire/structure leaf, or a frame/value
+// change's own uid for a changed frame header) -- so this map is how a
+// netlist row reaches back into CHANGES for the click-to-navigate path. A
+// CONTEXT header (an unchanged case/frame that merely contains changes, row
+// change===null) keeps its structure's real uid too, but that uid has no
+// live entry in CHANGES (diff_uid only emits actual changes), so it simply
+// won't be found here -- correctly falling back to non-clickable, same as a
+// row with no uid at all. First uid wins (diff_uid never emits two live
+// changes sharing one uid).
+const UID_TO_CHANGE_I={};
+CHANGES.forEach((c,i)=>{ if(c.uid!=null && !(c.uid in UID_TO_CHANGE_I)) UID_TO_CHANGE_I[c.uid]=i; });
+
+// One row per NETLIST_TREE entry, straight through in diff.py's own
+// containment-recursion order (_netlist_diff) -- no client-side regrouping.
+// Gutter is the row's own change tag, or a hidden (context) swatch when
+// change is null -- an unchanged case/frame that merely CONTAINS changes,
+// exactly like the text report's SPACE gutter. Text is netlist syntax
+// (instance_line/scope_header, from diff.py), rendered monospace.
+// Tree rows mirror the Flat rows' annotations so switching Flat<->Tree keeps the
+// SAME items -- just nested. Same number badge (correlates to the on-diagram
+// badge, click-to-spotlight), same +/-/~ tag, and the kind ICON leads the line
+// (◻ node / ↔ wire / ⬚ structure) -- node-centric, visually parseable. The text
+// is node-first netlist syntax (instance_line/scope_header from diff.py). Context
+// folder rows (an unchanged case/frame that only contains changes) have no
+// CHANGES entry, so no number -- the ⬚/quoted label reads as the folder.
+const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', structure:'⬚ ', frame:'', constant:''};
+// A row is a FOLDER (has descendants, gets a disclosure chevron + .tchildren
+// container) iff its kind is scope/frame -- the netlist tree is already
+// pruned server-side so every scope/frame row leads to a change somewhere
+// under it. node/wire/constant rows are always LEAVES.
+function isFolderRow(row){ return row.kind==='scope' || row.kind==='frame'; }
+// Shared row content (number badge / +-~ tag / kind glyph / mono netlist
+// text) -- IDENTICAL for a folder header and a leaf, so switching Flat<->Tree
+// (or folder<->leaf) never drops an annotation (#31 regression this rebuild
+// must not repeat). Split into `gutter` (number + change tag -- ALWAYS the
+// row's first two children, so it renders at the same x for every row
+// regardless of depth/folder-vs-leaf -- #42) and `text` (kind glyph + mono
+// netlist text, the part that actually indents). Returns the resolved
+// CHANGES index too (or null -- a context row with no live ElementChange,
+// e.g. an unchanged case that only CONTAINS changes).
+function rowContent(row){
+  const ci=(row.uid!=null && row.uid in UID_TO_CHANGE_I) ? UID_TO_CHANGE_I[row.uid] : null;
+  const num='<span class="num">'+(ci!=null?(ci+1):'')+'</span>';
+  const tagHtml=row.change
+    ? '<span class="tag '+row.change+'">'+CHANGE_TAG[row.change]+'</span>'
+    : '<span class="tag" style="visibility:hidden">+</span>';
+  const glyph=TREE_GLYPH[row.kind]||'';
+  const text='<div class="lbltxt"><span class="lbl mono">'+glyph+esc(row.text)+'</span></div>';
+  return {ci, gutter:num+tagHtml, text};
+}
+// Reconstruct parent/child NESTING from NETLIST_TREE's flat pre-order rows:
+// a row is a child of the nearest PRECEDING row with depth-1 -- a stack of
+// "open" ancestor nodes, popped back to the first one shallower than the
+// current row. Pre-order + this stack is exactly how every indented-text
+// tree (this one included, before the rebuild) already implied nesting; this
+// just materializes it as real parent/children instead of a marginLeft.
+function buildTreeNodes(rows){
+  const root=[], stack=[];   // stack entries: {node, depth}
+  rows.forEach(row=>{
+    const node={row, children:[]};
+    while(stack.length && stack[stack.length-1].depth>=row.depth) stack.pop();
+    (stack.length ? stack[stack.length-1].node.children : root).push(node);
+    stack.push({node, depth:row.depth});
+  });
+  return root;
+}
+// Build real nested DOM (folder = header .item + sibling .tchildren holding
+// its recursively-built children; leaf = a lone .item) into `container`.
+// Default state is fully expanded -- .collapsed is only ever ADDED by a
+// click, never present at build time, so every change is visible on open.
+function buildTreeDOM(nodes, container){
+  nodes.forEach(n=>{
+    const row=n.row, folder=isFolderRow(row);
+    const {ci, gutter, text}=rowContent(row);
+    const wrap=document.createElement('div');
+    wrap.className='tnode'+(folder?' folder':' leaf');
+    const header=document.createElement('div');
+    // Row layout, left to right: [gutter: num+tag, fixed x] [indent spacer,
+    // depth*13px] [chevron (folder) or same-width blank (leaf)] [glyph+text].
+    // Only the last two shift with depth -- the gutter never moves (#42).
+    const indent='<span class="tindent" style="width:'+(row.depth*13)+'px"></span>';
+    const chev=folder ? '<span class="tchev">▾</span>' : '<span class="tchev leaf"></span>';
+    header.innerHTML=gutter+indent+chev+text;
+    if(ci!=null){
+      header.dataset.i=ci; header.dataset.k=CHANGES[ci].kind; header.dataset.d=CHANGES[ci].change;
+    }
+    if(folder){
+      // Folder rows always toggle (chevron OR anywhere on the row). A
+      // folder that IS ITSELF a change (ci!=null -- e.g. an added/removed
+      // case) ALSO jumps, in addition to toggling (#31 req: changed folders
+      // stay navigable, not just their leaves).
+      header.className='item';
+      header.onclick=()=>{ wrap.classList.toggle('collapsed'); if(ci!=null) jump(ci); };
+    }else{
+      // A leaf only jumps if it correlates to a real CHANGES entry -- a
+      // constant row (uid always null) never does, so it renders like a
+      // non-clickable context header, same as Phase 3.
+      header.className='item'+(ci==null?' header':'');
+      if(ci!=null) header.onclick=()=>jump(ci);
+    }
+    wrap.appendChild(header);
+    if(folder){
+      const kids=document.createElement('div');
+      kids.className='tchildren';
+      buildTreeDOM(n.children, kids);
+      wrap.appendChild(kids);
+    }
+    container.appendChild(wrap);
+  });
+}
+function renderTreeList(){
+  list.innerHTML='';
+  buildTreeDOM(buildTreeNodes(NETLIST_TREE), list);
+}
+// Auto-expand every ANCESTOR folder of change `i`'s tree row so a selection
+// made via jump() (prev/next, deep-link, a flat-row click, …) is always
+// visible in Tree mode, never hidden inside a collapsed folder. Walks up
+// real DOM ancestry (.tchildren -> its owning .tnode -> repeat) rather than
+// re-deriving frame_path, so it's correct regardless of how deep the row is.
+function revealTreeRow(i){
+  if(listMode!=='tree' || i<0) return;
+  const row=list.querySelector('.item[data-i="'+i+'"]');
+  if(!row) return;
+  let el=row.parentElement && row.parentElement.parentElement;  // row's own .tnode -> its container
+  while(el){
+    const tnode=el.closest('.tnode');
+    if(!tnode) break;
+    tnode.classList.remove('collapsed');
+    el=tnode.parentElement;
+  }
+}
+
+let listMode='flat';
+function setListMode(m){
+  listMode=m;
+  list.classList.toggle('tree', m==='tree');
+  (m==='tree' ? renderTreeList : renderFlatList)();
+  document.getElementById('flatViewBtn').classList.toggle('active', m==='flat');
+  document.getElementById('treeViewBtn').classList.toggle('active', m==='tree');
+  document.getElementById('treeExpandBtn').style.display=(m==='tree')?'':'none';
+  document.getElementById('treeCollapseBtn').style.display=(m==='tree')?'':'none';
+  // re-run the frame-visibility pass so freshly-built rows keep their
+  // .dimmed/display state in sync with whatever frame is currently shown.
+  if(typeof updateParkState==='function') updateParkState();
+  if(sel>=0){
+    document.querySelectorAll('.item').forEach(n=>n.classList.toggle('sel',+n.dataset.i===sel));
+    revealTreeRow(sel);
+  }
+}
+document.getElementById('flatViewBtn').onclick=()=>setListMode('flat');
+document.getElementById('treeViewBtn').onclick=()=>setListMode('tree');
+document.getElementById('treeExpandBtn').onclick=()=>
+  list.querySelectorAll('.tnode.folder').forEach(n=>n.classList.remove('collapsed'));
+document.getElementById('treeCollapseBtn').onclick=()=>
+  list.querySelectorAll('.tnode.folder').forEach(n=>n.classList.add('collapsed'));
+renderFlatList();
 
 let sel=-1, mode='overlay';
 const PADPANE=16;
@@ -451,6 +720,7 @@ function jump(i){
   // they draw on TOP of any neighbouring highlights.
   stage.classList.add('has-sel');
   document.querySelectorAll('.item').forEach(n=>n.classList.toggle('sel',+n.dataset.i===i));
+  revealTreeRow(i);                              // auto-expand ancestor folders (Tree mode)
   Object.values(rects).forEach(r=>r.classList.remove('sel'));
   Object.values(nums).forEach(t=>t.classList.remove('sel'));
   Object.values(ghosts).forEach(g=>{if(!g)return;g.r.classList.remove('sel');if(g.t)g.t.classList.remove('sel');});
@@ -602,7 +872,9 @@ function updateParkState(){
       if(rects[i]) rects[i].style.display = hidden ? 'none' : '';
       if(nums[i]) nums[i].style.display = hidden ? 'none' : '';
     }
-    const row=list.children[i];
+    // Looked up by data-i, not positional index — Tree mode's row order
+    // doesn't match CHANGES order the way Flat's does (#31).
+    const row=list.querySelector('.item[data-i="'+i+'"]');
     if(row) row.classList.toggle('dimmed', hidden);
   });
 }
@@ -739,10 +1011,12 @@ function decorateMenus(){
 decorateMenus();
 
 // Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|before|after|side
-// sets the mode; #frame=UID=VAL,UID=VAL pre-selects case frames (correlated).
+// sets the mode; #list=flat|tree sets the change-list mode (#31);
+// #frame=UID=VAL,UID=VAL pre-selects case frames (correlated).
 (function(){
   const h=new URLSearchParams(location.hash.slice(1));
   if(h.get('view')) setMode(h.get('view'));
+  if(h.get('list')) setListMode(h.get('list'));
   const fr=h.get('frame');
   if(fr){ fr.split(',').forEach(p=>{const i=p.indexOf('=');
     if(i>0) setFrame(p.slice(0,i), p.slice(i+1));}); }

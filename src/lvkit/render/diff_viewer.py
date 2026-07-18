@@ -33,6 +33,7 @@ def build_diff_viewer(
     title: str,
     before_label: str,
     after_label: str,
+    netlist_rows: list[dict] | None = None,
 ) -> str:
     """Render the two-pane diff viewer page for one VI pair.
 
@@ -42,6 +43,15 @@ def build_diff_viewer(
     still emits, so there is no id collision to work around (unlike the
     prototype's ``.replace('id="lv-', 'id="before-lv-', 1)`` hack, dropped
     here — increment 1 made it unnecessary).
+
+    ``netlist_rows`` is the JSON form of ``diff.py``'s ``NetlistDiffRow``
+    tree (``rows_to_json(netlist_diff_rows(...))`` — see
+    ``.tmp/netlist-spec.md`` Phase 3): the SAME rows ``format_diff`` renders
+    to text, embedded as ``__NETLIST_TREE__`` so the viewer's Tree view
+    renders the identical netlist diff instead of regrouping ``CHANGES``
+    client-side. This module stays PURE — it does not build the rows itself
+    (that needs loaded graphs); the caller (``cmd_diff``) computes them and
+    passes the JSON in. ``None``/omitted renders an empty tree (``[]``).
 
     Returns the full HTML document as a string, prefixed with a doctype +
     charset meta tag so it's a valid standalone file.
@@ -64,6 +74,7 @@ def build_diff_viewer(
         .replace("__BEFORE_SVG__", before_svg)
         .replace("__AFTER_SVG__", after_svg)
         .replace("__CHANGES__", json.dumps(changes))
+        .replace("__NETLIST_TREE__", json.dumps(netlist_rows or []))
         .replace("__ADD__", str(added))
         .replace("__DEL__", str(removed))
         .replace("__MOD__", str(modified))

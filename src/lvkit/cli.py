@@ -210,6 +210,11 @@ def main() -> int:
         default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
+    desc_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Include a full netlist section (see lvkit.graph.netlist)",
+    )
     _add_project_root_arg(desc_parser)
     _add_load_mode_arg(desc_parser)
     _add_library_root_args(desc_parser)
@@ -327,17 +332,19 @@ def main() -> int:
         choices=["text", "json", "html"],
         default=None,
         help=(
-            "Output format: 'text' (unified diff, stdout/pipe/CI-friendly, "
-            "default), 'json' (ChangeMap for scripts/agents/the VSCode "
-            "extension), or 'html' (self-contained interactive viewer file)."
+            "Output format: 'text' (concise logical change summary, "
+            "stdout/pipe/CI-friendly, default), 'json' (ChangeMap for "
+            "scripts/agents/the VSCode extension), or 'html' (self-contained "
+            "interactive viewer file)."
         ),
     )
     diff_parser.add_argument(
         "-v", "--verbose", action="store_true",
         help=(
-            "Show the full structured change report instead of the compact "
-            "unified diff. Only affects --format text (a detail level, "
-            "orthogonal to format)."
+            "Show the change summary in full depth (VI-interface Signature, "
+            "containment expanded into a tree, old->new detail, an "
+            "unchanged-node tally) instead of the concise default. Only "
+            "affects --format text (a detail level, orthogonal to format)."
         ),
     )
     diff_parser.add_argument(
@@ -606,7 +613,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
             if preferred:
                 vi_name = preferred[0]
 
-        print(describe_vi(graph, vi_name))
+        print(describe_vi(graph, vi_name, verbose=args.verbose))
 
         return 0
     except (ValueError, FileNotFoundError, KeyError) as e:
@@ -816,10 +823,13 @@ def cmd_diff(args: argparse.Namespace) -> int:
     Output is picked with ``--format {text,json,html}`` (the lvkit house
     convention — one flag for mutually-exclusive output projections, never a
     boolean per format). ``-v/--verbose`` (and its back-compat alias
-    ``--long``) is the orthogonal DETAIL axis: it only changes how much
-    ``text`` shows.
+    ``--long``) is the orthogonal DETAIL axis: both tiers of ``text`` project
+    the SAME UID-keyed ``diff_uid`` ChangeMap (see ``format_diff``) that also
+    backs ``--format json``/``html`` — ``--verbose`` only adds depth
+    (Signature, containment nesting, modified old→new detail, an
+    unchanged-node tally), never a different set of changes.
     """
-    from .graph.diff import diff_structured, diff_text, diff_uid
+    from .graph.diff import diff_uid, format_diff, netlist_diff_rows, rows_to_json
 
     path_a = Path(args.vi_a)
     path_b = Path(args.vi_b)
@@ -842,21 +852,13 @@ def cmd_diff(args: argparse.Namespace) -> int:
             graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
                 args, path_a, path_b, layout=False,
             )
-            if verbose:
-                report = diff_structured(graph_a, graph_b, vi_name_a, vi_name_b)
-                if report.is_empty():
-                    print("No changes detected.")
-                else:
-                    print(report.format())
+            result = format_diff(
+                graph_a, graph_b, vi_name_a, vi_name_b, verbose=verbose,
+            )
+            if result:
+                print(result)
             else:
-                result = diff_text(
-                    graph_a, graph_b, vi_name_a, vi_name_b,
-                    label_a=str(path_a), label_b=str(path_b),
-                )
-                if result:
-                    print(result)
-                else:
-                    print("No changes detected.")
+                print("No changes detected.")
 
             if sys.stdout.isatty():
                 print(
@@ -893,11 +895,13 @@ def cmd_diff(args: argparse.Namespace) -> int:
             return 1
 
         cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
+        rows = netlist_diff_rows(graph_a, graph_b, vi_name_a, vi_name_b)
         html = build_diff_viewer(
             cmap, before_svg, after_svg,
             title=path_a.name,
             before_label=path_a.stem,
             after_label=path_b.stem,
+            netlist_rows=rows_to_json(rows),
         )
 
         out = (

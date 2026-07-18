@@ -27,6 +27,7 @@ from lvkit.graph.models import (
     SequenceNode,
     StructureNode,
 )
+from lvkit.graph.op_walk import _format_ranges, _selector_label
 from lvkit.models import FPTerminal, LVType
 from lvkit.parser.layout import Layout, Point, Rect, build_layout
 from lvkit.parser.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
@@ -38,10 +39,8 @@ from lvkit.render.nodes import _format_numeric_const, string_const_display
 from lvkit.render.scene import (
     Scene,
     _exit_side,
-    _format_ranges,
     _frame_compatible,
     _frame_info,
-    _selector_label,
     _structure_borders,
     _trim_string_const_geom,
     build_scene,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import difflib
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -20,8 +19,16 @@ from ..models import (
     Terminal,
     _is_error_cluster,
 )
-from .describe import describe_vi
 from .models import Constant, Wire, WireEnd
+from .netlist import (
+    NetlistItem,
+    NetlistScope,
+    ambiguous_bares,
+    build_netlist,
+    index_module,
+    instance_line,
+    scope_header,
+)
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout, Point, Rect
@@ -41,31 +48,11 @@ class SignatureChange:
 
 
 @dataclass
-class OperationChange:
-    category: str  # "added", "removed"
-    name: str
-    node_type: str | None = None
-
-
-@dataclass
 class ConstantChange:
     category: str  # "added", "removed", "value_changed"
     name: str
     old_value: str | None = None
     new_value: str | None = None
-
-
-@dataclass
-class WiringChange:
-    category: str  # "added", "removed"
-    description: str  # "NodeA -> NodeB"
-
-
-@dataclass
-class StructureChange:
-    category: str  # "added", "removed", "changed"
-    name: str
-    details: str | None = None
 
 
 @dataclass
@@ -161,126 +148,6 @@ class ChangeMap:
             ],
             "common_nodes": len(self.common_node_uids),
         }
-
-
-@dataclass
-class DiffReport:
-    signature: list[SignatureChange] = field(default_factory=list)
-    operations: list[OperationChange] = field(default_factory=list)
-    constants: list[ConstantChange] = field(default_factory=list)
-    wiring: list[WiringChange] = field(default_factory=list)
-    structures: list[StructureChange] = field(default_factory=list)
-
-    def is_empty(self) -> bool:
-        return not any([
-            self.signature, self.operations, self.constants,
-            self.wiring, self.structures,
-        ])
-
-    def format(self) -> str:
-        sections: list[str] = []
-
-        if self.signature:
-            lines = ["Signature:"]
-            for sig in self.signature:
-                if sig.category == "added":
-                    lines.append(f"  + {sig.direction}: {sig.name} ({sig.new_type})")
-                elif sig.category == "removed":
-                    lines.append(f"  - {sig.direction}: {sig.name} ({sig.old_type})")
-                elif sig.category == "type_changed":
-                    lines.append(
-                        f"  ~ {sig.direction}: {sig.name}:"
-                        f" {sig.old_type} -> {sig.new_type}"
-                    )
-            sections.append("\n".join(lines))
-
-        if self.operations:
-            lines = ["Operations:"]
-            for op in self.operations:
-                tag = "+" if op.category == "added" else "-"
-                node_label = f" [{op.node_type}]" if op.node_type else ""
-                lines.append(f"  {tag} {op.name}{node_label}")
-            sections.append("\n".join(lines))
-
-        if self.constants:
-            lines = ["Constants:"]
-            for con in self.constants:
-                if con.category == "added":
-                    lines.append(f"  + {con.name} = {con.new_value}")
-                elif con.category == "removed":
-                    lines.append(f"  - {con.name} = {con.old_value}")
-                elif con.category == "value_changed":
-                    lines.append(f"  ~ {con.name}: {con.old_value} -> {con.new_value}")
-            sections.append("\n".join(lines))
-
-        if self.wiring:
-            lines = ["Wiring:"]
-            for w in self.wiring:
-                tag = "+" if w.category == "added" else "-"
-                lines.append(f"  {tag} {w.description}")
-            sections.append("\n".join(lines))
-
-        if self.structures:
-            lines = ["Structures:"]
-            for s in self.structures:
-                if s.category in ("added", "removed"):
-                    tag = "+" if s.category == "added" else "-"
-                    line = f"  {tag} {s.name}"
-                    if s.details:
-                        line += f" ({s.details})"
-                    lines.append(line)
-                else:
-                    lines.append(f"  ~ {s.name}: {s.details}")
-            sections.append("\n".join(lines))
-
-        return "\n\n".join(sections)
-
-
-# ── Short form: text diff ─────────────────────────────────────────────
-
-
-def diff_text(
-    graph_a: InMemoryVIGraph,
-    graph_b: InMemoryVIGraph,
-    vi_name_a: str,
-    vi_name_b: str,
-    *,
-    label_a: str = "a",
-    label_b: str = "b",
-) -> str:
-    """Unified text diff of two VI descriptions."""
-    text_a = describe_vi(graph_a, vi_name_a)
-    text_b = describe_vi(graph_b, vi_name_b)
-
-    diff_lines = list(difflib.unified_diff(
-        text_a.splitlines(keepends=True),
-        text_b.splitlines(keepends=True),
-        fromfile=label_a,
-        tofile=label_b,
-    ))
-    return "".join(diff_lines)
-
-
-# ── Long form: structured diff ────────────────────────────────────────
-
-
-def diff_structured(
-    graph_a: InMemoryVIGraph,
-    graph_b: InMemoryVIGraph,
-    vi_name_a: str,
-    vi_name_b: str,
-) -> DiffReport:
-    """Compare two VIs and return a categorized change report."""
-    vi_name_a = graph_a.resolve_vi_name(vi_name_a)
-    vi_name_b = graph_b.resolve_vi_name(vi_name_b)
-
-    report = DiffReport()
-    report.signature = _diff_signature(graph_a, graph_b, vi_name_a, vi_name_b)
-    report.operations = _diff_operations(graph_a, graph_b, vi_name_a, vi_name_b)
-    report.constants = _diff_constants(graph_a, graph_b, vi_name_a, vi_name_b)
-    report.wiring = _diff_wiring(graph_a, graph_b, vi_name_a, vi_name_b)
-    report.structures = _diff_structures(graph_a, graph_b, vi_name_a, vi_name_b)
-    return report
 
 
 # ── UID-keyed change-map (matches by stable node UID, not name) ────────
@@ -833,7 +700,12 @@ def _wire_changes(
             old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
             bounds = _point_rect(layout_a, _uid_of(dest_end.terminal_id))
             bounds_before = _point_rect(layout_a, _uid_of(entry_a[2].terminal_id))
-            detail = f"(was ← {old_label})"
+            # The gutter (-) already says "removed" -- so render the connection
+            # exactly like an added wire (sink <- source), not "(was ...)". In the
+            # ASCII netlist this becomes "- sink = source" (the same port=net form
+            # every node input uses), instead of the nonsensical "(was = source)"
+            # the old "was ←" wording produced once ← was ASCII-mapped to =.
+            detail = f"← {old_label}"
             path = _wire_path(layout_a, wires_a, _uid_of(dest_end.terminal_id))
         else:
             assert entry_b is not None
@@ -1097,12 +969,15 @@ def diff_uid(
 ) -> ChangeMap:
     """Build a UID-keyed change-map for two VI versions.
 
-    Unlike ``diff_structured`` (which matches operations by name/count and so
-    misses added/removed instances of repeated names), this matches every node
-    and structure by its stable LabVIEW UID. The UIDs are exactly those the
-    renderer emits as ``data-node`` / ``data-lv-struct``, so the map binds onto
-    the rendered SVG with no reconciliation. Wire endpoints and modified-node
-    detection layer on top of this (see tasks #10/#11).
+    Unlike matching operations by name/count (which misses added/removed
+    instances of repeated names), this matches every node and structure by
+    its stable LabVIEW UID. The UIDs are exactly those the renderer emits as
+    ``data-node`` / ``data-lv-struct``, so the map binds onto the rendered SVG
+    with no reconciliation. Wire endpoints and modified-node detection layer
+    on top of this (see tasks #10/#11). This is the single source of truth
+    for the visual overlay (``--format html``/``json``) AND the ``diff``
+    TEXT report (both the concise default and ``--verbose`` -- see
+    ``format_diff``/``_composition_tree``).
     """
     va = graph_a.resolve_vi_name(vi_name_a)
     vb = graph_b.resolve_vi_name(vi_name_b)
@@ -1138,10 +1013,17 @@ def diff_uid(
     for uid in b.keys() - a.keys() - matched_b:
         entry = b[uid]
         op, kind = entry.op, entry.kind
+        # chain_paths (wire-route geometry) is only meaningful for a NODE's
+        # own incident wires; a structure's "chain" would be every wire
+        # anywhere inside it (task #27 -- viewer-only geometry, noise even
+        # in the map, and never used for a structure highlight).
+        chain = (
+            _incident_chain_paths(layout_b, wires_b, uid) if kind == "node" else None
+        )
         cmap.changes.append(
             ElementChange(uid, op.id, kind, "added", _elem_label(op, kind),
                           _bounds(layout_b, uid),
-                          chain_paths=_incident_chain_paths(layout_b, wires_b, uid),
+                          chain_paths=chain,
                           container_uid=entry.container_uid,
                           frame_path=entry.frame_path)
         )
@@ -1149,10 +1031,13 @@ def diff_uid(
     for uid in a.keys() - b.keys() - matched_a:
         entry = a[uid]
         op, kind = entry.op, entry.kind
+        chain = (
+            _incident_chain_paths(layout_a, wires_a, uid) if kind == "node" else None
+        )
         cmap.changes.append(
             ElementChange(uid, op.id, kind, "removed", _elem_label(op, kind),
                           _bounds(layout_a, uid),
-                          chain_paths=_incident_chain_paths(layout_a, wires_a, uid),
+                          chain_paths=chain,
                           container_uid=entry.container_uid,
                           frame_path=entry.frame_path)
         )
@@ -1203,14 +1088,528 @@ def diff_uid(
         (uid for uid in a.keys() & b.keys() if a[uid].kind == "node"),
         key=_uid_sort,
     )
-    # stable display order: structures first, then added < removed < modified,
-    # then by UID
+    # Provisional display order: structures first, then added < removed <
+    # modified, then by UID. This is only a deterministic TIEBREAK now -- the
+    # real, user-facing order is the tree's own containment order, applied
+    # next.
     _rank = {"added": 0, "removed": 1, "modified": 2}
     cmap.changes.sort(
         key=lambda c: (c.kind != "structure", _rank.get(c.change, 3),
                        _uid_sort(c.uid))
     )
+    _reorder_by_tree(cmap, graph_a, graph_b, va, vb)
     return cmap
+
+
+def _reorder_by_tree(
+    cmap: ChangeMap,
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
+    va: str, vb: str,
+) -> None:
+    """Reorder ``cmap.changes`` in place to match the STRUCTURAL (containment)
+    order the tree (``_netlist_diff``/``netlist_diff_rows``) actually renders
+    changes in -- so the flat ``CHANGES`` list (``cmap.to_dict``), the tree,
+    and the on-diagram ``.hl-num`` badges all number ``1, 2, 3, ...`` reading
+    top-to-bottom, instead of the tree's containment-first traversal
+    scrambling numbers assigned by the structures-then-uid sort above.
+
+    Builds the SAME netlist-diff rows the tree renders (constants excluded --
+    they carry no ``uid`` and never affect this map's own order), takes the
+    order in which change uids FIRST appear walking those rows top-to-bottom
+    (pre-order containment, per ``_netlist_diff``'s own ``_sort_key``/
+    ``source_order`` -- dataflow/topological order is NOT used here), and
+    re-sorts ``cmap.changes`` by it. A change with no row at all (should not
+    happen once every kind the tree renders is accounted for, but tolerated
+    defensively) keeps its relative position from the tiebreak sort above,
+    trailing after every change that DOES have a row -- ``list.sort`` is
+    stable, so ties (including the shared "no row" bucket) preserve the
+    incoming relative order.
+
+    Must run INSIDE ``diff_uid`` (not deferred to ``format_diff``/
+    ``netlist_diff_rows``): those helpers -- and the standalone probe script
+    used to verify this fix -- read ``cmap.changes`` straight from a
+    ``diff_uid()`` call, so the reorder has to be baked into the ChangeMap
+    itself for the flat list and the tree to ever agree.
+    """
+    if not cmap.changes:
+        return  # nothing to reorder -- skip building the netlist for nothing
+    rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, [], detailed=False)
+    tree_order: dict[str, int] = {}
+    for r in rows:
+        if r.uid is not None and r.uid not in tree_order:
+            tree_order[r.uid] = len(tree_order)
+    past_every_uid = len(tree_order)
+    cmap.changes.sort(key=lambda c: tree_order.get(c.uid, past_every_uid))
+
+
+# ── Diff TEXT report: ONE recursive netlist-form tree, concise default +
+# --verbose, both projected from the same UID-keyed ChangeMap ──────────
+#
+# ``format_diff`` is the sole ``lvkit diff`` TEXT entry point. Both tiers
+# read the SAME ``diff_uid()`` ChangeMap -- the denoised, UID-keyed engine
+# that also backs ``--format json``/``html`` -- so the text can never show a
+# change the viewer doesn't (or vice versa), and the SAME containment
+# locality (``container_uid``/``frame_path``) drives both the text tree here
+# and the viewer's Tree toggle (``render/templates/diff_viewer.html``), so
+# they can never drift apart. There are no ``Operations:``/``Wiring:``/
+# ``Structures:`` sections any more -- every change reads INLINE (a change
+# GUTTER +/-/~ in column 0, then netlist SYNTAX -- an ``instance_line`` for a
+# node, a ``scope_header`` for a structure) at whatever depth its own
+# containment puts it, recursing into structures/frames exactly like the
+# diagram itself nests them (see ``.tmp/netlist-spec.md`` Phase 2). Only the
+# DEPTH differs between tiers:
+#
+#   * concise (default): the tree, changes only.
+#   * --verbose: the SAME tree, PLUS a Signature section (the VI's own
+#     connector-pane interface -- a distinct concern ``diff_uid`` doesn't
+#     cover), a modified constant's old→new detail instead of just its name,
+#     and a trailing unchanged-node tally.
+#
+# Geometry (bounds/path/chain_paths) is never touched by either tier --
+# logical change only, exactly like a code diff.
+
+Segment = tuple[str, str]  # one frame_path token: (struct_uid, value)
+
+# The dedicated glyph for a top-level CONSTANT change (``ConstantChange`` --
+# ``diff_uid`` has no UID to key an added/removed constant by, so these
+# aren't in ``cmap`` at all, only node/structure/wire/frame/value changes
+# are). Node/structure changes render as netlist syntax (no glyph of their
+# own); a wire change is plain connectivity text; only a constant keeps a
+# glyph, via ``_constant_row`` -- a type-based split, never a label guess.
+_CONST_GLYPH = "="
+
+
+def _segments(frame_path: str | None) -> tuple[Segment, ...]:
+    """Parse a ``frame_path`` string into its ordered ``(struct_uid, value)``
+    segments — the SAME containment chain ``_netlist_diff`` recurses by, for
+    every change kind (node/wire/structure/frame/value) alike, and the SAME
+    segments the viewer's ``data-path``/``frame_path`` tokens already use
+    (see ``render/scene.py``'s ``encode_frame_path``). ``()`` for a
+    top-level change (``frame_path`` is ``None``)."""
+    if not frame_path:
+        return ()
+    segs = []
+    for seg in frame_path.split(";"):
+        key, _, value = seg.partition("=")
+        segs.append((key, value))
+    return tuple(segs)
+
+
+@dataclass
+class NetlistDiffRow:
+    """One line of the netlist-form diff tree, STRUCTURED instead of a
+    pre-formatted string -- the shared IR ``_netlist_diff`` now returns, so
+    text (``_rows_to_text``) and non-text consumers (the HTML viewer's Tree
+    view -- ``netlist_diff_rows``/``rows_to_json``) project the SAME rows
+    instead of the text renderer and the viewer maintaining two parallel
+    tree-builders (see ``.tmp/netlist-spec.md`` Phase 3)."""
+
+    change: str | None  # "added" | "removed" | "modified" | None (context)
+    depth: int          # nesting depth -- 2 spaces (text) / one indent (UI)
+    text: str           # netlist-syntax content, NO gutter/indent baked in
+    uid: str | None     # stable node/structure/wire uid, or None (context/const)
+    kind: str           # "scope" | "frame" | "node" | "wire" | "constant"
+
+
+def _rows_to_text(rows: list[NetlistDiffRow]) -> list[str]:
+    """Render structured rows back to the exact gutter+indent strings the
+    text report has always emitted -- ``format_diff``'s output must stay
+    byte-identical across this refactor (Phase 2's text is the contract)."""
+    return [f"{_gutter(r.change)} {'  ' * r.depth}{r.text}" for r in rows]
+
+
+_CONST_CHANGE = {
+    "added": "added", "removed": "removed", "value_changed": "modified",
+}
+
+
+def _constant_row(con: ConstantChange, *, detailed: bool) -> NetlistDiffRow:
+    """One top-level constant change ROW, tagged with the dedicated constant
+    KIND glyph (``_CONST_GLYPH``) inline in its text (the +/-/~ change tag
+    itself lives in ``NetlistDiffRow.change``, rendered by ``_rows_to_text``/
+    the viewer, not baked into the text here). ``detailed`` gates only the
+    "modified" old→new VALUE (the depth ``format_diff`` adds for --verbose);
+    added/removed always show their one value -- that's the change's own
+    payload, not extra depth. A constant has no stable node uid of its own
+    (``diff_uid`` has nothing to key it by), so ``uid`` is always ``None``."""
+    if con.category == "added":
+        text = f"{_CONST_GLYPH} {con.name} = {con.new_value}"
+    elif con.category == "removed":
+        text = f"{_CONST_GLYPH} {con.name} = {con.old_value}"
+    elif detailed:
+        text = f"{_CONST_GLYPH} {con.name}: {con.old_value} -> {con.new_value}"
+    else:
+        text = f"{_CONST_GLYPH} {con.name}"
+    return NetlistDiffRow(
+        change=_CONST_CHANGE[con.category], depth=0, text=text,
+        uid=None, kind="constant",
+    )
+
+
+_TAG = {"added": "+", "removed": "-", "modified": "~"}
+
+
+def _gutter(change: str | None) -> str:
+    """One gutter char: the change tag, or a space for context (unchanged)."""
+    return _TAG[change] if change is not None else " "
+
+
+def _walk_netlist_order(items: list[NetlistItem]) -> list[str]:
+    """Pre-order uids of every instance/scope in ``items``, recursing into
+    each scope's frame bodies -- i.e. the VI's own source/dataflow order
+    (``_build_items`` walks operations in ``_node_order_key`` order, see
+    the deterministic-node-order rule). Feeds ``_netlist_diff``'s
+    ``source_order`` so siblings at a container render interleaved in this
+    order instead of structures-first/leaves-second."""
+    order: list[str] = []
+    for item in items:
+        order.append(item.uid)
+        if isinstance(item, NetlistScope):
+            for frame in item.frames:
+                order.extend(_walk_netlist_order(frame.body))
+    return order
+
+
+def _netlist_diff(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
+    va: str, vb: str,
+    cmap: ChangeMap, constants: list[ConstantChange], *, detailed: bool,
+) -> list[NetlistDiffRow]:
+    """The recursive containment tree, rendered in NETLIST form (see
+    ``.tmp/netlist-spec.md`` Phase 2) as STRUCTURED rows (Phase 3) -- replaces
+    the earlier unicode-glyph tree (``_composition_tree``, since deleted).
+    Kept the SAME grouping skeleton (``by_path``/``child_uids``/
+    ``values_of``, over ``_segments(frame_path)``) -- containment locality is
+    proven and unchanged; only the emitted TYPE changed (a ``NetlistDiffRow``
+    instead of a pre-formatted ``str``), plus Phase 2's own addition: every
+    struct_uid at a path (whether it changed itself or merely contains
+    changes) gets its own ``scope_header`` row, so nested changes always show
+    their enclosing ``case (selector):``/``while (...):``/etc. context -- the
+    old tree jumped straight to a bare frame sub-header with no case line
+    above it.
+
+    Both netlists are built fresh from the two graphs (the SAME projection
+    ``describe --verbose`` uses) and indexed by uid so a changed node/
+    structure's full instance/scope (its real inputs/outputs/selector) can be
+    rendered as netlist syntax, not just the change-map's own label/detail.
+
+    ``format_diff`` renders these rows to text via ``_rows_to_text`` (byte-
+    identical to Phase 2); ``netlist_diff_rows`` exposes them unrendered for
+    the HTML viewer's Tree view (Phase 3).
+
+    Sibling order within a container is the VI's own SOURCE/dataflow order,
+    not "structures first, then leaves": ``source_order`` is built from a
+    pre-order walk of ``mod_b``'s body (head -- the version most changes
+    render against), with ``mod_a``'s walk filling in a position for any
+    uid ONLY present there (a removed instance/scope, appended after every
+    surviving uid in its running-index order). ``render`` then sorts each
+    container's structure uids AND leaf node/wire changes together by
+    ``source_order.get(uid, <past every known uid>)``, tiebroken by
+    ``_uid_sort`` for determinism when a uid has no netlist position at all
+    (e.g. a wire change keyed by its own terminal uid, not a node/scope uid).
+    """
+    mod_b = build_netlist(graph_b, vb)
+    mod_a = build_netlist(graph_a, va)
+    inst_b, scope_b = index_module(mod_b)
+    inst_a, scope_a = index_module(mod_a)
+    amb_b = ambiguous_bares(mod_b)
+    amb_a = ambiguous_bares(mod_a)
+
+    source_order: dict[str, int] = {
+        uid: i for i, uid in enumerate(_walk_netlist_order(mod_b.body))
+    }
+    for uid in _walk_netlist_order(mod_a.body):
+        if uid not in source_order:
+            source_order[uid] = len(source_order)
+    _past_every_uid = len(source_order)
+
+    def _sort_key(uid: str) -> tuple[int, int, object]:
+        rank, tie = _uid_sort(uid)
+        return (source_order.get(uid, _past_every_uid), rank, tie)
+
+    elems = [c for c in cmap.changes if c.kind in ("node", "wire", "structure")]
+    frame_elems = [c for c in cmap.changes if c.kind in ("frame", "value")]
+    by_path: dict[tuple[Segment, ...], list[ElementChange]] = {}
+    for c in elems:
+        by_path.setdefault(_segments(c.frame_path), []).append(c)
+    frame_change_at: dict[tuple[Segment, ...], ElementChange] = {
+        _segments(c.frame_path): c for c in frame_elems
+    }
+
+    def node_content(c: ElementChange) -> str:
+        """A node change leaf's content: the real netlist instance line for
+        THIS change's own side (head for added/modified, base for removed),
+        falling back to the change-map's own label when the uid isn't a
+        netlist Operation at all (a modified CONSTANT -- constants aren't
+        netlist instances; this also sidesteps the unicode ``→`` a
+        constant's ``detail`` carries, since the fallback never uses it)."""
+        if c.change == "removed":
+            inst, amb = inst_a.get(c.uid), amb_a
+        else:
+            inst, amb = inst_b.get(c.uid), amb_b
+        if inst is None:
+            return c.label
+        return instance_line(inst, amb)
+
+    def struct_content(uid: str) -> str:
+        """A structure's ``scope_header`` line content, from whichever side
+        actually has it (head first, then base -- an unchanged structure
+        exists on both; an added one only on head, removed only on base).
+        Falls back to the change-map's own label (never crashes) on the
+        (should-never-happen) case neither side's netlist has this uid."""
+        scope = scope_b.get(uid)
+        if scope is not None:
+            return scope_header(scope, amb_b)
+        scope = scope_a.get(uid)
+        if scope is not None:
+            return scope_header(scope, amb_a)
+        struct_c = next((c for c in elems if c.uid == uid), None)
+        return struct_c.label if struct_c is not None else uid
+
+    def frame_label(struct_uid: str, value: str) -> str:
+        """The faithful DISPLAY text for one case/disable frame, keyed by its
+        RAW selector value (``value`` -- the same token ``_extend_frame_path``
+        bakes into ``frame_path``/the SVG ``data-path``, so identity stays
+        stable regardless of display label). Looked up from whichever side's
+        netlist has this structure -- both sides carry the SAME label for an
+        unchanged frame; an added/removed frame only exists on one side.
+        Falls back to the raw value (never crashes) if neither side's
+        ``NetlistScope`` has it, e.g. a stale/mismatched uid."""
+        for scopes in (scope_b, scope_a):
+            scope = scopes.get(struct_uid)
+            if scope is None:
+                continue
+            for frame in scope.frames:
+                if frame.value == value:
+                    return frame.label
+        return value
+
+    def wire_content(c: ElementChange, siblings: list[ElementChange]) -> str | None:
+        """ASCII connectivity line for a standalone wire change, or ``None``
+        to suppress it. Suppressed when a NODE change with the SAME change
+        value is ALSO rendered at this exact containment path -- an ADDED
+        wire already shown inline by an added node's own ``instance_line``
+        (its inputs/outputs ARE the wires), so a separate wire leaf would
+        just repeat it. A wire whose change value DIFFERS from the sibling
+        node's (e.g. a REMOVED wire sharing a path with an ADDED node) is
+        NOT redundant with that node's instance line -- it must still show;
+        a deletion must always show. Otherwise: the change-map's own
+        label/detail verbatim (never invent a name -- the #13 gap: a
+        degenerate ``"x"`` label is rendered as-is), with any unicode arrow
+        mapped to the locked ASCII syntax (``<-``/``->`` become ``=``/``->``)."""
+        if any(
+            s.kind == "node" and s.change == c.change
+            for s in siblings if s is not c
+        ):
+            return None
+        detail = (c.detail or "").replace("←", "=").replace("→", "->")
+        return f"{c.label} {detail}" if detail else c.label
+
+    def child_uids(path: tuple[Segment, ...]) -> list[str]:
+        """Distinct struct uids appearing at depth ``len(path)`` among every
+        change chain that starts with ``path``, in first-appearance order
+        over ``cmap.changes``'s own deterministic sort (structures first,
+        then added<removed<modified, then uid -- see ``diff_uid``)."""
+        seen: list[str] = []
+        seen_set: set[str] = set()
+        depth = len(path)
+        for c in cmap.changes:
+            segs = _segments(c.frame_path)
+            if len(segs) > depth and segs[:depth] == path:
+                uid = segs[depth][0]
+                if uid not in seen_set:
+                    seen_set.add(uid)
+                    seen.append(uid)
+        return seen
+
+    def values_of(path: tuple[Segment, ...], struct_uid: str) -> list[str]:
+        seen: list[str] = []
+        seen_set: set[str] = set()
+        depth = len(path)
+        for c in cmap.changes:
+            segs = _segments(c.frame_path)
+            if (
+                len(segs) > depth and segs[:depth] == path
+                and segs[depth][0] == struct_uid
+            ):
+                value = segs[depth][1]
+                if value not in seen_set:
+                    seen_set.add(value)
+                    seen.append(value)
+        return seen
+
+    def render_struct_children(
+        struct_uid: str, path: tuple[Segment, ...], depth: int,
+    ) -> list[NetlistDiffRow]:
+        rows: list[NetlistDiffRow] = []
+        for value in values_of(path, struct_uid):
+            child_path = path + ((struct_uid, value),)
+            fc = frame_change_at.get(child_path)
+            body = render(child_path, depth + 1)
+            if fc is not None or body:
+                detail = f" {fc.detail}" if (fc is not None and fc.detail) else ""
+                rows.append(NetlistDiffRow(
+                    change=fc.change if fc is not None else None,
+                    depth=depth,
+                    text=f'"{frame_label(struct_uid, value)}":{detail}',
+                    uid=fc.uid if fc is not None else None,
+                    kind="frame",
+                ))
+                rows.extend(body)
+        return rows
+
+    def render(path: tuple[Segment, ...], depth: int) -> list[NetlistDiffRow]:
+        rows: list[NetlistDiffRow] = []
+        here = by_path.get(path, [])
+        struct_by_uid = {
+            c.uid: c for c in here
+            if c.kind == "structure" and c.change in ("added", "removed")
+        }
+        # A structure's OWN header must render even with NO descendant at
+        # all -- an empty/childless added case, or (always) a Loop/flat
+        # Sequence: neither is ``_is_interactive_struct``, so its children
+        # never gain its uid as a frame_path segment (they pass its own
+        # locality straight through -- see ``_collect_elements``), meaning
+        # ``child_uids`` alone would never surface it. So the struct uid SET
+        # is the union: every structure genuinely AT this path, plus any
+        # further uid only discoverable via a descendant's chain (an
+        # UNCHANGED container with changed contents). Dedup order here
+        # doesn't matter -- ``_sort_key`` below re-orders everything.
+        struct_uids: list[str] = []
+        seen: set[str] = set()
+        for uid in [*struct_by_uid, *child_uids(path)]:
+            if uid not in seen:
+                seen.add(uid)
+                struct_uids.append(uid)
+        # Interleave structures and leaf node/wire changes AT THIS CONTAINER
+        # in the VI's own source/dataflow order (``_sort_key`` /
+        # ``source_order``) -- a code diff reads top-to-bottom, not
+        # structures-first-then-statements.
+        siblings: list[tuple[tuple[int, int, object], str, object]] = [
+            (_sort_key(uid), "struct", uid) for uid in struct_uids
+        ] + [
+            (_sort_key(c.uid), "leaf", c) for c in here if c.kind in ("node", "wire")
+        ]
+        siblings.sort(key=lambda s: s[0])
+        for _, tag, payload in siblings:
+            if tag == "struct":
+                uid = payload
+                assert isinstance(uid, str)
+                struct_c = struct_by_uid.get(uid)
+                rows.append(NetlistDiffRow(
+                    change=struct_c.change if struct_c is not None else None,
+                    depth=depth,
+                    text=struct_content(uid),
+                    uid=uid,
+                    kind="scope",
+                ))
+                rows.extend(render_struct_children(uid, path, depth + 1))
+                continue
+            c = payload
+            assert isinstance(c, ElementChange)
+            if c.kind == "node":
+                rows.append(NetlistDiffRow(
+                    change=c.change, depth=depth, text=node_content(c),
+                    uid=c.uid, kind="node",
+                ))
+            elif c.kind == "wire":
+                content = wire_content(c, here)
+                if content is not None:
+                    rows.append(NetlistDiffRow(
+                        change=c.change, depth=depth, text=content,
+                        uid=c.uid, kind="wire",
+                    ))
+        return rows
+
+    rows = render((), 0)
+    rows.extend(_constant_row(con, detailed=detailed) for con in constants)
+    return rows
+
+
+def _format_signature_section(changes: list[SignatureChange]) -> str:
+    lines = ["Signature:"]
+    for sig in changes:
+        if sig.category == "added":
+            lines.append(f"  + {sig.direction}: {sig.name} ({sig.new_type})")
+        elif sig.category == "removed":
+            lines.append(f"  - {sig.direction}: {sig.name} ({sig.old_type})")
+        elif sig.category == "type_changed":
+            lines.append(
+                f"  ~ {sig.direction}: {sig.name}:"
+                f" {sig.old_type} -> {sig.new_type}"
+            )
+    return "\n".join(lines)
+
+
+def format_diff(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
+    vi_name_a: str, vi_name_b: str,
+    *, verbose: bool = False,
+) -> str:
+    """The ``lvkit diff`` TEXT report: ONE recursive composition tree (see
+    the module section header above), both tiers over the same ``diff_uid``
+    ChangeMap. Empty string means no changes -- the caller (``cmd_diff``)
+    prints "No changes detected."
+    """
+    va = graph_a.resolve_vi_name(vi_name_a)
+    vb = graph_b.resolve_vi_name(vi_name_b)
+    cmap = diff_uid(graph_a, graph_b, va, vb)
+
+    sections: list[str] = []
+
+    if verbose:
+        signature = _diff_signature(graph_a, graph_b, va, vb)
+        if signature:
+            sections.append(_format_signature_section(signature))
+
+    constants = _diff_constants(graph_a, graph_b, va, vb)
+    rows = _netlist_diff(
+        graph_a, graph_b, va, vb, cmap, constants, detailed=verbose,
+    )
+    if rows:
+        sections.append("\n".join(_rows_to_text(rows)))
+
+    if verbose and sections and cmap.common_node_uids:
+        # #26: a pure reposition (same/re-keyed wiring) is already collapsed
+        # to unchanged by diff_uid's own matching -- there is no separate
+        # "moved" signal to count, so this is an unchanged-node TALLY, never
+        # a reposition count. Only shown alongside a REAL change (an
+        # untouched VI is "No changes detected.", not a tally of nothing).
+        sections.append(f"({len(cmap.common_node_uids)} unchanged nodes)")
+
+    return "\n\n".join(sections)
+
+
+def netlist_diff_rows(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
+    vi_name_a: str, vi_name_b: str, *, detailed: bool = False,
+) -> list[NetlistDiffRow]:
+    """The SAME structured rows ``format_diff`` renders to text, exposed for
+    NON-text consumers -- today the HTML viewer's Tree view (see
+    ``.tmp/netlist-spec.md`` Phase 3), so the viewer renders the identical
+    netlist-diff tree as ``lvkit diff`` prints, not a client-side
+    reconstruction of it. Resolves VI names, builds the ``diff_uid`` change
+    map and the top-level constant diff exactly like ``format_diff`` does,
+    then returns ``_netlist_diff``'s rows unrendered."""
+    va = graph_a.resolve_vi_name(vi_name_a)
+    vb = graph_b.resolve_vi_name(vi_name_b)
+    cmap = diff_uid(graph_a, graph_b, va, vb)
+    constants = _diff_constants(graph_a, graph_b, va, vb)
+    return _netlist_diff(
+        graph_a, graph_b, va, vb, cmap, constants, detailed=detailed,
+    )
+
+
+def rows_to_json(rows: list[NetlistDiffRow]) -> list[dict]:
+    """JSON-ready dicts for the HTML viewer's ``__NETLIST_TREE__`` payload
+    (one dict per ``NetlistDiffRow`` field, verbatim)."""
+    return [
+        {
+            "change": r.change, "depth": r.depth, "text": r.text,
+            "uid": r.uid, "kind": r.kind,
+        }
+        for r in rows
+    ]
 
 
 # ── Comparison helpers ────────────────────────────────────────────────
@@ -1251,30 +1650,6 @@ def _diff_signature(
                         "type_changed", direction, name,
                         old_type=type_a, new_type=type_b,
                     ))
-    return changes
-
-
-def _diff_operations(
-    ga: InMemoryVIGraph, gb: InMemoryVIGraph,
-    va: str, vb: str,
-) -> list[OperationChange]:
-    ops_a = ga.get_operations(va)
-    ops_b = gb.get_operations(vb)
-
-    counts_a = _op_counts(ops_a)
-    counts_b = _op_counts(ops_b)
-
-    changes: list[OperationChange] = []
-    all_keys = sorted(set(counts_a) | set(counts_b))
-    for key in all_keys:
-        name, node_type = key
-        ca = counts_a.get(key, 0)
-        cb = counts_b.get(key, 0)
-        display = name or f"(unnamed {node_type})"
-        for _ in range(max(0, cb - ca)):
-            changes.append(OperationChange("added", display, node_type))
-        for _ in range(max(0, ca - cb)):
-            changes.append(OperationChange("removed", display, node_type))
     return changes
 
 
@@ -1328,146 +1703,6 @@ def _diff_constants(
     return changes
 
 
-def _diff_wiring(
-    ga: InMemoryVIGraph, gb: InMemoryVIGraph,
-    va: str, vb: str,
-) -> list[WiringChange]:
-    # Relabel unnamed-constant endpoints by type/value (e.g. "error cluster")
-    # instead of an opaque raw UID.
-    const_labels = _const_label_by_id(ga.get_constants(va))
-    const_labels.update(_const_label_by_id(gb.get_constants(vb)))
-    return _wiring_changes(ga.get_wires(va), gb.get_wires(vb), const_labels)
-
-
-def _wiring_changes(
-    wires_a: list[Wire], wires_b: list[Wire],
-    const_labels: Mapping[str, str],
-) -> list[WiringChange]:
-    # Drop structure-internal edges (tunnel/selector/sRN plumbing — always
-    # self-loops on the structure node). They're implied by the structure
-    # add/remove and are surfaced in the Structures section instead.
-    wires_a = [w for w in wires_a if not _is_internal_wire(w)]
-    wires_b = [w for w in wires_b if not _is_internal_wire(w)]
-
-    # A wire is only noteworthy if it touches a node present in BOTH
-    # versions (a genuine rewire of unchanged topology — a "splice"). A
-    # wire whose endpoints are all new/removed is dragged along by the
-    # node change that the Operations/Constants/Structures sections already
-    # report, so it's redundant noise here.
-    shared = _endpoint_names(wires_a) & _endpoint_names(wires_b)
-
-    keys_a = Counter(_wire_key(w, const_labels) for w in wires_a)
-    keys_b = Counter(_wire_key(w, const_labels) for w in wires_b)
-    raw_names: dict[tuple[str, str], tuple[str | None, str | None]] = {}
-    for w in (*wires_a, *wires_b):
-        raw_names.setdefault(
-            _wire_key(w, const_labels), (w.source.name, w.dest.name),
-        )
-
-    changes: list[WiringChange] = []
-    for key in sorted(set(keys_a) | set(keys_b)):
-        diff = keys_b.get(key, 0) - keys_a.get(key, 0)
-        if diff == 0:
-            continue
-        src_name, dst_name = raw_names[key]
-        if src_name not in shared and dst_name not in shared:
-            continue  # implied by a node add/remove — suppress
-        src, dst = key
-        desc = f"{src} -> {dst}"
-        for _ in range(max(0, diff)):
-            changes.append(WiringChange("added", desc))
-        for _ in range(max(0, -diff)):
-            changes.append(WiringChange("removed", desc))
-    return changes
-
-
-def _diff_structures(
-    ga: InMemoryVIGraph, gb: InMemoryVIGraph,
-    va: str, vb: str,
-) -> list[StructureChange]:
-    structs_a = _collect_structures(ga.get_operations(va))
-    structs_b = _collect_structures(gb.get_operations(vb))
-    consts_a = ga.get_constants(va)
-    consts_b = gb.get_constants(vb)
-    wires_a = ga.get_wires(va)
-    wires_b = gb.get_wires(vb)
-    labels = _const_label_by_id(consts_a)
-    labels.update(_const_label_by_id(consts_b))
-
-    map_a = {(s.name, type(s).__name__): s for s in structs_a}
-    map_b = {(s.name, type(s).__name__): s for s in structs_b}
-
-    changes: list[StructureChange] = []
-    for key in sorted(set(map_a) | set(map_b)):
-        name, kind = key
-        label = name or kind
-        if key not in map_a:
-            changes.append(StructureChange(
-                "added",
-                label,
-                _structure_content_summary(map_b[key], consts_b, wires_b, labels),
-            ))
-        elif key not in map_b:
-            changes.append(StructureChange(
-                "removed",
-                label,
-                _structure_content_summary(map_a[key], consts_a, wires_a, labels),
-            ))
-        else:
-            detail = _compare_structure(
-                map_a[key], map_b[key], consts_a, consts_b,
-                wires_a, wires_b, labels,
-            )
-            if detail:
-                changes.append(StructureChange("changed", label, detail))
-    return changes
-
-
-def _selector_source(
-    case: CaseOperation, wires: list[Wire], const_labels: Mapping[str, str],
-) -> str | None:
-    """The external node feeding a case structure's selector terminal —
-    the splice that drives which frame runs. Recovered here because that
-    wire (new node -> new case) is suppressed in the Wiring section."""
-    sel = case.selector_terminal
-    if not sel:
-        return None
-    for w in wires:
-        if w.dest.terminal_id == sel and not _is_internal_wire(w):
-            return _endpoint_label(w.source, const_labels)
-    return None
-
-
-def _structure_content_summary(
-    s: Operation, constants: list[Constant],
-    wires: list[Wire] | None = None,
-    const_labels: Mapping[str, str] | None = None,
-) -> str | None:
-    """Enumerate a structure's selector source + per-frame operations and
-    constants, so an added/removed structure shows what's inside it (incl.
-    nested constants excluded from the flat Constants section) and what
-    drives it (the selector, whose wire the Wiring section suppresses)."""
-    by_frame = _consts_by_frame(constants, s.id)
-    if isinstance(s, CaseOperation):
-        frames = [(str(f.selector_value), f) for f in s.frames]
-    elif isinstance(s, SequenceOperation):
-        frames = [(str(i), f) for i, f in enumerate(s.frames)]
-    else:
-        return None
-
-    parts: list[str] = []
-    if isinstance(s, CaseOperation):
-        sel = _selector_source(s, wires or [], const_labels or {})
-        if sel:
-            parts.append(f"selector <- {sel}")
-    for fkey, frame in frames:
-        items = [op.name or op.node_type or "op" for op in frame.operations]
-        items += [_const_label(c) for c in by_frame.get(fkey, [])]
-        if items:
-            parts.append(f"frame {fkey}: {', '.join(items)}")
-    return "; ".join(parts) if parts else None
-
-
 # ── Utility functions ─────────────────────────────────────────────────
 
 
@@ -1479,68 +1714,9 @@ def _terminal_map(terminals: list[Terminal]) -> dict[str, Terminal]:
     }
 
 
-def _op_key(op: Operation) -> tuple[str, str | None]:
-    return (op.name or "?", op.node_type)
-
-
-def _op_counts(ops: list[Operation]) -> Counter[tuple[str, str | None]]:
-    return Counter(_op_key(op) for op in ops)
-
-
 def _const_key(c: Constant) -> tuple[str, str]:
     type_str = c.lv_type.to_python() if c.lv_type else "unknown"
     return (repr(c.value), type_str)
-
-
-def _is_internal_wire(w: Wire) -> bool:
-    """A structure-internal edge (tunnel inner<->outer, selector, sRN
-    in->out pairing) — always a self-loop on the structure node."""
-    return w.source.node_id == w.dest.node_id
-
-
-def _endpoint_names(wires: list[Wire]) -> set[str]:
-    """Named nodes appearing as a wire endpoint (identity across versions)."""
-    names: set[str] = set()
-    for w in wires:
-        if w.source.name:
-            names.add(w.source.name)
-        if w.dest.name:
-            names.add(w.dest.name)
-    return names
-
-
-def _const_label_by_id(constants: list[Constant]) -> dict[str, str]:
-    """Map each unnamed constant's node id to a type/value display label."""
-    return {c.id: _const_label(c) for c in constants if not c.name}
-
-
-def _endpoint_label(end: WireEnd, const_labels: Mapping[str, str]) -> str:
-    return end.name or const_labels.get(end.node_id) or end.node_id.split("::")[-1]
-
-
-def _wire_key(
-    w: Wire, const_labels: Mapping[str, str] | None = None,
-) -> tuple[str, str]:
-    labels = const_labels or {}
-    return (_endpoint_label(w.source, labels), _endpoint_label(w.dest, labels))
-
-
-def _collect_structures(ops: list[Operation]) -> list[Operation]:
-    return [
-        op for op in ops
-        if isinstance(op, CaseOperation | LoopOperation | SequenceOperation)
-    ]
-
-
-def _consts_by_frame(
-    constants: list[Constant], parent_id: str,
-) -> dict[str, list[Constant]]:
-    """Group a structure's nested constants by frame key (as str)."""
-    grouped: dict[str, list[Constant]] = {}
-    for c in constants:
-        if c.parent == parent_id:
-            grouped.setdefault(str(c.frame), []).append(c)
-    return grouped
 
 
 def _value_disp(value: object) -> str:
@@ -1557,93 +1733,3 @@ def _const_label(c: Constant) -> str:
         return "error cluster"
     type_str = c.lv_type.to_python() if c.lv_type else "unknown"
     return f"{type_str} constant"
-
-
-def _frame_content_delta(
-    ops_a: list[Operation], consts_a: list[Constant],
-    ops_b: list[Operation], consts_b: list[Constant],
-) -> list[str]:
-    """Per-frame additions/removals of operations and constants."""
-    parts: list[str] = []
-
-    oa, ob = _op_counts(ops_a), _op_counts(ops_b)
-    for key in sorted(set(oa) | set(ob), key=lambda k: (k[0] or "", k[1] or "")):
-        delta = ob.get(key, 0) - oa.get(key, 0)
-        label = key[0] or f"(unnamed {key[1]})"
-        if delta > 0:
-            parts.append(f"+{delta} {label}")
-        elif delta < 0:
-            parts.append(f"-{-delta} {label}")
-
-    ka = Counter(_const_key(c) for c in consts_a)
-    kb = Counter(_const_key(c) for c in consts_b)
-    label_for = {_const_key(c): _const_label(c) for c in (*consts_a, *consts_b)}
-    for key in sorted(set(ka) | set(kb)):
-        delta = kb.get(key, 0) - ka.get(key, 0)
-        label = label_for[key]
-        if delta > 0:
-            parts.append(f"+{delta} {label}")
-        elif delta < 0:
-            parts.append(f"-{-delta} {label}")
-
-    return parts
-
-
-def _compare_structure(
-    a: Operation, b: Operation,
-    consts_a: list[Constant], consts_b: list[Constant],
-    wires_a: list[Wire] | None = None,
-    wires_b: list[Wire] | None = None,
-    const_labels: Mapping[str, str] | None = None,
-) -> str | None:
-    wa, wb, labels = wires_a or [], wires_b or [], const_labels or {}
-    if isinstance(a, CaseOperation) and isinstance(b, CaseOperation):
-        parts: list[str] = []
-        sel_a = _selector_source(a, wa, labels)
-        sel_b = _selector_source(b, wb, labels)
-        if sel_a != sel_b:
-            parts.append(f"selector {sel_a} -> {sel_b}")
-        if len(a.frames) != len(b.frames):
-            parts.append(f"{len(a.frames)} frames -> {len(b.frames)} frames")
-        else:
-            frame_detail = _compare_frames(
-                {str(f.selector_value): f for f in a.frames},
-                {str(f.selector_value): f for f in b.frames},
-                _consts_by_frame(consts_a, a.id),
-                _consts_by_frame(consts_b, b.id),
-            )
-            if frame_detail:
-                parts.append(frame_detail)
-        return "; ".join(parts) if parts else None
-    if isinstance(a, LoopOperation) and isinstance(b, LoopOperation):
-        if a.loop_type != b.loop_type:
-            return f"{a.loop_type} -> {b.loop_type}"
-    if isinstance(a, SequenceOperation) and isinstance(b, SequenceOperation):
-        if len(a.frames) != len(b.frames):
-            return f"{len(a.frames)} frames -> {len(b.frames)} frames"
-        return _compare_frames(
-            {str(i): f for i, f in enumerate(a.frames)},
-            {str(i): f for i, f in enumerate(b.frames)},
-            _consts_by_frame(consts_a, a.id),
-            _consts_by_frame(consts_b, b.id),
-        )
-    return None
-
-
-def _compare_frames(
-    frames_a: Mapping[str, Frame], frames_b: Mapping[str, Frame],
-    consts_a: Mapping[str, list[Constant]], consts_b: Mapping[str, list[Constant]],
-) -> str | None:
-    """Per-frame content diff, attributed to each frame key."""
-    details: list[str] = []
-    for key in sorted(set(frames_a) | set(frames_b)):
-        fa, fb = frames_a.get(key), frames_b.get(key)
-        ops_a = list(fa.operations) if fa is not None else []
-        ops_b = list(fb.operations) if fb is not None else []
-        delta = _frame_content_delta(
-            ops_a, consts_a.get(key, []),
-            ops_b, consts_b.get(key, []),
-        )
-        if delta:
-            details.append(f"frame {key}: {', '.join(delta)}")
-    return "; ".join(details) if details else None

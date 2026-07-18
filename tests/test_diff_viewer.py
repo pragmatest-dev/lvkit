@@ -9,18 +9,49 @@ VIs at all.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.diff import ChangeMap, ElementChange, diff_uid
+from lvkit.graph.diff import (
+    ChangeMap,
+    ElementChange,
+    diff_uid,
+    netlist_diff_rows,
+    rows_to_json,
+)
 from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
 
 BASE_VI = Path("outputs/vi-diff/run_base.vi")
 HEAD_VI = Path("outputs/vi-diff/run_head.vi")
+
+# The JKI VI-Tester run.vi pair (mirrors tests/test_netlist.py's/test_diff.py's
+# scratchpad convention: not part of the repo's sample corpus, so Phase 3
+# tests that need REAL netlist-diff rows degrade gracefully when absent).
+_SCRATCHPAD = Path(
+    "/tmp/claude-1000/-home-ryanf-repos-lvkit/3a7f874f-386b-432d-9712-edf3bc6c995e"
+    "/scratchpad"
+)
+_RUN_OLD = _SCRATCHPAD / "run_OLD.vi"
+_RUN_NEW = _SCRATCHPAD / "run_NEW.vi"
+_DEMO_SEARCH_PATH = Path(__file__).resolve().parent.parent / ".tmp" / "vi-tester-demo"
+
+
+def _load_jki(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
+    graph = InMemoryVIGraph()
+    graph.load_vi(str(vi_path), search_paths=[_DEMO_SEARCH_PATH], layout=False)
+    return graph, graph.resolve_vi_name(vi_path.name)
+
+
+def _require_jki_vis() -> None:
+    if not _RUN_OLD.exists() or not _RUN_NEW.exists():
+        pytest.skip("JKI run_OLD.vi/run_NEW.vi pair not staged in scratchpad")
 
 
 def _load(vi_path: Path, *, layout: bool = True) -> tuple[InMemoryVIGraph, str]:
@@ -92,8 +123,8 @@ class TestBuildDiffViewerEndToEnd:
         # placeholders fully substituted -- no leftover markers.
         for marker in (
             "__TITLE__", "__BEFORE_LABEL__", "__AFTER_LABEL__", "__BEFORE_SVG__",
-            "__AFTER_SVG__", "__CHANGES__", "__ADD__", "__DEL__", "__MOD__",
-            "__COMMON__",
+            "__AFTER_SVG__", "__CHANGES__", "__NETLIST_TREE__", "__ADD__",
+            "__DEL__", "__MOD__", "__COMMON__",
         ):
             assert marker not in html
 
@@ -140,3 +171,88 @@ class TestBuildDiffViewerPureUnit:
         assert '"uid": "42"' in html
         assert '"label": "Added Node"' in html
         assert '"detail": "1 \\u2192 2"' in html or "1 → 2" in html
+
+
+class TestNetlistTreeInViewer:
+    """Phase 3: the Tree view renders diff.py's own structured netlist-diff
+    rows (``NetlistDiffRow`` via ``netlist_diff_rows``/``rows_to_json``), not
+    a client-side reconstruction of ``CHANGES`` -- so ``build_diff_viewer``'s
+    ``netlist_rows`` embeds the IDENTICAL rows ``format_diff`` renders to
+    text (see ``.tmp/netlist-spec.md`` Phase 3). No browser needed -- every
+    assertion here is on the emitted HTML/JSON string."""
+
+    def test_netlist_tree_embedded_with_known_row(self):
+        _require_jki_vis()
+        ga, na = _load_jki(_RUN_OLD)
+        gb, nb = _load_jki(_RUN_NEW)
+        cmap = diff_uid(ga, gb, na, nb)
+        rows = netlist_diff_rows(ga, gb, na, nb)
+        assert rows, "expected real changes on the JKI run_OLD/run_NEW pair"
+        assert all(r.text.isascii() for r in rows)
+
+        html = build_diff_viewer(
+            cmap, "<svg id='b'>BEFORE-MARKER</svg>", "<svg id='h'>AFTER-MARKER</svg>",
+            title="run.vi", before_label="before", after_label="after",
+            netlist_rows=rows_to_json(rows),
+        )
+
+        assert "const NETLIST_TREE = [" in html
+        assert "__NETLIST_TREE__" not in html
+        # A known real netlist-diff row -- the SAME addSkipped instance line
+        # Phase 2's TEXT-report test (test_diff.py::TestNetlistFormDiffOnJKIPair)
+        # asserts on -- proves Tree gets the identical content, not a
+        # different (client-rebuilt) rendering of it.
+        assert any(
+            r.kind == "node" and "addSkipped" in r.text for r in rows
+        )
+        assert "addSkipped" in html
+
+    def test_omitted_netlist_rows_render_empty_tree(self):
+        """No ``netlist_rows`` passed (an older/unaware caller) -> an empty,
+        valid tree, never a leftover placeholder."""
+        cmap = ChangeMap(changes=[], common_node_uids=[])
+        html = build_diff_viewer(
+            cmap, "<svg></svg>", "<svg></svg>",
+            title="t", before_label="a", after_label="b",
+        )
+        assert "const NETLIST_TREE = [];" in html
+        assert "__NETLIST_TREE__" not in html
+
+    def test_deterministic_across_hash_seeds(self):
+        _require_jki_vis()
+
+        script = (
+            "import hashlib\n"
+            "from pathlib import Path\n"
+            "from lvkit.graph.core import InMemoryVIGraph\n"
+            "from lvkit.graph.diff import diff_uid, netlist_diff_rows, rows_to_json\n"
+            "from lvkit.render.diff_viewer import build_diff_viewer\n"
+            "def _load(p):\n"
+            "    g = InMemoryVIGraph()\n"
+            f"    g.load_vi(str(p), search_paths=[Path({str(_DEMO_SEARCH_PATH)!r})],"
+            " layout=False)\n"
+            "    return g, g.resolve_vi_name(p.name)\n"
+            f"ga, na = _load(Path({str(_RUN_OLD)!r}))\n"
+            f"gb, nb = _load(Path({str(_RUN_NEW)!r}))\n"
+            "cmap = diff_uid(ga, gb, na, nb)\n"
+            "rows = netlist_diff_rows(ga, gb, na, nb)\n"
+            "html = build_diff_viewer(\n"
+            "    cmap, '<svg></svg>', '<svg></svg>',\n"
+            "    title='t', before_label='a', after_label='b',\n"
+            "    netlist_rows=rows_to_json(rows),\n"
+            ")\n"
+            "assert all(r.text.isascii() for r in rows)\n"
+            "print(hashlib.sha256(html.encode()).hexdigest())\n"
+        )
+
+        digests = []
+        for seed in ("0", "1234567"):
+            result = subprocess.run(
+                [sys.executable, "-c", script],
+                cwd=Path(__file__).resolve().parent.parent,
+                env={**os.environ, "PYTHONHASHSEED": seed},
+                capture_output=True, text=True, timeout=60,
+            )
+            assert result.returncode == 0, result.stderr
+            digests.append(result.stdout.strip())
+        assert digests[0] == digests[1]

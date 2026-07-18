@@ -35,8 +35,9 @@ For a global install: `pipx install lvkit` or `uv tool install lvkit`.
 | `lvkit describe` | Human-readable VI description with signature and operations |
 | `lvkit docs` | Generate cross-referenced HTML documentation |
 | `lvkit diff` | Compare two VI versions — terminals, operations, wiring |
-| `lvkit visualize` | Mermaid flowchart or interactive dependency graph |
+| `lvkit visualize` | Interactive dependency or data flow graph HTML |
 | `lvkit generate` | Generate Python from a VI, library, or class (experimental — see [Cleanroom approach](#cleanroom-approach)) |
+| `lvkit render` | Render an interactive block diagram SVG from a VI |
 | `lvkit structure` | Inspect `.lvlib` or `.lvclass` structure |
 | `lvkit setup` | Install AI agent skills; create `.lvkit/` resolution store |
 | `lvkit mcp` | Start the MCP server for IDE integration |

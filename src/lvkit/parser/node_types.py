@@ -461,14 +461,28 @@ class ForLoopHandler(NodeTypeHandler):
 
 
 class SelectHandler(NodeTypeHandler):
-    """Handler for Select nodes (class="select")."""
+    """Handler for Select nodes (class="select").
+
+    In this LV version, class="select" IS the Case Structure -- so this
+    node's subtree contains a whole nested frame (subVI calls, primitives,
+    etc.). Don't use extract_label here: its arbitrary-depth XPaths would
+    grab the first descendant's label (e.g. a subVI named "addSkipped.vi"
+    sitting in frame 0) and mis-name the WHOLE case structure with it.
+    Same reasoning as WhileLoopHandler/ForLoopHandler above.
+    """
 
     xml_class = "select"
     display_name = "Select"
 
     def parse(self, elem: ET.Element) -> SelectNode:
-        common = self._extract_common(elem)
-        return SelectNode(**common)
+        input_types, output_types = extract_terminal_types(elem)
+        return SelectNode(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=self.display_name,
+            input_types=input_types,
+            output_types=output_types,
+        )
 
 
 @dataclass

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 from pathlib import Path
 
+import pytest
+
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.diff import diff_structured, diff_text, diff_uid
+from lvkit.graph.diff import diff_uid, format_diff
 from lvkit.graph.loading import LoadMode
-from lvkit.graph.models import Constant
+from lvkit.graph.models import Constant, VIContext
 from lvkit.models import (
     CaseFrame,
     CaseOperation,
@@ -41,89 +45,334 @@ def _load(vi_path: Path, *, layout: bool = False) -> tuple[InMemoryVIGraph, str]
     return graph, vi_name
 
 
-# ── Text diff ─────────────────────────────────────────────────────────
+def _depth(line: str) -> int:
+    """Nesting depth of one netlist-diff line: gutter is column 0
+    (``f"{g} {'  '*depth}{content}"``), so depth is the leading-space count
+    AFTER the "<gutter><space>" prefix, halved (2 spaces/level)."""
+    rest = line[2:]
+    return (len(rest) - len(rest.lstrip(" "))) // 2
 
 
-class TestDiffText:
-    def test_identical_vi_produces_empty_diff(self):
-        ga, na = _load(VI_A)
-        gb, nb = _load(VI_A)
-        result = diff_text(ga, gb, na, nb)
-        assert result == ""
-
-    def test_different_vis_produce_nonempty_diff(self):
-        ga, na = _load(VI_A)
-        gb, nb = _load(VI_B)
-        result = diff_text(
-            ga, gb, na, nb, label_a="DAQ AO.vi", label_b="test TCX read.vi"
-        )
-        assert "---" in result
-        assert "+++" in result
-        assert "DAQ AO.vi" in result
-        assert "test TCX read.vi" in result
-
-    def test_diff_contains_operation_changes(self):
-        ga, na = _load(VI_A)
-        gb, nb = _load(VI_B)
-        result = diff_text(ga, gb, na, nb)
-        # VI_A has DAQmx Write.vi, VI_B doesn't
-        assert "Write" in result
+# ── Diff TEXT report: ONE recursive netlist-form tree, concise default +
+# --verbose (both project the SAME UID-keyed ChangeMap AND the SAME
+# containment tree -- see diff.py's ``format_diff``/``_netlist_diff``)
+# ──────────────────────────────────────────────────────────────────────
 
 
-# ── Structured diff ──────────────────────────────────────────────────
+class TestFormatDiffConcise:
+    """The default (non-verbose) tier: the recursive composition tree,
+    changes only -- no Signature section, no unchanged-node tally."""
 
-
-class TestDiffStructured:
     def test_identical_vi_produces_empty_report(self):
         ga, na = _load(VI_A)
         gb, nb = _load(VI_A)
-        report = diff_structured(ga, gb, na, nb)
-        assert report.is_empty()
+        assert format_diff(ga, gb, na, nb) == ""
 
     def test_different_vis_detect_operation_changes(self):
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
-        report = diff_structured(ga, gb, na, nb)
-        assert not report.is_empty()
-
-        op_names = {c.name for c in report.operations}
-        # VI_A has DAQmx Write, VI_B doesn't
-        assert "DAQmx Write.vi" in op_names
+        result = format_diff(ga, gb, na, nb)
+        assert result != ""
+        # VI_A has DAQmx Write.vi, VI_B doesn't.
+        assert "DAQmx Write.vi" in result
 
     def test_different_vis_detect_structure_changes(self):
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
-        report = diff_structured(ga, gb, na, nb)
+        result = format_diff(ga, gb, na, nb)
+        # VI_A has a While Loop, VI_B has a Flat Sequence -- structures render
+        # as netlist scope headers (locked syntax), not the diagram's own name.
+        assert "sequence:" in result or "while (" in result
 
-        struct_names = {c.name for c in report.structures}
-        # VI_A has a While Loop, VI_B has a Flat Sequence
-        assert "Flat Sequence" in struct_names or "While Loop" in struct_names
+    def test_concise_omits_signature_section(self):
+        # Signature is a --verbose-only depth add (a distinct concern from
+        # the UID-keyed ChangeMap -- see format_diff's docstring).
+        ga, na = _load(VI_A)
+        gb, nb = _load(VI_B)
+        result = format_diff(ga, gb, na, nb)
+        assert "Signature:" not in result
+
+    def test_concise_omits_unchanged_node_tally(self):
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        result = format_diff(ga, gb, na, nb)
+        assert "unchanged" not in result
+
+    def test_concise_is_already_the_full_tree(self):
+        # The depth axis (--verbose) no longer gates NESTING -- both tiers
+        # project the SAME netlist-diff tree (see format_diff's docstring).
+        # run_base/run_head wraps several existing nodes in a NEW case (uid
+        # 3870, node_type "select" -- a structure must never be named after
+        # a node nested in its own frame, see SelectHandler) containing the
+        # real subVI call "addSkipped.vi" (node 4117). The new case's
+        # selector is itself fed THROUGH its own input tunnel from a
+        # sibling "Bundle/Unbundle By Name" node -- _resolve_source hops
+        # through the tunnel to that real producer instead of naming the
+        # case after whatever it finds sitting at the tunnel terminal.
+        # scope_header line, a nested frame sub-header for "True", and the
+        # new node's instance line beneath it, all in the DEFAULT report.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        result = format_diff(ga, gb, na, nb)
+        assert "+ " in result
+        assert "case (Bundle/Unbundle By Name#2" in result
+        assert '"True":' in result
+        assert "addSkipped.vi" in result.split('"True":', 1)[1]
+        # nested one level deeper than the structure's own header line
+        lines = result.splitlines()
+        struct_i = next(
+            i for i, ln in enumerate(lines)
+            if ln.startswith("+ ") and "case (Bundle/Unbundle By Name#2" in ln
+        )
+        frame_i = next(
+            i for i, ln in enumerate(lines[struct_i:], struct_i) if '"True":' in ln
+        )
+        node_i = next(
+            i for i, ln in enumerate(lines[frame_i:], frame_i)
+            if "addSkipped.vi" in ln and i != struct_i
+        )
+        assert _depth(lines[struct_i]) < _depth(lines[frame_i]) < _depth(
+            lines[node_i]
+        )
+
+    def test_unchanged_container_gets_no_header_but_still_nests(self):
+        # The OTHER added node (1065) sits in an UNCHANGED case (753) --
+        # unlike case 3870 above, 753's own scope_header line has a SPACE
+        # gutter (it didn't change itself), but its frame still docks 1065
+        # under a quoted frame sub-header rather than showing it flat.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        cmap = diff_uid(ga, gb, na, nb)
+        by_uid = {c.uid: c for c in cmap.changes if c.kind == "node"}
+        assert by_uid["1065"].container_uid == "753"
+        result = format_diff(ga, gb, na, nb)
+        assert "+ " in result
+        assert "Bundle/Unbundle By Name#2" in result
+        lines = result.splitlines()
+        node_i = next(
+            i for i, ln in enumerate(lines)
+            if ln.startswith("+ ") and "Bundle/Unbundle By Name#2" in ln
+        )
+        assert node_i > 0
+        # its line is indented under SOME quoted frame header above it
+        assert any('":' in lines[j] for j in range(node_i))
+        # 753's own case header is SPACE-gutter context, not a +/-/~ change
+        struct_i = next(
+            i for i, ln in enumerate(lines) if "case (Bundle/Unbundle By Name#1" in ln
+        )
+        assert lines[struct_i].startswith("  ")  # space gutter, not +/-/~
+
+    def test_gutter_tag_applies_to_both_struct_and_node_lines(self):
+        # The "+"/"-"/"~" gutter is orthogonal to WHAT changed (a structure's
+        # scope_header vs. a node's instance_line) -- the same tag prefixes
+        # both kinds of content.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        result = format_diff(ga, gb, na, nb)
+        assert "+ " in result
+        assert "case (Bundle/Unbundle By Name#2" in result
+        assert "addSkipped.vi#2" in result
+        lines = result.splitlines()
+        struct_line = next(
+            ln for ln in lines
+            if ln.startswith("+ ") and "case (Bundle/Unbundle By Name#2" in ln
+        )
+        node_line = next(ln for ln in lines if "addSkipped.vi#2" in ln)
+        assert struct_line.startswith("+ ")
+        assert node_line.startswith("+ ")
+
+    def test_removed_wire_not_suppressed_by_sibling_added_node_change(self):
+        # The removed wire's sink shares a containment path with an added
+        # "Bundle/Unbundle By Name" node, but the two are DIFFERENT changes
+        # (removed vs. added) -- a deletion must always show, even when an
+        # unrelated addition happens to live at the same path. Only a wire
+        # sharing its OWN change value (added wire + added node) is
+        # redundant with that node's instance_line and gets suppressed.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        result = format_diff(ga, gb, na, nb)
+        lines = result.splitlines()
+        wire_line = next(ln for ln in lines if "x = Bundle/Unbundle" in ln)
+        assert wire_line.startswith("- ")
+
+    def test_no_section_headers(self):
+        # #31: no Operations:/Wiring:/Structures: sections -- every change
+        # reads inline in the ONE composition tree.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        result = format_diff(ga, gb, na, nb)
+        assert "Operations:" not in result
+        assert "Wiring:" not in result
+        assert "Structures:" not in result
+
+
+class TestFormatDiffVerbose:
+    """--verbose: the SAME composition tree, PLUS a Signature section,
+    modified-value old->new detail, and a trailing unchanged-node tally --
+    same ChangeMap, more depth, never a different shape."""
+
+    def test_identical_vi_produces_empty_report(self):
+        ga, na = _load(VI_A)
+        gb, nb = _load(VI_A)
+        assert format_diff(ga, gb, na, nb, verbose=True) == ""
+
+    def test_different_vis_detect_operation_changes(self):
+        ga, na = _load(VI_A)
+        gb, nb = _load(VI_B)
+        result = format_diff(ga, gb, na, nb, verbose=True)
+        assert "DAQmx Write.vi" in result
+
+    def test_different_vis_detect_structure_changes(self):
+        ga, na = _load(VI_A)
+        gb, nb = _load(VI_B)
+        result = format_diff(ga, gb, na, nb, verbose=True)
+        assert "sequence:" in result or "while (" in result
 
     def test_different_vis_detect_signature_changes(self):
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
-        report = diff_structured(ga, gb, na, nb)
-
-        # VI_B has a 'Tree' input that VI_A doesn't
-        added_inputs = [
-            c for c in report.signature
-            if c.category == "added" and c.direction == "input"
-        ]
-        assert any(c.name == "Tree" for c in added_inputs)
+        result = format_diff(ga, gb, na, nb, verbose=True)
+        # VI_B has a 'Tree' input that VI_A doesn't.
+        assert "Signature:" in result
+        assert "+ input: Tree" in result
 
     def test_format_produces_readable_output(self):
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
-        report = diff_structured(ga, gb, na, nb)
-        output = report.format()
-        assert "Signature:" in output
-        assert "Operations:" in output
+        result = format_diff(ga, gb, na, nb, verbose=True)
+        assert "Signature:" in result
+        assert "DAQmx Write.vi" in result
 
-    def test_empty_report_format(self):
-        ga, na = _load(VI_A)
-        gb, nb = _load(VI_A)
-        report = diff_structured(ga, gb, na, nb)
-        assert report.format() == ""
+    def test_verbose_tree_matches_concise_tree(self):
+        # The tree itself is IDENTICAL between tiers -- verbose only adds
+        # Signature (before) and the unchanged-node tally (after).
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        concise = format_diff(ga, gb, na, nb)
+        verbose = format_diff(ga, gb, na, nb, verbose=True)
+        common = len(diff_uid(ga, gb, na, nb).common_node_uids)
+        assert verbose == concise + f"\n\n({common} unchanged nodes)"
+
+    def test_unchanged_node_tally_present(self):
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        cmap = diff_uid(ga, gb, na, nb)
+        result = format_diff(ga, gb, na, nb, verbose=True)
+        assert f"({len(cmap.common_node_uids)} unchanged nodes)" in result
+
+    def test_no_duplicated_wiring_lines(self):
+        # The one genuine REMOVED wire for this pair (see TestWireChanges)
+        # still renders exactly once, as its own "- " deletion line -- it is
+        # not duplicated by, nor hidden behind, the added sibling node's own
+        # instance_line at the same containment path (see
+        # test_removed_wire_not_suppressed_by_sibling_added_node_change).
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        result = format_diff(ga, gb, na, nb, verbose=True)
+        lines = result.splitlines()
+        assert sum(1 for ln in lines if "x = Bundle/Unbundle" in ln) == 1
+        wire_line = next(ln for ln in lines if "x = Bundle/Unbundle" in ln)
+        assert wire_line.startswith("- ")
+
+
+# ── netlist-form TEXT diff on the real JKI VI-Tester run.vi pair ───────
+#
+# Mirrors tests/test_netlist.py's load-and-skip-if-absent convention: these
+# VIs are staged in the scratchpad, not the repo's sample corpus, so the
+# tests degrade gracefully when they're not present in a given environment.
+
+_SCRATCHPAD = Path(
+    "/tmp/claude-1000/-home-ryanf-repos-lvkit/3a7f874f-386b-432d-9712-edf3bc6c995e"
+    "/scratchpad"
+)
+_RUN_OLD = _SCRATCHPAD / "run_OLD.vi"
+_RUN_NEW = _SCRATCHPAD / "run_NEW.vi"
+_DEMO_SEARCH_PATH = Path(__file__).resolve().parent.parent / ".tmp" / "vi-tester-demo"
+
+
+def _load_jki(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
+    graph = InMemoryVIGraph()
+    graph.load_vi(str(vi_path), search_paths=[_DEMO_SEARCH_PATH], layout=False)
+    vi_name = graph.resolve_vi_name(vi_path.name)
+    return graph, vi_name
+
+
+def _require_jki_vis() -> None:
+    if not _RUN_OLD.exists() or not _RUN_NEW.exists():
+        pytest.skip("JKI run_OLD.vi/run_NEW.vi pair not staged in scratchpad")
+
+
+class TestNetlistFormDiffOnJKIPair:
+    """The netlist-form TEXT diff (Phase 2) exercised against a real,
+    non-trivial VI pair -- proves the format on genuine data, not just the
+    synthetic run_base/run_head fixture above."""
+
+    def test_default_report(self):
+        _require_jki_vis()
+        ga, na = _load_jki(_RUN_OLD)
+        gb, nb = _load_jki(_RUN_NEW)
+        result = format_diff(ga, gb, na, nb)
+
+        assert "case (" in result
+        assert any(ln.startswith("+ ") for ln in result.splitlines())
+        assert "addSkipped" in result
+        assert result.isascii()
+        assert "⬚" not in result
+        assert "◻" not in result
+        assert "↔" not in result
+        # The removed wire (base uid 1820) must always show as a deletion,
+        # even though it shares a containment path with an added node --
+        # a deletion is never suppressed by an unrelated addition.
+        wire_line = next(ln for ln in result.splitlines() if "x = Bundle/Unbundle" in ln)
+        assert wire_line.startswith("- ")
+
+    def test_verbose_report(self):
+        _require_jki_vis()
+        ga, na = _load_jki(_RUN_OLD)
+        gb, nb = _load_jki(_RUN_NEW)
+        result = format_diff(ga, gb, na, nb, verbose=True)
+
+        assert "case (" in result
+        assert any(ln.startswith("+ ") for ln in result.splitlines())
+        assert "addSkipped" in result
+        assert result.isascii()
+        assert "⬚" not in result
+        assert "◻" not in result
+        assert "↔" not in result
+        wire_line = next(ln for ln in result.splitlines() if "x = Bundle/Unbundle" in ln)
+        assert wire_line.startswith("- ")
+
+    def test_deterministic_across_hash_seeds(self):
+        _require_jki_vis()
+
+        script = (
+            "import hashlib\n"
+            "from pathlib import Path\n"
+            "from lvkit.graph.core import InMemoryVIGraph\n"
+            "from lvkit.graph.diff import format_diff\n"
+            "def _load(p):\n"
+            "    g = InMemoryVIGraph()\n"
+            f"    g.load_vi(str(p), search_paths=[Path({str(_DEMO_SEARCH_PATH)!r})],"
+            " layout=False)\n"
+            "    return g, g.resolve_vi_name(p.name)\n"
+            f"ga, na = _load(Path({str(_RUN_OLD)!r}))\n"
+            f"gb, nb = _load(Path({str(_RUN_NEW)!r}))\n"
+            "out = format_diff(ga, gb, na, nb, verbose=True)\n"
+            "assert out.isascii()\n"
+            "print(hashlib.sha256(out.encode()).hexdigest())\n"
+        )
+
+        digests = []
+        for seed in ("0", "1234567"):
+            result = subprocess.run(
+                [sys.executable, "-c", script],
+                cwd=Path(__file__).resolve().parent.parent,
+                env={**os.environ, "PYTHONHASHSEED": seed},
+                capture_output=True, text=True, timeout=60,
+            )
+            assert result.returncode == 0, result.stderr
+            digests.append(result.stdout.strip())
+        assert digests[0] == digests[1]
 
 
 # ── UID change-map: constant "modified" (#11) ─────────────────────────
@@ -164,6 +413,23 @@ class _StubGraph:
         return []
 
     def get_outputs(self, _vi: str, *, public_only: bool = True) -> list:
+        return []
+
+    def get_vi_context(self, vi_name: str) -> VIContext:
+        # Minimal VIContext — just enough for build_netlist (used by
+        # diff.py's tree-order pass, see _reorder_by_tree) to walk this
+        # stub's operations/constants without touching a real graph.
+        return VIContext(
+            name=vi_name,
+            inputs=self.get_inputs(vi_name),
+            outputs=self.get_outputs(vi_name),
+            constants=self.get_constants(vi_name),
+            operations=self.get_operations(vi_name),
+        )
+
+    def incoming_edges(self, _terminal_id: str) -> list:
+        # No wires in this stub (get_wires is always []), so no terminal
+        # ever has an incoming edge either.
         return []
 
 
@@ -521,7 +787,7 @@ class TestWireChanges:
         assert change.kind == "wire"
         assert change.change == "removed"
         assert change.label == "x"
-        assert change.detail == "(was ← Bundle/Unbundle By Name)"
+        assert change.detail == "← Bundle/Unbundle By Name"
         # deleted wire -> both anchors come from the BEFORE layout: the sink it
         # used to reach (bounds) and the source it lost (bounds_before).
         assert change.bounds is not None

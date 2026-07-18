@@ -9,7 +9,6 @@ touches the graph or the raw heap XML again.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -26,11 +25,10 @@ from ..graph.models import (
     Wire,
     WireEnd,
 )
+from ..graph.op_walk import _selector_label
 from ..models import (
-    CaseFrame,
     FPTerminal,
     LVType,
-    SelectorRange,
     Terminal,
     TunnelTerminal,
     _is_error_cluster,
@@ -324,58 +322,6 @@ def _is_default_visible(path: FramePath, default_frame: dict[str, str]) -> bool:
     """Whether every segment of ``path`` matches that case's default frame
     (vacuously True for ``()`` — base content stays always-visible/fatal)."""
     return all(default_frame.get(s) == v for s, v in path)
-
-
-def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> str:
-    """Render a frame's selector ranges the way LabVIEW builds the label:
-    singles as ``fmt(v)``, closed ranges as ``a..b``, open ranges as ``a..``
-    / ``..b``, joined with ``, `` (e.g. ``1, 3, 5..8``)."""
-    parts: list[str] = []
-    for r in ranges:
-        if r.open_start:
-            parts.append(f"..{fmt(r.end)}")
-        elif r.open_end:
-            parts.append(f"{fmt(r.start)}..")
-        elif r.is_single:
-            parts.append(fmt(r.start))
-        else:
-            parts.append(f"{fmt(r.start)}..{fmt(r.end)}")
-    return ", ".join(parts)
-
-
-def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:
-    """The faithful case-selector text for one frame, by selector type:
-    ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
-    integer → value(s)/range(s); string → quoted; boolean → ``True``/``False``.
-    """
-    sv = str(frame.selector_value)
-    if is_error:
-        # The error-cluster case switches on the status boolean: 0 = no error,
-        # anything else is an error (LabVIEW: "No Error" / "Error", plus code
-        # ranges like "Error 3..10" since 2019). The Error frame is often the
-        # structure's default — LabVIEW still labels it "Error", not "Default",
-        # so this precedes the plain-default branch below.
-        if sv == "0":
-            return "No Error"
-        codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
-        if codes:
-            return f"Error {_format_ranges(codes, str)}"
-        return "Error"
-    if frame.is_default or sv == "Default":
-        return "Default"
-    if lv_type and lv_type.kind in ("enum", "ring") and lv_type.values \
-            and frame.selector_ranges:
-        int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
-        return _format_ranges(
-            frame.selector_ranges, lambda i: int_to_name.get(i, str(i)),
-        )
-    if frame.selector_ranges:  # integer selector
-        return _format_ranges(frame.selector_ranges, str)
-    if frame.selector_strings:  # string selector — one frame, several strings
-        return ", ".join(f'"{s}"' for s in frame.selector_strings)
-    if lv_type and lv_type.underlying_type == "String":
-        return f'"{sv}"'
-    return sv  # boolean True/False, or an already-display token
 
 
 def _frame_info(

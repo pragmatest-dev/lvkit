@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.diff import diff_structured, diff_text, diff_uid
+from lvkit.graph.diff import diff_uid, format_diff
 from lvkit.graph.loading import LoadMode
 
 BASE_VI = Path("outputs/vi-diff/run_base.vi")
@@ -130,16 +130,16 @@ class TestFormatHtml:
 
 
 class TestFormatText:
-    def test_default_format_matches_diff_text(self) -> None:
+    def test_default_format_matches_concise_format_diff(self) -> None:
         _require_pair()
         result = _run_diff()  # no flags at all — today's default behavior
         assert result.returncode == 0, result.stderr
 
         ga, na = _load(BASE_VI, layout=False)
         gb, nb = _load(HEAD_VI, layout=False)
-        expected = diff_text(
-            ga, gb, na, nb, label_a=str(BASE_VI), label_b=str(HEAD_VI),
-        )
+        report = format_diff(ga, gb, na, nb)
+        expected = "No changes detected." if not report else report
+
         assert result.stdout.rstrip("\n") == expected.rstrip("\n")
 
     def test_explicit_format_text_matches_default(self) -> None:
@@ -149,7 +149,7 @@ class TestFormatText:
         assert explicit_result.returncode == 0, explicit_result.stderr
         assert explicit_result.stdout == default_result.stdout
 
-    def test_verbose_and_long_produce_equal_structured_reports(self) -> None:
+    def test_verbose_and_long_produce_equal_detailed_reports(self) -> None:
         _require_pair()
         verbose_result = _run_diff("--format", "text", "-v")
         long_result = _run_diff("--long")
@@ -158,10 +158,18 @@ class TestFormatText:
 
         ga, na = _load(BASE_VI, layout=False)
         gb, nb = _load(HEAD_VI, layout=False)
-        report = diff_structured(ga, gb, na, nb)
-        expected = "No changes detected.\n" if report.is_empty() else (
-            report.format() + "\n"
-        )
+        report = format_diff(ga, gb, na, nb, verbose=True)
+        expected = "No changes detected." if not report else report
 
         assert verbose_result.stdout == long_result.stdout
-        assert verbose_result.stdout == expected
+        assert verbose_result.stdout.rstrip("\n") == expected.rstrip("\n")
+
+    def test_verbose_report_differs_from_concise_default(self) -> None:
+        # The depth axis must actually add something (Signature/containment/
+        # detail/tally) -- otherwise -v would be a silent no-op.
+        _require_pair()
+        default_result = _run_diff()
+        verbose_result = _run_diff("-v")
+        assert default_result.returncode == 0, default_result.stderr
+        assert verbose_result.returncode == 0, verbose_result.stderr
+        assert default_result.stdout != verbose_result.stdout
