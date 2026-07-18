@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 176 54" width="176" height="54" role="img" aria-label="LVkit">
-  <!-- lvkit wordmark (primary / dark background): white "LV" + orange "kit".
-       Explicit variants: lvkit-wordmark-dark.svg (this) and lvkit-wordmark-light.svg
-       (ink-grey LV). Mark is cap-height and vertically centred. -->
+  <!-- lvkit wordmark, DARK background: white "LV" + orange "kit". Same geometry
+       as the -light variant (mark cap-height, vertically centred). -->
   <g transform="translate(2,4) scale(0.72)">
     <path d="M15 32 H32 M32 32 V15 H45 M32 32 V49 H45" fill="none" stroke="#e8821e"
       stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
