@@ -120,18 +120,33 @@ def embedded_dark_css(mode: str) -> str:
 
     - ``"dark"``: the declarations apply UNCONDITIONALLY, so a standalone
       ``.svg`` opened directly is dark.
-    - ``"auto"``: the declarations are wrapped in
-      ``@media (prefers-color-scheme: dark)``, so the SAME file is LIGHT by
-      default (each color falls back to its light hex via ``var()``) and DARK
-      when the host/OS/editor prefers dark. This is the mode the VS Code
-      extension and the diff viewer's embedded SVGs use.
+    - ``"auto"``: the SAME file is LIGHT by default (each color falls back to
+      its light hex via ``var()``), DARK when the host/OS/editor prefers dark,
+      AND runtime-overridable by a ``data-theme`` attribute on the document
+      root. Two rules are emitted:
+
+      * ``@media (prefers-color-scheme: dark){ :root:not([data-theme]){...} }``
+        — follow the OS/editor preference, but ONLY while no explicit override
+        is set. Gating the media rule on ``:not([data-theme])`` means
+        ``data-theme="light"`` disables it, so the diagram falls back to its
+        light css-var defaults (light needs no rule of its own).
+      * ``:root[data-theme="dark"]{...}`` — force dark regardless of the OS
+        preference.
+
+      An inline SVG's ``:root`` resolves to the PAGE's ``<html>`` element (not
+      the ``<svg>``), so flipping ``document.documentElement.dataset.theme``
+      re-themes every embedded ``--theme auto`` diagram on the page at once,
+      with no re-render. This is the mode the VS Code extension and the diff/
+      render viewers' embedded SVGs use.
     """
     if mode == "auto":
-        decls = _dark_lv_declarations("    ")
+        media_decls = _dark_lv_declarations("      ")
+        forced_decls = _dark_lv_declarations("  ")
         return (
             "@media (prefers-color-scheme: dark){\n"
-            f"  :root{{\n{decls}\n  }}\n"
-            "}"
+            f"  :root:not([data-theme]){{\n{media_decls}\n  }}\n"
+            "}\n"
+            f':root[data-theme="dark"]{{\n{forced_decls}\n}}'
         )
     if mode == "dark":
         return f":root{{\n{_dark_lv_declarations('  ')}\n}}"

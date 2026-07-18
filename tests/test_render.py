@@ -2911,10 +2911,12 @@ def test_theme_mode_dark_embeds_css_var_theme_and_dark_palette():
 
 
 def test_theme_mode_auto_wraps_dark_palette_in_media_query():
-    """``theme_mode='auto'`` renders with the css-var theme and wraps the dark
-    ``--lv-*`` declarations in ``@media (prefers-color-scheme: dark)`` — so the
-    SAME file is light by default (var() fallbacks) and dark when the viewer
-    prefers dark."""
+    """``theme_mode='auto'`` renders with the css-var theme and emits BOTH a
+    ``@media (prefers-color-scheme: dark){ :root:not([data-theme]) }`` block
+    (follow the OS/editor preference while no explicit override is set) AND a
+    ``:root[data-theme="dark"]`` rule (force dark at runtime). The media rule
+    is gated on ``:not([data-theme])`` so ``data-theme="light"`` falls back to
+    the light css-var defaults."""
     from lvkit.render.theme_web import DARK_PALETTE
 
     graph, vi = _theme_mode_graph()
@@ -2922,6 +2924,10 @@ def test_theme_mode_auto_wraps_dark_palette_in_media_query():
     assert auto_svg is not None
     assert "var(--lv-" in auto_svg
     assert "@media (prefers-color-scheme: dark)" in auto_svg
+    # the media rule is gated so an explicit data-theme override wins
+    assert ":root:not([data-theme])" in auto_svg
+    # a forced-dark rule for data-theme="dark", outside the media query
+    assert ':root[data-theme="dark"]' in auto_svg
     assert f"--lv-prim-fill: {DARK_PALETTE['prim_fill']};" in auto_svg
 
 

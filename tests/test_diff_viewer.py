@@ -164,6 +164,10 @@ class TestBuildDiffViewerPureUnit:
         assert "Stub VI" in html
         assert "rev-a" in html and "rev-b" in html
         assert "BEFORE-MARKER" in html and "AFTER-MARKER" in html
+        # the shared diagram-theme control (button + its persistence script) is
+        # now in the toolbar, next to the zoom group.
+        assert 'id="lvkitThemeBtn"' in html
+        assert "lvkitDiagramTheme" in html
         assert "added 1" in html
         assert "removed 1" in html
         assert "modified 1" in html

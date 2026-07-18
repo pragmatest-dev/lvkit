@@ -21,6 +21,7 @@ import json
 from importlib.resources import files
 
 from ..graph.diff import ChangeMap
+from .theme_control import THEME_CONTROL_BUTTON, THEME_CONTROL_SCRIPT
 
 __all__ = ["build_diff_viewer"]
 
@@ -79,5 +80,7 @@ def build_diff_viewer(
         .replace("__DEL__", str(removed))
         .replace("__MOD__", str(modified))
         .replace("__COMMON__", str(common))
+        .replace("__THEME_BTN__", THEME_CONTROL_BUTTON)
+        .replace("__THEME_SCRIPT__", THEME_CONTROL_SCRIPT)
     )
     return "<!doctype html>\n<meta charset='utf-8'>\n" + html

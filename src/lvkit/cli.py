@@ -445,7 +445,18 @@ def main() -> int:
     render_parser.add_argument("input_path", help="Path to .vi file or _BDHb.xml heap")
     render_parser.add_argument(
         "-o", "--output", default=None, metavar="FILE",
-        help="Output SVG path (default: <vi-stem>.svg next to the input)",
+        help=(
+            "Output path (default for svg: <vi-stem>.svg next to the input; "
+            "for html: outputs/vi-render/<vi-stem>.html)"
+        ),
+    )
+    render_parser.add_argument(
+        "--format", choices=["svg", "html"], default="svg",
+        help=(
+            "Output format: 'svg' (default, the self-contained diagram) or "
+            "'html' (an interactive single-VI viewer page with zoom/pan and a "
+            "light/dark diagram-theme toggle)."
+        ),
     )
     render_parser.add_argument(
         "--search-path", action="append", dest="search_paths", default=[],
@@ -767,8 +778,10 @@ def cmd_detect(args: argparse.Namespace) -> int:
 
 
 def cmd_render(args: argparse.Namespace) -> int:
-    """Handle the render command — faithful, graph-driven block-diagram SVG."""
+    """Handle the render command — faithful, graph-driven block-diagram SVG,
+    or (``--format html``) a self-contained single-VI viewer page."""
     from .render import render_vi_file
+    from .render.render_viewer import build_render_viewer
 
     input_path = Path(args.input_path)
     if not input_path.exists():
@@ -779,6 +792,12 @@ def cmd_render(args: argparse.Namespace) -> int:
     vilib_root, userlib_root = _parse_library_roots(args)
     search_paths = [Path(p) for p in args.search_paths] if args.search_paths else None
 
+    # The html viewer embeds an inline SVG and carries its OWN light/dark control
+    # (a data-theme toggle on the page root), so its SVG is ALWAYS rendered
+    # "auto" — the toggle re-themes it live. The svg format honours --theme and
+    # is byte-identical to before this flag existed.
+    theme_mode = "auto" if args.format == "html" else args.theme
+
     try:
         svg = render_vi_file(
             input_path,
@@ -786,7 +805,7 @@ def cmd_render(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             mode=_resolve_load_mode(args, LoadMode.MINIMAL),
-            theme_mode=args.theme,
+            theme_mode=theme_mode,
         )
     except Exception as e:
         print(f"Error: render failed: {e}", file=sys.stderr)
@@ -801,11 +820,20 @@ def cmd_render(args: argparse.Namespace) -> int:
         )
         return 1
 
-    if args.output:
-        out = Path(args.output)
-    else:
-        stem = input_path.stem.replace("_BDHb", "")
-        out = input_path.with_name(f"{stem}.svg")
+    stem = input_path.stem.replace("_BDHb", "")
+
+    if args.format == "html":
+        html = build_render_viewer(svg, title=stem)
+        out = (
+            Path(args.output) if args.output
+            else Path("outputs/vi-render") / f"{stem}.html"
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html)
+        print(f"Rendered {out}")
+        return 0
+
+    out = Path(args.output) if args.output else input_path.with_name(f"{stem}.svg")
     out.write_text(svg)
     print(f"Rendered {out}")
     return 0
