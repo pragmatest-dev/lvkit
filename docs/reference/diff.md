@@ -83,8 +83,8 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
     "Default":
 -     Match Pattern#2(string=new ending (none), regular expression='^\\.') -> before substring, match substring, after substring, offset past match
 -     Less Than 0?(x=Match Pattern#2.offset past match) -> result
--     Select#2(f_value='%s', selector=Less Than 0?.result, t_value='.%s') -> result
--     Format String(0=Select#2.result, 1=Match Pattern#1.before substring, 5=new ending (none)) -> Format String.2
+-     Select(f_value='%s', selector=Less Than 0?.result, t_value='.%s') -> result
+-     Format String(0=Select.result, 1=Match Pattern#1.before substring, 5=new ending (none)) -> Format String.2, Format String.4
 - = (unnamed str) = "'\\\\.[~\\\\.]*$'"
 ```
 
@@ -92,7 +92,7 @@ The renamed VI now calls the old one as a SubVI (`+ Convert File Extension
 (String)__ogtk.vi(new ending (none)=new ending (none), file name=name) ->
 prev ending, new filename`) instead of inlining its old `case (new ending
 (none)):` logic (`- case (new ending (none)):`) — everything the removed
-case used to contain (`Match Pattern#2`, `Less Than 0?`, `Select#2`, `Format
+case used to contain (`Match Pattern#2`, `Less Than 0?`, `Select`, `Format
 String`) nests under its `"Default":` frame, indented beneath the
 structure's own line. The OTHER `Match Pattern` instance (`Match Pattern#1`)
 — the one that lived outside the case and is unrelated to it — sits at the
@@ -123,8 +123,8 @@ Signature:
     "Default":
 -     Match Pattern#2(string=new ending (none), regular expression='^\\.') -> before substring, match substring, after substring, offset past match
 -     Less Than 0?(x=Match Pattern#2.offset past match) -> result
--     Select#2(f_value='%s', selector=Less Than 0?.result, t_value='.%s') -> result
--     Format String(0=Select#2.result, 1=Match Pattern#1.before substring, 5=new ending (none)) -> Format String.2
+-     Select(f_value='%s', selector=Less Than 0?.result, t_value='.%s') -> result
+-     Format String(0=Select.result, 1=Match Pattern#1.before substring, 5=new ending (none)) -> Format String.2, Format String.4
 - = (unnamed str) = "'\\\\.[~\\\\.]*$'"
 ```
 

@@ -11,13 +11,14 @@ instantiated, node-first, with each input bound to its source net by name).
 
 ```text
 ## Components
-  Close Generic Object Refnum (Scalar)__ogtk.vi(Gen Refnum: Any)
-  Merge Errors.vi()
+  Close Generic Object Refnum (Scalar)__ogtk.vi(error in (no error): dict[str, Any], Gen Refnum: Any) -> (error out: dict[str, Any])
+  Merge Errors.vi(1: None, 2: None, 3: None, 4: list[dict[str, Any]], 5: dict[str, Any], 6: dict[str, Any], 7: dict[str, Any]) -> (0: dict[str, Any])
 
 ## Netlist
-Close Generic Object Refnum (Array)__ogtk.vi (Gen Refnum Array) -> ()
+Close Generic Object Refnum (Array)__ogtk.vi (Gen Refnum Array, error in (no error)) -> (error out)
 for:
-  Close Generic Object Refnum (Scalar)__ogtk.vi(Gen Refnum=Gen Refnum Array)
+  Close Generic Object Refnum (Scalar)__ogtk.vi(Gen Refnum=Gen Refnum Array) -> error out
+Merge Errors.vi(4=error out, 7=error in (no error)) -> Merge Errors.vi.0
 ```
 
 (`lvkit describe "Close Generic Object Refnum (Array)__ogtk.vi" --search-path samples/OpenG/extracted -v`,
@@ -25,7 +26,10 @@ for:
 with its port name and type (`Gen Refnum: Any`); the instance inside the
 `for:` loop wires that same port to a net by name (`Gen Refnum=Gen Refnum
 Array`) — Verilog `.port(net)` / VHDL `port => signal` / Python-kwargs
-association, not position.
+association, not position. `error in`/`error out` are ordinary ports here
+too — a netlist shows a VI's error cluster exactly like any other terminal;
+only [`generate`](generate.md)'s Python codegen turns it into an exception
+(see [VI signature line](#vi-signature-line) below).
 
 This is the ONE projection of a VI's graph shared by three consumers:
 [`describe --verbose`](describe.md)'s `## Components` + `## Netlist`
@@ -43,13 +47,18 @@ like its inputs, matching the VI's own signature line:
 
 ```text
 Bundle/Unbundle By Name(0: TestCase) -> (isSkipped: bool)
-CallTestMethod.vi(TestCase in: TestCase, method: methodEnum) -> (TestCase out: TestCase, execution time (sec): float)
-Clear All Errors__jki_lib_error_handling -- VI Tester.vi()
+CallTestMethod.vi(error in: dict[str, Any], TestCase in: TestCase, method: methodEnum) -> (error out: dict[str, Any], Test Method Error: dict[str, Any], TestCase out: TestCase, execution time (sec): float)
+Clear All Errors__jki_lib_error_handling -- VI Tester.vi(error in: dict[str, Any]) -> (no error out: dict[str, Any])
 Not(x: bool) -> (not_x: bool)
 ```
 
-(`TestCase.lvclass:run.vi`'s `## Components`.) A component with no outputs
-prints `name(ins)`, same as an instance. Structures (`case`/`for`/`while`/
+(`TestCase.lvclass:run.vi`'s `## Components`.) `CallTestMethod.vi` and
+`Clear All Errors__jki_lib_error_handling -- VI Tester.vi` both declare
+error-cluster ports (`error in`/`error out`, `no error out`) alongside
+their other terminals — a netlist never hides an error cluster. A
+component with no outputs at all prints `name(ins)`, same as an instance
+(see [`Comment__ogtk.vi()`](#instance-node-line--node-first-named-port)
+below). Structures (`case`/`for`/`while`/
 `sequence`/`disabled`) are containers, not components — they never appear
 here; `## Netlist` already shows their scopes. Two calls to the same
 primitive that resolve to genuinely different typed interfaces (a
@@ -65,8 +74,17 @@ entries, the second tagged `Name (2)`:
 
 ### VI signature line
 
-`NAME (ins) -> (outs)` — the VI's own connector pane, error clusters excluded.
-A VI with no inputs or outputs still prints empty parens:
+`NAME (ins) -> (outs)` — the VI's own connector pane, faithfully: an
+`error in`/`error out` pair is a real input/output like any other and
+appears in the signature exactly where the connector pane places it, e.g.
+`Close Generic Object Refnum (Array)__ogtk.vi (Gen Refnum Array, error in
+(no error)) -> (error out)` in the [Components](#components-the-typed-interface-declared-once)
+example above. A netlist never filters error clusters out of any surface —
+`describe`, `diff`, and `netlist` all show them as real terminals and
+wires. The ONE place an error cluster becomes something else is
+[`generate`](generate.md)'s Python codegen, which turns it into a
+raised/caught exception; that transformation is scoped to codegen only. A
+VI with no inputs or outputs still prints empty parens:
 
 ```text
 VI Tree - string__ogtk.vi () -> ()
@@ -80,7 +98,7 @@ the node has no outputs. The node leads; its wired inputs follow as
 kwargs, never positional — then `->`, then its output nets:
 
 ```text
-CallTestMethod.vi#1(method=0, TestCase in=TestCase in) -> execution time (sec), TestCase out
+CallTestMethod.vi#1(error in=Clear All Errors__jki_lib_error_handling -- VI Tester.vi#1.no error out, method=0, TestCase in=TestCase in) -> error out, execution time (sec), Test Method Error, TestCase out
 Comment__ogtk.vi()
 ```
 
@@ -96,9 +114,9 @@ the first — is tagged `#n` (1-based, in diagram order), so a reference to
 one instance is never confused with another:
 
 ```text
-CallTestMethod.vi#1(method=0, TestCase in=TestCase in) -> execution time (sec), TestCase out
-CallTestMethod.vi#2(method=1, TestCase in=CallTestMethod.vi#1.TestCase out) -> execution time (sec), TestCase out
-CallTestMethod.vi#3(method=2, TestCase in=CallTestMethod.vi#2.TestCase out) -> execution time (sec), TestCase out
+CallTestMethod.vi#1(error in=Clear All Errors__jki_lib_error_handling -- VI Tester.vi#1.no error out, method=0, TestCase in=TestCase in) -> error out, execution time (sec), Test Method Error, TestCase out
+CallTestMethod.vi#2(error in=startTest.vi.error out, method=1, TestCase in=CallTestMethod.vi#1.TestCase out) -> error out, execution time (sec), Test Method Error, TestCase out
+CallTestMethod.vi#3(error in=Clear All Errors__jki_lib_error_handling -- VI Tester.vi#2.no error out, method=2, TestCase in=CallTestMethod.vi#2.TestCase out) -> error out, execution time (sec), Test Method Error, TestCase out
 ```
 
 A name that's unique in the VI carries no tag at all.
@@ -128,8 +146,8 @@ this order:
 
 ```text
 Equal?(x=TestResult in (None: Create New), y=Refnum(1)) -> equal
-Get LVClass Name from TD.vi(Variant=TestCase in) -> LVClass Name
-addFailure.vi(execution time (sec)=CallTestMethod.vi#2.execution time (sec), test=CallTestMethod.vi#2.TestCase out, TestTestResult in=startTest.vi.TestTestResult out) -> TestTestResult out
+Get LVClass Name from TD.vi(error in=error in (no error), Variant=TestCase in) -> error out, LVClass Name
+addFailure.vi(execution time (sec)=CallTestMethod.vi#2.execution time (sec), error in (no error)=startTest.vi.error out, test error=CallTestMethod.vi#2.Test Method Error, test=CallTestMethod.vi#2.TestCase out, TestTestResult in=startTest.vi.TestTestResult out) -> error out, TestTestResult out
 Compound Arithmetic(1=Not#1.not_x, 2=Not#2.not_x, 3=Not#4.not_x, 4=Not#3.not_x) -> Compound Arithmetic.0
 ```
 
@@ -149,8 +167,8 @@ consumed — never as a separate line:
 
 ```text
 Equal?(x=TestResult in (None: Create New), y=Refnum(1)) -> equal
-CallTestMethod.vi#1(method=0, TestCase in=TestCase in) -> execution time (sec), TestCase out
-Format Variant Into String__ogtk.vi(Variant=Variant()) -> Output String
+CallTestMethod.vi#1(error in=Clear All Errors__jki_lib_error_handling -- VI Tester.vi#1.no error out, method=0, TestCase in=TestCase in) -> error out, execution time (sec), Test Method Error, TestCase out
+Format Variant Into String__ogtk.vi(Variant=Variant()) -> Output String, error out
 Convert EOLs__ogtk.vi(String in='') -> String out
 ```
 
@@ -195,16 +213,20 @@ case (LVClass Name):
   "TestCase.lvclass":
     (pass-through)
   "Default" (default):
-    openMethodViReference.vi(TestCase in=TestCase in) -> TestCase out
+    openMethodViReference.vi(error in (no error)=Get LVClass Name from TD.vi.error out, TestCase in=TestCase in) -> error out, TestCase out
 
 case (Bundle/Unbundle By Name#1.isSkipped):
   "False":
-    case (error out):
+    case (startTest.vi.error out):
 ```
 
 The second example's selector, `Bundle/Unbundle By Name#1.isSkipped`, is a
 `Bundle/Unbundle By Name` node's named output (`isSkipped`) — the case
 selects on that named value, not a bare tunnel index or terminal number.
+The nested `case (startTest.vi.error out):` is an ERROR-GATED case: the
+frame it opens (`"No Error"`/`"Error"`) is selected by an actual error
+cluster's status, named and qualified exactly like any other net — a case
+that branches on an error is not special-cased or hidden.
 
 **`for:`** / **`while (selector):`** — a single implicit body, no quoted
 frame header. The selector in parens appears only when the loop's
@@ -213,13 +235,13 @@ stop-condition terminal resolves to a net; otherwise it's bare `for:` /
 
 ```text
 for:
-  Close Generic Object Refnum (Scalar)__ogtk.vi(Gen Refnum=Gen Refnum Array)
+  Close Generic Object Refnum (Scalar)__ogtk.vi(Gen Refnum=Gen Refnum Array) -> error out
 ```
 
 ```text
 while (Or.result):
   Greater?(x=While Loop.0, y=Increment.result) -> x_greater_than_y
-  Open/Create/Replace File(operation=2, file_path=VI names) -> refnum_out
+  Open/Create/Replace File(operation=2, file_path=VI names) -> error_out, refnum_out
 ```
 
 ```text
@@ -280,14 +302,14 @@ didn't change):
     "No Error":
       case (Bundle/Unbundle By Name#1.isSkipped):
         "False":
-          case (error out):
+          case (startTest.vi.error out):
             "No Error":
 +             Bundle/Unbundle By Name#2(0=CallTestMethod.vi#1.TestCase out) -> isSkipped
-              case (Test Method Error):
+              case (CallTestMethod.vi#1.Test Method Error):
                 "No Error":
 +                 case (Bundle/Unbundle By Name#2.isSkipped):
                     "True":
-+                     addSkipped.vi#2(test=CallTestMethod.vi#1.TestCase out, TestTestResult in=startTest.vi.TestTestResult out) -> TestTestResult out
++                     addSkipped.vi#2(error in (no error)=startTest.vi.error out, test=CallTestMethod.vi#1.TestCase out, TestTestResult in=startTest.vi.TestTestResult out) -> error out, TestTestResult out
 +                 Bundle/Unbundle By Name#4(0=CallTestMethod.vi#3.TestCase out) -> isSkipped
 -                 x = isSkipped
 ```
