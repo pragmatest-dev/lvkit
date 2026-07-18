@@ -1,16 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 176 54" width="176" height="54" role="img" aria-label="LVkit">
-  <!-- lvkit wordmark, DARK background: white "LV" + orange "kit". Same geometry
-       as the -light variant (mark cap-height, vertically centred). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 151 54" width="151" height="54" role="img" aria-label="LVkit">
+  <!-- dark bg: cream LV + orange kit · text OUTLINED (Selawik Bold, OFL) -> font-independent, SVG==PNG -->
   <g transform="translate(2,4) scale(0.72)">
-    <path d="M15 32 H32 M32 32 V15 H45 M32 32 V49 H45" fill="none" stroke="#e8821e"
-      stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M15 32 H32 M32 32 V15 H49 M32 32 V49 H49" fill="none" stroke="#e8821e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
     <rect x="5" y="27" width="10" height="10" rx="1.5" fill="#e8821e"/>
-    <rect x="45" y="10" width="10" height="10" rx="1.5" fill="#e8821e"/>
-    <rect x="45" y="44" width="10" height="10" rx="1.5" fill="#e8821e"/>
+    <rect x="49" y="10" width="10" height="10" rx="1.5" fill="#e8821e"/>
+    <rect x="49" y="44" width="10" height="10" rx="1.5" fill="#e8821e"/>
     <circle cx="32" cy="32" r="4.7" fill="#e8821e"/>
   </g>
-  <text x="47" y="41" font-family="'Segoe UI',system-ui,-apple-system,Roboto,'Helvetica Neue',Arial,sans-serif"
-    font-weight="800" font-size="40" letter-spacing="-1.6">
-    <tspan fill="#faf7f2">LV</tspan><tspan fill="#e8821e">kit</tspan>
-  </text>
+  <g transform="translate(50.0,42.0) scale(0.02092,-0.02092)">
+    <g fill="#faf7f2"><path d="M164 1434H478V292H1018V0H164Z" transform="translate(0.0,0)"/><path d="M10 1433H350L651 424Q676 341 681 297H685Q689 325 698.5 359.5Q708 394 719 427L1031 1434L1360 1433L863 -1H501Z" transform="translate(975.3,0)"/></g>
+    <g fill="#e8821e"><path d="M582 374 450 227V0H133V1516H450V550Q503 698 562 757L804 1000L1119 974L783 598L1142 -2H810Z" transform="translate(2269.6,0)"/><path d="M120 1361Q120 1408 142.5 1447.0Q165 1486 204.0 1508.5Q243 1531 291 1531Q339 1531 377.5 1508.5Q416 1486 438.5 1447.0Q461 1408 461 1361Q461 1313 439.0 1273.5Q417 1234 378.0 1211.5Q339 1189 291 1189Q243 1189 204.0 1211.5Q165 1234 142.5 1273.5Q120 1313 120 1361ZM133 974H449V0H133Z" transform="translate(3342.9,0)"/><path d="M661 252Q701 252 752 259V-18Q688 -24 620 -24Q405 -24 306.5 51.5Q208 127 208 273V741H41L43 973H208V1323H515V974H752L750 742H515V422Q515 252 661 252Z" transform="translate(3853.2,0)"/></g>
+  </g>
 </svg>
