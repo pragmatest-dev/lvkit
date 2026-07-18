@@ -173,6 +173,39 @@ class TestBuildDiffViewerPureUnit:
         assert '"detail": "1 \\u2192 2"' in html or "1 → 2" in html
 
 
+class TestThemeAdaptiveChrome:
+    """Part B: the viewer chrome is DEFAULT LIGHT with a
+    ``@media (prefers-color-scheme: dark)`` override, so the standalone page is
+    light in a light viewer and dark in a dark one — no hardcoded-dark
+    ``:root`` that breaks light mode."""
+
+    def _html(self) -> str:
+        cmap = ChangeMap(
+            changes=[
+                ElementChange(
+                    uid="42", full_id="vi::42", kind="node", change="added",
+                    label="Added Node", bounds=(1.0, 2.0, 3.0, 4.0),
+                ),
+            ],
+            common_node_uids=["1"],
+        )
+        return build_diff_viewer(
+            cmap, "<svg id='b'>B</svg>", "<svg id='h'>A</svg>",
+            title="Stub VI", before_label="a", after_label="b",
+        )
+
+    def test_dark_is_media_queried_not_the_root_default(self):
+        html = self._html()
+        assert "@media (prefers-color-scheme: dark)" in html
+        # Light GitHub-ish defaults live at :root; the dark #0d1117 bg is now
+        # only inside the media query, not the unconditional default.
+        assert "--bg:#ffffff" in html
+        assert "--bg:#0d1117" in html            # still present (dark override)
+        # The SVG canvas is themed, not a hardcoded white.
+        assert "background:var(--canvas)" in html
+        assert "--canvas:#ffffff" in html and "--canvas:#1b1c1e" in html
+
+
 class TestNetlistTreeInViewer:
     """Phase 3: the Tree view renders diff.py's own structured netlist-diff
     rows (``NetlistDiffRow`` via ``netlist_diff_rows``/``rows_to_json``), not

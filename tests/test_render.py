@@ -2869,3 +2869,66 @@ def test_dark_palette_covers_every_wire_color():
     css = theme_style_block()  # raises if any themed color lacks a dark entry
     assert "--lv-wire-refnum" in css
     assert "wire_refnum" in DARK_PALETTE
+
+
+def _theme_mode_graph() -> tuple[InMemoryVIGraph, str]:
+    """A loaded graph for the theme-mode SVG tests, or skip if unavailable."""
+    loaded = _load_graph(GROUND_TRUTH_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
+    return loaded
+
+
+def test_theme_mode_light_is_byte_identical_and_var_free():
+    """``theme_mode='light'`` (the default) must be byte-identical to omitting
+    the kwarg — the raw-hex legacy output — carrying NO css-var references and
+    NO injected dark palette. This is the determinism contract."""
+    graph, vi = _theme_mode_graph()
+    default_svg = render_vi(graph, vi)
+    light_svg = render_vi(graph, vi, theme_mode="light")
+    assert default_svg is not None
+    assert default_svg == light_svg           # explicit light == default
+    assert "var(--lv-" not in light_svg       # no css-var recoloring
+    assert "@media" not in light_svg          # no injected palette block
+    assert ":root{" not in light_svg
+
+
+def test_theme_mode_dark_embeds_css_var_theme_and_dark_palette():
+    """``theme_mode='dark'`` renders with the css-var theme (colors become
+    ``var(--lv-*, <light-hex>)``) AND embeds a ``:root`` block that sets those
+    vars to the DARK_PALETTE values UNCONDITIONALLY (a standalone .svg opens
+    dark, no media query)."""
+    from lvkit.render.theme_web import DARK_PALETTE
+
+    graph, vi = _theme_mode_graph()
+    dark_svg = render_vi(graph, vi, theme_mode="dark")
+    assert dark_svg is not None
+    assert "var(--lv-" in dark_svg                         # css-var theme in use
+    assert ":root{" in dark_svg
+    assert f"--lv-prim-fill: {DARK_PALETTE['prim_fill']};" in dark_svg
+    # dark = unconditional, so NO prefers-color-scheme wrapper.
+    assert "@media" not in dark_svg
+
+
+def test_theme_mode_auto_wraps_dark_palette_in_media_query():
+    """``theme_mode='auto'`` renders with the css-var theme and wraps the dark
+    ``--lv-*`` declarations in ``@media (prefers-color-scheme: dark)`` — so the
+    SAME file is light by default (var() fallbacks) and dark when the viewer
+    prefers dark."""
+    from lvkit.render.theme_web import DARK_PALETTE
+
+    graph, vi = _theme_mode_graph()
+    auto_svg = render_vi(graph, vi, theme_mode="auto")
+    assert auto_svg is not None
+    assert "var(--lv-" in auto_svg
+    assert "@media (prefers-color-scheme: dark)" in auto_svg
+    assert f"--lv-prim-fill: {DARK_PALETTE['prim_fill']};" in auto_svg
+
+
+def test_embedded_dark_css_rejects_bad_mode():
+    """The embedded-palette helper is only defined for dark/auto — 'light' (or
+    anything else) must raise, since light injects nothing at all."""
+    from lvkit.render.theme_web import embedded_dark_css
+
+    with pytest.raises(ValueError):
+        embedded_dark_css("light")

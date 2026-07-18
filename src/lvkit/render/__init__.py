@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Literal
 
 from ..graph.core import InMemoryVIGraph
 from ..graph.loading import LoadMode
@@ -22,7 +23,17 @@ from ..graph.models import VINode
 from .backend import SvgBackend
 from .draw import draw_scene
 from .scene import Scene, build_scene
-from .style import DEFAULT_THEME, Theme
+from .style import DEFAULT_THEME, Theme, css_var_theme
+from .theme_web import embedded_dark_css
+
+# How a rendered SVG carries light/dark colors:
+#   "light" — raw-hex ``DEFAULT_THEME``, self-contained, UNCHANGED legacy output.
+#   "dark"  — css-var theme + an embedded ``:root`` block forcing the dark
+#             ``--lv-*`` palette (a standalone .svg opens dark).
+#   "auto"  — css-var theme + the dark palette wrapped in
+#             ``@media (prefers-color-scheme: dark)`` (light by default, dark
+#             when the host/OS/editor prefers dark).
+ThemeMode = Literal["light", "dark", "auto"]
 
 __all__ = [
     "Scene",
@@ -220,9 +231,25 @@ _HOVER_PANEL_JS = """(function() {
 })();"""
 
 
+def _resolve_theme_mode(
+    theme_mode: ThemeMode, base: Theme,
+) -> tuple[Theme, str]:
+    """Map a ``theme_mode`` to the ``(theme, extra_css)`` a render needs.
+
+    ``"light"`` keeps ``base`` and injects nothing (byte-identical legacy
+    path). ``"dark"``/``"auto"`` swap to a css-var theme (so ``--lv-*`` drive
+    the colors) and return the CSS that defines the dark palette — applied
+    unconditionally for ``"dark"``, media-queried for ``"auto"`` (see
+    ``theme_web.embedded_dark_css``)."""
+    if theme_mode == "light":
+        return base, ""
+    return css_var_theme(base), embedded_dark_css(theme_mode)
+
+
 def render_vi(
     graph: InMemoryVIGraph, vi_name: str, *,
     theme: Theme = DEFAULT_THEME, interactive: bool = True,
+    theme_mode: ThemeMode = "light",
 ) -> str | None:
     """Render one VI's block diagram to an SVG string.
 
@@ -235,6 +262,13 @@ def render_vi(
     Pass ``style.css_var_theme()`` for a page (e.g. the sampler) that embeds
     the SVG inline and wants its colors driven live by page CSS custom
     properties instead.
+
+    ``theme_mode`` selects the self-contained light/dark behavior of the
+    returned SVG (see :data:`ThemeMode`): ``"light"`` (default) is the
+    UNCHANGED raw-hex output; ``"dark"``/``"auto"`` render with a css-var theme
+    and embed the dark ``--lv-*`` palette so the file is dark unconditionally
+    (``"dark"``) or follows ``prefers-color-scheme`` (``"auto"``). ``"light"``
+    ignores any embedded palette and is byte-identical to before this flag.
 
     The SVG is self-contained and interactive: a case structure's
     ``◄ value ▼ ►`` selector is clickable and cycles through its frames (see
@@ -256,7 +290,10 @@ def render_vi(
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None
-    return _render_scene_svg(scene, vi_name, theme, interactive=interactive)
+    theme, extra_css = _resolve_theme_mode(theme_mode, theme)
+    return _render_scene_svg(
+        scene, vi_name, theme, interactive=interactive, extra_css=extra_css,
+    )
 
 
 # Base CSS emitted with every rendered SVG: SVG <text> defaults to the text
@@ -268,11 +305,16 @@ _BASE_CSS = "text{cursor:default;-webkit-user-select:none;user-select:none}"
 
 def _render_scene_svg(
     scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME, *,
-    interactive: bool = True,
+    interactive: bool = True, extra_css: str = "",
 ) -> str:
-    """Draw an already-built ``Scene`` to a self-contained interactive SVG."""
+    """Draw an already-built ``Scene`` to a self-contained interactive SVG.
+
+    ``extra_css`` (empty by default) is appended to the SVG's ``<style>`` — the
+    dark ``--lv-*`` palette block for ``dark``/``auto`` theme modes. Empty keeps
+    the ``<style>`` byte-identical to the legacy light output."""
     backend = SvgBackend()
     draw_scene(scene, backend, theme)
+    style = _BASE_CSS + extra_css
     # Only a VI that actually needs JS (interactive case/sequence frames,
     # and/or at least one connector-help panel) carries the root id + inline
     # script — a diagram with neither renders byte-identically to a version
@@ -291,9 +333,9 @@ def _render_scene_svg(
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
             scene.bounds, title=vi_name, script=script, root_id=root_id,
-            style=_BASE_CSS,
+            style=style,
         )
-    return backend.render(scene.bounds, title=vi_name, style=_BASE_CSS)
+    return backend.render(scene.bounds, title=vi_name, style=style)
 
 
 def render_vi_with_subvis(
@@ -329,9 +371,14 @@ def render_vi_file(
     userlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
     theme: Theme = DEFAULT_THEME,
+    theme_mode: ThemeMode = "light",
 ) -> str | None:
     """Render a ``.vi`` file (or ``_BDHb.xml`` heap) straight from disk,
     building a fresh graph.
+
+    ``theme_mode`` is forwarded to :func:`render_vi` — ``"light"`` (default,
+    unchanged raw-hex output), ``"dark"``, or ``"auto"`` (follows the viewer's
+    ``prefers-color-scheme``).
 
     ``mode`` defaults to ``LoadMode.MINIMAL`` — the target VI plus its direct
     SubVIs' connector panes and referenced-type fields, which renders
@@ -360,4 +407,7 @@ def render_vi_file(
         if mode is LoadMode.NONE:
             raise
         graph = _load(LoadMode.NONE)  # degrade: still render this VI's own diagram
-    return render_vi(graph, graph.resolve_vi_name(vi_name_hint), theme=theme)
+    return render_vi(
+        graph, graph.resolve_vi_name(vi_name_hint),
+        theme=theme, theme_mode=theme_mode,
+    )

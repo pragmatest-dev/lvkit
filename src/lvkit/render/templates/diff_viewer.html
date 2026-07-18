@@ -1,6 +1,27 @@
 <title>VI diff — __TITLE__</title>
 <style>
-  :root{--add:#2ea043;--del:#f85149;--mod:#d29922;--bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--line:#30363d;}
+  /* Theme is DEFAULT LIGHT (GitHub-light-ish); the whole palette is overridden
+     to dark inside @media (prefers-color-scheme: dark) below, so the SAME file
+     is light in a light viewer and dark in a dark one. --canvas is the SVG
+     backdrop; --btn/--btn-hover are the neutral toolbar/list surfaces;
+     --accent is the active/selection blue; --chip-* are the BEFORE/AFTER pane
+     labels; --fg-muted is secondary text (the fader end-caps). */
+  :root{
+    --add:#1a7f37;--del:#cf222e;--mod:#9a6700;
+    --bg:#ffffff;--panel:#f6f8fa;--fg:#1f2328;--line:#d0d7de;
+    --canvas:#ffffff;--btn:#eaeef2;--btn-hover:#dfe4ea;--fg-muted:#57606a;
+    --accent:#0969da;--accent-fg:#ffffff;
+    --chip-before:#e7ecf1;--chip-after:#dfe4ea;--chip-border:#c4ccd6;--chip-fg:#1f2328;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --add:#2ea043;--del:#f85149;--mod:#d29922;
+      --bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--line:#30363d;
+      --canvas:#1b1c1e;--btn:#21262d;--btn-hover:#2a3038;--fg-muted:#aeb6c2;
+      --accent:#1f6feb;--accent-fg:#e6edf3;
+      --chip-before:#2a3038;--chip-after:#20252e;--chip-border:#3a414c;--chip-fg:#ffffff;
+    }
+  }
   *{box-sizing:border-box}
   body{margin:0;font:14px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg);
        display:grid;grid-template-rows:auto 1fr;height:100vh}
@@ -8,9 +29,9 @@
          display:flex;gap:14px;align-items:center;flex-wrap:wrap}
   header b{font-size:15px}
   .controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-  button{background:#21262d;color:var(--fg);border:1px solid var(--line);border-radius:6px;
+  button{background:var(--btn);color:var(--fg);border:1px solid var(--line);border-radius:6px;
          padding:5px 10px;cursor:pointer;font:inherit}
-  button.active{background:#1f6feb;border-color:#1f6feb}
+  button.active{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
   .legend{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:13px}
   .chip{display:inline-flex;gap:6px;align-items:center}
   .sw{width:12px;height:12px;border-radius:3px}
@@ -26,9 +47,9 @@
   /* Draggable splitter between the change panel and the canvas — the netlist
      lines are wide, so the panel needs to widen. */
   .divider{cursor:col-resize;background:var(--line)}
-  .divider:hover,.divider.drag{background:#1f6feb}
+  .divider:hover,.divider.drag{background:var(--accent)}
   .item{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer}
-  .item:hover{background:#21262d}.item.sel{background:#1f6feb33;outline:1px solid #1f6feb}
+  .item:hover{background:var(--btn)}.item.sel{background:#1f6feb33;outline:1px solid var(--accent)}
   /* Hidden-frame rows: dimmed so the reviewer still sees every change but a
      click-to-switch-frame one distracts less. No pill here — the owning
      structure's own "changed" dot (.frame-changed-dot, further down) is the
@@ -86,11 +107,11 @@
   .zoomgrp button{padding:5px 9px;min-width:30px;font-weight:600}
   .pane-label{position:sticky;top:8px;left:8px;z-index:60;display:inline-block;width:max-content;
     font:700 11px system-ui,sans-serif;letter-spacing:.05em;padding:3px 9px;border-radius:11px;
-    color:#fff;pointer-events:none;box-shadow:0 1px 4px #0009}
-  /* Neutral slate, not the add/remove hues — those are reserved for the
-     change grammar. BEFORE/AFTER text is what distinguishes the two panes. */
-  .pane-label.before{background:#2a3038;border:1px solid #3a414c}
-  .pane-label.after{background:#20252e;border:1px solid #3a414c}
+    color:var(--chip-fg);pointer-events:none;box-shadow:0 1px 4px #0009}
+  /* Neutral, not the add/remove hues — those are reserved for the change
+     grammar. BEFORE/AFTER text is what distinguishes the two panes. */
+  .pane-label.before{background:var(--chip-before);border:1px solid var(--chip-border)}
+  .pane-label.after{background:var(--chip-after);border:1px solid var(--chip-border)}
   .overlay .pane-label.after{top:36px}  /* stack below BEFORE so both read in onion-skin */
   .stage.overlay{display:grid}
   .overlay #beforePane,.overlay #afterPane{grid-area:1/1}   /* stack + scroll together */
@@ -103,7 +124,7 @@
      region (see mirrorScroll + scrollTargets in the script below). */
   .stage.side{display:flex;flex-direction:column;gap:16px}
   .stage.side .pane{flex:1 1 0;min-height:0;overflow:auto}
-  svg{max-width:none;height:auto;background:#fff;border-radius:6px}
+  svg{max-width:none;height:auto;background:var(--canvas);border-radius:6px}
   /* Region fill is a SELECTION-ONLY affordance (req #3) — the add/remove/modify
      border/outline always shows (stroke-opacity:1 below), but the translucent
      region wash only appears once a change is picked (see .hl.sel further down). */
@@ -140,6 +161,9 @@
      primary wire CHANGE, which stays full-strength. */
   .hl.wirepath.chain.sel{display:inline;stroke-opacity:.45;stroke-width:2.5}
   .hl.wirepath.sel{stroke-width:5;stroke-opacity:1}
+  /* Primary selected wire pulses in lockstep with node/structure changes (parity);
+     the dashed OLD routing and faint CHAIN context stay steady. */
+  .hl.wirepath.sel:not(.old):not(.chain){animation:selpulse 1.25s ease-in-out infinite}
   .hl-num{pointer-events:none;font:bold 17px system-ui,sans-serif;
           paint-order:stroke;stroke:#0d1117;stroke-width:4;stroke-linejoin:round;
           transition:opacity .2s}
@@ -168,9 +192,9 @@
   #opWrap{display:flex;align-items:center;gap:8px;height:31.6px}
   #opWrap .op-end{height:31.6px;display:inline-flex;align-items:center;justify-content:center;
           font:600 11px/1 system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;
-          color:#aeb6c2;background:#20252e;border:1px solid var(--line);border-radius:6px;
+          color:var(--fg-muted);background:var(--btn);border:1px solid var(--line);border-radius:6px;
           padding:0 10px;cursor:pointer}
-  #opWrap .op-end:hover{color:#fff;border-color:#4b5563;background:#2a3038}
+  #opWrap .op-end:hover{color:var(--fg);border-color:var(--line);background:var(--btn-hover)}
   #op{-webkit-appearance:none;appearance:none;width:150px;height:31.6px;margin:0;
       background:linear-gradient(90deg,#2a3038,#3a414c);border:1px solid var(--line);
       border-radius:11px;outline:none;cursor:grab;box-shadow:inset 0 2px 4px #0009}
@@ -636,7 +660,18 @@ function applyZoom(){
     s.style.width=(s.viewBox.baseVal.width*S)+'px';
     s.querySelectorAll('.hl-num').forEach(t=>t.style.fontSize=(15/S)+'px');});
 }
+// ── Smooth focus glide ──────────────────────────────────────────────────────
+// `focus()` animates zoom+pan from the current view to its computed target with
+// an eased glide instead of snapping. Any new selection or manual gesture must
+// abandon an in-flight glide and retarget from wherever it currently is, so we
+// keep a single module-level rAF handle and cancel it on every entry point.
+let glideRAF=null;
+function cancelGlide(){ if(glideRAF!==null){ cancelAnimationFrame(glideRAF); glideRAF=null; } }
+// Reduced-motion users (and any non-animating context) get the instant path.
+const ANIMATE = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const easeInOutCubic = t => t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
 function setZoom(z, ax, ay){          // keep viewport point (ax,ay) fixed while zooming
+  cancelGlide();                      // a manual zoom retargets away from any glide
   z=Math.max(1, Math.min(z, 8));
   const targets=scrollTargets();
   if(ax===undefined){ax=targets[0].clientWidth/2; ay=targets[0].clientHeight/2;}
@@ -673,6 +708,7 @@ function homeBox(i){
 // node is a speck — this is what makes "next change" actually reveal it. Badge
 // text is counter-scaled and the ring stroke is non-scaling, so both stay crisp.
 function focus(i){
+  cancelGlide();                       // abandon any in-flight glide; retarget from here
   const c=CHANGES[i], r=visibleEl(i); if(!r)return;
   const box=homeBox(i); if(!box)return;
   // `home` is the viewport that actually contains `r` (the change's own pane in
@@ -690,20 +726,71 @@ function focus(i){
   // manual +/- and per-change focus share one scale.
   const ctx=Math.max((x2-x1)+2*pad, (y2-y1)+2*pad, 340);
   const S=Math.min(stageW, stageH)*0.85/ctx;   // desired css px per user px
-  zoom=Math.max(1, Math.min(S/fitScale(), 8));
-  applyZoom();
-  // Centre the change in `home`. Manual scroll (scrollIntoView is unreliable on
-  // SVG children + smooth-scroll never settles headless): read the box's
-  // on-screen rect after the width change and offset scroll by the same delta
-  // on every linked target — in 'side' mode that puts BOTH panes on the same
-  // LV region (before directly above after), since they share one coordinate
-  // space and one zoom scale.
-  requestAnimationFrame(()=>{
+  const Z=Math.max(1, Math.min(S/fitScale(), 8));   // TARGET zoom level
+
+  // Capture the START state (current zoom + each linked target's own scroll)
+  // BEFORE we disturb anything. `hw`/`hh` are the constant viewport half-extents
+  // used to convert scroll ↔ viewport-centre.
+  const z0=zoom;
+  const start=targets.map(el=>({el, sl:el.scrollLeft, st:el.scrollTop,
+                                hw:el.clientWidth/2, hh:el.clientHeight/2}));
+
+  // Compute the EXACT target scroll the old snap produced: apply the target zoom,
+  // then read the change's on-screen rect and offset each target by the centering
+  // delta. Reading getBoundingClientRect() forces the reflow, so this is the same
+  // measurement the old requestAnimationFrame took — the end state is unchanged.
+  const targetScroll=()=>{
+    zoom=Z; applyZoom();
     const rb=r.getBoundingClientRect(), hb=home.getBoundingClientRect();
     const dx=(rb.left+rb.width/2)-(hb.left+hb.width/2);
     const dy=(rb.top +rb.height/2)-(hb.top +hb.height/2);
-    targets.forEach(el=>{ el.scrollLeft+=dx; el.scrollTop+=dy; });
+    return start.map(s=>({sl:s.el.scrollLeft+dx, st:s.el.scrollTop+dy}));
+  };
+
+  // Reduced-motion / non-animating context: instant snap (byte-identical to the
+  // old behaviour — set target zoom + scroll directly, deferred one frame).
+  if(!ANIMATE){
+    const tgt=targetScroll();
+    requestAnimationFrame(()=>{
+      start.forEach((s,idx)=>{ s.el.scrollLeft=tgt[idx].sl; s.el.scrollTop=tgt[idx].st; });
+    });
+    return;
+  }
+
+  // Animated glide. Measure the target (leaves zoom=Z), then build per-target
+  // interpolation anchors in USER coordinates so the viewport CENTRE glides
+  // smoothly across the two different zoom scales (a raw px-lerp of scroll would
+  // drift, since zoom rescales the scroll space). fitScale() is zoom-independent
+  // (viewBox + stage width only), so one capture is valid for the whole glide.
+  const tgt=targetScroll();
+  const fs=fitScale();
+  const anim=start.map((s,idx)=>{
+    const t=tgt[idx];
+    return {el:s.el, hw:s.hw, hh:s.hh, slT:t.sl, stT:t.st,
+      ucx0:(s.sl+s.hw)/(fs*z0), ucy0:(s.st+s.hh)/(fs*z0),   // start centre (user px)
+      ucx1:(t.sl+s.hw)/(fs*Z),  ucy1:(t.st+s.hh)/(fs*Z)};   // target centre (user px)
   });
+  // Rewind to the captured start so the first frame glides from where we were.
+  zoom=z0; applyZoom();
+  start.forEach(s=>{ s.el.scrollLeft=s.sl; s.el.scrollTop=s.st; });
+
+  const t0=Date.now(), DUR=250;
+  const step=()=>{
+    const raw=Math.min(1, (Date.now()-t0)/DUR), e=easeInOutCubic(raw);
+    if(raw>=1){                        // final frame: SET the exact target, no drift
+      zoom=Z; applyZoom();
+      anim.forEach(a=>{ a.el.scrollLeft=a.slT; a.el.scrollTop=a.stT; });
+      glideRAF=null; return;
+    }
+    const zi=z0+(Z-z0)*e; zoom=zi; applyZoom();
+    const sc=fs*zi;                    // current css-per-user scale
+    anim.forEach(a=>{
+      const ucx=a.ucx0+(a.ucx1-a.ucx0)*e, ucy=a.ucy0+(a.ucy1-a.ucy0)*e;
+      a.el.scrollLeft=ucx*sc-a.hw; a.el.scrollTop=ucy*sc-a.hh;
+    });
+    glideRAF=requestAnimationFrame(step);
+  };
+  glideRAF=requestAnimationFrame(step);
 }
 
 function jump(i){
@@ -755,6 +842,12 @@ stage.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return; e.prevent
   const hovered=targets.find(el=>el.contains(e.target))||targets[0];
   const hb=hovered.getBoundingClientRect();
   setZoom(zoom*(e.deltaY<0?1.15:1/1.15), e.clientX-hb.left, e.clientY-hb.top); },{passive:false});
+// Any MANUAL pan gesture (plain wheel scroll, scrollbar/trackpad drag, touch)
+// abandons an in-flight glide so the user's gesture wins immediately. These are
+// input events only — programmatic scrollLeft/scrollTop writes during the glide
+// fire 'scroll', not these, so the glide never cancels itself.
+['wheel','pointerdown','touchstart'].forEach(ev=>
+  stage.addEventListener(ev, cancelGlide, {passive:true}));
 addEventListener('keydown',e=>{
   if(e.key==='n')jump(sel+1); if(e.key==='p')jump(sel-1);
   if(e.key==='f'||e.key==='0')fit();

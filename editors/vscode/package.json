@@ -24,6 +24,17 @@
           "items": { "type": "string" },
           "default": [],
           "markdownDescription": "Extra directories to search for SubVIs, in addition to the auto-detected repository root."
+        },
+        "lvkit.diagramTheme": {
+          "type": "string",
+          "enum": ["auto", "light", "dark"],
+          "enumDescriptions": [
+            "Follow the editor theme — light diagram in a light theme, dark in a dark theme.",
+            "Always render the VI diagram with the light LabVIEW palette, regardless of editor theme.",
+            "Always render the VI diagram with the dark palette, regardless of editor theme."
+          ],
+          "default": "auto",
+          "markdownDescription": "Color theme for the **VI diagram itself** (the rendered block diagram and diff SVGs). The surrounding viewer chrome always matches your VS Code theme; this setting controls only the diagram. `auto` (default) makes the diagram follow the editor theme; `light`/`dark` pin it regardless."
         }
       }
     },

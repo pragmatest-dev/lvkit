@@ -8,6 +8,12 @@ const path = require('path');
 function cfg() { return vscode.workspace.getConfiguration('lvkit'); }
 function lvkitBin() { return cfg().get('path', 'lvkit'); }
 function extraSearchPaths() { return cfg().get('searchPaths', []); }
+// Theme for the DIAGRAM SVG only (the viewer chrome always follows the editor
+// via prefers-color-scheme). Persisted as the `lvkit.diagramTheme` setting.
+function diagramTheme() {
+  const t = cfg().get('diagramTheme', 'auto');
+  return ['auto', 'light', 'dark'].includes(t) ? t : 'auto';
+}
 
 // ---- helpers ---------------------------------------------------------------
 function gitRootOr(dir) {
@@ -32,12 +38,46 @@ function searchArgs(root) {
   return [root, ...extraSearchPaths()].map((p) => `--search-path "${p}"`).join(' ');
 }
 
-// VS Code webviews are CSP-strict; our render/viewer is fully self-contained
-// (inline <style>/<script>, data: icons), so allow only those + data URIs.
-const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:;">`;
-function injectCsp(html) { return html.replace(/<meta charset=['"]utf-8['"]>/i, (m) => `${m}\n${CSP}`); }
+// VS Code webviews are CSP-strict AND — unlike a normal browser — IGNORE
+// `script-src 'unsafe-inline'` for scripts: an inline <script> runs ONLY when it
+// carries a per-load nonce that the CSP allow-lists. Both our interactive render
+// SVG (frame-toggle/hover JS) and the diff viewer ship inline <script>, so every
+// page goes through withNonceCsp(): stamp a fresh nonce on each <script> and
+// allow exactly that nonce. Styles and data: URIs stay inline (those DO honor
+// 'unsafe-inline'). Without this, the page renders but no JS runs — static SVGs,
+// no pan/zoom/change-list.
+function nonce() {
+  let t = '';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) t += chars.charAt(Math.floor(Math.random() * chars.length));
+  return t;
+}
+function cspMeta(n) {
+  return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; ` +
+    `img-src data: https:; style-src 'unsafe-inline'; script-src 'nonce-${n}'; font-src data:;">`;
+}
+// Stamp a nonce on every <script> and inject the matching CSP (after the charset
+// meta if present, else just inside <head>, else at the very top of the doc).
+function withNonceCsp(html) {
+  const n = nonce();
+  const nonced = html.replace(/<script(\s|>)/g, `<script nonce="${n}"$1`);
+  const inject = cspMeta(n);
+  if (/<meta charset=['"]utf-8['"]>/i.test(nonced)) {
+    return nonced.replace(/<meta charset=['"]utf-8['"]>/i, (m) => `${m}\n${inject}`);
+  }
+  if (/<head[^>]*>/i.test(nonced)) {
+    return nonced.replace(/<head[^>]*>/i, (m) => `${m}${inject}`);
+  }
+  return inject + nonced;
+}
 function wrapSvg(svg) {
-  return `<!doctype html><html><head>${CSP}<style>html,body{margin:0;height:100%;background:#fff}` +
+  // `color-scheme: light dark` makes the webview report the editor theme via
+  // prefers-color-scheme to the inline SVG, which is rendered with `--theme
+  // auto` (see the render invocation below) so its colors follow the editor.
+  // The page backdrop matches the editor so light/dark chrome never clashes.
+  // CSP + <script> nonces are added by withNonceCsp() at the call site.
+  return `<!doctype html><html><head><style>html,body{margin:0;height:100%;` +
+    `color-scheme:light dark;background:var(--vscode-editor-background,#fff)}` +
     `#wrap{height:100vh;overflow:auto;display:flex;justify-content:center;align-items:flex-start}` +
     `svg{max-width:100%;height:auto}</style></head><body><div id="wrap">${svg}</div></body></html>`;
 }
@@ -56,8 +96,10 @@ class ViPreviewProvider {
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
       const svg = path.join(tmp, 'render.svg');
       const root = gitRootOr(path.dirname(file));
-      run(`"${lvkitBin()}" render "${file}" ${searchArgs(root)} -o "${svg}"`);
-      panel.webview.html = wrapSvg(fs.readFileSync(svg, 'utf8'));
+      // --theme auto: the SVG follows prefers-color-scheme, which the webview
+      // reports from the editor theme (see wrapSvg's `color-scheme: light dark`).
+      run(`"${lvkitBin()}" render "${file}" ${searchArgs(root)} --theme auto -o "${svg}"`);
+      panel.webview.html = withNonceCsp(wrapSvg(fs.readFileSync(svg, 'utf8')));
     } catch (e) {
       panel.webview.html = errorHtml('lvkit render failed', e.message);
     }
@@ -79,12 +121,16 @@ async function diffVI(arg) {
         const oldVi = path.join(tmp, path.basename(file)); // keep .vi suffix (lvkit needs it)
         fs.writeFileSync(oldVi, run(`git show HEAD:"${rel}"`, { cwd: root }));
         const out = path.join(tmp, 'diff.html');
-        run(`"${lvkitBin()}" diff "${oldVi}" "${file}" ${searchArgs(root)} --format html -o "${out}"`, { cwd: root });
+        // --theme auto: the diff viewer chrome is already prefers-color-scheme
+        // adaptive; auto makes the embedded before/after diagrams follow the
+        // same signal, which the webview reports from the editor theme. (No need
+        // to read activeColorTheme.kind — prefers-color-scheme handles it.)
+        run(`"${lvkitBin()}" diff "${oldVi}" "${file}" ${searchArgs(root)} --format html --theme auto -o "${out}"`, { cwd: root });
         const panel = vscode.window.createWebviewPanel(
           'lvkitDiff', `VI Diff: ${path.basename(file)}`, vscode.ViewColumn.Active,
           { enableScripts: true, retainContextWhenHidden: true }
         );
-        panel.webview.html = injectCsp(fs.readFileSync(out, 'utf8'));
+        panel.webview.html = withNonceCsp(fs.readFileSync(out, 'utf8'));
       } catch (e) {
         vscode.window.showErrorMessage('lvkit diff failed: ' + e.message);
       }

@@ -52,6 +52,21 @@ def _resolve_load_mode(
     return LoadMode(chosen) if chosen else default
 
 
+def _add_theme_arg(parser: argparse.ArgumentParser) -> None:
+    """Add ``--theme {light,dark,auto}`` to a subparser (render/diff)."""
+    parser.add_argument(
+        "--theme",
+        choices=["light", "dark", "auto"],
+        default="light",
+        help=(
+            "Color theme for the emitted SVG/HTML: 'light' (default, the "
+            "faithful LabVIEW light diagram), 'dark' (a dark palette baked in "
+            "unconditionally), or 'auto' (light by default, dark when the "
+            "viewer's OS/editor prefers dark, via prefers-color-scheme)."
+        ),
+    )
+
+
 def _add_project_root_arg(parser: argparse.ArgumentParser) -> None:
     """Add --project-root flag to a subparser."""
     parser.add_argument(
@@ -370,6 +385,7 @@ def main() -> int:
         default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
+    _add_theme_arg(diff_parser)
     _add_project_root_arg(diff_parser)
     _add_load_mode_arg(diff_parser)
     _add_library_root_args(diff_parser)
@@ -435,6 +451,7 @@ def main() -> int:
         "--search-path", action="append", dest="search_paths", default=[],
         help="Search paths for SubVI resolution (can be repeated)",
     )
+    _add_theme_arg(render_parser)
     _add_project_root_arg(render_parser)
     _add_load_mode_arg(render_parser)
     _add_library_root_args(render_parser)
@@ -769,6 +786,7 @@ def cmd_render(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             mode=_resolve_load_mode(args, LoadMode.MINIMAL),
+            theme_mode=args.theme,
         )
     except Exception as e:
         print(f"Error: render failed: {e}", file=sys.stderr)
@@ -884,8 +902,16 @@ def cmd_diff(args: argparse.Namespace) -> int:
         from .render import render_vi
         from .render.diff_viewer import build_diff_viewer
 
-        before_svg = render_vi(graph_a, vi_name_a, interactive=False)
-        after_svg = render_vi(graph_b, vi_name_b, interactive=False)
+        # The viewer chrome is always prefers-color-scheme adaptive (see
+        # templates/diff_viewer.html), so the embedded diagrams follow the same
+        # signal: --theme controls the SVG palette (default 'light'; the VS Code
+        # extension passes 'auto' for a fully theme-matched page).
+        before_svg = render_vi(
+            graph_a, vi_name_a, interactive=False, theme_mode=args.theme,
+        )
+        after_svg = render_vi(
+            graph_b, vi_name_b, interactive=False, theme_mode=args.theme,
+        )
         if before_svg is None or after_svg is None:
             print(
                 "Error: render declined — required diagram geometry is "
