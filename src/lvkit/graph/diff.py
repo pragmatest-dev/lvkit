@@ -29,6 +29,7 @@ from .netlist import (
     instance_line,
     scope_header,
 )
+from .op_walk import _is_nmux, _nmux_agg_fields, _nmux_raw_field_name
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout, Point, Rect
@@ -584,7 +585,7 @@ def _wire_changes(
     )
 
     def label_of(
-        end: WireEnd, vi_self: str,
+        graph: InMemoryVIGraph, end: WireEnd, vi_self: str,
         elems: dict[str, _ElemInfo], self_terms: list[Terminal],
         consts: Mapping[str, str],
     ) -> str:
@@ -595,6 +596,7 @@ def _wire_changes(
         term_key = end.index if end.index is not None else end.name
         terminals: list[Terminal] = []
         owner_label: str | None = None
+        owner_op: Operation | None = None
         if end.node_id == vi_self:
             terminals = self_terms
         else:
@@ -602,12 +604,29 @@ def _wire_changes(
             if entry is not None:
                 terminals = entry.op.terminals
                 owner_label = entry.op.name or entry.op.node_type
+                owner_op = entry.op
         for t in terminals:
             match = (
                 t.index == term_key if isinstance(term_key, int)
                 else t.name == term_key
             )
-            if match and (t.display_name or t.name):
+            if not match:
+                continue
+            # An nMux (Bundle/Unbundle By Name) OUTPUT terminal's own
+            # name/display_name are unset — its real identity is the
+            # struct/class FIELD it reads, resolved via
+            # ``Terminal.nmux_field_index`` the same way the netlist does
+            # (``netlist._term_ref`` / ``_component_port_name``), so a
+            # removed/added/modified wire's source reads the field net
+            # (e.g. ``isSkipped``) instead of the generic node name.
+            if (
+                t.direction == "output" and owner_op is not None
+                and _is_nmux(owner_op)
+            ):
+                field = _nmux_raw_field_name(t, _nmux_agg_fields(owner_op, graph))
+                if field:
+                    return field
+            if t.display_name or t.name:
                 return t.display_name or t.name  # type: ignore[return-value]
         return (
             consts.get(end.node_id) or owner_label or end.name
@@ -696,8 +715,8 @@ def _wire_changes(
         if change == "removed":
             assert entry_a is not None
             dest_end = entry_a[3]
-            sink_label = label_of(dest_end, va, a, self_terms_a, consts_a)
-            old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
+            sink_label = label_of(graph_a, dest_end, va, a, self_terms_a, consts_a)
+            old_label = label_of(graph_a, entry_a[2], va, a, self_terms_a, consts_a)
             bounds = _point_rect(layout_a, _uid_of(dest_end.terminal_id))
             bounds_before = _point_rect(layout_a, _uid_of(entry_a[2].terminal_id))
             # The gutter (-) already says "removed" -- so render the connection
@@ -710,8 +729,8 @@ def _wire_changes(
         else:
             assert entry_b is not None
             dest_end = entry_b[3]
-            sink_label = label_of(dest_end, vb, b, self_terms_b, consts_b)
-            new_label = label_of(entry_b[2], vb, b, self_terms_b, consts_b)
+            sink_label = label_of(graph_b, dest_end, vb, b, self_terms_b, consts_b)
+            new_label = label_of(graph_b, entry_b[2], vb, b, self_terms_b, consts_b)
             bounds = _point_rect(layout_b, _uid_of(dest_end.terminal_id))
             path = _wire_path(layout_b, wires_b, _uid_of(dest_end.terminal_id))
             if change == "added":
@@ -719,7 +738,7 @@ def _wire_changes(
                 detail = f"← {new_label}"
             else:
                 assert entry_a is not None
-                old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
+                old_label = label_of(graph_a, entry_a[2], va, a, self_terms_a, consts_a)
                 bounds_before = _point_rect(
                     layout_a, _uid_of(entry_a[2].terminal_id),
                 )

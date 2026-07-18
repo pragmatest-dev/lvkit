@@ -322,8 +322,12 @@ class TestNetlistFormDiffOnJKIPair:
         assert "↔" not in result
         # The removed wire (base uid 1820) must always show as a deletion,
         # even though it shares a containment path with an added node --
-        # a deletion is never suppressed by an unrelated addition.
-        wire_line = next(ln for ln in result.splitlines() if "x = Bundle/Unbundle" in ln)
+        # a deletion is never suppressed by an unrelated addition. Its
+        # source is an nMux (Bundle/Unbundle By Name) output, so the label
+        # is the resolved FIELD net (``isSkipped``, via
+        # ``Terminal.nmux_field_index``/``op_walk._nmux_raw_field_name``),
+        # not the generic node name.
+        wire_line = next(ln for ln in result.splitlines() if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
     def test_verbose_report(self):
@@ -339,7 +343,7 @@ class TestNetlistFormDiffOnJKIPair:
         assert "⬚" not in result
         assert "◻" not in result
         assert "↔" not in result
-        wire_line = next(ln for ln in result.splitlines() if "x = Bundle/Unbundle" in ln)
+        wire_line = next(ln for ln in result.splitlines() if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
     def test_deterministic_across_hash_seeds(self):

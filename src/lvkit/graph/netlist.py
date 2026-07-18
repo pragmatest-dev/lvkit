@@ -252,14 +252,28 @@ def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
     repeats within the VI. 1-based, in deterministic node order (the
     operation tree is already produced in ``_node_order_key`` order by the
     graph layer -- see the deterministic-node-order rule). Names that are
-    unique in the VI are absent from the returned map (no tag)."""
-    flat = _walk_flat(root_ops)
-    names = [_display_name(op) for op in flat]
+    unique in the VI are absent from the returned map (no tag).
+
+    ONLY instance ops participate: structures render via ``scope_header`` and
+    never use the ``#n`` tag, so counting them (e.g. a CaseOperation whose
+    name fell back to ``"Select"`` in this LV XML dialect) would wrongly
+    inflate a real ``Select`` primitive to ``Select#2`` with no ``Select#1``
+    ever shown.
+    """
+    insts = [
+        op for op in _walk_flat(root_ops)
+        if not isinstance(
+            op,
+            (CaseOperation, LoopOperation, SequenceOperation,
+             DisableStructureOperation),
+        )
+    ]
+    names = [_display_name(op) for op in insts]
     counts = Counter(names)
 
     occurrence_by_uid: dict[str, int] = {}
     running: dict[str, int] = {}
-    for op, name in zip(flat, names, strict=True):
+    for op, name in zip(insts, names, strict=True):
         if counts[name] > 1:
             running[name] = running.get(name, 0) + 1
             occurrence_by_uid[_uid_of(op.id)] = running[name]
@@ -737,6 +751,7 @@ def _build_components(
     are excluded -- ``## Netlist`` already shows their scopes."""
     subvi_order: list[str] = []
     seen_subvi: set[str] = set()
+    subvi_reps: dict[str, Operation] = {}
     groups: dict[
         tuple[object, ...],
         list[tuple[Operation, list[ComponentPort], list[ComponentPort]]],
@@ -751,6 +766,7 @@ def _build_components(
             if name not in seen_subvi:
                 seen_subvi.add(name)
                 subvi_order.append(name)
+                subvi_reps[name] = op
             continue
         if not isinstance(op, PrimitiveOperation):
             continue
@@ -761,7 +777,16 @@ def _build_components(
     components: list[NetlistComponent] = []
     for name in subvi_order:
         ports = _subvi_ports(graph, name)
-        ins, outs = ports if ports is not None else ([], [])
+        if ports is not None and (ports[0] or ports[1]):
+            ins, outs = ports
+        else:
+            # Signature unavailable, or all-error (e.g. Merge Errors.vi -- a
+            # variadic error-only subVI whose front-panel ports are all error
+            # clusters). Synthesize from the actual call so ## Components
+            # declares exactly what ## Netlist wires: both derive from the call
+            # node's terminals under the same error-cluster filter, so they
+            # can't disagree.
+            ins, outs = _synthesize_ports(subvi_reps[name], graph)
         components.append(NetlistComponent(name=name, inputs=ins, outputs=outs))
     for instances in groups.values():
         components.extend(_dedupe_primitive_group(instances))

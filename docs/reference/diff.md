@@ -10,6 +10,13 @@ serialization (`text`, `json`, or `html`), and `-v`/`--verbose` selects the
 detail level within `text`. They compose independently — `--format` never
 implies a detail level, and `--verbose` has no effect on `json` or `html`.
 
+Both `text` tiers, and `json`/`html`, project the SAME UID-keyed change map —
+`diff` matches nodes and structures by their stable LabVIEW UID (not by name),
+so an added or removed instance of a repeated node name is never confused with
+a rewire of an unrelated one, and a node merely wrapped in a new structure or
+handed a fresh UID never shows up as a phantom change. `-v`/`--verbose` only
+adds DEPTH to the same set of changes — it never shows a different diff.
+
 ## Synopsis
 
 ```bash
@@ -27,8 +34,8 @@ lvkit diff <vi_a> <vi_b> [options]
 
 | Option | Description |
 |--------|-------------|
-| `--format {text,json,html}` | Output serialization. `text` (default) is a unified diff of the two VIs' [`describe`](describe.md) output, printed to stdout. `json` serializes the diff engine's UID-correlated change map (`ChangeMap.to_dict()`) — for scripts, CI, or an AI agent reading the diff. `html` writes a self-contained [interactive diff viewer](#interactive-diff-viewer) to a file. |
-| `-v`, `--verbose` | Show the structured change report instead of the compact unified diff. Only affects `--format text` — a detail level, not a format. |
+| `--format {text,json,html}` | Output serialization. `text` (default) is a concise, logical change summary — node/structure add/remove, wire connectivity, constant value changes — printed to stdout. `json` serializes the diff engine's UID-correlated change map (`ChangeMap.to_dict()`) — for scripts, CI, or an AI agent reading the diff. `html` writes a self-contained [interactive diff viewer](#interactive-diff-viewer) to a file. |
+| `-v`, `--verbose` | Show the change summary in full depth: a `Signature` section for the VI's own connector-pane interface, old→new detail on modified values, and a trailing unchanged-node tally. Both tiers already show the full recursive containment tree — `--verbose` adds depth, never a different shape. Only affects `--format text` — a detail level, not a format. |
 | `--long` | Back-compat alias for `--verbose`. |
 | `-o FILE`, `--output FILE` | Output file path. Used by `--format html` (default `outputs/vi-diff/<stemA>__<stemB>.html` when omitted) and `--format json` (prints to stdout instead when omitted). Has no effect on `--format text`, which always goes to stdout. |
 | `--open` | Render `--format html` and open it in a browser. With no explicit `--format`, `--open` resolves the format to `html`; combined with `--format text` or `--format json` it's an error (`Error: --open requires --format html`, exit `1`). |
@@ -42,58 +49,61 @@ migrate to it over time, with `--json` kept as an alias.
 
 ## Example
 
+`text` output is a single recursive containment tree, rendered as a
+**netlist** — the same node-first, named-port syntax `describe --verbose`'s
+`## Netlist` section uses (see [Netlist](netlist.md)). Every change reads
+inline as a change tag (`+`/`-`/`~`) in column 0, followed by netlist syntax
+at whatever depth its own containment puts it: a structure's own line reads
+`case (selector):` (or `while (...):`/`for (...):`/`sequence:`), and a
+node's own line reads `name(port=net, ...) -> outNets` — the node leads,
+each wired input bound to its source net by port name, never by position. A
+structure is a recursion point: its own scope line, then a quoted
+sub-header per affected frame (`"Default":`), with that frame's changes
+indented beneath it on their own lines, recursing into nested structures. An
+unchanged structure that merely CONTAINS a change still prints its own scope
+line (with a space gutter, not a change tag), so nested changes always show
+their enclosing `case (...):` context. There are no
+`Operations:`/`Wiring:`/`Structures:` sections. Siblings inside a container
+print in the VI's own dataflow order (the order the current/head version
+places them), not grouped by change kind — a genuinely new node can print
+before a genuinely removed one, or the reverse, depending on where each one
+falls.
+
 ```bash
 lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
   --search-path samples/OpenG/extracted
 ```
 
 ```text
---- Convert File Extension (String)__ogtk.vi
-+++ Convert File Extension (Path)__ogtk.vi
-@@ -1,31 +1,19 @@
--# Convert File Extension (String)__ogtk.vi
-+# Convert File Extension (Path)__ogtk.vi
-
--  convert_file_extension_(string)__ogtk(file name: str, new ending (none): str) -> new filename: str, prev ending: str
-+  convert_file_extension_(path)__ogtk(file name: Path, new ending (none): str) -> new filename: Path, prev ending: str
-
- ## Inputs
--  file name: str (unknown)
-+  file name: Path (unknown)
-   new ending (none): str (unknown)
-
- ## Outputs
--  new filename: str
-+  new filename: Path
-   prev ending: str
-
--## Constants
--  (unnamed): str = '\\.[~\\.]*$'
--
--## Control Flow
--  Case structure (2 frames, gated on new ending (none))
-+## Dependencies
-+  Convert File Extension (String)__ogtk.vi: (file name: str, new ending (none): str) → (new filename: str, prev ending: str)
-
- ## Operations
--Match Pattern [prim 1535]
--Case Structure (2 frames)
--  Frame "Default" (default):
--    Match Pattern [prim 1535]
--    Less Than 0? [prim 1118]
--    Select [prim 1516]
--    Format String
--    (unnamed): str = '^\\.'
--    (unnamed): str = '.%s'
--    (unnamed): str = '%s'
--  Frame "":
--    (pass-through)+Strip Path [prim 1420]
-+Convert File Extension (String)__ogtk.vi(new ending (none), file name) → prev ending, new filename
-+Build Path [prim 1419]
++ Strip Path(path=file name) -> stripped path, name
++ Convert File Extension (String)__ogtk.vi(new ending (none)=new ending (none), file name=name) -> prev ending, new filename
++ Build Path(name or relative path=new filename, base path=stripped path) -> appended path
+- Match Pattern#1(string=file name, regular expression='\\.[~\\.]*$') -> before substring, match substring, after substring, offset past match
+- case (new ending (none)):
+    "Default":
+-     Match Pattern#2(string=new ending (none), regular expression='^\\.') -> before substring, match substring, after substring, offset past match
+-     Less Than 0?(x=Match Pattern#2.offset past match) -> result
+-     Select#2(f_value='%s', selector=Less Than 0?.result, t_value='.%s') -> result
+-     Format String(0=Select#2.result, 1=Match Pattern#1.before substring, 5=new ending (none)) -> Format String.2
+- = (unnamed str) = "'\\\\.[~\\\\.]*$'"
 ```
 
-Pass `-v`/`--verbose` (or its back-compat alias `--long`) for the structured
-report instead:
+The renamed VI now calls the old one as a SubVI (`+ Convert File Extension
+(String)__ogtk.vi(new ending (none)=new ending (none), file name=name) ->
+prev ending, new filename`) instead of inlining its old `case (new ending
+(none)):` logic (`- case (new ending (none)):`) — everything the removed
+case used to contain (`Match Pattern#2`, `Less Than 0?`, `Select#2`, `Format
+String`) nests under its `"Default":` frame, indented beneath the
+structure's own line. The OTHER `Match Pattern` instance (`Match Pattern#1`)
+— the one that lived outside the case and is unrelated to it — sits at the
+top level instead, right alongside the genuinely new/removed nodes. Note the
+ordering: the three ADDED nodes print first — that's where the renamed VI's
+own dataflow places them — then the removed case and the removed `Match
+Pattern#1`, last because they exist only in the OLD version and have no
+position in the new one's order.
+
+Pass `-v`/`--verbose` (or its back-compat alias `--long`) for the SAME tree,
+plus more depth:
 
 ```bash
 lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
@@ -105,33 +115,49 @@ Signature:
   ~ input: file name: str -> Path
   ~ output: new filename: str -> Path
 
-Operations:
-  + Build Path [prim]
-  + Convert File Extension (String)__ogtk.vi [iUse]
-  - Match Pattern [prim]
-  + Strip Path [prim]
-  - regular expression [select]
-
-Constants:
-  - (unnamed str) = "'\\\\.[~\\\\.]*$'"
-
-Wiring:
-  + Convert File Extension (Path)__ogtk.vi -> Convert File Extension (String)__ogtk.vi
-  + Convert File Extension (String)__ogtk.vi -> Build Path
-  + Convert File Extension (String)__ogtk.vi -> Convert File Extension (Path)__ogtk.vi
-  - Convert File Extension (String)__ogtk.vi -> Match Pattern
-  - Convert File Extension (String)__ogtk.vi -> regular expression
-  - Match Pattern -> Convert File Extension (String)__ogtk.vi
-  + Strip Path -> Convert File Extension (String)__ogtk.vi
-  - regular expression -> Convert File Extension (String)__ogtk.vi
-
-Structures:
-  - regular expression (selector <- Convert File Extension (String)__ogtk.vi; frame Default: Match Pattern, Less Than 0?, Select, Format String, str constant, str constant, str constant)
++ Strip Path(path=file name) -> stripped path, name
++ Convert File Extension (String)__ogtk.vi(new ending (none)=new ending (none), file name=name) -> prev ending, new filename
++ Build Path(name or relative path=new filename, base path=stripped path) -> appended path
+- Match Pattern#1(string=file name, regular expression='\\.[~\\.]*$') -> before substring, match substring, after substring, offset past match
+- case (new ending (none)):
+    "Default":
+-     Match Pattern#2(string=new ending (none), regular expression='^\\.') -> before substring, match substring, after substring, offset past match
+-     Less Than 0?(x=Match Pattern#2.offset past match) -> result
+-     Select#2(f_value='%s', selector=Less Than 0?.result, t_value='.%s') -> result
+-     Format String(0=Select#2.result, 1=Match Pattern#1.before substring, 5=new ending (none)) -> Format String.2
+- = (unnamed str) = "'\\\\.[~\\\\.]*$'"
 ```
 
-The structured report has five sections — `Signature`, `Operations`,
-`Constants`, `Wiring`, `Structures` — each listing only the entries that
-changed; a section with no changes is omitted entirely.
+`--verbose` doesn't change WHICH changes are reported, or how they're
+nested — it's the exact same containment tree either way. It only adds: a
+`Signature` section BEFORE the tree (the VI's own connector-pane interface, a
+distinct concern the change map doesn't cover); old→new detail on a modified
+constant's value instead of just its name; and, when at least one other
+change is present, a trailing `(N unchanged nodes)` tally AFTER the tree. This
+pair happens to share no unchanged nodes at all, so no tally appears in
+either tier.
+
+The `+`/`-`/`~` gutter (column 0) is orthogonal to WHAT changed — the same
+tag prefixes a structure's `case (...):` line, a node's `name(port=net, ...)
+-> outNets` line, and a constant's `= name = value` line alike. A
+`frame`/`value`-kind change (a whole case/sequence frame added, removed, or
+reselected) has no line of its own: its tag folds straight onto the quoted
+frame header it decorates (e.g. `+ "4":` for a brand-new case value with
+content added inside it) instead of appearing as a separate line — that line
+already says everything a repeated one would. A wire whose sink is otherwise
+unchanged but sits alongside an added/removed node at the same containment
+depth is suppressed outright — that node's own `name(port=net, ...) ->
+outNets` line already shows the net inline, so a standalone wire line would
+just repeat it. A wire change with no such sibling — an unchanged node
+losing or gaining a connection, with no node add/remove alongside it — still
+renders its own `sink = source` line, and a REMOVED wire always renders even
+when nothing else at that containment depth changed; see [Netlist: Diff
+annotations](netlist.md#diff-annotations) for a worked example. (A constant
+edited IN PLACE — same UID, new value — reads as its own instance line like
+any other modified node, since it's tracked in the UID-keyed change map by
+its stable UID; only an ADDED or REMOVED constant, which has no UID of its
+own to key on, goes through the separate name/value-matched list and keeps
+the dedicated `=` marker, e.g. `+ = name = value`.)
 
 If the two VIs are identical, `--format text` (both the default and
 `--verbose`) prints a single line, `No changes detected.`, instead of an empty
@@ -183,9 +209,22 @@ in a review, or hosted as a static CI artifact.
   case.
 - Independent zoom (toolbar buttons, `+`/`-` keys, or Ctrl/Cmd+scroll) is
   shared across all four view modes.
-- The URL fragment encodes the selected change, view mode, and per-structure
-  frame selection (`#c=N&view=overlay&frame=UID=VALUE`), so a link into the
-  viewer can deep-link straight to a specific change.
+- The URL fragment encodes the selected change, view mode, change-list mode,
+  and per-structure frame selection
+  (`#c=N&view=overlay&list=tree&frame=UID=VALUE`), so a link into the viewer
+  can deep-link straight to a specific change.
+
+### Flat vs. tree change list
+
+A **Flat / Tree** toggle sits above the change list. **Flat** (the default)
+is the numbered list in engine order, one row per change. **Tree** regroups
+the SAME list by containment — client-side, from the `container_uid`/
+`frame_path` every entry already carries, no extra data and no second engine
+call — into exactly the structure the `text` containment tree above prints:
+a structure is a recursion point, its frames are quoted sub-headers, and
+contained changes nest beneath them. Every row keeps its number badge and
+click-to-select behavior in either mode — switching modes only changes how
+the list is grouped, never which change a click selects or what it does.
 
 ## Exit codes
 
@@ -220,6 +259,7 @@ clean `Error:` line.
 
 ## See also
 
+- [Netlist](netlist.md) — the node-first, named-port grammar this page's `text` output renders, documented in full (including the diff-specific gutter/suppression rules).
 - [describe](describe.md) — a snapshot of a single VI's signature and operations.
 - [render](render.md) — a faithful diagram of a single VI, for visual comparison.
 - [structure](structure.md) — the same terminal/operation/wiring breakdown for `.lvlib`/`.lvclass` members.
