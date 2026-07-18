@@ -4,9 +4,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// The upcoming lvkit library release this extension version targets. The
+// extension versions on its OWN track (package.json "version") — not lockstep
+// with the library — so we assert a floor here rather than assuming a match.
+const MIN_LVKIT = "0.5.0";
+
 // ---- config ----------------------------------------------------------------
 function cfg() { return vscode.workspace.getConfiguration('lvkit'); }
-function lvkitBin() { return cfg().get('path', 'lvkit'); }
 function extraSearchPaths() { return cfg().get('searchPaths', []); }
 // Theme for the DIAGRAM SVG only (the viewer chrome always follows the editor
 // via prefers-color-scheme). Persisted as the `lvkit.diagramTheme` setting.
@@ -22,16 +26,70 @@ function gitRootOr(dir) {
 }
 function esc(s) { return String(s).replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
 
+function fileExists(p) { try { return fs.existsSync(p); } catch (_) { return false; } }
+function onPath(exe) {
+  const probe = process.platform === 'win32' ? `where ${exe}` : `command -v ${exe}`;
+  try { cp.execSync(probe, { stdio: 'ignore' }); return true; } catch (_) { return false; }
+}
+
+// Resolve a ready-to-exec lvkit command PREFIX for a repo `root`. The prefix may
+// be MULTIPLE tokens (e.g. `uv run lvkit`), so callers must interpolate it raw —
+// never wrap the whole prefix in quotes as if it were a single path. Order:
+//   1. an explicit `lvkit.path` override (the literal default "lvkit" counts as
+//      unset, so auto-resolution can still run) — quoted as one path;
+//   2. the repo-local venv's lvkit on disk;
+//   3. `uv run lvkit` when the repo has a pyproject.toml/uv.lock and `uv` is on
+//      PATH (runs lvkit inside the repo's own env);
+//   4. a global `lvkit` on PATH.
+// We NEVER write a global lvkit.path from here.
+function lvkitCmd(root) {
+  const configured = cfg().get('path', 'lvkit');
+  if (configured && configured !== 'lvkit') return `"${configured}"`;
+  const venv = process.platform === 'win32'
+    ? path.join(root, '.venv', 'Scripts', 'lvkit.exe')
+    : path.join(root, '.venv', 'bin', 'lvkit');
+  if (fileExists(venv)) return `"${venv}"`;
+  const hasProj = fileExists(path.join(root, 'pyproject.toml')) || fileExists(path.join(root, 'uv.lock'));
+  if (hasProj && onPath('uv')) return 'uv run lvkit';
+  return 'lvkit';
+}
+
 function run(cmd, opts) {
   try {
     return cp.execSync(cmd, { maxBuffer: 1e9, ...opts });
   } catch (e) {
     const msg = String(e && e.message);
     if ((e && e.code === 'ENOENT') || /ENOENT|not found|No such file/i.test(msg)) {
-      throw new Error(`lvkit executable not found (tried "${lvkitBin()}"). Set "lvkit.path" in Settings.`);
+      throw new Error('lvkit executable not found. Set "lvkit.path" in Settings, or install lvkit so it is on your PATH / in the repo\'s .venv.');
     }
     throw new Error(e && e.stderr ? e.stderr.toString() : msg);
   }
+}
+
+// Numeric semver compare (major.minor.patch). Returns <0 / 0 / >0.
+function cmpSemver(a, b) {
+  const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) { const x = pa[i] || 0, y = pb[i] || 0; if (x !== y) return x - y; }
+  return 0;
+}
+
+// One-time, non-blocking check that the resolved lvkit meets MIN_LVKIT. Called
+// lazily on first command use. If `--version` fails (lvkit missing/misconfigured)
+// we stay silent — the per-command ENOENT error path already guides the user.
+let _versionChecked = false;
+function checkLvkitVersion(root) {
+  if (_versionChecked) return;
+  _versionChecked = true;
+  try {
+    const out = cp.execSync(`${lvkitCmd(root)} --version`, { cwd: root }).toString();
+    const m = out.match(/(\d+\.\d+\.\d+)/);
+    if (m && cmpSemver(m[1], MIN_LVKIT) < 0) {
+      vscode.window.showWarningMessage(
+        `This extension needs lvkit ≥ ${MIN_LVKIT}; found ${m[1]}. Update with 'pip install -U lvkit'.`
+      );
+    }
+  } catch (_) { /* missing/broken lvkit -> handled by the command's ENOENT path */ }
 }
 
 function searchArgs(root) {
@@ -70,16 +128,29 @@ function withNonceCsp(html) {
   }
   return inject + nonced;
 }
-function wrapSvg(svg) {
-  // `color-scheme: light dark` makes the webview report the editor theme via
-  // prefers-color-scheme to the inline SVG, which is rendered with `--theme
-  // auto` (see the render invocation below) so its colors follow the editor.
-  // The page backdrop matches the editor so light/dark chrome never clashes.
-  // CSP + <script> nonces are added by withNonceCsp() at the call site.
-  return `<!doctype html><html><head><style>html,body{margin:0;height:100%;` +
-    `color-scheme:light dark;background:var(--vscode-editor-background,#fff)}` +
-    `#wrap{height:100vh;overflow:auto;display:flex;justify-content:center;align-items:flex-start}` +
-    `svg{max-width:100%;height:auto}</style></head><body><div id="wrap">${svg}</div></body></html>`;
+// Seed the viewer's diagram-theme control with the host's `lvkit.diagramTheme`
+// setting. The render/diff viewer reads `window.__lvkitInitialTheme` before its
+// theme-control script runs (see render/theme_control.py), so inject the value
+// right AFTER `<meta charset='utf-8'>` — that keeps it ahead of the control
+// script AND inside the region withNonceCsp() nonces, so it actually executes.
+// Call this BEFORE withNonceCsp() so the injected <script> receives a nonce.
+function injectInitialTheme(html, mode) {
+  const tag = `<script>window.__lvkitInitialTheme=${JSON.stringify(mode)};</script>`;
+  if (/<meta charset=['"]utf-8['"]>/i.test(html)) {
+    return html.replace(/<meta charset=['"]utf-8['"]>/i, (m) => `${m}\n${tag}`);
+  }
+  return tag + html;
+}
+// The viewer's theme control postMessages `{type:'lvkitDiagramTheme', value}`
+// whenever the user cycles the diagram theme. Persist it so the choice sticks
+// across previews/diffs and future sessions.
+function wireThemePersistence(webview) {
+  webview.onDidReceiveMessage((m) => {
+    if (m && m.type === 'lvkitDiagramTheme') {
+      vscode.workspace.getConfiguration('lvkit')
+        .update('diagramTheme', m.value, vscode.ConfigurationTarget.Global);
+    }
+  });
 }
 function errorHtml(title, message) {
   return `<body style="color:#ddd;background:#1e1e1e;font:14px sans-serif;padding:24px">` +
@@ -92,14 +163,20 @@ class ViPreviewProvider {
   async resolveCustomEditor(document, panel) {
     panel.webview.options = { enableScripts: true };
     const file = document.uri.fsPath;
+    const root = gitRootOr(path.dirname(file));
+    checkLvkitVersion(root);
     try {
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
-      const svg = path.join(tmp, 'render.svg');
-      const root = gitRootOr(path.dirname(file));
-      // --theme auto: the SVG follows prefers-color-scheme, which the webview
-      // reports from the editor theme (see wrapSvg's `color-scheme: light dark`).
-      run(`"${lvkitBin()}" render "${file}" ${searchArgs(root)} --theme auto -o "${svg}"`);
-      panel.webview.html = withNonceCsp(wrapSvg(fs.readFileSync(svg, 'utf8')));
+      const out = path.join(tmp, 'preview.html');
+      // `render --format html` emits the self-contained interactive viewer
+      // (zoom/pan + a light/dark diagram-theme toggle). The diagram itself is
+      // internally `--theme auto` (switchable in-viewer), so the injected
+      // initial theme + the in-viewer control govern light/dark — no --theme
+      // needed on this call.
+      run(`${lvkitCmd(root)} render "${file}" ${searchArgs(root)} --format html -o "${out}"`, { cwd: root });
+      const html = injectInitialTheme(fs.readFileSync(out, 'utf8'), diagramTheme());
+      panel.webview.html = withNonceCsp(html);
+      wireThemePersistence(panel.webview);
     } catch (e) {
       panel.webview.html = errorHtml('lvkit render failed', e.message);
     }
@@ -116,6 +193,7 @@ async function diffVI(arg) {
     async () => {
       try {
         const root = gitRootOr(path.dirname(file));
+        checkLvkitVersion(root);
         const rel = path.relative(root, file);
         const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
         const oldVi = path.join(tmp, path.basename(file)); // keep .vi suffix (lvkit needs it)
@@ -123,14 +201,16 @@ async function diffVI(arg) {
         const out = path.join(tmp, 'diff.html');
         // --theme auto: the diff viewer chrome is already prefers-color-scheme
         // adaptive; auto makes the embedded before/after diagrams follow the
-        // same signal, which the webview reports from the editor theme. (No need
-        // to read activeColorTheme.kind — prefers-color-scheme handles it.)
-        run(`"${lvkitBin()}" diff "${oldVi}" "${file}" ${searchArgs(root)} --format html --theme auto -o "${out}"`, { cwd: root });
+        // same signal. The injected initial theme + in-viewer control then let
+        // the user pin light/dark, persisted via wireThemePersistence().
+        run(`${lvkitCmd(root)} diff "${oldVi}" "${file}" ${searchArgs(root)} --format html --theme auto -o "${out}"`, { cwd: root });
         const panel = vscode.window.createWebviewPanel(
           'lvkitDiff', `VI Diff: ${path.basename(file)}`, vscode.ViewColumn.Active,
           { enableScripts: true, retainContextWhenHidden: true }
         );
-        panel.webview.html = withNonceCsp(fs.readFileSync(out, 'utf8'));
+        const html = injectInitialTheme(fs.readFileSync(out, 'utf8'), diagramTheme());
+        panel.webview.html = withNonceCsp(html);
+        wireThemePersistence(panel.webview);
       } catch (e) {
         vscode.window.showErrorMessage('lvkit diff failed: ' + e.message);
       }
@@ -138,8 +218,131 @@ async function diffVI(arg) {
   );
 }
 
+// ---- Convert VI -> Python (beta) --------------------------------------------
+// Resolve the target .vi from a context-menu arg (URI or SCM resource) or, for
+// the palette (no arg), from the active editor tab (custom preview OR text).
+function activeViUri(arg) {
+  if (arg && arg.resourceUri && arg.resourceUri.fsPath) return arg.resourceUri;
+  if (arg && arg.fsPath) return arg;
+  const groups = vscode.window.tabGroups;
+  const input = groups && groups.activeTabGroup && groups.activeTabGroup.activeTab
+    ? groups.activeTabGroup.activeTab.input : null;
+  // TabInputCustom (our .vi preview) and TabInputText both expose `.uri`.
+  if (input && input.uri && input.uri.fsPath) return input.uri;
+  return null;
+}
+
+// Collect real generated modules (skip package __init__.py and *.error.py).
+function walkPy(dir) {
+  let out = [];
+  let entries = [];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return out; }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) out = out.concat(walkPy(p));
+    else if (e.name.endsWith('.py') && e.name !== '__init__.py' && !e.name.endsWith('.error.py')) out.push(p);
+  }
+  return out;
+}
+// Pick the .py corresponding to the input VI (lvkit lowercases + underscores the
+// stem; match on an alnum-normalized comparison, else fall back to the first).
+function findGeneratedPy(dir, viFile) {
+  const files = walkPy(dir);
+  if (!files.length) return null;
+  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const stem = norm(path.basename(viFile, path.extname(viFile)));
+  const exact = files.find((f) => norm(path.basename(f, '.py')) === stem);
+  return exact || files[0];
+}
+// Pull the generate summary counts from stdout (lines like "  error:  1").
+function parseGenCounts(text) {
+  const pick = (k) => { const m = text.match(new RegExp('\\b' + k + ':\\s*(\\d+)')); return m ? parseInt(m[1], 10) : 0; };
+  return { vilib: pick('vilib'), ast: pick('ast'), stub: pick('stub'), error: pick('error') };
+}
+// A concise, honest attribution line for a conversion that couldn't finish —
+// the first diagnostic about an unrecognized/unresolved node, NOT a full dump.
+function nodeCoverageHint(text) {
+  const lines = String(text).split(/\r?\n/);
+  const hit = lines.find((l) => /resolution needed|FAILED:|add primitive|unrecognized|unhandled/i.test(l));
+  if (!hit) return '';
+  const t = hit.replace(/^\s*(->)?\s*/, '').trim();
+  return t.length > 200 ? t.slice(0, 197) + '…' : t;
+}
+
+async function generatePython(arg) {
+  const uri = activeViUri(arg);
+  if (!uri || !uri.fsPath || !uri.fsPath.toLowerCase().endsWith('.vi')) {
+    vscode.window.showErrorMessage('lvkit: no .vi selected. Open or right-click a .vi file, then run "Convert VI to Python".');
+    return;
+  }
+  const file = uri.fsPath;
+  const root = gitRootOr(path.dirname(file));
+  checkLvkitVersion(root);
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: `lvkit: converting ${path.basename(file)}…` },
+    async () => {
+      const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-gen-'));
+      // `--placeholder-on-unresolved`: unknown primitives / vi.lib VIs become
+      // inline-raise STUBS (build succeeds, stubs visible) instead of failing —
+      // the right beta trade-off. Only deeper unresolvables (terminal/type
+      // resolution) still hard-fail. lvkit writes all diagnostics to STDOUT and
+      // exits non-zero on any error, so capture stdout even when execSync throws.
+      let out = '';
+      try {
+        out = cp.execSync(
+          `${lvkitCmd(root)} generate "${file}" ${searchArgs(root)} --placeholder-on-unresolved -o "${outDir}"`,
+          { cwd: root, maxBuffer: 1e9 }
+        ).toString();
+      } catch (e) {
+        out = (e && e.stdout ? e.stdout.toString() : '') + '\n' +
+              (e && e.stderr ? e.stderr.toString() : '') + '\n' + String(e && e.message);
+      }
+
+      const hasSummary = /\berror:\s*\d+/.test(out);
+      if (!hasSummary) {
+        // lvkit never ran to a summary — infrastructure failure, not node coverage.
+        if (/ENOENT|not found|No such file/i.test(out)) {
+          vscode.window.showErrorMessage('lvkit executable not found. Set "lvkit.path" in Settings, or install lvkit.');
+        } else {
+          const first = String(out).split(/\r?\n/).find((l) => l.trim()) || 'unknown error';
+          vscode.window.showErrorMessage('lvkit convert failed: ' + first.trim());
+        }
+        return;
+      }
+
+      const counts = parseGenCounts(out);
+      if (counts.error > 0) {
+        // Couldn't fully convert — attribute it to growing node coverage, with
+        // the specific node info, NOT a raw traceback.
+        const hint = nodeCoverageHint(out);
+        vscode.window.showWarningMessage(
+          `Can't fully convert "${path.basename(file)}" yet: unrecognized node(s) — lvkit's node coverage is growing.` +
+          (hint ? ` (${hint})` : '')
+        );
+        return;
+      }
+
+      const py = findGeneratedPy(outDir, file);
+      if (!py) {
+        vscode.window.showWarningMessage(`Converted "${path.basename(file)}" but produced no Python file to open.`);
+        return;
+      }
+      const doc = await vscode.workspace.openTextDocument(py);
+      await vscode.window.showTextDocument(doc);
+      if (counts.stub > 0) {
+        vscode.window.showWarningMessage(
+          `Converted "${path.basename(file)}" with ${counts.stub} node(s) lvkit doesn't recognize yet — review the stubs. Coverage is still growing.`
+        );
+      } else {
+        vscode.window.showInformationMessage('Converted (beta) — review before use.');
+      }
+    }
+  );
+}
+
 function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand('lvkit.diffVI', diffVI));
+  context.subscriptions.push(vscode.commands.registerCommand('lvkit.generatePython', generatePython));
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(
     'lvkit.viPreview', new ViPreviewProvider(),
     { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false }

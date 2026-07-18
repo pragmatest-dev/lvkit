@@ -2,13 +2,13 @@
   "name": "lvkit-vi",
   "displayName": "lvkit — LabVIEW VI Viewer & Diff",
   "description": "View LabVIEW .vi block diagrams and see visual before/after diffs in VS Code — no LabVIEW license required.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "pragmatest",
   "license": "Apache-2.0",
   "engines": { "vscode": "^1.75.0" },
   "categories": ["Visualization", "SCM Providers", "Other"],
   "keywords": ["labview", "vi", "diff", "block diagram", "ni", "test"],
-  "activationEvents": ["onCommand:lvkit.diffVI", "onCustomEditor:lvkit.viPreview"],
+  "activationEvents": ["onCommand:lvkit.diffVI", "onCommand:lvkit.generatePython", "onCustomEditor:lvkit.viPreview"],
   "main": "./extension.js",
   "contributes": {
     "configuration": {
@@ -39,7 +39,8 @@
       }
     },
     "commands": [
-      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "lvkit" }
+      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "lvkit" },
+      { "command": "lvkit.generatePython", "title": "Convert VI to Python (beta)", "category": "lvkit" }
     ],
     "customEditors": [
       {
@@ -51,13 +52,16 @@
     ],
     "menus": {
       "scm/resourceState/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" },
+        { "command": "lvkit.generatePython", "when": "resourceExtname == .vi", "group": "navigation@2" }
       ],
       "explorer/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" },
+        { "command": "lvkit.generatePython", "when": "resourceExtname == .vi", "group": "navigation@2" }
       ],
       "editor/title/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" },
+        { "command": "lvkit.generatePython", "when": "resourceExtname == .vi" }
       ]
     }
   }
