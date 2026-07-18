@@ -4,6 +4,7 @@
   "description": "View LabVIEW .vi block diagrams and see visual before/after diffs in VS Code — no LabVIEW license required.",
   "version": "0.1.0",
   "publisher": "pragmatest",
+  "icon": "icon.png",
   "license": "Apache-2.0",
   "engines": { "vscode": "^1.75.0" },
   "categories": ["Visualization", "SCM Providers", "Other"],

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="lvkit">
+  <!-- lvkit mark: orthogonal dataflow fan-out. flat orange (#e8821e = lvkit's
+       DBL/float wire colour), soft corners. square terminals, junction circle. -->
+  <path d="M15 32 H32 M32 32 V15 H45 M32 32 V49 H45" fill="none" stroke="#e8821e"
+    stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="5" y="27" width="10" height="10" rx="1.5" fill="#e8821e"/>
+  <rect x="45" y="10" width="10" height="10" rx="1.5" fill="#e8821e"/>
+  <rect x="45" y="44" width="10" height="10" rx="1.5" fill="#e8821e"/>
+  <circle cx="32" cy="32" r="4.7" fill="#e8821e"/>
+</svg>

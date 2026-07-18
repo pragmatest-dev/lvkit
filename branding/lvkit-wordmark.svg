@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 212 64" width="212" height="64" role="img" aria-label="LVkit">
+  <!-- lvkit wordmark lockup: flat mark + "LVkit". "LV" uses currentColor so it
+       adapts to the host (ink on light, near-white on dark); "kit" is the orange
+       accent. NOTE: text is set in a system bold face for a working asset — the
+       final brand wordmark should convert the letters to outlined paths in the
+       chosen display typeface. -->
+  <path d="M15 32 H32 M32 32 V15 H45 M32 32 V49 H45" fill="none" stroke="#e8821e"
+    stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="5" y="27" width="10" height="10" rx="1.5" fill="#e8821e"/>
+  <rect x="45" y="10" width="10" height="10" rx="1.5" fill="#e8821e"/>
+  <rect x="45" y="44" width="10" height="10" rx="1.5" fill="#e8821e"/>
+  <circle cx="32" cy="32" r="4.7" fill="#e8821e"/>
+  <text x="70" y="45" font-family="'Segoe UI',system-ui,-apple-system,Roboto,'Helvetica Neue',Arial,sans-serif"
+    font-weight="800" font-size="40" letter-spacing="-1.5">
+    <tspan fill="currentColor">LV</tspan><tspan fill="#e8821e">kit</tspan>
+  </text>
+</svg>
