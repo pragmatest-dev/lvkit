@@ -128,38 +128,6 @@ def wrap_label(
 
 
 @dataclass(frozen=True)
-class LabeledBoxGlyph:
-    """A bordered box with a centered, fitted label.
-
-    Colors are ``Theme`` attribute names (not literal colors) so a
-    dark-mode/doc theme swap changes every labeled box in one place —
-    the same principle ``wire_style`` already follows.
-    """
-
-    label: str
-    fill_attr: str = "prim_fill"
-    stroke_attr: str = "prim_stroke"
-    stroke_width: float = 1.0
-    text_size: float = 8.0
-    text_attr: str = "prim_text"
-
-    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        x1, y1, x2, y2 = bounds
-        backend.rect(
-            x1, y1, x2, y2,
-            fill=getattr(theme, self.fill_attr),
-            stroke=getattr(theme, self.stroke_attr),
-            stroke_width=self.stroke_width,
-        )
-        backend.text(
-            (x1 + x2) / 2, (y1 + y2) / 2 + 3,
-            self.label,
-            self.text_size,
-            fill=getattr(theme, self.text_attr),
-        )
-
-
-@dataclass(frozen=True)
 class WrappedBoxGlyph:
     """A subVI box with its NAME wrapped inside — LabVIEW's default look for a
     subVI that has no custom icon. The name word-wraps to at most ``max_lines``
@@ -399,12 +367,6 @@ class LocalVariableGlyph:
 _OPERATOR_SYMBOL_SIZE = 9.0
 
 
-def _operator_symbol_size(bounds: Rect) -> float:
-    """The interior operator-symbol font size shared by EVERY operator glyph, so
-    they all render at exactly the same size (see ``_OPERATOR_SYMBOL_SIZE``)."""
-    return _OPERATOR_SYMBOL_SIZE
-
-
 @dataclass(frozen=True)
 class ArithGlyph:
     """The arithmetic/comparison-primitive triangle (Add/Subtract/Multiply/
@@ -424,8 +386,7 @@ class ArithGlyph:
             fill=getattr(theme, self.fill_attr),
             stroke=getattr(theme, self.stroke_attr), stroke_width=1.2,
         )
-        # Scale the operator to the (often small) triangle so it doesn't overflow.
-        size = _operator_symbol_size(bounds)
+        size = _OPERATOR_SYMBOL_SIZE
         cy = (y1 + y2) / 2
         backend.text(x1 + (x2 - x1) * 0.36, cy + size * 0.34, self.symbol, size,
                      fill=getattr(theme, self.text_attr))
@@ -521,7 +482,7 @@ class BooleanGateGlyph:
                 out_x + r, cy, r, fill=bubble_fill, stroke=stroke, stroke_width=1.0,
             )
 
-        size = _operator_symbol_size(bounds)
+        size = _OPERATOR_SYMBOL_SIZE
         backend.text(sym_x, cy + size * 0.34, self.symbol, size, fill=text_fill)
 
     @staticmethod
@@ -1105,31 +1066,6 @@ class CenteredSvgGlyph:
         w, h = nw * scale, nh * scale
         ox, oy = x1 + (bw - w) / 2, y1 + (bh - h) / 2
         backend.raw_svg(self.fragment, ox, oy, w, h, viewbox=(nw, nh))
-
-
-@dataclass(frozen=True)
-class BracketGlyph:
-    """A plain bracketed body (``[`` ``]`` ends, no operator symbol) — the
-    real LabVIEW look for Build Array and similarly bracket-shaped
-    primitives. A seed case for ``GeneratedGlyphResolver``, drawn the same
-    way regardless of node width, so an N-input Build Array is free."""
-
-    fill_attr: str = "prim_fill"
-    stroke_attr: str = "prim_stroke"
-
-    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        x1, y1, x2, y2 = bounds
-        stroke = getattr(theme, self.stroke_attr)
-        backend.rect(x1, y1, x2, y2, fill=getattr(theme, self.fill_attr))
-        o = min(6.0, (x2 - x1) / 4)
-        backend.path(
-            [(x1 + o, y1), (x1, y1), (x1, y2), (x1 + o, y2)],
-            stroke=stroke, stroke_width=1.2,
-        )
-        backend.path(
-            [(x2 - o, y1), (x2, y1), (x2, y2), (x2 - o, y2)],
-            stroke=stroke, stroke_width=1.2,
-        )
 
 
 @dataclass(frozen=True)

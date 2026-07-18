@@ -43,10 +43,8 @@ class Theme:
     # its greyed-out contents read as inactive — matches LabVIEW. Applied at
     # ~0.5 group opacity (see draw_scene); this is the solid grey it washes to.
     disabled_mask: str = "#9a9a9a"
-    selector_fill: str = "#e6f4d9"
     selector_stroke: str = "#5a8f3a"
     selector_text: str = "#3f6b28"
-    sr_fill: str = "#cfcfcf"
     sr_stroke: str = "#555555"
     tunnel_border: str = "#4a4a3a"       # dark-olive border of tunnel/index boxes
     coercion_dot: str = "#e01f1f"         # red coercion-dot fill (per LabVIEW)

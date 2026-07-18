@@ -54,6 +54,7 @@ from .op_walk import (
     _paired_tunnel_id,
     _selector_label,
     _subvi_ports,
+    _terminal_display_name,
 )
 
 if TYPE_CHECKING:
@@ -202,7 +203,8 @@ class NetlistModule:
     """The whole VI as a netlist."""
 
     vi_name: str
-    inputs: list[tuple[str, str]]  # (name, python_type) non-error only
+    # (name, python_type) for all boundary controls, error clusters included.
+    inputs: list[tuple[str, str]]
     outputs: list[tuple[str, str]]
     body: list[NetlistItem] = field(default_factory=list)
     # Every distinct component (subVI or primitive/nMux/cpdArith) actually
@@ -258,14 +260,15 @@ def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
     never use the ``#n`` tag, so counting them (e.g. a CaseOperation whose
     name fell back to ``"Select"`` in this LV XML dialect) would wrongly
     inflate a real ``Select`` primitive to ``Select#2`` with no ``Select#1``
-    ever shown.
+    ever shown. In-Place-Element structures are containers too (excluded from
+    ``_build_components``), so they must not get an occurrence tag either.
     """
     insts = [
         op for op in _walk_flat(root_ops)
         if not isinstance(
             op,
             (CaseOperation, LoopOperation, SequenceOperation,
-             DisableStructureOperation),
+             DisableStructureOperation, InPlaceOperation),
         )
     ]
     names = [_display_name(op) for op in insts]
@@ -303,7 +306,7 @@ def _term_ref(
     if term.direction == "output" and _is_nmux(op):
         label = _nmux_raw_field_name(term, _nmux_agg_fields(op, graph))
     if label is None:
-        label = term.display_name or term.name
+        label = _terminal_display_name(term)
     port = label or str(term.index)
     if label:
         bare = label
@@ -676,7 +679,7 @@ def _component_port_name(
         name = _nmux_raw_field_name(term, class_fields)
         if name is not None:
             return name
-    return term.display_name or term.name or str(term.index)
+    return _terminal_display_name(term) or str(term.index)
 
 
 def _synthesize_ports(

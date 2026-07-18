@@ -21,6 +21,7 @@ from ..graph.models import (
     SequenceNode,
     VINode,
 )
+from ..graph.op_walk import _terminal_display_name
 from ..models import FPTerminal, LVType, Terminal
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
@@ -435,7 +436,7 @@ def _terminal_label(t: Terminal) -> str:
     """A terminal's display label: the resolved def name (``display_name``,
     e.g. "x"/"difference"), else a caller-side ``name`` if any, else
     ``terminal N`` from its connector-pane index."""
-    return t.display_name or t.name or f"terminal {t.index}"
+    return _terminal_display_name(t) or f"terminal {t.index}"
 
 
 def _lv_type_label(lv_type: LVType | None) -> str:
@@ -475,7 +476,7 @@ def _terminal_is_informative(t: Terminal) -> bool:
     it is never shown even if it carries a leftover name."""
     if t.lv_type is not None and _lv_type_label(t.lv_type) == "Void":
         return False
-    if t.display_name or t.name:
+    if _terminal_display_name(t):
         return True
     return t.lv_type is not None and _lv_type_label(t.lv_type) != "?"
 
@@ -1255,10 +1256,12 @@ _MENU_ROW_H = 13.0
 def _draw_frame_menu(
     structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
 ) -> None:
-    """A case structure's dropdown MENU: one clickable row per frame value,
-    stacked below the value box, hidden until the ▼ toggle opens it. Drawn in a
-    final topmost pass so it overlays the diagram; clicking a row selects that
-    frame (see the JS controller). Only cases get a menu."""
+    """An interactive structure's dropdown MENU: one clickable row per frame
+    value, stacked below the value box, hidden until the ▼ toggle opens it.
+    Drawn in a final topmost pass so it overlays the diagram; clicking a row
+    selects that frame (see the JS controller). Runs for every interactive
+    structure — both cases and stacked sequences get a menu (see the caller's
+    ``_is_interactive_structure`` gate)."""
     values = scene.frame_values.get(structure.raw_uid)
     if not values:
         return

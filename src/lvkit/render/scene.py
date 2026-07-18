@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 
 from ..graph.core import InMemoryVIGraph
 from ..graph.models import (
@@ -25,7 +24,7 @@ from ..graph.models import (
     Wire,
     WireEnd,
 )
-from ..graph.op_walk import _selector_label
+from ..graph.op_walk import _selector_label, is_no_error_selector
 from ..models import (
     FPTerminal,
     LVType,
@@ -224,7 +223,6 @@ class Scene:
     structures: list[RenderStructure] = field(default_factory=list)
     wire_nets: list[RenderWireNet] = field(default_factory=list)
     coercion_dots: list[RenderCoercionDot] = field(default_factory=list)
-    icon_png: Path | None = None
     # raw struct uid (case or stacked sequence) -> default selector value
     # (str), and -> the ordered list of ALL selector values — the SVG
     # selector chrome's click-to-cycle metadata (see draw.py's lv-selector /
@@ -239,17 +237,6 @@ class Scene:
     # raw struct uid of ERROR-cluster case structures -> {selector value ->
     # True if that frame is the No-Error (green) case, else False (red)}.
     error_frame_no_error: dict[str, dict[str, bool]] = field(default_factory=dict)
-
-    @property
-    def obstacles(self) -> list[Rect]:
-        """Every rectangle wires should avoid — node boxes AND structure
-        footprints (For/While Loop, Case, Sequence, ...). A wire must not run
-        over or under a structure it neither connects to nor lives inside, the
-        same way it must not cross a node. This is the coarse full-diagram
-        view; the router applies per-wire connect/contain/frame exemptions in
-        ``_build_wire_nets`` (a structure the wire touches or is enclosed by is
-        not an obstacle FOR THAT WIRE)."""
-        return [n.bounds for n in self.nodes] + [s.bounds for s in self.structures]
 
 
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
@@ -372,7 +359,9 @@ def _frame_info(
                 # "0"; every other frame — the "Error" frame, including when it
                 # is the structure's default — is red.
                 error_no_error[raw] = {
-                    str(f.selector_value): str(f.selector_value) == "0"
+                    str(f.selector_value): is_no_error_selector(
+                        str(f.selector_value),
+                    )
                     for f in node.frames
                 }
         elif isinstance(node, DisableStructureNode) and node.frames:
@@ -1509,7 +1498,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         structures=structures,
         wire_nets=wire_nets,
         coercion_dots=coercion_dots,
-        icon_png=layout.icon_png,
         default_frame=default_frame,
         frame_values=frame_values,
         frame_labels=frame_labels,

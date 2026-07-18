@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING
 from ..models import (
     CaseFrame,
     CaseOperation,
+    DisableStructureOperation,
     Frame,
     LoopOperation,
     Operation,
-    SelectorRange,
     SequenceFrame,
     SequenceOperation,
     Terminal,
@@ -23,13 +23,21 @@ from .models import Constant, Wire, WireEnd
 from .netlist import (
     NetlistItem,
     NetlistScope,
+    _selector_lv_type,
     ambiguous_bares,
     build_netlist,
     index_module,
     instance_line,
     scope_header,
 )
-from .op_walk import _is_nmux, _nmux_agg_fields, _nmux_raw_field_name
+from .op_walk import (
+    _const_value_str,
+    _is_nmux,
+    _nmux_agg_fields,
+    _nmux_raw_field_name,
+    _selector_label,
+    _terminal_display_name,
+)
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout, Point, Rect
@@ -153,7 +161,9 @@ class ChangeMap:
 
 # ── UID-keyed change-map (matches by stable node UID, not name) ────────
 
-_STRUCT_OPS = (CaseOperation, LoopOperation, SequenceOperation)
+_STRUCT_OPS = (
+    CaseOperation, LoopOperation, SequenceOperation, DisableStructureOperation,
+)
 
 
 def _uid_of(op_id: str) -> str:
@@ -255,7 +265,8 @@ def _collect_elements(
     for op in ops:
         kind = "structure" if isinstance(op, _STRUCT_OPS) else "node"
         out[_uid_of(op.id)] = _ElemInfo(op, kind, container_uid, frame_path)
-        if isinstance(op, (CaseOperation, SequenceOperation)):
+        if isinstance(op, (CaseOperation, SequenceOperation,
+                           DisableStructureOperation)):
             struct_uid = _uid_of(op.id)
             interactive = _is_interactive_struct(op)
             for frame in op.frames:
@@ -573,8 +584,15 @@ def _wire_changes(
         uid = _uid_of(node_id)
         return uid if base_side else b_of_h.get(uid, uid)
 
-    consts_a = {c.id: (c.name or _const_label(c)) for c in graph_a.get_constants(va)}
-    consts_b = {c.id: (c.name or _const_label(c)) for c in graph_b.get_constants(vb)}
+    # Constant sources render by their VALUE (e.g. "5"), matching how the
+    # netlist's ``_resolve_source`` renders the same wire -- diff and netlist
+    # must read a constant-fed wire identically.
+    consts_a = {
+        c.id: (c.name or _const_value_str(c)) for c in graph_a.get_constants(va)
+    }
+    consts_b = {
+        c.id: (c.name or _const_value_str(c)) for c in graph_b.get_constants(vb)
+    }
     self_terms_a = (
         graph_a.get_inputs(va, public_only=False)
         + graph_a.get_outputs(va, public_only=False)
@@ -626,8 +644,8 @@ def _wire_changes(
                 field = _nmux_raw_field_name(t, _nmux_agg_fields(owner_op, graph))
                 if field:
                     return field
-            if t.display_name or t.name:
-                return t.display_name or t.name  # type: ignore[return-value]
+            if (name := _terminal_display_name(t)) is not None:
+                return name
         return (
             consts.get(end.node_id) or owner_label or end.name
             or end.node_id.split("::")[-1]
@@ -799,41 +817,21 @@ def _constant_locality(
 # appearing/disappearing, or the same frame's selector/index changing.
 
 
-def _format_selector_ranges(ranges: list[SelectorRange]) -> str:
-    """Render numeric selector ranges the way LabVIEW builds the label:
-    singles as the bare value, closed ranges as ``a..b``, open ranges as
-    ``a..``/``..b``, joined with ``, `` — a TYPE-UNAWARE subset of
-    render/scene.py's ``_format_ranges`` (enum-name resolution needs a
-    resolved ``LVType`` this layer doesn't have, and diff.py must not import
-    render — see the module's layering). Good enough for a diff DETAIL
-    string; the faithful enum-aware label is the renderer's job."""
-    parts: list[str] = []
-    for r in ranges:
-        if r.open_start:
-            parts.append(f"..{r.end}")
-        elif r.open_end:
-            parts.append(f"{r.start}..")
-        elif r.is_single:
-            parts.append(str(r.start))
-        else:
-            parts.append(f"{r.start}..{r.end}")
-    return ", ".join(parts)
-
-
-def _frame_display(frame: Frame) -> str:
-    """Human label for one frame — its selector token (case) or index
-    (sequence). Mirrors the simple ``str(selector_value)``/``str(index)``
-    convention ``_compare_frames``/``_frame_content_delta`` already use to
-    key/label frames elsewhere in this module, plus ``Default``/ranges/
-    strings formatting for a case frame's richer selector shapes."""
+def _frame_display(frame: Frame, op: Operation) -> str:
+    """Human label for one frame — the SAME faithful, enum-aware text the
+    netlist/tree produces. A case frame goes through ``op_walk._selector_label``
+    (resolving the owning structure's selector ``lv_type`` exactly as
+    ``netlist._build_case_scope`` does, so an enum value reads as its item name,
+    an error cluster as ``No Error``/``Error``, etc.); a sequence frame is its
+    index. This keeps the flat-list label (``ElementChange.label``) and the tree
+    frame label (rendered via ``_selector_label`` too) in agreement."""
     if isinstance(frame, CaseFrame):
-        if frame.is_default:
-            return "Default"
-        if frame.selector_ranges:
-            return _format_selector_ranges(frame.selector_ranges)
-        if frame.selector_strings:
-            return ", ".join(f'"{s}"' for s in frame.selector_strings)
-        return str(frame.selector_value)
+        lv_type = (
+            _selector_lv_type(op, op.selector_terminal)
+            if isinstance(op, CaseOperation) else None
+        )
+        is_error = bool(lv_type and _is_error_cluster(lv_type))
+        return _selector_label(frame, lv_type, is_error)
     if isinstance(frame, SequenceFrame):
         return str(frame.index)
     return "frame"
@@ -927,7 +925,7 @@ def _struct_frame_changes(
             )
             changes.append(ElementChange(
                 key, f"{op_b.id}::frame::{key}", "frame", "added",
-                _frame_display(fb),
+                _frame_display(fb, op_b),
                 container_uid=container_uid, frame_path=frame_path,
             ))
         elif fb is None:
@@ -936,7 +934,7 @@ def _struct_frame_changes(
             )
             changes.append(ElementChange(
                 key, f"{op_a.id}::frame::{key}", "frame", "removed",
-                _frame_display(fa),
+                _frame_display(fa, op_a),
                 container_uid=container_uid, frame_path=frame_path,
             ))
         elif _frame_value_changed(fa, fb):
@@ -945,8 +943,8 @@ def _struct_frame_changes(
             )
             changes.append(ElementChange(
                 key, f"{op_b.id}::frame::{key}", "value", "modified",
-                _frame_display(fb),
-                detail=f"{_frame_display(fa)} → {_frame_display(fb)}",
+                _frame_display(fb, op_b),
+                detail=f"{_frame_display(fa, op_a)} → {_frame_display(fb, op_b)}",
                 container_uid=container_uid, frame_path=frame_path,
             ))
     return changes
@@ -1273,6 +1271,14 @@ def _gutter(change: str | None) -> str:
     return _TAG[change] if change is not None else " "
 
 
+def _ascii_arrows(detail: str) -> str:
+    """Map the unicode diff arrows a change ``detail`` carries to the netlist's
+    locked ASCII syntax (``←`` -> ``=``, ``→`` -> ``->``). The netlist text
+    output is ASCII-only, so every ``detail`` spliced into a row (wire changes,
+    case/sequence frame value changes) must pass through here."""
+    return detail.replace("←", "=").replace("→", "->")
+
+
 def _walk_netlist_order(items: list[NetlistItem]) -> list[str]:
     """Pre-order uids of every instance/scope in ``items``, recursing into
     each scope's frame bodies -- i.e. the VI's own source/dataflow order
@@ -1421,41 +1427,52 @@ def _netlist_diff(
             for s in siblings if s is not c
         ):
             return None
-        detail = (c.detail or "").replace("←", "=").replace("→", "->")
+        detail = _ascii_arrows(c.detail or "")
         return f"{c.label} {detail}" if detail else c.label
 
     def child_uids(path: tuple[Segment, ...]) -> list[str]:
         """Distinct struct uids appearing at depth ``len(path)`` among every
-        change chain that starts with ``path``, in first-appearance order
-        over ``cmap.changes``'s own deterministic sort (structures first,
-        then added<removed<modified, then uid -- see ``diff_uid``)."""
-        seen: list[str] = []
-        seen_set: set[str] = set()
+        change chain that starts with ``path``, ordered by the VI's own
+        source/dataflow order (``_sort_key`` / ``source_order``), NOT by
+        first-appearance in ``cmap.changes``. ``_reorder_by_tree`` mutates that
+        list (it re-sorts by the very rows this builds), so keying ordering off
+        it would make the tree -- and the badge numbers derived from it --
+        non-idempotent across re-runs."""
         depth = len(path)
+        uids: set[str] = set()
         for c in cmap.changes:
             segs = _segments(c.frame_path)
             if len(segs) > depth and segs[:depth] == path:
-                uid = segs[depth][0]
-                if uid not in seen_set:
-                    seen_set.add(uid)
-                    seen.append(uid)
-        return seen
+                uids.add(segs[depth][0])
+        return sorted(uids, key=_sort_key)
+
+    def _frame_order(struct_uid: str) -> dict[str, int]:
+        """VALUE -> position map for a structure's frames, in the VI's own
+        frame order (from whichever side's ``NetlistScope`` has it). Independent
+        of which frames happen to carry changes, so ordering ``values_of`` by it
+        stays stable under ``_reorder_by_tree`` re-runs."""
+        for scopes in (scope_b, scope_a):
+            scope = scopes.get(struct_uid)
+            if scope is not None:
+                return {f.value: i for i, f in enumerate(scope.frames)}
+        return {}
 
     def values_of(path: tuple[Segment, ...], struct_uid: str) -> list[str]:
-        seen: list[str] = []
-        seen_set: set[str] = set()
+        """Distinct frame VALUES of ``struct_uid`` carrying changes at ``path``,
+        in the VI's own frame order (``_frame_order``) -- again NOT
+        first-appearance over the mutated ``cmap.changes`` (see ``child_uids``),
+        so nested-frame row order and badge numbers are idempotent."""
         depth = len(path)
+        order = _frame_order(struct_uid)
+        values: set[str] = set()
         for c in cmap.changes:
             segs = _segments(c.frame_path)
             if (
                 len(segs) > depth and segs[:depth] == path
                 and segs[depth][0] == struct_uid
             ):
-                value = segs[depth][1]
-                if value not in seen_set:
-                    seen_set.add(value)
-                    seen.append(value)
-        return seen
+                values.add(segs[depth][1])
+        return sorted(values, key=lambda v: (order.get(v, len(order)), v))
 
     def render_struct_children(
         struct_uid: str, path: tuple[Segment, ...], depth: int,
@@ -1466,7 +1483,10 @@ def _netlist_diff(
             fc = frame_change_at.get(child_path)
             body = render(child_path, depth + 1)
             if fc is not None or body:
-                detail = f" {fc.detail}" if (fc is not None and fc.detail) else ""
+                detail = (
+                    f" {_ascii_arrows(fc.detail)}"
+                    if (fc is not None and fc.detail) else ""
+                )
                 rows.append(NetlistDiffRow(
                     change=fc.change if fc is not None else None,
                     depth=depth,

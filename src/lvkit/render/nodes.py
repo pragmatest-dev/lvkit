@@ -324,9 +324,10 @@ def _vectorized_icon(path_str: str, mtime: float) -> CenteredSvgGlyph | None:
 class ExtractedIconResolver:
     """Best-effort real SubVI ``_ICON.png`` for VINode subVI calls.
 
-    The caller's heap XML only carries the CALLER's own icon (drawn as the
-    corner decoration in ``draw_scene``) — a subVI's icon requires the
-    subVI's own file. This resolver only uses what's cheaply already known:
+    The caller's heap XML only carries the CALLER's own icon (parsed into
+    ``layout.icon_png`` but NOT currently drawn anywhere) — a subVI's icon
+    requires the subVI's own file. This resolver only uses what's cheaply
+    already known:
 
     - ``graph.get_vi_source_path(name)``, if the subVI happens to already
       be loaded in the same graph (free — a dict lookup); or

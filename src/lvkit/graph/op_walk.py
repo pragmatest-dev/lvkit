@@ -187,6 +187,25 @@ def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> st
     return ", ".join(parts)
 
 
+def is_no_error_selector(selector_value: str) -> bool:
+    """The error-cluster case that switches on ``status == False`` -- selector
+    value ``"0"`` -- is LabVIEW's "No Error" (green) frame; every other value is
+    an "Error" (red) frame. Shared by ``_selector_label`` (the label text) and
+    ``render/scene.py``'s green/red frame classification, so the two never
+    disagree on which frame is No-Error."""
+    return selector_value == "0"
+
+
+def _terminal_display_name(term: Terminal) -> str | None:
+    """The resolved-name half of the terminal naming rule: ``display_name`` (the
+    resolved-def name) else the caller-side ``name``, or ``None`` when neither is
+    set. Callers append their OWN index-based fallback (the netlist's
+    ``str(index)`` port name -- ``netlist._component_port_name`` -- the
+    renderer's ``terminal N`` tooltip -- ``render/draw.py::_terminal_label``), so
+    only the shared name lookup lives here."""
+    return term.display_name or term.name
+
+
 def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:
     """The faithful case-selector text for one frame, by selector type:
     ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
@@ -199,7 +218,7 @@ def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) ->
         # ranges like "Error 3..10" since 2019). The Error frame is often the
         # structure's default — LabVIEW still labels it "Error", not "Default",
         # so this precedes the plain-default branch below.
-        if sv == "0":
+        if is_no_error_selector(sv):
             return "No Error"
         codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
         if codes:

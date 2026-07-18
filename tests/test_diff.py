@@ -900,3 +900,67 @@ class TestConnectorPaneRequalification:
 
         wire_changes = [c for c in cmap.changes if c.kind == "wire"]
         assert wire_changes == []
+
+
+class TestDisableStructureInnerChange:
+    """A change INSIDE a Diagram/Conditional-Disable structure's frame must be
+    reported by the diff, exactly as the netlist renders that body. A disable
+    structure carries its body in ``.frames[].operations`` (like a case), so
+    ``_collect_elements`` has to recurse frames for it, not just ``inner_nodes``.
+    Regression guard for the diff/netlist disagreement fixed by adding
+    ``DisableStructureOperation`` to the frame-recursion branch."""
+
+    def _xml(self, extra_inner: str) -> str:
+        return f"""<?xml version='1.0' encoding='utf-8'?>
+<SL__rootObject class="oHExt" uid="1">
+  <root class="diag" uid="2">
+    <zPlaneList>
+      <SL__arrayElement class="commentNode" uid="100">
+        <termList></termList>
+        <diagramList>
+          <SL__arrayElement class="diag" uid="110">
+            <nodeList>
+              <SL__arrayElement class="prim" uid="200">
+                <primResID>1</primResID>
+                <termList></termList>
+              </SL__arrayElement>
+              {extra_inner}
+            </nodeList>
+          </SL__arrayElement>
+          <SL__arrayElement class="diag" uid="111">
+            <nodeList></nodeList>
+          </SL__arrayElement>
+        </diagramList>
+        <selString class="selLabel">
+          <textRec class="textHair"><text>" Disabled "</text></textRec>
+        </selString>
+        <activeDiag>01</activeDiag>
+      </SL__arrayElement>
+    </zPlaneList>
+  </root>
+</SL__rootObject>
+"""
+
+    def _load_xml(self, tmp_path: Path, text: str, name: str) -> tuple[
+        InMemoryVIGraph, str,
+    ]:
+        p = tmp_path / f"{name}_BDHb.xml"
+        p.write_text(text)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(p))
+        return graph, graph.list_vis()[0]
+
+    def test_inner_added_node_is_reported(self, tmp_path: Path):
+        extra = (
+            '<SL__arrayElement class="prim" uid="201">'
+            "<primResID>2</primResID><termList></termList></SL__arrayElement>"
+        )
+        ga, na = self._load_xml(tmp_path, self._xml(""), "DisA")
+        gb, nb = self._load_xml(tmp_path, self._xml(extra), "DisB")
+
+        cmap = diff_uid(ga, gb, na, nb)
+        added = [c for c in cmap.changes if c.change == "added"]
+        # The node lives only in the disable structure's enabled frame; it is
+        # collected (and reported) only because the diff recurses disable frames.
+        assert any(c.uid == "201" for c in added)
+        assert "unknown_primitive_2" in format_diff(ga, gb, na, nb)

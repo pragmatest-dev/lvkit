@@ -287,7 +287,7 @@ class WireRouter:
         for ep in (p1, p2):
             self._link_endpoint(ep, node_set, adj, seg_hits_interior)
 
-        path = self._dijkstra(p1, p2, adj)
+        path = self._dijkstra(p1, p2, adj, self._cfg.bend_penalty)
         if path is None:
             return None
         return _compress(path)
@@ -325,10 +325,11 @@ class WireRouter:
     @staticmethod
     def _dijkstra(
         start: Point, goal: Point, adj: dict[Point, list[Point]],
+        bend_penalty: float,
     ) -> list[Point] | None:
         """Shortest orthogonal path start→goal with a bend penalty. State carries
         the incoming direction so a turn costs extra, favouring straight runs."""
-        bend = 4.0
+        bend = bend_penalty
 
         def direction(a: Point, b: Point) -> int:
             return 0 if a[0] == b[0] else 1  # 0 vertical, 1 horizontal
