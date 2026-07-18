@@ -843,6 +843,20 @@ class TestWireChanges:
             for poly in c.chain_paths:
                 assert len(poly) >= 2  # every chain wire is a real polyline
 
+    def test_structure_change_has_no_chain_paths(self):
+        # #27: chain_paths is a NODE's incident-wire geometry; a structure's
+        # "chain" would be every wire nested inside it -- noise in the map and
+        # never used for a structure highlight. So a structure change carries
+        # None even WITH layout (test_no_layout_means_no_paths only covers the
+        # no-geometry case). run_base->run_head adds a Case structure (uid 3870).
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+        structs = [c for c in cmap.changes if c.kind == "structure"]
+        assert structs, "expected a structure change on the run.vi pair"
+        for c in structs:
+            assert c.chain_paths is None
+
     def test_no_layout_means_no_paths(self):
         # Without layout=True there is no geometry, so no path/chain overlay.
         ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
