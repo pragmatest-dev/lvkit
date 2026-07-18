@@ -1726,11 +1726,8 @@ def _diff_constants(
 
 
 def _terminal_map(terminals: list[Terminal]) -> dict[str, Terminal]:
-    """Map terminals by name, skipping error clusters."""
-    return {
-        t.name: t for t in terminals
-        if t.name and not t.is_error_cluster
-    }
+    """Map terminals by name."""
+    return {t.name: t for t in terminals if t.name}
 
 
 def _const_key(c: Constant) -> tuple[str, str]:

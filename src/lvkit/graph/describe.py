@@ -62,10 +62,9 @@ def describe_vi(
     lines.append("")
 
     # Interface: Inputs
-    non_error_inputs = [i for i in ctx.inputs if not i.is_error_cluster]
-    if non_error_inputs:
+    if ctx.inputs:
         lines.append("## Inputs")
-        for inp in non_error_inputs:
+        for inp in ctx.inputs:
             wiring = _wiring_label(inp.wiring_rule)
             lines.append(f"  {inp.name}: {inp.python_type()} ({wiring})")
         lines.append("")
@@ -75,10 +74,9 @@ def describe_vi(
         lines.append("")
 
     # Interface: Outputs
-    non_error_outputs = [o for o in ctx.outputs if not o.is_error_cluster]
-    if non_error_outputs:
+    if ctx.outputs:
         lines.append("## Outputs")
-        for out in non_error_outputs:
+        for out in ctx.outputs:
             lines.append(f"  {out.name}: {out.python_type()}")
         lines.append("")
     else:
@@ -163,13 +161,10 @@ def describe_operations(
 
     _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
 
-    non_error_outputs = [
-        o for o in ctx.outputs if not o.is_error_cluster
-    ]
-    if non_error_outputs:
+    if ctx.outputs:
         lines.append("")
         lines.append("Returns:")
-        for out in non_error_outputs:
+        for out in ctx.outputs:
             lines.append(f"  {out.name}: {out.python_type()}")
 
     return "\n".join(lines)
@@ -267,16 +262,12 @@ def _format_signature(ctx: VIContext) -> str:
     """Format function signature from VIContext."""
     inputs = []
     for inp in ctx.inputs:
-        if inp.is_error_cluster:
-            continue
         name = inp.name or "input"
         type_str = inp.python_type()
         inputs.append(f"{name}: {type_str}")
 
     outputs = []
     for out in ctx.outputs:
-        if out.is_error_cluster:
-            continue
         outputs.append(f"{out.name}: {out.python_type()}")
 
     func_name = ctx.name.replace(".vi", "").replace(" ", "_").lower()
@@ -567,11 +558,11 @@ def _describe_single_op(op: Operation) -> str:
     if "SubVI" in op.labels:
         named_inputs = [
             t.name for t in op.terminals
-            if t.direction == "input" and not t.is_error_cluster and t.name
+            if t.direction == "input" and t.name
         ]
         named_outputs = [
             t.name for t in op.terminals
-            if t.direction == "output" and not t.is_error_cluster and t.name
+            if t.direction == "output" and t.name
         ]
         if named_inputs or named_outputs:
             in_str = ", ".join(named_inputs)

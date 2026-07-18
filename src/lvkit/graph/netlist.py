@@ -434,14 +434,14 @@ def _build_instance(
     inputs = [
         NetlistPortBinding(port=_component_port_name(t, class_fields), net=ref)
         for t in op.terminals
-        if t.direction == "input" and not t.is_error_cluster
+        if t.direction == "input"
         if (ref := _input_ref(graph, ctx, root_ops, build_ctx, t))
         is not None
     ]
     outputs = [
         _term_ref(graph, name, occurrence, op, t)
         for t in op.terminals
-        if t.direction == "output" and not t.is_error_cluster
+        if t.direction == "output"
     ]
     return NetlistInstance(
         uid=uid, name=name, occurrence=occurrence, inputs=inputs, outputs=outputs,
@@ -684,15 +684,13 @@ def _synthesize_ports(
 ) -> tuple[list[ComponentPort], list[ComponentPort]]:
     """Typed (inputs, outputs) for a primitive-like leaf op, from its OWN
     terminals -- there is no ``.vi`` connector pane to read a signature
-    from. Error-cluster terminals are omitted, matching every other
-    interface in this module (subVI signatures, the VI's own signature
-    line)."""
+    from. Includes error-cluster terminals: they are real ports on the
+    node, matching every other interface in this module (subVI signatures,
+    the VI's own signature line)."""
     class_fields = _nmux_agg_fields(op, graph) if _is_nmux(op) else None
     ins: list[ComponentPort] = []
     outs: list[ComponentPort] = []
     for t in sorted(op.terminals, key=lambda t: t.index):
-        if t.is_error_cluster:
-            continue
         port = ComponentPort(
             name=_component_port_name(t, class_fields), type=t.python_type(),
         )
@@ -780,12 +778,11 @@ def _build_components(
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports
         else:
-            # Signature unavailable, or all-error (e.g. Merge Errors.vi -- a
-            # variadic error-only subVI whose front-panel ports are all error
-            # clusters). Synthesize from the actual call so ## Components
-            # declares exactly what ## Netlist wires: both derive from the call
-            # node's terminals under the same error-cluster filter, so they
-            # can't disagree.
+            # Signature unavailable (VI not loaded and no vilib entry), or
+            # the front panel has no ports at all. Synthesize from the
+            # actual call so ## Components declares exactly what ##
+            # Netlist wires: both derive from the same call node's
+            # terminals, so they can't disagree.
             ins, outs = _synthesize_ports(subvi_reps[name], graph)
         components.append(NetlistComponent(name=name, inputs=ins, outputs=outs))
     for instances in groups.values():
@@ -834,16 +831,8 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         const_by_id={c.id: c for c in ctx.constants},
     )
 
-    inputs = [
-        (t.name or "input", t.python_type())
-        for t in ctx.inputs
-        if not t.is_error_cluster
-    ]
-    outputs = [
-        (t.name or "output", t.python_type())
-        for t in ctx.outputs
-        if not t.is_error_cluster
-    ]
+    inputs = [(t.name or "input", t.python_type()) for t in ctx.inputs]
+    outputs = [(t.name or "output", t.python_type()) for t in ctx.outputs]
 
     body = _build_items(graph, ctx, root_ops, root_ops, build_ctx)
     components = _build_components(graph, root_ops)

@@ -1290,14 +1290,8 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         lines.append(f"XML class: {node_type}")
 
     terminals = getattr(gnode, "terminals", [])
-    inputs = [
-        t for t in terminals
-        if t.direction == "input" and not t.is_error_cluster
-    ]
-    outputs = [
-        t for t in terminals
-        if t.direction == "output" and not t.is_error_cluster
-    ]
+    inputs = [t for t in terminals if t.direction == "input"]
+    outputs = [t for t in terminals if t.direction == "output"]
 
     if inputs:
         lines.append("")

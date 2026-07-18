@@ -266,11 +266,11 @@ def _subvi_ports(
         sctx = graph.get_vi_context(qname)
         ins = [
             ComponentPort(name=t.name or str(t.index), type=t.python_type())
-            for t in sctx.inputs if not t.is_error_cluster
+            for t in sctx.inputs
         ]
         outs = [
             ComponentPort(name=t.name or str(t.index), type=t.python_type())
-            for t in sctx.outputs if not t.is_error_cluster
+            for t in sctx.outputs
         ]
         return ins, outs
 
