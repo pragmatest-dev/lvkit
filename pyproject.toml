@@ -62,6 +62,7 @@ dev = [
     "ruff",
     "pyright",
     "pre-commit",
+    "cairosvg>=2.9.0",
 ]
 
 [tool.hatch.build.targets.wheel]
