@@ -151,20 +151,25 @@ class TestWhileLoopNestedShiftRegister:
     otherwise the right register's terminal, border glyph, wire type, AND
     generated-code dataflow all silently vanish (task #96 follow-up)."""
 
+    # Point at the .vi SOURCE, not a sibling _BDHb.xml: extracted XML now lives
+    # in the project-local cache, so resolve it through the extractor (which
+    # extracts on a cache miss) rather than hardcoding either location.
     LIST_VI = (
         "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/"
-        "appcontrol/appcontrol.llb/List VI Hierarchy__ogtk_BDHb.xml"
+        "appcontrol/appcontrol.llb/List VI Hierarchy__ogtk.vi"
     )
 
     @pytest.fixture(scope="class")
     def while_loop(self):
         import xml.etree.ElementTree as ET
 
+        from lvkit.extractor import resolve_extracted
         from lvkit.parser.nodes.loop import extract_loops
 
-        bd = Path(self.LIST_VI)
-        if not bd.exists():
+        vi = Path(self.LIST_VI)
+        if not vi.exists():
             pytest.skip("List VI Hierarchy sample not present")
+        bd, _fp, _main = resolve_extracted(vi)
         root = ET.parse(bd).getroot()
         inner = root.find("root")
         if inner is not None:

@@ -48,6 +48,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PRIMS_JSON = ROOT / "src" / "lvkit" / "data" / "primitives.json"
 VILIB_DIR = ROOT / "src" / "lvkit" / "data" / "vilib"
+# Two DIFFERENT roots, deliberately: extracted XML now lives in the project-local
+# cache, while the .vi source files it describes still live in the corpus tree.
+# Conflating them silently yields zero matches (a clean-looking audit that
+# checked nothing).
+EXTRACTED_DIR = ROOT / ".lvkit" / "cache" / "extracted"
 SAMPLES_DIR = ROOT / "samples"
 
 IN_TOKEN_RE = re.compile(r"\bin_(\d+)\b")
@@ -223,7 +228,7 @@ def scan_heaps_for_prims(
     """Single pass over all BD heaps collecting usages of target primIDs."""
     tag_markers = {f"<primResID>{rid}</primResID>" for rid in target_ids}
     usages: dict[str, list[PrimUsage]] = {rid: [] for rid in target_ids}
-    for path in SAMPLES_DIR.rglob("*_BDHb.xml"):
+    for path in EXTRACTED_DIR.rglob("*_BDHb.xml"):
         try:
             text = path.read_text(errors="ignore")
         except OSError:
@@ -489,7 +494,7 @@ def audit3(limit: int | None) -> tuple[list[ConpaneFinding], dict[str, int]]:
         "empty_conpane": 0,
         "partial_conpane": 0,
     }
-    fp_files = sorted(SAMPLES_DIR.rglob("*_FPHb.xml"))
+    fp_files = sorted(EXTRACTED_DIR.rglob("*_FPHb.xml"))
     if limit:
         fp_files = fp_files[:limit]
     for fp in fp_files:

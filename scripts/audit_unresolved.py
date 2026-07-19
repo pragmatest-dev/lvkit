@@ -20,7 +20,8 @@ from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.vilib_resolver import VIEntry, VILibResolver
 
 REPO_ROOT = Path(__file__).parent.parent
-SAMPLES = REPO_ROOT / "samples"
+# Extracted XML now lives in the project-local cache, not beside the .vi files.
+SAMPLES = REPO_ROOT / ".lvkit" / "cache" / "extracted"
 REPORT_PATH = REPO_ROOT / ".tmp" / "audit-unresolved.md"
 
 # Status buckets
