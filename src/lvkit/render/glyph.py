@@ -742,6 +742,318 @@ class BundleByNameGlyph:
         )
 
 
+# ARRAY family (goal #14 follow-up): a row of small "element boxes" reads as
+# an array the same way LabVIEW's own array shell does, without tracing NI
+# artwork. The fixed-shape members (Size/Reverse/Search/Sort/Split) always
+# draw a decorative row of 3 boxes — none of these primitives' terminal
+# counts say anything about array length, so 3 is just the motif, not data.
+_ARRAY_ELEMENTS_N = 3
+
+
+def _draw_element_boxes(
+    backend: Backend, x1: float, y1: float, x2: float, y2: float, n: int,
+    stroke: str, stroke_width: float,
+) -> None:
+    """A row of ``n`` small square outline boxes evenly spaced across
+    ``(x1, y1, x2, y2)`` — the ARRAY family's shared "little element boxes"
+    motif. Each box is square (side capped to the band height) and centered
+    in its own equal-width cell."""
+    n = max(1, n)
+    cell_w = (x2 - x1) / n
+    side = max(2.0, min(cell_w * 0.78, y2 - y1))
+    cy = (y1 + y2) / 2
+    for i in range(n):
+        ccx = x1 + cell_w * (i + 0.5)
+        backend.rect(
+            ccx - side / 2, cy - side / 2, ccx + side / 2, cy + side / 2,
+            fill="none", stroke=stroke, stroke_width=stroke_width,
+        )
+
+
+def _draw_arrow(
+    backend: Backend, x_from: float, x_to: float, y: float, *,
+    stroke: str, stroke_width: float, head_len: float, head_half_h: float,
+) -> None:
+    """A straight horizontal arrow: a shaft (``path``) from ``x_from`` to
+    ``x_to`` plus a small filled triangular head at ``x_to`` pointing in the
+    direction of travel. ``Backend`` has no native marker-end op (that was
+    an SVG-only ``<defs><marker>`` in the proof sketch), so the head is an
+    explicit ``polygon`` — used by ``ArrayReverseGlyph`` (backward) and
+    ``ConvertGlyph`` (forward, "entering" the type abbreviation)."""
+    direction = 1.0 if x_to >= x_from else -1.0
+    shaft_end = x_to - direction * head_len
+    backend.path(
+        [(x_from, y), (shaft_end, y)], stroke=stroke, stroke_width=stroke_width,
+    )
+    backend.polygon(
+        [(x_to, y), (shaft_end, y - head_half_h), (shaft_end, y + head_half_h)],
+        fill=stroke, stroke=None,
+    )
+
+
+def _draw_node_tile(
+    backend: Backend, bounds: Rect, theme: Theme, fill_attr: str, stroke_attr: str,
+) -> None:
+    """The filled node tile every primitive sits on (same as WrappedBoxGlyph's
+    box / ArithGlyph's filled triangle). A motif glyph draws this FIRST, then its
+    symbol on top — so it reads as a real node instead of strokes floating on the
+    diagram."""
+    x1, y1, x2, y2 = bounds
+    backend.rect(
+        x1, y1, x2, y2,
+        fill=getattr(theme, fill_attr), stroke=getattr(theme, stroke_attr),
+        stroke_width=max(1.0, min(x2 - x1, y2 - y1) * 0.05),
+    )
+
+
+@dataclass(frozen=True)
+class ArraySizeGlyph:
+    """Array Size: a row of element boxes over a dimension bracket labeled
+    "n" — the array's length shown as a bracketed span beneath its
+    elements, matching the approved proof sketch (``g_size``)."""
+
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        stroke = getattr(theme, self.stroke_attr)
+        text_fill = getattr(theme, self.text_attr)
+        _draw_node_tile(backend, bounds, theme, self.fill_attr, self.stroke_attr)
+        sw = max(1.0, min(w, h) * 0.06)
+        row_x1, row_x2 = x1 + w * 0.04, x1 + w * 0.66
+        row_y1, row_y2 = y1 + h * 0.10, y1 + h * 0.52
+        _draw_element_boxes(
+            backend, row_x1, row_y1, row_x2, row_y2, _ARRAY_ELEMENTS_N, stroke, sw,
+        )
+        by1, by2 = y1 + h * 0.66, y1 + h * 0.80
+        backend.path(
+            [(row_x1, by1), (row_x1, by2), (row_x2, by2), (row_x2, by1)],
+            stroke=stroke, stroke_width=sw,
+        )
+        size = max(6.0, min(12.0, h * 0.42))
+        backend.text(
+            x1 + w * 0.85, by2 + size * 0.28, "n", size,
+            fill=text_fill, bold=True,
+        )
+
+
+@dataclass(frozen=True)
+class ArrayReverseGlyph:
+    """Reverse 1D Array: element boxes with a STRAIGHT backward (right-to-
+    left) arrow above them — a curved arc would read as "loop", not
+    "reverse", matching the approved proof sketch (``g_reverse``)."""
+
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        stroke = getattr(theme, self.stroke_attr)
+        _draw_node_tile(backend, bounds, theme, self.fill_attr, self.stroke_attr)
+        sw = max(1.0, min(w, h) * 0.06)
+        row_x1, row_x2 = x1 + w * 0.17, x1 + w * 0.65
+        row_y1, row_y2 = y1 + h * 0.47, y1 + h * 0.82
+        _draw_element_boxes(
+            backend, row_x1, row_y1, row_x2, row_y2, _ARRAY_ELEMENTS_N, stroke, sw,
+        )
+        arrow_y = y1 + h * 0.24
+        _draw_arrow(
+            backend, row_x2, row_x1, arrow_y,
+            stroke=stroke, stroke_width=sw,
+            head_len=max(3.0, w * 0.07), head_half_h=max(2.0, h * 0.09),
+        )
+
+
+@dataclass(frozen=True)
+class ArraySearchGlyph:
+    """Search 1D Array: element boxes with a magnifier (circle + short
+    handle) over one of them, matching the approved proof sketch
+    (``g_search``)."""
+
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        stroke = getattr(theme, self.stroke_attr)
+        _draw_node_tile(backend, bounds, theme, self.fill_attr, self.stroke_attr)
+        sw = max(1.0, min(w, h) * 0.06)
+        row_x1, row_x2 = x1 + w * 0.04, x1 + w * 0.60
+        row_y1, row_y2 = y1 + h * 0.38, y1 + h * 0.74
+        _draw_element_boxes(
+            backend, row_x1, row_y1, row_x2, row_y2, _ARRAY_ELEMENTS_N, stroke, sw,
+        )
+        r = max(2.0, min(w, h) * 0.18)
+        cx, cy = x1 + w * 0.74, y1 + h * 0.30
+        backend.circle(cx, cy, r, fill="none", stroke=stroke, stroke_width=sw)
+        hx, hy = r * 0.78, r * 0.78
+        backend.path(
+            [(cx + hx * 0.65, cy + hy * 0.65), (cx + hx * 1.55, cy + hy * 1.55)],
+            stroke=stroke, stroke_width=sw,
+        )
+
+
+@dataclass(frozen=True)
+class ArraySortGlyph:
+    """Sort 1D Array: element boxes with ascending bars beside them — NO
+    arrow (sorting implies resulting order, not travel direction), matching
+    the approved proof sketch (``g_sort``)."""
+
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        stroke = getattr(theme, self.stroke_attr)
+        _draw_node_tile(backend, bounds, theme, self.fill_attr, self.stroke_attr)
+        sw = max(1.0, min(w, h) * 0.06)
+        row_x1, row_x2 = x1 + w * 0.06, x1 + w * 0.62
+        row_y1, row_y2 = y1 + h * 0.38, y1 + h * 0.74
+        _draw_element_boxes(
+            backend, row_x1, row_y1, row_x2, row_y2, _ARRAY_ELEMENTS_N, stroke, sw,
+        )
+        n_bars = 3
+        bars_x1, bars_x2 = x1 + w * 0.68, x2 - w * 0.04
+        span = bars_x2 - bars_x1
+        bar_w = span / n_bars * 0.6
+        step = span / n_bars
+        base_y = y1 + h * 0.80
+        max_bar_h = h * 0.56
+        for i in range(n_bars):
+            bh = max_bar_h * (i + 1) / n_bars
+            bx = bars_x1 + i * step
+            backend.rect(bx, base_y - bh, bx + bar_w, base_y, fill=stroke)
+
+
+@dataclass(frozen=True)
+class ArraySplitGlyph:
+    """Split 1D Array: one array splitting into two, matching the approved
+    proof sketch (``g_split``)."""
+
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        stroke = getattr(theme, self.stroke_attr)
+        _draw_node_tile(backend, bounds, theme, self.fill_attr, self.stroke_attr)
+        sw = max(1.0, min(w, h) * 0.06)
+        row_x1, row_x2 = x1 + w * 0.04, x1 + w * 0.36
+        row_y1, row_y2 = y1 + h * 0.38, y1 + h * 0.74
+        _draw_element_boxes(backend, row_x1, row_y1, row_x2, row_y2, 2, stroke, sw)
+        arrow_y = (row_y1 + row_y2) / 2
+        arrow_x2 = x1 + w * 0.55
+        _draw_arrow(
+            backend, row_x2, arrow_x2, arrow_y,
+            stroke=stroke, stroke_width=sw,
+            head_len=max(3.0, w * 0.06), head_half_h=max(2.0, h * 0.08),
+        )
+        side = min(w, h) * 0.22
+        box_x1 = x1 + w * 0.60
+        backend.rect(
+            box_x1, y1 + h * 0.10, box_x1 + side, y1 + h * 0.10 + side,
+            fill="none", stroke=stroke, stroke_width=sw,
+        )
+        backend.rect(
+            box_x1, y1 + h * 0.58, box_x1 + side, y1 + h * 0.58 + side,
+            fill="none", stroke=stroke, stroke_width=sw,
+        )
+
+
+@dataclass(frozen=True)
+class ArrayBuildGlyph:
+    """Build Array (``aBuild``): a DRAWER that grows a row taller per wired
+    input — the input terminals themselves make the rows, so the node's bounds
+    (and this tile) grow for free. The body carries a clean-room ARRAY BRACKET
+    enclosing a column of element cells (the appended array), modelled on the
+    real LabVIEW Build Array icon — so it reads as array-assembly and is NOT
+    mistaken for a Bundle (which uses the generic ``draw_split_box`` skeleton).
+    ``num_inputs`` is kept for reference; growth comes from the bounds."""
+
+    num_inputs: int = 1
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        stroke = getattr(theme, self.stroke_attr)
+        _draw_node_tile(backend, bounds, theme, self.fill_attr, self.stroke_attr)
+        sw = max(1.0, min(w, h) * 0.045)
+        # Array bracket [ ] enclosing a stacked column of element cells.
+        bx1, bx2 = x1 + w * 0.28, x2 - w * 0.12
+        by1, by2 = y1 + h * 0.13, y2 - h * 0.13
+        foot = (bx2 - bx1) * 0.28
+        backend.path(
+            [(bx1 + foot, by1), (bx1, by1), (bx1, by2), (bx1 + foot, by2)],
+            stroke=stroke, stroke_width=sw,
+        )
+        backend.path(
+            [(bx2 - foot, by1), (bx2, by1), (bx2, by2), (bx2 - foot, by2)],
+            stroke=stroke, stroke_width=sw,
+        )
+        cx1, cx2 = bx1 + foot * 1.15, bx2 - foot * 1.15
+        n_cells = max(2, min(5, int((by2 - by1) / max(1.0, w * 0.24))))
+        gap = (by2 - by1) / n_cells
+        cell_h = gap * 0.6
+        for i in range(n_cells):
+            cyy = by1 + i * gap + (gap - cell_h) / 2
+            backend.rect(
+                cx1, cyy, cx2, cyy + cell_h,
+                fill="none", stroke=stroke, stroke_width=sw * 0.8,
+            )
+
+
+@dataclass(frozen=True)
+class ConvertGlyph:
+    """A numeric/type CONVERTER primitive: a small entering arrow feeding a
+    bold target-type abbreviation ("going to that type") — e.g. "To Long
+    Integer" -> "I32". Matches the approved proof sketch (``conv``):
+    monochrome outline arrow, bold monospace abbreviation, scaled to the
+    node's real bounds (no fixed pixel size)."""
+
+    abbr: str
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        stroke = getattr(theme, self.stroke_attr)
+        text_fill = getattr(theme, self.text_attr)
+        cy = (y1 + y2) / 2
+        _draw_node_tile(backend, bounds, theme, self.fill_attr, self.stroke_attr)
+        sw = max(1.0, min(w, h) * 0.07)
+        arrow_x1, arrow_x2 = x1 + w * 0.06, x1 + w * 0.30
+        _draw_arrow(
+            backend, arrow_x1, arrow_x2, cy,
+            stroke=stroke, stroke_width=sw,
+            head_len=max(3.0, w * 0.08), head_half_h=max(2.0, h * 0.14),
+        )
+        text_x = x1 + w * 0.34
+        avail_w = max(2.0, (x2 - w * 0.04) - text_x)
+        size = max(6.0, min(15.0, h * 0.55))
+        while size > 6.0 and backend.measure_text(self.abbr, size) > avail_w:
+            size -= 0.5
+        backend.text(
+            text_x, cy + size * 0.34, self.abbr, size,
+            fill=text_fill, bold=True, mono=True, anchor="start",
+        )
+
+
 # Shared drawer-row geometry for PropertyNodeGlyph and InvokeNodeGlyph: a
 # fixed left gutter wide enough for one arrow, so a row's label starts at the
 # same x whether or not that row actually draws a left arrow.

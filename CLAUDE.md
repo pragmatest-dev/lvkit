@@ -6,6 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 lvkit converts LabVIEW VI files to Python code without requiring a LabVIEW license. It uses [pylabview](https://github.com/mefistotelis/pylabview) as the core parser for reading VI file formats.
 
+## ⛔ CLEAN-ROOM — NEVER SUGGEST OPENING LabVIEW (READ THIS FIRST)
+
+**The maintainer does NOT have LabVIEW installed and legally CANNOT use it for this work.** NI's EULA prohibits using LabVIEW to reverse-engineer LabVIEW; doing so would poison lvkit's clean room. **The clean room is the entire reason this project exists** — if LabVIEW were an option there would be no project.
+
+So: **NEVER tell the maintainer to "open it in LabVIEW", "click the node", "check quick help / the manual in LabVIEW", or confirm anything by inspecting LabVIEW.** Not once. Identifying a primitive, a vilib VI, a type, or any behavior draws ONLY from clean-room sources:
+
+1. **The parsed graph** — pylabview reads the `.vi` binary with no license: real per-terminal types (incl. array *element* type and refnum `ref_type`), dataflow, structure, constants.
+2. **NI's PUBLIC web docs** — `https://docs-be.ni.com/api/bundle/labview-api-ref/page/...` (JSON `topic_html`; the `www.ni.com` SPA returns only a shell).
+3. **Algorithm knowledge** (LZW, MD5, GIF, …) — reconstruct the VI's math and let it force the answer.
+4. **Deterministic deduction** from 1–3 (e.g. "an output compared against a code *count* must be count-scaled → `2^width` → Power Of 2, not log2").
+
+When stuck: do MORE of 1–4, or write a `"placeholder": true` primitive entry. Ask the maintainer to describe the *algorithm/domain* if needed — **never to inspect LabVIEW.** Also: ship ZERO NI-derived artwork (clean-room glyphs only).
+
 ## Commands
 
 Always use `uv run` — it automatically activates the project venv without a separate activation step.

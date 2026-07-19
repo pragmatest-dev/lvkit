@@ -45,6 +45,12 @@ from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
+    ArrayBuildGlyph,
+    ArrayReverseGlyph,
+    ArraySearchGlyph,
+    ArraySizeGlyph,
+    ArraySortGlyph,
+    ArraySplitGlyph,
     BooleanConstantGlyph,
     BooleanGateGlyph,
     BundleByNameGlyph,
@@ -53,6 +59,7 @@ from .glyph import (
     ClusterConstantGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
+    ConvertGlyph,
     ErrorClusterGlyph,
     FormulaNodeGlyph,
     Glyph,
@@ -222,6 +229,31 @@ _BOOLEAN_GATE = {
     "And": ("and", "∧", False, False),
     "Or": ("or", "∨", False, False),
     "Not": ("not", "¬", False, True),
+}
+
+# ARRAY family (goal #14 follow-up) -> a fixed, stateless glyph instance,
+# keyed by the resolved primitive NAME (same convention as
+# ``_COMPARE_SYMBOL``/``_BOOLEAN_GATE``). Build Array (``aBuild``) is NOT
+# here — it grows with its input count, so it's constructed per-node in
+# ``resolve()`` instead of shared as one instance.
+_ARRAY_GLYPH: dict[str, Glyph] = {
+    "Array Size": ArraySizeGlyph(),
+    "Reverse 1D Array": ArrayReverseGlyph(),
+    "Search 1D Array": ArraySearchGlyph(),
+    "Sort 1D Array": ArraySortGlyph(),
+    "Split 1D Array": ArraySplitGlyph(),
+}
+
+# CONVERTER family (goal #14 follow-up): target-type abbreviation shown by
+# ``ConvertGlyph``, keyed by the resolved primitive NAME.
+_CONVERTER_ABBR = {
+    "To Long Integer": "I32",
+    "To Word Integer": "I16",
+    "To Byte Integer": "I8",
+    "To Unsigned Byte Integer": "U8",
+    "To Unsigned Word Integer": "U16",
+    "To Double Precision Float": "DBL",
+    "Boolean To (0,1)": "0,1",
 }
 
 # Cluster assemble/disassemble node classes. LabVIEW parses the palette Bundle
@@ -604,8 +636,13 @@ class OriginalGlyphResolver:
       triangle with the comparison symbol.
     - The boolean logic gates (And, Or, Not) — ``BooleanGateGlyph``'s
       D-shape/shield/triangle+bubble outlines (goal #99).
-    - Build Array (``aBuild``) — the name in a box, replacing the noisy
-      vectorized NI pixel icon (no distinctive clean-room shape yet).
+    - The ARRAY family (Array Size, Reverse/Search/Sort/Split 1D Array) —
+      the "little element boxes" motif, keyed by name via ``_ARRAY_GLYPH``.
+    - Build Array (``aBuild``) — ``ArrayBuildGlyph``, a drawer that grows
+      with its input count (same skeleton as Bundle/Compound Arithmetic).
+    - The CONVERTER family (To Long/Word/Byte/Unsigned Integer, Boolean To
+      (0,1)) — a small entering arrow into a bold type abbreviation,
+      ``ConvertGlyph``, keyed by name via ``_CONVERTER_ABBR``.
     """
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
@@ -626,15 +663,15 @@ class OriginalGlyphResolver:
             return BooleanGateGlyph(
                 gate_symbol, kind=kind, negated=negated, input_bubble=input_bubble,
             )
+        array_glyph = _ARRAY_GLYPH.get(node.name or "")
+        if array_glyph is not None:
+            return array_glyph
+        abbr = _CONVERTER_ABBR.get(node.name or "")
+        if abbr is not None:
+            return ConvertGlyph(abbr)
         if node.node_type == "aBuild" or node.name == "Build Array":
-            # No distinctive clean-room shape yet; the vectorized NI pixel icon
-            # read as a noisy little grid. The name in a box is clearer and
-            # matches the neighbouring text-box prims (Add Array Elements,
-            # Random Number). Swap in a real glyph here later.
-            return WrappedBoxGlyph(
-                "Build Array", "prim_fill", "prim_stroke", 1.0,
-                text_attr="prim_text",
-            )
+            num_inputs = sum(1 for t in node.terminals if t.direction == "input")
+            return ArrayBuildGlyph(num_inputs=max(1, num_inputs))
         return None
 
     @staticmethod

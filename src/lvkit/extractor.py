@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import json
 import re
 import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -25,16 +27,159 @@ _CACHE_ROOT = Path(tempfile.gettempdir()) / "lvkit" / "extract"
 _LLB_CACHE_ROOT = Path(tempfile.gettempdir()) / "lvkit" / "llb"
 
 
-def _default_cache_dir(vi_path: Path) -> Path:
-    """Return a stable per-VI cache directory under the OS temp dir.
-
-    The directory name is ``<stem>_<hash12>`` where ``<hash12>`` is the
-    first 12 hex chars of SHA-256 over the resolved absolute path. This
-    keeps two VIs with the same stem in different folders from colliding,
-    while staying short enough to skim in ``ls`` output.
+def _default_temp_cache_dir(vi_path: Path) -> Path:
+    """Fallback per-VI cache dir under the OS temp dir, for VIs outside any
+    project (ad-hoc ``lvkit render /tmp/foo.vi``). Name is ``<stem>_<hash12>``
+    over the resolved absolute path.
     """
     digest = hashlib.sha256(str(vi_path).encode("utf-8")).hexdigest()[:12]
     return _CACHE_ROOT / f"{vi_path.stem}_{digest}"
+
+
+def _project_root_for(vi_path: Path) -> Path | None:
+    """Nearest ancestor that is a project root: one holding a ``.lvkit/`` store
+    or a git repo root (``.git``). Returns the root dir, or ``None`` for a VI
+    outside any project. (Mirrors ``project_store.find_project_store`` but also
+    reports the git root so the cache can be created there on demand.)
+    """
+    ancestors = (vi_path.parent, *vi_path.parent.parents)
+    # An EXISTING .lvkit/ store wins, even when a NEARER ancestor is its own git
+    # repo: vendored/cloned corpora (each carrying a .git) must share the outer
+    # project's cache instead of sprouting a .lvkit/ inside every clone.
+    for anc in ancestors:
+        if (anc / ".lvkit").is_dir():
+            return anc
+    for anc in ancestors:
+        if (anc / ".git").exists():
+            return anc
+    return None
+
+
+def extraction_cache_root(vi_path: Path) -> Path | None:
+    """Project-local extraction cache root, created on demand.
+
+    Returns ``<project-root>/.lvkit/cache/extracted`` (creating ``.lvkit/cache``
+    if absent and dropping a ``*`` .gitignore so the cache is never committed),
+    or ``None`` when ``vi_path`` is outside any project (caller uses temp).
+    """
+    root = _project_root_for(vi_path)
+    if root is None:
+        return None
+    cache = root / ".lvkit" / "cache"
+    cache.mkdir(parents=True, exist_ok=True)
+    gitignore = cache / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text("# lvkit derived cache — rebuildable, never commit\n*\n")
+    extracted = cache / "extracted"
+    extracted.mkdir(parents=True, exist_ok=True)
+    return extracted
+
+
+def _lv_version() -> str:
+    """Best-effort installed-LabVIEW version for the vilib cache namespace."""
+    try:
+        from lvkit.lv_detect import detect_labview
+
+        detected = detect_labview()
+        if detected is not None and detected.version:
+            return detected.version
+    except Exception:
+        pass
+    return "unknown"
+
+
+def classify_vi(vi_path: Path, project_root: Path | None) -> tuple[str, Path]:
+    """Classify a VI path into ``(bucket, rel_dir)`` for cache placement.
+
+    Buckets mirror ``pipeline.to_library_name`` but are derived from the
+    filesystem path so extraction needs no graph context. ``rel_dir`` is the
+    VI's PARENT directory relative to the bucket marker (never the filename), so
+    the cache path-mirrors the source and stays portable across clones.
+    """
+    parts = vi_path.parts
+
+    def _after(marker: str) -> Path:
+        # parent dirs AFTER the last occurrence of `marker`, excluding the file
+        idx = len(parts) - 1 - parts[::-1].index(marker)
+        return Path(*parts[idx + 1 : -1])
+
+    if "vi.lib" in parts:
+        return f"vilib/{_lv_version()}", _after("vi.lib")
+    if "_OpenG.lib" in parts:
+        return "openg", _after("_OpenG.lib")
+    if "instr.lib" in parts:
+        return "drivers", _after("instr.lib")
+    # The dev corpus lives under .lvkit/cache/samples/ ("local-only-always").
+    # Bucket it as `samples` so it never nests as project/.lvkit/cache/samples/…
+    for i in range(len(parts) - 2):
+        if parts[i : i + 3] == (".lvkit", "cache", "samples"):
+            return "samples", Path(*parts[i + 3 : -1])
+    if project_root is not None:
+        try:
+            return "project", vi_path.parent.relative_to(project_root)
+        except ValueError:
+            pass
+    digest = hashlib.sha256(str(vi_path).encode("utf-8")).hexdigest()[:12]
+    return f"external/{digest}", Path()
+
+
+def _cache_target(vi_path: Path) -> Path:
+    """The per-VI cache directory for ``vi_path`` (created on demand)."""
+    extracted = extraction_cache_root(vi_path)
+    if extracted is None:
+        return _default_temp_cache_dir(vi_path)
+    bucket, rel = classify_vi(vi_path, _project_root_for(vi_path))
+    target = extracted / bucket / rel
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _cache_fresh(vi_path: Path, meta_path: Path) -> bool:
+    """True if the cached extraction for ``vi_path`` is still valid.
+
+    Fast-path on unchanged ``(mtime, size)``; otherwise fall back to a content
+    ``sha256`` compare (robust to clone/checkout mtime resets) and refresh the
+    recorded mtime on a content match.
+    """
+    if not meta_path.exists():
+        return False
+    try:
+        meta = json.loads(meta_path.read_text())
+    except (OSError, ValueError):
+        return False
+    st = vi_path.stat()
+    if meta.get("size") == st.st_size and meta.get("mtime") == st.st_mtime:
+        return True
+    if meta.get("sha256") == _sha256_file(vi_path):
+        meta["mtime"] = st.st_mtime
+        meta["size"] = st.st_size
+        try:
+            meta_path.write_text(json.dumps(meta))
+        except OSError:
+            pass
+        return True
+    return False
+
+
+def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
+    st = vi_path.stat()
+    root = _project_root_for(vi_path)
+    try:
+        source = str(vi_path.relative_to(root)) if root else vi_path.name
+    except ValueError:
+        source = vi_path.name
+    meta_path.write_text(json.dumps({
+        "source": source,
+        "sha256": _sha256_file(vi_path),
+        "mtime": st.st_mtime,
+        "size": st.st_size,
+        "tool": "pylabview",
+        "extracted_at": time.time(),
+    }))
 
 
 def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
@@ -107,30 +252,23 @@ def extract_vi_xml(
     vi_path = Path(vi_path).resolve()
 
     if output_dir is None:
-        output_dir = _default_cache_dir(vi_path)
+        output_dir = _cache_target(vi_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     vi_stem = vi_path.stem
     bd_xml = output_dir / f"{vi_stem}_BDHb.xml"
     fp_xml = output_dir / f"{vi_stem}_FPHb.xml"
     main_xml = output_dir / f"{vi_stem}.xml"
+    meta_path = output_dir / f"{vi_stem}.meta.json"
 
-    # Check cache: skip extraction if XML files exist and are newer than VI
-    if not force and bd_xml.exists():
-        vi_mtime = vi_path.stat().st_mtime
-        bd_mtime = bd_xml.stat().st_mtime
-
-        # BD XML must be newer than VI, and other files if they exist
-        if bd_mtime >= vi_mtime:
-            fp_valid = not fp_xml.exists() or fp_xml.stat().st_mtime >= vi_mtime
-            main_valid = not main_xml.exists() or main_xml.stat().st_mtime >= vi_mtime
-            if fp_valid and main_valid:
-                # Cache hit - return existing files
-                return (
-                    bd_xml,
-                    fp_xml if fp_xml.exists() else None,
-                    main_xml if main_xml.exists() else None,
-                )
+    # Cache hit: XML present and the recorded content-hash (or mtime/size
+    # fast-path) still matches the VI.
+    if not force and bd_xml.exists() and _cache_fresh(vi_path, meta_path):
+        return (
+            bd_xml,
+            fp_xml if fp_xml.exists() else None,
+            main_xml if main_xml.exists() else None,
+        )
 
     # Cache miss - extract in-process, surfacing the real pylabview error on
     # failure. There is deliberately NO subprocess fallback: it runs UNPATCHED
@@ -147,11 +285,26 @@ def extract_vi_xml(
     if not bd_xml.exists():
         raise RuntimeError(f"Block diagram XML not found: {bd_xml}")
 
+    _write_cache_meta(vi_path, meta_path)
+
     return (
         bd_xml,
         fp_xml if fp_xml.exists() else None,
         main_xml if main_xml.exists() else None,
     )
+
+
+def resolve_extracted(
+    vi_path: Path | str, *, force: bool = False
+) -> tuple[Path, Path | None, Path | None]:
+    """Single entry point readers use to get a VI's extracted XML.
+
+    Returns ``(bd_xml, fp_xml, main_xml)`` from the project-local cache
+    (``.lvkit/cache/extracted/<bucket>/<rel>/``), extracting on a miss. Both the
+    engine and every reader route through this so writes and reads agree — the
+    cache path is a pure function of the resolved ``.vi`` path.
+    """
+    return extract_vi_xml(vi_path, force=force)
 
 
 # ===== LLB container extraction =====

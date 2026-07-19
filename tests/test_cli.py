@@ -11,6 +11,7 @@ the underlying library functions.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -40,9 +41,18 @@ def _load(vi_path: Path, *, layout: bool) -> tuple[InMemoryVIGraph, str]:
 
 
 def _run_diff(*args: str) -> subprocess.CompletedProcess:
+    """Run `lvkit diff` in a subprocess.
+
+    The suite must NEVER launch a real browser: the ``--open`` tests exercise
+    argument RESOLUTION (that `--open` implies `--format html` rather than
+    erroring), not the desktop handoff. Left unguarded, every `pytest` run pops a
+    Chrome window on the developer's machine. Python's ``webbrowser`` honours
+    ``$BROWSER``, so point it at a no-op command — the CLI's open path still runs.
+    """
+    env = {**os.environ, "BROWSER": "true"}
     return subprocess.run(
         [sys.executable, "-m", "lvkit.cli", "diff", str(BASE_VI), str(HEAD_VI), *args],
-        capture_output=True, text=True,
+        capture_output=True, text=True, env=env,
     )
 
 

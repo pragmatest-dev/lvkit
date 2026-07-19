@@ -1082,8 +1082,7 @@ def cmd_visualize(args: argparse.Namespace) -> int:
     print(f"Graph saved to {args.output}")
 
     if args.open:
-        import webbrowser
-        webbrowser.open(f"file://{Path(args.output).resolve()}")
+        webbrowser.open(Path(args.output).resolve().as_uri())
 
     return 0
 

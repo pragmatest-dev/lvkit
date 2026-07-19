@@ -200,6 +200,22 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
 
     return fragment
 
+def _expandable_base(term_index: int, expandable_indices: set[int]) -> int | None:
+    """Return the expandable-group base index ``term_index`` belongs to, else None.
+
+    Expanded terminals sit at a stride from their base (e.g. base=2 for an index
+    expanded to 2D gives indices 2, 4), so a terminal belongs to a group when it
+    IS the base or lands an exact multiple of the stride beyond it.
+    """
+    for base in expandable_indices:
+        if term_index == base or (
+            term_index > base
+            and (term_index - base) % max(len(expandable_indices), 1) == 0
+        ):
+            return base
+    return None
+
+
 def _build_input_map(
     node: PrimitiveOperation, ctx: CodeGenContext, resolved: ResolvedPrimitive | None
 ) -> dict[str, str]:
@@ -235,8 +251,15 @@ def _build_input_map(
 
         # Skip error cluster inputs unless the template references
         # them (e.g. Merge Errors processes error data as values).
+        # An error terminal belonging to an EXPANDABLE group is also data to
+        # this primitive (Merge Errors folds N error clusters), but the template
+        # reaches it via {expandable_inputs} rather than a literal in_N — so it
+        # must survive the skip or every extra error input is silently dropped.
         if term.is_error_cluster:
-            if str(term.index) not in template_refs:
+            if (
+                str(term.index) not in template_refs
+                and _expandable_base(term.index, expandable_indices) is None
+            ):
                 continue
 
         term_id = term.id
@@ -291,19 +314,10 @@ def _build_input_map(
         # Expandable terminal: collect into group by base index.
         # Expanded terminals have indices that are offset from the base
         # (e.g., base=2 for index, expanded 2D gives indices 2, 4).
-        matched_expandable = False
-        if expandable_indices:
-            for base_idx in expandable_indices:
-                if term_index == base_idx or (
-                    term_index > base_idx
-                    and (term_index - base_idx)
-                    % max(len(expandable_indices), 1) == 0
-                ):
-                    if base_idx not in expandable_groups:
-                        expandable_groups[base_idx] = []
-                    expandable_groups[base_idx].append(resolved_value)
-                    matched_expandable = True
-                    break
+        base_idx = _expandable_base(term_index, expandable_indices)
+        matched_expandable = base_idx is not None
+        if base_idx is not None:
+            expandable_groups.setdefault(base_idx, []).append(resolved_value)
 
         if not matched_expandable:
             # Parenthesize a compound operand so its precedence survives the
