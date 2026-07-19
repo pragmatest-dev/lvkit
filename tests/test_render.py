@@ -1121,8 +1121,8 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     divider per input row (2 inputs -> 1 horizontal divider), plus exactly
     one invert-bubble circle for the single inverted terminal.
 
-    Its terminals are Boolean, so LabVIEW's "add" mode is logical OR — the
-    symbol is "∨", not the raw "+" (see
+    Its operation (from objFlags bits 16-18) is AND on Boolean terminals, so
+    the symbol is "∧" (see
     codegen/nodes/compound.py::generate_compound_arith's boolean-context
     translation, mirrored by render for this same node)."""
     loaded = _load_graph(STACKED_SEQ_VI)
@@ -1160,8 +1160,8 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     # pane (terminal types) below — so match the identity line, not the whole
     # (now multi-line) title.
     assert "<title>Compound Arithmetic\n" in svg
-    # Boolean-context operator symbol: "add" on Booleans is logical OR.
-    assert ">∨<" in svg
+    # Boolean-context operator symbol: this node's AND mode renders "∧".
+    assert ">∧<" in svg
 
     # Isolate JUST this node's draw output to count its own invert bubbles
     # (other unrelated nodes in this VI, e.g. Format/Scan String, also carry
