@@ -211,7 +211,7 @@ class TestRealVILoading:
     @pytest.fixture
     def sample_vi_path(self) -> Path | None:
         path = Path(
-            "samples/JKI-VI-Tester/source/User Interfaces/"
+            ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
             "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
         )
         return path if path.exists() else None
@@ -238,7 +238,7 @@ class TestRealVILoading:
         graph.load_vi(
             sample_vi_path,
             mode=LoadMode.FULL,
-            search_paths=[Path("samples/OpenG/extracted")],
+            search_paths=[Path(".lvkit/cache/samples/OpenG/extracted")],
         )
         assert len(graph.list_vis()) >= 1
         assert len(graph.get_conversion_order()) >= 1

@@ -29,7 +29,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", default=str(REPO / ".lvkit" / "cache" / "extracted"),
                     help="corpus root to scan for *_BDHb.xml "
-                         "(default: .lvkit/cache/extracted/ — run extract_corpus.py first)")
+                         "(default: .lvkit/cache/extracted/ — run extract_corpus.py first)")  # noqa: E501
     ap.add_argument("--all", action="store_true",
                     help="also list the KNOWN primitives found")
     ap.add_argument("--min", type=int, default=1,

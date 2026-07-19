@@ -192,7 +192,7 @@ class TestWaitMsPrimitive:
 # =============================================================
 
 
-DAQMX_CALLER_VI = "samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
+DAQMX_CALLER_VI = ".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
 
 
 def _walk_ops(ops):
@@ -307,7 +307,7 @@ class TestPolyResolverLookup:
 # =============================================================
 #
 # DROPPED: TestInViEndToEnd used to build_module() the unlicensed
-# samples/DAQmx-Digital-IO/In.vi end-to-end and assert Digital-Output-
+# .lvkit/cache/samples/DAQmx-Digital-IO/In.vi end-to-end and assert Digital-Output-
 # specific codegen (do_channels.add_do_chan, boolean .write(True/False),
 # the Wait (ms) -> time.sleep mapping, and the "Dev1/port0/line0" channel
 # string not being Path()-wrapped).

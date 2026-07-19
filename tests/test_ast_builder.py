@@ -462,14 +462,14 @@ def test_build_module_real_vi():
     from lvkit.graph import InMemoryVIGraph
 
     vi_path = Path(
-        "samples/JKI-VI-Tester/source/User Interfaces/"
+        ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
         "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
     )
     if not vi_path.exists():
         pytest.skip("Sample VI not available")
 
     graph = InMemoryVIGraph()
-    graph.load_vi(vi_path, search_paths=[Path("samples/OpenG/extracted")])
+    graph.load_vi(vi_path, search_paths=[Path(".lvkit/cache/samples/OpenG/extracted")])
 
     vi_name = vi_path.name
     ctx = graph.get_vi_context(vi_name)

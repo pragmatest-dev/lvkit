@@ -31,9 +31,9 @@ from lvkit.parser.layout import Layout
 #   VI_B: JKI-EasyXML's "test TCX read (installed 71).vi" (BSD-3-Clause) —
 #       has a "Flat Sequence" structure and adds "Tree"/"tag index"/
 #       "child name"/"text" inputs VI_A doesn't have.
-VI_A = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
+VI_A = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 VI_B = Path(
-    "samples/JKI-EasyXML/Source/Fast Parser/"
+    ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"
     "test TCX read (installed 71).vi"
 )
 
@@ -877,7 +877,7 @@ class TestConnectorPaneRequalification:
     phantom wire changes; after the fix (canonicalizing the self node to a
     fixed sentinel), it must be exactly 0."""
 
-    REPO = "samples/JKI-VI-Tester"
+    REPO = ".lvkit/cache/samples/JKI-VI-Tester"
     FILE_PATH = "source/Project API/Launch VI Tester.vi"
     BASE_REF = "92be264"
     HEAD_REF = "5bc7205"

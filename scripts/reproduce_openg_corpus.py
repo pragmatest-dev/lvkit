@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reproduce the OpenG Toolkit ``File Group N/`` extracted-VI corpus.
 
-lvkit's tests load OpenG VIs directly out of ``samples/OpenG/extracted/File
+lvkit's tests load OpenG VIs directly out of ``.lvkit/cache/samples/OpenG/extracted/File
 Group 0/user.lib/_OpenG.lib/<lib>/<lib>.llb/<name>__ogtk.vi`` (plus sibling
 ``*_BDHb.xml`` etc). This script reproduces that exact layout from scratch:
 

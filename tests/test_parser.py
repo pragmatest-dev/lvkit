@@ -921,7 +921,7 @@ class TestRealVIParsing:
     def sample_vi_path(self) -> Path | None:
         """Get path to a sample VI if available."""
         path = Path(
-            "samples/JKI-VI-Tester/source/User Interfaces/"
+            ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
             "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
         )
         if path.exists():

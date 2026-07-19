@@ -53,7 +53,7 @@ VILIB_DIR = ROOT / "src" / "lvkit" / "data" / "vilib"
 # Conflating them silently yields zero matches (a clean-looking audit that
 # checked nothing).
 EXTRACTED_DIR = ROOT / ".lvkit" / "cache" / "extracted"
-SAMPLES_DIR = ROOT / "samples"
+SAMPLES_DIR = ROOT / ".lvkit" / "cache" / "samples"
 
 IN_TOKEN_RE = re.compile(r"\bin_(\d+)\b")
 

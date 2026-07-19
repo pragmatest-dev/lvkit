@@ -55,7 +55,7 @@ def main() -> None:
         sys.exit(_worker(argv, force))
 
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--root", default="samples")
+    ap.add_argument("--root", default=".lvkit/cache/samples")
     ap.add_argument("--batch", type=int, default=50,
                     help="VIs per worker subprocess (default 50)")
     ap.add_argument("--force", action="store_true",

@@ -27,7 +27,7 @@ from lvkit.graph.models import (
 )
 from lvkit.models import ClusterField, LVType
 
-SAMPLE_ROOT = Path("samples/JKI-VI-Tester/source")
+SAMPLE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 
 
 def _has_sample() -> bool:

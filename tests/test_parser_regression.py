@@ -12,10 +12,10 @@ from lvkit.parser.metadata import parse_subvi_paths, parse_vi_metadata
 from lvkit.parser.type_mapping import parse_type_map_rich
 
 TEST_VI = Path(
-    "samples/JKI-VI-Tester/source/User Interfaces/"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
     "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
 )
-SEARCH_PATHS = [Path("samples/OpenG/extracted")]
+SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 
 
 @pytest.fixture(scope="module")
@@ -155,7 +155,7 @@ class TestWhileLoopNestedShiftRegister:
     # in the project-local cache, so resolve it through the extractor (which
     # extracts on a cache miss) rather than hardcoding either location.
     LIST_VI = (
-        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/"
+        ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/"
         "appcontrol/appcontrol.llb/List VI Hierarchy__ogtk.vi"
     )
 
@@ -208,7 +208,7 @@ class TestResilientVCTPExport:
 
     @pytest.fixture(scope="class")
     def main_xml(self):
-        ms = list(Path("samples").rglob("GrabWebCam_PCO_IOS.vi"))
+        ms = list(Path(".lvkit/cache/samples").rglob("GrabWebCam_PCO_IOS.vi"))
         if not ms:
             pytest.skip("GrabWebCam_PCO_IOS sample not present")
         _bd, _fp, main = extract_vi_xml(ms[0], force=True)

@@ -556,50 +556,50 @@ GROUND_TRUTH_VI = Path(".tmp/array average 1.vi")
 # hex-format U32 = 0x02 labelled "0x02 => Open Templates for Editing…" — the
 # fixture for #59 (value + hex format) and #77 (value-box shrink + owned label).
 CONST_LABEL_VI = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/appcontrol/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/appcontrol/"
     "appcontrol.llb/Current VIs Reference__ogtk.vi"
 )
-OPENG_SEARCH = [Path("samples/OpenG/extracted")]
+OPENG_SEARCH = [Path(".lvkit/cache/samples/OpenG/extracted")]
 
 # Small, pre-verified samples covering: plain leaf VI, SubVI calls, a Case
 # structure, and a Case structure NESTED inside another structure.
-CASE_VI = Path("samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi")
+CASE_VI = Path(".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi")  # noqa: E501
 NESTED_CASE_VI = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/variantconfig/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/variantconfig/"  # noqa: E501
     "variantconfig.llb/Write Panel to INI__ogtk.vi"
 )
 # A case genuinely nested inside another case's frame (not just a case inside
 # a loop) — its scene has 2+ segment compound frame paths.
 NESTED_CASE_CONTENT_VI = Path(
-    "samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"
+    ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"
 )
 # Flat (film-strip) sequence with 3 side-by-side frames (verified: frame 0/1
 # node x-ranges don't overlap, has dividers, has 5 SubVI calls for the hover-
 # tooltip test).
 FLAT_SEQ_VI = Path(
-    "samples/JKI-EasyXML/Source/Fast Parser/"
+    ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"
     "test TCX read (installed 71).vi"
 )
 # Stacked (interactive) sequence with 3 overlapping frames.
 STACKED_SEQ_VI = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
     "string.llb/Number to Proper Engl Text__ogtk.vi"
 )
 CORPUS_VIS = [
-    Path("samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),
+    Path(".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),  # noqa: E501
     Path(
-        "samples/JKI-EasyXML/Source/JKI Reuse Candidates/"
+        ".lvkit/cache/samples/JKI-EasyXML/Source/JKI Reuse Candidates/"
         "Is an Error__JKI Error Handling.vi"
     ),
     NESTED_CASE_CONTENT_VI,
     CASE_VI,
-    Path("samples/JKI-VI-Tester/source/Prototype/Test Project/Method1.vi"),
+    Path(".lvkit/cache/samples/JKI-VI-Tester/source/Prototype/Test Project/Method1.vi"),
     Path(
-        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/array/array.llb/"
+        ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/array/array.llb/"  # noqa: E501
         "Reorder 1D Array2 (LVObject)__ogtk.vi"
     ),
     Path(
-        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/comparison/"
+        ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/comparison/"  # noqa: E501
         "comparison.llb/U16 Changed__ogtk.vi"
     ),
     NESTED_CASE_VI,
@@ -1975,7 +1975,7 @@ def test_case_vi_svg_is_well_formed_xml_standalone():
 
 
 LOCALVAR_VI = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
     "string.llb/Number to Proper Engl Text__ogtk.vi"
 )
 
@@ -2320,7 +2320,7 @@ def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.scene import _is_boundary_mux
 
-    loaded = _load_graph(Path("samples/JKI-EasyXML/Source/Fast Parser/"
+    loaded = _load_graph(Path(".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"
                               "XML Loop Stack Recursion.vi"))
     if loaded is None:
         pytest.skip("sample VI not available")
@@ -2361,7 +2361,7 @@ def test_nmux_on_class_private_data_draws_field_name():
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.scene import _is_boundary_mux
 
-    testresult_dir = Path("samples/JKI-VI-Tester/source/Classes/TestResult")
+    testresult_dir = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult")  # noqa: E501
     vi_path = testresult_dir / "GetTestsRun.vi"
     if not vi_path.exists():
         pytest.skip("sample VI not available")

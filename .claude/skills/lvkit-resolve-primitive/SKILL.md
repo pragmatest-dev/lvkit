@@ -23,7 +23,7 @@ This skill runs in two contexts. The destination directory and the cross-referen
 Read `pyproject.toml` from the current directory (walk up if needed). If it contains `name = "lvkit"`, you are working **inside lvkit itself**:
 
 - Destination: `data/primitives.json` (lvkit's shipped, cleanroom data)
-- Cross-reference corpus: lvkit's `samples/` directory of real VIs
+- Cross-reference corpus: lvkit's `.lvkit/cache/samples/` directory of real VIs
 - Mark `"verified": true` only after multi-instance cross-check
 - The mapping must be cleanroom — derived from public documentation, NOT from licensed LabVIEW source
 
@@ -31,7 +31,7 @@ Otherwise, you are working **inside a downstream user's project**:
 
 - Destination: `.lvkit/primitives.json` (project-local store; run `lvkit init` first if `.lvkit/` doesn't exist)
 - Cross-reference corpus: the user's own VI tree. The diagnostic includes the **qualified VI name** of the caller — use it to find the calling VI on disk.
-- Do NOT cross-reference lvkit's `samples/` — the user's project doesn't have them
+- Do NOT cross-reference lvkit's `.lvkit/cache/samples/` — the user's project doesn't have them
 - The mapping you write may be derived from licensed sources; that's the user's call. lvkit itself never reads `.lvkit/`.
 
 In **both** modes, the function-identification step (Step 5) uses live web search against NI's online documentation. lvkit does not bundle the LabVIEW reference manual.
@@ -90,7 +90,7 @@ The primResID is serialized verbatim as `<primResID>PRIM_ID</primResID>` in each
 *subVI* of the failing VI that a shape-based parse would have missed).
 
 **1. Ensure the block-diagram XML is dumped (pylabview — no LabVIEW license needed).**
-- lvkit mode: `samples/` is already extracted — every VI has a `*_BDHb.xml` beside it. Nothing to do.
+- lvkit mode: `.lvkit/cache/samples/` is already extracted — every VI has a `*_BDHb.xml` beside it. Nothing to do.
 - user-project mode: extract each VI's XML once — ONE subprocess per VI, so memory stays flat:
   ```bash
   # <root> = the user's project root

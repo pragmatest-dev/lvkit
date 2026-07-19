@@ -68,16 +68,16 @@ The conversion pipeline:
 
 ```bash
 # Single VI
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 
 # LabVIEW class (.lvclass)
-python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 
 # LabVIEW library (.lvlib)
-python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 
 # Directory of VIs
-python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 ```
 
 ## Error Handling Strategy
@@ -219,7 +219,7 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 
 ```bash
 # CORRECT - outputs go to outputs/ folder in the repo
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 
 # WRONG - never use /tmp/
 python scripts/generate_python.py "path/to/file.vi" -o /tmp/test

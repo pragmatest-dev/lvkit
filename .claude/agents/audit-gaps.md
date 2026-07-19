@@ -35,7 +35,7 @@ Check for:
    - No error message (e.g. `PrimitiveResolutionNeeded`, `VILibResolutionNeeded`) shown so the reader recognizes it when it happens
 
 5. **Implicit assumptions about project structure** — the page assumes a specific directory layout without stating it:
-   - Example uses `--search-path samples/OpenG/extracted` without saying what that directory needs to contain or how it relates to the VI being processed
+   - Example uses `--search-path .lvkit/cache/samples/OpenG/extracted` without saying what that directory needs to contain or how it relates to the VI being processed
    - Example uses `--project-root` without explaining how it relates to the `.lvkit/` store
 
 6. **Missing "why would I do this differently" branching** — when two approaches exist, the page presents one without acknowledging the tradeoff with the other:

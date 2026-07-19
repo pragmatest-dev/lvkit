@@ -13,7 +13,7 @@ import pytest
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 
-SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
 TESTCASE_DIR = SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestCase"
 TESTRESULT_DIR = SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestResult"
 ADDERROR_VI = TESTRESULT_DIR / "addError.vi"

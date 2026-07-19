@@ -32,7 +32,7 @@ from lvkit.graph.describe import (
 from lvkit.graph.diff import format_diff
 from lvkit.graph.loading import LoadMode
 
-SAMPLE_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
+SAMPLE_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
 
 def _samples_available() -> bool:
@@ -41,7 +41,7 @@ def _samples_available() -> bool:
 
 pytestmark = pytest.mark.skipif(
     not _samples_available(),
-    reason="Requires samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi",
+    reason="Requires .lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi",
 )
 
 

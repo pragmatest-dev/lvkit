@@ -18,12 +18,12 @@ from lvkit.render import render_vi
 # A framework VI: ~1 direct SubVI call that transitively pulls ~170 VIs under
 # FULL. MINIMAL should collapse that to the shallow direct fan-out.
 DEEP_VI = Path(
-    "samples/JKI-VI-Tester/source/Programmatic API/"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Programmatic API/"
     "Run Tests (TestCase Object).vi"
 )
 # A VI with a class unbundle (field names) in a subfolder.
 CLASS_VI = Path(
-    "samples/JKI-VI-Tester/source/Ant Plugin/Source/"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Ant Plugin/Source/"
     "TextTestRunner.Ant/protected/processResult.vi"
 )
 

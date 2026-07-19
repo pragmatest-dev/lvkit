@@ -138,7 +138,7 @@ def main() -> None:
             o = obs.get(idx)
             if o is None:
                 findings.append(("PHANTOM", pid, name,
-                                 f"declares idx{idx} ({t.get('name')}) — never observed"))
+                                 f"declares idx{idx} ({t.get('name')}) — never observed"))  # noqa: E501
                 continue
             if o["dirs"] and t.get("direction") not in o["dirs"]:
                 findings.append(("DIRECTION", pid, name,
@@ -148,7 +148,7 @@ def main() -> None:
             ofams = {_family(x) for x in o["types"]}
             if dfam and ofams and dfam not in ofams and None not in ofams:
                 findings.append(("TYPE", pid, name,
-                                 f"idx{idx} declared {t.get('type')} ({dfam}) but observed "
+                                 f"idx{idx} declared {t.get('type')} ({dfam}) but observed "  # noqa: E501
                                  f"{'/'.join(sorted(str(f) for f in ofams))}"))
         for idx in sorted(set(obs) - set(decl)):
             n_vis = len(obs[idx]["vis"])

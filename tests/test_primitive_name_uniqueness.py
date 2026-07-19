@@ -89,7 +89,7 @@ def test_no_unreviewed_duplicate_primitive_names() -> None:
                 f"duplicate group {name!r} changed: expected "
                 f"{sorted(reviewed, key=int)}, found {sorted(pids, key=int)}"
             )
-    assert not problems, "Unreviewed primitive name duplication:\n" + "\n".join(problems)
+    assert not problems, "Unreviewed primitive name duplication:\n" + "\n".join(problems)  # noqa: E501
 
 
 def test_reviewed_duplicates_still_exist() -> None:

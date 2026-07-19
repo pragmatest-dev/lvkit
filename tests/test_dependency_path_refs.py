@@ -21,12 +21,12 @@ from lvkit.models import (
     SequenceOperation,
 )
 
-SEARCH_PATHS = [Path("samples/OpenG/extracted")]
-DAQMX_CALLER_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
+SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
+DAQMX_CALLER_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")  # noqa: E501
 TESTCASE_CLASS = Path(
-    "samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass"
 )
-TESTCASE_SEARCH = [Path("samples/JKI-VI-Tester/source")]
+TESTCASE_SEARCH = [Path(".lvkit/cache/samples/JKI-VI-Tester/source")]
 
 
 def _skip_if_missing(*paths: Path) -> None:

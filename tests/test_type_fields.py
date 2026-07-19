@@ -10,7 +10,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.models import ClusterField, LVType
 
-SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
 TESTCASE_LVCLASS = (
     SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestCase" / "TestCase.lvclass"
 )

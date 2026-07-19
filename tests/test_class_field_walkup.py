@@ -16,7 +16,7 @@ from lvkit.graph.models import PrimitiveNode
 
 # A class member VI whose .lvclass sits one directory up (subfolder case).
 SUBFOLDER_VI = Path(
-    "samples/JKI-VI-Tester/source/Ant Plugin/Source/"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Ant Plugin/Source/"
     "TextTestRunner.Ant/protected/processResult.vi"
 )
 

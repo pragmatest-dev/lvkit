@@ -185,7 +185,7 @@ def measure(faithful_px: float = 20.0) -> None:
     geometry search — it only labels which known uid each decoded leaf reaches."""
     gtot = gfaith = 0
     for name in REFS:
-        matches = list(Path("samples").rglob(name))
+        matches = list(Path(".lvkit/cache/samples").rglob(name))
         if not matches:
             print(f"  MISS {name}")
             continue

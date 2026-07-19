@@ -21,7 +21,7 @@ from lvkit.graph.models import Constant
 from lvkit.graph.op_walk import _format_error_cluster
 from lvkit.models import ClusterField, LVType
 
-IN_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
+IN_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
 
 def _error_cluster_type() -> LVType:
