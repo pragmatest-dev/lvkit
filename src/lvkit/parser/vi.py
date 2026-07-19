@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import re
 import struct
+import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -70,6 +71,13 @@ from .utils import (
     safe_int,
     strip_surrounding_quotes,
 )
+
+# A single corrupt VI can export a front-panel heap that balloons past 1 GB (a
+# bad LVVariant DataFill); parsing that into an ElementTree can OOM the host.
+# The FP heap only feeds the OPTIONAL connector pane / front panel, so above
+# this cap we skip it and degrade rather than crash. Real FP heaps are well
+# under this.
+_MAX_FP_HEAP_BYTES = 256 * 1024 * 1024
 
 
 def _load_node_dco_maps() -> dict[str, dict[str, int]]:
@@ -136,6 +144,23 @@ def parse_vi(
         raise ValueError("Either vi_path or bd_xml must be provided")
 
     bd_xml = Path(bd_xml)
+
+    # Guard: skip a pathologically-large front-panel heap so one corrupt VI
+    # can't OOM the host (see _MAX_FP_HEAP_BYTES). Dropping fp_xml here makes the
+    # block-diagram, front-panel, and connector-pane parses below all skip it.
+    if fp_xml is not None:
+        try:
+            fp_size = Path(fp_xml).stat().st_size
+        except OSError:
+            fp_size = 0
+        if fp_size > _MAX_FP_HEAP_BYTES:
+            warnings.warn(
+                f"{bd_xml.name}: front-panel heap is {fp_size // (1024 * 1024)} MB "
+                f"(> {_MAX_FP_HEAP_BYTES // (1024 * 1024)} MB cap, likely a corrupt "
+                "LVVariant DataFill) — skipping it; connector pane unavailable.",
+                stacklevel=2,
+            )
+            fp_xml = None
 
     # Derive source .vi path. Prefer the explicit vi_path argument since BD XML
     # may now live in a temp cache dir rather than next to the source file.
