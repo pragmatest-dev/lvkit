@@ -12,19 +12,20 @@
     --accent:#0969da;--accent-fg:#ffffff;
   }
   @media (prefers-color-scheme: dark){
-    :root:not([data-theme]){
+    :root{
       --bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--line:#30363d;
-      --canvas:#1b1c1e;--btn:#21262d;--btn-hover:#2a3038;--fg-muted:#aeb6c2;
+      --btn:#21262d;--btn-hover:#2a3038;--fg-muted:#aeb6c2;
       --accent:#1f6feb;--accent-fg:#e6edf3;
     }
   }
-  /* The chrome's own light/dark follows the SAME data-theme override the diagram
-     does, so cycling the theme button moves page + diagram together. */
-  :root[data-theme="dark"]{
-    --bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--line:#30363d;
-    --canvas:#1b1c1e;--btn:#21262d;--btn-hover:#2a3038;--fg-muted:#aeb6c2;
-    --accent:#1f6feb;--accent-fg:#e6edf3;
-  }
+  /* DIAGRAM theme only. The ◐/☀/☾ toggle sets data-theme on <html> to re-theme
+     the embedded diagram SVG (its own CSS listens to it). The ONLY chrome
+     property allowed to follow the toggle is --canvas — the diagram backdrop,
+     visually part of the diagram. ALL other chrome above follows the
+     system/editor theme (plain @media) and must NEVER react to data-theme. */
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]){--canvas:#1b1c1e} }
+  :root[data-theme="dark"]{--canvas:#1b1c1e}
+  :root[data-theme="light"]{--canvas:#ffffff}
   *{box-sizing:border-box}
   body{margin:0;font:14px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg);
        display:grid;grid-template-rows:auto 1fr;height:100vh}

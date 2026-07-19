@@ -209,6 +209,104 @@ class TestThemeAdaptiveChrome:
         assert "background:var(--canvas)" in html
         assert "--canvas:#ffffff" in html and "--canvas:#1b1c1e" in html
 
+    def test_toggle_themes_diagrams_only_never_chrome(self):
+        """DESIGN LAW: the ◐/☀/☾ button is the DIAGRAM theme control — it
+        re-themes only the embedded diagram SVGs (plus their --canvas
+        backdrop). The chrome follows the system/editor theme via plain
+        @media and must NEVER react to data-theme."""
+        html = self._html()
+        # The ONLY data-theme-driven chrome property is the diagram backdrop.
+        assert ':root[data-theme="dark"]{--canvas:#1b1c1e}' in html
+        assert ':root[data-theme="light"]{--canvas:#ffffff}' in html
+        # (stub SVGs carry no CSS, so every data-theme selector here is the
+        # viewer's own — exactly one dark rule, the backdrop.)
+        assert html.count(':root[data-theme="dark"]') == 1
+        # auto mode: backdrop follows the system scheme unless pinned…
+        assert ":not([data-theme]){--canvas:#1b1c1e}" in html
+        # …while the chrome palette is never guarded on / overridden by it.
+        assert ":not([data-theme]){--bg" not in html
+        assert '[data-theme="dark"]{--bg' not in html
+
+
+class TestPaneRegistrationAndBlendReveal:
+    """Overlay/Split coordinate registration + blend auto-reveal (browser
+    behaviour verified with Playwright when built; these pin the mechanisms in
+    the emitted HTML so they can't be silently dropped)."""
+
+    def _html(self) -> str:
+        cmap = ChangeMap(changes=[], common_node_uids=[])
+        return build_diff_viewer(
+            cmap, "<svg id='b'>B</svg>", "<svg id='h'>A</svg>",
+            title="Stub VI", before_label="a", after_label="b",
+        )
+
+    def test_pane_svg_is_block_and_union_registered(self):
+        html = self._html()
+        # Block flow: the diagram svg must never hop up beside the in-flow
+        # sticky pane label (that's what broke Overlay after a Split visit).
+        assert ".pane > svg{display:block}" in html
+        # Union-viewBox registration: shared scale + per-pane margin offsets
+        # map identical LV coordinates to identical screen points.
+        assert "function vbUnion()" in html
+        assert "marginLeft" in html and "marginTop" in html
+        # Deterministic initial layout — applyZoom runs at load, not first at
+        # the first mode switch.
+        assert "applyZoom();    // deterministic initial layout" in html
+
+    def test_blend_auto_reveal_is_eased_and_respects_user(self):
+        html = self._html()
+        assert "function revealBlend(" in html
+        assert "revealBlend(c);" in html            # wired into jump()
+        # Eased (shared easeInOutCubic) + reduced-motion instant path.
+        assert html.count("easeInOutCubic") >= 2
+        assert "if(!ANIMATE){ op.value=target; applyBlend(); return; }" in html
+
+    def test_frame_dot_skips_self_added_removed_and_is_colour_classed(self):
+        """A structure that is ITSELF added/removed gets no aggregate
+        frame-changed dot (its outline covers everything inside); remaining
+        dots are coloured by the change grammar, not hardcoded yellow."""
+        html = self._html()
+        assert "selfAddRem" in html
+        assert "selfAddRem.has(String(c.container_uid))" in html
+        assert ".frame-changed-dot.added{fill:var(--add)}" in html
+        assert ".frame-changed-dot.removed{fill:var(--del)}" in html
+        assert "'frame-changed-dot '+agg" in html
+
+    def test_picking_a_case_value_closes_the_dropdown(self):
+        html = self._html()
+        # the lv-option branch must hide its own menu after setFrame()
+        assert "Picking a value CLOSES the dropdown" in html
+
+    def test_highlight_toggle_is_icon_button_with_working_nav(self):
+        """Highlight toggle: an icon BUTTON (◉/○, sized like the other
+        buttons, grouped with the theme control in the legend), hiding via
+        visibility (not display) so focus()/navigation geometry survives and
+        the display-based .sel wire reveals can't leak through."""
+        html = self._html()
+        assert '<input id="hlToggle"' not in html      # no checkbox anymore
+        assert '<button id="hlToggle"' in html
+        assert "◉" in html
+        assert ".hide-hl .hl,.hide-hl .hl-num{visibility:hidden}" in html
+        assert "display:none" not in html.split(".hide-hl .hl,")[1].split("}")[0]
+
+    def test_split_is_the_default_mode(self):
+        html = self._html()
+        assert '<div class="stage split mode-split" id="stage">' in html
+        assert "mode='split'" in html
+        # Split button listed first and active; fader starts hidden (overlay-only).
+        assert html.index('data-mode="split"') < html.index('data-mode="overlay"')
+        assert '<button data-mode="split" class="active"' in html
+        assert '<span id="opWrap" style="display:none">' in html
+
+    def test_zoom_buttons_disable_at_the_limits(self):
+        """No zooming out past fit: − is disabled at ZMIN (=1=fit), + at ZMAX,
+        re-evaluated in applyZoom on every zoom change."""
+        html = self._html()
+        assert "const ZMIN=1, ZMAX=8" in html
+        assert "document.getElementById('zoomOut').disabled = zoom<=ZMIN" in html
+        assert "document.getElementById('zoomIn').disabled = zoom>=ZMAX" in html
+        assert "button:disabled{opacity:.45;cursor:default}" in html
+
 
 class TestNetlistTreeInViewer:
     """Phase 3: the Tree view renders diff.py's own structured netlist-diff

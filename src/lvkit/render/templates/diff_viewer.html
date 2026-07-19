@@ -17,11 +17,19 @@
     :root{
       --add:#2ea043;--del:#f85149;--mod:#d29922;
       --bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--line:#30363d;
-      --canvas:#1b1c1e;--btn:#21262d;--btn-hover:#2a3038;--fg-muted:#aeb6c2;
+      --btn:#21262d;--btn-hover:#2a3038;--fg-muted:#aeb6c2;
       --accent:#1f6feb;--accent-fg:#e6edf3;
       --chip-before:#2a3038;--chip-after:#20252e;--chip-border:#3a414c;--chip-fg:#ffffff;
     }
   }
+  /* DIAGRAM theme only. The ◐/☀/☾ toggle sets data-theme on <html> to re-theme
+     the embedded diagram SVGs (their own CSS listens to it). The ONLY chrome
+     property allowed to follow the toggle is --canvas — the diagram backdrop,
+     visually part of the diagram. ALL other chrome above follows the
+     system/editor theme (plain @media) and must NEVER react to data-theme. */
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]){--canvas:#1b1c1e} }
+  :root[data-theme="dark"]{--canvas:#1b1c1e}
+  :root[data-theme="light"]{--canvas:#ffffff}
   *{box-sizing:border-box}
   body{margin:0;font:14px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg);
        display:grid;grid-template-rows:auto 1fr;height:100vh}
@@ -32,6 +40,7 @@
   button{background:var(--btn);color:var(--fg);border:1px solid var(--line);border-radius:6px;
          padding:5px 10px;cursor:pointer;font:inherit}
   button.active{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+  button:disabled{opacity:.45;cursor:default}
   .legend{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:13px}
   .chip{display:inline-flex;gap:6px;align-items:center}
   .sw{width:12px;height:12px;border-radius:3px}
@@ -125,6 +134,13 @@
   .stage.split{display:flex;flex-direction:column;gap:16px}
   .stage.split .pane{flex:1 1 0;min-height:0;overflow:auto}
   svg{max-width:none;height:auto;background:var(--canvas);border-radius:6px}
+  /* The diagram svg must NEVER flow inline beside the (in-flow, sticky) pane
+     label: when tied-zoom makes one svg narrower than its pane, an inline svg
+     hops up next to the label — different label widths in the two panes then
+     break the before/after registration in Overlay. Block flow pins every
+     diagram to x=0 on its own line. (Outer svg only — nested SVGs inside the
+     diagram lay out in SVG coordinates, untouched.) */
+  .pane > svg{display:block}
   /* Region fill is a SELECTION-ONLY affordance (req #3) — the add/remove/modify
      border/outline always shows (stroke-opacity:1 below), but the translucent
      region wash only appears once a change is picked (see .hl.sel further down). */
@@ -143,6 +159,7 @@
      widget, and per-value markers on its dropdown menu rows when the renderer
      exposes one (case structures only — see decorateMenus()). */
   .frame-changed-dot{fill:var(--mod);stroke:#0d1117;stroke-width:.6;pointer-events:none}
+  .frame-changed-dot.added{fill:var(--add)}.frame-changed-dot.removed{fill:var(--del)}
   .frame-opt-dot{stroke:#0d1117;stroke-width:.6;pointer-events:none}
   .frame-opt-dot.added{fill:var(--add)}.frame-opt-dot.removed{fill:var(--del)}
   .frame-opt-dot.modified{fill:var(--mod)}
@@ -168,6 +185,11 @@
           paint-order:stroke;stroke:#0d1117;stroke-width:4;stroke-linejoin:round;
           transition:opacity .2s}
   .hl-num.added{fill:var(--add)}.hl-num.removed{fill:var(--del)}.hl-num.modified{fill:var(--mod)}
+  /* Highlights OFF (the ◉ toggle): hide with visibility, NOT display —
+     geometry must stay measurable so focus()/navigation keep working, and
+     visibility wins over the display-based .sel reveal rules, so selected
+     wire overlays (wirepath/chain/old) obey the toggle too. */
+  .hide-hl .hl,.hide-hl .hl-num{visibility:hidden}
   /* Spotlight: once a change is picked, fade every OTHER highlight + badge. */
   .stage.has-sel .hl:not(.sel){fill-opacity:.05;stroke-opacity:.22}
   .stage.has-sel .hl-num:not(.sel){opacity:.18}
@@ -184,7 +206,6 @@
   .hl.modified.sel{filter:drop-shadow(0 0 4px var(--mod))}
   .hl-num.sel{font-size:24px;stroke-width:5}
   @keyframes selpulse{0%,100%{stroke-width:3.5}50%{stroke-width:7}}
-  .hide-hl .hl,.hide-hl .hl-num{display:none}
   /* DJ-deck fader: a long, chunky, tactile cross-fade slider — restyled from
      the default hairline <input type=range>. Height matches the other toolbar
      buttons (31.6px, same box model as the plain `button` rule above) so the
@@ -213,14 +234,19 @@
   <b>VI diff · __TITLE__</b>
   <span style="opacity:.7">__BEFORE_LABEL__ → __AFTER_LABEL__ · engine change-map</span>
   <div class="controls">
-    <button data-mode="overlay" class="active">Overlay</button>
-    <button data-mode="split" title="Before above, after below — scroll and zoom stay in sync">Split</button>
-    <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomFit">fit</button><button id="zoomIn">+</button></span>
-    __THEME_BTN__
-    <span id="opWrap"><button type="button" class="op-end" data-op="0" title="show BEFORE only">before</button><input id="op" type="range" min="0" max="100" value="70"><button type="button" class="op-end" data-op="100" title="show AFTER only">after</button></span>
-    <label style="display:flex;gap:6px;align-items:center"><input id="hlToggle" type="checkbox" checked>highlight</label>
+    <button data-mode="split" class="active" title="Before above, after below — scroll and zoom stay in sync">Split</button>
+    <button data-mode="overlay">Overlay</button>
+    <span id="opWrap" style="display:none"><button type="button" class="op-end" data-op="0" title="show BEFORE only">before</button><input id="op" type="range" min="0" max="100" value="70"><button type="button" class="op-end" data-op="100" title="show AFTER only">after</button></span>
   </div>
   <div class="legend">
+    <span class="controls" style="gap:6px;margin-right:2px;font-size:14px">
+      <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit">fit</button></span>
+      <button id="hlToggle" type="button" class="active"
+        style="min-width:30px;padding:5px 9px"
+        title="Change highlights: on (click to toggle)"
+        aria-pressed="true" aria-label="Toggle change highlights">◉</button>
+      __THEME_BTN__
+    </span>
     <span class="chip"><span class="sw" style="background:var(--add)"></span>added __ADD__</span>
     <span class="chip"><span class="sw" style="background:var(--del)"></span>removed __DEL__</span>
     <span class="chip"><span class="sw" style="background:var(--mod)"></span>modified __MOD__</span>
@@ -245,7 +271,7 @@ __THEME_SCRIPT__
     <div id="list"></div>
   </aside>
   <div class="divider" id="divider" title="Drag to resize"></div>
-  <div class="stage overlay mode-overlay" id="stage">
+  <div class="stage split mode-split" id="stage">
     <div class="pane" id="beforePane"><span class="pane-label before">BEFORE · __BEFORE_LABEL__</span>__BEFORE_SVG__</div>
     <div class="pane" id="afterPane"><span class="pane-label after">AFTER · __AFTER_LABEL__</span>__AFTER_SVG__</div>
   </div>
@@ -636,18 +662,26 @@ document.getElementById('treeCollapseBtn').onclick=()=>
   list.querySelectorAll('.tnode.folder').forEach(n=>n.classList.add('collapsed'));
 renderFlatList();
 
-let sel=-1, mode='overlay';
+let sel=-1, mode='split';
 const PADPANE=16;
 function svgOf(c){ return paneFor(c).querySelector('svg'); }
 
 // ── Global zoom — one scale drives BOTH panes, in every view mode ──────────
 let zoom=1;                          // 1 = whole VI fit to stage width
+const ZMIN=1, ZMAX=8;                // no zooming out past fit
+// before/after share ONE LV coordinate space but each svg carries its own tight
+// viewBox — union registration (here + the margins applyZoom sets) is what maps
+// the SAME LV point to the SAME screen point in both panes, in every mode.
+function vbUnion(){
+  const b=beforePane.querySelector('svg').viewBox.baseVal;
+  const a=afterPane.querySelector('svg').viewBox.baseVal;
+  return {minX:Math.min(b.x,a.x), minY:Math.min(b.y,a.y),
+          w:Math.max(b.x+b.width, a.x+a.width)-Math.min(b.x,a.x)};
+}
 function fitScale(){                  // css px per user px at zoom=1
-  const bw=beforePane.querySelector('svg').viewBox.baseVal.width;
-  const aw=afterPane.querySelector('svg').viewBox.baseVal.width;
   // Every mode fits to full width; Split mode stacks the panes vertically so each pane
   // gets the whole width (far better for wide LabVIEW diagrams).
-  return (stage.clientWidth-2*PADPANE)/Math.max(bw,aw);
+  return (stage.clientWidth-2*PADPANE)/vbUnion().w;
 }
 // ── Split view synced pan (mode 'split') ────────────────────────────────────────
 // In every other mode `stage` itself is the one scroll container. In 'split'
@@ -659,9 +693,20 @@ function fitScale(){                  // css px per user px at zoom=1
 function scrollTargets(){ return mode==='split' ? [beforePane, afterPane] : [stage]; }
 function applyZoom(){
   const S=fitScale()*zoom;           // shared css-per-user scale → panes stay comparable
+  const u=vbUnion();
   [beforePane,afterPane].forEach(p=>{const s=p.querySelector('svg'); if(!s)return;
     s.style.width=(s.viewBox.baseVal.width*S)+'px';
+    // Register this pane's tight viewBox inside the UNION box, so identical LV
+    // coordinates land on identical screen points in the other pane — Overlay
+    // stacks true-to-coordinate, and Split's raw mirrored scroll offsets keep
+    // both panes on the same LV region.
+    s.style.marginLeft=((s.viewBox.baseVal.x-u.minX)*S)+'px';
+    s.style.marginTop=((s.viewBox.baseVal.y-u.minY)*S)+'px';
     s.querySelectorAll('.hl-num').forEach(t=>t.style.fontSize=(15/S)+'px');});
+  // At the limits the button would be a no-op (zoom clamps to [ZMIN,ZMAX]) —
+  // read as disabled. applyZoom runs on every zoom change, including glides.
+  document.getElementById('zoomOut').disabled = zoom<=ZMIN;
+  document.getElementById('zoomIn').disabled = zoom>=ZMAX;
 }
 // ── Smooth focus glide ──────────────────────────────────────────────────────
 // `focus()` animates zoom+pan from the current view to its computed target with
@@ -675,7 +720,7 @@ const ANIMATE = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 const easeInOutCubic = t => t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
 function setZoom(z, ax, ay){          // keep viewport point (ax,ay) fixed while zooming
   cancelGlide();                      // a manual zoom retargets away from any glide
-  z=Math.max(1, Math.min(z, 8));
+  z=Math.max(ZMIN, Math.min(z, ZMAX));
   const targets=scrollTargets();
   if(ax===undefined){ax=targets[0].clientWidth/2; ay=targets[0].clientHeight/2;}
   const ratio=z/zoom;
@@ -824,6 +869,7 @@ function jump(i){
   if(g){g.r.classList.add('sel');g.layer.appendChild(g.r);
         if(g.t){g.t.classList.add('sel');g.layer.appendChild(g.t);}}
   revealFrame(c);                                // switch case(s) to the change's frame
+  revealBlend(c);                                // fade the change's own layer dominant
   focus(i);                                      // zoom + centre
 }
 function fit(){ sel=-1; stage.classList.remove('has-sel'); setZoom(1);
@@ -887,10 +933,50 @@ function applyBlend(){
     beforePane.style.pointerEvents='auto'; afterPane.style.pointerEvents='auto';
   }
 }
-op.oninput=applyBlend;
-document.querySelectorAll('#opWrap .op-end').forEach(b=>b.addEventListener('click',()=>{op.value=b.dataset.op;applyBlend();}));
+op.oninput=()=>{cancelBlendGlide();applyBlend();};   // manual fader wins instantly
+document.querySelectorAll('#opWrap .op-end').forEach(b=>b.addEventListener('click',()=>{cancelBlendGlide();op.value=b.dataset.op;applyBlend();}));
+
+// ── Blend auto-reveal (Overlay only) ────────────────────────────────────────
+// A removed change only EXISTS in the before layer (added/modified in after);
+// if the fader currently favours the other side, the selected change is nearly
+// invisible. On jump(), glide the fader just far enough that the change's own
+// layer dominates — 25 for before-side, 75 for after-side — and only when the
+// current value doesn't already show it (a user-chosen 10 stays 10 for a
+// removed change). Eased with the same easeInOutCubic as the pan/zoom glide —
+// no linear snapping sweeps — and reduced-motion users get an instant set.
+let blendRAF=null;
+function cancelBlendGlide(){ if(blendRAF!==null){ cancelAnimationFrame(blendRAF); blendRAF=null; } }
+function revealBlend(c){
+  if(mode!=='overlay')return;
+  cancelBlendGlide();
+  const v0=+op.value;
+  const target = c.change==='removed' ? Math.min(v0,25) : Math.max(v0,75);
+  if(target===v0)return;
+  if(!ANIMATE){ op.value=target; applyBlend(); return; }
+  const t0=Date.now(), DUR=250;
+  const step=()=>{
+    const raw=Math.min(1,(Date.now()-t0)/DUR), e=easeInOutCubic(raw);
+    op.value=Math.round(v0+(target-v0)*e);
+    applyBlend();
+    blendRAF = raw>=1 ? null : requestAnimationFrame(step);
+  };
+  blendRAF=requestAnimationFrame(step);
+}
 applyBlend();   // initial state (op.value defaults to 70 — mostly-AFTER Overlay)
-document.getElementById('hlToggle').onchange=e=>stage.classList.toggle('hide-hl',!e.target.checked);
+applyZoom();    // deterministic initial layout: shared-scale widths + union
+                // registration from the first paint (never CSS-default 100%),
+                // so mode switches can't change what "aligned" means.
+// Highlight toggle: an icon button (◉ on / ○ off), .active styled like the
+// mode buttons. Hiding is visibility-based (see .hide-hl CSS) so prev/next
+// navigation keeps working with highlights off.
+const hlBtn=document.getElementById('hlToggle');
+hlBtn.onclick=()=>{
+  const off=stage.classList.toggle('hide-hl');
+  hlBtn.classList.toggle('active',!off);
+  hlBtn.setAttribute('aria-pressed',String(!off));
+  hlBtn.textContent=off?'○':'◉';
+  hlBtn.title='Change highlights: '+(off?'off':'on')+' (click to toggle)';
+};
 
 // Tied-stacked synced-pan: dragging/scrolling (wheel, trackpad, scrollbar,
 // touch) either pane's own viewport mirrors the SAME scroll offset onto the
@@ -1037,7 +1123,13 @@ function revealFrame(c){
     s=el.closest&&el.closest('.lv-selector,.lv-option'); if(s)break;}
   if(!s)return;
   const u=s.dataset.lvStruct; if(!u)return;
-  if(s.classList.contains('lv-option')) setFrame(u, s.dataset.lvValue);
+  if(s.classList.contains('lv-option')){
+    setFrame(u, s.dataset.lvValue);
+    // Picking a value CLOSES the dropdown — a menu left floating over the
+    // freshly switched frame hides the very content the user asked to see.
+    const m=p.querySelector('.lv-menu[data-lv-struct="'+u+'"]');
+    if(m) m.style.display='none';
+  }
   else if(s.dataset.lvAction==='toggle'){
     // The renderer bakes a REAL per-value dropdown for case structures (see
     // draw.py's _draw_frame_menu: one <g class="lv-menu"><g class="lv-option"
@@ -1071,9 +1163,16 @@ applyFrames();
 // _frame_locality), so every change with a container_uid counts toward its
 // owning structure's dot, not just frame/value-kind ones.
 function decorateMenus(){
+  // A structure that is ITSELF added/removed gets NO dot: its own dashed
+  // outline already covers everything inside it, and an aggregate dot would
+  // mislabel an all-new (or all-gone) structure as "changed frames".
+  const selfAddRem=new Set(CHANGES
+    .filter(c=>c.kind==='structure'&&(c.change==='added'||c.change==='removed'))
+    .map(c=>String(c.uid)));
   const byStruct={};
   CHANGES.forEach(c=>{
     if(!c.container_uid || !c.frame_path) return;
+    if(selfAddRem.has(String(c.container_uid))) return;
     const seg=c.frame_path.split(';').pop(), val=seg.slice(seg.indexOf('=')+1);
     (byStruct[c.container_uid]=byStruct[c.container_uid]||[]).push({value:val, cls:c.change});
   });
@@ -1084,7 +1183,12 @@ function decorateMenus(){
       if(widget && box){
         const dot=document.createElementNS(SVGNS,'circle');
         dot.setAttribute('cx',box[2]-3);dot.setAttribute('cy',box[1]+3);dot.setAttribute('r',3.2);
-        dot.setAttribute('class','frame-changed-dot');
+        // Dot colour follows the change grammar: all-added inside → green,
+        // all-removed → red, mixed/modified → yellow.
+        const kinds=new Set(byStruct[uid].map(e=>e.cls));
+        const agg=(kinds.size===1&&(kinds.has('added')||kinds.has('removed')))
+          ? kinds.values().next().value : 'modified';
+        dot.setAttribute('class','frame-changed-dot '+agg);
         const title=document.createElementNS(SVGNS,'title');
         title.textContent=byStruct[uid].length+' change(s) inside this structure — open the ▼ dropdown for per-value markers';
         dot.appendChild(title);
