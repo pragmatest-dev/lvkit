@@ -21,6 +21,7 @@ from .project_store import (
 )
 from .structure import (
     discover_project_structure,
+    discover_structure_from_lvproj,
     generate_python_structure_plan,
     parse_lvclass,
     parse_lvlib,
@@ -197,7 +198,9 @@ def main() -> int:
     struct_parser = subparsers.add_parser(
         "structure", help="Analyze LabVIEW project structure"
     )
-    struct_parser.add_argument("input", help="Directory, .lvlib, or .lvclass file")
+    struct_parser.add_argument(
+        "input", help="Directory, .lvproj, .lvlib, or .lvclass file"
+    )
     struct_parser.add_argument("--json", action="store_true", help="Output as JSON")
     struct_parser.add_argument(
         "--plan", action="store_true", help="Generate Python structure plan"
@@ -562,9 +565,13 @@ def cmd_structure(args: argparse.Namespace) -> int:
                     for m in lib.members:
                         print(f"    - {m.name} [{m.member_type}]")
 
-        elif input_path.is_dir():
-            # Directory - discover full project
-            structure = discover_project_structure(input_path)
+        elif input_path.suffix == ".lvproj" or input_path.is_dir():
+            # A .lvproj uses the project's explicit member list; a directory is
+            # scanned. Both produce the same structure dict, rendered the same.
+            if input_path.suffix == ".lvproj":
+                structure = discover_structure_from_lvproj(input_path)
+            else:
+                structure = discover_project_structure(input_path)
 
             if args.plan:
                 plan = generate_python_structure_plan(structure)

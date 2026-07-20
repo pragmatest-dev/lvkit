@@ -679,6 +679,49 @@ def get_project_libraries(project: LVProject) -> list[tuple[str, Path]]:
     return libs
 
 
+def _library_entry(lib: LVLibrary, rel_path: str) -> dict[str, Any]:
+    """The structure-dict shape for one library (shared by directory scan and
+    .lvproj discovery so both project sources project identically)."""
+    return {
+        "name": lib.name,
+        "path": rel_path,
+        "version": lib.version,
+        "members": [
+            {"name": m.name, "type": m.member_type, "url": m.url}
+            for m in lib.members
+        ],
+    }
+
+
+def _class_entry(cls: LVClass, rel_path: str) -> dict[str, Any]:
+    """The structure-dict shape for one class (shared by directory scan and
+    .lvproj discovery)."""
+    return {
+        "name": cls.name,
+        "path": rel_path,
+        "parent_class": cls.parent_class,
+        "private_data": cls.private_data_ctl,
+        "methods": [
+            {
+                "name": m.name,
+                "scope": m.scope,
+                "is_static": m.is_static,
+                "vi_path": m.vi_path,
+            }
+            for m in cls.methods
+        ],
+    }
+
+
+def _rel_str(path: Path, root: Path) -> str:
+    """`path` relative to `root` as a string, or the bare name if `path` is not
+    under `root` (a .lvproj may reference files above/outside its own dir)."""
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return path.name
+
+
 def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
     """Discover LabVIEW project structure from a directory.
 
@@ -702,34 +745,16 @@ def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
     # Find all libraries
     for lvlib_path in root_path.rglob("*.lvlib"):
         lib = parse_lvlib(lvlib_path)
-        structure["libraries"].append({
-            "name": lib.name,
-            "path": str(lvlib_path.relative_to(root_path)),
-            "version": lib.version,
-            "members": [
-                {"name": m.name, "type": m.member_type, "url": m.url}
-                for m in lib.members
-            ],
-        })
+        structure["libraries"].append(
+            _library_entry(lib, str(lvlib_path.relative_to(root_path)))
+        )
 
     # Find all classes
     for lvclass_path in root_path.rglob("*.lvclass"):
         cls = parse_lvclass(lvclass_path)
-        structure["classes"].append({
-            "name": cls.name,
-            "path": str(lvclass_path.relative_to(root_path)),
-            "parent_class": cls.parent_class,
-            "private_data": cls.private_data_ctl,
-            "methods": [
-                {
-                    "name": m.name,
-                    "scope": m.scope,
-                    "is_static": m.is_static,
-                    "vi_path": m.vi_path,
-                }
-                for m in cls.methods
-            ],
-        })
+        structure["classes"].append(
+            _class_entry(cls, str(lvclass_path.relative_to(root_path)))
+        )
 
     # Find standalone VIs (not in class directories)
     class_dirs = {Path(cls["path"]).parent for cls in structure["classes"]}
@@ -739,6 +764,53 @@ def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
         # Check if VI is standalone (not in a class or referenced by library)
         if rel_path.parent not in class_dirs:
             structure["standalone_vis"].append(str(rel_path))
+
+    return structure
+
+
+def discover_structure_from_lvproj(lvproj_path: Path | str) -> dict[str, Any]:
+    """Discover project structure from a .lvproj's EXPLICIT member list.
+
+    Same output shape as ``discover_project_structure`` (so ``--json`` /
+    ``--plan`` / the summary render identically), but membership comes from
+    what the project file actually declares rather than a directory scan —
+    files on disk that the project doesn't include are correctly excluded,
+    and referenced members are resolved via their URLs.
+    """
+    project = parse_lvproj(lvproj_path)
+    proj_dir = project.path.parent
+
+    structure: dict[str, list[Any]] = {
+        "libraries": [],
+        "classes": [],
+        "standalone_vis": [],
+    }
+
+    # Members referenced via LabVIEW alias URLs (/<vilib>/…, /<userlib>/…)
+    # are external dependencies, not project source, and don't resolve to a
+    # file on disk. The directory scan can only see on-disk source under the
+    # root; mirror that here by skipping members whose file is absent.
+    for _name, lib_path in get_project_libraries(project):
+        if not lib_path.exists():
+            continue
+        lib = parse_lvlib(lib_path)
+        structure["libraries"].append(_library_entry(lib, _rel_str(lib_path, proj_dir)))
+
+    for _name, class_path in get_project_classes(project):
+        if not class_path.exists():
+            continue
+        cls = parse_lvclass(class_path)
+        structure["classes"].append(_class_entry(cls, _rel_str(class_path, proj_dir)))
+
+    # Standalone = project VIs that don't live under a class directory (class
+    # method VIs are already accounted for above), mirroring the directory scan.
+    class_dirs = {Path(cls["path"]).parent for cls in structure["classes"]}
+    for _name, vi_path in get_project_vis(project):
+        if not vi_path.exists():
+            continue
+        rel_path = _rel_str(vi_path, proj_dir)
+        if Path(rel_path).parent not in class_dirs:
+            structure["standalone_vis"].append(rel_path)
 
     return structure
 
