@@ -67,13 +67,13 @@ lvkit docs <input-path> <output-dir> [--search-path <libraries/>]
 ```
 
 ### Diff two versions of a VI
-See what changed between two `.vi` files — added/removed terminals, changed operations, rewired connections. Useful in code review and CI.
+See what changed between two `.vi` files — added/removed operations and structures, rewired connections, changed constants. Useful in code review and CI.
 
 ```
-lvkit diff <vi-a> <vi-b> [--long]
+lvkit diff <vi-a> <vi-b> [--format {text,json,html}]
 ```
 
-`--long` gives a structured change report instead of a unified diff.
+Text output is a concise, logical change summary. `--format json` emits a UID-correlated change map for scripts, CI, or an AI agent. `--format html` (or `--open`) writes an **interactive diff viewer** — synced before/after panes, click a change to spotlight it, deep-linkable.
 
 ### Generate Python
 Convert a VI, library, or class to Python. Deterministic — same VI in, same Python out, every run, no LLM involved.
