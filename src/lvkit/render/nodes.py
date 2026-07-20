@@ -40,6 +40,7 @@ from ..graph.models import (
     VINode,
 )
 from ..models import LVType, Terminal
+from ..num_format import format_numeric_const as _format_numeric_const
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
@@ -72,67 +73,13 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
 )
-from .style import int_byte_width, numeric_repr, type_family, wire_style
+from .style import numeric_repr, type_family, wire_style
 
 logger = logging.getLogger(__name__)
 
-# A LabVIEW numeric constant's display-format string, verbatim off the
-# DCO's ``numLabel/format`` XML field — a printf-style spec (LabVIEW's own
-# "Display Format" dialog writes these). Only the plain forms
-# ``%[flags][width].<precision><conv>`` are matched; anything else (e.g.
-# LabVIEW's ``%<%.3X\n%x>T`` timestamp syntax, or the engineering-notation
-# ``%#_13g`` seen once in the corpus with a non-numeric width token) is left
-# for the caller to fall back on default formatting rather than guess at.
-_NUMERIC_FORMAT_RE = re.compile(
-    r"^%[#0\- +]*\d*\.(?P<prec>\d+)(?P<conv>[fFeEgGxXob])$"
-)
-# LabVIEW prefixes a non-decimal numeric constant with a lowercase letter —
-# "x" for hex, "o" for octal, "b" for binary — never a "0x"/"0o"/"0b" style
-# prefix (verified against the task's own example: U8 31 -> "x1F").
-_RADIX_PREFIX = {"x": "x", "X": "x", "o": "o", "b": "b"}
-_RADIX_FORMAT_SPEC = {"x": "X", "X": "X", "o": "o", "b": "b"}
-
-
-def _format_numeric_const(
-    lv_type: LVType | None, value: object, display_format: str | None,
-) -> str | None:
-    """Apply a numeric constant's DCO-provided display-format string to its
-    decoded value: hex/octal/binary radix (with LabVIEW's lowercase x/o/b
-    prefix, negative values two's-complemented to the type's bit width) or
-    float precision (``%.Nf``/``%.Ng``/``%.Ne`` -> N digits).
-
-    Returns None — caller falls back to the default decimal display —
-    when there's no format string, or it doesn't match the plain printf
-    spec this function understands (see ``_NUMERIC_FORMAT_RE``)."""
-    if not display_format:
-        return None
-    m = _NUMERIC_FORMAT_RE.match(display_format)
-    if not m:
-        return None
-    conv = m.group("conv")
-    prec = int(m.group("prec"))
-    try:
-        fval = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return None
-
-    if conv in _RADIX_PREFIX:
-        ival = int(fval)
-        width = int_byte_width(lv_type)
-        if ival < 0:
-            if width is None:
-                # Can't two's-complement without a known bit width — don't
-                # guess a width, fall back to default formatting instead.
-                return None
-            ival &= (1 << (width * 8)) - 1
-        digits = format(ival, _RADIX_FORMAT_SPEC[conv])
-        if len(digits) < prec:
-            digits = digits.rjust(prec, "0")
-        return _RADIX_PREFIX[conv] + digits
-
-    # f/F/e/E/g/G — printf precision digits; Python's format mini-language
-    # uses the identical conversion letters and semantics.
-    return format(fval, f".{prec}{conv}")
+# Numeric-constant radix/precision formatting lives in ``lvkit.num_format`` now,
+# shared with the graph/netlist text output so render and describe render the
+# same way; imported above as ``_format_numeric_const``.
 
 
 def _format_const(value: object) -> str:

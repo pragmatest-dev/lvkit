@@ -338,6 +338,9 @@ class Constant(BaseModel):
     id: str
     value: ScalarValue
     lv_type: LVType | None = None
+    # DCO printf-style display spec (e.g. "%.0x" for hex), threaded from the
+    # ConstantNode so describe/netlist render the LabVIEW radix like the renderer.
+    display_format: str | None = None
     raw_value: str | None = None
     name: str | None = None
     # Structure containment (None = top-level diagram). Mirrors GraphNode:

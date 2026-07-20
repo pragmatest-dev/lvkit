@@ -583,6 +583,7 @@ class QueryMixin:
                 id=gnode.id,
                 value=gnode.value,
                 lv_type=gnode.lv_type,
+                display_format=gnode.display_format,
                 raw_value=gnode.raw_value,
                 name=gnode.label,
                 parent=gnode.parent,

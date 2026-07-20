@@ -162,25 +162,6 @@ def numeric_repr(lv_type: LVType | None) -> str | None:
     return None
 
 
-_INT_BYTE_WIDTH = {
-    "NumInt8": 1, "NumUInt8": 1,
-    "NumInt16": 2, "NumUInt16": 2,
-    "NumInt32": 4, "NumUInt32": 4,
-    "NumInt64": 8, "NumUInt64": 8,
-}
-
-
-def int_byte_width(lv_type: LVType | None) -> int | None:
-    """Byte width of an integer type (1/2/4/8), or None if not a plain
-    fixed-width integer (float, complex, non-numeric, or unresolved type).
-    Used to two's-complement a negative value to its type's bit width
-    before hex/octal/binary display — LabVIEW shows e.g. I16 -1 as
-    ``xFFFF``, not a Python-style ``-x1``."""
-    if lv_type is None or lv_type.kind != "primitive":
-        return None
-    return _INT_BYTE_WIDTH.get(lv_type.underlying_type or "")
-
-
 def type_repr(lv_type: LVType | None) -> str:
     """The LabVIEW data-type terminal text for an LVType.
 

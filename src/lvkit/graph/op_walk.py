@@ -28,6 +28,7 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..num_format import format_numeric_const
 from ..parser.constants import NODE_CLASS_NMUX
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant
@@ -165,6 +166,9 @@ def _const_value_str(c: Constant) -> str:
     """Human-readable value for a constant (no redundant quoting)."""
     if c.lv_type and _is_error_cluster(c.lv_type):
         return _format_error_cluster(c.value)
+    formatted = format_numeric_const(c.lv_type, c.value, c.display_format)
+    if formatted is not None:
+        return formatted
     return str(c.value)
 
 
