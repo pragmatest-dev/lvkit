@@ -14,8 +14,8 @@ the evidence and a confidence level.
 
 ## The three files
 
-`extractor.extract_vi_xml(vi_path)` runs one pylabview subprocess per VI and
-writes three sibling XML files next to the `.vi` (plus a pile of `*.bin`
+`extractor.extract_vi_xml(vi_path)` runs pylabview in-process and writes three
+XML files into the `.lvkit/cache/` extraction cache (plus a pile of `*.bin`
 side-blobs and `*.png` icons):
 
 | File | Nickname | Contents | Doc |

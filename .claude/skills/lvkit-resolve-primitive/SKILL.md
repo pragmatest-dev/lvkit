@@ -90,15 +90,15 @@ The primResID is serialized verbatim as `<primResID>PRIM_ID</primResID>` in each
 *subVI* of the failing VI that a shape-based parse would have missed).
 
 **1. Ensure the block-diagram XML is dumped (pylabview — no LabVIEW license needed).**
-- lvkit mode: `.lvkit/cache/samples/` is already extracted — every VI has a `*_BDHb.xml` beside it. Nothing to do.
-- user-project mode: extract each VI's XML once — ONE subprocess per VI, so memory stays flat:
+- lvkit mode: `.lvkit/cache/samples/` is already extracted into `.lvkit/cache/extracted/`. Resolve a VI's cached XML with `resolve_extracted(vi_path)`. Nothing to do.
+- user-project mode: extract each VI's XML once — in-process, cached to `.lvkit/cache/`, so re-runs are no-ops:
   ```bash
   # <root> = the user's project root
   python3 -c "
   from pathlib import Path
   from lvkit.extractor import extract_vi_xml
   for vi in Path('<root>').rglob('*.vi'):
-      try: extract_vi_xml(str(vi))   # writes *_BDHb.xml beside the VI (cached); no subVIs
+      try: extract_vi_xml(str(vi))   # -> .lvkit/cache/ (content-hash cached); no subVIs
       except Exception as e: print('skip', vi.name, e)
   "
   ```

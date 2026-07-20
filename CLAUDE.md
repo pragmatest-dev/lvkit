@@ -129,18 +129,21 @@ A `.vi` is a binary — you cannot grep it directly. Finding a construct (a
 `primResID`, a node class, a structure) is **two steps**:
 
 1. **Extract the XML** with pylabview. `lvkit.extractor.extract_vi_xml(vi_path)`
-   runs one pylabview subprocess per VI and writes `*_BDHb.xml` (block diagram) +
-   `*_FPHb.xml` (front panel) beside the VI. Many corpus VIs are already extracted
-   — check for an existing `*_BDHb.xml` before re-extracting.
+   runs pylabview **in-process** and caches `*_BDHb.xml` (block diagram) +
+   `*_FPHb.xml` (front panel) under `.lvkit/cache/` — keyed by path + content
+   hash, so re-runs are no-ops. Use `resolve_extracted(vi_path)` to find the
+   cached XML; many corpus VIs are already extracted.
 2. **Grep the XML.** e.g. `<primResID>1234</primResID>` for a primitive, or
    `class="whileLoop"` / `class="caseStruct"` / `class="flatSequence"` /
    `class="fBox"` for a structure.
 
 **NEVER run the full parser (`parse_vi` / graph build) across the whole corpus
-just to locate a known element** — that OOM-crashes WSL. Extraction is
-memory-flat (per-VI subprocess); parsing/graph-building accumulates. So:
-extract-then-grep the XML, and only `parse_vi(bd_xml=...)` the handful of VIs that
-matched. Cap the scan and `del` each VI's text before the next.
+just to locate a known element** — that OOM-crashes WSL. So: extract-then-grep
+the XML — grep the pre-extracted `.lvkit/cache/extracted/**/*_BDHb.xml`, and only
+`parse_vi(bd_xml=...)` the handful of VIs that matched. Cap the scan and `del`
+each VI's text before the next. (Bulk extraction of a whole corpus uses batched
+worker subprocesses — see `scripts/extract_corpus.py` — because in-process
+pylabview *accumulates* memory across VIs.)
 
 ## Adding New Primitives
 
