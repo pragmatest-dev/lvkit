@@ -244,6 +244,14 @@ _ARRAY_GLYPH: dict[str, Glyph] = {
     "Split 1D Array": ArraySplitGlyph(),
 }
 
+# ARRAY-family glyphs (the dict above + Build Array's ``ArrayBuildGlyph``) are
+# gated OFF: the compositional array-assembly drawings read poorly and Build
+# Array did not expand its element rows to the wired input count (4 wires
+# landing on a 3-row glyph). With this False they fall back to the labeled box
+# (primitive name + its real terminals). Flip to True to restore the glyphs
+# once expand-to-wired-count is fixed.
+_ARRAY_GLYPHS_ENABLED = False
+
 # CONVERTER family (goal #14 follow-up): target-type abbreviation shown by
 # ``ConvertGlyph``, keyed by the resolved primitive NAME.
 _CONVERTER_ABBR = {
@@ -663,13 +671,16 @@ class OriginalGlyphResolver:
             return BooleanGateGlyph(
                 gate_symbol, kind=kind, negated=negated, input_bubble=input_bubble,
             )
-        array_glyph = _ARRAY_GLYPH.get(node.name or "")
-        if array_glyph is not None:
-            return array_glyph
+        if _ARRAY_GLYPHS_ENABLED:
+            array_glyph = _ARRAY_GLYPH.get(node.name or "")
+            if array_glyph is not None:
+                return array_glyph
         abbr = _CONVERTER_ABBR.get(node.name or "")
         if abbr is not None:
             return ConvertGlyph(abbr)
-        if node.node_type == "aBuild" or node.name == "Build Array":
+        if _ARRAY_GLYPHS_ENABLED and (
+            node.node_type == "aBuild" or node.name == "Build Array"
+        ):
             num_inputs = sum(1 for t in node.terminals if t.direction == "input")
             return ArrayBuildGlyph(num_inputs=max(1, num_inputs))
         return None
