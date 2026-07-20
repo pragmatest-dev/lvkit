@@ -7,7 +7,7 @@ inline constants. It is a recursively nested tree of
 
 See [README.md](README.md) for the two type namespaces and coordinate spaces.
 Related code: `parser/vi.py`, `parser/constants.py`, `parser/nodes/*.py`,
-`parser/node_types.py`, `render/layout.py`.
+`parser/node_types.py`, `parser/layout.py`.
 
 ---
 
@@ -15,10 +15,10 @@ Related code: `parser/vi.py`, `parser/constants.py`, `parser/nodes/*.py`,
 
 | Element | Where | Format / example | What it holds | Evidence | Confidence |
 |---|---|---|---|---|---|
-| `<zPlaneList>` | top of each diagram | `<zPlaneList elements="9">` | The real node **definitions** — each child is a full node (class + `<bounds>` + `<termList>`). Z-order = paint order. | `render/layout.py:384`; sample `Draw Image..._BDHb.xml:5` | confirmed |
+| `<zPlaneList>` | top of each diagram | `<zPlaneList elements="9">` | The real node **definitions** — each child is a full node (class + `<bounds>` + `<termList>`). Z-order = paint order. | `parser/layout.py:384`; sample `Draw Image..._BDHb.xml:5` | confirmed |
 | `<nodeList>` | inside a diagram | children are bare `<SL__arrayElement uid="..."/>` (class=None) | uid **references** into the zPlaneList — plus this is where `sRN`, `bDConstDCO` constants and `signalList` live. Constants are found via `.//nodeList//SL__arrayElement[@class='term']` (`parser/nodes/constant.py:106`). | session finding; `parser/vi.py:399` iterates all `SL__arrayElement` | confirmed |
 | `<diagramList>` | on a structure | `<SL__arrayElement class="diag">` children | Inner diagrams of a structure: one per case frame / stacked-seq frame, exactly one for a loop or IPES. | `parser/nodes/case.py:123`, `loop.py:68` | confirmed |
-| `<sequenceList>` | on a `flatSequence` | `<SL__arrayElement class="sequenceFrame">` children | Flat-sequence frames (film-strip). Each frame has its own `<bounds>` + `<diagramList>`. | `parser/nodes/sequence.py:62`, `render/layout.py:449` | confirmed |
+| `<sequenceList>` | on a `flatSequence` | `<SL__arrayElement class="sequenceFrame">` children | Flat-sequence frames (film-strip). Each frame has its own `<bounds>` + `<diagramList>`. | `parser/nodes/sequence.py:62`, `parser/layout.py:449` | confirmed |
 | `<termList>` | on any node | `<SL__arrayElement class="term">` children | The node's terminals. Order = natural terminal index when no explicit index field. | `parser/vi.py:462-534` | confirmed |
 | `<signalList>` | inside a diagram | `<SL__arrayElement class="signal">` | The wires. | `parser/vi.py:412` | confirmed |
 
@@ -37,10 +37,10 @@ dispatches on `class`. The full class→handler table is `_HANDLERS`
 | Field | Example | Meaning | Evidence | Confidence |
 |---|---|---|---|---|
 | `class` (attr) | `class="prim"` | Node kind (see class table below). | `node_types.py:958` | confirmed |
-| `uid` (attr) | `uid="623"` | Heap-unique id; wires and refs point at it. Graph qualifies as `"{vi}::{uid}"`. | `render/layout.py:14` | confirmed |
-| `<bounds>` | `(286, 44, 318, 76)` | Node rect `(top,left,bottom,right)`, absolute in its diagram. | `render/layout.py:109`; sample `:193` | confirmed |
+| `uid` (attr) | `uid="623"` | Heap-unique id; wires and refs point at it. Graph qualifies as `"{vi}::{uid}"`. | `parser/layout.py:14` | confirmed |
+| `<bounds>` | `(286, 44, 318, 76)` | Node rect `(top,left,bottom,right)`, absolute in its diagram. | `parser/layout.py:109`; sample `:193` | confirmed |
 | `<objFlags>` | `16843392` | Per-element bitfield; meaning depends on node class (see objFlags section). | session finding | confirmed |
-| `<label>` | nested `textRec/text` | Owned label. `objFlags` bit `0x8` on the label = HIDDEN. | `render/layout.py:193-206`; session finding | confirmed |
+| `<label>` | nested `textRec/text` | Owned label. `objFlags` bit `0x8` on the label = HIDDEN. | `parser/layout.py:193-206`; session finding | confirmed |
 | `<clumpNum>` | `196611` | Execution-clump id (LabVIEW's parallelism scheduler grouping). lvkit does not use it. | sample `:195` | unknown |
 | `<shortCount>` | `4` | Terminal/short count hint. Unused by lvkit. | sample `:194` | unknown |
 
@@ -122,7 +122,7 @@ Real example (`Draw Image..._BDHb.xml:170-198`, an "Index Array"-style prim):
 | `<parmIndex>` | `term/dco` | `1` | Primitive terminal index. **Omitted when 0** (`prim`); its absence on a prim means index 0, not "unknown". | `parser/vi.py:481-494` | confirmed |
 | `<paramIdx>` | `term/dco` | `1` | Same, for SubVI (`iUse`) callee terminals — the connector-pane slot. Omitted ⇒ 0. | `parser/vi.py:481-494` | confirmed |
 | `<typeDesc>` | `term/dco` | `TypeID(41)` | Terminal type, a **VCTP** heap TypeID (namespace #1). Some node classes (e.g. `aReshape`) put the real typeDesc at node level and leave a bare uid-ref `<dco>` — followed by uid (`vi.py:555-568`). | `parser/vi.py:550`; `resolve_type_rich` | confirmed |
-| `<termBounds>` | `term/dco` | `(0, 0, 11, 12)` | Terminal rect **relative to the node icon origin** (icon is centered in bounds). `(top,left,bottom,right)`. | `render/layout.py:252-280` | confirmed |
+| `<termBounds>` | `term/dco` | `(0, 0, 11, 12)` | Terminal rect **relative to the node icon origin** (icon is centered in bounds). `(top,left,bottom,right)`. | `parser/layout.py:252-280` | confirmed |
 | `<objFlags>` (on `term`) | `term` | `36864` | Terminal bitfield. Bit 0 (`0x1`) = isIndicator ⇒ **output** — used only as a fallback when the terminal is unwired (`is_output_terminal`). | `parser/flags.py:19`, `constants.py:151-155`, `vi.py:537-547` | confirmed |
 | `<objFlags>` (on `dco`) | `term/dco` | `65536` | DCO bitfield. Bit 16 (`0x00010000`) = **inverted ("Not")** — but ONLY meaningful on `cpdArith` terminals (other prims reuse the bit). | `parser/flags.py:9,24`, `vi.py:585-589` | confirmed |
 | `<dcoFiller>` | `term/dco` (cpdArith 1st term) | `1` | Compound-arith operation code: 1=or, 2=and, 256=add. | `node_types.py:357-382` | confirmed |
@@ -172,7 +172,7 @@ face (`parser/nodes/base.py:47-97` `extract_tunnel_mapping`). A 2-element list
 | `class` | Structure | Meaning | Evidence | Confidence |
 |---|---|---|---|---|
 | `lSR` / `rSR` | loop | Left/right shift register (input/output); paired by order (`loop.py:127`). | `constants.py:118-119` | confirmed |
-| `lpTun` | loop | Loop tunnel (pass-through). Auto-indexing marked by `<TunnelType>`/`innerLpTunDCO` (`render/layout.py:208-229`). | `constants.py:120` | confirmed |
+| `lpTun` | loop | Loop tunnel (pass-through). Auto-indexing marked by `<TunnelType>`/`innerLpTunDCO` (`parser/layout.py:208-229`). | `constants.py:120` | confirmed |
 | `lMax` | loop | Accumulator/max output tunnel. | `constants.py:121` | probable |
 | `csTun` | case | Case tunnel — simple `[inner, outer]`. | `parser/nodes/case.py:15,318` | confirmed |
 | `selTun` | case | Per-frame case tunnel (one inner per frame). | `case.py:21,321-347` | confirmed |
@@ -187,7 +187,7 @@ face (`parser/nodes/base.py:47-97` `extract_tunnel_mapping`). A 2-element list
 |---|---|---|---|---|
 | `loopTestDCO` `class="lTst"` | loop element | While-loop conditional (stop) terminal; its `<termList>` first entry = the terminal receiving the stop boolean. | `loop.py:92-99` | confirmed |
 | `loopTestDCO/<objFlags>` bit 16 | | **Conditional polarity.** Bit 16 SET ⇒ Stop-if-True (default, e.g. a Stop button wired straight in); CLEAR ⇒ Continue-if-True. (Opposite sense of the cpdArith invert bit.) pylabview does NOT decode this. | `loop.py:101-111`; session finding | confirmed |
-| `loopIndexDCO` / `loopLimitDCO` | loop element | Iteration terminal `i` / count terminal `N` — geometry only in the renderer (`i`/`N` glyphs). | `render/layout.py:34-47` | confirmed |
+| `loopIndexDCO` / `loopLimitDCO` | loop element | Iteration terminal `i` / count terminal `N` — geometry only in the renderer (`i`/`N` glyphs). | `parser/layout.py:34-47` | confirmed |
 
 ### Case structures (`caseStruct`, `select` — `parser/nodes/case.py`)
 
@@ -203,7 +203,7 @@ face (`parser/nodes/base.py:47-97` `extract_tunnel_mapping`). A 2-element list
 
 | Field | Meaning | Evidence | Confidence |
 |---|---|---|---|
-| `<sequenceList>`/`sequenceFrame` (flat) vs `<diagramList>`/`diag` (stacked) | Frame containers differ by type; both enforce sequential execution. Flat frames sit side-by-side (each `sequenceFrame` `<bounds>` gives its absolute x — used for film-strip dividers, `render/layout.py:449-478`). | `sequence.py:61-67` | confirmed |
+| `<sequenceList>`/`sequenceFrame` (flat) vs `<diagramList>`/`diag` (stacked) | Frame containers differ by type; both enforce sequential execution. Flat frames sit side-by-side (each `sequenceFrame` `<bounds>` gives its absolute x — used for film-strip dividers, `parser/layout.py:449-478`). | `sequence.py:61-67` | confirmed |
 | `<dIdx>` on a stacked seq | **NOT a frame index.** A 3-frame stacked sequence carried `dIdx=17`, resolving to a diagram OUTSIDE its own frames. The true displayed-frame source is **unknown**. | `render/scene.py` + session finding | unknown |
 | Flat sequence executes ALL contained nodes, even unwired ones. | | memory `feedback_sequence_frames.md` | confirmed |
 
@@ -233,7 +233,7 @@ Real example (`Draw Image..._BDHb.xml:538-546`):
 | Field | Example | Meaning | Evidence | Confidence |
 |---|---|---|---|---|
 | `<termList>` | 2+ uids | Connected terminal uids: **first = source, rest = sinks**. lvkit fans out a multi-sink signal into one `ParsedWire` per sink (`from_term=source`). | `parser/vi.py:412-429` | confirmed |
-| `<compressedWireTable>` | `040800001E07` | Hex blob = the wire's LabVIEW-routed bend geometry. **Decoded** for 2-endpoint wires (see below); lvkit can draw either these faithful paths or its own auto-router (switchable). | task #84; `render/wire_table.py` | confirmed (2-endpoint); fan-out undecoded |
+| `<compressedWireTable>` | `040800001E07` | Hex blob = the wire's LabVIEW-routed bend geometry. **Decoded** for 2-endpoint wires (see below); lvkit can draw either these faithful paths or its own auto-router (switchable). | task #84; `parser/wire_table.py` | confirmed (2-endpoint); fan-out undecoded |
 | `<state>` | `1` | Wire state flag; unused. | sample `:534` | unknown |
 | `<lastSignalKind>` | `517` | Last-known signal/data-kind hint; unused. | sample `:536` | unknown |
 
@@ -257,7 +257,7 @@ Reconstruct: start at the source, walk the first `V-1` stored segments, then run
 the final segment to the sink. **Fan-out signals (>2 termList uids) are NOT
 decoded** — `byte[0]` becomes a vertex-total over a shared-trunk tree and the
 `2V-2` invariant breaks; lvkit falls back to its auto-router for those. Decoder:
-`render/wire_table.py::decode_wire_mid`.
+`parser/wire_table.py::decode_wire_mid`.
 
 ---
 
@@ -291,7 +291,7 @@ NOT decode the bits. Confirmed this session:
 | Bit | Element | Meaning | Evidence | Confidence |
 |---|---|---|---|---|
 | `0x1` (bit 0) | terminal / FP DCO | isIndicator ⇒ output (terminal) / indicator (FP control). | `constants.py:151-155`, `front_panel.py:46-51` | confirmed |
-| `0x8` (bit 3) | a node's / constant's `<label>` part | Owned label HIDDEN ("label visible" off). | `render/layout.py:193-206`, `constant.py:84-87` | confirmed |
+| `0x8` (bit 3) | a node's / constant's `<label>` part | Owned label HIDDEN ("label visible" off). | `parser/layout.py:193-206`, `constant.py:84-87` | confirmed |
 | `0x00010000` (bit 16) | `cpdArith` terminal DCO | Invert this terminal ("Not"). Only on cpdArith. | `parser/flags.py:9`, `vi.py:585-589` | confirmed |
 | bit 16 | `loopTestDCO` objFlags | While-loop conditional polarity (SET ⇒ Stop-if-True). | `loop.py:101-111` | confirmed |
 | bit 24 | `select`/case node objFlags | Case Insensitive Match (string case). | `case.py:24,120` | confirmed |

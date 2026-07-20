@@ -43,7 +43,7 @@ def generate_documents(
     library_path: str,
     output_dir: str,
     search_paths: list[str] | None = None,
-    expand_subvis: bool = True,
+    load_mode: str = "full",
     vilib_root: str | None = None,
     userlib_root: str | None = None,
     auto_vilib: bool = True,
@@ -57,9 +57,11 @@ def generate_documents(
         library_path: Path to .lvlib, .lvclass, directory, or .vi file
         output_dir: Output directory for HTML files
         search_paths: Optional list of search paths for dependencies
-        expand_subvis: If True, load all SubVI dependencies for complete
-                      cross-references (slower). If False, only load VIs in
-                      the library/directory (faster).
+        load_mode: how deep to load dependencies (see LoadMode). ``"full"``
+                   (default) loads the whole SubVI/class-method tree for complete
+                   cross-references; ``"minimal"`` loads each VI + its direct
+                   SubVIs' connector panes + referenced-type fields (faithful
+                   render, far cheaper); ``"none"`` loads each VI alone.
 
     Returns:
         Summary message with statistics
@@ -74,8 +76,7 @@ def generate_documents(
         for sp in search_paths:
             cmd.extend(["--search-path", sp])
 
-    if not expand_subvis:
-        cmd.append("--no-expand")
+    cmd.extend(["--load-mode", load_mode])
 
     _apply_auto_vilib(cmd, vilib_root, userlib_root, auto_vilib)
 

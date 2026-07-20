@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import re
 import struct
+import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from lvkit.models import LVType
 
 from .constants import (
     MULTI_LABEL_CLASS,
+    NODE_CLASS_COMMENT,
     NODE_CLASS_CPD_ARITH,
     NODE_CLASS_SHIFT_REG,
     OPERATION_NODE_CLASSES,
@@ -33,6 +35,7 @@ from .front_panel import (
     extract_fp_terminals,
     parse_connector_pane,
 )
+from .layout import Layout, _icon_for_heap, build_layout_from_root
 from .metadata import parse_iuse_from_libd
 from .models import (
     ParsedBlockDiagram,
@@ -53,8 +56,10 @@ from .nodes import (
     extract_case_structures,
     extract_constants,
     extract_decompose_structures,
+    extract_disable_structures,
     extract_flat_sequences,
     extract_loops,
+    is_disable_structure,
     parse_selector_tables,
 )
 from .type_mapping import parse_type_map_rich
@@ -66,6 +71,13 @@ from .utils import (
     safe_int,
     strip_surrounding_quotes,
 )
+
+# A single corrupt VI can export a front-panel heap that balloons past 1 GB (a
+# bad LVVariant DataFill); parsing that into an ElementTree can OOM the host.
+# The FP heap only feeds the OPTIONAL connector pane / front panel, so above
+# this cap we skip it and degrade rather than crash. Real FP heaps are well
+# under this.
+_MAX_FP_HEAP_BYTES = 256 * 1024 * 1024
 
 
 def _load_node_dco_maps() -> dict[str, dict[str, int]]:
@@ -104,6 +116,7 @@ def parse_vi(
     bd_xml: Path | str | None = None,
     fp_xml: Path | str | None = None,
     main_xml: Path | str | None = None,
+    layout: bool = False,
 ) -> ParsedVI:
     """Parse a VI file into all components.
 
@@ -115,6 +128,10 @@ def parse_vi(
         bd_xml: Path to *_BDHb.xml (for direct XML parsing)
         fp_xml: Path to *_FPHb.xml (optional)
         main_xml: Path to main *.xml (optional)
+        layout: also decode block-diagram GEOMETRY (node/terminal/wire bounds)
+            from the same parsed heap and attach it as ``ParsedVI.layout``. Off
+            by default — codegen needs no positions. Rendering passes True so
+            geometry comes from this one read instead of a second heap parse.
 
     Returns:
         ParsedVI with all components
@@ -127,6 +144,23 @@ def parse_vi(
         raise ValueError("Either vi_path or bd_xml must be provided")
 
     bd_xml = Path(bd_xml)
+
+    # Guard: skip a pathologically-large front-panel heap so one corrupt VI
+    # can't OOM the host (see _MAX_FP_HEAP_BYTES). Dropping fp_xml here makes the
+    # block-diagram, front-panel, and connector-pane parses below all skip it.
+    if fp_xml is not None:
+        try:
+            fp_size = Path(fp_xml).stat().st_size
+        except OSError:
+            fp_size = 0
+        if fp_size > _MAX_FP_HEAP_BYTES:
+            warnings.warn(
+                f"{bd_xml.name}: front-panel heap is {fp_size // (1024 * 1024)} MB "
+                f"(> {_MAX_FP_HEAP_BYTES // (1024 * 1024)} MB cap, likely a corrupt "
+                "LVVariant DataFill) — skipping it; connector pane unavailable.",
+                stacklevel=2,
+            )
+            fp_xml = None
 
     # Derive source .vi path. Prefer the explicit vi_path argument since BD XML
     # may now live in a temp cache dir rather than next to the source file.
@@ -144,9 +178,10 @@ def parse_vi(
     # does not (see parse_selector_tables / _apply_selector_tables).
     selector_tables = _parse_selector_tables(main_xml)
 
-    # Parse block diagram
-    block_diagram = _parse_block_diagram(
+    # Parse block diagram (+ optional geometry from the SAME parsed heap)
+    block_diagram, bd_layout = _parse_block_diagram(
         bd_xml, fp_xml, metadata.type_map, selector_tables,
+        want_layout=layout,
     )
 
     # Parse front panel
@@ -164,6 +199,7 @@ def parse_vi(
         block_diagram=block_diagram,
         front_panel=front_panel,
         connector_pane=connector_pane,
+        layout=bd_layout,
     )
 
 
@@ -237,8 +273,15 @@ def _parse_block_diagram(
     fp_xml: Path | str | None,
     type_map: dict[int, LVType] | None,
     selector_tables: list[SelectorTable] | None = None,
-) -> ParsedBlockDiagram:
-    """Parse block diagram from BD XML."""
+    *,
+    want_layout: bool = False,
+) -> tuple[ParsedBlockDiagram, Layout | None]:
+    """Parse block diagram from BD XML.
+
+    When ``want_layout`` is set, also decode the diagram's geometry from the
+    SAME parsed ``root`` (no second read) and return it alongside — the parser
+    owning both semantics and positions from one pass.
+    """
     tree = ET.parse(bd_xml)
     root = tree.getroot()
 
@@ -258,8 +301,9 @@ def _parse_block_diagram(
     )
     flat_sequences = extract_flat_sequences(root)
     decompose_structures = extract_decompose_structures(root)
+    disable_structures = extract_disable_structures(root)
 
-    return ParsedBlockDiagram(
+    bd = ParsedBlockDiagram(
         nodes=nodes,
         constants=constants,
         wires=wires,
@@ -270,8 +314,15 @@ def _parse_block_diagram(
         case_structures=case_structures,
         flat_sequences=flat_sequences,
         decompose_structures=decompose_structures,
+        disable_structures=disable_structures,
         srn_to_structure=srn_to_structure,
     )
+    layout = (
+        build_layout_from_root(root, icon_png=_icon_for_heap(Path(bd_xml)))
+        if want_layout
+        else None
+    )
+    return bd, layout
 
 
 def _parse_front_panel(
@@ -381,22 +432,55 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
 
 
 def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
-    """Extract nodes from the block diagram using node type factory."""
-    nodes = []
+    """Extract nodes from the block diagram using node type factory.
+
+    Single tree walk: bucket every element by its ``class`` and collect the
+    generic-sweep candidates in one pass, then emit in ``OPERATION_NODE_CLASSES``
+    order. This replaces a per-class ``.//*[@class=X]`` findall (one full
+    descendant scan *per allowlisted class*) — identical nodes and order, but one
+    tree traversal instead of ~len(OPERATION_NODE_CLASSES).
+    """
+    allowed = frozenset(OPERATION_NODE_CLASSES)
+    by_class: dict[str, list[ET.Element]] = {}
+    generic: list[ET.Element] = []
+    disable_elems: list[ET.Element] = []
+    for elem in root.iter():
+        # `.//*[@class=X]` matches descendants only — exclude root from buckets.
+        if elem is not root:
+            cls = elem.get("class")
+            if cls is not None and cls in allowed:
+                by_class.setdefault(cls, []).append(elem)
+            elif cls == NODE_CLASS_COMMENT and is_disable_structure(elem):
+                disable_elems.append(elem)
+        # matches `root.iter("SL__arrayElement")` (includes root if it matched).
+        if elem.tag == "SL__arrayElement":
+            generic.append(elem)
+
+    nodes: list[ParsedNode] = []
     seen_uids: set[str] = set()
 
     for cls in OPERATION_NODE_CLASSES:
-        for elem in root.findall(f".//*[@class='{cls}']"):
+        for elem in by_class.get(cls, ()):
             node = parse_node(elem)
             nodes.append(node)
             if node.uid:
                 seen_uids.add(node.uid)
 
+    # Disable structures (class="commentNode" with subdiagrams) — same
+    # tree-shaped-node treatment as case/loop/sequence structures. Gated by
+    # is_disable_structure above since a plain free-text comment never
+    # carries a diagramList and must stay a no-op (SKIP_NODE_CLASSES).
+    for elem in disable_elems:
+        node = parse_node(elem)
+        nodes.append(node)
+        if node.uid:
+            seen_uids.add(node.uid)
+
     # Generic capture: node-shaped elements the allowlist above misses (e.g.
     # decimate, interLeave, extFunc, exprNode). parse_node falls back to
     # GenericHandler for unknown classes, so they become real ParsedNodes that
     # render as boxes with wired terminals rather than vanishing.
-    for elem in root.iter("SL__arrayElement"):
+    for elem in generic:
         uid = elem.get("uid")
         if uid and uid not in seen_uids and _is_generic_operation_node(elem):
             nodes.append(parse_node(elem))
@@ -612,10 +696,19 @@ def _walk_and_extract_terminals(
     elem_uid = elem.get("uid")
     elem_class = elem.get("class", "")
 
+    # A Disable structure's own boundary terminals (commentTun) live in its
+    # DIRECT termList, exactly like a case structure's csTun/selTun — but
+    # commentNode isn't in TERMINAL_CONTAINER_CLASSES (a plain comment has no
+    # terminals worth extracting), so it needs its own is_disable_structure
+    # gate here, same as the structure-context check below.
+    is_disable_elem = elem_class == NODE_CLASS_COMMENT and is_disable_structure(elem)
+
     # Extract terminals from this element if it's a terminal container — known
-    # operation nodes, or a generically-captured unknown node (so its wires
-    # still connect through the placeholder box).
+    # operation nodes, a Disable structure's own boundary terminals, or a
+    # generically-captured unknown node (so its wires still connect through
+    # the placeholder box).
     if elem_uid and (elem_class in TERMINAL_CONTAINER_CLASSES
+                     or is_disable_elem
                      or _is_generic_operation_node(elem)):
         _process_element_terminals(
             elem, wire_sources, wire_sinks, type_map, terminal_info,
@@ -626,7 +719,7 @@ def _walk_and_extract_terminals(
         srn_to_structure[elem_uid] = current_structure_uid
 
     # Update structure context for children
-    if elem_uid and elem_class in STRUCTURE_NODE_CLASSES:
+    if elem_uid and (elem_class in STRUCTURE_NODE_CLASSES or is_disable_elem):
         next_structure_uid = elem_uid
     else:
         next_structure_uid = current_structure_uid

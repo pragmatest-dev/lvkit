@@ -6,6 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 lvkit converts LabVIEW VI files to Python code without requiring a LabVIEW license. It uses [pylabview](https://github.com/mefistotelis/pylabview) as the core parser for reading VI file formats.
 
+## ⛔ CLEAN-ROOM — NEVER SUGGEST OPENING LabVIEW (READ THIS FIRST)
+
+**The maintainer does NOT have LabVIEW installed and legally CANNOT use it for this work.** NI's EULA prohibits using LabVIEW to reverse-engineer LabVIEW; doing so would poison lvkit's clean room. **The clean room is the entire reason this project exists** — if LabVIEW were an option there would be no project.
+
+So: **NEVER tell the maintainer to "open it in LabVIEW", "click the node", "check quick help / the manual in LabVIEW", or confirm anything by inspecting LabVIEW.** Not once. Identifying a primitive, a vilib VI, a type, or any behavior draws ONLY from clean-room sources:
+
+1. **The parsed graph** — pylabview reads the `.vi` binary with no license: real per-terminal types (incl. array *element* type and refnum `ref_type`), dataflow, structure, constants.
+2. **NI's PUBLIC web docs** — `https://docs-be.ni.com/api/bundle/labview-api-ref/page/...` (JSON `topic_html`; the `www.ni.com` SPA returns only a shell).
+3. **Algorithm knowledge** (LZW, MD5, GIF, …) — reconstruct the VI's math and let it force the answer.
+4. **Deterministic deduction** from 1–3 (e.g. "an output compared against a code *count* must be count-scaled → `2^width` → Power Of 2, not log2").
+
+When stuck: do MORE of 1–4, or write a `"placeholder": true` primitive entry. Ask the maintainer to describe the *algorithm/domain* if needed — **never to inspect LabVIEW.** Also: ship ZERO NI-derived artwork (clean-room glyphs only).
+
 ## Commands
 
 Always use `uv run` — it automatically activates the project venv without a separate activation step.
@@ -55,16 +68,16 @@ The conversion pipeline:
 
 ```bash
 # Single VI
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 
 # LabVIEW class (.lvclass)
-python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 
 # LabVIEW library (.lvlib)
-python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 
 # Directory of VIs
-python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 ```
 
 ## Error Handling Strategy
@@ -116,18 +129,21 @@ A `.vi` is a binary — you cannot grep it directly. Finding a construct (a
 `primResID`, a node class, a structure) is **two steps**:
 
 1. **Extract the XML** with pylabview. `lvkit.extractor.extract_vi_xml(vi_path)`
-   runs one pylabview subprocess per VI and writes `*_BDHb.xml` (block diagram) +
-   `*_FPHb.xml` (front panel) beside the VI. Many corpus VIs are already extracted
-   — check for an existing `*_BDHb.xml` before re-extracting.
+   runs pylabview **in-process** and caches `*_BDHb.xml` (block diagram) +
+   `*_FPHb.xml` (front panel) under `.lvkit/cache/` — keyed by path + content
+   hash, so re-runs are no-ops. Use `resolve_extracted(vi_path)` to find the
+   cached XML; many corpus VIs are already extracted.
 2. **Grep the XML.** e.g. `<primResID>1234</primResID>` for a primitive, or
    `class="whileLoop"` / `class="caseStruct"` / `class="flatSequence"` /
    `class="fBox"` for a structure.
 
 **NEVER run the full parser (`parse_vi` / graph build) across the whole corpus
-just to locate a known element** — that OOM-crashes WSL. Extraction is
-memory-flat (per-VI subprocess); parsing/graph-building accumulates. So:
-extract-then-grep the XML, and only `parse_vi(bd_xml=...)` the handful of VIs that
-matched. Cap the scan and `del` each VI's text before the next.
+just to locate a known element** — that OOM-crashes WSL. So: extract-then-grep
+the XML — grep the pre-extracted `.lvkit/cache/extracted/**/*_BDHb.xml`, and only
+`parse_vi(bd_xml=...)` the handful of VIs that matched. Cap the scan and `del`
+each VI's text before the next. (Bulk extraction of a whole corpus uses batched
+worker subprocesses — see `scripts/extract_corpus.py` — because in-process
+pylabview *accumulates* memory across VIs.)
 
 ## Adding New Primitives
 
@@ -206,7 +222,7 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 
 ```bash
 # CORRECT - outputs go to outputs/ folder in the repo
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
 
 # WRONG - never use /tmp/
 python scripts/generate_python.py "path/to/file.vi" -o /tmp/test

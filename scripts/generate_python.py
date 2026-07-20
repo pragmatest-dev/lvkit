@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from lvkit.graph.loading import LoadMode
 from lvkit.pipeline import generate_python
 
 
@@ -50,7 +51,7 @@ def main():
         args.input,
         args.output,
         search_paths=[Path(p) for p in args.search_paths],
-        expand_subvis=True,
+        mode=LoadMode.FULL,
         soft_unresolved=args.placeholder_on_unresolved,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,

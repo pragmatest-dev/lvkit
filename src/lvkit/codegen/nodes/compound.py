@@ -15,9 +15,9 @@ from .base import CodeGenError
 _MUTABLE_KINDS = ("array", "cluster")
 
 # The five Compound Arithmetic modes we generate code for. The parser maps a
-# node's dcoFiller to one of these, or to "unsupported" for a code it can't
-# verify (Multiply/XOR have no corpus ground truth) -- codegen fails loud on
-# anything outside this set rather than silently defaulting to OR.
+# node's objFlags mode enum (bits 16-18) to one of these, or to "unsupported"
+# for a code outside the enum -- codegen fails loud on anything outside this
+# set rather than silently defaulting to OR.
 _CPD_OPERATIONS = frozenset({"add", "or", "and", "multiply", "xor"})
 
 
@@ -93,8 +93,8 @@ def generate_compound_arith(
     if operation not in _CPD_OPERATIONS:
         raise CodeGenError(
             f"Compound Arithmetic: operation {operation!r} is not supported. "
-            "Its dcoFiller code was not recognised (Multiply and XOR codes are "
-            "unmapped -- no corpus ground truth). Add the code to "
+            "Its objFlags mode enum (bits 16-18) was outside the known set "
+            "add/multiply/and/or/xor. Add the code to "
             "CpdArithHandler.OPERATIONS once verified from real dataflow.",
             node,
         )

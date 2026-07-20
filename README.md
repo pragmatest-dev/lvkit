@@ -2,7 +2,11 @@
 
 Read, document, diff, and convert LabVIEW VI files — no LabVIEW license required.
 
+**lvkit never modifies a VI — it reads what LabVIEW writes.**
+
 lvkit parses `.vi`, `.ctl`, `.lvclass`, and `.lvlib` files directly into queryable dependency and dataflow graphs. Use it to document code, track changes in CI, feed VI structure to AI tools, or generate equivalent Python.
+
+> **Reads, never writes.** lvkit only ever reads a VI — it never modifies, re-saves, or edits one. Your files are never touched, and LabVIEW stays the only thing that authors them. This holds across every capability, including convert: generating Python parses the VI and emits a *separate* file — it never edits the source.
 
 > **Independent, clean-room project — not affiliated with NI.** lvkit was built using **only publicly available information**: public NI documentation, the open-source [pylabview](https://github.com/mefistotelis/pylabview) project, and observation of VI files. It was developed **without installing or running LabVIEW or any NI software**, and with **no NI source code, internal or non-public specifications, or confidential or proprietary materials**. LabVIEW, NI, and National Instruments are trademarks of National Instruments Corporation, used here only to identify the format lvkit interoperates with; lvkit is not affiliated with, authorized by, endorsed by, or sponsored by NI. See [Cleanroom approach](#cleanroom-approach), [`NOTICE`](NOTICE), and [`PROVENANCE.md`](PROVENANCE.md).
 
@@ -35,13 +39,14 @@ For a global install: `pipx install lvkit` or `uv tool install lvkit`.
 | `lvkit describe` | Human-readable VI description with signature and operations |
 | `lvkit docs` | Generate cross-referenced HTML documentation |
 | `lvkit diff` | Compare two VI versions — terminals, operations, wiring |
-| `lvkit visualize` | Mermaid flowchart or interactive dependency graph |
+| `lvkit visualize` | Interactive dependency or data flow graph HTML |
 | `lvkit generate` | Generate Python from a VI, library, or class (experimental — see [Cleanroom approach](#cleanroom-approach)) |
+| `lvkit render` | Render an interactive block diagram SVG from a VI |
 | `lvkit structure` | Inspect `.lvlib` or `.lvclass` structure |
 | `lvkit setup` | Install AI agent skills; create `.lvkit/` resolution store |
 | `lvkit mcp` | Start the MCP server for IDE integration |
 
-`lvkit visualize --format interactive` requires `pip install lvkit[visualize]`. All other commands work on a bare `pip install lvkit`.
+`lvkit visualize` requires `pip install lvkit[visualize]` (it uses pyvis). All other commands work on a bare `pip install lvkit`.
 
 ## What you can do with it
 
@@ -49,10 +54,10 @@ For a global install: `pipx install lvkit` or `uv tool install lvkit`.
 Get a human-readable signature, inputs/outputs, operations, and control flow — without opening LabVIEW. Never requires primitive or vi.lib mappings.
 
 ```
-lvkit describe <path-to.vi> [--search-path <libraries/>] [--chart]
+lvkit describe <path-to.vi> [--search-path <libraries/>] [--verbose]
 ```
 
-`--chart` adds a Mermaid flowchart of the block diagram.
+`--verbose` adds a full netlist — a text projection of the block diagram.
 
 ### Generate documentation
 Cross-referenced HTML docs for a `.vi`, `.lvlib`, or `.lvclass` — inputs, outputs, operations, wiring diagrams.
@@ -62,13 +67,13 @@ lvkit docs <input-path> <output-dir> [--search-path <libraries/>]
 ```
 
 ### Diff two versions of a VI
-See what changed between two `.vi` files — added/removed terminals, changed operations, rewired connections. Useful in code review and CI.
+See what changed between two `.vi` files — added/removed operations and structures, rewired connections, changed constants. Useful in code review and CI.
 
 ```
-lvkit diff <vi-a> <vi-b> [--long]
+lvkit diff <vi-a> <vi-b> [--format {text,json,html}]
 ```
 
-`--long` gives a structured change report instead of a unified diff.
+Text output is a concise, logical change summary. `--format json` emits a UID-correlated change map for scripts, CI, or an AI agent. `--format html` (or `--open`) writes an **interactive diff viewer** — synced before/after panes, click a change to spotlight it, deep-linkable.
 
 ### Generate Python
 Convert a VI, library, or class to Python. Deterministic — same VI in, same Python out, every run, no LLM involved.

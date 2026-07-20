@@ -2,8 +2,8 @@
   "metadata": {
     "description": "Primitive ID to Python mapping (runtime version)",
     "source": "OpenG + JKI VI Tester",
-    "total_primitives": 172,
-    "identified": 172,
+    "total_primitives": 141,
+    "identified": 141,
     "note": "See primitives-codegen-full.json for count/vis metadata"
   },
   "primitives": {
@@ -201,19 +201,19 @@
           "index": 0,
           "direction": "out",
           "name": "result",
-          "type": "boolean"
+          "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "in",
           "name": "x",
-          "type": "boolean"
+          "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "y",
-          "type": "boolean"
+          "type": "polymorphic"
         }
       ],
       "python_code": {
@@ -223,7 +223,8 @@
         "result": "in_1 ^ in_2"
       },
       "inline": true,
-      "verified": true
+      "verified": true,
+      "note": "Polymorphic over Boolean AND integers (bitwise). Corpus only ever shows numeric use; python_code=boolean, python_code_int=bitwise."
     },
     "1051": {
       "name": "Subtract",
@@ -768,32 +769,28 @@
     },
     "2401": {
       "name": "Merge Errors",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/merge-errors.html",
       "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster",
+          "expandable": true
+        },
         {
           "index": 0,
           "direction": "out",
           "name": "error out",
           "type": "cluster"
-        },
-        {
-          "index": 1,
-          "direction": "in",
-          "name": "error in 1",
-          "type": "cluster"
-        },
-        {
-          "index": 2,
-          "direction": "in",
-          "name": "error in 2",
-          "type": "cluster"
         }
       ],
       "python_code": {
-        "error_out": "in_1 or in_2"
+        "error out": "next((e for e in [{expandable_inputs}] if e), None)"
       },
       "inline": true,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/merge-errors.html"
+      "verified": false,
+      "note": "Merge Errors is EXPANDABLE: the corpus wires it up to idx14 (idx3 in 34 VIs) but the entry declared only in#1/in#2. in#1 is now the expandable base, absorbing all further error inputs into {expandable_inputs}. SCOPE: this mainly corrects the DECLARATION, so describe/netlist/render report every wired error terminal instead of two. It is NOT a generated-code data-loss fix as first assumed - codegen transforms error clusters into the held-error/exception model (_held_error = _held_error or e), which already merges N-way across branches, so the template is usually not emitted at all. Semantics simplified to first-error-wins; NI also falls back to the first WARNING when no error is present, which this does not model."
     },
     "1809": {
       "name": "Array Size",
@@ -1335,26 +1332,9 @@
       "note": "primIndex=114. Polymorphic numeric comparison. 7 observed signatures across all integer/float type pairs."
     },
     "8056": {
-      "name": "File Dialog",
+      "name": "Delete",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete.html",
       "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "error_out",
-          "type": "Cluster"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "cancelled",
-          "type": "Boolean"
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": "selected_path",
-          "type": "Path"
-        },
         {
           "index": 7,
           "direction": "in",
@@ -1365,36 +1345,52 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "cluster"
         },
         {
           "index": 9,
           "direction": "in",
-          "name": "select_mode_a",
+          "name": "entire_hierarchy",
           "type": "Boolean"
         },
         {
           "index": 10,
           "direction": "in",
-          "name": "select_mode_b",
+          "name": "confirm",
           "type": "Boolean"
         },
         {
           "index": 11,
           "direction": "in",
-          "name": "start_path",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
           "type": "Path"
         }
       ],
       "python_code": {
-        "selected_path": "Path(input(in_7 or 'Select file path: '))",
+        "path_out": "in_11",
         "cancelled": "False",
         "error_out": "in_8"
       },
-      "inline": true,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/filedialogblock-llb/file-dialog-source-vi.html",
-      "note": "Interactive UI primitive. Original LabVIEW intent was to ask the user, so we map to Python's input() — runs in CLI, easy to swap with hardcoded Path() or tkinter.filedialog. Configuration Booleans (idx=9, 10) for file/folder/new-or-existing modes are not implemented."
+      "note": "Renamed from a mislabelled \"File Dialog\". The two Boolean options at in#9/in#10 are entire-hierarchy and confirm; their ORDER was not disambiguated (pane indices run right-to-left/bottom-to-top), so do not trust those two names without a further check. python_code is a no-op placeholder: deletion is a side effect and is NOT execution-verified.",
+      "verified": false
     },
     "1113": {
       "name": "Equal To 0?",
@@ -1751,65 +1747,66 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/regexp/match-regular-expression-xnode.html"
     },
     "8070": {
-      "name": "List Folder",
+      "name": "Read from Text File",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-text-file.html",
       "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "error_out",
-          "type": "Cluster"
-        },
-        {
-          "index": 1,
-          "direction": "out",
-          "name": "has_contents",
-          "type": "Boolean"
-        },
-        {
-          "index": 2,
-          "direction": "out",
-          "name": "filenames",
-          "type": "Array"
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": "path_out",
-          "type": "Refnum"
-        },
         {
           "index": 7,
           "direction": "in",
-          "name": "pattern",
+          "name": "prompt",
           "type": "String"
         },
         {
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "cluster"
         },
         {
           "index": 10,
           "direction": "in",
-          "name": "datalog_type",
+          "name": "count",
           "type": "NumInt32"
         },
         {
           "index": 11,
           "direction": "in",
-          "name": "path",
-          "type": "Path"
+          "name": "file",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "text",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
         }
       ],
       "python_code": {
-        "filenames": "[f.name for f in Path(in_11).iterdir() if f.is_file()]",
-        "has_contents": "any(Path(in_11).iterdir())",
-        "path_out": "in_11"
+        "text": "(in_11.read() if hasattr(in_11, \"read\") else open(in_11).read())",
+        "refnum_out": "in_11",
+        "cancelled": "False",
+        "error_out": "in_8"
       },
-      "_import": "from pathlib import Path",
-      "verified": false,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/list-folder.html"
+      "note": "Renamed from a mislabelled \"List Folder\". file (in#11) accepts a refnum or a path; text (out#2) is a string, or an array of strings when count is wired. Side-effecting IO, NOT execution-verified.",
+      "verified": false
     },
     "1537": {
       "name": "To Lower Case",
@@ -1968,7 +1965,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "1in/2out array→array+array. Could be Split Number or type-specific split. Unconfirmed."
+      "note": "1in/2out array\u2192array+array. Could be Split Number or type-specific split. Unconfirmed."
     },
     "1503": {
       "name": "Replace Substring",
@@ -2393,83 +2390,90 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-ms.html"
     },
     "8010": {
-      "name": "Open/Create/Replace File",
+      "name": "Open VI Reference",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-vi-reference.html",
       "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "error_out",
-          "type": "Cluster"
-        },
-        {
-          "index": 3,
-          "direction": "out",
-          "name": "refnum_out",
-          "type": "Refnum"
-        },
         {
           "index": 6,
           "direction": "in",
-          "name": "prompt",
-          "type": "String",
-          "default_value": "''"
+          "name": "password",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "application_reference",
+          "type": "Refnum"
         },
         {
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "cluster"
         },
         {
           "index": 9,
           "direction": "in",
-          "name": "operation",
-          "type": "NumInt32",
-          "default_value": "0"
+          "name": "options",
+          "type": "NumInt32"
         },
         {
           "index": 10,
           "direction": "in",
-          "name": "file_path",
+          "name": "vi_path",
           "type": "Path"
-        }
-      ],
-      "python_code": {
-        "_import": "from pathlib import Path as _Path",
-        "refnum_out": "open(str(in_10), {0: 'r+', 1: 'w', 2: 'x', 3: 'a', 4: 'w', 5: 'w'}.get(in_9, 'r+'))"
-      },
-      "inline": false,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-create-replace-file.html"
-    },
-    "8011": {
-      "name": "Close File",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "out",
-          "name": "error_out",
-          "type": "Cluster"
-        },
-        {
-          "index": 8,
-          "direction": "in",
-          "name": "error_in",
-          "type": "Cluster"
         },
         {
           "index": 11,
           "direction": "in",
-          "name": "refnum",
+          "name": "type_specifier",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "vi_reference",
           "type": "Refnum"
         }
       ],
-      "python_code": {
-        "_body": "in_11.close()"
-      },
-      "inline": false,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html"
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Was mislabelled Open/Create/Replace File - it is NOT file I/O; every call-site is VI-server (Open Untitled VI, Current VIs Reference). Its previous template called open(str(in_10)) - literally opening a file on disk for a VI-server call. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
+    },
+    "8011": {
+      "name": "Close Reference",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Was mislabelled Close File (which documents a path output this pane lacks). in#11 accepts Array|Refnum, matching the documented \"also accepts 1D arrays of references\". All 253 call-sites are VI-server/appcontrol. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
     },
     "9111": {
       "name": "Enqueue Element",
@@ -2737,154 +2741,141 @@
       "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.get_queue_status(). No separate pending-count terminal was ever observed wired in samples used to resolve this entry; count = len(elements) with return_elements=True."
     },
     "9101": {
-      "name": "Open VI Reference",
+      "name": "Obtain Notifier",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/obtain-notifier.html",
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": "vi_path",
+          "name": "name",
           "type": "String"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "prepare_for_reentrant",
-          "type": "Boolean",
-          "default_value": "False"
+          "name": "element_data_type",
+          "type": "Boolean"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "options_flag",
-          "type": "Boolean",
-          "default_value": "False"
+          "name": "create_if_not_found",
+          "type": "Boolean"
         },
         {
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "cluster"
         },
         {
           "index": 8,
           "direction": "out",
-          "name": "vi_reference",
+          "name": "notifier_out",
           "type": "Refnum"
         },
         {
           "index": 10,
           "direction": "out",
-          "name": "was_already_loaded",
+          "name": "created_new",
           "type": "Boolean"
         },
         {
           "index": 11,
           "direction": "out",
           "name": "error_out",
-          "type": "Cluster"
+          "type": "cluster"
         }
       ],
-      "python_code": {
-        "_import": "import importlib",
-        "vi_reference": "importlib.import_module(in_0)"
-      },
-      "imports": [
-        "import importlib"
-      ],
-      "inline": false,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-vi-reference.html"
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Notifier family: EVERY refnum terminal here carries ref_type=NotifierRef - that field is the identity. Lifecycle confirmed in VI-Tester: 9101 obtain -> 9104 send -> 9105 wait -> 9102 release. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
     },
     "9102": {
-      "name": "Close Reference",
+      "name": "Release Notifier",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-notifier.html",
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": "reference",
+          "name": "notifier",
           "type": "Refnum"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "force_close",
-          "type": "Boolean",
-          "default_value": "False"
+          "name": "force_destroy",
+          "type": "Boolean"
         },
         {
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "cluster"
         },
         {
           "index": 8,
           "direction": "out",
-          "name": "path",
+          "name": "notifier_name",
           "type": "String"
         },
         {
           "index": 9,
           "direction": "out",
-          "name": "was_disposed",
+          "name": "last_notification",
           "type": "Boolean"
         },
         {
           "index": 11,
           "direction": "out",
           "name": "error_out",
-          "type": "Cluster"
+          "type": "cluster"
         }
       ],
-      "python_code": {
-        "_body": "del in_0",
-        "path": "''",
-        "was_disposed": "True"
-      },
-      "inline": false,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
-      "note": "Close Reference variant with path output. Same as 9104 but returns path."
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Notifier family: EVERY refnum terminal here carries ref_type=NotifierRef - that field is the identity. Lifecycle confirmed in VI-Tester: 9101 obtain -> 9104 send -> 9105 wait -> 9102 release. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
     },
     "9105": {
-      "name": "Call By Reference",
+      "name": "Wait on Notification",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-on-notification.html",
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": "reference",
+          "name": "notifier",
           "type": "Refnum"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "auto_dispose",
-          "type": "Boolean",
-          "default_value": "False"
+          "name": "ignore_previous",
+          "type": "Boolean"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "timeout_ms",
-          "type": "NumInt32",
-          "default_value": "-1"
+          "type": "NumInt32"
         },
         {
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "cluster"
         },
         {
           "index": 8,
           "direction": "out",
-          "name": "reference_out",
+          "name": "notifier_out",
           "type": "Refnum"
         },
         {
           "index": 9,
           "direction": "out",
-          "name": "aborted",
+          "name": "notification",
           "type": "Boolean"
         },
         {
@@ -2897,60 +2888,53 @@
           "index": 11,
           "direction": "out",
           "name": "error_out",
-          "type": "Cluster"
+          "type": "cluster"
         }
       ],
-      "python_code": {
-        "_body": "in_0()",
-        "reference_out": "in_0"
-      },
-      "inline": false,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-by-reference.html",
-      "note": "Calls a VI by reference. In Python, equivalent to calling the loaded module's function."
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Notifier family: EVERY refnum terminal here carries ref_type=NotifierRef - that field is the identity. Lifecycle confirmed in VI-Tester: 9101 obtain -> 9104 send -> 9105 wait -> 9102 release. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
     },
     "9104": {
-      "name": "Close Reference",
+      "name": "Send Notification",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/send-notification.html",
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": "reference",
+          "name": "notifier",
           "type": "Refnum"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "force_close",
-          "type": "Boolean",
-          "default_value": "False"
+          "name": "notification",
+          "type": "Boolean"
         },
         {
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "cluster"
         },
         {
           "index": 8,
           "direction": "out",
-          "name": "reference_out",
+          "name": "notifier_out",
           "type": "Refnum"
         },
         {
           "index": 11,
           "direction": "out",
           "name": "error_out",
-          "type": "Cluster"
+          "type": "cluster"
         }
       ],
-      "python_code": {
-        "_body": "del in_0",
-        "reference_out": "None"
-      },
-      "inline": false,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html"
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Notifier family: EVERY refnum terminal here carries ref_type=NotifierRef - that field is the identity. Lifecycle confirmed in VI-Tester: 9101 obtain -> 9104 send -> 9105 wait -> 9102 release. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
     },
     "8017": {
       "name": "Preserve Run-Time Class",
@@ -3357,31 +3341,32 @@
       "name": "Get Type Information",
       "terminals": [
         {
-          "index": -1,
+          "index": 0,
           "direction": "in",
           "name": "variant",
-          "type": "polymorphic"
+          "type": "LVVariant"
         },
         {
           "index": 1,
           "direction": "out",
           "name": "type",
-          "type": "polymorphic"
+          "type": "Array"
         },
         {
           "index": 2,
           "direction": "out",
           "name": "name",
-          "type": "polymorphic"
+          "type": "String"
         }
       ],
       "python_code": {
-        "type": "type(in_-1)",
-        "name": "str(type(in_-1).__name__)"
+        "type": "[type(in_0).__name__]",
+        "name": "type(in_0).__name__"
       },
       "inline": true,
-      "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-type-information-vi.html"
+      "verified": false,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-type-information-vi.html",
+      "note": "Indices corrected from an invalid idx -1 (which generated the syntactically broken reference in_-1). Pane observed identical across all call-sites. python_code is best-effort for variant type info and is NOT execution-verified."
     },
     "23063": {
       "name": "Empty Array?",
@@ -3446,6 +3431,1701 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-generic-class.html"
+    },
+    "1171": {
+      "name": "Join Numbers",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/join-numbers.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "hi",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "lo",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "number": "(in_1 << (in_2.bit_length() or 8)) | in_2"
+      },
+      "verified": false
+    },
+    "1127": {
+      "name": "In Range and Coerce",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/in-range-and-coerce.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "in range?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "coerced value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "upper limit",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "lower limit",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "in range?": "in_4 <= in_2 <= in_3",
+        "coerced value": "max(in_4, min(in_3, in_2))"
+      },
+      "verified": false
+    },
+    "1906": {
+      "name": "Rotate 1D Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate-1d-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "array (rotated)",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "n",
+          "type": "NumInt32"
+        }
+      ],
+      "python_code": {
+        "array (rotated)": "in_1[-in_2 % len(in_1):] + in_1[:-in_2 % len(in_1)] if in_1 else in_1"
+      },
+      "verified": false
+    },
+    "1814": {
+      "name": "Number To Boolean Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-boolean-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "boolean array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "boolean array": "[bool((in_1 >> i) & 1) for i in range(in_1.bit_length() or 8)]"
+      },
+      "verified": false
+    },
+    "1815": {
+      "name": "Boolean Array To Number",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/boolean-array-to-number.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "number": "sum((1 << i) for i, b in enumerate(in_1) if b)"
+      },
+      "verified": false
+    },
+    "1223": {
+      "name": "Power Of 2",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/power-of-2.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "two_pow_x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "two_pow_x": "2.0 ** in_1"
+      },
+      "verified": false
+    },
+    "1908": {
+      "name": "Split 1D Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/split-1d-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "first subarray",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "second subarray",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "array",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "first subarray": "in_3[:in_2]",
+        "second subarray": "in_3[in_2:]"
+      },
+      "verified": false
+    },
+    "1162": {
+      "name": "Swap Bytes",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-bytes.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "swapped",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "swapped": "[((v & 0x00FF00FF) << 8) | ((v >> 8) & 0x00FF00FF) for v in in_1]"
+      },
+      "note": "Data-manipulation endianness pair; always chained 1162->1163 = full 32-bit byte-reversal (MD5 little-endian words / file fields). Assignment (Bytes=1162, Words=1163) follows palette order: Swap Bytes precedes Swap Words in the NI docs, matching the resolved 1814<1815 (Number->Bool before Bool->Number) local-ordering precedent. Net result identical either way. Polymorphic: Array[U32] + cluster.",
+      "verified": false
+    },
+    "1163": {
+      "name": "Swap Words",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-words.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "swapped",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "swapped": "[((v & 0xFFFF) << 16) | ((v >> 16) & 0xFFFF) for v in in_1]"
+      },
+      "note": "Data-manipulation endianness pair; always chained 1162->1163 = full 32-bit byte-reversal (MD5 little-endian words / file fields). Assignment (Bytes=1162, Words=1163) follows palette order: Swap Bytes precedes Swap Words in the NI docs, matching the resolved 1814<1815 (Number->Bool before Bool->Number) local-ordering precedent. Net result identical either way. Polymorphic: Array[U32] + cluster.",
+      "verified": false
+    },
+    "8050": {
+      "name": "Open/Create/Replace File",
+      "terminals": [
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "advisory_locking",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "access",
+          "type": "enum"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "operation",
+          "type": "enum"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "file_path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "refnum": "open(in_11, 'r+b')",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-create-replace-file.html",
+      "verified": false
+    },
+    "8052": {
+      "name": "Close File",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "path": "getattr(in_7, 'name', None)",
+        "error_out": "in_4"
+      },
+      "note": "runtime: in_7.close(); path output is the closed file's path",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
+      "verified": false
+    },
+    "8051": {
+      "name": "Read from Binary File",
+      "terminals": [
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "byte_order",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "type",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "datalog_type",
+          "type": "enum"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "eof",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "data": "in_11.read(in_10)",
+        "refnum_out": "in_11",
+        "error_out": "in_8",
+        "eof": "False"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-binary-file.html",
+      "verified": false
+    },
+    "8078": {
+      "name": "Write to Binary File",
+      "terminals": [
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "prepend_size",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "byte_order",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "datalog_type",
+          "type": "enum"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "data",
+          "type": "String"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "eof",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "refnum_out": "(in_11.write(in_10), in_11)[1]",
+        "error_out": "in_8",
+        "eof": "False"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-binary-file.html",
+      "verified": false
+    },
+    "8073": {
+      "name": "Set File Position",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "from",
+          "type": "enum"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt64"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "refnum_out": "(in_7.seek(in_6, in_5), in_7)[1]",
+        "error_out": "in_4"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-file-position.html",
+      "verified": false
+    },
+    "8062": {
+      "name": "Get File Position",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "offset",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "offset": "in_7.tell()",
+        "refnum_out": "in_7",
+        "error_out": "in_4"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-file-position.html",
+      "verified": false
+    },
+    "8063": {
+      "name": "Get File Size",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "size": "__import__('os').fstat(in_7.fileno()).st_size",
+        "refnum_out": "in_7",
+        "error_out": "in_4"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-file-size.html",
+      "verified": false
+    },
+    "8083": {
+      "name": "List Folder",
+      "terminals": [
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "datalog_type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "pattern",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "file_names",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "folder_names",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "file_names": "[e.name for e in __import__('os').scandir(in_11) if e.is_file()]",
+        "folder_names": "[e.name for e in __import__('os').scandir(in_11) if e.is_dir()]",
+        "path_out": "in_11",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/list-folder.html",
+      "verified": false
+    },
+    "8082": {
+      "name": "File/Directory Info",
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "last_mod",
+          "type": "MeasureData"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "resolved_path",
+          "type": "Path"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "is_directory",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "is_shortcut",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "size": "__import__('os').path.getsize(in_11)",
+        "last_mod": "__import__('os').path.getmtime(in_11)",
+        "is_directory": "__import__('os').path.isdir(in_11)",
+        "is_shortcut": "False",
+        "path_out": "in_11",
+        "resolved_path": "in_11",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/file-directory-info.html",
+      "verified": false
+    },
+    "8053": {
+      "name": "Copy",
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "overwrite",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "target_path",
+          "type": "Path"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "source_path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "new_path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "new_path": "__import__('shutil').copy2(in_11, in_10)",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/copy.html",
+      "verified": false
+    },
+    "8068": {
+      "name": "Move",
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "overwrite",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "target_path",
+          "type": "Path"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "source_path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "new_path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "new_path": "__import__('shutil').move(in_11, in_10)",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/move.html",
+      "verified": false
+    },
+    "8065": {
+      "name": "Get Permissions",
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "owner",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "group",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Path"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "permissions",
+          "type": "NumInt16"
+        }
+      ],
+      "python_code": {
+        "permissions": "__import__('os').stat(in_11).st_mode & 0o777",
+        "owner": "''",
+        "group": "''",
+        "path_out": "in_11",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-permissions.html",
+      "verified": false
+    },
+    "8076": {
+      "name": "Create Folder",
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "permissions",
+          "type": "NumInt16"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "group",
+          "type": "String"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "owner",
+          "type": "String"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "path_out": "(__import__('os').makedirs(in_11, exist_ok=True), in_11)[1]",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-folder.html",
+      "verified": false
+    },
+    "1146": {
+      "name": "To Single Precision Float",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-single-precision-float.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "float(in_1)"
+      },
+      "verified": true
+    },
+    "1147": {
+      "name": "To Double Precision Float",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-double-precision-float.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "float(in_1)"
+      },
+      "verified": true
+    },
+    "1149": {
+      "name": "To Extended Precision Float",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-extended-precision-float.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "float(in_1)"
+      },
+      "verified": true
+    },
+    "1151": {
+      "name": "To Single Precision Complex",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-single-precision-complex.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "complex(in_1)"
+      },
+      "verified": true
+    },
+    "1152": {
+      "name": "To Double Precision Complex",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-double-precision-complex.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "complex(in_1)"
+      },
+      "verified": true
+    },
+    "1154": {
+      "name": "To Extended Precision Complex",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-extended-precision-complex.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "complex(in_1)"
+      },
+      "verified": true
+    },
+    "1044": {
+      "name": "Complex To Re/Im",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/complex-to-re-im.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "x",
+          "type": "NumComplex"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "re",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "im",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "re": "in_0.real",
+        "im": "in_0.imag"
+      },
+      "note": "re/im output index order (out1=re,out2=im) assumed by convention; confirm geometry.",
+      "verified": false
+    },
+    "1421": {
+      "name": "Path Type",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-type.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "type",
+          "type": "NumInt16"
+        }
+      ],
+      "python_code": {
+        "type": "(0 if __import__('os').path.isabs(in_1) else 1)"
+      },
+      "note": "type code: 0=absolute,1=relative,2=UNC,3=not a path (confirm exact mapping vs doc).",
+      "verified": false
+    },
+    "1327": {
+      "name": "Wait Until Next ms Multiple",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-until-next-ms-multiple.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ms_multiple",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "millisecond_timer_value",
+          "type": "NumUInt32"
+        }
+      ],
+      "python_code": {
+        "millisecond_timer_value": "__import__('time').monotonic_ns() // 1_000_000"
+      },
+      "note": "sleeps until the ms timer is a multiple of ms_multiple; returns the timer value.",
+      "verified": false
+    },
+    "1701": {
+      "name": "Wait on Occurrence",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-on-occurrence.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ignore_previous",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "occurrence",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "ms_timeout",
+          "type": "NumInt32"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "timed_out": "in_2.wait(None if in_3 < 0 else in_3 / 1000.0) is False"
+      },
+      "note": "waits on an Occurrence refnum (mapped to threading.Event); returns timed_out.",
+      "verified": false
+    },
+    "1200": {
+      "name": "Sine",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sine.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "result": "__import__('math').sin(in_1)"
+      },
+      "verified": true
+    },
+    "1074": {
+      "name": "Scale By Power Of 2",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scale-by-power-of-2.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "n",
+          "type": "NumInt32"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 * (2.0 ** in_2)"
+      },
+      "verified": true
+    },
+    "1181": {
+      "name": "Number To Hexadecimal String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-hexadecimal-string.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "width",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "number",
+          "type": "Array"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "hex_string",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "hex_string": "['%0*X' % (in_1, b) for b in in_2]"
+      },
+      "note": "polymorphic: scalar number->hex string, or array->array of hex strings; width pads digits.",
+      "verified": false
+    },
+    "1225": {
+      "name": "Logarithm Base 2",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/logarithm-base-2.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumInt32"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "result": "__import__('math').log2(in_1)"
+      },
+      "note": "context-inferred: GIF min-code-size = ceil(log2(colors)); feeds a round op.",
+      "verified": false
+    },
+    "8058": {
+      "name": "File Dialog",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/filedialogblock-llb/file-dialog-source-vi.html",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "pattern_label",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "patterns",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "button_label",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "default_name",
+          "type": "String"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "start_path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "exists",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "selected_path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "selected_path": "in_11",
+        "cancelled": "False",
+        "exists": "__import__('os').path.exists(in_11)",
+        "error_out": "in_8"
+      },
+      "note": "identified by pane: file-pattern (e.g. *.gif) + start path -> path + cancelled?/exists? booleans = File Dialog signature. Express-VI page has no backend connector pane; verify names if refining.",
+      "verified": false
+    },
+    "1082": {
+      "name": "Logical Shift",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/logical-shift.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "n",
+          "type": "NumInt32"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_shifted",
+          "type": "NumUInt32"
+        }
+      ],
+      "python_code": {
+        "x_shifted": "((in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)) & 0xFFFFFFFF"
+      },
+      "note": "positive n = shift left, negative = right, zero-fill; masked to source width (U32 here). MD5 builds its circular rotate from this.",
+      "verified": false
+    },
+    "1188": {
+      "name": "To Upper Case",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-upper-case.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "all_upper_case_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "all_upper_case_string": "in_1.upper() if isinstance(in_1, str) else [s.upper() for s in in_1]"
+      },
+      "inline": true,
+      "verified": true,
+      "guess_reason": "2-terminal unary type-preserving string op (same pane class as 1537 To Lower Case); candidates were to-upper/reverse/rotate-string. Consumer-forced: in GIF.Read.Unpack its output is Equal?-compared to literals 'GIF87A'/'GIF89A' (GIF signatures), so it must PRESERVE letters -> rules out reverse/rotate; UPPER because the compared targets are uppercase (case-insensitive header check). Also fits To Proper Case. Cleanroom: no glyph; resolved from consumer dataflow."
+    },
+    "1072": {
+      "name": "Not Or",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-or.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "Boolean"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "nor",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "nor": "not (in_1 or in_2)"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Valid Path: inputs are Empty String/Path? (1112) and Not A Number/Path/Refnum? (1128) - both badness predicates - and the output is validity, so valid = NOT(empty OR not-a-path) = NOR. And/Or/Xor/Not (1061-1064) are already claimed, and only NOR satisfies that truth table. Commutative, so operand order is irrelevant."
+    },
+    "1425": {
+      "name": "VI Library",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/vi-library.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "path": "__import__('os').environ.get('LABVIEW_VI_LIB', 'vi.lib')"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Directory is NOT node-selectable: the node XML is byte-identical in VI Library / User Library / Instrument Library (same objFlags, primIndex 194); those VIs differ only downstream, appending user.lib / instr.lib via Build Path. Identified WITHOUT using the calling VI name: in Is VI-LIB the output feeds Path To Array Of Strings and an Equal? against the leading components of the input path - a literal is-this-under-<vi.lib> test. python_code has no faithful Python equivalent and is a placeholder."
+    },
+    "1539": {
+      "name": "Spreadsheet String To Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/spreadsheet-string-to-array.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "delimiter",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "array_type",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "spreadsheet_string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "format_string",
+          "type": "String"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "array": "[r.split(in_1 or '\\t') for r in in_3.splitlines()]"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Indices deduced, not guessed: in_3 is the only DATA-fed input across all call-sites (Read Lines From File / Trim Whitespace / Scan From String); in_2 is the only Array input and matches the Array output element type. termBounds then fix the rest - the left column reads top-to-bottom as format string (idx4), spreadsheet string (idx3), array type (idx2), matching NI pane order, leaving idx1 = delimiter. python_code covers ONLY the 2-D string case; real dimensionality/element type come from array_type + format_string and need an lvkit runtime helper."
+    },
+    "1075": {
+      "name": "Round Toward -Infinity",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/round-toward-infinity.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "floor_x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "floor_x": "__import__('math').floor(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "1076 is already Round Toward +Infinity, excluding +Inf. Round To Nearest is excluded because in Random Number Within Range 1075 feeds To Long Integer (1142), which NI documents as already rounding to nearest - that would make it a no-op. Forcing case: MasterAquisitionFile_2P wires Multiply -> 1075 -> Index Array.index, where a scaled fraction MUST floor or it overruns the array. 1075 and 1076 co-occur in GenerateStimulusOutputs_FP, so they are distinct modes. NOTE NI slugs are counterintuitive: unsuffixed round-toward-infinity.html is -Inf."
+    },
+    "1180": {
+      "name": "Number To Decimal String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-decimal-string.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "width",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "decimal_integer_string",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "decimal_integer_string": "str(int(round(in_2))).rjust(in_1)"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Pane is index-for-index identical to the shipped 1181 Number To Hexadecimal String (idx1 width, idx2 number, idx0 string) and primIdx is consecutive (1180->14, 1181->15) - adjacent palette slots where Decimal precedes Hexadecimal. Exactly 2 inputs excludes Engineering/Fractional/Exponential (which add precision). python_code not execution-verified for the width/pad semantics."
+    },
+    "1213": {
+      "name": "Power Of X",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/power-of-x.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_to_the_y",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "x_to_the_y": "in_1 ** in_2"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Algorithm-forced: every call-site is 1213 -> Multiply -> Less? -> Select against a PCO_GetCameraDescription field (clamping a time to a camera limit). idx1 is fed by a constant decoding to 1000 whose DDO label is literally \"x\"; idx2 by a Subtract of timebase indices. PCO timebases are ns/us/ms, so value * 1000^dTB is the SDK unit conversion. Logarithm Base X excluded: log1000(dTB) is -inf at 0. Operand order follows the SHIPPED convention - see task #115, unresolved."
+    },
+    "1340": {
+      "name": "One Button Dialog",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/one-button-dialog.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "button_name",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "message",
+          "type": "String"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "true",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "true": "True"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Stable 3-terminal pane across 19 instances. Wiring tally pins the inputs: idx2 wired 19/19, idx1 wired 0/19 - matching NI's documented default button name (\"OK\"), which is why it is never wired while message is required. Two Button Dialog excluded (three strings). Side-effecting dialog; python_code does not emit the dialog."
+    },
+    "2408": {
+      "name": "New Data Value Reference",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/new-data-value-reference.html",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "data_value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "data_value_reference",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "data_value_reference": "[in_7]",
+        "error_out": "in_4"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Identity from ref_type=DataValueRef on the out#3 refnum (per the skill, ref_type IS the identity); every call-site is a *_New.vi LVOOP constructor. Cluster directions pinned because idx7 is sometimes a Refnum (a DVR wrapping a refnum), which an error-in never is. python_code models the DVR as a 1-element list and is PROVISIONAL - belongs with the lvkit runtime decision, not inlined."
     }
   },
   "node_types": {

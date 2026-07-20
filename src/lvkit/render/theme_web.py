@@ -46,10 +46,9 @@ DARK_PALETTE: dict[str, str] = {
     "case_bar_text": "#d8d4c0",
     "case_no_error_border": "#46c85a",
     "case_error_border": "#ff5b5b",
-    "selector_fill": "#253020",
+    "disabled_mask": "#5a5a5a",
     "selector_stroke": "#7fbf5a",
     "selector_text": "#bfe0a5",
-    "sr_fill": "#3a3a3c",
     "sr_stroke": "#a8a8a8",
     "tunnel_border": "#b8b49a",
     "coercion_dot": "#ff4d4d",
@@ -86,20 +85,72 @@ def _hex_fields(theme: Theme) -> list[str]:
     ]
 
 
+def _dark_lv_declarations(indent: str) -> str:
+    """The ``--lv-<role>: <dark-hex>;`` lines (one per hex field, ``indent``-
+    prefixed) that a var-theme SVG needs to render DARK. Raises if
+    ``DARK_PALETTE`` is missing any hex field (a new color can't ship without a
+    dark value) — the single validation point shared by every emitter below."""
+    fields = _hex_fields(DEFAULT_THEME)
+    missing = [n for n in fields if n not in DARK_PALETTE]
+    if missing:
+        raise ValueError(f"DARK_PALETTE missing entries for: {missing}")
+    return "\n".join(
+        f"{indent}--lv-{name.replace('_', '-')}: {DARK_PALETTE[name]};"
+        for name in fields
+    )
+
+
 def theme_style_block() -> str:
     """Bare CSS (no ``<style>`` wrapper) that darkens a diagram when its ``<svg>``
     carries ``data-lv-theme="dark"``. Light is the SVG's own var() fallback, so
     only the dark override is emitted — and it is scoped to ``svg[...]`` so the
     host page's chrome is never touched. Raises if ``DARK_PALETTE`` is missing
     any hex field (a new color can't ship without a dark value)."""
-    fields = _hex_fields(DEFAULT_THEME)
-    missing = [n for n in fields if n not in DARK_PALETTE]
-    if missing:
-        raise ValueError(f"DARK_PALETTE missing entries for: {missing}")
-    dark_vars = "\n".join(
-        f"  --lv-{name.replace('_', '-')}: {DARK_PALETTE[name]};" for name in fields
-    )
-    return f'svg[data-lv-theme="dark"] {{\n{dark_vars}\n}}'
+    return f'svg[data-lv-theme="dark"] {{\n{_dark_lv_declarations("  ")}\n}}'
+
+
+def embedded_dark_css(mode: str) -> str:
+    """Bare CSS (no ``<style>`` wrapper) that sets the ``--lv-*`` custom
+    properties to the :data:`DARK_PALETTE` values on the SVG root.
+
+    Emitted INTO a css-var-themed SVG (``style.css_var_theme()``) so the file
+    carries its own dark palette, rather than depending on a host page to
+    supply one. The selector is ``:root`` — inside an SVG ``<style>`` that IS
+    the ``<svg>`` element, and the custom properties cascade to every shape.
+
+    - ``"dark"``: the declarations apply UNCONDITIONALLY, so a standalone
+      ``.svg`` opened directly is dark.
+    - ``"auto"``: the SAME file is LIGHT by default (each color falls back to
+      its light hex via ``var()``), DARK when the host/OS/editor prefers dark,
+      AND runtime-overridable by a ``data-theme`` attribute on the document
+      root. Two rules are emitted:
+
+      * ``@media (prefers-color-scheme: dark){ :root:not([data-theme]){...} }``
+        — follow the OS/editor preference, but ONLY while no explicit override
+        is set. Gating the media rule on ``:not([data-theme])`` means
+        ``data-theme="light"`` disables it, so the diagram falls back to its
+        light css-var defaults (light needs no rule of its own).
+      * ``:root[data-theme="dark"]{...}`` — force dark regardless of the OS
+        preference.
+
+      An inline SVG's ``:root`` resolves to the PAGE's ``<html>`` element (not
+      the ``<svg>``), so flipping ``document.documentElement.dataset.theme``
+      re-themes every embedded ``--theme auto`` diagram on the page at once,
+      with no re-render. This is the mode the VS Code extension and the diff/
+      render viewers' embedded SVGs use.
+    """
+    if mode == "auto":
+        media_decls = _dark_lv_declarations("      ")
+        forced_decls = _dark_lv_declarations("  ")
+        return (
+            "@media (prefers-color-scheme: dark){\n"
+            f"  :root:not([data-theme]){{\n{media_decls}\n  }}\n"
+            "}\n"
+            f':root[data-theme="dark"]{{\n{forced_decls}\n}}'
+        )
+    if mode == "dark":
+        return f":root{{\n{_dark_lv_declarations('  ')}\n}}"
+    raise ValueError(f"embedded_dark_css: unsupported mode {mode!r}")
 
 
 # The visible toggle button — text is set by the control script.

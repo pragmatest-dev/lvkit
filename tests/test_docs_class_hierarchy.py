@@ -18,6 +18,7 @@ import pytest
 
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     ClassFieldEntry,
     ClassHierarchyInfo,
@@ -26,7 +27,7 @@ from lvkit.graph.models import (
 )
 from lvkit.models import ClusterField, LVType
 
-SAMPLE_ROOT = Path("samples/JKI-VI-Tester/source")
+SAMPLE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 
 
 def _has_sample() -> bool:
@@ -364,11 +365,11 @@ class TestRealSampleHierarchy:
         g = InMemoryVIGraph()
         g.load_lvclass(
             SAMPLE_ROOT / "Classes/TestRunner/TestRunner.lvclass",
-            expand_subvis=True,
+            mode=LoadMode.FULL,
         )
         g.load_lvclass(
             SAMPLE_ROOT / "Classes/TextTestRunner/TextTestRunner.lvclass",
-            expand_subvis=True,
+            mode=LoadMode.FULL,
         )
 
         parent_hierarchy = g.get_class_hierarchy("TestRunner.lvclass")

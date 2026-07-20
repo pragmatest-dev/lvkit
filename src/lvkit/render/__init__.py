@@ -4,7 +4,7 @@ The graph (``InMemoryVIGraph``) is the single source of truth for semantics
 (wire connectivity, node kinds, names, types); the heap XML supplies ONLY
 geometry the parser otherwise discards. See ``experiments/lv-renderer/DESIGN.md``.
 
-Pipeline: ``render/layout.py`` geometry + graph semantics -> ``scene.py``
+Pipeline: ``parser/layout.py`` geometry + graph semantics -> ``scene.py``
 (``Scene`` view model, resolving each node's ``Glyph`` via ``nodes.py``'s
 resolver chain) -> ``draw.py`` (replays the resolved glyphs/structures/wires)
 -> ``backend.py`` (``SvgBackend``) -> SVG string.
@@ -15,13 +15,25 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Literal
 
 from ..graph.core import InMemoryVIGraph
+from ..graph.loading import LoadMode
 from ..graph.models import VINode
 from .backend import SvgBackend
 from .draw import draw_scene
 from .scene import Scene, build_scene
-from .style import DEFAULT_THEME, Theme
+from .style import DEFAULT_THEME, Theme, css_var_theme
+from .theme_web import embedded_dark_css
+
+# How a rendered SVG carries light/dark colors:
+#   "light" — raw-hex ``DEFAULT_THEME``, self-contained, UNCHANGED legacy output.
+#   "dark"  — css-var theme + an embedded ``:root`` block forcing the dark
+#             ``--lv-*`` palette (a standalone .svg opens dark).
+#   "auto"  — css-var theme + the dark palette wrapped in
+#             ``@media (prefers-color-scheme: dark)`` (light by default, dark
+#             when the host/OS/editor prefers dark).
+ThemeMode = Literal["light", "dark", "auto"]
 
 __all__ = [
     "Scene",
@@ -219,8 +231,25 @@ _HOVER_PANEL_JS = """(function() {
 })();"""
 
 
+def _resolve_theme_mode(
+    theme_mode: ThemeMode, base: Theme,
+) -> tuple[Theme, str]:
+    """Map a ``theme_mode`` to the ``(theme, extra_css)`` a render needs.
+
+    ``"light"`` keeps ``base`` and injects nothing (byte-identical legacy
+    path). ``"dark"``/``"auto"`` swap to a css-var theme (so ``--lv-*`` drive
+    the colors) and return the CSS that defines the dark palette — applied
+    unconditionally for ``"dark"``, media-queried for ``"auto"`` (see
+    ``theme_web.embedded_dark_css``)."""
+    if theme_mode == "light":
+        return base, ""
+    return css_var_theme(base), embedded_dark_css(theme_mode)
+
+
 def render_vi(
-    graph: InMemoryVIGraph, vi_name: str, *, theme: Theme = DEFAULT_THEME,
+    graph: InMemoryVIGraph, vi_name: str, *,
+    theme: Theme = DEFAULT_THEME, interactive: bool = True,
+    theme_mode: ThemeMode = "light",
 ) -> str | None:
     """Render one VI's block diagram to an SVG string.
 
@@ -234,17 +263,37 @@ def render_vi(
     the SVG inline and wants its colors driven live by page CSS custom
     properties instead.
 
+    ``theme_mode`` selects the self-contained light/dark behavior of the
+    returned SVG (see :data:`ThemeMode`): ``"light"`` (default) is the
+    UNCHANGED raw-hex output; ``"dark"``/``"auto"`` render with a css-var theme
+    and embed the dark ``--lv-*`` palette so the file is dark unconditionally
+    (``"dark"``) or follows ``prefers-color-scheme`` (``"auto"``). ``"light"``
+    ignores any embedded palette and is byte-identical to before this flag.
+
     The SVG is self-contained and interactive: a case structure's
     ``◄ value ▼ ►`` selector is clickable and cycles through its frames (see
     ``_FRAME_CONTROLLER_JS``), and hovering a node reveals its connector-help
     panel, positioned clear of the node and clamped inside the viewBox (see
     ``_HOVER_PANEL_JS``); non-JS consumers still see the default frame and no
     panels (both degrade gracefully — the SVG is static without JS).
+
+    ``interactive=False`` (default ``True``) skips BOTH inline scripts and the
+    root ``<svg id=...>`` they need — no ``<script>``, no root id, at all. The
+    ``data-node``/``data-lv-struct``/``data-lv-frames``/``data-lv-default``/
+    ``data-path`` attributes are drawn regardless (they come from ``draw.py``
+    scene-drawing, not the scripts), so a consumer that drives its own frame
+    behavior (e.g. the multi-SVG diff viewer, which needs two SVGs on
+    one page with no id collision and no dueling JS) still has everything it
+    needs to query. Default (``True``) output is byte-identical to before this
+    flag existed.
     """
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None
-    return _render_scene_svg(scene, vi_name, theme)
+    theme, extra_css = _resolve_theme_mode(theme_mode, theme)
+    return _render_scene_svg(
+        scene, vi_name, theme, interactive=interactive, extra_css=extra_css,
+    )
 
 
 # Base CSS emitted with every rendered SVG: SVG <text> defaults to the text
@@ -254,27 +303,39 @@ def render_vi(
 _BASE_CSS = "text{cursor:default;-webkit-user-select:none;user-select:none}"
 
 
-def _render_scene_svg(scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME) -> str:
-    """Draw an already-built ``Scene`` to a self-contained interactive SVG."""
+def _render_scene_svg(
+    scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME, *,
+    interactive: bool = True, extra_css: str = "",
+) -> str:
+    """Draw an already-built ``Scene`` to a self-contained interactive SVG.
+
+    ``extra_css`` (empty by default) is appended to the SVG's ``<style>`` — the
+    dark ``--lv-*`` palette block for ``dark``/``auto`` theme modes. Empty keeps
+    the ``<style>`` byte-identical to the legacy light output."""
     backend = SvgBackend()
     draw_scene(scene, backend, theme)
+    style = _BASE_CSS + extra_css
     # Only a VI that actually needs JS (interactive case/sequence frames,
     # and/or at least one connector-help panel) carries the root id + inline
     # script — a diagram with neither renders byte-identically to a version
     # with no interactivity at all, no dead JS shipped in every SVG.
+    # ``interactive=False`` forces an empty list — no scripts, no root id —
+    # for a consumer (e.g. the diff viewer) that drives its own frame/hover
+    # behavior over the surviving ``data-*`` attributes instead.
     scripts = []
-    if scene.frame_values:
-        scripts.append(_FRAME_CONTROLLER_JS)
-    if scene.nodes:
-        scripts.append(_HOVER_PANEL_JS)
+    if interactive:
+        if scene.frame_values:
+            scripts.append(_FRAME_CONTROLLER_JS)
+        if scene.nodes:
+            scripts.append(_HOVER_PANEL_JS)
     if scripts:
         root_id = _root_id(vi_name)
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
             scene.bounds, title=vi_name, script=script, root_id=root_id,
-            style=_BASE_CSS,
+            style=style,
         )
-    return backend.render(scene.bounds, title=vi_name, style=_BASE_CSS)
+    return backend.render(scene.bounds, title=vi_name, style=style)
 
 
 def render_vi_with_subvis(
@@ -308,17 +369,24 @@ def render_vi_file(
     search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
-    expand_subvis: bool = True,
+    mode: LoadMode = LoadMode.MINIMAL,
     theme: Theme = DEFAULT_THEME,
+    theme_mode: ThemeMode = "light",
 ) -> str | None:
     """Render a ``.vi`` file (or ``_BDHb.xml`` heap) straight from disk,
     building a fresh graph.
 
-    ``expand_subvis`` defaults to True so SubVI calls resolve to their real
-    ``.vi`` files and their extracted icons appear on the diagram; pass the
-    library roots / search paths so vi.lib / user.lib SubVIs resolve. If
-    expansion fails (unresolvable deps), it degrades to a diagram-only load so
-    the VI still renders (fallback boxes for unresolved SubVIs)."""
+    ``theme_mode`` is forwarded to :func:`render_vi` — ``"light"`` (default,
+    unchanged raw-hex output), ``"dark"``, or ``"auto"`` (follows the viewer's
+    ``prefers-color-scheme``).
+
+    ``mode`` defaults to ``LoadMode.MINIMAL`` — the target VI plus its direct
+    SubVIs' connector panes and referenced-type fields, which renders
+    byte-identically to a full load but never walks the transitive SubVI tree
+    (8-40x faster on a deep hierarchy). Pass the library roots / search paths so
+    vi.lib / user.lib SubVIs resolve. If the load fails (unresolvable deps), it
+    degrades to ``LoadMode.NONE`` (this VI's own diagram only, fallback boxes for
+    SubVIs) so the VI still renders."""
     path = Path(path)
     vi_name_hint = (
         path.name.replace("_BDHb.xml", ".vi")
@@ -326,17 +394,20 @@ def render_vi_file(
         else path.name
     )
 
-    def _load(expand: bool) -> InMemoryVIGraph:
+    def _load(load_mode: LoadMode) -> InMemoryVIGraph:
         graph = InMemoryVIGraph()
         if vilib_root or userlib_root:
             graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-        graph.load_vi(path, expand_subvis=expand, search_paths=search_paths)
+        graph.load_vi(path, mode=load_mode, search_paths=search_paths, layout=True)
         return graph
 
     try:
-        graph = _load(expand_subvis)
+        graph = _load(mode)
     except Exception:
-        if not expand_subvis:
+        if mode is LoadMode.NONE:
             raise
-        graph = _load(False)  # degrade: still render this VI's own diagram
-    return render_vi(graph, graph.resolve_vi_name(vi_name_hint), theme=theme)
+        graph = _load(LoadMode.NONE)  # degrade: still render this VI's own diagram
+    return render_vi(
+        graph, graph.resolve_vi_name(vi_name_hint),
+        theme=theme, theme_mode=theme_mode,
+    )

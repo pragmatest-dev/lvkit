@@ -353,23 +353,30 @@ class CpdArithHandler(NodeTypeHandler):
     xml_class = "cpdArith"
     display_name = "Compound Arithmetic"
 
-    # The operation lives in the LOW BYTE (& 0xFF) of the aggregate DCO's
-    # dcoFiller; the high byte is a non-operation flag (0x100 appears on
-    # OpenG-generated Add nodes -- MD5 modular sum, *Changed* detectors,
-    # Reshape). Verified from numeric-operand dataflow across the corpus:
-    #   0 = add  (Trim Whitespace: len - begin - end; MD5 UInt32 modular sum)
-    #   1 = or   (Create Dir if Non-Existant: OR of path-invalidity checks)
-    #   2 = and  (single ambiguous node, Draw Flattened Pixmap) -- UNVERIFIED
-    # Multiply and XOR never occur in the corpus, so their codes are unknown;
-    # an unrecognised low byte maps to the "unsupported" sentinel (rendered as
-    # "?", failed loudly at codegen) rather than being guessed. dcoFiller is
-    # omitted from the XML when 0, so absent == 0 == add (LabVIEW's default).
+    # LabVIEW stores the Compound Arithmetic OPERATION in the node's objFlags,
+    # NOT in any dcoFiller. Bits 16-18 hold the mode enum; bit 19 is a separate
+    # always-set marker. Corpus-verified across every cpdArith in the sample set
+    # (objFlags only ever 0x8/0xA/0xB/0xC 0000) and cross-checked against known
+    # dataflow -- this disproves the earlier "dcoFiller low byte" theory, which
+    # collapsed the 72 boolean-AND "...Changed" detectors into add (-> OR):
+    #   0 = add       (Trim Whitespace len sum; Reshape index math; MD5 F/G/I)
+    #   1 = multiply  (no corpus instance; occupies LabVIEW's enum slot)
+    #   2 = and       (every "X Changed" / "X Array Changed" detector; Trigger)
+    #   3 = or        (Create Dir if Non-Existant; file / refnum / wait guards)
+    #   4 = xor       (MD5 H function: H(x, y, z) = x XOR y XOR z)
+    # dcoFiller is per-terminal invert/type data and does NOT select the op.
+    # An unrecognised code (5-7) maps to the "unsupported" sentinel (rendered as
+    # "?", failed loudly at codegen) rather than being guessed.
     OPERATIONS = {
         0: "add",
-        1: "or",
+        1: "multiply",
         2: "and",
+        3: "or",
+        4: "xor",
     }
     UNSUPPORTED = "unsupported"
+    _OP_SHIFT = 16
+    _OP_MASK = 0x7
 
     def parse(self, elem: ET.Element) -> CpdArithNode:
         common = self._extract_common(elem)
@@ -381,23 +388,17 @@ class CpdArithHandler(NodeTypeHandler):
         )
 
     def _extract_operation(self, elem: ET.Element) -> str:
-        """Operation from the aggregate DCO's dcoFiller low byte (0 if absent).
+        """Operation from objFlags bits 16-18 (the Compound Arithmetic mode enum).
 
-        The parser never fails on an unknown code -- it returns the
-        ``UNSUPPORTED`` sentinel so rendering degrades gracefully; codegen is
-        the layer that fails loudly.
+        The parser never fails on an unknown code or a missing objFlags -- it
+        returns the ``UNSUPPORTED`` sentinel so rendering degrades gracefully;
+        codegen is the layer that fails loudly.
         """
-        filler = 0
-        term_list = elem.find("termList")
-        if term_list is not None:
-            first_term = term_list.find("SL__arrayElement")
-            if first_term is not None:
-                dco = first_term.find("dco")
-                if dco is not None:
-                    raw = dco.findtext("dcoFiller")
-                    if raw:
-                        filler = int(raw)
-        return self.OPERATIONS.get(filler & 0xFF, self.UNSUPPORTED)
+        raw = elem.findtext("objFlags")
+        if not raw:
+            return self.UNSUPPORTED
+        code = (int(raw) >> self._OP_SHIFT) & self._OP_MASK
+        return self.OPERATIONS.get(code, self.UNSUPPORTED)
 
 
 class ArrayBuildHandler(NodeTypeHandler):
@@ -461,14 +462,28 @@ class ForLoopHandler(NodeTypeHandler):
 
 
 class SelectHandler(NodeTypeHandler):
-    """Handler for Select nodes (class="select")."""
+    """Handler for Select nodes (class="select").
+
+    In this LV version, class="select" IS the Case Structure -- so this
+    node's subtree contains a whole nested frame (subVI calls, primitives,
+    etc.). Don't use extract_label here: its arbitrary-depth XPaths would
+    grab the first descendant's label (e.g. a subVI named "addSkipped.vi"
+    sitting in frame 0) and mis-name the WHOLE case structure with it.
+    Same reasoning as WhileLoopHandler/ForLoopHandler above.
+    """
 
     xml_class = "select"
     display_name = "Select"
 
     def parse(self, elem: ET.Element) -> SelectNode:
-        common = self._extract_common(elem)
-        return SelectNode(**common)
+        input_types, output_types = extract_terminal_types(elem)
+        return SelectNode(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=self.display_name,
+            input_types=input_types,
+            output_types=output_types,
+        )
 
 
 @dataclass
@@ -628,6 +643,34 @@ class _SequenceAliasHandler(StackedSequenceHandler):
     """Handles class="sequence" — older LV versions use this instead of "seq"."""
 
     xml_class = "sequence"
+
+
+class DisableStructureHandler(NodeTypeHandler):
+    """Handler for Diagram/Conditional Disable structures.
+
+    Serialized as class="commentNode" -- the same class a plain free-text
+    comment might use, but every commentNode this parser reaches here IS a
+    real Disable structure: _extract_nodes only calls parse_node() on
+    commentNode elements that already passed
+    parser.nodes.disable.is_disable_structure (a plain comment never has
+    subdiagrams, so it never reaches this handler). Frame content itself
+    lives in ParsedDisableStructure (parser.nodes.disable), mirroring how
+    case-frame content lives in ParsedCaseStructure separately from the bare
+    SelectNode.
+    """
+
+    xml_class = "commentNode"
+    display_name = "Disable Structure"
+
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        input_types, output_types = extract_terminal_types(elem)
+        return ParsedNode(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=self.display_name,
+            input_types=input_types,
+            output_types=output_types,
+        )
 
 
 class PrintfHandler(NodeTypeHandler):
@@ -972,6 +1015,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     FlatSequenceHandler(),
     StackedSequenceHandler(),
     _SequenceAliasHandler(),
+    DisableStructureHandler(),
     PrintfHandler(),
     ScanfHandler(),
     NMuxHandler(),

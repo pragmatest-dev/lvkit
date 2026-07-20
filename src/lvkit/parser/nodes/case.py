@@ -7,9 +7,10 @@ import xml.etree.ElementTree as ET
 
 from lvkit.models import CaseFrame, SelectorRange, Tunnel
 
-from ..constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
+from ..constants import TERMINAL_CLASS
 from ..models import ParsedCaseStructure, ParsedTerminalInfo, SelectorTable
-from .base import extract_tunnel_mapping
+from .base import extract_tunnel_mapping, frame_inner_node_uids
+from .disable import is_structure_boundary
 
 # Tunnel DCO classes used in case structures
 CASE_TUNNEL_CLASSES = ("csTun",)  # Case structure tunnel
@@ -39,8 +40,8 @@ def _find_own_descendants(
     """Find elements with class_name, stopping at nested structure boundaries.
 
     Walks the XML subtree but does NOT recurse into nested structure elements
-    (caseStruct, select, forLoop, etc.), so only elements belonging to THIS
-    structure are returned.
+    (caseStruct, select, forLoop, a nested Disable structure, etc.), so only
+    elements belonging to THIS structure are returned.
     """
     results: list[ET.Element] = []
 
@@ -50,7 +51,7 @@ def _find_own_descendants(
             if child_class == class_name:
                 results.append(child)
             # Stop at nested structure boundaries
-            if child_class not in STRUCTURE_NODE_CLASSES:
+            if not is_structure_boundary(child):
                 _walk(child)
 
     _walk(elem)
@@ -394,15 +395,11 @@ def _extract_frame(
     if is_default:
         selector_value = "Default"
 
-    # Find operations inside this diagram (direct children only,
-    # not recursing into nested structures like inner case/loop nodeList)
-    inner_node_uids: list[str] = []
-    node_list = diag_elem.find("nodeList")
-    if node_list is not None:
-        for node_elem in node_list.findall("SL__arrayElement"):
-            node_uid = node_elem.get("uid")
-            if node_uid:
-                inner_node_uids.append(node_uid)
+    # Operations directly on this frame's diagram (nodeList) PLUS any structure
+    # that LabVIEW lists only in the diagram's zPlaneList (a nested flat sequence
+    # box lives there, not in nodeList — see frame_inner_node_uids). We do NOT
+    # recurse into nested structures — each parses its own frames.
+    inner_node_uids = frame_inner_node_uids(diag_elem)
 
     return CaseFrame(
         selector_value=selector_value,

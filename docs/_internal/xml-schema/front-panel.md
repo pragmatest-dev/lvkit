@@ -67,7 +67,7 @@ own `<bounds>` **relative to the ddo's top-left origin**.
 
 | Part `class` | Meaning | Evidence | Confidence |
 |---|---|---|---|
-| `label` | The control's owned label. `<textRec><text>"..."</text>` holds the caption; `objFlags` bit `0x8` = hidden. | sample `:98-114`; `render/layout.py:161-174` | confirmed |
+| `label` | The control's owned label. `<textRec><text>"..."</text>` holds the caption; `objFlags` bit `0x8` = hidden. | sample `:98-114`; `parser/layout.py:161-174` | confirmed |
 | `cosm` | Cosmetic/graphic part (the drawn widget body). | sample `:116-127` | probable |
 | `numLabel` | Numeric label carrying a `<format>` display-format string. | `parser/nodes/constant.py:53` | confirmed |
 | `<partID>` / `<masterPart>` | Numeric part ids linking parts of a compound widget. Not interpreted by lvkit. | sample `:100-101` | unknown |

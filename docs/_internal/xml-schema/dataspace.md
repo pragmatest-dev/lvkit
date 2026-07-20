@@ -165,4 +165,4 @@ Beside the three XML files, pylabview writes many `*.bin` blobs and `*.png`
 icons (e.g. `_CNST.bin`, `_DSIM*.bin`, `_HIST.bin`, `_ICON.png`,
 `_VICD_code.bin`). Most are **not parsed** by lvkit; the exceptions are
 `_LIbd.bin` (above) and the `_ICON.png` (rendered as the VI's connector-pane
-icon, `render/layout.py:496`). The rest are **unknown** to lvkit.
+icon, `parser/layout.py:496`). The rest are **unknown** to lvkit.

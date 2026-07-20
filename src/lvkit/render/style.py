@@ -38,10 +38,13 @@ class Theme:
     case_bar_text: str = "#4a4636"
     case_no_error_border: str = "#2e9e3f"  # green — error-cluster "No Error" frame
     case_error_border: str = "#d32f2f"     # red — error-cluster "Error" frame
-    selector_fill: str = "#e6f4d9"
+    # Translucent wash painted over a DISABLED subdiagram of a Diagram/
+    # Conditional Disable structure (every frame except the enabled one), so
+    # its greyed-out contents read as inactive — matches LabVIEW. Applied at
+    # ~0.5 group opacity (see draw_scene); this is the solid grey it washes to.
+    disabled_mask: str = "#9a9a9a"
     selector_stroke: str = "#5a8f3a"
     selector_text: str = "#3f6b28"
-    sr_fill: str = "#cfcfcf"
     sr_stroke: str = "#555555"
     tunnel_border: str = "#4a4a3a"       # dark-olive border of tunnel/index boxes
     coercion_dot: str = "#e01f1f"         # red coercion-dot fill (per LabVIEW)
@@ -157,25 +160,6 @@ def numeric_repr(lv_type: LVType | None) -> str | None:
     if lv_type.kind == "primitive" and lv_type.underlying_type in _NUMERIC_TYPES:
         return lv_type.underlying_type
     return None
-
-
-_INT_BYTE_WIDTH = {
-    "NumInt8": 1, "NumUInt8": 1,
-    "NumInt16": 2, "NumUInt16": 2,
-    "NumInt32": 4, "NumUInt32": 4,
-    "NumInt64": 8, "NumUInt64": 8,
-}
-
-
-def int_byte_width(lv_type: LVType | None) -> int | None:
-    """Byte width of an integer type (1/2/4/8), or None if not a plain
-    fixed-width integer (float, complex, non-numeric, or unresolved type).
-    Used to two's-complement a negative value to its type's bit width
-    before hex/octal/binary display — LabVIEW shows e.g. I16 -1 as
-    ``xFFFF``, not a Python-style ``-x1``."""
-    if lv_type is None or lv_type.kind != "primitive":
-        return None
-    return _INT_BYTE_WIDTH.get(lv_type.underlying_type or "")
 
 
 def type_repr(lv_type: LVType | None) -> str:

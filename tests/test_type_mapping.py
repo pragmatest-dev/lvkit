@@ -13,7 +13,7 @@ import pytest
 
 from lvkit.parser.type_mapping import parse_type_map_rich, parse_vctp_types
 
-SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
 TESTRESULT_DIR = SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestResult"
 TESTCASE_DIR = SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestCase"
 ADDERROR_VI = TESTRESULT_DIR / "addError.vi"

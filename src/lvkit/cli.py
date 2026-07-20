@@ -6,10 +6,12 @@ import argparse
 import json
 import sys
 import traceback
+import webbrowser
 from pathlib import Path
 
 from . import __version__, primitive_resolver, vilib_resolver
 from .graph import InMemoryVIGraph
+from .graph.loading import LoadMode
 from .lv_detect import detect_labview
 from .project_store import (
     find_project_store,
@@ -19,10 +21,51 @@ from .project_store import (
 )
 from .structure import (
     discover_project_structure,
+    discover_structure_from_lvproj,
     generate_python_structure_plan,
     parse_lvclass,
     parse_lvlib,
 )
+
+
+def _add_load_mode_arg(parser: argparse.ArgumentParser) -> None:
+    """Add ``--load-mode {none,minimal,full}`` to a subparser. Each command
+    picks its own default when it resolves the value (see _resolve_load_mode)."""
+    parser.add_argument(
+        "--load-mode",
+        choices=[m.value for m in LoadMode],
+        default=None,
+        help=(
+            "How deep to load dependencies: 'none' (this VI only), 'minimal' "
+            "(this VI + direct SubVI connector panes + referenced-type fields; "
+            "faithful render/diff), or 'full' (whole SubVI/class-method tree). "
+            "Defaults per command."
+        ),
+    )
+
+
+def _resolve_load_mode(
+    args: argparse.Namespace, default: LoadMode,
+) -> LoadMode:
+    """Resolve the effective LoadMode for a command: an explicit ``--load-mode``
+    wins, else the command's default."""
+    chosen = getattr(args, "load_mode", None)
+    return LoadMode(chosen) if chosen else default
+
+
+def _add_theme_arg(parser: argparse.ArgumentParser) -> None:
+    """Add ``--theme {light,dark,auto}`` to a subparser (render/diff)."""
+    parser.add_argument(
+        "--theme",
+        choices=["light", "dark", "auto"],
+        default="light",
+        help=(
+            "Color theme for the emitted SVG/HTML: 'light' (default, the "
+            "faithful LabVIEW light diagram), 'dark' (a dark palette baked in "
+            "unconditionally), or 'auto' (light by default, dark when the "
+            "viewer's OS/editor prefers dark, via prefers-color-scheme)."
+        ),
+    )
 
 
 def _add_project_root_arg(parser: argparse.ArgumentParser) -> None:
@@ -146,6 +189,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog="lvkit",
         description="Understand, convert, and document LabVIEW VI files.",
+        epilog=(
+            "lvkit is an independent, clean-room project, not affiliated with, "
+            "authorized by, endorsed by, or sponsored by NI. LabVIEW, NI, and "
+            "National Instruments are trademarks of National Instruments "
+            "Corporation, used only to identify the file format lvkit reads."
+        ),
     )
     parser.add_argument("--version", action="version", version=f"lvkit {__version__}")
 
@@ -155,7 +204,9 @@ def main() -> int:
     struct_parser = subparsers.add_parser(
         "structure", help="Analyze LabVIEW project structure"
     )
-    struct_parser.add_argument("input", help="Directory, .lvlib, or .lvclass file")
+    struct_parser.add_argument(
+        "input", help="Directory, .lvproj, .lvlib, or .lvclass file"
+    )
     struct_parser.add_argument("--json", action="store_true", help="Output as JSON")
     struct_parser.add_argument(
         "--plan", action="store_true", help="Generate Python structure plan"
@@ -181,9 +232,20 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
+    )
+    desc_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Include a full netlist section (see lvkit.graph.netlist)",
     )
     _add_project_root_arg(desc_parser)
+    _add_load_mode_arg(desc_parser)
     _add_library_root_args(desc_parser)
 
     # Generate command - deterministic AST-based Python generation
@@ -204,11 +266,12 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
-    )
-    gen_parser.add_argument(
-        "--no-expand", action="store_true",
-        help="Don't expand SubVIs",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
     # User-facing name is --placeholder-on-unresolved (descriptive of the
     # output the user sees in their generated Python). Internally this
@@ -224,6 +287,7 @@ def main() -> int:
         ),
     )
     _add_project_root_arg(gen_parser)
+    _add_load_mode_arg(gen_parser)
     _add_library_root_args(gen_parser)
 
     # Docs command - generate HTML documentation
@@ -243,13 +307,15 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
-    )
-    docs_parser.add_argument(
-        "--no-expand", action="store_true",
-        help="Don't expand SubVIs",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
     _add_project_root_arg(docs_parser)
+    _add_load_mode_arg(docs_parser)
     _add_library_root_args(docs_parser)
 
     # Visualize command - interactive graph visualization
@@ -271,11 +337,12 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
-    )
-    viz_parser.add_argument(
-        "--no-expand", action="store_true",
-        help="Don't expand SubVIs",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
     viz_parser.add_argument(
         "--open", action="store_true",
@@ -288,6 +355,7 @@ def main() -> int:
         help="Graph type: dataflow (operations within VI) or deps (VI dependencies)",
     )
     _add_project_root_arg(viz_parser)
+    _add_load_mode_arg(viz_parser)
     _add_library_root_args(viz_parser)
 
     # Diff command - compare two VIs
@@ -304,17 +372,55 @@ def main() -> int:
         help="Path to second .vi file",
     )
     diff_parser.add_argument(
+        "--format",
+        choices=["text", "json", "html"],
+        default=None,
+        help=(
+            "Output format: 'text' (concise logical change summary, "
+            "stdout/pipe/CI-friendly, default), 'json' (ChangeMap for "
+            "scripts/agents/the VSCode extension), or 'html' (self-contained "
+            "interactive viewer file)."
+        ),
+    )
+    diff_parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help=(
+            "Show the change summary in full depth (VI-interface Signature, "
+            "containment expanded into a tree, old->new detail, an "
+            "unchanged-node tally) instead of the concise default. Only "
+            "affects --format text (a detail level, orthogonal to format)."
+        ),
+    )
+    diff_parser.add_argument(
         "--long", action="store_true",
-        help="Show structured change report instead of unified diff",
+        help="Back-compat alias for --verbose.",
+    )
+    diff_parser.add_argument(
+        "-o", "--output", default=None, metavar="FILE",
+        help=(
+            "Output file path (used by --format html; default "
+            "outputs/vi-diff/<stemA>__<stemB>.html). "
+            "text/json print to stdout unless given."
+        ),
+    )
+    diff_parser.add_argument(
+        "--open", action="store_true",
+        help="Render --format html and open it in a browser.",
     )
     diff_parser.add_argument(
         "--search-path",
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The project root of each "
+            "VI (nearest enclosing .lvkit/) is auto-detected and searched, so "
+            "this is only needed for VIs outside a project store."
+        ),
     )
+    _add_theme_arg(diff_parser)
     _add_project_root_arg(diff_parser)
+    _add_load_mode_arg(diff_parser)
     _add_library_root_args(diff_parser)
 
     # Setup command - install AI editor skills and create .lvkit/ store
@@ -372,18 +478,31 @@ def main() -> int:
     render_parser.add_argument("input_path", help="Path to .vi file or _BDHb.xml heap")
     render_parser.add_argument(
         "-o", "--output", default=None, metavar="FILE",
-        help="Output SVG path (default: <vi-stem>.svg next to the input)",
+        help=(
+            "Output path (default for svg: <vi-stem>.svg next to the input; "
+            "for html: outputs/vi-render/<vi-stem>.html)"
+        ),
+    )
+    render_parser.add_argument(
+        "--format", choices=["svg", "html"], default="svg",
+        help=(
+            "Output format: 'svg' (default, the self-contained diagram) or "
+            "'html' (an interactive single-VI viewer page with zoom/pan and a "
+            "light/dark diagram-theme toggle)."
+        ),
     )
     render_parser.add_argument(
         "--search-path", action="append", dest="search_paths", default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
-    render_parser.add_argument(
-        "--no-expand", action="store_true",
-        help="Don't resolve SubVIs — faster, but SubVIs render as boxes without "
-             "their real icons",
-    )
+    _add_theme_arg(render_parser)
     _add_project_root_arg(render_parser)
+    _add_load_mode_arg(render_parser)
     _add_library_root_args(render_parser)
 
     args = parser.parse_args()
@@ -477,9 +596,13 @@ def cmd_structure(args: argparse.Namespace) -> int:
                     for m in lib.members:
                         print(f"    - {m.name} [{m.member_type}]")
 
-        elif input_path.is_dir():
-            # Directory - discover full project
-            structure = discover_project_structure(input_path)
+        elif input_path.suffix == ".lvproj" or input_path.is_dir():
+            # A .lvproj uses the project's explicit member list; a directory is
+            # scanned. Both produce the same structure dict, rendered the same.
+            if input_path.suffix == ".lvproj":
+                structure = discover_structure_from_lvproj(input_path)
+            else:
+                structure = discover_project_structure(input_path)
 
             if args.plan:
                 plan = generate_python_structure_plan(structure)
@@ -539,8 +662,11 @@ def cmd_describe(args: argparse.Namespace) -> int:
     try:
         graph = InMemoryVIGraph()
         _configure_library_roots(graph, args)
-        search_paths = [Path(p) for p in args.search_paths]
-        graph.load_vi(str(input_path), search_paths=search_paths)
+        search_paths = _auto_search_paths(args.search_paths, input_path)
+        graph.load_vi(
+            str(input_path), _resolve_load_mode(args, LoadMode.MINIMAL),
+            search_paths=search_paths,
+        )
 
         # Disambiguate by parent dir when multiple loaded VIs share the
         # input's leaf name (e.g. TestCase.lvclass:run.vi vs TestSuite's)
@@ -557,7 +683,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
             if preferred:
                 vi_name = preferred[0]
 
-        print(describe_vi(graph, vi_name))
+        print(describe_vi(graph, vi_name, verbose=args.verbose))
 
         return 0
     except (ValueError, FileNotFoundError, KeyError) as e:
@@ -694,8 +820,10 @@ def cmd_detect(args: argparse.Namespace) -> int:
 
 
 def cmd_render(args: argparse.Namespace) -> int:
-    """Handle the render command — faithful, graph-driven block-diagram SVG."""
+    """Handle the render command — faithful, graph-driven block-diagram SVG,
+    or (``--format html``) a self-contained single-VI viewer page."""
     from .render import render_vi_file
+    from .render.render_viewer import build_render_viewer
 
     input_path = Path(args.input_path)
     if not input_path.exists():
@@ -704,7 +832,13 @@ def cmd_render(args: argparse.Namespace) -> int:
 
     _configure_resolvers(args)
     vilib_root, userlib_root = _parse_library_roots(args)
-    search_paths = [Path(p) for p in args.search_paths] if args.search_paths else None
+    search_paths = _auto_search_paths(args.search_paths, input_path) or None
+
+    # The html viewer embeds an inline SVG and carries its OWN light/dark control
+    # (a data-theme toggle on the page root), so its SVG is ALWAYS rendered
+    # "auto" — the toggle re-themes it live. The svg format honours --theme and
+    # is byte-identical to before this flag existed.
+    theme_mode = "auto" if args.format == "html" else args.theme
 
     try:
         svg = render_vi_file(
@@ -712,7 +846,8 @@ def cmd_render(args: argparse.Namespace) -> int:
             search_paths=search_paths,
             vilib_root=vilib_root,
             userlib_root=userlib_root,
-            expand_subvis=not args.no_expand,
+            mode=_resolve_load_mode(args, LoadMode.MINIMAL),
+            theme_mode=theme_mode,
         )
     except Exception as e:
         print(f"Error: render failed: {e}", file=sys.stderr)
@@ -727,19 +862,91 @@ def cmd_render(args: argparse.Namespace) -> int:
         )
         return 1
 
-    if args.output:
-        out = Path(args.output)
-    else:
-        stem = input_path.stem.replace("_BDHb", "")
-        out = input_path.with_name(f"{stem}.svg")
+    stem = input_path.stem.replace("_BDHb", "")
+
+    if args.format == "html":
+        html = build_render_viewer(svg, title=stem)
+        out = (
+            Path(args.output) if args.output
+            else Path("outputs/vi-render") / f"{stem}.html"
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html)
+        print(f"Rendered {out}")
+        return 0
+
+    out = Path(args.output) if args.output else input_path.with_name(f"{stem}.svg")
     out.write_text(svg)
     print(f"Rendered {out}")
     return 0
 
 
+def _auto_search_paths(explicit: list[str], *inputs: Path) -> list[Path]:
+    """Effective SubVI search paths: the explicit ``--search-path`` values,
+    plus the auto-detected project root of each input.
+
+    A VI's SubVIs commonly live in sibling subdirectories of the project root,
+    not next to the VI itself (the VI's own directory is always searched via
+    ``load_vi``'s ``source_dir``, so it never needs listing here). #36: rather
+    than make the user pass ``--search-path``, walk up from each input to its
+    enclosing ``.lvkit`` project store (``find_project_store`` — the same
+    marker ``_configure_resolvers`` already uses for primitive/vi.lib data) and
+    add that root. Shared by every command that resolves SubVIs
+    (describe/generate/docs/visualize/render/diff), so ``lvkit <cmd> foo.vi``
+    finds the project's SubVIs with no flags. Explicit paths still win/augment;
+    inputs sharing one project resolve to the same root (added once).
+    """
+    paths: list[Path] = [Path(p) for p in explicit]
+    seen = {p.resolve() for p in paths}
+    for inp in inputs:
+        start = inp if inp.is_dir() else inp.parent
+        store = find_project_store(start=start)
+        if store is None:
+            continue
+        root = store.parent  # project root is the parent of the .lvkit/ store
+        if root.resolve() not in seen:
+            paths.append(root)
+            seen.add(root.resolve())
+    return paths
+
+
+def _load_diff_graphs(
+    args: argparse.Namespace, path_a: Path, path_b: Path, *, layout: bool,
+) -> tuple[InMemoryVIGraph, str, InMemoryVIGraph, str]:
+    """Load both sides of a diff pair with a shared load mode/search paths."""
+    search_paths = _auto_search_paths(args.search_paths, path_a, path_b)
+    diff_mode = _resolve_load_mode(args, LoadMode.MINIMAL)
+
+    graph_a = InMemoryVIGraph()
+    _configure_library_roots(graph_a, args)
+    graph_a.load_vi(
+        str(path_a), diff_mode, search_paths=search_paths, layout=layout,
+    )
+    vi_name_a = graph_a.resolve_vi_name(path_a.name)
+
+    graph_b = InMemoryVIGraph()
+    _configure_library_roots(graph_b, args)
+    graph_b.load_vi(
+        str(path_b), diff_mode, search_paths=search_paths, layout=layout,
+    )
+    vi_name_b = graph_b.resolve_vi_name(path_b.name)
+
+    return graph_a, vi_name_a, graph_b, vi_name_b
+
+
 def cmd_diff(args: argparse.Namespace) -> int:
-    """Handle the diff command — compare two VI versions."""
-    from .graph.diff import diff_structured, diff_text
+    """Handle the diff command — compare two VI versions.
+
+    Output is picked with ``--format {text,json,html}`` (the lvkit house
+    convention — one flag for mutually-exclusive output projections, never a
+    boolean per format). ``-v/--verbose`` (and its back-compat alias
+    ``--long``) is the orthogonal DETAIL axis: both tiers of ``text`` project
+    the SAME UID-keyed ``diff_uid`` ChangeMap (see ``format_diff``) that also
+    backs ``--format json``/``html`` — ``--verbose`` only adds depth
+    (Signature, containment nesting, modified old→new detail, an
+    unchanged-node tally), never a different set of changes.
+    """
+    from .graph.diff import diff_uid, format_diff, netlist_diff_rows, rows_to_json
 
     path_a = Path(args.vi_a)
     path_b = Path(args.vi_b)
@@ -749,35 +956,89 @@ def cmd_diff(args: argparse.Namespace) -> int:
             print(f"Error: Path not found: {p}", file=sys.stderr)
             return 1
 
+    fmt = args.format or ("html" if args.open else "text")
+    if args.open and args.format in ("text", "json"):
+        print("Error: --open requires --format html", file=sys.stderr)
+        return 1
+    verbose = args.verbose or args.long
+
     _configure_resolvers(args)
-    search_paths = [Path(p) for p in args.search_paths]
 
     try:
-        graph_a = InMemoryVIGraph()
-        _configure_library_roots(graph_a, args)
-        graph_a.load_vi(str(path_a), search_paths=search_paths)
-        vi_name_a = graph_a.resolve_vi_name(path_a.name)
-
-        graph_b = InMemoryVIGraph()
-        _configure_library_roots(graph_b, args)
-        graph_b.load_vi(str(path_b), search_paths=search_paths)
-        vi_name_b = graph_b.resolve_vi_name(path_b.name)
-
-        if args.long:
-            report = diff_structured(graph_a, graph_b, vi_name_a, vi_name_b)
-            if report.is_empty():
-                print("No changes detected.")
-            else:
-                print(report.format())
-        else:
-            result = diff_text(
-                graph_a, graph_b, vi_name_a, vi_name_b,
-                label_a=str(path_a), label_b=str(path_b),
+        if fmt == "text":
+            graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
+                args, path_a, path_b, layout=False,
+            )
+            result = format_diff(
+                graph_a, graph_b, vi_name_a, vi_name_b, verbose=verbose,
             )
             if result:
                 print(result)
             else:
                 print("No changes detected.")
+
+            if sys.stdout.isatty():
+                print(
+                    "\nTip: lvkit diff … --format html --open  for a "
+                    "visual, navigable diff."
+                )
+            return 0
+
+        graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
+            args, path_a, path_b, layout=True,
+        )
+
+        if fmt == "json":
+            cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
+            text = json.dumps(cmap.to_dict(), indent=2)
+            if args.output:
+                Path(args.output).write_text(text)
+            else:
+                print(text)
+            return 0
+
+        # fmt == "html"
+        from .render import render_vi
+        from .render.diff_viewer import build_diff_viewer
+
+        # The viewer chrome is always prefers-color-scheme adaptive (see
+        # templates/diff_viewer.html), so the embedded diagrams follow the same
+        # signal: --theme controls the SVG palette (default 'light'; the VS Code
+        # extension passes 'auto' for a fully theme-matched page).
+        before_svg = render_vi(
+            graph_a, vi_name_a, interactive=False, theme_mode=args.theme,
+        )
+        after_svg = render_vi(
+            graph_b, vi_name_b, interactive=False, theme_mode=args.theme,
+        )
+        if before_svg is None or after_svg is None:
+            print(
+                "Error: render declined — required diagram geometry is "
+                "missing (see logs for the missing ids)",
+                file=sys.stderr,
+            )
+            return 1
+
+        cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
+        rows = netlist_diff_rows(graph_a, graph_b, vi_name_a, vi_name_b)
+        html = build_diff_viewer(
+            cmap, before_svg, after_svg,
+            title=path_a.name,
+            before_label=path_a.stem,
+            after_label=path_b.stem,
+            netlist_rows=rows_to_json(rows),
+        )
+
+        out = (
+            Path(args.output) if args.output
+            else Path("outputs/vi-diff") / f"{path_a.stem}__{path_b.stem}.html"
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html)
+        print(f"Wrote {out}")
+
+        if args.open:
+            webbrowser.open(out.resolve().as_uri())
 
         return 0
     except (ValueError, FileNotFoundError, KeyError) as e:
@@ -798,13 +1059,13 @@ def cmd_generate(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     try:
-        sp = [Path(p) for p in args.search_paths] if args.search_paths else None
+        sp = _auto_search_paths(args.search_paths, input_path) or None
         vilib_root, userlib_root = _parse_library_roots(args)
         result = generate_python(
             input_path,
             args.output,
             search_paths=sp,
-            expand_subvis=not args.no_expand,
+            mode=_resolve_load_mode(args, LoadMode.FULL),
             soft_unresolved=args.placeholder_on_unresolved,
             vilib_root=vilib_root,
             userlib_root=userlib_root,
@@ -834,8 +1095,9 @@ def cmd_docs(args: argparse.Namespace) -> int:
         result = generate_documents(
             library_path=str(input_path),
             output_dir=args.output_dir,
-            search_paths=args.search_paths if args.search_paths else None,
-            expand_subvis=not args.no_expand,
+            search_paths=[str(p) for p in _auto_search_paths(
+                args.search_paths, input_path)] or None,
+            mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
         )
@@ -859,20 +1121,18 @@ def cmd_visualize(args: argparse.Namespace) -> int:
 
     graph = InMemoryVIGraph()
     _configure_library_roots(graph, args)
-    search_paths = (
-        [Path(p) for p in args.search_paths] if args.search_paths else None
-    )
-    expand = not args.no_expand
+    search_paths = _auto_search_paths(args.search_paths, input_path) or None
+    vmode = _resolve_load_mode(args, LoadMode.FULL)
 
     suffix = input_path.suffix.lower()
     if suffix == ".lvclass":
-        graph.load_lvclass(str(input_path), expand, search_paths)
+        graph.load_lvclass(str(input_path), vmode, search_paths)
     elif suffix == ".lvlib":
-        graph.load_lvlib(str(input_path), expand, search_paths)
+        graph.load_lvlib(str(input_path), vmode, search_paths)
     elif input_path.is_dir():
-        graph.load_directory(str(input_path), expand, search_paths)
+        graph.load_directory(str(input_path), vmode, search_paths)
     else:
-        graph.load_vi(str(input_path), expand, search_paths)
+        graph.load_vi(str(input_path), vmode, search_paths)
 
     output = Path(args.output)
 
@@ -892,8 +1152,7 @@ def cmd_visualize(args: argparse.Namespace) -> int:
     print(f"Graph saved to {args.output}")
 
     if args.open:
-        import webbrowser
-        webbrowser.open(f"file://{Path(args.output).resolve()}")
+        webbrowser.open(Path(args.output).resolve().as_uri())
 
     return 0
 
@@ -1154,14 +1413,8 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         lines.append(f"XML class: {node_type}")
 
     terminals = getattr(gnode, "terminals", [])
-    inputs = [
-        t for t in terminals
-        if t.direction == "input" and not t.is_error_cluster
-    ]
-    outputs = [
-        t for t in terminals
-        if t.direction == "output" and not t.is_error_cluster
-    ]
+    inputs = [t for t in terminals if t.direction == "input"]
+    outputs = [t for t in terminals if t.direction == "output"]
 
     if inputs:
         lines.append("")

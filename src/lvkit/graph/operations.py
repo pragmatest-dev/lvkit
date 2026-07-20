@@ -14,6 +14,7 @@ import networkx as nx
 from ..models import (
     CaseFrame,
     CaseOperation,
+    DisableStructureOperation,
     FormulaOperation,
     FPTerminal,
     InPlaceOperation,
@@ -38,6 +39,7 @@ from .core import (
 )
 from .models import (
     CaseStructureNode,
+    DisableStructureNode,
     InPlaceNode,
     LoopNode,
     PolyInfo,
@@ -117,6 +119,12 @@ class OperationsMixin:
                 stop_cond = gnode.stop_condition_terminal
                 stop_cond_inverted = gnode.stop_condition_inverted
 
+            elif isinstance(gnode, DisableStructureNode):
+                labels = ["DisableStructure"]
+                case_frames = self._populate_frame_operations(  # type: ignore[assignment]
+                    gnode.frames, vi_name, child_uids,
+                )
+
             elif isinstance(gnode, CaseStructureNode):
                 labels = ["CaseStructure"]
                 selector_terminal = gnode.selector_terminal
@@ -159,6 +167,11 @@ class OperationsMixin:
                 **common,
                 decompose_ops=decompose,
                 recompose_ops=recompose,
+            )
+        if isinstance(gnode, DisableStructureNode):
+            return DisableStructureOperation(
+                **common,
+                frames=case_frames,
             )
         if isinstance(gnode, CaseStructureNode):
             return CaseOperation(

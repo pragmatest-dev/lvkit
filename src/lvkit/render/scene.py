@@ -9,15 +9,14 @@ touches the graph or the raw heap XML again.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 
 from ..graph.core import InMemoryVIGraph
 from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
     ConstantNode,
+    DisableStructureNode,
     FormulaNode,
     LoopNode,
     SequenceNode,
@@ -25,23 +24,22 @@ from ..graph.models import (
     Wire,
     WireEnd,
 )
+from ..graph.op_walk import _selector_label, is_no_error_selector
 from ..models import (
-    CaseFrame,
     FPTerminal,
     LVType,
-    SelectorRange,
     Terminal,
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..parser.layout import Layout, Point, Rect, build_layout
+from ..parser.wire_table import FAITHFUL_WIRE_TABLE
 from .backend import SvgBackend
 from .glyph import ArithGlyph, CompoundArithGlyph, Glyph, wrap_label
 from .lane_pass import BranchCtx, apply_lane_pass
-from .layout import Layout, Point, Rect, build_layout
 from .nodes import _CLUSTER_MUX_TYPES, GlyphContext, resolve_glyph, string_const_display
 from .style import WireStyle, numeric_repr, type_family, wire_style
 from .wire_router import WireRouter, _compress
-from .wire_table import FAITHFUL_WIRE_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +223,6 @@ class Scene:
     structures: list[RenderStructure] = field(default_factory=list)
     wire_nets: list[RenderWireNet] = field(default_factory=list)
     coercion_dots: list[RenderCoercionDot] = field(default_factory=list)
-    icon_png: Path | None = None
     # raw struct uid (case or stacked sequence) -> default selector value
     # (str), and -> the ordered list of ALL selector values — the SVG
     # selector chrome's click-to-cycle metadata (see draw.py's lv-selector /
@@ -240,17 +237,6 @@ class Scene:
     # raw struct uid of ERROR-cluster case structures -> {selector value ->
     # True if that frame is the No-Error (green) case, else False (red)}.
     error_frame_no_error: dict[str, dict[str, bool]] = field(default_factory=dict)
-
-    @property
-    def obstacles(self) -> list[Rect]:
-        """Every rectangle wires should avoid — node boxes AND structure
-        footprints (For/While Loop, Case, Sequence, ...). A wire must not run
-        over or under a structure it neither connects to nor lives inside, the
-        same way it must not cross a node. This is the coarse full-diagram
-        view; the router applies per-wire connect/contain/frame exemptions in
-        ``_build_wire_nets`` (a structure the wire touches or is enclosed by is
-        not an obstacle FOR THAT WIRE)."""
-        return [n.bounds for n in self.nodes] + [s.bounds for s in self.structures]
 
 
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
@@ -282,7 +268,8 @@ def _frame_path(
         parent = by_id.get(cur.parent)
         if parent is None:
             break
-        if isinstance(parent, CaseStructureNode) or _is_stacked_sequence(parent):
+        if isinstance(parent, (CaseStructureNode, DisableStructureNode)) \
+                or _is_stacked_sequence(parent):
             segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
         cur = parent
     segs.reverse()
@@ -322,58 +309,6 @@ def _is_default_visible(path: FramePath, default_frame: dict[str, str]) -> bool:
     """Whether every segment of ``path`` matches that case's default frame
     (vacuously True for ``()`` — base content stays always-visible/fatal)."""
     return all(default_frame.get(s) == v for s, v in path)
-
-
-def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> str:
-    """Render a frame's selector ranges the way LabVIEW builds the label:
-    singles as ``fmt(v)``, closed ranges as ``a..b``, open ranges as ``a..``
-    / ``..b``, joined with ``, `` (e.g. ``1, 3, 5..8``)."""
-    parts: list[str] = []
-    for r in ranges:
-        if r.open_start:
-            parts.append(f"..{fmt(r.end)}")
-        elif r.open_end:
-            parts.append(f"{fmt(r.start)}..")
-        elif r.is_single:
-            parts.append(fmt(r.start))
-        else:
-            parts.append(f"{fmt(r.start)}..{fmt(r.end)}")
-    return ", ".join(parts)
-
-
-def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:
-    """The faithful case-selector text for one frame, by selector type:
-    ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
-    integer → value(s)/range(s); string → quoted; boolean → ``True``/``False``.
-    """
-    sv = str(frame.selector_value)
-    if is_error:
-        # The error-cluster case switches on the status boolean: 0 = no error,
-        # anything else is an error (LabVIEW: "No Error" / "Error", plus code
-        # ranges like "Error 3..10" since 2019). The Error frame is often the
-        # structure's default — LabVIEW still labels it "Error", not "Default",
-        # so this precedes the plain-default branch below.
-        if sv == "0":
-            return "No Error"
-        codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
-        if codes:
-            return f"Error {_format_ranges(codes, str)}"
-        return "Error"
-    if frame.is_default or sv == "Default":
-        return "Default"
-    if lv_type and lv_type.kind in ("enum", "ring") and lv_type.values \
-            and frame.selector_ranges:
-        int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
-        return _format_ranges(
-            frame.selector_ranges, lambda i: int_to_name.get(i, str(i)),
-        )
-    if frame.selector_ranges:  # integer selector
-        return _format_ranges(frame.selector_ranges, str)
-    if frame.selector_strings:  # string selector — one frame, several strings
-        return ", ".join(f'"{s}"' for s in frame.selector_strings)
-    if lv_type and lv_type.underlying_type == "String":
-        return f'"{sv}"'
-    return sv  # boolean True/False, or an already-display token
 
 
 def _frame_info(
@@ -424,9 +359,37 @@ def _frame_info(
                 # "0"; every other frame — the "Error" frame, including when it
                 # is the structure's default — is red.
                 error_no_error[raw] = {
-                    str(f.selector_value): str(f.selector_value) == "0"
+                    str(f.selector_value): is_no_error_selector(
+                        str(f.selector_value),
+                    )
                     for f in node.frames
                 }
+        elif isinstance(node, DisableStructureNode) and node.frames:
+            # Disable structure: no runtime selector / no lv_type to derive a
+            # faithful display label from — CaseFrame.selector_value already
+            # IS the display text ("Enabled"/"Disabled"/a symbol condition/
+            # "Frame N"), so frame_labels is left unpopulated and
+            # _frame_display's raw-value fallback (draw.py) handles it.
+            raw = _strip_prefix(node.id, vi_name)
+            frame_values[raw] = [str(f.selector_value) for f in node.frames]
+            # Always show the ENABLED subdiagram — the code that actually
+            # compiles/runs — with the disabled one(s) hidden by default. The
+            # heap's active_frame reflects the editor's last-shown diagram, NOT
+            # which subdiagram is enabled, so prefer the "Enabled"-labelled
+            # frame. A Conditional Disable uses condition labels (no "Enabled"),
+            # so there fall back to active_frame, then default/first.
+            shown = next(
+                (f for f in node.frames if str(f.selector_value) == "Enabled"),
+                None,
+            )
+            if shown is None and node.active_frame is not None \
+                    and 0 <= node.active_frame < len(node.frames):
+                shown = node.frames[node.active_frame]
+            if shown is None:
+                shown = next(
+                    (f for f in node.frames if f.is_default), node.frames[0],
+                )
+            default_frame[raw] = str(shown.selector_value)
         elif (
             isinstance(node, SequenceNode)
             and node.node_type != "flatSequence"
@@ -1352,7 +1315,12 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         logger.warning("render: no source path for VI %r", vi_name)
         return None
 
-    layout = build_layout(src_path)
+    # Prefer geometry decoded during the graph's own parse (load_vi layout=True)
+    # — one read. Fall back to a standalone heap read only when the graph wasn't
+    # loaded with geometry (keeps every caller working, byte-identically).
+    layout = graph.get_layout(vi_name)
+    if layout is None:
+        layout = build_layout(src_path)
     # Shrink oversized string-constant boxes to their wrapped-text height
     # (top-left anchored) BEFORE anything consumes geometry, so the drawn box,
     # the router obstacle, and the wire attach point all use the trimmed rect.
@@ -1530,7 +1498,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         structures=structures,
         wire_nets=wire_nets,
         coercion_dots=coercion_dots,
-        icon_png=layout.icon_png,
         default_frame=default_frame,
         frame_values=frame_values,
         frame_labels=frame_labels,

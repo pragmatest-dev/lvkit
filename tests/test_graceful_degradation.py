@@ -29,9 +29,10 @@ from lvkit.graph.describe import (
     describe_operations,
     describe_vi,
 )
-from lvkit.graph.diff import diff_structured, diff_text
+from lvkit.graph.diff import format_diff
+from lvkit.graph.loading import LoadMode
 
-SAMPLE_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
+SAMPLE_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
 
 def _samples_available() -> bool:
@@ -40,7 +41,7 @@ def _samples_available() -> bool:
 
 pytestmark = pytest.mark.skipif(
     not _samples_available(),
-    reason="Requires samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi",
+    reason="Requires .lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi",
 )
 
 
@@ -121,19 +122,20 @@ def test_describe_with_no_resolutions(
 # ============================================================
 
 
-def test_diff_text_with_no_resolutions(loaded_graph) -> None:
-    """diff_text runs with empty resolvers (compares VI to itself)."""
+def test_diff_concise_with_no_resolutions(loaded_graph) -> None:
+    """format_diff (concise default) runs with empty resolvers (compares VI
+    to itself)."""
     graph, vi_name = loaded_graph
     # Diffing identical VIs should produce empty output without raising
-    result = diff_text(graph, graph, vi_name, vi_name)
+    result = format_diff(graph, graph, vi_name, vi_name)
     assert result == ""
 
 
-def test_diff_structured_with_no_resolutions(loaded_graph) -> None:
-    """diff_structured runs with empty resolvers."""
+def test_diff_verbose_with_no_resolutions(loaded_graph) -> None:
+    """format_diff (--verbose) runs with empty resolvers."""
     graph, vi_name = loaded_graph
-    report = diff_structured(graph, graph, vi_name, vi_name)
-    assert report.is_empty()
+    result = format_diff(graph, graph, vi_name, vi_name, verbose=True)
+    assert result == ""
 
 
 # ============================================================
@@ -152,7 +154,7 @@ def test_generate_documents_with_no_resolutions(
     summary = generate_documents(
         library_path=str(SAMPLE_VI),
         output_dir=str(output_dir),
-        expand_subvis=False,
+        mode=LoadMode.NONE,
     )
     assert summary  # Non-empty status string
     assert output_dir.is_dir()

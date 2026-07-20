@@ -314,7 +314,7 @@ class TestSequenceParallelIntegration:
 # =============================================================
 #
 # DROPPED: TestInViParallelEndToEnd used to build_module() the unlicensed
-# samples/DAQmx-Digital-IO/In.vi end-to-end and assert that its Write+Wait
+# .lvkit/cache/samples/DAQmx-Digital-IO/In.vi end-to-end and assert that its Write+Wait
 # parallel branches produce a ThreadPoolExecutor, with the Create->Start->
 # ...->Stop->Close chain staying sequential and DAQmx boolean writes coming
 # out correct. No permissive DAQmx caller can build_module() end-to-end —

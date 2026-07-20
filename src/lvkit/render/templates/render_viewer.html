@@ -1,0 +1,123 @@
+<title>VI render — __TITLE__</title>
+<style>
+  /* Chrome is DEFAULT LIGHT (GitHub-light-ish) with a
+     @media (prefers-color-scheme: dark) override — same token approach as
+     diff_viewer.html — so the standalone page is light in a light viewer and
+     dark in a dark one. The embedded diagram SVG is themed SEPARATELY (rendered
+     --theme auto): the toolbar theme button flips document.documentElement's
+     data-theme, which re-themes the inline SVG live (see theme_control.py). */
+  :root{
+    --bg:#ffffff;--panel:#f6f8fa;--fg:#1f2328;--line:#d0d7de;
+    --canvas:#ffffff;--btn:#eaeef2;--btn-hover:#dfe4ea;--fg-muted:#57606a;
+    --accent:#0969da;--accent-fg:#ffffff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--line:#30363d;
+      --btn:#21262d;--btn-hover:#2a3038;--fg-muted:#aeb6c2;
+      --accent:#1f6feb;--accent-fg:#e6edf3;
+    }
+  }
+  /* DIAGRAM theme only. The ◐/☀/☾ toggle sets data-theme on <html> to re-theme
+     the embedded diagram SVG (its own CSS listens to it). The ONLY chrome
+     property allowed to follow the toggle is --canvas — the diagram backdrop,
+     visually part of the diagram. ALL other chrome above follows the
+     system/editor theme (plain @media) and must NEVER react to data-theme. */
+  @media (prefers-color-scheme: dark){ :root:not([data-theme]){--canvas:#1b1c1e} }
+  :root[data-theme="dark"]{--canvas:#1b1c1e}
+  :root[data-theme="light"]{--canvas:#ffffff}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg);
+       display:grid;grid-template-rows:auto 1fr;height:100vh}
+  header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  header b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}
+  button{background:var(--btn);color:var(--fg);border:1px solid var(--line);border-radius:6px;
+         padding:5px 10px;cursor:pointer;font:inherit}
+  button:hover{background:var(--btn-hover)}
+  .zoomgrp{display:inline-flex;gap:2px;align-items:center}
+  .zoomgrp button{padding:5px 9px;min-width:30px;font-weight:600}
+  /* ONE scrollable pane holding the inline diagram SVG. grab cursor invites the
+     drag-to-pan; the pan handler flips it to grabbing while a drag is active. */
+  .stage{position:relative;padding:16px;overflow:auto;cursor:grab;
+         -webkit-user-select:none;user-select:none}
+  svg{max-width:none;height:auto;background:var(--canvas);border-radius:6px}
+</style>
+
+<header>
+  <b>VI render · __TITLE__</b>
+  <div class="controls">
+    <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomFit">fit</button><button id="zoomIn">+</button></span>
+    __THEME_BTN__
+  </div>
+</header>
+
+<div class="stage" id="stage">__SVG__</div>
+
+__THEME_SCRIPT__
+
+<script>
+// ── Single-pane zoom/pan ─────────────────────────────────────────────────────
+// A small, self-contained controller (NOT the diff viewer's two-pane machinery).
+// The embedded render SVG carries its OWN frame-toggle/hover JS + root id, so we
+// never touch its internals — we only rescale it (width) and pan its scroll
+// container. zoom=1 == fit-to-width; zoom grows the svg's css width past the
+// stage so the stage scrolls.
+const stage=document.getElementById('stage');
+const svg=stage.querySelector('svg');
+const PAD=16;
+let zoom=1;
+function fitScale(){                    // css px per user px at zoom=1
+  if(!svg)return 1;
+  const w=svg.viewBox.baseVal.width||1;
+  return (stage.clientWidth-2*PAD)/w;
+}
+function applyZoom(){
+  if(!svg)return;
+  svg.style.width=(svg.viewBox.baseVal.width*fitScale()*zoom)+'px';
+}
+// Keep the viewport point (ax,ay) fixed while zooming (native pinch feel). zoom
+// floors at 1 (fit) so the diagram never shrinks below full width.
+function setZoom(z, ax, ay){
+  z=Math.max(1, Math.min(z, 8));
+  if(ax===undefined){ax=stage.clientWidth/2; ay=stage.clientHeight/2;}
+  const ratio=z/zoom, cx=stage.scrollLeft+ax, cy=stage.scrollTop+ay;
+  zoom=z; applyZoom();
+  stage.scrollLeft=cx*ratio-ax; stage.scrollTop=cy*ratio-ay;
+}
+function fit(){ setZoom(1); stage.scrollLeft=0; stage.scrollTop=0; }
+document.getElementById('zoomIn').onclick=()=>setZoom(zoom*1.3);
+document.getElementById('zoomOut').onclick=()=>setZoom(zoom/1.3);
+document.getElementById('zoomFit').onclick=fit;
+addEventListener('keydown',e=>{
+  if(e.target&&/^(INPUT|TEXTAREA)$/.test(e.target.tagName))return;
+  if(e.key==='+'||e.key==='=')setZoom(zoom*1.3);
+  else if(e.key==='-')setZoom(zoom/1.3);
+  else if(e.key==='f'||e.key==='0')fit();
+});
+// Ctrl/⌘ + wheel zooms about the cursor (plain wheel = normal scroll).
+stage.addEventListener('wheel',e=>{
+  if(!(e.ctrlKey||e.metaKey))return; e.preventDefault();
+  const r=stage.getBoundingClientRect();
+  setZoom(zoom*(e.deltaY<0?1.15:1/1.15), e.clientX-r.left, e.clientY-r.top);
+},{passive:false});
+// Drag-to-pan: primary-button drag adjusts scrollLeft/scrollTop. No pointer
+// capture (would swallow the embedded selector clicks) and no preventDefault, so
+// a plain click still reaches the diagram's own frame-toggle/hover handlers — a
+// pan only happens once the pointer actually MOVES with the button down.
+let panning=false, lx=0, ly=0;
+stage.addEventListener('pointerdown',e=>{
+  if(e.button!==0)return; panning=true; lx=e.clientX; ly=e.clientY;
+});
+addEventListener('pointermove',e=>{
+  if(!panning)return;
+  stage.scrollLeft-=(e.clientX-lx); stage.scrollTop-=(e.clientY-ly);
+  lx=e.clientX; ly=e.clientY; stage.style.cursor='grabbing';
+});
+function endPan(){ if(!panning)return; panning=false; stage.style.cursor='grab'; }
+addEventListener('pointerup',endPan);
+addEventListener('pointercancel',endPan);
+addEventListener('resize',applyZoom);
+applyZoom();
+</script>

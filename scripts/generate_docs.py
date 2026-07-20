@@ -3,7 +3,7 @@
 
 Kept as a thin wrapper (rather than removed outright) because
 ``lvkit.mcp.tools.generate_documents`` subprocesses this script with
-``--search-path``/``--no-expand``/``--vilib``/``--userlib``. All actual
+``--search-path``/``--load-mode``/``--vilib``/``--userlib``. All actual
 generation logic — including class landing pages and method-level access
 badges/override navigation — lives in ``lvkit.docs.generate.generate_documents``;
 this file only parses argv and forwards.
@@ -22,6 +22,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from lvkit.docs.generate import generate_documents
+from lvkit.graph.loading import LoadMode
 
 
 def main() -> int:
@@ -40,7 +41,8 @@ def main() -> int:
         help="Search path for dependencies",
     )
     parser.add_argument(
-        "--no-expand", action="store_true", help="Don't expand SubVI dependencies"
+        "--load-mode", choices=[m.value for m in LoadMode], default="full",
+        help="Dependency depth: none | minimal | full (default full).",
     )
     parser.add_argument(
         "--vilib", default=None, metavar="DIR",
@@ -52,13 +54,14 @@ def main() -> int:
     )
 
     args = parser.parse_args()
+    mode = LoadMode(args.load_mode)
 
     try:
         result = generate_documents(
             library_path=args.library_path,
             output_dir=args.output_dir,
             search_paths=args.search_paths,
-            expand_subvis=not args.no_expand,
+            mode=mode,
             vilib_root=Path(args.vilib) if args.vilib else None,
             userlib_root=Path(args.userlib) if args.userlib else None,
         )

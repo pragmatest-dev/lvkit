@@ -30,10 +30,10 @@ SCRIPT = REPO / "scripts" / "generate_python.py"
 # A permissively-licensed (BSD-3-Clause) VI that emits a parallel
 # (ThreadPoolExecutor) tier.
 PARALLEL_VI = (
-    REPO / "samples" / "JKI-EasyXML" / "Source" / "Fast Parser"
+    REPO / ".lvkit" / "cache" / "samples" / "JKI-EasyXML" / "Source" / "Fast Parser"
     / "test TCX read (installed 71).vi"
 )
-PARALLEL_VI_SEARCH_PATH = REPO / "samples" / "JKI-EasyXML" / "Source"
+PARALLEL_VI_SEARCH_PATH = REPO / ".lvkit" / "cache" / "samples" / "JKI-EasyXML" / "Source"  # noqa: E501
 
 
 def _generate(vi: Path, out_dir: Path, hashseed: str) -> str:

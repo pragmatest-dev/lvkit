@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reproduce the OpenG Toolkit ``File Group N/`` extracted-VI corpus.
 
-lvkit's tests load OpenG VIs directly out of ``samples/OpenG/extracted/File
+lvkit's tests load OpenG VIs directly out of ``.lvkit/cache/samples/OpenG/extracted/File
 Group 0/user.lib/_OpenG.lib/<lib>/<lib>.llb/<name>__ogtk.vi`` (plus sibling
 ``*_BDHb.xml`` etc). This script reproduces that exact layout from scratch:
 
@@ -107,7 +107,8 @@ def _materialize_llb_dir(llb_path: Path) -> None:
 
 
 def _extract_all_vi_xml(dest_root: Path) -> int:
-    """Walk every ``*.llb`` dir and extract each member VI's XML in place.
+    """Walk every ``*.llb`` dir and extract each member VI's XML into the
+    project-local ``.lvkit/cache/`` (NOT beside the ``.vi``).
 
     One VI at a time (memory-flat) — never parse the whole corpus at once.
     """
@@ -116,7 +117,7 @@ def _extract_all_vi_xml(dest_root: Path) -> int:
         _materialize_llb_dir(llb_path)
         for vi_path in sorted(llb_path.glob("*.vi")):
             try:
-                extract_vi_xml(vi_path, output_dir=llb_path)
+                extract_vi_xml(vi_path)  # -> .lvkit/cache/extracted/ (default)
                 count += 1
             except RuntimeError as exc:
                 print(

@@ -166,5 +166,5 @@ decoder.
 
 - Spec + ASCII diagrams: [`wire-compression-format.md`](wire-compression-format.md)
 - Reproducible harness: [`scripts/wire_decode_probe.py`](../scripts/wire_decode_probe.py)
-- Implementation: [`src/lvkit/render/wire_table.py`](../src/lvkit/render/wire_table.py)
+- Implementation: [`src/lvkit/parser/wire_table.py`](../src/lvkit/parser/wire_table.py)
 - Rendered proof (10 sample VIs): the wire-decoder samples artifact.

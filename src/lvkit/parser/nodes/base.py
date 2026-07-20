@@ -6,12 +6,57 @@ import xml.etree.ElementTree as ET
 
 from lvkit.models import Tunnel
 
-from ..constants import TERMINAL_CLASS
+from ..constants import (
+    NODE_CLASS_COMMENT,
+    STRUCTURE_NODE_CLASSES,
+    TERMINAL_CLASS,
+)
 from ..flags import is_output_terminal
 from ..utils import extract_label, safe_int, safe_text
 
 # Re-export extract_label for backward compatibility
-__all__ = ["extract_label", "extract_terminal_types", "extract_tunnel_mapping"]
+__all__ = [
+    "extract_label",
+    "extract_terminal_types",
+    "extract_tunnel_mapping",
+    "frame_inner_node_uids",
+]
+
+# Structure classes that LabVIEW may list ONLY in a frame diagram's zPlaneList
+# (not its nodeList) — see frame_inner_node_uids.
+_FRAME_ZPLANE_STRUCTS = STRUCTURE_NODE_CLASSES | {NODE_CLASS_COMMENT}
+
+
+def frame_inner_node_uids(diag_elem: ET.Element) -> list[str]:
+    """UIDs of the nodes/structures on a frame's diagram.
+
+    Reads ``nodeList`` (the primary list, unchanged behaviour) AND augments it
+    with any STRUCTURE element found only in ``zPlaneList``. Neither list is a
+    superset: for a NESTED FLAT SEQUENCE, LabVIEW lists the flat seq's inner
+    ``sequenceFrame`` in the parent frame's ``nodeList`` but the ``flatSequence``
+    structure itself ONLY in the z-plane — so a nodeList-only walk orphans it
+    (and everything inside it) to the top level. nodeList also uniquely carries
+    the shift registers and zPlaneList uniquely carries decorations, so we
+    union: every nodeList member, plus every zPlaneList element whose class is a
+    structure. Order preserved, deduped.
+    """
+    uids: list[str] = []
+    seen: set[str] = set()
+    node_list = diag_elem.find("nodeList")
+    if node_list is not None:
+        for e in node_list.findall("SL__arrayElement"):
+            u = e.get("uid")
+            if u and u not in seen:
+                seen.add(u)
+                uids.append(u)
+    zplane = diag_elem.find("zPlaneList")
+    if zplane is not None:
+        for e in zplane.findall("SL__arrayElement"):
+            u = e.get("uid")
+            if u and u not in seen and e.get("class") in _FRAME_ZPLANE_STRUCTS:
+                seen.add(u)
+                uids.append(u)
+    return uids
 
 
 def extract_terminal_types(

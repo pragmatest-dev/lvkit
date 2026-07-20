@@ -14,8 +14,8 @@ the evidence and a confidence level.
 
 ## The three files
 
-`extractor.extract_vi_xml(vi_path)` runs one pylabview subprocess per VI and
-writes three sibling XML files next to the `.vi` (plus a pile of `*.bin`
+`extractor.extract_vi_xml(vi_path)` runs pylabview in-process and writes three
+XML files into the `.lvkit/cache/` extraction cache (plus a pile of `*.bin`
 side-blobs and `*.png` icons):
 
 | File | Nickname | Contents | Doc |
@@ -72,15 +72,15 @@ finding, confirmed on "Draw Image from File__ogtk.vi".)
 ## Coordinate spaces
 
 - All heap rects are LabVIEW `(top, left, bottom, right)` — note the order
-  (`render/layout.py:109` `_rect` reorders them to `x1,y1,x2,y2`).
+  (`parser/layout.py:109` `_rect` reorders them to `x1,y1,x2,y2`).
 - A node's `<bounds>` is absolute (relative to the diagram it lives in; the
   renderer accumulates diagram origins while recursing —
-  `render/layout.py:383` `walk`).
+  `parser/layout.py:383` `walk`).
 - A terminal's `<termBounds>` is **relative to the node's icon origin**, and a
   primitive's icon is *centered* within its clickable `<bounds>` — so the
   renderer computes a centering offset before placing terminals
-  (`render/layout.py:252-280` `_map_terms`). Constant part bounds are relative
-  to the constant DDO's own top-left (`render/layout.py:118` `_const_value_box`).
+  (`parser/layout.py:252-280` `_map_terms`). Constant part bounds are relative
+  to the constant DDO's own top-left (`parser/layout.py:118` `_const_value_box`).
 - Selector/label geometry lives in the heap; **selector VALUES do not** — they
   are in the DFDS dataspace (see below).
 

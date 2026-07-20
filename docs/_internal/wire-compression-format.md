@@ -5,7 +5,7 @@ Every signal (wire net) on a LabVIEW block diagram carries a
 bend geometry** LabVIEW drew for that wire — the actual orthogonal path, not a
 logical connection. lvkit decodes it to render wires faithfully instead of
 re-routing them (task #84); the decoder lives in
-`src/lvkit/render/wire_table.py` (`decode_signal`).
+`src/lvkit/parser/wire_table.py` (`decode_signal`).
 
 This document records the format as reverse-engineered from the corpus. Parts
 are **verified against hundreds of real wires**; parts are **explicitly marked
@@ -391,9 +391,9 @@ Across 119 diverse corpus VIs this leaves **8 router calls in 2 VIs**; the other
 
 ## Cross-references
 
-- Implementation: `src/lvkit/render/wire_table.py` (`decode_signal`,
+- Implementation: `src/lvkit/parser/wire_table.py` (`decode_signal`,
   `_decode_chain`, `_decode_tree`, `_decode_lengths`, `_perp3`).
-- Consumers: `src/lvkit/render/layout.py` (`_resolve_wire_geometry` →
+- Consumers: `src/lvkit/parser/layout.py` (`_resolve_wire_geometry` →
   `Layout.wire_by_uid`), `src/lvkit/render/scene.py` (per-wire lookup).
 - Tasks: #84 (decode faithful wire routing), #76 (unify decoder, combs,
   single-vertex, N-way source), #96 (sRN/rSR terminal-center resolution).

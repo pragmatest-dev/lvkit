@@ -47,6 +47,9 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 
+if TYPE_CHECKING:
+    from ..parser.layout import Layout
+
 
 class QueryMixin:
     """Mixin providing graph query methods."""
@@ -62,6 +65,7 @@ class QueryMixin:
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
+    _layouts: dict[str, Layout]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -200,6 +204,58 @@ class QueryMixin:
     def get_vi_source_path(self, vi_name: str) -> Path | None:
         """Get the source file path for a VI."""
         return self._source_paths.get(vi_name)
+
+    def locate_vi_file(self, vi_name: str) -> Path | None:
+        """Best-effort on-disk ``.vi`` for a SubVI by name: an already-loaded
+        source first, else a filename search of the graph's retained search
+        paths. Decoration-only (SubVI icons) — never forces a load. Under a
+        MINIMAL load the SubVIs aren't in ``_source_paths``, so this filename
+        search is what lets a project-local SubVI's own ``_ICON.png`` resolve.
+        The search-path index is built once, lazily, and cached."""
+        loaded = self._source_paths.get(vi_name)
+        if loaded is not None:
+            return loaded
+        if self._vi_file_index is None:
+            index: dict[str, Path] = {}
+            for root in self._search_paths:
+                try:
+                    for found in sorted(root.rglob("*.vi")):
+                        index.setdefault(found.name, found)
+                except OSError:
+                    continue
+            self._vi_file_index = index
+        return self._vi_file_index.get(vi_name)
+
+    def resolve_library_vi_path(self, qualified_path: str | None) -> Path | None:
+        """Resolve a ``<vilib>``/``<userlib>`` token path to a real ``.vi``
+        under the user's LOCAL library roots (``set_library_roots`` from
+        ``--vilib``/``--userlib`` or auto-detect). Decoration-only (icons).
+
+        Rendering a user's own licensed vi.lib icon on their own machine is
+        NOT distribution — lvkit never ships this art, and a hosted service
+        simply has no roots set (falls through to None). Loose ``.vi`` only:
+        a member packed inside a ``.llb`` isn't addressable as a file and
+        returns None (deferred). Token order mirrors the loader's
+        ``path_tokens`` (``["<vilib>", "Utility", ...]``)."""
+        if not qualified_path:
+            return None
+        for token, root in (
+            ("<vilib>", self._vilib_root),
+            ("<userlib>", self._userlib_root),
+        ):
+            if qualified_path.startswith(token) and root is not None:
+                rel = qualified_path[len(token):].lstrip("/\\")
+                if ".llb/" in rel.replace("\\", "/").lower():
+                    return None  # packed member — needs archive extraction
+                candidate = root / rel
+                return candidate if candidate.is_file() else None
+        return None
+
+    def get_layout(self, vi_name: str) -> Layout | None:
+        """Get a VI's block-diagram geometry, or None if the graph was not
+        loaded with ``layout=True``. Populated from the same parse (no second
+        heap read); the renderer consumes this instead of re-reading the XML."""
+        return self._layouts.get(self.resolve_vi_name(vi_name))
 
     def is_stub_vi(self, vi_name: str) -> bool:
         """Check if a VI is a stub (missing dependency)."""
@@ -527,6 +583,7 @@ class QueryMixin:
                 id=gnode.id,
                 value=gnode.value,
                 lv_type=gnode.lv_type,
+                display_format=gnode.display_format,
                 raw_value=gnode.raw_value,
                 name=gnode.label,
                 parent=gnode.parent,

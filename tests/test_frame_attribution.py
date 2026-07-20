@@ -15,24 +15,13 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.describe import (
     _const_type_str,
     _describe_constant_line,
-    _format_error_cluster,
 )
-from lvkit.graph.diff import (
-    _compare_frames,
-    _frame_content_delta,
-    _structure_content_summary,
-)
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
-from lvkit.models import (
-    CaseFrame,
-    CaseOperation,
-    ClusterField,
-    LVType,
-    PrimitiveOperation,
-    Terminal,
-)
+from lvkit.graph.op_walk import _format_error_cluster
+from lvkit.models import ClusterField, LVType
 
-IN_VI = Path("samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
+IN_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
 
 def _error_cluster_type() -> LVType:
@@ -93,7 +82,7 @@ class TestErrorClusterFormatting:
 class TestConstructionAttribution:
     def test_in_vi_has_frame_attributed_constants(self):
         graph = InMemoryVIGraph()
-        graph.load_vi(str(IN_VI), expand_subvis=False)
+        graph.load_vi(str(IN_VI), mode=LoadMode.NONE)
         vi_name = graph.resolve_vi_name(IN_VI.name)
 
         consts = graph.get_constants(vi_name)
@@ -105,68 +94,3 @@ class TestConstructionAttribution:
         for c in attributed:
             assert c.parent
             assert c.frame is not None
-
-
-# ── Synthetic per-frame diff logic ───────────────────────────────────────
-
-
-def _case_with_const() -> tuple[CaseOperation, list[Constant]]:
-    """A boolean case whose True frame holds an error-cluster constant and
-    whose False frame is a pass-through (no content, has an output tunnel)."""
-    out_term = Terminal(id="vi::548", index=1, direction="output")
-    op = CaseOperation(
-        id="vi::174", name="error constant", labels=["CaseStructure"],
-        terminals=[out_term],
-        frames=[
-            CaseFrame(selector_value="False"),
-            CaseFrame(selector_value="True"),
-        ],
-    )
-    return op, [_error_const(parent="vi::174", frame="True")]
-
-
-class TestPerFrameDiff:
-    def test_structure_summary_positions_constant(self):
-        op, consts = _case_with_const()
-        summary = _structure_content_summary(op, consts)
-        assert summary == "frame True: error cluster"
-
-    def test_added_constant_shows_in_frame_delta(self):
-        delta = _frame_content_delta(
-            [], [],
-            [], [_error_const(parent="vi::174", frame="True")],
-        )
-        assert delta == ["+1 error cluster"]
-
-    def test_removed_constant_shows_in_frame_delta(self):
-        delta = _frame_content_delta(
-            [], [_error_const(parent="vi::174", frame="True")],
-            [], [],
-        )
-        assert delta == ["-1 error cluster"]
-
-    def test_compare_frames_attributes_to_frame_key(self):
-        a_frames = {"False": CaseFrame(selector_value="False"),
-                    "True": CaseFrame(selector_value="True")}
-        b_frames = {"False": CaseFrame(selector_value="False"),
-                    "True": CaseFrame(selector_value="True")}
-        const = _error_const(parent="vi::174", frame="True")
-        detail = _compare_frames(
-            a_frames, b_frames, {}, {"True": [const]},
-        )
-        assert detail == "frame True: +1 error cluster"
-
-    def test_identical_frames_no_delta(self):
-        a_frames = {"True": CaseFrame(selector_value="True")}
-        const = _error_const(parent="vi::174", frame="True")
-        detail = _compare_frames(
-            a_frames, a_frames, {"True": [const]}, {"True": [const]},
-        )
-        assert detail is None
-
-    def test_op_count_delta(self):
-        prim = PrimitiveOperation(
-            id="vi::9", name="Add", labels=["Primitive"], primResID=1050,
-        )
-        delta = _frame_content_delta([], [], [prim], [])
-        assert delta == ["+1 Add"]

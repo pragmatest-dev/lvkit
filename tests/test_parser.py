@@ -216,39 +216,40 @@ class TestTerminalInvertGating:
 
 
 class TestCpdArithOperation:
-    """The Compound Arithmetic operation comes from the aggregate DCO's
-    dcoFiller LOW BYTE; the high byte is a non-operation flag. Verified from
-    corpus dataflow: 0=add, 1=or, 2=and. Absent dcoFiller == 0 == add. Unknown
-    codes map to the 'unsupported' sentinel (the parser never raises)."""
+    """The Compound Arithmetic operation lives in objFlags bits 16-18, NOT in
+    dcoFiller (which is per-terminal invert/type data). Corpus-verified:
+    0x80000=add, 0x90000=multiply, 0xA0000=and, 0xB0000=or, 0xC0000=xor.
+    Unknown codes / a missing objFlags map to the 'unsupported' sentinel
+    (the parser never raises; codegen is the layer that fails loud)."""
 
-    def _op(self, filler):
+    def _op(self, objflags):
         import xml.etree.ElementTree as ET
 
         from lvkit.parser.node_types import CpdArithHandler
-        dco = "" if filler is None else f"<dcoFiller>{filler}</dcoFiller>"
-        xml = (
-            '<SL__arrayElement class="cpdArith" uid="1"><termList>'
-            f'<SL__arrayElement class="term"><dco class="cpdArithDCO">{dco}'
-            "</dco></SL__arrayElement></termList></SL__arrayElement>"
-        )
+        of = "" if objflags is None else f"<objFlags>{objflags}</objFlags>"
+        xml = f'<SL__arrayElement class="cpdArith" uid="1">{of}</SL__arrayElement>'
         return CpdArithHandler()._extract_operation(ET.fromstring(xml))
 
-    def test_absent_filler_is_add(self):
-        # dcoFiller is omitted when 0; LabVIEW's default mode is Add.
-        assert self._op(None) == "add"
+    def test_objflags_operation_codes(self):
+        # Real objFlags values observed across the OpenG corpus.
+        assert self._op(str(0x80000)) == "add"       # Trim / Reshape / MD5 FGHI
+        assert self._op(str(0xA0000)) == "and"       # every "...Changed" detector
+        assert self._op(str(0xB0000)) == "or"        # Create Dir if Non-Existant
+        assert self._op(str(0xC0000)) == "xor"       # MD5 H function
 
-    def test_low_byte_codes(self):
-        assert self._op("0") == "add"
-        assert self._op("1") == "or"
-        assert self._op("2") == "and"
+    def test_multiply_enum_slot(self):
+        # No corpus instance, but it occupies LabVIEW's enum slot (code 1).
+        assert self._op(str(0x90000)) == "multiply"
 
-    def test_high_byte_is_masked_off(self):
-        # 256 (0x100) = Add + non-operation flag (OpenG MD5/Changed/Reshape).
-        assert self._op("256") == "add"
+    def test_dcofiller_does_not_select_op(self):
+        # dcoFiller 256 co-occurs with add/and/or/xor -- objFlags is the source
+        # of truth. Bit 19 (0x80000) is an always-set marker, masked out by &7.
+        assert self._op(str(0xA0000)) == "and"       # not "add", despite old bug
 
-    def test_unknown_code_is_unsupported_sentinel_not_raise(self):
+    def test_unknown_or_missing_is_unsupported_sentinel_not_raise(self):
         # The parser must degrade gracefully, never raise; codegen fails loud.
-        assert self._op("7") == "unsupported"
+        assert self._op(str(0xF0000)) == "unsupported"   # code 7
+        assert self._op(None) == "unsupported"           # objFlags absent
 
 
 class TestTunnelMapping:
@@ -920,7 +921,7 @@ class TestRealVIParsing:
     def sample_vi_path(self) -> Path | None:
         """Get path to a sample VI if available."""
         path = Path(
-            "samples/JKI-VI-Tester/source/User Interfaces/"
+            ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
             "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
         )
         if path.exists():
@@ -961,11 +962,21 @@ def test_every_registered_handler_is_reachable_by_extraction() -> None:
     _extract_nodes iterates. A handler that is registered but not whitelisted
     is never reached, so those nodes vanish from the diagram (the aReplace /
     'Replace Array Subset' drop). This test fails loudly if the two lists
-    diverge again."""
+    diverge again.
+
+    "commentNode" is the one intentional exception: class="commentNode" is
+    used for BOTH a Disable structure (has subdiagrams) and, in principle, a
+    plain free-text comment -- so it can't be bucketed unconditionally like
+    every other OPERATION_NODE_CLASSES member (that would misparse a plain
+    comment as a structure). _extract_nodes instead reaches it through a
+    separate, gated pass keyed on
+    parser.nodes.disable.is_disable_structure -- see that module's docstring
+    and DisableStructureHandler's."""
     from lvkit.parser.constants import OPERATION_NODE_CLASSES
     from lvkit.parser.node_types import NODE_HANDLERS
 
-    unreachable = sorted(set(NODE_HANDLERS) - set(OPERATION_NODE_CLASSES))
+    reachable = set(OPERATION_NODE_CLASSES) | {"commentNode"}
+    unreachable = sorted(set(NODE_HANDLERS) - reachable)
     assert not unreachable, (
         f"Node handlers registered but not in OPERATION_NODE_CLASSES "
         f"(they will be silently dropped by _extract_nodes): {unreachable}"

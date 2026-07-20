@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.graph.op_walk import _flatten_fields
 from lvkit.models import (
     ClusterField,
     PrimitiveOperation,
@@ -169,23 +170,6 @@ def _generate_error_bundle(
 
     imports = {"from lvkit.labview_error import LabVIEWError"}
     return CodeFragment(statements=[if_stmt], bindings={}, imports=imports)
-
-
-def _flatten_fields(
-    fields: list[ClusterField],
-) -> list[tuple[list[str], ClusterField]]:
-    """Flatten cluster fields depth-first with path.
-
-    LabVIEW nMux <i> tags use flattened indices across the entire
-    cluster hierarchy, not just the top level.
-    """
-    result: list[tuple[list[str], ClusterField]] = []
-    for f in fields:
-        result.append(([f.name], f))
-        if f.type and f.type.fields:
-            for sub_path, sub_field in _flatten_fields(f.type.fields):
-                result.append(([f.name] + sub_path, sub_field))
-    return result
 
 
 def _field_name(

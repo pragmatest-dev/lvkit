@@ -19,27 +19,28 @@ import pytest
 
 from lvkit.codegen.builder import build_module
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.models import InPlaceOperation
 
-SEARCH_PATHS = [Path("samples/OpenG/extracted")]
+SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 DCAF_SEARCH_PATHS = [
-    Path("samples/DCAF-DAQModule/source"),
-    Path("samples/OpenG/extracted"),
+    Path(".lvkit/cache/samples/DCAF-DAQModule/source"),
+    Path(".lvkit/cache/samples/OpenG/extracted"),
 ]
 
 GET_SETTINGS_PATH_VI = Path(
-    "samples/JKI-VI-Tester/source/User Interfaces/"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
     "Graphical Test Runner/Graphical Test Runner Support/"
     "Get Settings Path.vi"
 )
-TESTCASE_DIR = Path("samples/JKI-VI-Tester/source/Classes/TestCase")
-DCAF_CONFIG_DIR = Path("samples/DCAF-DAQModule/source/module/configuration")
+TESTCASE_DIR = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase")
+DCAF_CONFIG_DIR = Path(".lvkit/cache/samples/DCAF-DAQModule/source/module/configuration")  # noqa: E501
 DELETE_LINE_VI = DCAF_CONFIG_DIR / "Delete Line.vi"
-TESTRESULT_DIR = Path("samples/JKI-VI-Tester/source/Classes/TestResult")
+TESTRESULT_DIR = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult")
 GET_TESTS_RUN_VI = TESTRESULT_DIR / "GetTestsRun.vi"
 TESTRESULT_INIT_VI = TESTRESULT_DIR / "TestResult_Init.vi"
 OPENG_COMPARISON_DIR = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/comparison/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/comparison/"
     "comparison.llb"
 )
 U16_CHANGED_VI = OPENG_COMPARISON_DIR / "U16 Changed__ogtk.vi"
@@ -138,7 +139,7 @@ class TestGetSettingsPath:
 # ── DAQmx In.vi / Out.vi (DROPPED — see below) ────────────────
 #
 # DROPPED: TestDAQmxIn and TestDAQmxOut used to build_module() the
-# unlicensed samples/DAQmx-Digital-IO/{In,Out}.vi end-to-end and assert
+# unlicensed .lvkit/cache/samples/DAQmx-Digital-IO/{In,Out}.vi end-to-end and assert
 # DAQmx->nidaqmx driver-specific codegen ("nidaqmx.Task", ".start()"/
 # ".stop()"/".close()"/".read()" call ordering, parallel-branch
 # ThreadPoolExecutor/concurrent.futures from Write+Wait branches, while-loop
@@ -164,7 +165,7 @@ class TestGetSettingsPath:
 
 
 SET_FP_CONTROL_VI = Path(
-    "samples/JKI-VI-Tester/source/Utilities/"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/"
     "Set Front Panel Object Control Value.vi"
 )
 
@@ -173,7 +174,7 @@ def _generate_cli(vi_path: Path, out_dir: Path, hashseed: str) -> None:
     env = {**os.environ, "PYTHONHASHSEED": hashseed}
     subprocess.run(
         [sys.executable, "scripts/generate_python.py", str(vi_path),
-         "-o", str(out_dir), "--search-path", "samples/OpenG/extracted"],
+         "-o", str(out_dir), "--search-path", ".lvkit/cache/samples/OpenG/extracted"],
         env=env, check=True, capture_output=True, text=True,
     )
 
@@ -273,7 +274,7 @@ def delete_line_graph() -> InMemoryVIGraph:
     g = InMemoryVIGraph()
     g.load_vi(
         str(DELETE_LINE_VI),
-        expand_subvis=True,
+        mode=LoadMode.FULL,
         search_paths=DCAF_SEARCH_PATHS,
     )
     return g

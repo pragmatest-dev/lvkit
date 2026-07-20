@@ -7,9 +7,10 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.models import ClusterField, LVType
 
-SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
 TESTCASE_LVCLASS = (
     SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestCase" / "TestCase.lvclass"
 )
@@ -71,7 +72,7 @@ class TestGetTypeFields:
 class TestGetClassFieldsFromRealFile:
     def test_load_lvclass_populates_fields(self):
         graph = InMemoryVIGraph()
-        graph.load_lvclass(TESTCASE_LVCLASS, expand_subvis=False)
+        graph.load_lvclass(TESTCASE_LVCLASS, mode=LoadMode.NONE)
 
         # TestCase.lvclass should be in dep_graph
         class_nodes = [

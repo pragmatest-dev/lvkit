@@ -15,6 +15,7 @@ from lvkit.parser.models import ParsedNode
 
 from ..models import (
     CaseStructureNode,
+    DisableStructureNode,
     InPlaceNode,
     LoopNode,
     SequenceNode,
@@ -201,11 +202,50 @@ class InPlaceBuildHandler(StructureBuildHandler):
         )
 
 
+class DisableBuildHandler(StructureBuildHandler):
+    """Builds a Diagram/Conditional Disable structure (class="commentNode").
+
+    Same frame-tunnel wiring as CaseBuildHandler (reuses
+    ``build_structure_terminals``'s ``case_frames=`` correlation, which is
+    frame-model-agnostic despite the name), but produces a DisableStructureNode
+    rather than a CaseStructureNode — see that type's docstring for why it
+    must stay a distinct type instead of a case.
+    """
+
+    node_types = ("commentNode",)
+
+    def build(self, node, node_name, q_node_uid, ctx):
+        disable_struct = ctx.disable_by_uid.get(node.uid)
+        disable_frames: list[CaseFrame] = []
+        active_frame: int | None = None
+
+        parser_tunnels: list = []
+        if disable_struct:
+            parser_tunnels = disable_struct.tunnels
+            disable_frames = list(disable_struct.frames)
+            active_frame = disable_struct.active_frame
+
+        structure_terminals = ctx.build_structure_terminals(
+            parser_tunnels, q_node_uid, case_frames=disable_frames,
+        )
+
+        return DisableStructureNode(
+            id=q_node_uid,
+            vi=ctx.vi_name,
+            name=node_name or "Disable Structure",
+            node_type=node.node_type,
+            terminals=structure_terminals,
+            frames=disable_frames,
+            active_frame=active_frame,
+        )
+
+
 _HANDLERS: list[StructureBuildHandler] = [
     LoopBuildHandler(),
     CaseBuildHandler(),
     SequenceBuildHandler(),
     InPlaceBuildHandler(),
+    DisableBuildHandler(),
 ]
 
 STRUCTURE_BUILD_HANDLERS: dict[str, StructureBuildHandler] = {

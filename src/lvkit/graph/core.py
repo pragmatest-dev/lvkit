@@ -8,15 +8,20 @@ _kind_to_labels, and module-level helper functions.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import networkx as nx
 
 from ..models import ClusterField, LVType
 from ..parser.models import ParsedType
+
+if TYPE_CHECKING:
+    from ..parser.layout import Layout
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .models import (
     AnyGraphNode,
     ConstantNode,
+    DisableStructureNode,
     LocalVariableNode,
     PolyInfo,
     StructureNode,
@@ -41,6 +46,7 @@ _NODE_TYPE_NAMES: dict[str, str] = {
     "flatSequence": "Flat Sequence",
     "seq": "Stacked Sequence",
     "decomposeRecomposeStructure": "In Place Element",
+    "commentNode": "Disable Structure",
 }
 
 # Map operation kind to labels
@@ -53,10 +59,14 @@ _KIND_TO_LABELS: dict[str, list[str]] = {
     "constant": ["Constant"],
     "formula": ["FormulaNode"],
     "local_variable": ["LocalVariable"],
+    "disableStruct": ["DisableStructure"],
 }
 
 # Graph node kinds that represent executable operations
-_OPERATION_KINDS = ("vi", "primitive", "operation", "caseStruct", "loop", "formula")
+_OPERATION_KINDS = (
+    "vi", "primitive", "operation", "caseStruct", "loop", "formula",
+    "disableStruct",
+)
 
 
 def _node_order_key(uid: str) -> tuple[str, int, str]:
@@ -86,6 +96,8 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
         return "formula"
     if isinstance(node, GraphPrimitiveNode):
         return "primitive"
+    if isinstance(node, DisableStructureNode):
+        return "disableStruct"
     if isinstance(node, StructureNode):
         if node.node_type in ("caseStruct", "select"):
             return "caseStruct"
@@ -118,7 +130,7 @@ class InMemoryVIGraph(
 
     Usage:
         graph = InMemoryVIGraph()
-        graph.load_vi("/path/to/Main.vi", expand_subvis=True)
+        graph.load_vi("/path/to/Main.vi", LoadMode.FULL)
 
         # Process VIs in dependency order (handles recursive VIs)
         for vi_group in graph.get_generation_order():
@@ -149,11 +161,22 @@ class InMemoryVIGraph(
         self._loaded_vis: set[str] = set()
         # Source file paths: vi_name -> Path to original .vi file
         self._source_paths: dict[str, Path] = {}
+        # Search paths the graph was loaded with, retained so decoration-only
+        # lookups (a SubVI's own _ICON.png) can locate a project-local .vi by
+        # name even under a MINIMAL load that never walks the SubVI tree.
+        self._search_paths: list[Path] = []
+        self._vi_file_index: dict[str, Path] | None = None  # lazy name -> path
         # VI metadata
         self._vi_metadata: dict[str, VIMetadata] = {}
         # Optional disk roots for <vilib> / <userlib> path token resolution
         self._vilib_root: Path | None = None
         self._userlib_root: Path | None = None
+        # Per-VI block-diagram geometry, populated only when load_vi(layout=True)
+        # (rendering). Empty for codegen loads — geometry is decoded from the
+        # same parse (see parse_vi layout=), never a second heap read.
+        self._layouts: dict[str, Layout] = {}
+        # Whether the current load should decode + retain geometry.
+        self._want_layout: bool = False
 
     def set_library_roots(
         self,
@@ -180,7 +203,10 @@ class InMemoryVIGraph(
         self._qualified_aliases.clear()
         self._loaded_vis.clear()
         self._source_paths.clear()
+        self._search_paths = []
+        self._vi_file_index = None
         self._vi_metadata.clear()
+        self._layouts.clear()
 
     @staticmethod
     def _qid(vi_name: str, uid: str) -> str:

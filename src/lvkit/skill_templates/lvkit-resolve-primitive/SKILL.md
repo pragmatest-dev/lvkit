@@ -17,7 +17,7 @@ This skill runs in two contexts. The destination directory and the cross-referen
 Read `pyproject.toml` from the current directory (walk up if needed). If it contains `name = "lvkit"`, you are working **inside lvkit itself**:
 
 - Destination: `data/primitives.json` (lvkit's shipped, cleanroom data)
-- Cross-reference corpus: lvkit's `samples/` directory of real VIs
+- Cross-reference corpus: lvkit's `.lvkit/cache/samples/` directory of real VIs
 - Mark `"verified": true` only after multi-instance cross-check
 - The mapping must be cleanroom — derived from public documentation, NOT from licensed LabVIEW source
 
@@ -25,7 +25,7 @@ Otherwise, you are working **inside a downstream user's project**:
 
 - Destination: `.lvkit/primitives.json` (project-local store; run `lvkit init` first if `.lvkit/` doesn't exist)
 - Cross-reference corpus: the user's own VI tree. The diagnostic includes the **qualified VI name** of the caller — use it to find the calling VI on disk.
-- Do NOT cross-reference lvkit's `samples/` — the user's project doesn't have them
+- Do NOT cross-reference lvkit's `.lvkit/cache/samples/` — the user's project doesn't have them
 - The mapping you write may be derived from licensed sources; that's the user's call. lvkit itself never reads `.lvkit/`.
 
 In **both** modes, the function-identification step (Step 5) uses live web search against NI's online documentation. lvkit does not bundle the LabVIEW reference manual.
@@ -180,7 +180,7 @@ When you find a candidate page, use WebFetch to read the full Inputs/Outputs sec
 
 If WebSearch is unavailable or returns nothing useful:
 
-- **lvkit mode**: cross-reference the `samples/` corpus more aggressively (Step 2), and ask the user
+- **lvkit mode**: cross-reference the `.lvkit/cache/samples/` corpus more aggressively (Step 2), and ask the user
 - **user-project mode**: ask the user to open the calling VI in LabVIEW and read the primitive's context menu / quick help. The qualified VI path from the diagnostic tells you which file to point them at.
 
 ## Step 6: Add the JSON entry

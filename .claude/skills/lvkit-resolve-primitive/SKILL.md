@@ -1,6 +1,6 @@
 ---
 name: lvkit-resolve-primitive
-description: Resolve a single unknown LabVIEW primitive by following a strict verification process against documentation and graph context. Called when PrimitiveResolutionNeeded fires during lvkit generate.
+description: Resolve unknown LabVIEW primitives (by primResID) through a strict, no-guessing verification process against NI documentation and graph context. Use for ANY primitive-identification work — when PrimitiveResolutionNeeded fires during lvkit generate, when a VI renders/describes with unknown_primitive_N (shown as #<id>) nodes, or when asked to identify, verify, or add one or more primResIDs to primitives.json. MANDATORY before writing any primitives.json entry; identify by full connector-pane TYPES (never by shape), one primitive at a time.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---
 
@@ -10,6 +10,12 @@ When `PrimitiveResolutionNeeded` fires for an unknown primitive during `lvkit ge
 
 (`TerminalResolutionNeeded` is a separate exception for known primitives where a specific terminal index doesn't match — that's a different problem with the same workflow.)
 
+## ⛔ CLEAN-ROOM — NEVER ask the maintainer to check LabVIEW
+
+The maintainer has **NO LabVIEW and legally cannot use it** (NI's EULA forbids using LabVIEW to reverse-engineer LabVIEW — the clean-room premise; see the repo `CLAUDE.md`). **NEVER suggest opening it, clicking a node, reading quick help, or confirming anything in LabVIEW — not as a fallback, not ever.**
+
+The PURPOSE of this skill is to reach the best **clean-room educated deduction** from: (1) the parsed graph's real per-terminal types + dataflow, (2) NI's PUBLIC web docs, (3) algorithm knowledge, (4) deterministic deduction from those. "Do NOT guess" means do not guess from SHAPE or wire LABELS — you WILL *deduce* from typed evidence, then either commit to the deduction or write a `"placeholder": true` entry. There is no LabVIEW escape hatch.
+
 ## Step 0: Detect mode
 
 This skill runs in two contexts. The destination directory and the cross-reference corpus differ. Decide which one applies BEFORE you do anything else.
@@ -17,7 +23,7 @@ This skill runs in two contexts. The destination directory and the cross-referen
 Read `pyproject.toml` from the current directory (walk up if needed). If it contains `name = "lvkit"`, you are working **inside lvkit itself**:
 
 - Destination: `data/primitives.json` (lvkit's shipped, cleanroom data)
-- Cross-reference corpus: lvkit's `samples/` directory of real VIs
+- Cross-reference corpus: lvkit's `.lvkit/cache/samples/` directory of real VIs
 - Mark `"verified": true` only after multi-instance cross-check
 - The mapping must be cleanroom — derived from public documentation, NOT from licensed LabVIEW source
 
@@ -25,7 +31,7 @@ Otherwise, you are working **inside a downstream user's project**:
 
 - Destination: `.lvkit/primitives.json` (project-local store; run `lvkit init` first if `.lvkit/` doesn't exist)
 - Cross-reference corpus: the user's own VI tree. The diagnostic includes the **qualified VI name** of the caller — use it to find the calling VI on disk.
-- Do NOT cross-reference lvkit's `samples/` — the user's project doesn't have them
+- Do NOT cross-reference lvkit's `.lvkit/cache/samples/` — the user's project doesn't have them
 - The mapping you write may be derived from licensed sources; that's the user's call. lvkit itself never reads `.lvkit/`.
 
 In **both** modes, the function-identification step (Step 5) uses live web search against NI's online documentation. lvkit does not bundle the LabVIEW reference manual.
@@ -44,6 +50,31 @@ Write down the EXACT diagnostic output:
 
 **The `PrimitiveResolutionNeeded` diagnostic already lists this full pane.** It reports EVERY terminal — each marked `wired` or `UNWIRED` — with its index, direction, and declared type (the graph carries unwired terminals; the diagnostic does not drop them). So identify from the whole signature shown in the diagnostic: total terminal count + each terminal's direction + type. Do NOT match only the wired subset, and do NOT assume the count is short.
 
+### No exception? COLLECT the pane from the graph yourself — never skip it, never guess
+
+You are often here WITHOUT a `PrimitiveResolutionNeeded` diagnostic: a `render`/`describe` shows an `unknown_primitive_N` (drawn as `#<id>`), or you're handed a primResID (or a list) to resolve. The full signature is NOT exclusive to the generate exception — it is in the parsed graph. **Collect it yourself before doing anything else.** Load the calling VI and dump the node's every terminal with its FULL type, including the array ELEMENT type:
+
+```bash
+python3 -c "
+from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
+from lvkit.graph.models import PrimitiveNode
+PRIM_ID = <id>; VI = '<calling-vi.vi>'; LIB = '<library-path>'
+g = InMemoryVIGraph(); g.load_vi(VI, mode=LoadMode.NONE, search_paths=[LIB])
+vi = g.resolve_vi_name(VI.split('/')[-1])
+for n in g.iter_nodes(vi):
+    if isinstance(n, PrimitiveNode) and n.prim_id == PRIM_ID:
+        for t in sorted(n.terminals, key=lambda t: (t.direction, t.index)):
+            lt = t.lv_type
+            elem = getattr(getattr(lt, 'element_type', None), 'underlying_type', None)
+            print(f'{t.direction}#{t.index}: kind={getattr(lt,\"kind\",None)} type={getattr(lt,\"underlying_type\",None)} elem={elem} ref={getattr(lt,\"ref_type\",None)}')
+"
+```
+
+`t.lv_type` is the **REAL per-terminal type**, resolved from that terminal's OWN `typeDesc` (`graph/construction.py::_enrich_type(term_info.parsed_type)`). **It is NOT a fallback** — a genuine LabVIEW String resolves to underlying `String` (shown as `str`), a byte array to `Array` elem `NumUInt8`, a 32-bit-word array to `Array` elem `NumUInt32`. So `Array[U32] → Array[U32]` genuinely means word-array in/out — NOT a byte↔string conversion. **Read the element type (and, for refnums, `ref_type`) BEFORE naming anything (Step 4.5); never dismiss a resolved type as "just a fallback."** If a terminal's `lv_type` really is `None`, resolve its raw `<typeDesc>TypeID(N)</typeDesc>` via `parse_type_map_rich` (Step 4.5) — do not assume.
+
+(Use `LoadMode.NONE` so only this VI's diagram loads — no subVIs, memory-flat. To find WHICH VIs contain the primResID, grep first, per Step 2.)
+
 For a **polymorphic/adaptive** primitive, an UNWIRED terminal may show its adapt/placeholder type rather than a concrete one — count, direction, and position stay reliable; concrete types come from the wired terminals.
 
 ## Step 2: Get more instances of this primResID — grep the XML, DON'T parse the corpus
@@ -59,15 +90,15 @@ The primResID is serialized verbatim as `<primResID>PRIM_ID</primResID>` in each
 *subVI* of the failing VI that a shape-based parse would have missed).
 
 **1. Ensure the block-diagram XML is dumped (pylabview — no LabVIEW license needed).**
-- lvkit mode: `samples/` is already extracted — every VI has a `*_BDHb.xml` beside it. Nothing to do.
-- user-project mode: extract each VI's XML once — ONE subprocess per VI, so memory stays flat:
+- lvkit mode: `.lvkit/cache/samples/` is already extracted into `.lvkit/cache/extracted/`. Resolve a VI's cached XML with `resolve_extracted(vi_path)`. Nothing to do.
+- user-project mode: extract each VI's XML once — in-process, cached to `.lvkit/cache/`, so re-runs are no-ops:
   ```bash
   # <root> = the user's project root
   python3 -c "
   from pathlib import Path
   from lvkit.extractor import extract_vi_xml
   for vi in Path('<root>').rglob('*.vi'):
-      try: extract_vi_xml(str(vi))   # writes *_BDHb.xml beside the VI (cached); no subVIs
+      try: extract_vi_xml(str(vi))   # -> .lvkit/cache/ (content-hash cached); no subVIs
       except Exception as e: print('skip', vi.name, e)
   "
   ```
@@ -249,9 +280,29 @@ consumer's required output (here, ±1) plus the types uniquely determine the
 function. This is deterministic deduction, not guessing — but only when both
 the types and the consumer constraint pin it.
 
-## Step 5: Identify the function via web search
+## Step 5: Identify the function against the LOCAL NI catalog (build it first)
 
-lvkit does not bundle NI's reference manual. Use the WebSearch tool to look up candidate functions on NI's documentation site.
+**You MUST match the observed pane against NI's REAL, closed set of functions — never a name guessed from memory.** That closed set is a local, reproducible catalog anyone with this repo can rebuild.
+
+**Step 5a — ensure the catalog exists (build once, reuse):**
+```bash
+uv run python scripts/build_ni_function_catalog.py   # writes .lvkit/cache/ni_function_catalog.json (git-ignored); --force to refresh
+```
+It crawls NI's PUBLIC docs menu tree (clean-room — no LabVIEW) and caches every leaf page's `title`, `slug`, `path`, and palette `category`. NI's own **title suffix is the type signal**: "… Function" = a built-in function (primResID candidate); "… VI" = a subVI in vi.lib; anything else = a concept/reference page, not a callable. ~511 Functions / ~1162 VIs today. (The catalog gives the authoritative NAME/slug; whether a specific corpus node is a primitive vs a subVI is still decided by the graph — `PrimitiveNode` carries a `primResID`, a subVI call does not.)
+
+**Step 5b — grep the catalog for candidates that fit the pane (Steps 3-4.5):**
+```bash
+# by palette family (from the resID range / calling-VI domain):
+python3 -c "import json; d=json.load(open('.lvkit/cache/ni_function_catalog.json'))['functions']; \
+[print(v['slug'], '::', v['title'], '::', v['category']) for v in d.values() \
+ if v['title'].endswith('Function') and 'file' in v['category'].lower()]"
+# or by keyword: swap 'file' logic for a term you expect (e.g. 'array', 'string', 'variant', 'timing')
+```
+Your candidate set is EXACTLY the catalog entries whose pane can match the observed types — nothing outside the catalog is a valid answer. If the pane fits none, widen the family or reconsider the types (Step 4.5); do not invent a name.
+
+**Step 5c — confirm the winner by reading its page** (the slug comes from the catalog, so no more guessing slugs):
+
+Use WebSearch only to disambiguate wording; the authoritative read is the backend page below.
 
 Search queries that work well:
 
@@ -299,12 +350,42 @@ When you have the page, use it to confirm:
 - The diagnostic lists the FULL connector pane (every terminal, each marked wired/UNWIRED, with its type) — the whole signature should match the documentation, not just the wired terminals.
 - The CONTEXT (Step 3) makes sense for what the function does
 
-If the backend + WebSearch still turn up nothing useful:
+If the backend + WebSearch still turn up nothing useful, **DEDUCE — never check LabVIEW** (see the clean-room banner above; the maintainer has no LabVIEW):
 
-- **lvkit mode**: cross-reference the `samples/` corpus more aggressively (Step 2), and ask the user
-- **user-project mode**: ask the user to open the calling VI in LabVIEW and read the primitive's context menu / quick help. The qualified VI path from the diagnostic tells you which file to point them at.
+- Cross-reference the corpus more aggressively (Step 2): more instances, especially with VARIED element types, force the answer.
+- Reconstruct the calling VI's ALGORITHM and let the math pin it (Step 4.5). Example: an output that is compared against a code COUNT must be count-scaled → `2^width` (Power Of 2), NOT `log2` — the comparison's units decide it.
+- Read more public NI pages — fetch the whole category menu (`.../page/menus/categories/...-mnu.html`) and check every function's connector pane.
+- If STILL unresolved after all of that, write a `"placeholder": true` entry (below). You may ask the maintainer to describe the VI's ALGORITHM or DOMAIN — but NEVER to open, click, or inspect LabVIEW.
 
 ## Step 6: Add the JSON entry
+
+**STOP — NAME-COLLISION CHECK, before you write anything.** Grep the destination
+catalog for the name you are about to use:
+```bash
+python3 -c "import json;d=json.load(open('src/lvkit/data/primitives.json'))['primitives'];\
+n='<Name You Chose>';print([p for p,e in d.items() if e.get('name')==n] or 'free')"
+```
+If the name is **already claimed by a different primResID**, you may NOT just add
+a second entry. LabVIEW does sometimes give one function two resIDs, but you must
+PROVE it rather than assume: dump both resIDs' panes AS OBSERVED across the corpus
+and compare (`scripts/audit_primitive_consistency.py`).
+- **Panes identical** → genuine twin. Add it AND register the pair in
+  `tests/test_primitive_name_uniqueness.py::REVIEWED_DUPLICATES` with the evidence.
+- **Panes differ** → one of the two is MISLABELED. Do not add a duplicate; work out
+  which is wrong (the pane that matches the NI doc wins) and fix that entry.
+
+Skipping this check is how six duplicate names landed in one batch. The gate in
+`tests/test_primitive_name_uniqueness.py` will now fail on any unreviewed
+duplicate — do not silence it by adding your entry to the reviewed list without
+having actually compared the panes. (Scope note: this applies WITHIN one catalog.
+A project-local `.lvkit/` entry reusing a shipped name is the intended override —
+often correcting a wrong shipped deduction — and is always allowed.)
+
+**REQUIRED FIELDS — every resolved entry MUST carry BOTH:**
+1. **`python_code`** — the codegen template, keyed by output-terminal name, using `in_N` references matching the OBSERVED pane indices. Never omit it; if the op is a pure constant use the literal, if it is genuinely unresolved use a `"placeholder": true` entry (which supplies `pass`). A resolved primitive with no `python_code` is incomplete and will break codegen.
+2. **`doc_url`** — the PUBLIC NI page for the function, taken from the local catalog's `slug` (Step 5): `https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/<path>`. The ONLY exception is a primitive with no public NI page at all (a constant/internal op); note that explicitly. If you named it from the catalog, it HAS a slug — include it.
+
+An entry missing either field is not "resolved" — do not mark `verified` and do not move on until both are present.
 
 Only after completing steps 1-5. The destination depends on the mode you detected in Step 0:
 

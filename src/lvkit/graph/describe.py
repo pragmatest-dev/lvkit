@@ -6,7 +6,6 @@ Used by the MCP server and CLI ``describe`` command.
 
 from __future__ import annotations
 
-import ast
 from typing import TYPE_CHECKING
 
 from ..models import (
@@ -16,21 +15,40 @@ from ..models import (
     Operation,
     PrimitiveOperation,
     SequenceOperation,
-    Terminal,
     _is_error_cluster,
 )
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant, VIContext
+from .netlist import build_netlist, component_line, render_netlist
+from .op_walk import (
+    _const_value_str,
+    _find_op_owning_terminal,
+    _has_output_tunnel,
+    _render_ports,
+    _subvi_ports,
+)
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
 
 
-def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
+def describe_vi(
+    graph: InMemoryVIGraph, vi_name: str, *, verbose: bool = False,
+) -> str:
     """Describe a VI as a documentation page.
 
-    Uses the graph's resolved types, names, constants, and dataflow
-    to produce a complete reference for what this VI does.
+    Uses the graph's resolved types, names, constants, and dataflow to
+    produce a complete reference for what this VI does. Default
+    (non-verbose) output is unchanged: Inputs/Outputs/Class/Constants,
+    then ``## Dependencies`` (subVI signatures) / ``## Control Flow`` /
+    ``## Operations``.
+
+    ``verbose`` replaces Dependencies + Control Flow + Operations with a
+    declare-then-wire pair: ``## Components`` (every distinct subVI/primitive's
+    typed interface, declared once -- see ``lvkit.graph.netlist``) followed by
+    a final ``## Netlist`` (every node instantiated, node-first, with wiring
+    -- its ``case (selector):`` scopes already cover control flow, so there is
+    no separate ``## Control Flow`` section in verbose output).
     """
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
@@ -44,10 +62,9 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
     lines.append("")
 
     # Interface: Inputs
-    non_error_inputs = [i for i in ctx.inputs if not i.is_error_cluster]
-    if non_error_inputs:
+    if ctx.inputs:
         lines.append("## Inputs")
-        for inp in non_error_inputs:
+        for inp in ctx.inputs:
             wiring = _wiring_label(inp.wiring_rule)
             lines.append(f"  {inp.name}: {inp.python_type()} ({wiring})")
         lines.append("")
@@ -57,10 +74,9 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
         lines.append("")
 
     # Interface: Outputs
-    non_error_outputs = [o for o in ctx.outputs if not o.is_error_cluster]
-    if non_error_outputs:
+    if ctx.outputs:
         lines.append("## Outputs")
-        for out in non_error_outputs:
+        for out in ctx.outputs:
             lines.append(f"  {out.name}: {out.python_type()}")
         lines.append("")
     else:
@@ -80,32 +96,54 @@ def describe_vi(graph: InMemoryVIGraph, vi_name: str) -> str:
             lines.append(f"  {_describe_constant_line(c)}")
         lines.append("")
 
-    # Dependencies: SubVI calls with their signatures and descriptions
-    subvi_names = _collect_subvi_names(ctx.operations)
-    if subvi_names:
-        lines.append("## Dependencies")
-        for name in sorted(subvi_names):
-            desc = _get_subvi_description(graph, name)
-            sig = _subvi_signature(graph, name)
-            entry = f"  {name}"
-            if sig:
-                entry += f": {sig}"
-            if desc:
-                entry += f" — {desc}"
-            lines.append(entry)
-        lines.append("")
+    # verbose: build the netlist IR once, shared by Components and Netlist.
+    netlist_module = build_netlist(graph, vi_name) if verbose else None
 
-    # Control flow
-    structures = _collect_structures(graph, ctx, ctx.operations, ctx.operations)
-    if structures:
-        lines.append("## Control Flow")
-        for s in structures:
-            lines.append(f"  {s}")
-        lines.append("")
+    if verbose:
+        assert netlist_module is not None
+        if netlist_module.components:
+            lines.append("## Components")
+            for c in netlist_module.components:
+                lines.append(f"  {component_line(c)}")
+            lines.append("")
+    else:
+        # Dependencies: SubVI calls with their signatures and descriptions
+        subvi_names = _collect_subvi_names(ctx.operations)
+        if subvi_names:
+            lines.append("## Dependencies")
+            for name in sorted(subvi_names):
+                desc = _get_subvi_description(graph, name)
+                ports = _subvi_ports(graph, name)
+                sig = _render_ports(*ports) if ports is not None else None
+                entry = f"  {name}"
+                if sig:
+                    entry += f": {sig}"
+                if desc:
+                    entry += f" -- {desc}"
+                lines.append(entry)
+            lines.append("")
 
-    # Operations
-    lines.append("## Operations")
-    _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
+    # Control flow: non-verbose only. Verbose's ``## Netlist`` below already
+    # covers control flow in full (its ``case (selector):`` scopes, with
+    # correctly tunnel-resolved selectors) -- this shallower summary would
+    # be both redundant and stale there (its selector naming doesn't hop
+    # through tunnels the way ``build_netlist`` does).
+    if not verbose:
+        structures = _collect_structures(graph, ctx, ctx.operations, ctx.operations)
+        if structures:
+            lines.append("## Control Flow")
+            for s in structures:
+                lines.append(f"  {s}")
+            lines.append("")
+
+    if verbose:
+        assert netlist_module is not None
+        lines.append("## Netlist")
+        lines.append(render_netlist(netlist_module))
+    else:
+        # Operations
+        lines.append("## Operations")
+        _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
 
     return "\n".join(lines)
 
@@ -123,13 +161,10 @@ def describe_operations(
 
     _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
 
-    non_error_outputs = [
-        o for o in ctx.outputs if not o.is_error_cluster
-    ]
-    if non_error_outputs:
+    if ctx.outputs:
         lines.append("")
         lines.append("Returns:")
-        for out in non_error_outputs:
+        for out in ctx.outputs:
             lines.append(f"  {out.name}: {out.python_type()}")
 
     return "\n".join(lines)
@@ -140,7 +175,7 @@ def describe_dataflow(
     vi_name: str,
     operation_id: str | None = None,
 ) -> str:
-    """Describe data flow — where values come from and go to."""
+    """Describe data flow -- where values come from and go to."""
     vi_name = graph.resolve_vi_name(vi_name)
     wires = list(graph.get_wires(vi_name))
 
@@ -162,7 +197,7 @@ def describe_dataflow(
     for wire in wires:
         src_name = wire.source.name or wire.source.node_id.split("::")[-1]
         dst_name = wire.dest.name or wire.dest.node_id.split("::")[-1]
-        lines.append(f"  {src_name} → {dst_name}")
+        lines.append(f"  {src_name} -> {dst_name}")
 
     if not wires:
         lines.append("  (no wires)")
@@ -227,16 +262,12 @@ def _format_signature(ctx: VIContext) -> str:
     """Format function signature from VIContext."""
     inputs = []
     for inp in ctx.inputs:
-        if inp.is_error_cluster:
-            continue
         name = inp.name or "input"
         type_str = inp.python_type()
         inputs.append(f"{name}: {type_str}")
 
     outputs = []
     for out in ctx.outputs:
-        if out.is_error_cluster:
-            continue
         outputs.append(f"{out.name}: {out.python_type()}")
 
     func_name = ctx.name.replace(".vi", "").replace(" ", "_").lower()
@@ -296,7 +327,7 @@ def _describe_class_context(
 ) -> list[str]:
     """Describe the owning class when this VI is a .lvclass method.
 
-    Surfaces the class's parent, fields, and sibling methods — context an
+    Surfaces the class's parent, fields, and sibling methods -- context an
     agent needs to write a method body but which is absent from the VI's
     own dataflow. Returns an empty list for non-class VIs.
     """
@@ -326,70 +357,6 @@ def _describe_class_context(
         lines.append(f"  methods: {', '.join(siblings)}")
     lines.append("")
     return lines
-
-
-def _subvi_signature(graph: InMemoryVIGraph, name: str) -> str | None:
-    """One-line signature for a called SubVI.
-
-    Loaded VIs use their resolved front-panel signature; unloaded vilib
-    refs fall back to the resolver's terminal layout. Returns None when
-    neither is available.
-    """
-    loaded = set(graph.list_vis())
-    qname = name
-    if qname not in loaded:
-        try:
-            resolved = graph.resolve_vi_name(name)
-        except (KeyError, ValueError):
-            resolved = None
-        if resolved in loaded:
-            qname = resolved  # type: ignore[assignment]
-
-    if qname in loaded:
-        sctx = graph.get_vi_context(qname)
-        ins = [
-            f"{t.name}: {t.python_type()}"
-            for t in sctx.inputs if not t.is_error_cluster
-        ]
-        outs = [
-            f"{t.name}: {t.python_type()}"
-            for t in sctx.outputs if not t.is_error_cluster
-        ]
-        return f"({', '.join(ins)}) → ({', '.join(outs)})"
-
-    entry = _get_vilib_resolver().resolve_by_name(name)
-    if entry is not None and entry.terminals:
-        ins = [
-            f"{t.name}: {t.type}"
-            for t in entry.terminals if t.direction == "input"
-        ]
-        outs = [
-            f"{t.name}: {t.type}"
-            for t in entry.terminals if t.direction == "output"
-        ]
-        return f"({', '.join(ins)}) → ({', '.join(outs)})"
-    return None
-
-
-def _find_op_owning_terminal(
-    operations: list[Operation], terminal_id: str | None,
-) -> tuple[Operation, Terminal] | None:
-    """Recursively find the operation that owns the given terminal."""
-    if terminal_id is None:
-        return None
-    for op in operations:
-        for t in op.terminals:
-            if t.id == terminal_id:
-                return op, t
-        hit = _find_op_owning_terminal(op.inner_nodes, terminal_id)
-        if hit:
-            return hit
-        if isinstance(op, (CaseOperation, SequenceOperation)):
-            for frame in op.frames:
-                hit = _find_op_owning_terminal(frame.operations, terminal_id)
-                if hit:
-                    return hit
-    return None
 
 
 def _resolve_selector(
@@ -429,7 +396,7 @@ def _collect_structures(
 ) -> list[str]:
     """Summarize control flow structures.
 
-    Case/loop entries are annotated with what gates them — the selector
+    Case/loop entries are annotated with what gates them -- the selector
     (or stop-condition) wire traced back one hop to its source operation
     or front-panel input. ``root_ops`` is the VI's full top-level operation
     list, kept constant through recursion so selector tracing can reach any
@@ -454,7 +421,7 @@ def _collect_structures(
                     for s in _collect_structures(
                         graph, ctx, frame.operations, root_ops,
                     ):
-                        structures.append(f"  └ {s}")
+                        structures.append(f"  \\ {s}")
             case LoopOperation():
                 kind = "While loop" if op.loop_type == "whileLoop" else "For loop"
                 gated = _resolve_selector(
@@ -470,11 +437,11 @@ def _collect_structures(
                     for s in _collect_structures(
                         graph, ctx, frame.operations, root_ops,
                     ):
-                        structures.append(f"  └ {s}")
+                        structures.append(f"  \\ {s}")
             case _:
                 pass
         structures.extend(
-            f"  └ {s}"
+            f"  \\ {s}"
             for s in _collect_structures(graph, ctx, op.inner_nodes, root_ops)
         )
     return structures
@@ -501,33 +468,6 @@ def _const_type_str(c: Constant) -> str:
     return c.lv_type.to_python() if c.lv_type else "unknown"
 
 
-def _format_error_cluster(value: object) -> str:
-    """Render an error-cluster value as ``code N: "source"``."""
-    data = value
-    if isinstance(value, str):
-        try:
-            data = ast.literal_eval(value)
-        except (ValueError, SyntaxError):
-            return value
-    if isinstance(data, dict):
-        code = data.get("code", 0)
-        source = data.get("source", "")
-        status = data.get("status", False)
-        if not status and not code:
-            return "no error"
-        if source:
-            return f'code {code}: "{source}"'
-        return f"code {code}"
-    return str(value)
-
-
-def _const_value_str(c: Constant) -> str:
-    """Human-readable value for a constant (no redundant quoting)."""
-    if c.lv_type and _is_error_cluster(c.lv_type):
-        return _format_error_cluster(c.value)
-    return str(c.value)
-
-
 def _describe_constant_line(c: Constant) -> str:
     """One-line ``name: type = value`` for a constant."""
     name = c.name or "(unnamed)"
@@ -542,13 +482,6 @@ def _frame_constants(
         c for c in constants
         if c.parent == parent_id and str(c.frame) == str(frame_key)
     ]
-
-
-def _has_output_tunnel(op: Operation) -> bool:
-    """True if the structure routes any value out (so an empty frame is a
-    pass-through, not truly empty — LV requires output tunnels wired in
-    every frame)."""
-    return any(t.direction == "output" for t in op.terminals)
 
 
 def _describe_frame_body(
@@ -625,16 +558,16 @@ def _describe_single_op(op: Operation) -> str:
     if "SubVI" in op.labels:
         named_inputs = [
             t.name for t in op.terminals
-            if t.direction == "input" and not t.is_error_cluster and t.name
+            if t.direction == "input" and t.name
         ]
         named_outputs = [
             t.name for t in op.terminals
-            if t.direction == "output" and not t.is_error_cluster and t.name
+            if t.direction == "output" and t.name
         ]
         if named_inputs or named_outputs:
             in_str = ", ".join(named_inputs)
             out_str = ", ".join(named_outputs)
-            return f"{name}({in_str}) → {out_str}"
+            return f"{name}({in_str}) -> {out_str}"
         return name
 
     match op:
@@ -723,7 +656,7 @@ def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
             lines.append(
                 f"    {tunnel.tunnel_type}:"
                 f" outer={tunnel.outer_terminal_uid}"
-                f" → inner={tunnel.inner_terminal_uid}"
+                f" -> inner={tunnel.inner_terminal_uid}"
             )
 
     if op.inner_nodes:

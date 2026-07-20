@@ -40,11 +40,18 @@ from ..graph.models import (
     VINode,
 )
 from ..models import LVType, Terminal
+from ..num_format import format_numeric_const as _format_numeric_const
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
+    ArrayBuildGlyph,
+    ArrayReverseGlyph,
+    ArraySearchGlyph,
+    ArraySizeGlyph,
+    ArraySortGlyph,
+    ArraySplitGlyph,
     BooleanConstantGlyph,
     BooleanGateGlyph,
     BundleByNameGlyph,
@@ -53,6 +60,7 @@ from .glyph import (
     ClusterConstantGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
+    ConvertGlyph,
     ErrorClusterGlyph,
     FormulaNodeGlyph,
     Glyph,
@@ -65,67 +73,13 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
 )
-from .style import int_byte_width, numeric_repr, type_family, wire_style
+from .style import numeric_repr, type_family, wire_style
 
 logger = logging.getLogger(__name__)
 
-# A LabVIEW numeric constant's display-format string, verbatim off the
-# DCO's ``numLabel/format`` XML field — a printf-style spec (LabVIEW's own
-# "Display Format" dialog writes these). Only the plain forms
-# ``%[flags][width].<precision><conv>`` are matched; anything else (e.g.
-# LabVIEW's ``%<%.3X\n%x>T`` timestamp syntax, or the engineering-notation
-# ``%#_13g`` seen once in the corpus with a non-numeric width token) is left
-# for the caller to fall back on default formatting rather than guess at.
-_NUMERIC_FORMAT_RE = re.compile(
-    r"^%[#0\- +]*\d*\.(?P<prec>\d+)(?P<conv>[fFeEgGxXob])$"
-)
-# LabVIEW prefixes a non-decimal numeric constant with a lowercase letter —
-# "x" for hex, "o" for octal, "b" for binary — never a "0x"/"0o"/"0b" style
-# prefix (verified against the task's own example: U8 31 -> "x1F").
-_RADIX_PREFIX = {"x": "x", "X": "x", "o": "o", "b": "b"}
-_RADIX_FORMAT_SPEC = {"x": "X", "X": "X", "o": "o", "b": "b"}
-
-
-def _format_numeric_const(
-    lv_type: LVType | None, value: object, display_format: str | None,
-) -> str | None:
-    """Apply a numeric constant's DCO-provided display-format string to its
-    decoded value: hex/octal/binary radix (with LabVIEW's lowercase x/o/b
-    prefix, negative values two's-complemented to the type's bit width) or
-    float precision (``%.Nf``/``%.Ng``/``%.Ne`` -> N digits).
-
-    Returns None — caller falls back to the default decimal display —
-    when there's no format string, or it doesn't match the plain printf
-    spec this function understands (see ``_NUMERIC_FORMAT_RE``)."""
-    if not display_format:
-        return None
-    m = _NUMERIC_FORMAT_RE.match(display_format)
-    if not m:
-        return None
-    conv = m.group("conv")
-    prec = int(m.group("prec"))
-    try:
-        fval = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return None
-
-    if conv in _RADIX_PREFIX:
-        ival = int(fval)
-        width = int_byte_width(lv_type)
-        if ival < 0:
-            if width is None:
-                # Can't two's-complement without a known bit width — don't
-                # guess a width, fall back to default formatting instead.
-                return None
-            ival &= (1 << (width * 8)) - 1
-        digits = format(ival, _RADIX_FORMAT_SPEC[conv])
-        if len(digits) < prec:
-            digits = digits.rjust(prec, "0")
-        return _RADIX_PREFIX[conv] + digits
-
-    # f/F/e/E/g/G — printf precision digits; Python's format mini-language
-    # uses the identical conversion letters and semantics.
-    return format(fval, f".{prec}{conv}")
+# Numeric-constant radix/precision formatting lives in ``lvkit.num_format`` now,
+# shared with the graph/netlist text output so render and describe render the
+# same way; imported above as ``_format_numeric_const``.
 
 
 def _format_const(value: object) -> str:
@@ -222,6 +176,39 @@ _BOOLEAN_GATE = {
     "And": ("and", "∧", False, False),
     "Or": ("or", "∨", False, False),
     "Not": ("not", "¬", False, True),
+}
+
+# ARRAY family (goal #14 follow-up) -> a fixed, stateless glyph instance,
+# keyed by the resolved primitive NAME (same convention as
+# ``_COMPARE_SYMBOL``/``_BOOLEAN_GATE``). Build Array (``aBuild``) is NOT
+# here — it grows with its input count, so it's constructed per-node in
+# ``resolve()`` instead of shared as one instance.
+_ARRAY_GLYPH: dict[str, Glyph] = {
+    "Array Size": ArraySizeGlyph(),
+    "Reverse 1D Array": ArrayReverseGlyph(),
+    "Search 1D Array": ArraySearchGlyph(),
+    "Sort 1D Array": ArraySortGlyph(),
+    "Split 1D Array": ArraySplitGlyph(),
+}
+
+# ARRAY-family glyphs (the dict above + Build Array's ``ArrayBuildGlyph``) are
+# gated OFF: the compositional array-assembly drawings read poorly and Build
+# Array did not expand its element rows to the wired input count (4 wires
+# landing on a 3-row glyph). With this False they fall back to the labeled box
+# (primitive name + its real terminals). Flip to True to restore the glyphs
+# once expand-to-wired-count is fixed.
+_ARRAY_GLYPHS_ENABLED = False
+
+# CONVERTER family (goal #14 follow-up): target-type abbreviation shown by
+# ``ConvertGlyph``, keyed by the resolved primitive NAME.
+_CONVERTER_ABBR = {
+    "To Long Integer": "I32",
+    "To Word Integer": "I16",
+    "To Byte Integer": "I8",
+    "To Unsigned Byte Integer": "U8",
+    "To Unsigned Word Integer": "U16",
+    "To Double Precision Float": "DBL",
+    "Boolean To (0,1)": "0,1",
 }
 
 # Cluster assemble/disassemble node classes. LabVIEW parses the palette Bundle
@@ -324,9 +311,10 @@ def _vectorized_icon(path_str: str, mtime: float) -> CenteredSvgGlyph | None:
 class ExtractedIconResolver:
     """Best-effort real SubVI ``_ICON.png`` for VINode subVI calls.
 
-    The caller's heap XML only carries the CALLER's own icon (drawn as the
-    corner decoration in ``draw_scene``) — a subVI's icon requires the
-    subVI's own file. This resolver only uses what's cheaply already known:
+    The caller's heap XML only carries the CALLER's own icon (parsed into
+    ``layout.icon_png`` but NOT currently drawn anywhere) — a subVI's icon
+    requires the subVI's own file. This resolver only uses what's cheaply
+    already known:
 
     - ``graph.get_vi_source_path(name)``, if the subVI happens to already
       be loaded in the same graph (free — a dict lookup); or
@@ -352,11 +340,17 @@ class ExtractedIconResolver:
         if not name:
             return None
 
-        src_path = ctx.graph.get_vi_source_path(name)
+        src_path = ctx.graph.locate_vi_file(name)
         if src_path is None and node.qualified_path:
             candidate = Path(node.qualified_path)
             if candidate.is_file():
                 src_path = candidate
+        # A user's LOCAL vi.lib/user.lib (their own licensed install): resolve
+        # the <vilib>/<userlib> token to a real on-disk .vi. Rendering it
+        # locally is not distribution; lvkit never ships this art, and a hosted
+        # service has no roots set so this stays None. Fail-soft to name-box.
+        if src_path is None:
+            src_path = ctx.graph.resolve_library_vi_path(node.qualified_path)
         if src_path is None:
             return None
 
@@ -597,8 +591,13 @@ class OriginalGlyphResolver:
       triangle with the comparison symbol.
     - The boolean logic gates (And, Or, Not) — ``BooleanGateGlyph``'s
       D-shape/shield/triangle+bubble outlines (goal #99).
-    - Build Array (``aBuild``) — the name in a box, replacing the noisy
-      vectorized NI pixel icon (no distinctive clean-room shape yet).
+    - The ARRAY family (Array Size, Reverse/Search/Sort/Split 1D Array) —
+      the "little element boxes" motif, keyed by name via ``_ARRAY_GLYPH``.
+    - Build Array (``aBuild``) — ``ArrayBuildGlyph``, a drawer that grows
+      with its input count (same skeleton as Bundle/Compound Arithmetic).
+    - The CONVERTER family (To Long/Word/Byte/Unsigned Integer, Boolean To
+      (0,1)) — a small entering arrow into a bold type abbreviation,
+      ``ConvertGlyph``, keyed by name via ``_CONVERTER_ABBR``.
     """
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
@@ -619,15 +618,18 @@ class OriginalGlyphResolver:
             return BooleanGateGlyph(
                 gate_symbol, kind=kind, negated=negated, input_bubble=input_bubble,
             )
-        if node.node_type == "aBuild" or node.name == "Build Array":
-            # No distinctive clean-room shape yet; the vectorized NI pixel icon
-            # read as a noisy little grid. The name in a box is clearer and
-            # matches the neighbouring text-box prims (Add Array Elements,
-            # Random Number). Swap in a real glyph here later.
-            return WrappedBoxGlyph(
-                "Build Array", "prim_fill", "prim_stroke", 1.0,
-                text_attr="prim_text",
-            )
+        if _ARRAY_GLYPHS_ENABLED:
+            array_glyph = _ARRAY_GLYPH.get(node.name or "")
+            if array_glyph is not None:
+                return array_glyph
+        abbr = _CONVERTER_ABBR.get(node.name or "")
+        if abbr is not None:
+            return ConvertGlyph(abbr)
+        if _ARRAY_GLYPHS_ENABLED and (
+            node.node_type == "aBuild" or node.name == "Build Array"
+        ):
+            num_inputs = sum(1 for t in node.terminals if t.direction == "input")
+            return ArrayBuildGlyph(num_inputs=max(1, num_inputs))
         return None
 
     @staticmethod

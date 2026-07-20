@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit primitives and vilib VIs referenced in samples but not in our data.
 
-Walks samples/, parses each VI via XML pairs, cross-references primitives and
+Walks .lvkit/cache/samples/, parses each VI via XML pairs, cross-references
 vilib dependencies against the JSON data files, and emits a markdown report
 to .tmp/audit-unresolved.md sorted by usage count (highest first).
 
@@ -20,7 +20,8 @@ from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.vilib_resolver import VIEntry, VILibResolver
 
 REPO_ROOT = Path(__file__).parent.parent
-SAMPLES = REPO_ROOT / "samples"
+# Extracted XML now lives in the project-local cache, not beside the .vi files.
+SAMPLES = REPO_ROOT / ".lvkit" / "cache" / "extracted"
 REPORT_PATH = REPO_ROOT / ".tmp" / "audit-unresolved.md"
 
 # Status buckets
@@ -30,7 +31,7 @@ MISSING = "missing"
 
 
 def find_bd_xml_pairs(samples_root: Path) -> list[tuple[Path, Path | None]]:
-    """Find all (bd_xml, main_xml) pairs under samples/.
+    """Find all (bd_xml, main_xml) pairs under .lvkit/cache/samples/.
 
     Returns a list of (bd_xml, main_xml) tuples. main_xml is optional.
     Dedups by bd_xml absolute path.
@@ -194,7 +195,7 @@ def main() -> None:
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     lines.append(f"# Unresolved Audit — {date.today().isoformat()}\n")
-    lines.append(f"Scanned {len(pairs)} VI block diagrams from `samples/`.\n")
+    lines.append(f"Scanned {len(pairs)} VI block diagrams from `.lvkit/cache/samples/`.\n")  # noqa: E501
 
     lines.append("## Summary (sample usage)\n")
     lines.append(

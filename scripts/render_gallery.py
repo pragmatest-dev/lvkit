@@ -16,8 +16,9 @@ The gallery embeds each SVG inline, so there is **no rasterizer dependency**
 ``--out DIR`` to write somewhere else.
 
 The corpus lives in ``CORPUS`` below. Sample ``.vi`` files are external test
-data under ``samples/`` (gitignored); any VI that is missing locally is simply
-skipped, and any that fails to extract is reported — neither aborts the run.
+data under ``.lvkit/cache/samples/`` (gitignored); any VI that is missing
+locally is simply skipped, and any that fails to extract is reported — neither
+aborts the run.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import html
 from dataclasses import dataclass
 from pathlib import Path
 
+from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi_file
 from lvkit.render.style import css_var_theme
 from lvkit.render.theme_web import (
@@ -52,22 +54,22 @@ class Sample:
 # "experiments/" examples — and unlicensed sets (DAQmx-Digital-IO had no LICENSE)
 # are excluded: a public gallery can't render what we can't license.
 CORPUS: list[Sample] = [
-    Sample("easyxml_build", "samples/JKI-EasyXML/Build.vi",
+    Sample("easyxml_build", ".lvkit/cache/samples/JKI-EasyXML/Build.vi",
            "Case structures · many SubVIs · build script"),
-    Sample("easy_parse_xml", "samples/JKI-EasyXML/Source/Easy Parse XML.vi",
+    Sample("easy_parse_xml", ".lvkit/cache/samples/JKI-EasyXML/Source/Easy Parse XML.vi",  # noqa: E501
            "Dense dataflow · nested cases · SubVIs · clusters"),
     Sample("xml_loop_recursion",
-           "samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi",
+           ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi",  # noqa: E501
            "Nested cases · recursion · purple variant + mustard error wires"),
     Sample("cluster_to_array",
-           "samples/JKI-EasyXML/Source/OpenG Derivative/"
+           ".lvkit/cache/samples/JKI-EasyXML/Source/OpenG Derivative/"
            "Cluster to Array of VData--EasyXML.vi",
            "Arrays + clusters · purple Variant terminals + solid-purple constant"),
-    Sample("vitester_build", "samples/JKI-VI-Tester/source/build.vi",
+    Sample("vitester_build", ".lvkit/cache/samples/JKI-VI-Tester/source/build.vi",
            "LabVIEW class / project-plugin (OOP) dataflow"),
     Sample(
         "stacked_sequence",
-        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+        ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
         "string.llb/Number to Proper Engl Text__ogtk.vi",
         "Stacked sequence (3 frames) · click the ◄ index ► selector to flip",
     ),
@@ -213,7 +215,7 @@ def main() -> int:
             skipped += 1
             continue
         try:
-            svg = render_vi_file(vi, expand_subvis=False, theme=sampler_theme)
+            svg = render_vi_file(vi, mode=LoadMode.NONE, theme=sampler_theme)
         except Exception as e:  # noqa: BLE001 — report, never abort the run
             print(f"  FAIL  {s.name:22} {type(e).__name__}: {e}")
             cards.append(

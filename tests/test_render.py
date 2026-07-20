@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     CaseStructureNode,
     ConstantNode,
@@ -26,20 +27,20 @@ from lvkit.graph.models import (
     SequenceNode,
     StructureNode,
 )
+from lvkit.graph.op_walk import _format_ranges, _selector_label
 from lvkit.models import FPTerminal, LVType
+from lvkit.parser.layout import Layout, Point, Rect, build_layout
+from lvkit.parser.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
 from lvkit.render import render_vi, render_vi_file
 from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import draw_fp_terminal, draw_node
 from lvkit.render.glyph import CompoundArithGlyph
-from lvkit.render.layout import Layout, Point, Rect, build_layout
 from lvkit.render.nodes import _format_numeric_const, string_const_display
 from lvkit.render.scene import (
     Scene,
     _exit_side,
-    _format_ranges,
     _frame_compatible,
     _frame_info,
-    _selector_label,
     _structure_borders,
     _trim_string_const_geom,
     build_scene,
@@ -47,7 +48,6 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
-from lvkit.render.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
 
 # --------------------------------------------------------------------------- #
 # Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
@@ -556,50 +556,50 @@ GROUND_TRUTH_VI = Path(".tmp/array average 1.vi")
 # hex-format U32 = 0x02 labelled "0x02 => Open Templates for Editing…" — the
 # fixture for #59 (value + hex format) and #77 (value-box shrink + owned label).
 CONST_LABEL_VI = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/appcontrol/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/appcontrol/"
     "appcontrol.llb/Current VIs Reference__ogtk.vi"
 )
-OPENG_SEARCH = [Path("samples/OpenG/extracted")]
+OPENG_SEARCH = [Path(".lvkit/cache/samples/OpenG/extracted")]
 
 # Small, pre-verified samples covering: plain leaf VI, SubVI calls, a Case
 # structure, and a Case structure NESTED inside another structure.
-CASE_VI = Path("samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi")
+CASE_VI = Path(".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi")  # noqa: E501
 NESTED_CASE_VI = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/variantconfig/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/variantconfig/"  # noqa: E501
     "variantconfig.llb/Write Panel to INI__ogtk.vi"
 )
 # A case genuinely nested inside another case's frame (not just a case inside
 # a loop) — its scene has 2+ segment compound frame paths.
 NESTED_CASE_CONTENT_VI = Path(
-    "samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"
+    ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"
 )
 # Flat (film-strip) sequence with 3 side-by-side frames (verified: frame 0/1
 # node x-ranges don't overlap, has dividers, has 5 SubVI calls for the hover-
 # tooltip test).
 FLAT_SEQ_VI = Path(
-    "samples/JKI-EasyXML/Source/Fast Parser/"
+    ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"
     "test TCX read (installed 71).vi"
 )
 # Stacked (interactive) sequence with 3 overlapping frames.
 STACKED_SEQ_VI = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
     "string.llb/Number to Proper Engl Text__ogtk.vi"
 )
 CORPUS_VIS = [
-    Path("samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),
+    Path(".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),  # noqa: E501
     Path(
-        "samples/JKI-EasyXML/Source/JKI Reuse Candidates/"
+        ".lvkit/cache/samples/JKI-EasyXML/Source/JKI Reuse Candidates/"
         "Is an Error__JKI Error Handling.vi"
     ),
     NESTED_CASE_CONTENT_VI,
     CASE_VI,
-    Path("samples/JKI-VI-Tester/source/Prototype/Test Project/Method1.vi"),
+    Path(".lvkit/cache/samples/JKI-VI-Tester/source/Prototype/Test Project/Method1.vi"),
     Path(
-        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/array/array.llb/"
+        ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/array/array.llb/"  # noqa: E501
         "Reorder 1D Array2 (LVObject)__ogtk.vi"
     ),
     Path(
-        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/comparison/"
+        ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/comparison/"  # noqa: E501
         "comparison.llb/U16 Changed__ogtk.vi"
     ),
     NESTED_CASE_VI,
@@ -614,7 +614,7 @@ def _load_graph(path: Path) -> tuple[InMemoryVIGraph, str] | None:
         return None
     graph = InMemoryVIGraph()
     try:
-        graph.load_vi(path, expand_subvis=False)
+        graph.load_vi(path, mode=LoadMode.NONE)
     except Exception:
         return None
     return graph, graph.resolve_vi_name(path.name)
@@ -719,7 +719,7 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     if not CONST_LABEL_VI.exists():
         pytest.skip(f"sample VI not available: {CONST_LABEL_VI}")
     graph = InMemoryVIGraph()
-    graph.load_vi(CONST_LABEL_VI, expand_subvis=False, search_paths=OPENG_SEARCH)
+    graph.load_vi(CONST_LABEL_VI, mode=LoadMode.NONE, search_paths=OPENG_SEARCH)
     name = graph.resolve_vi_name(CONST_LABEL_VI.name)
     scene = build_scene(graph, name)
 
@@ -741,7 +741,7 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     assert by_val["1"].owned_label is None
 
     svg = render_vi_file(
-        CONST_LABEL_VI, expand_subvis=False, search_paths=OPENG_SEARCH,
+        CONST_LABEL_VI, mode=LoadMode.NONE, search_paths=OPENG_SEARCH,
     )
     assert svg is not None
     assert ">x2<" in svg              # #59 hex radix value survives re-extraction
@@ -968,7 +968,7 @@ def test_flat_sequence_frames_tile_and_have_dividers():
         "frame 0 and frame 1 node x-ranges overlap — tiling offset not applied"
     )
 
-    svg = render_vi_file(FLAT_SEQ_VI, expand_subvis=False)
+    svg = render_vi_file(FLAT_SEQ_VI, mode=LoadMode.NONE)
     assert svg is not None
     assert svg.count("<line") >= len(structure.dividers)
 
@@ -1057,8 +1057,9 @@ def test_render_vi_file_determinism_across_hash_seeds_stacked_seq():
 
     script = (
         "import hashlib\n"
+        "from lvkit.graph.loading import LoadMode\n"
         "from lvkit.render import render_vi_file\n"
-        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, expand_subvis=False)\n"
+        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, mode=LoadMode.NONE)\n"
         "assert svg is not None\n"
         "print(hashlib.sha256(svg.encode()).hexdigest())\n"
     )
@@ -1085,8 +1086,9 @@ def test_render_vi_file_determinism_across_hash_seeds_case_vi():
 
     script = (
         "import hashlib\n"
+        "from lvkit.graph.loading import LoadMode\n"
         "from lvkit.render import render_vi_file\n"
-        f"svg = render_vi_file({str(CASE_VI)!r}, expand_subvis=False)\n"
+        f"svg = render_vi_file({str(CASE_VI)!r}, mode=LoadMode.NONE)\n"
         "assert svg is not None\n"
         "print(hashlib.sha256(svg.encode()).hexdigest())\n"
     )
@@ -1119,8 +1121,8 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     divider per input row (2 inputs -> 1 horizontal divider), plus exactly
     one invert-bubble circle for the single inverted terminal.
 
-    Its terminals are Boolean, so LabVIEW's "add" mode is logical OR — the
-    symbol is "∨", not the raw "+" (see
+    Its operation (from objFlags bits 16-18) is AND on Boolean terminals, so
+    the symbol is "∧" (see
     codegen/nodes/compound.py::generate_compound_arith's boolean-context
     translation, mirrored by render for this same node)."""
     loaded = _load_graph(STACKED_SEQ_VI)
@@ -1158,8 +1160,8 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     # pane (terminal types) below — so match the identity line, not the whole
     # (now multi-line) title.
     assert "<title>Compound Arithmetic\n" in svg
-    # Boolean-context operator symbol: "add" on Booleans is logical OR.
-    assert ">∨<" in svg
+    # Boolean-context operator symbol: this node's AND mode renders "∧".
+    assert ">∧<" in svg
 
     # Isolate JUST this node's draw output to count its own invert bubbles
     # (other unrelated nodes in this VI, e.g. Format/Scan String, also carry
@@ -1194,8 +1196,9 @@ def test_render_vi_file_determinism_cpdarith_invert_bubble():
 
     script = (
         "import hashlib\n"
+        "from lvkit.graph.loading import LoadMode\n"
         "from lvkit.render import render_vi_file\n"
-        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, expand_subvis=False)\n"
+        f"svg = render_vi_file({str(STACKED_SEQ_VI)!r}, mode=LoadMode.NONE)\n"
         "assert svg is not None\n"
         "print(hashlib.sha256(svg.encode()).hexdigest())\n"
     )
@@ -1972,7 +1975,7 @@ def test_case_vi_svg_is_well_formed_xml_standalone():
 
 
 LOCALVAR_VI = Path(
-    "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
     "string.llb/Number to Proper Engl Text__ogtk.vi"
 )
 
@@ -2317,7 +2320,7 @@ def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.scene import _is_boundary_mux
 
-    loaded = _load_graph(Path("samples/JKI-EasyXML/Source/Fast Parser/"
+    loaded = _load_graph(Path(".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"
                               "XML Loop Stack Recursion.vi"))
     if loaded is None:
         pytest.skip("sample VI not available")
@@ -2358,7 +2361,7 @@ def test_nmux_on_class_private_data_draws_field_name():
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.scene import _is_boundary_mux
 
-    testresult_dir = Path("samples/JKI-VI-Tester/source/Classes/TestResult")
+    testresult_dir = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult")  # noqa: E501
     vi_path = testresult_dir / "GetTestsRun.vi"
     if not vi_path.exists():
         pytest.skip("sample VI not available")
@@ -2648,7 +2651,7 @@ def test_decode_signal_turned_trunk_comb_backward_neg_perp():
         (-59.5, 1368.5), (648.0, 1933.0), (196.0, 2315.0),
         (203.0, 2597.0), (648.0, 1986.0), (194.0, 1833.0),
     ]
-    from lvkit.render.wire_table import _decode_tree_deterministic
+    from lvkit.parser.wire_table import _decode_tree_deterministic
 
     mids = _decode_tree_deterministic(blob, src, sinks)
     assert mids is not None, "turned-trunk comb must decode deterministically"
@@ -2686,8 +2689,8 @@ def test_layout_wire_by_uid_drives_faithful_render():
     # End-to-end: every drawn wire's faithful geometry is keyed by its sink uid,
     # and the whole VI renders WITHOUT invoking the auto-router (deterministic,
     # heap-faithful). Regression guard for the unified uid-driven decoder (#76).
+    from lvkit.parser.layout import build_layout
     from lvkit.render import scene as scene_mod
-    from lvkit.render.layout import build_layout
 
     layout = build_layout(NESTED_CASE_VI)
     assert layout.wire_by_uid, "no faithful wire geometry resolved"
@@ -2705,7 +2708,7 @@ def test_layout_wire_by_uid_drives_faithful_render():
 
     scene_mod.WireRouter.route = _counted
     try:
-        svg = render_vi_file(NESTED_CASE_VI, expand_subvis=False)
+        svg = render_vi_file(NESTED_CASE_VI, mode=LoadMode.NONE)
     finally:
         scene_mod.WireRouter.route = orig
     assert svg is not None
@@ -2820,6 +2823,42 @@ def test_compact_array_terminal_brackets_element_type():
     assert ">DBL<" in icon and "[DBL]" not in icon
 
 
+def test_interactive_false_drops_script_and_root_id_keeps_data_attrs():
+    """``render_vi(..., interactive=False)`` (increment 1 of the diff-viewer
+    plan) must carry NO ``<script>`` and NO root ``<svg id=...>`` — so two
+    such SVGs can be inlined on one page with zero id collision and no
+    dueling JS controllers — while the ``data-node``/``data-lv-struct``/
+    ``data-lv-frames``/``data-lv-default``/``data-path`` attributes (drawn by
+    ``draw.py`` during scene-drawing, not by the scripts) survive untouched.
+    The default (``interactive=True``, and omitting the kwarg entirely) must
+    stay byte-identical to each other — no regression to the existing
+    interactive behavior."""
+    loaded = _load_graph(CASE_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {CASE_VI}")
+    graph, vi = loaded
+
+    default_svg = render_vi(graph, vi)
+    explicit_true_svg = render_vi(graph, vi, interactive=True)
+    noninteractive_svg = render_vi(graph, vi, interactive=False)
+    assert default_svg is not None and noninteractive_svg is not None
+    # Omitting the kwarg must be byte-identical to passing interactive=True
+    # explicitly -- no accidental change to the default rendering path.
+    assert default_svg == explicit_true_svg
+
+    assert "<script" in default_svg
+    assert re.search(r"<svg[^>]*\sid=", default_svg)
+    assert "<script" not in noninteractive_svg
+    assert not re.search(r"<svg[^>]*\sid=", noninteractive_svg)
+
+    for svg in (default_svg, noninteractive_svg):
+        assert "data-node" in svg
+        assert "data-lv-struct" in svg
+        assert "data-lv-frames" in svg
+        assert "data-lv-default" in svg
+        assert "data-path" in svg
+
+
 def test_dark_palette_covers_every_wire_color():
     """Every wire_* (and other themed) color in the Theme must have a dark-mode
     entry in DARK_PALETTE, else theme_style_block() raises and the web/gallery
@@ -2830,3 +2869,72 @@ def test_dark_palette_covers_every_wire_color():
     css = theme_style_block()  # raises if any themed color lacks a dark entry
     assert "--lv-wire-refnum" in css
     assert "wire_refnum" in DARK_PALETTE
+
+
+def _theme_mode_graph() -> tuple[InMemoryVIGraph, str]:
+    """A loaded graph for the theme-mode SVG tests, or skip if unavailable."""
+    loaded = _load_graph(GROUND_TRUTH_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
+    return loaded
+
+
+def test_theme_mode_light_is_byte_identical_and_var_free():
+    """``theme_mode='light'`` (the default) must be byte-identical to omitting
+    the kwarg — the raw-hex legacy output — carrying NO css-var references and
+    NO injected dark palette. This is the determinism contract."""
+    graph, vi = _theme_mode_graph()
+    default_svg = render_vi(graph, vi)
+    light_svg = render_vi(graph, vi, theme_mode="light")
+    assert default_svg is not None
+    assert default_svg == light_svg           # explicit light == default
+    assert "var(--lv-" not in light_svg       # no css-var recoloring
+    assert "@media" not in light_svg          # no injected palette block
+    assert ":root{" not in light_svg
+
+
+def test_theme_mode_dark_embeds_css_var_theme_and_dark_palette():
+    """``theme_mode='dark'`` renders with the css-var theme (colors become
+    ``var(--lv-*, <light-hex>)``) AND embeds a ``:root`` block that sets those
+    vars to the DARK_PALETTE values UNCONDITIONALLY (a standalone .svg opens
+    dark, no media query)."""
+    from lvkit.render.theme_web import DARK_PALETTE
+
+    graph, vi = _theme_mode_graph()
+    dark_svg = render_vi(graph, vi, theme_mode="dark")
+    assert dark_svg is not None
+    assert "var(--lv-" in dark_svg                         # css-var theme in use
+    assert ":root{" in dark_svg
+    assert f"--lv-prim-fill: {DARK_PALETTE['prim_fill']};" in dark_svg
+    # dark = unconditional, so NO prefers-color-scheme wrapper.
+    assert "@media" not in dark_svg
+
+
+def test_theme_mode_auto_wraps_dark_palette_in_media_query():
+    """``theme_mode='auto'`` renders with the css-var theme and emits BOTH a
+    ``@media (prefers-color-scheme: dark){ :root:not([data-theme]) }`` block
+    (follow the OS/editor preference while no explicit override is set) AND a
+    ``:root[data-theme="dark"]`` rule (force dark at runtime). The media rule
+    is gated on ``:not([data-theme])`` so ``data-theme="light"`` falls back to
+    the light css-var defaults."""
+    from lvkit.render.theme_web import DARK_PALETTE
+
+    graph, vi = _theme_mode_graph()
+    auto_svg = render_vi(graph, vi, theme_mode="auto")
+    assert auto_svg is not None
+    assert "var(--lv-" in auto_svg
+    assert "@media (prefers-color-scheme: dark)" in auto_svg
+    # the media rule is gated so an explicit data-theme override wins
+    assert ":root:not([data-theme])" in auto_svg
+    # a forced-dark rule for data-theme="dark", outside the media query
+    assert ':root[data-theme="dark"]' in auto_svg
+    assert f"--lv-prim-fill: {DARK_PALETTE['prim_fill']};" in auto_svg
+
+
+def test_embedded_dark_css_rejects_bad_mode():
+    """The embedded-palette helper is only defined for dark/auto — 'light' (or
+    anything else) must raise, since light injects nothing at all."""
+    from lvkit.render.theme_web import embedded_dark_css
+
+    with pytest.raises(ValueError):
+        embedded_dark_css("light")

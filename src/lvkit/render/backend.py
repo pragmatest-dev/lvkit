@@ -44,6 +44,7 @@ class Backend(Protocol):
         self, x1: float, y1: float, x2: float, y2: float, *,
         fill: str | None = None, stroke: str | None = None,
         stroke_width: float | None = None, rx: float | None = None,
+        stroke_dasharray: str | None = None,
     ) -> None: ...
 
     def path(
@@ -139,9 +140,11 @@ class SvgBackend:
         self, x1: float, y1: float, x2: float, y2: float, *,
         fill: str | None = None, stroke: str | None = None,
         stroke_width: float | None = None, rx: float | None = None,
+        stroke_dasharray: str | None = None,
     ) -> None:
         a = self._attrs(
             fill=fill, stroke=stroke, stroke_width=stroke_width, rx=rx,
+            stroke_dasharray=stroke_dasharray,
         )
         self._elements.append(
             f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{x2 - x1:.1f}" '

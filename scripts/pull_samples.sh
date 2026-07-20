@@ -18,7 +18,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="$ROOT/samples"
+# The sample corpora are "local-only-always" — never committed, always
+# re-pullable — so they belong in the lvkit cache, not loose at the repo root.
+DEST="$ROOT/.lvkit/cache/samples"
 FORCE="${1:-}"
 
 mkdir -p "$DEST"

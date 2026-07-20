@@ -6,15 +6,16 @@ import pytest
 
 from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.loading import LoadMode
 from lvkit.parser import ParsedVI, ParsedVIMetadata, parse_vi
 from lvkit.parser.metadata import parse_subvi_paths, parse_vi_metadata
 from lvkit.parser.type_mapping import parse_type_map_rich
 
 TEST_VI = Path(
-    "samples/JKI-VI-Tester/source/User Interfaces/"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
     "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
 )
-SEARCH_PATHS = [Path("samples/OpenG/extracted")]
+SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 
 
 @pytest.fixture(scope="module")
@@ -46,7 +47,7 @@ def parsed_metadata(parsed_vi) -> ParsedVIMetadata:
 @pytest.fixture(scope="module")
 def graph():
     g = InMemoryVIGraph()
-    g.load_vi(TEST_VI, expand_subvis=True, search_paths=SEARCH_PATHS)
+    g.load_vi(TEST_VI, mode=LoadMode.FULL, search_paths=SEARCH_PATHS)
     return g
 
 
@@ -150,20 +151,25 @@ class TestWhileLoopNestedShiftRegister:
     otherwise the right register's terminal, border glyph, wire type, AND
     generated-code dataflow all silently vanish (task #96 follow-up)."""
 
+    # Point at the .vi SOURCE, not a sibling _BDHb.xml: extracted XML now lives
+    # in the project-local cache, so resolve it through the extractor (which
+    # extracts on a cache miss) rather than hardcoding either location.
     LIST_VI = (
-        "samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/"
-        "appcontrol/appcontrol.llb/List VI Hierarchy__ogtk_BDHb.xml"
+        ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/"
+        "appcontrol/appcontrol.llb/List VI Hierarchy__ogtk.vi"
     )
 
     @pytest.fixture(scope="class")
     def while_loop(self):
         import xml.etree.ElementTree as ET
 
+        from lvkit.extractor import resolve_extracted
         from lvkit.parser.nodes.loop import extract_loops
 
-        bd = Path(self.LIST_VI)
-        if not bd.exists():
+        vi = Path(self.LIST_VI)
+        if not vi.exists():
             pytest.skip("List VI Hierarchy sample not present")
+        bd, _fp, _main = resolve_extracted(vi)
         root = ET.parse(bd).getroot()
         inner = root.find("root")
         if inner is not None:
@@ -202,7 +208,7 @@ class TestResilientVCTPExport:
 
     @pytest.fixture(scope="class")
     def main_xml(self):
-        ms = list(Path("samples").rglob("GrabWebCam_PCO_IOS.vi"))
+        ms = list(Path(".lvkit/cache/samples").rglob("GrabWebCam_PCO_IOS.vi"))
         if not ms:
             pytest.skip("GrabWebCam_PCO_IOS sample not present")
         _bd, _fp, main = extract_vi_xml(ms[0], force=True)
