@@ -17,7 +17,9 @@ import tempfile
 
 from flask import Flask, Response, request
 
+from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi_file
+from lvkit.render.render_viewer import build_render_viewer
 from lvkit.render.style import css_var_theme
 from lvkit.render.theme_web import (
     THEME_TOGGLE_BUTTON,
@@ -70,26 +72,41 @@ def render() -> Response:
     if len(data) > MAX_VI_BYTES:
         return _cors(Response("VI too large", 413))
 
+    # ?format=svg (default) -> bare SVG picture; ?format=html -> the full
+    # self-contained interactive viewer (same one `lvkit render --format html`
+    # emits, and the one the pragmatest /lvkit/render page embeds).
+    fmt = (request.args.get("format") or "svg").lower()
+
     with tempfile.TemporaryDirectory() as d:
         vi_path = pathlib.Path(d) / "upload.vi"
         vi_path.write_bytes(data)
         try:
-            # expand_subvis=False: a standalone upload has no sibling subVI
-            # files to resolve, so this stays entirely off the filesystem for
-            # dependencies and renders unknown subVIs as fallback boxes.
-            # theme=css_var_theme(): every hex color becomes
-            # var(--lv-<role>, <light-hex>) so the served page's injected
-            # theme_style_block() CSS can recolor the diagram; with no such
-            # CSS present the var() falls back to the same light hex as
-            # before, so this is a no-op for any other caller.
-            svg = render_vi_file(
-                vi_path, expand_subvis=False, theme=css_var_theme(),
-            )
+            # mode=LoadMode.NONE: a standalone upload has no sibling subVI files
+            # to resolve, so render this VI's own diagram only (unknown subVIs
+            # draw as fallback boxes) — entirely off the filesystem.
+            if fmt == "html":
+                # The standalone viewer carries its OWN light/dark toggle, so
+                # its SVG is rendered theme_mode="auto" (no css-var injection).
+                svg = render_vi_file(
+                    vi_path, mode=LoadMode.NONE, theme_mode="auto",
+                )
+            else:
+                # theme=css_var_theme(): every hex color becomes
+                # var(--lv-<role>, <light-hex>) so the served demo page's
+                # injected theme_style_block() CSS can recolor the diagram;
+                # with no such CSS present the var() falls back to the same
+                # light hex, so this is a no-op for any other caller.
+                svg = render_vi_file(
+                    vi_path, mode=LoadMode.NONE, theme=css_var_theme(),
+                )
         except Exception as exc:  # noqa: BLE001 - report, never 500 opaquely
             return _cors(Response(f"render failed: {exc}", 422))
 
     if not svg:
         return _cors(Response("could not render this VI", 422))
+    if fmt == "html":
+        page = build_render_viewer(svg, title="Your VI")
+        return _cors(Response(page, mimetype="text/html"))
     return _cors(Response(svg, mimetype="image/svg+xml"))
 
 

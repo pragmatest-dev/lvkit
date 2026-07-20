@@ -5,6 +5,7 @@
 .gitignore
 .venv
 venv
+.lvkit/
 samples/
 outputs/
 tests/
