@@ -46,7 +46,7 @@ For a global install: `pipx install lvkit` or `uv tool install lvkit`.
 | `lvkit setup` | Install AI agent skills; create `.lvkit/` resolution store |
 | `lvkit mcp` | Start the MCP server for IDE integration |
 
-`lvkit visualize --format interactive` requires `pip install lvkit[visualize]`. All other commands work on a bare `pip install lvkit`.
+`lvkit visualize` requires `pip install lvkit[visualize]` (it uses pyvis). All other commands work on a bare `pip install lvkit`.
 
 ## What you can do with it
 
@@ -54,10 +54,10 @@ For a global install: `pipx install lvkit` or `uv tool install lvkit`.
 Get a human-readable signature, inputs/outputs, operations, and control flow — without opening LabVIEW. Never requires primitive or vi.lib mappings.
 
 ```
-lvkit describe <path-to.vi> [--search-path <libraries/>] [--chart]
+lvkit describe <path-to.vi> [--search-path <libraries/>] [--verbose]
 ```
 
-`--chart` adds a Mermaid flowchart of the block diagram.
+`--verbose` adds a full netlist — a text projection of the block diagram.
 
 ### Generate documentation
 Cross-referenced HTML docs for a `.vi`, `.lvlib`, or `.lvclass` — inputs, outputs, operations, wiring diagrams.
