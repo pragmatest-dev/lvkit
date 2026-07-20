@@ -232,7 +232,12 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
     desc_parser.add_argument(
         "-v", "--verbose",
@@ -261,7 +266,12 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
     # User-facing name is --placeholder-on-unresolved (descriptive of the
     # output the user sees in their generated Python). Internally this
@@ -297,7 +307,12 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
     _add_project_root_arg(docs_parser)
     _add_load_mode_arg(docs_parser)
@@ -322,7 +337,12 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
     viz_parser.add_argument(
         "--open", action="store_true",
@@ -473,7 +493,12 @@ def main() -> int:
     )
     render_parser.add_argument(
         "--search-path", action="append", dest="search_paths", default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The VI's project "
+            "root (nearest enclosing .lvkit/) is auto-detected and "
+            "searched, so this is only needed for VIs outside a "
+            "project store."
+        ),
     )
     _add_theme_arg(render_parser)
     _add_project_root_arg(render_parser)
@@ -637,7 +662,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
     try:
         graph = InMemoryVIGraph()
         _configure_library_roots(graph, args)
-        search_paths = [Path(p) for p in args.search_paths]
+        search_paths = _auto_search_paths(args.search_paths, input_path)
         graph.load_vi(
             str(input_path), _resolve_load_mode(args, LoadMode.MINIMAL),
             search_paths=search_paths,
@@ -807,7 +832,7 @@ def cmd_render(args: argparse.Namespace) -> int:
 
     _configure_resolvers(args)
     vilib_root, userlib_root = _parse_library_roots(args)
-    search_paths = [Path(p) for p in args.search_paths] if args.search_paths else None
+    search_paths = _auto_search_paths(args.search_paths, input_path) or None
 
     # The html viewer embeds an inline SVG and carries its OWN light/dark control
     # (a data-theme toggle on the page root), so its SVG is ALWAYS rendered
@@ -856,25 +881,26 @@ def cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
-def _auto_diff_search_paths(
-    explicit: list[str], path_a: Path, path_b: Path,
-) -> list[Path]:
-    """Search paths for a diff pair: any explicit ``--search-path`` values,
-    plus the auto-detected project root(s) of the two VIs.
+def _auto_search_paths(explicit: list[str], *inputs: Path) -> list[Path]:
+    """Effective SubVI search paths: the explicit ``--search-path`` values,
+    plus the auto-detected project root of each input.
 
     A VI's SubVIs commonly live in sibling subdirectories of the project root,
     not next to the VI itself (the VI's own directory is always searched via
     ``load_vi``'s ``source_dir``, so it never needs listing here). #36: rather
-    than make the user repeat ``--search-path`` for both sides, walk up from
-    each VI to its enclosing ``.lvkit`` project store (``find_project_store``,
-    the same marker ``_configure_resolvers`` already uses) and add that root —
-    shared across both sides. Explicit paths still win / augment; when the two
-    VIs sit in one project both walks resolve to the same root (added once).
+    than make the user pass ``--search-path``, walk up from each input to its
+    enclosing ``.lvkit`` project store (``find_project_store`` — the same
+    marker ``_configure_resolvers`` already uses for primitive/vi.lib data) and
+    add that root. Shared by every command that resolves SubVIs
+    (describe/generate/docs/visualize/render/diff), so ``lvkit <cmd> foo.vi``
+    finds the project's SubVIs with no flags. Explicit paths still win/augment;
+    inputs sharing one project resolve to the same root (added once).
     """
     paths: list[Path] = [Path(p) for p in explicit]
     seen = {p.resolve() for p in paths}
-    for vi_path in (path_a, path_b):
-        store = find_project_store(start=vi_path.parent)
+    for inp in inputs:
+        start = inp if inp.is_dir() else inp.parent
+        store = find_project_store(start=start)
         if store is None:
             continue
         root = store.parent  # project root is the parent of the .lvkit/ store
@@ -888,7 +914,7 @@ def _load_diff_graphs(
     args: argparse.Namespace, path_a: Path, path_b: Path, *, layout: bool,
 ) -> tuple[InMemoryVIGraph, str, InMemoryVIGraph, str]:
     """Load both sides of a diff pair with a shared load mode/search paths."""
-    search_paths = _auto_diff_search_paths(args.search_paths, path_a, path_b)
+    search_paths = _auto_search_paths(args.search_paths, path_a, path_b)
     diff_mode = _resolve_load_mode(args, LoadMode.MINIMAL)
 
     graph_a = InMemoryVIGraph()
@@ -1033,7 +1059,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     try:
-        sp = [Path(p) for p in args.search_paths] if args.search_paths else None
+        sp = _auto_search_paths(args.search_paths, input_path) or None
         vilib_root, userlib_root = _parse_library_roots(args)
         result = generate_python(
             input_path,
@@ -1069,7 +1095,8 @@ def cmd_docs(args: argparse.Namespace) -> int:
         result = generate_documents(
             library_path=str(input_path),
             output_dir=args.output_dir,
-            search_paths=args.search_paths if args.search_paths else None,
+            search_paths=[str(p) for p in _auto_search_paths(
+                args.search_paths, input_path)] or None,
             mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
@@ -1094,9 +1121,7 @@ def cmd_visualize(args: argparse.Namespace) -> int:
 
     graph = InMemoryVIGraph()
     _configure_library_roots(graph, args)
-    search_paths = (
-        [Path(p) for p in args.search_paths] if args.search_paths else None
-    )
+    search_paths = _auto_search_paths(args.search_paths, input_path) or None
     vmode = _resolve_load_mode(args, LoadMode.FULL)
 
     suffix = input_path.suffix.lower()
