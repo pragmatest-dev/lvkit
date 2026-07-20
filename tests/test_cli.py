@@ -32,10 +32,16 @@ def _require_pair() -> None:
 
 
 def _load(vi_path: Path, *, layout: bool) -> tuple[InMemoryVIGraph, str]:
-    """Mirror cmd_diff's own loading: LoadMode.MINIMAL (its default), no
-    explicit search paths — same as a bare `lvkit diff a b` invocation."""
+    """Mirror cmd_diff's own loading: LoadMode.MINIMAL (its default) and the
+    SAME auto-detected project-root search paths a bare `lvkit diff a b`
+    resolves (#36) — so CLI output matches this in-process reference."""
+    from lvkit.cli import _auto_diff_search_paths
+
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), LoadMode.MINIMAL, search_paths=[], layout=layout)
+    search_paths = _auto_diff_search_paths([], vi_path, vi_path)
+    graph.load_vi(
+        str(vi_path), LoadMode.MINIMAL, search_paths=search_paths, layout=layout,
+    )
     vi_name = graph.resolve_vi_name(vi_path.name)
     return graph, vi_name
 
@@ -183,3 +189,62 @@ class TestFormatText:
         assert default_result.returncode == 0, default_result.stderr
         assert verbose_result.returncode == 0, verbose_result.stderr
         assert default_result.stdout != verbose_result.stdout
+
+
+# ── #36: auto-detect project root for SubVI resolution ──────────────────────
+
+
+class TestAutoDiffSearchPaths:
+    """`lvkit diff a b` should resolve SubVIs from each VI's project root
+    (nearest enclosing .lvkit/) without the user repeating --search-path."""
+
+    def test_detects_shared_root_for_both_sides(self, tmp_path: Path) -> None:
+        from lvkit.cli import _auto_diff_search_paths
+
+        (tmp_path / ".lvkit").mkdir()
+        (tmp_path / "sub").mkdir()
+        a = tmp_path / "sub" / "a.vi"
+        b = tmp_path / "sub" / "b.vi"
+
+        paths = _auto_diff_search_paths([], a, b)
+
+        # One shared root, added once (both VIs are in the same project).
+        assert [p.resolve() for p in paths] == [tmp_path.resolve()]
+
+    def test_detects_both_roots_across_two_projects(self, tmp_path: Path) -> None:
+        from lvkit.cli import _auto_diff_search_paths
+
+        proj_a = tmp_path / "old"
+        proj_b = tmp_path / "new"
+        for proj in (proj_a, proj_b):
+            (proj / ".lvkit").mkdir(parents=True)
+        a = proj_a / "a.vi"
+        b = proj_b / "b.vi"
+
+        paths = {p.resolve() for p in _auto_diff_search_paths([], a, b)}
+
+        assert paths == {proj_a.resolve(), proj_b.resolve()}
+
+    def test_explicit_paths_preserved_and_deduped(self, tmp_path: Path) -> None:
+        from lvkit.cli import _auto_diff_search_paths
+
+        (tmp_path / ".lvkit").mkdir()
+        a = tmp_path / "a.vi"
+        b = tmp_path / "b.vi"
+        # Explicitly passing the root must not duplicate the auto-detected one.
+        explicit = [str(tmp_path)]
+
+        paths = [p.resolve() for p in _auto_diff_search_paths(explicit, a, b)]
+
+        assert paths == [tmp_path.resolve()]
+
+    def test_no_project_store_yields_no_paths(self, tmp_path: Path) -> None:
+        from lvkit.cli import _auto_diff_search_paths
+
+        # A .git marker without .lvkit stops the walk (no store) -> nothing to
+        # add; load_vi still searches each VI's own dir via source_dir.
+        (tmp_path / ".git").mkdir()
+        a = tmp_path / "a.vi"
+        b = tmp_path / "b.vi"
+
+        assert _auto_diff_search_paths([], a, b) == []

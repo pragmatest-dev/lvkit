@@ -383,7 +383,11 @@ def main() -> int:
         action="append",
         dest="search_paths",
         default=[],
-        help="Search paths for SubVI resolution (can be repeated)",
+        help=(
+            "Extra SubVI search path (repeatable). The project root of each "
+            "VI (nearest enclosing .lvkit/) is auto-detected and searched, so "
+            "this is only needed for VIs outside a project store."
+        ),
     )
     _add_theme_arg(diff_parser)
     _add_project_root_arg(diff_parser)
@@ -839,11 +843,39 @@ def cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
+def _auto_diff_search_paths(
+    explicit: list[str], path_a: Path, path_b: Path,
+) -> list[Path]:
+    """Search paths for a diff pair: any explicit ``--search-path`` values,
+    plus the auto-detected project root(s) of the two VIs.
+
+    A VI's SubVIs commonly live in sibling subdirectories of the project root,
+    not next to the VI itself (the VI's own directory is always searched via
+    ``load_vi``'s ``source_dir``, so it never needs listing here). #36: rather
+    than make the user repeat ``--search-path`` for both sides, walk up from
+    each VI to its enclosing ``.lvkit`` project store (``find_project_store``,
+    the same marker ``_configure_resolvers`` already uses) and add that root —
+    shared across both sides. Explicit paths still win / augment; when the two
+    VIs sit in one project both walks resolve to the same root (added once).
+    """
+    paths: list[Path] = [Path(p) for p in explicit]
+    seen = {p.resolve() for p in paths}
+    for vi_path in (path_a, path_b):
+        store = find_project_store(start=vi_path.parent)
+        if store is None:
+            continue
+        root = store.parent  # project root is the parent of the .lvkit/ store
+        if root.resolve() not in seen:
+            paths.append(root)
+            seen.add(root.resolve())
+    return paths
+
+
 def _load_diff_graphs(
     args: argparse.Namespace, path_a: Path, path_b: Path, *, layout: bool,
 ) -> tuple[InMemoryVIGraph, str, InMemoryVIGraph, str]:
     """Load both sides of a diff pair with a shared load mode/search paths."""
-    search_paths = [Path(p) for p in args.search_paths]
+    search_paths = _auto_diff_search_paths(args.search_paths, path_a, path_b)
     diff_mode = _resolve_load_mode(args, LoadMode.MINIMAL)
 
     graph_a = InMemoryVIGraph()
