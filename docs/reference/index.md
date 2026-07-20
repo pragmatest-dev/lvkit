@@ -5,6 +5,12 @@ page documents one command exhaustively; this page is the map.
 
 Run `lvkit <command> --help` at any time for the same argument listing offline.
 
+## Reads, never writes
+
+lvkit only ever reads a VI — it never modifies, re-saves, or edits one. Your files are never touched, and LabVIEW stays the only thing that authors them.
+
+**Does lvkit modify my VIs?** No. It's strictly read-only. This holds for every command, including [`generate`](generate.md): converting a VI parses it and emits a *separate* Python file — it never edits the source `.vi`.
+
 ## Understand a VI
 
 Read-only commands that turn a `.vi` binary into something you can read, review,

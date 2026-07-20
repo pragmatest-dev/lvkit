@@ -4,6 +4,10 @@
 source. The same VI always produces the same Python — there's no LLM in this
 path.
 
+Like every lvkit command, `generate` is **read-only** on the VI: it parses the
+source and writes the Python to a *separate* output path. The `.vi` is never
+modified, re-saved, or edited.
+
 ## Synopsis
 
 ```bash

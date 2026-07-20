@@ -2,7 +2,11 @@
 
 Read, document, diff, and convert LabVIEW VI files — no LabVIEW license required.
 
+**lvkit never modifies a VI — it reads what LabVIEW writes.**
+
 lvkit parses `.vi`, `.ctl`, `.lvclass`, and `.lvlib` files directly into queryable dependency and dataflow graphs. Use it to document code, track changes in CI, feed VI structure to AI tools, or generate equivalent Python.
+
+> **Reads, never writes.** lvkit only ever reads a VI — it never modifies, re-saves, or edits one. Your files are never touched, and LabVIEW stays the only thing that authors them. This holds across every capability, including convert: generating Python parses the VI and emits a *separate* file — it never edits the source.
 
 > **Independent, clean-room project — not affiliated with NI.** lvkit was built using **only publicly available information**: public NI documentation, the open-source [pylabview](https://github.com/mefistotelis/pylabview) project, and observation of VI files. It was developed **without installing or running LabVIEW or any NI software**, and with **no NI source code, internal or non-public specifications, or confidential or proprietary materials**. LabVIEW, NI, and National Instruments are trademarks of National Instruments Corporation, used here only to identify the format lvkit interoperates with; lvkit is not affiliated with, authorized by, endorsed by, or sponsored by NI. See [Cleanroom approach](#cleanroom-approach), [`NOTICE`](NOTICE), and [`PROVENANCE.md`](PROVENANCE.md).
 
