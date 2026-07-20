@@ -12,6 +12,14 @@ lvkit follows semantic versioning.
   diff, generate, and more) over the Model Context Protocol.
 - **Project-local cache:** extraction XML is cached under `.lvkit/cache/`
   (content-hash invalidated, path-classified) instead of beside the `.vi`.
+- **Auto SubVI resolution:** every command that resolves SubVIs
+  (`describe`/`diff`/`generate`/`docs`/`render`/`visualize`) auto-detects the
+  project root (nearest enclosing `.lvkit/`) and searches it, so project
+  dependencies resolve with no `--search-path`.
+- **`structure` accepts a `.lvproj`** — discovers the project from its declared
+  member list (summary, `--json`, `--plan`).
+- Numeric constants honor their LabVIEW display format in `describe`/`diff`/
+  `netlist` (hex constants render as `x…`).
 - lvkit is **read-only** on VIs — stated explicitly across every capability,
   including convert (it parses the VI and emits a separate file, never editing it).
 - More resolved primitives; Merge Errors fix; extraction memory now bounded.
