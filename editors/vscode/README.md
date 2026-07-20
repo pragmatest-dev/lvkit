@@ -77,3 +77,10 @@ the extension `version` in `package.json` per its own release cadence.
 Opening the diff on a plain **left-click** of a changed file (like a text diff) needs
 VS Code's proposed `resolveCustomDiffEditor` API, which can't ship to the Marketplace
 yet. The right-click command is the shippable path today.
+
+## Trademarks
+
+lvkit is an independent, clean-room project, not affiliated with, authorized by,
+endorsed by, or sponsored by NI. LabVIEW, NI, and National Instruments are
+trademarks of National Instruments Corporation, used only to identify the file
+format lvkit reads.

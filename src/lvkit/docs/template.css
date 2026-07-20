@@ -141,6 +141,13 @@ footer {
     font-size: 14px;
 }
 
+footer .trademark {
+    max-width: 640px;
+    margin: 8px auto 0;
+    font-size: 12px;
+    color: #95a5a6;
+}
+
 .dataflow {
     font-family: monospace;
     line-height: 1.4;

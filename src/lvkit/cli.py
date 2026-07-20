@@ -189,6 +189,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog="lvkit",
         description="Understand, convert, and document LabVIEW VI files.",
+        epilog=(
+            "lvkit is an independent, clean-room project, not affiliated with, "
+            "authorized by, endorsed by, or sponsored by NI. LabVIEW, NI, and "
+            "National Instruments are trademarks of National Instruments "
+            "Corporation, used only to identify the file format lvkit reads."
+        ),
     )
     parser.add_argument("--version", action="version", version=f"lvkit {__version__}")
 

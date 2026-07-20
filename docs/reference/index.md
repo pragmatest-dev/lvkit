@@ -43,3 +43,7 @@ to be resolved first.
 
 - [SubVI & vi.lib resolution](subvi-resolution.md) — the `--search-path`, `--vilib`, `--userlib`, `--project-root`, and `--no-auto-vilib` flags shared by `describe`, `generate`, `docs`, `visualize`, `diff`, and `render`, explained once.
 - [Netlist](netlist.md) — the node-first text grammar shared by `describe --verbose`'s `## Netlist` section, `diff`'s text output, and the interactive diff viewer's Tree change list.
+
+---
+
+*lvkit is an independent, clean-room project, not affiliated with, authorized by, endorsed by, or sponsored by NI. LabVIEW, NI, and National Instruments are trademarks of National Instruments Corporation, used only to identify the file format lvkit reads.*
