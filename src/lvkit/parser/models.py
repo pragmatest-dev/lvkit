@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..models import ClusterField, LVType, Tunnel
+from ..models import ClusterField, EventFrame, LVType, Tunnel
 
 if TYPE_CHECKING:
     from .layout import Layout
@@ -245,6 +245,25 @@ class ParsedFlatSequenceStructure:
 
 
 @dataclass
+class ParsedEventStructure:
+    """An Event Structure on the block diagram.
+
+    Structurally close to a case structure — one frame ("diag") per
+    registered event, border tunnels threading data through every frame —
+    but the active frame is chosen at runtime by whichever event fires, not
+    a selector wire. See parser/nodes/event.py.
+    """
+
+    uid: str
+    frames: list[EventFrame] = field(default_factory=list)
+    tunnels: list[Tunnel] = field(default_factory=list)
+    # Frame LabVIEW last displayed (heap ``dIdx``), whose ``event_label``
+    # came from the heap's own precomputed ``selString`` text — the
+    # faithful initial view. None if ``dIdx`` was out of range.
+    displayed_frame: int | None = None
+
+
+@dataclass
 class ParsedConnectorPaneSlot:
     """A slot on the connector pane."""
     index: int  # Slot position (0-based)
@@ -446,6 +465,7 @@ class ParsedBlockDiagram:
         default_factory=list,
     )
     disable_structures: list[ParsedDisableStructure] = field(default_factory=list)
+    event_structures: list[ParsedEventStructure] = field(default_factory=list)
     # Maps sRN UID → containing structure UID (for scoped terminal collection)
     srn_to_structure: dict[str, str] = field(default_factory=dict)
 
@@ -493,6 +513,13 @@ class ParsedBlockDiagram:
         # Also check IPES tunnels
         for ds in self.decompose_structures:
             for tunnel in ds.tunnels:
+                if tunnel.outer_terminal_uid == terminal_uid:
+                    return tunnel
+                if tunnel.inner_terminal_uid == terminal_uid:
+                    return tunnel
+        # Also check event structure tunnels
+        for es in self.event_structures:
+            for tunnel in es.tunnels:
                 if tunnel.outer_terminal_uid == terminal_uid:
                     return tunnel
                 if tunnel.inner_terminal_uid == terminal_uid:

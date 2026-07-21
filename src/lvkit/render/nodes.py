@@ -216,7 +216,13 @@ _CONVERTER_ABBR = {
 # "Node Multiplexer" classes; bundling vs unbundling is read from the FIELD
 # (nmux_role=="list") terminals' direction — inputs = Bundle, outputs =
 # Unbundle. The AGGREGATE (nmux_role=="agg") terminal(s) are never counted.
-_CLUSTER_MUX_TYPES = frozenset({"nMux", "mux", "demux"})
+#
+# ``eventDataNode`` (an Event Structure's Event Data Node / Event Filter Node
+# — same heap class for both) is structurally identical to nMux (dcoAgg +
+# named dcoList/<i> fields via nmxDCO terminal DCOs, see
+# parser/node_types.py::_EventDataNodeHandler) so it shares the same
+# named-rows glyph instead of the old generic-fallback giant box.
+_CLUSTER_MUX_TYPES = frozenset({"nMux", "mux", "demux", "eventDataNode"})
 
 # node_type -> (bundle name, unbundle name), for when direction can't be
 # determined from a ``list``-role terminal (defensive fallback only).
@@ -224,6 +230,7 @@ _MUX_TYPE_DEFAULT_NAMES = {
     "nMux": "Bundle/Unbundle By Name",
     "mux": "Bundle",
     "demux": "Unbundle",
+    "eventDataNode": "Event Data",
 }
 
 _DEFAULT_ICON_SIZE = (24, 24)
@@ -237,6 +244,11 @@ def mux_display_name(node: AnyGraphNode) -> str:
     are outputs -> Unbundle. Falls back to a type-based default if the node
     has no field terminals (defensive; shouldn't happen for a real mux)."""
     node_type = node.node_type
+    # An Event Data/Filter Node isn't a real Bundle/Unbundle — it's always
+    # "Event Data" regardless of field direction (the Filter Node's fields
+    # can be writable, unlike a genuine Unbundle's read-only outputs).
+    if node_type == "eventDataNode":
+        return "Event Data"
     field_terms = [t for t in node.terminals if t.nmux_role == "list"]
     if field_terms:
         bundling = field_terms[0].direction == "input"
@@ -637,7 +649,9 @@ class OriginalGlyphResolver:
         # nMux is Bundle/Unbundle BY NAME — a box with the accessed field NAMES,
         # resolved from the wired cluster's type (mux/demux are the compact,
         # positional Bundle/Unbundle handled by field count below).
-        if node.node_type == "nMux":
+        # eventDataNode (Event Data/Filter Node) is the SAME named-rows shape —
+        # a small inner-edge terminal cluster, never the compact positional form.
+        if node.node_type in ("nMux", "eventDataNode"):
             named = _bundle_by_name_glyph(node, graph)
             if named is not None:
                 return named

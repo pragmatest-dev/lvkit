@@ -19,6 +19,14 @@ NODE_CLASS_CASE_STRUCT = "caseStruct"
 NODE_CLASS_SEQ = "seq"
 NODE_CLASS_SEQUENCE = "sequence"  # Older LV versions use "sequence" instead of "seq"
 NODE_CLASS_EVENT_STRUCT = "eventStruct"
+# An Event Structure frame's data/filter node (inner-left "Event Data Node" /
+# inner-right "Event Filter Node" — same heap class for both, see
+# parser/nodes/event.py). Structurally identical to nMux (dcoAgg + named
+# dcoList fields) — registered as an operation node (not a tunnel) so it
+# parses via _EventDataNodeHandler instead of falling into the generic
+# unknown-node capture (which drew it as an oversized, mis-positioned box —
+# task #75).
+NODE_CLASS_EVENT_DATA_NODE = "eventDataNode"
 NODE_CLASS_PROP_NODE = "propNode"
 NODE_CLASS_INVOKE_NODE = "invokeNode"
 NODE_CLASS_CPD_ARITH = "cpdArith"  # Compound arithmetic (e.g., Or of multiple booleans)
@@ -92,6 +100,7 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_CALL_PARENT,
     NODE_CLASS_CALL_BY_REF,
     NODE_CLASS_DECOMPOSE_RECOMPOSE,
+    NODE_CLASS_EVENT_DATA_NODE,
     # Inner decompose/recompose node types (inside IPES structures)
     "decomposeClusterNode",
     "decomposeArrayNode",

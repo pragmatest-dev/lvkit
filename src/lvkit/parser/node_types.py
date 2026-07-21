@@ -787,6 +787,27 @@ class _DemuxHandler(NMuxHandler):
     display_name = "Unbundle"
 
 
+class _EventDataNodeHandler(NMuxHandler):
+    """Handles class="eventDataNode" — an Event Structure's data/filter node.
+
+    A frame's Event Data Node (event-data fields, inner-left edge) AND its
+    Event Filter Node (filterable fields, inner-right edge) share this SAME
+    heap class — pylabview/LabVIEW distinguish them only by which per-frame
+    list references the uid (``dataNodeList`` vs ``filterNodeList`` on the
+    owning ``eventStruct``, see parser/nodes/event.py), not by a separate XML
+    class. Structurally IDENTICAL to ``nMux`` (``dcoAgg`` aggregate + named
+    ``dcoList``/``<i>`` fields via ``nmxDCO`` terminal DCOs) — the parser
+    reuses NMuxHandler's parsing wholesale so field NAMES resolve through the
+    exact same VCTP cluster-field pipeline as a real Bundle/Unbundle By Name,
+    and the render layer draws it with the same small named-rows glyph
+    (see render/nodes.py's ``_CLUSTER_MUX_TYPES``) instead of the old
+    generic-fallback giant box.
+    """
+
+    xml_class = "eventDataNode"
+    display_name = "Event Data Node"
+
+
 class CtlRefConstHandler(NodeTypeHandler):
     """Handler for Control Reference Constant (class="ctlRefConst")."""
 
@@ -1021,6 +1042,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     NMuxHandler(),
     _MuxHandler(),
     _DemuxHandler(),
+    _EventDataNodeHandler(),
     CtlRefConstHandler(),
     GRefHandler(),
     StatVIRefHandler(),

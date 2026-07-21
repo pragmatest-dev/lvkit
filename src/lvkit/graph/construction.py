@@ -419,15 +419,16 @@ class ConstructionMixin:
         flatseq_by_uid = {fs.uid: fs for fs in bd.flat_sequences}
         decompose_by_uid = {ds.uid: ds for ds in bd.decompose_structures}
         disable_by_uid = {ds.uid: ds for ds in bd.disable_structures}
+        event_by_uid = {es.uid: es for es in bd.event_structures}
 
-        # Structure nodes (loop/case/sequence/IPES/disable) are built by
+        # Structure nodes (loop/case/sequence/IPES/disable/event) are built by
         # registered per-kind handlers rather than an inlined if/elif — see
         # graph/builders/.
         build_ctx = GraphBuildContext(
             mixin=self, bd=bd, vi_name=vi_name, term_lookup=term_lookup,
             loop_by_uid=loop_by_uid, case_by_uid=case_by_uid,
             flatseq_by_uid=flatseq_by_uid, decompose_by_uid=decompose_by_uid,
-            disable_by_uid=disable_by_uid,
+            disable_by_uid=disable_by_uid, event_by_uid=event_by_uid,
             iuse_to_qname=iuse_to_qname or {}, iuse_to_qpath=iuse_to_qpath,
             fp=fp, ddo_to_fpdco=ddo_to_fpdco,
             param_wire_ends=param_wire_ends, vi_node_uids=vi_node_uids,
@@ -648,6 +649,15 @@ class ConstructionMixin:
                 for uid in frame.inner_node_uids:
                     _stamp(uid, q_disable_uid, frame.selector_value)
 
+        # Event structure frames are keyed by INDEX (str(idx)) — like a
+        # stacked sequence, not a case — since the active frame is chosen at
+        # runtime by whichever event fires, not a selector wire/value.
+        for es in bd.event_structures:
+            q_es_uid = self._qid(vi_name, es.uid)
+            for idx, frame in enumerate(es.frames):
+                for uid in frame.inner_node_uids:
+                    _stamp(uid, q_es_uid, str(idx))
+
         # Attribute constants to the frame that contains them. A constant
         # wired inside a structure is a diagram constant whose output
         # terminal (keyed by the constant UID) is parented to the frame's
@@ -727,6 +737,14 @@ class ConstructionMixin:
                                     effective_parent = self._qid(
                                         vi_name, disable.uid,
                                     )
+                                    break
+                            if effective_parent != q_parent_uid:
+                                break
+                    if effective_parent == q_parent_uid:
+                        for es in bd.event_structures:
+                            for frame in es.frames:
+                                if parent_uid in frame.inner_node_uids:
+                                    effective_parent = self._qid(vi_name, es.uid)
                                     break
                             if effective_parent != q_parent_uid:
                                 break

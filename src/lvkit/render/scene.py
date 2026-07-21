@@ -17,6 +17,7 @@ from ..graph.models import (
     CaseStructureNode,
     ConstantNode,
     DisableStructureNode,
+    EventStructureNode,
     FormulaNode,
     LoopNode,
     SequenceNode,
@@ -268,8 +269,9 @@ def _frame_path(
         parent = by_id.get(cur.parent)
         if parent is None:
             break
-        if isinstance(parent, (CaseStructureNode, DisableStructureNode)) \
-                or _is_stacked_sequence(parent):
+        if isinstance(
+            parent, (CaseStructureNode, DisableStructureNode, EventStructureNode),
+        ) or _is_stacked_sequence(parent):
             segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
         cur = parent
     segs.reverse()
@@ -398,6 +400,25 @@ def _frame_info(
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(i) for i in range(len(node.frames))]
             default_frame[raw] = "0"
+        elif isinstance(node, EventStructureNode) and node.frames:
+            # Event structure: keyed by frame INDEX (like a stacked sequence,
+            # not a case) — the active frame is chosen at runtime by whichever
+            # event fires, not a selector wire/value. frame_labels carries
+            # each frame's faithful (or "[N]" placeholder) event_label — see
+            # EventFrame / parser/nodes/event.py.
+            raw = _strip_prefix(node.id, vi_name)
+            values = [str(i) for i in range(len(node.frames))]
+            frame_values[raw] = values
+            shown_idx = (
+                node.displayed_frame
+                if node.displayed_frame is not None
+                and 0 <= node.displayed_frame < len(node.frames)
+                else 0
+            )
+            default_frame[raw] = str(shown_idx)
+            frame_labels[raw] = {
+                str(i): f.event_label for i, f in enumerate(node.frames)
+            }
     return default_frame, frame_values, frame_labels, error_no_error
 
 

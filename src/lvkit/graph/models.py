@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from ..models import (
     CaseFrame,
     ClusterField,
+    EventFrame,
     LVType,
     Operation,
     PropertyDef,
@@ -169,6 +170,25 @@ class DisableStructureNode(StructureNode):
     active_frame: int | None = None
 
 
+class EventStructureNode(StructureNode):
+    """An Event Structure — one frame per registered event.
+
+    Unlike CaseStructureNode, the active frame is chosen at RUNTIME by
+    whichever event actually fires — there is no selector wire/value, so
+    frames are keyed by INDEX (matching a stacked sequence's convention, not
+    a case's ``selector_value``). See EventFrame.
+    """
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    frames: list[EventFrame] = []
+    # Frame LabVIEW last displayed (heap ``dIdx``), whose ``event_label``
+    # came from the heap's own precomputed ``selString`` text — the
+    # faithful initial view. None if unresolved (renderer falls back to
+    # frame 0).
+    displayed_frame: int | None = None
+
+
 class FormulaNode(GraphNode):
     """A Formula Node (fBox) — an embedded C-like script over typed terminals.
 
@@ -219,7 +239,7 @@ class LocalVariableNode(GraphNode):
 # Discriminated union of all node types
 AnyGraphNode = (
     VINode | PrimitiveNode | StructureNode | ConstantNode | InPlaceNode
-    | FormulaNode | LocalVariableNode | DisableStructureNode
+    | FormulaNode | LocalVariableNode | DisableStructureNode | EventStructureNode
 )
 
 

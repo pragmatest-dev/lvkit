@@ -57,6 +57,7 @@ from .nodes import (
     extract_constants,
     extract_decompose_structures,
     extract_disable_structures,
+    extract_event_structures,
     extract_flat_sequences,
     extract_loops,
     is_disable_structure,
@@ -302,6 +303,7 @@ def _parse_block_diagram(
     flat_sequences = extract_flat_sequences(root)
     decompose_structures = extract_decompose_structures(root)
     disable_structures = extract_disable_structures(root)
+    event_structures = extract_event_structures(root)
 
     bd = ParsedBlockDiagram(
         nodes=nodes,
@@ -315,6 +317,7 @@ def _parse_block_diagram(
         flat_sequences=flat_sequences,
         decompose_structures=decompose_structures,
         disable_structures=disable_structures,
+        event_structures=event_structures,
         srn_to_structure=srn_to_structure,
     )
     layout = (

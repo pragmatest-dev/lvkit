@@ -33,6 +33,7 @@ from ..models import (
     CaseOperation,
     ClusterField,
     DisableStructureOperation,
+    EventOperation,
     InPlaceOperation,
     LoopOperation,
     LVType,
@@ -152,10 +153,10 @@ class NetlistFrame:
 
 @dataclass
 class NetlistScope:
-    """A structure: case / for / while / sequence / disabled."""
+    """A structure: case / for / while / sequence / disabled / event."""
 
     uid: str
-    kind: str  # "case" | "for" | "while" | "sequence" | "disabled"
+    kind: str  # "case" | "for" | "while" | "sequence" | "disabled" | "event"
     selector: NetRef | None
     frames: list[NetlistFrame]
 
@@ -240,7 +241,10 @@ def _walk_flat(operations: list[Operation]) -> list[Operation]:
     for op in operations:
         flat.append(op)
         match op:
-            case CaseOperation() | SequenceOperation() | DisableStructureOperation():
+            case (
+                CaseOperation() | SequenceOperation() | DisableStructureOperation()
+                | EventOperation()
+            ):
                 for frame in op.frames:
                     flat.extend(_walk_flat(frame.operations))
             case _:
@@ -268,7 +272,7 @@ def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
         if not isinstance(
             op,
             (CaseOperation, LoopOperation, SequenceOperation,
-             DisableStructureOperation, InPlaceOperation),
+             DisableStructureOperation, InPlaceOperation, EventOperation),
         )
     ]
     names = [_display_name(op) for op in insts]
@@ -472,6 +476,10 @@ def _build_items(
                 items.append(
                     _build_disabled_scope(graph, ctx, root_ops, op, build_ctx)
                 )
+            case EventOperation():
+                items.append(
+                    _build_event_scope(graph, ctx, root_ops, op, build_ctx)
+                )
             case LoopOperation():
                 items.append(
                     _build_loop_scope(graph, ctx, root_ops, op, build_ctx)
@@ -575,6 +583,40 @@ def _build_disabled_scope(
     )
 
 
+def _build_event_scope(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    root_ops: list[Operation],
+    op: EventOperation,
+    build_ctx: _BuildCtx,
+) -> NetlistScope:
+    """An Event Structure's frames -- one per registered event.
+
+    NOT run through ``_selector_label``: there's no runtime selector (the
+    active frame is chosen by whichever event fires), so ``EventFrame.
+    event_label`` already IS the faithful display text (LabVIEW's own
+    bracketed ``[N] EventName`` rendering for the frame it last displayed,
+    an honest ``"[N]"`` placeholder for every other frame -- see
+    parser/nodes/event.py). Same reasoning as ``_build_disabled_scope``.
+    """
+    passthrough = _has_output_tunnel(op)
+    frames = [
+        NetlistFrame(
+            label=frame.event_label,
+            value=frame.event_label,
+            is_default=False,
+            body=_build_items(
+                graph, ctx, frame.operations, root_ops, build_ctx,
+            ),
+            passthrough=passthrough,
+        )
+        for frame in op.frames
+    ]
+    return NetlistScope(
+        uid=_uid_of(op.id), kind="event", selector=None, frames=frames,
+    )
+
+
 def _build_sequence_scope(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -636,7 +678,7 @@ def _build_loop_scope(
 
 _STRUCTURE_OPERATION_TYPES = (
     CaseOperation, LoopOperation, SequenceOperation,
-    DisableStructureOperation, InPlaceOperation,
+    DisableStructureOperation, InPlaceOperation, EventOperation,
 )
 
 
@@ -1012,6 +1054,13 @@ def _render_scope(
     elif scope.kind == "sequence":
         for frame in scope.frames:
             lines.append(f"{prefix}  frame {frame.label}:")
+            _render_frame_body(frame, indent + 2, lines, ambiguous)
+    elif scope.kind == "event":
+        # frame.label is already LabVIEW's own faithful bracketed rendering
+        # (or an honest "[N]" placeholder) -- no extra quoting/prefix needed,
+        # unlike a case's plain selector-value label.
+        for frame in scope.frames:
+            lines.append(f"{prefix}  {frame.label}:")
             _render_frame_body(frame, indent + 2, lines, ambiguous)
     else:  # "for" / "while"
         _render_frame_body(scope.frames[0], indent + 1, lines, ambiguous)

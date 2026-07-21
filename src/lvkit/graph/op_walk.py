@@ -20,6 +20,7 @@ from ..models import (
     CaseOperation,
     ClusterField,
     DisableStructureOperation,
+    EventOperation,
     LVType,
     Operation,
     SelectorRange,
@@ -51,7 +52,9 @@ def _find_op_owning_terminal(
         if hit:
             return hit
         if isinstance(
-            op, (CaseOperation, SequenceOperation, DisableStructureOperation),
+            op,
+            (CaseOperation, SequenceOperation, DisableStructureOperation,
+             EventOperation),
         ):
             for frame in op.frames:
                 hit = _find_op_owning_terminal(frame.operations, terminal_id)

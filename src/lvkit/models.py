@@ -297,6 +297,25 @@ class SequenceFrame(Frame):
     index: int = 0
 
 
+class EventFrame(Frame):
+    """A frame in an Event Structure — handles ONE registered event.
+
+    Unlike a case frame, the active frame is chosen at RUNTIME by whichever
+    event actually fires — there is no fixed selector wire/value, so this
+    carries a display ``event_label`` instead of ``selector_value``.
+
+    LabVIEW stores a per-frame label only for the frame it last displayed in
+    the editor (heap ``selString``/``dIdx``) — there is no per-frame label
+    table like a case's dataspace ``SelectorTable``. That ONE frame's label
+    is the faithful, LabVIEW-rendered text (e.g. ``[3] "Control": Value
+    Change`` or ``[0] Timeout``, brackets included — LabVIEW's own
+    convention); every other frame falls back to an honest ``"[N]"``
+    placeholder rather than a guessed event name (see parser/nodes/event.py).
+    """
+
+    event_label: str = ""
+
+
 # ============================================================
 # Codegen types (Pydantic) — consumed by code generation
 # Converted from graph nodes by lvkit.graph (InMemoryVIGraph.get_operations())
@@ -377,6 +396,21 @@ class SequenceOperation(Operation):
     """Flat or stacked sequence."""
 
     frames: list[SequenceFrame] = []
+
+
+class EventOperation(Operation):
+    """Event Structure with one frame per registered event.
+
+    Frame-bearing like a case (one subdiagram per frame), but the active
+    frame is chosen at RUNTIME by whichever event fires -- there is no
+    selector wire, unlike CaseOperation. Codegen has no dedicated generator
+    for it yet (falls through to the existing "unknown node type" comment
+    fallback, same as DisableStructureOperation) -- this slice only wires it
+    through describe/diff/netlist/render so its content stays visible
+    rather than silently dropped.
+    """
+
+    frames: list[EventFrame] = []
 
 
 class DisableStructureOperation(Operation):

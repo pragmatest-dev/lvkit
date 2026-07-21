@@ -22,6 +22,7 @@ from .models import (
     AnyGraphNode,
     ConstantNode,
     DisableStructureNode,
+    EventStructureNode,
     LocalVariableNode,
     PolyInfo,
     StructureNode,
@@ -60,12 +61,13 @@ _KIND_TO_LABELS: dict[str, list[str]] = {
     "formula": ["FormulaNode"],
     "local_variable": ["LocalVariable"],
     "disableStruct": ["DisableStructure"],
+    "eventStruct": ["EventStructure"],
 }
 
 # Graph node kinds that represent executable operations
 _OPERATION_KINDS = (
     "vi", "primitive", "operation", "caseStruct", "loop", "formula",
-    "disableStruct",
+    "disableStruct", "eventStruct",
 )
 
 
@@ -98,6 +100,8 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
         return "primitive"
     if isinstance(node, DisableStructureNode):
         return "disableStruct"
+    if isinstance(node, EventStructureNode):
+        return "eventStruct"
     if isinstance(node, StructureNode):
         if node.node_type in ("caseStruct", "select"):
             return "caseStruct"

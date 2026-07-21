@@ -11,6 +11,7 @@ from ..models import (
     CaseFrame,
     CaseOperation,
     DisableStructureOperation,
+    EventOperation,
     Frame,
     LoopOperation,
     Operation,
@@ -163,6 +164,7 @@ class ChangeMap:
 
 _STRUCT_OPS = (
     CaseOperation, LoopOperation, SequenceOperation, DisableStructureOperation,
+    EventOperation,
 )
 
 
@@ -182,6 +184,8 @@ def _struct_label(op: Operation) -> str:
         return "While loop" if op.loop_type == "whileLoop" else "For loop"
     if isinstance(op, SequenceOperation):
         return "Flat sequence"
+    if isinstance(op, EventOperation):
+        return "Event structure"
     return op.node_type or "structure"
 
 
@@ -266,7 +270,7 @@ def _collect_elements(
         kind = "structure" if isinstance(op, _STRUCT_OPS) else "node"
         out[_uid_of(op.id)] = _ElemInfo(op, kind, container_uid, frame_path)
         if isinstance(op, (CaseOperation, SequenceOperation,
-                           DisableStructureOperation)):
+                           DisableStructureOperation, EventOperation)):
             struct_uid = _uid_of(op.id)
             interactive = _is_interactive_struct(op)
             for frame in op.frames:

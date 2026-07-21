@@ -38,6 +38,11 @@ class Theme:
     case_bar_text: str = "#4a4636"
     case_no_error_border: str = "#2e9e3f"  # green — error-cluster "No Error" frame
     case_error_border: str = "#d32f2f"     # red — error-cluster "Error" frame
+    # Event Structure border — a distinct warm amber/gold (LabVIEW's own
+    # diagonal-hatch border uses a similar tan hue), dashed, so an event
+    # structure reads as clearly different from a case's solid black border
+    # at a glance without needing to reproduce the exact hatch pattern.
+    event_border: str = "#b8860b"
     # Translucent wash painted over a DISABLED subdiagram of a Diagram/
     # Conditional Disable structure (every frame except the enabled one), so
     # its greyed-out contents read as inactive — matches LabVIEW. Applied at

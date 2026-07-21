@@ -15,6 +15,8 @@ from ..models import (
     CaseFrame,
     CaseOperation,
     DisableStructureOperation,
+    EventFrame,
+    EventOperation,
     FormulaOperation,
     FPTerminal,
     InPlaceOperation,
@@ -40,6 +42,7 @@ from .core import (
 from .models import (
     CaseStructureNode,
     DisableStructureNode,
+    EventStructureNode,
     InPlaceNode,
     LoopNode,
     PolyInfo,
@@ -98,6 +101,7 @@ class OperationsMixin:
         stop_cond_inverted = False
         case_frames: list[CaseFrame] = []
         seq_frames: list[SequenceFrame] = []
+        event_frames: list[EventFrame] = []
         selector_terminal: str | None = None
         decompose: list[PrimitiveOperation] = []
         recompose: list[PrimitiveOperation] = []
@@ -143,6 +147,12 @@ class OperationsMixin:
                 all_inner = self._build_inner_nodes(child_uids, vi_name)
                 decompose, recompose, inner_nodes = _classify_ipes_ops(all_inner)
 
+            elif isinstance(gnode, EventStructureNode):
+                labels = ["EventStructure"]
+                event_frames = self._populate_frame_operations(  # type: ignore[assignment]
+                    gnode.frames, vi_name, child_uids,
+                )
+
         # Name fallback for unnamed structures
         node_name = gnode.name
         if not node_name and node_type:
@@ -183,6 +193,11 @@ class OperationsMixin:
             return SequenceOperation(
                 **common,
                 frames=seq_frames,
+            )
+        if isinstance(gnode, EventStructureNode):
+            return EventOperation(
+                **common,
+                frames=event_frames,
             )
         if isinstance(gnode, LoopNode):
             return LoopOperation(
@@ -456,26 +471,33 @@ class OperationsMixin:
 
     def _populate_frame_operations(
         self,
-        frames: list[CaseFrame] | list[SequenceFrame],
+        frames: list[CaseFrame] | list[SequenceFrame] | list[EventFrame],
         vi_name: str,
         child_uids: list[str],
-    ) -> list[CaseFrame] | list[SequenceFrame]:
+    ) -> list[CaseFrame] | list[SequenceFrame] | list[EventFrame]:
         """Populate operations on existing frames from graph children."""
         frame_to_uids = self._group_children_by_frame(child_uids)
 
-        for frame in frames:
-            # Match by selector_value (cases) or index (sequences)
+        for list_position, frame in enumerate(frames):
+            # Match by selector_value (cases), index (sequences), or list
+            # POSITION (events -- there's no runtime selector_value/index of
+            # its own; construction.py stamps children with str(idx) in the
+            # same diagram order the parser built es.frames in).
             if isinstance(frame, CaseFrame):
                 key = frame.selector_value
             elif isinstance(frame, SequenceFrame):
                 key = str(frame.index)
+            elif isinstance(frame, EventFrame):
+                key = str(list_position)
             else:
                 continue
             uids = frame_to_uids.get(key, [])
             frame.inner_node_uids = uids
             frame.operations = self._build_inner_nodes(uids, vi_name)
 
-        return cast("list[CaseFrame] | list[SequenceFrame]", frames)
+        return cast(
+            "list[CaseFrame] | list[SequenceFrame] | list[EventFrame]", frames,
+        )
 
     def _group_children_by_frame(
         self, child_uids: list[str],

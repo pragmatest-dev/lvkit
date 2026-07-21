@@ -15,6 +15,7 @@ from ..graph.models import (
     AnyGraphNode,
     CaseStructureNode,
     DisableStructureNode,
+    EventStructureNode,
     FormulaNode,
     LocalVariableNode,
     PrimitiveNode,
@@ -27,6 +28,8 @@ from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend, Point
 from .glyph import (
+    BundleByNameGlyph,
+    BundleGlyph,
     CenteredSvgGlyph,
     ClusterConstantGlyph,
     ConstantGlyph,
@@ -34,6 +37,7 @@ from .glyph import (
     FormulaNodeGlyph,
     IconImageGlyph,
     InlineSvgGlyph,
+    UnbundleGlyph,
     VariantGlyph,
     WrappedBoxGlyph,
     fit_label,
@@ -77,6 +81,7 @@ _STRUCTURE_STYLE = {
     # box + subdiagram selector) for now; faithful greyed-out styling of
     # disabled diagrams is a follow-up.
     "commentNode": "case",
+    "eventStruct": "event",
 }
 
 # LabVIEW's array-control terminal icon always shows a 3-row index display
@@ -85,12 +90,13 @@ _ARRAY_INDEX_ROWS = 3
 
 
 def _is_interactive_structure(node: object) -> bool:
-    """Case structures, Disable structures, and STACKED sequences get
-    selector chrome + per-frame ``lv-frame``/``lv-selector`` groups; flat
-    sequences (film-strip, every frame always visible) and loops do not."""
-    return isinstance(node, (CaseStructureNode, DisableStructureNode)) or (
-        isinstance(node, SequenceNode) and node.node_type != "flatSequence"
-    )
+    """Case structures, Disable structures, Event structures, and STACKED
+    sequences get selector chrome + per-frame ``lv-frame``/``lv-selector``
+    groups; flat sequences (film-strip, every frame always visible) and
+    loops do not."""
+    return isinstance(
+        node, (CaseStructureNode, DisableStructureNode, EventStructureNode),
+    ) or (isinstance(node, SequenceNode) and node.node_type != "flatSequence")
 
 
 # A LabVIEW "Not" bubble — a small open circle drawn AT an inverted terminal,
@@ -202,8 +208,22 @@ def _inset(bounds, frac: float = 0.075):
 
 # A primitive whose glyph is drawn as one of these keeps its own aspect ratio
 # (a real extracted raster icon or a declared/procedural SVG designed for a
-# fixed shape) — those are NOT resized to the terminal span.
-_OWN_ASPECT_GLYPHS = (IconImageGlyph, InlineSvgGlyph, CenteredSvgGlyph)
+# fixed shape), or is a cluster-mux drawer whose heap ``bounds`` IS its true
+# drawn size (like a subVI/constant) rather than a shape recovered from
+# terminal-span union — those are NOT resized to the terminal span.
+#
+# The cluster-mux glyphs specifically MUST be exempted: their AGGREGATE
+# terminal's termBounds is a real on-diagram wire endpoint for a normal
+# Bundle/Unbundle, but for an Event Structure's data/filter node (same
+# ``eventDataNode``/nMux shape, see parser/node_types.py) that aggregate face
+# is never wired/drawn — LabVIEW stores it as a huge negative sentinel rect
+# (e.g. ``(-531, -471, -512, -471)``), which blew the terminal-span union out
+# to hundreds of units and rendered as an oversized, mispositioned box
+# (task #75) before this exemption.
+_OWN_ASPECT_GLYPHS = (
+    IconImageGlyph, InlineSvgGlyph, CenteredSvgGlyph,
+    BundleByNameGlyph, BundleGlyph, UnbundleGlyph,
+)
 
 # Floor for the recovered icon footprint: a unary primitive (one input, one
 # output at the same height) has a terminal-span that collapses to a few px in
@@ -1153,8 +1173,17 @@ def _draw_frame_border(
     color = _error_border_color(scene, structure.raw_uid, default, theme)
     # A Diagram/Conditional Disable structure draws a DOTTED boundary (LabVIEW's
     # signature for a disable frame — see reference), distinguishing it from the
-    # solid case/sequence box.
-    dash = "1.5,2.5" if isinstance(node, DisableStructureNode) else None
+    # solid case/sequence box. An Event Structure draws a DASHED amber/gold
+    # boundary — not LabVIEW's real diagonal hatch (not required for this
+    # slice), just a clearly-different-at-a-glance treatment from a case's
+    # solid black border.
+    if isinstance(node, DisableStructureNode):
+        dash: str | None = "1.5,2.5"
+    elif isinstance(node, EventStructureNode):
+        dash = "5,2.5"
+        color = color or theme.event_border
+    else:
+        dash = None
     if color is not None:
         backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.6,
                      stroke_dasharray=dash)
@@ -1345,13 +1374,13 @@ def draw_structure(
         _draw_for_loop_border(x1, y1, x2, y2, backend, theme)
     elif kind == "whileLoop":
         _draw_while_loop_border(x1, y1, x2, y2, backend, theme)
-    elif kind in ("case", "stackedSequence"):
+    elif kind in ("case", "stackedSequence", "event"):
         _draw_frame_border(structure, scene, backend, theme)
     elif kind == "flatSequence":
         _draw_sequence_border(structure, backend, theme)
     else:
-        # In Place Element Structure, event structure, or anything else —
-        # a plain border (matches the prior renderer).
+        # In Place Element Structure, or anything else — a plain border
+        # (matches the prior renderer).
         backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                      stroke_width=1.2)
     # Border terminals (N/i/cond, tunnels, shift registers, selector) are NOT
