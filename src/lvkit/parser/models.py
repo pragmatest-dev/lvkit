@@ -261,6 +261,12 @@ class ParsedEventStructure:
     # came from the heap's own precomputed ``selString`` text — the
     # faithful initial view. None if ``dIdx`` was out of range.
     displayed_frame: int | None = None
+    # uids of frames' Event FILTER Node (heap class ``eventDataNode``, same as
+    # the Event Data Node — see module docstring), from the eventStruct's own
+    # ``filterNodeList``. The renderer uses this to tell a frame's Filter Node
+    # apart from its Data Node (same heap class, only this list says which is
+    # which) so it draws the Filter Node's accent band on the opposite edge.
+    filter_node_uids: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass

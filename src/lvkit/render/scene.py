@@ -565,9 +565,17 @@ def _reposition_mux_aggregates(
 # an optional input wire, SR/auto-index carry real data). "selector" also
 # matches by name because the graph tags it that way (construction.py)
 # rather than always setting tunnel_type="caseSel".
+#
+# "eventTimeout"/"eventDyn" are an Event Structure's own two bespoke border
+# DCOs (see parser/nodes/event.py): the ``eventTimeOut`` value input (top-left
+# HOURGLASS box, in the position a For-Loop's N terminal occupies) and the
+# ``eventDynDCO`` dynamic-event-registration refnum pair (small GREEN boxes at
+# their real heap position — LabVIEW places them top+bottom in some VIs,
+# left+right in others; position is heap geometry, not assumed here).
 _TUNNEL_GLYPH_KIND = {
     "lMax": "N", "lSR": "sr_down", "rSR": "sr_up",
     "lpTun": "autoindex", "caseSel": "selector",
+    "eventTimeOut": "eventTimeout", "eventDynDCO": "eventDyn",
 }
 
 # Border terminals a loop is GUARANTEED to have, purely as a function of
@@ -639,6 +647,17 @@ def _structure_borders(
                 for inner in inner_by_outer.get(t.id, [])
                 if inner.frame is not None and inner.id not in wired_dest
             )
+        # Dynamic-event terminals draw ONLY when toggled on ("Show Dynamic
+        # Event Terminals") — which is exactly when LabVIEW emits real bounds
+        # for them; a hidden pair carries no/degenerate bounds, so skip it.
+        # (Every eventStruct in the current corpus has them on with real
+        # bounds, so this is a defensive no-op there; it is the correct
+        # data-driven gate rather than decoding a version-confounded objFlags
+        # bit — a toggled-off terminal simply has nothing to draw.)
+        if glyph_kind == "eventDyn":
+            gx1, gy1, gx2, gy2 = rect
+            if gx2 - gx1 <= 0 or gy2 - gy1 <= 0:
+                continue
         result.append(
             RenderBorderTerminal(
                 terminal=t, bounds=rect, glyph_kind=glyph_kind, color=color,

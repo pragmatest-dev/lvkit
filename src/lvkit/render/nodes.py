@@ -34,6 +34,7 @@ from ..graph.core import InMemoryVIGraph
 from ..graph.models import (
     AnyGraphNode,
     ConstantNode,
+    EventStructureNode,
     FormulaNode,
     LocalVariableNode,
     PrimitiveNode,
@@ -62,6 +63,7 @@ from .glyph import (
     ConstantGlyph,
     ConvertGlyph,
     ErrorClusterGlyph,
+    EventDataGlyph,
     FormulaNodeGlyph,
     Glyph,
     IconImageGlyph,
@@ -488,6 +490,59 @@ def _bundle_by_name_glyph(
     return BundleByNameGlyph(names=tuple(names), bundling=bundling)
 
 
+def _event_data_glyph(
+    node: PrimitiveNode, graph: InMemoryVIGraph,
+) -> EventDataGlyph | None:
+    """The Event Data Node / Event Filter Node glyph (see ``EventDataGlyph``).
+    Same ``dcoAgg``/``dcoList`` field shape as ``_bundle_by_name_glyph`` (the
+    parser reuses ``NMuxHandler`` wholesale — see parser/node_types.py's
+    ``_EventDataNodeHandler``), so field NAMES resolve the same way, but each
+    row also keeps its field's own resolved LVType (preferring the field
+    TERMINAL's own type — every DCO gets one from VCTP independent of the
+    cluster-field lookup — and falling back to the cluster field's type only
+    when the terminal's is unresolved) for the type-colored name text.
+
+    ``is_filter`` is read from the owning ``EventStructureNode.
+    filter_node_uids`` (set during graph construction from the eventStruct's
+    ``filterNodeList`` — see parser/nodes/event.py) — the ONLY way to tell an
+    Event Filter Node apart from an Event Data Node, since both share this
+    same heap class. Returns None if there are no field terminals at all
+    (caller falls back to the generic box)."""
+    agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
+    fields = (
+        graph.get_type_fields(agg.lv_type) or []
+        if agg is not None and agg.lv_type is not None
+        else []
+    )
+    field_terms = sorted(
+        (t for t in node.terminals if t.nmux_role == "list"), key=lambda t: t.index,
+    )
+    if not field_terms:
+        return None
+    rows: list[tuple[str, LVType | None]] = []
+    for t in field_terms:
+        fi = t.nmux_field_index
+        field = fields[fi] if fi is not None and 0 <= fi < len(fields) else None
+        if field is not None and field.name:
+            name = field.name
+        elif t.name:
+            name = t.name
+        elif fi is not None:
+            name = f"[{fi}]"
+        else:
+            name = "[?]"
+        lv_type = t.lv_type if t.lv_type is not None else (
+            field.type if field is not None else None
+        )
+        rows.append((name, lv_type))
+
+    is_filter = False
+    parent = graph.get_graph_node(node.parent) if node.parent else None
+    if isinstance(parent, EventStructureNode):
+        is_filter = node.id in parent.filter_node_uids
+    return EventDataGlyph(rows=tuple(rows), is_filter=is_filter)
+
+
 def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     """A Property Node glyph: one row per accessed property, labelled with the
     property NAME and marked read/write. Names come from ``node.properties``
@@ -646,12 +701,17 @@ class OriginalGlyphResolver:
 
     @staticmethod
     def _cluster_glyph(node: PrimitiveNode, graph: InMemoryVIGraph) -> Glyph | None:
+        # An Event Structure's Event Data Node / Event Filter Node (heap class
+        # ``eventDataNode``) is its OWN bespoke glyph — a white named-rows box
+        # with a side accent band (see ``EventDataGlyph``) — never the tan
+        # Bundle/Unbundle-By-Name look below (it isn't a real cluster
+        # assemble/disassemble, just a structurally-identical DCO shape).
+        if node.node_type == "eventDataNode":
+            return _event_data_glyph(node, graph)
         # nMux is Bundle/Unbundle BY NAME — a box with the accessed field NAMES,
         # resolved from the wired cluster's type (mux/demux are the compact,
         # positional Bundle/Unbundle handled by field count below).
-        # eventDataNode (Event Data/Filter Node) is the SAME named-rows shape —
-        # a small inner-edge terminal cluster, never the compact positional form.
-        if node.node_type in ("nMux", "eventDataNode"):
+        if node.node_type == "nMux":
             named = _bundle_by_name_glyph(node, graph)
             if named is not None:
                 return named

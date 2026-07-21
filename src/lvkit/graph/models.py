@@ -187,6 +187,12 @@ class EventStructureNode(StructureNode):
     # faithful initial view. None if unresolved (renderer falls back to
     # frame 0).
     displayed_frame: int | None = None
+    # Qualified (vi-prefixed) node ids of this structure's Event FILTER Nodes
+    # — same heap class (``eventDataNode``) as an Event DATA Node, so this is
+    # the only way to tell which is which (see parser/nodes/event.py). Used
+    # by the renderer to draw the Filter Node's accent band on the opposite
+    # (right) edge from a Data Node's (left) — see render/nodes.py.
+    filter_node_uids: frozenset[str] = frozenset()
 
 
 class FormulaNode(GraphNode):

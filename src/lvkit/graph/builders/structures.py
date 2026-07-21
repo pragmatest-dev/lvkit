@@ -154,6 +154,10 @@ class EventBuildHandler(StructureBuildHandler):
             parser_tunnels, q_node_uid,
         )
 
+        filter_node_uids = frozenset(
+            ctx.qid(u) for u in (event_struct.filter_node_uids if event_struct else ())
+        )
+
         return EventStructureNode(
             id=q_node_uid,
             vi=ctx.vi_name,
@@ -162,6 +166,7 @@ class EventBuildHandler(StructureBuildHandler):
             terminals=structure_terminals,
             frames=event_frames,
             displayed_frame=displayed_frame,
+            filter_node_uids=filter_node_uids,
         )
 
 

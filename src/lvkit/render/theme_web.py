@@ -47,6 +47,7 @@ DARK_PALETTE: dict[str, str] = {
     "case_no_error_border": "#46c85a",
     "case_error_border": "#ff5b5b",
     "event_border": "#e0b84a",
+    "event_band": "#3a341f",
     "disabled_mask": "#5a5a5a",
     "selector_stroke": "#7fbf5a",
     "selector_text": "#bfe0a5",

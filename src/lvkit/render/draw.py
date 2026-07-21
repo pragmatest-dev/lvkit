@@ -34,6 +34,7 @@ from .glyph import (
     ClusterConstantGlyph,
     ConstantGlyph,
     ErrorClusterGlyph,
+    EventDataGlyph,
     FormulaNodeGlyph,
     IconImageGlyph,
     InlineSvgGlyph,
@@ -219,10 +220,12 @@ def _inset(bounds, frac: float = 0.075):
 # is never wired/drawn — LabVIEW stores it as a huge negative sentinel rect
 # (e.g. ``(-531, -471, -512, -471)``), which blew the terminal-span union out
 # to hundreds of units and rendered as an oversized, mispositioned box
-# (task #75) before this exemption.
+# (task #75) before this exemption. ``EventDataGlyph`` (the Event Data/Filter
+# Node's own white named-rows glyph, replacing the tan ``BundleByNameGlyph``
+# it used to borrow) inherits the exact same exemption for the same reason.
 _OWN_ASPECT_GLYPHS = (
     IconImageGlyph, InlineSvgGlyph, CenteredSvgGlyph,
-    BundleByNameGlyph, BundleGlyph, UnbundleGlyph,
+    BundleByNameGlyph, BundleGlyph, UnbundleGlyph, EventDataGlyph,
 )
 
 # Floor for the recovered icon footprint: a unary primitive (one input, one
@@ -943,6 +946,46 @@ def _draw_border_terminal(
                      stroke=theme.loop_term, stroke_width=1.5)
         backend.text(cx, cy + 4, kind, 11, fill=theme.loop_term_text, italic=True)
         return
+    if kind == "eventTimeout":
+        # Event Structure timeout terminal: a small box (top-left, the
+        # position a For-Loop's N terminal occupies) holding a blue HOURGLASS
+        # — two triangles apex-to-apex — in the wire-integer color, matching
+        # the reference LabVIEW screenshot's blue timeout glyph. It's a real
+        # wireable INPUT (the timeout value), so it gets the same pale
+        # loop-term fill as N/i, just with its own bespoke symbol instead of
+        # falling through to a generic filled tunnel block.
+        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
+                     stroke=theme.wire_int, stroke_width=1.2)
+        hw = (x2 - x1) * 0.30
+        hh = (y2 - y1) * 0.34
+        backend.polygon(
+            [(cx - hw, cy - hh), (cx + hw, cy - hh), (cx, cy)],
+            fill=theme.wire_int, stroke=None,
+        )
+        backend.polygon(
+            [(cx - hw, cy + hh), (cx + hw, cy + hh), (cx, cy)],
+            fill=theme.wire_int, stroke=None,
+        )
+        return
+    if kind == "eventDyn":
+        # Event Structure dynamic-event-registration terminal (appears as an
+        # ``otherSide``-linked pair — see parser/nodes/event.py): a small
+        # dark-green box (LabVIEW's own refnum-wire color) at its real heap
+        # position. Per the reference screenshot, BOTH terminals of the pair
+        # (left AND right edge) draw their arrow pointing RIGHT — the dynamic
+        # registration refnum threads left-to-right through the structure (in on
+        # the left, back out on the right), so the glyph follows that flow
+        # direction on both sides rather than mirroring by in/out.
+        col = theme.wire_refnum
+        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col,
+                     stroke_width=1.2)
+        aw = (x2 - x1) * 0.22
+        ah = (y2 - y1) * 0.26
+        backend.polygon(
+            [(cx - aw, cy - ah), (cx - aw, cy + ah), (cx + aw, cy)],
+            fill=col, stroke=None,
+        )
+        return
     if kind == "cond":
         # LabVIEW's conditional terminal shows its mode by color: RED for
         # Stop-if-True (the default) and GREEN for Continue-if-True. The mode
@@ -1156,6 +1199,73 @@ def _error_border_color(
     )
 
 
+# Fallback Event Structure border-band width — used ONLY when a structure has
+# no interior content to measure from (an Event Structure with an empty
+# frame). Visually matched to the reference LabVIEW screenshot's hatched-
+# border margin (see ``_event_band_width``'s docstring for how the normal,
+# measured value is derived) — not a guessed generic default.
+_EVENT_BAND_FALLBACK_W = 10.0
+
+
+def _event_band_width(structure: RenderStructure, scene: Scene) -> float:
+    """The Event Structure's border-BAND thickness, MEASURED (never guessed)
+    from the gap LabVIEW's own heap layout already reserves between the
+    structure's outer heap ``bounds`` and its interior content (the Event
+    Data/Filter Node, and every other frame-owned node — ``node.parent`` is
+    this structure's own qualified id, see graph/construction.py's ``_stamp``).
+
+    Checked against real corpus VIs: the structure's own border TERMINALS
+    (``eventTimeOut``, ``eventDynDCO``, a plain passthrough tunnel) sit FLUSH
+    with the outer bounds — they're drawn ON the band, not inset from it — so
+    they measure a gap of ~0 and can't be used. Interior content, however, is
+    reliably inset by the band width on the LEFT and RIGHT edges (confirmed:
+    an Event Data Node's left gap and its paired Event Filter Node's right gap
+    agree exactly in every VI checked). The TOP gap is NOT used — it also
+    includes the ``[N] EventName`` selector bar's own height, which would
+    inflate the measurement — and the BOTTOM gap is noisier (not every frame
+    has content flush to it); LEFT/RIGHT alone give a clean, corroborated
+    measurement, applied uniformly to all four sides (LabVIEW's own hatched
+    border is the same thickness all around)."""
+    x1, _, x2, _ = structure.bounds
+    gaps: list[float] = []
+    for n in scene.nodes:
+        if n.node.parent != structure.node.id:
+            continue
+        nx1, _, nx2, _ = n.bounds
+        gaps.append(nx1 - x1)
+        gaps.append(x2 - nx2)
+    positive = [g for g in gaps if g > 0.5]
+    return min(positive) if positive else _EVENT_BAND_FALLBACK_W
+
+
+def _draw_event_border_band(
+    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
+) -> None:
+    """An Event Structure's border: a WIDE light-yellow BAND between the
+    outer heap bounds and an inner rule inset by the measured band width
+    (``_event_band_width``) — mirroring LabVIEW's own wide hatched-border
+    margin (see the reference screenshot) instead of a thin dashed line, the
+    same way ``_draw_sequence_border`` gives a flat sequence its film-strip
+    rails. Drawn as four abutting filled rects (never overlapping, so there's
+    no double-opacity at the corners) plus the outer + inner edge rules in
+    ``theme.event_border``. This is the one deliberate exception to
+    ``draw_structure``'s "outline only" rule (see its docstring) — the fill is
+    confined to the edge margin the layout already reserves for it, so it
+    never covers an interior wire."""
+    x1, y1, x2, y2 = structure.bounds
+    w = _event_band_width(structure, scene)
+    w = max(2.0, min(w, (x2 - x1) / 2 - 1.0, (y2 - y1) / 2 - 1.0))
+    fill = theme.event_band
+    backend.rect(x1, y1, x2, y1 + w, fill=fill, stroke="none")          # top
+    backend.rect(x1, y2 - w, x2, y2, fill=fill, stroke="none")          # bottom
+    backend.rect(x1, y1 + w, x1 + w, y2 - w, fill=fill, stroke="none")  # left
+    backend.rect(x2 - w, y1 + w, x2, y2 - w, fill=fill, stroke="none")  # right
+    backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.event_border,
+                 stroke_width=1.2)
+    backend.rect(x1 + w, y1 + w, x2 - w, y2 - w, fill="none",
+                 stroke=theme.event_border, stroke_width=1.0)
+
+
 def _draw_frame_border(
     structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
 ) -> None:
@@ -1169,27 +1279,21 @@ def _draw_frame_border(
     borders drawn in ``draw_scene`` recolor it as the viewer switches frames."""
     x1, y1, x2, y2 = structure.bounds
     node = structure.node
-    default = scene.default_frame.get(structure.raw_uid, "")
-    color = _error_border_color(scene, structure.raw_uid, default, theme)
-    # A Diagram/Conditional Disable structure draws a DOTTED boundary (LabVIEW's
-    # signature for a disable frame — see reference), distinguishing it from the
-    # solid case/sequence box. An Event Structure draws a DASHED amber/gold
-    # boundary — not LabVIEW's real diagonal hatch (not required for this
-    # slice), just a clearly-different-at-a-glance treatment from a case's
-    # solid black border.
-    if isinstance(node, DisableStructureNode):
-        dash: str | None = "1.5,2.5"
-    elif isinstance(node, EventStructureNode):
-        dash = "5,2.5"
-        color = color or theme.event_border
+    if isinstance(node, EventStructureNode):
+        _draw_event_border_band(structure, scene, backend, theme)
     else:
-        dash = None
-    if color is not None:
-        backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.6,
-                     stroke_dasharray=dash)
-    else:
-        backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                     stroke_width=1.2, stroke_dasharray=dash)
+        default = scene.default_frame.get(structure.raw_uid, "")
+        color = _error_border_color(scene, structure.raw_uid, default, theme)
+        # A Diagram/Conditional Disable structure draws a DOTTED boundary
+        # (LabVIEW's signature for a disable frame — see reference),
+        # distinguishing it from the solid case/sequence box.
+        dash: str | None = "1.5,2.5" if isinstance(node, DisableStructureNode) else None
+        if color is not None:
+            backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.6,
+                         stroke_dasharray=dash)
+        else:
+            backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
+                         stroke_width=1.2, stroke_dasharray=dash)
 
     # A STACKED sequence shares the flat sequence's top/bottom rails (the
     # film-strip "3D frame" look) — the selector + single-frame layout is all

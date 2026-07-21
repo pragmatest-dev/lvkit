@@ -798,10 +798,12 @@ class _EventDataNodeHandler(NMuxHandler):
     class. Structurally IDENTICAL to ``nMux`` (``dcoAgg`` aggregate + named
     ``dcoList``/``<i>`` fields via ``nmxDCO`` terminal DCOs) — the parser
     reuses NMuxHandler's parsing wholesale so field NAMES resolve through the
-    exact same VCTP cluster-field pipeline as a real Bundle/Unbundle By Name,
-    and the render layer draws it with the same small named-rows glyph
-    (see render/nodes.py's ``_CLUSTER_MUX_TYPES``) instead of the old
-    generic-fallback giant box.
+    exact same VCTP cluster-field pipeline as a real Bundle/Unbundle By Name.
+    The render layer draws it with its OWN bespoke named-rows glyph though
+    (``render.glyph.EventDataGlyph``, resolved in ``render/nodes.py``'s
+    ``_CLUSTER_MUX_TYPES`` handling) — a white box with type-colored field
+    names and a side accent band — never the tan Bundle/Unbundle-By-Name look
+    (this isn't a real cluster assemble/disassemble).
     """
 
     xml_class = "eventDataNode"

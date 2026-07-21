@@ -117,6 +117,7 @@ def _extract_one_event_structure(
         frames=frames,
         tunnels=tunnels,
         displayed_frame=displayed,
+        filter_node_uids=frozenset(u for u in filter_node_uids if u),
     )
 
 
