@@ -379,11 +379,16 @@ class ClassBuilder:
         simple_node_types = {
             "select", "case", "unbundle", "bundle", "nMux", "nDmux", "mux", "demux",
         }
+        # Error-handling primitives that keep an accessor "simple". Bundle /
+        # Unbundle are node-CLASSES, already covered by simple_node_types
+        # above -- they are not primResID prims and must not be listed here.
+        # Clear Errors is a vi.lib VI (no primResID), so it cannot be
+        # whitelisted by id. (This set was historically populated with stale
+        # ids -- 1340/1302/2075/2076 actually map to One Button Dialog / Wait
+        # (ms) / Destroy User Event / Unregister For Events -- so real Merge
+        # Errors was never recognized here; corrected to 2401.)
         simple_prim_ids = {
-            1340,  # Unbundle
-            1302,  # Bundle
-            2075,  # Merge Errors
-            2076,  # Clear Error
+            2401,  # Merge Errors
         }
 
         for op in operations:

@@ -1,7 +1,15 @@
 """Code generator for LabVIEW Queue Operations primitives.
 
 Covers Obtain Queue (9108), Enqueue Element (9111), Enqueue Element At
-Opposite End (9129), Dequeue Element (9113), and Get Queue Status (9109).
+Opposite End (9129), and Dequeue Element (9113).
+
+Get Queue Status (9110) and Release Queue (9109) are intentionally NOT
+handled here: their codegen is deferred to the queue-runtime design work
+(the runtime must be extended to return Get Queue Status's full 8-output
+pane, and a release_queue() helper added). Until then both are codegen
+placeholders in primitives.json. NOTE: 9109 was historically (and wrongly)
+mapped here as "Get Queue Status" -- it is actually Release Queue; the real
+Get Queue Status is 9110.
 
 These are generic `<Prim class="prim">` XML nodes distinguished only by
 `primResID` (verified against real samples — see phaseB_findings.md), so
@@ -28,20 +36,18 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 OBTAIN_QUEUE = 9108
-GET_QUEUE_STATUS = 9109
 ENQUEUE_ELEMENT = 9111
 DEQUEUE_ELEMENT = 9113
 ENQUEUE_AT_OPPOSITE_END = 9129
 
 QUEUE_PRIM_IDS = frozenset(
-    {OBTAIN_QUEUE, GET_QUEUE_STATUS, ENQUEUE_ELEMENT, DEQUEUE_ELEMENT,
-     ENQUEUE_AT_OPPOSITE_END},
+    {OBTAIN_QUEUE, ENQUEUE_ELEMENT, DEQUEUE_ELEMENT, ENQUEUE_AT_OPPOSITE_END},
 )
 
 _QUEUE_IMPORT = (
     "from lvkit.labview_queue import ("
     "dequeue_element, enqueue_element, enqueue_element_at_opposite_end, "
-    "get_queue_status, obtain_queue)"
+    "obtain_queue)"
 )
 
 
@@ -60,8 +66,6 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
         )
     if prim_id == DEQUEUE_ELEMENT:
         return _generate_dequeue(node, by_index, ctx)
-    if prim_id == GET_QUEUE_STATUS:
-        return _generate_status(node, by_index, ctx)
 
     raise ValueError(
         f"queue_ops.generate() called for unsupported prim_id {prim_id!r}; "
@@ -188,25 +192,4 @@ def _generate_dequeue(
         [(by_index.get(9), "element"), (by_index.get(10), "timed_out")],
     )
     bindings.update(call_bindings)
-    return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
-
-
-def _generate_status(
-    node: PrimitiveOperation, by_index: dict[int, Terminal], ctx: CodeGenContext,
-) -> CodeFragment:
-    """Get Queue Status(queue, return_elements) -> (name, elements).
-
-    primitives.json only carries `name` (idx 8) and `elements` (idx 9) as
-    observed outputs — no separate pending-count terminal was wired in any
-    sample this was resolved against, so "pending count" is `len(elements)`
-    (requires `return_elements=True`; NI docs default is False).
-    """
-    queue_val = _resolve_input(by_index.get(0), ctx, "None")
-    return_elements_val = _resolve_input(by_index.get(2), ctx, "False")
-
-    stmts, bindings = _emit_call(
-        node, ctx, "get_queue_status",
-        [queue_val, return_elements_val],
-        [(by_index.get(8), "queue_name"), (by_index.get(9), "queue_elements")],
-    )
     return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
