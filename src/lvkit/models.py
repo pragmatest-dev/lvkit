@@ -198,6 +198,18 @@ class FPTerminal(Terminal):
     control_type: str | None = None
     default_value: ScalarValue = None
     enum_values: list[str] = []
+    # Structure containment for a SPECIFIC on-diagram GLYPH of this control —
+    # set only when the heap places this terminal inside a case/event/disable
+    # frame or a stacked-sequence frame via an sRN's termList (a control used
+    # as e.g. an Event Structure's registered event-source terminal — see
+    # graph/construction.py's frame-attribution pass). None (the common case)
+    # means no such frame-scoped placement was found — either the control is
+    # genuinely VI-global, or it was never referenced via an sRN. FPTerminal
+    # itself isn't a GraphNode (one FPTerminal is shared VI-wide, not one per
+    # placement), so this can't just inherit GraphNode.parent/frame — it
+    # mirrors that shape instead (see render/scene.py's frame-path lookup).
+    parent: str | None = None
+    frame: str | int | None = None
 
 
 class TunnelTerminal(Terminal):

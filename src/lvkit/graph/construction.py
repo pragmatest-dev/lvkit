@@ -673,6 +673,35 @@ class ConstructionMixin:
                 cnode.parent = struct_id
                 cnode.frame = frame_key
 
+        # Attribute FP terminals (front-panel controls placed on a diagram
+        # via an sRN — e.g. an Event Structure's registered event-source
+        # control glyph) to the frame that contains THAT placement. Same
+        # shape as the constants loop just above: the terminal's own
+        # terminal_info.parent_uid points to the owning sRN, already stamped
+        # into frame_owner by the loops above. FPTerminal isn't a GraphNode
+        # (one FPTerminal is shared VI-wide, not one per placement — a
+        # control can be referenced from multiple frames), so the
+        # attribution is stamped directly on the Terminal rather than via
+        # ``_stamp``. Without this, render/scene.py has no structural
+        # signal for these terminals and falls back to inferring frame scope
+        # from wire connectivity — which is wrong/absent for a control used
+        # purely as an event source (no ordinary data wire into the frame),
+        # making its glyph (and any wire touching it) render as always-
+        # visible base content instead of scoped to its real frame.
+        vi_terminal_by_id = {
+            t.id: t for t in vi_node.terminals if isinstance(t, FPTerminal)
+        }
+        for fp_term in bd.fp_terminals:
+            ct = bd.terminal_info.get(fp_term.uid)
+            if ct is None or ct.parent_uid not in frame_owner:
+                continue
+            terminal = vi_terminal_by_id.get(self._qid(vi_name, fp_term.uid))
+            if terminal is None:
+                continue
+            struct_id, frame_key = frame_owner[ct.parent_uid]
+            terminal.parent = struct_id
+            terminal.frame = frame_key
+
         # === 5. Register remaining terminal_info entries in term_lookup ===
         # Most tunnel/sRN terminals are already registered by
         # _build_structure_terminals. This catches any stragglers whose

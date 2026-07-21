@@ -20,6 +20,7 @@ from lvkit.extractor import extract_vi_xml
 from lvkit.models import LVType
 
 from .constants import (
+    FP_TERMINAL_CLASS,
     MULTI_LABEL_CLASS,
     NODE_CLASS_COMMENT,
     NODE_CLASS_CPD_ARITH,
@@ -541,10 +542,33 @@ def _process_element_terminals(
     wire_sinks: set[str],
     type_map: dict[int, LVType] | None,
     terminal_info: dict[str, ParsedTerminalInfo],
+    fp_term_parent: dict[str, str] | None = None,
 ) -> None:
-    """Extract terminals from a single TERMINAL_CONTAINER_CLASSES element."""
+    """Extract terminals from a single TERMINAL_CONTAINER_CLASSES element.
+
+    ``fp_term_parent`` (optional — record-only, doesn't affect ``term_list``
+    processing below) records the REAL containing element for any
+    ``class="fPTerm"`` child of this element's ``termList`` — e.g. an sRN
+    (shift-register/border-terminal group; ``NODE_CLASS_SHIFT_REG`` is one of
+    ``TERMINAL_CONTAINER_CLASSES``) holds an event structure's registered
+    event-source control this way. An ``fPTerm`` isn't a wireable ``"term"``
+    (it's a whole front-panel control's on-diagram GLYPH), so it's excluded
+    from ``term_list`` below and gets no ``ParsedTerminalInfo`` here — but
+    without this, ``_extract_terminal_info``'s later FP-terminal fallback has
+    no real container to attribute it to and stamps a bogus self-referential
+    ``parent_uid`` (the terminal's own uid), silently losing this control's
+    structure/frame containment for good (task: VI Tester About.vi frame-gating).
+    """
     elem_uid = elem.get("uid") or ""
     elem_class = elem.get("class", "")
+
+    if fp_term_parent is not None:
+        for fp_term in elem.findall(
+            f"./termList/SL__arrayElement[@class='{FP_TERMINAL_CLASS}']",
+        ):
+            fp_uid = fp_term.get("uid")
+            if fp_uid and elem_uid:
+                fp_term_parent.setdefault(fp_uid, elem_uid)
 
     term_list = elem.findall(
         f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']",
@@ -694,6 +718,7 @@ def _walk_and_extract_terminals(
     terminal_info: dict[str, ParsedTerminalInfo],
     srn_to_structure: dict[str, str],
     current_structure_uid: str | None,
+    fp_term_parent: dict[str, str] | None = None,
 ) -> None:
     """Walk XML tree, extracting terminals and tracking sRN containment."""
     elem_uid = elem.get("uid")
@@ -715,6 +740,7 @@ def _walk_and_extract_terminals(
                      or _is_generic_operation_node(elem)):
         _process_element_terminals(
             elem, wire_sources, wire_sinks, type_map, terminal_info,
+            fp_term_parent,
         )
 
     # Record sRN → structure containment
@@ -732,6 +758,7 @@ def _walk_and_extract_terminals(
         _walk_and_extract_terminals(
             child, wire_sources, wire_sinks, type_map,
             terminal_info, srn_to_structure, next_structure_uid,
+            fp_term_parent,
         )
 
 
@@ -752,6 +779,12 @@ def _extract_terminal_info(
     terminal_info: dict[str, ParsedTerminalInfo] = {}
     if srn_to_structure is None:
         srn_to_structure = {}
+    # FP terminal (control-on-diagram-glyph) uid -> its REAL containing
+    # element's uid (typically an sRN — see _process_element_terminals).
+    # Used below so an FP terminal placed inside a structure frame (e.g. an
+    # Event Structure's registered event-source control) gets a real
+    # parent_uid instead of a bogus self-reference.
+    fp_term_parent: dict[str, str] = {}
 
     # Build wire connectivity maps for direction inference
     wire_sources: set[str] = {w.from_term for w in wires}
@@ -760,7 +793,7 @@ def _extract_terminal_info(
     # Walk XML hierarchically — preserves structure containment for sRN nodes
     _walk_and_extract_terminals(
         root, wire_sources, wire_sinks, type_map,
-        terminal_info, srn_to_structure, None,
+        terminal_info, srn_to_structure, None, fp_term_parent,
     )
 
     # Constants have a single output terminal
@@ -779,12 +812,16 @@ def _extract_terminal_info(
                 parsed_type=parsed_type,
             )
 
-    # Front panel terminals
+    # Front panel terminals. parent_uid is the REAL containing element
+    # (an sRN, when this control's glyph is placed inside a structure frame
+    # — see fp_term_parent above) — falling back to the terminal's own uid
+    # (the previous, self-referential behavior) only when it was never found
+    # nested in any terminal container's termList.
     for fp_term in fp_terminals:
         if fp_term.uid not in terminal_info:
             terminal_info[fp_term.uid] = ParsedTerminalInfo(
                 uid=fp_term.uid,
-                parent_uid=fp_term.uid,
+                parent_uid=fp_term_parent.get(fp_term.uid, fp_term.uid),
                 index=0,
                 is_output=not fp_term.is_indicator,
                 parsed_type=fp_term.parsed_type,
