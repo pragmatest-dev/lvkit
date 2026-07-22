@@ -321,8 +321,11 @@ class EventFrame(Frame):
     table like a case's dataspace ``SelectorTable``. That ONE frame's label
     is the faithful, LabVIEW-rendered text (e.g. ``[3] "Control": Value
     Change`` or ``[0] Timeout``, brackets included — LabVIEW's own
-    convention); every other frame falls back to an honest ``"[N]"``
-    placeholder rather than a guessed event name (see parser/nodes/event.py).
+    convention). Every OTHER frame's label is RECONSTRUCTED from its
+    ``EventSpec`` heap entry (source control caption + event-type name, when
+    both are resolvable) in the same bracketed format; an unresolvable
+    control or an unconfirmed event-type code degrades gracefully rather
+    than fabricating a name (see parser/nodes/event.py).
     """
 
     event_label: str = ""

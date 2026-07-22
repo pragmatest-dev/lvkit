@@ -594,9 +594,10 @@ def _build_event_scope(
 
     NOT run through ``_selector_label``: there's no runtime selector (the
     active frame is chosen by whichever event fires), so ``EventFrame.
-    event_label`` already IS the faithful display text (LabVIEW's own
-    bracketed ``[N] EventName`` rendering for the frame it last displayed,
-    an honest ``"[N]"`` placeholder for every other frame -- see
+    event_label`` already IS the display text (LabVIEW's own bracketed
+    ``[N] EventName`` rendering for the frame it last displayed, a
+    reconstructed label from that frame's ``EventSpec`` for every other
+    frame, degrading to an honest ``"[N]"`` when unresolvable -- see
     parser/nodes/event.py). Same reasoning as ``_build_disabled_scope``.
     """
     passthrough = _has_output_tunnel(op)

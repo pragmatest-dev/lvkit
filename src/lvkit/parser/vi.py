@@ -304,7 +304,7 @@ def _parse_block_diagram(
     flat_sequences = extract_flat_sequences(root)
     decompose_structures = extract_decompose_structures(root)
     disable_structures = extract_disable_structures(root)
-    event_structures = extract_event_structures(root)
+    event_structures = extract_event_structures(root, fp_xml)
 
     bd = ParsedBlockDiagram(
         nodes=nodes,

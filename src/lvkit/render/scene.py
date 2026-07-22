@@ -436,8 +436,10 @@ def _frame_info(
             # Event structure: keyed by frame INDEX (like a stacked sequence,
             # not a case) — the active frame is chosen at runtime by whichever
             # event fires, not a selector wire/value. frame_labels carries
-            # each frame's faithful (or "[N]" placeholder) event_label — see
-            # EventFrame / parser/nodes/event.py.
+            # each frame's event_label — faithful for the displayed frame,
+            # reconstructed from its EventSpec for every other frame (falls
+            # back to "[N]" when unresolvable) — see EventFrame /
+            # parser/nodes/event.py.
             raw = _strip_prefix(node.id, vi_name)
             values = [str(i) for i in range(len(node.frames))]
             frame_values[raw] = values
