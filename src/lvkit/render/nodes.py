@@ -61,6 +61,7 @@ from .glyph import (
     ClusterConstantGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
+    ControlRefConstGlyph,
     ConvertGlyph,
     ErrorClusterGlyph,
     EventDataGlyph,
@@ -75,7 +76,7 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
 )
-from .style import numeric_repr, type_family, wire_style
+from .style import numeric_repr, type_family, type_repr, wire_style
 
 logger = logging.getLogger(__name__)
 
@@ -905,10 +906,32 @@ class GeneratedGlyphResolver:
             lv_type = next(
                 (t.lv_type for t in node.terminals if t.lv_type is not None), None
             )
+            border = wire_style(lv_type).color if lv_type is not None else None
+            # A control-reference constant is modeled as a LocalVariableNode for
+            # codegen (it resolves to the referenced FP variable), but it is NOT
+            # a local variable: it emits a control REFERENCE (a refnum). LabVIEW
+            # type-colors the constant's box by the CONTROL it references (its
+            # own OUTPUT wire is the refnum reference wire) — so border/text take
+            # the referenced control's data-type color, resolved from the FP
+            # terminal the reference points at.
+            if node.node_type == "ctlRefConst":
+                ref_term = (
+                    ctx.graph.get_terminal(node.control_terminal_id)
+                    if node.control_terminal_id else None
+                )
+                ref_type = ref_term.lv_type if ref_term is not None else None
+                type_color = (
+                    wire_style(ref_type).color if ref_type is not None else border
+                )
+                return ControlRefConstGlyph(
+                    name=node.control_name or node.name or "Control Reference",
+                    type_text=type_repr(ref_type),
+                    type_color=type_color,
+                )
             return LocalVariableGlyph(
                 node.control_name or node.name or "Local Variable",
                 is_write=node.is_write,
-                border_color=wire_style(lv_type).color if lv_type is not None else None,
+                border_color=border,
             )
         return None
 

@@ -388,7 +388,11 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
     header: str | None = None
     if isinstance(node, LocalVariableNode):
         name = node.control_name or node.name
-        header = f"Local Variable: {name}" if name else "Local Variable"
+        kind = (
+            "Control Reference" if node.node_type == "ctlRefConst"
+            else "Local Variable"
+        )
+        header = f"{kind}: {name}" if name else kind
     elif isinstance(node, VINode | PrimitiveNode):
         header = node.name or None
         # Unresolved primitive: the hover header matches the box — "#<prim_id>"
