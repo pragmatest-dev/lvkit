@@ -143,6 +143,20 @@ class TestFrameLabels:
         es = extract_event_structures(root)[0]
         assert es.frames[3].event_label == '[3] "copyrights": Value Change'
 
+    def test_unconfirmed_event_type_shows_unknown_sentinel(self):
+        """An event type code not in the clean-room-verified table becomes an
+        explicit ``<unknown event 0x...>`` sentinel carrying the raw code --
+        never a guessed name, never a silently blank frame. (VI Tester About's
+        frame 2 is a VI-level filter event, code 0x80000003.)"""
+        root = _build_event_xml(
+            "es1", num_frames=3, event_specs=[(2, "0", -2147483645)],
+        )
+        es = extract_event_structures(root)[0]
+        assert es.frames[2].event_label == "[2] <unknown event 0x80000003>"
+        # A confirmed code still resolves to its name, not the sentinel; a
+        # frame with no spec at all stays a bare [N].
+        assert es.frames[0].event_label == "[0]"
+
     def test_missing_didx_defaults_to_frame_0(self):
         """Heap omits dIdx when it's 0 (same convention as parmIndex/
         paramIdx elsewhere in this parser)."""
@@ -224,26 +238,31 @@ class TestEventSpecReconstruction:
         es = extract_event_structures(root, fp_path)[0]
         assert es.frames[0].event_label == "[0] Timeout"
 
-    def test_unconfirmed_type_code_omitted(self, tmp_path):
-        """A type code not yet clean-room confirmed is never guessed at —
-        the control caption alone is shown when resolvable."""
+    def test_unconfirmed_type_code_shows_sentinel_with_caption(self, tmp_path):
+        """A type code not yet clean-room confirmed is never guessed at, but is
+        shown as an explicit <unknown event 0x...> sentinel alongside the
+        resolved control caption."""
         fp_path = _build_fp_xml(tmp_path, {"55": "Cancel"})
         root = _build_event_xml(
             "es1", num_frames=1,
             event_specs=[(0, "55", -2147483645)],
         )
         es = extract_event_structures(root, fp_path)[0]
-        assert es.frames[0].event_label == '[0] "Cancel"'
+        assert es.frames[0].event_label == (
+            '[0] "Cancel": <unknown event 0x80000003>'
+        )
 
-    def test_no_control_and_unconfirmed_type_bare_placeholder(self, tmp_path):
-        """Neither a control nor a confirmed type: bare [N], no fabrication."""
+    def test_no_control_and_unconfirmed_type_shows_sentinel(self, tmp_path):
+        """No control and an unconfirmed type: the frame still names the
+        unknown event (with its raw code), never a bare [N] and never a
+        fabricated name."""
         fp_path = _build_fp_xml(tmp_path, {})
         root = _build_event_xml(
             "es1", num_frames=1,
             event_specs=[(0, "0", -2147483645)],
         )
         es = extract_event_structures(root, fp_path)[0]
-        assert es.frames[0].event_label == "[0]"
+        assert es.frames[0].event_label == "[0] <unknown event 0x80000003>"
 
     def test_unresolvable_ddo_uid_omits_control(self, tmp_path):
         """A ddoUID with no matching ddo in the FP heap degrades to omitting
@@ -403,6 +422,9 @@ class TestViTesterAboutFixture:
 
         assert labels[0] == '[0] "Cancel": Value Change'
         assert labels[1] == '[1] "Website Button": Value Change'
-        assert labels[2] == "[2]"  # ddoUID 0 + unconfirmed type -> no fabrication
+        # ddoUID 0 (no control) + a VI-level filter-event code we haven't
+        # clean-room-confirmed -> explicit sentinel with the raw code, never a
+        # fabricated name.
+        assert labels[2] == "[2] <unknown event 0x80000003>"
         assert labels[3] == '[3] "copyrights": Value Change'
         assert es.displayed_frame == 3

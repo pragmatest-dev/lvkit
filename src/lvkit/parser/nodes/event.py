@@ -16,7 +16,8 @@ caption via the FRONT-PANEL heap (``ddo[@uid=...]``, same
 ``extract_label``-on-a-``ddo`` lookup ``vi.py`` already uses for front-panel
 control names) — and ``type`` is the event-type code, matched against
 ``_CONFIRMED_EVENT_TYPES`` (a short, clean-room-verified table; an
-unconfirmed code is never guessed at, see ``_format_event_label``). LabVIEW's
+unconfirmed code is surfaced as an explicit ``<unknown event 0x...>``
+sentinel, never guessed at, see ``_format_event_label``). LabVIEW's
 own convention BAKES the bracketed index into the label text itself
 (``" [3] "copyrights": Value Change "``), so the displayed frame's faithful
 label and every reconstructed label share the same visual shape — the
@@ -274,10 +275,12 @@ def _format_event_label(
 ) -> str:
     """Reconstruct frame ``idx``'s display label from its ``EventSpec``,
     matching LabVIEW's own displayed-frame format
-    (``[N] "<Control>": <EventType>``) exactly. Degrades gracefully — a
-    control that can't be resolved or a ``type`` code not yet clean-room
-    confirmed (``_CONFIRMED_EVENT_TYPES``) is simply omitted, never
-    fabricated (see module docstring)."""
+    (``[N] "<Control>": <EventType>``) exactly. Degrades honestly — a control
+    that can't be resolved is omitted, and a ``type`` code not in the
+    clean-room-verified ``_CONFIRMED_EVENT_TYPES`` table becomes an explicit
+    ``<unknown event 0x...>`` sentinel: never a guessed event NAME, but never a
+    silently blank frame either, so the label states plainly that we don't
+    recognise the event type (and carries the raw code for lookup/reporting)."""
     base = f"[{idx}]"
     if spec is None:
         return base
@@ -289,6 +292,10 @@ def _format_event_label(
         if spec.type_code is not None
         else None
     )
+    # A real type code we haven't clean-room-confirmed: show a sentinel with the
+    # raw code, not a fabricated name and not nothing.
+    if type_name is None and spec.type_code is not None:
+        type_name = f"<unknown event 0x{spec.type_code & 0xFFFFFFFF:08X}>"
     if caption and type_name:
         return f'{base} "{caption}": {type_name}'
     if caption:
