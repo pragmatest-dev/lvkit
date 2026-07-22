@@ -1256,21 +1256,6 @@ class ConstructionMixin:
                 if srn_in_scope:
                     all_srn_parents.add(ti.parent_uid)
 
-        # An sRN group can aggregate terminals from UNRELATED conceptual
-        # placements (e.g. a "Front Panel Window" property bundle mixing
-        # Behavior/Title rows with a completely separate control's event-
-        # registration stub, or an unrelated indicator's own terminal) that
-        # happen to share a raw index purely by coincidence of parse order —
-        # NOT because LabVIEW pairs them. A real front-panel control/
-        # indicator terminal (``bd.fp_terminals``) already has its own
-        # independently-derived identity, direction, and wiring (the FP-
-        # terminal init above, plus its genuine ``bd.wires`` entries); it is
-        # never one physical side of an sRN pass-through. Pairing it anyway
-        # via same-index matching below fabricates a wrongly-directed edge
-        # (e.g. a control's own terminal ending up as a wire's DEST, or an
-        # indicator's own terminal ending up as a wire's SOURCE) — see #86.
-        fp_terminal_uids = {fp_term.uid for fp_term in bd.fp_terminals}
-
         for srn_uid in all_srn_parents:
             # Collect all terminals owned by this sRN
             srn_terms = [
@@ -1321,8 +1306,6 @@ class ConstructionMixin:
                 (input_by_idx[idx], output_by_idx[idx])
                 for idx in input_by_idx
                 if idx in output_by_idx
-                and input_by_idx[idx][0] not in fp_terminal_uids
-                and output_by_idx[idx][0] not in fp_terminal_uids
             ]
             for (in_uid, _in_ti), (out_uid, _out_ti) in paired:
                 q_in_uid = self._qid(vi_name, in_uid)
