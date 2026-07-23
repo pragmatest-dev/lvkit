@@ -351,6 +351,47 @@ curl -sL "https://docs-be.ni.com/api/bundle/labview-api-ref/page/functions/get-v
     t=re.sub(r'<[^>]+>',' ',d['topic_html']); print(html.unescape(re.sub(r'\s+',' ',t)))"
 ```
 
+#### READ THE CONNECTOR-PANE IMAGE — the decisive move for indices, roles, and operand order
+
+The prose alone is not enough when several terminals share a type (e.g. Get
+Queue Status's four I32 outputs) or when operand ORDER matters (subtraction /
+divide / comparisons). The doc page carries a **connector-pane picture** and
+**per-terminal type icons** — fetch and *look at* them (you can read images):
+
+1. **Type-per-terminal, in order, for free.** The `topic_html` embeds one small
+   type-icon `<img>` per terminal, in the doc's listing order — `cqueuern`
+   (control/input queue refnum), `cbool`, `cerrcodeclst`, `ii32`
+   (indicator/output i32), `istr`, `iqueuern`, `i1dstr` (1-D string array),
+   `ierrcodeclst`, … The `c…`/`i…` prefix is direction (control=in / indicator=
+   out) and the stem is the type. Grep them straight out:
+   ```bash
+   curl -sL "https://docs-be.ni.com/api/bundle/labview-api-ref/page/functions/<slug>.html" \
+     | python3 -c "import json,sys,re; d=json.load(sys.stdin); \
+       [print(m) for m in re.findall(r'/terminals/([a-z0-9]+)\.png', d['topic_html'])]"
+   ```
+2. **The connector-pane diagram itself.** The first image is the pane:
+   `https://docs-be.ni.com/bundle/labview-api-ref/page/functions/<slug>.png`.
+   Download it, upscale ~4x (NEAREST), and open it with the Read tool — it shows
+   each terminal's **label** (role), **wire colour** (type: blue=I32, pink=string,
+   dark-green=refnum, yellow-striped=error cluster, …), and **vertical position**
+   (top→bottom). That top-to-bottom layout + the labels resolves same-typed
+   terminals, and for a non-commutative op it shows which input is the TOP one
+   (operand 1) — the same thing `termBounds` geometry tells you, now visually
+   confirmable. (Real win: this is how Get Queue Status's 9110 pane and the
+   Subtract operand order were nailed.)
+   ```bash
+   curl -sL "https://docs-be.ni.com/bundle/labview-api-ref/page/functions/<slug>.png?_LANG=enus" -o /tmp/pane.png
+   python3 -c "from PIL import Image; im=Image.open('/tmp/pane.png').convert('RGB'); im.resize((im.width*4,im.height*4),Image.NEAREST).save('/tmp/pane_4x.png')"
+   # then Read /tmp/pane_4x.png
+   ```
+
+Cross the image (roles + types + order) with the OBSERVED per-index types
+(Step 1) and any wiring anchors (Step 3): the unique-typed terminals pin
+themselves, and the remaining same-typed ones fall into place by the image's
+top-to-bottom order + `termBounds`. Note: the doc's PROSE order is NOT always
+the pane/`parmIndex` order — trust the image layout + observed indices, not the
+sentence order.
+
 **Finding the page path when you only know the function name:** the path mirrors
 the palette, e.g. `functions/<kebab-name>.html` (`get-variant-attribute.html`,
 `look-in-map.html`). Confirm the exact slug via a WebSearch for the function on

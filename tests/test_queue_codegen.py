@@ -1,7 +1,4 @@
-"""Tests for Queue Operations code generation (Obtain/Enqueue/Dequeue/Release).
-
-Get Queue Status (9110) codegen is still deferred (its four same-typed I32
-outputs need per-terminal disambiguation -- see codegen/nodes/queue_ops.py).
+"""Tests for Queue Operations codegen (Obtain/Enqueue/Dequeue/Release/Status).
 
 Mirrors the pattern in tests/test_array_ops_codegen.py: build
 PrimitiveOperation + CodeGenContext by hand for each node in a small
@@ -22,6 +19,7 @@ from lvkit.labview_queue import (
     dequeue_element,
     enqueue_element,
     enqueue_element_at_opposite_end,
+    get_queue_status,
     obtain_queue,
     release_queue,
 )
@@ -43,6 +41,7 @@ _RUNTIME_GLOBALS = {
     "enqueue_element_at_opposite_end": enqueue_element_at_opposite_end,
     "dequeue_element": dequeue_element,
     "release_queue": release_queue,
+    "get_queue_status": get_queue_status,
 }
 
 
@@ -163,6 +162,7 @@ class TestDispatch:
             (9129, _enqueue_op("enq", opposite_end=True)),
             (9113, _dequeue_op()),
             (9109, _release_op()),
+            (9110, _status_op()),
         ):
             assert op.primResID == prim_id
             ctx = make_ctx(*(t.id for t in op.terminals))
@@ -377,3 +377,60 @@ class TestReleaseQueue:
         frag = queue_ops.generate(release, ctx)
         # queue name (idx8) is bound as the queue's .name, not a runtime return
         assert frag.bindings["release.queue_name"] == "q.name"
+
+
+def _status_op(node_id: str = "status") -> PrimitiveOperation:
+    """Get Queue Status pane (resolved via the NI connector-pane image + wiring
+    anchors + geometry): in idx0=queue; out idx4=max size, idx5=elements,
+    idx6=name, idx7=# elements, idx8=queue out, idx9=# pending remove,
+    idx10=# pending insert (error terminals omitted, as in the other builders)."""
+    return PrimitiveOperation(
+        id=node_id, name="Get Queue Status", labels=["Prim"],
+        node_type="prim", primResID=9110,
+        terminals=[
+            _terminal(f"{node_id}.queue", 0, "input"),
+            _terminal(f"{node_id}.max_size", 4, "output"),
+            _terminal(f"{node_id}.elements", 5, "output"),
+            _terminal(f"{node_id}.name", 6, "output"),
+            _terminal(f"{node_id}.n_elements", 7, "output"),
+            _terminal(f"{node_id}.queue_out", 8, "output"),
+            _terminal(f"{node_id}.pending_remove", 9, "output"),
+            _terminal(f"{node_id}.pending_insert", 10, "output"),
+        ],
+    )
+
+
+class TestGetQueueStatus:
+    """Get Queue Status (9110): each output binds to a field of the runtime's
+    QueueStatus, per the connector-pane-image-resolved index map."""
+
+    def test_status_reports_count_max_and_name(self):
+        obtain = _obtain_op(with_name=True, with_max=True)
+        enq1, enq2 = _enqueue_op("e1"), _enqueue_op("e2")
+        status = _status_op("status")
+        ids = [t.id for op in (obtain, enq1, enq2, status) for t in op.terminals]
+        ctx = make_ctx(*ids)
+        ctx.bind("obtain.name", "'q'")
+        ctx.bind("obtain.max", "5")
+
+        of = queue_ops.generate(obtain, ctx)
+        qv = of.bindings["obtain.queue_out"]
+        ctx.bind("e1.queue", qv)
+        ctx.bind("e1.element", "'a'")
+        e1f = queue_ops.generate(enq1, ctx)
+        ctx.bind("e2.queue", e1f.bindings["e1.queue_out"])
+        ctx.bind("e2.element", "'b'")
+        e2f = queue_ops.generate(enq2, ctx)
+        ctx.bind("status.queue", e2f.bindings["e2.queue_out"])
+        sf = queue_ops.generate(status, ctx)
+
+        statements = of.statements + e1f.statements + e2f.statements + sf.statements
+        result = _compile_and_run(statements, {})
+
+        # the outputs bind to <status_var>.<field>; recover the QueueStatus itself
+        status_var = sf.bindings["status.n_elements"].rsplit(".", 1)[0]
+        st = result[status_var]
+        assert st.n_elements == 2
+        assert st.max_size == 5
+        assert st.name == "q"
+        assert st.pending_remove == 0 and st.pending_insert == 0
