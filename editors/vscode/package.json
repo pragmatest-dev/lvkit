@@ -1,6 +1,6 @@
 {
   "name": "lvkit",
-  "displayName": "lvkit — LabVIEW VI Viewer & Diff",
+  "displayName": "LVKit — View & Diff LabVIEW VIs",
   "description": "View LabVIEW .vi block diagrams and see visual before/after diffs in VS Code — no LabVIEW license required.",
   "version": "0.1.0",
   "publisher": "pragmatest",
@@ -14,11 +14,11 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false,
-      "description": "lvkit runs a local lvkit executable against the .vi files in your workspace to render diagrams and diffs, so it needs a trusted workspace."
+      "description": "LVKit runs a local lvkit executable against the .vi files in your workspace to render diagrams and diffs, so it needs a trusted workspace."
     },
     "virtualWorkspaces": {
       "supported": false,
-      "description": "lvkit reads .vi files from disk and runs a local lvkit executable, neither of which is available in a virtual workspace."
+      "description": "LVKit reads .vi files from disk and runs a local lvkit executable, neither of which is available in a virtual workspace."
     }
   },
   "categories": ["Visualization", "SCM Providers", "Other"],
@@ -27,7 +27,7 @@
   "main": "./extension.js",
   "contributes": {
     "configuration": {
-      "title": "lvkit",
+      "title": "LVKit",
       "properties": {
         "lvkit.path": {
           "type": "string",
@@ -54,12 +54,12 @@
       }
     },
     "commands": [
-      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "lvkit" }
+      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "LVKit" }
     ],
     "customEditors": [
       {
         "viewType": "lvkit.viPreview",
-        "displayName": "lvkit VI Preview",
+        "displayName": "LVKit VI Preview",
         "selector": [{ "filenamePattern": "*.vi" }],
         "priority": "default"
       }
