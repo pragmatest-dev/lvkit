@@ -2,6 +2,18 @@
 
 lvkit follows semantic versioning.
 
+## [0.5.2]
+- **Fix: lvkit reported the wrong version.** The 0.5.1 release bumped
+  `pyproject.toml` but not the hardcoded `__version__` string, so the published
+  package's metadata said `0.5.1` while `lvkit --version` and
+  `lvkit.__version__` both reported `0.5.0`. Anyone checking which lvkit they
+  were running — or gating on it, as the VS Code extension does — got a stale
+  answer. All three version sites (`pyproject.toml`, `src/lvkit/__init__.py`,
+  `uv.lock`) are now synchronized, and `test_version` asserts the code and the
+  installed metadata agree.
+
+  No functional changes to parsing, rendering, diffing, or codegen.
+
 ## [0.5.1]
 - **Event structures:** lvkit now parses, renders, describes, diffs, and
   netlists LabVIEW Event Structures — the border band + timeout hourglass, the
