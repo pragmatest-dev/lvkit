@@ -1226,17 +1226,16 @@ class ConstructionMixin:
                     tunnel_type=ttype, vi=vi_name,
                 )
 
-        # --- 2. Find ALL sRN parent UIDs ---
-        # Tunnel-referenced sRNs get input->output pairing edges.
-        # Non-tunnel sRNs just get mapped — wires handle routing.
-        tunnel_srn_parents: set[str] = set()
-        for tunnel in parser_tunnels:
-            for uid in (tunnel.outer_terminal_uid, tunnel.inner_terminal_uid):
-                if not uid:
-                    continue
-                ti = bd.terminal_info.get(uid)
-                if ti and ti.parent_uid and ti.parent_uid not in known_node_uids:
-                    tunnel_srn_parents.add(ti.parent_uid)
+        # --- 2. Register sRN-owned terminals on the structure ---
+        # An sRN is an EXECUTION CLUMP (LabVIEW's scheduler grouping), not a
+        # tunnel holder — it aggregates unrelated terminals (real tunnel sides,
+        # FP control/indicator terminals, constants, event stubs) that merely
+        # run together. Terminals not already registered are added so their
+        # signal wiring resolves. We deliberately do NOT re-pair clump terminals
+        # by index: the exact inner<->outer tunnel pass-throughs were already
+        # built from parser_tunnels' explicit uid pairs in section 1, and an
+        # sRN's index collisions are meaningless (they fabricated type-mismatched
+        # edges — String->Boolean, Refnum->Boolean — that don't exist in the VI).
 
         # Extract raw UID from qualified UID for srn_to_structure lookup
         raw_structure_uid = (
@@ -1288,38 +1287,6 @@ class ConstructionMixin:
                     node_id=structure_uid,
                     index=ti.index,
                     name=ti.name,
-                )
-
-            # Pair by matching index (same position on structure border)
-            # — same as VI connector pane pairing
-            input_by_idx = {
-                ti.index: (uid, ti)
-                for uid, ti in srn_terms
-                if not ti.is_output
-            }
-            output_by_idx = {
-                ti.index: (uid, ti)
-                for uid, ti in srn_terms
-                if ti.is_output
-            }
-            paired = [
-                (input_by_idx[idx], output_by_idx[idx])
-                for idx in input_by_idx
-                if idx in output_by_idx
-            ]
-            for (in_uid, _in_ti), (out_uid, _out_ti) in paired:
-                q_in_uid = self._qid(vi_name, in_uid)
-                q_out_uid = self._qid(vi_name, out_uid)
-                in_end = term_lookup.get(in_uid, WireEnd(
-                    terminal_id=q_in_uid, node_id=structure_uid,
-                ))
-                out_end = term_lookup.get(out_uid, WireEnd(
-                    terminal_id=q_out_uid, node_id=structure_uid,
-                ))
-                g.add_edge(
-                    structure_uid, structure_uid,
-                    source=in_end, dest=out_end,
-                    tunnel_type="sRN", vi=vi_name,
                 )
 
         return structure_terminals

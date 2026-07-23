@@ -242,3 +242,67 @@ class TestRealVILoading:
         )
         assert len(graph.list_vis()) >= 1
         assert len(graph.get_conversion_order()) >= 1
+
+
+_SAMPLES_ROOT = Path(__file__).parent.parent / ".lvkit" / "cache" / "samples"
+_VI_TESTER_ABOUT = (
+    _SAMPLES_ROOT
+    / "JKI-VI-Tester/source/User Interfaces/Graphical Test Runner"
+    / "Graphical Test Runner Support" / "VI Tester About.vi"
+)
+
+
+@pytest.mark.skipif(
+    not _VI_TESTER_ABOUT.exists(),
+    reason="VI Tester About.vi sample not present",
+)
+class TestSrnClumpNoFabricatedEdges:
+    """An sRN is an execution clump (scheduler grouping) that aggregates
+    unrelated terminals; it must never be index-paired into fabricated tunnel
+    edges. Real inner<->outer pass-throughs come from parser_tunnels' explicit
+    uid pairs, not from an sRN's meaningless slot-index collisions.
+
+    Regression guard for VI Tester About, where the removed index-pairing wired
+    the copyrights boolean INDICATOR (fPTerm 1516) across two structure borders,
+    and produced type-impossible edges (String->Boolean, Refnum->Boolean)."""
+
+    def _graph(self) -> tuple[InMemoryVIGraph, str]:
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(_VI_TESTER_ABOUT), mode=LoadMode.NONE)
+        return graph, graph.resolve_vi_name("VI Tester About.vi")
+
+    def test_copyrights_indicator_is_unwired(self):
+        graph, vi = self._graph()
+        touching = [
+            w for w in graph.get_wires(vi, include_internal=True)
+            if w.source.terminal_id.endswith("::1516")
+            or w.dest.terminal_id.endswith("::1516")
+        ]
+        assert touching == [], f"fabricated wire on copyrights indicator: {touching}"
+
+    def test_no_srn_pairing_edges(self):
+        graph, vi = self._graph()
+        srn = [
+            e for _, _, e in graph._graph.edges(data=True)
+            if e.get("vi") == vi and e.get("tunnel_type") == "sRN"
+        ]
+        assert srn == [], "sRN index-pairing must not fabricate tunnel edges"
+
+    def test_internal_tunnel_edges_are_type_consistent(self):
+        """Every reconstructed tunnel pass-through joins same-typed terminals
+        (an auto-indexed element<->array tunnel differs structurally, but none
+        of this VI's tunnels auto-index — a String<->Boolean join is impossible
+        and only ever came from the sRN fabrication)."""
+        graph, vi = self._graph()
+        bad = []
+        for _, _, e in graph._graph.edges(data=True):
+            if e.get("vi") != vi or not e.get("tunnel_type"):
+                continue
+            s, d = e.get("source"), e.get("dest")
+            st = graph.get_terminal(s.terminal_id)
+            dt = graph.get_terminal(d.terminal_id)
+            su = getattr(getattr(st, "lv_type", None), "underlying_type", None)
+            du = getattr(getattr(dt, "lv_type", None), "underlying_type", None)
+            if su and du and su != du:
+                bad.append((s.terminal_id, su, d.terminal_id, du))
+        assert bad == [], f"type-mismatched internal edges: {bad}"
