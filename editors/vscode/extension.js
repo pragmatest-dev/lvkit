@@ -32,15 +32,32 @@ function onPath(exe) {
   try { cp.execSync(probe, { stdio: 'ignore' }); return true; } catch (_) { return false; }
 }
 
+// Set in activate() so lvkitCmd can find the bundled standalone binary shipped
+// inside the extension (bin/lvkit/lvkit[.exe]) — a PyInstaller build that needs
+// no Python on the user's machine.
+let _extensionPath = null;
+
+// The standalone lvkit binary shipped with the extension, if present for this
+// platform. This is what makes the extension work out-of-the-box for a LabVIEW
+// user who has no Python/lvkit installed.
+function bundledLvkit() {
+  if (!_extensionPath) return null;
+  const exe = process.platform === 'win32' ? 'lvkit.exe' : 'lvkit';
+  const p = path.join(_extensionPath, 'bin', 'lvkit', exe);
+  return fileExists(p) ? p : null;
+}
+
 // Resolve a ready-to-exec lvkit command PREFIX for a repo `root`. The prefix may
 // be MULTIPLE tokens (e.g. `uv run lvkit`), so callers must interpolate it raw —
 // never wrap the whole prefix in quotes as if it were a single path. Order:
 //   1. an explicit `lvkit.path` override (the literal default "lvkit" counts as
 //      unset, so auto-resolution can still run) — quoted as one path;
-//   2. the repo-local venv's lvkit on disk;
+//   2. the repo-local venv's lvkit on disk (developing inside a lvkit project);
 //   3. `uv run lvkit` when the repo has a pyproject.toml/uv.lock and `uv` is on
-//      PATH (runs lvkit inside the repo's own env);
-//   4. a global `lvkit` on PATH.
+//      PATH (runs lvkit inside the repo's own env — latest code when developing);
+//   4. the BUNDLED standalone binary shipped with the extension (works with no
+//      Python installed — the default for a normal end user);
+//   5. a global `lvkit` on PATH.
 // We NEVER write a global lvkit.path from here.
 function lvkitCmd(root) {
   const configured = cfg().get('path', 'lvkit');
@@ -51,6 +68,8 @@ function lvkitCmd(root) {
   if (fileExists(venv)) return `"${venv}"`;
   const hasProj = fileExists(path.join(root, 'pyproject.toml')) || fileExists(path.join(root, 'uv.lock'));
   if (hasProj && onPath('uv')) return 'uv run lvkit';
+  const bundled = bundledLvkit();
+  if (bundled) return `"${bundled}"`;
   return 'lvkit';
 }
 
@@ -341,6 +360,7 @@ async function generatePython(arg) {
 }
 
 function activate(context) {
+  _extensionPath = context.extensionPath;
   context.subscriptions.push(vscode.commands.registerCommand('lvkit.diffVI', diffVI));
   context.subscriptions.push(vscode.commands.registerCommand('lvkit.generatePython', generatePython));
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(

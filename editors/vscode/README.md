@@ -3,6 +3,8 @@
 See LabVIEW `.vi` block diagrams and **visual before/after diffs** directly in VS Code —
 **no LabVIEW license required**. Powered by [lvkit](https://pragmatest.com).
 
+An open-source tool from **[Pragmatest](https://pragmatest.com)**.
+
 Instead of *"this is a binary file,"* a `.vi` opens as a rendered block diagram, and a
 changed `.vi` in Source Control opens as an interactive before/after diff (cross-fade,
 change list, highlights).
@@ -28,13 +30,16 @@ All features use only **stable** VS Code APIs, so this can ship to the Marketpla
 
 ## Requirements
 
-- **lvkit ≥ 0.5.0** installed and reachable (Python 3.10+). The extension resolves
-  lvkit automatically, in order: an explicit **`lvkit.path`** setting → the repo's own
-  `.venv/bin/lvkit` (`.venv\Scripts\lvkit.exe` on Windows) → `uv run lvkit` when the
-  repo has a `pyproject.toml`/`uv.lock` and `uv` is on `PATH` → a global `lvkit`. Set
-  **`lvkit.path`** to an absolute path only if none of those apply. If the resolved
-  lvkit is older than 0.5.0 you'll get a one-time upgrade prompt
-  (`pip install -U lvkit`).
+**None — no Python, no LabVIEW.** The extension ships a **bundled, standalone `lvkit`
+binary** (a PyInstaller build with no Python dependency), so preview and diff work out
+of the box.
+
+The extension resolves which `lvkit` to run, in order: an explicit **`lvkit.path`**
+setting → the repo's own `.venv/bin/lvkit` (`.venv\Scripts\lvkit.exe` on Windows) →
+`uv run lvkit` when the repo has a `pyproject.toml`/`uv.lock` and `uv` is on `PATH` →
+**the bundled binary** (`bin/lvkit/lvkit`) → a global `lvkit`. The first three let
+developers working inside a lvkit checkout use their own latest build; everyone else
+falls through to the bundled binary automatically. Set **`lvkit.path`** only to override.
 
 ## Settings
 
@@ -64,13 +69,34 @@ The extension versions on its **own** track (independent of the lvkit library) �
 in `extension.js`); bump that constant when a feature needs a newer library, and bump
 the extension `version` in `package.json` per its own release cadence.
 
-## Before publishing to the Marketplace
+## Building the bundled binary
 
-- Set a real `publisher` (create one: `vsce create-publisher`), add `repository`/`icon`.
-- `npx @vscode/vsce package` → `.vsix`; `npx @vscode/vsce publish` (needs a PAT).
-- The repo-local / `uv run` resolution means users working inside a lvkit checkout
-  usually need no `lvkit.path`; end users still need lvkit ≥ 0.5.0 on `PATH` (or the
-  setting).
+The `bin/` binary is **not committed** (git-ignored, ~70 MB, per-platform). Build it
+locally (needed once for F5 testing) or in CI at release time:
+
+```bash
+uv pip install pyinstaller                     # once
+editors/vscode/build/build-binary.sh           # -> editors/vscode/bin/lvkit/lvkit
+```
+
+PyInstaller is platform-specific, so run it on **each** of macOS / Windows / Linux to
+produce that OS's binary; ship one platform-specific `.vsix` per target.
+
+## Publishing to the Marketplace
+
+You need a **publisher** on the VS Code Marketplace and a token:
+
+1. Create an **Azure DevOps** organization (free) and a **Personal Access Token** with
+   **Marketplace → Manage** scope.
+2. Create/claim the `pragmatest` publisher: `npx @vscode/vsce create-publisher pragmatest`
+   (or via the Marketplace management page), then `npx @vscode/vsce login pragmatest`.
+3. Package + publish **per platform** (each carries its own `bin/`):
+   `npx @vscode/vsce publish --target linux-x64` (and `win32-x64`, `darwin-x64`,
+   `darwin-arm64`). CI does this on an extension tag — see
+   `.github/workflows/publish-extension.yml`.
+
+The bundled binary means end users need nothing installed; developers inside a lvkit
+checkout still get their own build via the `.venv`/`uv run` resolution.
 
 ## Not yet (needs proposed API)
 

@@ -1,2 +1,12 @@
-node_modules/
+# PyInstaller standalone lvkit binary (built by scripts/build-binary.sh or CI;
+# never committed — ~70 MB, per-platform). Present locally for dev/testing.
+bin/
+
+# Packaged extension + node deps
 *.vsix
+node_modules/
+
+# PyInstaller work dirs (if ever created in-tree)
+build/*.spec
+build/dist/
+build/__pycache__/
