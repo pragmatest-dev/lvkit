@@ -31,6 +31,20 @@ jobs:
         with:
           node-version: "20"
 
+      # vsce publishes the version from package.json, NOT from the tag — so a
+      # mismatched tag would silently ship the wrong version (or fail late, on
+      # only some platforms). Fail fast and loudly instead.
+      - name: Verify tag matches package.json version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#ext-v}"
+          pkg=$(node -p "require('./editors/vscode/package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag ext-v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "Publishing version $pkg"
+
       - name: Build bundled lvkit binary
         shell: bash
         run: |

@@ -1,0 +1,34 @@
+# Changelog
+
+The extension versions on its **own** track, independent of the lvkit library.
+
+## [0.1.0] — first release
+
+Read LabVIEW `.vi` files directly in VS Code — **no LabVIEW license, and no
+Python install, required**.
+
+- **VI preview** — a `.vi` opens as a rendered block diagram instead of the
+  "binary file" notice. Interactive viewer with zoom/pan and a light/dark
+  diagram-theme toggle; your choice persists to the `lvkit.diagramTheme`
+  setting.
+- **Visual diff** — right-click a changed `.vi` (Source Control or Explorer) →
+  **lvkit: Open Visual Diff** for the interactive before/after viewer:
+  cross-fade, change list, and highlights tied to the diagram.
+- **Works in VS Code's native diff too** — clicking a changed `.vi` in Source
+  Control shows the two versions side by side, each rendered as a diagram.
+- **Self-contained** — ships a standalone lvkit binary for your platform, so it
+  works out of the box. If you're developing inside a lvkit checkout it prefers
+  your repo's own lvkit (`.venv` → `uv run lvkit`) so you always see current
+  code; `lvkit.path` overrides everything.
+- **Extra SubVI search paths** via `lvkit.searchPaths` (the repository root is
+  detected automatically).
+
+Uses only stable VS Code APIs.
+
+### Known limitations
+
+- Opening the rich diff on a plain **left-click** (like a text diff) needs VS
+  Code's custom-diff-editor API, which is not yet available in stable builds —
+  the right-click command is the supported path today.
+- Rendering coverage grows with the lvkit library; a node lvkit doesn't
+  recognize yet is drawn as a labeled box rather than its LabVIEW glyph.
