@@ -181,11 +181,36 @@ class ViPreviewProvider {
   async openCustomDocument(uri) { return { uri, dispose() {} }; }
   async resolveCustomEditor(document, panel) {
     panel.webview.options = { enableScripts: true };
-    const file = document.uri.fsPath;
-    const root = gitRootOr(path.dirname(file));
+    // `fsPath` is always the on-disk WORKING-TREE path, even when the URI is a
+    // `git:` (or other provider) resource — the scheme/query are stripped. Use
+    // it to root SubVI resolution (--search-path) and to name the temp file,
+    // but NEVER render it directly for a non-file URI (see below).
+    const origPath = document.uri.fsPath;
+    const root = gitRootOr(path.dirname(origPath));
     checkLvkitVersion(root);
     try {
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
+      // In VS Code's native diff, THIS editor opens on both panes with different
+      // URIs: the "after" pane is scheme `file` (on disk); the "before" pane is
+      // scheme `git`, whose bytes are the committed blob living inside git — its
+      // fsPath is the SAME on-disk path, so rendering fsPath would show the
+      // working copy on BOTH sides. Read any non-file URI through VS Code's
+      // provider (git's FileSystemProvider runs `git show`) and render a temp
+      // copy of those bytes instead.
+      let file = origPath;
+      if (document.uri.scheme !== 'file') {
+        const bytes = await vscode.workspace.fs.readFile(document.uri);
+        if (!bytes || bytes.length === 0) {
+          // e.g. the "before" side of a newly-added file — no committed blob.
+          panel.webview.html = errorHtml(
+            'No version to show',
+            'This .vi has no committed content on this side (it is newly added).'
+          );
+          return;
+        }
+        file = path.join(tmp, path.basename(origPath)); // keep the .vi extension
+        fs.writeFileSync(file, Buffer.from(bytes));
+      }
       const out = path.join(tmp, 'preview.html');
       // `render --format html` emits the self-contained interactive viewer
       // (zoom/pan + a light/dark diagram-theme toggle). The diagram itself is
