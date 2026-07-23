@@ -34,6 +34,17 @@ setting → the repo's own `.venv/bin/lvkit` (`.venv\Scripts\lvkit.exe` on Windo
 developers working inside a lvkit checkout use their own latest build; everyone else
 falls through to the bundled binary automatically. Set **`lvkit.path`** only to override.
 
+## Workspace Trust
+
+lvkit runs a local lvkit executable against the `.vi` files in your workspace, so it
+requires a **trusted** workspace. In Restricted Mode VS Code disables the extension
+entirely — no preview, no diff, and no `.vi` context-menu entries. If a `.vi` opens as
+a binary file and the commands are missing, check the status bar for **Restricted
+Mode** and choose *Trust* (Command Palette → **Workspaces: Manage Workspace Trust**).
+
+For the same reason the extension does not run in virtual workspaces (e.g. `vscode.dev`),
+which have no real filesystem to read `.vi` files from.
+
 ## Settings
 
 | Setting | Default | Description |

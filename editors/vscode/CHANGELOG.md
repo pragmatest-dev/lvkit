@@ -25,6 +25,13 @@ Python install, required**.
 
 Uses only stable VS Code APIs.
 
+### Requirements
+
+- **A trusted workspace.** The extension runs a local lvkit executable against your
+  `.vi` files, so VS Code disables it in Restricted Mode. Choose *Trust* if a `.vi`
+  opens as a binary file and the lvkit commands are missing. Virtual workspaces
+  (e.g. `vscode.dev`) are not supported for the same reason.
+
 ### Known limitations
 
 - Opening the rich diff on a plain **left-click** (like a text diff) needs VS

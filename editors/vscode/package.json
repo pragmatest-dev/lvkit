@@ -11,6 +11,16 @@
   "bugs": { "url": "https://github.com/pragmatest-dev/lvkit/issues" },
   "galleryBanner": { "color": "#1e1e2e", "theme": "dark" },
   "engines": { "vscode": "^1.75.0" },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "lvkit runs a local lvkit executable against the .vi files in your workspace to render diagrams and diffs, so it needs a trusted workspace."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "lvkit reads .vi files from disk and runs a local lvkit executable, neither of which is available in a virtual workspace."
+    }
+  },
   "categories": ["Visualization", "SCM Providers", "Other"],
   "keywords": ["labview", "vi", "diff", "block diagram", "ni", "test"],
   "activationEvents": ["onCommand:lvkit.diffVI", "onCustomEditor:lvkit.viPreview"],
