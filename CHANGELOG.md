@@ -2,6 +2,29 @@
 
 lvkit follows semantic versioning.
 
+## [0.5.1]
+- **Event structures:** lvkit now parses, renders, describes, diffs, and
+  netlists LabVIEW Event Structures — the border band + timeout hourglass, the
+  event data node, and per-frame event labels reconstructed from the heap
+  (`[3] "copyrights": Value Change`). Event-type codes not yet clean-room
+  confirmed surface as an explicit `<unknown event 0x…>` sentinel rather than a
+  blank frame. **Codegen** refuses an event structure *loudly*
+  (`raise NotImplementedError`, naming the events) instead of silently dropping
+  the VI's behaviour — an asynchronous UI event loop has no headless equivalent.
+- **Queue operations — complete.** Codegen now covers all six Queue ops: Obtain
+  Queue, Enqueue Element, Enqueue Element At Opposite End, Dequeue Element,
+  **Release Queue**, and **Get Queue Status** — backed by a stdlib-only runtime
+  (`lvkit.labview_queue`) that models LabVIEW's real semantics: reference-counted
+  lifecycle with force-destroy (pending ops raise error 1122), create-if-not-found
+  (error 1100), bounded-blocking enqueue, and the full Get-Queue-Status pane.
+- **Control-reference constants** render faithfully — drawn where they live with
+  their wire kept local and correctly typed as a refnum, using a dedicated glyph
+  (the referenced type in the box, control name above, reference arrow).
+- **Fix:** removed a redundant sRN index-pairing pass that fabricated
+  type-impossible internal edges (e.g. a boolean indicator "wired" across
+  structure borders with no tunnel); genuine tunnels are untouched.
+- Cloud render service updated for the 0.5.0 API and `format=html`.
+
 ## [0.5.0]
 - **Diff:** `lvkit diff <a.vi> <b.vi>` — compare two VIs (terminals, operations,
   wiring) as a text diff or `--long` change report, plus an interactive HTML diff
