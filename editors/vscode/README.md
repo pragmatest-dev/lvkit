@@ -18,15 +18,8 @@ change list, highlights).
 - **Visual diff** — right-click a changed `.vi` (Source Control or Explorer) →
   **lvkit: Open Visual Diff** → the interactive before/after viewer in an editor tab
   (same diagram-theme control).
-- **Convert VI to Python (beta)** — right-click a `.vi` (Explorer, editor tab, or
-  Source Control) → **lvkit: Convert VI to Python (beta)**, or run it from the Command
-  Palette on the active `.vi`. Generates Python and opens it. Coverage of LabVIEW nodes
-  is still growing: unrecognized nodes are emitted as inline-raise **stubs** for you to
-  review (you'll be told how many), and a VI that can't be fully converted yet reports
-  which node lvkit doesn't know about — so treat the output as a starting point, not a
-  finished port.
 
-All features use only **stable** VS Code APIs, so this can ship to the Marketplace as-is.
+Both features use only **stable** VS Code APIs, so this can ship to the Marketplace as-is.
 
 ## Requirements
 
