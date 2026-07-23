@@ -73,6 +73,21 @@ for n in g.iter_nodes(vi):
 
 `t.lv_type` is the **REAL per-terminal type**, resolved from that terminal's OWN `typeDesc` (`graph/construction.py::_enrich_type(term_info.parsed_type)`). **It is NOT a fallback** — a genuine LabVIEW String resolves to underlying `String` (shown as `str`), a byte array to `Array` elem `NumUInt8`, a 32-bit-word array to `Array` elem `NumUInt32`. So `Array[U32] → Array[U32]` genuinely means word-array in/out — NOT a byte↔string conversion. **Read the element type (and, for refnums, `ref_type`) BEFORE naming anything (Step 4.5); never dismiss a resolved type as "just a fallback."** If a terminal's `lv_type` really is `None`, resolve its raw `<typeDesc>TypeID(N)</typeDesc>` via `parse_type_map_rich` (Step 4.5) — do not assume.
 
+**Where the raw pane data actually lives in the heap XML (two gotchas that cost hours on the queue ops 9109/9110).** For a `class="prim"` node, each `termList/SL__arrayElement[@class="term"]` does NOT carry the type directly — its `typeDesc`, `termBounds`, and `parmIndex` are one level down, inside a nested `<dco class="parm">` child. So `term.findtext("typeDesc")` returns `None`; read `term/dco/typeDesc` (`TypeID(N)`), `term/dco/termBounds`, `term/dco/parmIndex`. Resolve `TypeID(N)` against `parse_type_map_rich('<main>.xml')` — note the graph/parser sometimes attaches NO type to these (`parsed_type is None`, `lv_type is None`) even though the `<dco>` has one, which is exactly when you must read the XML directly.
+
+**The parser's `terminal.index` IS the `<dco>/parmIndex`** (LabVIEW's canonical connector-pane parameter index), NOT the XML `term`'s `index=` attribute — the two differ (e.g. XML term indices 0..10 but parser/parmIndex 0,1,3,4..11, skipping gaps). So when you correlate observed indices to an NI doc's terminal list, you are correlating **parmIndex**. It still is NOT a reliable proxy for physical position or doc reading-order (see Step 6) — same-typed outputs (four I32s on Get Queue Status: max size / #pending-remove / #pending-insert / #elements) still need `termBounds` geometry or observed wiring to disambiguate — but it is the number the graph reports and the number your `by_index` codegen dispatch keys on.
+
+Extract it cleanly with ElementTree:
+```python
+import xml.etree.ElementTree as ET
+node = ...  # the <SL__arrayElement class="prim"> whose <primResID> == your id
+for t in node.find("termList").findall("SL__arrayElement"):
+    dco = t.find("dco")            # class="parm" — holds the real data
+    parm = dco.findtext("parmIndex")            # == parser terminal.index
+    tid  = dco.findtext("typeDesc")             # "TypeID(N)"
+    tb   = dco.findtext("termBounds")           # "(top,left,bottom,right)"
+```
+
 (Use `LoadMode.NONE` so only this VI's diagram loads — no subVIs, memory-flat. To find WHICH VIs contain the primResID, grep first, per Step 2.)
 
 For a **polymorphic/adaptive** primitive, an UNWIRED terminal may show its adapt/placeholder type rather than a concrete one — count, direction, and position stay reliable; concrete types come from the wired terminals.

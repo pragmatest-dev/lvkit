@@ -1,7 +1,7 @@
-"""Tests for Queue Operations code generation (Obtain/Enqueue/Dequeue).
+"""Tests for Queue Operations code generation (Obtain/Enqueue/Dequeue/Release).
 
-Get Queue Status (9110) and Release Queue (9109) codegen is deferred to the
-queue-runtime design work (see codegen/nodes/queue_ops.py) -- not tested here.
+Get Queue Status (9110) codegen is still deferred (its four same-typed I32
+outputs need per-terminal disambiguation -- see codegen/nodes/queue_ops.py).
 
 Mirrors the pattern in tests/test_array_ops_codegen.py: build
 PrimitiveOperation + CodeGenContext by hand for each node in a small
@@ -23,6 +23,7 @@ from lvkit.labview_queue import (
     enqueue_element,
     enqueue_element_at_opposite_end,
     obtain_queue,
+    release_queue,
 )
 from lvkit.models import PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
@@ -41,6 +42,7 @@ _RUNTIME_GLOBALS = {
     "enqueue_element": enqueue_element,
     "enqueue_element_at_opposite_end": enqueue_element_at_opposite_end,
     "dequeue_element": dequeue_element,
+    "release_queue": release_queue,
 }
 
 
@@ -130,10 +132,27 @@ def _dequeue_op(node_id: str = "dequeue") -> PrimitiveOperation:
     )
 
 
+def _release_op(node_id: str = "release", *, force: bool = False) -> PrimitiveOperation:
+    """Release Queue pane (observed): in idx0=queue, idx2=force destroy?;
+    out idx8=queue name, idx9=remaining elements (error terminals omitted, as
+    in the other builders)."""
+    terminals = [_terminal(f"{node_id}.queue", 0, "input")]
+    if force:
+        terminals.append(_terminal(f"{node_id}.force", 2, "input"))
+    terminals += [
+        _terminal(f"{node_id}.queue_name", 8, "output"),
+        _terminal(f"{node_id}.remaining", 9, "output"),
+    ]
+    return PrimitiveOperation(
+        id=node_id, name="Release Queue", labels=["Prim"],
+        node_type="prim", primResID=9109, terminals=terminals,
+    )
+
+
 class TestDispatch:
     """queue_ops.generate() is reachable via the primResID dispatch guard
-    in nodes/__init__.py, not via node_type (all four ops share the
-    generic ``class="prim"`` XML node_type)."""
+    in nodes/__init__.py, not via node_type (all ops share the generic
+    ``class="prim"`` XML node_type)."""
 
     def test_dispatch_guard_covers_all_prim_ids(self):
         from lvkit.codegen.nodes import generate as generate_node
@@ -143,6 +162,7 @@ class TestDispatch:
             (9111, _enqueue_op("enq")),
             (9129, _enqueue_op("enq", opposite_end=True)),
             (9113, _dequeue_op()),
+            (9109, _release_op()),
         ):
             assert op.primResID == prim_id
             ctx = make_ctx(*(t.id for t in op.terminals))
@@ -322,3 +342,38 @@ class TestObtainQueueNamedRegistry:
         q1 = result[frag1.bindings["obtain1.queue_out"]]
         q2 = result[frag2.bindings["obtain2.queue_out"]]
         assert q1 is not q2
+
+
+class TestReleaseQueue:
+    """Release Queue (9109) codegen: force-destroy returns the remaining
+    elements, and the queue-name output is bound to the queue's .name."""
+
+    def test_force_destroy_returns_remaining_elements(self):
+        obtain = _obtain_op()
+        enqueue = _enqueue_op("enqueue")
+        release = _release_op("release", force=True)
+        ids = [t.id for op in (obtain, enqueue, release) for t in op.terminals]
+        ctx = make_ctx(*ids)
+
+        obtain_frag = queue_ops.generate(obtain, ctx)
+        ctx.bind("enqueue.queue", obtain_frag.bindings["obtain.queue_out"])
+        ctx.bind("enqueue.element", "payload")
+        enqueue_frag = queue_ops.generate(enqueue, ctx)
+
+        ctx.bind("release.queue", enqueue_frag.bindings["enqueue.queue_out"])
+        ctx.bind("release.force", "True")
+        release_frag = queue_ops.generate(release, ctx)
+
+        statements = (
+            obtain_frag.statements + enqueue_frag.statements + release_frag.statements
+        )
+        result = _compile_and_run(statements, {"payload": 42})
+        assert result[release_frag.bindings["release.remaining"]] == [42]
+
+    def test_queue_name_output_is_the_queue_name_attribute(self):
+        release = _release_op("release")
+        ctx = make_ctx(*(t.id for t in release.terminals))
+        ctx.bind("release.queue", "q")
+        frag = queue_ops.generate(release, ctx)
+        # queue name (idx8) is bound as the queue's .name, not a runtime return
+        assert frag.bindings["release.queue_name"] == "q.name"

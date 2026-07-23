@@ -1,15 +1,13 @@
 """Code generator for LabVIEW Queue Operations primitives.
 
 Covers Obtain Queue (9108), Enqueue Element (9111), Enqueue Element At
-Opposite End (9129), and Dequeue Element (9113).
+Opposite End (9129), Dequeue Element (9113), and Release Queue (9109).
 
-Get Queue Status (9110) and Release Queue (9109) are intentionally NOT
-handled here: their codegen is deferred to the queue-runtime design work
-(the runtime must be extended to return Get Queue Status's full 8-output
-pane, and a release_queue() helper added). Until then both are codegen
-placeholders in primitives.json. NOTE: 9109 was historically (and wrongly)
-mapped here as "Get Queue Status" -- it is actually Release Queue; the real
-Get Queue Status is 9110.
+Get Queue Status (9110) is NOT handled yet: its 8-output pane has four
+same-typed I32 outputs (max size, #pending remove, #pending insert, #elements)
+that need per-terminal wiring/geometry observation to disambiguate, so it is
+still a codegen gap. NOTE: 9109 was historically (and wrongly) mapped as "Get
+Queue Status" -- it is actually Release Queue; the real Get Queue Status is 9110.
 
 These are generic `<Prim class="prim">` XML nodes distinguished only by
 `primResID` (verified against real samples — see phaseB_findings.md), so
@@ -39,15 +37,19 @@ OBTAIN_QUEUE = 9108
 ENQUEUE_ELEMENT = 9111
 DEQUEUE_ELEMENT = 9113
 ENQUEUE_AT_OPPOSITE_END = 9129
+RELEASE_QUEUE = 9109
 
 QUEUE_PRIM_IDS = frozenset(
-    {OBTAIN_QUEUE, ENQUEUE_ELEMENT, DEQUEUE_ELEMENT, ENQUEUE_AT_OPPOSITE_END},
+    {
+        OBTAIN_QUEUE, ENQUEUE_ELEMENT, DEQUEUE_ELEMENT, ENQUEUE_AT_OPPOSITE_END,
+        RELEASE_QUEUE,
+    },
 )
 
 _QUEUE_IMPORT = (
     "from lvkit.labview_queue import ("
     "dequeue_element, enqueue_element, enqueue_element_at_opposite_end, "
-    "obtain_queue)"
+    "obtain_queue, release_queue)"
 )
 
 
@@ -66,6 +68,8 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
         )
     if prim_id == DEQUEUE_ELEMENT:
         return _generate_dequeue(node, by_index, ctx)
+    if prim_id == RELEASE_QUEUE:
+        return _generate_release_queue(node, by_index, ctx)
 
     raise ValueError(
         f"queue_ops.generate() called for unsupported prim_id {prim_id!r}; "
@@ -190,6 +194,35 @@ def _generate_dequeue(
         node, ctx, "dequeue_element",
         [queue_val, timeout_val],
         [(by_index.get(9), "element"), (by_index.get(10), "timed_out")],
+    )
+    bindings.update(call_bindings)
+    return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
+
+
+def _generate_release_queue(
+    node: PrimitiveOperation, by_index: dict[int, Terminal], ctx: CodeGenContext,
+) -> CodeFragment:
+    """Release Queue(queue, force destroy?) -> (queue name, remaining elements).
+
+    Observed pane (NI-confirmed): in idx0=queue, idx2=force destroy? (F),
+    idx3=error in; out idx8=queue name (String), idx9=remaining elements
+    (Array, adapts to the queue subtype), idx11=error out. The queue-name
+    output is the queue's own ``.name`` (it survives the destroy), bound as an
+    expression rather than a runtime return; error in/out flow through the
+    general error machinery like the other queue ops.
+    """
+    queue_val = _resolve_input(by_index.get(0), ctx, "None")
+    force_val = _resolve_input(by_index.get(2), ctx, "False")
+
+    bindings: dict[str, str] = {}
+    name_term = by_index.get(8)
+    if name_term is not None:
+        bindings[name_term.id] = f"{queue_val}.name"
+
+    stmts, call_bindings = _emit_call(
+        node, ctx, "release_queue",
+        [queue_val, force_val],
+        [(by_index.get(9), "remaining_elements")],
     )
     bindings.update(call_bindings)
     return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
