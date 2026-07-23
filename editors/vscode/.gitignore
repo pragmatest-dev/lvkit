@@ -6,7 +6,11 @@ bin/
 *.vsix
 node_modules/
 
-# PyInstaller work dirs (if ever created in-tree)
+# PyInstaller work dirs. .pyi-work is now DELIBERATELY in-tree: PyInstaller
+# resolves the entry script relative to --specpath, and on Windows that fails
+# across drives ("path is on mount 'D:', start on mount 'C:'"), which is exactly
+# what a system temp dir causes on GitHub's runners. See build/build-binary.sh.
+build/.pyi-work/
 build/*.spec
 build/dist/
 build/__pycache__/
