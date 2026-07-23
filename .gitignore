@@ -65,6 +65,12 @@ venv.bak/
 *.swp
 *.swo
 
+# VS Code extension build output (PyInstaller binary + packaged VSIX).
+# Ignored at repo root so it never leaks into `git status` on branches that
+# lack editors/vscode/.gitignore. See editors/vscode/build/build-binary.sh.
+editors/vscode/bin/
+*.vsix
+
 # mypy
 .mypy_cache/
 .dmypy.json

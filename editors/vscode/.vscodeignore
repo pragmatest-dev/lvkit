@@ -1,5 +1,7 @@
 .vscode/**
-.gitignore
+build/**
 setup-jki-demo.sh
-**/*.vsix
+.gitignore
 node_modules/**
+**/*.vsix
+**/.DS_Store

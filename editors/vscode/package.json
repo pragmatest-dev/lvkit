@@ -6,10 +6,24 @@
   "publisher": "pragmatest",
   "icon": "icon.png",
   "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "https://github.com/pragmatest-dev/lvkit", "directory": "editors/vscode" },
+  "homepage": "https://pragmatest.com/lvkit",
+  "bugs": { "url": "https://github.com/pragmatest-dev/lvkit/issues" },
+  "galleryBanner": { "color": "#1e1e2e", "theme": "dark" },
   "engines": { "vscode": "^1.75.0" },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "lvkit runs a local lvkit executable against the .vi files in your workspace to render diagrams and diffs, so it needs a trusted workspace."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "lvkit reads .vi files from disk and runs a local lvkit executable, neither of which is available in a virtual workspace."
+    }
+  },
   "categories": ["Visualization", "SCM Providers", "Other"],
   "keywords": ["labview", "vi", "diff", "block diagram", "ni", "test"],
-  "activationEvents": ["onCommand:lvkit.diffVI", "onCommand:lvkit.generatePython", "onCustomEditor:lvkit.viPreview"],
+  "activationEvents": ["onCommand:lvkit.diffVI", "onCustomEditor:lvkit.viPreview"],
   "main": "./extension.js",
   "contributes": {
     "configuration": {
@@ -40,8 +54,7 @@
       }
     },
     "commands": [
-      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "lvkit" },
-      { "command": "lvkit.generatePython", "title": "Convert VI to Python (beta)", "category": "lvkit" }
+      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "lvkit" }
     ],
     "customEditors": [
       {
@@ -53,16 +66,13 @@
     ],
     "menus": {
       "scm/resourceState/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" },
-        { "command": "lvkit.generatePython", "when": "resourceExtname == .vi", "group": "navigation@2" }
+        { "command": "lvkit.diffVI", "when": "scmProvider == git", "group": "navigation@1" }
       ],
       "explorer/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" },
-        { "command": "lvkit.generatePython", "when": "resourceExtname == .vi", "group": "navigation@2" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
       ],
       "editor/title/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" },
-        { "command": "lvkit.generatePython", "when": "resourceExtname == .vi" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" }
       ]
     }
   }

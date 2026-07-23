@@ -32,15 +32,32 @@ function onPath(exe) {
   try { cp.execSync(probe, { stdio: 'ignore' }); return true; } catch (_) { return false; }
 }
 
+// Set in activate() so lvkitCmd can find the bundled standalone binary shipped
+// inside the extension (bin/lvkit/lvkit[.exe]) — a PyInstaller build that needs
+// no Python on the user's machine.
+let _extensionPath = null;
+
+// The standalone lvkit binary shipped with the extension, if present for this
+// platform. This is what makes the extension work out-of-the-box for a LabVIEW
+// user who has no Python/lvkit installed.
+function bundledLvkit() {
+  if (!_extensionPath) return null;
+  const exe = process.platform === 'win32' ? 'lvkit.exe' : 'lvkit';
+  const p = path.join(_extensionPath, 'bin', 'lvkit', exe);
+  return fileExists(p) ? p : null;
+}
+
 // Resolve a ready-to-exec lvkit command PREFIX for a repo `root`. The prefix may
 // be MULTIPLE tokens (e.g. `uv run lvkit`), so callers must interpolate it raw —
 // never wrap the whole prefix in quotes as if it were a single path. Order:
 //   1. an explicit `lvkit.path` override (the literal default "lvkit" counts as
 //      unset, so auto-resolution can still run) — quoted as one path;
-//   2. the repo-local venv's lvkit on disk;
+//   2. the repo-local venv's lvkit on disk (developing inside a lvkit project);
 //   3. `uv run lvkit` when the repo has a pyproject.toml/uv.lock and `uv` is on
-//      PATH (runs lvkit inside the repo's own env);
-//   4. a global `lvkit` on PATH.
+//      PATH (runs lvkit inside the repo's own env — latest code when developing);
+//   4. the BUNDLED standalone binary shipped with the extension (works with no
+//      Python installed — the default for a normal end user);
+//   5. a global `lvkit` on PATH.
 // We NEVER write a global lvkit.path from here.
 function lvkitCmd(root) {
   const configured = cfg().get('path', 'lvkit');
@@ -51,6 +68,8 @@ function lvkitCmd(root) {
   if (fileExists(venv)) return `"${venv}"`;
   const hasProj = fileExists(path.join(root, 'pyproject.toml')) || fileExists(path.join(root, 'uv.lock'));
   if (hasProj && onPath('uv')) return 'uv run lvkit';
+  const bundled = bundledLvkit();
+  if (bundled) return `"${bundled}"`;
   return 'lvkit';
 }
 
@@ -162,11 +181,36 @@ class ViPreviewProvider {
   async openCustomDocument(uri) { return { uri, dispose() {} }; }
   async resolveCustomEditor(document, panel) {
     panel.webview.options = { enableScripts: true };
-    const file = document.uri.fsPath;
-    const root = gitRootOr(path.dirname(file));
+    // `fsPath` is always the on-disk WORKING-TREE path, even when the URI is a
+    // `git:` (or other provider) resource — the scheme/query are stripped. Use
+    // it to root SubVI resolution (--search-path) and to name the temp file,
+    // but NEVER render it directly for a non-file URI (see below).
+    const origPath = document.uri.fsPath;
+    const root = gitRootOr(path.dirname(origPath));
     checkLvkitVersion(root);
     try {
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
+      // In VS Code's native diff, THIS editor opens on both panes with different
+      // URIs: the "after" pane is scheme `file` (on disk); the "before" pane is
+      // scheme `git`, whose bytes are the committed blob living inside git — its
+      // fsPath is the SAME on-disk path, so rendering fsPath would show the
+      // working copy on BOTH sides. Read any non-file URI through VS Code's
+      // provider (git's FileSystemProvider runs `git show`) and render a temp
+      // copy of those bytes instead.
+      let file = origPath;
+      if (document.uri.scheme !== 'file') {
+        const bytes = await vscode.workspace.fs.readFile(document.uri);
+        if (!bytes || bytes.length === 0) {
+          // e.g. the "before" side of a newly-added file — no committed blob.
+          panel.webview.html = errorHtml(
+            'No version to show',
+            'This .vi has no committed content on this side (it is newly added).'
+          );
+          return;
+        }
+        file = path.join(tmp, path.basename(origPath)); // keep the .vi extension
+        fs.writeFileSync(file, Buffer.from(bytes));
+      }
       const out = path.join(tmp, 'preview.html');
       // `render --format html` emits the self-contained interactive viewer
       // (zoom/pan + a light/dark diagram-theme toggle). The diagram itself is
@@ -188,6 +232,16 @@ async function diffVI(arg) {
   const uri = arg && arg.resourceUri ? arg.resourceUri : arg;
   if (!uri || !uri.fsPath) { vscode.window.showErrorMessage('lvkit: no .vi selected.'); return; }
   const file = uri.fsPath;
+  // The Source Control menu can't filter by file type: `resourceExtname` is not
+  // among the context keys available in scm/resourceState/context (only
+  // scmProvider / scmResourceGroup / originalResourceScheme are), so gating the
+  // menu on it silently hid this command from the git panel. The menu now uses
+  // `scmProvider == git`, which means it shows for EVERY changed file — so the
+  // .vi check has to happen here instead.
+  if (!file.toLowerCase().endsWith('.vi')) {
+    vscode.window.showErrorMessage(`lvkit: "${path.basename(file)}" is not a .vi file.`);
+    return;
+  }
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `lvkit: diffing ${path.basename(file)}…` },
     async () => {
@@ -218,131 +272,9 @@ async function diffVI(arg) {
   );
 }
 
-// ---- Convert VI -> Python (beta) --------------------------------------------
-// Resolve the target .vi from a context-menu arg (URI or SCM resource) or, for
-// the palette (no arg), from the active editor tab (custom preview OR text).
-function activeViUri(arg) {
-  if (arg && arg.resourceUri && arg.resourceUri.fsPath) return arg.resourceUri;
-  if (arg && arg.fsPath) return arg;
-  const groups = vscode.window.tabGroups;
-  const input = groups && groups.activeTabGroup && groups.activeTabGroup.activeTab
-    ? groups.activeTabGroup.activeTab.input : null;
-  // TabInputCustom (our .vi preview) and TabInputText both expose `.uri`.
-  if (input && input.uri && input.uri.fsPath) return input.uri;
-  return null;
-}
-
-// Collect real generated modules (skip package __init__.py and *.error.py).
-function walkPy(dir) {
-  let out = [];
-  let entries = [];
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return out; }
-  for (const e of entries) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) out = out.concat(walkPy(p));
-    else if (e.name.endsWith('.py') && e.name !== '__init__.py' && !e.name.endsWith('.error.py')) out.push(p);
-  }
-  return out;
-}
-// Pick the .py corresponding to the input VI (lvkit lowercases + underscores the
-// stem; match on an alnum-normalized comparison, else fall back to the first).
-function findGeneratedPy(dir, viFile) {
-  const files = walkPy(dir);
-  if (!files.length) return null;
-  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const stem = norm(path.basename(viFile, path.extname(viFile)));
-  const exact = files.find((f) => norm(path.basename(f, '.py')) === stem);
-  return exact || files[0];
-}
-// Pull the generate summary counts from stdout (lines like "  error:  1").
-function parseGenCounts(text) {
-  const pick = (k) => { const m = text.match(new RegExp('\\b' + k + ':\\s*(\\d+)')); return m ? parseInt(m[1], 10) : 0; };
-  return { vilib: pick('vilib'), ast: pick('ast'), stub: pick('stub'), error: pick('error') };
-}
-// A concise, honest attribution line for a conversion that couldn't finish —
-// the first diagnostic about an unrecognized/unresolved node, NOT a full dump.
-function nodeCoverageHint(text) {
-  const lines = String(text).split(/\r?\n/);
-  const hit = lines.find((l) => /resolution needed|FAILED:|add primitive|unrecognized|unhandled/i.test(l));
-  if (!hit) return '';
-  const t = hit.replace(/^\s*(->)?\s*/, '').trim();
-  return t.length > 200 ? t.slice(0, 197) + '…' : t;
-}
-
-async function generatePython(arg) {
-  const uri = activeViUri(arg);
-  if (!uri || !uri.fsPath || !uri.fsPath.toLowerCase().endsWith('.vi')) {
-    vscode.window.showErrorMessage('lvkit: no .vi selected. Open or right-click a .vi file, then run "Convert VI to Python".');
-    return;
-  }
-  const file = uri.fsPath;
-  const root = gitRootOr(path.dirname(file));
-  checkLvkitVersion(root);
-  await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: `lvkit: converting ${path.basename(file)}…` },
-    async () => {
-      const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-gen-'));
-      // `--placeholder-on-unresolved`: unknown primitives / vi.lib VIs become
-      // inline-raise STUBS (build succeeds, stubs visible) instead of failing —
-      // the right beta trade-off. Only deeper unresolvables (terminal/type
-      // resolution) still hard-fail. lvkit writes all diagnostics to STDOUT and
-      // exits non-zero on any error, so capture stdout even when execSync throws.
-      let out = '';
-      try {
-        out = cp.execSync(
-          `${lvkitCmd(root)} generate "${file}" ${searchArgs(root)} --placeholder-on-unresolved -o "${outDir}"`,
-          { cwd: root, maxBuffer: 1e9 }
-        ).toString();
-      } catch (e) {
-        out = (e && e.stdout ? e.stdout.toString() : '') + '\n' +
-              (e && e.stderr ? e.stderr.toString() : '') + '\n' + String(e && e.message);
-      }
-
-      const hasSummary = /\berror:\s*\d+/.test(out);
-      if (!hasSummary) {
-        // lvkit never ran to a summary — infrastructure failure, not node coverage.
-        if (/ENOENT|not found|No such file/i.test(out)) {
-          vscode.window.showErrorMessage('lvkit executable not found. Set "lvkit.path" in Settings, or install lvkit.');
-        } else {
-          const first = String(out).split(/\r?\n/).find((l) => l.trim()) || 'unknown error';
-          vscode.window.showErrorMessage('lvkit convert failed: ' + first.trim());
-        }
-        return;
-      }
-
-      const counts = parseGenCounts(out);
-      if (counts.error > 0) {
-        // Couldn't fully convert — attribute it to growing node coverage, with
-        // the specific node info, NOT a raw traceback.
-        const hint = nodeCoverageHint(out);
-        vscode.window.showWarningMessage(
-          `Can't fully convert "${path.basename(file)}" yet: unrecognized node(s) — lvkit's node coverage is growing.` +
-          (hint ? ` (${hint})` : '')
-        );
-        return;
-      }
-
-      const py = findGeneratedPy(outDir, file);
-      if (!py) {
-        vscode.window.showWarningMessage(`Converted "${path.basename(file)}" but produced no Python file to open.`);
-        return;
-      }
-      const doc = await vscode.workspace.openTextDocument(py);
-      await vscode.window.showTextDocument(doc);
-      if (counts.stub > 0) {
-        vscode.window.showWarningMessage(
-          `Converted "${path.basename(file)}" with ${counts.stub} node(s) lvkit doesn't recognize yet — review the stubs. Coverage is still growing.`
-        );
-      } else {
-        vscode.window.showInformationMessage('Converted (beta) — review before use.');
-      }
-    }
-  );
-}
-
 function activate(context) {
+  _extensionPath = context.extensionPath;
   context.subscriptions.push(vscode.commands.registerCommand('lvkit.diffVI', diffVI));
-  context.subscriptions.push(vscode.commands.registerCommand('lvkit.generatePython', generatePython));
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(
     'lvkit.viPreview', new ViPreviewProvider(),
     { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false }

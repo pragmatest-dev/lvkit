@@ -1,0 +1,61 @@
+name: Publish VS Code extension
+
+# Fires on an EXTENSION tag (ext-v*), separate from the PyPI publish (v*).
+# Builds the standalone lvkit binary per-platform (PyInstaller) and publishes a
+# platform-specific .vsix for each target. Needs a VSCE_PAT repo secret
+# (Azure DevOps PAT with Marketplace:Manage scope).
+on:
+  push:
+    tags:
+      - "ext-v*"
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win32-x64
+          - os: macos-13
+            target: darwin-x64
+          - os: macos-14
+            target: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # vsce publishes the version from package.json, NOT from the tag — so a
+      # mismatched tag would silently ship the wrong version (or fail late, on
+      # only some platforms). Fail fast and loudly instead.
+      - name: Verify tag matches package.json version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#ext-v}"
+          pkg=$(node -p "require('./editors/vscode/package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag ext-v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "Publishing version $pkg"
+
+      - name: Build bundled lvkit binary
+        shell: bash
+        run: |
+          uv venv
+          uv pip install -e . pyinstaller
+          uv run bash editors/vscode/build/build-binary.sh
+
+      - name: Package + publish (.vsix for this platform)
+        shell: bash
+        working-directory: editors/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          npx --yes @vscode/vsce publish --target ${{ matrix.target }} --pat "$VSCE_PAT"
