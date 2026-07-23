@@ -39,22 +39,87 @@ class CtlRefConstHandler(RefBuildHandler):
     def handle(self, node, q_node_uid, ctx):
         if not isinstance(node, CtlRefConstNode):
             return False
-        # Alias this node's output terminal to the referenced FP terminal so
-        # downstream wires connect to the FP variable. No graph node created.
+        # A control-reference constant is a REAL on-diagram object drawn at its
+        # own position, wired locally to whatever consumes it. Model it as a
+        # LocalVariableNode (read) at that position — the SAME shape gRef uses —
+        # rather than aliasing its terminal onto the referenced FP terminal.
+        #
+        # The old alias (term_lookup[own] = fp_wire_end) collapsed the constant
+        # away and re-homed its wire onto the FP terminal, which is drawn
+        # wherever that terminal sits (often inside an unrelated structure) — so
+        # a wire local to one diagram appeared to cross structure borders with
+        # no tunnel. Faithful surfaces (render/describe/diff) must see the
+        # constant where it lives; the FP-value dataflow is preserved for
+        # codegen by the synthetic (non-drawn) edge below, exactly as for gRef.
+        #
         # Built-in refs (ddo_uid absent) are deferred — skip silently.
-        if node.ddo_uid:
-            fpdco_uid = ctx.ddo_to_fpdco.get(node.ddo_uid)
-            if fpdco_uid:
-                fp_wire_end = None
-                for fp_term in ctx.bd.fp_terminals:
-                    if fp_term.fp_dco_uid == fpdco_uid:
-                        fp_wire_end = ctx.term_lookup.get(fp_term.uid)
-                        break
-                if fp_wire_end:
-                    for term_uid, t_info in ctx.bd.terminal_info.items():
-                        if t_info.parent_uid == node.uid:
-                            ctx.term_lookup[term_uid] = fp_wire_end
-                            break
+        if not node.ddo_uid:
+            return True
+
+        fp_wire_end = None
+        fpdco_uid = ctx.ddo_to_fpdco.get(node.ddo_uid)
+        if fpdco_uid:
+            for fp_term in ctx.bd.fp_terminals:
+                if fp_term.fp_dco_uid == fpdco_uid:
+                    fp_wire_end = ctx.term_lookup.get(fp_term.uid)
+                    break
+
+        # This node's own terminal (its reference output).
+        own_term_uid = None
+        own_t_info = None
+        for term_uid, t_info in ctx.bd.terminal_info.items():
+            if t_info.parent_uid == node.uid:
+                own_term_uid = term_uid
+                own_t_info = t_info
+                break
+
+        control_name = node.name or "Control Reference"
+        is_write = bool(own_t_info) and not own_t_info.is_output
+        direction = "input" if is_write else "output"
+        lv_type = None
+        if own_t_info and own_t_info.parsed_type:
+            lv_type = ctx.enrich_type(own_t_info.parsed_type)
+
+        q_own_term_uid = ctx.qid(own_term_uid) if own_term_uid else q_node_uid
+        own_terminal = Terminal(
+            id=q_own_term_uid, index=0, direction=direction,
+            name=control_name, lv_type=lv_type,
+        )
+        local_var_node = LocalVariableNode(
+            id=q_node_uid,
+            vi=ctx.vi_name,
+            name=control_name,
+            node_type=node.node_type,
+            terminals=[own_terminal],
+            control_name=control_name,
+            control_terminal_id=(
+                fp_wire_end.terminal_id if fp_wire_end else None
+            ),
+            is_write=is_write,
+        )
+        ctx.graph.add_node(q_node_uid, node=local_var_node)
+        ctx.vi_node_uids.add(q_node_uid)
+
+        if own_term_uid:
+            my_wire_end = WireEnd(
+                terminal_id=q_own_term_uid, node_id=q_node_uid,
+                index=0, name=control_name,
+            )
+            ctx.term_lookup[own_term_uid] = my_wire_end
+            # Synthetic (non-drawn) dataflow edge to the referenced control,
+            # direction-matched to read vs write — preserves the FP-value
+            # dataflow codegen consumed under the old alias.
+            if fp_wire_end is not None:
+                if is_write:
+                    ctx.graph.add_edge(
+                        q_node_uid, ctx.vi_name,
+                        source=my_wire_end, dest=fp_wire_end,
+                    )
+                else:
+                    ctx.graph.add_edge(
+                        ctx.vi_name, q_node_uid,
+                        source=fp_wire_end, dest=my_wire_end,
+                    )
         return True
 
 

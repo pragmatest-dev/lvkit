@@ -38,6 +38,15 @@ class Theme:
     case_bar_text: str = "#4a4636"
     case_no_error_border: str = "#2e9e3f"  # green — error-cluster "No Error" frame
     case_error_border: str = "#d32f2f"     # red — error-cluster "Error" frame
+    # Event Structure border — a distinct warm amber/gold (LabVIEW's own
+    # diagonal-hatch border uses a similar tan hue): a WIDE filled BAND (not
+    # a thin dashed line) between the structure's outer heap bounds and its
+    # inset inner content, mirroring LabVIEW's own hatched border margin
+    # (see draw.py::_draw_event_border_band). ``event_border`` is the thin
+    # edge-line color (outer + inner rule); ``event_band`` is the band's
+    # light-yellow fill.
+    event_border: str = "#b8860b"
+    event_band: str = "#fdf6cf"
     # Translucent wash painted over a DISABLED subdiagram of a Diagram/
     # Conditional Disable structure (every frame except the enabled one), so
     # its greyed-out contents read as inactive — matches LabVIEW. Applied at

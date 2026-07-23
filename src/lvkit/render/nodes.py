@@ -34,6 +34,7 @@ from ..graph.core import InMemoryVIGraph
 from ..graph.models import (
     AnyGraphNode,
     ConstantNode,
+    EventStructureNode,
     FormulaNode,
     LocalVariableNode,
     PrimitiveNode,
@@ -60,8 +61,10 @@ from .glyph import (
     ClusterConstantGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
+    ControlRefConstGlyph,
     ConvertGlyph,
     ErrorClusterGlyph,
+    EventDataGlyph,
     FormulaNodeGlyph,
     Glyph,
     IconImageGlyph,
@@ -73,7 +76,7 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
 )
-from .style import numeric_repr, type_family, wire_style
+from .style import numeric_repr, type_family, type_repr, wire_style
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +219,13 @@ _CONVERTER_ABBR = {
 # "Node Multiplexer" classes; bundling vs unbundling is read from the FIELD
 # (nmux_role=="list") terminals' direction — inputs = Bundle, outputs =
 # Unbundle. The AGGREGATE (nmux_role=="agg") terminal(s) are never counted.
-_CLUSTER_MUX_TYPES = frozenset({"nMux", "mux", "demux"})
+#
+# ``eventDataNode`` (an Event Structure's Event Data Node / Event Filter Node
+# — same heap class for both) is structurally identical to nMux (dcoAgg +
+# named dcoList/<i> fields via nmxDCO terminal DCOs, see
+# parser/node_types.py::_EventDataNodeHandler) so it shares the same
+# named-rows glyph instead of the old generic-fallback giant box.
+_CLUSTER_MUX_TYPES = frozenset({"nMux", "mux", "demux", "eventDataNode"})
 
 # node_type -> (bundle name, unbundle name), for when direction can't be
 # determined from a ``list``-role terminal (defensive fallback only).
@@ -224,6 +233,7 @@ _MUX_TYPE_DEFAULT_NAMES = {
     "nMux": "Bundle/Unbundle By Name",
     "mux": "Bundle",
     "demux": "Unbundle",
+    "eventDataNode": "Event Data",
 }
 
 _DEFAULT_ICON_SIZE = (24, 24)
@@ -237,6 +247,11 @@ def mux_display_name(node: AnyGraphNode) -> str:
     are outputs -> Unbundle. Falls back to a type-based default if the node
     has no field terminals (defensive; shouldn't happen for a real mux)."""
     node_type = node.node_type
+    # An Event Data/Filter Node isn't a real Bundle/Unbundle — it's always
+    # "Event Data" regardless of field direction (the Filter Node's fields
+    # can be writable, unlike a genuine Unbundle's read-only outputs).
+    if node_type == "eventDataNode":
+        return "Event Data"
     field_terms = [t for t in node.terminals if t.nmux_role == "list"]
     if field_terms:
         bundling = field_terms[0].direction == "input"
@@ -476,6 +491,59 @@ def _bundle_by_name_glyph(
     return BundleByNameGlyph(names=tuple(names), bundling=bundling)
 
 
+def _event_data_glyph(
+    node: PrimitiveNode, graph: InMemoryVIGraph,
+) -> EventDataGlyph | None:
+    """The Event Data Node / Event Filter Node glyph (see ``EventDataGlyph``).
+    Same ``dcoAgg``/``dcoList`` field shape as ``_bundle_by_name_glyph`` (the
+    parser reuses ``NMuxHandler`` wholesale — see parser/node_types.py's
+    ``_EventDataNodeHandler``), so field NAMES resolve the same way, but each
+    row also keeps its field's own resolved LVType (preferring the field
+    TERMINAL's own type — every DCO gets one from VCTP independent of the
+    cluster-field lookup — and falling back to the cluster field's type only
+    when the terminal's is unresolved) for the type-colored name text.
+
+    ``is_filter`` is read from the owning ``EventStructureNode.
+    filter_node_uids`` (set during graph construction from the eventStruct's
+    ``filterNodeList`` — see parser/nodes/event.py) — the ONLY way to tell an
+    Event Filter Node apart from an Event Data Node, since both share this
+    same heap class. Returns None if there are no field terminals at all
+    (caller falls back to the generic box)."""
+    agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
+    fields = (
+        graph.get_type_fields(agg.lv_type) or []
+        if agg is not None and agg.lv_type is not None
+        else []
+    )
+    field_terms = sorted(
+        (t for t in node.terminals if t.nmux_role == "list"), key=lambda t: t.index,
+    )
+    if not field_terms:
+        return None
+    rows: list[tuple[str, LVType | None]] = []
+    for t in field_terms:
+        fi = t.nmux_field_index
+        field = fields[fi] if fi is not None and 0 <= fi < len(fields) else None
+        if field is not None and field.name:
+            name = field.name
+        elif t.name:
+            name = t.name
+        elif fi is not None:
+            name = f"[{fi}]"
+        else:
+            name = "[?]"
+        lv_type = t.lv_type if t.lv_type is not None else (
+            field.type if field is not None else None
+        )
+        rows.append((name, lv_type))
+
+    is_filter = False
+    parent = graph.get_graph_node(node.parent) if node.parent else None
+    if isinstance(parent, EventStructureNode):
+        is_filter = node.id in parent.filter_node_uids
+    return EventDataGlyph(rows=tuple(rows), is_filter=is_filter)
+
+
 def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     """A Property Node glyph: one row per accessed property, labelled with the
     property NAME and marked read/write. Names come from ``node.properties``
@@ -634,6 +702,13 @@ class OriginalGlyphResolver:
 
     @staticmethod
     def _cluster_glyph(node: PrimitiveNode, graph: InMemoryVIGraph) -> Glyph | None:
+        # An Event Structure's Event Data Node / Event Filter Node (heap class
+        # ``eventDataNode``) is its OWN bespoke glyph — a white named-rows box
+        # with a side accent band (see ``EventDataGlyph``) — never the tan
+        # Bundle/Unbundle-By-Name look below (it isn't a real cluster
+        # assemble/disassemble, just a structurally-identical DCO shape).
+        if node.node_type == "eventDataNode":
+            return _event_data_glyph(node, graph)
         # nMux is Bundle/Unbundle BY NAME — a box with the accessed field NAMES,
         # resolved from the wired cluster's type (mux/demux are the compact,
         # positional Bundle/Unbundle handled by field count below).
@@ -831,10 +906,32 @@ class GeneratedGlyphResolver:
             lv_type = next(
                 (t.lv_type for t in node.terminals if t.lv_type is not None), None
             )
+            border = wire_style(lv_type).color if lv_type is not None else None
+            # A control-reference constant is modeled as a LocalVariableNode for
+            # codegen (it resolves to the referenced FP variable), but it is NOT
+            # a local variable: it emits a control REFERENCE (a refnum). LabVIEW
+            # type-colors the constant's box by the CONTROL it references (its
+            # own OUTPUT wire is the refnum reference wire) — so border/text take
+            # the referenced control's data-type color, resolved from the FP
+            # terminal the reference points at.
+            if node.node_type == "ctlRefConst":
+                ref_term = (
+                    ctx.graph.get_terminal(node.control_terminal_id)
+                    if node.control_terminal_id else None
+                )
+                ref_type = ref_term.lv_type if ref_term is not None else None
+                type_color = (
+                    wire_style(ref_type).color if ref_type is not None else border
+                )
+                return ControlRefConstGlyph(
+                    name=node.control_name or node.name or "Control Reference",
+                    type_text=type_repr(ref_type),
+                    type_color=type_color,
+                )
             return LocalVariableGlyph(
                 node.control_name or node.name or "Local Variable",
                 is_write=node.is_write,
-                border_color=wire_style(lv_type).color if lv_type is not None else None,
+                border_color=border,
             )
         return None
 

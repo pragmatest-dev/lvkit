@@ -700,13 +700,15 @@
       "note": "Constant that returns the <Not A Path> value. In Python, None represents an invalid/empty path."
     },
     "2076": {
-      "name": "Unknown Event/Notification Primitive 2076",
+      "name": "Unregister For Events",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unregister-for-events.html",
+      "verified": false,
       "placeholder": true,
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": "refnum_in",
+          "name": "event_reg_refnum",
           "type": "Refnum"
         },
         {
@@ -722,22 +724,24 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass"
+      "python_code": "pass",
+      "note": "REPLACES the prior generic placeholder ('Unknown Event/Notification Primitive 2076'). Confirmed via NI doc exact match: 'event registration refnum' (EventReg, from Register For Events / the eventRegNode), error in ('This node runs normally even if an error occurred before this node runs' -- same special wording as Destroy User Event) -> error out ONLY, no refnum passthrough (unregistering invalidates the registration). In 'DAQmx AO.vi' (lv-flex-channel-examples) the single observed instance's idx0 input comes directly from the eventRegNode-fed while-loop shift register carrying the accumulated EventReg -- exactly where an 'unregister everything on exit' call belongs (called once, outside/after the event loop). Only 1 real call site in the corpus (verified stays false). Identity is solid; CODEGEN is not. No lvkit user-event/event-registration runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py; notifiers got the same 'identity solid, placeholder codegen' treatment at 9101/9104/9102). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code."
     },
     "2074": {
-      "name": "Unknown Event/Notification Primitive",
+      "name": "Register Event Source (internal)",
+      "verified": false,
       "placeholder": true,
       "terminals": [
         {
           "index": 0,
           "direction": "in",
-          "name": "refnum_in",
+          "name": "event_reg_in",
           "type": "Refnum"
         },
         {
           "index": 1,
           "direction": "in",
-          "name": "data_in",
+          "name": "event_source_data",
           "type": "Cluster"
         },
         {
@@ -749,13 +753,13 @@
         {
           "index": 4,
           "direction": "in",
-          "name": "timeout_ms",
+          "name": "config",
           "type": "NumUInt32"
         },
         {
           "index": 8,
           "direction": "out",
-          "name": "refnum_out",
+          "name": "event_reg_out",
           "type": "Refnum"
         },
         {
@@ -765,7 +769,8 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass"
+      "python_code": "pass",
+      "note": "Renamed from the generic 'Unknown Event/Notification Primitive' placeholder with much more specific (but still not fully confident) evidence; kept as placeholder because no NI-documented function matches this exact shape. Found in 'DAQmx AO.vi' (lv-flex-channel-examples), appearing 6 times, always alongside prim 2135 (5 instances in the same VI): in EVERY 2074 instance where idx3 (error_in) is wired, its source is the error_out of a 2135 node -- i.e. 2074 is chained immediately AFTER 2135 per registered event source. 2135 is independently confirmed (see that entry) to register ONE event source of one selected event-type (its idx2 enum literally enumerates LabVIEW's built-in Event Type list: Value Change, Mouse Down, Panel Close, User Event, etc.). Given that pairing, 2074 most likely folds the freshly-registered single-source EventReg (idx0) plus its associated data/config (idx1 Cluster, idx4 UInt32) into the running accumulated EventReg (idx8 out), i.e. a per-source companion step to the pure 2-refnum merge done by 2402. This is a plausible, evidence-backed ROLE, not a confirmed NI verb -- no public doc page exists for anything at this exact shape, so identity is left as an internal/placeholder entry rather than asserting a name NI never published. verified stays false."
     },
     "2401": {
       "name": "Merge Errors",
@@ -2694,8 +2699,8 @@
       "note": "Queue op (ref_type=Queue on idx8). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.obtain_queue()."
     },
     "9109": {
-      "name": "Get Queue Status",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-queue-status.html",
+      "name": "Release Queue",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-queue.html",
       "verified": true,
       "terminals": [
         {
@@ -2707,7 +2712,7 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "return_elements",
+          "name": "force_destroy",
           "type": "Boolean"
         },
         {
@@ -2719,13 +2724,13 @@
         {
           "index": 8,
           "direction": "out",
-          "name": "name",
+          "name": "queue_name",
           "type": "String"
         },
         {
           "index": 9,
           "direction": "out",
-          "name": "elements",
+          "name": "remaining_elements",
           "type": "Array"
         },
         {
@@ -2735,10 +2740,11 @@
           "type": "Cluster"
         }
       ],
-      "python_code": {
-        "_body": "raise RuntimeError('Get Queue Status (9109) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
-      },
-      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.get_queue_status(). No separate pending-count terminal was ever observed wired in samples used to resolve this entry; count = len(elements) with return_elements=True."
+      "placeholder": true,
+      "python_code": "pass",
+      "note": [
+        "CORRECTED (was mislabeled 'Get Queue Status'). Full-pane comparison against 9110 (below) proves the two are DIFFERENT functions, not twins: this pane has NO queue_out refnum output at all (releasing the reference invalidates it), while 9110's pane has a queue_out refnum at idx8. Real 'Get Queue Status' also has 5 more outputs (max_queue_size, #pending_remove, #pending_insert, #elements_in_queue) that this pane never carries in any observed instance. This 6-terminal shape (queue, force_destroy?, error_in -> queue_name, remaining_elements, error_out) is an EXACT type+count match for NI's Release Queue doc, including the 'error in ... runs normally even if an error occurred before this node runs' exception noted for error_in. FOLLOW-UP NEEDED (out of scope for this pass -- primitives.json only): codegen/nodes/queue_ops.py currently maps primResID 9109 to GET_QUEUE_STATUS/_generate_status() and calls lvkit.labview_queue.get_queue_status(queue, return_elements); that must be changed to a RELEASE_QUEUE=9109 case calling a new release_queue(queue, force_destroy) in lvkit/labview_queue.py, and QUEUE_PRIM_IDS/GET_QUEUE_STATUS must be repointed at 9110 (see that entry)."
+      ]
     },
     "9101": {
       "name": "Obtain Notifier",
@@ -5126,6 +5132,598 @@
       "inline": true,
       "verified": false,
       "note": "Identity from ref_type=DataValueRef on the out#3 refnum (per the skill, ref_type IS the identity); every call-site is a *_New.vi LVOOP constructor. Cluster directions pinned because idx7 is sometimes a Refnum (a DVR wrapping a refnum), which an error-in never is. python_code models the DVR as a 1-element list and is PROVISIONAL - belongs with the lvkit runtime decision, not inlined."
+    },
+    "9110": {
+      "name": "Get Queue Status",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-queue-status.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "return_elements",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "max_queue_size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "elements",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "queue_name",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "elements_in_queue",
+          "type": "NumInt32"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "pending_remove",
+          "type": "NumInt32"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "pending_insert",
+          "type": "NumInt32"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "note": [
+        "This is the FULL, 11-terminal Get Queue Status pane -- an exact type+count match to the NI doc (queue, return_elements?, error_in -> max_queue_size, queue_name, queue_out, #pending_remove, #pending_insert, error_out, #elements_in_queue, elements), cross-checked identical across 2 independent VIs ('Graphical Test Runner - Main UI - .vi' and 'test Queue Size is Zero.vi', JKI VI-Tester). idx7 (elements_in_queue) is confirmed by DIRECT dataflow: in 'test Queue Size is Zero.vi' idx7's output feeds prim 1115 ('Less Or Equal To 0?', in_1<=0) -- i.e. the VI literally computes 'is queue size <= 0', which only makes sense if idx7 is the element count. idx8/idx11/idx5/idx6 are unambiguous by unique type (Refnum/Cluster/Array/String). idx4 (max_queue_size), idx9 (pending_remove), idx10 (pending_insert) are the 3 remaining same-typed (NumInt32) slots, assigned by connector-pane column position: idx8-9-10-11 form one single-height output column running top-to-bottom in the SAME order as the NI doc list (queue_out, pending_remove, pending_insert, error_out) -- idx4 is what's left by elimination. 9109 was previously (and wrongly) labeled 'Get Queue Status' with only a 6-terminal subset pane; see the corrected 9109 entry (Release Queue) for the full comparison. FOLLOW-UP NEEDED (out of scope for this pass): queue_ops.py's GET_QUEUE_STATUS constant and QUEUE_PRIM_IDS must be repointed from 9109 to 9110, _generate_status() must be extended to unpack all 8 outputs, and lvkit.labview_queue.get_queue_status() must be extended to return (max_queue_size, queue_name, queue_out, pending_remove, pending_insert, elements_in_queue, elements) instead of just (name, elements)."
+      ]
+    },
+    "9114": {
+      "name": "Flush Queue",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flush-queue.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "remaining_elements",
+          "type": "Array"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "raise RuntimeError('Flush Queue (9114) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": [
+        "Exact type+count match to NI's Flush Queue doc (queue, error_in -> queue_out, remaining_elements, error_out; NO extra terminals -- distinguishes it from Release Queue/9109, which lacks queue_out, and from Get Queue Status/9110, which has far more outputs). Index pattern (idx0 queue in, idx3 error_in, idx8 queue_out, idx9 element(s) out, idx11 error_out) matches the sibling Dequeue Element (9113) pane exactly, minus the timeout/timed_out pair Flush Queue doesn't have. Cross-checked identical across 2 independent VIs ('Graphical Test Runner - Main UI - .vi' and 'Measurement UI.vi' / Game Of Life, measurement-plugin-labview). FOLLOW-UP NEEDED (out of scope for this pass): codegen/nodes/queue_ops.py needs a FLUSH_QUEUE=9114 case added to QUEUE_PRIM_IDS/generate(), and lvkit/labview_queue.py needs a flush_queue(queue) function (pop all pending elements front-to-back into a list and return it, mirroring LVQueue.status() but draining instead of peeking)."
+      ]
+    },
+    "2073": {
+      "name": "Create User Event",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-user-event.html",
+      "verified": true,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "user_event_data_type",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "user_event_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Confirmed via NI doc exact match: 'user event data type' (a cluster of elements or an individual element whose labels/types define the event's name+data), error in -> user event out (strictly-typed UserEvent refnum), error out. ref_type=UserEvent on the output is the clean-room identity signal. Cross-checked identical across 2 independent VIs (JKI VI-Tester 'Graphical Test Runner - Main UI - .vi': idx0 resolved Boolean; lv-flex-channel-examples 'WaveGen.vi': idx0 resolved Cluster) -- the varying idx0 type across instances is exactly the documented polymorphism ('cluster of elements OR an individual element'). Identity is solid; CODEGEN is not. No lvkit user-event/event-registration runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py; notifiers got the same 'identity solid, placeholder codegen' treatment at 9101/9104/9102). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code."
+    },
+    "2075": {
+      "name": "Destroy User Event",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/destroy-user-event.html",
+      "verified": true,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "user_event",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Confirmed via NI doc exact match: 'user event' (UserEvent refnum from Create User Event), error in ('This node runs normally even if an error occurred before this node runs' -- matches this primitive's special error-in semantics) -> error out ONLY (no refnum passthrough -- destroying invalidates the reference, which is why this pane has no 'user event out'). Cross-checked identical across 2 independent VIs (JKI VI-Tester Graphical Test Runner; measurement-plugin-labview 'Run Client.vi'). NOTE FOR MAINTAINER (not touched, out of scope): src/lvkit/codegen/class_builder.py line ~385 has a stale/incorrect comment listing prim 2075 as 'Merge Errors' in _is_simple_accessor()'s simple_prim_ids set (2076 is listed there too, as 'Clear Error'). Per this resolution and the adjacent 2076 entry (Unregister For Events), NEITHER of those identifications is correct -- flagging for a follow-up fix, not changed here since it's outside primitives.json/tests scope. Identity is solid; CODEGEN is not. No lvkit user-event/event-registration runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py; notifiers got the same 'identity solid, placeholder codegen' treatment at 9101/9104/9102). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code."
+    },
+    "2402": {
+      "name": "Merge Event Registrations",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "event_reg_a",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "event_reg_b",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "event_reg_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": "pass",
+      "note": "No public NI doc page found for this exact 2-EventReg-refnum-in / 1-EventReg-refnum-out shape with NO error cluster at all -- searched the full NI function catalog under 'event'/'regist'/'refnum' keywords; nothing matches. Deduced as a COMPILER-INTERNAL glue primitive (name is a clean-room descriptive label, not an NI-documented title), analogous in role to prim 2401 Merge Errors at the immediately adjacent resID (also a pure-refnum-combine op with no error terminal of its own). Evidence: NI's Register For Events doc explicitly documents refnum-chaining ('wire the top left input of the Register For Events function to... modify the existing registration instead of registering again'), i.e. LabVIEW natively combines multiple dynamic event-source registrations into one EventReg. In 'DAQmx AO.vi' (lv-flex-channel-examples), 2402 appears 3 times: one instance's idx0 comes directly from the diagram's eventRegNode, and its output feeds both a Bundle node and the enclosing while loop's shift register (the master EventReg the Event structure reads each iteration); the other two instances chain off a 'Read Event.vi' SubVI call (which itself likely performs an internal dynamic registration and returns a fresh EventReg to fold in). This reads as the compiler's automatic merge step whenever a static eventRegNode registration is combined with additional dynamically-obtained registrations, mirroring how 2401 merges multiple error-cluster branches. Cross-checked structurally identical (3 same-shaped instances in 'DAQmx AO.vi' plus matching instances in 'WaveGen.vi' and 'Control.vi', same library). No runtime exists for event registration in lvkit, and the exact merge semantics (which refnum 'wins', or whether both remain independently live) cannot be confirmed without a public spec, so left as placeholder pass."
+    },
+    "2135": {
+      "name": "Register Event Source For Event Type (internal)",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "event_reg_in",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "dynamic",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "event_type",
+          "type": "enum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "source_id",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "config",
+          "type": "NumInt32"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "event_reg_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "registration_id",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "No public NI function page matches this shape -- deduced as a compiler-internal primitive that the eventRegNode / Register For Events construct expands into once per configured (event source, event type) pair; users never place this node directly (per NI docs, they configure it via the Register For Events icon's right-click menu or the eventRegNode UI). STRONG evidence for the domain: idx2's enum type (UnitUInt32) carries LabVIEW's actual built-in Event Type enumeration as its values -- 'Timeout', 'Value Change', 'Mouse Down', 'Mouse Down?', 'Panel Close', 'Panel Close?', 'Key Down', 'User Event', 'Cell Edit', 'Tree Item Open', etc. (67 values, read directly from the VI's own type map in 'DAQmx AO.vi') -- this is exactly the closed set of events NI's Register For Events doc describes selecting via 'right-click the data item for the event source and select the event to detect'. Cross-checked structurally identical across 5 instances within 'DAQmx AO.vi' and confirmed in the sibling 'WaveGen.vi' (same lv-flex-channel-examples library). Exact field semantics for idx1 (dynamic/static?), idx4/idx5 (a source identifier and some config value) are a reasonable but unconfirmed reading -- no doc page exists to pin them precisely, hence placeholder + verified:false despite the strong enum evidence for the overall identity/domain."
+    },
+    "9000": {
+      "name": "Current VI's Menubar",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/current-vi-s-menubar.html",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "menu_reference",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Confirmed via NI doc exact match: the ONLY function in the Menu category with a single terminal (menu reference output, no inputs, no error terminals at all -- 'Returns the menu reference refnum of the current VI'). ref_type=Menu on the sole output is the clean-room identity signal. Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false."
+    },
+    "9003": {
+      "name": "Insert Menu Items",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-menu-items.html",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "menu_tag",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "after_item",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "item_names",
+          "type": "Array"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "item_tags",
+          "type": "Array"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "menu_reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "item_tags_out",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "menu_reference_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Confirmed via NI doc exact match: 6 inputs (menu tag, menu reference, item names, item tags, error in, after item) + 3 outputs (menu reference out, item tags out, error out) = 9 named terminals, exactly matching the observed 9-terminal pane. Types pin most slots unambiguously: idx9=Refnum=menu reference, idx6=Cluster=error in, idx7/idx8=Array[String]=item names/item tags (this instance wired arrays; the doc also allows a single string per slot), idx3=Refnum=menu reference out, idx1=Array[String]=item tags out, idx0=Cluster=error out -- all confirmed unambiguous by output-column termBounds order, which matches the NI doc's output listing order exactly (top-to-bottom: menu reference out, item tags out, error out). The remaining ambiguity is idx4 vs idx5 (both scalar String): termBounds geometry places them in their own double-height connector-pane column, separate from the single-height 4-slot column holding menu_reference/item_names/item_tags/error_in (which independently matches doc order top-to-bottom). menu_tag is the FIRST-listed doc input and after_item is the LAST-listed; assigning top-of-column=idx5=menu_tag, bottom-of-column=idx4=after_item is a deduction (not a doc-confirmed index), supported by dataflow: idx5 (hypothesized menu_tag) IS wired in the sole corpus instance, idx4 (hypothesized after_item, a rarely-customized insertion-position parameter) is UNWIRED -- consistent with menu_tag being commonly specified and after_item commonly left at its default. Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false."
+    },
+    "9004": {
+      "name": "Delete Menu Items",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-menu-items.html",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "items",
+          "type": "Array"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "menu_tag",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "menu_reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "menu_reference_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Confirmed via NI doc exact match, and cleanly unambiguous: NI lists exactly 4 inputs (menu reference, menu tag, items, error in) and 2 outputs (menu reference out, error out), matching the observed 6-terminal pane count. Every input has a UNIQUE type in this pane (idx9=Refnum, idx8=String, idx7=Array[String], idx6=Cluster), so no shape-guessing was needed -- 'items' (doc: 'a tag, an array of tags, a position index, or an array of position indexes') was wired here as Array[String], the only array-typed input. Column top-to-bottom order (idx9,idx8,idx7,idx6) independently matches the doc's listed order (menu reference, menu tag, items, error in), and the output column (idx3 top, idx0 bottom) matches (menu reference out, error out). Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false."
+    },
+    "9005": {
+      "name": "Get Menu Item Info",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-menu-item-info.html",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "item_tag",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "menu_reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "enabled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "item_name",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "menu_reference_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "checked",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "submenu_tags",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "shortcut_info",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Confirmed via NI doc exact match: 3 inputs (item tag, menu reference, error in) confirmed unambiguous by unique type. NI's doc lists 10 named outputs, but 3 of them (short cut, include Shift key?, include Ctrl key?, shortcut key) collapse into ONE cluster terminal on the actual icon -- confirmed by resolving this VI's own type map for the cluster at idx6, whose fields are literally {'include Shift key?': Boolean, 'include Ctrl key?': Boolean, 'shortcut key': String}, an exact field-name match to those 3 doc entries. That collapses the doc's 10 outputs to 7 real terminals: submenu_tags (Array), menu_reference_out (Refnum), item_name (String), enabled? (Boolean), error_out (Cluster, confirmed by its OWN type-map fields status/code/source), checked? (Boolean), shortcut_info (Cluster) -- an exact type-multiset match to the observed 7-output pane. idx2/idx3/idx5/idx0/idx6 are unambiguous by unique type. The remaining ambiguity is idx1 vs idx4 (both Boolean = enabled?/checked?, both UNWIRED in the sole corpus instance so no dataflow tiebreak was available): idx1 sits in the single-height output column whose OTHER 3 slots (menu_reference_out, item_name, error_out) independently match doc order top-to-bottom, and 'enabled' is the doc item immediately between item_name and error_out in that same run -- so idx1 is assigned enabled? by the same column-preserves-doc-order pattern verified elsewhere in this pane, leaving idx4 (in the separate double-height column with submenu_tags) as checked? by elimination. This idx1/idx4 assignment is the one part of this entry NOT independently confirmed by type or wiring -- flagging for scrutiny. Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false."
+    },
+    "1156": {
+      "name": "To Unsigned Quad Integer",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-quad-integer.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "int(in_1) & 0xFFFFFFFFFFFFFFFF"
+      },
+      "inline": true,
+      "note": [
+        "Confirmed via NI doc match and completes the existing sibling family (1140 To Byte Integer, 1141 To Word Integer, 1142 To Long Integer, 1143 To Unsigned Byte Integer, 1144 To Unsigned Word Integer -- all already share the idx0=out/idx1=in convention this entry follows). Cross-checked across 2 independent VIs: 'pco.camera_FloatingMean_Example_IMAQ.vi' (idx1=NumUInt8 in, idx0=NumUInt64 out -- a widening conversion) and 'testNumericU64.vi' (JKI-EasyXML, name is itself confirmatory: idx1=NumUInt64 in, idx0=NumUInt64 out -- an identity-shaped polymorphic instantiation). Masking with 0xFFFFFFFFFFFFFFFF mirrors the & 0xFF / & 0xFFFF pattern already used by the unsigned siblings."
+      ]
+    },
+    "1341": {
+      "name": "Two Button Dialog",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/two-button-dialog.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "t_button_pressed",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "t_button_name",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "f_button_name",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "message",
+          "type": "String"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "note": [
+        "Codegen deferred (placeholder): unlike sibling 1340 One Button Dialog (a single button -> deterministic outcome), Two Button Dialog's T-vs-F result is a real branch, so hard-coding a winner would be a silent guess -- render/describe still use the confirmed identity below.",
+        "Confirmed via NI doc exact match: message, T button name (default 'OK'), F button name (default 'Cancel') -> T button? (True if the T-named button was clicked). 4-terminal count (3 string in, 1 bool out) is exactly one more input than the already-resolved sibling 1340 One Button Dialog, whose own note explicitly flagged 'Two Button Dialog excluded (three strings)' as the distinguishing shape -- confirming this entry closes that gap correctly. Index-to-field mapping is evidence-based, not assumed: across 5 observed instances (3 in 'Graphical Test Runner - Main UI - .vi', 1 in 'Dictionary Example.vi', 1 in 'Folder Reuse Warning.vi'), idx3 is WIRED in 5/5 (matches 'message', which the doc marks required, no default), idx1 is UNWIRED in 3/5 (matches 'T button name', which defaults to \"OK\"), idx2 is wired in 3/5 (matches 'F button name', default \"Cancel\", occasionally customized). In 'Folder Reuse Warning.vi', idx3 is fed by a 'Concatenate Strings' primitive -- a dynamically-built message, never plausible for a short button-name string, corroborating idx3=message. python_code hard-codes True (the affirmative/T-button path) since generated code runs headlessly with no real dialog to click through -- same non-interactive-substitute approach sibling 1340 uses."
+      ]
+    },
+    "1184": {
+      "name": "Decimal String To Number",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decimal-string-to-number.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset_past_number",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "default",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "note": [
+        "Codegen deferred (placeholder): the identity is confirmed (below), but a faithful template needs `re` (inline __import__ is disallowed by the project style rule) plus polymorphic float/exponent handling not exercised by the corpus -- render/describe use the confirmed identity.",
+        "Confirmed via NI doc exact match: string, offset, default (numeric representation for the polymorphic output) -> offset past number, number. 3-input/2-output count and type-multiset (String + 2x numeric in, 2x numeric out) is an exact match. idx4 (String) is unambiguous by unique type. idx3/idx2 (both numeric in) assigned by connector-pane column position: the left-hand input column runs top-to-bottom idx4, idx3, idx2, matching the doc's listed order (string, offset, default) exactly. idx1/idx0 (both numeric out) assigned the same way (top=idx1=offset_past_number, bottom=idx0=number, matching doc order top-to-bottom). Cross-checked polymorphism across 2 independent VIs: 'Results Status Update Process__core.vi' (JKI VI-Tester, 2 call sites, Int32-shaped) and 'Get LV Mem Usage.vi' (idx0 resolves NumFloat64) -- exactly the documented polymorphic behavior where 'number'/idx0's type tracks whatever is wired to 'default'/idx2. python_code regex-scans a leading [sign]digits run after skipping whitespace, matching all 3 of NI's own worked examples exactly: '13ax' offset0 -> number=13, offset_past=2; '-4.8bcde' offset0 -> number=-4, offset_past=2 (stops at the decimal point since the target is integer); 'a49b' offset0 default=-9 -> no digits found, number=-9 (default), offset_past=0 (unchanged). Only handles integer scanning (matches the corpus instances observed, both integer-typed defaults); float/exponent variants of this polymorphic function are not exercised by any call site found."
+      ]
+    },
+    "1350": {
+      "name": "Unknown Boolean-Sink Primitive 1350",
+      "placeholder": true,
+      "verified": false,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "value",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": "pass",
+      "note": [
+        "Exhausted investigation without a confident identification. Single Boolean input, NO outputs at all (not even an error cluster) -- an unusual shape with no obvious NI Dialog/Boolean/Comparison-category match of this exact count. Context (Step 3): in every traced instance the input comes from either 'Simple Error Handler.vi' (a common error-display subVI) or directly from prim 1340 (One Button Dialog's boolean 'true?' output, itself always True and rarely consumed downstream) -- i.e. this primitive always sits at the very end of a diagram branch consuming a boolean nobody else uses, which reads like a deliberate 'discard/terminate this branch' sink, but no NI function of that description was found in the catalog. 6 distinct top-level example VIs contain it (PCO camera examples, Moog SmartMotor examples) always as a lone terminal node with no further dataflow. Left as a placeholder per the skill's last-resort rule; asked no further since this is a shape/behavior question the corpus can answer, not a LabVIEW-inspection question."
+      ]
     }
   },
   "node_types": {

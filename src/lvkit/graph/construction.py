@@ -419,15 +419,16 @@ class ConstructionMixin:
         flatseq_by_uid = {fs.uid: fs for fs in bd.flat_sequences}
         decompose_by_uid = {ds.uid: ds for ds in bd.decompose_structures}
         disable_by_uid = {ds.uid: ds for ds in bd.disable_structures}
+        event_by_uid = {es.uid: es for es in bd.event_structures}
 
-        # Structure nodes (loop/case/sequence/IPES/disable) are built by
+        # Structure nodes (loop/case/sequence/IPES/disable/event) are built by
         # registered per-kind handlers rather than an inlined if/elif — see
         # graph/builders/.
         build_ctx = GraphBuildContext(
             mixin=self, bd=bd, vi_name=vi_name, term_lookup=term_lookup,
             loop_by_uid=loop_by_uid, case_by_uid=case_by_uid,
             flatseq_by_uid=flatseq_by_uid, decompose_by_uid=decompose_by_uid,
-            disable_by_uid=disable_by_uid,
+            disable_by_uid=disable_by_uid, event_by_uid=event_by_uid,
             iuse_to_qname=iuse_to_qname or {}, iuse_to_qpath=iuse_to_qpath,
             fp=fp, ddo_to_fpdco=ddo_to_fpdco,
             param_wire_ends=param_wire_ends, vi_node_uids=vi_node_uids,
@@ -648,6 +649,15 @@ class ConstructionMixin:
                 for uid in frame.inner_node_uids:
                     _stamp(uid, q_disable_uid, frame.selector_value)
 
+        # Event structure frames are keyed by INDEX (str(idx)) — like a
+        # stacked sequence, not a case — since the active frame is chosen at
+        # runtime by whichever event fires, not a selector wire/value.
+        for es in bd.event_structures:
+            q_es_uid = self._qid(vi_name, es.uid)
+            for idx, frame in enumerate(es.frames):
+                for uid in frame.inner_node_uids:
+                    _stamp(uid, q_es_uid, str(idx))
+
         # Attribute constants to the frame that contains them. A constant
         # wired inside a structure is a diagram constant whose output
         # terminal (keyed by the constant UID) is parented to the frame's
@@ -662,6 +672,35 @@ class ConstructionMixin:
                 cnode = g.nodes[q_const_uid]["node"]
                 cnode.parent = struct_id
                 cnode.frame = frame_key
+
+        # Attribute FP terminals (front-panel controls placed on a diagram
+        # via an sRN — e.g. an Event Structure's registered event-source
+        # control glyph) to the frame that contains THAT placement. Same
+        # shape as the constants loop just above: the terminal's own
+        # terminal_info.parent_uid points to the owning sRN, already stamped
+        # into frame_owner by the loops above. FPTerminal isn't a GraphNode
+        # (one FPTerminal is shared VI-wide, not one per placement — a
+        # control can be referenced from multiple frames), so the
+        # attribution is stamped directly on the Terminal rather than via
+        # ``_stamp``. Without this, render/scene.py has no structural
+        # signal for these terminals and falls back to inferring frame scope
+        # from wire connectivity — which is wrong/absent for a control used
+        # purely as an event source (no ordinary data wire into the frame),
+        # making its glyph (and any wire touching it) render as always-
+        # visible base content instead of scoped to its real frame.
+        vi_terminal_by_id = {
+            t.id: t for t in vi_node.terminals if isinstance(t, FPTerminal)
+        }
+        for fp_term in bd.fp_terminals:
+            ct = bd.terminal_info.get(fp_term.uid)
+            if ct is None or ct.parent_uid not in frame_owner:
+                continue
+            terminal = vi_terminal_by_id.get(self._qid(vi_name, fp_term.uid))
+            if terminal is None:
+                continue
+            struct_id, frame_key = frame_owner[ct.parent_uid]
+            terminal.parent = struct_id
+            terminal.frame = frame_key
 
         # === 5. Register remaining terminal_info entries in term_lookup ===
         # Most tunnel/sRN terminals are already registered by
@@ -727,6 +766,14 @@ class ConstructionMixin:
                                     effective_parent = self._qid(
                                         vi_name, disable.uid,
                                     )
+                                    break
+                            if effective_parent != q_parent_uid:
+                                break
+                    if effective_parent == q_parent_uid:
+                        for es in bd.event_structures:
+                            for frame in es.frames:
+                                if parent_uid in frame.inner_node_uids:
+                                    effective_parent = self._qid(vi_name, es.uid)
                                     break
                             if effective_parent != q_parent_uid:
                                 break
@@ -1179,17 +1226,16 @@ class ConstructionMixin:
                     tunnel_type=ttype, vi=vi_name,
                 )
 
-        # --- 2. Find ALL sRN parent UIDs ---
-        # Tunnel-referenced sRNs get input->output pairing edges.
-        # Non-tunnel sRNs just get mapped — wires handle routing.
-        tunnel_srn_parents: set[str] = set()
-        for tunnel in parser_tunnels:
-            for uid in (tunnel.outer_terminal_uid, tunnel.inner_terminal_uid):
-                if not uid:
-                    continue
-                ti = bd.terminal_info.get(uid)
-                if ti and ti.parent_uid and ti.parent_uid not in known_node_uids:
-                    tunnel_srn_parents.add(ti.parent_uid)
+        # --- 2. Register sRN-owned terminals on the structure ---
+        # An sRN is an EXECUTION CLUMP (LabVIEW's scheduler grouping), not a
+        # tunnel holder — it aggregates unrelated terminals (real tunnel sides,
+        # FP control/indicator terminals, constants, event stubs) that merely
+        # run together. Terminals not already registered are added so their
+        # signal wiring resolves. We deliberately do NOT re-pair clump terminals
+        # by index: the exact inner<->outer tunnel pass-throughs were already
+        # built from parser_tunnels' explicit uid pairs in section 1, and an
+        # sRN's index collisions are meaningless (they fabricated type-mismatched
+        # edges — String->Boolean, Refnum->Boolean — that don't exist in the VI).
 
         # Extract raw UID from qualified UID for srn_to_structure lookup
         raw_structure_uid = (
@@ -1241,38 +1287,6 @@ class ConstructionMixin:
                     node_id=structure_uid,
                     index=ti.index,
                     name=ti.name,
-                )
-
-            # Pair by matching index (same position on structure border)
-            # — same as VI connector pane pairing
-            input_by_idx = {
-                ti.index: (uid, ti)
-                for uid, ti in srn_terms
-                if not ti.is_output
-            }
-            output_by_idx = {
-                ti.index: (uid, ti)
-                for uid, ti in srn_terms
-                if ti.is_output
-            }
-            paired = [
-                (input_by_idx[idx], output_by_idx[idx])
-                for idx in input_by_idx
-                if idx in output_by_idx
-            ]
-            for (in_uid, _in_ti), (out_uid, _out_ti) in paired:
-                q_in_uid = self._qid(vi_name, in_uid)
-                q_out_uid = self._qid(vi_name, out_uid)
-                in_end = term_lookup.get(in_uid, WireEnd(
-                    terminal_id=q_in_uid, node_id=structure_uid,
-                ))
-                out_end = term_lookup.get(out_uid, WireEnd(
-                    terminal_id=q_out_uid, node_id=structure_uid,
-                ))
-                g.add_edge(
-                    structure_uid, structure_uid,
-                    source=in_end, dest=out_end,
-                    tunnel_type="sRN", vi=vi_name,
                 )
 
         return structure_terminals

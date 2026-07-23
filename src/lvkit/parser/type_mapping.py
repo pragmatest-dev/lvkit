@@ -162,6 +162,31 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
     return type_map
 
 
+def _field_label(ref_td: ET.Element | None, default_name: str) -> str:
+    """Resolve a cluster field's display name from its own TypeDesc.
+
+    Usually the field's ``Label`` XML attribute (e.g. ``Label="Time"``). But
+    when the field's declared type is itself a bare TypeDef (no ``Label``
+    attribute of its own — a TypeDef instead carries its ``.ctl`` filename via
+    a sibling ``<Label Text="....ctl"/>`` ELEMENT, not an attribute), the real
+    field name lives one level down, on the TypeDef's ``Nested='True'`` inner
+    TypeDesc (e.g. ``eventsource.ctl``'s wrapped ``<TypeDesc ... Label="Source"
+    Nested="True"/>``). Falls back to ``default_name`` when neither is present.
+    """
+    if ref_td is None:
+        return default_name
+    label = ref_td.get("Label")
+    if label:
+        return clean_labview_string(label) or default_name
+    if ref_td.get("Type") == "TypeDef":
+        nested = ref_td.find("TypeDesc[@Nested='True']")
+        if nested is not None:
+            nested_label = nested.get("Label")
+            if nested_label:
+                return clean_labview_string(nested_label) or default_name
+    return default_name
+
+
 def _make_primitive_lvtype(type_name: str) -> LVType:
     """Create an LVType for a primitive type name."""
     # Map LabVIEW type names to kind
@@ -236,12 +261,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                         # Get field name from the referenced type's label
                         ref_td = flat_types.get(int(nested_type_id))
                         default_name = f"field_{len(fields)}"
-                        # Use 'is not None' - Element bool is based on children count
-                        raw_label = (
-                            ref_td.get("Label", default_name)
-                            if ref_td is not None else default_name
-                        )
-                        field_name = clean_labview_string(raw_label) or default_name
+                        field_name = _field_label(ref_td, default_name)
                         fields.append(ClusterField(name=field_name, type=field_type))
 
             lv_type = LVType(
@@ -304,11 +324,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                             ft = resolve_type(int(child_tid), visited)
                             ref = flat_types.get(int(child_tid))
                             default = f"field_{len(td_fields)}"
-                            raw = (
-                                ref.get("Label", default)
-                                if ref is not None else default
-                            )
-                            name = clean_labview_string(raw) or default
+                            name = _field_label(ref, default)
                             td_fields.append(
                                 ClusterField(name=name, type=ft),
                             )

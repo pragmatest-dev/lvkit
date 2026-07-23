@@ -1,5 +1,4 @@
-"""Tests for Queue Operations code generation (Obtain/Enqueue/Dequeue/
-Get Queue Status).
+"""Tests for Queue Operations codegen (Obtain/Enqueue/Dequeue/Release/Status).
 
 Mirrors the pattern in tests/test_array_ops_codegen.py: build
 PrimitiveOperation + CodeGenContext by hand for each node in a small
@@ -22,6 +21,7 @@ from lvkit.labview_queue import (
     enqueue_element_at_opposite_end,
     get_queue_status,
     obtain_queue,
+    release_queue,
 )
 from lvkit.models import PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
@@ -40,6 +40,7 @@ _RUNTIME_GLOBALS = {
     "enqueue_element": enqueue_element,
     "enqueue_element_at_opposite_end": enqueue_element_at_opposite_end,
     "dequeue_element": dequeue_element,
+    "release_queue": release_queue,
     "get_queue_status": get_queue_status,
 }
 
@@ -130,29 +131,29 @@ def _dequeue_op(node_id: str = "dequeue") -> PrimitiveOperation:
     )
 
 
-def _status_op(node_id: str = "status") -> PrimitiveOperation:
-    terminals = [
-        _terminal(f"{node_id}.queue", 0, "input"),
-        _terminal(f"{node_id}.return_elements", 2, "input"),
-        _terminal(f"{node_id}.name", 8, "output"),
-        _terminal(f"{node_id}.elements", 9, "output"),
+def _release_op(node_id: str = "release", *, force: bool = False) -> PrimitiveOperation:
+    """Release Queue pane (observed): in idx0=queue, idx2=force destroy?;
+    out idx8=queue name, idx9=remaining elements (error terminals omitted, as
+    in the other builders)."""
+    terminals = [_terminal(f"{node_id}.queue", 0, "input")]
+    if force:
+        terminals.append(_terminal(f"{node_id}.force", 2, "input"))
+    terminals += [
+        _terminal(f"{node_id}.queue_name", 8, "output"),
+        _terminal(f"{node_id}.remaining", 9, "output"),
     ]
     return PrimitiveOperation(
-        id=node_id,
-        name="Get Queue Status",
-        labels=["Prim"],
-        node_type="prim",
-        primResID=9109,
-        terminals=terminals,
+        id=node_id, name="Release Queue", labels=["Prim"],
+        node_type="prim", primResID=9109, terminals=terminals,
     )
 
 
 class TestDispatch:
     """queue_ops.generate() is reachable via the primResID dispatch guard
-    in nodes/__init__.py, not via node_type (all five ops share the
-    generic ``class="prim"`` XML node_type)."""
+    in nodes/__init__.py, not via node_type (all ops share the generic
+    ``class="prim"`` XML node_type)."""
 
-    def test_dispatch_guard_covers_all_five_prim_ids(self):
+    def test_dispatch_guard_covers_all_prim_ids(self):
         from lvkit.codegen.nodes import generate as generate_node
 
         for prim_id, op in (
@@ -160,7 +161,8 @@ class TestDispatch:
             (9111, _enqueue_op("enq")),
             (9129, _enqueue_op("enq", opposite_end=True)),
             (9113, _dequeue_op()),
-            (9109, _status_op()),
+            (9109, _release_op()),
+            (9110, _status_op()),
         ):
             assert op.primResID == prim_id
             ctx = make_ctx(*(t.id for t in op.terminals))
@@ -220,78 +222,6 @@ class TestObtainEnqueueDequeueRoundTrip:
         assert enqueue_frag.bindings["enqueue.queue_out"] == queue_var
         # Only the enqueue_element(...) call itself, no extra "queue_out = queue" line.
         assert len(enqueue_frag.statements) == 1
-
-
-class TestGetQueueStatus:
-    """Get Queue Status's `elements` output is the only wired terminal
-    that reflects queue contents -- pending count is len(elements)."""
-
-    def test_status_count_reflects_pending_items(self):
-        obtain = _obtain_op()
-        enq1 = _enqueue_op("enq1")
-        enq2 = _enqueue_op("enq2")
-        status = _status_op()
-
-        ops = (obtain, enq1, enq2, status)
-        ids = [t.id for op in ops for t in op.terminals]
-        ctx = make_ctx(*ids)
-
-        obtain_frag = queue_ops.generate(obtain, ctx)
-        queue_var = obtain_frag.bindings["obtain.queue_out"]
-
-        ctx.bind("enq1.queue", queue_var)
-        ctx.bind("enq1.element", "'a'")
-        enq1_frag = queue_ops.generate(enq1, ctx)
-
-        ctx.bind("enq2.queue", enq1_frag.bindings["enq1.queue_out"])
-        ctx.bind("enq2.element", "'b'")
-        enq2_frag = queue_ops.generate(enq2, ctx)
-
-        ctx.bind("status.queue", enq2_frag.bindings["enq2.queue_out"])
-        ctx.bind("status.return_elements", "True")
-        status_frag = queue_ops.generate(status, ctx)
-
-        statements = (
-            obtain_frag.statements
-            + enq1_frag.statements
-            + enq2_frag.statements
-            + status_frag.statements
-        )
-        result = _compile_and_run(statements, {})
-
-        elements = result[status_frag.bindings["status.elements"]]
-        assert len(elements) == 2
-        assert elements == ["a", "b"]
-
-    def test_return_elements_false_yields_empty_list(self):
-        """NI docs default for 'return elements?' is FALSE -- the elements
-        output is then empty even with items pending (count is
-        unavailable via this terminal in that case)."""
-        obtain = _obtain_op()
-        enq = _enqueue_op("enq")
-        status = _status_op()
-
-        ops = (obtain, enq, status)
-        ids = [t.id for op in ops for t in op.terminals]
-        ctx = make_ctx(*ids)
-
-        obtain_frag = queue_ops.generate(obtain, ctx)
-        queue_var = obtain_frag.bindings["obtain.queue_out"]
-
-        ctx.bind("enq.queue", queue_var)
-        ctx.bind("enq.element", "'a'")
-        enq_frag = queue_ops.generate(enq, ctx)
-
-        ctx.bind("status.queue", enq_frag.bindings["enq.queue_out"])
-        # return_elements left unwired -> default False
-        status_frag = queue_ops.generate(status, ctx)
-
-        statements = (
-            obtain_frag.statements + enq_frag.statements + status_frag.statements
-        )
-        result = _compile_and_run(statements, {})
-
-        assert result[status_frag.bindings["status.elements"]] == []
 
 
 class TestEnqueueTimeout:
@@ -412,3 +342,95 @@ class TestObtainQueueNamedRegistry:
         q1 = result[frag1.bindings["obtain1.queue_out"]]
         q2 = result[frag2.bindings["obtain2.queue_out"]]
         assert q1 is not q2
+
+
+class TestReleaseQueue:
+    """Release Queue (9109) codegen: force-destroy returns the remaining
+    elements, and the queue-name output is bound to the queue's .name."""
+
+    def test_force_destroy_returns_remaining_elements(self):
+        obtain = _obtain_op()
+        enqueue = _enqueue_op("enqueue")
+        release = _release_op("release", force=True)
+        ids = [t.id for op in (obtain, enqueue, release) for t in op.terminals]
+        ctx = make_ctx(*ids)
+
+        obtain_frag = queue_ops.generate(obtain, ctx)
+        ctx.bind("enqueue.queue", obtain_frag.bindings["obtain.queue_out"])
+        ctx.bind("enqueue.element", "payload")
+        enqueue_frag = queue_ops.generate(enqueue, ctx)
+
+        ctx.bind("release.queue", enqueue_frag.bindings["enqueue.queue_out"])
+        ctx.bind("release.force", "True")
+        release_frag = queue_ops.generate(release, ctx)
+
+        statements = (
+            obtain_frag.statements + enqueue_frag.statements + release_frag.statements
+        )
+        result = _compile_and_run(statements, {"payload": 42})
+        assert result[release_frag.bindings["release.remaining"]] == [42]
+
+    def test_queue_name_output_is_the_queue_name_attribute(self):
+        release = _release_op("release")
+        ctx = make_ctx(*(t.id for t in release.terminals))
+        ctx.bind("release.queue", "q")
+        frag = queue_ops.generate(release, ctx)
+        # queue name (idx8) is bound as the queue's .name, not a runtime return
+        assert frag.bindings["release.queue_name"] == "q.name"
+
+
+def _status_op(node_id: str = "status") -> PrimitiveOperation:
+    """Get Queue Status pane (resolved via the NI connector-pane image + wiring
+    anchors + geometry): in idx0=queue; out idx4=max size, idx5=elements,
+    idx6=name, idx7=# elements, idx8=queue out, idx9=# pending remove,
+    idx10=# pending insert (error terminals omitted, as in the other builders)."""
+    return PrimitiveOperation(
+        id=node_id, name="Get Queue Status", labels=["Prim"],
+        node_type="prim", primResID=9110,
+        terminals=[
+            _terminal(f"{node_id}.queue", 0, "input"),
+            _terminal(f"{node_id}.max_size", 4, "output"),
+            _terminal(f"{node_id}.elements", 5, "output"),
+            _terminal(f"{node_id}.name", 6, "output"),
+            _terminal(f"{node_id}.n_elements", 7, "output"),
+            _terminal(f"{node_id}.queue_out", 8, "output"),
+            _terminal(f"{node_id}.pending_remove", 9, "output"),
+            _terminal(f"{node_id}.pending_insert", 10, "output"),
+        ],
+    )
+
+
+class TestGetQueueStatus:
+    """Get Queue Status (9110): each output binds to a field of the runtime's
+    QueueStatus, per the connector-pane-image-resolved index map."""
+
+    def test_status_reports_count_max_and_name(self):
+        obtain = _obtain_op(with_name=True, with_max=True)
+        enq1, enq2 = _enqueue_op("e1"), _enqueue_op("e2")
+        status = _status_op("status")
+        ids = [t.id for op in (obtain, enq1, enq2, status) for t in op.terminals]
+        ctx = make_ctx(*ids)
+        ctx.bind("obtain.name", "'q'")
+        ctx.bind("obtain.max", "5")
+
+        of = queue_ops.generate(obtain, ctx)
+        qv = of.bindings["obtain.queue_out"]
+        ctx.bind("e1.queue", qv)
+        ctx.bind("e1.element", "'a'")
+        e1f = queue_ops.generate(enq1, ctx)
+        ctx.bind("e2.queue", e1f.bindings["e1.queue_out"])
+        ctx.bind("e2.element", "'b'")
+        e2f = queue_ops.generate(enq2, ctx)
+        ctx.bind("status.queue", e2f.bindings["e2.queue_out"])
+        sf = queue_ops.generate(status, ctx)
+
+        statements = of.statements + e1f.statements + e2f.statements + sf.statements
+        result = _compile_and_run(statements, {})
+
+        # the outputs bind to <status_var>.<field>; recover the QueueStatus itself
+        status_var = sf.bindings["status.n_elements"].rsplit(".", 1)[0]
+        st = result[status_var]
+        assert st.n_elements == 2
+        assert st.max_size == 5
+        assert st.name == "q"
+        assert st.pending_remove == 0 and st.pending_insert == 0

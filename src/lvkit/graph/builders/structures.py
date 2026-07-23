@@ -10,12 +10,13 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 
-from lvkit.models import CaseFrame, SequenceFrame, Terminal
+from lvkit.models import CaseFrame, EventFrame, SequenceFrame, Terminal
 from lvkit.parser.models import ParsedNode
 
 from ..models import (
     CaseStructureNode,
     DisableStructureNode,
+    EventStructureNode,
     InPlaceNode,
     LoopNode,
     SequenceNode,
@@ -126,6 +127,46 @@ class CaseBuildHandler(StructureBuildHandler):
             case_insensitive=(
                 case_struct.case_insensitive if case_struct else False
             ),
+        )
+
+
+class EventBuildHandler(StructureBuildHandler):
+    """Builds an Event Structure — same frame-tunnel wiring as
+    CaseBuildHandler (border tunnels use the identical per-frame ``selTun``-
+    style shape — see parser/nodes/event.py), but no selector terminal: the
+    active frame is chosen at runtime by whichever event fires, not a wire.
+    """
+
+    node_types = ("eventStruct",)
+
+    def build(self, node, node_name, q_node_uid, ctx):
+        event_struct = ctx.event_by_uid.get(node.uid)
+        event_frames: list[EventFrame] = []
+        displayed_frame: int | None = None
+
+        parser_tunnels: list = []
+        if event_struct:
+            parser_tunnels = event_struct.tunnels
+            event_frames = list(event_struct.frames)
+            displayed_frame = event_struct.displayed_frame
+
+        structure_terminals = ctx.build_structure_terminals(
+            parser_tunnels, q_node_uid,
+        )
+
+        filter_node_uids = frozenset(
+            ctx.qid(u) for u in (event_struct.filter_node_uids if event_struct else ())
+        )
+
+        return EventStructureNode(
+            id=q_node_uid,
+            vi=ctx.vi_name,
+            name=node_name or "Event Structure",
+            node_type=node.node_type,
+            terminals=structure_terminals,
+            frames=event_frames,
+            displayed_frame=displayed_frame,
+            filter_node_uids=filter_node_uids,
         )
 
 
@@ -246,6 +287,7 @@ _HANDLERS: list[StructureBuildHandler] = [
     SequenceBuildHandler(),
     InPlaceBuildHandler(),
     DisableBuildHandler(),
+    EventBuildHandler(),
 ]
 
 STRUCTURE_BUILD_HANDLERS: dict[str, StructureBuildHandler] = {

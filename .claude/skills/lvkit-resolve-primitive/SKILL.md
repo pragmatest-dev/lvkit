@@ -73,6 +73,21 @@ for n in g.iter_nodes(vi):
 
 `t.lv_type` is the **REAL per-terminal type**, resolved from that terminal's OWN `typeDesc` (`graph/construction.py::_enrich_type(term_info.parsed_type)`). **It is NOT a fallback** — a genuine LabVIEW String resolves to underlying `String` (shown as `str`), a byte array to `Array` elem `NumUInt8`, a 32-bit-word array to `Array` elem `NumUInt32`. So `Array[U32] → Array[U32]` genuinely means word-array in/out — NOT a byte↔string conversion. **Read the element type (and, for refnums, `ref_type`) BEFORE naming anything (Step 4.5); never dismiss a resolved type as "just a fallback."** If a terminal's `lv_type` really is `None`, resolve its raw `<typeDesc>TypeID(N)</typeDesc>` via `parse_type_map_rich` (Step 4.5) — do not assume.
 
+**Where the raw pane data actually lives in the heap XML (two gotchas that cost hours on the queue ops 9109/9110).** For a `class="prim"` node, each `termList/SL__arrayElement[@class="term"]` does NOT carry the type directly — its `typeDesc`, `termBounds`, and `parmIndex` are one level down, inside a nested `<dco class="parm">` child. So `term.findtext("typeDesc")` returns `None`; read `term/dco/typeDesc` (`TypeID(N)`), `term/dco/termBounds`, `term/dco/parmIndex`. Resolve `TypeID(N)` against `parse_type_map_rich('<main>.xml')` — note the graph/parser sometimes attaches NO type to these (`parsed_type is None`, `lv_type is None`) even though the `<dco>` has one, which is exactly when you must read the XML directly.
+
+**The parser's `terminal.index` IS the `<dco>/parmIndex`** (LabVIEW's canonical connector-pane parameter index), NOT the XML `term`'s `index=` attribute — the two differ (e.g. XML term indices 0..10 but parser/parmIndex 0,1,3,4..11, skipping gaps). So when you correlate observed indices to an NI doc's terminal list, you are correlating **parmIndex**. It still is NOT a reliable proxy for physical position or doc reading-order (see Step 6) — same-typed outputs (four I32s on Get Queue Status: max size / #pending-remove / #pending-insert / #elements) still need `termBounds` geometry or observed wiring to disambiguate — but it is the number the graph reports and the number your `by_index` codegen dispatch keys on.
+
+Extract it cleanly with ElementTree:
+```python
+import xml.etree.ElementTree as ET
+node = ...  # the <SL__arrayElement class="prim"> whose <primResID> == your id
+for t in node.find("termList").findall("SL__arrayElement"):
+    dco = t.find("dco")            # class="parm" — holds the real data
+    parm = dco.findtext("parmIndex")            # == parser terminal.index
+    tid  = dco.findtext("typeDesc")             # "TypeID(N)"
+    tb   = dco.findtext("termBounds")           # "(top,left,bottom,right)"
+```
+
 (Use `LoadMode.NONE` so only this VI's diagram loads — no subVIs, memory-flat. To find WHICH VIs contain the primResID, grep first, per Step 2.)
 
 For a **polymorphic/adaptive** primitive, an UNWIRED terminal may show its adapt/placeholder type rather than a concrete one — count, direction, and position stay reliable; concrete types come from the wired terminals.
@@ -335,6 +350,47 @@ curl -sL "https://docs-be.ni.com/api/bundle/labview-api-ref/page/functions/get-v
   | python3 -c "import json,sys,re,html; d=json.load(sys.stdin); \
     t=re.sub(r'<[^>]+>',' ',d['topic_html']); print(html.unescape(re.sub(r'\s+',' ',t)))"
 ```
+
+#### READ THE CONNECTOR-PANE IMAGE — the decisive move for indices, roles, and operand order
+
+The prose alone is not enough when several terminals share a type (e.g. Get
+Queue Status's four I32 outputs) or when operand ORDER matters (subtraction /
+divide / comparisons). The doc page carries a **connector-pane picture** and
+**per-terminal type icons** — fetch and *look at* them (you can read images):
+
+1. **Type-per-terminal, in order, for free.** The `topic_html` embeds one small
+   type-icon `<img>` per terminal, in the doc's listing order — `cqueuern`
+   (control/input queue refnum), `cbool`, `cerrcodeclst`, `ii32`
+   (indicator/output i32), `istr`, `iqueuern`, `i1dstr` (1-D string array),
+   `ierrcodeclst`, … The `c…`/`i…` prefix is direction (control=in / indicator=
+   out) and the stem is the type. Grep them straight out:
+   ```bash
+   curl -sL "https://docs-be.ni.com/api/bundle/labview-api-ref/page/functions/<slug>.html" \
+     | python3 -c "import json,sys,re; d=json.load(sys.stdin); \
+       [print(m) for m in re.findall(r'/terminals/([a-z0-9]+)\.png', d['topic_html'])]"
+   ```
+2. **The connector-pane diagram itself.** The first image is the pane:
+   `https://docs-be.ni.com/bundle/labview-api-ref/page/functions/<slug>.png`.
+   Download it, upscale ~4x (NEAREST), and open it with the Read tool — it shows
+   each terminal's **label** (role), **wire colour** (type: blue=I32, pink=string,
+   dark-green=refnum, yellow-striped=error cluster, …), and **vertical position**
+   (top→bottom). That top-to-bottom layout + the labels resolves same-typed
+   terminals, and for a non-commutative op it shows which input is the TOP one
+   (operand 1) — the same thing `termBounds` geometry tells you, now visually
+   confirmable. (Real win: this is how Get Queue Status's 9110 pane and the
+   Subtract operand order were nailed.)
+   ```bash
+   curl -sL "https://docs-be.ni.com/bundle/labview-api-ref/page/functions/<slug>.png?_LANG=enus" -o /tmp/pane.png
+   python3 -c "from PIL import Image; im=Image.open('/tmp/pane.png').convert('RGB'); im.resize((im.width*4,im.height*4),Image.NEAREST).save('/tmp/pane_4x.png')"
+   # then Read /tmp/pane_4x.png
+   ```
+
+Cross the image (roles + types + order) with the OBSERVED per-index types
+(Step 1) and any wiring anchors (Step 3): the unique-typed terminals pin
+themselves, and the remaining same-typed ones fall into place by the image's
+top-to-bottom order + `termBounds`. Note: the doc's PROSE order is NOT always
+the pane/`parmIndex` order — trust the image layout + observed indices, not the
+sentence order.
 
 **Finding the page path when you only know the function name:** the path mirrors
 the palette, e.g. `functions/<kebab-name>.html` (`get-variant-attribute.html`,

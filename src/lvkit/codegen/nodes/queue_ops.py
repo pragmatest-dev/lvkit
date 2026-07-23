@@ -1,7 +1,16 @@
 """Code generator for LabVIEW Queue Operations primitives.
 
 Covers Obtain Queue (9108), Enqueue Element (9111), Enqueue Element At
-Opposite End (9129), Dequeue Element (9113), and Get Queue Status (9109).
+Opposite End (9129), Dequeue Element (9113), Release Queue (9109), and Get
+Queue Status (9110).
+
+Get Queue Status's 8-output pane has four same-typed I32 outputs (max size,
+#pending remove, #pending insert, #elements) that type alone can't tell apart;
+they were resolved from the NI connector-pane IMAGE (types by wire colour +
+top-to-bottom layout) plus two corpus wiring anchors (#elements feeds "<=0?" in
+test Queue Size is Zero.vi; error out -> the VI's error in) and termBounds
+geometry -- see _generate_get_queue_status. NOTE: 9109 was historically (and
+wrongly) mapped as "Get Queue Status" -- it is actually Release Queue.
 
 These are generic `<Prim class="prim">` XML nodes distinguished only by
 `primResID` (verified against real samples — see phaseB_findings.md), so
@@ -28,20 +37,23 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 OBTAIN_QUEUE = 9108
-GET_QUEUE_STATUS = 9109
 ENQUEUE_ELEMENT = 9111
 DEQUEUE_ELEMENT = 9113
 ENQUEUE_AT_OPPOSITE_END = 9129
+RELEASE_QUEUE = 9109
+GET_QUEUE_STATUS = 9110
 
 QUEUE_PRIM_IDS = frozenset(
-    {OBTAIN_QUEUE, GET_QUEUE_STATUS, ENQUEUE_ELEMENT, DEQUEUE_ELEMENT,
-     ENQUEUE_AT_OPPOSITE_END},
+    {
+        OBTAIN_QUEUE, ENQUEUE_ELEMENT, DEQUEUE_ELEMENT, ENQUEUE_AT_OPPOSITE_END,
+        RELEASE_QUEUE, GET_QUEUE_STATUS,
+    },
 )
 
 _QUEUE_IMPORT = (
     "from lvkit.labview_queue import ("
     "dequeue_element, enqueue_element, enqueue_element_at_opposite_end, "
-    "get_queue_status, obtain_queue)"
+    "get_queue_status, obtain_queue, release_queue)"
 )
 
 
@@ -60,8 +72,10 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
         )
     if prim_id == DEQUEUE_ELEMENT:
         return _generate_dequeue(node, by_index, ctx)
+    if prim_id == RELEASE_QUEUE:
+        return _generate_release_queue(node, by_index, ctx)
     if prim_id == GET_QUEUE_STATUS:
-        return _generate_status(node, by_index, ctx)
+        return _generate_get_queue_status(node, by_index, ctx)
 
     raise ValueError(
         f"queue_ops.generate() called for unsupported prim_id {prim_id!r}; "
@@ -191,22 +205,75 @@ def _generate_dequeue(
     return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
 
 
-def _generate_status(
+def _generate_release_queue(
     node: PrimitiveOperation, by_index: dict[int, Terminal], ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Get Queue Status(queue, return_elements) -> (name, elements).
+    """Release Queue(queue, force destroy?) -> (queue name, remaining elements).
 
-    primitives.json only carries `name` (idx 8) and `elements` (idx 9) as
-    observed outputs — no separate pending-count terminal was wired in any
-    sample this was resolved against, so "pending count" is `len(elements)`
-    (requires `return_elements=True`; NI docs default is False).
+    Observed pane (NI-confirmed): in idx0=queue, idx2=force destroy? (F),
+    idx3=error in; out idx8=queue name (String), idx9=remaining elements
+    (Array, adapts to the queue subtype), idx11=error out. The queue-name
+    output is the queue's own ``.name`` (it survives the destroy), bound as an
+    expression rather than a runtime return; error in/out flow through the
+    general error machinery like the other queue ops.
     """
     queue_val = _resolve_input(by_index.get(0), ctx, "None")
-    return_elements_val = _resolve_input(by_index.get(2), ctx, "False")
+    force_val = _resolve_input(by_index.get(2), ctx, "False")
 
-    stmts, bindings = _emit_call(
-        node, ctx, "get_queue_status",
-        [queue_val, return_elements_val],
-        [(by_index.get(8), "queue_name"), (by_index.get(9), "queue_elements")],
+    bindings: dict[str, str] = {}
+    name_term = by_index.get(8)
+    if name_term is not None:
+        bindings[name_term.id] = f"{queue_val}.name"
+
+    stmts, call_bindings = _emit_call(
+        node, ctx, "release_queue",
+        [queue_val, force_val],
+        [(by_index.get(9), "remaining_elements")],
     )
+    bindings.update(call_bindings)
     return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
+
+
+def _generate_get_queue_status(
+    node: PrimitiveOperation, by_index: dict[int, Terminal], ctx: CodeGenContext,
+) -> CodeFragment:
+    """Get Queue Status(queue, return elements?) -> a QueueStatus dataclass.
+
+    Pane resolved from the corpus + NI's connector-pane image (types by wire
+    colour) + two wiring anchors (idx7 feeds "<=0?"; idx11 -> VI error in):
+      in  idx0=queue, idx1=return elements?, idx3=error in
+      out idx4=max queue size, idx5=elements, idx6=queue name,
+          idx7=# elements in queue, idx8=queue out (passthrough),
+          idx9=# pending remove, idx10=# pending insert, idx11=error out
+    The runtime returns ONE QueueStatus; each consumed output binds to a field
+    of it (or the queue passthrough). error in/out flow through the general
+    error model like the other queue ops.
+    """
+    queue_val = _resolve_input(by_index.get(0), ctx, "None")
+    return_elems_val = _resolve_input(by_index.get(1), ctx, "False")
+
+    bindings: dict[str, str] = {}
+    queue_out = by_index.get(8)
+    if queue_out is not None:  # queue out is a passthrough of the input queue
+        bindings[queue_out.id] = queue_val
+
+    field_by_index = {
+        4: "max_size", 5: "elements", 6: "name", 7: "n_elements",
+        9: "pending_remove", 10: "pending_insert",
+    }
+    wanted = {i: by_index[i] for i in field_by_index if i in by_index}
+    if not wanted:
+        # get_queue_status is a side-effect-free read; if nothing but the queue
+        # passthrough / error is consumed, emit no call.
+        return CodeFragment(statements=[], bindings=bindings, imports={_QUEUE_IMPORT})
+
+    status_var = ctx.make_output_var("queue_status", node.id, terminal_id=node.id)
+    call = ast.Call(
+        func=ast.Name(id="get_queue_status", ctx=ast.Load()),
+        args=[parse_expr(queue_val), parse_expr(return_elems_val)],
+        keywords=[],
+    )
+    stmt = build_multi_assign([status_var], call)
+    for i, term in wanted.items():
+        bindings[term.id] = f"{status_var}.{field_by_index[i]}"
+    return CodeFragment(statements=[stmt], bindings=bindings, imports={_QUEUE_IMPORT})

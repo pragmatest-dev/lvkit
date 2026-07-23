@@ -198,6 +198,18 @@ class FPTerminal(Terminal):
     control_type: str | None = None
     default_value: ScalarValue = None
     enum_values: list[str] = []
+    # Structure containment for a SPECIFIC on-diagram GLYPH of this control —
+    # set only when the heap places this terminal inside a case/event/disable
+    # frame or a stacked-sequence frame via an sRN's termList (a control used
+    # as e.g. an Event Structure's registered event-source terminal — see
+    # graph/construction.py's frame-attribution pass). None (the common case)
+    # means no such frame-scoped placement was found — either the control is
+    # genuinely VI-global, or it was never referenced via an sRN. FPTerminal
+    # itself isn't a GraphNode (one FPTerminal is shared VI-wide, not one per
+    # placement), so this can't just inherit GraphNode.parent/frame — it
+    # mirrors that shape instead (see render/scene.py's frame-path lookup).
+    parent: str | None = None
+    frame: str | int | None = None
 
 
 class TunnelTerminal(Terminal):
@@ -297,6 +309,28 @@ class SequenceFrame(Frame):
     index: int = 0
 
 
+class EventFrame(Frame):
+    """A frame in an Event Structure — handles ONE registered event.
+
+    Unlike a case frame, the active frame is chosen at RUNTIME by whichever
+    event actually fires — there is no fixed selector wire/value, so this
+    carries a display ``event_label`` instead of ``selector_value``.
+
+    LabVIEW stores a per-frame label only for the frame it last displayed in
+    the editor (heap ``selString``/``dIdx``) — there is no per-frame label
+    table like a case's dataspace ``SelectorTable``. That ONE frame's label
+    is the faithful, LabVIEW-rendered text (e.g. ``[3] "Control": Value
+    Change`` or ``[0] Timeout``, brackets included — LabVIEW's own
+    convention). Every OTHER frame's label is RECONSTRUCTED from its
+    ``EventSpec`` heap entry (source control caption + event-type name, when
+    both are resolvable) in the same bracketed format; an unresolvable
+    control or an unconfirmed event-type code degrades gracefully rather
+    than fabricating a name (see parser/nodes/event.py).
+    """
+
+    event_label: str = ""
+
+
 # ============================================================
 # Codegen types (Pydantic) — consumed by code generation
 # Converted from graph nodes by lvkit.graph (InMemoryVIGraph.get_operations())
@@ -377,6 +411,21 @@ class SequenceOperation(Operation):
     """Flat or stacked sequence."""
 
     frames: list[SequenceFrame] = []
+
+
+class EventOperation(Operation):
+    """Event Structure with one frame per registered event.
+
+    Frame-bearing like a case (one subdiagram per frame), but the active
+    frame is chosen at RUNTIME by whichever event fires -- there is no
+    selector wire, unlike CaseOperation. Wired through
+    describe/diff/netlist/render so its content stays visible. Codegen emits an
+    explicit ``raise NotImplementedError`` (see codegen/nodes/event.py): an
+    asynchronous UI event loop has no headless runtime analog, so it fails
+    loudly rather than silently dropping the VI's event behaviour.
+    """
+
+    frames: list[EventFrame] = []
 
 
 class DisableStructureOperation(Operation):

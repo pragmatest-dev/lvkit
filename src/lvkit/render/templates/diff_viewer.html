@@ -36,12 +36,21 @@
   header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
          display:flex;gap:14px;align-items:center;flex-wrap:wrap}
   header b{font-size:15px}
-  .controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  /* Header = three groups (titles · controls · legend). Each group is nowrap so
+     it never fragments internally; the header's own flex-wrap breaks only
+     BETWEEN groups — one row when there's room, three stacked rows when narrow.
+     .controls.grow fills the gap between titles and legend (Split/Overlay left,
+     zoom/hl/theme right via margin-left:auto); .legend grows just enough to keep
+     its chips right-justified on its own row when stacked. */
+  .titles{display:flex;gap:14px;align-items:center;flex-wrap:nowrap}
+  .controls{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
+  .controls.grow{flex:100 1 auto}
   button{background:var(--btn);color:var(--fg);border:1px solid var(--line);border-radius:6px;
          padding:5px 10px;cursor:pointer;font:inherit}
   button.active{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
   button:disabled{opacity:.45;cursor:default}
-  .legend{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:13px}
+  .legend{display:flex;gap:12px;align-items:center;font-size:13px;
+          flex-wrap:nowrap;justify-content:flex-end;flex:1 0 auto}
   .chip{display:inline-flex;gap:6px;align-items:center}
   .sw{width:12px;height:12px;border-radius:3px}
   .body{display:grid;grid-template-columns:var(--aside-w,290px) 6px 1fr;
@@ -231,15 +240,12 @@
 </style>
 
 <header>
-  <b>VI diff · __TITLE__</b>
-  <span style="opacity:.7">__BEFORE_LABEL__ → __AFTER_LABEL__ · engine change-map</span>
-  <div class="controls">
+  <div class="titles"><b>VI diff · __TITLE__</b><span style="opacity:.7">__BEFORE_LABEL__ → __AFTER_LABEL__ · engine change-map</span></div>
+  <div class="controls grow">
     <button data-mode="split" class="active" title="Before above, after below — scroll and zoom stay in sync">Split</button>
     <button data-mode="overlay">Overlay</button>
     <span id="opWrap" style="display:none"><button type="button" class="op-end" data-op="0" title="show BEFORE only">before</button><input id="op" type="range" min="0" max="100" value="70"><button type="button" class="op-end" data-op="100" title="show AFTER only">after</button></span>
-  </div>
-  <div class="legend">
-    <span class="controls" style="gap:6px;margin-right:2px;font-size:14px">
+    <span class="controls" style="margin-left:auto;gap:6px;font-size:14px">
       <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit">fit</button></span>
       <button id="hlToggle" type="button" class="active"
         style="min-width:30px;padding:5px 9px"
@@ -247,6 +253,8 @@
         aria-pressed="true" aria-label="Toggle change highlights">◉</button>
       __THEME_BTN__
     </span>
+  </div>
+  <div class="legend">
     <span class="chip"><span class="sw" style="background:var(--add)"></span>added __ADD__</span>
     <span class="chip"><span class="sw" style="background:var(--del)"></span>removed __DEL__</span>
     <span class="chip"><span class="sw" style="background:var(--mod)"></span>modified __MOD__</span>

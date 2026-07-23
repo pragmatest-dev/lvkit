@@ -17,6 +17,7 @@ from ..graph.models import (
     CaseStructureNode,
     ConstantNode,
     DisableStructureNode,
+    EventStructureNode,
     FormulaNode,
     LoopNode,
     SequenceNode,
@@ -268,11 +269,44 @@ def _frame_path(
         parent = by_id.get(cur.parent)
         if parent is None:
             break
-        if isinstance(parent, (CaseStructureNode, DisableStructureNode)) \
-                or _is_stacked_sequence(parent):
+        if isinstance(
+            parent, (CaseStructureNode, DisableStructureNode, EventStructureNode),
+        ) or _is_stacked_sequence(parent):
             segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
         cur = parent
     segs.reverse()
+    return tuple(segs)
+
+
+def _fp_terminal_frame_path(
+    t: FPTerminal, by_id: dict[str, AnyGraphNode], vi_name: str,
+) -> FramePath | None:
+    """Structural ``FramePath`` for an FP terminal's on-diagram GLYPH, seeded
+    from the terminal's own ``parent``/``frame`` stamp (see
+    ``graph/construction.py``'s FP-terminal frame-attribution pass) instead
+    of a ``GraphNode``'s ``_frame_path`` walk — an ``FPTerminal`` isn't
+    itself a graph node (one ``FPTerminal`` is shared VI-wide, not one per
+    on-diagram placement, since the same control can be referenced from
+    multiple frames), so it can't just BE the ``node`` that walk starts
+    from. This mirrors that walk: the terminal's immediate parent structure
+    is the leaf segment (using the terminal's own ``frame``), then any
+    further ancestors come from that structure's OWN ``_frame_path``.
+
+    Returns ``None`` (never ``()``) when the terminal wasn't stamped (it was
+    never referenced via an sRN inside a frame) so callers can fall back to
+    the wire-connectivity heuristic instead of wrongly treating it as
+    confirmed always-visible base content.
+    """
+    if t.parent is None:
+        return None
+    parent = by_id.get(t.parent)
+    if parent is None:
+        return None
+    segs = list(_frame_path(parent, by_id, vi_name))
+    if isinstance(
+        parent, (CaseStructureNode, DisableStructureNode, EventStructureNode),
+    ) or _is_stacked_sequence(parent):
+        segs.append((_strip_prefix(parent.id, vi_name), str(t.frame)))
     return tuple(segs)
 
 
@@ -398,6 +432,27 @@ def _frame_info(
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(i) for i in range(len(node.frames))]
             default_frame[raw] = "0"
+        elif isinstance(node, EventStructureNode) and node.frames:
+            # Event structure: keyed by frame INDEX (like a stacked sequence,
+            # not a case) — the active frame is chosen at runtime by whichever
+            # event fires, not a selector wire/value. frame_labels carries
+            # each frame's event_label — faithful for the displayed frame,
+            # reconstructed from its EventSpec for every other frame (falls
+            # back to "[N]" when unresolvable) — see EventFrame /
+            # parser/nodes/event.py.
+            raw = _strip_prefix(node.id, vi_name)
+            values = [str(i) for i in range(len(node.frames))]
+            frame_values[raw] = values
+            shown_idx = (
+                node.displayed_frame
+                if node.displayed_frame is not None
+                and 0 <= node.displayed_frame < len(node.frames)
+                else 0
+            )
+            default_frame[raw] = str(shown_idx)
+            frame_labels[raw] = {
+                str(i): f.event_label for i, f in enumerate(node.frames)
+            }
     return default_frame, frame_values, frame_labels, error_no_error
 
 
@@ -544,9 +599,17 @@ def _reposition_mux_aggregates(
 # an optional input wire, SR/auto-index carry real data). "selector" also
 # matches by name because the graph tags it that way (construction.py)
 # rather than always setting tunnel_type="caseSel".
+#
+# "eventTimeout"/"eventDyn" are an Event Structure's own two bespoke border
+# DCOs (see parser/nodes/event.py): the ``eventTimeOut`` value input (top-left
+# HOURGLASS box, in the position a For-Loop's N terminal occupies) and the
+# ``eventDynDCO`` dynamic-event-registration refnum pair (small GREEN boxes at
+# their real heap position — LabVIEW places them top+bottom in some VIs,
+# left+right in others; position is heap geometry, not assumed here).
 _TUNNEL_GLYPH_KIND = {
     "lMax": "N", "lSR": "sr_down", "rSR": "sr_up",
     "lpTun": "autoindex", "caseSel": "selector",
+    "eventTimeOut": "eventTimeout", "eventDynDCO": "eventDyn",
 }
 
 # Border terminals a loop is GUARANTEED to have, purely as a function of
@@ -618,6 +681,17 @@ def _structure_borders(
                 for inner in inner_by_outer.get(t.id, [])
                 if inner.frame is not None and inner.id not in wired_dest
             )
+        # Dynamic-event terminals draw ONLY when toggled on ("Show Dynamic
+        # Event Terminals") — which is exactly when LabVIEW emits real bounds
+        # for them; a hidden pair carries no/degenerate bounds, so skip it.
+        # (Every eventStruct in the current corpus has them on with real
+        # bounds, so this is a defensive no-op there; it is the correct
+        # data-driven gate rather than decoding a version-confounded objFlags
+        # bit — a toggled-off terminal simply has nothing to draw.)
+        if glyph_kind == "eventDyn":
+            gx1, gy1, gx2, gy2 = rect
+            if gx2 - gx1 <= 0 or gy2 - gy1 <= 0:
+                continue
         result.append(
             RenderBorderTerminal(
                 terminal=t, bounds=rect, glyph_kind=glyph_kind, color=color,
@@ -884,18 +958,28 @@ def _wire_path(
     terminal belongs to that tunnel's owning frame (the tunnel's node IS the
     structure itself, per construction.py — its own ``_frame_path`` gives
     the structure's ANCESTOR path, to which we append this tunnel's own
-    frame segment). A
-    wire touching an ordinary node belongs to that node's frame path. The
-    most-specific (longest/deepest) endpoint wins — wires never span two
-    sibling frames, they route through the border tunnel, so the shallower
-    endpoint (the tunnel/structure itself) is always a prefix of the other.
+    frame segment). A wire touching an FP terminal (a front-panel control's
+    on-diagram glyph, e.g. an Event Structure's registered event-source
+    control) uses THAT terminal's own structural frame path — its "node" is
+    the whole VI (``by_id`` only holds structural operation/structure nodes,
+    never the VI itself), so it can't go through the ordinary node lookup
+    below at all. A wire touching an ordinary node belongs to that node's
+    frame path. The most-specific (longest/deepest) endpoint wins — wires
+    never span two sibling frames, they route through the border tunnel, so
+    the shallower endpoint (the tunnel/structure itself) is always a prefix
+    of the other.
     """
     cands: list[FramePath] = []
     for end in (w.source, w.dest):
+        term = graph.get_terminal(end.terminal_id)
+        if isinstance(term, FPTerminal):
+            struct_path = _fp_terminal_frame_path(term, by_id, vi_name)
+            if struct_path is not None:
+                cands.append(struct_path)
+                continue
         node = by_id.get(end.node_id)
         if node is None:
             continue
-        term = graph.get_terminal(end.terminal_id)
         if (
             isinstance(term, TunnelTerminal)
             and term.boundary == "inner"
@@ -1410,10 +1494,16 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     fp_terminals: list[RenderFPTerminal] = []
     vi_node = graph.get_graph_node(vi_name)
     if vi_node is not None:
-        # Frame membership for FP terminals (they carry no parent/frame): an
-        # indicator/control placed INSIDE a case/sequence frame wires to a node
-        # in that frame — inherit that node's (deepest) frame path so it hides
-        # with the frame instead of rendering in every frame.
+        # Frame membership for FP terminals: PREFER the structural
+        # attribution stamped by graph/construction.py (the terminal's own
+        # ``parent``/``frame`` — set when the heap places its glyph inside a
+        # case/event/disable/stacked-sequence frame via an sRN, e.g. an Event
+        # Structure's registered event-source control). That's exact, from
+        # the heap itself — unlike the WIRE-based fallback below (used only
+        # when a terminal wasn't stamped, e.g. it's genuinely VI-global): an
+        # indicator/control placed INSIDE a frame often wires to a node in
+        # that same frame, so inherit that node's (deepest) frame path too,
+        # so it hides with the frame instead of rendering in every frame.
         fp_ids = {t.id for t in vi_node.terminals if isinstance(t, FPTerminal)}
         fp_frame: dict[str, FramePath] = {}
         for w in graph.get_wires(vi_name, include_internal=True):
@@ -1439,9 +1529,14 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                 (bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2,
             ))
             label_visible = raw_uid not in layout.hidden_labels
+            struct_path = _fp_terminal_frame_path(t, by_id, vi_name)
+            frame_path = (
+                struct_path if struct_path is not None
+                else fp_frame.get(t.id, ())
+            )
             fp_terminals.append(RenderFPTerminal(
                 terminal=t, bounds=bounds, center=center,
-                label_visible=label_visible, frame_path=fp_frame.get(t.id, ()),
+                label_visible=label_visible, frame_path=frame_path,
             ))
 
     if missing:
