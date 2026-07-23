@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 from lvkit.models import (
     CaseOperation,
+    EventOperation,
     FormulaOperation,
     InPlaceOperation,
     InvokeOperation,
@@ -31,6 +32,7 @@ from . import (
     case,
     compound,
     constant,
+    event,
     first_call,
     formula,
     in_place,
@@ -61,6 +63,8 @@ def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
             return loop.generate(node, ctx)
         case SequenceOperation():
             return sequence.generate(node, ctx)
+        case EventOperation():
+            return event.generate(node, ctx)
         case PropertyOperation():
             return property_node.generate(node, ctx)
         case InvokeOperation():

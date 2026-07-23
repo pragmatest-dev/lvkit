@@ -418,11 +418,11 @@ class EventOperation(Operation):
 
     Frame-bearing like a case (one subdiagram per frame), but the active
     frame is chosen at RUNTIME by whichever event fires -- there is no
-    selector wire, unlike CaseOperation. Codegen has no dedicated generator
-    for it yet (falls through to the existing "unknown node type" comment
-    fallback, same as DisableStructureOperation) -- this slice only wires it
-    through describe/diff/netlist/render so its content stays visible
-    rather than silently dropped.
+    selector wire, unlike CaseOperation. Wired through
+    describe/diff/netlist/render so its content stays visible. Codegen emits an
+    explicit ``raise NotImplementedError`` (see codegen/nodes/event.py): an
+    asynchronous UI event loop has no headless runtime analog, so it fails
+    loudly rather than silently dropping the VI's event behaviour.
     """
 
     frames: list[EventFrame] = []
