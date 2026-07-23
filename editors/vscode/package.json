@@ -1,5 +1,5 @@
 {
-  "name": "lvkit-vi",
+  "name": "lvkit",
   "displayName": "lvkit — LabVIEW VI Viewer & Diff",
   "description": "View LabVIEW .vi block diagrams and see visual before/after diffs in VS Code — no LabVIEW license required.",
   "version": "0.1.0",
