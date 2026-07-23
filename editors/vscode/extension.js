@@ -232,6 +232,16 @@ async function diffVI(arg) {
   const uri = arg && arg.resourceUri ? arg.resourceUri : arg;
   if (!uri || !uri.fsPath) { vscode.window.showErrorMessage('lvkit: no .vi selected.'); return; }
   const file = uri.fsPath;
+  // The Source Control menu can't filter by file type: `resourceExtname` is not
+  // among the context keys available in scm/resourceState/context (only
+  // scmProvider / scmResourceGroup / originalResourceScheme are), so gating the
+  // menu on it silently hid this command from the git panel. The menu now uses
+  // `scmProvider == git`, which means it shows for EVERY changed file — so the
+  // .vi check has to happen here instead.
+  if (!file.toLowerCase().endsWith('.vi')) {
+    vscode.window.showErrorMessage(`lvkit: "${path.basename(file)}" is not a .vi file.`);
+    return;
+  }
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `lvkit: diffing ${path.basename(file)}…` },
     async () => {

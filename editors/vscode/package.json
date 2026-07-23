@@ -66,7 +66,7 @@
     ],
     "menus": {
       "scm/resourceState/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
+        { "command": "lvkit.diffVI", "when": "scmProvider == git", "group": "navigation@1" }
       ],
       "explorer/context": [
         { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
