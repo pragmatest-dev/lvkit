@@ -54,20 +54,12 @@ jobs:
           enable-cache: true
       - run: uv sync --all-extras --dev
 
-      # The sample VI corpus is local-only (never committed). Pull it so the
-      # `needs_samples` tests actually run on CI instead of skipping. The clones
-      # are keyed on the pull script, so a pull-script change busts the cache;
-      # otherwise it's restored and pull_samples.sh no-ops the existing clones.
-      - name: Cache sample corpus
-        uses: actions/cache@v4
-        with:
-          path: .lvkit/cache/samples
-          key: samples-${{ hashFiles('scripts/pull_samples.sh') }}
-      - name: Pull sample corpus
-        run: bash scripts/pull_samples.sh
-
+      # Skip tests that need the local-only sample corpus (~54 parser/diff/render
+      # tests). Pulling it means 8 git clones + extraction (~2 min) and an
+      # upstream-flake dependency; those tests run in local pre-commit, where the
+      # corpus is present. See the `needs_samples` marker / tests/conftest.py.
       - name: Pytest
-        run: uv run pytest -q
+        run: uv run pytest -q -m "not needs_samples"
 
   build:
     runs-on: ubuntu-latest
