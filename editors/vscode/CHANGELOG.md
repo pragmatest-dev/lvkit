@@ -2,6 +2,21 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.4]
+
+- **macOS ships.** macOS PyInstaller emits a `Python.framework` bundle, and
+  Apple's framework layout is built on symlinks (`Versions/Current -> 3.14`,
+  `Resources -> Versions/Current/Resources`). `vsce`'s secret scanner follows
+  every entry and reads it; on a symlink pointing at a *directory* that raises
+  an unhandled `EISDIR`, reported only as an empty
+  `Error occurred while scanning secrets (files):`. It was a crash, not a
+  detection — which is why permitting secrets never helped. Those symlinks are
+  now materialized into real directories at build time (they can't simply be
+  dropped: `Versions/Current` is what the macOS loader resolves through).
+- Each platform now builds **and packages** its own `.vsix`; publishing is a
+  separate job that only uploads. All four packages must exist before anything
+  is published, so a release can no longer go out half-finished.
+
 ## [0.1.3]
 
 - **macOS builds publish.** The release now fans out to per-OS build jobs that

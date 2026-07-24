@@ -31,6 +31,27 @@ WORK="editors/vscode/build/.pyi-work"
   --specpath "$WORK" \
   editors/vscode/build/lvkit_entry.py
 
+# macOS PyInstaller emits a Python.framework bundle containing SYMLINKS THAT
+# POINT AT DIRECTORIES (Resources -> Versions/Current/Resources, and
+# Versions/Current -> 3.14). vsce's secret scanner (@secretlint/source-creator)
+# follows every entry and read()s it; on a directory that throws an unhandled
+# EISDIR, which vsce reports as an empty
+# "Error occurred while scanning secrets (files):" — no type, no file. It is a
+# CRASH, not a detection, which is why --allow-package-all-secrets never helped.
+#
+# Materialize those symlinks into real directories rather than excluding them:
+# Versions/Current is load-bearing for macOS dylib resolution, so dropping it
+# would ship a binary that cannot find Python. Copying keeps every path the
+# loader needs and costs a few MB of duplicated framework. No-op on Linux and
+# Windows, which have no framework bundle and no directory symlinks.
+find editors/vscode/bin -type l | while read -r link; do
+  if [ -d "$link" ]; then
+    target="$(readlink -f "$link")"
+    echo "Materializing directory symlink: $link -> $target"
+    rm "$link" && cp -R "$target" "$link"
+  fi
+done
+
 BIN="editors/vscode/bin/lvkit/lvkit"
 [ -f "$BIN.exe" ] && BIN="$BIN.exe"
 echo "Built $BIN — verifying…"
