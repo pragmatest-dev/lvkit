@@ -19,9 +19,15 @@ jobs:
             target: linux-x64
           - os: windows-latest
             target: win32-x64
-          - os: macos-13
+          # macos-13 was RETIRED 2025-12-04 — jobs using it queue forever and
+          # never start. macos-14 is deprecated too (unsupported after
+          # 2026-11-02). macos-15 is the current arm64 image; macos-15-intel is
+          # the replacement label for x86_64. Apple has discontinued x86_64, and
+          # GitHub drops macOS Intel entirely when macOS 15 retires (Fall 2027),
+          # so darwin-x64 is a sunsetting target.
+          - os: macos-15-intel
             target: darwin-x64
-          - os: macos-14
+          - os: macos-15
             target: darwin-arm64
     runs-on: ${{ matrix.os }}
     steps:

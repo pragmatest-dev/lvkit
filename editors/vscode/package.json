@@ -1,15 +1,15 @@
 {
   "name": "lvkit",
-  "displayName": "LVKit — View & Diff LabVIEW VIs",
+  "displayName": "LVKit",
   "description": "View LabVIEW .vi block diagrams and see visual before/after diffs in VS Code — no LabVIEW license required.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "pragmatest",
   "icon": "icon.png",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "https://github.com/pragmatest-dev/lvkit", "directory": "editors/vscode" },
   "homepage": "https://pragmatest.com/lvkit",
   "bugs": { "url": "https://github.com/pragmatest-dev/lvkit/issues" },
-  "galleryBanner": { "color": "#1e1e2e", "theme": "dark" },
+  "galleryBanner": { "color": "#2b3038", "theme": "dark" },
   "engines": { "vscode": "^1.75.0" },
   "capabilities": {
     "untrustedWorkspaces": {

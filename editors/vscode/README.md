@@ -1,7 +1,7 @@
-# lvkit — LabVIEW VI Viewer & Diff (VS Code)
+# LVKit — View & Diff LabVIEW VIs (VS Code)
 
 See LabVIEW `.vi` block diagrams and **visual before/after diffs** directly in VS Code —
-**no LabVIEW license required**. Powered by [lvkit](https://pragmatest.com).
+**no LabVIEW license required**. Powered by [LVKit](https://pragmatest.com).
 
 An open-source tool from **[Pragmatest](https://pragmatest.com)**.
 
@@ -16,7 +16,7 @@ change list, highlights).
   diagram-theme toggle. Your theme choice is remembered (persisted to the
   `lvkit.diagramTheme` setting).
 - **Visual diff** — right-click a changed `.vi` (Source Control or Explorer) →
-  **lvkit: Open Visual Diff** → the interactive before/after viewer in an editor tab
+  **LVKit: Open Visual Diff** → the interactive before/after viewer in an editor tab
   (same diagram-theme control).
 
 Both features use only **stable** VS Code APIs, so this can ship to the Marketplace as-is.
@@ -31,12 +31,12 @@ The extension resolves which `lvkit` to run, in order: an explicit **`lvkit.path
 setting → the repo's own `.venv/bin/lvkit` (`.venv\Scripts\lvkit.exe` on Windows) →
 `uv run lvkit` when the repo has a `pyproject.toml`/`uv.lock` and `uv` is on `PATH` →
 **the bundled binary** (`bin/lvkit/lvkit`) → a global `lvkit`. The first three let
-developers working inside a lvkit checkout use their own latest build; everyone else
+developers working inside the LVKit repo use their own latest build; everyone else
 falls through to the bundled binary automatically. Set **`lvkit.path`** only to override.
 
 ## Workspace Trust
 
-lvkit runs a local lvkit executable against the `.vi` files in your workspace, so it
+LVKit runs a local `lvkit` executable against the `.vi` files in your workspace, so it
 requires a **trusted** workspace. In Restricted Mode VS Code disables the extension
 entirely — no preview, no diff, and no `.vi` context-menu entries. If a `.vi` opens as
 a binary file and the commands are missing, check the status bar for **Restricted
@@ -64,12 +64,12 @@ which have no real filesystem to read `.vi` files from.
    *Extension Development Host* window launches with the extension loaded.
 2. In that window, **File → Open Folder →** the demo repo `setup-jki-demo.sh` printed.
 3. **Explorer:** click any `.vi` → it renders.
-4. **Source Control:** right-click the changed `run.vi` → **lvkit: Open Visual Diff**.
+4. **Source Control:** right-click the changed `run.vi` → **LVKit: Open Visual Diff**.
 
 ## Versioning
 
-The extension versions on its **own** track (independent of the lvkit library) —
-`0.1.0` is the first real release. It requires **lvkit ≥ 0.5.0** (constant `MIN_LVKIT`
+The extension versions on its **own** track (independent of the LVKit library) —
+`0.1.0` is the first real release. It requires **LVKit ≥ 0.5.0** (constant `MIN_LVKIT`
 in `extension.js`); bump that constant when a feature needs a newer library, and bump
 the extension `version` in `package.json` per its own release cadence.
 
@@ -99,8 +99,8 @@ You need a **publisher** on the VS Code Marketplace and a token:
    `darwin-arm64`). CI does this on an extension tag — see
    `.github/workflows/publish-extension.yml`.
 
-The bundled binary means end users need nothing installed; developers inside a lvkit
-checkout still get their own build via the `.venv`/`uv run` resolution.
+The bundled binary means end users need nothing installed; developers inside the LVKit
+repo still get their own build via the `.venv`/`uv run` resolution.
 
 ## Not yet (needs proposed API)
 
@@ -110,7 +110,7 @@ yet. The right-click command is the shippable path today.
 
 ## Trademarks
 
-lvkit is an independent, clean-room project, not affiliated with, authorized by,
+LVKit is an independent, clean-room project, not affiliated with, authorized by,
 endorsed by, or sponsored by NI. LabVIEW, NI, and National Instruments are
 trademarks of National Instruments Corporation, used only to identify the file
-format lvkit reads.
+format LVKit reads.
