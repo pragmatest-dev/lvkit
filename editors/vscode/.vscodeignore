@@ -8,3 +8,8 @@ node_modules/**
 
 # Contributor/maintainer docs — not part of the published listing
 DEVELOPMENT.md
+
+# Listing screenshots — referenced by absolute GitHub URL, never read from
+# inside the package, so shipping them just costs every user ~380 KB.
+View.png
+Diff.png

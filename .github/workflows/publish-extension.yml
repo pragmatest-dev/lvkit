@@ -1,45 +1,35 @@
 name: Publish VS Code extension
 
 # Fires on an EXTENSION tag (ext-v*), separate from the PyPI publish (v*).
-# Builds the standalone lvkit binary per-platform (PyInstaller) and publishes a
-# platform-specific .vsix for each target. Needs a VSCE_PAT repo secret
-# (Azure DevOps PAT with Marketplace:Manage scope).
+#
+# Three stages: verify -> build (fan out per OS) -> publish (fan back in).
+#
+# Why the fan-in: vsce's LOCAL pre-upload secret scan aborts on macOS with an
+# empty "Error occurred while scanning secrets (files):" — no secret type, no
+# file — before it ever contacts the Marketplace. It reproduced on macos-14,
+# macos-15 and macos-15-intel, and --allow-package-all-secrets does not help
+# (that flag permits DETECTED secrets; ours is the scanner erroring). Linux and
+# Windows scan the same source fine.
+#
+# Nothing requires a VSIX to be packaged on the OS it targets: --target only
+# stamps the platform into the manifest, and the payload is whatever sits in
+# bin/. So each OS now BUILDS its binary and uploads it; a single Linux job
+# packages and publishes every target. That also makes the release atomic —
+# `needs: build` means one failed build publishes nothing, instead of leaving
+# some platforms live and others missing.
 on:
   push:
     tags:
       - "ext-v*"
 
 jobs:
-  publish:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: linux-x64
-          - os: windows-latest
-            target: win32-x64
-          # macos-13 was RETIRED 2025-12-04 — jobs using it queue forever and
-          # never start. macos-14 is deprecated too (unsupported after
-          # 2026-11-02). macos-15 is the current arm64 image; macos-15-intel is
-          # the replacement label for x86_64. Apple has discontinued x86_64, and
-          # GitHub drops macOS Intel entirely when macOS 15 retires (Fall 2027),
-          # so darwin-x64 is a sunsetting target.
-          - os: macos-15-intel
-            target: darwin-x64
-          - os: macos-15
-            target: darwin-arm64
-    runs-on: ${{ matrix.os }}
+  # Cheap gate BEFORE the expensive builds: vsce publishes the version from
+  # package.json, NOT from the tag, so a mismatched tag would silently ship the
+  # wrong version. Fail in seconds rather than after four PyInstaller runs.
+  verify:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      # vsce publishes the version from package.json, NOT from the tag — so a
-      # mismatched tag would silently ship the wrong version (or fail late, on
-      # only some platforms). Fail fast and loudly instead.
       - name: Verify tag matches package.json version
         shell: bash
         run: |
@@ -51,6 +41,33 @@ jobs:
           fi
           echo "Publishing version $pkg"
 
+  build:
+    needs: verify
+    strategy:
+      # Report every platform's result rather than cancelling siblings on the
+      # first failure — `needs: build` already blocks publishing unless all
+      # four succeed, so full diagnostics cost nothing.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win32-x64
+          # macos-13 was RETIRED 2025-12-04 (jobs queue forever and never
+          # start) and macos-14 is deprecated (unsupported after 2026-11-02).
+          # macos-15 is the current arm64 image; macos-15-intel replaces the
+          # x86_64 label. Apple has discontinued x86_64 and GitHub drops macOS
+          # Intel when macOS 15 retires (Fall 2027), so darwin-x64 is sunsetting.
+          - os: macos-15-intel
+            target: darwin-x64
+          - os: macos-15
+            target: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
       - name: Build bundled lvkit binary
         shell: bash
         run: |
@@ -58,20 +75,48 @@ jobs:
           uv pip install -e . pyinstaller
           uv run bash editors/vscode/build/build-binary.sh
 
-      - name: Package + publish (.vsix for this platform)
+      # tar because upload-artifact does NOT preserve the executable bit, and
+      # the bundled lvkit would arrive unrunnable.
+      - name: Archive binary
+        shell: bash
+        run: tar -czf "lvkit-bin-${{ matrix.target }}.tar.gz" -C editors/vscode bin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lvkit-bin-${{ matrix.target }}
+          path: lvkit-bin-${{ matrix.target }}.tar.gz
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package + publish every platform target
         shell: bash
         working-directory: editors/vscode
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          # --allow-package-all-secrets: vsce runs a LOCAL secret scan before
-          # upload, and on both macOS targets it aborts with an empty
-          # "Error occurred while scanning secrets (files):" — no secret type, no
-          # file — before ever printing "Publishing...". linux/win32 scan the same
-          # source fine; only the Mach-O PyInstaller output trips it. The scanner
-          # has a history of false positives (microsoft/vscode-vsce#1147), and
-          # because ours reports no [SECRET_TYPE] the targeted
-          # --allow-package-secrets flag is unusable. Safe here: the .vsix is
-          # entirely our own PyInstaller build, produced in this workflow from
-          # this repo — no third-party blobs, no credentials.
-          npx --yes @vscode/vsce publish --target ${{ matrix.target }} --pat "$VSCE_PAT" --allow-package-all-secrets
+          set -euo pipefail
+          for target in linux-x64 win32-x64 darwin-x64 darwin-arm64; do
+            echo "::group::publish $target"
+            rm -rf bin
+            tar -xzf "../../artifacts/lvkit-bin-$target/lvkit-bin-$target.tar.gz" -C .
+            test -x bin/lvkit/lvkit || test -x bin/lvkit/lvkit.exe
+            # --allow-package-all-secrets is retained defensively: if the macOS
+            # binary's CONTENT (rather than the macOS environment) is what upsets
+            # the scanner, it will now be scanned here on Linux, and this flag
+            # covers the case where that surfaces as a detection.
+            npx --yes @vscode/vsce publish \
+              --target "$target" --pat "$VSCE_PAT" --allow-package-all-secrets
+            echo "::endgroup::"
+          done

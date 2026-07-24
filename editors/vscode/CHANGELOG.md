@@ -2,6 +2,18 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.3]
+
+- **macOS builds publish.** The release now fans out to per-OS build jobs that
+  upload their binary as an artifact, then fans back in to a single Linux job
+  that packages and publishes every platform target. Nothing requires a VSIX to
+  be built on the OS it targets, and this routes around a `vsce` failure that
+  only occurs on macOS runners.
+- Releases are now **atomic** — one failed build publishes nothing, rather than
+  leaving some platforms live and others missing.
+- Listing screenshots are no longer shipped inside the package (~380 KB saved);
+  they're referenced from the repository.
+
 ## [0.1.2]
 
 - **macOS builds publish again.** `vsce` runs a local secret scan before upload,
