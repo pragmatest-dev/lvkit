@@ -1,6 +1,6 @@
 # LVKit — View and diff VIs without LabVIEW
 
-See `.vi` block diagrams and **visual before/after diffs** directly in VS Code, on a
+View `.vi` block diagrams and **visual before/after diffs** directly in VS Code, on a
 machine with **no LabVIEW installed**. Powered by [LVKit](https://pragmatest.com), an open-source tool from **[PragmaTest](https://pragmatest.com)**.
 
 ## Features
