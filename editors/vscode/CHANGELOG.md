@@ -35,8 +35,6 @@ installed**.
 - **Extra SubVI search paths** via `lvkit.searchPaths` (the repository root is
   detected automatically).
 
-Uses only stable VS Code APIs.
-
 ### Requirements
 
 - **A trusted workspace.** The extension runs a local `lvkit` executable against your
@@ -46,8 +44,5 @@ Uses only stable VS Code APIs.
 
 ### Known limitations
 
-- Opening the rich diff on a plain **left-click** (like a text diff) needs VS
-  Code's custom-diff-editor API, which is not yet available in stable builds —
-  the right-click command is the supported path today.
 - Rendering coverage grows with the LVKit library; a node LVKit doesn't
   recognize yet is drawn as a labeled box rather than its LabVIEW glyph.

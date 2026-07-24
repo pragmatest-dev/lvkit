@@ -5,3 +5,6 @@ setup-jki-demo.sh
 node_modules/**
 **/*.vsix
 **/.DS_Store
+
+# Contributor/maintainer docs — not part of the published listing
+DEVELOPMENT.md
