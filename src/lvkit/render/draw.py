@@ -760,7 +760,10 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
             continue
         side, frac = _term_side_and_frac(rt, bounds)
         if rt.bounds is not None and rt.bounds in shared_rects:
-            side = "right" if rt.terminal.direction == "output" else "left"
+            if rt.terminal.nmux_role == "agg" and rt.terminal.direction == "input":
+                side = "top"
+            else:
+                side = "right" if rt.terminal.direction == "output" else "left"
         sided[side].append(_pane_label(rt, side, frac, backend, theme))
     for labels in sided.values():
         labels.sort(key=lambda lb: lb.frac)
