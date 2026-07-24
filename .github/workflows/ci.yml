@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: Ruff
+        run: uv run ruff check .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      # lvkit type-checks its shipped package; scripts/ and branding/ are
+      # auxiliary and intentionally out of scope.
+      - name: Pyright
+        run: uv run pyright src/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # pyproject declares requires-python >=3.10, but only 3.12+ is green:
+        # array-ops codegen emits Python that relies on comprehension variables
+        # leaking into the enclosing scope, which works only from 3.12 (PEP 709
+        # inlined comprehensions) — on 3.10/3.11 the generated code NameErrors.
+        # That is a real codegen bug (generated output should run on the declared
+        # floor); tracked separately. Test the versions that actually pass until
+        # it's fixed.
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+
+      # Skip tests that need the local-only sample corpus (~54 parser/diff/render
+      # tests). Pulling it means 8 git clones + extraction (~2 min) and an
+      # upstream-flake dependency; those tests run in local pre-commit, where the
+      # corpus is present. See the `needs_samples` marker / tests/conftest.py.
+      - name: Pytest
+        run: uv run pytest -q -m "not needs_samples"
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

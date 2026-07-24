@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.describe import (
     _const_type_str,
@@ -80,6 +82,7 @@ class TestErrorClusterFormatting:
 
 
 class TestConstructionAttribution:
+    @pytest.mark.needs_samples
     def test_in_vi_has_frame_attributed_constants(self):
         graph = InMemoryVIGraph()
         graph.load_vi(str(IN_VI), mode=LoadMode.NONE)

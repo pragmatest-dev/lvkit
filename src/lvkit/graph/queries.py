@@ -66,6 +66,10 @@ class QueryMixin:
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
     _layouts: dict[str, Layout]
+    _search_paths: list[Path]
+    _vilib_root: Path | None
+    _userlib_root: Path | None
+    _vi_file_index: dict[str, Path] | None
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO

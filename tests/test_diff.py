@@ -31,6 +31,9 @@ from lvkit.parser.layout import Layout
 #   VI_B: JKI-EasyXML's "test TCX read (installed 71).vi" (BSD-3-Clause) —
 #       has a "Flat Sequence" structure and adds "Tree"/"tag index"/
 #       "child name"/"text" inputs VI_A doesn't have.
+# Every test here diffs real VIs from the local-only corpus.
+pytestmark = pytest.mark.needs_samples
+
 VI_A = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 VI_B = Path(
     ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"

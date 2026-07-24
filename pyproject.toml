@@ -107,5 +107,14 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# Auxiliary generators/utilities (not shipped in the package) whose long lines
+# are inherent literal content — SVG path/format strings and ffmpeg commands.
+"branding/*.py" = ["E501"]
+"scripts/render_video.py" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "needs_samples: test reads the local-only sample VI corpus (.lvkit/cache/samples). Auto-skipped when the corpus is absent; pull it with scripts/pull_samples.sh.",
+]

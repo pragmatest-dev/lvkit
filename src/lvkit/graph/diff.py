@@ -1528,11 +1528,13 @@ def _netlist_diff(
         # in the VI's own source/dataflow order (``_sort_key`` /
         # ``source_order``) -- a code diff reads top-to-bottom, not
         # structures-first-then-statements.
-        siblings: list[tuple[tuple[int, int, object], str, object]] = [
-            (_sort_key(uid), "struct", uid) for uid in struct_uids
-        ] + [
-            (_sort_key(c.uid), "leaf", c) for c in here if c.kind in ("node", "wire")
-        ]
+        siblings: list[tuple[tuple[int, int, object], str, object]] = []
+        siblings += ((_sort_key(uid), "struct", uid) for uid in struct_uids)
+        siblings += (
+            (_sort_key(c.uid), "leaf", c)
+            for c in here
+            if c.kind in ("node", "wire")
+        )
         siblings.sort(key=lambda s: s[0])
         for _, tag, payload in siblings:
             if tag == "struct":

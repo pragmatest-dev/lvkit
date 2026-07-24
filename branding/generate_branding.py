@@ -9,7 +9,6 @@ To tweak: edit `mark()` below (path coordinates only — NEVER non-uniformly sca
 a mark, it distorts the constant stroke-width of 5) and/or the palette, then
 re-run. All marks live on a 64 artboard, ink rectangle x[5,59] × y[8,56].
 """
-import os
 from pathlib import Path
 
 import cairosvg

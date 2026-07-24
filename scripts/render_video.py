@@ -19,7 +19,6 @@ import base64
 import html as _html
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
