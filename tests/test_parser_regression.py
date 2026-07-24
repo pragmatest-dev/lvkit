@@ -11,6 +11,9 @@ from lvkit.parser import ParsedVI, ParsedVIMetadata, parse_vi
 from lvkit.parser.metadata import parse_subvi_paths, parse_vi_metadata
 from lvkit.parser.type_mapping import parse_type_map_rich
 
+# Regression suite over the local-only sample corpus.
+pytestmark = pytest.mark.needs_samples
+
 TEST_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
     "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"

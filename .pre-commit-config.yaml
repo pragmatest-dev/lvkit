@@ -1,25 +1,57 @@
-repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.4
-    hooks:
-      - id: ruff
-        args: [--fix]
+# See https://pre-commit.com for usage and configuration
+#
+# Install hooks once per clone:
+#     uv run pre-commit install
+#
+# Run against all files (e.g. after editing config):
+#     uv run pre-commit run --all-files
+#
+# pytest runs the FULL suite locally, where the sample corpus is present
+# (scripts/pull_samples.sh). On a fresh clone without it, `needs_samples` tests
+# auto-skip (tests/conftest.py) rather than fail. CI mirrors these checks and
+# additionally pulls the corpus — see .github/workflows/ci.yml.
 
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.14
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+
+  # Pyright and pytest run against the project's own venv (via `uv run`) so they
+  # see the full resolved dependency tree — identical to CI. lvkit type-checks
+  # src/ (its shipped package); scripts/ and branding/ are auxiliary, not gated.
   - repo: local
     hooks:
       - id: pyright
         name: pyright
-        entry: python3 -m pyright src/lvkit/
+        entry: uv run pyright src/
         language: system
         types: [python]
         pass_filenames: false
+        require_serial: true
 
       - id: pytest
         name: pytest
-        entry: python3 -m pytest -q
+        entry: uv run pytest -q
         language: system
         types: [python]
         pass_filenames: false
+        require_serial: true
+        stages: [pre-commit]
 
       - id: sync-skills
         name: sync skill templates

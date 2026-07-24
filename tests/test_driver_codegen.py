@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import ast
 
+import pytest
+
 from lvkit.codegen.ast_optimizer import eliminate_dead_code
 from lvkit.codegen.context import _format_constant
 from lvkit.graph.loading import LoadMode
@@ -210,6 +212,7 @@ def _walk_ops(ops):
         yield from _walk_ops(getattr(op, "inner_nodes", []))
 
 
+@pytest.mark.needs_samples
 class TestPolyVariantExtraction:
     """polySelector variant names should be extracted from polyIUse nodes."""
 

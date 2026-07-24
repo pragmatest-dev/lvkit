@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: Ruff
+        run: uv run ruff check .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      # lvkit type-checks its shipped package; scripts/ and branding/ are
+      # auxiliary and intentionally out of scope.
+      - name: Pyright
+        run: uv run pyright src/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # pyproject declares requires-python >=3.10, but 3.10 is not yet green
+        # (real NameErrors in generated array-ops code + typing.Never usages).
+        # Tracked separately; the tested floor is 3.11 until 3.10 is audited.
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+
+      # The sample VI corpus is local-only (never committed). Pull it so the
+      # `needs_samples` tests actually run on CI instead of skipping. The clones
+      # are keyed on the pull script, so a pull-script change busts the cache;
+      # otherwise it's restored and pull_samples.sh no-ops the existing clones.
+      - name: Cache sample corpus
+        uses: actions/cache@v4
+        with:
+          path: .lvkit/cache/samples
+          key: samples-${{ hashFiles('scripts/pull_samples.sh') }}
+      - name: Pull sample corpus
+        run: bash scripts/pull_samples.sh
+
+      - name: Pytest
+        run: uv run pytest -q
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

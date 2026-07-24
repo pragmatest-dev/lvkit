@@ -2685,6 +2685,7 @@ def test_decode_signal_escaped_length():
     assert _ortho([start, *mid, end])
 
 
+@pytest.mark.needs_samples
 def test_layout_wire_by_uid_drives_faithful_render():
     # End-to-end: every drawn wire's faithful geometry is keyed by its sink uid,
     # and the whole VI renders WITHOUT invoking the auto-router (deterministic,
