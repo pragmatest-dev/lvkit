@@ -1932,8 +1932,14 @@ def test_subvi_nodes_get_hover_tooltip_titles():
     # Every tooltip-carrying node group also carries the "lv-node" class +
     # "data-node" id (see render/__init__.py's injected hover script) that
     # reveals its connector-help panel — replaces the bare "<g>" this used
-    # to be.
-    assert re.search(r'<g class="lv-node" data-node="[^"]*">\s*<title>Parse XML', svg)
+    # to be. (data-* attrs are sorted by key — see backend.begin_group — so a
+    # resolvable SubVI's "data-lv-vi-rel" attribute, task #76, may sort before
+    # "data-node"; match both orders rather than assuming one.)
+    assert re.search(
+        r'<g class="lv-node"(?:\s+data-[\w-]+="[^"]*"){1,2}>\s*<title>Parse XML',
+        svg,
+    )
+    assert 'data-node="' in svg
 
 
 def test_node_tooltip_includes_doc_url_for_resolved_primitive():

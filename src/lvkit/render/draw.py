@@ -315,13 +315,22 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         # A cluster constant may be drawn small/collapsed; its field values are
         # then unreadable inline, so show them all on hover.
         tooltip = node.glyph.value_summary or None
-    if tooltip:
+    # A resolvable SubVI's own source .vi, relative to the rendered VI's
+    # directory (task #76) — an INERT data attribute only: no links, no click
+    # JS, no VS Code assumptions here. The VS Code extension injects the
+    # click behavior; a standalone .svg or a web page just ignores it. Forces
+    # the node's group to open even when it otherwise carries no tooltip.
+    group_needed = bool(tooltip) or node.subvi_rel is not None
+    if group_needed:
+        data = {"node": node.node.id}
+        if node.subvi_rel is not None:
+            data["lv-vi-rel"] = node.subvi_rel
         # A resolvable node (primitive / vi.lib VI) links to its NI docs page
         # (opens a new tab) — so the doc_url shown in the tooltip is actually
         # reachable, not just displayed (task #67). Non-resolvable nodes get a
         # plain group.
         backend.begin_group(
-            cls="lv-node", data={"node": node.node.id}, title=tooltip,
+            cls="lv-node", data=data, title=tooltip,
             href=_node_doc_url(node.node),
         )
 
@@ -351,7 +360,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     if node.owned_label is not None:
         _draw_owned_label(node.owned_label, backend, theme)
 
-    if tooltip:
+    if group_needed:
         backend.end_group()
 
 

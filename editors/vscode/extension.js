@@ -171,6 +171,88 @@ function wireThemePersistence(webview) {
     }
   });
 }
+// ---- SubVI click-navigation (task #76) --------------------------------------
+// The renderer (lvkit render/scene.py + render/draw.py) emits ONLY an inert
+// `data-lv-vi-rel` data attribute on a resolvable SubVI node's SVG group — a
+// path RELATIVE to the rendered VI's own directory. No links, no click JS, no
+// VS Code assumptions live in the renderer; a standalone .svg or a plain web
+// page just ignores the attribute. This is the host half: turn that identity
+// payload into a click that opens the SubVI in this same window.
+//
+// Injects one inline <script> that finds every `[data-lv-vi-rel]` element,
+// gives it a pointer cursor, and postMessages `{type:'lvkitOpenVI', rel}` on
+// click. Reuses the webview's single VS Code API handle instead of calling
+// `acquireVsCodeApi()` again (VS Code throws on a second call): the shared
+// diagram-theme control script every lvkit HTML viewer already embeds
+// (render/theme_control.py) stashes its handle on `window.__lvkitVsCodeApi`
+// for exactly this reason; this script falls back to acquiring (and
+// stashing) its own only if that hasn't happened. The lookup + wiring is
+// deferred to `DOMContentLoaded` (or run immediately if the DOM is already
+// parsed) so it doesn't matter whether this script lands before or after the
+// SVG content in the document.
+//
+// Call this BEFORE withNonceCsp() so the inline <script> receives a nonce —
+// same requirement as injectInitialTheme() (see its comment above).
+function injectSubVIClickNav(html) {
+  const script = `<script>
+(function(){
+  function openVI(el){
+    var rel = el.getAttribute('data-lv-vi-rel');
+    if (!rel) return;
+    var vscode = window.__lvkitVsCodeApi;
+    if (!vscode && typeof acquireVsCodeApi === 'function') {
+      try { vscode = acquireVsCodeApi(); window.__lvkitVsCodeApi = vscode; } catch (e) { vscode = null; }
+    }
+    if (vscode) vscode.postMessage({ type: 'lvkitOpenVI', rel: rel });
+  }
+  function wire(){
+    var els = document.querySelectorAll('[data-lv-vi-rel]');
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', function (ev) { openVI(ev.currentTarget); });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
+</script>`;
+  if (/<meta charset=['"]utf-8['"]>/i.test(html)) {
+    return html.replace(/<meta charset=['"]utf-8['"]>/i, (m) => `${m}\n${script}`);
+  }
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (m) => `${m}${script}`);
+  }
+  return script + html;
+}
+// The click-nav script's postMessage handler: resolves `rel` against the
+// directory of the CURRENTLY-OPEN document (not the temp render output dir —
+// see resolveCustomEditor's `origPath`/`document.uri` distinction) and opens
+// it through the SAME custom editor (`vscode.open` routes a `.vi` back to
+// `lvkit.viPreview`). Never destructive: a missing/non-.vi target just warns.
+function wireSubVINavigation(webview, document) {
+  webview.onDidReceiveMessage(async (m) => {
+    if (!m || m.type !== 'lvkitOpenVI') return;
+    const rel = m.rel;
+    if (!rel || typeof rel !== 'string') {
+      vscode.window.showWarningMessage('lvkit: SubVI navigation message had no path.');
+      return;
+    }
+    const resolved = path.resolve(path.dirname(document.uri.fsPath), rel);
+    if (!fileExists(resolved) || !resolved.toLowerCase().endsWith('.vi')) {
+      vscode.window.showWarningMessage(`lvkit: could not open SubVI "${rel}" (not found).`);
+      return;
+    }
+    // Match VS Code's go-to-definition behavior exactly: navigation targets the
+    // shared PREVIEW slot, never the source permanent tab. Passing no options
+    // (default preview, honoring workbench.editor.enablePreview) gives that for
+    // free — clicking from a preview tab reuses it (replace); clicking from a
+    // double-clicked permanent tab leaves it open and shows the SubVI in the
+    // preview slot; and a user who disabled preview globally gets a new tab
+    // everywhere, including here. The target activates (preserveFocus false).
+    await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(resolved));
+  });
+}
 function errorHtml(title, message) {
   return `<body style="color:#ddd;background:#1e1e1e;font:14px sans-serif;padding:24px">` +
     `<b>${esc(title)}</b><pre style="white-space:pre-wrap;color:#f88">${esc(message)}</pre></body>`;
@@ -218,9 +300,10 @@ class ViPreviewProvider {
       // initial theme + the in-viewer control govern light/dark — no --theme
       // needed on this call.
       run(`${lvkitCmd(root)} render "${file}" ${searchArgs(root)} --format html -o "${out}"`, { cwd: root });
-      const html = injectInitialTheme(fs.readFileSync(out, 'utf8'), diagramTheme());
+      const html = injectSubVIClickNav(injectInitialTheme(fs.readFileSync(out, 'utf8'), diagramTheme()));
       panel.webview.html = withNonceCsp(html);
       wireThemePersistence(panel.webview);
+      wireSubVINavigation(panel.webview, document);
     } catch (e) {
       panel.webview.html = errorHtml('lvkit render failed', e.message);
     }

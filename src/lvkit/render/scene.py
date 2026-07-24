@@ -9,7 +9,9 @@ touches the graph or the raw heap XML again.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 
 from ..graph.core import InMemoryVIGraph
 from ..graph.models import (
@@ -22,6 +24,7 @@ from ..graph.models import (
     LoopNode,
     SequenceNode,
     StructureNode,
+    VINode,
     Wire,
     WireEnd,
 )
@@ -38,7 +41,13 @@ from ..parser.wire_table import FAITHFUL_WIRE_TABLE
 from .backend import SvgBackend
 from .glyph import ArithGlyph, CompoundArithGlyph, Glyph, wrap_label
 from .lane_pass import BranchCtx, apply_lane_pass
-from .nodes import _CLUSTER_MUX_TYPES, GlyphContext, resolve_glyph, string_const_display
+from .nodes import (
+    _CLUSTER_MUX_TYPES,
+    GlyphContext,
+    resolve_glyph,
+    resolve_subvi_source,
+    string_const_display,
+)
 from .style import WireStyle, numeric_repr, type_family, wire_style
 from .wire_router import WireRouter, _compress
 
@@ -128,6 +137,14 @@ class RenderNode:
     frame_path: FramePath = ()
     # A constant's owned-label free text (task #77), when it has one.
     owned_label: RenderLabel | None = None
+    # A SubVI's own source .vi, RELATIVE (POSIX separators) to the rendered
+    # (top-level) VI's directory (task #76) — click-navigation identity, INERT
+    # here: the renderer never emits links/JS, only this data-carrying
+    # attribute (draw.py turns it into ``data-lv-vi-rel``; the VS Code
+    # extension supplies the behavior). None for non-VINode nodes and for any
+    # SubVI whose source doesn't resolve to a project-local file (see
+    # ``_subvi_rel_path``).
+    subvi_rel: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1389,6 +1406,33 @@ def _drawn_bounds(
     return (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)
 
 
+def _subvi_rel_path(
+    node: VINode, graph: InMemoryVIGraph, rendered_vi_path: Path,
+) -> str | None:
+    """The RELATIVE (POSIX) path from the rendered (top-level) VI's own
+    directory to a SubVI node's on-disk source — the click-navigation
+    identity payload (task #76's ``data-lv-vi-rel``).
+
+    Reuses ``resolve_subvi_source``'s resolution chain (the SAME lookup
+    ``ExtractedIconResolver`` uses for icons) but only emits a path that
+    stays PROJECT-local: a SubVI resolvable only through the user's own
+    vi.lib/user.lib install (``project_local=False``) is a system location on
+    THIS machine, not something a rendered/shared SVG should point at. A
+    relpath that can't be computed (e.g. a different drive on Windows) is
+    likewise non-portable. Both cases — and any other resolution error —
+    return ``None`` rather than emit a wrong or misleading link; an inert
+    node is fine, a wrong link is not.
+    """
+    try:
+        resolved = resolve_subvi_source(node, graph)
+        if resolved is None or not resolved.project_local:
+            return None
+        rel = os.path.relpath(resolved.path, rendered_vi_path.parent)
+    except (OSError, ValueError):
+        return None
+    return Path(rel).as_posix()
+
+
 def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     """Build a ``Scene`` for one VI by joining graph semantics to heap
     geometry. Returns None (fail-closed) if required geometry is missing —
@@ -1485,10 +1529,14 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             label_rect = layout.label_bounds.get(raw_uid)
             if label_text and label_rect is not None:
                 owned_label = RenderLabel(text=label_text, bounds=label_rect)
+            subvi_rel = (
+                _subvi_rel_path(node, graph, src_path)
+                if isinstance(node, VINode) else None
+            )
             render_nodes.append(RenderNode(
                 node=node, bounds=bounds, glyph=glyph, terminals=terminals,
                 label_visible=label_visible, frame_path=fp_path,
-                owned_label=owned_label,
+                owned_label=owned_label, subvi_rel=subvi_rel,
             ))
 
     fp_terminals: list[RenderFPTerminal] = []

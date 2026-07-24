@@ -25,7 +25,10 @@ dependency-free. It:
 - if running inside VS Code (``typeof acquireVsCodeApi === 'function'``),
   acquires the API ONCE (VS Code throws on a second ``acquireVsCodeApi()`` call)
   and ``postMessage({type:'lvkitDiagramTheme', value})`` on each change, so a
-  host extension can persist/sync the choice;
+  host extension can persist/sync the choice. The acquired handle is stashed
+  on ``window.__lvkitVsCodeApi`` so another inline script the host injects
+  into the same page (e.g. the VS Code extension's SubVI click-navigation
+  script, task #76) can reuse it instead of acquiring its own;
 - keeps the button glyph + tooltip in sync with the current mode.
 """
 
@@ -60,11 +63,15 @@ THEME_CONTROL_SCRIPT = """<script>
   var GLYPH = {auto: "◐", light: "☀", dark: "☾"};
   var LABEL = {auto: "Auto (follows editor)", light: "Light", dark: "Dark"};
   // VS Code throws if acquireVsCodeApi() is called twice, so grab it ONCE here
-  // and reuse the handle for every postMessage below.
-  var vscode = null;
-  if (typeof acquireVsCodeApi === "function") {
+  // and reuse the handle for every postMessage below. Stashed on `window` so
+  // any OTHER inline script the host injects into this same page (e.g. the
+  // VS Code extension's SubVI click-navigation script, task #76) can reuse
+  // this one handle too, instead of acquiring (and crashing on) its own.
+  var vscode = window.__lvkitVsCodeApi || null;
+  if (!vscode && typeof acquireVsCodeApi === "function") {
     try { vscode = acquireVsCodeApi(); } catch (e) { vscode = null; }
   }
+  if (vscode) window.__lvkitVsCodeApi = vscode;
   function initialMode(){
     if (typeof window.__lvkitInitialTheme === "string")
       return window.__lvkitInitialTheme;

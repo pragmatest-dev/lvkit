@@ -323,24 +323,82 @@ def _vectorized_icon(path_str: str, mtime: float) -> CenteredSvgGlyph | None:
     return CenteredSvgGlyph(fragment, size)
 
 
-class ExtractedIconResolver:
-    """Best-effort real SubVI ``_ICON.png`` for VINode subVI calls.
+@dataclass(frozen=True)
+class SubVISource:
+    """A SubVI VINode's resolved on-disk ``.vi`` source, plus whether it was
+    found in a PROJECT-local location (an already-loaded VI, a search-path
+    filename match, or a literal existing ``qualified_path``) as opposed to
+    the user's own LOCAL vi.lib/user.lib install (``resolve_library_vi_path``).
 
-    The caller's heap XML only carries the CALLER's own icon (parsed into
-    ``layout.icon_png`` but NOT currently drawn anywhere) — a subVI's icon
-    requires the subVI's own file. This resolver only uses what's cheaply
-    already known:
+    The distinction matters to any consumer that emits a portable reference
+    to the path — e.g. render/scene.py's click-navigation
+    ``data-lv-vi-rel`` attribute (task #76): a vi.lib path is a system
+    location on THIS machine, never something a rendered/shared SVG should
+    point at.
+    """
 
-    - ``graph.get_vi_source_path(name)``, if the subVI happens to already
-      be loaded in the same graph (free — a dict lookup); or
+    path: Path
+    project_local: bool
+
+
+def resolve_subvi_source(
+    node: VINode, graph: InMemoryVIGraph,
+) -> SubVISource | None:
+    """Resolve a SubVI VINode's own on-disk ``.vi`` file — the ONE lookup
+    chain shared by both SubVI icon resolution (``ExtractedIconResolver``)
+    and click-navigation (render/scene.py's ``data-lv-vi-rel``), so both
+    features ask the identical question rather than each inventing its own.
+
+    Tries, in order:
+
+    - ``graph.locate_vi_file(name)``: an already-loaded source (free — a
+      dict lookup) or a filename search of the graph's search paths —
+      PROJECT-local either way.
     - ``node.qualified_path``, if it happens to already be a literal,
       existing file path (rare: today's ``qualified_path`` values are raw
       LabVIEW path TOKENS like ``"<vilib>/Utility/error.llb/Foo.vi"``, not
       resolved filesystem paths — resolving the ``<vilib>``/``<userlib>``
       tokens would need a library root the graph doesn't expose publicly;
-      see the JUDGMENT CALL note in this module's tests / the P2 report).
+      see the JUDGMENT CALL note in this module's tests / the P2 report) —
+      PROJECT-local.
+    - ``graph.resolve_library_vi_path(node.qualified_path)``: the user's
+      LOCAL vi.lib/user.lib install — NOT project-local (a system path).
 
-    If neither is available, it returns ``None`` (fall through) rather than
+    Returns ``None`` (fall through) rather than loading/parsing the subVI's
+    own graph — that would be exactly the "force-load subVIs expensively"
+    this lookup must avoid; it is a path lookup only.
+    """
+    name = node.name
+    if not name:
+        return None
+
+    src_path = graph.locate_vi_file(name)
+    if src_path is not None:
+        return SubVISource(src_path, project_local=True)
+    if node.qualified_path:
+        candidate = Path(node.qualified_path)
+        if candidate.is_file():
+            return SubVISource(candidate, project_local=True)
+    # A user's LOCAL vi.lib/user.lib (their own licensed install): resolve
+    # the <vilib>/<userlib> token to a real on-disk .vi. Rendering it
+    # locally is not distribution; lvkit never ships this art, and a hosted
+    # service has no roots set so this stays None. Fail-soft to name-box.
+    src_path = graph.resolve_library_vi_path(node.qualified_path)
+    if src_path is not None:
+        return SubVISource(src_path, project_local=False)
+    return None
+
+
+class ExtractedIconResolver:
+    """Best-effort real SubVI ``_ICON.png`` for VINode subVI calls.
+
+    The caller's heap XML only carries the CALLER's own icon (parsed into
+    ``layout.icon_png`` but NOT currently drawn anywhere) — a subVI's icon
+    requires the subVI's own file. Source-path resolution is shared with
+    click-navigation via ``resolve_subvi_source`` (see its docstring for the
+    lookup chain).
+
+    If nothing resolves, this returns ``None`` (fall through) rather than
     loading/parsing the subVI's own graph — that would be exactly the
     "force-load subVIs expensively" this resolver must avoid. Extracting
     the (cached) heap XML of an already-located file is still a subprocess
@@ -351,29 +409,16 @@ class ExtractedIconResolver:
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
         if not isinstance(node, VINode):
             return None
-        name = node.name
-        if not name:
+        resolved = resolve_subvi_source(node, ctx.graph)
+        if resolved is None:
             return None
-
-        src_path = ctx.graph.locate_vi_file(name)
-        if src_path is None and node.qualified_path:
-            candidate = Path(node.qualified_path)
-            if candidate.is_file():
-                src_path = candidate
-        # A user's LOCAL vi.lib/user.lib (their own licensed install): resolve
-        # the <vilib>/<userlib> token to a real on-disk .vi. Rendering it
-        # locally is not distribution; lvkit never ships this art, and a hosted
-        # service has no roots set so this stays None. Fail-soft to name-box.
-        if src_path is None:
-            src_path = ctx.graph.resolve_library_vi_path(node.qualified_path)
-        if src_path is None:
-            return None
+        src_path = resolved.path
 
         try:
             bd_xml, _, _ = extract_vi_xml(src_path)
         except Exception:
             logger.debug(
-                "subVI icon extraction failed for %r (%s)", name, src_path,
+                "subVI icon extraction failed for %r (%s)", node.name, src_path,
                 exc_info=True,
             )
             return None
