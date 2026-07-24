@@ -9,6 +9,15 @@ Instead of *"this is a binary file,"* a `.vi` opens as a rendered block diagram,
 changed `.vi` in Source Control opens as an interactive before/after diff (cross-fade,
 change list, highlights).
 
+![A .vi open in VS Code as a rendered block diagram](https://github.com/pragmatest-dev/lvkit/raw/main/editors/vscode/View.png)
+
+*Click a `.vi` in the Explorer — it opens as a diagram instead of a binary-file notice.*
+
+![Right-click a changed .vi and open the visual before/after diff](https://github.com/pragmatest-dev/lvkit/raw/main/editors/vscode/Diff.png)
+
+*Right-click a changed `.vi` → **LVKit: Open Visual Diff** — before/after panes with a
+numbered change list.*
+
 ## Features
 
 - **VI preview** — open any `.vi` in the Explorer and it renders (read-only) instead of
