@@ -16,8 +16,8 @@ The extension versions on its **own** track, independent of the LVKit library.
 
 ## [0.1.0] — first release
 
-Read LabVIEW `.vi` files directly in VS Code — **no LabVIEW license, and no
-Python install, required**.
+Read LabVIEW `.vi` files directly in VS Code, with **neither LabVIEW nor Python
+installed**.
 
 - **VI preview** — a `.vi` opens as a rendered block diagram instead of the
   "binary file" notice. Interactive viewer with zoom/pan and a light/dark

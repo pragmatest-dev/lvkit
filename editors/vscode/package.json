@@ -1,7 +1,7 @@
 {
   "name": "lvkit",
   "displayName": "LVKit",
-  "description": "View LabVIEW .vi block diagrams and see visual before/after diffs in VS Code — no LabVIEW license required.",
+  "description": "View and diff VIs without LabVIEW.",
   "version": "0.1.1",
   "publisher": "pragmatest",
   "icon": "icon.png",
