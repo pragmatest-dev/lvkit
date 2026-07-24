@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import Never
+from typing import NoReturn
 
 from lvkit.models import Operation, SubVIOperation, Terminal
 from lvkit.primitive_resolver import TerminalResolutionNeeded
@@ -324,7 +324,7 @@ def _raise_terminal_resolution(
     term: Terminal,
     ctx: CodeGenContext | None,
     vilib_vi: VIEntry | None,
-) -> Never:
+) -> NoReturn:
     """Raise TerminalResolutionNeeded for an unresolvable terminal name."""
     raise TerminalResolutionNeeded(
         prim_id=subvi_name or "unknown",
