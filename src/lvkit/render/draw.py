@@ -583,9 +583,9 @@ _PANE_ROW_HALF = _PANE_LABEL_SIZE / 2 + 2.0  # vertical pad around a label row
 _PANE_COL_PAD = 6.0         # min horizontal padding between top/bottom labels
 _PANE_LINE_H = _PANE_LABEL_SIZE + 2.0  # one text line's height (top/bottom)
 
-_PANE_ICON_TARGET = 60.0    # target longer-side px for the scaled icon
+_PANE_ICON_TARGET = 88.0    # target longer-side px for the scaled icon
 _PANE_ICON_MIN = 18.0
-_PANE_ICON_MAX = 90.0
+_PANE_ICON_MAX = 120.0
 
 # fx/fy classification -> the outward unit normal a terminal's stub exits on.
 _SIDE_NORMAL: dict[str, Point] = {
