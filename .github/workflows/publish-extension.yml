@@ -64,4 +64,14 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          npx --yes @vscode/vsce publish --target ${{ matrix.target }} --pat "$VSCE_PAT"
+          # --allow-package-all-secrets: vsce runs a LOCAL secret scan before
+          # upload, and on both macOS targets it aborts with an empty
+          # "Error occurred while scanning secrets (files):" — no secret type, no
+          # file — before ever printing "Publishing...". linux/win32 scan the same
+          # source fine; only the Mach-O PyInstaller output trips it. The scanner
+          # has a history of false positives (microsoft/vscode-vsce#1147), and
+          # because ours reports no [SECRET_TYPE] the targeted
+          # --allow-package-secrets flag is unusable. Safe here: the .vsix is
+          # entirely our own PyInstaller build, produced in this workflow from
+          # this repo — no third-party blobs, no credentials.
+          npx --yes @vscode/vsce publish --target ${{ matrix.target }} --pat "$VSCE_PAT" --allow-package-all-secrets

@@ -2,6 +2,15 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.2]
+
+- **macOS builds publish again.** `vsce` runs a local secret scan before upload,
+  and on both macOS targets it aborted with an empty
+  `Error occurred while scanning secrets (files):` — no secret type, no file —
+  before contacting the Marketplace at all. Linux and Windows scanned the same
+  source without complaint; only the Mach-O binary triggered it. Publishing now
+  passes `--allow-package-all-secrets`.
+
 ## [0.1.1]
 
 - **macOS builds restored.** The release workflow targeted `macos-13`, which
