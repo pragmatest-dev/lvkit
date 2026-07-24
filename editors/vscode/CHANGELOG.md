@@ -2,6 +2,18 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.5]
+
+- **Click a SubVI to open it.** SubVI nodes in the diagram are now clickable:
+  clicking one opens that VI, matching VS Code's native go-to-definition tab
+  behavior (navigation reuses the preview slot; from a permanent tab it opens
+  beside). The renderer only emits an inert relative path per SubVI — the click
+  behavior lives entirely in the extension host.
+- **Hover-tooltip fidelity.** A Bundle/Unbundle By Name's input cluster/class
+  terminal now renders on the top edge of its box (wire exits up) in the
+  connector-pane hover tooltip, and real VI raster icons scale to fill their box
+  instead of floating in whitespace. Block-diagram geometry is unchanged.
+
 ## [0.1.4]
 
 - **macOS ships.** macOS PyInstaller emits a `Python.framework` bundle, and
