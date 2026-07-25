@@ -7,7 +7,7 @@ const path = require('path');
 // The upcoming lvkit library release this extension version targets. The
 // extension versions on its OWN track (package.json "version") — not lockstep
 // with the library — so we assert a floor here rather than assuming a match.
-const MIN_LVKIT = "0.5.0";
+const MIN_LVKIT = "0.5.3";
 
 // ---- config ----------------------------------------------------------------
 function cfg() { return vscode.workspace.getConfiguration('lvkit'); }

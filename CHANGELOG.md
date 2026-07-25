@@ -2,6 +2,19 @@
 
 lvkit follows semantic versioning.
 
+## [0.5.3]
+- **Extraction cache no longer written into your repo.** lvkit used to cache a
+  VI's extracted XML under `<project>/.lvkit/cache/`, so opening a `.vi` just to
+  view it created a `.lvkit/` in your working tree. The cache now lives in a
+  per-user home, `~/.lvkit/cache/` (override with `$LVKIT_CACHE_DIR`) — nothing
+  is written into the project. The `.lvkit/` **resolution store** (your authored
+  mappings) is unchanged and still lives in the repo.
+- Cache entries are now keyed by the VI's resolved source: VIs from a real
+  `vi.lib`/`user.lib`/`instr.lib` install are shared across projects (one copy,
+  keyed by the resolved root — so LabVIEW 32- and 64-bit installs don't collide),
+  while a project's own and vendored VIs stay per-project. Content-hash
+  invalidation is retained.
+
 ## [0.5.2]
 - **Fix: lvkit reported the wrong version.** The 0.5.1 release bumped
   `pyproject.toml` but not the hardcoded `__version__` string, so the published

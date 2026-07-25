@@ -2,7 +2,7 @@
   "name": "lvkit",
   "displayName": "LVKit",
   "description": "View and diff VIs without LabVIEW.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "pragmatest",
   "icon": "icon.png",
   "license": "Apache-2.0",

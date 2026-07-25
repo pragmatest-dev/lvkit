@@ -2,6 +2,13 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.6]
+
+- **Previews no longer write into your repo.** Opening a `.vi` used to leave a
+  `.lvkit/cache/` in your working tree (lvkit's extraction cache). Bundles
+  lvkit ≥ 0.5.3, which caches under a per-user `~/.lvkit/cache/` instead — the
+  repo is left untouched. (`MIN_LVKIT` raised to 0.5.3.)
+
 ## [0.1.5]
 
 - **Click a SubVI to open it.** SubVI nodes in the diagram are now clickable:
