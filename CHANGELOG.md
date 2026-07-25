@@ -3,6 +3,10 @@
 lvkit follows semantic versioning.
 
 ## [0.5.3]
+- **Fix: `render` / `diff` / `docs` crashed on Windows.** Output text wasn't
+  UTF-8-pinned, so on Windows (cp1252) any non-Latin1 character in a diagram
+  (e.g. the ◄ glyph) raised `UnicodeEncodeError` and left an empty file. All file
+  I/O now pins `encoding="utf-8"`.
 - **Extraction cache no longer written into your repo.** lvkit used to cache a
   VI's extracted XML under `<project>/.lvkit/cache/`, so opening a `.vi` just to
   view it created a `.lvkit/` in your working tree. The cache now lives in a
