@@ -94,7 +94,7 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
     primitives_path = _bundled_data_dir() / "primitives.json"
     if not primitives_path.exists():
         return {}
-    with open(primitives_path) as f:
+    with open(primitives_path, encoding="utf-8") as f:
         data = json.load(f)
     result = {}
     for node_type, info in data.get("node_types", {}).items():

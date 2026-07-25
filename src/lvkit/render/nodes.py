@@ -481,7 +481,7 @@ class JsonGlyphResolver:
         if icon.file is not None:
             path = _bundled_data_dir() / "glyphs" / icon.file
             try:
-                fragment = path.read_text()
+                fragment = path.read_text(encoding="utf-8")
             except OSError:
                 logger.debug("glyph asset not found: %s", path)
                 return None

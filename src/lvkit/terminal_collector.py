@@ -106,7 +106,7 @@ class TerminalCollector:
         """Load existing observations."""
         if self.pending_file.exists():
             try:
-                with open(self.pending_file) as f:
+                with open(self.pending_file, encoding="utf-8") as f:
                     self.data = json.load(f)
             except (OSError, json.JSONDecodeError):
                 self.data = {"observations": {}}
@@ -114,7 +114,7 @@ class TerminalCollector:
     def save(self) -> None:
         """Save observations to pending file."""
         self.pending_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.pending_file, "w") as f:
+        with open(self.pending_file, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=2)
 
     def observe(

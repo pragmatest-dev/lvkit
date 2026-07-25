@@ -164,7 +164,7 @@ def _cache_fresh(vi_path: Path, meta_path: Path) -> bool:
     if not meta_path.exists():
         return False
     try:
-        meta = json.loads(meta_path.read_text())
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
     st = vi_path.stat()
@@ -174,7 +174,7 @@ def _cache_fresh(vi_path: Path, meta_path: Path) -> bool:
         meta["mtime"] = st.st_mtime
         meta["size"] = st.st_size
         try:
-            meta_path.write_text(json.dumps(meta))
+            meta_path.write_text(json.dumps(meta), encoding="utf-8")
         except OSError:
             pass
         return True
@@ -191,7 +191,7 @@ def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
         "size": st.st_size,
         "tool": "pylabview",
         "extracted_at": time.time(),
-    }))
+    }), encoding="utf-8")
 
 
 def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:

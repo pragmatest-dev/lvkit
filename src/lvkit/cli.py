@@ -871,12 +871,12 @@ def cmd_render(args: argparse.Namespace) -> int:
             else Path("outputs/vi-render") / f"{stem}.html"
         )
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html)
+        out.write_text(html, encoding="utf-8")
         print(f"Rendered {out}")
         return 0
 
     out = Path(args.output) if args.output else input_path.with_name(f"{stem}.svg")
-    out.write_text(svg)
+    out.write_text(svg, encoding="utf-8")
     print(f"Rendered {out}")
     return 0
 
@@ -992,7 +992,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
             cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
             text = json.dumps(cmap.to_dict(), indent=2)
             if args.output:
-                Path(args.output).write_text(text)
+                Path(args.output).write_text(text, encoding="utf-8")
             else:
                 print(text)
             return 0
@@ -1034,7 +1034,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
             else Path("outputs/vi-diff") / f"{path_a.stem}__{path_b.stem}.html"
         )
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html)
+        out.write_text(html, encoding="utf-8")
         print(f"Wrote {out}")
 
         if args.open:

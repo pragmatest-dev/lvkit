@@ -282,7 +282,7 @@ class VILibResolver:
         if not index_path.exists():
             return
 
-        with open(index_path) as f:
+        with open(index_path, encoding="utf-8") as f:
             index = json.load(f)
 
         for category, filename in index.get("categories", {}).items():
@@ -290,7 +290,7 @@ class VILibResolver:
             if not category_path.exists():
                 continue
 
-            with open(category_path) as f:
+            with open(category_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             for entry_data in data.get("entries", []):
@@ -341,7 +341,7 @@ class VILibResolver:
         loaded (e.g., from a project _types.json loaded first), the new
         definition is skipped. This keeps project overrides authoritative.
         """
-        with open(types_path) as f:
+        with open(types_path, encoding="utf-8") as f:
             raw_types = json.load(f)
 
         for typedef_path, type_data in raw_types.items():
@@ -788,7 +788,7 @@ class VILibResolver:
         pending_file = self.data_dir / "vilib" / "_pending_terminals.json"
 
         if pending_file.exists():
-            with open(pending_file) as f:
+            with open(pending_file, encoding="utf-8") as f:
                 pending_data = json.load(f)
         else:
             pending_data = {"conflicts": {}, "variants": {}}
@@ -815,7 +815,7 @@ class VILibResolver:
             pending_data["variants"][vi_name].append(variant_entry)
 
             pending_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(pending_file, "w") as f:
+            with open(pending_file, "w", encoding="utf-8") as f:
                 json.dump(pending_data, f, indent=2)
 
     def auto_update_terminals(
@@ -1012,7 +1012,7 @@ class VILibResolver:
         types_path = self.data_dir / "vilib" / "_types.json"
 
         if types_path.exists():
-            with open(types_path) as f:
+            with open(types_path, encoding="utf-8") as f:
                 data = json.load(f)
         else:
             data = {}
@@ -1057,7 +1057,7 @@ class VILibResolver:
         data[lv_type.typedef_path] = type_data
 
         types_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(types_path, "w") as f:
+        with open(types_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
     def _save_vi_entry(self, vi_name: str, vi: VIEntry) -> None:
@@ -1066,7 +1066,7 @@ class VILibResolver:
         if not category_file:
             return
 
-        with open(category_file) as f:
+        with open(category_file, encoding="utf-8") as f:
             data = json.load(f)
 
         for i, entry in enumerate(data.get("entries", [])):
@@ -1081,7 +1081,7 @@ class VILibResolver:
                 )
                 break
 
-        with open(category_file, "w") as f:
+        with open(category_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
     def _add_to_pending(
@@ -1096,7 +1096,7 @@ class VILibResolver:
         pending_file = self.data_dir / "vilib" / "_pending_terminals.json"
 
         if pending_file.exists():
-            with open(pending_file) as f:
+            with open(pending_file, encoding="utf-8") as f:
                 pending_data = json.load(f)
         else:
             pending_data = {"conflicts": {}}
@@ -1117,7 +1117,7 @@ class VILibResolver:
         pending_data["conflicts"][vi_name].append(conflict_entry)
 
         pending_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(pending_file, "w") as f:
+        with open(pending_file, "w", encoding="utf-8") as f:
             json.dump(pending_data, f, indent=2)
 
 

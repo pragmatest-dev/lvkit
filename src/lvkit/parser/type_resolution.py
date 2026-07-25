@@ -175,7 +175,7 @@ def load_enum_reference() -> dict:
     if not enums_path.exists():
         return {}
 
-    with open(enums_path) as f:
+    with open(enums_path, encoding="utf-8") as f:
         return json.load(f)
 
 
