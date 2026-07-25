@@ -31,6 +31,23 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_cache(tmp_path_factory, monkeypatch):
+    """Point the extraction cache at a per-test tmp dir so no test ever writes
+    to the real ``~/.cache/lvkit`` (or a repo's ``.lvkit/cache``), and each test
+    starts with a cold cache. ``monkeypatch.setenv`` mutates ``os.environ`` in
+    process, so subprocess-based CLI tests inherit ``LVKIT_CACHE_DIR`` too.
+    Also clears the module-level extraction roots (mirrors a fresh process)."""
+    cache_dir = tmp_path_factory.mktemp("lvkit-cache")
+    monkeypatch.setenv("LVKIT_CACHE_DIR", str(cache_dir))
+
+    from lvkit import extractor
+
+    extractor.clear_extraction_roots()
+    yield
+    extractor.clear_extraction_roots()
+
+
 @pytest.fixture
 def graph_factory():
     """Fixture providing graph construction helpers."""

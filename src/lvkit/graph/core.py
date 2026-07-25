@@ -192,9 +192,22 @@ class InMemoryVIGraph(
         Call before loading any VIs. When set, dependency refs with
         <vilib> or <userlib> tokens resolve to real .vi files on disk
         instead of falling through to JSON-only lookup.
+
+        Also feeds the same roots to the extraction cache so a VI's cache
+        namespace is chosen by prefix-matching its resolved path against these
+        real roots (shared vs. per-project), not by substring-scanning the path.
+        This is the single wiring point for all entry points (CLI, MCP,
+        pipeline, render, docs), which each call this before ``load_vi``.
         """
         self._vilib_root = vilib_root
         self._userlib_root = userlib_root
+        # Lazy import: extractor imports pylabview; keep it off the graph
+        # module's import path and out of any cycle.
+        from lvkit import extractor
+
+        extractor.set_extraction_roots(
+            vilib_root=vilib_root, userlib_root=userlib_root
+        )
 
     def clear(self) -> None:
         """Clear all loaded data."""
