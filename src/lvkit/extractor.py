@@ -14,10 +14,13 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
-import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
+# Import the patch layer BEFORE pylabview: its module-level code installs the
+# compile-time SyntaxWarning filter (and holds the runtime monkeypatches) ahead
+# of the first pylabview compile below. Order is load-bearing, so keep it above.
+from lvkit._pylabview_patches import install_pylabview_patches  # isort: skip
 
-from lvkit._pylabview_patches import install_pylabview_patches
+import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]  # noqa: E402
+import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]  # noqa: E402
 
 # All pylabview monkeypatches live in _pylabview_patches.py. Apply them before
 # any extraction runs (idempotent).

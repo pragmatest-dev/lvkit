@@ -25,13 +25,28 @@ import). It is idempotent.
 
 from __future__ import annotations
 
+import warnings
 from decimal import Decimal
 
-import pylabview.LVblock as _lv_block  # type: ignore[import-untyped]
-import pylabview.LVdatatype as _lv_datatype  # type: ignore[import-untyped]
-import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
-import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
-import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
+# pylabview's LVheap.py uses invalid escape sequences in plain strings (e.g.
+# re.match("^\\(...")), which Python 3.12+ emits as a *compile-time*
+# SyntaxWarning — and a future Python turns into a hard SyntaxError. A runtime
+# monkeypatch can't touch a compile-time warning; it fires the moment pylabview
+# is first compiled, which is the import below (this module is imported ahead of
+# pylabview by lvkit.extractor). A ``module=``-scoped filter does NOT catch it —
+# a compile-time SyntaxWarning is attributed to the *importer's* frame, not
+# "pylabview.LVheap", so only a category filter active during the compile
+# matches (verified on Windows: module-scoped passes through, category-only
+# suppresses). We scope that category filter to exactly this import with
+# catch_warnings, leaving the process-wide filter state untouched. The real fix
+# is owning the pylabview source (fork/vendor) and correcting it — task #81.
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", SyntaxWarning)
+    import pylabview.LVblock as _lv_block  # type: ignore[import-untyped]
+    import pylabview.LVdatatype as _lv_datatype  # type: ignore[import-untyped]
+    import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
+    import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
+    import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
 
 _installed = False
 
