@@ -113,7 +113,7 @@ template).
 
 ### 0. Hermetic cache fixture (conftest, autouse)
 Point `LVKIT_CACHE_DIR` at a per-test `tmp_path` so tests never touch the real
-`~/.cache/lvkit` and each starts cold. Provide a helper to run a command inside a
+`~/.lvkit/cache` and each starts cold. Provide a helper to run a command inside a
 throwaway **git repo** dir (to assert the repo stays clean).
 
 ### 1. Cache-key unit tests (`tests/test_extraction_cache.py`, new)
@@ -132,7 +132,7 @@ Drive `_cache_target()` / the new classifier directly:
 ### 2. Repo-cleanliness invariant (the whole point)
 Run the **full command matrix** on a VI inside a temp git repo; assert **no
 `.lvkit/cache/` appears in the repo** and the cache landed under `LVKIT_CACHE_DIR`.
-Repeat with `LVKIT_CACHE_DIR` unset → lands under `platformdirs` dir, still not the
+Repeat with `LVKIT_CACHE_DIR` unset → lands under `~/.lvkit/cache`, still not the
 repo.
 
 ### 3. Every CLI command still works (parametrized, `needs_samples`)
