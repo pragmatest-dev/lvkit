@@ -33,6 +33,19 @@ from typing import Any
 
 PROJECT_STORE_DIR = ".lvkit"
 
+
+def global_home() -> Path:
+    """The per-user lvkit home — ``~/.lvkit`` (branded, like ``~/.claude``).
+
+    Single source of truth for the global-home location: the extraction cache
+    lives under it (``extractor.global_cache_root``), and ``find_project_store``
+    guards against it so a bare ``~/.lvkit`` is never mistaken for a *project*
+    store (which any ``.lvkit/`` dir otherwise would be). Same brand name as the
+    project store, two scopes.
+    """
+    return Path.home() / PROJECT_STORE_DIR
+
+
 _README_TEMPLATE = """# .lvkit/ — Project-local resolution store
 
 This directory is your project's private mapping store for lvkit. lvkit ships
@@ -97,10 +110,14 @@ def find_project_store(start: Path | None = None) -> Path | None:
         Path to the .lvkit/ directory, or None.
     """
     current = (start or Path.cwd()).resolve()
+    # The global home (``~/.lvkit``) is a ``.lvkit/`` dir too — never treat it as
+    # a *project* store. Compare against the accessor, not a hard-coded path, so
+    # the two can't drift.
+    home = global_home().resolve()
 
     for candidate in [current, *current.parents]:
         store = candidate / PROJECT_STORE_DIR
-        if store.is_dir():
+        if store.is_dir() and store.resolve() != home:
             return store
         # Stop at repo root — don't escape into a parent project's .lvkit/
         if (candidate / ".git").exists():

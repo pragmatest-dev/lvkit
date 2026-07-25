@@ -131,10 +131,10 @@ A `.vi` is a binary — you cannot grep it directly. Finding a construct (a
 1. **Extract the XML** with pylabview. `lvkit.extractor.extract_vi_xml(vi_path)`
    runs pylabview **in-process** and caches `*_BDHb.xml` (block diagram) +
    `*_FPHb.xml` (front panel) in a per-user cache **outside the repo**
-   (`extractor.global_cache_root()` — `$LVKIT_CACHE_DIR`, else `~/.cache/lvkit/`
-   on Linux), keyed by the resolved source root + content hash, so re-runs are
-   no-ops. Use `resolve_extracted(vi_path)` to find the cached XML; many corpus
-   VIs are already extracted.
+   (`extractor.global_cache_root()` — `$LVKIT_CACHE_DIR`, else `~/.lvkit/cache/`),
+   keyed by the resolved source root + content hash, so re-runs are no-ops. Use
+   `resolve_extracted(vi_path)` to find the cached XML; many corpus VIs are
+   already extracted.
 2. **Grep the XML.** e.g. `<primResID>1234</primResID>` for a primitive, or
    `class="whileLoop"` / `class="caseStruct"` / `class="flatSequence"` /
    `class="fBox"` for a structure.
@@ -142,7 +142,7 @@ A `.vi` is a binary — you cannot grep it directly. Finding a construct (a
 **NEVER run the full parser (`parse_vi` / graph build) across the whole corpus
 just to locate a known element** — that OOM-crashes WSL. So: extract-then-grep
 the XML — grep the pre-extracted `*_BDHb.xml` under the cache root
-(`~/.cache/lvkit/**/*_BDHb.xml`), and only
+(`~/.lvkit/cache/**/*_BDHb.xml`), and only
 `parse_vi(bd_xml=...)` the handful of VIs that matched. Cap the scan and `del`
 each VI's text before the next. (Bulk extraction of a whole corpus uses batched
 worker subprocesses — see `scripts/extract_corpus.py` — because in-process

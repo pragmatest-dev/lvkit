@@ -14,7 +14,6 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-import platformdirs
 import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
 import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
 
@@ -28,14 +27,17 @@ install_pylabview_patches()
 def global_cache_root() -> Path:
     """Root of lvkit's per-user extraction cache — never in the user's repo.
 
-    ``$LVKIT_CACHE_DIR`` if set (test hook + power-user/CI override), else the
-    OS per-user cache dir (``platformdirs.user_cache_dir("lvkit")``, e.g.
-    ``~/.cache/lvkit`` on Linux).
+    ``$LVKIT_CACHE_DIR`` if set (test hook + power-user/CI override), else
+    ``<global-home>/cache`` — i.e. ``~/.lvkit/cache`` — branded like ``~/.claude``
+    and consistent with the project-local ``.lvkit/`` store. The home location
+    comes from ``project_store.global_home()`` (the single source of truth).
     """
     env = os.environ.get("LVKIT_CACHE_DIR")
     if env:
         return Path(env)
-    return Path(platformdirs.user_cache_dir("lvkit"))
+    from lvkit.project_store import global_home
+
+    return global_home() / "cache"
 
 
 # ── Run-scoped extraction roots ────────────────────────────────────────────

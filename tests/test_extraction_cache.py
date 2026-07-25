@@ -275,3 +275,36 @@ class TestRepoCleanliness:
         warm = _run_cli("describe", str(vi))
         assert cold.returncode == 0 and warm.returncode == 0, cold.stderr
         assert cold.stdout == warm.stdout
+
+
+class TestGlobalHomeGuard:
+    """`find_project_store` must never mistake the branded global home
+    (`~/.lvkit`) for a *project* store — any `.lvkit/` dir otherwise qualifies.
+    The guard compares against the `global_home()` accessor, so we drive the
+    accessor here rather than a hard-coded path."""
+
+    def test_home_lvkit_is_not_a_project_store(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from lvkit import project_store
+
+        home_store = tmp_path / ".lvkit"          # stands in for ~/.lvkit
+        home_store.mkdir()
+        monkeypatch.setattr(project_store, "global_home", lambda: home_store)
+
+        # A VI sitting loose under the home, no nearer .git/.lvkit.
+        loose = tmp_path / "loose"
+        loose.mkdir()
+        assert project_store.find_project_store(loose) != home_store
+
+    def test_real_project_store_still_found(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from lvkit import project_store
+
+        monkeypatch.setattr(
+            project_store, "global_home", lambda: tmp_path / ".lvkit"
+        )
+        proj = tmp_path / "proj"
+        (proj / ".lvkit").mkdir(parents=True)
+        assert project_store.find_project_store(proj) == proj / ".lvkit"

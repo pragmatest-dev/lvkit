@@ -53,7 +53,7 @@ root's identity** (a hash of its absolute path — which already encodes
 version + bitness + location, so LV2025-64 ≠ LV2025-32 ≠ `D:\weird` for free):
 
 ```
-<global-cache>/                     # platformdirs.user_cache_dir("lvkit"), or $LVKIT_CACHE_DIR
+<global-cache>/                     # ~/.lvkit/cache (project_store.global_home()/cache), or $LVKIT_CACHE_DIR
   shared/
     vilib/<hash(resolved vilib_root)>/<rel>/…
     userlib/<hash(resolved userlib_root)>/<rel>/…
@@ -74,9 +74,12 @@ Make the run's resolved roots available where the cache key is computed — a sm
 context object set once at CLI/MCP entry, mirroring how `reset_resolver()`
 (`primitive_resolver.py:669`) already wires the discovered project store. Then:
 
-- New `global_cache_root()` → `$LVKIT_CACHE_DIR` if set, else
-  `platformdirs.user_cache_dir("lvkit")`. (`LVKIT_CACHE_DIR` doubles as the test
-  hook and a power-user/CI override.)
+- `project_store.global_home()` → `~/.lvkit` — the single source of truth for the
+  branded per-user home (like `~/.claude`), consistent with the project `.lvkit/`
+  store. `global_cache_root()` → `$LVKIT_CACHE_DIR` if set (test hook + override),
+  else `global_home() / "cache"`. `find_project_store()` guards against
+  `global_home()` (compared to the accessor, never a hard-coded path) so a bare
+  `~/.lvkit` is not mistaken for a project store.
 - Rewrite `_cache_target(vi_path)`: prefix-match `vi_path` against the context's
   roots → pick tier + namespace as above.
 - Replace `classify_vi`'s substring markers with this prefix match. Delete
