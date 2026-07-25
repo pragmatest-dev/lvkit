@@ -1,21 +1,19 @@
 # lvkit
 
-Read, document, diff, and convert LabVIEW VI files — no LabVIEW license required.
+Read, render, document, and diff LabVIEW VI files — no LabVIEW license required.
 
-**lvkit never modifies a VI — it reads what LabVIEW writes.**
+lvkit parses `.vi`, `.ctl`, `.lvclass`, `.lvlib`, and `.lvproj` files directly into queryable dependency and dataflow graphs. From that graph it renders block diagrams, describes what a VI does, generates documentation, and diffs two versions — from a terminal, in CI, or through an AI agent. It can also generate a Python transliteration of a VI, though that path is experimental and how far it gets varies from VI to VI.
 
-lvkit parses `.vi`, `.ctl`, `.lvclass`, and `.lvlib` files directly into queryable dependency and dataflow graphs. Use it to document code, track changes in CI, feed VI structure to AI tools, or generate equivalent Python.
+> **Reads, never writes.** lvkit only ever reads a VI — it never modifies, re-saves, or edits one. Every capability, including convert, parses the source and writes to a *separate* output file; your `.vi` files are never touched, and LabVIEW stays the only thing that authors them.
 
-> **Reads, never writes.** lvkit only ever reads a VI — it never modifies, re-saves, or edits one. Your files are never touched, and LabVIEW stays the only thing that authors them. This holds across every capability, including convert: generating Python parses the VI and emits a *separate* file — it never edits the source.
-
-> **Independent, clean-room project — not affiliated with NI.** lvkit was built using **only publicly available information**: public NI documentation, the open-source [pylabview](https://github.com/mefistotelis/pylabview) project, and observation of VI files. It was developed **without installing or running LabVIEW or any NI software**, and with **no NI source code, internal or non-public specifications, or confidential or proprietary materials**. LabVIEW, NI, and National Instruments are trademarks of National Instruments Corporation, used here only to identify the format lvkit interoperates with; lvkit is not affiliated with, authorized by, endorsed by, or sponsored by NI. See [Cleanroom approach](#cleanroom-approach), [`NOTICE`](NOTICE), and [`PROVENANCE.md`](PROVENANCE.md).
+> **Independent, clean-room project — not affiliated with NI.** Built from public NI documentation, the open-source [pylabview](https://github.com/mefistotelis/pylabview) parser, and observation of VI files — with no LabVIEW install and no NI source or non-public specifications. Details in [Cleanroom approach](#cleanroom-approach); see also [`NOTICE`](NOTICE) and [`PROVENANCE.md`](PROVENANCE.md).
 
 ## Contents
 
 - [Quick Start](#quick-start)
 - [What you can do with it](#what-you-can-do-with-it)
 - [How it works](#how-it-works)
-- [AI and IDE integration](#ai-and-ide-integration)
+- [Editor and AI integration](#editor-and-ai-integration)
 - [Cleanroom approach](#cleanroom-approach)
 - [Development](#development)
 
@@ -36,28 +34,47 @@ For a global install: `pipx install lvkit` or `uv tool install lvkit`.
 
 | Command | Description |
 |---------|-------------|
-| `lvkit describe` | Human-readable VI description with signature and operations |
+| `lvkit describe` | Human-readable VI summary: signature, operations, dataflow, structures |
+| `lvkit render` | Render a VI's block diagram to a faithful SVG (or interactive HTML) |
+| `lvkit diff` | Compare two VI versions — operations, structures, wiring, constants |
 | `lvkit docs` | Generate cross-referenced HTML documentation |
-| `lvkit diff` | Compare two VI versions — terminals, operations, wiring |
-| `lvkit visualize` | Interactive dependency or data flow graph HTML |
+| `lvkit visualize` | Interactive dataflow or dependency graph (HTML) |
 | `lvkit generate` | Generate Python from a VI, library, or class (experimental — see [Cleanroom approach](#cleanroom-approach)) |
-| `lvkit render` | Render an interactive block diagram SVG from a VI |
-| `lvkit structure` | Inspect `.lvlib` or `.lvclass` structure |
-| `lvkit setup` | Install AI agent skills; create `.lvkit/` resolution store |
+| `lvkit structure` | Inspect `.lvproj`, `.lvlib`, or `.lvclass` structure |
+| `lvkit detect` | Detect a locally installed LabVIEW and its `vi.lib` / `user.lib` |
+| `lvkit setup` | Install AI agent skills; create the `.lvkit/` resolution store |
 | `lvkit mcp` | Start the MCP server for IDE integration |
 
-`lvkit visualize` requires `pip install lvkit[visualize]` (it uses pyvis). All other commands work on a bare `pip install lvkit`.
+`describe`, `render`, `diff`, `docs`, and `visualize` work from the graph alone and need no semantic mappings. Only `generate` requires primitive/vi.lib mappings. `lvkit visualize` needs the pyvis extra: `pip install lvkit[visualize]`.
 
 ## What you can do with it
 
 ### Describe what a VI does
-Get a human-readable signature, inputs/outputs, operations, and control flow — without opening LabVIEW. Never requires primitive or vi.lib mappings.
+A human-readable signature, inputs/outputs, operations, and control flow — without opening LabVIEW.
 
 ```
 lvkit describe <path-to.vi> [--search-path <libraries/>] [--verbose]
 ```
 
 `--verbose` adds a full netlist — a text projection of the block diagram.
+
+### Render the block diagram
+Render a VI's block diagram to a faithful, self-contained SVG — nodes, wires, structures, and SubVI icons, all drawn from the parsed graph. No LabVIEW, no screenshots.
+
+```
+lvkit render <path-to.vi> [--format {svg,html}] [--theme {light,dark,auto}] [--search-path <libraries/>]
+```
+
+`--format html` writes an interactive single-VI viewer with zoom/pan and a light/dark diagram-theme toggle; hover a node to see its connector pane and documentation. The same renderer powers `diff --format html` and the VS Code extension.
+
+### Diff two versions of a VI
+See what changed between two `.vi` files — added/removed operations and structures, rewired connections, changed constants. Useful in code review and CI.
+
+```
+lvkit diff <vi-a> <vi-b> [--format {text,json,html}] [--open]
+```
+
+Text (the default) is a concise, logical change summary for stdout or CI. `--format json` emits a UID-correlated change map for scripts or an AI agent. `--format html` (or `--open`) writes an **interactive diff viewer** — synced before/after panes, click a change to spotlight it, deep-linkable.
 
 ### Generate documentation
 Cross-referenced HTML docs for a `.vi`, `.lvlib`, or `.lvclass` — inputs, outputs, operations, wiring diagrams.
@@ -66,17 +83,8 @@ Cross-referenced HTML docs for a `.vi`, `.lvlib`, or `.lvclass` — inputs, outp
 lvkit docs <input-path> <output-dir> [--search-path <libraries/>]
 ```
 
-### Diff two versions of a VI
-See what changed between two `.vi` files — added/removed operations and structures, rewired connections, changed constants. Useful in code review and CI.
-
-```
-lvkit diff <vi-a> <vi-b> [--format {text,json,html}]
-```
-
-Text output is a concise, logical change summary. `--format json` emits a UID-correlated change map for scripts, CI, or an AI agent. `--format html` (or `--open`) writes an **interactive diff viewer** — synced before/after panes, click a change to spotlight it, deep-linkable.
-
-### Generate Python
-Convert a VI, library, or class to Python. Deterministic — same VI in, same Python out, every run, no LLM involved.
+### Generate Python (experimental)
+This is lvkit's least mature capability, and the one most likely to need hand-finishing. It walks the graph to emit a Python transliteration of a `.vi`, `.lvlib`, or `.lvclass`. The transliteration is deterministic (same VI in, same Python out, no LLM), but coverage is incremental: a VI only converts cleanly when every primitive and vi.lib VI it uses is already mapped, so how far it gets varies widely. Expect to resolve unknowns and clean up the output — see [Cleanroom approach](#cleanroom-approach).
 
 ```
 lvkit generate <input-path> -o <output-dir> [--search-path <libraries>] [--placeholder-on-unresolved]
@@ -84,23 +92,23 @@ lvkit generate <input-path> -o <output-dir> [--search-path <libraries>] [--place
 
 `--placeholder-on-unresolved` lets the build succeed when mappings are missing — unresolved calls become inline `raise PrimitiveResolutionNeeded(...)` in the output so you can track them down at runtime.
 
-Coverage is incremental and results will vary — see [Cleanroom approach](#cleanroom-approach) for what that means in practice.
-
 ## How it works
 
 lvkit reads VI binaries directly — no LabVIEW installation required. The pipeline has three stages:
 
 1. **Parse** — the VI binary is extracted to XML (via [pylabview](https://github.com/mefistotelis/pylabview)), then parsed into a typed representation of the block diagram: nodes, wires, constants, types, and front panel terminals.
 
-2. **Graph** — all loaded VIs are linked into a graph that captures two things: the dependency tree (which VIs call which) and the dataflow within each VI (how data moves between operations). This is what `describe`, `docs`, `diff`, and `visualize` query — no semantic mappings needed.
+2. **Graph** — all loaded VIs are linked into a graph that captures two things: the dependency tree (which VIs call which) and the dataflow within each VI (how data moves between operations). This is what `describe`, `render`, `diff`, `docs`, and `visualize` query — no semantic mappings needed.
 
-3. **Generate** — the graph is walked deterministically to produce Python source, HTML documentation, or flowcharts. Code generation is pure AST construction: same VI in, same output every run, no LLM.
+3. **Generate** — the graph is walked deterministically to produce Python source, HTML documentation, or diagrams. Code generation is pure AST construction: same VI in, same output every run, no LLM.
 
-See [`docs/graph-reference.md`](docs/graph-reference.md) for the full graph type reference.
+See the [command reference](docs/reference/index.md) for full, flag-level docs on every command.
 
-## AI and IDE integration
+## Editor and AI integration
 
-The CLI works standalone from any terminal or CI script. For deeper IDE integration, lvkit ships two optional layers.
+The CLI works standalone from any terminal or CI script. For deeper integration, lvkit ships three optional layers.
+
+**VS Code extension** — [**LVKit** on the Marketplace](https://marketplace.visualstudio.com/items?itemName=pragmatest.lvkit). Opening a `.vi` renders its block diagram inline instead of the "binary file" placeholder, and clicking a SubVI opens it. **Open Visual Diff** — right-click a changed `.vi` in Source Control, the Explorer, or the editor tab — shows a before/after block-diagram diff for code review. It ships a bundled lvkit, so it works with no separate install; point the `lvkit.path` setting at a project venv or a PATH install to use your own instead. `.vi` files only today.
 
 **AI agent skills** — install lvkit's built-in workflows into Claude Code or Copilot so your AI agent can describe VIs, convert them, and resolve unknowns without you writing prompts. All five workflows call the CLI under the hood — no MCP server required.
 
@@ -125,16 +133,16 @@ Five workflows ship: `lvkit-describe`, `lvkit-convert`, `lvkit-resolve-primitive
 
 | Tool | Description |
 |------|-------------|
-| `load` | Load VI into the in-memory graph |
+| `load` | Load a VI into the in-memory graph |
 | `list_loaded` | List loaded VIs |
+| `clear` | Clear the in-memory graph |
 | `get_context` | Full VI context: inputs, outputs, operations, wires |
-| `generate_ast_code` | Generate Python from a loaded VI |
 | `describe` | Human-readable VI description |
 | `get_operations` | List operations in a VI |
 | `get_dataflow` | Show wire connections |
 | `get_structure` | Inspect a structure node (loop, case, sequence) |
 | `get_constants` | List constant values |
-| `analyze` | Parse and describe VI structure (stateless) |
+| `generate_ast_code` | Generate Python from a loaded VI |
 | `generate_documents` | Generate HTML docs for VIs/libraries (stateless) |
 | `generate_python` | Generate Python from a VI (stateless) |
 
@@ -147,7 +155,9 @@ These mappings are **lvkit's own definitions, derived purely by inference** from
 1. **Public NI documentation** — pages published openly on ni.com, accessed with no login, partner portal, or NDA gate.
 2. **The VI XML produced by [pylabview](https://github.com/mefistotelis/pylabview)** — the open-source parser that extracts the VI binary to XML. That XML is lvkit's *only* window into the format; lvkit has no other view of it.
 
-The definitions are open source and fully inspectable, and many carry a note recording how each was inferred (the public doc consulted, the observed terminal signature, a `verified`/`guess_reason` marker). They are **best-effort inferences, not authoritative** — they have been wrong and corrected over time. That imperfection is a direct consequence of working from *only* public documentation and the pylabview XML, with **no access to any internal or authoritative NI specification** — an insider would not need to infer.
+The definitions are open source and fully inspectable, and many carry a note recording how each was inferred (the public doc consulted, the observed terminal signature, a `verified`/`guess_reason` marker). They are **best-effort inferences, not authoritative** — they have been wrong and corrected over time. That imperfection is a direct consequence of working from *only* public documentation and the pylabview XML, with **no access to any internal or authoritative NI specification**.
+
+Coverage is incremental. When `lvkit generate` encounters an unmapped primitive or vi.lib VI, it raises an error with diagnostic context so the mapping can be added. `describe`, `render`, `diff`, `docs`, and `visualize` are unaffected — they work from the graph, not the semantic mappings.
 
 ### Provenance
 
@@ -156,8 +166,6 @@ lvkit was developed **using only publicly available information** and clean-room
 ### Trademarks
 
 LabVIEW, NI, and National Instruments are trademarks of National Instruments Corporation. lvkit is an independent project and is not affiliated with, authorized by, endorsed by, or sponsored by NI. Those names are used only to identify the file format and software lvkit interoperates with (nominative use).
-
-Coverage is incremental. When `lvkit generate` encounters an unmapped primitive or vi.lib VI, it raises an error with diagnostic context so the mapping can be added. `describe`, `docs`, `diff`, and `visualize` are unaffected — they work from the graph, not the semantic mappings.
 
 ### Project-local resolution store (`.lvkit/`)
 
@@ -187,8 +195,7 @@ Apache-2.0. See [LICENSE](LICENSE).
 
 ## Further reading
 
-- [`docs/graph-reference.md`](docs/graph-reference.md) — graph type reference (nodes, VIContext, operations, wires)
-- [`docs/vi-xml-reference.md`](docs/vi-xml-reference.md) — pylabview XML format reference
-- [`docs/highlight-reel.md`](docs/highlight-reel.md) — design narrative and architecture decisions
-- [`docs/demo-script.md`](docs/demo-script.md) — 30-minute demo script / tutorial
+- [`docs/reference/`](docs/reference/index.md) — per-command reference for the full CLI
+- [`docs/reference/netlist.md`](docs/reference/netlist.md) — the netlist text syntax (`describe --verbose`, `diff`)
+- [`docs/reference/subvi-resolution.md`](docs/reference/subvi-resolution.md) — how lvkit finds SubVIs and libraries
 - [pylabview](https://github.com/mefistotelis/pylabview) — the VI binary parser lvkit builds on
