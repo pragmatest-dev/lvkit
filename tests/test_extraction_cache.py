@@ -46,12 +46,11 @@ def _mark_project(root: Path) -> None:
 
 class TestClassify:
     def test_no_project_is_adhoc(self, tmp_path: Path) -> None:
-        # A bare dir with no .git/.lvkit ancestor -> adhoc/<hash(abspath)>.
+        # A bare dir with no .git/.lvkit ancestor -> adhoc/<slug(parent dir)>.
         vi = _touch_vi(tmp_path / "loose" / "foo.vi")
         target, source = extractor._classify(vi)
         root = extractor.global_cache_root()
-        assert target.parent == root / "adhoc"
-        assert target.name == extractor._hash12(str(vi.resolve()))
+        assert target == root / "adhoc" / extractor._slug(vi.parent.resolve())
         assert source == "foo.vi"
 
     def test_under_project_is_projects(self, tmp_path: Path) -> None:
@@ -60,7 +59,7 @@ class TestClassify:
         vi = _touch_vi(proj / "src" / "bar.vi")
         target, source = extractor._classify(vi)
         root = extractor.global_cache_root()
-        ns = extractor._hash12(str(proj.resolve()))
+        ns = extractor._slug(proj.resolve())
         assert target == root / "projects" / ns / "src"
         assert source == str(Path("src") / "bar.vi")
 
@@ -70,7 +69,7 @@ class TestClassify:
         extractor.set_extraction_roots(vilib_root=vilib, userlib_root=None)
         target, source = extractor._classify(vi)
         root = extractor.global_cache_root()
-        ns = extractor._hash12(str(vilib.resolve()))
+        ns = extractor._slug(vilib.resolve())
         assert target == root / "shared" / "vilib" / ns / "Utility"
         assert source == str(Path("Utility") / "u.vi")
 
@@ -80,7 +79,7 @@ class TestClassify:
         extractor.set_extraction_roots(vilib_root=None, userlib_root=userlib)
         target, _ = extractor._classify(vi)
         root = extractor.global_cache_root()
-        ns = extractor._hash12(str(userlib.resolve()))
+        ns = extractor._slug(userlib.resolve())
         assert target == root / "shared" / "userlib" / ns / "MyAddon"
 
     def test_vendored_openg_under_project_is_projects_not_shared(
@@ -308,3 +307,28 @@ class TestGlobalHomeGuard:
         proj = tmp_path / "proj"
         (proj / ".lvkit").mkdir(parents=True)
         assert project_store.find_project_store(proj) == proj / ".lvkit"
+
+    def test_project_root_skips_global_home_lvkit(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The classifier's own root walk (`extractor._project_root_for`) must
+        also skip `~/.lvkit`. Without the guard, a VI inside a git repo that
+        lives under $HOME resolves to hash($HOME) — every project collapsing
+        into one bucket and climbing past its own `.git`. Regression for the
+        observed Windows cache tree (#78)."""
+        from lvkit import project_store
+
+        home = tmp_path / "home"
+        (home / ".lvkit").mkdir(parents=True)  # stands in for the global ~/.lvkit
+        monkeypatch.setattr(project_store, "global_home", lambda: home / ".lvkit")
+
+        repo = home / "repo"  # a real git repo nested under the home
+        (repo / ".git").mkdir(parents=True)
+        vi = _touch_vi(repo / "source" / "x.vi")
+
+        # Resolves to the repo, not the home; and lands under hash(repo).
+        assert extractor._project_root_for(vi.resolve()) == repo.resolve()
+        target, source = extractor._classify(vi)
+        ns = extractor._slug(repo.resolve())
+        assert target == extractor.global_cache_root() / "projects" / ns / "source"
+        assert source == str(Path("source") / "x.vi")

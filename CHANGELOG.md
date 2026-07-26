@@ -18,6 +18,13 @@ lvkit follows semantic versioning.
   keyed by the resolved root — so LabVIEW 32- and 64-bit installs don't collide),
   while a project's own and vendored VIs stay per-project. Content-hash
   invalidation is retained.
+- **Cache dirs are readable, not hashed.** Each namespace is the project (or
+  library) path with separators turned into `-`, the way cross-project tools
+  name their per-repo dirs (`~/.claude/projects`: `-home-user-repo`) — so you
+  can browse `~/.lvkit/cache` and see which repo, and which VI, every file came
+  from. This also fixes a case where a VI inside a repo under your home
+  directory collapsed into one `hash($HOME)` bucket (climbing past its own
+  `.git`), because the global `~/.lvkit` was mistaken for a project marker.
 
 ## [0.5.2]
 - **Fix: lvkit reported the wrong version.** The 0.5.1 release bumped

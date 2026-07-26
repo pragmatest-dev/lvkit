@@ -80,12 +80,19 @@ def _project_root_for(vi_path: Path) -> Path | None:
     outside any project. (Mirrors ``project_store.find_project_store`` but also
     reports the git root so the cache can be created there on demand.)
     """
+    from lvkit.project_store import global_home
+
     ancestors = (vi_path.parent, *vi_path.parent.parents)
+    # The user's GLOBAL store (~/.lvkit) is not a project marker — skip it, or
+    # every VI under $HOME collapses into one hash($HOME) bucket (and climbs
+    # past its own repo's .git). Same guard find_project_store uses.
+    home = global_home().resolve()
     # An EXISTING .lvkit/ store wins, even when a NEARER ancestor is its own git
     # repo: vendored/cloned corpora (each carrying a .git) must share the outer
     # project's cache instead of sprouting a .lvkit/ inside every clone.
     for anc in ancestors:
-        if (anc / ".lvkit").is_dir():
+        store = anc / ".lvkit"
+        if store.is_dir() and store.resolve() != home:
             return anc
     for anc in ancestors:
         if (anc / ".git").exists():
@@ -93,9 +100,16 @@ def _project_root_for(vi_path: Path) -> Path | None:
     return None
 
 
-def _hash12(text: str) -> str:
-    """First 12 hex chars of ``sha256(text)`` — a short, stable namespace id."""
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+def _slug(path: Path) -> str:
+    """Readable per-project cache namespace: the absolute path with its
+    separators turned into ``-``, the way cross-project tools name their
+    per-repo dirs (``~/.claude/projects``: ``/home/u/repo`` -> ``-home-u-repo``).
+
+    No hash — you can read the cache and see which project a file came from
+    (and, with the mirrored sub-tree, which VI). Windows drive colons and
+    backslashes collapse the same way (``C:\\proj`` -> ``C--proj``).
+    """
+    return str(path).replace(":", "-").replace("\\", "-").replace("/", "-")
 
 
 def _rel_under(child: Path, parent: Path | None) -> Path | None:
@@ -125,25 +139,28 @@ def _classify(vi_path: Path) -> tuple[Path, str]:
     resolved = vi_path.resolve()
     root = global_cache_root()
 
-    rel = _rel_under(resolved, _vilib_root)
-    if rel is not None:
-        ns = _hash12(str(_vilib_root))
-        return root / "shared" / "vilib" / ns / rel.parent, str(rel)
+    vilib = _vilib_root
+    if vilib is not None:
+        rel = _rel_under(resolved, vilib)
+        if rel is not None:
+            return root / "shared" / "vilib" / _slug(vilib) / rel.parent, str(rel)
 
-    rel = _rel_under(resolved, _userlib_root)
-    if rel is not None:
-        ns = _hash12(str(_userlib_root))
-        return root / "shared" / "userlib" / ns / rel.parent, str(rel)
+    userlib = _userlib_root
+    if userlib is not None:
+        rel = _rel_under(resolved, userlib)
+        if rel is not None:
+            return (
+                root / "shared" / "userlib" / _slug(userlib) / rel.parent,
+                str(rel),
+            )
 
     project = _project_root_for(resolved)
     if project is not None:
         proj_abs = project.resolve()
         rel = resolved.relative_to(proj_abs)
-        ns = _hash12(str(proj_abs))
-        return root / "projects" / ns / rel.parent, str(rel)
+        return root / "projects" / _slug(proj_abs) / rel.parent, str(rel)
 
-    ns = _hash12(str(resolved))
-    return root / "adhoc" / ns, resolved.name
+    return root / "adhoc" / _slug(resolved.parent), resolved.name
 
 
 def _cache_target(vi_path: Path) -> Path:
@@ -330,11 +347,10 @@ _UNSAFE_CHARS = re.compile(r"[\\/*?:<>|\x00-\x1f]+")
 def _llb_cache_dir(llb_path: Path) -> Path:
     """Return a stable per-LLB cache directory under the global cache root.
 
-    ``<global-cache>/llb/<stem>_<hash12>`` where hash12 is the first 12 hex
-    chars of SHA-256 over the resolved absolute path.
+    ``<global-cache>/llb/<slug>`` where slug is the LLB's absolute path with
+    separators turned into ``-`` (see :func:`_slug`) — readable, no hash.
     """
-    digest = _hash12(str(llb_path))
-    return global_cache_root() / "llb" / f"{llb_path.stem}_{digest}"
+    return global_cache_root() / "llb" / _slug(llb_path)
 
 
 def _open_llb_vi(llb_path: Path) -> Any:
