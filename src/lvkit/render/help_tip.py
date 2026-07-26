@@ -29,8 +29,10 @@ from __future__ import annotations
 
 __all__ = ["HELP_TIP"]
 
-# PANEL_SCALE: on-screen size = this * the panel's own drawn size. ~1.6 sits
-# between the drawn size (small) and a 2x blow-up (too large).
+# SCALE: on-screen size = this * the panel's own drawn (user-unit) size, in CSS
+# px — CONSTANT across diagram zoom (Bug 2: it must NOT grow when you zoom the
+# diagram), then capped so it never overflows the view. ~1.45 reads comfortably
+# without dominating the pane.
 HELP_TIP = """<style>
   /* A bare positioning container — the cloned connector-pane panel brings its
      own frame, so no border/background/shadow here (that would double it up).
@@ -45,7 +47,7 @@ HELP_TIP = """<style>
 <script>
 (function(){
   try {
-    var SCALE = 1.6, GAP = 14, EDGE = 8;
+    var SCALE = 1.45, GAP = 14, EDGE = 8;
     var tip = document.createElement("div");
     tip.className = "lv-tip";
     tip.hidden = true;
@@ -56,9 +58,26 @@ HELP_TIP = """<style>
     var svgs = document.querySelectorAll("svg");
     for (var i = 0; i < svgs.length; i++) svgs[i].__lvSuppressPanel = true;
 
+    // Strip the native <title> from every node that HAS a help panel, so the
+    // browser's text tooltip never doubles up with our help box. The render
+    // viewer's own hover JS already does this, but the diff viewer's SVGs are
+    // non-interactive (that JS never runs) -- so we must, for both. Nodes with
+    // no panel (constants) keep their <title>: it's their only hover.
+    for (var s = 0; s < svgs.length; s++) {
+      var nodes = svgs[s].querySelectorAll(".lv-node[data-node]");
+      for (var k = 0; k < nodes.length; k++) {
+        var nd = nodes[k], id = nd.getAttribute("data-node");
+        if (!svgs[s].querySelector('.lv-help[data-node="' + id + '"]')) continue;
+        var t = nd.querySelector("title");
+        if (t) { nd.setAttribute("aria-label", t.textContent); nd.removeChild(t); }
+      }
+    }
+
     // Read the node's panel straight out of the SVG (its <g class="lv-help">) and
-    // wrap the clone in a fixed-size <svg> so it renders at a constant on-screen
-    // size. Returns null for a node with no panel (constant) -> native <title>.
+    // wrap the clone in an <svg> sized to a CONSTANT on-screen size — bb * SCALE
+    // in CSS px, NOT scaled by the diagram's zoom (that was Bug 2: it grew with
+    // zoom and became unreadable/huge). CSS px still honor the EDITOR/browser
+    // zoom for free. Returns null for a node with no panel (constant) -> <title>.
     function panelSvg(node){
       var root = node.ownerSVGElement, dn = node.getAttribute("data-node");
       if (!root || !dn) return null;
@@ -66,11 +85,27 @@ HELP_TIP = """<style>
       if (!panel) return null;
       var bb; try { bb = panel.getBBox(); } catch (_){ return null; }
       if (!bb || !bb.width || !bb.height) return null;
+      // Size = a READABLE target (SCALE css px per user unit — a CONSTANT, so it
+      // does NOT change when you zoom the diagram: Bug 2), CAPPED so it can never
+      // OVERFLOW the view. The cap is a fraction of the view container's box, so
+      // a big panel in a narrow side-by-side pane shrinks to fit instead of
+      // spilling out, while a normal panel keeps its readable size. The view box
+      // is zoom-independent (zoom scrolls inside it) and CSS px still honor the
+      // editor/browser zoom — but we NEVER use the SVG's own rendered width,
+      // which grows with diagram zoom (that was the ballooning regression).
+      var scale = SCALE;
+      var view = node.closest && node.closest(".stage-wrap");
+      if (view) {
+        var vr = view.getBoundingClientRect();
+        scale = Math.min(scale, (vr.width * 0.8) / bb.width,
+                                (vr.height * 0.74) / bb.height);
+        if (!(scale > 0)) scale = SCALE;
+      }
       // viewBox = the panel's exact bbox (no padding), so the overlay ends right
       // at the panel's own frame -- no background-color margin around it.
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' +
              bb.x + " " + bb.y + " " + bb.width + " " + bb.height + '" width="' +
-             (bb.width * SCALE) + '" height="' + (bb.height * SCALE) + '">' +
+             (bb.width * scale) + '" height="' + (bb.height * scale) + '">' +
              panel.outerHTML + "</svg>";
     }
 
