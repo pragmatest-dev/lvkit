@@ -232,6 +232,7 @@ def test_cli_setup_creates_project_store(tmp_path: Path) -> None:
     assert (tmp_path / ".lvkit" / "README.md").exists()
     assert (tmp_path / ".lvkit" / "vilib" / "_index.json").exists()
     assert not (tmp_path / ".claude").exists()
+    assert not (tmp_path / ".agents").exists()
 
 
 def test_cli_setup_skills_choice_is_not_a_directory(tmp_path: Path) -> None:
@@ -249,6 +250,55 @@ def test_cli_setup_skills_choice_is_not_a_directory(tmp_path: Path) -> None:
     assert "Not a directory" not in result.stderr
     assert (tmp_path / ".lvkit").is_dir()
     assert (tmp_path / ".github" / "prompts").is_dir()   # copilot skills, in CWD
+
+
+def test_cli_setup_codex_choice_is_not_a_directory(tmp_path: Path) -> None:
+    """`lvkit setup codex` installs Codex skills in CWD."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "lvkit.cli", "setup", "codex"],
+        cwd=tmp_path, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Not a directory" not in result.stderr
+    assert (tmp_path / ".lvkit").is_dir()
+    assert (tmp_path / ".agents" / "skills" / "lvkit-convert").is_dir()
+
+
+def test_cli_setup_auto_detects_codex(tmp_path: Path) -> None:
+    """A Codex project marker makes bare `lvkit setup` install Codex skills."""
+    import subprocess
+    import sys
+
+    (tmp_path / "AGENTS.md").write_text("# Project instructions\n")
+    result = subprocess.run(
+        [sys.executable, "-m", "lvkit.cli", "setup"],
+        cwd=tmp_path, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Installed 5 Codex skill(s)" in result.stdout
+    assert (
+        tmp_path / ".agents" / "skills" / "lvkit-describe" / "SKILL.md"
+    ).is_file()
+
+
+def test_cli_setup_without_agent_marker_installs_no_skills(tmp_path: Path) -> None:
+    """Bare setup remains successful when no supported agent is configured."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "lvkit.cli", "setup"],
+        cwd=tmp_path, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "No AI agent detected" in result.stdout
+    assert (tmp_path / ".lvkit").is_dir()
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / ".claude").exists()
+    assert not (tmp_path / ".github").exists()
 
 
 # ============================================================
@@ -511,6 +561,116 @@ def test_install_copilot_skills_force_overwrites(tmp_path: Path) -> None:
     assert "mode: agent" in edited.read_text()
 
 
+# ============================================================
+# Codex install: 5 repository-scoped Agent Skills
+# ============================================================
+
+
+def test_install_codex_skills_writes_agent_skills(tmp_path: Path) -> None:
+    """Codex gets all workflows under .agents/skills with portable metadata."""
+    from lvkit.project_store import install_codex_skills
+
+    written = install_codex_skills(tmp_path)
+    assert len(written) == len(_LVKIT_SKILLS)
+
+    skills_dir = tmp_path / ".agents" / "skills"
+    for skill in _LVKIT_SKILLS:
+        path = skills_dir / skill / "SKILL.md"
+        assert path.is_file(), f"missing {path}"
+        text = path.read_text()
+        assert text.startswith("---\n")
+        assert f"name: {skill}" in text
+        assert "description:" in text
+        assert "allowed-tools:" not in text
+        assert f"/{skill}" not in text
+        assert "lvkit init" not in text
+        assert "lvkit llm-generate" not in text
+        assert "lvkit check" not in text
+
+    convert = (skills_dir / "lvkit-convert" / "SKILL.md").read_text()
+    assert "$lvkit-resolve-primitive" in convert
+    assert "$lvkit-resolve-vilib" in convert
+    assert "$lvkit-idiomatic" in convert
+    assert "lvkit setup" in convert
+
+    primitive = (
+        skills_dir / "lvkit-resolve-primitive" / "SKILL.md"
+    ).read_text()
+    assert "Shell compatibility" in primitive
+    assert "PowerShell" in primitive
+
+
+def test_install_codex_skills_is_idempotent(tmp_path: Path) -> None:
+    """Reinstalling unchanged Codex skills does not rewrite them."""
+    from lvkit.project_store import install_codex_skills
+
+    install_codex_skills(tmp_path)
+    second = install_codex_skills(tmp_path)
+    assert second == []
+
+
+def test_install_codex_skills_atomic_on_conflict(tmp_path: Path) -> None:
+    """A locally edited Codex skill aborts the whole install."""
+    from lvkit.project_store import install_codex_skills
+
+    skills_dir = tmp_path / ".agents" / "skills"
+    conflict = skills_dir / "lvkit-convert" / "SKILL.md"
+    conflict.parent.mkdir(parents=True)
+    conflict.write_text("LOCAL EDIT\n")
+
+    with pytest.raises(FileExistsError, match="local edits"):
+        install_codex_skills(tmp_path)
+
+    for skill in _LVKIT_SKILLS:
+        path = skills_dir / skill / "SKILL.md"
+        if skill == "lvkit-convert":
+            assert path.read_text() == "LOCAL EDIT\n"
+        else:
+            assert not path.exists()
+
+
+def test_install_codex_skills_force_overwrites(tmp_path: Path) -> None:
+    """--force replaces locally edited Codex skills."""
+    from lvkit.project_store import install_codex_skills
+
+    install_codex_skills(tmp_path)
+    edited = tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md"
+    edited.write_text("LOCAL EDIT\n")
+
+    install_codex_skills(tmp_path, force=True)
+    text = edited.read_text()
+    assert "LOCAL EDIT" not in text
+    assert "name: lvkit-convert" in text
+
+
+@pytest.mark.parametrize(
+    "marker",
+    ["AGENTS.md", "AGENTS.override.md", ".agents", ".codex"],
+)
+def test_detect_ai_editors_recognizes_codex_markers(
+    tmp_path: Path, marker: str,
+) -> None:
+    """Every supported Codex project marker enables Codex auto-detection."""
+    from lvkit.cli import _detect_ai_editors
+
+    path = tmp_path / marker
+    if marker.startswith("."):
+        path.mkdir()
+    else:
+        path.write_text("# Codex instructions\n")
+    assert _detect_ai_editors(tmp_path) == ["codex"]
+
+
+def test_detect_ai_editors_can_return_all_agents(tmp_path: Path) -> None:
+    """Auto-detection installs every agent configured in a mixed project."""
+    from lvkit.cli import _detect_ai_editors
+
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".github" / "instructions").mkdir(parents=True)
+    (tmp_path / ".agents").mkdir()
+    assert _detect_ai_editors(tmp_path) == ["claude", "copilot", "codex"]
+
+
 def test_cli_setup_skills_claude(tmp_path: Path) -> None:
     """`lvkit setup claude` installs Claude Code skills."""
     import subprocess
@@ -531,8 +691,28 @@ def test_cli_setup_skills_claude(tmp_path: Path) -> None:
     ).is_file()
 
 
+def test_cli_setup_skills_codex(tmp_path: Path) -> None:
+    """`lvkit setup codex` installs repository-scoped Codex skills."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "lvkit.cli", "setup",
+            str(tmp_path), "codex",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "Installed 5 Codex skill(s)" in result.stdout
+    assert (
+        tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md"
+    ).is_file()
+
+
 def test_cli_setup_skills_all(tmp_path: Path) -> None:
-    """`lvkit setup all` installs both Claude and Copilot."""
+    """`lvkit setup all` installs Claude, Copilot, and Codex."""
     import subprocess
     import sys
 
@@ -547,6 +727,7 @@ def test_cli_setup_skills_all(tmp_path: Path) -> None:
     )
     assert "Installed 5 Claude Code skill(s)" in result.stdout
     assert "Installed 6 Copilot file(s)" in result.stdout  # 5 prompts + router
+    assert "Installed 5 Codex skill(s)" in result.stdout
     assert (
         tmp_path / ".claude" / "skills" / "lvkit-resolve-primitive" / "SKILL.md"
     ).is_file()
@@ -555,6 +736,9 @@ def test_cli_setup_skills_all(tmp_path: Path) -> None:
     ).is_file()
     assert (
         tmp_path / ".github" / "instructions" / "lvkit.instructions.md"
+    ).is_file()
+    assert (
+        tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md"
     ).is_file()
 
 
