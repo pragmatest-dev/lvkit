@@ -19,6 +19,10 @@ on:
   push:
     tags:
       - "ext-v*"
+  # Manual dry-run: builds + uploads the four .vsix artifacts WITHOUT publishing
+  # (the publish job below is gated to ext-v* tag pushes). Use it to install and
+  # test the exact Marketplace binary on each platform before cutting a release.
+  workflow_dispatch:
 
 jobs:
   # Cheap gate BEFORE the expensive builds: vsce takes the version from
@@ -31,8 +35,12 @@ jobs:
       - name: Verify tag matches package.json version
         shell: bash
         run: |
-          tag="${GITHUB_REF_NAME#ext-v}"
           pkg=$(node -p "require('./editors/vscode/package.json').version")
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "Dry-run (workflow_dispatch): building $pkg, will NOT publish."
+            exit 0
+          fi
+          tag="${GITHUB_REF_NAME#ext-v}"
           if [ "$tag" != "$pkg" ]; then
             echo "::error::Tag ext-v$tag does not match package.json version $pkg"
             exit 1
@@ -94,6 +102,10 @@ jobs:
 
   publish:
     needs: build
+    # ONLY on an ext-v* tag push. A manual workflow_dispatch run still reaches
+    # build (the .vsix artifacts are uploaded), but this job is skipped, so
+    # nothing is ever published from a dry-run.
+    if: startsWith(github.ref, 'refs/tags/ext-v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-node@v4
