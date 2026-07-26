@@ -1,4 +1,4 @@
-# LVKit — View and diff VIs without LabVIEW
+# LVKit - View and diff VIs without LabVIEW
 
 View `.vi` block diagrams and **visual before/after diffs** directly in VS Code, on a
 machine with **no LabVIEW installed**. Powered by [LVKit](https://pragmatest.com), an open-source tool from **[PragmaTest](https://pragmatest.com)**.
@@ -12,11 +12,11 @@ Both open **read-only** in an editor tab, with zoom/pan and a light/dark diagram
 
 Nodes LVKit doesn't have a glyph for yet render as labeled boxes.
 
-**View** — click a `.vi` in the Explorer.
+**View** - click a `.vi` in the Explorer.
 
 ![A .vi open in VS Code as an interactive block diagram](https://github.com/pragmatest-dev/lvkit/raw/main/editors/vscode/View.png)
 
-**Diff** — right-click a changed `.vi` and select "Open Visual Diff"
+**Diff** - right-click a changed `.vi` and select "Open Visual Diff"
 
 ![The visual before/after diff, opened from the Source Control context menu](https://github.com/pragmatest-dev/lvkit/raw/main/editors/vscode/Diff.png)
 
