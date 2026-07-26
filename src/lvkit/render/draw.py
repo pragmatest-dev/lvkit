@@ -862,10 +862,10 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     icon_y1 = diagram_y0 + top_h - min(ys_min)
     icon_y2 = icon_y1 + icon_h
 
-    backend.begin_group(
-        cls="lv-help", data={"node": node.node.id},
-        style="visibility:hidden;pointer-events:none",
-    )
+    # All panel styling (hidden-until-hover, no pointer capture, drop shadow)
+    # lives in the .lv-help CSS rule (render/__init__.py _BASE_CSS) — the single
+    # source both the in-place reveal and a host's cloned overlay inherit.
+    backend.begin_group(cls="lv-help", data={"node": node.node.id})
     backend.rect(
         0.0, 0.0, panel_w, panel_h,
         fill=theme.canvas, stroke=theme.struct_border, stroke_width=1.0, rx=3,
@@ -1363,9 +1363,8 @@ def _draw_frame_selector(
     def _arrow(action: str, xc: float, glyph: str, cell: tuple[float, float]) -> None:
         cx1, cx2 = cell
         backend.begin_group(
-            cls="lv-selector",
+            cls="lv-selector lv-clickable",
             data={"lv-action": action, "lv-struct": struct},
-            style="cursor:pointer",
         )
         backend.rect(cx1, oy1, cx2, oy2, fill="transparent", stroke="none")
         backend.text(xc, g.baseline, glyph, _SELECTOR_SIZE, fill=theme.case_bar_text)
@@ -1382,8 +1381,8 @@ def _draw_frame_selector(
     if has_dropdown:
         box_data["lv-action"] = "toggle"
     backend.begin_group(
-        cls="lv-selector", data=box_data,
-        style="cursor:pointer" if has_dropdown else None,
+        cls="lv-selector lv-clickable" if has_dropdown else "lv-selector",
+        data=box_data,
     )
     backend.rect(vc1, oy1, vc2, oy2, fill="transparent", stroke="none")
     if has_dropdown and g.tri is not None:
@@ -1418,15 +1417,12 @@ def _draw_frame_menu(
     bx1, _by1, bx2, by2 = g.box
     struct = structure.raw_uid
     zone_w = (bx2 - bx1) - 6.0
-    backend.begin_group(
-        cls="lv-menu", data={"lv-struct": struct}, style="display:none",
-    )
+    backend.begin_group(cls="lv-menu", data={"lv-struct": struct})
     for i, v in enumerate(values):
         ry1 = by2 + i * _MENU_ROW_H
         ry2 = ry1 + _MENU_ROW_H
         backend.begin_group(
-            cls="lv-option", data={"lv-struct": struct, "lv-value": v},
-            style="cursor:pointer",
+            cls="lv-option lv-clickable", data={"lv-struct": struct, "lv-value": v},
         )
         # Same case-bar fill as the selector box above, so the row's
         # case_bar_text label pairs with a themed background here too.
@@ -1797,10 +1793,13 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
         dots = [d.point for d in scene.coercion_dots if d.frame_path == path]
         fps = [fp for fp in scene.fp_terminals if fp.frame_path == path]
         visible = _is_default_visible(path, scene.default_frame)
+        # Initial-hidden state is the .lv-frame.lv-frame-hidden CLASS (never inline
+        # style): the frame controllers — the SVG's own JS AND the diff viewer —
+        # both flip visibility by toggling lv-frame-hidden, so a baked-in inline
+        # display:none could never be cleared by removing the class.
         backend.begin_group(
-            cls="lv-frame",
+            cls="lv-frame" if visible else "lv-frame lv-frame-hidden",
             data={"path": encode_frame_path(path)},
-            style=None if visible else "display:none",
         )
         _draw_layer_content(structures, nets, nodes, scene, backend, theme)
         # The container draws its own tunnels on top of this frame's inner wires.
@@ -1826,9 +1825,7 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             and path[-1][1] != scene.default_frame.get(enclosing.raw_uid)
         ):
             mx1, my1, mx2, my2 = enclosing.bounds
-            backend.begin_group(
-                cls="lv-disabled-mask", style="pointer-events:none;opacity:0.5",
-            )
+            backend.begin_group(cls="lv-disabled-mask")
             backend.rect(mx1, my1, mx2, my2, fill=theme.disabled_mask)
             backend.end_group()
             _draw_frame_selector(enclosing, scene, backend, theme)
@@ -1856,17 +1853,15 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             visible = value == default and _is_default_visible(
                 structure.frame_path, scene.default_frame,
             )
-            # pointer-events:none so a click on the value text falls through to
-            # the .lv-selector overlay beneath (which is drawn earlier) — the
-            # whole selector stays clickable, value digits included.
-            style = (
-                "pointer-events:none" if visible
-                else "display:none;pointer-events:none"
-            )
+            # .lv-label => pointer-events:none so a click on the value text
+            # falls through to the .lv-selector overlay beneath (drawn earlier),
+            # keeping the whole selector clickable; .lv-frame-hidden is the initial
+            # off-frame state (same class the controllers toggle — no inline
+            # display that the class toggle couldn't later clear).
             backend.begin_group(
-                cls="lv-frame",
+                cls="lv-frame lv-label" if visible
+                else "lv-frame lv-label lv-frame-hidden",
                 data={"path": encode_frame_path(label_path)},
-                style=style,
             )
             _draw_frame_value_label(structure, scene, value, backend, theme)
             # Error-cluster case: recolor the whole frame border green (No

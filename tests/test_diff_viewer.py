@@ -296,7 +296,7 @@ class TestPaneRegistrationAndBlendReveal:
         # Split button listed first and active; fader starts hidden (overlay-only).
         assert html.index('data-mode="split"') < html.index('data-mode="overlay"')
         assert '<button data-mode="split" class="active"' in html
-        assert '<span id="opWrap" style="display:none">' in html
+        assert '<span id="opWrap" hidden>' in html
 
     def test_zoom_buttons_disable_at_the_limits(self):
         """No zooming out past fit: − is disabled at ZMIN (=1=fit), + at ZMAX,

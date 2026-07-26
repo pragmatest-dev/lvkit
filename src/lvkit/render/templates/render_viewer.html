@@ -38,22 +38,42 @@
   button:hover{background:var(--btn-hover)}
   .zoomgrp{display:inline-flex;gap:2px;align-items:center}
   .zoomgrp button{padding:5px 9px;min-width:30px;font-weight:600}
+  /* Icon buttons (the diagram-theme toggle) match the zoom buttons' footprint. */
+  .lvkit-theme-btn{min-width:30px;padding:5px 9px}
+  /* stage-wrap is the grid 1fr child; the stage fills it absolutely so the
+     minimap can pin over the stage corner without scrolling with it. */
+  .stage-wrap{position:relative;overflow:hidden;min-height:0}
   /* ONE scrollable pane holding the inline diagram SVG. grab cursor invites the
      drag-to-pan; the pan handler flips it to grabbing while a drag is active. */
-  .stage{position:relative;padding:16px;overflow:auto;cursor:grab;
+  .stage{position:absolute;inset:0;padding:16px;overflow:auto;cursor:grab;
          -webkit-user-select:none;user-select:none}
   svg{max-width:none;height:auto;background:var(--canvas);border-radius:6px}
+  /* Minimap / navigation overlay (RTS-style), pinned over the stage corner.
+     Plain tokens only — chrome follows the viewer/system theme, never data-theme. */
+  .minimap{position:absolute;right:10px;bottom:10px;width:180px;max-width:45%;
+    background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    box-shadow:0 2px 12px rgba(0,0,0,.28);overflow:hidden;z-index:5;cursor:pointer}
+  .minimap[hidden]{display:none}
+  .mm-img{display:block;width:100%;height:auto;pointer-events:none;opacity:.92}
+  .mm-view{position:absolute;border:2px solid var(--accent);border-radius:2px;
+    background:var(--accent);opacity:.22;pointer-events:none}
 </style>
 
 <header>
   <b>VI render · __TITLE__</b>
   <div class="controls">
-    <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomFit">fit</button><button id="zoomIn">+</button></span>
+    <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit">fit</button></span>
     __THEME_BTN__
   </div>
 </header>
 
-<div class="stage" id="stage">__SVG__</div>
+<div class="stage-wrap">
+  <div class="stage" id="stage">__SVG__</div>
+  <div class="minimap" id="minimap" hidden>
+    <img class="mm-img" id="mmImg" alt="Diagram overview">
+    <div class="mm-view" id="mmView"></div>
+  </div>
+</div>
 
 __THEME_SCRIPT__
 
@@ -66,6 +86,9 @@ __THEME_SCRIPT__
 // stage so the stage scrolls.
 const stage=document.getElementById('stage');
 const svg=stage.querySelector('svg');
+const minimap=document.getElementById('minimap');
+const mmImg=document.getElementById('mmImg');
+const mmView=document.getElementById('mmView');
 const PAD=16;
 let zoom=1;
 function fitScale(){                    // css px per user px at zoom=1
@@ -76,6 +99,7 @@ function fitScale(){                    // css px per user px at zoom=1
 function applyZoom(){
   if(!svg)return;
   svg.style.width=(svg.viewBox.baseVal.width*fitScale()*zoom)+'px';
+  updateMinimap();
 }
 // Keep the viewport point (ax,ay) fixed while zooming (native pinch feel). zoom
 // floors at 1 (fit) so the diagram never shrinks below full width.
@@ -118,6 +142,74 @@ addEventListener('pointermove',e=>{
 function endPan(){ if(!panning)return; panning=false; stage.style.cursor='grab'; }
 addEventListener('pointerup',endPan);
 addEventListener('pointercancel',endPan);
+
+// ── Minimap / navigation (RTS-style) ─────────────────────────────────────────
+// Additive + best-effort: any failure here must never break zoom/pan. The
+// thumbnail is an <img> data-URI of the SVG, rendered in isolation so it can't
+// collide with the live diagram's element IDs or re-run its embedded scripts.
+// The thumbnail renders in isolation (an <img>), so its :root is the cloned svg,
+// NOT <html> — the diagram's live data-theme doesn't reach it. The clone already
+// carries BOTH :root[data-theme] palettes (same as the diagram SVG), so we build
+// a light- and a dark-stamped data-URI ONCE and just swap between them on toggle
+// (mirrors how the SVG itself swaps palettes — no re-serialize per toggle).
+let mmSrc=null;
+function buildMinimap(){
+  if(!svg||!minimap)return;
+  const vb=svg.viewBox.baseVal;
+  const mk=t=>{ const c=svg.cloneNode(true);
+    c.setAttribute('width',vb.width); c.setAttribute('height',vb.height);
+    c.setAttribute('data-theme',t);
+    return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c.outerHTML); };
+  mmSrc={light:mk('light'), dark:mk('dark')};
+  mmImg.onload=updateMinimap;
+  applyMinimapTheme();
+}
+function applyMinimapTheme(){
+  if(!mmSrc||!mmImg)return;
+  const m=document.documentElement.getAttribute('data-theme');
+  const dark = m ? m==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  mmImg.src = dark ? mmSrc.dark : mmSrc.light;
+}
+function updateMinimap(){
+  if(!svg||!minimap)return;
+  // SVG elements have no offsetWidth/Height in Chrome; use the rendered box.
+  const rc=svg.getBoundingClientRect();
+  const contentW=rc.width, contentH=rc.height;  // current px size
+  if(!contentW||!contentH){ minimap.hidden=true; return; }
+  const fx=Math.min(1, stage.clientWidth/contentW);
+  const fy=Math.min(1, stage.clientHeight/contentH);
+  if(fx>=0.999&&fy>=0.999){ minimap.hidden=true; return; }    // whole thing visible
+  minimap.hidden=false;
+  const mmW=minimap.clientWidth, mmH=minimap.clientHeight;
+  mmView.style.left  =(stage.scrollLeft/contentW)*mmW+'px';
+  mmView.style.top   =(stage.scrollTop /contentH)*mmH+'px';
+  mmView.style.width =fx*mmW+'px';
+  mmView.style.height=fy*mmH+'px';
+}
+// Click/drag anywhere on the minimap centres the main view there.
+function mmJump(e){
+  if(!svg)return;
+  const r=minimap.getBoundingClientRect();
+  const rc=svg.getBoundingClientRect(), contentW=rc.width, contentH=rc.height;
+  stage.scrollLeft=((e.clientX-r.left)/r.width )*contentW-stage.clientWidth /2;
+  stage.scrollTop =((e.clientY-r.top )/r.height)*contentH-stage.clientHeight/2;
+}
+if(minimap){
+  let mmDrag=false;
+  minimap.addEventListener('pointerdown',e=>{ mmDrag=true; mmJump(e); e.preventDefault(); });
+  minimap.addEventListener('pointermove',e=>{ if(mmDrag) mmJump(e); });
+  addEventListener('pointerup',()=>{ mmDrag=false; });
+}
+stage.addEventListener('scroll',updateMinimap);
+
 addEventListener('resize',applyZoom);
 applyZoom();
+try{ buildMinimap(); }catch(_){ /* minimap optional */ }
+// Swap the (pre-built) thumbnail to match the diagram on a theme toggle, and on a
+// system change while in auto mode. Cheap src swap — no re-serialize.
+try{ new MutationObserver(applyMinimapTheme)
+  .observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyMinimapTheme); }catch(_){}
 </script>
+
+__HELP_TIP__

@@ -182,12 +182,12 @@ class SvgBackend:
     ) -> None:
         a = self._attrs(opacity=opacity)
         # LabVIEW icons are small (32x32-ish) pixel art scaled up to a
-        # node's on-diagram bounds — without this, browsers smooth-scale
-        # them and they read as a blurry smudge instead of crisp pixels.
+        # node's on-diagram bounds — the .lv-raster rule (image-rendering:
+        # pixelated, in _BASE_CSS) keeps them crisp; without it browsers
+        # smooth-scale them into a blurry smudge instead of crisp pixels.
         self._elements.append(
-            f'<image href="{href}" x="{x:.1f}" y="{y:.1f}" '
-            f'width="{w:.1f}" height="{h:.1f}" '
-            f'style="image-rendering: pixelated" {a}/>'
+            f'<image class="lv-raster" href="{href}" x="{x:.1f}" y="{y:.1f}" '
+            f'width="{w:.1f}" height="{h:.1f}" {a}/>'
         )
 
     def polygon(
@@ -268,8 +268,10 @@ class SvgBackend:
     ) -> str:
         """Wrap accumulated ops into a complete SVG document.
 
-        ``title`` (e.g. the VI name), when given, is emitted as an SVG
-        ``<title>`` element right after the root tag for accessibility.
+        ``title`` (e.g. the VI name), when given, is exposed as the root
+        ``<svg role="img" aria-label=...>`` accessible name — NOT a ``<title>``
+        child, which would be a whole-diagram browser tooltip that pops up
+        wherever the pointer pauses and occludes the diagram.
         ``root_id``, when given, is set as the root ``<svg id=...>`` so
         inline ``script`` can scope its DOM queries to this one document
         (needed so multiple inlined SVGs on one HTML page don't collide).
@@ -288,11 +290,17 @@ class SvgBackend:
         x1, y1, x2, y2 = bounds
         w, h = x2 - x1, y2 - y1
         id_attr = f" id={quoteattr(root_id)}" if root_id is not None else ""
+        # The VI name is exposed via role="img" + aria-label, NOT a root <title>
+        # child: a root <title> is the browser's tooltip for the WHOLE svg, so it
+        # pops up wherever the pointer pauses and occludes the diagram. aria-label
+        # gives the same accessible name with no hover tooltip. (Per-node <title>s,
+        # emitted by start_group, are unaffected — they're intentional node hovers.)
+        aria_attr = f' role="img" aria-label={quoteattr(title)}' if title else ""
         head = (
-            f'<svg xmlns="http://www.w3.org/2000/svg"{id_attr} viewBox="{x1:.0f} '
-            f'{y1:.0f} {w:.0f} {h:.0f}" font-family="sans-serif">'
+            f'<svg xmlns="http://www.w3.org/2000/svg"{id_attr}{aria_attr} '
+            f'viewBox="{x1:.0f} {y1:.0f} {w:.0f} {h:.0f}" font-family="sans-serif">'
         )
-        title_el = f"<title>{escape(title)}</title>" if title else None
+        title_el = None
         style_el = f"<style>{style}</style>" if style else None
         script_el = None
         if script is not None:

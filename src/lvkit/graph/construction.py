@@ -813,9 +813,14 @@ class ConstructionMixin:
 
         # === 7. Connect SubVI call terminals to callee FP terminals ===
         # Callees are already loaded (topological order), so their FP
-        # terminals are in the graph. Create edges so types propagate.
-        if iuse_to_qname:
-            self._connect_subvi_calls(vi_name, vi_node_uids, iuse_to_qname)
+        # terminals are in the graph. Create edges so types propagate — and copy
+        # each callee's connector-pane control label onto the call terminal so
+        # hovers read real names, not "terminal N". Runs whenever there are SubVI
+        # call nodes: ``_connect_subvi_calls`` resolves the callee from the call
+        # node's own name (``gnode.name``), using ``iuse_to_qname`` only as a
+        # fallback for placeholder-named iUse nodes — so an EMPTY iuse map (e.g. a
+        # class method whose LIvi records no iUse→qname entry) must NOT skip it.
+        self._connect_subvi_calls(vi_name, vi_node_uids, iuse_to_qname or {})
 
         # === 8. Propagate types through wires and re-match indices ===
         # Now follows edges ACROSS VI boundaries too.

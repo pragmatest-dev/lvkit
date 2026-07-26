@@ -43,13 +43,13 @@ THEME_CONTROL_BTN_ID = "lvkitThemeBtn"
 
 # One small icon button. Reuses the viewers' shared ``button`` styling (border/
 # bg/color) INCLUDING inherited font metrics — no line-height/font-size pinning,
-# so its height matches every other toolbar button exactly. The glyph/title
-# start on the 'auto' defaults and are overwritten by the script once it reads
-# the persisted/injected mode. A no-JS viewer still sees a labelled, inert
-# button.
+# so its height matches every other toolbar button exactly; its icon-button
+# min-width/padding come from each viewer's ``.lvkit-theme-btn`` CSS rule (no
+# inline style here). The glyph/title start on the 'auto' defaults and are
+# overwritten by the script once it reads the persisted/injected mode. A no-JS
+# viewer still sees a labelled, inert button.
 THEME_CONTROL_BUTTON = (
     f'<button id="{THEME_CONTROL_BTN_ID}" type="button" class="lvkit-theme-btn" '
-    'style="min-width:30px;padding:5px 9px" '
     'title="Diagram theme: Auto (click to cycle)" '
     'aria-label="Cycle diagram theme">◐</button>'
 )

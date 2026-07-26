@@ -45,20 +45,32 @@
   .titles{display:flex;gap:14px;align-items:center;flex-wrap:nowrap}
   .controls{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
   .controls.grow{flex:100 1 auto}
+  .controls.right{margin-left:auto;font-size:14px}   /* zoom/hl/theme cluster */
+  .controls.tight{gap:4px}                            /* the Flat/Tree toggles */
+  .subtitle{opacity:.7}                               /* before → after caption */
   button{background:var(--btn);color:var(--fg);border:1px solid var(--line);border-radius:6px;
          padding:5px 10px;cursor:pointer;font:inherit}
   button.active{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
   button:disabled{opacity:.45;cursor:default}
+  /* Icon buttons (highlight toggle + diagram-theme toggle) share one footprint. */
+  #hlToggle,.lvkit-theme-btn{min-width:30px;padding:5px 9px}
+  /* View-mode toggles in the Changes panel header. */
+  .list-toggle-btn{padding:3px 8px;font-size:11px}
   .legend{display:flex;gap:12px;align-items:center;font-size:13px;
           flex-wrap:nowrap;justify-content:flex-end;flex:1 0 auto}
   .chip{display:inline-flex;gap:6px;align-items:center}
+  .chip.muted{opacity:.6}
   .sw{width:12px;height:12px;border-radius:3px}
+  .sw.add{background:var(--add)}.sw.del{background:var(--del)}.sw.mod{background:var(--mod)}
   .body{display:grid;grid-template-columns:var(--aside-w,290px) 6px 1fr;
         grid-template-rows:minmax(0,1fr);min-height:0}
   aside{background:var(--panel);border-right:1px solid var(--line);overflow:hidden;
         padding:8px;display:flex;flex-direction:column;min-height:0}
   aside h3{margin:8px 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;opacity:.6}
   .nav{display:flex;gap:6px;padding:6px}.nav button{flex:1}
+  /* "Changes" heading row: title left, Flat/Tree/Expand/Collapse toggles right. */
+  .list-head{display:flex;align-items:center;justify-content:space-between;margin:8px 6px}
+  .list-head h3{margin:0}
   /* Only the list scrolls; prev/next + Flat/Tree stay pinned (aside is a flex
      column). The netlist Tree can be far taller than the viewport. */
   #list{flex:1 1 auto;overflow-y:auto;overflow-x:auto;min-height:0}
@@ -66,6 +78,9 @@
      lines are wide, so the panel needs to widen. */
   .divider{cursor:col-resize;background:var(--line)}
   .divider:hover,.divider.drag{background:var(--accent)}
+  /* While dragging the splitter, lock the resize cursor + kill text selection
+     page-wide via a body state class (not a written-in .style). */
+  body.resizing{cursor:col-resize;user-select:none}
   .item{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer}
   .item:hover{background:var(--btn)}.item.sel{background:#1f6feb33;outline:1px solid var(--accent)}
   /* Hidden-frame rows: dimmed so the reviewer still sees every change but a
@@ -119,8 +134,22 @@
   .tchev.leaf{cursor:default;opacity:0}
   .tchev.leaf:hover{opacity:0}
   #list.tree .tnode.collapsed>.item>.tchev{transform:rotate(-90deg)}
-  .stage{position:relative;padding:16px;overflow:auto}
+  /* stage-wrap is the .body grid's 1fr child; the stage fills it absolutely so
+     the minimap can pin over the canvas corner without scrolling with it. */
+  .stage-wrap{position:relative;overflow:hidden;min-height:0}
+  .stage{position:absolute;inset:0;padding:16px;overflow:auto}
   .pane{position:relative}
+  /* Minimap / navigation overlay (RTS-style), pinned over the canvas corner.
+     ONE minimap drives the whole diff off the AFTER pane (both panes share one
+     synced zoom+scroll). Plain tokens only — chrome follows the viewer/system
+     theme, NEVER data-theme. */
+  .minimap{position:absolute;right:10px;bottom:10px;width:180px;max-width:45%;
+    background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    box-shadow:0 2px 12px rgba(0,0,0,.28);overflow:hidden;z-index:65;cursor:pointer}
+  .minimap[hidden]{display:none}
+  .mm-img{display:block;width:100%;height:auto;pointer-events:none;opacity:.92}
+  .mm-view{position:absolute;border:2px solid var(--accent);border-radius:2px;
+    background:var(--accent);opacity:.22;pointer-events:none}
   .zoomgrp{display:inline-flex;gap:2px;align-items:center;margin-left:2px}
   .zoomgrp button{padding:5px 9px;min-width:30px;font-weight:600}
   .pane-label{position:sticky;top:8px;left:8px;z-index:60;display:inline-block;width:max-content;
@@ -220,6 +249,8 @@
      buttons (31.6px, same box model as the plain `button` rule above) so the
      whole controls row reads as one uniform, vertically-aligned toolbar. */
   #opWrap{display:flex;align-items:center;gap:8px;height:31.6px}
+  /* id-specificity so the hidden attribute (overlay off) beats the flex rule. */
+  #opWrap[hidden]{display:none}
   #opWrap .op-end{height:31.6px;display:inline-flex;align-items:center;justify-content:center;
           font:600 11px/1 system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;
           color:var(--fg-muted);background:var(--btn);border:1px solid var(--line);border-radius:6px;
@@ -240,25 +271,24 @@
 </style>
 
 <header>
-  <div class="titles"><b>VI diff · __TITLE__</b><span style="opacity:.7">__BEFORE_LABEL__ → __AFTER_LABEL__ · engine change-map</span></div>
+  <div class="titles"><b>VI diff · __TITLE__</b><span class="subtitle">__BEFORE_LABEL__ → __AFTER_LABEL__ · engine change-map</span></div>
   <div class="controls grow">
     <button data-mode="split" class="active" title="Before above, after below — scroll and zoom stay in sync">Split</button>
     <button data-mode="overlay">Overlay</button>
-    <span id="opWrap" style="display:none"><button type="button" class="op-end" data-op="0" title="show BEFORE only">before</button><input id="op" type="range" min="0" max="100" value="70"><button type="button" class="op-end" data-op="100" title="show AFTER only">after</button></span>
-    <span class="controls" style="margin-left:auto;gap:6px;font-size:14px">
+    <span id="opWrap" hidden><button type="button" class="op-end" data-op="0" title="show BEFORE only">before</button><input id="op" type="range" min="0" max="100" value="70"><button type="button" class="op-end" data-op="100" title="show AFTER only">after</button></span>
+    <span class="controls right">
       <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit">fit</button></span>
       <button id="hlToggle" type="button" class="active"
-        style="min-width:30px;padding:5px 9px"
         title="Change highlights: on (click to toggle)"
         aria-pressed="true" aria-label="Toggle change highlights">◉</button>
       __THEME_BTN__
     </span>
   </div>
   <div class="legend">
-    <span class="chip"><span class="sw" style="background:var(--add)"></span>added __ADD__</span>
-    <span class="chip"><span class="sw" style="background:var(--del)"></span>removed __DEL__</span>
-    <span class="chip"><span class="sw" style="background:var(--mod)"></span>modified __MOD__</span>
-    <span class="chip" style="opacity:.6">unchanged __COMMON__</span>
+    <span class="chip"><span class="sw add"></span>added __ADD__</span>
+    <span class="chip"><span class="sw del"></span>removed __DEL__</span>
+    <span class="chip"><span class="sw mod"></span>modified __MOD__</span>
+    <span class="chip muted">unchanged __COMMON__</span>
   </div>
 </header>
 
@@ -267,21 +297,27 @@ __THEME_SCRIPT__
 <div class="body">
   <aside>
     <div class="nav"><button id="prev">◀ prev</button><button id="next">next ▶</button></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 6px">
-      <h3 style="margin:0">Changes</h3>
-      <span class="controls" style="gap:4px">
-        <button id="flatViewBtn" class="active" data-list="flat" style="padding:3px 8px;font-size:11px">Flat</button>
-        <button id="treeViewBtn" data-list="tree" style="padding:3px 8px;font-size:11px">Tree</button>
-        <button id="treeExpandBtn" style="padding:3px 8px;font-size:11px;display:none">Expand all</button>
-        <button id="treeCollapseBtn" style="padding:3px 8px;font-size:11px;display:none">Collapse all</button>
+    <div class="list-head">
+      <h3>Changes</h3>
+      <span class="controls tight">
+        <button id="flatViewBtn" class="active list-toggle-btn" data-list="flat">Flat</button>
+        <button id="treeViewBtn" class="list-toggle-btn" data-list="tree">Tree</button>
+        <button id="treeExpandBtn" class="list-toggle-btn" hidden>Expand all</button>
+        <button id="treeCollapseBtn" class="list-toggle-btn" hidden>Collapse all</button>
       </span>
     </div>
     <div id="list"></div>
   </aside>
   <div class="divider" id="divider" title="Drag to resize"></div>
-  <div class="stage split mode-split" id="stage">
-    <div class="pane" id="beforePane"><span class="pane-label before">BEFORE · __BEFORE_LABEL__</span>__BEFORE_SVG__</div>
-    <div class="pane" id="afterPane"><span class="pane-label after">AFTER · __AFTER_LABEL__</span>__AFTER_SVG__</div>
+  <div class="stage-wrap">
+    <div class="stage split mode-split" id="stage">
+      <div class="pane" id="beforePane"><span class="pane-label before">BEFORE · __BEFORE_LABEL__</span>__BEFORE_SVG__</div>
+      <div class="pane" id="afterPane"><span class="pane-label after">AFTER · __AFTER_LABEL__</span>__AFTER_SVG__</div>
+    </div>
+    <div class="minimap" id="minimap" hidden>
+      <img class="mm-img" id="mmImg" alt="Diagram overview">
+      <div class="mm-view" id="mmView"></div>
+    </div>
   </div>
 </div>
 
@@ -313,6 +349,8 @@ const NETLIST_TREE = __NETLIST_TREE__;
 const SVGNS='http://www.w3.org/2000/svg';
 const stage=document.getElementById('stage');
 const afterPane=document.getElementById('afterPane'), beforePane=document.getElementById('beforePane');
+const minimap=document.getElementById('minimap');
+const mmImg=document.getElementById('mmImg'), mmView=document.getElementById('mmView');
 
 // added lives in after (bounds are after's); removed lives in before.
 function paneFor(c){ return c.change==='removed' ? beforePane : afterPane; }
@@ -715,6 +753,7 @@ function applyZoom(){
   // read as disabled. applyZoom runs on every zoom change, including glides.
   document.getElementById('zoomOut').disabled = zoom<=ZMIN;
   document.getElementById('zoomIn').disabled = zoom>=ZMAX;
+  updateMinimap();   // keep the nav overlay in step with the shared zoom/scroll
 }
 // ── Smooth focus glide ──────────────────────────────────────────────────────
 // `focus()` animates zoom+pan from the current view to its computed target with
@@ -1035,7 +1074,7 @@ function pathShown(st, path){
 function applyPane(pane){
   const st=stFor(pane);
   pane.querySelectorAll('.lv-frame').forEach(g=>{
-    g.style.display = pathShown(st, g.dataset.path) ? '' : 'none';});
+    g.classList.toggle('lv-frame-hidden', !pathShown(st, g.dataset.path));});
   pane.querySelectorAll('.lv-selector[data-lv-action="toggle"]').forEach(g=>{
     const u=g.dataset.lvStruct, t=g.querySelector('text');
     if(t && st.sel[u]!==undefined) t.textContent=st.sel[u];});
@@ -1136,18 +1175,18 @@ function revealFrame(c){
     // Picking a value CLOSES the dropdown — a menu left floating over the
     // freshly switched frame hides the very content the user asked to see.
     const m=p.querySelector('.lv-menu[data-lv-struct="'+u+'"]');
-    if(m) m.style.display='none';
+    if(m) m.classList.remove('lv-selector-open');
   }
   else if(s.dataset.lvAction==='toggle'){
     // The renderer bakes a REAL per-value dropdown for case structures (see
     // draw.py's _draw_frame_menu: one <g class="lv-menu"><g class="lv-option"
-    // data-lv-value=...> row per frame value), baked start-hidden
-    // (style="display:none") because it's normally opened by the renderer's
-    // OWN inline controller — which this script-less (interactive=False) diff
-    // SVG never gets. Wire the same toggle here so decorateMenus()'s per-value
-    // change markers (req #4) are actually reachable, not just present in the DOM.
+    // data-lv-value=...> row per frame value), baked start-hidden by the
+    // .lv-menu CSS rule (display:none) and opened via the .lv-selector-open class — the
+    // same mechanism the renderer's OWN inline controller uses (which this
+    // script-less interactive=False diff SVG never gets). Wire the same toggle
+    // here so decorateMenus()'s per-value change markers (req #4) are reachable.
     const m=p.querySelector('.lv-menu[data-lv-struct="'+u+'"]');
-    if(m) m.style.display = (m.style.display==='none') ? '' : 'none';
+    if(m) m.classList.toggle('lv-selector-open');
   }
   else stepFrame(p, u, s.dataset.lvAction==='prev' ? -1 : 1);
 }));
@@ -1219,6 +1258,89 @@ function decorateMenus(){
 }
 decorateMenus();
 
+// ── Minimap / navigation (RTS-style) ─────────────────────────────────────────
+// ONE minimap drives the whole diff off the AFTER pane — both panes share one
+// synced zoom+scroll (mirrorScroll above / the union-registered applyZoom), so a
+// single overview + viewport box is faithful for either. Additive + best-effort:
+// updateMinimap() is wrapped in try/catch and every entry point is guarded, so a
+// failure here can never break zoom/pan/sync. The thumbnail is an <img> data-URI
+// of the after SVG, rendered in isolation (no id collisions, no re-run scripts).
+// mmScroller() is the viewport that actually scrolls in the current mode: each
+// pane is its own scroller in 'split', else the stage hosts both.
+function mmScroller(){ return mode==='split' ? afterPane : stage; }
+// The thumbnail renders in isolation (an <img>), so its :root is the cloned svg,
+// NOT <html> — the diagram's live data-theme doesn't reach it. The clone already
+// carries BOTH :root[data-theme] palettes, so we build a light- and a dark-stamped
+// data-URI ONCE (with explicit width/height, else a viewBox-only svg has no
+// intrinsic size and collapses the panel) and just swap between them on toggle.
+let mmSrc=null;
+function buildMinimap(){
+  if(!minimap)return;
+  const svg=afterPane.querySelector('svg'); if(!svg)return;
+  const vb=svg.viewBox.baseVal;
+  const mk=t=>{ const c=svg.cloneNode(true);
+    c.setAttribute('width',vb.width); c.setAttribute('height',vb.height);
+    c.setAttribute('data-theme',t);
+    return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c.outerHTML); };
+  mmSrc={light:mk('light'), dark:mk('dark')};
+  mmImg.onload=updateMinimap;
+  applyMinimapTheme();
+}
+function applyMinimapTheme(){
+  if(!mmSrc||!mmImg)return;
+  const m=document.documentElement.getAttribute('data-theme');
+  const dark = m ? m==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  mmImg.src = dark ? mmSrc.dark : mmSrc.light;
+}
+function updateMinimap(){
+  try{
+    if(!minimap)return;
+    const svg=afterPane.querySelector('svg'); if(!svg){ minimap.hidden=true; return; }
+    // SVG elements have no offsetWidth/Height in Chrome; use the rendered box.
+    const rc=svg.getBoundingClientRect(), contentW=rc.width, contentH=rc.height;
+    if(!contentW||!contentH){ minimap.hidden=true; return; }
+    const sc=mmScroller();
+    const fx=Math.min(1, sc.clientWidth/contentW);
+    const fy=Math.min(1, sc.clientHeight/contentH);
+    if(fx>=0.999&&fy>=0.999){ minimap.hidden=true; return; }     // whole thing visible
+    minimap.hidden=false;
+    // applyZoom() offsets each pane's svg by a union-registration margin, so
+    // subtract it to read the viewport in the svg's OWN content coordinates.
+    const ml=parseFloat(svg.style.marginLeft)||0, mt=parseFloat(svg.style.marginTop)||0;
+    const visX=sc.scrollLeft-ml, visY=sc.scrollTop-mt;
+    const mmW=minimap.clientWidth, mmH=minimap.clientHeight, clamp01=v=>Math.max(0,Math.min(1,v));
+    mmView.style.left  =clamp01(visX/contentW)*mmW+'px';
+    mmView.style.top   =clamp01(visY/contentH)*mmH+'px';
+    mmView.style.width =fx*mmW+'px';
+    mmView.style.height=fy*mmH+'px';
+  }catch(_){ /* minimap is best-effort */ }
+}
+// Click/drag anywhere on the minimap centres the (synced) view there. In 'split'
+// mode the write to afterPane fires 'scroll', which mirrorScroll relays to before.
+function mmJump(e){
+  const svg=afterPane.querySelector('svg'); if(!svg)return;
+  const r=minimap.getBoundingClientRect(), sc=mmScroller();
+  const rc=svg.getBoundingClientRect(), contentW=rc.width, contentH=rc.height;
+  const ml=parseFloat(svg.style.marginLeft)||0, mt=parseFloat(svg.style.marginTop)||0;
+  sc.scrollLeft=((e.clientX-r.left)/r.width )*contentW+ml-sc.clientWidth /2;
+  sc.scrollTop =((e.clientY-r.top )/r.height)*contentH+mt-sc.clientHeight/2;
+}
+if(minimap){
+  let mmDrag=false;
+  minimap.addEventListener('pointerdown',e=>{ mmDrag=true; mmJump(e); e.preventDefault(); });
+  minimap.addEventListener('pointermove',e=>{ if(mmDrag) mmJump(e); });
+  addEventListener('pointerup',()=>{ mmDrag=false; });
+  // Both panes (split) AND the stage (overlay/single) can be the live scroller.
+  [beforePane,afterPane,stage].forEach(el=>el.addEventListener('scroll',updateMinimap));
+  addEventListener('resize',updateMinimap);
+  try{ buildMinimap(); updateMinimap(); }catch(_){ /* minimap optional */ }
+  // Swap the (pre-built) thumbnail to match the diagram on a theme toggle, and on
+  // a system change while in auto mode. Cheap src swap — no re-serialize.
+  try{ new MutationObserver(applyMinimapTheme)
+    .observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyMinimapTheme); }catch(_){}
+}
+
 // Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|before|after|split
 // sets the mode; #list=flat|tree sets the change-list mode (#31);
 // #frame=UID=VAL,UID=VAL pre-selects case frames (correlated).
@@ -1232,3 +1354,5 @@ decorateMenus();
   if(h.get('c')) jump(+h.get('c')-1);
 })();
 </script>
+
+__HELP_TIP__

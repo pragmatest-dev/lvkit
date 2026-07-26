@@ -21,6 +21,7 @@ import json
 from importlib.resources import files
 
 from ..graph.diff import ChangeMap
+from .help_tip import HELP_TIP
 from .theme_control import THEME_CONTROL_BUTTON, THEME_CONTROL_SCRIPT
 
 __all__ = ["build_diff_viewer"]
@@ -82,5 +83,6 @@ def build_diff_viewer(
         .replace("__COMMON__", str(common))
         .replace("__THEME_BTN__", THEME_CONTROL_BUTTON)
         .replace("__THEME_SCRIPT__", THEME_CONTROL_SCRIPT)
+        .replace("__HELP_TIP__", HELP_TIP)
     )
     return "<!doctype html>\n<meta charset='utf-8'>\n" + html

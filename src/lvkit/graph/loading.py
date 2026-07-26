@@ -787,6 +787,23 @@ class LoadingMixin:
                     llb_resolved = self._resolve_through_llb(candidate)
                     if llb_resolved is not None:
                         resolved = llb_resolved
+
+        # A class/library MEMBER VI's LinkSavePathRef tokens describe the OWNING
+        # container (e.g. ['', 'TestCase.lvclass']); the member's own filename is
+        # carried in ``dep_ref.name`` (== ``leaf``), NOT in the tokens. So
+        # ``resolve_against`` yields the ``.lvclass``/``.lvlib`` file itself, and
+        # dispatching that as a ``.vi`` fails ``extract_vi_xml`` → the SubVI gets
+        # stubbed with no connector pane, so its call terminals lose their real
+        # names (render falls back to "terminal N"). Member VIs are stored beside
+        # their container file — redirect to the actual sibling ``.vi`` so it
+        # leaf-loads and its param names resolve. If the sibling isn't there,
+        # drop to None and let the name-based search below find it.
+        if (resolved is not None
+                and leaf.endswith(".vi")
+                and resolved.suffix.lower() in (".lvclass", ".lvlib")):
+            member = resolved.with_name(leaf)
+            resolved = member if member.exists() else None
+
         if resolved is None:
             if leaf.endswith(".vi"):
                 resolved = self._find_subvi(leaf, search_paths, caller_file.parent)

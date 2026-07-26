@@ -709,6 +709,53 @@ def test_render_vi_file_matches_ground_truth_shape():
     assert DEFAULT_THEME.wire_float in svg
 
 
+def test_project_local_subvi_hover_shows_real_terminal_names():
+    """A project-local SubVI call's connector-pane hover must read the callee's
+    real FP control labels (``message``, ``error in (no error)``, ``TestCase
+    in``, ...), never the ``terminal N`` index fallback.
+
+    Regression for two linked bugs that made a class-METHOD SubVI lose its
+    param names:
+      1. ``resolve_against`` resolved a member VI's LinkSavePathRef (tokens
+         describe the OWNING ``.lvclass``, member filename carried separately)
+         to the class file itself, so ``extract_vi_xml`` failed → the SubVI was
+         stubbed with no connector pane. (loading.py member-VI redirect)
+      2. ``_connect_subvi_calls`` — which copies callee labels onto the call
+         terminals — was gated ``if iuse_to_qname:``, so a caller whose LIvi
+         records no iUse→qname map (empty dict) skipped enrichment entirely.
+         (construction.py: run whenever there are SubVI calls)
+
+    ``fail.vi`` is a method of ``TestCase.lvclass`` called by both
+    ``failUnless.vi`` (empty iuse map — bug 2) and ``failUnlessEqual.vi``.
+    """
+    root = Path(".lvkit/cache/samples/JKI-VI-Tester")
+    callers = [
+        root / "source/Classes/TestCase/failUnless.vi",
+        root / "source/Classes/TestCase/failUnlessEqual.vi",
+    ]
+    if not all(c.exists() for c in callers):
+        pytest.skip("JKI-VI-Tester sample corpus not available")
+
+    for caller in callers:
+        svg = render_vi_file(
+            caller, mode=LoadMode.MINIMAL, search_paths=[root],
+        )
+        assert svg is not None
+        # The fail.vi SubVI hover <title> block.
+        m = re.search(r"<title>fail\.vi\n(.*?)</title>", svg, re.DOTALL)
+        assert m is not None, f"no fail.vi hover title in {caller.name}"
+        block = m.group(1)
+        # Real connector-pane control labels, not "terminal N".
+        assert "message" in block
+        assert "error in" in block
+        assert "TestCase in" in block
+        assert "TestCase out" in block
+        assert not re.search(r"terminal \d", block), (
+            f"fail.vi hover still shows a 'terminal N' fallback in "
+            f"{caller.name}:\n{block}"
+        )
+
+
 def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     """A captioned numeric constant draws a COMPACT value box (not the
     caption-inflated DDO bounds) plus its VISIBLE owned label as free text —
@@ -851,25 +898,27 @@ def test_case_svg_has_lv_frame_groups_one_visible_per_struct():
     svg = render_vi(graph, vi)
     assert svg is not None
     assert '<g class="lv-frame" data-path="' in svg
-    assert '<g class="lv-selector"' in svg
+    assert '<g class="lv-selector' in svg   # may carry lv-clickable too
     assert "data-lv-frames=" in svg and "data-lv-default=" in svg
     # a case has a real dropdown: a hidden menu with clickable options/values
     assert 'class="lv-menu"' in svg
-    assert 'class="lv-option"' in svg and "data-lv-value=" in svg
+    assert 'class="lv-option' in svg and "data-lv-value=" in svg
     assert 'data-lv-action="toggle"' in svg
 
+    # Off-frame groups are hidden by the lv-frame-hidden CLASS (never an inline
+    # display:none the controller couldn't later clear — see draw.py).
     for raw, values in scene.frame_values.items():
         visible = hidden = 0
         for value in values:
             path_attr = f'{raw}={value}'
             pattern = (
-                r'<g class="lv-frame" data-path="' + re.escape(path_attr)
-                + r'"( style="([^"]*)")?>'
+                r'<g class="(lv-frame[^"]*)" data-path="'
+                + re.escape(path_attr) + r'">'
             )
             matches = re.findall(pattern, svg)
             assert matches, f"no lv-frame group for {path_attr}"
-            for _whole, style in matches:
-                if "display:none" in style:
+            for cls in matches:
+                if "lv-frame-hidden" in cls:
                     hidden += 1
                 else:
                     visible += 1
@@ -1022,7 +1071,7 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
     svg = render_vi(graph, vi)
     assert svg is not None
     assert 'class="lv-frame"' in svg
-    assert 'class="lv-selector"' in svg
+    assert 'class="lv-selector' in svg   # may carry lv-clickable too
     assert "◄ ►" in svg or "►" in svg  # no ▼ (that's the case affordance)
 
     for structure in stacked:
@@ -1032,13 +1081,13 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
         for value in values:
             path_attr = f"{structure.raw_uid}={value}"
             pattern = (
-                r'<g class="lv-frame" data-path="' + re.escape(path_attr)
-                + r'"( style="([^"]*)")?>'
+                r'<g class="(lv-frame[^"]*)" data-path="'
+                + re.escape(path_attr) + r'">'
             )
             matches = re.findall(pattern, svg)
             assert matches, f"no lv-frame group for {path_attr}"
-            for _whole, style in matches:
-                if "display:none" in style:
+            for cls in matches:
+                if "lv-frame-hidden" in cls:
                     hidden += 1
                 else:
                     visible += 1
@@ -1933,10 +1982,12 @@ def test_subvi_nodes_get_hover_tooltip_titles():
     # "data-node" id (see render/__init__.py's injected hover script) that
     # reveals its connector-help panel — replaces the bare "<g>" this used
     # to be. (data-* attrs are sorted by key — see backend.begin_group — so a
-    # resolvable SubVI's "data-lv-vi-rel" attribute, task #76, may sort before
-    # "data-node"; match both orders rather than assuming one.)
+    # node may carry up to three: "data-help" (task #50, the HTML viewers'
+    # constant-size tooltip text), a resolvable SubVI's "data-lv-vi-rel"
+    # (task #76), and "data-node" — in any sort order; match 1–3 rather than
+    # assuming a count or order.)
     assert re.search(
-        r'<g class="lv-node"(?:\s+data-[\w-]+="[^"]*"){1,2}>\s*<title>Parse XML',
+        r'<g class="lv-node"(?:\s+data-[\w-]+="[^"]*"){1,3}>\s*<title>Parse XML',
         svg,
     )
     assert 'data-node="' in svg

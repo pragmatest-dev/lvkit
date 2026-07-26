@@ -87,13 +87,13 @@ _FRAME_CONTROLLER_JS = """(function() {
         var k = seg.indexOf("=");
         if (state[seg.slice(0, k)] !== seg.slice(k + 1)) { vis = false; break; }
       }
-      g.style.display = vis ? "" : "none";
+      g.classList.toggle("lv-frame-hidden", !vis);
     }
   }
   function closeMenus(except) {
     var ms = root.querySelectorAll(".lv-menu");
     for (var i = 0; i < ms.length; i++)
-      if (ms[i] !== except) ms[i].style.display = "none";
+      if (ms[i] !== except) ms[i].classList.remove("lv-selector-open");
   }
   root.addEventListener("click", function(e) {
     var t = e.target;
@@ -112,9 +112,9 @@ _FRAME_CONTROLLER_JS = """(function() {
     } else if (action === "toggle") {
       var m = root.querySelector('.lv-menu[data-lv-struct="' + s + '"]');
       if (m) {
-        var open = m.style.display !== "none";
+        var open = m.classList.contains("lv-selector-open");
         closeMenus(m);
-        m.style.display = open ? "none" : "";
+        m.classList.toggle("lv-selector-open", !open);
       }
     }
   });
@@ -220,11 +220,17 @@ _HOVER_PANEL_JS = """(function() {
     }
     (function(nodeEl, help) {
       nodeEl.addEventListener("mouseenter", function() {
+        // A viewer host sets root.__lvSuppressPanel and instead clones this same
+        // <g class="lv-help"> into a fixed, viewport-clamped HTML overlay (the
+        // scroll lives in the host, so it must own placement). A raw standalone
+        // .svg leaves the flag unset and reveals the panel in place -- its only
+        // hover affordance.
+        if (root.__lvSuppressPanel) return;
         place(nodeEl, help);
-        help.style.visibility = "visible";
+        help.classList.add("lv-help-shown");
       });
       nodeEl.addEventListener("mouseleave", function() {
-        help.style.visibility = "hidden";
+        help.classList.remove("lv-help-shown");
       });
     })(nodeEl, help);
   }
@@ -300,7 +306,30 @@ def render_vi(
 # (I-beam) cursor because it's selectable — a diagram should read as a normal
 # pointer surface, so force the default cursor and make the text un-selectable
 # (dragging/panning over labels shouldn't start a text selection).
-_BASE_CSS = "text{cursor:default;-webkit-user-select:none;user-select:none}"
+_BASE_CSS = (
+    "text{cursor:default;-webkit-user-select:none;user-select:none}"
+    # Static presentation moved off inline style= attributes onto classes, and
+    # the JS below flips STATE by swapping a class (never by writing .style):
+    #   .lv-clickable    interactive selector arrows / value box / menu rows
+    #   .lv-frame.lv-frame-hidden  a case/sequence frame not currently selected
+    #   .lv-menu / .lv-selector-open  the frame dropdown, closed / open
+    #   .lv-disabled-mask    the translucent wash over a disabled subdiagram
+    #   .lv-raster           pixel-art icons scaled up crisp, not smoothed
+    ".lv-clickable{cursor:pointer}"
+    ".lv-frame.lv-frame-hidden{display:none}"
+    ".lv-label{pointer-events:none}"
+    ".lv-menu{display:none}.lv-menu.lv-selector-open{display:inline}"
+    ".lv-disabled-mask{pointer-events:none;opacity:.5}"
+    ".lv-raster{image-rendering:pixelated}"
+    # The connector-pane hover panel: hidden by default, revealed on hover via
+    # the .lv-help-shown class (added in place by the script below, or on the clone
+    # in a host overlay -- an SVG <style> is document-global, so this ONE rule
+    # styles both). Soft drop shadow lifts it off the diagram (matches the
+    # viewer tooltip + the minimap).
+    ".lv-help{visibility:hidden;pointer-events:none;"
+    "filter:drop-shadow(0 2px 12px rgba(0,0,0,.28))}"
+    ".lv-help.lv-help-shown{visibility:visible}"
+)
 
 
 def _render_scene_svg(
