@@ -8,6 +8,9 @@ The extension versions on its **own** track, independent of the LVKit library.
   `.lvkit/cache/` in your working tree (lvkit's extraction cache). Bundles
   lvkit ≥ 0.5.3, which caches under a per-user `~/.lvkit/cache/` instead — the
   repo is left untouched. (`MIN_LVKIT` raised to 0.5.3.)
+- **Windows: “Diff VI against HEAD” now works.** The command built the git ref
+  with backslash separators, which git rejected (`exists on disk, but not in
+  'HEAD'`); the committed-version path is now normalized to forward slashes.
 
 ## [0.1.5]
 

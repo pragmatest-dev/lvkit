@@ -331,7 +331,10 @@ async function diffVI(arg) {
       try {
         const root = gitRootOr(path.dirname(file));
         checkLvkitVersion(root);
-        const rel = path.relative(root, file);
+        // git refs (HEAD:<path>) require POSIX separators; path.relative yields
+        // backslashes on Windows, which git reads as a literal filename and
+        // rejects ("exists on disk, but not in 'HEAD'"). Normalize to '/'.
+        const rel = path.relative(root, file).split(path.sep).join('/');
         const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
         const oldVi = path.join(tmp, path.basename(file)); // keep .vi suffix (lvkit needs it)
         fs.writeFileSync(oldVi, run(`git show HEAD:"${rel}"`, { cwd: root }));
