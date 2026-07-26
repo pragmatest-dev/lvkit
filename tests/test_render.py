@@ -741,8 +741,10 @@ def test_project_local_subvi_hover_shows_real_terminal_names():
             caller, mode=LoadMode.MINIMAL, search_paths=[root],
         )
         assert svg is not None
-        # The fail.vi SubVI hover <title> block.
-        m = re.search(r"<title>fail\.vi\n(.*?)</title>", svg, re.DOTALL)
+        # The fail.vi SubVI hover <title> block. The title line is the callee's
+        # FULLY QUALIFIED name (e.g. "TestCase.lvclass:fail.vi"), so allow an
+        # optional Class.lvclass:/lib: qualifier prefix before "fail.vi".
+        m = re.search(r"<title>[^<>\n]*fail\.vi\n(.*?)</title>", svg, re.DOTALL)
         assert m is not None, f"no fail.vi hover title in {caller.name}"
         block = m.group(1)
         # Real connector-pane control labels, not "terminal N".

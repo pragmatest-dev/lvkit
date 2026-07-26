@@ -9,6 +9,7 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from ..graph.models import (
@@ -42,6 +43,7 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
     fit_label,
+    wrap_label,
 )
 from .nodes import _CLUSTER_MUX_TYPES, mux_display_name, mux_doc_url
 from .scene import (
@@ -403,7 +405,9 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
         )
         header = f"{kind}: {name}" if name else kind
     elif isinstance(node, VINode | PrimitiveNode):
-        header = node.name or None
+        # A VI's fully qualified name (Class.lvclass:vi.vi) disambiguates a bare
+        # leaf name; fall back to the plain name when there's no qualifier.
+        header = getattr(node, "qualified_name", None) or node.name or None
         # Unresolved primitive: the hover header matches the box — "#<prim_id>"
         # instead of the verbose "unknown_primitive_N" placeholder. The
         # connector-pane panel below still lists every terminal we know.
@@ -417,8 +421,20 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
             header = mux_display_name(node)
     if header is None:
         return None
-    desc = getattr(node, "description", None)
-    return header, (desc or None)
+    return header, _clean_help_text(getattr(node, "description", None))
+
+
+_HELP_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _clean_help_text(text: str | None) -> str | None:
+    """Plain-text a LabVIEW help/description string for display: strip its
+    rich-text tags (``<B>..</B>``, ``<BR>``, ...) and collapse whitespace/
+    newlines. Returns None for empty-or-whitespace-only text so the panel
+    draws no blank description line."""
+    if not text:
+        return None
+    return " ".join(_HELP_TAG_RE.sub(" ", text).split()) or None
 
 
 def _node_tooltip(node: AnyGraphNode) -> str | None:
@@ -568,6 +584,8 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
 _PANE_PAD = 6.0            # panel inner padding
 _PANE_TITLE_SIZE = 9.0
 _PANE_DESC_SIZE = 7.5
+_PANE_DESC_LH = 9.5          # line height for a wrapped description line
+_PANE_DESC_MAX_LINES = 6     # cap so a long description can't grow a huge panel
 _PANE_LABEL_SIZE = 7.5      # terminal name
 _PANE_TYPE_SIZE = 6.5       # terminal type — smaller/lighter, secondary info
 _PANE_MAX_LABEL_W = 130.0   # per-terminal name+type truncation width
@@ -841,14 +859,21 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
         header if full_title_w <= inner_w
         else fit_label(header, inner_w, backend, _PANE_TITLE_SIZE)
     )
-    desc_line = None
-    if desc:
-        desc_line = (
-            desc if full_desc_w <= inner_w
-            else fit_label(desc, inner_w, backend, _PANE_DESC_SIZE)
-        )
+    # Wrap the VI description across as many lines as it needs (capped), so the
+    # help box reads like LabVIEW context help instead of one truncated line.
+    desc_lines: list[str] = (
+        [desc] if desc and full_desc_w <= inner_w
+        else wrap_label(desc, inner_w, backend, _PANE_DESC_SIZE,
+                        _PANE_DESC_MAX_LINES) if desc
+        else []
+    )
 
-    header_h = 11.0 + (11.0 if desc_line else 0.0)
+    # With a description, reserve an extra gap below it (holding a divider that
+    # separates the prose from the icon/terminals diagram below).
+    header_h = (
+        11.0 + len(desc_lines) * _PANE_DESC_LH
+        + (_PANE_PAD if desc_lines else 0.0)
+    )
     panel_w = inner_w + 2 * _PANE_PAD
     panel_h = header_h + _PANE_PAD + diagram_h + _PANE_PAD
 
@@ -874,8 +899,14 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     # Panel background is theme.canvas — pair with the canvas/default text role.
     backend.text(cx, _PANE_PAD + 7.0, title_line, _PANE_TITLE_SIZE, bold=True,
                  fill=theme.text)
-    if desc_line:
-        backend.text(cx, _PANE_PAD + 18.0, desc_line, _PANE_DESC_SIZE, fill=theme.text)
+    for i, desc_line in enumerate(desc_lines):
+        backend.text(cx, _PANE_PAD + 18.0 + i * _PANE_DESC_LH, desc_line,
+                     _PANE_DESC_SIZE, fill=theme.text)
+    # Divider between the description prose and the icon/terminals diagram.
+    if desc_lines:
+        sep_y = header_h + _PANE_PAD / 2.0
+        backend.line(_PANE_PAD, sep_y, panel_w - _PANE_PAD, sep_y,
+                     stroke=theme.struct_border, stroke_width=0.5)
 
     node.glyph.draw(backend, (icon_x1, icon_y1, icon_x2, icon_y2), theme)
 

@@ -1,4 +1,4 @@
-<title>VI diff — __TITLE__</title>
+<title>__TITLE__</title>
 <style>
   /* Theme is DEFAULT LIGHT (GitHub-light-ish); the whole palette is overridden
      to dark inside @media (prefers-color-scheme: dark) below, so the SAME file
@@ -47,7 +47,6 @@
   .controls.grow{flex:100 1 auto}
   .controls.right{margin-left:auto;font-size:14px}   /* zoom/hl/theme cluster */
   .controls.tight{gap:4px}                            /* the Flat/Tree toggles */
-  .subtitle{opacity:.7}                               /* before → after caption */
   button{background:var(--btn);color:var(--fg);border:1px solid var(--line);border-radius:6px;
          padding:5px 10px;cursor:pointer;font:inherit}
   button.active{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
@@ -271,7 +270,7 @@
 </style>
 
 <header>
-  <div class="titles"><b>VI diff · __TITLE__</b><span class="subtitle">__BEFORE_LABEL__ → __AFTER_LABEL__ · engine change-map</span></div>
+  <div class="titles"><b>__TITLE__</b></div>
   <div class="controls grow">
     <button data-mode="split" class="active" title="Before above, after below — scroll and zoom stay in sync">Split</button>
     <button data-mode="overlay">Overlay</button>

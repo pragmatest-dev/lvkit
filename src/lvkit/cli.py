@@ -822,7 +822,7 @@ def cmd_detect(args: argparse.Namespace) -> int:
 def cmd_render(args: argparse.Namespace) -> int:
     """Handle the render command — faithful, graph-driven block-diagram SVG,
     or (``--format html``) a self-contained single-VI viewer page."""
-    from .render import render_vi_file
+    from .render import render_vi_file_titled
     from .render.render_viewer import build_render_viewer
 
     input_path = Path(args.input_path)
@@ -841,7 +841,9 @@ def cmd_render(args: argparse.Namespace) -> int:
     theme_mode = "auto" if args.format == "html" else args.theme
 
     try:
-        svg = render_vi_file(
+        # _titled also returns the VI's resolved (qualified, Class.lvclass:vi.vi)
+        # name, used verbatim as the viewer's title.
+        svg, vi_title = render_vi_file_titled(
             input_path,
             search_paths=search_paths,
             vilib_root=vilib_root,
@@ -865,7 +867,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     stem = input_path.stem.replace("_BDHb", "")
 
     if args.format == "html":
-        html = build_render_viewer(svg, title=stem)
+        html = build_render_viewer(svg, title=vi_title or stem)
         out = (
             Path(args.output) if args.output
             else Path("outputs/vi-render") / f"{stem}.html"
@@ -1021,11 +1023,13 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
         cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
         rows = netlist_diff_rows(graph_a, graph_b, vi_name_a, vi_name_b)
+        # vi_name_a/_b are the resolved (qualified, Class.lvclass:vi.vi) names —
+        # use them for the title and the BEFORE/AFTER pane badges.
         html = build_diff_viewer(
             cmap, before_svg, after_svg,
-            title=path_a.name,
-            before_label=path_a.stem,
-            after_label=path_b.stem,
+            title=vi_name_a,
+            before_label=vi_name_a,
+            after_label=vi_name_b,
             netlist_rows=rows_to_json(rows),
         )
 

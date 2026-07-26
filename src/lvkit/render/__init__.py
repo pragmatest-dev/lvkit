@@ -40,6 +40,7 @@ __all__ = [
     "build_scene",
     "render_vi",
     "render_vi_file",
+    "render_vi_file_titled",
     "render_vi_with_subvis",
 ]
 
@@ -416,6 +417,26 @@ def render_vi_file(
     vi.lib / user.lib SubVIs resolve. If the load fails (unresolvable deps), it
     degrades to ``LoadMode.NONE`` (this VI's own diagram only, fallback boxes for
     SubVIs) so the VI still renders."""
+    return render_vi_file_titled(
+        path,
+        search_paths=search_paths, vilib_root=vilib_root,
+        userlib_root=userlib_root, mode=mode, theme=theme, theme_mode=theme_mode,
+    )[0]
+
+
+def render_vi_file_titled(
+    path: Path,
+    *,
+    search_paths: list[Path] | None = None,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
+    mode: LoadMode = LoadMode.MINIMAL,
+    theme: Theme = DEFAULT_THEME,
+    theme_mode: ThemeMode = "light",
+) -> tuple[str | None, str]:
+    """Like :func:`render_vi_file`, but also returns the VI's resolved
+    (fully qualified, e.g. ``Class.lvclass:vi.vi``) name — for use as a viewer
+    title. Same load/degrade behaviour."""
     path = Path(path)
     vi_name_hint = (
         path.name.replace("_BDHb.xml", ".vi")
@@ -436,7 +457,6 @@ def render_vi_file(
         if mode is LoadMode.NONE:
             raise
         graph = _load(LoadMode.NONE)  # degrade: still render this VI's own diagram
-    return render_vi(
-        graph, graph.resolve_vi_name(vi_name_hint),
-        theme=theme, theme_mode=theme_mode,
-    )
+    name = graph.resolve_vi_name(vi_name_hint)
+    svg = render_vi(graph, name, theme=theme, theme_mode=theme_mode)
+    return svg, name

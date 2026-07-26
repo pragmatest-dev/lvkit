@@ -363,12 +363,15 @@ class ConstructionMixin:
                 if we is not None:
                     param_wire_ends[i] = we
 
-        # Create the VINode
+        # Create the VINode, carrying the VI's own documentation text (parsed
+        # into _vi_metadata from STRG/DSTM) so its help panel can show it.
+        _meta = getattr(self, "_vi_metadata", {}).get(vi_name)
         vi_node = VINode(
             id=vi_name,
             vi=vi_name,
             name=vi_name,
             terminals=vi_terminals,
+            description=_meta.description if _meta else None,
         )
         g.add_node(vi_name, node=vi_node)
         vi_node_uids.add(vi_name)
@@ -891,6 +894,16 @@ class ConstructionMixin:
             callee_node = g.nodes[callee_name].get("node")
             if not isinstance(callee_node, VINode):
                 continue
+
+            # A SubVI call node has no documentation of its own — carry the
+            # callee VI's description onto it so its hover help panel shows what
+            # the SubVI does (same enrich-from-callee pattern as terminal names).
+            if not gnode.description and callee_node.description:
+                gnode.description = callee_node.description
+            # ...and its fully qualified name (Class.lvclass:vi.vi), so the hover
+            # title disambiguates a bare leaf name.
+            if not gnode.qualified_name and callee_qname:
+                gnode.qualified_name = callee_qname
 
             # Build callee terminal lookup: (index, direction) → Terminal
             callee_term_map: dict[tuple[int, str], Any] = {}

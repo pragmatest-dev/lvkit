@@ -432,6 +432,8 @@ class VIMetadata:
 
     library: str | None = None
     qualified_name: str | None = None
+    # The VI's own documentation text (STRG/DSTM), shown in the hover help box.
+    description: str | None = None
 
 
 # ============================================================
