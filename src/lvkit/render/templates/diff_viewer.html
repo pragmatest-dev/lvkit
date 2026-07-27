@@ -36,13 +36,16 @@
   header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
          display:flex;gap:14px;align-items:center;flex-wrap:wrap}
   header b{font-size:15px;white-space:normal;overflow-wrap:anywhere}
+  .t-arr{white-space:nowrap}  /* "→ after" stays together — title breaks before the → */
   /* Header = three groups (titles · controls · legend). Each group is nowrap so
      it never fragments internally; the header's own flex-wrap breaks only
      BETWEEN groups — one row when there's room, three stacked rows when narrow.
      .controls.grow fills the gap between titles and legend (Split/Overlay left,
      zoom/hl/theme right via margin-left:auto); .legend grows just enough to keep
      its chips right-justified on its own row when stacked. */
-  .titles{display:flex;gap:14px;align-items:center;flex-wrap:nowrap;min-width:0}
+  /* Title takes the whole first row; controls + legend flow onto the row(s)
+     below and wrap among themselves when narrow (header's own flex-wrap). */
+  .titles{display:flex;gap:14px;align-items:center;flex-wrap:nowrap;flex:0 0 100%}
   .controls{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
   .controls.grow{flex:100 1 auto}
   .controls.right{margin-left:auto;font-size:14px}   /* zoom/hl/theme cluster */

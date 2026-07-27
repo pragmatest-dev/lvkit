@@ -1058,12 +1058,15 @@ def cmd_diff(args: argparse.Namespace) -> int:
         # shows both when they differ (two different VIs, or the same VI at two
         # revs), one otherwise.
         def _annotate(name: str, ref: str | None) -> str:
-            return f"{name} ({ref})" if ref else name  # VS Code's diff convention
+            # nbsp glues "name (rev)" so the title only ever breaks at the ->.
+            return f"{name} ({ref})" if ref else name
         before_label = _annotate(vi_name_a, args.before_ref)
         after_label = _annotate(vi_name_b, args.after_ref)
         title = (
             before_label if before_label == after_label
-            else f"{before_label} → {after_label}"
+            # Arrow + after-name are a nowrap group (.t-arr), so a long title
+            # wraps as "before" / "-> after" -- the only break is before the ->.
+            else f'{before_label} <span class="t-arr">→ {after_label}</span>'
         )
         html = build_diff_viewer(
             cmap, before_svg, after_svg,
