@@ -408,17 +408,19 @@ def main() -> int:
         help="Render --format html and open it in a browser.",
     )
     diff_parser.add_argument(
-        "--before-label", default=None, metavar="TEXT",
+        "--before-ref", default=None, metavar="REV",
         help=(
-            "Label for the BEFORE side (header + pane badge). Defaults to the "
-            "VI's fully qualified name; a caller that knows the git revision "
-            "(e.g. the VS Code diff, which hands lvkit temp checkouts whose path "
-            "carries no rev) can pass a commit-annotated name here."
+            "Git revision (or any short tag) for the BEFORE side, appended to "
+            "the VI's resolved qualified name — e.g. --before-ref a1b2c3d gives "
+            "'TestCase.lvclass:run.vi @ a1b2c3d'. lvkit resolves the name; the "
+            "caller (the VS Code custom diff) supplies only the rev, which it "
+            "can't infer from a git temp checkout."
         ),
     )
     diff_parser.add_argument(
-        "--after-label", default=None, metavar="TEXT",
-        help="Label for the AFTER side. Defaults to the VI's qualified name.",
+        "--after-ref", default=None, metavar="REV",
+        help="Git revision for the AFTER side (e.g. 'working tree'), appended "
+             "to its qualified name.",
     )
     diff_parser.add_argument(
         "--search-path",
@@ -502,6 +504,16 @@ def main() -> int:
             "Output format: 'svg' (default, the self-contained diagram) or "
             "'html' (an interactive single-VI viewer page with zoom/pan and a "
             "light/dark diagram-theme toggle)."
+        ),
+    )
+    render_parser.add_argument(
+        "--ref", default=None, metavar="REV",
+        help=(
+            "Git revision (or short tag) appended to the VI's qualified name in "
+            "the --format html title — e.g. --ref a1b2c3d gives "
+            "'TestCase.lvclass:run.vi @ a1b2c3d'. Lets a caller (VS Code's native "
+            "side-by-side diff of two rendered VIs) keep the commit visible; "
+            "lvkit resolves the name, the caller supplies only the rev."
         ),
     )
     render_parser.add_argument(
@@ -878,9 +890,13 @@ def cmd_render(args: argparse.Namespace) -> int:
         return 1
 
     stem = input_path.stem.replace("_BDHb", "")
+    # Qualified name (lvkit-resolved) + the git rev the caller supplied, if any.
+    title = vi_title or stem
+    if args.ref:
+        title = f"{title} @ {args.ref}"
 
     if args.format == "html":
-        html = build_render_viewer(svg, title=vi_title or stem)
+        html = build_render_viewer(svg, title=title)
         out = (
             Path(args.output) if args.output
             else Path("outputs/vi-render") / f"{stem}.html"
@@ -1036,12 +1052,14 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
         cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
         rows = netlist_diff_rows(graph_a, graph_b, vi_name_a, vi_name_b)
-        # Labels default to each side's resolved (qualified, Class.lvclass:vi.vi)
-        # name; --before/after-label lets a git-aware caller pass a commit-
-        # annotated name instead. The header shows both when they differ (a diff
-        # of two different VIs, or the same VI at two revisions), one otherwise.
-        before_label = args.before_label or vi_name_a
-        after_label = args.after_label or vi_name_b
+        # Each side's label is its resolved (qualified, Class.lvclass:vi.vi)
+        # name, with the git rev appended when a caller supplied one. The header
+        # shows both when they differ (two different VIs, or the same VI at two
+        # revs), one otherwise.
+        def _annotate(name: str, ref: str | None) -> str:
+            return f"{name} @ {ref}" if ref else name
+        before_label = _annotate(vi_name_a, args.before_ref)
+        after_label = _annotate(vi_name_b, args.after_ref)
         title = (
             before_label if before_label == after_label
             else f"{before_label} → {after_label}"
