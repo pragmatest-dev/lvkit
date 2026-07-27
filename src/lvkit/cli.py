@@ -890,10 +890,11 @@ def cmd_render(args: argparse.Namespace) -> int:
         return 1
 
     stem = input_path.stem.replace("_BDHb", "")
-    # Qualified name (lvkit-resolved) + the git rev the caller supplied, if any.
+    # Qualified name (lvkit-resolved) + the git rev the caller supplied, if any,
+    # in VS Code's diff convention: "name (rev)".
     title = vi_title or stem
     if args.ref:
-        title = f"{title} @ {args.ref}"
+        title = f"{title} ({args.ref})"
 
     if args.format == "html":
         html = build_render_viewer(svg, title=title)
@@ -1057,7 +1058,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
         # shows both when they differ (two different VIs, or the same VI at two
         # revs), one otherwise.
         def _annotate(name: str, ref: str | None) -> str:
-            return f"{name} @ {ref}" if ref else name
+            return f"{name} ({ref})" if ref else name  # VS Code's diff convention
         before_label = _annotate(vi_name_a, args.before_ref)
         after_label = _annotate(vi_name_b, args.after_ref)
         title = (
