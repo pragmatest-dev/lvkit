@@ -408,6 +408,19 @@ def main() -> int:
         help="Render --format html and open it in a browser.",
     )
     diff_parser.add_argument(
+        "--before-label", default=None, metavar="TEXT",
+        help=(
+            "Label for the BEFORE side (header + pane badge). Defaults to the "
+            "VI's fully qualified name; a caller that knows the git revision "
+            "(e.g. the VS Code diff, which hands lvkit temp checkouts whose path "
+            "carries no rev) can pass a commit-annotated name here."
+        ),
+    )
+    diff_parser.add_argument(
+        "--after-label", default=None, metavar="TEXT",
+        help="Label for the AFTER side. Defaults to the VI's qualified name.",
+    )
+    diff_parser.add_argument(
         "--search-path",
         action="append",
         dest="search_paths",
@@ -1023,13 +1036,21 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
         cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
         rows = netlist_diff_rows(graph_a, graph_b, vi_name_a, vi_name_b)
-        # vi_name_a/_b are the resolved (qualified, Class.lvclass:vi.vi) names —
-        # use them for the title and the BEFORE/AFTER pane badges.
+        # Labels default to each side's resolved (qualified, Class.lvclass:vi.vi)
+        # name; --before/after-label lets a git-aware caller pass a commit-
+        # annotated name instead. The header shows both when they differ (a diff
+        # of two different VIs, or the same VI at two revisions), one otherwise.
+        before_label = args.before_label or vi_name_a
+        after_label = args.after_label or vi_name_b
+        title = (
+            before_label if before_label == after_label
+            else f"{before_label} → {after_label}"
+        )
         html = build_diff_viewer(
             cmap, before_svg, after_svg,
-            title=vi_name_a,
-            before_label=vi_name_a,
-            after_label=vi_name_b,
+            title=title,
+            before_label=before_label,
+            after_label=after_label,
             netlist_rows=rows_to_json(rows),
         )
 
