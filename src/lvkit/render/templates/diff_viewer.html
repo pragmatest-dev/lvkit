@@ -141,16 +141,25 @@
   .stage-wrap{position:relative;overflow:hidden;min-height:0}
   .stage{position:absolute;inset:0;padding:16px;overflow:auto}
   .pane{position:relative}
-  /* Minimap / navigation overlay (RTS-style), pinned over the canvas corner.
-     ONE minimap drives the whole diff off the AFTER pane (both panes share one
-     synced zoom+scroll). Plain tokens only — chrome follows the viewer/system
-     theme, NEVER data-theme. */
+  /* Minimap / navigation overlay (RTS-style), pinned over a canvas corner. Each
+     thumbnail is a LIVE inline CLONE of a pane's diagram SVG (not a rasterised
+     data-URI), so it inherits the page CSS — including the change-highlight vars
+     (--add/--del/--mod) that an isolated <img> couldn't resolve (they fell back
+     to black) — and re-themes with <html>'s data-theme. Split shows TWO (one per
+     pane, each over its own corner); overlay/before/after show ONE (mmB), which
+     in overlay stacks both mirrors (mm-under=before, mm-over=after) and blends
+     them with the same fader. Plain chrome tokens only — never data-theme. */
   .minimap{position:absolute;right:10px;bottom:10px;width:180px;max-width:45%;
     background:var(--panel);border:1px solid var(--line);border-radius:6px;
     box-shadow:0 2px 12px rgba(0,0,0,.28);overflow:hidden;z-index:65;cursor:pointer}
   .minimap[hidden]{display:none}
-  .mm-img{display:block;width:100%;height:auto;pointer-events:none;opacity:.92}
-  .mm-view{position:absolute;border:2px solid var(--accent);border-radius:2px;
+  /* mm-over is in flow (establishes the panel height); mm-under overlays it
+     exactly (same viewBox → same box) for the Overlay blend. */
+  .mm-over{position:relative;z-index:1;display:block;font-size:0}
+  .mm-under{position:absolute;inset:0;z-index:0;display:block;font-size:0}
+  .mm-over svg,.mm-under svg{display:block;width:100%;height:auto;max-width:100%;
+    background:none;border-radius:0;margin:0}
+  .mm-view{position:absolute;z-index:2;border:2px solid var(--accent);border-radius:2px;
     background:var(--accent);opacity:.22;pointer-events:none}
   .zoomgrp{display:inline-flex;gap:2px;align-items:center;margin-left:2px}
   .zoomgrp button{padding:5px 9px;min-width:30px;font-weight:600}
@@ -161,9 +170,23 @@
      grammar. BEFORE/AFTER text is what distinguishes the two panes. */
   .pane-label.before{background:var(--chip-before);border:1px solid var(--chip-border)}
   .pane-label.after{background:var(--chip-after);border:1px solid var(--chip-border)}
-  .overlay .pane-label.after{top:36px}  /* stack below BEFORE so both read in Overlay */
+  /* In Overlay the two panes are superimposed (grid-area 1/1, anchored top-left so
+     the two SVGs align exactly). The labels become position:absolute so they overlay
+     the SVG corners WITHOUT taking flow space — an in-flow label pushes its own SVG
+     down, which is what broke the top-left alignment. BEFORE rides the top-left of
+     its SVG; AFTER rides the bottom-left of ITS SVG (each pane sized to its own SVG
+     via align-self:start), so neither badge floats in the middle of the diagram. */
+  .overlay .pane-label{position:absolute;left:6px}
+  /* Straddle the svg edge FROM OUTSIDE: translateY lifts most of the pill into the
+     margin above/below the diagram, leaving a sliver overlapping the svg — BEFORE
+     hangs off the (aligned) TOP edge, AFTER off the after-svg's own BOTTOM edge. */
+  .overlay .pane-label.before{top:0;transform:translateY(-62%)}
+  .overlay .pane-label.after{top:auto;bottom:0;transform:translateY(62%)}
   .stage.overlay{display:grid}
-  .overlay #beforePane,.overlay #afterPane{grid-area:1/1}   /* stack + scroll together */
+  /* Superimpose both panes in one cell, anchored to the cell's top-left and each
+     sized to its OWN svg (align/justify start, not stretch) so their top-lefts
+     coincide and the AFTER label can pin to the after-svg's own bottom edge. */
+  .overlay #beforePane,.overlay #afterPane{grid-area:1/1;align-self:start;justify-self:start}
   /* pointer-events on before/after are NOT static here — applyBlend() (script,
      below) flips them to match whichever side the fader currently favours, so
      a click always lands on the pane that's actually dominant on screen. */
@@ -316,9 +339,13 @@ __THEME_SCRIPT__
       <div class="pane" id="beforePane"><span class="pane-label before">BEFORE · __BEFORE_LABEL__</span>__BEFORE_SVG__</div>
       <div class="pane" id="afterPane"><span class="pane-label after">AFTER · __AFTER_LABEL__</span>__AFTER_SVG__</div>
     </div>
-    <div class="minimap" id="minimap" hidden>
-      <img class="mm-img" id="mmImg" alt="Diagram overview">
-      <div class="mm-view" id="mmView"></div>
+    <div class="minimap" id="mmA" hidden>
+      <div class="mm-under"></div><div class="mm-over"></div>
+      <div class="mm-view"></div>
+    </div>
+    <div class="minimap" id="mmB" hidden>
+      <div class="mm-under"></div><div class="mm-over"></div>
+      <div class="mm-view"></div>
     </div>
   </div>
 </div>
@@ -351,8 +378,9 @@ const NETLIST_TREE = __NETLIST_TREE__;
 const SVGNS='http://www.w3.org/2000/svg';
 const stage=document.getElementById('stage');
 const afterPane=document.getElementById('afterPane'), beforePane=document.getElementById('beforePane');
-const minimap=document.getElementById('minimap');
-const mmImg=document.getElementById('mmImg'), mmView=document.getElementById('mmView');
+const mmA=document.getElementById('mmA');  // split-only: mirrors the BEFORE pane
+const mmB=document.getElementById('mmB');  // universal: after / before / overlay(both)
+const stageWrap=stage.parentElement;       // .stage-wrap (positioning context)
 
 // added lives in after (bounds are after's); removed lives in before.
 function paneFor(c){ return c.change==='removed' ? beforePane : afterPane; }
@@ -961,6 +989,7 @@ function setMode(m){
   document.getElementById('opWrap').hidden=(m!=='overlay');  // #opWrap[hidden] hides it
   applyBlend();  // opacity/pointer-events only matter in overlay — see applyBlend()
   applyZoom();   // keep the current zoom level across view switches
+  try{ buildMinimap(); updateMinimap(); }catch(_){}  // layers differ per mode
 }
 document.querySelectorAll('button[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 const op=document.getElementById('op');
@@ -981,6 +1010,7 @@ function applyBlend(){
     beforePane.style.opacity=1; afterPane.style.opacity=1;
     beforePane.style.pointerEvents='auto'; afterPane.style.pointerEvents='auto';
   }
+  try{ applyMinimapBlend(); }catch(_){}  // mirror the fade into the overlay minimap
 }
 op.oninput=()=>{cancelBlendGlide();applyBlend();};   // manual fader wins instantly
 document.querySelectorAll('#opWrap .op-end').forEach(b=>b.addEventListener('click',()=>{cancelBlendGlide();op.value=b.dataset.op;applyBlend();}));
@@ -1261,86 +1291,131 @@ function decorateMenus(){
 decorateMenus();
 
 // ── Minimap / navigation (RTS-style) ─────────────────────────────────────────
-// ONE minimap drives the whole diff off the AFTER pane — both panes share one
-// synced zoom+scroll (mirrorScroll above / the union-registered applyZoom), so a
-// single overview + viewport box is faithful for either. Additive + best-effort:
-// updateMinimap() is wrapped in try/catch and every entry point is guarded, so a
-// failure here can never break zoom/pan/sync. The thumbnail is an <img> data-URI
-// of the after SVG, rendered in isolation (no id collisions, no re-run scripts).
-// mmScroller() is the viewport that actually scrolls in the current mode: each
-// pane is its own scroller in 'split', else the stage hosts both.
-function mmScroller(){ return mode==='split' ? afterPane : stage; }
-// The thumbnail renders in isolation (an <img>), so its :root is the cloned svg,
-// NOT <html> — the diagram's live data-theme doesn't reach it. The clone already
-// carries BOTH :root[data-theme] palettes, so we build a light- and a dark-stamped
-// data-URI ONCE (with explicit width/height, else a viewBox-only svg has no
-// intrinsic size and collapses the panel) and just swap between them on toggle.
-let mmSrc=null;
-function buildMinimap(){
-  if(!minimap)return;
-  const svg=afterPane.querySelector('svg'); if(!svg)return;
-  const vb=svg.viewBox.baseVal;
-  const mk=t=>{ const c=svg.cloneNode(true);
-    c.setAttribute('width',vb.width); c.setAttribute('height',vb.height);
-    c.setAttribute('data-theme',t);
-    return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c.outerHTML); };
-  mmSrc={light:mk('light'), dark:mk('dark')};
-  mmImg.onload=updateMinimap;
-  applyMinimapTheme();
+// LIVE inline clones, not rasterised <img> data-URIs — see the CSS note above for
+// why (the isolated <img> couldn't resolve the change-highlight CSS vars → black
+// boxes). Split shows two minimaps (mmA over BEFORE, mmB over AFTER); overlay/
+// before/after show one (mmB), which in overlay stacks both clones and blends
+// them with the fader. All entry points are guarded so a failure here can never
+// break zoom/pan/sync. Clones re-theme on their own (they inherit <html>'s
+// data-theme), so no theme-swap plumbing — only a re-clone when frames toggle.
+function mkMirror(svg){
+  if(!svg)return null;
+  const c=svg.cloneNode(true);
+  c.removeAttribute('id');
+  c.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+  c.querySelectorAll('.lv-help,script').forEach(n=>n.remove());
+  // Drop the live pane's inline width + union-registration margins (applyZoom set
+  // them); the minimap sizes the clone from its own viewBox via CSS width:100%.
+  c.removeAttribute('style'); c.removeAttribute('width'); c.removeAttribute('height');
+  return c;
 }
-function applyMinimapTheme(){
-  if(!mmSrc||!mmImg)return;
-  const m=document.documentElement.getAttribute('data-theme');
-  const dark = m ? m==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-  mmImg.src = dark ? mmSrc.dark : mmSrc.light;
+function setLayer(host,svg){ const el=svg?mkMirror(svg):null; host.replaceChildren(...(el?[el]:[])); }
+function buildMinimap(){
+  if(!mmB)return;
+  const bSvg=beforePane.querySelector('svg'), aSvg=afterPane.querySelector('svg');
+  const aOver=mmA.querySelector('.mm-over'), aUnder=mmA.querySelector('.mm-under');
+  const bOver=mmB.querySelector('.mm-over'), bUnder=mmB.querySelector('.mm-under');
+  if(mode==='split'){
+    setLayer(aOver,bSvg); setLayer(aUnder,null);
+    setLayer(bOver,aSvg); setLayer(bUnder,null);
+  }else if(mode==='overlay'){
+    setLayer(aOver,null); setLayer(aUnder,null);
+    setLayer(bUnder,bSvg); setLayer(bOver,aSvg);   // before behind, after on top
+  }else{ // before / after single
+    setLayer(aOver,null); setLayer(aUnder,null);
+    setLayer(bOver, mode==='before'?bSvg:aSvg); setLayer(bUnder,null);
+  }
+  applyMinimapBlend();
+}
+// Overlay: fade the two stacked clones in lock-step with the pane fader.
+function applyMinimapBlend(){
+  const over=mmB.querySelector('.mm-over'), under=mmB.querySelector('.mm-under');
+  if(mode==='overlay'){ const v=op.value/100;
+    over.style.opacity=v; under.style.opacity=1-v; }
+  else { over.style.opacity=''; under.style.opacity=''; }
+}
+// Position + viewport rect for ONE minimap over a given scroller/svg. Returns
+// false when the whole diagram fits (caller hides it).
+function layoutMM(mm, scroller, svg){
+  if(!svg)return false;
+  const rc=svg.getBoundingClientRect(), contentW=rc.width, contentH=rc.height;
+  if(!contentW||!contentH)return false;
+  const fx=Math.min(1, scroller.clientWidth/contentW);
+  const fy=Math.min(1, scroller.clientHeight/contentH);
+  if(fx>=0.999&&fy>=0.999)return false;                 // whole thing visible
+  // applyZoom() offsets each pane's svg by a union-registration margin; subtract
+  // it to read the viewport in the svg's OWN content coordinates.
+  const ml=parseFloat(svg.style.marginLeft)||0, mt=parseFloat(svg.style.marginTop)||0;
+  const visX=scroller.scrollLeft-ml, visY=scroller.scrollTop-mt;
+  const mmW=mm.clientWidth, mmH=mm.clientHeight, clamp01=v=>Math.max(0,Math.min(1,v));
+  const view=mm.querySelector('.mm-view');
+  view.style.left  =clamp01(visX/contentW)*mmW+'px';
+  view.style.top   =clamp01(visY/contentH)*mmH+'px';
+  view.style.width =fx*mmW+'px';
+  view.style.height=fy*mmH+'px';
+  return true;
+}
+// Pin a minimap to the bottom-right corner of `pane`, in stage-wrap coordinates.
+function pinToPane(mm, pane){
+  const wr=stageWrap.getBoundingClientRect(), pr=pane.getBoundingClientRect();
+  mm.style.left='auto'; mm.style.top='auto';
+  mm.style.right =(wr.right -pr.right +10)+'px';
+  mm.style.bottom=(wr.bottom-pr.bottom+10)+'px';
 }
 function updateMinimap(){
   try{
-    if(!minimap)return;
-    const svg=afterPane.querySelector('svg'); if(!svg){ minimap.hidden=true; return; }
-    // SVG elements have no offsetWidth/Height in Chrome; use the rendered box.
-    const rc=svg.getBoundingClientRect(), contentW=rc.width, contentH=rc.height;
-    if(!contentW||!contentH){ minimap.hidden=true; return; }
-    const sc=mmScroller();
-    const fx=Math.min(1, sc.clientWidth/contentW);
-    const fy=Math.min(1, sc.clientHeight/contentH);
-    if(fx>=0.999&&fy>=0.999){ minimap.hidden=true; return; }     // whole thing visible
-    minimap.hidden=false;
-    // applyZoom() offsets each pane's svg by a union-registration margin, so
-    // subtract it to read the viewport in the svg's OWN content coordinates.
-    const ml=parseFloat(svg.style.marginLeft)||0, mt=parseFloat(svg.style.marginTop)||0;
-    const visX=sc.scrollLeft-ml, visY=sc.scrollTop-mt;
-    const mmW=minimap.clientWidth, mmH=minimap.clientHeight, clamp01=v=>Math.max(0,Math.min(1,v));
-    mmView.style.left  =clamp01(visX/contentW)*mmW+'px';
-    mmView.style.top   =clamp01(visY/contentH)*mmH+'px';
-    mmView.style.width =fx*mmW+'px';
-    mmView.style.height=fy*mmH+'px';
+    if(!mmB)return;
+    if(mode==='split'){
+      pinToPane(mmA,beforePane); pinToPane(mmB,afterPane);
+      mmA.hidden=!layoutMM(mmA, beforePane, beforePane.querySelector('svg'));
+      mmB.hidden=!layoutMM(mmB, afterPane,  afterPane.querySelector('svg'));
+    }else{
+      mmA.hidden=true;
+      mmB.style.right='10px'; mmB.style.bottom='10px'; mmB.style.left='auto'; mmB.style.top='auto';
+      // overlay/after read the after svg; before reads the before svg (both share
+      // union-registered coordinates, so either is a faithful reference).
+      const refSvg=(mode==='before'?beforePane:afterPane).querySelector('svg');
+      mmB.hidden=!layoutMM(mmB, stage, refSvg);
+    }
   }catch(_){ /* minimap is best-effort */ }
 }
-// Click/drag anywhere on the minimap centres the (synced) view there. In 'split'
-// mode the write to afterPane fires 'scroll', which mirrorScroll relays to before.
-function mmJump(e){
-  const svg=afterPane.querySelector('svg'); if(!svg)return;
-  const r=minimap.getBoundingClientRect(), sc=mmScroller();
+// Click/drag a minimap centres the (synced) view there. In split, mmA drives the
+// BEFORE pane and mmB the AFTER pane (mirrorScroll relays either to the other).
+function mmJump(e, mm){
+  const isBefore = (mode==='split' && mm===mmA) || mode==='before';
+  const scroller = (mode==='split') ? (mm===mmA?beforePane:afterPane) : stage;
+  const svg=(isBefore?beforePane:afterPane).querySelector('svg'); if(!svg)return;
+  const r=mm.getBoundingClientRect();
   const rc=svg.getBoundingClientRect(), contentW=rc.width, contentH=rc.height;
   const ml=parseFloat(svg.style.marginLeft)||0, mt=parseFloat(svg.style.marginTop)||0;
-  sc.scrollLeft=((e.clientX-r.left)/r.width )*contentW+ml-sc.clientWidth /2;
-  sc.scrollTop =((e.clientY-r.top )/r.height)*contentH+mt-sc.clientHeight/2;
+  scroller.scrollLeft=((e.clientX-r.left)/r.width )*contentW+ml-scroller.clientWidth /2;
+  scroller.scrollTop =((e.clientY-r.top )/r.height)*contentH+mt-scroller.clientHeight/2;
 }
-if(minimap){
+[mmA,mmB].forEach(mm=>{ if(!mm)return;
   let mmDrag=false;
-  minimap.addEventListener('pointerdown',e=>{ mmDrag=true; mmJump(e); e.preventDefault(); });
-  minimap.addEventListener('pointermove',e=>{ if(mmDrag) mmJump(e); });
+  mm.addEventListener('pointerdown',e=>{ mmDrag=true; mmJump(e,mm); e.preventDefault(); });
+  mm.addEventListener('pointermove',e=>{ if(mmDrag) mmJump(e,mm); });
   addEventListener('pointerup',()=>{ mmDrag=false; });
+});
+if(mmB){
   // Both panes (split) AND the stage (overlay/single) can be the live scroller.
   [beforePane,afterPane,stage].forEach(el=>el.addEventListener('scroll',updateMinimap));
   addEventListener('resize',updateMinimap);
   try{ buildMinimap(); updateMinimap(); }catch(_){ /* minimap optional */ }
-  // Swap the (pre-built) thumbnail to match the diagram on a theme toggle, and on
-  // a system change while in auto mode. Cheap src swap — no re-serialize.
-  try{ new MutationObserver(applyMinimapTheme)
-    .observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyMinimapTheme); }catch(_){}
+  // Re-clone (debounced) when the live diagrams' structure/classes change — a
+  // case-frame toggle flips lv-frame-hidden inside a pane svg. Ignore hover-help
+  // class flips (the clone strips .lv-help) so a mere hover never re-clones.
+  try{
+    let rb=null;
+    const reclone=recs=>{
+      if(recs&&recs.every(r=>{const t=r.target;
+        return t&&t.classList&&(t.classList.contains('lv-help')||t.classList.contains('lv-help-shown'));}))return;
+      clearTimeout(rb); rb=setTimeout(()=>{ try{ buildMinimap(); updateMinimap(); }catch(_){} },80);
+    };
+    const mo=new MutationObserver(reclone);
+    [beforePane,afterPane].forEach(p=>{const s=p.querySelector('svg');
+      if(s)mo.observe(s,{subtree:true,attributes:true,attributeFilter:['class'],childList:true});});
+  }catch(_){ /* minimap optional */ }
 }
 
 // Deep-link (shareable): #c=N opens change N (1-based); #view=overlay|before|after|split

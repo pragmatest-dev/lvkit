@@ -54,7 +54,12 @@
     background:var(--panel);border:1px solid var(--line);border-radius:6px;
     box-shadow:0 2px 12px rgba(0,0,0,.28);overflow:hidden;z-index:5;cursor:pointer}
   .minimap[hidden]{display:none}
-  .mm-img{display:block;width:100%;height:auto;pointer-events:none;opacity:.92}
+  /* The thumbnail is a LIVE inline clone of the diagram SVG (not a rasterised
+     data-URI) so it inherits the page CSS + the diagram's data-theme palette and
+     stays true to what's on screen. width:100% + the svg's own viewBox scales it
+     down; height:auto keeps the aspect ratio. */
+  .mm-mirror{display:block;pointer-events:none;opacity:.92;font-size:0}
+  .mm-mirror svg{display:block;width:100%;height:auto;max-width:100%;background:none;border-radius:0}
   .mm-view{position:absolute;border:2px solid var(--accent);border-radius:2px;
     background:var(--accent);opacity:.22;pointer-events:none}
 </style>
@@ -70,7 +75,7 @@
 <div class="stage-wrap">
   <div class="stage" id="stage">__SVG__</div>
   <div class="minimap" id="minimap" hidden>
-    <img class="mm-img" id="mmImg" alt="Diagram overview">
+    <div class="mm-mirror" id="mmMirror"></div>
     <div class="mm-view" id="mmView"></div>
   </div>
 </div>
@@ -87,7 +92,6 @@ __THEME_SCRIPT__
 const stage=document.getElementById('stage');
 const svg=stage.querySelector('svg');
 const minimap=document.getElementById('minimap');
-const mmImg=document.getElementById('mmImg');
 const mmView=document.getElementById('mmView');
 const PAD=16;
 let zoom=1;
@@ -145,30 +149,22 @@ addEventListener('pointercancel',endPan);
 
 // ── Minimap / navigation (RTS-style) ─────────────────────────────────────────
 // Additive + best-effort: any failure here must never break zoom/pan. The
-// thumbnail is an <img> data-URI of the SVG, rendered in isolation so it can't
-// collide with the live diagram's element IDs or re-run its embedded scripts.
-// The thumbnail renders in isolation (an <img>), so its :root is the cloned svg,
-// NOT <html> — the diagram's live data-theme doesn't reach it. The clone already
-// carries BOTH :root[data-theme] palettes (same as the diagram SVG), so we build
-// a light- and a dark-stamped data-URI ONCE and just swap between them on toggle
-// (mirrors how the SVG itself swaps palettes — no re-serialize per toggle).
-let mmSrc=null;
+// thumbnail is a LIVE inline CLONE of the diagram SVG — NOT a rasterised <img>
+// data-URI. An inline clone stays in THIS document, so it inherits the page CSS
+// (incl. --canvas/palette vars) and re-themes automatically with <html>'s
+// data-theme; its own viewBox scales it down to the minimap width. We strip the
+// clone's ids (no duplicate-id collisions), its hover-help groups, and any
+// embedded <script> (cloned scripts don't run, but drop them anyway) so it is a
+// pure static picture. Rebuilt on demand (frame toggles) via buildMinimap().
+const mmMirror=document.getElementById('mmMirror');
 function buildMinimap(){
-  if(!svg||!minimap)return;
-  const vb=svg.viewBox.baseVal;
-  const mk=t=>{ const c=svg.cloneNode(true);
-    c.setAttribute('width',vb.width); c.setAttribute('height',vb.height);
-    c.setAttribute('data-theme',t);
-    return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(c.outerHTML); };
-  mmSrc={light:mk('light'), dark:mk('dark')};
-  mmImg.onload=updateMinimap;
-  applyMinimapTheme();
-}
-function applyMinimapTheme(){
-  if(!mmSrc||!mmImg)return;
-  const m=document.documentElement.getAttribute('data-theme');
-  const dark = m ? m==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-  mmImg.src = dark ? mmSrc.dark : mmSrc.light;
+  if(!svg||!minimap||!mmMirror)return;
+  const clone=svg.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+  clone.querySelectorAll('.lv-help,script').forEach(n=>n.remove());
+  clone.removeAttribute('width'); clone.removeAttribute('height');
+  mmMirror.replaceChildren(clone);
 }
 function updateMinimap(){
   if(!svg||!minimap)return;
@@ -202,14 +198,27 @@ if(minimap){
 }
 stage.addEventListener('scroll',updateMinimap);
 
-addEventListener('resize',applyZoom);
+addEventListener('resize',()=>{applyZoom();updateMinimap();});
 applyZoom();
-try{ buildMinimap(); }catch(_){ /* minimap optional */ }
-// Swap the (pre-built) thumbnail to match the diagram on a theme toggle, and on a
-// system change while in auto mode. Cheap src swap — no re-serialize.
-try{ new MutationObserver(applyMinimapTheme)
-  .observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyMinimapTheme); }catch(_){}
+try{ buildMinimap(); updateMinimap(); }catch(_){ /* minimap optional */ }
+// The inline clone re-themes on its own (it inherits <html>'s data-theme), so no
+// theme swap is needed. It IS a snapshot of the frame-visibility state, though —
+// re-clone (debounced) whenever the live diagram's structure/classes change
+// (a case-frame toggle flips lv-frame-hidden classes inside the svg).
+try{
+  let rb=null;
+  const reclone=recs=>{
+    // Ignore hover-help class flips (they don't affect the minimap picture — the
+    // clone strips .lv-help) so a mere hover never triggers a full re-clone.
+    if(recs&&recs.every(r=>{const t=r.target;
+      return t&&t.classList&&(t.classList.contains('lv-help')||t.classList.contains('lv-help-shown'));}))return;
+    clearTimeout(rb); rb=setTimeout(()=>{
+      try{ buildMinimap(); updateMinimap(); }catch(_){}
+    },80);
+  };
+  new MutationObserver(reclone).observe(svg,
+    {subtree:true,attributes:true,attributeFilter:['class'],childList:true});
+}catch(_){ /* minimap optional */ }
 </script>
 
 __HELP_TIP__
