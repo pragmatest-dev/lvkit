@@ -24,6 +24,23 @@ function gitRootOr(dir) {
   try { return cp.execSync('git rev-parse --show-toplevel', { cwd: dir }).toString().trim(); }
   catch (_) { return dir; }
 }
+// A short, readable label for the commit/rev a `git:` diff URI points at, so the
+// rendered VI's title reads "…@ 3f9a1c2" instead of two identical qualified
+// names. VS Code's git provider encodes {path, ref} as JSON in the URI query;
+// ref is a sha, "HEAD", "~" (index), or "". lvkit resolves the NAME itself — we
+// only supply this rev, which it can't infer from a temp checkout.
+function gitRefLabel(uri, root) {
+  let ref = null;
+  try { ref = JSON.parse(uri.query || '{}').ref; } catch (_) { /* not a git uri */ }
+  if (ref == null) return 'committed';
+  if (ref === '~') return 'index';
+  if (/^[0-9a-f]{7,40}$/i.test(ref)) return ref.slice(0, 8);
+  if (ref === '' || ref === 'HEAD') {
+    try { return cp.execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim(); }
+    catch (_) { return 'HEAD'; }
+  }
+  return ref;
+}
 function esc(s) { return String(s).replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
 
 function fileExists(p) { try { return fs.existsSync(p); } catch (_) { return false; } }
@@ -280,6 +297,11 @@ class ViPreviewProvider {
       // provider (git's FileSystemProvider runs `git show`) and render a temp
       // copy of those bytes instead.
       let file = origPath;
+      // Non-file scheme = the committed side of VS Code's native diff. Tag the
+      // title with its rev so it's distinguishable from the working-tree pane
+      // (which stays the plain qualified name); a standalone preview is `file`
+      // and gets no ref, so it stays clean.
+      let refArg = '';
       if (document.uri.scheme !== 'file') {
         const bytes = await vscode.workspace.fs.readFile(document.uri);
         if (!bytes || bytes.length === 0) {
@@ -292,6 +314,8 @@ class ViPreviewProvider {
         }
         file = path.join(tmp, path.basename(origPath)); // keep the .vi extension
         fs.writeFileSync(file, Buffer.from(bytes));
+        const rl = gitRefLabel(document.uri, root);
+        if (rl) refArg = ` --ref "${rl}"`;
       }
       const out = path.join(tmp, 'preview.html');
       // `render --format html` emits the self-contained interactive viewer
@@ -299,7 +323,7 @@ class ViPreviewProvider {
       // internally `--theme auto` (switchable in-viewer), so the injected
       // initial theme + the in-viewer control govern light/dark — no --theme
       // needed on this call.
-      run(`${lvkitCmd(root)} render "${file}" ${searchArgs(root)} --format html -o "${out}"`, { cwd: root });
+      run(`${lvkitCmd(root)} render "${file}" ${searchArgs(root)} --format html${refArg} -o "${out}"`, { cwd: root });
       const html = injectSubVIClickNav(injectInitialTheme(fs.readFileSync(out, 'utf8'), diagramTheme()));
       panel.webview.html = withNonceCsp(html);
       wireThemePersistence(panel.webview);
@@ -338,12 +362,15 @@ async function diffVI(arg) {
         const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
         const oldVi = path.join(tmp, path.basename(file)); // keep .vi suffix (lvkit needs it)
         fs.writeFileSync(oldVi, run(`git show HEAD:"${rel}"`, { cwd: root }));
+        let headRef = 'HEAD';
+        try { headRef = cp.execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim(); }
+        catch (_) { /* keep 'HEAD' */ }
         const out = path.join(tmp, 'diff.html');
         // --theme auto: the diff viewer chrome is already prefers-color-scheme
         // adaptive; auto makes the embedded before/after diagrams follow the
         // same signal. The injected initial theme + in-viewer control then let
         // the user pin light/dark, persisted via wireThemePersistence().
-        run(`${lvkitCmd(root)} diff "${oldVi}" "${file}" ${searchArgs(root)} --format html --theme auto -o "${out}"`, { cwd: root });
+        run(`${lvkitCmd(root)} diff "${oldVi}" "${file}" ${searchArgs(root)} --format html --theme auto --before-ref "${headRef}" --after-ref "working tree" -o "${out}"`, { cwd: root });
         const panel = vscode.window.createWebviewPanel(
           'lvkitDiff', `VI Diff: ${path.basename(file)}`, vscode.ViewColumn.Active,
           { enableScripts: true, retainContextWhenHidden: true }
