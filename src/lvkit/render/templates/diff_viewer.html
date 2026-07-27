@@ -1084,12 +1084,18 @@ hlBtn.onclick=()=>{
 
 // Tied-stacked synced-pan: dragging/scrolling (wheel, trackpad, scrollbar,
 // touch) either pane's own viewport mirrors the SAME scroll offset onto the
-// other. Guarded to 'split' mode only (elsewhere the panes aren't independently
-// scrollable) and re-entrancy-guarded so mirroring one doesn't ping-pong.
+// other. Active in BOTH 'split' and 'overlay' — the two modes whose
+// scrollTargets are [beforePane, afterPane] (in overlay the panes are stacked,
+// so an unmirrored native scroll on the active pane would slide the two layers
+// out of registration). Custom drag-pan already writes both panes via
+// scrollTargets; this covers NATIVE scroll (plain wheel, scrollbar, trackpad,
+// keyboard) which bypasses that path. Re-entrancy-guarded so mirroring one
+// doesn't ping-pong; the programmatic write below fires 'scroll' too but is
+// idempotent (dst is already at src's offset from the pan that triggered it).
 let syncingScroll=false;
 function mirrorScroll(src, dst){
   src.addEventListener('scroll', ()=>{
-    if(mode!=='split'||syncingScroll)return;
+    if((mode!=='split'&&mode!=='overlay')||syncingScroll)return;
     syncingScroll=true;
     dst.scrollLeft=src.scrollLeft; dst.scrollTop=src.scrollTop;
     syncingScroll=false;
