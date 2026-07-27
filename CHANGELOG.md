@@ -2,6 +2,20 @@
 
 lvkit follows semantic versioning.
 
+## [0.5.4]
+- **`diff`: constants are now first-class changes.** An added, removed, or
+  changed constant — at any nesting depth, including one inside a newly-added
+  case frame — now shows a highlight box + numbered badge on the diagram, a row
+  in the change list and tree, a JSON entry, and a count. Previously only a
+  *modified* top-level constant was reported; added/removed constants (and any
+  nested constant) were invisible on the diagram and missing from the counts.
+- Added/removed constants highlight their feed wire on selection, the same way
+  added/removed nodes do.
+- A constant row shows its type (e.g. `float constant`) with a small-circle
+  marker; the value stays out of the change list (a string can be arbitrarily
+  long) but is kept in `--format json` and shown by `diff --verbose` and on the
+  before/after diagrams.
+
 ## [0.5.3]
 - **Fix: `render` / `diff` / `docs` crashed on Windows.** Output text wasn't
   UTF-8-pinned, so on Windows (cp1252) any non-Latin1 character in a diagram
