@@ -186,16 +186,26 @@
   /* Superimpose both panes in one cell, anchored to the cell's top-left and each
      sized to its OWN svg (align/justify start, not stretch) so their top-lefts
      coincide and the AFTER label can pin to the after-svg's own bottom edge. */
-  .overlay #beforePane,.overlay #afterPane{grid-area:1/1;align-self:start;justify-self:start}
+  .overlay .pane-wrap{grid-area:1/1;align-self:start;justify-self:start}
   /* pointer-events on before/after are NOT static here — applyBlend() (script,
      below) flips them to match whichever side the fader currently favours, so
      a click always lands on the pane that's actually dominant on screen. */
-  .mode-before #afterPane,.mode-after #beforePane{display:none}
+  .mode-before #afterWrap,.mode-after #beforeWrap{display:none}
   /* Split view synced (tied-pan): before above after, full width each, each pane its
      OWN scrollable viewport — a shared pan window keeps them on the same LV
      region (see mirrorScroll + scrollTargets in the script below). */
+  /* pane-wrap = [label header][scrolling pane]. The label sits OUTSIDE the pane's
+     scroll box (a header strip), so the diagram can never scroll under it. Each
+     pane (beforePane/afterPane) stays its OWN overflow:auto box — scrollTargets +
+     mirrorScroll key off those, so per-svg linked scrolling is unchanged. */
+  .pane-wrap{position:relative;min-width:0}
   .stage.split{display:flex;flex-direction:column;gap:16px}
+  .stage.split .pane-wrap{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
   .stage.split .pane{flex:1 1 0;min-height:0;overflow:auto}
+  /* Header strip: in flow (own space, always visible like a sticky header), z above
+     the pane, pulled down a hair so it slivers over the diagram's top edge only. */
+  .stage.split .pane-label{position:relative;z-index:60;flex:0 0 auto;
+    align-self:flex-start;transform:none;margin:0 0 -9px 2px}
   svg{max-width:none;height:auto;background:var(--canvas);border-radius:6px}
   /* The diagram svg must NEVER flow inline beside the (in-flow, sticky) pane
      label: when tied-zoom makes one svg narrower than its pane, an inline svg
@@ -336,8 +346,8 @@ __THEME_SCRIPT__
   <div class="divider" id="divider" title="Drag to resize"></div>
   <div class="stage-wrap">
     <div class="stage split mode-split" id="stage">
-      <div class="pane" id="beforePane"><span class="pane-label before">BEFORE · __BEFORE_LABEL__</span>__BEFORE_SVG__</div>
-      <div class="pane" id="afterPane"><span class="pane-label after">AFTER · __AFTER_LABEL__</span>__AFTER_SVG__</div>
+      <div class="pane-wrap" id="beforeWrap"><span class="pane-label before">BEFORE · __BEFORE_LABEL__</span><div class="pane" id="beforePane">__BEFORE_SVG__</div></div>
+      <div class="pane-wrap" id="afterWrap"><span class="pane-label after">AFTER · __AFTER_LABEL__</span><div class="pane" id="afterPane">__AFTER_SVG__</div></div>
     </div>
     <div class="minimap" id="mmA" hidden>
       <div class="mm-under"></div><div class="mm-over"></div>
