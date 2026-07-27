@@ -2,6 +2,12 @@
 
 lvkit follows semantic versioning.
 
+## [0.5.5]
+- **Fix: `diff` overlay before/after scroll is now locked.** In overlay mode a
+  native scroll (plain mouse wheel, scrollbar, trackpad, keyboard) on the active
+  pane didn't move the other, so the two stacked diagrams slid out of alignment.
+  Both panes now scroll together in overlay, matching split mode.
+
 ## [0.5.4]
 - **`diff`: constants are now first-class changes.** An added, removed, or
   changed constant — at any nesting depth, including one inside a newly-added
