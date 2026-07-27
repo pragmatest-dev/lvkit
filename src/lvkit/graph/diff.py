@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -55,14 +55,6 @@ class SignatureChange:
     name: str
     old_type: str | None = None
     new_type: str | None = None
-
-
-@dataclass
-class ConstantChange:
-    category: str  # "added", "removed", "value_changed"
-    name: str
-    old_value: str | None = None
-    new_value: str | None = None
 
 
 @dataclass
@@ -984,6 +976,190 @@ def _matched_struct_pairs(
     return pairs
 
 
+# ── Constant diff (task: constants as first-class change elements) ─────
+#
+# Constants participate in the change-map as ``kind="constant"`` elements at ANY
+# nesting depth — added/removed/modified alike — so a constant added inside a new
+# case frame highlights on the diagram (box + numbered badge), lists in the flat
+# CHANGES/JSON with a count, and places in the netlist tree at its true
+# containment, exactly like a node change. This REPLACES the old split where only
+# a MODIFIED constant entered the map (as a fake ``kind="node"``) and added/
+# removed constants went through a separate top-level-only, geometry-less text
+# pass (``_diff_constants``/``ConstantChange``, since removed).
+#
+# A constant carries no stable UID (LabVIEW re-keys it), so identity is
+# reconstructed like the node fuzzy-matcher: exact-UID first, then leftovers
+# paired by NAME, by CONNECTION (the canonical consumer terminals it feeds — the
+# only cross-version anchor a constant has), and by LOCALITY (frame_path). VALUE
+# is the CLASSIFIER (paired + equal → unchanged/collapsed; paired + differing →
+# modified), never the identity, so a value edit reads as one modified constant
+# rather than a remove+add.
+
+
+def _const_type(c: Constant) -> str | None:
+    return c.lv_type.to_python() if c.lv_type else None
+
+
+def _const_consumers(
+    wires: list[Wire], vi_self: str, base_side: bool, b_of_h: Mapping[str, str],
+) -> dict[str, set[tuple[str, object]]]:
+    """Constant-uid -> the set of its canonical consumers ``(node_uid, term)``.
+
+    A constant appears in the wire table as a wire SOURCE; its consumers are the
+    ``dest`` ends. Consumer node uids are canonicalized to BASE space (head uids
+    mapped back through the node matching ``b_of_h``) and the VI's own
+    connector-pane self node to the fixed ``__self__`` sentinel, so a constant's
+    connection identity survives a re-key/requalification. The consumer TERMINAL
+    (index when known, else its trailing uid) distinguishes two constants feeding
+    different inputs of the SAME node."""
+    out: dict[str, set[tuple[str, object]]] = {}
+    for w in wires:
+        dest_node = w.dest.node_id
+        if dest_node == vi_self:
+            cnode = "__self__"
+        else:
+            cuid = _uid_of(dest_node)
+            cnode = cuid if base_side else b_of_h.get(cuid, cuid)
+        term: object = (
+            w.dest.index if w.dest.index is not None
+            else _uid_of(w.dest.terminal_id)
+        )
+        out.setdefault(_uid_of(w.source.node_id), set()).add((cnode, term))
+    return out
+
+
+def _constant_changes(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph, va: str, vb: str,
+    a: dict[str, _ElemInfo], b: dict[str, _ElemInfo],
+    exact: dict[str, str], fuzzy: dict[str, str],
+    layout_a: Layout | None, layout_b: Layout | None,
+    wires_a: list[Wire], wires_b: list[Wire],
+) -> list[ElementChange]:
+    """All constant changes as ``kind="constant"`` ``ElementChange``s. See the
+    section header above for the identity model."""
+    consts_a = {_uid_of(c.id): c for c in graph_a.get_constants(va)}
+    consts_b = {_uid_of(c.id): c for c in graph_b.get_constants(vb)}
+
+    b_of_h = {h: base for base, h in {**exact, **fuzzy}.items()}
+    anchored: set[str] = (
+        (a.keys() & b.keys()) | set(exact) | set(fuzzy) | {"__self__"}
+    )
+    cons_a = _const_consumers(wires_a, va, True, b_of_h)
+    cons_b = _const_consumers(wires_b, vb, False, b_of_h)
+
+    def bounds(layout: Layout | None, uid: str) -> Rect | None:
+        return layout.node_bounds.get(uid) if layout is not None else None
+
+    # Added/removed constants carry their incident wire "chain" (the feed wire
+    # to/from the consumer), drawn in the add/remove colour on selection exactly
+    # like an added/removed NODE's chain (that wire is itself new/gone). A
+    # MODIFIED constant's wiring is unchanged, so it gets no chain — same as a
+    # modified node. The VALUE (old→new for modified) is stamped into ``detail``
+    # — it survives in the JSON and the ``--verbose`` text tree — but the VIEWER
+    # LIST deliberately doesn't render it (a string value can be arbitrarily
+    # long); the concise row is just the type label, the diagram panes show the
+    # actual values.
+    def added(cb: Constant) -> ElementChange:
+        uid = _uid_of(cb.id)
+        cu, fp = _constant_locality(cb, b)
+        return ElementChange(
+            uid, cb.id, "constant", "added", _const_label(cb),
+            bounds(layout_b, uid), detail=_value_disp(cb.value),
+            chain_paths=_incident_chain_paths(layout_b, wires_b, uid),
+            container_uid=cu, frame_path=fp,
+        )
+
+    def removed(ca: Constant) -> ElementChange:
+        uid = _uid_of(ca.id)
+        cu, fp = _constant_locality(ca, a)
+        return ElementChange(
+            uid, ca.id, "constant", "removed", _const_label(ca),
+            bounds(layout_a, uid), detail=_value_disp(ca.value),
+            chain_paths=_incident_chain_paths(layout_a, wires_a, uid),
+            container_uid=cu, frame_path=fp,
+        )
+
+    def modified(ca: Constant, cb: Constant) -> ElementChange:
+        uid = _uid_of(cb.id)
+        cu, fp = _constant_locality(cb, b)
+        return ElementChange(
+            uid, cb.id, "constant", "modified", _const_label(cb),
+            bounds(layout_b, uid), bounds_before=bounds(layout_a, uid),
+            detail=f"{_value_disp(ca.value)} → {_value_disp(cb.value)}",
+            container_uid=cu, frame_path=fp,
+        )
+
+    changes: list[ElementChange] = []
+
+    # ── Tier 0: same UID kept by LabVIEW — same constant. ──
+    for uid in sorted(consts_a.keys() & consts_b.keys(), key=_uid_sort):
+        ca, cb = consts_a[uid], consts_b[uid]
+        if _const_type(ca) != _const_type(cb):
+            continue  # UID recycle across types — not a constant edit (skip).
+        if repr(ca.value) != repr(cb.value):
+            changes.append(modified(ca, cb))
+
+    left_a = [consts_a[u] for u in sorted(consts_a.keys() - consts_b.keys(),
+                                          key=_uid_sort)]
+    left_b = [consts_b[u] for u in sorted(consts_b.keys() - consts_a.keys(),
+                                          key=_uid_sort)]
+
+    # ── Tier 1: pair leftovers by reconstructed identity (name + connection +
+    # locality), 1:1. VALUE is NOT in the key, so a value-only edit still pairs
+    # (→ modified); equal value collapses to unchanged (pure re-key). ──
+    def ident(
+        c: Constant, cons: dict[str, set[tuple[str, object]]],
+        elems: dict[str, _ElemInfo],
+    ) -> tuple[tuple, bool]:
+        ccons = frozenset(cons.get(_uid_of(c.id), set()))
+        _, fp = _constant_locality(c, elems)
+        anchored_here = c.name is not None or any(n in anchored for n, _ in ccons)
+        return (c.name, fp, ccons), anchored_here
+
+    b_by_key: dict[tuple, list[Constant]] = defaultdict(list)
+    for cb in left_b:
+        key, anch = ident(cb, cons_b, b)
+        if anch:
+            b_by_key[key].append(cb)
+    paired_a: set[str] = set()
+    paired_b: set[str] = set()
+    for ca in left_a:
+        key, anch = ident(ca, cons_a, a)
+        if not anch or not b_by_key.get(key):
+            continue
+        cb = b_by_key[key].pop(0)
+        paired_a.add(_uid_of(ca.id))
+        paired_b.add(_uid_of(cb.id))
+        if _const_type(ca) != _const_type(cb) or repr(ca.value) != repr(cb.value):
+            changes.append(modified(ca, cb))
+        # else: identical re-key → unchanged (collapse, emit nothing).
+
+    rem_a = [c for c in left_a if _uid_of(c.id) not in paired_a]
+    rem_b = [c for c in left_b if _uid_of(c.id) not in paired_b]
+
+    # ── Tier 2: value+type multiset collapse, scoped per frame_path — the old
+    # unnamed-constant behaviour, now locality-aware (identical constants in the
+    # SAME frame cancel as unchanged; anything left is a real add/remove). ──
+    def vkey(c: Constant, elems: dict[str, _ElemInfo]) -> tuple:
+        _, fp = _constant_locality(c, elems)
+        return (repr(c.value), _const_type(c) or "unknown", fp)
+
+    b_by_vkey: dict[tuple, list[Constant]] = defaultdict(list)
+    for cb in rem_b:
+        b_by_vkey[vkey(cb, b)].append(cb)
+    for ca in rem_a:
+        bucket = b_by_vkey.get(vkey(ca, a))
+        if bucket:
+            bucket.pop(0)  # cancels a same-value/type/frame added constant.
+        else:
+            changes.append(removed(ca))
+    for cb in sorted((c for lst in b_by_vkey.values() for c in lst),
+                     key=lambda c: _uid_sort(_uid_of(c.id))):
+        changes.append(added(cb))
+
+    return changes
+
+
 def diff_uid(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str,
@@ -1062,30 +1238,14 @@ def diff_uid(
                           container_uid=entry.container_uid,
                           frame_path=entry.frame_path)
         )
-    # Modified: a constant present in BOTH versions by stable UID whose VALUE
-    # changed — the canonical node-config change (e.g. a path/string/number the
-    # author edited in place). Matched by UID, not dataflow: a same-UID constant
-    # is the same constant, so this needs no fuzzy pass. Guarded by unchanged type
-    # (a differing type at a shared UID is a UID recycle, not an edit — skip it,
-    # it surfaces via the node add/remove of whatever now owns the UID). Wire and
-    # operation-config modifications are separate passes (#10, and a future
-    # operation "modified" that must first distinguish a genuine reconfigure from
-    # a UID recycle — no test pair for that exists in the corpus yet).
-    consts_a = {_uid_of(c.id): c for c in graph_a.get_constants(va)}
-    consts_b = {_uid_of(c.id): c for c in graph_b.get_constants(vb)}
-    for uid in consts_a.keys() & consts_b.keys():
-        ca, cb = consts_a[uid], consts_b[uid]
-        type_a = ca.lv_type.to_python() if ca.lv_type else None
-        type_b = cb.lv_type.to_python() if cb.lv_type else None
-        if type_a == type_b and repr(ca.value) != repr(cb.value):
-            container_uid, frame_path = _constant_locality(cb, b)
-            cmap.changes.append(ElementChange(
-                uid, cb.id, "node", "modified", _const_label(cb),
-                _bounds(layout_b, uid),
-                bounds_before=_bounds(layout_a, uid),
-                detail=f"{_value_disp(ca.value)} → {_value_disp(cb.value)}",
-                container_uid=container_uid, frame_path=frame_path,
-            ))
+    # Constant changes (added/removed/modified), as ``kind="constant"`` elements
+    # at any nesting depth — matched by name/connection/locality, classified by
+    # value (see ``_constant_changes``). Reuses the exact/fuzzy node matching for
+    # cross-version consumer identity.
+    cmap.changes.extend(_constant_changes(
+        graph_a, graph_b, va, vb, a, b, exact, fuzzy,
+        layout_a, layout_b, wires_a, wires_b,
+    ))
 
     # Wire endpoint changes (#10): for every input terminal on an unchanged
     # node, compare its effective (tunnel-contracted) source across versions.
@@ -1154,7 +1314,7 @@ def _reorder_by_tree(
     """
     if not cmap.changes:
         return  # nothing to reorder -- skip building the netlist for nothing
-    rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, [], detailed=False)
+    rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=False)
     tree_order: dict[str, int] = {}
     for r in rows:
         if r.uid is not None and r.uid not in tree_order:
@@ -1191,13 +1351,13 @@ def _reorder_by_tree(
 
 Segment = tuple[str, str]  # one frame_path token: (struct_uid, value)
 
-# The dedicated glyph for a top-level CONSTANT change (``ConstantChange`` --
-# ``diff_uid`` has no UID to key an added/removed constant by, so these
-# aren't in ``cmap`` at all, only node/structure/wire/frame/value changes
-# are). Node/structure changes render as netlist syntax (no glyph of their
-# own); a wire change is plain connectivity text; only a constant keeps a
-# glyph, via ``_constant_row`` -- a type-based split, never a label guess.
-_CONST_GLYPH = "="
+# The dedicated glyph for a CONSTANT change -- a small circle, giving a constant
+# row the same leading kind marker as node (``◻``)/wire (``↔``)/scope (``⬚``)
+# rows so the change column stays aligned. Node/structure changes render as
+# netlist syntax and a wire change is plain connectivity text; only a constant
+# keeps this glyph, via ``_constant_leaf_text``. Constants ARE in ``cmap`` now
+# (as ``kind="constant"`` elements at any nesting depth -- ``_constant_changes``).
+_CONST_GLYPH = "○"
 
 
 def _segments(frame_path: str | None) -> tuple[Segment, ...]:
@@ -1239,32 +1399,20 @@ def _rows_to_text(rows: list[NetlistDiffRow]) -> list[str]:
     return [f"{_gutter(r.change)} {'  ' * r.depth}{r.text}" for r in rows]
 
 
-_CONST_CHANGE = {
-    "added": "added", "removed": "removed", "value_changed": "modified",
-}
-
-
-def _constant_row(con: ConstantChange, *, detailed: bool) -> NetlistDiffRow:
-    """One top-level constant change ROW, tagged with the dedicated constant
-    KIND glyph (``_CONST_GLYPH``) inline in its text (the +/-/~ change tag
-    itself lives in ``NetlistDiffRow.change``, rendered by ``_rows_to_text``/
-    the viewer, not baked into the text here). ``detailed`` gates only the
-    "modified" old→new VALUE (the depth ``format_diff`` adds for --verbose);
-    added/removed always show their one value -- that's the change's own
-    payload, not extra depth. A constant has no stable node uid of its own
-    (``diff_uid`` has nothing to key it by), so ``uid`` is always ``None``."""
-    if con.category == "added":
-        text = f"{_CONST_GLYPH} {con.name} = {con.new_value}"
-    elif con.category == "removed":
-        text = f"{_CONST_GLYPH} {con.name} = {con.old_value}"
-    elif detailed:
-        text = f"{_CONST_GLYPH} {con.name}: {con.old_value} -> {con.new_value}"
-    else:
-        text = f"{_CONST_GLYPH} {con.name}"
-    return NetlistDiffRow(
-        change=_CONST_CHANGE[con.category], depth=0, text=text,
-        uid=None, kind="constant",
-    )
+def _constant_leaf_text(c: ElementChange, *, detailed: bool) -> str:
+    """One constant change leaf's netlist text: the constant KIND glyph
+    (``_CONST_GLYPH``) plus the type label. The glyph gives the row the same
+    leading marker as node (``◻``)/wire (``↔``)/scope (``⬚``) rows so the change
+    column stays aligned. Concise (viewer + default text) shows NO value — the
+    row stays short and a string value can be arbitrarily long. ``detailed``
+    (``--verbose``) appends the value (added/removed) or the ``old -> new``
+    transition (modified) from ``c.detail``, mapped to ASCII via
+    ``_ascii_arrows``. The +/-/~ change tag lives in ``NetlistDiffRow.change``."""
+    if not detailed or not c.detail:
+        return f"{_CONST_GLYPH} {c.label}"
+    detail = _ascii_arrows(c.detail)
+    sep = ":" if c.change == "modified" else " ="
+    return f"{_CONST_GLYPH} {c.label}{sep} {detail}"
 
 
 _TAG = {"added": "+", "removed": "-", "modified": "~"}
@@ -1302,7 +1450,7 @@ def _walk_netlist_order(items: list[NetlistItem]) -> list[str]:
 def _netlist_diff(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     va: str, vb: str,
-    cmap: ChangeMap, constants: list[ConstantChange], *, detailed: bool,
+    cmap: ChangeMap, *, detailed: bool,
 ) -> list[NetlistDiffRow]:
     """The recursive containment tree, rendered in NETLIST form (see
     ``.tmp/netlist-spec.md`` Phase 2) as STRUCTURED rows (Phase 3) -- replaces
@@ -1356,7 +1504,10 @@ def _netlist_diff(
         rank, tie = _uid_sort(uid)
         return (source_order.get(uid, _past_every_uid), rank, tie)
 
-    elems = [c for c in cmap.changes if c.kind in ("node", "wire", "structure")]
+    elems = [
+        c for c in cmap.changes
+        if c.kind in ("node", "wire", "structure", "constant")
+    ]
     frame_elems = [c for c in cmap.changes if c.kind in ("frame", "value")]
     by_path: dict[tuple[Segment, ...], list[ElementChange]] = {}
     for c in elems:
@@ -1533,7 +1684,7 @@ def _netlist_diff(
         siblings += (
             (_sort_key(c.uid), "leaf", c)
             for c in here
-            if c.kind in ("node", "wire")
+            if c.kind in ("node", "wire", "constant")
         )
         siblings.sort(key=lambda s: s[0])
         for _, tag, payload in siblings:
@@ -1564,11 +1715,15 @@ def _netlist_diff(
                         change=c.change, depth=depth, text=content,
                         uid=c.uid, kind="wire",
                     ))
+            elif c.kind == "constant":
+                rows.append(NetlistDiffRow(
+                    change=c.change, depth=depth,
+                    text=_constant_leaf_text(c, detailed=detailed),
+                    uid=c.uid, kind="constant",
+                ))
         return rows
 
-    rows = render((), 0)
-    rows.extend(_constant_row(con, detailed=detailed) for con in constants)
-    return rows
+    return render((), 0)
 
 
 def _format_signature_section(changes: list[SignatureChange]) -> str:
@@ -1607,10 +1762,7 @@ def format_diff(
         if signature:
             sections.append(_format_signature_section(signature))
 
-    constants = _diff_constants(graph_a, graph_b, va, vb)
-    rows = _netlist_diff(
-        graph_a, graph_b, va, vb, cmap, constants, detailed=verbose,
-    )
+    rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=verbose)
     if rows:
         sections.append("\n".join(_rows_to_text(rows)))
 
@@ -1634,15 +1786,12 @@ def netlist_diff_rows(
     ``.tmp/netlist-spec.md`` Phase 3), so the viewer renders the identical
     netlist-diff tree as ``lvkit diff`` prints, not a client-side
     reconstruction of it. Resolves VI names, builds the ``diff_uid`` change
-    map and the top-level constant diff exactly like ``format_diff`` does,
-    then returns ``_netlist_diff``'s rows unrendered."""
+    map exactly like ``format_diff`` does, then returns ``_netlist_diff``'s
+    rows unrendered."""
     va = graph_a.resolve_vi_name(vi_name_a)
     vb = graph_b.resolve_vi_name(vi_name_b)
     cmap = diff_uid(graph_a, graph_b, va, vb)
-    constants = _diff_constants(graph_a, graph_b, va, vb)
-    return _netlist_diff(
-        graph_a, graph_b, va, vb, cmap, constants, detailed=detailed,
-    )
+    return _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=detailed)
 
 
 def rows_to_json(rows: list[NetlistDiffRow]) -> list[dict]:
@@ -1698,56 +1847,6 @@ def _diff_signature(
     return changes
 
 
-def _diff_constants(
-    ga: InMemoryVIGraph, gb: InMemoryVIGraph,
-    va: str, vb: str,
-) -> list[ConstantChange]:
-    # Top-level constants only. Constants nested inside a structure frame
-    # are positioned by the Structures section (mirrors how nested
-    # operations are reported under Structures, not flat Operations).
-    consts_a = [c for c in ga.get_constants(va) if c.parent is None]
-    consts_b = [c for c in gb.get_constants(vb) if c.parent is None]
-
-    changes: list[ConstantChange] = []
-
-    # Named constants — match by name.
-    named_a = {c.name: c for c in consts_a if c.name}
-    named_b = {c.name: c for c in consts_b if c.name}
-    for name in sorted(set(named_a) | set(named_b)):
-        if name not in named_a:
-            changes.append(ConstantChange(
-                "added", name, new_value=repr(named_b[name].value),
-            ))
-        elif name not in named_b:
-            changes.append(ConstantChange(
-                "removed", name, old_value=repr(named_a[name].value),
-            ))
-        else:
-            va_val = repr(named_a[name].value)
-            vb_val = repr(named_b[name].value)
-            if va_val != vb_val:
-                changes.append(ConstantChange(
-                    "value_changed", name,
-                    old_value=va_val, new_value=vb_val,
-                ))
-
-    # Unnamed constants — match by (value, type) multiset.
-    unnamed_a = [c for c in consts_a if not c.name]
-    unnamed_b = [c for c in consts_b if not c.name]
-    keys_a = Counter(_const_key(c) for c in unnamed_a)
-    keys_b = Counter(_const_key(c) for c in unnamed_b)
-    for key in sorted(set(keys_a) | set(keys_b)):
-        diff = keys_b.get(key, 0) - keys_a.get(key, 0)
-        val_repr, type_str = key
-        label = f"(unnamed {type_str})"
-        for _ in range(max(0, diff)):
-            changes.append(ConstantChange("added", label, new_value=val_repr))
-        for _ in range(max(0, -diff)):
-            changes.append(ConstantChange("removed", label, old_value=val_repr))
-
-    return changes
-
-
 # ── Utility functions ─────────────────────────────────────────────────
 
 
@@ -1756,15 +1855,12 @@ def _terminal_map(terminals: list[Terminal]) -> dict[str, Terminal]:
     return {t.name: t for t in terminals if t.name}
 
 
-def _const_key(c: Constant) -> tuple[str, str]:
-    type_str = c.lv_type.to_python() if c.lv_type else "unknown"
-    return (repr(c.value), type_str)
-
-
 def _value_disp(value: object) -> str:
-    """Readable one-line display of a constant's value for a modified detail.
+    """Readable one-line display of a constant's value for a change detail.
     A plain string shows as-is (no repr quote noise); anything else falls back to
-    repr. Newlines/tabs are flattened so the detail stays one line."""
+    repr. Newlines/tabs are flattened so the detail stays one line. Carried in
+    ``ElementChange.detail`` (JSON + ``--verbose`` text); the viewer LIST omits
+    it (a string value can be arbitrarily long)."""
     s = value if isinstance(value, str) else repr(value)
     return " ".join(s.split())
 

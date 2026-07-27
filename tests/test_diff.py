@@ -247,14 +247,22 @@ class TestFormatDiffVerbose:
         assert "DAQmx Write.vi" in result
 
     def test_verbose_tree_matches_concise_tree(self):
-        # The tree itself is IDENTICAL between tiers -- verbose only adds
-        # Signature (before) and the unchanged-node tally (after).
+        # The node/structure/wire tree is IDENTICAL between tiers. Verbose adds
+        # Signature (before) and the unchanged-node tally (after), and gives each
+        # CONSTANT row its value -- concise omits constant values so a long
+        # string can't bloat a row (the value still lives in the JSON and the
+        # diagram panes). This pair has exactly one (added, float 0.0) constant.
         ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
         gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
         concise = format_diff(ga, gb, na, nb)
         verbose = format_diff(ga, gb, na, nb, verbose=True)
         common = len(diff_uid(ga, gb, na, nb).common_node_uids)
-        assert verbose == concise + f"\n\n({common} unchanged nodes)"
+        assert "○ float constant" in concise
+        expected = (
+            concise.replace("○ float constant", "○ float constant = 0.0")
+            + f"\n\n({common} unchanged nodes)"
+        )
+        assert verbose == expected
 
     def test_unchanged_node_tally_present(self):
         ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
@@ -496,7 +504,10 @@ class TestModifiedConstant:
         assert len(cmap.changes) == 1
         c = cmap.changes[0]
         assert c.change == "modified"
+        assert c.kind == "constant"
         assert c.uid == "100"
+        # detail carries the old→new transition (JSON + --verbose text); the
+        # viewer LIST omits it, but the data keeps it.
         assert c.detail == "5 → 10"
         # after bounds for the after-pane, before bounds for the before-pane
         assert c.bounds == (1.0, 2.0, 3.0, 4.0)
@@ -515,10 +526,16 @@ class TestModifiedConstant:
         assert diff_uid(ga, gb, "vi", "vi").changes == []
 
     def test_string_detail_has_no_repr_quotes(self):
+        # A string value change's detail shows the strings as-is (no repr quote
+        # noise). The value lives in detail (JSON + --verbose); the viewer list
+        # omits it, and the type label never carries the value.
         ga = _StubGraph([_const("7", "old", "String")])
         gb = _StubGraph([_const("7", "new", "String")])
-        cmap = diff_uid(ga, gb, "vi", "vi")
-        assert cmap.changes[0].detail == "old → new"
+        c = diff_uid(ga, gb, "vi", "vi").changes[0]
+        assert c.change == "modified"
+        assert c.kind == "constant"
+        assert c.detail == "old → new"
+        assert c.label == "str constant"
 
 
 # ── Locality stamping: container_uid / frame_path ───────────────────────

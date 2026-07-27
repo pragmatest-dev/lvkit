@@ -222,6 +222,11 @@
   .hl.node.added{fill:var(--add);stroke:var(--add);stroke-width:2}
   .hl.node.removed{fill:var(--del);stroke:var(--del);stroke-width:2}
   .hl.node.modified{fill:var(--mod);stroke:var(--mod);stroke-width:2}
+  /* A constant is a small node-like box on the diagram — same filled highlight
+     as a node (added/removed/modified alike), keyed by change grammar. */
+  .hl.constant.added{fill:var(--add);stroke:var(--add);stroke-width:2}
+  .hl.constant.removed{fill:var(--del);stroke:var(--del);stroke-width:2}
+  .hl.constant.modified{fill:var(--mod);stroke:var(--mod);stroke-width:2}
   .hl.structure{fill:none;stroke-width:3;stroke-dasharray:7 4}
   .hl.structure.added{stroke:var(--add)}.hl.structure.removed{stroke:var(--del)}
   .hl.structure.modified{stroke:var(--mod)}
@@ -272,7 +277,7 @@
   /* Selection reads via the RING + others dimming, never a heavier fill: keep the
      selected fill LIGHTER than the calm .24 overlay so the node/text stays legible
      underneath, and use a single soft glow instead of a stacked halo. */
-  .hl.node.sel,.hl.structure.sel{stroke-width:4;stroke-dasharray:none;stroke-opacity:1;
+  .hl.node.sel,.hl.structure.sel,.hl.constant.sel{stroke-width:4;stroke-dasharray:none;stroke-opacity:1;
           fill-opacity:.2;paint-order:stroke;animation:selpulse 1.25s ease-in-out infinite}
   .hl.wire.sel{stroke:#fff;stroke-width:2.5;fill-opacity:1;animation:selpulse 1.25s ease-in-out infinite}
   .hl.added.sel{filter:drop-shadow(0 0 4px var(--add))}
@@ -561,14 +566,18 @@ const esc=s=>s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
 // rendering -- see the note above). A "frame"/
 // "value"-kind change has no glyph of its own — the quoted frame token
 // ("True":) is its own visual tell (see frameHeaderRow below).
-const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚'};
+const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚', constant:'○'};
 const CHANGE_TAG={added:'+', removed:'−', modified:'~'};
 function kindPrefix(kind){ return KIND_GLYPH[kind] ? KIND_GLYPH[kind]+' ' : ''; }
 function changeRowHtml(i){
   const c=CHANGES[i];
   // Modified rows carry the value transition (old → new) under the label so the
   // change is legible without opening the node. Added/removed need no detail.
-  const detail=c.detail?'<div class="detail" title="'+esc(c.detail)+'">'+esc(c.detail)+'</div>':'';
+  // CONSTANTS are the exception: their detail IS the value (kept in the JSON and
+  // the --verbose text), but a constant value can be arbitrarily long (a whole
+  // string), so the list omits it — the diagram panes show the actual value.
+  const detail=(c.detail && c.kind!=='constant')
+    ?'<div class="detail" title="'+esc(c.detail)+'">'+esc(c.detail)+'</div>':'';
   // Hidden-frame rows just dim (.dimmed, toggled by updateParkState()) — no
   // pill; the owning selector's own "changed" dot already says "elsewhere".
   return '<span class="num">'+(i+1)+'</span>'+
