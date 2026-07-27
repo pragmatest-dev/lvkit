@@ -170,23 +170,24 @@
      grammar. BEFORE/AFTER text is what distinguishes the two panes. */
   .pane-label.before{background:var(--chip-before);border:1px solid var(--chip-border)}
   .pane-label.after{background:var(--chip-after);border:1px solid var(--chip-border)}
-  /* In Overlay the two panes are superimposed (grid-area 1/1, anchored top-left so
-     the two SVGs align exactly). The labels become position:absolute so they overlay
-     the SVG corners WITHOUT taking flow space — an in-flow label pushes its own SVG
-     down, which is what broke the top-left alignment. BEFORE rides the top-left of
-     its SVG; AFTER rides the bottom-left of ITS SVG (each pane sized to its own SVG
-     via align-self:start), so neither badge floats in the middle of the diagram. */
-  .overlay .pane-label{position:absolute;left:6px}
-  /* Straddle the svg edge FROM OUTSIDE: translateY lifts most of the pill into the
-     margin above/below the diagram, leaving a sliver overlapping the svg — BEFORE
-     hangs off the (aligned) TOP edge, AFTER off the after-svg's own BOTTOM edge. */
-  .overlay .pane-label.before{top:0;transform:translateY(-62%)}
-  .overlay .pane-label.after{top:auto;bottom:0;transform:translateY(62%)}
-  .stage.overlay{display:grid}
-  /* Superimpose both panes in one cell, anchored to the cell's top-left and each
-     sized to its OWN svg (align/justify start, not stretch) so their top-lefts
-     coincide and the AFTER label can pin to the after-svg's own bottom edge. */
-  .overlay .pane-wrap{grid-area:1/1;align-self:start;justify-self:start}
+  /* Overlay = the SAME split idea (label OUTSIDE its scroll box), superimposed.
+     Both wraps reserve equal top+bottom bands (padding) so the two scroll boxes line
+     up and the diagrams register. BEFORE is pinned in the top band (fixed header),
+     AFTER in the bottom band (fixed footer) — the scroll box between them has a max
+     height (view minus both bands); the diagram grows with zoom until it exceeds
+     that box, then scrolls WITHIN it, never under either label. Panes are synced
+     (scrollTargets includes overlay). */
+  .stage.overlay{display:grid;overflow:hidden}
+  /* align-self:start + max-height:100% => the wrap sizes to its CONTENT, but never
+     taller than the view. So the scroll box grows with the diagram (AFTER hugging
+     its bottom, no gap) until it hits that max, then the pane (flex 1 1 auto,
+     min-height:0) can't grow further and scrolls WITHIN — AFTER still pinned to its
+     bottom. */
+  .overlay .pane-wrap{grid-area:1/1;align-self:start;max-height:100%;min-height:0;
+    position:relative;display:flex;flex-direction:column;padding:26px 0;box-sizing:border-box}
+  .overlay .pane{flex:1 1 auto;min-height:0;overflow:auto}
+  .overlay #beforeWrap>.pane-label{position:absolute;top:5px;bottom:auto;left:12px;z-index:60;transform:none}
+  .overlay #afterWrap>.pane-label{position:absolute;top:auto;bottom:5px;left:12px;z-index:60;transform:none}
   /* pointer-events on before/after are NOT static here — applyBlend() (script,
      below) flips them to match whichever side the fader currently favours, so
      a click always lands on the pane that's actually dominant on screen. */
@@ -776,7 +777,7 @@ function fitScale(){                  // css px per user px at zoom=1
 // coordinate space and one (global) zoom scale, so mirroring raw scrollLeft/
 // scrollTop between them — or applying the identical px delta to both — keeps
 // them locked to the same LV-coordinate region without any unit conversion.
-function scrollTargets(){ return mode==='split' ? [beforePane, afterPane] : [stage]; }
+function scrollTargets(){ return (mode==='split'||mode==='overlay') ? [beforePane, afterPane] : [stage]; }
 function applyZoom(){
   const S=fitScale()*zoom;           // shared css-per-user scale → panes stay comparable
   const u=vbUnion();
@@ -1011,13 +1012,18 @@ const op=document.getElementById('op');
 // mode shows both panes at full opacity, each independently clickable.
 function applyBlend(){
   const v=op.value/100;
+  // The BEFORE/AFTER labels fade WITH their diagram (they live outside the pane in
+  // overlay, so they don't inherit its opacity — set them explicitly).
+  const bl=beforeWrap.querySelector('.pane-label'), al=afterWrap.querySelector('.pane-label');
   if(mode==='overlay'){
     beforePane.style.opacity=1-v; afterPane.style.opacity=v;
+    if(bl)bl.style.opacity=1-v; if(al)al.style.opacity=v;
     const afterTop=+op.value>=50;
     afterPane.style.pointerEvents=afterTop?'auto':'none';
     beforePane.style.pointerEvents=afterTop?'none':'auto';
   }else{
     beforePane.style.opacity=1; afterPane.style.opacity=1;
+    if(bl)bl.style.opacity=''; if(al)al.style.opacity='';
     beforePane.style.pointerEvents='auto'; afterPane.style.pointerEvents='auto';
   }
   try{ applyMinimapBlend(); }catch(_){}  // mirror the fade into the overlay minimap
@@ -1384,8 +1390,9 @@ function updateMinimap(){
       mmB.style.right='10px'; mmB.style.bottom='10px'; mmB.style.left='auto'; mmB.style.top='auto';
       // overlay/after read the after svg; before reads the before svg (both share
       // union-registered coordinates, so either is a faithful reference).
-      const refSvg=(mode==='before'?beforePane:afterPane).querySelector('svg');
-      mmB.hidden=!layoutMM(mmB, stage, refSvg);
+      const refPane=(mode==='before'?beforePane:afterPane);
+      const scroller=(mode==='overlay')?afterPane:stage;
+      mmB.hidden=!layoutMM(mmB, scroller, refPane.querySelector('svg'));
     }
   }catch(_){ /* minimap is best-effort */ }
 }
@@ -1393,7 +1400,7 @@ function updateMinimap(){
 // BEFORE pane and mmB the AFTER pane (mirrorScroll relays either to the other).
 function mmJump(e, mm){
   const isBefore = (mode==='split' && mm===mmA) || mode==='before';
-  const scroller = (mode==='split') ? (mm===mmA?beforePane:afterPane) : stage;
+  const scroller = (mode==='split') ? (mm===mmA?beforePane:afterPane) : (mode==='overlay'?afterPane:stage);
   const svg=(isBefore?beforePane:afterPane).querySelector('svg'); if(!svg)return;
   const r=mm.getBoundingClientRect();
   const rc=svg.getBoundingClientRect(), contentW=rc.width, contentH=rc.height;
