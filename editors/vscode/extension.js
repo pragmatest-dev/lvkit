@@ -48,44 +48,49 @@ function onPath(exe) {
   try { cp.execSync(probe, { stdio: 'ignore' }); return true; } catch (_) { return false; }
 }
 
-// Set in activate() so lvkitCmd can find the bundled standalone binary shipped
-// inside the extension (bin/lvkit/lvkit[.exe]) — a PyInstaller build that needs
-// no Python on the user's machine.
+// Set in activate() so lvkitCmd can locate the bundled uv binary.
 let _extensionPath = null;
 
-// The standalone lvkit binary shipped with the extension, if present for this
-// platform. This is what makes the extension work out-of-the-box for a LabVIEW
-// user who has no Python/lvkit installed.
-function bundledLvkit() {
+// The EXACT lvkit version this extension is built and tested against. uv fetches
+// THIS version, so the extension's advertised behavior is guaranteed regardless
+// of what (if anything) is installed on the user's machine. Bump whenever the
+// extension depends on a newer lvkit — which must be published to PyPI first.
+const LVKIT_PIN = '0.5.5';
+
+// The bundled `uv` binary (Astral), shipped inside the extension. uv is a
+// high-reputation, signed executable that RUNS under Windows Device Guard /
+// Smart App Control — where our own unsigned PyInstaller `lvkit.exe` gets
+// blocked (zero reputation). uv provisions a managed Python + the pinned lvkit
+// on first use (cached afterwards), and we invoke lvkit as a MODULE
+// (`python -m lvkit`) so no unsigned `lvkit.exe` is ever created or executed —
+// which is the whole reason the exe was blocked.
+function bundledUvPath() {
   if (!_extensionPath) return null;
-  const exe = process.platform === 'win32' ? 'lvkit.exe' : 'lvkit';
-  const p = path.join(_extensionPath, 'bin', 'lvkit', exe);
+  const exe = process.platform === 'win32' ? 'uv.exe' : 'uv';
+  const p = path.join(_extensionPath, 'bin', 'uv', exe);
   return fileExists(p) ? p : null;
 }
 
-// Resolve a ready-to-exec lvkit command PREFIX for a repo `root`. The prefix may
-// be MULTIPLE tokens (e.g. `uv run lvkit`), so callers must interpolate it raw —
-// never wrap the whole prefix in quotes as if it were a single path. Order:
-//   1. an explicit `lvkit.path` override (the literal default "lvkit" counts as
-//      unset, so auto-resolution can still run) — quoted as one path;
-//   2. the repo-local venv's lvkit on disk (developing inside a lvkit project);
-//   3. `uv run lvkit` when the repo has a pyproject.toml/uv.lock and `uv` is on
-//      PATH (runs lvkit inside the repo's own env — latest code when developing);
-//   4. the BUNDLED standalone binary shipped with the extension (works with no
-//      Python installed — the default for a normal end user);
-//   5. a global `lvkit` on PATH.
-// We NEVER write a global lvkit.path from here.
-function lvkitCmd(root) {
+// Resolve a ready-to-exec lvkit command PREFIX. Multi-token (e.g.
+// `"…\uv.exe" run …`), so callers interpolate it raw — never wrap the whole
+// prefix in quotes as one path. Order:
+//   1. an explicit `lvkit.path` override — a developer pointing at their OWN
+//      build/checkout (the literal default "lvkit" counts as unset). This is the
+//      only way an ambient/local lvkit is ever used; we never auto-discover one,
+//      because the extension can only guarantee its behavior at the pinned version.
+//   2. uv running the PINNED lvkit as a module — the guaranteed, no-Python,
+//      Device-Guard-safe path (bundled uv, else a `uv` already on PATH).
+//      `--no-project` stops uv from adopting any pyproject in the working dir,
+//      so the pin can't be silently overridden.
+//   3. a bare `lvkit` on PATH — last resort (may itself be blocked under SAC).
+function lvkitCmd(_root) {
   const configured = cfg().get('path', 'lvkit');
   if (configured && configured !== 'lvkit') return `"${configured}"`;
-  const venv = process.platform === 'win32'
-    ? path.join(root, '.venv', 'Scripts', 'lvkit.exe')
-    : path.join(root, '.venv', 'bin', 'lvkit');
-  if (fileExists(venv)) return `"${venv}"`;
-  const hasProj = fileExists(path.join(root, 'pyproject.toml')) || fileExists(path.join(root, 'uv.lock'));
-  if (hasProj && onPath('uv')) return 'uv run lvkit';
-  const bundled = bundledLvkit();
-  if (bundled) return `"${bundled}"`;
+  const uv = bundledUvPath() || (onPath('uv') ? 'uv' : null);
+  if (uv) {
+    const uvTok = uv.includes(path.sep) ? `"${uv}"` : uv;
+    return `${uvTok} run --no-project --with lvkit==${LVKIT_PIN} python -m lvkit`;
+  }
   return 'lvkit';
 }
 
@@ -94,10 +99,26 @@ function run(cmd, opts) {
     return cp.execSync(cmd, { maxBuffer: 1e9, ...opts });
   } catch (e) {
     const msg = String(e && e.message);
-    if ((e && e.code === 'ENOENT') || /ENOENT|not found|No such file/i.test(msg)) {
-      throw new Error('lvkit executable not found. Set "lvkit.path" in Settings, or install lvkit so it is on your PATH / in the repo\'s .venv.');
+    const stderr = e && e.stderr ? e.stderr.toString() : '';
+    const blob = msg + stderr;
+    // First run provisions a managed Python + lvkit via uv — that needs network.
+    if (/offline|No such host|Could not connect|failed to (fetch|download)|dns error|timed? out|network|proxy/i.test(blob)) {
+      throw new Error(
+        "lvkit's runtime couldn't be downloaded — uv needs network access the first "
+        + 'time it runs (it fetches a managed Python + lvkit, then caches them offline). '
+        + 'Check your connection/proxy and retry.'
+      );
     }
-    throw new Error(e && e.stderr ? e.stderr.toString() : msg);
+    // No uv available at all (bundle missing AND none on PATH) → lvkitCmd fell
+    // back to a bare `lvkit`, which isn't there.
+    if ((e && e.code === 'ENOENT') || /ENOENT|not found|No such file|is not recognized/i.test(blob)) {
+      throw new Error(
+        'Could not launch lvkit. The extension bundles uv to run it with no Python '
+        + 'required; if that is missing, install uv (https://docs.astral.sh/uv/) or set '
+        + '"lvkit.path" to your own lvkit.'
+      );
+    }
+    throw new Error(stderr || msg);
   }
 }
 
@@ -109,13 +130,17 @@ function cmpSemver(a, b) {
   return 0;
 }
 
-// One-time, non-blocking check that the resolved lvkit meets MIN_LVKIT. Called
-// lazily on first command use. If `--version` fails (lvkit missing/misconfigured)
-// we stay silent — the per-command ENOENT error path already guides the user.
+// One-time, non-blocking version check. On the default path lvkit is PINNED
+// (uv fetches LVKIT_PIN), so the version is guaranteed and there's nothing to
+// check — skipping also avoids a redundant uv spawn (which would download the
+// runtime just to print --version). We only verify when the user pointed us at
+// their OWN lvkit via `lvkit.path`, where the version is unknown.
 let _versionChecked = false;
 function checkLvkitVersion(root) {
   if (_versionChecked) return;
   _versionChecked = true;
+  const configured = cfg().get('path', 'lvkit');
+  if (!(configured && configured !== 'lvkit')) return;  // pinned path — nothing to check
   try {
     const out = cp.execSync(`${lvkitCmd(root)} --version`, { cwd: root }).toString();
     const m = out.match(/(\d+\.\d+\.\d+)/);
@@ -124,7 +149,7 @@ function checkLvkitVersion(root) {
         `This extension needs lvkit ≥ ${MIN_LVKIT}; found ${m[1]}. Update with 'pip install -U lvkit'.`
       );
     }
-  } catch (_) { /* missing/broken lvkit -> handled by the command's ENOENT path */ }
+  } catch (_) { /* missing/broken override lvkit -> handled by the command's error path */ }
 }
 
 function searchArgs(root) {

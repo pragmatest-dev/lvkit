@@ -2,6 +2,24 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.8]
+
+- **Works on locked-down Windows (Device Guard / Smart App Control).** The old
+  bundled `lvkit.exe` was an unsigned PyInstaller build with no reputation, which
+  reputation-based policies (WDAC-ISG / SAC) block — sometimes only after a
+  reboot re-enforces the policy, so an exe that ran yesterday stops running
+  today. The extension now ships **uv** (a high-reputation, signed binary that
+  runs under those policies) and launches lvkit as a **module**
+  (`uv run --with lvkit==<pinned> python -m lvkit`) — no unsigned `lvkit.exe` is
+  ever created or executed, and no Python needs to be installed (uv provisions a
+  managed Python + the pinned lvkit on first use, cached afterwards).
+- **Guaranteed lvkit version.** The extension now pins the exact lvkit it was
+  tested against instead of using whatever happens to be installed, so its
+  behavior is reproducible. A developer can still point `lvkit.path` at their own
+  build.
+- *Note:* the first render needs network access once (to fetch the runtime); it
+  is cached offline thereafter.
+
 ## [0.1.6]
 
 - **Previews no longer write into your repo.** Opening a `.vi` used to leave a

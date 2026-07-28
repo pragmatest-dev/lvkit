@@ -3,12 +3,23 @@
 Contributor and maintainer notes. User-facing docs are in [README.md](README.md).
 ## How the extension finds lvkit
 
-The extension resolves which `lvkit` to run, in order: an explicit **`lvkit.path`**
-setting → the repo's own `.venv/bin/lvkit` (`.venv\Scripts\lvkit.exe` on Windows) →
-`uv run lvkit` when the repo has a `pyproject.toml`/`uv.lock` and `uv` is on `PATH` →
-**the bundled binary** (`bin/lvkit/lvkit`) → a global `lvkit`. The first three let
-developers working inside the LVKit repo use their own latest build; everyone else
-falls through to the bundled binary automatically. Set **`lvkit.path`** only to override.
+The extension resolves which `lvkit` to run, in order:
+
+1. an explicit **`lvkit.path`** setting — a developer pointing at their own build.
+   This is the ONLY way an ambient/local lvkit is used; we never auto-discover one,
+   because the extension can only guarantee its behavior at the **pinned** version.
+2. **`uv run --no-project --with lvkit==<LVKIT_PIN> python -m lvkit`** using the
+   bundled `uv` (`bin/uv/uv.exe`, else a `uv` already on `PATH`). This is the default.
+3. a bare `lvkit` on `PATH` — last resort.
+
+Why uv + a module instead of a bundled `lvkit.exe`: on Windows, **Device Guard /
+Smart App Control** blocks an unsigned, zero-reputation PyInstaller exe. `uv` is a
+signed, high-reputation binary those policies allow; running lvkit as a **module**
+(`python -m lvkit`) means no `lvkit.exe` is ever created or executed. uv provisions a
+managed Python + the pinned lvkit on first use (network once, cached after), so a
+LabVIEW user needs no Python installed. `LVKIT_PIN` in `extension.js` fixes the exact
+version so the extension's advertised behavior is reproducible — bump it (to a version
+already on **PyPI**) when the extension depends on a newer lvkit.
 
 ## Try it locally (dev host)
 
@@ -30,18 +41,23 @@ The extension versions on its **own** track (independent of the LVKit library) �
 in `extension.js`); bump that constant when a feature needs a newer library, and bump
 the extension `version` in `package.json` per its own release cadence.
 
-## Building the bundled binary
+## Bundling uv
 
-The `bin/` binary is **not committed** (git-ignored, ~70 MB, per-platform). Build it
-locally (needed once for F5 testing) or in CI at release time:
+`bin/uv/` is **not committed** (git-ignored, ~76 MB, per-platform). Fetch it before
+packaging (or for F5 testing):
 
 ```bash
-uv pip install pyinstaller                     # once
-editors/vscode/build/build-binary.sh           # -> editors/vscode/bin/lvkit/lvkit
+editors/vscode/build/fetch-uv.sh win32-x64     # -> editors/vscode/bin/uv/uv.exe
+# also: linux-x64 | darwin-x64 | darwin-arm64 | win32-arm64 | linux-arm64
 ```
 
-PyInstaller is platform-specific, so run it on **each** of macOS / Windows / Linux to
-produce that OS's binary; ship one platform-specific `.vsix` per target.
+uv is platform-specific, so fetch the matching binary for **each** target and ship one
+`.vsix` per platform (e.g. `npx @vscode/vsce package --target win32-x64`). The win32
+`.vsix` can be built from WSL/Linux — vsce just bundles whatever `bin/uv/uv.exe` is
+present, so the fetched **Windows** uv.exe is what matters, not the build host.
+
+(The old PyInstaller path — `build/build-binary.sh` → `bin/lvkit/` — is superseded by
+uv and no longer used; see "How the extension finds lvkit".)
 
 ## Publishing to the Marketplace
 
