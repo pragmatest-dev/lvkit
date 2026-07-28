@@ -1228,10 +1228,36 @@ function updateParkState(){
   });
 }
 
-// Set a structure's OWN frame — CORRELATED: applied to every pane that has it, so
-// the same case shows the same frame in before and after (comparison stays aligned).
+// Renamed-frame pairings: a case whose selector VALUE changed ("1" in before is
+// the SAME frame as "0" in after) reports a kind:"value" change carrying both
+// sides' addressing. Without this, correlating a frame across panes by copying
+// the value picks a value the other pane doesn't have -> an empty frame. Keyed
+// by struct uid -> {before:[...afterForThatBefore], after:{...}} lookups.
+const framePairB2A={}, framePairA2B={};   // struct -> {beforeVal: afterVal} / reverse
+CHANGES.forEach(c=>{
+  if(c.kind!=='value' || !c.container_uid || !c.frame_path || !c.frame_path_before) return;
+  const leaf=p=>{const s=p.split(';').pop(); return s.slice(s.indexOf('=')+1);};
+  const b=leaf(c.frame_path_before), a=leaf(c.frame_path), u=String(c.container_uid);
+  (framePairB2A[u]=framePairB2A[u]||{})[b]=a;
+  (framePairA2B[u]=framePairA2B[u]||{})[a]=b;
+});
+// The value a given pane should show so it lands on the SAME frame the user
+// picked (value `v`) in some pane. If this pane already has `v` (a shared /
+// same-value frame — the common case), use it verbatim; otherwise translate
+// through the renamed-frame pairing so "1" in before maps to "0" in after.
+function frameValFor(u, v, isBefore){
+  const st=isBefore?PST.before:PST.after;
+  if(st.frames[u] && st.frames[u].indexOf(v)>=0) return v;   // pane has it directly
+  const fwd=isBefore?framePairA2B[u]:framePairB2A[u];        // other pane's val -> this pane's val
+  if(fwd && v in fwd) return fwd[v];
+  return v;                                                   // no pairing -> unchanged
+}
+// Set a structure's OWN frame — CORRELATED across panes so the same frame shows
+// in before and after (comparison stays aligned), translating a renamed frame's
+// value to each pane's own token.
 function setFrame(u, v){
-  [PST.before, PST.after].forEach(st=>{ if(st.toggleable.has(u)) st.sel[u]=v; });
+  if(PST.before.toggleable.has(u)) PST.before.sel[u]=frameValFor(u, v, true);
+  if(PST.after.toggleable.has(u))  PST.after.sel[u]=frameValFor(u, v, false);
   applyFrames();
 }
 function stepFrame(pane, u, dir){

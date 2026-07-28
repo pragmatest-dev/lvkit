@@ -302,6 +302,20 @@ class TestPaneRegistrationAndBlendReveal:
         assert '<button data-mode="split" class="active"' in html
         assert '<span id="opWrap" hidden>' in html
 
+    def test_direct_frame_toggle_translates_renamed_value_across_panes(self):
+        """Toggling a case's selector DIRECTLY on the diagram (setFrame) must
+        land the OTHER pane on the paired frame, not copy the literal value: a
+        renamed "1"->"0" frame means picking "1" in before has to select "0" in
+        after (which has no "1"), else an empty frame shows. Same-value frames
+        still copy verbatim. This is the in-view toggle path, distinct from the
+        change-list's revealFrame."""
+        html = self._html()
+        # pairing maps are built from the value changes' both-sided addressing
+        assert "framePairB2A" in html and "framePairA2B" in html
+        # setFrame routes each pane through the per-pane translation
+        assert "frameValFor(u, v, true)" in html
+        assert "frameValFor(u, v, false)" in html
+
     def test_value_change_reveals_each_pane_from_its_own_frame_side(self):
         """A frame VALUE change ("1"->"0") addresses its frame differently in
         each pane (before=...=1, after=...=0). revealFrame must drive the OTHER
