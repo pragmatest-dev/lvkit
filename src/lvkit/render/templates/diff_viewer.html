@@ -230,10 +230,11 @@
   .hl.structure{fill:none;stroke-width:3;stroke-dasharray:7 4}
   .hl.structure.added{stroke:var(--add)}.hl.structure.removed{stroke:var(--del)}
   .hl.structure.modified{stroke:var(--mod)}
-  /* Hidden-frame changes get NO box or pill on the selector widget — only the
-     aggregate "changed" dot below. The real numbered badge (.hl-num, drawn at
-     the change's own on-node bounds) just display:none's until its frame is
-     shown (see updateParkState() in the script), then reappears in place. */
+  /* A change whose frame isn't currently shown is GHOSTED (faint .offframe box +
+     badge at its on-node bounds), not hidden — so every change stays visible in
+     the unselected state and reappears at full strength when its frame is shown
+     (see updateParkState() + .hl.offframe). The owning selector also carries an
+     aggregate "changed" dot below. */
   /* Aggregate "this structure's frame set changed" mark on the live selector
      widget, and per-value markers on its dropdown menu rows when the renderer
      exposes one (case structures only — see decorateMenus()). */
@@ -272,6 +273,17 @@
   /* Spotlight: once a change is picked, fade every OTHER highlight + badge. */
   .stage.has-sel .hl:not(.sel){fill-opacity:.05;stroke-opacity:.22}
   .stage.has-sel .hl-num:not(.sel){opacity:.18}
+  /* Off-frame changes: kept visible but GHOSTED (faint outline / dim badge) in
+     the unselected state, so a change in a not-currently-shown frame still
+     reads as "there's a change over there" instead of vanishing. */
+  /* Off-frame wins over .sel + the spotlight: a change whose node isn't on
+     screen must GHOST even when selected, or a full-strength box falsely brands
+     whatever now occupies that spot as the change. */
+  .hl.offframe,.hl.offframe.sel{stroke-opacity:.24!important;fill-opacity:0!important;filter:none!important;animation:none!important}
+  .hl-num.offframe,.hl-num.offframe.sel{opacity:.32!important}
+  /* Chain wires are hidden until selected; also hide them when off-frame, so a
+     selected node whose frame you navigated away from shows no dangling wires. */
+  .hl.wirepath.chain.offframe{display:none!important}
   /* Selected change KEEPS its add/remove colour; stands out via spotlight-dim +
      same-colour glow + pulse, never by recolouring. */
   /* Selection reads via the RING + others dimming, never a heavier fill: keep the
@@ -494,16 +506,27 @@ function drawBox(pane, bounds, cls, label){
   layer.appendChild(t);
   return {r, t, layer};
 }
+const frameNumCol={};   // per-(pane,structure) column counter for stacked frame badges
 CHANGES.forEach((c,i)=>{
   const cls=c.kind+' '+c.change;
   const pane=paneFor(c);
   parts[i]=[];
   if(c.kind==='frame'||c.kind==='value'){
-    // A frame/value change has no node of its own — it IS the owning structure's
-    // frame set, so it gets NO on-canvas box or badge. Its only always-visible
-    // mark is the owning selector's aggregate "changed" dot (decorateMenus(),
-    // further down) plus a per-value dot inside the dropdown when one exists.
-    // focus()/visibleEl() target the live selector widget directly for this kind.
+    // A frame/value change has no node of its own — number it above its owning
+    // structure's selector with the SAME .hl-num badge every other change gets
+    // (pointer-events:none; it selects via the change list / normal path). Several
+    // changes on one structure lay out in a row. The selector is always on screen,
+    // so this badge is NOT frame-parked (offframe) the way on-node badges are.
+    const box=selectorBounds(pane, c.container_uid);
+    if(box){
+      const key=(pane===beforePane?'b':'a')+c.container_uid;
+      const col=(frameNumCol[key]=(frameNumCol[key]||0)+1)-1;
+      const layer=layerOf(pane.querySelector('svg'));
+      const t=document.createElementNS(SVGNS,'text');
+      t.setAttribute('x',box[0]+2+col*15); t.setAttribute('y',box[1]-6);
+      t.setAttribute('class','hl-num '+cls); t.textContent=i+1;
+      layer.appendChild(t); nums[i]=t; layers[i]=layer;
+    }
   } else if(c.kind==='wire'){
     // Wire change: overlay the faithful drawn wire, coloured by change type.
     if(c.path){
@@ -542,11 +565,10 @@ CHANGES.forEach((c,i)=>{
     }
   }
   // A node/wire/structure change whose frame isn't the pane's current selection
-  // has nothing else drawn for it — no parked box, no ring, no pill. Its own
-  // real badge (rects[i]/nums[i] above) just display:none's via updateParkState()
-  // until the reviewer navigates to its frame, at which point it reappears
-  // exactly where it belongs: on the node. The owning selector's aggregate
-  // "changed" dot (decorateMenus()) is the only indicator while it's hidden.
+  // is GHOSTED (its box+badge get .offframe via updateParkState()) rather than
+  // hidden — so it still reads at a glance in the unselected state, then snaps
+  // to full strength when the reviewer navigates to its frame. The owning
+  // selector's aggregate "changed" dot (decorateMenus()) marks it too.
 });
 
 // ── Change list: Flat / Tree (#31, Phase 3) ─────────────────────────────
@@ -763,8 +785,8 @@ const PADPANE=16;
 function svgOf(c){ return paneFor(c).querySelector('svg'); }
 
 // ── Global zoom — one scale drives BOTH panes, in every view mode ──────────
-let zoom=1;                          // 1 = whole VI fit to stage width
-const ZMIN=1, ZMAX=8;                // no zooming out past fit
+let zoom=1;                          // 1 = whole VI fit to stage WIDTH (the readable default)
+const ZMAX=8;                        // ZMIN is dynamic — see zMin()/fitBothZoom()
 // before/after share ONE LV coordinate space but each svg carries its own tight
 // viewBox — union registration (here + the margins applyZoom sets) is what maps
 // the SAME LV point to the SAME screen point in both panes, in every mode.
@@ -772,13 +794,26 @@ function vbUnion(){
   const b=beforePane.querySelector('svg').viewBox.baseVal;
   const a=afterPane.querySelector('svg').viewBox.baseVal;
   return {minX:Math.min(b.x,a.x), minY:Math.min(b.y,a.y),
-          w:Math.max(b.x+b.width, a.x+a.width)-Math.min(b.x,a.x)};
+          w:Math.max(b.x+b.width, a.x+a.width)-Math.min(b.x,a.x),
+          h:Math.max(b.y+b.height, a.y+a.height)-Math.min(b.y,a.y)};
 }
 function fitScale(){                  // css px per user px at zoom=1
   // Every mode fits to full width; Split mode stacks the panes vertically so each pane
   // gets the whole width (far better for wide LabVIEW diagrams).
   return (stage.clientWidth-2*PADPANE)/vbUnion().w;
 }
+// The zoom (relative to the width-fit baseline of 1) at which the WHOLE VI —
+// both width AND height — fits the current scroll viewport with no scrollbars.
+// Clamped to 1: a wide-short VI already fits its height at width-fit, so Fit
+// never zooms IN past the readable width-fit. Only a TALL VI drives it below 1.
+// Uses the live scroll viewport (stage, or a pane in split/overlay) so it's
+// correct in every mode. This is the floor for zoom-out and the Fit target.
+function fitBothZoom(){
+  const u=vbUnion(), vp=scrollTargets()[0];
+  const heightCssPerUser=(vp.clientHeight-2*PADPANE)/u.h;
+  return Math.max(0.02, Math.min(1, heightCssPerUser/fitScale()));
+}
+function zMin(){ return fitBothZoom(); }   // no zooming out past "whole VI in view"
 // ── Split view synced pan (mode 'split') ────────────────────────────────────────
 // In every other mode `stage` itself is the one scroll container. In 'split'
 // mode each pane is its OWN independent scroll viewport (see .stage.split .pane
@@ -799,9 +834,9 @@ function applyZoom(){
     s.style.marginLeft=((s.viewBox.baseVal.x-u.minX)*S)+'px';
     s.style.marginTop=((s.viewBox.baseVal.y-u.minY)*S)+'px';
     s.querySelectorAll('.hl-num').forEach(t=>t.style.fontSize=(15/S)+'px');});
-  // At the limits the button would be a no-op (zoom clamps to [ZMIN,ZMAX]) —
+  // At the limits the button would be a no-op (zoom clamps to [zMin(),ZMAX]) —
   // read as disabled. applyZoom runs on every zoom change, including glides.
-  document.getElementById('zoomOut').disabled = zoom<=ZMIN;
+  document.getElementById('zoomOut').disabled = zoom<=zMin()+1e-6;
   document.getElementById('zoomIn').disabled = zoom>=ZMAX;
   updateMinimap();   // keep the nav overlay in step with the shared zoom/scroll
 }
@@ -817,7 +852,7 @@ const ANIMATE = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 const easeInOutCubic = t => t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
 function setZoom(z, ax, ay){          // keep viewport point (ax,ay) fixed while zooming
   cancelGlide();                      // a manual zoom retargets away from any glide
-  z=Math.max(ZMIN, Math.min(z, ZMAX));
+  z=Math.max(zMin(), Math.min(z, ZMAX));
   const targets=scrollTargets();
   if(ax===undefined){ax=targets[0].clientWidth/2; ay=targets[0].clientHeight/2;}
   const ratio=z/zoom;
@@ -939,7 +974,9 @@ function focus(i){
 }
 
 function jump(i){
-  if(i<0||i>=CHANGES.length)return; sel=i;
+  if(i<0||i>=CHANGES.length)return;
+  if(i===sel){ clearSel(); return; }   // re-selecting the current change toggles it OFF
+  sel=i;
   const c=CHANGES[i];
   // Respect the user's chosen view. Overlay + Split show BOTH versions,
   // so never yank out of them. Only correct a single-pane mode that's on the
@@ -969,12 +1006,18 @@ function jump(i){
   revealBlend(c);                                // fade the change's own layer dominant
   focus(i);                                      // zoom + centre
 }
-function fit(){ sel=-1; stage.classList.remove('has-sel'); setZoom(1);
+// Clear any selection (row/box/badge .sel classes + the spotlight) WITHOUT
+// touching zoom, scroll, or the shown frame. Shared by fit() and by
+// toggle-deselect (re-clicking the already-selected change).
+function clearSel(){
+  sel=-1; stage.classList.remove('has-sel');
   document.querySelectorAll('.item.sel').forEach(n=>n.classList.remove('sel'));
   Object.values(rects).forEach(r=>r.classList.remove('sel'));
   Object.values(nums).forEach(t=>t.classList.remove('sel'));
   Object.values(parts).flat().forEach(el=>el.classList.remove('sel'));
-  Object.values(ghosts).forEach(g=>{if(!g)return;g.r.classList.remove('sel');if(g.t)g.t.classList.remove('sel');}); }
+  Object.values(ghosts).forEach(g=>{if(!g)return;g.r.classList.remove('sel');if(g.t)g.t.classList.remove('sel');});
+}
+function fit(){ clearSel(); setZoom(1); }  // Fit = width-fit; zoom-out still reaches fit-both via zMin()
 document.getElementById('next').onclick=()=>jump(Math.min(CHANGES.length-1,sel+1));
 document.getElementById('prev').onclick=()=>jump(Math.max(0,sel-1));
 document.getElementById('zoomIn').onclick=()=>setZoom(zoom*1.3);
@@ -1162,8 +1205,22 @@ function updateParkState(){
     // above) — only the selector's aggregate dot represents them, and that dot
     // is always visible regardless of which frame is currently shown.
     if(c.kind!=='frame' && c.kind!=='value'){
-      if(rects[i]) rects[i].style.display = hidden ? 'none' : '';
-      if(nums[i]) nums[i].style.display = hidden ? 'none' : '';
+      // A change whose frame isn't currently shown stays VISIBLE but GHOSTED
+      // (.offframe), rather than display:none — so in the unselected state every
+      // change reads at a glance and the ones living in other frames are clearly
+      // "elsewhere". The highlight overlay lives in a top-level hl-layer, so it
+      // can draw at the node's real coordinates even though the node's own frame
+      // group is hidden. The MODIFIED-change mirror box+badge in the other pane
+      // (ghosts[i]) is gated the same way (frames are UID-correlated).
+      if(rects[i]) rects[i].classList.toggle('offframe', hidden);
+      if(nums[i]) nums[i].classList.toggle('offframe', hidden);
+      // The node's incident "chain" wires (parts[i]) only make sense when the
+      // node is on screen — gate them too, so navigating away from the frame
+      // hides them even while the node stays selected.
+      (parts[i]||[]).forEach(el=>el.classList.toggle('offframe', hidden));
+      const g=ghosts[i];
+      if(g){ if(g.r) g.r.classList.toggle('offframe', hidden);
+             if(g.t) g.t.classList.toggle('offframe', hidden); }
     }
     // Looked up by data-i, not positional index — Tree mode's row order
     // doesn't match CHANGES order the way Flat's does (#31).
@@ -1296,30 +1353,14 @@ function decorateMenus(){
     .filter(c=>c.kind==='structure'&&(c.change==='added'||c.change==='removed'))
     .map(c=>String(c.uid)));
   const byStruct={};
-  CHANGES.forEach(c=>{
+  CHANGES.forEach((c,idx)=>{
     if(!c.container_uid || !c.frame_path) return;
     if(selfAddRem.has(String(c.container_uid))) return;
     const seg=c.frame_path.split(';').pop(), val=seg.slice(seg.indexOf('=')+1);
-    (byStruct[c.container_uid]=byStruct[c.container_uid]||[]).push({value:val, cls:c.change});
+    (byStruct[c.container_uid]=byStruct[c.container_uid]||[]).push({i:idx, value:val, cls:c.change});
   });
   [beforePane,afterPane].forEach(pane=>{
     Object.keys(byStruct).forEach(uid=>{
-      const box=selectorBounds(pane, uid);
-      const widget=selectorEl(pane, uid);
-      if(widget && box){
-        const dot=document.createElementNS(SVGNS,'circle');
-        dot.setAttribute('cx',box[2]-3);dot.setAttribute('cy',box[1]+3);dot.setAttribute('r',3.2);
-        // Dot colour follows the change grammar: all-added inside → green,
-        // all-removed → red, mixed/modified → yellow.
-        const kinds=new Set(byStruct[uid].map(e=>e.cls));
-        const agg=(kinds.size===1&&(kinds.has('added')||kinds.has('removed')))
-          ? kinds.values().next().value : 'modified';
-        dot.setAttribute('class','frame-changed-dot '+agg);
-        const title=document.createElementNS(SVGNS,'title');
-        title.textContent=byStruct[uid].length+' change(s) inside this structure — open the ▼ dropdown for per-value markers';
-        dot.appendChild(title);
-        widget.appendChild(dot);
-      }
       byStruct[uid].forEach(({value,cls})=>{
         const opt=pane.querySelector(
           '.lv-menu[data-lv-struct="'+uid+'"] .lv-option[data-lv-value="'+CSS.escape(value)+'"]');

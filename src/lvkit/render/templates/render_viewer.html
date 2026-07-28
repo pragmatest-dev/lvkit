@@ -100,21 +100,31 @@ function fitScale(){                    // css px per user px at zoom=1
   const w=svg.viewBox.baseVal.width||1;
   return (stage.clientWidth-2*PAD)/w;
 }
+// The zoom (relative to width-fit=1) at which the WHOLE diagram — width AND
+// height — fits the stage with no scrollbars. Clamped to 1 so a wide-short VI
+// stays at the readable width-fit; only a TALL VI drives Fit below 1.
+function fitBothZoom(){
+  if(!svg)return 1;
+  const h=svg.viewBox.baseVal.height||1;
+  const heightCssPerUser=(stage.clientHeight-2*PAD)/h;
+  return Math.max(0.02, Math.min(1, heightCssPerUser/fitScale()));
+}
 function applyZoom(){
   if(!svg)return;
   svg.style.width=(svg.viewBox.baseVal.width*fitScale()*zoom)+'px';
   updateMinimap();
 }
 // Keep the viewport point (ax,ay) fixed while zooming (native pinch feel). zoom
-// floors at 1 (fit) so the diagram never shrinks below full width.
+// floors at fitBothZoom() (the whole diagram in view) so it never shrinks past
+// "everything visible" — width-fit for a wide VI, height-fit for a tall one.
 function setZoom(z, ax, ay){
-  z=Math.max(1, Math.min(z, 8));
+  z=Math.max(fitBothZoom(), Math.min(z, 8));
   if(ax===undefined){ax=stage.clientWidth/2; ay=stage.clientHeight/2;}
   const ratio=z/zoom, cx=stage.scrollLeft+ax, cy=stage.scrollTop+ay;
   zoom=z; applyZoom();
   stage.scrollLeft=cx*ratio-ax; stage.scrollTop=cy*ratio-ay;
 }
-function fit(){ setZoom(1); stage.scrollLeft=0; stage.scrollTop=0; }
+function fit(){ setZoom(1); stage.scrollLeft=0; stage.scrollTop=0; }  // Fit = width-fit; zoom-out floor (setZoom) still reaches fit-both
 document.getElementById('zoomIn').onclick=()=>setZoom(zoom*1.3);
 document.getElementById('zoomOut').onclick=()=>setZoom(zoom/1.3);
 document.getElementById('zoomFit').onclick=fit;
