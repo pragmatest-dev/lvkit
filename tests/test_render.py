@@ -2182,6 +2182,96 @@ def test_single_field_bundle_is_not_dropped():
     assert glyph.num_fields == 1
 
 
+def test_mux_field_terminals_snap_to_node_edge():
+    """Bundle/Unbundle FIELD (``list``) terminals attach at the node EDGE on
+    their dataflow side — input fields (Bundle) at the LEFT edge, output fields
+    (Unbundle) at the RIGHT edge — keeping their row Y. Regression for the
+    "every bundle node crosses its input and output terminals" bug: field
+    terminals' heap centers sit by the field-name label (mid-box, near the
+    divider), so an input wire attached there ran into the middle of the box
+    and crossed the assembled output exiting the right edge."""
+    from lvkit.models import Terminal
+    from lvkit.render.scene import RenderTerminal, _reposition_mux_terminals
+
+    bounds = (100.0, 400.0, 200.0, 460.0)  # left, top, right, bottom (mid_y=430)
+
+    def rt(direction, role, cx, cy):
+        return RenderTerminal(
+            terminal=Terminal(id="t", index=0, direction=direction,
+                              nmux_role=role),
+            center=(cx, cy), bounds=None,
+        )
+
+    # A Bundle: two field INPUTS whose heap centers sit near the right/divider
+    # (the WRONG side), plus the assembled aggregate OUTPUT.
+    out = _reposition_mux_terminals(
+        [rt("input", "list", 190.0, 415.0),
+         rt("input", "list", 188.0, 445.0),
+         rt("output", "agg", 150.0, 430.0)],
+        bounds,
+    )
+    fins = [t for t in out if t.terminal.nmux_role == "list"]
+    assert [t.center[0] for t in fins] == [100.0, 100.0]   # snapped to LEFT edge
+    assert [t.center[1] for t in fins] == [415.0, 445.0]   # row Y preserved
+    agg = next(t for t in out if t.terminal.nmux_role == "agg")
+    assert agg.center == (200.0, 430.0)                    # cluster exits right-mid
+
+    # An Unbundle field OUTPUT snaps to the RIGHT edge (mirror).
+    ub = _reposition_mux_terminals([rt("output", "list", 140.0, 430.0)], bounds)
+    assert ub[0].center[0] == 200.0
+
+
+def test_cluster_constant_compacted_to_natural_rows():
+    """A cluster constant's heap box is the typedef's front-panel layout, which
+    stretches each field row into a giant column (e.g. a 23-field private-data
+    cluster at 1031px). _compact_cluster_const_geom shrinks it (top-left
+    anchored, shrink-only) to one natural row per field and re-anchors the
+    output terminal to the shrunk box, so obstacle/box/wire agree."""
+    from lvkit.graph.models import ConstantNode
+    from lvkit.models import ClusterField, LVType
+    from lvkit.parser.layout import Layout
+    from lvkit.render.scene import (
+        _CLUSTER_GLYPH_PAD,
+        _CLUSTER_ROW_H,
+        _compact_cluster_const_geom,
+    )
+
+    def cluster_const(n_fields):
+        return ConstantNode(
+            id="V::5", vi="V", name="c",
+            lv_type=LVType(
+                kind="cluster",
+                fields=[ClusterField(name=f"f{i}") for i in range(n_fields)],
+            ),
+        )
+
+    class _Graph:
+        def __init__(self, nodes):
+            self._nodes = nodes
+        def iter_nodes(self, vi_name):
+            return self._nodes
+
+    # Oversized heap box (300px tall for 3 fields) → compacted to 3 rows.
+    layout = Layout(node_bounds={"5": (0.0, 0.0, 100.0, 300.0)})
+    bounds, centers = _compact_cluster_const_geom(
+        _Graph([cluster_const(3)]), "V", layout,
+    )
+    expected_h = 2 * _CLUSTER_GLYPH_PAD + 3 * _CLUSTER_ROW_H
+    assert bounds["5"] == (0.0, 0.0, 100.0, expected_h)   # top-left kept, width kept
+    assert centers["5"] == (100.0, expected_h / 2)        # output re-anchored right-mid
+
+    # Shrink-only: a box already shorter than its natural height is untouched.
+    small = Layout(node_bounds={"5": (0.0, 0.0, 100.0, 10.0)})
+    b2, _ = _compact_cluster_const_geom(_Graph([cluster_const(3)]), "V", small)
+    assert "5" not in b2
+
+    # A non-cluster constant (no fields) is ignored.
+    scalar = ConstantNode(id="V::5", vi="V", name="c",
+                          lv_type=LVType(kind="primitive"))
+    b3, _ = _compact_cluster_const_geom(_Graph([scalar]), "V", layout)
+    assert b3 == {}
+
+
 def test_pass_through_mux_is_not_a_bundle_glyph():
     """A 1-in/1-out mux with NO field (list) terminals — both terminals are
     the aggregate — is a structure-boundary pass-through, not an

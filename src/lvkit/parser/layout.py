@@ -455,18 +455,21 @@ class _LayoutBuilder:
             for elem in zp.findall("SL__arrayElement"):
                 self._visit(elem, ox, oy)
 
-        # sRN (shift-register / border-terminal group) nodes live in
-        # nodeList, not zPlaneList — but they carry their own ``bounds``
-        # (a translation back to this diagram's absolute origin, since
-        # they hold references to terminals whose visual glyph lives
-        # outside this diagram, e.g. a loop's N/i border box) and a
-        # termList of front-panel terminals / standalone constants that
-        # DO need offset-aware geometry. Visit them the same way.
+        # nodeList holds diagram nodes that don't sit in zPlaneList: sRN
+        # (shift-register / border-terminal groups) AND In-Place-Element-
+        # Structure border access nodes (decomposeCluster/Array/MatchNode — the
+        # little split/recompose tabs on the IPES border). Each carries its own
+        # ``bounds`` (sRN's is a translation to this diagram's origin for
+        # out-of-diagram terminal refs; a decompose node's is its own tab rect)
+        # plus a termList needing offset-aware geometry — so visit them all.
+        # `_visit` is bounds-gated (skips anything without a rect) and already
+        # branches on sRN internally, so this stays correct for both. Skipping
+        # the decompose nodes left their wires terminating in empty space and
+        # made whole VIs decline for "missing geometry".
         nl = diag.find("nodeList")
         if nl is not None:
             for elem in nl.findall("SL__arrayElement"):
-                if elem.get("class") == "sRN":
-                    self._visit(elem, ox, oy)
+                self._visit(elem, ox, oy)
 
         # Each diagram (root or a structure's inner frame) carries its own
         # signalList — the routed geometry for every wire whose endpoints

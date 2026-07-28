@@ -478,6 +478,15 @@ def _frame_info(
 _CONST_TEXT_SIZE = 9.0
 _CONST_PAD = 2.5
 _CONST_LINE_H = _CONST_TEXT_SIZE + 2.0
+# A cluster constant draws one "name: value" row per field. LabVIEW stores the
+# oversized TYPEDEF front-panel layout on the heap (elements carry .ctl-editor
+# coords), so trusting that box height stretches each row to ~45px. Compact it
+# to a natural row height instead — matching LabVIEW's own block-diagram
+# constant, which shrink-wraps to its contents. ``_CLUSTER_GLYPH_PAD`` mirrors
+# ClusterConstantGlyph.draw's internal pad so the glyph's own
+# ``row_h = (h - 2*pad)/n`` lands exactly on ``_CLUSTER_ROW_H``.
+_CLUSTER_ROW_H = 15.0
+_CLUSTER_GLYPH_PAD = 3.0
 
 
 def _string_const_lines(display: str, box_w: float, measure: SvgBackend) -> int:
@@ -538,6 +547,44 @@ def _trim_string_const_geom(
     return bounds_out, centers_out
 
 
+def _compact_cluster_const_geom(
+    graph: InMemoryVIGraph, vi_name: str, layout: Layout,
+) -> tuple[dict[str, Rect], dict[str, Point]]:
+    """Compact geometry for cluster-constant boxes. Same top-left-anchored,
+    shrink-only contract as :func:`_trim_string_const_geom`: keep x1/y1 and the
+    width; move the bottom edge UP to ``n`` natural rows (one per field). The
+    heap box is the typedef's front-panel layout (elements carry .ctl-editor
+    coords), so it stretches each field row to ~45px and buries the constant
+    under a giant column; compacting to ``_CLUSTER_ROW_H`` per field makes the
+    glyph's own per-row split land at a natural, legible height with no glyph
+    change. Only shrinks — a constant already smaller than its content is left
+    alone (the glyph's own small-box fallback handles it).
+
+    Returns (raw uid -> compact bounds, raw uid -> output-terminal center
+    re-anchored to the shrunk box's right-edge middle), merged into the layout
+    so obstacle, drawn box, and wire attach point stay in agreement."""
+    bounds_out: dict[str, Rect] = {}
+    centers_out: dict[str, Point] = {}
+    for node in graph.iter_nodes(vi_name):
+        if not isinstance(node, ConstantNode):
+            continue
+        fields = getattr(node.lv_type, "fields", None)
+        if not fields:
+            continue
+        raw = _strip_prefix(node.id, vi_name)
+        b = layout.node_bounds.get(raw)
+        if b is None:
+            continue
+        x1, y1, x2, y2 = b
+        needed = 2 * _CLUSTER_GLYPH_PAD + len(fields) * _CLUSTER_ROW_H
+        new_bottom = min(y2, y1 + needed)
+        if new_bottom >= y2:
+            continue  # already at or below its natural height — nothing to trim
+        bounds_out[raw] = (x1, y1, x2, new_bottom)
+        centers_out[raw] = (x2, (y1 + new_bottom) / 2)
+    return bounds_out, centers_out
+
+
 def _formula_border_centers(
     by_id: dict[str, AnyGraphNode], vi_name: str, layout: Layout,
 ) -> dict[str, tuple[float, float]]:
@@ -577,14 +624,14 @@ def _render_terminals(
             terminal=t, center=center, bounds=layout.node_bounds.get(key),
         ))
     if node.node_type in _CLUSTER_MUX_TYPES and node_bounds is not None:
-        result = _reposition_mux_aggregates(result, node_bounds)
+        result = _reposition_mux_terminals(result, node_bounds)
     return result
 
 
-def _reposition_mux_aggregates(
+def _reposition_mux_terminals(
     terminals: list[RenderTerminal], node_bounds: Rect,
 ) -> list[RenderTerminal]:
-    """Separate a Bundle/Unbundle node's AGGREGATE (cluster) terminals.
+    """Snap a Bundle/Unbundle node's terminals to the node edges.
 
     A ``nMux``/``mux``/``demux`` node has up to TWO aggregate terminals (an
     input source cluster and an output assembled cluster) that share one DCO
@@ -592,22 +639,37 @@ def _reposition_mux_aggregates(
     own, so both aggregate terminals resolve to the SAME center point —
     collapsing the incoming and outgoing cluster wires onto one spot. LabVIEW
     draws the input (source) cluster entering at the TOP-CENTER of the node and
-    the assembled output cluster exiting at the right edge; FIELD
-    (``nmux_role=="list"``) terminals keep their heap-derived centers.
+    the assembled output cluster exiting at the right edge.
+
+    The FIELD (``nmux_role=="list"``) terminals' heap centers sit by their
+    field-name label (mid-box, near the divider), NOT on the node edge — so a
+    wire to a Bundle input field would run into the middle of the box and cross
+    the assembled output exiting the right edge (the reported "bundle terminals
+    cross" bug). LabVIEW attaches each field wire at the node EDGE on its
+    dataflow side, matching the glyph's element rows (``draw_split_box``):
+    input fields (Bundle) at the LEFT edge, output fields (Unbundle) at the
+    RIGHT edge. The heap-derived row Y already lines up with the drawn rows, so
+    snap only the X.
     """
     left_x, top_y, right_x, bottom_y = node_bounds
     mid_x = (left_x + right_x) / 2
     mid_y = (top_y + bottom_y) / 2
     out: list[RenderTerminal] = []
     for rt in terminals:
-        if rt.terminal.nmux_role != "agg":
-            out.append(rt)
-            continue
-        if rt.terminal.direction == "output":
-            center = (right_x, mid_y)   # assembled cluster exits right-middle
+        role = rt.terminal.nmux_role
+        if role == "agg":
+            if rt.terminal.direction == "output":
+                center = (right_x, mid_y)   # assembled cluster exits right-middle
+            else:
+                center = (mid_x, top_y)     # source cluster enters top-center
+            out.append(replace(rt, center=center))
+        elif role == "list":
+            # Field wire attaches at the node edge on its dataflow side —
+            # Bundle inputs LEFT, Unbundle outputs RIGHT — keeping the row Y.
+            edge_x = left_x if rt.terminal.direction == "input" else right_x
+            out.append(replace(rt, center=(edge_x, rt.center[1])))
         else:
-            center = (mid_x, top_y)     # source cluster enters top-center
-        out.append(replace(rt, center=center))
+            out.append(rt)
     return out
 
 
@@ -1453,11 +1515,16 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     # (top-left anchored) BEFORE anything consumes geometry, so the drawn box,
     # the router obstacle, and the wire attach point all use the trimmed rect.
     trim_bounds, trim_centers = _trim_string_const_geom(graph, vi_name, layout)
-    if trim_bounds:
+    # Compact cluster-constant boxes the same way: the heap carries the typedef
+    # front-panel layout, which stretches each field row into a giant column.
+    clust_bounds, clust_centers = _compact_cluster_const_geom(graph, vi_name, layout)
+    if trim_bounds or clust_bounds:
         layout = replace(
             layout,
-            node_bounds={**layout.node_bounds, **trim_bounds},
-            terminal_centers={**layout.terminal_centers, **trim_centers},
+            node_bounds={**layout.node_bounds, **trim_bounds, **clust_bounds},
+            terminal_centers={
+                **layout.terminal_centers, **trim_centers, **clust_centers,
+            },
         )
     all_nodes = graph.iter_nodes(vi_name)
     by_id: dict[str, AnyGraphNode] = {n.id: n for n in all_nodes}

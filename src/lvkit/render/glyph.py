@@ -1631,9 +1631,13 @@ class ClusterConstantGlyph:
     """A cluster constant drawn by COMPOSING each field's own constant glyph
     (boolean / numeric / string / …) inside a cluster box.
 
-    LabVIEW stores no inner-element positions for a block-diagram constant, so
-    the fields are laid out here — a vertical stack, each row a small field-name
-    label beside that field's value glyph. Error clusters get the mustard border
+    Fields are laid out here as a vertical stack — each row a small field-name
+    label beside that field's value glyph. (The heap DOES carry the typedef's
+    front-panel element arrangement, but in oversized .ctl-editor coords;
+    ``scene._compact_cluster_const_geom`` shrinks the node box to one natural
+    row per field so this per-row split lands compact instead of stretching to
+    the ~1031px typedef column. Honoring the true horizontal/hand-placed
+    arrangements is a follow-up.) Error clusters get the mustard border
     (``wire_error``) and the stored status / code / source field order; any
     other cluster gets the generic cluster brown."""
 
