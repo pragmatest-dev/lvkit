@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -11,6 +11,7 @@ from ..models import (
     CaseFrame,
     CaseOperation,
     DisableStructureOperation,
+    EventFrame,
     EventOperation,
     Frame,
     LoopOperation,
@@ -170,6 +171,20 @@ _STRUCT_OPS = (
     CaseOperation, LoopOperation, SequenceOperation, DisableStructureOperation,
     EventOperation,
 )
+def _frames_of(op: Operation) -> Sequence[Frame] | None:
+    """The frame list of a FRAME-BEARING structure, else None — the single
+    'is this a frame-set structure?' test, shared by ``_struct_frame_changes``
+    (which diffs the set) and ``_matched_struct_pairs`` (which pairs them). Every
+    kind here has its changes represented as a frame-set diff (added / removed /
+    value-changed) through the same helpers; Disable's frames are CaseFrames and
+    Event's are EventFrames. A LoopOperation is a structure but NOT here: it has
+    one unconditional body, not a selectable frame set. (The literal isinstance
+    lives ONLY here so the type checker can narrow ``op`` to a ``.frames``-bearing
+    type — pyright won't narrow on a tuple stored in a variable.)"""
+    if isinstance(op, (CaseOperation, SequenceOperation,
+                       EventOperation, DisableStructureOperation)):
+        return op.frames
+    return None
 
 
 def _uid_of(op_id: str) -> str:
@@ -217,14 +232,16 @@ class _ElemInfo:
 
 
 def _is_interactive_struct(op: Operation) -> bool:
-    """Whether ``op`` is a CASE structure or a STACKED sequence — the only
-    structure kinds render/scene.py wraps in a togglable ``<g class="lv-frame"
-    data-path=...>`` group (see ``_frame_path`` there). A While/For loop shows
-    its body unconditionally, and a FLAT sequence shows every frame at once in
-    a film-strip — neither is ever hidden, so their children keep the
-    enclosing context's locality unchanged rather than gaining a new frame
-    segment nothing in the SVG would ever match."""
-    if isinstance(op, CaseOperation):
+    """Whether ``op`` is wrapped in a togglable ``<g class="lv-frame"
+    data-path=...>`` group by render/scene.py — a Case, (Conditional/Diagram-)
+    Disable, or Event structure, or a STACKED sequence. MUST stay in lockstep
+    with scene.py's own interactive-structure set (CaseStructureNode /
+    DisableStructureNode / EventStructureNode / stacked sequence), so a frame
+    change's frame_path segment matches a real hideable group the viewer can
+    correlate. A While/For loop shows its body unconditionally, and a FLAT
+    sequence shows every frame at once (film-strip) — neither is hidden, so
+    their children keep the enclosing context's locality unchanged."""
+    if isinstance(op, (CaseOperation, DisableStructureOperation, EventOperation)):
         return True
     return isinstance(op, SequenceOperation) and op.node_type != "flatSequence"
 
@@ -253,6 +270,8 @@ def _frame_value(frame: Frame) -> object:
         return frame.selector_value
     if isinstance(frame, SequenceFrame):
         return frame.index
+    if isinstance(frame, EventFrame):
+        return frame.event_label
     return None
 
 
@@ -273,11 +292,11 @@ def _collect_elements(
     for op in ops:
         kind = "structure" if isinstance(op, _STRUCT_OPS) else "node"
         out[_uid_of(op.id)] = _ElemInfo(op, kind, container_uid, frame_path)
-        if isinstance(op, (CaseOperation, SequenceOperation,
-                           DisableStructureOperation, EventOperation)):
+        frames = _frames_of(op)
+        if frames is not None:
             struct_uid = _uid_of(op.id)
             interactive = _is_interactive_struct(op)
-            for frame in op.frames:
+            for frame in frames:
                 if interactive:
                     value = _frame_value(frame)
                     child_container = struct_uid
@@ -887,6 +906,8 @@ def _frame_display(frame: Frame, op: Operation) -> str:
         return _selector_label(frame, lv_type, is_error)
     if isinstance(frame, SequenceFrame):
         return str(frame.index)
+    if isinstance(frame, EventFrame):
+        return frame.event_label or "event frame"
     return "frame"
 
 
@@ -899,9 +920,21 @@ def _frame_key(frame: Frame) -> str:
     in-place value edit (e.g. LabVIEW's "add value to this case") into a
     remove+add, because the frame's identity is then indistinguishable from
     its value. Documented, not hidden — a real frame uid always wins when
-    present."""
+    present.
+
+    An ``EventFrame`` has no uid AND a RESOLUTION-dependent label (the displayed
+    frame reconstructs faithfully; others degrade to ``<unknown event ...>``), so
+    keying on its label would make a mere relabel read as remove+add. Key on the
+    stable leading ``[N]`` index instead."""
     if frame.uid is not None:
         return frame.uid
+    if isinstance(frame, EventFrame):
+        s = frame.event_label.lstrip()
+        if s.startswith("[") and "]" in s:
+            idx = s[1:s.index("]")]
+            if idx.isdigit():
+                return f"~[{idx}]"
+        return f"~{frame.event_label}"
     return f"~{_frame_value(frame)}"
 
 
@@ -922,6 +955,11 @@ def _frame_value_changed(fa: Frame, fb: Frame) -> bool:
         )
     if isinstance(fa, SequenceFrame) and isinstance(fb, SequenceFrame):
         return fa.index != fb.index
+    if isinstance(fa, EventFrame) and isinstance(fb, EventFrame):
+        # Matched by stable [N] index (see _frame_key); the label is
+        # resolution-dependent, so a label-only diff is our text changing, not
+        # the VI's event — never report it as a frame value change.
+        return False
     return False
 
 
@@ -944,62 +982,132 @@ def _frame_locality(
     return struct_uid, outer_frame_path
 
 
+def _frame_node_uids(frame: Frame) -> set[str]:
+    """Every node UID contained anywhere in ``frame`` — recursing into nested
+    structures' frames AND loop bodies (``inner_nodes``), matching how
+    ``_collect_elements`` walks the tree. This set is the frame's CONTENT
+    identity: a frame whose value changed but whose contents stayed keeps (most
+    of) this set, letting two frames be recognised as the-same-frame-renamed."""
+    uids: set[str] = set()
+
+    def rec(ops: Sequence[Operation]) -> None:
+        for op in ops:
+            uids.add(_uid_of(op.id))
+            for fr in _frames_of(op) or []:
+                rec(fr.operations)
+            rec(op.inner_nodes)
+
+    rec(frame.operations)
+    return uids
+
+
+def _mk_frame_change(
+    op: Operation, entry: _ElemInfo, struct_uid: str, frame: Frame,
+    kind: str, change: str, detail: str | None = None,
+) -> ElementChange:
+    """Assemble one frame-set ElementChange — the SINGLE place a frame change's
+    key, id, locality, and label are built, reused for added/removed/modified
+    across every frame-bearing structure kind."""
+    key = _frame_key(frame)
+    container_uid, frame_path = _frame_locality(
+        struct_uid, op, entry.frame_path, _frame_value(frame),
+    )
+    return ElementChange(
+        key, f"{op.id}::frame::{key}", kind, change,
+        _frame_display(frame, op), detail=detail,
+        container_uid=container_uid, frame_path=frame_path,
+    )
+
+
+def _pair_frames_by_content(
+    only_a: list[Frame], only_b: list[Frame], matchmap: dict[str, str],
+) -> list[tuple[Frame, Frame]]:
+    """Pair leftover before/after frames that are the SAME frame with a changed
+    value, recognised by shared CONTENT: a before-frame's node UIDs, mapped
+    through the dataflow match map (``base->head``; identity when a node kept its
+    UID — the common case), overlapping an after-frame's node UIDs. Greedy by
+    most shared nodes with a deterministic tiebreak; each frame used at most
+    once. Zero overlap ⇒ not paired here (a genuine add/remove)."""
+    b_sig = [(fb, _frame_node_uids(fb)) for fb in only_b]
+    scored: list[tuple[int, str, str, Frame, Frame]] = []
+    for fa in only_a:
+        a_uids = {matchmap.get(u, u) for u in _frame_node_uids(fa)}
+        for fb, b_uids in b_sig:
+            shared = len(a_uids & b_uids)
+            if shared:
+                scored.append(
+                    (shared, str(_frame_value(fa)), str(_frame_value(fb)), fa, fb),
+                )
+    scored.sort(key=lambda s: (-s[0], s[1], s[2]))
+    used: set[int] = set()
+    pairs: list[tuple[Frame, Frame]] = []
+    for cand in scored:
+        fa, fb = cand[3], cand[4]
+        if id(fa) in used or id(fb) in used:
+            continue
+        used.add(id(fa))
+        used.add(id(fb))
+        pairs.append((fa, fb))
+    return pairs
+
+
 def _struct_frame_changes(
-    entry_a: _ElemInfo, entry_b: _ElemInfo,
+    entry_a: _ElemInfo, entry_b: _ElemInfo, matchmap: dict[str, str],
 ) -> list[ElementChange]:
-    """Diff one matched Case/Sequence structure's FRAME SET across versions:
-    a whole frame added/removed, or the same frame's selector/index value
-    changed. Does NOT touch the frame's contents (nodes/wires) — those are
-    already reported by the node/wire passes; collapsing them here would be
-    exactly the double-report ``diff_uid`` elsewhere goes out of its way to
-    avoid (don't-describe-twice)."""
+    """Diff one matched frame-bearing structure's FRAME SET across versions —
+    uniformly for Case / Sequence / Event / (Conditional-/Diagram-)Disable: a
+    whole frame added/removed, or the SAME frame's value changed. A value change
+    the frame's own key can't see (a case ``1``->``0`` rename, an event relabel,
+    a range extension) is recovered by CONTENT — the frame is matched by its
+    contained nodes' (dataflow-)identity — so it reads as ONE modification
+    instead of an add+remove. Does NOT touch the frame's contents (already
+    reported by the node/wire passes; same don't-describe-twice rule)."""
     op_a, op_b = entry_a.op, entry_b.op
     if type(op_a) is not type(op_b):
         return []  # UID recycle across kinds — not a frame-set change
-    if not isinstance(op_a, (CaseOperation, SequenceOperation)):
-        return []
-    if not isinstance(op_b, (CaseOperation, SequenceOperation)):
+    frames_a, frames_b = _frames_of(op_a), _frames_of(op_b)
+    if frames_a is None or frames_b is None:
         return []
 
-    base_struct_uid = _uid_of(op_a.id)
-    head_struct_uid = _uid_of(op_b.id)
-    frames_a: list[Frame] = list(op_a.frames)
-    frames_b: list[Frame] = list(op_b.frames)
-    map_a = {_frame_key(f): f for f in frames_a}
-    map_b = {_frame_key(f): f for f in frames_b}
+    base_uid, head_uid = _uid_of(op_a.id), _uid_of(op_b.id)
+    map_a: dict[str, Frame] = {_frame_key(f): f for f in frames_a}
+    map_b: dict[str, Frame] = {_frame_key(f): f for f in frames_b}
+
+    def value_change(fa: Frame, fb: Frame) -> ElementChange:
+        return _mk_frame_change(
+            op_b, entry_b, head_uid, fb, "value", "modified",
+            detail=f"{_frame_display(fa, op_a)} → {_frame_display(fb, op_b)}",
+        )
 
     changes: list[ElementChange] = []
-    for key in sorted(set(map_a) | set(map_b), key=_uid_sort):
-        fa, fb = map_a.get(key), map_b.get(key)
-        if fa is None:
-            assert fb is not None
-            container_uid, frame_path = _frame_locality(
-                head_struct_uid, op_b, entry_b.frame_path, _frame_value(fb),
+    # 1. Frames matched by key: a same-key field change (case is_default/ranges/
+    #    strings, a stacked-sequence reorder) — otherwise unchanged.
+    for key in sorted(map_a.keys() & map_b.keys(), key=_uid_sort):
+        fa, fb = map_a[key], map_b[key]
+        if _frame_value_changed(fa, fb):
+            changes.append(value_change(fa, fb))
+    # 2. Leftover frames: recover the-same-frame-renamed by content; the rest are
+    #    genuine adds/removes.
+    only_a: list[Frame] = [
+        map_a[k] for k in sorted(map_a.keys() - map_b.keys(), key=_uid_sort)
+    ]
+    only_b: list[Frame] = [
+        map_b[k] for k in sorted(map_b.keys() - map_a.keys(), key=_uid_sort)
+    ]
+    pairs = _pair_frames_by_content(only_a, only_b, matchmap)
+    paired = {id(f) for pair in pairs for f in pair}
+    for fa, fb in pairs:
+        changes.append(value_change(fa, fb))
+    for fa in only_a:
+        if id(fa) not in paired:
+            changes.append(
+                _mk_frame_change(op_a, entry_a, base_uid, fa, "frame", "removed"),
             )
-            changes.append(ElementChange(
-                key, f"{op_b.id}::frame::{key}", "frame", "added",
-                _frame_display(fb, op_b),
-                container_uid=container_uid, frame_path=frame_path,
-            ))
-        elif fb is None:
-            container_uid, frame_path = _frame_locality(
-                base_struct_uid, op_a, entry_a.frame_path, _frame_value(fa),
+    for fb in only_b:
+        if id(fb) not in paired:
+            changes.append(
+                _mk_frame_change(op_b, entry_b, head_uid, fb, "frame", "added"),
             )
-            changes.append(ElementChange(
-                key, f"{op_a.id}::frame::{key}", "frame", "removed",
-                _frame_display(fa, op_a),
-                container_uid=container_uid, frame_path=frame_path,
-            ))
-        elif _frame_value_changed(fa, fb):
-            container_uid, frame_path = _frame_locality(
-                head_struct_uid, op_b, entry_b.frame_path, _frame_value(fb),
-            )
-            changes.append(ElementChange(
-                key, f"{op_b.id}::frame::{key}", "value", "modified",
-                _frame_display(fb, op_b),
-                detail=f"{_frame_display(fa, op_a)} → {_frame_display(fb, op_b)}",
-                container_uid=container_uid, frame_path=frame_path,
-            ))
     return changes
 
 
@@ -1018,7 +1126,7 @@ def _matched_struct_pairs(
         ea, eb = a[base_uid], b[base_uid]
         if type(ea.op) is not type(eb.op):
             continue
-        if isinstance(ea.op, (CaseOperation, SequenceOperation)):
+        if _frames_of(ea.op) is not None:
             pairs.append((ea, eb))
     h2b = {**exact, **fuzzy}
     for base_uid in sorted(h2b, key=_uid_sort):
@@ -1028,7 +1136,7 @@ def _matched_struct_pairs(
             continue
         if type(ea.op) is not type(eb.op):
             continue
-        if isinstance(ea.op, (CaseOperation, SequenceOperation)):
+        if _frames_of(ea.op) is not None:
             pairs.append((ea, eb))
     return pairs
 
@@ -1315,7 +1423,7 @@ def diff_uid(
     # versions (same uid, or exact/fuzzy dataflow match), a whole frame
     # added/removed, or the same frame's selector/index value changed.
     for entry_a, entry_b in _matched_struct_pairs(a, b, exact, fuzzy):
-        cmap.changes.extend(_struct_frame_changes(entry_a, entry_b))
+        cmap.changes.extend(_struct_frame_changes(entry_a, entry_b, {**exact, **fuzzy}))
 
     # Common UIDs and all matched pairs are unchanged at the node level — a node
     # wrapped in a new case, moved, re-keyed, or with only a wire added/removed is

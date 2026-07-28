@@ -86,9 +86,9 @@
   .item{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer}
   .item:hover{background:var(--btn)}.item.sel{background:#1f6feb33;outline:1px solid var(--accent)}
   /* Hidden-frame rows: dimmed so the reviewer still sees every change but a
-     click-to-switch-frame one distracts less. No pill here — the owning
-     structure's own "changed" dot (.frame-changed-dot, further down) is the
-     sole extra indicator that a hidden change lives inside it. */
+     click-to-switch-frame one distracts less. No pill here — the numbered
+     .hl-num badge above the owning structure (and the .frame-opt-dot inside its
+     frame dropdown) indicate that a hidden change lives inside it. */
   .item.dimmed{opacity:.6}
   /* Tree view: a scope/frame CONTEXT header (its case/frame is unchanged --
      only its contents changed) has no matching CHANGES entry, so it's not
@@ -235,11 +235,10 @@
      the unselected state and reappears at full strength when its frame is shown
      (see updateParkState() + .hl.offframe). The owning selector also carries an
      aggregate "changed" dot below. */
-  /* Aggregate "this structure's frame set changed" mark on the live selector
-     widget, and per-value markers on its dropdown menu rows when the renderer
-     exposes one (case structures only — see decorateMenus()). */
-  .frame-changed-dot{fill:var(--mod);stroke:#0d1117;stroke-width:.6;pointer-events:none}
-  .frame-changed-dot.added{fill:var(--add)}.frame-changed-dot.removed{fill:var(--del)}
+  /* Per-value markers on a structure's dropdown menu rows, when the renderer
+     exposes one (case structures only — see decorateMenus()). The aggregate
+     "this structure's frame set changed" indicator is the numbered .hl-num
+     badge above the selector (see CHANGES.forEach), same as every other change. */
   .frame-opt-dot{stroke:#0d1117;stroke-width:.6;pointer-events:none}
   .frame-opt-dot.added{fill:var(--add)}.frame-opt-dot.removed{fill:var(--del)}
   .frame-opt-dot.modified{fill:var(--mod)}

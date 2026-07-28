@@ -17,6 +17,7 @@ from lvkit.models import (
     CaseFrame,
     CaseOperation,
     LVType,
+    PrimitiveOperation,
     SelectorRange,
     SequenceFrame,
     SequenceOperation,
@@ -699,6 +700,38 @@ class TestFrameSetChanges:
         gb = _StubGraph([], operations=[case_b])
         cmap = diff_uid(ga, gb, "vi", "vi")
         assert [c for c in cmap.changes if c.kind in ("frame", "value")] == []
+
+    def test_case_frame_value_rename_is_one_modification_via_content(self):
+        # A case frame's selector value changes 1 -> 0 while its CONTENTS stay
+        # (a node with a stable UID). CaseFrames carry no per-frame uid and are
+        # keyed by value, so "1" and "0" don't key-match -- but they hold the
+        # SAME node, so content-overlap pairs them into ONE value modification
+        # ("1 -> 0"), NOT remove "1" + add "0". (The reality-grounded MainUI
+        # 36:1->0 case; the shared node itself stays unchanged, not reported.)
+        node = PrimitiveOperation(
+            id="vi::700", name="Add", labels=["Add"], node_type="prim",
+        )
+        case_a = CaseOperation(
+            id="vi::500", name="Case", labels=["CaseStructure"],
+            node_type="caseStructure",
+            frames=[CaseFrame(selector_value="1", operations=[node])],
+        )
+        case_b = CaseOperation(
+            id="vi::500", name="Case", labels=["CaseStructure"],
+            node_type="caseStructure",
+            frames=[CaseFrame(selector_value="0", operations=[node])],
+        )
+        cmap = diff_uid(
+            _StubGraph([], operations=[case_a]),
+            _StubGraph([], operations=[case_b]), "vi", "vi",
+        )
+        fc = [c for c in cmap.changes if c.kind in ("frame", "value")]
+        assert len(fc) == 1, [(c.kind, c.change, c.label) for c in fc]
+        c = fc[0]
+        assert (c.kind, c.change) == ("value", "modified")
+        assert c.detail == "1 → 0"
+        assert c.container_uid == "500"
+        assert c.frame_path == "500=0"
 
     def test_stacked_sequence_frame_reorder_by_real_uid(self):
         # SequenceFrame DOES get a real, stable uid from the parser (see

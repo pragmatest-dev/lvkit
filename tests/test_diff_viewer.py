@@ -262,15 +262,19 @@ class TestPaneRegistrationAndBlendReveal:
         assert "if(!ANIMATE){ op.value=target; applyBlend(); return; }" in html
 
     def test_frame_dot_skips_self_added_removed_and_is_colour_classed(self):
-        """A structure that is ITSELF added/removed gets no aggregate
-        frame-changed dot (its outline covers everything inside); remaining
-        dots are coloured by the change grammar, not hardcoded yellow."""
+        """A structure that is ITSELF added/removed gets no per-value dot on its
+        dropdown rows (its dashed outline already covers everything inside);
+        remaining dots are coloured by the change grammar, not hardcoded yellow.
+        The aggregate 'frame set changed' indicator is the numbered .hl-num badge
+        above the selector — the same badge every other change gets."""
         html = self._html()
         assert "selfAddRem" in html
         assert "selfAddRem.has(String(c.container_uid))" in html
-        assert ".frame-changed-dot.added{fill:var(--add)}" in html
-        assert ".frame-changed-dot.removed{fill:var(--del)}" in html
-        assert "'frame-changed-dot '+agg" in html
+        assert ".frame-opt-dot.added{fill:var(--add)}" in html
+        assert ".frame-opt-dot.removed{fill:var(--del)}" in html
+        assert "'frame-opt-dot '+cls" in html
+        # frame/value changes are numbered with the plain .hl-num badge
+        assert "t.setAttribute('class','hl-num '+cls); t.textContent=i+1;" in html
 
     def test_picking_a_case_value_closes_the_dropdown(self):
         html = self._html()
@@ -299,11 +303,13 @@ class TestPaneRegistrationAndBlendReveal:
         assert '<span id="opWrap" hidden>' in html
 
     def test_zoom_buttons_disable_at_the_limits(self):
-        """No zooming out past fit: − is disabled at ZMIN (=1=fit), + at ZMAX,
-        re-evaluated in applyZoom on every zoom change."""
+        """+ is disabled at ZMAX; − is disabled at the dynamic fit-both floor
+        zMin() (whole VI in view — width AND height), re-evaluated in applyZoom
+        on every zoom change."""
         html = self._html()
-        assert "const ZMIN=1, ZMAX=8" in html
-        assert "document.getElementById('zoomOut').disabled = zoom<=ZMIN" in html
+        assert "const ZMAX=8" in html
+        assert "function zMin()" in html
+        assert "document.getElementById('zoomOut').disabled = zoom<=zMin()+1e-6" in html
         assert "document.getElementById('zoomIn').disabled = zoom>=ZMAX" in html
         assert "button:disabled{opacity:.45;cursor:default}" in html
 
