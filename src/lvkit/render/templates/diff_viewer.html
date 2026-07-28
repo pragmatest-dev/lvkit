@@ -1221,6 +1221,22 @@ function revealFrame(c){
     if(u && ost.toggleable.has(u)){ ost.sel[u]=v; deepest=u; }});  // correlate shared frames
   if(deepest){ const oel=other.querySelector('[data-lv-struct="'+deepest+'"]');
     if(oel) revealPath(other, oel); }                    // reach the deepest match in other pane
+  // A wire change carries no shared-frame-structure UID of its own to
+  // correlate above (removed/added/modified wiring, not a node) -- so
+  // "where the wire was connected" in the OTHER pane stays hidden unless we
+  // reach for it directly. diff.py's _wire_changes now stamps `endpoints`:
+  // this wire's surviving endpoint node uid(s), ALREADY translated to the
+  // other pane's identity. `data-node` carries the FULL op id (e.g.
+  // "MyClass.lvclass:run.vi::1781"), not the bare trailing uid ElementChange
+  // uses everywhere else, so match on the "::UID" suffix -- the delimiter
+  // makes this exact (a shorter uid can never falsely suffix-match a longer
+  // one, since the digits right before a real match are always "::").
+  if(c.kind==='wire' && Array.isArray(c.endpoints)){
+    c.endpoints.forEach(uid=>{
+      const el=other.querySelector('[data-node$="::'+uid+'"]');
+      if(el) revealPath(other, el);
+    });
+  }
   applyFrames();
 }
 

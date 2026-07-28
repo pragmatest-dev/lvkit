@@ -117,6 +117,17 @@ class ElementChange:
     # ``container_uid`` is None. Added/modified -> head-side path; removed ->
     # base-side path.
     frame_path: str | None = None
+    # For WIRE changes only: trailing UIDs of the wire's endpoint NODES (source
+    # and sink), resolved as they appear in the OPPOSITE pane's SVG
+    # ``data-node`` (translated through the exact/fuzzy match map -- see
+    # ``_wire_changes``). A wire's own ``frame_path`` only ever addresses its
+    # OWN pane (base for removed, head for added/modified), so the viewer has
+    # no way to reveal the frame enclosing "where the wire was/is connected"
+    # in the OTHER pane without this. None for non-wire changes, and also None
+    # (well, an endpoint just dropped) when an endpoint has no counterpart at
+    # all in the other pane -- it was itself added/removed alongside this wire,
+    # so there is nothing there to reveal.
+    endpoints: list[str] | None = None
 
 
 @dataclass
@@ -145,7 +156,8 @@ class ChangeMap:
                  "chain_paths": [_poly(p) for p in c.chain_paths]
                  if c.chain_paths is not None else None,
                  "container_uid": c.container_uid,
-                 "frame_path": c.frame_path}
+                 "frame_path": c.frame_path,
+                 "endpoints": c.endpoints}
                 for c in self.changes
             ],
             "common_nodes": len(self.common_node_uids),
@@ -580,6 +592,40 @@ def _wire_changes(
         uid = _uid_of(node_id)
         return uid if base_side else b_of_h.get(uid, uid)
 
+    def _other_pane_endpoints(
+        src_node_id: str, dest_node_id: str, vi_self: str, from_base: bool,
+    ) -> list[str] | None:
+        """This wire's source+sink NODE uids, translated to the OTHER pane's
+        rendered SVG ``data-node`` identity -- the cross-pane reveal key a
+        wire change otherwise carries no endpoint identity for at all (a
+        wire's own ``frame_path`` only ever addresses its OWN pane; see
+        ``ElementChange.endpoints``). ``from_base`` says which side (base/
+        head) ``src_node_id``/``dest_node_id`` come from -- the OTHER pane is
+        the opposite. Unlike ``canon`` (which folds BOTH sides down into one
+        base-space key for comparison, defaulting an unmatched head uid to
+        itself), this must answer "does the other pane actually have this
+        node, and if so under what uid" -- so a genuinely unmatched endpoint
+        has to come back as None, not a dangling uid the viewer could never
+        find on screen. The VI's own connector-pane boundary node has no
+        ``data-node`` in either pane's SVG (same boundary ``canon`` maps to
+        the ``__self__`` sentinel for), so it always drops out below.
+        Otherwise: a uid LabVIEW kept IDENTICAL across versions needs no
+        translation (the same string already exists in both panes' SVG);
+        anything else goes through the exact/fuzzy dataflow match already
+        computed above (``h2b``/``b_of_h``) -- the SAME cross-version node
+        identity every other locality/label lookup in this function uses.
+        """
+        def other(node_id: str) -> str | None:
+            if node_id == vi_self:
+                return None
+            uid = _uid_of(node_id)
+            if from_base:
+                return uid if uid in b else h2b.get(uid)
+            return uid if uid in a else b_of_h.get(uid)
+
+        found = [u for u in (other(src_node_id), other(dest_node_id)) if u]
+        return found or None
+
     # Constant sources render by their VALUE (e.g. "5"), matching how the
     # netlist's ``_resolve_source`` renders the same wire -- diff and netlist
     # must read a constant-fed wire identically.
@@ -740,6 +786,11 @@ def _wire_changes(
             # the old "was ←" wording produced once ← was ASCII-mapped to =.
             detail = f"← {old_label}"
             path = _wire_path(layout_a, wires_a, _uid_of(dest_end.terminal_id))
+            # Own pane is base (removed) -- reveal the OTHER (head) pane's
+            # frame around this wire's surviving endpoint(s).
+            endpoints = _other_pane_endpoints(
+                entry_a[2].node_id, entry_a[3].node_id, va, True,
+            )
         else:
             assert entry_b is not None
             dest_end = entry_b[3]
@@ -747,6 +798,11 @@ def _wire_changes(
             new_label = label_of(graph_b, entry_b[2], vb, b, self_terms_b, consts_b)
             bounds = _point_rect(layout_b, _uid_of(dest_end.terminal_id))
             path = _wire_path(layout_b, wires_b, _uid_of(dest_end.terminal_id))
+            # Own pane is head (added & modified alike) -- reveal the OTHER
+            # (base) pane's frame around this wire's surviving endpoint(s).
+            endpoints = _other_pane_endpoints(
+                entry_b[2].node_id, entry_b[3].node_id, vb, False,
+            )
             if change == "added":
                 bounds_before = None
                 detail = f"← {new_label}"
@@ -776,6 +832,7 @@ def _wire_changes(
             sink_label, bounds, bounds_before=bounds_before, detail=detail,
             path=path, path_before=path_before,
             container_uid=container_uid, frame_path=frame_path,
+            endpoints=endpoints,
         ))
     return changes
 

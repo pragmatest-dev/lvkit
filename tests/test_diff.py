@@ -817,6 +817,31 @@ class TestWireChanges:
         assert change.bounds is not None
         assert change.bounds_before is not None
 
+    def test_run_vi_removed_wire_endpoints_translated_to_other_pane(self):
+        # The viewer's revealFrame(c) needs to open the case frame in the
+        # OTHER (head/after) pane that contains this removed wire's
+        # surviving endpoint -- its own frame_path only ever addresses the
+        # BASE pane it lives in. ``endpoints`` carries the wire's source +
+        # sink node uids, resolved as they'd appear in HEAD's SVG:
+        #   - sink (the "Not" node, uid 1781) keeps the SAME uid in both
+        #     versions (a common/identical uid needs no translation).
+        #   - source (the "Bundle/Unbundle By Name" node, base uid 1489) got
+        #     a NEW uid in head (it's fuzzy-matched, not identical), so it
+        #     translates through the same exact/fuzzy match map _match_elements
+        #     computed for node identity -- to head uid 5207.
+        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
+        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+        change = [c for c in cmap.changes if c.kind == "wire"][0]
+
+        assert change.change == "removed"
+        assert change.endpoints == ["5207", "1781"]
+
+        # survives JSON-ready serialization verbatim.
+        d = cmap.to_dict()
+        wire_dict = next(c for c in d["changes"] if c["uid"] == "1820")
+        assert wire_dict["endpoints"] == ["5207", "1781"]
+
     def test_run_vi_removed_wire_has_faithful_path(self):
         # Increment 2a: the removed wire carries the FAITHFUL drawn polyline
         # (source center -> recorded bends -> sink center), from the BEFORE
