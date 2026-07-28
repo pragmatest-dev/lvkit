@@ -302,6 +302,18 @@ class TestPaneRegistrationAndBlendReveal:
         assert '<button data-mode="split" class="active"' in html
         assert '<span id="opWrap" hidden>' in html
 
+    def test_value_change_reveals_each_pane_from_its_own_frame_side(self):
+        """A frame VALUE change ("1"->"0") addresses its frame differently in
+        each pane (before=...=1, after=...=0). revealFrame must drive the OTHER
+        pane from frame_path_before, else the before pane is told to select a
+        value it doesn't have and the renamed frame never appears in both panes
+        at once — the same before/after linkage a modified node gets via
+        bounds_before."""
+        html = self._html()
+        # revealFrame drives the other pane from the before-side addressing when
+        # present (a value change), falling back to frame_path (same value both).
+        assert "c.frame_path_before||c.frame_path" in html
+
     def test_zoom_buttons_disable_at_the_limits(self):
         """+ is disabled at ZMAX; − is disabled at the dynamic fit-both floor
         zMin() (whole VI in view — width AND height), re-evaluated in applyZoom

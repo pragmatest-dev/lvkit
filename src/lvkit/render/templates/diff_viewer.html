@@ -1271,10 +1271,17 @@ function revealFrame(c){
   const pane=paneFor(c), other=pane===afterPane?beforePane:afterPane;
   const st=stFor(pane), ost=stFor(other);
   const segs=(c.frame_path||'').split(';').filter(Boolean);
+  // The OTHER pane's ancestor frame VALUES normally equal this pane's -- but when
+  // a selector value itself changed (a "1"->"0" case rename) the before pane
+  // addresses the SAME frame under the OLD value, carried in frame_path_before.
+  // Drive the other pane from that when present so BOTH panes land on the renamed
+  // frame; fall back to this pane's path for every other kind (same value both).
+  const osegs=(c.frame_path_before||c.frame_path||'').split(';').filter(Boolean);
   let deepest=null;
   segs.forEach(seg=>{const i=seg.indexOf('='), u=seg.slice(0,i), v=seg.slice(i+1);
-    if(u && st.toggleable.has(u)) st.sel[u]=v;
-    if(u && ost.toggleable.has(u)){ ost.sel[u]=v; deepest=u; }});  // correlate shared frames
+    if(u && st.toggleable.has(u)) st.sel[u]=v;});                 // this pane -> own path
+  osegs.forEach(seg=>{const i=seg.indexOf('='), u=seg.slice(0,i), v=seg.slice(i+1);
+    if(u && ost.toggleable.has(u)){ ost.sel[u]=v; deepest=u; }}); // other pane -> its own path
   if(deepest){ const oel=other.querySelector('[data-lv-struct="'+deepest+'"]');
     if(oel) revealPath(other, oel); }                    // reach the deepest match in other pane
   // A wire change carries no shared-frame-structure UID of its own to

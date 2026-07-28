@@ -118,6 +118,15 @@ class ElementChange:
     # ``container_uid`` is None. Added/modified -> head-side path; removed ->
     # base-side path.
     frame_path: str | None = None
+    # For a "value modified" FRAME change only: the frame's addressing on the
+    # BEFORE side, formatted like ``frame_path``. Needed because the selector
+    # VALUE itself changed (a case ``1``->``0`` rename, an event relabel), so the
+    # BEFORE pane addresses the very same frame differently (``...=1``) from the
+    # after pane (``...=0``). The viewer drives each pane from its own side — own
+    # pane from ``frame_path``, other pane from ``frame_path_before`` — so BOTH
+    # land on the renamed frame at once. None for every other change, where the
+    # frame value is identical in both panes and ``frame_path`` alone correlates.
+    frame_path_before: str | None = None
     # For WIRE changes only: trailing UIDs of the wire's endpoint NODES (source
     # and sink), resolved as they appear in the OPPOSITE pane's SVG
     # ``data-node`` (translated through the exact/fuzzy match map -- see
@@ -158,6 +167,7 @@ class ChangeMap:
                  if c.chain_paths is not None else None,
                  "container_uid": c.container_uid,
                  "frame_path": c.frame_path,
+                 "frame_path_before": c.frame_path_before,
                  "endpoints": c.endpoints}
                 for c in self.changes
             ],
@@ -1004,10 +1014,13 @@ def _frame_node_uids(frame: Frame) -> set[str]:
 def _mk_frame_change(
     op: Operation, entry: _ElemInfo, struct_uid: str, frame: Frame,
     kind: str, change: str, detail: str | None = None,
+    frame_path_before: str | None = None,
 ) -> ElementChange:
     """Assemble one frame-set ElementChange — the SINGLE place a frame change's
     key, id, locality, and label are built, reused for added/removed/modified
-    across every frame-bearing structure kind."""
+    across every frame-bearing structure kind. ``frame_path_before`` is the
+    before-side addressing of a value change (see the field doc); None for
+    add/remove and same-value changes."""
     key = _frame_key(frame)
     container_uid, frame_path = _frame_locality(
         struct_uid, op, entry.frame_path, _frame_value(frame),
@@ -1016,6 +1029,7 @@ def _mk_frame_change(
         key, f"{op.id}::frame::{key}", kind, change,
         _frame_display(frame, op), detail=detail,
         container_uid=container_uid, frame_path=frame_path,
+        frame_path_before=frame_path_before,
     )
 
 
@@ -1074,9 +1088,16 @@ def _struct_frame_changes(
     map_b: dict[str, Frame] = {_frame_key(f): f for f in frames_b}
 
     def value_change(fa: Frame, fb: Frame) -> ElementChange:
+        # The change is stamped on the AFTER frame (fb); its before-side twin
+        # (fa) addresses the SAME frame under the OLD value, so the viewer can
+        # drive the before pane there while the after pane goes to fb.
+        _, fp_before = _frame_locality(
+            base_uid, op_a, entry_a.frame_path, _frame_value(fa),
+        )
         return _mk_frame_change(
             op_b, entry_b, head_uid, fb, "value", "modified",
             detail=f"{_frame_display(fa, op_a)} → {_frame_display(fb, op_b)}",
+            frame_path_before=fp_before,
         )
 
     changes: list[ElementChange] = []

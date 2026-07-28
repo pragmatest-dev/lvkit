@@ -731,7 +731,10 @@ class TestFrameSetChanges:
         assert (c.kind, c.change) == ("value", "modified")
         assert c.detail == "1 → 0"
         assert c.container_uid == "500"
+        # after pane addresses the frame as 500=0; before pane as 500=1 — the
+        # viewer drives each pane from its own side so both reveal the frame.
         assert c.frame_path == "500=0"
+        assert c.frame_path_before == "500=1"
 
     def test_stacked_sequence_frame_reorder_by_real_uid(self):
         # SequenceFrame DOES get a real, stable uid from the parser (see
