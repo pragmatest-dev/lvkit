@@ -1399,6 +1399,34 @@ class ConstantGlyph:
     multiline: bool = False
     text_attr: str = "const_text"
 
+    def truncated_value(self, backend: Backend, bounds: Rect) -> str | None:
+        """The FULL value, but ONLY when drawing it into ``bounds`` ellipsizes
+        or clips it (so the caller can expose it as a hover tooltip). ``None``
+        when the in-box text already shows the value in full — no redundant
+        tooltip on short constants. Mirrors what ``draw`` fits into the box."""
+        if not self.value:
+            return None
+        x1, y1, x2, y2 = bounds
+        if not self.multiline:
+            fitted = fit_value(self.value, x2 - x1, backend, self.text_size)
+            return self.value if fitted != self.value else None
+        pad = 2.5
+        avail_w = x2 - x1 - 2 * pad
+        line_h = self.text_size + 2.0
+        max_lines = max(1, int((y2 - y1 - 2 * pad) / line_h))
+        lines: list[str] = []
+        for seg in self.value.split("\n"):
+            if not seg:
+                lines.append("")
+                continue
+            lines.extend(wrap_label(seg, avail_w, backend, self.text_size, max_lines))
+        # Truncated if whole lines were clipped OR a line got ellipsized to fit
+        # (wrap_label caps at max_lines and adds the "…" itself, so the line count
+        # alone under-detects — check for the ellipsis it produced).
+        if len(lines) > max_lines or any(ln.endswith("…") for ln in lines):
+            return self.value
+        return None
+
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(

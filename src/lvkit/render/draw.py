@@ -308,11 +308,12 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     # not just this node's later siblings. The native <title> tooltip stays
     # as a text fallback (e.g. no-JS consumers).
     tooltip = _node_tooltip(node.node)
-    if tooltip is None and isinstance(node.glyph, ConstantGlyph) and node.glyph.value:
-        # A string/path constant's in-box text is fit to the box and may be
-        # ellipsized ("…"); expose the FULL value on hover so it stays readable.
-        if type_family(getattr(node.node, "lv_type", None)) in ("string", "path"):
-            tooltip = node.glyph.value
+    if tooltip is None and isinstance(node.glyph, ConstantGlyph):
+        # A constant's in-box text is fit to the box and may be ellipsized/clipped
+        # ("…"). When it is — for ANY type (numeric, string, path, enum) — expose
+        # the FULL value on hover so it stays readable. Short constants that show
+        # in full get no tooltip (no redundant hover on every literal).
+        tooltip = node.glyph.truncated_value(backend, bounds)
     if tooltip is None and isinstance(node.glyph, ClusterConstantGlyph):
         # A cluster constant may be drawn small/collapsed; its field values are
         # then unreadable inline, so show them all on hover.
