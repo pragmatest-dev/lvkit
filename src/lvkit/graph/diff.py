@@ -86,6 +86,13 @@ class ElementChange:
     # For "modified": a short human-readable "old → new" of what changed (e.g. a
     # constant's value transition). None for added/removed (the label says it all).
     detail: str | None = None
+    # The ELEMENT this change is (in words), when the row's own ``label`` is a
+    # VALUE rather than a type — set for frame/value changes ("case frame",
+    # "event frame") so the flat list reads glyph+words like every other row
+    # (``○ str constant``, ``◻ <node>``) with the frame's value as subtext,
+    # instead of a bare quoted value. None for kinds whose label already names
+    # the element (node/wire/structure/constant).
+    element: str | None = None
     # ── Faithful wire geometry (increment 2a) ────────────────────────────
     # The rendered wire's polyline — the SAME points render/scene.py draws:
     # [source-terminal center, *Layout.wire_by_uid[sink], sink-terminal center],
@@ -168,6 +175,7 @@ class ChangeMap:
                  "container_uid": c.container_uid,
                  "frame_path": c.frame_path,
                  "frame_path_before": c.frame_path_before,
+                 "element": c.element,
                  "endpoints": c.endpoints}
                 for c in self.changes
             ],
@@ -921,6 +929,21 @@ def _frame_display(frame: Frame, op: Operation) -> str:
     return "frame"
 
 
+def _frame_element_label(op: Operation) -> str:
+    """Words naming the ELEMENT a frame change IS, by the owning structure's
+    kind ("case frame"/"event frame"/…) — so the flat-list row reads glyph+words
+    like every other row, with the frame's value carried as subtext."""
+    if isinstance(op, CaseOperation):
+        return "case frame"
+    if isinstance(op, SequenceOperation):
+        return "sequence frame"
+    if isinstance(op, EventOperation):
+        return "event frame"
+    if isinstance(op, DisableStructureOperation):
+        return "disable frame"
+    return "frame"
+
+
 def _frame_key(frame: Frame) -> str:
     """Stable key for matching a frame across versions: LabVIEW's own frame
     ``uid`` when the parser recorded one (currently only ``SequenceFrame`` —
@@ -1030,6 +1053,7 @@ def _mk_frame_change(
         _frame_display(frame, op), detail=detail,
         container_uid=container_uid, frame_path=frame_path,
         frame_path_before=frame_path_before,
+        element=_frame_element_label(op),
     )
 
 

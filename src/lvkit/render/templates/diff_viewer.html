@@ -102,6 +102,10 @@
   .tag.added{background:var(--add)}.tag.removed{background:var(--del)}.tag.modified{background:var(--mod)}
   .lbltxt{flex:1;min-width:0}
   .lbl{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* The change spelled out after the element (added/removed/modified), coloured
+     to the change grammar; lighter weight so the element still leads the row. */
+  .chgword{font-weight:400;opacity:.72}
+  .chgword.added{color:var(--add)}.chgword.removed{color:var(--del)}.chgword.modified{color:var(--mod)}
   .detail{font-size:11px;opacity:.62;font-variant-numeric:tabular-nums;
           overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
   /* Tree view (Phase 3): row text is netlist SYNTAX (instance_line/
@@ -581,29 +585,45 @@ CHANGES.forEach((c,i)=>{
 // flat label) is untouched and stays its own visual language.
 const list=document.getElementById('list');
 const esc=s=>s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+// Truncate a subtext VALUE to n chars (ellipsis); the full value rides in the
+// row's title= tooltip. A selector value / constant string can be arbitrarily
+// long, so the list stays scannable while the diagram/hover still has it all.
+const trunc=(s,n)=>{s=String(s); return s.length>n ? s.slice(0,n-1)+'…' : s;};
 // KIND is orthogonal to the +/−/~ CHANGE tag — which of node/wire/structure
 // this change IS, not what happened to it. This viewer's OWN glyph scheme
 // for the change-list UI (independent of the TEXT report's netlist-syntax
 // rendering -- see the note above). A "frame"/
 // "value"-kind change has no glyph of its own — the quoted frame token
 // ("True":) is its own visual tell (see frameHeaderRow below).
-const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚', constant:'○'};
+const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚', constant:'○', frame:'⬚', value:'⬚'};
 const CHANGE_TAG={added:'+', removed:'−', modified:'~'};
+// The change spelled out in words, after the element — redundant with the +/−/~
+// tag by design (the user asked for the explicit text form), coloured to match.
+const CHANGE_WORD={added:'added', removed:'removed', modified:'modified'};
 function kindPrefix(kind){ return KIND_GLYPH[kind] ? KIND_GLYPH[kind]+' ' : ''; }
 function changeRowHtml(i){
   const c=CHANGES[i];
-  // Modified rows carry the value transition (old → new) under the label so the
-  // change is legible without opening the node. Added/removed need no detail.
-  // CONSTANTS are the exception: their detail IS the value (kept in the JSON and
-  // the --verbose text), but a constant value can be arbitrarily long (a whole
-  // string), so the list omits it — the diagram panes show the actual value.
-  const detail=(c.detail && c.kind!=='constant')
-    ?'<div class="detail" title="'+esc(c.detail)+'">'+esc(c.detail)+'</div>':'';
-  // Hidden-frame rows just dim (.dimmed, toggled by updateParkState()) — no
-  // pill; the owning selector's own "changed" dot already says "elsewhere".
+  // Uniform row = glyph + ELEMENT words (primary), then the VALUE as truncated
+  // subtext (full value on hover). Frame/value rows name the element ("case
+  // frame") with the selector value / old→new below — instead of a bare quoted
+  // value — so they read glyph+words like "○ str constant" / "◻ <node>". A
+  // modified node/wire/constant carries its own value/transition the same way.
+  // The +/−/~ change tag lives in its own column.
+  // ONE RULE, every row: "<type of thing> <change word>" as the primary line,
+  // the specific identity/value as truncated subtext. The type word comes from
+  // whichever field the engine put it in (frames: element; constants: label is
+  // already "<pytype> constant"; node/wire/structure: the kind noun); the
+  // identity is the OTHER field (frame value, constant value, node/structure name).
+  const KIND_WORD={node:'node', wire:'wire', structure:'structure'};
+  const type = c.element || (c.kind==='constant' ? c.label : (KIND_WORD[c.kind]||c.kind));
+  const sub = c.element ? (c.detail||c.label) : (c.kind==='constant' ? c.detail : c.label);
+  const detail = sub
+    ? '<div class="detail" title="'+esc(sub)+'">'+esc(trunc(sub, 32))+'</div>' : '';
+  const prim = kindPrefix(c.kind)+esc(type)+
+    ' <span class="chgword '+c.change+'">'+CHANGE_WORD[c.change]+'</span>';
   return '<span class="num">'+(i+1)+'</span>'+
     '<span class="tag '+c.change+'">'+CHANGE_TAG[c.change]+'</span>'+
-    '<div class="lbltxt"><span class="lbl">'+kindPrefix(c.kind)+esc(c.label)+'</span>'+detail+'</div>';
+    '<div class="lbltxt"><span class="lbl">'+prim+'</span>'+detail+'</div>';
 }
 function rowEl(i, indent, html){
   const d=document.createElement('div');
