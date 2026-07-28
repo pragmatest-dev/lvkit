@@ -49,42 +49,32 @@ jobs:
 
   build:
     needs: verify
+    # Every target builds on ONE Ubuntu runner: the extension bundles the
+    # official `uv` redistributable (fetch-uv.sh downloads the per-target
+    # binary) and invokes lvkit as `uv run … python -m lvkit`, so there is no
+    # PyInstaller step that must run natively on each OS. vsce's --target only
+    # stamps the manifest's TargetPlatform; the bin/uv/ payload is whatever
+    # fetch-uv.sh placed on disk, so a win32/darwin .vsix packages fine on Linux.
+    runs-on: ubuntu-latest
     strategy:
       # Report every platform's result instead of cancelling siblings on the
       # first failure — `needs: build` already blocks publishing unless all
       # four succeed, so full diagnostics cost nothing.
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            target: linux-x64
-          - os: windows-latest
-            target: win32-x64
-          # macos-13 was RETIRED 2025-12-04 (jobs queue forever and never
-          # start); macos-14 is deprecated (unsupported after 2026-11-02).
-          # macos-15 is the current arm64 image, macos-15-intel replaces the
-          # x86_64 label. Apple has discontinued x86_64 and GitHub drops macOS
-          # Intel when macOS 15 retires (Fall 2027) — darwin-x64 is sunsetting.
-          - os: macos-15-intel
-            target: darwin-x64
-          - os: macos-15
-            target: darwin-arm64
-    runs-on: ${{ matrix.os }}
+        target: [linux-x64, win32-x64, darwin-x64, darwin-arm64]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      # build-binary.sh also materializes macOS's Python.framework directory
-      # symlinks, which otherwise crash vsce's secret scanner with EISDIR.
-      - name: Build bundled lvkit binary
+      # Bundle the RIGHT uv redistributable for THIS target (its own bin/uv/).
+      # Byte-identical to Astral's signed release — that reputation is what lets
+      # it run under Windows Device Guard / Smart App Control.
+      - name: Fetch bundled uv for this platform
         shell: bash
-        run: |
-          uv venv
-          uv pip install -e . pyinstaller
-          uv run bash editors/vscode/build/build-binary.sh
+        run: bash editors/vscode/build/fetch-uv.sh ${{ matrix.target }}
 
       - name: Package .vsix for this platform
         shell: bash

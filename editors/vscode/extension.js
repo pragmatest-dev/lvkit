@@ -55,7 +55,7 @@ let _extensionPath = null;
 // THIS version, so the extension's advertised behavior is guaranteed regardless
 // of what (if anything) is installed on the user's machine. Bump whenever the
 // extension depends on a newer lvkit — which must be published to PyPI first.
-const LVKIT_PIN = '0.5.5';
+const LVKIT_PIN = '0.5.6';
 
 // The bundled `uv` binary (Astral), shipped inside the extension. uv is a
 // high-reputation, signed executable that RUNS under Windows Device Guard /

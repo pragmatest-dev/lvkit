@@ -2,6 +2,23 @@
 
 lvkit follows semantic versioning.
 
+## [0.5.6]
+- **`diff`: a case/event frame whose selector VALUE changed (e.g. `"1"` → `"0"`)
+  now reads as one *modification* instead of remove + add.** Frames are paired
+  across versions by their contained nodes' dataflow identity, so a renamed
+  frame that kept its contents is a single change. Uniform across
+  case/sequence/event/disable structures.
+- **Diff viewer: renamed frames reveal in BOTH panes at once.** Selecting the
+  change, or toggling the case selector directly on the diagram, now lands each
+  pane on its own side of the pairing (before `"1"`, after `"0"`) instead of
+  driving the other pane to a value it doesn't have (which showed an empty frame).
+- **Change list rows are uniform:** every row reads `<type of thing>
+  <change-word>` (e.g. `case frame modified`, `node added`) with the specific
+  value/name as truncated subtext — frames no longer show a bare quoted value.
+- Renderer fixes: bundle/unbundle terminals no longer cross, cluster constants
+  render at their natural size with default values, and missing-geometry gaps
+  (floating wires) are closed. Viewer `Fit` fits both dimensions.
+
 ## [0.5.5]
 - **Fix: `diff` overlay before/after scroll is now locked.** In overlay mode a
   native scroll (plain mouse wheel, scrollbar, trackpad, keyboard) on the active
