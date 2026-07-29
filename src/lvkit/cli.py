@@ -1033,15 +1033,19 @@ def cmd_diff(args: argparse.Namespace) -> int:
         from .render import render_vi
         from .render.diff_viewer import build_diff_viewer
 
-        # The viewer chrome is always prefers-color-scheme adaptive (see
-        # templates/diff_viewer.html), so the embedded diagrams follow the same
-        # signal: --theme controls the SVG palette (default 'light'; the VS Code
-        # extension passes 'auto' for a fully theme-matched page).
+        # The viewer chrome is prefers-color-scheme adaptive AND carries its own
+        # light/dark diagram-theme toggle (a data-theme flip on the page root —
+        # see templates/diff_viewer.html). For that toggle to re-theme the
+        # diagrams, their SVGs MUST be theme-reactive ("auto", CSS-var driven):
+        # a baked --theme palette has literal colors that can't respond to
+        # data-theme, so the toggle would do nothing. So the HTML diff ALWAYS
+        # renders "auto", exactly like cmd_render's html path. (--theme never
+        # applied to a baked static SVG here — diff emits no svg-only format.)
         before_svg = render_vi(
-            graph_a, vi_name_a, interactive=False, theme_mode=args.theme,
+            graph_a, vi_name_a, interactive=False, theme_mode="auto",
         )
         after_svg = render_vi(
-            graph_b, vi_name_b, interactive=False, theme_mode=args.theme,
+            graph_b, vi_name_b, interactive=False, theme_mode="auto",
         )
         if before_svg is None or after_svg is None:
             print(
