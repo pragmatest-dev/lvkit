@@ -63,7 +63,13 @@ mkdir -p "$PYDEST"
 # The install_only archive extracts to a top-level "python/" dir (contains
 # python.exe on Windows; bin/python3 on unix). Land it at bin/python/python/.
 tar xzf "$TMP/py.tar.gz" -C "$PYDEST"
-echo "    -> $PYDEST/python"
+# The unix install_only builds ship an ncurses terminfo DB (share/terminfo)
+# whose entries collide case-insensitively (h/hp...a vs ...A, p/p9 vs P/P9) —
+# the VSIX zip is case-insensitive and REJECTS such a pair. lvkit does no
+# terminal I/O, so drop terminfo entirely (also fixes the win/mac builds being
+# the only ones that packaged). Harmless if absent (Windows).
+rm -rf "$PYDEST/python/share/terminfo"
+echo "    -> $PYDEST/python (pruned share/terminfo)"
 
 # ---- 2. libs: lvkit + full dependency set, installed via pip --target --------
 echo "==> libs: lvkit==${LVKIT_PIN} + deps into bin/libs (${PIP_PLATFORMS})"
