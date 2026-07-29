@@ -585,6 +585,16 @@ STACKED_SEQ_VI = Path(
     ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
     "string.llb/Number to Proper Engl Text__ogtk.vi"
 )
+# The Graphical Test Runner's main UI — the only corpus VI carrying BUILT-IN
+# reference constants ("This Application" / "This VI": ctlRefConst nodes with no
+# ddo_uid, referencing a VI-server object rather than a front-panel control).
+# These were once dropped from the graph, leaving their wires (drawn from the
+# compressed wire table) floating into empty space — a render "void". Fixture
+# for that regression (see test_builtin_reference_constants_render).
+BUILTIN_REF_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
+    "Graphical Test Runner/Graphical Test Runner - Main UI - .vi"
+)
 CORPUS_VIS = [
     Path(".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),  # noqa: E501
     Path(
@@ -679,6 +689,49 @@ def test_build_scene_joins_graph_and_geometry():
         assert net.branches
         for branch in net.branches:
             assert len(branch) >= 2
+
+
+def test_builtin_reference_constants_render():
+    """A built-in reference constant ("This Application" / "This VI":
+    ``ctlRefConst`` with no ddo_uid) references a VI-server object, not a
+    front-panel control. It is still a real on-diagram object with an output
+    wire, so it MUST be modelled and drawn — earlier it was silently skipped in
+    the graph builder, so its wire (drawn from the compressed wire table) landed
+    on a terminal with no node box: a render "void" with a wire floating into
+    empty space. Assert both such constants now reach the scene as drawn nodes.
+    """
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+
+    # Built-in refs are ctlRefConst graph nodes with no resolved FP control
+    # (control_terminal_id is None) — the exact nodes once dropped.
+    builtin_refs = [
+        n for n in graph.iter_nodes(vi)
+        if getattr(n, "node_type", None) == "ctlRefConst"
+        and getattr(n, "control_terminal_id", None) is None
+    ]
+    assert builtin_refs, "expected built-in reference constants in the graph"
+
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    drawn_ctlref = {
+        rn.node.name
+        for rn in scene.nodes
+        if getattr(rn.node, "node_type", None) == "ctlRefConst"
+    }
+    # The two built-in server refs this VI wires into a Bundle-By-Name must draw.
+    assert "This Application" in drawn_ctlref
+    assert "This VI" in drawn_ctlref
+
+    # Every built-in ref graph node has a drawn RenderNode (with a terminal for
+    # its wire to land on) — no silent drop, no floating wire.
+    drawn_ids = {rn.node.id for rn in scene.nodes}
+    for ref in builtin_refs:
+        assert ref.id in drawn_ids, f"built-in ref {ref.id} ({ref.name}) not drawn"
+        rn = next(r for r in scene.nodes if r.node.id == ref.id)
+        assert rn.terminals, f"built-in ref {ref.name} drawn without a terminal"
 
 
 def test_wire_color_from_source_terminal_type():

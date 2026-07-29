@@ -115,9 +115,10 @@ class SelectNode(ParsedNode):
 class CtlRefConstNode(ParsedNode):
     """Control reference constant (class="ctlRefConst").
 
-    ddo_uid set: references a specific FP control — terminal is aliased
-    to the FP terminal's WireEnd in the graph (no new graph node).
-    ddo_uid None: built-in reference ("This Application" etc.) — deferred.
+    ddo_uid set: references a specific FP control — modelled as a drawn
+    ref node with a synthetic FP-value dataflow edge.
+    ddo_uid None: built-in reference ("This Application", "This VI") — still
+    modelled/drawn as a ref node, just without the FP-control edge.
     """
 
     ddo_uid: str | None = None

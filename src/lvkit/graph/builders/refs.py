@@ -52,17 +52,23 @@ class CtlRefConstHandler(RefBuildHandler):
         # constant where it lives; the FP-value dataflow is preserved for
         # codegen by the synthetic (non-drawn) edge below, exactly as for gRef.
         #
-        # Built-in refs (ddo_uid absent) are deferred — skip silently.
-        if not node.ddo_uid:
-            return True
-
+        # A built-in reference constant ("This VI", "This Application", …) has no
+        # ddo_uid: it references a built-in server, not an FP control. It is
+        # STILL a real on-diagram object with an output terminal wired to a
+        # consumer, so it must be modelled and drawn — otherwise its wire (drawn
+        # from the compressed wire table) lands on a terminal with no node box, a
+        # render "void" with a wire floating into empty space. Only the
+        # FP-control resolution is ddo-gated; the node is built exactly like a
+        # control-ref constant, minus the synthetic FP-value edge (guarded by
+        # ``fp_wire_end is not None`` below, which stays None here).
         fp_wire_end = None
-        fpdco_uid = ctx.ddo_to_fpdco.get(node.ddo_uid)
-        if fpdco_uid:
-            for fp_term in ctx.bd.fp_terminals:
-                if fp_term.fp_dco_uid == fpdco_uid:
-                    fp_wire_end = ctx.term_lookup.get(fp_term.uid)
-                    break
+        if node.ddo_uid:
+            fpdco_uid = ctx.ddo_to_fpdco.get(node.ddo_uid)
+            if fpdco_uid:
+                for fp_term in ctx.bd.fp_terminals:
+                    if fp_term.fp_dco_uid == fpdco_uid:
+                        fp_wire_end = ctx.term_lookup.get(fp_term.uid)
+                        break
 
         # This node's own terminal (its reference output).
         own_term_uid = None
