@@ -49,12 +49,12 @@ jobs:
 
   build:
     needs: verify
-    # Every target builds on ONE Ubuntu runner: the extension bundles the
-    # official `uv` redistributable (fetch-uv.sh downloads the per-target
-    # binary) and invokes lvkit as `uv run … python -m lvkit`, so there is no
-    # PyInstaller step that must run natively on each OS. vsce's --target only
-    # stamps the manifest's TargetPlatform; the bin/uv/ payload is whatever
-    # fetch-uv.sh placed on disk, so a win32/darwin .vsix packages fine on Linux.
+    # Every target builds on ONE Ubuntu runner: the extension bundles a
+    # self-contained runtime (approach B) — a python-build-standalone CPython +
+    # lvkit installed via `pip install --target` — and invokes it directly as
+    # `<bundled-python> -m lvkit`. `pip --target` unpacks wheels WITHOUT running
+    # the target interpreter, so a win32/darwin bundle builds fine on Linux;
+    # vsce's --target only stamps the manifest's TargetPlatform.
     runs-on: ubuntu-latest
     strategy:
       # Report every platform's result instead of cancelling siblings on the
@@ -68,13 +68,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # CPython 3.12 provides pip (for `pip install --target`) AND a `python3.12`
+      # for the hash-based .pyc precompile step (so first render is instant, not
+      # a ~20s recompile). Must match the bundle's pinned CPython minor (3.12).
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      # Bundle the RIGHT uv redistributable for THIS target (its own bin/uv/).
-      # Byte-identical to Astral's signed release — that reputation is what lets
-      # it run under Windows Device Guard / Smart App Control.
-      - name: Fetch bundled uv for this platform
+      # Fetch this target's self-contained runtime: python-build-standalone +
+      # lvkit + deps installed into bin/, with bytecode precompiled hash-based.
+      - name: Fetch bundled runtime for this platform
         shell: bash
-        run: bash editors/vscode/build/fetch-uv.sh ${{ matrix.target }}
+        run: bash editors/vscode/build/fetch-bundle.sh ${{ matrix.target }}
 
       - name: Package .vsix for this platform
         shell: bash

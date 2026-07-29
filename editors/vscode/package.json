@@ -2,7 +2,7 @@
   "name": "lvkit",
   "displayName": "LVKit",
   "description": "View and diff VIs without LabVIEW.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "publisher": "pragmatest",
   "icon": "icon.png",
   "license": "Apache-2.0",
@@ -13,8 +13,9 @@
   "engines": { "vscode": "^1.75.0" },
   "capabilities": {
     "untrustedWorkspaces": {
-      "supported": false,
-      "description": "LVKit runs a local lvkit executable against the .vi files in your workspace to render diagrams and diffs, so it needs a trusted workspace."
+      "supported": "limited",
+      "restrictedConfigurations": ["lvkit.path"],
+      "description": "In an untrusted workspace LVKit renders and diffs .vi files with its own bundled, self-contained runtime; the `lvkit.path` override (which would run an executable the workspace names) is ignored."
     },
     "virtualWorkspaces": {
       "supported": false,
@@ -32,7 +33,17 @@
         "lvkit.path": {
           "type": "string",
           "default": "lvkit",
-          "markdownDescription": "Path to the `lvkit` executable. Use just `lvkit` if it is on your PATH, or an absolute path (e.g. a project venv's `.venv/bin/lvkit`)."
+          "markdownDescription": "Path to the `lvkit` executable. Use just `lvkit` if it is on your PATH, or an absolute path (e.g. a project venv's `.venv/bin/lvkit`). Overrides `#lvkit.importStrategy#`. Ignored in an untrusted workspace."
+        },
+        "lvkit.importStrategy": {
+          "type": "string",
+          "enum": ["fromEnvironment", "useBundled"],
+          "enumDescriptions": [
+            "Use a `lvkit` found on your PATH if there is one; otherwise fall back to the bundled runtime.",
+            "Always use the runtime bundled with the extension (a self-contained Python with lvkit pre-installed)."
+          ],
+          "default": "useBundled",
+          "markdownDescription": "Which lvkit to run. `useBundled` (default) uses the extension's own self-contained runtime — a bundled Python with lvkit pre-installed, so no Python or lvkit install is required, and it works under Windows Device Guard / Smart App Control. `fromEnvironment` prefers a `lvkit` on your PATH, falling back to the bundle. An explicit `#lvkit.path#` overrides this. Forced to `useBundled` in an untrusted workspace."
         },
         "lvkit.searchPaths": {
           "type": "array",

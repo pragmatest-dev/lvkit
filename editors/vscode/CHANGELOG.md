@@ -2,6 +2,25 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.9]
+
+- **Self-contained runtime — no first-run download, no setup.** 0.1.8 still
+  fetched a managed Python + lvkit from the network the first time it ran. The
+  extension now **ships** a complete, ready-to-run runtime inside the VSIX — a
+  python-build-standalone CPython 3.12 with lvkit and its full dependency set
+  **pre-installed** — and launches it directly (`python -m lvkit`). There is
+  nothing to download, assemble, or warm up: a locked-down or air-gapped Windows
+  machine (Device Guard / Smart App Control) renders VIs immediately, with
+  **zero** network access and nothing installed. (Device Guard evaluates the
+  binaries actually loaded — `python.exe` and the extension modules it imports,
+  all signed / high-reputation — so no unsigned `lvkit.exe` is ever created.)
+- **`lvkit.importStrategy` (Ruff-style).** `useBundled` (default) always uses the
+  shipped runtime; `fromEnvironment` prefers a `lvkit` already on your PATH,
+  falling back to the bundle. An explicit `lvkit.path` still overrides everything.
+- **Works in untrusted workspaces.** Rendering and diffing now run in Restricted
+  Mode using the bundled runtime; only the `lvkit.path` override (which would run
+  a workspace-named executable) is ignored until you trust the workspace.
+
 ## [0.1.8]
 
 - **Works on locked-down Windows (Device Guard / Smart App Control).** The old

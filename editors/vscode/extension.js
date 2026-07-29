@@ -48,50 +48,74 @@ function onPath(exe) {
   try { cp.execSync(probe, { stdio: 'ignore' }); return true; } catch (_) { return false; }
 }
 
-// Set in activate() so lvkitCmd can locate the bundled uv binary.
+// Set in activate() so the resolver can locate the bundled runtime under the
+// extension's own directory. Approach B ships a ready-to-run runtime — a
+// python-build-standalone CPython with lvkit pre-installed beside it — so there
+// is nothing to assemble and no per-user state; it all lives in the (read-only)
+// extension install dir.
 let _extensionPath = null;
 
-// The EXACT lvkit version this extension is built and tested against. uv fetches
-// THIS version, so the extension's advertised behavior is guaranteed regardless
-// of what (if anything) is installed on the user's machine. Bump whenever the
-// extension depends on a newer lvkit — which must be published to PyPI first.
+// The EXACT lvkit version this extension ships and is tested against. The bundle
+// has THIS version pre-installed under bin/libs, so the extension's advertised
+// behavior is guaranteed regardless of what (if anything) the user installed.
+// Bump it AND refetch the bundle (build/fetch-bundle.sh) so bin/libs matches.
 const LVKIT_PIN = '0.5.6';
 
-// The bundled `uv` binary (Astral), shipped inside the extension. uv is a
-// high-reputation, signed executable that RUNS under Windows Device Guard /
-// Smart App Control — where our own unsigned PyInstaller `lvkit.exe` gets
-// blocked (zero reputation). uv provisions a managed Python + the pinned lvkit
-// on first use (cached afterwards), and we invoke lvkit as a MODULE
-// (`python -m lvkit`) so no unsigned `lvkit.exe` is ever created or executed —
-// which is the whole reason the exe was blocked.
-function bundledUvPath() {
+// ---- self-contained bundle (approach B: bundled Python + pre-installed lvkit)
+// Two per-platform components under bin/ (fetched by build/fetch-bundle.sh,
+// git-ignored): a python-build-standalone CPython 3.12 (bin/python/python/) and
+// lvkit + its full dependency set installed into bin/libs/. The extension runs
+// `<bundledPython> -m lvkit` with PYTHONPATH=<bin/libs> — no uv, no venv, no
+// first-run assembly. Device Guard / Smart App Control evaluate the binary being
+// LOADED (python.exe + the .pyd files it imports); those are the same signed /
+// high-reputation binaries uv merely spawned in 0.1.8. Running lvkit as a MODULE
+// means no unsigned `lvkit.exe` is ever created or executed.
+//
+// The install_only python layout extracts to bin/python/python/: python.exe at
+// the root on Windows, bin/python3 on unix.
+function bundledPythonPath() {
   if (!_extensionPath) return null;
-  const exe = process.platform === 'win32' ? 'uv.exe' : 'uv';
-  const p = path.join(_extensionPath, 'bin', 'uv', exe);
-  return fileExists(p) ? p : null;
+  const base = path.join(_extensionPath, 'bin', 'python', 'python');
+  return process.platform === 'win32'
+    ? path.join(base, 'python.exe')
+    : path.join(base, 'bin', 'python3');
+}
+function bundledLibsPath() {
+  return _extensionPath ? path.join(_extensionPath, 'bin', 'libs') : null;
+}
+// The child environment for a bundled run: lvkit + its deps live in bin/libs, so
+// PREPEND that to PYTHONPATH (ahead of any inherited one) so the bundled
+// interpreter imports the pinned copy.
+function bundledEnv() {
+  const libs = bundledLibsPath();
+  const prior = process.env.PYTHONPATH;
+  return { ...process.env, PYTHONPATH: prior ? `${libs}${path.delimiter}${prior}` : libs };
 }
 
-// Resolve a ready-to-exec lvkit command PREFIX. Multi-token (e.g.
-// `"…\uv.exe" run …`), so callers interpolate it raw — never wrap the whole
-// prefix in quotes as one path. Order:
-//   1. an explicit `lvkit.path` override — a developer pointing at their OWN
-//      build/checkout (the literal default "lvkit" counts as unset). This is the
-//      only way an ambient/local lvkit is ever used; we never auto-discover one,
-//      because the extension can only guarantee its behavior at the pinned version.
-//   2. uv running the PINNED lvkit as a module — the guaranteed, no-Python,
-//      Device-Guard-safe path (bundled uv, else a `uv` already on PATH).
-//      `--no-project` stops uv from adopting any pyproject in the working dir,
-//      so the pin can't be silently overridden.
-//   3. a bare `lvkit` on PATH — last resort (may itself be blocked under SAC).
-function lvkitCmd(_root) {
-  const configured = cfg().get('path', 'lvkit');
-  if (configured && configured !== 'lvkit') return `"${configured}"`;
-  const uv = bundledUvPath() || (onPath('uv') ? 'uv' : null);
-  if (uv) {
-    const uvTok = uv.includes(path.sep) ? `"${uv}"` : uv;
-    return `${uvTok} run --no-project --with lvkit==${LVKIT_PIN} python -m lvkit`;
+// Resolve HOW to invoke lvkit (the importStrategy idiom, like Ruff). Order:
+//   1. `lvkit.path` override — a developer pointing at their OWN build. IGNORED
+//      in an untrusted workspace (running an arbitrary configured binary is
+//      exactly what Workspace Trust guards against).
+//   2. `lvkit.importStrategy`:
+//        - `useBundled` (default): the bundled `<python> -m lvkit`.
+//        - `fromEnvironment`: a `lvkit` already on PATH, else fall back to bundled.
+//      Forced to `useBundled` in an untrusted workspace.
+// Returns { kind, cmd, env }. `cmd` is a ready-to-interpolate PREFIX
+// (multi-token) — callers append the subcommand; `env` is the child environment
+// to run it under (undefined = inherit the extension host's).
+function resolveStrategy() {
+  const trusted = vscode.workspace.isTrusted;
+  if (trusted) {
+    const configured = cfg().get('path', 'lvkit');
+    if (configured && configured !== 'lvkit') {
+      return { kind: 'path', cmd: `"${configured}"`, env: undefined };
+    }
   }
-  return 'lvkit';
+  const strat = trusted ? cfg().get('importStrategy', 'useBundled') : 'useBundled';
+  if (strat === 'fromEnvironment' && onPath('lvkit')) {
+    return { kind: 'env', cmd: 'lvkit', env: undefined };
+  }
+  return { kind: 'bundled', cmd: `"${bundledPythonPath()}" -m lvkit`, env: bundledEnv() };
 }
 
 function run(cmd, opts) {
@@ -101,21 +125,14 @@ function run(cmd, opts) {
     const msg = String(e && e.message);
     const stderr = e && e.stderr ? e.stderr.toString() : '';
     const blob = msg + stderr;
-    // First run provisions a managed Python + lvkit via uv — that needs network.
-    if (/offline|No such host|Could not connect|failed to (fetch|download)|dns error|timed? out|network|proxy/i.test(blob)) {
-      throw new Error(
-        "lvkit's runtime couldn't be downloaded — uv needs network access the first "
-        + 'time it runs (it fetches a managed Python + lvkit, then caches them offline). '
-        + 'Check your connection/proxy and retry.'
-      );
-    }
-    // No uv available at all (bundle missing AND none on PATH) → lvkitCmd fell
-    // back to a bare `lvkit`, which isn't there.
+    // The runtime is SHIPPED, ready-to-run, in the VSIX, so a launch failure
+    // means the bundled Python (or a `lvkit.path` override) isn't there — not a
+    // download problem.
     if ((e && e.code === 'ENOENT') || /ENOENT|not found|No such file|is not recognized/i.test(blob)) {
       throw new Error(
-        'Could not launch lvkit. The extension bundles uv to run it with no Python '
-        + 'required; if that is missing, install uv (https://docs.astral.sh/uv/) or set '
-        + '"lvkit.path" to your own lvkit.'
+        'Could not launch lvkit. The extension ships a self-contained runtime; if '
+        + 'it is missing, reinstall the extension, or set "lvkit.path" to your own '
+        + 'lvkit.'
       );
     }
     throw new Error(stderr || msg);
@@ -130,19 +147,19 @@ function cmpSemver(a, b) {
   return 0;
 }
 
-// One-time, non-blocking version check. On the default path lvkit is PINNED
-// (uv fetches LVKIT_PIN), so the version is guaranteed and there's nothing to
-// check — skipping also avoids a redundant uv spawn (which would download the
-// runtime just to print --version). We only verify when the user pointed us at
-// their OWN lvkit via `lvkit.path`, where the version is unknown.
+// One-time, non-blocking version check. On the bundled path lvkit is PINNED
+// (the shipped wheels ARE LVKIT_PIN), so the version is guaranteed and there's
+// nothing to check. We only verify when the resolver actually chose an
+// off-bundle lvkit — a `lvkit.path` override or a `fromEnvironment` lvkit — where
+// the version is unknown.
 let _versionChecked = false;
 function checkLvkitVersion(root) {
   if (_versionChecked) return;
   _versionChecked = true;
-  const configured = cfg().get('path', 'lvkit');
-  if (!(configured && configured !== 'lvkit')) return;  // pinned path — nothing to check
+  const s = resolveStrategy();
+  if (s.kind === 'bundled') return;  // pinned bundled runtime — nothing to check
   try {
-    const out = cp.execSync(`${lvkitCmd(root)} --version`, { cwd: root }).toString();
+    const out = cp.execSync(`${s.cmd} --version`, { cwd: root, env: s.env }).toString();
     const m = out.match(/(\d+\.\d+\.\d+)/);
     if (m && cmpSemver(m[1], MIN_LVKIT) < 0) {
       vscode.window.showWarningMessage(
@@ -312,6 +329,10 @@ class ViPreviewProvider {
     const root = gitRootOr(path.dirname(origPath));
     checkLvkitVersion(root);
     try {
+      // Resolve which lvkit to run (bundled `python -m lvkit`, an env lvkit, or a
+      // `lvkit.path` override) plus the environment it needs (bundled prepends
+      // bin/libs to PYTHONPATH). Ready-to-run — nothing to assemble.
+      const lv = resolveStrategy();
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
       // In VS Code's native diff, THIS editor opens on both panes with different
       // URIs: the "after" pane is scheme `file` (on disk); the "before" pane is
@@ -349,7 +370,7 @@ class ViPreviewProvider {
       // internally `--theme auto` (switchable in-viewer), so the injected
       // initial theme + the in-viewer control govern light/dark — no --theme
       // needed on this call.
-      run(`${lvkitCmd(root)} render "${file}" ${searchArgs(root)} --format html${refArg} -o "${out}"`, { cwd: root });
+      run(`${lv.cmd} render "${file}" ${searchArgs(root)} --format html${refArg} -o "${out}"`, { cwd: root, env: lv.env });
       const html = injectSubVIClickNav(injectInitialTheme(fs.readFileSync(out, 'utf8'), diagramTheme()));
       panel.webview.html = withNonceCsp(html);
       wireThemePersistence(panel.webview);
@@ -381,6 +402,7 @@ async function diffVI(arg) {
       try {
         const root = gitRootOr(path.dirname(file));
         checkLvkitVersion(root);
+        const lv = resolveStrategy();
         // git refs (HEAD:<path>) require POSIX separators; path.relative yields
         // backslashes on Windows, which git reads as a literal filename and
         // rejects ("exists on disk, but not in 'HEAD'"). Normalize to '/'.
@@ -396,7 +418,7 @@ async function diffVI(arg) {
         // adaptive; auto makes the embedded before/after diagrams follow the
         // same signal. The injected initial theme + in-viewer control then let
         // the user pin light/dark, persisted via wireThemePersistence().
-        run(`${lvkitCmd(root)} diff "${oldVi}" "${file}" ${searchArgs(root)} --format html --theme auto --before-ref "${headRef}" -o "${out}"`, { cwd: root });
+        run(`${lv.cmd} diff "${oldVi}" "${file}" ${searchArgs(root)} --format html --theme auto --before-ref "${headRef}" -o "${out}"`, { cwd: root, env: lv.env });
         const panel = vscode.window.createWebviewPanel(
           'lvkitDiff', `VI Diff: ${path.basename(file)}`, vscode.ViewColumn.Active,
           { enableScripts: true, retainContextWhenHidden: true }
@@ -413,6 +435,7 @@ async function diffVI(arg) {
 
 function activate(context) {
   _extensionPath = context.extensionPath;
+  // Approach B ships a ready-to-run runtime — nothing to assemble or warm up.
   context.subscriptions.push(vscode.commands.registerCommand('lvkit.diffVI', diffVI));
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(
     'lvkit.viPreview', new ViPreviewProvider(),

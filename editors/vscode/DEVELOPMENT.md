@@ -3,23 +3,28 @@
 Contributor and maintainer notes. User-facing docs are in [README.md](README.md).
 ## How the extension finds lvkit
 
-The extension resolves which `lvkit` to run, in order:
+The extension resolves which `lvkit` to run (the `importStrategy` idiom, like Ruff),
+in order:
 
 1. an explicit **`lvkit.path`** setting — a developer pointing at their own build.
-   This is the ONLY way an ambient/local lvkit is used; we never auto-discover one,
-   because the extension can only guarantee its behavior at the **pinned** version.
-2. **`uv run --no-project --with lvkit==<LVKIT_PIN> python -m lvkit`** using the
-   bundled `uv` (`bin/uv/uv.exe`, else a `uv` already on `PATH`). This is the default.
-3. a bare `lvkit` on `PATH` — last resort.
+   **Ignored in an untrusted workspace** (it names an executable to run).
+2. **`lvkit.importStrategy`** (default `useBundled`; forced to `useBundled` when the
+   workspace is untrusted):
+   - `useBundled` — the extension's **own self-contained runtime**: the bundled
+     python-build-standalone interpreter run as `<bin/python> -m lvkit` with
+     `PYTHONPATH=<bin/libs>` (where lvkit + deps are pre-installed). No uv, no venv.
+   - `fromEnvironment` — a `lvkit` already on `PATH` if present, else the bundle.
 
-Why uv + a module instead of a bundled `lvkit.exe`: on Windows, **Device Guard /
-Smart App Control** blocks an unsigned, zero-reputation PyInstaller exe. `uv` is a
-signed, high-reputation binary those policies allow; running lvkit as a **module**
-(`python -m lvkit`) means no `lvkit.exe` is ever created or executed. uv provisions a
-managed Python + the pinned lvkit on first use (network once, cached after), so a
-LabVIEW user needs no Python installed. `LVKIT_PIN` in `extension.js` fixes the exact
-version so the extension's advertised behavior is reproducible — bump it (to a version
-already on **PyPI**) when the extension depends on a newer lvkit.
+Why a bundled Python + a module instead of a bundled `lvkit.exe`: on Windows, **Device
+Guard / Smart App Control** blocks an unsigned, zero-reputation PyInstaller exe — but
+they evaluate the binary being **loaded** (`python.exe` + the `.pyd` files it imports),
+not the launcher. Those are signed / high-reputation python-build-standalone + PyPI
+binaries (the same ones uv merely spawned in 0.1.8), and running lvkit as a **module**
+(`python -m lvkit`) means no `lvkit.exe` is ever created or executed. So 0.1.9 drops uv
+from the runtime entirely: it **ships** the interpreter with lvkit pre-installed and
+launches it directly — nothing is downloaded or assembled (0.1.8 fetched the runtime
+from the network on first use). `LVKIT_PIN` in `extension.js` fixes the exact version;
+bump it **and refetch the bundle** (`bin/libs` must match).
 
 ## Try it locally (dev host)
 
@@ -41,23 +46,39 @@ The extension versions on its **own** track (independent of the LVKit library) �
 in `extension.js`); bump that constant when a feature needs a newer library, and bump
 the extension `version` in `package.json` per its own release cadence.
 
-## Bundling uv
+## Bundling the runtime
 
-`bin/uv/` is **not committed** (git-ignored, ~76 MB, per-platform). Fetch it before
-packaging (or for F5 testing):
+`bin/` is **not committed** (git-ignored, per-platform, ~250 MB). It holds the two
+components of the ready-to-run runtime (approach B — no uv, no venv):
+
+```
+bin/python/python/   a python-build-standalone install_only CPython 3.12
+bin/libs/            lvkit==<LVKIT_PIN> + its full dependency set, INSTALLED
+```
+
+Fetch both for a target before packaging (or for F5 testing):
 
 ```bash
-editors/vscode/build/fetch-uv.sh win32-x64     # -> editors/vscode/bin/uv/uv.exe
+editors/vscode/build/fetch-bundle.sh win32-x64   # Python + libs into bin/
 # also: linux-x64 | darwin-x64 | darwin-arm64 | win32-arm64 | linux-arm64
 ```
 
-uv is platform-specific, so fetch the matching binary for **each** target and ship one
-`.vsix` per platform (e.g. `npx @vscode/vsce package --target win32-x64`). The win32
-`.vsix` can be built from WSL/Linux — vsce just bundles whatever `bin/uv/uv.exe` is
-present, so the fetched **Windows** uv.exe is what matters, not the build host.
+`fetch-bundle.sh` downloads the pinned python-build-standalone tarball (`PBS_RELEASE` /
+`PY_VERSION` in the script) and `pip install --target bin/libs`s lvkit + deps for the
+target's platform tag(s). `pip install --target` unpacks wheels **without running** the
+target interpreter (`--platform`/`--python-version`/`--implementation` select the
+wheels), so a **win32** bundle builds fine from Linux. Everything is per-platform, so
+fetch the matching bundle for **each** target and ship one `.vsix` per platform (e.g.
+`npx @vscode/vsce package --target win32-x64`). vsce just bundles whatever is in `bin/`,
+so the fetched **Windows** components are what matter, not the build host.
 
-(The old PyInstaller path — `build/build-binary.sh` → `bin/lvkit/` — is superseded by
-uv and no longer used; see "How the extension finds lvkit".)
+Because you can't run a win32 Python on Linux, prove the **runtime mechanism** on the
+build host with a linux bundle: `fetch-bundle.sh linux-x64`, then
+`PYTHONPATH=bin/libs bin/python/python/bin/python3 -m lvkit --version` → `lvkit <pin>`
+(and a real `render … --format html` → exit 0). No uv, no venv anywhere.
+
+(The old PyInstaller path — `build/build-binary.sh` → `bin/lvkit/` — is superseded and
+no longer used; see "How the extension finds lvkit".)
 
 ## Publishing to the Marketplace
 
