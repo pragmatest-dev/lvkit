@@ -386,21 +386,30 @@ def _frame_info(
         if isinstance(node, CaseStructureNode) and node.frames:
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(f.selector_value) for f in node.frames]
+            sel_t = graph.get_terminal(node.selector_terminal) \
+                if node.selector_terminal else None
+            lv_type = sel_t.lv_type if sel_t else None
+            is_error = bool(lv_type and _is_error_cluster(lv_type))
             # Open on the frame LabVIEW last displayed (from the dataspace
-            # selector table), else the default frame, else frame 0.
+            # selector table). Without it (BD-only load), an error cluster
+            # opens on its No-Error (main-path) frame — LabVIEW's convention and
+            # where the logic lives — NOT the Error frame, which is the semantic
+            # default. Otherwise fall back to the default frame, else frame 0.
             shown = None
             if node.displayed_frame is not None \
                     and 0 <= node.displayed_frame < len(node.frames):
                 shown = node.frames[node.displayed_frame]
+            if shown is None and is_error:
+                shown = next(
+                    (f for f in node.frames
+                     if is_no_error_selector(str(f.selector_value))),
+                    None,
+                )
             if shown is None:
                 shown = next(
                     (f for f in node.frames if f.is_default), node.frames[0],
                 )
             default_frame[raw] = str(shown.selector_value)
-            sel_t = graph.get_terminal(node.selector_terminal) \
-                if node.selector_terminal else None
-            lv_type = sel_t.lv_type if sel_t else None
-            is_error = bool(lv_type and _is_error_cluster(lv_type))
             frame_labels[raw] = {
                 str(f.selector_value): _selector_label(f, lv_type, is_error)
                 for f in node.frames

@@ -14,12 +14,13 @@ from lvkit.parser.nodes.case import (
 def _build_case_xml(
     case_uid: str,
     selector_uid: str,
-    select_ranges: list[tuple[int, int]],
+    select_ranges: list[tuple[int, ...]],
     *,
     string_array: list[str] | None = None,
     default_diag: int | None = None,
     num_diags: int = 2,
     sel_type_id: int | None = None,
+    range_types: list[tuple[int, int]] | None = None,
 ) -> ET.Element:
     """Build minimal XML for a case structure.
 
@@ -30,6 +31,10 @@ def _build_case_xml(
         string_array: hex-encoded strings for SelectStringArray
         default_diag: diagram index of the default case (None = no default)
         num_diags: number of diagram frames to create
+        range_types: parallel list of (startRangeType, endRangeType) for each
+            entry in ``select_ranges``. Omitted/None entries default to
+            (0, 0) — a fully literal endpoint, matching real XML that omits
+            the fields entirely.
     """
     root = ET.Element("root")
     case = ET.SubElement(root, "SL__arrayElement", attrib={
@@ -48,7 +53,7 @@ def _build_case_xml(
     # SelectRangeArray32. Each entry is (start, diagramIdx) — a single value —
     # or (start, end, diagramIdx) for a closed range.
     sra = ET.SubElement(case, "SelectRangeArray32")
-    for entry in select_ranges:
+    for i, entry in enumerate(select_ranges):
         if len(entry) == 3:
             start, end, diag_idx = entry
         else:
@@ -60,6 +65,10 @@ def _build_case_xml(
         ET.SubElement(sr, "start").text = str(start)
         ET.SubElement(sr, "end").text = str(end)
         ET.SubElement(sr, "diagramIdx").text = str(diag_idx)
+        if range_types is not None:
+            start_type, end_type = range_types[i]
+            ET.SubElement(sr, "startRangeType").text = str(start_type)
+            ET.SubElement(sr, "endRangeType").text = str(end_type)
 
     # SelectStringArray
     if string_array is not None:
@@ -277,6 +286,56 @@ class TestSelectorRanges:
         assert all(f.selector_ranges == [] for f in cs.frames)
 
 
+class TestSymbolicRangeTypes:
+    """SelectRangeArray32 startRangeType/endRangeType: a nonzero type marks
+    the corresponding start/end as SYMBOLIC filler (LabVIEW writes
+    INT_MIN/INT_MAX), not a real value. Error-cluster case structures encode
+    their two frames this way; ignoring the type fields collapses both frames
+    onto the same filler ``"-2147483648"`` selector_value (regression)."""
+
+    def test_error_cluster_no_error_and_error_frames_get_distinct_values(self):
+        # frame 0: No-Error — symbolic degenerate point (start == end).
+        # frame 1: Error/default — symbolic full-domain span (start != end).
+        root = _build_case_xml(
+            "cs1", "sel1",
+            select_ranges=[
+                (-2147483648, -2147483648, 0),
+                (-2147483648, 2147483647, 1),
+            ],
+            range_types=[(3, 1), (3, 3)],
+            num_diags=2,
+        )
+        ti = _make_terminal_info("sel1", "Cluster")
+        cs = extract_case_structures(root, ti)[0]
+
+        f0, f1 = cs.frames
+        # Regression: the two frames must not collide on the same value.
+        assert f0.selector_value != f1.selector_value
+        assert f0.selector_value == "0"
+        assert f0.is_default is False
+        assert f0.selector_ranges == []
+
+        assert f1.is_default is True
+        assert f1.selector_value == "Default"
+        assert f1.selector_ranges == []
+
+    def test_literal_enum_case_unchanged(self):
+        """Fully-literal ranges (type 0/0) — the common enum/int/bool/string
+        case — must resolve exactly as before the range-type fix."""
+        root = _build_case_xml(
+            "cs1", "sel1",
+            select_ranges=[(0, 0), (1, 1)],
+            range_types=[(0, 0), (0, 0)],
+        )
+        ti = _make_terminal_info("sel1", "NumInt32")
+        cs = extract_case_structures(root, ti)[0]
+
+        assert cs.frames[0].selector_value == "0"
+        assert cs.frames[1].selector_value == "1"
+        assert cs.frames[0].is_default is False
+        assert cs.frames[1].is_default is False
+
+
 # ---------------------------------------------------------------------------
 # Dataspace selector-value tables (#82): the real per-frame selector values
 # live in the main *.xml DFDS, not the block-diagram heap.
@@ -421,6 +480,7 @@ class TestCaseInsensitiveFlag:
         root = _build_case_xml("cs1", "sel1", select_ranges=[(0, 0)],
                                string_array=["616263"], default_diag=1)
         case = root.find(".//*[@class='select']")
+        assert case is not None
         ET.SubElement(case, "objFlags").text = str(objflags)
         ti = _make_terminal_info("sel1", type_name)
         return extract_case_structures(root, ti)[0]

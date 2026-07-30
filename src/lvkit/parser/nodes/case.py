@@ -210,9 +210,19 @@ def _extract_one_case_structure(
 
     # Extract selector ranges from SelectRangeArray32, keyed by diagramIdx.
     # A frame can match SEVERAL ranges (e.g. ``1, 3, 5..8``); LabVIEW stores
-    # each as start/end (a single value has start == end). We preserve them
-    # all — the label is reconstructed from ranges, there is no stored label.
+    # each as start/end (a single value has start == end), plus a
+    # startRangeType/endRangeType per endpoint. Type 0 means the endpoint is a
+    # real literal value; a nonzero type means the endpoint is SYMBOLIC and
+    # the numeric start/end is filler (LabVIEW writes INT_MIN/INT_MAX) — this
+    # is how error-cluster frames encode "No Error" (a symbolic degenerate
+    # point) and the catch-all "Error"/default frame (a symbolic full-domain
+    # span). We preserve literal ranges verbatim — the label is reconstructed
+    # from ranges, there is no stored label — and resolve symbolic ranges
+    # below instead of surfacing their filler numbers.
     ranges_by_diag: dict[int, list[SelectorRange]] = {}
+    no_error_diags: set[int] = set()
+    default_symbolic_diags: set[int] = set()
+    raw_ranges_by_diag: dict[int, list[tuple[int, int, int, int]]] = {}
     select_range = case_elem.find("SelectRangeArray32")
     if select_range is not None:
         for sr_elem in select_range.findall(
@@ -221,12 +231,53 @@ def _extract_one_case_structure(
             start = sr_elem.findtext("start")
             end = sr_elem.findtext("end")
             diag_idx = sr_elem.findtext("diagramIdx")
-            if start is not None and diag_idx is not None:
-                rng = SelectorRange(
-                    start=int(start),
-                    end=int(end) if end is not None else int(start),
-                )
-                ranges_by_diag.setdefault(int(diag_idx), []).append(rng)
+            if start is None or diag_idx is None:
+                continue
+            start_type = sr_elem.findtext("startRangeType")
+            end_type = sr_elem.findtext("endRangeType")
+            raw_ranges_by_diag.setdefault(int(diag_idx), []).append((
+                int(start),
+                int(end) if end is not None else int(start),
+                int(start_type) if start_type is not None else 0,
+                int(end_type) if end_type is not None else 0,
+            ))
+
+    for diag_idx, entries in raw_ranges_by_diag.items():
+        if all(st == 0 and et == 0 for _, _, st, et in entries):
+            # Fully-literal frame — every endpoint is a real value. This is
+            # the common case (enum/int/bool/string); behavior unchanged.
+            ranges_by_diag[diag_idx] = [
+                SelectorRange(start=s, end=e) for s, e, _, _ in entries
+            ]
+            continue
+
+        if len(entries) == 1:
+            s, e, st, et = entries[0]
+            if st != 0 and et != 0:
+                if s == e:
+                    # Symbolic degenerate point — error-cluster "No Error".
+                    no_error_diags.add(diag_idx)
+                else:
+                    # Symbolic full-domain span — the catch-all
+                    # "Error"/default frame.
+                    default_symbolic_diags.add(diag_idx)
+                continue
+            if (st != 0) != (et != 0):
+                # One-sided symbolic — a genuine open integer range. Keep
+                # only the literal endpoint's value; the symbolic side is
+                # filler and must never be surfaced.
+                ranges_by_diag[diag_idx] = [
+                    SelectorRange(
+                        start=s, end=e, open_start=st != 0, open_end=et != 0,
+                    )
+                ]
+                continue
+
+        # Defensive fallback for any other combination (not observed in the
+        # corpus): preserve the literal numbers, matching prior behavior.
+        ranges_by_diag[diag_idx] = [
+            SelectorRange(start=s, end=e) for s, e, _, _ in entries
+        ]
 
     # For string selectors, the start values in SelectRangeArray32 are
     # indices into SelectStringArray (hex-encoded string labels).
@@ -255,8 +306,15 @@ def _extract_one_case_structure(
             default_diag_idx = int(default_case_elem, 16)
         except ValueError:
             pass
+    if default_diag_idx is None and default_symbolic_diags:
+        # A symbolic full-domain range (rule 3 above) IS the default frame —
+        # fold it in before the "missing range" heuristic below, since a
+        # symbolic frame has no entry in ``ranges_by_diag`` either and would
+        # otherwise be indistinguishable from a No-Error frame there.
+        default_diag_idx = next(iter(default_symbolic_diags))
     if default_diag_idx is None:
-        missing = [i for i in range(num_frames) if i not in ranges_by_diag]
+        handled = set(ranges_by_diag) | no_error_diags | default_symbolic_diags
+        missing = [i for i in range(num_frames) if i not in handled]
         if missing:
             default_diag_idx = missing[0]
 
@@ -265,18 +323,24 @@ def _extract_one_case_structure(
         for idx, diag_elem in enumerate(
             diag_list.findall("SL__arrayElement[@class='diag']")
         ):
-            is_default = idx == default_diag_idx
+            is_default = idx == default_diag_idx or idx in default_symbolic_diags
             ranges = ranges_by_diag.get(idx, [])
             resolved_selector: str | None = None
-            if not is_default and ranges:
-                sv = ranges[0].start
+            if idx in no_error_diags:
+                # Symbolic degenerate point → the canonical No-Error value
+                # that ``op_walk.is_no_error_selector``/``_selector_label``
+                # already recognize (renders "No Error", green border).
+                resolved_selector = "0"
+            elif not is_default and ranges:
+                sv = ranges[0].end if ranges[0].open_start else ranges[0].start
                 if selector_type == "boolean":
                     resolved_selector = "True" if sv == 1 else "False"
                 elif selector_type == "string" and sv < len(string_labels):
                     resolved_selector = string_labels[sv]
                 else:
                     # Integer, enum, error — semantic identity is the raw
-                    # first-range start; faithful display is built later from
+                    # first-range start (or, for an open-start range, the
+                    # literal end); faithful display is built later from
                     # ``selector_ranges`` against the resolved selector type.
                     resolved_selector = str(sv)
 
@@ -287,7 +351,7 @@ def _extract_one_case_structure(
             if frame:
                 # Ranges are display metadata for numeric/enum selectors; a
                 # boolean/string frame's ``selector_value`` already is the
-                # display token, and the default frame has no range.
+                # display token, and the default/no-error frame has no range.
                 if not is_default and selector_type not in ("boolean", "string"):
                     frame.selector_ranges = ranges
                 frames.append(frame)
