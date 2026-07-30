@@ -224,8 +224,6 @@ def _ns(**kw):
 
 
 def _patch_detected(monkeypatch, detected):
-    from lvkit import cli
-
     monkeypatch.setattr(lv_detect, "detect_labview", lambda: detected)
 
 
