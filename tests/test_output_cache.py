@@ -97,9 +97,9 @@ class TestDiffCache:
     def test_store_then_hit(self, tmp_path: Path) -> None:
         before = _vi(tmp_path / "t" / "old.vi", b"BEFORE")
         after = _project_vi(tmp_path, b"AFTER")
-        assert output_cache.lookup_diff(before, after, OPT, V) is None
-        slot = output_cache.store_diff(before, after, OPT, V, "<diff/>")
-        assert output_cache.lookup_diff(before, after, OPT, V) == "<diff/>"
+        assert output_cache.lookup_diff(before, after, "html", OPT, V) is None
+        slot = output_cache.store_diff(before, after, "html", OPT, V, "<diff/>")
+        assert output_cache.lookup_diff(before, after, "html", OPT, V) == "<diff/>"
         # Named by the after-VI stem + the before-content hash prefix.
         assert slot.name.startswith("Foo.")
         assert slot.suffix == ".html"
@@ -108,19 +108,19 @@ class TestDiffCache:
         after = _project_vi(tmp_path, b"AFTER")
         before1 = _vi(tmp_path / "t" / "b1.vi", b"BEFORE-1")
         before2 = _vi(tmp_path / "t" / "b2.vi", b"BEFORE-2")
-        output_cache.store_diff(before1, after, OPT, V, "D1")
+        output_cache.store_diff(before1, after, "html", OPT, V, "D1")
         # A different before (history moved) is a different key -> miss, not D1.
-        assert output_cache.lookup_diff(before2, after, OPT, V) is None
-        output_cache.store_diff(before2, after, OPT, V, "D2")
-        assert output_cache.lookup_diff(before1, after, OPT, V) == "D1"
-        assert output_cache.lookup_diff(before2, after, OPT, V) == "D2"
+        assert output_cache.lookup_diff(before2, after, "html", OPT, V) is None
+        output_cache.store_diff(before2, after, "html", OPT, V, "D2")
+        assert output_cache.lookup_diff(before1, after, "html", OPT, V) == "D1"
+        assert output_cache.lookup_diff(before2, after, "html", OPT, V) == "D2"
 
     def test_after_edit_invalidates(self, tmp_path: Path) -> None:
         before = _vi(tmp_path / "t" / "old.vi", b"BEFORE")
         after = _project_vi(tmp_path, b"AFTER")
-        output_cache.store_diff(before, after, OPT, V, "D")
+        output_cache.store_diff(before, after, "html", OPT, V, "D")
         after.write_bytes(b"AFTER-EDITED")
-        assert output_cache.lookup_diff(before, after, OPT, V) is None
+        assert output_cache.lookup_diff(before, after, "html", OPT, V) is None
 
 
 # ── TTL sweep ───────────────────────────────────────────────────────────────
@@ -142,14 +142,14 @@ class TestTTLSweep:
         # A diff entry, aged well past the TTL.
         before = _vi(tmp_path / "t" / "old.vi", b"B")
         after = _project_vi(tmp_path, b"A2", name="After.vi")
-        diff_slot = output_cache.store_diff(before, after, OPT, V, "OLD-DIFF")
+        diff_slot = output_cache.store_diff(before, after, "html", OPT, V, "OLD-DIFF")
         old = time.time() - 30 * 86400
         os.utime(diff_slot, (old, old))
 
         # Force a sweep on the next write (it runs once per process).
         monkeypatch.setattr(output_cache, "_swept", False)
         fresh_before = _vi(tmp_path / "t" / "new.vi", b"NB")
-        output_cache.store_diff(fresh_before, after, OPT, V, "NEW-DIFF")
+        output_cache.store_diff(fresh_before, after, "html", OPT, V, "NEW-DIFF")
 
         assert not diff_slot.exists(), "stale diff should be swept"
         assert render_slot.exists(), "path-addressed render slot must never be swept"

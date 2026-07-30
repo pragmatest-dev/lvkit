@@ -2,6 +2,26 @@
 
 lvkit follows semantic versioning.
 
+## [0.5.7]
+- **`render` and `diff` now cache their output.** An unchanged VI is not rebuilt
+  — the previously produced output is reused, skipping the whole
+  parse→graph→scene→render pass. On a warm cache a big-VI render drops from
+  ~1.6 s to ~0.25 s and a diff from ~4 s to ~0.25 s. The cache lives in the
+  per-user cache (`~/.lvkit/cache/{render,diff}/…`, beside the extraction cache),
+  is content-validated (a VI edit, a SubVI change, an lvkit upgrade, or a
+  different `--format`/`--theme` all invalidate it), and self-bounds: one slot
+  per VI (overwritten in place) for project files, with the ephemeral diff /
+  temp-blob entries aged out by a time-based sweep. `--no-cache` forces a
+  rebuild; the cache dir is safe to delete (it rebuilds on demand).
+- **`render` accepts a directory** — renders every `.vi` under it into the cache
+  (a fast "warm" pass; already-fresh VIs are skipped). `-o` is now the uniform
+  "write a file" switch (a file, or a mirrored tree for a directory); without
+  `-o`, a render still warms the cache and reports the slot path.
+- Internal: the cache-location/freshness primitives moved to a stdlib-only
+  `cache_paths` module so a cache hit is served without importing the
+  graph/parser stack; the cache is now split by artifact kind
+  (`cache/{extract,render,diff}/…`, migrated in place from the old layout).
+
 ## [0.5.6]
 - **`diff`: a case/event frame whose selector VALUE changed (e.g. `"1"` → `"0"`)
   now reads as one *modification* instead of remove + add.** Frames are paired

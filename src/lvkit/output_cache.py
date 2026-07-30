@@ -64,24 +64,29 @@ def _render_paths(input_path: Path, fmt: str) -> tuple[Path, Path, bool]:
     return d / base, d / f"{base}.meta.json", ns == "adhoc"
 
 
+def _diff_ext(fmt: str) -> str:
+    return {"html": "html", "json": "json"}.get(fmt, "txt")
+
+
 def _diff_paths(
-    before_path: Path, after_path: Path
+    before_path: Path, after_path: Path, fmt: str
 ) -> tuple[Path, Path, str, bool]:
     """``(body_path, meta_path, before_sha, is_adhoc)`` for a diff.
 
     Path-addressed by the AFTER (working-tree) VI — the side lvkit is handed as a
-    real path — with the before-content hash in the filename (lvkit is
-    git-agnostic; the before side arrives only as bytes). Flat content-addressed
-    when even the after side is adhoc.
+    real path — with the before-content hash and the format in the filename
+    (lvkit is git-agnostic; the before side arrives only as bytes). Flat
+    content-addressed when even the after side is adhoc.
     """
+    ext = _diff_ext(fmt)
     before_sha = cache_paths.sha256_file(before_path)
     d, _label, ns = cache_paths.classify(after_path, "diff")
     if ns == "adhoc":
         after_sha = cache_paths.sha256_file(after_path)
         d = cache_paths.global_cache_root() / "diff" / "adhoc"
-        base = f"{before_sha[:16]}_{after_sha[:16]}.html"
+        base = f"{before_sha[:16]}_{after_sha[:16]}.{ext}"
     else:
-        base = f"{after_path.stem}.{before_sha[:16]}.html"
+        base = f"{after_path.stem}.{before_sha[:16]}.{ext}"
     return d / base, d / f"{base}.meta.json", before_sha, ns == "adhoc"
 
 
@@ -127,6 +132,16 @@ def _write(
     _sweep_once()
 
 
+def render_slot(input_path: Path, fmt: str) -> Path:
+    """The cache slot path a render of ``input_path`` occupies (for reporting)."""
+    return _render_paths(input_path, fmt)[0]
+
+
+def diff_slot(before_path: Path, after_path: Path, fmt: str) -> Path:
+    """The cache slot path a diff of ``(before, after)`` occupies."""
+    return _diff_paths(before_path, after_path, fmt)[0]
+
+
 def lookup_render(
     input_path: Path, fmt: str, options: str, version: str
 ) -> str | None:
@@ -151,10 +166,12 @@ def store_render(
 
 
 def lookup_diff(
-    before_path: Path, after_path: Path, options: str, version: str
+    before_path: Path, after_path: Path, fmt: str, options: str, version: str
 ) -> str | None:
     """Return cached diff output for the ``(before, after)`` pair if fresh."""
-    body_path, meta_path, before_sha, _adhoc = _diff_paths(before_path, after_path)
+    body_path, meta_path, before_sha, _adhoc = _diff_paths(
+        before_path, after_path, fmt
+    )
     return _read_if_fresh(
         after_path, body_path, meta_path,
         {"lvkit_version": version, "options": options, "before_sha": before_sha},
@@ -162,10 +179,13 @@ def lookup_diff(
 
 
 def store_diff(
-    before_path: Path, after_path: Path, options: str, version: str, body: str
+    before_path: Path, after_path: Path, fmt: str,
+    options: str, version: str, body: str,
 ) -> Path:
     """Cache ``body`` as the diff of ``(before, after)``; return the slot path."""
-    body_path, meta_path, before_sha, _adhoc = _diff_paths(before_path, after_path)
+    body_path, meta_path, before_sha, _adhoc = _diff_paths(
+        before_path, after_path, fmt
+    )
     _write(
         body_path, meta_path, after_path, body,
         {

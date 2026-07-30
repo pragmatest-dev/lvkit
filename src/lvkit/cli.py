@@ -8,6 +8,10 @@ import sys
 import traceback
 import webbrowser
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from .render import ThemeMode
 
 from . import __version__, primitive_resolver, vilib_resolver
 from .graph import InMemoryVIGraph
@@ -433,6 +437,10 @@ def main() -> int:
             "this is only needed for VIs outside a project store."
         ),
     )
+    diff_parser.add_argument(
+        "--no-cache", action="store_true",
+        help="Bypass the output cache: rebuild the diff and refresh the slot.",
+    )
     _add_theme_arg(diff_parser)
     _add_project_root_arg(diff_parser)
     _add_load_mode_arg(diff_parser)
@@ -490,12 +498,28 @@ def main() -> int:
         "render",
         help="Render a VI's block diagram to a faithful SVG",
     )
-    render_parser.add_argument("input_path", help="Path to .vi file or _BDHb.xml heap")
     render_parser.add_argument(
-        "-o", "--output", default=None, metavar="FILE",
+        "input_path",
         help=(
-            "Output path (default for svg: <vi-stem>.svg next to the input; "
-            "for html: outputs/vi-render/<vi-stem>.html)"
+            "Path to a .vi file (or _BDHb.xml heap), OR a directory — a "
+            "directory renders every .vi under it into the cache (a fast "
+            "'warm' pass; already-fresh VIs are skipped)."
+        ),
+    )
+    render_parser.add_argument(
+        "-o", "--output", default=None, metavar="PATH",
+        help=(
+            "Write the output to PATH. Without -o, the render still goes to the "
+            "per-user cache (reported by path) — every render warms the cache; "
+            "-o is the switch that also writes a file. For a directory input, "
+            "-o is an output DIR that mirrors the tree."
+        ),
+    )
+    render_parser.add_argument(
+        "--no-cache", action="store_true",
+        help=(
+            "Bypass the output cache: rebuild from scratch and refresh the slot "
+            "(use after editing lvkit's renderer without a version bump)."
         ),
     )
     render_parser.add_argument(
@@ -844,30 +868,35 @@ def cmd_detect(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_render(args: argparse.Namespace) -> int:
-    """Handle the render command — faithful, graph-driven block-diagram SVG,
-    or (``--format html``) a self-contained single-VI viewer page."""
+def _render_options_tag(
+    args: argparse.Namespace, theme_mode: str, ref: str | None
+) -> str:
+    """The output-cache options key: everything besides the VI content and the
+    lvkit version that changes the rendered bytes (format, theme, title ref)."""
+    return f"{args.format}|{theme_mode}|ref={ref or ''}"
+
+
+def _theme_mode(args: argparse.Namespace) -> ThemeMode:
+    """The render theme_mode: html always 'auto' (its viewer toggles live), svg
+    honours --theme."""
+    return cast("ThemeMode", "auto" if args.format == "html" else args.theme)
+
+
+def _build_render_body(
+    args: argparse.Namespace, input_path: Path, theme_mode: ThemeMode,
+    ref: str | None,
+) -> str | int:
+    """Build the render output (svg string or html viewer). Returns the body, or
+    an int exit code on failure. Imports the render/graph stack HERE — a cache
+    hit never reaches this, so it never pays the ~250 ms import."""
     from .render import render_vi_file_titled
     from .render.render_viewer import build_render_viewer
-
-    input_path = Path(args.input_path)
-    if not input_path.exists():
-        print(f"Error: Path not found: {input_path}", file=sys.stderr)
-        return 1
 
     _configure_resolvers(args)
     vilib_root, userlib_root = _parse_library_roots(args)
     search_paths = _auto_search_paths(args.search_paths, input_path) or None
-
-    # The html viewer embeds an inline SVG and carries its OWN light/dark control
-    # (a data-theme toggle on the page root), so its SVG is ALWAYS rendered
-    # "auto" — the toggle re-themes it live. The svg format honours --theme and
-    # is byte-identical to before this flag existed.
-    theme_mode = "auto" if args.format == "html" else args.theme
-
     try:
-        # _titled also returns the VI's resolved (qualified, Class.lvclass:vi.vi)
-        # name, used verbatim as the viewer's title.
+        # _titled also returns the VI's resolved (qualified) name for the title.
         svg, vi_title = render_vi_file_titled(
             input_path,
             search_paths=search_paths,
@@ -880,7 +909,6 @@ def cmd_render(args: argparse.Namespace) -> int:
         print(f"Error: render failed: {e}", file=sys.stderr)
         traceback.print_exc()
         return 1
-
     if svg is None:
         print(
             "Error: render declined — required diagram geometry is missing "
@@ -888,29 +916,117 @@ def cmd_render(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-
+    if args.format != "html":
+        return svg
     stem = input_path.stem.replace("_BDHb", "")
-    # Qualified name (lvkit-resolved) + the git rev the caller supplied, if any,
-    # in VS Code's diff convention: "name (rev)".
     title = vi_title or stem
-    if args.ref:
-        title = f"{title} ({args.ref})"
+    if ref:  # qualified name + git rev, VS Code diff convention: "name (rev)"
+        title = f"{title} ({ref})"
+    return build_render_viewer(svg, title=title)
 
-    if args.format == "html":
-        html = build_render_viewer(svg, title=title)
-        out = (
-            Path(args.output) if args.output
-            else Path("outputs/vi-render") / f"{stem}.html"
-        )
+
+def _emit_render(
+    args: argparse.Namespace, input_path: Path, body: str
+) -> int:
+    """Deliver a render body: to -o if given; else to the cache (reported by
+    path — every render warms the cache); else, only under --no-cache with no -o,
+    to the legacy default location."""
+    stem = input_path.stem.replace("_BDHb", "")
+    if args.output:
+        out = Path(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8")
+        out.write_text(body, encoding="utf-8")
         print(f"Rendered {out}")
         return 0
-
-    out = Path(args.output) if args.output else input_path.with_name(f"{stem}.svg")
-    out.write_text(svg, encoding="utf-8")
+    if not args.no_cache:
+        from .output_cache import render_slot
+        slot = render_slot(input_path, args.format)
+        print(f"Rendered {stem} → cached ({slot}). Pass -o FILE to write a file.")
+        return 0
+    # --no-cache and no -o: fall back to the pre-cache default output path.
+    out = (
+        Path("outputs/vi-render") / f"{stem}.html"
+        if args.format == "html"
+        else input_path.with_name(f"{stem}.svg")
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(body, encoding="utf-8")
     print(f"Rendered {out}")
     return 0
+
+
+def cmd_render(args: argparse.Namespace) -> int:
+    """Handle the render command — faithful, graph-driven block-diagram SVG, or
+    (``--format html``) a self-contained single-VI viewer page. A cached output
+    for unchanged inputs is reused verbatim, skipping the build."""
+    input_path = Path(args.input_path)
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    if input_path.is_dir():
+        return _cmd_render_dir(args, input_path)
+
+    theme_mode = _theme_mode(args)
+    options = _render_options_tag(args, theme_mode, args.ref)
+
+    # Fast path: a fresh cached render is returned WITHOUT importing the
+    # render/graph/pylabview stack.
+    if not args.no_cache:
+        from .output_cache import lookup_render
+        cached = lookup_render(input_path, args.format, options, __version__)
+        if cached is not None:
+            return _emit_render(args, input_path, cached)
+
+    body = _build_render_body(args, input_path, theme_mode, args.ref)
+    if isinstance(body, int):
+        return body
+    if not args.no_cache:
+        from .output_cache import store_render
+        store_render(input_path, args.format, options, __version__, body)
+    return _emit_render(args, input_path, body)
+
+
+def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
+    """Render every ``.vi`` under ``root`` into the cache (a 'warm' pass in one
+    process — the ~250 ms import is paid once, not once per VI). Already-fresh
+    slots are skipped. With -o, also export a mirrored HTML/SVG tree there."""
+    from .output_cache import lookup_render, store_render
+
+    vis = sorted(p for p in root.rglob("*.vi") if p.is_file())
+    if not vis:
+        print(f"No .vi files under {root}")
+        return 0
+    theme_mode = _theme_mode(args)
+    options = _render_options_tag(args, theme_mode, None)  # no per-VI ref in batch
+    ext = "html" if args.format == "html" else "svg"
+    outdir = Path(args.output) if args.output else None
+
+    rendered = fresh = failed = 0
+    for vi in vis:
+        body: str | None = None
+        if not args.no_cache:
+            body = lookup_render(vi, args.format, options, __version__)
+        if body is not None:
+            fresh += 1
+        else:
+            built = _build_render_body(args, vi, theme_mode, None)
+            if isinstance(built, int):
+                failed += 1
+                continue
+            body = built
+            if not args.no_cache:
+                store_render(vi, args.format, options, __version__, body)
+            rendered += 1
+        if outdir is not None:
+            dest = outdir / vi.relative_to(root).with_suffix(f".{ext}")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(body, encoding="utf-8")
+
+    where = f" → {outdir}" if outdir is not None else " → cached"
+    tail = f", {failed} failed" if failed else ""
+    print(f"{len(vis)} VIs — {rendered} rendered, {fresh} already fresh{tail}{where}")
+    return 1 if failed and rendered == 0 and fresh == 0 else 0
 
 
 def _auto_search_paths(explicit: list[str], *inputs: Path) -> list[Path]:
@@ -966,6 +1082,106 @@ def _load_diff_graphs(
     return graph_a, vi_name_a, graph_b, vi_name_b
 
 
+def _diff_options_tag(args: argparse.Namespace, fmt: str, verbose: bool) -> str:
+    """The output-cache options key for a diff: everything besides the two VIs'
+    content and the lvkit version that changes the output bytes."""
+    return (
+        f"{fmt}|verbose={int(bool(verbose))}"
+        f"|before={args.before_ref or ''}|after={args.after_ref or ''}"
+    )
+
+
+def _build_diff_body(
+    args: argparse.Namespace, path_a: Path, path_b: Path, fmt: str, verbose: bool
+) -> str | int:
+    """Build the diff body (text/json/html). Returns the body, or an int exit
+    code. Imports the graph/render stack HERE — a cache hit never reaches it."""
+    from .graph.diff import diff_uid, format_diff, netlist_diff_rows, rows_to_json
+
+    if fmt == "text":
+        graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
+            args, path_a, path_b, layout=False,
+        )
+        # "" (no changes) is a real cacheable body; _emit_diff renders the notice.
+        return format_diff(
+            graph_a, graph_b, vi_name_a, vi_name_b, verbose=verbose,
+        ) or ""
+
+    graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
+        args, path_a, path_b, layout=True,
+    )
+    if fmt == "json":
+        cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
+        return json.dumps(cmap.to_dict(), indent=2)
+
+    # fmt == "html". The viewer chrome is prefers-color-scheme adaptive AND
+    # carries its own light/dark diagram-theme toggle; for that to re-theme the
+    # diagrams their SVGs MUST be theme-reactive, so the HTML diff ALWAYS renders
+    # "auto" (a baked --theme palette couldn't respond to the data-theme flip).
+    from .render import render_vi
+    from .render.diff_viewer import build_diff_viewer
+
+    before_svg = render_vi(graph_a, vi_name_a, interactive=False, theme_mode="auto")
+    after_svg = render_vi(graph_b, vi_name_b, interactive=False, theme_mode="auto")
+    if before_svg is None or after_svg is None:
+        print(
+            "Error: render declined — required diagram geometry is missing "
+            "(see logs for the missing ids)",
+            file=sys.stderr,
+        )
+        return 1
+
+    cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
+    rows = netlist_diff_rows(graph_a, graph_b, vi_name_a, vi_name_b)
+
+    def _annotate(name: str, ref: str | None) -> str:
+        return f"{name} ({ref})" if ref else name
+
+    before_label = _annotate(vi_name_a, args.before_ref)
+    after_label = _annotate(vi_name_b, args.after_ref)
+    title = (
+        before_label if before_label == after_label
+        else f'{before_label} <span class="t-arr">→ {after_label}</span>'
+    )
+    return build_diff_viewer(
+        cmap, before_svg, after_svg,
+        title=title, before_label=before_label, after_label=after_label,
+        netlist_rows=rows_to_json(rows),
+    )
+
+
+def _emit_diff(
+    args: argparse.Namespace, path_a: Path, path_b: Path, fmt: str, body: str
+) -> int:
+    """Deliver a diff body per format: print (text), -o-or-stdout (json), or
+    write+optionally-open (html)."""
+    if fmt == "text":
+        print(body if body else "No changes detected.")
+        if sys.stdout.isatty():
+            print(
+                "\nTip: lvkit diff … --format html --open  for a "
+                "visual, navigable diff."
+            )
+        return 0
+    if fmt == "json":
+        if args.output:
+            Path(args.output).write_text(body, encoding="utf-8")
+        else:
+            print(body)
+        return 0
+    # html
+    out = (
+        Path(args.output) if args.output
+        else Path("outputs/vi-diff") / f"{path_a.stem}__{path_b.stem}.html"
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(body, encoding="utf-8")
+    print(f"Wrote {out}")
+    if args.open:
+        webbrowser.open(out.resolve().as_uri())
+    return 0
+
+
 def cmd_diff(args: argparse.Namespace) -> int:
     """Handle the diff command — compare two VI versions.
 
@@ -974,15 +1190,12 @@ def cmd_diff(args: argparse.Namespace) -> int:
     boolean per format). ``-v/--verbose`` (and its back-compat alias
     ``--long``) is the orthogonal DETAIL axis: both tiers of ``text`` project
     the SAME UID-keyed ``diff_uid`` ChangeMap (see ``format_diff``) that also
-    backs ``--format json``/``html`` — ``--verbose`` only adds depth
-    (Signature, containment nesting, modified old→new detail, an
-    unchanged-node tally), never a different set of changes.
+    backs ``--format json``/``html`` — ``--verbose`` only adds depth, never a
+    different set of changes. A cached output for the same two VI versions is
+    reused verbatim, skipping the load.
     """
-    from .graph.diff import diff_uid, format_diff, netlist_diff_rows, rows_to_json
-
     path_a = Path(args.vi_a)
     path_b = Path(args.vi_b)
-
     for p in (path_a, path_b):
         if not p.exists():
             print(f"Error: Path not found: {p}", file=sys.stderr)
@@ -992,106 +1205,26 @@ def cmd_diff(args: argparse.Namespace) -> int:
     if args.open and args.format in ("text", "json"):
         print("Error: --open requires --format html", file=sys.stderr)
         return 1
-    verbose = args.verbose or args.long
+    verbose = bool(args.verbose or args.long)
+    options = _diff_options_tag(args, fmt, verbose)
+
+    # Fast path: a cached diff for the same (before, after) bytes is returned
+    # WITHOUT importing the graph/render stack. path_a is BEFORE, path_b AFTER.
+    if not args.no_cache:
+        from .output_cache import lookup_diff
+        cached = lookup_diff(path_a, path_b, fmt, options, __version__)
+        if cached is not None:
+            return _emit_diff(args, path_a, path_b, fmt, cached)
 
     _configure_resolvers(args)
-
     try:
-        if fmt == "text":
-            graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
-                args, path_a, path_b, layout=False,
-            )
-            result = format_diff(
-                graph_a, graph_b, vi_name_a, vi_name_b, verbose=verbose,
-            )
-            if result:
-                print(result)
-            else:
-                print("No changes detected.")
-
-            if sys.stdout.isatty():
-                print(
-                    "\nTip: lvkit diff … --format html --open  for a "
-                    "visual, navigable diff."
-                )
-            return 0
-
-        graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
-            args, path_a, path_b, layout=True,
-        )
-
-        if fmt == "json":
-            cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
-            text = json.dumps(cmap.to_dict(), indent=2)
-            if args.output:
-                Path(args.output).write_text(text, encoding="utf-8")
-            else:
-                print(text)
-            return 0
-
-        # fmt == "html"
-        from .render import render_vi
-        from .render.diff_viewer import build_diff_viewer
-
-        # The viewer chrome is prefers-color-scheme adaptive AND carries its own
-        # light/dark diagram-theme toggle (a data-theme flip on the page root —
-        # see templates/diff_viewer.html). For that toggle to re-theme the
-        # diagrams, their SVGs MUST be theme-reactive ("auto", CSS-var driven):
-        # a baked --theme palette has literal colors that can't respond to
-        # data-theme, so the toggle would do nothing. So the HTML diff ALWAYS
-        # renders "auto", exactly like cmd_render's html path. (--theme never
-        # applied to a baked static SVG here — diff emits no svg-only format.)
-        before_svg = render_vi(
-            graph_a, vi_name_a, interactive=False, theme_mode="auto",
-        )
-        after_svg = render_vi(
-            graph_b, vi_name_b, interactive=False, theme_mode="auto",
-        )
-        if before_svg is None or after_svg is None:
-            print(
-                "Error: render declined — required diagram geometry is "
-                "missing (see logs for the missing ids)",
-                file=sys.stderr,
-            )
-            return 1
-
-        cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
-        rows = netlist_diff_rows(graph_a, graph_b, vi_name_a, vi_name_b)
-        # Each side's label is its resolved (qualified, Class.lvclass:vi.vi)
-        # name, with the git rev appended when a caller supplied one. The header
-        # shows both when they differ (two different VIs, or the same VI at two
-        # revs), one otherwise.
-        def _annotate(name: str, ref: str | None) -> str:
-            # nbsp glues "name (rev)" so the title only ever breaks at the ->.
-            return f"{name} ({ref})" if ref else name
-        before_label = _annotate(vi_name_a, args.before_ref)
-        after_label = _annotate(vi_name_b, args.after_ref)
-        title = (
-            before_label if before_label == after_label
-            # Arrow + after-name are a nowrap group (.t-arr), so a long title
-            # wraps as "before" / "-> after" -- the only break is before the ->.
-            else f'{before_label} <span class="t-arr">→ {after_label}</span>'
-        )
-        html = build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title=title,
-            before_label=before_label,
-            after_label=after_label,
-            netlist_rows=rows_to_json(rows),
-        )
-
-        out = (
-            Path(args.output) if args.output
-            else Path("outputs/vi-diff") / f"{path_a.stem}__{path_b.stem}.html"
-        )
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8")
-        print(f"Wrote {out}")
-
-        if args.open:
-            webbrowser.open(out.resolve().as_uri())
-
-        return 0
+        body = _build_diff_body(args, path_a, path_b, fmt, verbose)
+        if isinstance(body, int):
+            return body
+        if not args.no_cache:
+            from .output_cache import store_diff
+            store_diff(path_a, path_b, fmt, options, __version__, body)
+        return _emit_diff(args, path_a, path_b, fmt, body)
     except (ValueError, FileNotFoundError, KeyError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
