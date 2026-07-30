@@ -3,30 +3,13 @@
 lvkit follows semantic versioning.
 
 ## [0.5.7]
-- **lvkit is much faster.** Re-opening or re-diffing a VI you've already looked
-  at is now near-instant — a repeat render drops from **~1.6 s to ~0.03 s** and a
-  repeat diff from **~4 s to ~0.03 s** — and every command starts quicker too.
-  Two changes get there: `render`/`diff` now **cache their output** (an unchanged
-  VI is reused instead of rebuilt), and the CLI no longer loads its heavy engine
-  until a command actually has to build something.
-- **The output cache** lives in the per-user cache
-  (`~/.lvkit/cache/{render,diff}/…`, beside the extraction cache) and is
-  content-validated: editing the VI (or a SubVI it calls — LabVIEW re-saves the
-  caller when a SubVI changes), upgrading lvkit, or changing `--format`/`--theme`
-  all invalidate it. It self-bounds — one slot per VI, overwritten in place, with
-  ephemeral diff/temp entries aged out by a time sweep — so it never grows
-  without limit. `--no-cache` forces a rebuild; the cache dir is safe to delete
-  (it rebuilds on demand).
-- **`render` accepts a directory** — renders every `.vi` under it into the cache
-  (a fast "warm" pass; already-fresh VIs are skipped). `-o` is now the uniform
-  "write a file" switch (a file, or a mirrored tree for a directory); without
-  `-o`, a render warms the cache and reports where it landed.
-- Internal: the cache-location/freshness primitives moved to a stdlib-only
-  `cache_paths` module so a cache hit is served without importing the
-  graph/parser/pylabview stack (the ~230 ms startup cost is deferred via a lazy
-  package `__init__`, PEP 562); the cache is split by artifact kind
-  (`cache/{extract,render,diff}/…`, migrated in place); `LoadMode` moved to a
-  dependency-free `load_mode` leaf (re-exported from `graph.loading`).
+- **Re-opening or re-diffing a VI is now near-instant.** `render` and `diff`
+  cache their output, so an unchanged VI skips the rebuild (render ~1.6 s →
+  ~0.03 s, diff ~4 s → ~0.03 s), and every command starts quicker. Editing a VI
+  (or a SubVI) rebuilds automatically; `--no-cache` forces it. The cache lives in
+  `~/.lvkit/cache/`, stays bounded, and is safe to delete.
+- **`render` accepts a directory** — a fast pass that caches every `.vi` under
+  it. `-o` writes a file (or a mirrored tree); without it, the cache is warmed.
 
 ## [0.5.6]
 - **`diff`: a case/event frame whose selector VALUE changed (e.g. `"1"` → `"0"`)
