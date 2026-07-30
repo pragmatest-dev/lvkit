@@ -226,7 +226,7 @@ def _ns(**kw):
 def _patch_detected(monkeypatch, detected):
     from lvkit import cli
 
-    monkeypatch.setattr(cli, "detect_labview", lambda: detected)
+    monkeypatch.setattr(lv_detect, "detect_labview", lambda: detected)
 
 
 def test_cli_uses_detected_when_vilib_absent(tmp_path, monkeypatch):
@@ -252,7 +252,7 @@ def test_cli_explicit_vilib_overrides_detection(tmp_path, monkeypatch):
     def _boom():
         raise AssertionError("detection should not run")
 
-    monkeypatch.setattr(cli, "detect_labview", _boom)
+    monkeypatch.setattr(lv_detect, "detect_labview", _boom)
     vilib, userlib = cli._parse_library_roots(_ns(vilib="/explicit/vi.lib"))
     assert vilib == Path("/explicit/vi.lib")
     assert userlib is None
@@ -264,7 +264,7 @@ def test_cli_no_auto_vilib_suppresses_detection(monkeypatch):
     def _boom():
         raise AssertionError("detection should not run")
 
-    monkeypatch.setattr(cli, "detect_labview", _boom)
+    monkeypatch.setattr(lv_detect, "detect_labview", _boom)
     vilib, userlib = cli._parse_library_roots(_ns(no_auto_vilib=True))
     assert vilib is None
     assert userlib is None

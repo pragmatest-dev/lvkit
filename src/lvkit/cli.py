@@ -11,24 +11,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
+    from .graph import InMemoryVIGraph
     from .render import ThemeMode
 
-from . import __version__, primitive_resolver, vilib_resolver
-from .graph import InMemoryVIGraph
-from .graph.loading import LoadMode
-from .lv_detect import detect_labview
+# Module scope stays LIGHT so a cache-HIT render/diff starts without the graph /
+# parser / pylabview stack (~230 ms). ``__version__`` is a plain string;
+# ``LoadMode`` comes from the dependency-free ``load_mode`` leaf (not
+# ``graph.loading``, which pulls networkx); ``project_store`` is stdlib-only. The
+# engine imports (graph, structure, lv_detect, the resolvers) are deferred into
+# the specific commands that build/analyze — see the function-local imports.
+from . import __version__
+from .load_mode import LoadMode
 from .project_store import (
     find_project_store,
     init_project_store,
     install_claude_skills,
     install_copilot_skills,
-)
-from .structure import (
-    discover_project_structure,
-    discover_structure_from_lvproj,
-    generate_python_structure_plan,
-    parse_lvclass,
-    parse_lvlib,
 )
 
 
@@ -134,6 +132,8 @@ def _parse_library_roots(
     userlib_root = Path(args.userlib) if args.userlib else None
 
     if vilib_root is None and not getattr(args, "no_auto_vilib", False):
+        from .lv_detect import detect_labview
+
         detected = detect_labview()
         if detected is not None:
             vilib_root = detected.vilib_root
@@ -182,6 +182,8 @@ def _configure_resolvers(args: argparse.Namespace) -> Path | None:
             store = None
     else:
         store = find_project_store()
+
+    from . import primitive_resolver, vilib_resolver
 
     primitive_resolver.reset_resolver(project_data_dir=store)
     vilib_resolver.reset_resolver(project_data_dir=store)
@@ -583,6 +585,14 @@ def main() -> int:
 
 def cmd_structure(args: argparse.Namespace) -> int:
     """Handle the structure command."""
+    from .structure import (
+        discover_project_structure,
+        discover_structure_from_lvproj,
+        generate_python_structure_plan,
+        parse_lvclass,
+        parse_lvlib,
+    )
+
     input_path = Path(args.input)
 
     if not input_path.exists():
@@ -709,6 +719,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     try:
+        from .graph import InMemoryVIGraph
+
         graph = InMemoryVIGraph()
         _configure_library_roots(graph, args)
         search_paths = _auto_search_paths(args.search_paths, input_path)
@@ -828,6 +840,8 @@ def cmd_detect(args: argparse.Namespace) -> int:
     with LabVIEW that differ from where the code was written). Always exits 0
     so it can be used in scripts to probe for an install.
     """
+    from .lv_detect import detect_labview
+
     detected = detect_labview()
 
     if getattr(args, "json", False):
@@ -1062,6 +1076,8 @@ def _load_diff_graphs(
     args: argparse.Namespace, path_a: Path, path_b: Path, *, layout: bool,
 ) -> tuple[InMemoryVIGraph, str, InMemoryVIGraph, str]:
     """Load both sides of a diff pair with a shared load mode/search paths."""
+    from .graph import InMemoryVIGraph
+
     search_paths = _auto_search_paths(args.search_paths, path_a, path_b)
     diff_mode = _resolve_load_mode(args, LoadMode.MINIMAL)
 
@@ -1302,6 +1318,8 @@ def cmd_visualize(args: argparse.Namespace) -> int:
         return 1
 
     _configure_resolvers(args)
+
+    from .graph import InMemoryVIGraph
 
     graph = InMemoryVIGraph()
     _configure_library_roots(graph, args)

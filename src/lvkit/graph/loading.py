@@ -10,13 +10,13 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace as dc_replace
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import networkx as nx
 
 from ..extractor import extract_llb, extract_vi_xml
+from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
 from ..models import ClusterField, LVType
 from ..parser import (
     ParsedBlockDiagram,
@@ -43,27 +43,10 @@ if TYPE_CHECKING:
     from ..parser.layout import Layout
 
 
-class LoadMode(Enum):
-    """How deep a load pulls in a VI's dependencies. One knob, three states.
-
-    ``NONE`` — the target VI ONLY. No SubVIs, no classes, no typedefs. SubVI
-    calls resolve to nothing (render draws fallback boxes; codegen emits
-    unresolved-call placeholders). The old ``expand_subvis=False``.
-
-    ``MINIMAL`` — the target VI, its DIRECT SubVIs LEAF-loaded (their connector
-    panes, so the caller's param-name hovers resolve — but not THEIR SubVIs),
-    and the classes/typedefs its wires reference field-loaded (no class methods).
-    The minimum set to FAITHFULLY render/diff/describe one VI: byte-identical
-    render to FULL (verified across the corpus), typically 8-40x cheaper because
-    the deep call tree collapses to its shallow direct fan-out.
-
-    ``FULL`` — the entire transitive SubVI + class-method tree. Required by
-    codegen, which compiles the whole call tree. The old ``expand_subvis=True``.
-    """
-
-    NONE = "none"
-    MINIMAL = "minimal"
-    FULL = "full"
+# LoadMode is defined in the light ``lvkit.load_mode`` leaf module (imported
+# above) so the CLI can name the modes without pulling the graph stack; it is
+# re-exported here for the long-standing ``from lvkit.graph.loading import
+# LoadMode`` call sites.
 
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:

@@ -17,10 +17,19 @@ lvkit follows semantic versioning.
   (a fast "warm" pass; already-fresh VIs are skipped). `-o` is now the uniform
   "write a file" switch (a file, or a mirrored tree for a directory); without
   `-o`, a render still warms the cache and reports the slot path.
+- **Much faster CLI startup.** The `lvkit` command no longer imports the graph
+  / parser / pylabview engine (~230 ms) until a command actually needs to
+  *build* something. A render/diff **cache hit now returns in ~30 ms** (was
+  ~260 ms); every command's fixed startup cost drops by the same ~230 ms, so
+  even cold renders and `--version` are quicker. Achieved with a lazy package
+  `__init__` (PEP 562) + deferred engine imports in the CLI; behavior is
+  unchanged.
 - Internal: the cache-location/freshness primitives moved to a stdlib-only
   `cache_paths` module so a cache hit is served without importing the
   graph/parser stack; the cache is now split by artifact kind
   (`cache/{extract,render,diff}/…`, migrated in place from the old layout).
+  `LoadMode` moved to a dependency-free `load_mode` leaf module (re-exported
+  from `graph.loading` for existing call sites).
 
 ## [0.5.6]
 - **`diff`: a case/event frame whose selector VALUE changed (e.g. `"1"` → `"0"`)
