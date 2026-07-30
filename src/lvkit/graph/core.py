@@ -201,11 +201,11 @@ class InMemoryVIGraph(
         """
         self._vilib_root = vilib_root
         self._userlib_root = userlib_root
-        # Lazy import: extractor imports pylabview; keep it off the graph
-        # module's import path and out of any cycle.
-        from lvkit import extractor
+        # The run's library roots feed the cache classifier; set them on the
+        # stdlib-only cache_paths module (no pylabview pulled in, no cycle).
+        from lvkit import cache_paths
 
-        extractor.set_extraction_roots(
+        cache_paths.set_extraction_roots(
             vilib_root=vilib_root, userlib_root=userlib_root
         )
 

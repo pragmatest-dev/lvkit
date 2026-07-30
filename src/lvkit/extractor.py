@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import io
-import json
-import os
 import re
 import sys
 import time
@@ -27,191 +24,39 @@ import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]  # noqa: E402
 install_pylabview_patches()
 
 
-def global_cache_root() -> Path:
-    """Root of lvkit's per-user extraction cache — never in the user's repo.
-
-    ``$LVKIT_CACHE_DIR`` if set (test hook + power-user/CI override), else
-    ``<global-home>/cache`` — i.e. ``~/.lvkit/cache`` — branded like ``~/.claude``
-    and consistent with the project-local ``.lvkit/`` store. The home location
-    comes from ``project_store.global_home()`` (the single source of truth).
-    """
-    env = os.environ.get("LVKIT_CACHE_DIR")
-    if env:
-        return Path(env)
-    from lvkit.project_store import global_home
-
-    return global_home() / "cache"
-
-
-# ── Run-scoped extraction roots ────────────────────────────────────────────
-# The resolved <vilib>/<userlib> roots for the current run, set once at
-# `InMemoryVIGraph.set_library_roots` so `_cache_target` can prefix-match a VI
-# to its tier without re-guessing from the path. Mirrors the global-config
-# pattern of `primitive_resolver.reset_resolver()` (same single-process
-# concurrency caveat — one run at a time).
-_vilib_root: Path | None = None
-_userlib_root: Path | None = None
-
-
-def set_extraction_roots(
-    *, vilib_root: Path | None, userlib_root: Path | None
-) -> None:
-    """Record the run's resolved library roots for cache classification.
-
-    Roots are resolved to absolute paths so prefix-matching in `_cache_target`
-    is stable regardless of how a VI path was spelled. Passing ``None`` clears
-    that root.
-    """
-    global _vilib_root, _userlib_root
-    _vilib_root = vilib_root.resolve() if vilib_root is not None else None
-    _userlib_root = userlib_root.resolve() if userlib_root is not None else None
-
-
-def clear_extraction_roots() -> None:
-    """Forget the run's library roots (fall back to project/adhoc)."""
-    global _vilib_root, _userlib_root
-    _vilib_root = None
-    _userlib_root = None
-
-
-def _project_root_for(vi_path: Path) -> Path | None:
-    """Nearest ancestor that is a project root: one holding a ``.lvkit/`` store
-    or a git repo root (``.git``). Returns the root dir, or ``None`` for a VI
-    outside any project. (Mirrors ``project_store.find_project_store`` but also
-    reports the git root so the cache can be created there on demand.)
-    """
-    from lvkit.project_store import global_home
-
-    ancestors = (vi_path.parent, *vi_path.parent.parents)
-    # The user's GLOBAL store (~/.lvkit) is not a project marker — skip it, or
-    # every VI under $HOME collapses into one hash($HOME) bucket (and climbs
-    # past its own repo's .git). Same guard find_project_store uses.
-    home = global_home().resolve()
-    # An EXISTING .lvkit/ store wins, even when a NEARER ancestor is its own git
-    # repo: vendored/cloned corpora (each carrying a .git) must share the outer
-    # project's cache instead of sprouting a .lvkit/ inside every clone.
-    for anc in ancestors:
-        store = anc / ".lvkit"
-        if store.is_dir() and store.resolve() != home:
-            return anc
-    for anc in ancestors:
-        if (anc / ".git").exists():
-            return anc
-    return None
-
-
-def _slug(path: Path) -> str:
-    """Readable per-project cache namespace: the absolute path with its
-    separators turned into ``-``, the way cross-project tools name their
-    per-repo dirs (``~/.claude/projects``: ``/home/u/repo`` -> ``-home-u-repo``).
-
-    No hash — you can read the cache and see which project a file came from
-    (and, with the mirrored sub-tree, which VI). Windows drive colons and
-    backslashes collapse the same way (``C:\\proj`` -> ``C--proj``).
-    """
-    return str(path).replace(":", "-").replace("\\", "-").replace("/", "-")
-
-
-def _rel_under(child: Path, parent: Path | None) -> Path | None:
-    """``child`` relative to ``parent`` if it is under it, else ``None``.
-
-    ``parent`` is already resolved (see ``set_extraction_roots``); ``child`` is
-    resolved here so the prefix test is spelling-independent.
-    """
-    if parent is None:
-        return None
-    try:
-        return child.resolve().relative_to(parent)
-    except ValueError:
-        return None
-
-
-def _classify(vi_path: Path) -> tuple[Path, str]:
-    """Map ``vi_path`` to ``(cache_dir, source_label)`` under the global cache.
-
-    The cache dir is the VI's PARENT directory mirrored under a namespace, so
-    sibling VIs share a dir and each keeps its own ``<stem>_BDHb.xml`` etc.
-    ``source_label`` is the VI relative to whichever root matched (recorded in
-    the meta for debugging). Prefix-matching the resolved path against the run's
-    real roots — not substring markers — is what puts vendored OpenG under the
-    project (correct) instead of the shared tier (wrong).
-    """
-    resolved = vi_path.resolve()
-    root = global_cache_root()
-
-    vilib = _vilib_root
-    if vilib is not None:
-        rel = _rel_under(resolved, vilib)
-        if rel is not None:
-            return root / "shared" / "vilib" / _slug(vilib) / rel.parent, str(rel)
-
-    userlib = _userlib_root
-    if userlib is not None:
-        rel = _rel_under(resolved, userlib)
-        if rel is not None:
-            return (
-                root / "shared" / "userlib" / _slug(userlib) / rel.parent,
-                str(rel),
-            )
-
-    project = _project_root_for(resolved)
-    if project is not None:
-        proj_abs = project.resolve()
-        rel = resolved.relative_to(proj_abs)
-        return root / "projects" / _slug(proj_abs) / rel.parent, str(rel)
-
-    return root / "adhoc" / _slug(resolved.parent), resolved.name
+# The cache-location + freshness primitives live in the stdlib-only
+# ``cache_paths`` module so the CLI's render/diff HIT path can locate and
+# validate a cached artifact without importing this module (which pulls
+# pylabview). Re-exported here so long-standing callers of ``extractor.X`` (e.g.
+# ``graph.core`` -> ``extractor.set_extraction_roots``) keep working unchanged.
+from lvkit.cache_paths import (  # noqa: E402
+    _slug,
+    classify,
+    global_cache_root,
+    meta_fresh,
+    migrate_legacy_extract,
+)
 
 
 def _cache_target(vi_path: Path) -> Path:
-    """The per-VI cache directory for ``vi_path`` (created on demand)."""
-    target, _ = _classify(vi_path)
+    """The per-VI EXTRACTION cache directory for ``vi_path`` (created).
+
+    A one-time rename migrates any pre-``extract/`` layout on first use.
+    """
+    migrate_legacy_extract()
+    target, _, _ = classify(vi_path, "extract")
     target.mkdir(parents=True, exist_ok=True)
     return target
 
 
-def _sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _cache_fresh(vi_path: Path, meta_path: Path) -> bool:
-    """True if the cached extraction for ``vi_path`` is still valid.
-
-    Fast-path on unchanged ``(mtime, size)``; otherwise fall back to a content
-    ``sha256`` compare (robust to clone/checkout mtime resets) and refresh the
-    recorded mtime on a content match.
-    """
-    if not meta_path.exists():
-        return False
-    try:
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    st = vi_path.stat()
-    if meta.get("size") == st.st_size and meta.get("mtime") == st.st_mtime:
-        return True
-    if meta.get("sha256") == _sha256_file(vi_path):
-        meta["mtime"] = st.st_mtime
-        meta["size"] = st.st_size
-        try:
-            meta_path.write_text(json.dumps(meta), encoding="utf-8")
-        except OSError:
-            pass
-        return True
-    return False
-
-
 def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
-    st = vi_path.stat()
-    _, source = _classify(vi_path)
-    meta_path.write_text(json.dumps({
-        "source": source,
-        "sha256": _sha256_file(vi_path),
-        "mtime": st.st_mtime,
-        "size": st.st_size,
-        "tool": "pylabview",
-        "extracted_at": time.time(),
-    }), encoding="utf-8")
+    _, source, _ = classify(vi_path, "extract")
+    from lvkit.cache_paths import write_meta
+
+    write_meta(
+        vi_path, meta_path,
+        source=source, tool="pylabview", extracted_at=time.time(),
+    )
 
 
 def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
@@ -295,7 +140,7 @@ def extract_vi_xml(
 
     # Cache hit: XML present and the recorded content-hash (or mtime/size
     # fast-path) still matches the VI.
-    if not force and bd_xml.exists() and _cache_fresh(vi_path, meta_path):
+    if not force and bd_xml.exists() and meta_fresh(vi_path, meta_path):
         return (
             bd_xml,
             fp_xml if fp_xml.exists() else None,

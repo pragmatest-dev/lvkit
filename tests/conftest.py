@@ -41,11 +41,11 @@ def _hermetic_cache(tmp_path_factory, monkeypatch):
     cache_dir = tmp_path_factory.mktemp("lvkit-cache")
     monkeypatch.setenv("LVKIT_CACHE_DIR", str(cache_dir))
 
-    from lvkit import extractor
+    from lvkit import cache_paths
 
-    extractor.clear_extraction_roots()
+    cache_paths.clear_extraction_roots()
     yield
-    extractor.clear_extraction_roots()
+    cache_paths.clear_extraction_roots()
 
 
 @pytest.fixture
