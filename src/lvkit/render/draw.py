@@ -602,9 +602,11 @@ _PANE_ROW_HALF = _PANE_LABEL_SIZE / 2 + 2.0  # vertical pad around a label row
 _PANE_COL_PAD = 6.0         # min horizontal padding between top/bottom labels
 _PANE_LINE_H = _PANE_LABEL_SIZE + 2.0  # one text line's height (top/bottom)
 
-_PANE_ICON_TARGET = 60.0    # target longer-side px for the scaled icon
-_PANE_ICON_MIN = 18.0
-_PANE_ICON_MAX = 90.0
+# The glyph footprint is measured against the 32-unit LabVIEW icon cell: a full
+# 32-cell glyph scales to _PANE_ICON_TARGET px, sub-cell glyphs proportionally.
+_PANE_ICON_CELL = 32.0
+_PANE_ICON_TARGET = 60.0
+_PANE_ICON_MAX = 90.0       # cap so an oversized icon can't dominate the panel
 
 # fx/fy classification -> the outward unit normal a terminal's stub exits on.
 _SIDE_NORMAL: dict[str, Point] = {
@@ -787,16 +789,22 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     for labels in sided.values():
         labels.sort(key=lambda lb: lb.frac)
 
-    # Icon: the node's OWN glyph, uniformly scaled to a legible size,
-    # preserving its real aspect ratio (never distorted, never a fixed box).
-    long_side = max(bw, bh)
-    scale = _PANE_ICON_TARGET / long_side
+    # Icon: the node's OWN glyph, scaled by a CONSTANT factor keyed to the
+    # 32-unit LabVIEW icon cell — so the panel icon's size is PROPORTIONAL to
+    # how much of that cell the glyph actually fills. A half-cell glyph shows
+    # half-size next to a full-cell one, matching the diagram, instead of every
+    # glyph being blown up to the same ~square (the old longer-side-normalized
+    # behavior). Both primitives and subVI icons live in this 32-cell space
+    # (constants have no panel), so the reference is exact. No MIN floor: even
+    # the smallest primitive is readable at this scale, and the terminal labels
+    # are spread apart (_spread_1d) with stubs routed to the glyph's true
+    # terminal points, so a small glyph never crams its terminals. Aspect ratio
+    # is preserved throughout; the MAX cap only keeps an oversized node (a big
+    # subVI/growable icon) from dominating the panel.
+    scale = _PANE_ICON_TARGET / _PANE_ICON_CELL
     icon_w, icon_h = bw * scale, bh * scale
     if max(icon_w, icon_h) > _PANE_ICON_MAX:
         s = _PANE_ICON_MAX / max(icon_w, icon_h)
-        icon_w, icon_h = icon_w * s, icon_h * s
-    if min(icon_w, icon_h) < _PANE_ICON_MIN:
-        s = _PANE_ICON_MIN / max(1e-6, min(icon_w, icon_h))
         icon_w, icon_h = icon_w * s, icon_h * s
 
     # Left/right: labels stack VERTICALLY at their true icon-relative height
