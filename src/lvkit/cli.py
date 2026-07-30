@@ -942,30 +942,20 @@ def _build_render_body(
 def _emit_render(
     args: argparse.Namespace, input_path: Path, body: str
 ) -> int:
-    """Deliver a render body: to -o if given; else to the cache (reported by
-    path — every render warms the cache); else, only under --no-cache with no -o,
-    to the legacy default location."""
-    stem = input_path.stem.replace("_BDHb", "")
+    """Deliver a render body: to ``-o`` if given; otherwise the render lives in
+    the cache slot (always written by the caller) and we report its path — every
+    render warms the cache, ``-o`` is the switch that also writes a file."""
     if args.output:
         out = Path(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(body, encoding="utf-8")
         print(f"Rendered {out}")
         return 0
-    if not args.no_cache:
-        from .output_cache import render_slot
-        slot = render_slot(input_path, args.format)
-        print(f"Rendered {stem} → cached ({slot}). Pass -o FILE to write a file.")
-        return 0
-    # --no-cache and no -o: fall back to the pre-cache default output path.
-    out = (
-        Path("outputs/vi-render") / f"{stem}.html"
-        if args.format == "html"
-        else input_path.with_name(f"{stem}.svg")
-    )
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(body, encoding="utf-8")
-    print(f"Rendered {out}")
+    from .output_cache import render_slot
+
+    stem = input_path.stem.replace("_BDHb", "")
+    slot = render_slot(input_path, args.format)
+    print(f"Rendered {stem} → cached ({slot}). Pass -o FILE to write a file.")
     return 0
 
 
@@ -995,9 +985,11 @@ def cmd_render(args: argparse.Namespace) -> int:
     body = _build_render_body(args, input_path, theme_mode, args.ref)
     if isinstance(body, int):
         return body
-    if not args.no_cache:
-        from .output_cache import store_render
-        store_render(input_path, args.format, options, __version__, body)
+    # A fresh build ALWAYS refreshes the slot — including under --no-cache, whose
+    # job is to ignore a (possibly stale) hit and rebuild, not to leave the stale
+    # entry behind for the next run.
+    from .output_cache import store_render
+    store_render(input_path, args.format, options, __version__, body)
     return _emit_render(args, input_path, body)
 
 
@@ -1029,8 +1021,7 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
                 failed += 1
                 continue
             body = built
-            if not args.no_cache:
-                store_render(vi, args.format, options, __version__, body)
+            store_render(vi, args.format, options, __version__, body)
             rendered += 1
         if outdir is not None:
             dest = outdir / vi.relative_to(root).with_suffix(f".{ext}")
@@ -1237,9 +1228,10 @@ def cmd_diff(args: argparse.Namespace) -> int:
         body = _build_diff_body(args, path_a, path_b, fmt, verbose)
         if isinstance(body, int):
             return body
-        if not args.no_cache:
-            from .output_cache import store_diff
-            store_diff(path_a, path_b, fmt, options, __version__, body)
+        # A fresh build always refreshes the slot (see cmd_render) — --no-cache
+        # forces the rebuild but still updates the cache.
+        from .output_cache import store_diff
+        store_diff(path_a, path_b, fmt, options, __version__, body)
         return _emit_diff(args, path_a, path_b, fmt, body)
     except (ValueError, FileNotFoundError, KeyError) as e:
         print(f"Error: {e}", file=sys.stderr)

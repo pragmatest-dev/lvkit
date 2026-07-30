@@ -159,6 +159,48 @@ class TestClassify:
         assert target.is_dir()
 
 
+# ── one-time migration of the pre-`extract/` extraction cache ───────────────
+
+
+class TestLegacyMigration:
+    def test_legacy_layout_renamed_in_place(self) -> None:
+        """An older cache at ``<root>/{projects,shared,adhoc}/…`` is moved under
+        ``<root>/extract/…`` on migration — an in-place rename, contents intact,
+        the legacy top-level dir gone."""
+        root = cache_paths.global_cache_root()
+        legacy = root / "projects" / "myslug" / "sub"
+        legacy.mkdir(parents=True)
+        (legacy / "X_BDHb.xml").write_text("cached-xml", encoding="utf-8")
+        (root / "adhoc" / "z").mkdir(parents=True)
+        (root / "adhoc" / "z" / "Y.meta.json").write_text("{}", encoding="utf-8")
+
+        cache_paths.migrate_legacy_extract()
+
+        moved = root / "extract" / "projects" / "myslug" / "sub" / "X_BDHb.xml"
+        assert moved.read_text() == "cached-xml"
+        assert (root / "extract" / "adhoc" / "z" / "Y.meta.json").exists()
+        assert not (root / "projects").exists()
+        assert not (root / "adhoc").exists()
+
+    def test_migration_is_a_noop_when_already_migrated(self) -> None:
+        """If ``extract/`` already exists, migration leaves any stray legacy dir
+        untouched (never clobbers the new tree)."""
+        root = cache_paths.global_cache_root()
+        (root / "extract" / "projects").mkdir(parents=True)
+        (root / "extract" / "projects" / "already").write_text("new", encoding="utf-8")
+        (root / "projects").mkdir()  # a stray legacy dir alongside
+        (root / "projects" / "stray").write_text("old", encoding="utf-8")
+
+        cache_paths.migrate_legacy_extract()
+
+        assert (root / "extract" / "projects" / "already").read_text() == "new"
+        # 'projects' existed both places -> dest present -> legacy left as-is.
+        assert (root / "projects" / "stray").exists()
+
+    def test_migration_is_safe_with_no_legacy(self) -> None:
+        cache_paths.migrate_legacy_extract()  # nothing to move -> no error
+
+
 # ── cache freshness: mtime fast-path vs content-hash invalidation ───────────
 
 
