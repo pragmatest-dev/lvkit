@@ -3,33 +3,30 @@
 lvkit follows semantic versioning.
 
 ## [0.5.7]
-- **`render` and `diff` now cache their output.** An unchanged VI is not rebuilt
-  — the previously produced output is reused, skipping the whole
-  parse→graph→scene→render pass. On a warm cache a big-VI render drops from
-  ~1.6 s to ~0.25 s and a diff from ~4 s to ~0.25 s. The cache lives in the
-  per-user cache (`~/.lvkit/cache/{render,diff}/…`, beside the extraction cache),
-  is content-validated (a VI edit, a SubVI change, an lvkit upgrade, or a
-  different `--format`/`--theme` all invalidate it), and self-bounds: one slot
-  per VI (overwritten in place) for project files, with the ephemeral diff /
-  temp-blob entries aged out by a time-based sweep. `--no-cache` forces a
-  rebuild; the cache dir is safe to delete (it rebuilds on demand).
+- **lvkit is much faster.** Re-opening or re-diffing a VI you've already looked
+  at is now near-instant — a repeat render drops from **~1.6 s to ~0.03 s** and a
+  repeat diff from **~4 s to ~0.03 s** — and every command starts quicker too.
+  Two changes get there: `render`/`diff` now **cache their output** (an unchanged
+  VI is reused instead of rebuilt), and the CLI no longer loads its heavy engine
+  until a command actually has to build something.
+- **The output cache** lives in the per-user cache
+  (`~/.lvkit/cache/{render,diff}/…`, beside the extraction cache) and is
+  content-validated: editing the VI (or a SubVI it calls — LabVIEW re-saves the
+  caller when a SubVI changes), upgrading lvkit, or changing `--format`/`--theme`
+  all invalidate it. It self-bounds — one slot per VI, overwritten in place, with
+  ephemeral diff/temp entries aged out by a time sweep — so it never grows
+  without limit. `--no-cache` forces a rebuild; the cache dir is safe to delete
+  (it rebuilds on demand).
 - **`render` accepts a directory** — renders every `.vi` under it into the cache
   (a fast "warm" pass; already-fresh VIs are skipped). `-o` is now the uniform
   "write a file" switch (a file, or a mirrored tree for a directory); without
-  `-o`, a render still warms the cache and reports the slot path.
-- **Much faster CLI startup.** The `lvkit` command no longer imports the graph
-  / parser / pylabview engine (~230 ms) until a command actually needs to
-  *build* something. A render/diff **cache hit now returns in ~30 ms** (was
-  ~260 ms); every command's fixed startup cost drops by the same ~230 ms, so
-  even cold renders and `--version` are quicker. Achieved with a lazy package
-  `__init__` (PEP 562) + deferred engine imports in the CLI; behavior is
-  unchanged.
+  `-o`, a render warms the cache and reports where it landed.
 - Internal: the cache-location/freshness primitives moved to a stdlib-only
   `cache_paths` module so a cache hit is served without importing the
-  graph/parser stack; the cache is now split by artifact kind
-  (`cache/{extract,render,diff}/…`, migrated in place from the old layout).
-  `LoadMode` moved to a dependency-free `load_mode` leaf module (re-exported
-  from `graph.loading` for existing call sites).
+  graph/parser/pylabview stack (the ~230 ms startup cost is deferred via a lazy
+  package `__init__`, PEP 562); the cache is split by artifact kind
+  (`cache/{extract,render,diff}/…`, migrated in place); `LoadMode` moved to a
+  dependency-free `load_mode` leaf (re-exported from `graph.loading`).
 
 ## [0.5.6]
 - **`diff`: a case/event frame whose selector VALUE changed (e.g. `"1"` → `"0"`)
