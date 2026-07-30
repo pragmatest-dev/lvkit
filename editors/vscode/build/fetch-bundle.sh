@@ -104,13 +104,16 @@ echo "    (installing: ${LVKIT_REQ})"
 echo "    -> installed into $LIBS"
 
 # ---- 3. precompile bytecode as HASH-BASED, UNCHECKED ------------------------
-# pip --target ships timestamp-based .pyc (or, cross-installed, matching-version
-# ones). The VSIX is a zip: extraction RESETS every .py mtime, so timestamp .pyc
-# look stale and Python recompiles the ENTIRE tree on first render (~20s). Rebuild
-# them as hash-based `unchecked` (PEP 552): Python then trusts the .pyc without
-# any mtime/hash check, so extraction can't invalidate them -> instant first run.
-# .pyc bytecode is OS-INDEPENDENT (magic is tied to the CPython VERSION only), so
-# a host CPython 3.12 can compile a win32/darwin bundle's sources fine.
+# The VSIX is a zip: extraction RESETS every .py mtime, so any TIMESTAMP-based
+# .pyc looks stale and Python recompiles that tree on first render (~14-20 s).
+# TWO trees ship timestamp .pyc (and the interpreter's stdlib ships only a
+# PARTIAL set): pip's `--target` output (bin/libs) AND python-build-standalone's
+# own stdlib (bin/python/**/Lib). Rebuild BOTH as hash-based `unchecked`
+# (PEP 552) — Python then trusts the .pyc with no mtime/hash check, so extraction
+# can't invalidate them and the FIRST render has zero recompile. Missing the
+# stdlib here was the residual of the old "20 s first render" (only libs was
+# fixed). .pyc bytecode is OS-INDEPENDENT (magic is tied to the CPython VERSION
+# only), so a host CPython 3.12 compiles a win32/darwin bundle's sources fine.
 echo "==> precompiling bytecode (hash-based, unchecked) so first render is instant"
 COMPILE_PY="${HOST_PY312:-}"
 [ -z "$COMPILE_PY" ] && command -v python3.12 >/dev/null 2>&1 && COMPILE_PY="python3.12"
@@ -123,11 +126,16 @@ if [ -z "$COMPILE_PY" ]; then
   tar xzf "$TMP/hostpy.tar.gz" -C "$TMP"
   COMPILE_PY="$TMP/python/bin/python3"
 fi
-# -f: overwrite the timestamp .pyc pip left. Warnings from deps (e.g. pylabview's
-# unescaped-regex SyntaxWarning) are cosmetic; -q keeps them quiet.
-"$COMPILE_PY" -m compileall -f -q -q --invalidation-mode unchecked-hash "$LIBS" \
-  || echo "    WARNING: compileall failed — first render will recompile (slow) but still works" >&2
-echo "    -> $(find "$LIBS" -name '*.pyc' | wc -l) .pyc precompiled"
+# -f: overwrite the timestamp .pyc. -j0: use all cores (build-time only). Compile
+# BOTH bin/libs AND the whole bundled interpreter (its stdlib lives at Lib/ on
+# win, lib/python3.12/ on unix — recursing bin/python covers either). Some stdlib
+# modules are intentionally uncompilable (lib2to3 grammars, bad-syntax test
+# fixtures), so compileall may return nonzero; that's fine — those aren't imported
+# at runtime, and everything we DO import is now hash-unchecked.
+"$COMPILE_PY" -m compileall -f -q -q -j0 --invalidation-mode unchecked-hash \
+  "$LIBS" "$PYDEST" \
+  || echo "    (compileall reported non-fatal errors — uncompilable stdlib fixtures)" >&2
+echo "    -> $(find "$LIBS" "$PYDEST" -name '*.pyc' | wc -l) .pyc precompiled (libs + stdlib)"
 
 echo
 echo "Bundle ready for ${TARGET} (approach B — no uv, no venv):"
