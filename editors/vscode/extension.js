@@ -59,7 +59,7 @@ let _extensionPath = null;
 // has THIS version pre-installed under bin/libs, so the extension's advertised
 // behavior is guaranteed regardless of what (if anything) the user installed.
 // Bump it AND refetch the bundle (build/fetch-bundle.sh) so bin/libs matches.
-const LVKIT_PIN = '0.5.6';
+const LVKIT_PIN = '0.5.7';
 
 // ---- self-contained bundle (approach B: bundled Python + pre-installed lvkit)
 // Two per-platform components under bin/ (fetched by build/fetch-bundle.sh,

@@ -87,10 +87,15 @@ if [ -z "$PIP_PYTHON" ]; then
   done
 fi
 [ -n "$PIP_PYTHON" ] || { echo "no python with pip found (set PIP_PYTHON)" >&2; exit 1; }
+# The lvkit to install: the pinned PyPI release by default, OR a locally-built
+# wheel via LVKIT_WHEEL (for testing an unreleased build before it hits PyPI).
+# Either way its deps still resolve from PyPI for the target platform.
+LVKIT_REQ="${LVKIT_WHEEL:-lvkit==${LVKIT_PIN}}"
+echo "    (installing: ${LVKIT_REQ})"
 # --target unpacks wheels without executing the target interpreter, so this
 # cross-installs (e.g. a win_amd64 tree from Linux). --implementation cp +
 # --python-version + --only-binary pin the wheel selection to the target.
-"$PIP_PYTHON" -m pip install "lvkit==${LVKIT_PIN}" \
+"$PIP_PYTHON" -m pip install "${LVKIT_REQ}" \
   --target "$LIBS" \
   --only-binary=:all: \
   --implementation cp \
