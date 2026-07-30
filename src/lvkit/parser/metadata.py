@@ -8,6 +8,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
+from lvkit.text_encoding import decode_labview_text
+
 from .models import ParsedDependencyRef
 from .type_resolution import parse_typedef_refs
 
@@ -231,7 +233,7 @@ def parse_iuse_from_libd(libd_path: Path) -> dict[str, str]:
            [PTH0 path-to-VI] [...] \\x00\\x00\\x00\\x01 [4-byte iUse UID]
            [PTH0 path-to-class]
 
-    Both names are pascal strings: 1-byte length prefix + data (mac_roman).
+    Both names are Pascal strings: 1-byte length prefix + native text data.
     The \\x00\\x02 is a 2-item count sentinel that appears within the first
     8 bytes after the IUVI tag.
     """
@@ -263,7 +265,7 @@ def parse_iuse_from_libd(libd_path: Path) -> dict[str, str]:
         p += 1
         if p + class_len > record_end:
             continue
-        class_name = data[p : p + class_len].decode("mac_roman", errors="replace")
+        class_name = decode_labview_text(data[p : p + class_len])
         p += class_len
 
         # Pascal string 2: VI name (e.g. "TestCase_Init.vi")
@@ -273,7 +275,7 @@ def parse_iuse_from_libd(libd_path: Path) -> dict[str, str]:
         p += 1
         if p + vi_len > record_end or not vi_len:
             continue
-        vi_name = data[p : p + vi_len].decode("mac_roman", errors="replace")
+        vi_name = decode_labview_text(data[p : p + vi_len])
 
         if not vi_name.endswith(".vi"):
             continue  # sanity check — skip malformed records

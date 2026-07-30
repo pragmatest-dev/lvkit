@@ -18,6 +18,7 @@ from pathlib import Path
 
 from lvkit.extractor import extract_vi_xml
 from lvkit.models import LVType
+from lvkit.text_encoding import decode_labview_text
 
 from .constants import (
     FP_TERMINAL_CLASS,
@@ -1072,7 +1073,7 @@ def _decode_path_default(data: bytes) -> str | None:
             str_len = data[idx]
             idx += 1
             if str_len > 0 and idx + str_len <= len(data):
-                part = data[idx:idx + str_len].decode('latin-1', errors='replace')
+                part = decode_labview_text(data[idx : idx + str_len])
                 parts.append(part)
                 idx += str_len
             else:
@@ -1092,10 +1093,10 @@ def _decode_string_default(data: bytes) -> str | None:
             return None
         length = int.from_bytes(data[:4], 'big')
         if len(data) >= 4 + length:
-            string_val = data[4:4 + length].decode('latin-1')
+            string_val = decode_labview_text(data[4 : 4 + length])
             escaped = string_val.replace('\\', '\\\\').replace('"', '\\"')
             return f'"{escaped}"'
-    except (ValueError, UnicodeDecodeError):
+    except ValueError:
         pass
     return None
 
@@ -1144,7 +1145,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         str_len = int.from_bytes(data[:4], 'big')
         if len(data) < 4 + str_len:
             return None, 0
-        string_val = data[4:4 + str_len].decode('latin-1', errors='replace')
+        string_val = decode_labview_text(data[4 : 4 + str_len])
         escaped = string_val.replace('\\', '\\\\').replace("'", "\\'")
         return f"'{escaped}'", 4 + str_len
 
@@ -1264,5 +1265,4 @@ def _get_numeric_size(type_name: str) -> int:
     elif "64" in type_name:
         return 8
     return 4  # Default
-
 

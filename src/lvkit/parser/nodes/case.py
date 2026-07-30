@@ -6,6 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 
 from lvkit.models import CaseFrame, SelectorRange, Tunnel
+from lvkit.text_encoding import decode_labview_text
 
 from ..constants import TERMINAL_CLASS
 from ..models import ParsedCaseStructure, ParsedTerminalInfo, SelectorTable
@@ -238,9 +239,9 @@ def _extract_one_case_structure(
                 hex_text = item.text or ""
                 try:
                     string_labels.append(
-                        bytes.fromhex(hex_text).decode("utf-8")
+                        decode_labview_text(bytes.fromhex(hex_text))
                     )
-                except (ValueError, UnicodeDecodeError):
+                except ValueError:
                     string_labels.append(hex_text)
 
     # Detect default case: SelectDefaultCase holds the hex diagram index of

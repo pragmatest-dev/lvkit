@@ -36,6 +36,10 @@ from lvkit.cache_paths import (  # noqa: E402
     meta_fresh,
     migrate_legacy_extract,
 )
+from lvkit.text_encoding import (  # noqa: E402
+    labview_text_encoding,
+    normalize_extracted_xml,
+)
 
 
 def _cache_target(vi_path: Path) -> Path:
@@ -56,6 +60,7 @@ def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
     write_meta(
         vi_path, meta_path,
         source=source, tool="pylabview", extracted_at=time.time(),
+        text_encoding=labview_text_encoding(),
     )
 
 
@@ -98,6 +103,13 @@ def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
     tree = _lv_xml.ElementTree(root)
     with open(xml_path, "wb") as xml_fh:
         tree.write(xml_fh, encoding="utf-8", xml_declaration=True)
+    for path in output_dir.iterdir():
+        belongs_to_vi = (
+            path.name == f"{vi_stem}.xml"
+            or path.name.startswith(f"{vi_stem}_")
+        )
+        if path.suffix == ".xml" and belongs_to_vi:
+            normalize_extracted_xml(path)
 
 
 def extract_vi_xml(
@@ -140,7 +152,15 @@ def extract_vi_xml(
 
     # Cache hit: XML present and the recorded content-hash (or mtime/size
     # fast-path) still matches the VI.
-    if not force and bd_xml.exists() and meta_fresh(vi_path, meta_path):
+    if (
+        not force
+        and bd_xml.exists()
+        and meta_fresh(
+            vi_path,
+            meta_path,
+            extra={"text_encoding": labview_text_encoding()},
+        )
+    ):
         return (
             bd_xml,
             fp_xml if fp_xml.exists() else None,
@@ -222,7 +242,11 @@ def _open_llb_vi(llb_path: Path) -> Any:
         store_as_data_above=4095,
     )
     with open(llb_path, "rb") as fh:
-        vi = lvrsrc.VI(po, rsrc_fh=fh, text_encoding="mac_roman")
+        vi = lvrsrc.VI(
+            po,
+            rsrc_fh=fh,
+            text_encoding=labview_text_encoding(),
+        )
     return vi
 
 
@@ -319,5 +343,4 @@ def extract_llb(llb_path: Path) -> Path:
         pass
 
     return cache_dir
-
 
