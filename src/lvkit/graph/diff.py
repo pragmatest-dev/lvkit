@@ -674,13 +674,14 @@ def _terminal_label(
     t: Terminal, owner_op: Operation | None, graph: InMemoryVIGraph,
 ) -> str | None:
     """The human identity of a node terminal. An nMux (Bundle/Unbundle-By-Name)
-    OUTPUT terminal has no name of its own — its identity is the struct/class
-    FIELD it maps (resolved via ``nmux_field_index``, the same way the netlist
-    does); every other terminal uses its own display name. None when neither
-    resolves (the caller falls back to node name / position). Shared by the
-    wire-endpoint labeler (``label_of``) and the node terminal-set delta
-    (``_term_delta_detail``) so an nMux field reads identically in both."""
-    if t.direction == "output" and owner_op is not None and _is_nmux(owner_op):
+    FIELD terminal (``nmux_role=="list"``) has no name of its own — its identity
+    is the struct/class FIELD it maps (via ``nmux_field_index``, the same way the
+    netlist does), whether it's a Bundle INPUT field or an Unbundle OUTPUT field;
+    every other terminal uses its own display name. None when neither resolves
+    (the caller falls back to node name / position). Shared by the wire-endpoint
+    labeler (``label_of``) and the node terminal-set delta (``_term_delta_detail``)
+    so an nMux field reads identically in both."""
+    if t.nmux_role == "list" and owner_op is not None and _is_nmux(owner_op):
         field = _nmux_raw_field_name(t, _nmux_agg_fields(owner_op, graph))
         if field:
             return field
