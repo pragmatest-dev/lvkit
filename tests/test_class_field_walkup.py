@@ -6,6 +6,7 @@ method VIs — so `get_type_fields` resolves without the expensive method tree.
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -77,3 +78,74 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
                 assert g.get_type_fields(agg.lv_type), (
                     f"unresolved fields for {agg.lv_type.classname}"
                 )
+
+
+# Fix B: a class whose private data is a CONTROL (.ctl) typedef — NOT an inline
+# "class private data" cluster in a method VI's VCTP — has its fields read
+# straight from that control. The .ctl file may differ from the class's recorded
+# logical name (LabVIEW logical "<Class>.ctl" vs on-disk "Data.ctl").
+_MC_REPO = ".lvkit/cache/samples/measurement-plugin-labview"
+_MC_DIR = (
+    "Source/Runtime/MeasurementLink Measurement Server/Classes/MeasurementContext"
+)
+_MC_REF = "0577695d"
+_MC_CLASS = (
+    "MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass"
+)
+_MC_FIELDS = [
+    "PinMapContext", "gRPCServerId", "IMeasurementService",
+    "MeasurementPluginService", "reserved session infos",
+]
+
+
+def _extract_class_dir(dest: Path) -> Path | None:
+    """git-extract the MeasurementContext class dir (VIs + .lvclass + Data.ctl)
+    into ``dest`` — the sample repo may be git-only with no working tree."""
+    if not (Path(_MC_REPO) / ".git").exists():
+        return None
+    listed = subprocess.run(
+        ["git", "-C", _MC_REPO, "ls-tree", "--name-only", f"{_MC_REF}:{_MC_DIR}"],
+        capture_output=True, text=True,
+    )
+    if listed.returncode != 0 or not listed.stdout.strip():
+        return None
+    cdir = dest / "MeasurementContext"
+    cdir.mkdir()
+    for name in listed.stdout.split("\n"):
+        if not name or name.endswith("/"):
+            continue
+        blob = subprocess.run(
+            ["git", "-C", _MC_REPO, "show", f"{_MC_REF}:{_MC_DIR}/{name}"],
+            capture_output=True,
+        )
+        if blob.returncode == 0 and blob.stdout:
+            (cdir / name).write_bytes(blob.stdout)
+    return cdir
+
+
+@pytest.mark.parametrize("mode", [LoadMode.MINIMAL, LoadMode.FULL])
+def test_ctl_private_data_class_fields_resolve(tmp_path: Path, mode) -> None:
+    cdir = _extract_class_dir(tmp_path)
+    if cdir is None:
+        pytest.skip("measurement-plugin-labview sample repo not present")
+
+    g = InMemoryVIGraph()
+    g.load_vi(cdir / "Create.vi", mode=mode)
+
+    # The class's private data is the Data.ctl control — its fields resolve
+    # (previously 0, because the inline-VCTP hunt found nothing).
+    fields = g.get_class_fields(_MC_CLASS)
+    assert fields is not None
+    assert [f.name for f in fields] == _MC_FIELDS
+
+    # And a Bundle/Unbundle-By-Name on that class object now resolves its type
+    # fields (the nMux delta / wire label can name the field instead of [idx]).
+    for nid in list(g._graph.nodes):
+        n = g._graph.nodes[nid].get("node")
+        if isinstance(n, PrimitiveNode) and n.node_type in ("nMux", "mux", "demux"):
+            agg = next(
+                (t for t in n.terminals if getattr(t, "nmux_role", None) == "agg"),
+                None,
+            )
+            if agg and agg.lv_type and agg.lv_type.classname == _MC_CLASS:
+                assert g.get_type_fields(agg.lv_type) == fields

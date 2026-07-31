@@ -16,7 +16,7 @@ import networkx as nx
 
 from ..extractor import extract_llb, extract_vi_xml
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
-from ..models import LVType
+from ..models import ClusterField, LVType
 from ..parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
@@ -338,6 +338,18 @@ class LoadingMixin:
             private_data_field_to_cluster_field(f)
             for f in cls.private_data_fields
         ]
+        if not fields:
+            # No inline "class private data" cluster found in a method VI's VCTP
+            # (structure.py::_parse_private_data_fields) — this class stores its
+            # private data as a control (.ctl) typedef instead. Read the fields
+            # straight from that control (same .ctl extraction as load_typedef);
+            # its file may differ from the class's recorded logical name.
+            ctl = self._find_private_data_ctl(
+                lvclass_path.parent, cls.private_data_ctl)
+            if ctl is not None:
+                ctl_fields, _ = self._ctl_root_fields(ctl)
+                if ctl_fields:
+                    fields = ctl_fields
         self._dep_graph.add_node(
             cls_qname,
             node_type="class",
@@ -672,6 +684,41 @@ class LoadingMixin:
 
         return vi_name
 
+    def _ctl_root_fields(
+        self, ctl_path: Path,
+    ) -> tuple[list[ClusterField] | None, dict[int, LVType]]:
+        """The root cluster fields + full type_map of a control (.ctl). The
+        single ``.ctl`` field-extraction, shared by ``load_typedef`` and the
+        class private-data fallback in ``load_lvclass`` (a class whose private
+        data is a ``.ctl`` control, not an inline cluster). Returns
+        ``(None, {})`` when the control's XML can't be produced."""
+        try:
+            _, fp_xml, main_xml = extract_vi_xml(ctl_path)
+        except (RuntimeError, OSError):
+            return None, {}
+        if not (main_xml and main_xml.exists()):
+            return None, {}
+        type_map = parse_type_map_rich(main_xml)
+        root_type_id = _get_fp_root_type_id(fp_xml)
+        if root_type_id is None:
+            root_type_id = 1  # cluster control default
+        root = type_map.get(root_type_id)
+        return (root.fields if root is not None else None), type_map
+
+    def _find_private_data_ctl(
+        self, class_dir: Path, recorded_name: str | None,
+    ) -> Path | None:
+        """The class's private-data control FILE. LabVIEW records a LOGICAL name
+        for it (e.g. ``<Class>.ctl``) that can differ from the on-disk file
+        (conventionally ``Data.ctl``): try the recorded name, then the
+        ``Data.ctl`` convention, then the sole ``.ctl`` in the class dir. None
+        when it can't be pinned down (multiple ambiguous controls / none)."""
+        for cand in (recorded_name, "Data.ctl"):
+            if cand and (class_dir / cand).exists():
+                return class_dir / cand
+        ctls = sorted(class_dir.glob("*.ctl"))
+        return ctls[0] if len(ctls) == 1 else None
+
     def load_typedef(
         self,
         ctl_path: Path | str,
@@ -695,22 +742,8 @@ class LoadingMixin:
             self._stubs.add(qname)
             return
 
-        try:
-            _, fp_xml, main_xml = extract_vi_xml(ctl_path)
-        except (RuntimeError, OSError):
-            self._dep_graph.add_node(qname, node_type="typedef")
-            self._stubs.add(qname)
-            return
-
-        if main_xml and main_xml.exists():
-            type_map = parse_type_map_rich(main_xml)
-            root_type_id = _get_fp_root_type_id(fp_xml)
-            if root_type_id is None:
-                root_type_id = 1  # cluster control default
-            fields = None
-            if root_type_id in type_map:
-                root_type = type_map[root_type_id]
-                fields = root_type.fields
+        fields, type_map = self._ctl_root_fields(ctl_path)
+        if type_map:
             self._dep_graph.add_node(qname, node_type="typedef", fields=fields)
 
             # Recurse: load any class/typedef deps referenced in this ctl's
