@@ -272,7 +272,7 @@
      geometry must stay measurable so focus()/navigation keep working, and
      visibility wins over the display-based .sel reveal rules, so selected
      wire overlays (wirepath/chain/old) obey the toggle too. */
-  .hide-hl .hl,.hide-hl .hl-num{visibility:hidden}
+  .hide-hl .hl,.hide-hl .hl-num,.hide-hl .frame-opt-dot{visibility:hidden}
   /* Spotlight: once a change is picked, fade every OTHER highlight + badge. */
   .stage.has-sel .hl:not(.sel){fill-opacity:.05;stroke-opacity:.22}
   .stage.has-sel .hl-num:not(.sel){opacity:.18}

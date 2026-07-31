@@ -290,7 +290,9 @@ class TestPaneRegistrationAndBlendReveal:
         assert '<input id="hlToggle"' not in html      # no checkbox anymore
         assert '<button id="hlToggle"' in html
         assert "◉" in html
-        assert ".hide-hl .hl,.hide-hl .hl-num{visibility:hidden}" in html
+        # The toggle hides the change highlights AND the frame aggregate dots.
+        assert (".hide-hl .hl,.hide-hl .hl-num,.hide-hl .frame-opt-dot"
+                "{visibility:hidden}") in html
         assert "display:none" not in html.split(".hide-hl .hl,")[1].split("}")[0]
 
     def test_split_is_the_default_mode(self):
