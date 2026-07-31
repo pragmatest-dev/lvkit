@@ -667,6 +667,23 @@ def _sink_sort_key(key: tuple[str, object]) -> tuple:
     return (_uid_sort(node_key), term_rank)
 
 
+def _terminal_label(
+    t: Terminal, owner_op: Operation | None, graph: InMemoryVIGraph,
+) -> str | None:
+    """The human identity of a node terminal. An nMux (Bundle/Unbundle-By-Name)
+    OUTPUT terminal has no name of its own — its identity is the struct/class
+    FIELD it maps (resolved via ``nmux_field_index``, the same way the netlist
+    does); every other terminal uses its own display name. None when neither
+    resolves (the caller falls back to node name / position). Shared by the
+    wire-endpoint labeler (``label_of``) and the node terminal-set delta
+    (``_term_delta_detail``) so an nMux field reads identically in both."""
+    if t.direction == "output" and owner_op is not None and _is_nmux(owner_op):
+        field = _nmux_raw_field_name(t, _nmux_agg_fields(owner_op, graph))
+        if field:
+            return field
+    return _terminal_display_name(t)
+
+
 def _wire_changes(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     va: str, vb: str,
@@ -808,21 +825,10 @@ def _wire_changes(
             )
             if not match:
                 continue
-            # An nMux (Bundle/Unbundle By Name) OUTPUT terminal's own
-            # name/display_name are unset — its real identity is the
-            # struct/class FIELD it reads, resolved via
-            # ``Terminal.nmux_field_index`` the same way the netlist does
-            # (``netlist._term_ref`` / ``_component_port_name``), so a
-            # removed/added/modified wire's source reads the field net
-            # (e.g. ``isSkipped``) instead of the generic node name.
-            if (
-                t.direction == "output" and owner_op is not None
-                and _is_nmux(owner_op)
-            ):
-                field = _nmux_raw_field_name(t, _nmux_agg_fields(owner_op, graph))
-                if field:
-                    return field
-            if (name := _terminal_display_name(t)) is not None:
+            # Resolve the terminal's identity — an nMux output reads its struct/
+            # class FIELD net (e.g. ``isSkipped``), everything else its own
+            # display name — via the shared ``_terminal_label`` resolver.
+            if (name := _terminal_label(t, owner_op, graph)) is not None:
                 return name
         return (
             consts.get(end.node_id) or owner_label or end.name
@@ -1597,6 +1603,86 @@ def _terminal_changes(
     return changes
 
 
+def _matched_node_pairs(
+    a: dict[str, _ElemInfo], b: dict[str, _ElemInfo],
+    exact: dict[str, str], fuzzy: dict[str, str],
+) -> list[tuple[_ElemInfo, _ElemInfo]]:
+    """Every (base, head) pair of the SAME logical leaf NODE across versions —
+    same uid kept by LabVIEW, or exact/fuzzy-matched — with matching op types
+    (a recycled-uid type flip is skipped). The counterpart of
+    ``_matched_struct_pairs`` for node-level (not structure) diffs."""
+    pairs: list[tuple[_ElemInfo, _ElemInfo]] = []
+    seen: set[tuple[str, str]] = set()
+    cand = [(u, u) for u in a.keys() & b.keys()]
+    cand += list({**exact, **fuzzy}.items())
+    for base_uid, head_uid in sorted(cand, key=lambda p: _uid_sort(p[0])):
+        ea, eb = a.get(base_uid), b.get(head_uid)
+        if ea is None or eb is None or (base_uid, head_uid) in seen:
+            continue
+        seen.add((base_uid, head_uid))
+        if ea.kind == "node" and eb.kind == "node" and type(ea.op) is type(eb.op):
+            pairs.append((ea, eb))
+    return pairs
+
+
+def _term_delta_detail(
+    added: list[Terminal], op_b: Operation, graph_b: InMemoryVIGraph,
+    removed: list[Terminal], op_a: Operation, graph_a: InMemoryVIGraph,
+) -> str:
+    """``+field, -param`` summary of a node's added/removed terminals — naming
+    each via the SHARED ``_terminal_label`` resolver (so an nMux field reads the
+    same here as in a wire change), falling back to ``dir[index]`` when unnamed.
+    Added terminals resolve against the head op/graph, removed against base."""
+    def lab(t: Terminal, op: Operation, graph: InMemoryVIGraph) -> str:
+        return _terminal_label(t, op, graph) or t.name or f"{t.direction}[{t.index}]"
+    return ", ".join(
+        [f"+{lab(t, op_b, graph_b)}" for t in added]
+        + [f"-{lab(t, op_a, graph_a)}" for t in removed]
+    )
+
+
+def _node_terminal_changes(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
+    a: dict[str, _ElemInfo], b: dict[str, _ElemInfo],
+    exact: dict[str, str], fuzzy: dict[str, str],
+    layout_a: Layout | None, layout_b: Layout | None,
+) -> tuple[list[ElementChange], set[str]]:
+    """A MATCHED node whose OWN terminal SET changed — a variadic node
+    (Bundle/Unbundle-By-Name reading more/fewer fields, Build Array), an Invoke/
+    Property node whose method/property list changed, or a subVI whose connector
+    pane changed — reported as ONE node ``modified`` with the field/param delta.
+
+    Correlated per (direction, index) — the connector position — via
+    ``_correlate_by_keys``, so a re-keyed but structurally identical node yields
+    nothing (no false positive). A pure retype/rename at a STABLE position is
+    deliberately NOT reported here: that's a noisier, separate concern (e.g. a
+    cluster-field class rename would otherwise flag every node using the class).
+
+    Returns the changes AND the uids of the added/removed terminals, so the
+    caller feeds them into ``changed_terms`` — the new/gone field wires then fold
+    into this node's story instead of surfacing as standalone wire changes,
+    exactly as an added/removed node's incident wires already do."""
+    changes: list[ElementChange] = []
+    changed_terms: set[str] = set()
+    for ea, eb in _matched_node_pairs(a, b, exact, fuzzy):
+        _, removed, added = _correlate_by_keys(
+            ea.op.terminals, eb.op.terminals, [lambda t: (t.direction, t.index)],
+        )
+        if not (added or removed):
+            continue
+        uid_h, uid_b = _uid_of(eb.op.id), _uid_of(ea.op.id)
+        changes.append(ElementChange(
+            uid_h, eb.op.id, "node", "modified", _elem_label(eb.op, "node"),
+            _node_bounds(layout_b, uid_h),
+            bounds_before=_node_bounds(layout_a, uid_b),
+            detail=_term_delta_detail(added, eb.op, graph_b, removed, ea.op, graph_a),
+            container_uid=eb.container_uid, frame_path=eb.frame_path,
+        ))
+        changed_terms |= {_uid_of(t.id) for t in added}
+        changed_terms |= {_uid_of(t.id) for t in removed}
+    return changes, changed_terms
+
+
 def diff_uid(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str,
@@ -1687,14 +1773,24 @@ def diff_uid(
         graph_a, graph_b, va, vb, layout_a, layout_b, wires_a, wires_b,
     ))
 
-    # Added/removed FP terminal uids — the ONE sub-node population the wire diff
-    # can't infer from node membership (terminals hang off the always-stable
-    # ``__self__`` VI node). Everything else it suppresses (added/removed nodes,
-    # constants, tunnels) falls out of "endpoint node not in ``unchanged``"
-    # inside ``_wire_changes`` — no owner enumeration needed. A future sub-node
-    # kind (mux field terminals) would union its changed terminal uids here too.
+    # Node terminal-SET changes: a matched node (Bundle/Unbundle-By-Name, an
+    # Invoke/Property node, a subVI) whose own field/param terminals were
+    # added/removed — reported as a node ``modified`` with the delta, its new/
+    # gone terminals folding their wires in (below).
+    node_term_changes, node_changed_terms = _node_terminal_changes(
+        graph_a, graph_b, a, b, exact, fuzzy, layout_a, layout_b,
+    )
+    cmap.changes.extend(node_term_changes)
+
+    # Sub-node terminal uids the wire diff can't infer from node membership
+    # (they hang off a node that IS in ``unchanged`` — an FP terminal off the VI
+    # ``__self__`` node, or a matched node's own field terminal). Their new/gone
+    # wires fold into the owning element's story. Everything else the wire diff
+    # suppresses (added/removed nodes, constants, tunnels) falls out of "endpoint
+    # node not in ``unchanged``" — no owner enumeration needed.
     changed_terms = {c.uid for c in cmap.changes
                      if c.kind == "terminal" and c.change in ("added", "removed")}
+    changed_terms |= node_changed_terms
 
     # Wire endpoint changes (#10): for every input terminal on an unchanged
     # node, compare its effective (tunnel-contracted) source across versions.
@@ -1712,11 +1808,16 @@ def diff_uid(
 
     # Common UIDs and all matched pairs are unchanged at the node level — a node
     # wrapped in a new case, moved, re-keyed, or with only a wire added/removed is
-    # not itself a changed node. Operation-config changes are a future pass (an
-    # operation "modified" that must first distinguish a genuine reconfigure
-    # from a UID recycle — no test pair for that exists in the corpus yet).
+    # not itself a changed node. EXCEPT a node whose own terminal SET changed:
+    # ``_node_terminal_changes`` emitted a ``modified`` for it, so it's not in the
+    # unchanged tally. (A pure config/retype at a stable terminal position is
+    # still deferred — it must distinguish a genuine reconfigure from a UID
+    # recycle, and would reintroduce class-rename noise.)
+    _node_modified = {c.uid for c in cmap.changes
+                      if c.kind == "node" and c.change == "modified"}
     cmap.common_node_uids = sorted(
-        (uid for uid in a.keys() & b.keys() if a[uid].kind == "node"),
+        (uid for uid in a.keys() & b.keys()
+         if a[uid].kind == "node" and uid not in _node_modified),
         key=_uid_sort,
     )
     # Provisional display order: structures first, then added < removed <

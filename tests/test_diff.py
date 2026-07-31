@@ -1156,3 +1156,51 @@ class TestWireEndpointStability:
         # tunnel-fed Bundle-By-Name inputs must NOT appear.
         assert [c.change for c in wires] == ["removed"]
         assert not any(c.label == "Bundle By Name" for c in wires)
+
+
+class TestNodeTerminalSetChanges:
+    """A MATCHED node whose own terminal SET changed — an Unbundle-By-Name
+    reading fewer fields, an Invoke node losing params, a subVI whose connector
+    pane changed — is reported as a node 'modified' with the field/param delta
+    (not left invisible-but-for-its-wires). Correlated by (direction, index), so
+    a pure rename/retype at a stable position is NOT flagged (no class-rename
+    noise). The new/gone terminals' wires fold into the node's story."""
+
+    REPO = ".lvkit/cache/samples/JKI-VI-Tester"
+    FILE_PATH = "source/Classes/TestSuite/private/CallTestSuiteMethod.vi"
+    BASE_REF = "653ea099"
+    HEAD_REF = "16be6852"
+
+    def _extract(self, tmp_path: Path, ref: str, name: str) -> Path:
+        if not (Path(self.REPO) / ".git").exists():
+            pytest.skip("JKI-VI-Tester sample repo not present")
+        r = subprocess.run(
+            ["git", "-C", self.REPO, "show", f"{ref}:{self.FILE_PATH}"],
+            capture_output=True,
+        )
+        if r.returncode != 0 or not r.stdout:
+            pytest.skip(f"ref {ref} unavailable")
+        p = tmp_path / name
+        p.write_bytes(r.stdout)
+        return p
+
+    def test_variadic_node_terminal_delta(self, tmp_path: Path):
+        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "cts_a.vi"),
+                       layout=True)
+        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "cts_b.vi"),
+                       layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+        node_mods = [c for c in cmap.changes
+                     if c.kind == "node" and c.change == "modified"]
+        by_label = {c.label: c for c in node_mods}
+        # The Unbundle-By-Name (nMux) that dropped a field is a node 'modified'
+        # with a "-<terminal>" delta — previously invisible except via wires.
+        assert "Bundle/Unbundle By Name" in by_label
+        assert (by_label["Bundle/Unbundle By Name"].detail or "").startswith("-")
+        # An Invoke node that lost params is flagged too.
+        assert "Invoke Node" in by_label
+        # Every node-modified carries real bounds (drawable highlight) and is a
+        # genuine set change (a non-empty +/- delta), never a bare rename.
+        for c in node_mods:
+            assert c.bounds is not None
+            assert c.detail and ("+" in c.detail or "-" in c.detail)
