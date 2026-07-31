@@ -188,6 +188,11 @@ def type_repr(lv_type: LVType | None) -> str:
     if lv_type.kind in ("cluster", "typedef_ref"):
         return ""  # clusters have no single-token repr
     if lv_type.kind == "primitive":
+        # A class/DVR object refnum draws "Class"; a plain refnum (queue, event,
+        # control ref, …) draws "Ref". (The full class name is the LARGE-form
+        # label — see draw.py's ``_lv_type_label``.)
+        if lv_type.underlying_type == "Refnum":
+            return "Class" if lv_type.classname else "Ref"
         return _TYPE_REPR.get(lv_type.underlying_type or "", "")
     return ""
 

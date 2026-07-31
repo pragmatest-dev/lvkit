@@ -514,6 +514,11 @@ def _lv_type_label(lv_type: LVType | None) -> str:
         return "Variant"
     ut = lv_type.underlying_type or ""
     if ut == "Refnum":
+        # A class/DVR object refnum reads as the CLASS, never a generic "Refnum":
+        # its short class name (lib qualifier stripped, ``.lvclass`` kept). Only a
+        # non-class typed refnum (queue, event, control ref, …) keeps "<t> Refnum".
+        if lv_type.classname:
+            return lv_type.classname.rsplit(":", 1)[-1]
         return f"{lv_type.ref_type} Refnum" if lv_type.ref_type else "Refnum"
     if ut in ("Boolean", "String", "Path"):
         return ut
