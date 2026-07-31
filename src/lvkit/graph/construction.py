@@ -339,6 +339,7 @@ class ConstructionMixin:
                 wiring_rule=wiring_rule,
                 is_indicator=fp_term.is_indicator,
                 is_public=is_public,
+                fp_dco_uid=fp_term.fp_dco_uid,
                 control_type=ctrl.control_type if ctrl else None,
                 default_value=ctrl.default_value if ctrl else None,
                 enum_values=ctrl.enum_values if ctrl else [],

@@ -231,6 +231,11 @@
   .hl.constant.added{fill:var(--add);stroke:var(--add);stroke-width:2}
   .hl.constant.removed{fill:var(--del);stroke:var(--del);stroke-width:2}
   .hl.constant.modified{fill:var(--mod);stroke:var(--mod);stroke-width:2}
+  /* An FP control/indicator terminal is a node-like box on the diagram — same
+     filled highlight as a node (added/removed/modified alike). */
+  .hl.terminal.added{fill:var(--add);stroke:var(--add);stroke-width:2}
+  .hl.terminal.removed{fill:var(--del);stroke:var(--del);stroke-width:2}
+  .hl.terminal.modified{fill:var(--mod);stroke:var(--mod);stroke-width:2}
   .hl.structure{fill:none;stroke-width:3;stroke-dasharray:7 4}
   .hl.structure.added{stroke:var(--add)}.hl.structure.removed{stroke:var(--del)}
   .hl.structure.modified{stroke:var(--mod)}
@@ -251,7 +256,10 @@
   .hl.wire.added{fill:var(--add)}.hl.wire.removed{fill:var(--del)}
   .hl.wire.modified{fill:var(--mod)}
   /* Faithful wire/chain polyline overlays: hue = change type, solid = current. */
-  .hl.wirepath{fill:none;fill-opacity:0;stroke-width:3.5;stroke-linejoin:round;stroke-linecap:round}
+  /* Slightly transparent at rest so the real wire reads through the colour
+     overlay (matches the node fill's translucency); the selected wire goes fully
+     opaque below (.hl.wirepath.sel). */
+  .hl.wirepath{fill:none;fill-opacity:0;stroke-opacity:.8;stroke-width:3.5;stroke-linejoin:round;stroke-linecap:round}
   .hl.wirepath.added{stroke:var(--add)}.hl.wirepath.removed{stroke:var(--del)}
   .hl.wirepath.modified{stroke:var(--mod)}
   .hl.wirepath.old{stroke-dasharray:7 5;display:none}   /* old routing — only when selected */
@@ -292,7 +300,7 @@
   /* Selection reads via the RING + others dimming, never a heavier fill: keep the
      selected fill LIGHTER than the calm .24 overlay so the node/text stays legible
      underneath, and use a single soft glow instead of a stacked halo. */
-  .hl.node.sel,.hl.structure.sel,.hl.constant.sel{stroke-width:4;stroke-dasharray:none;stroke-opacity:1;
+  .hl.node.sel,.hl.structure.sel,.hl.constant.sel,.hl.terminal.sel{stroke-width:4;stroke-dasharray:none;stroke-opacity:1;
           fill-opacity:.2;paint-order:stroke;animation:selpulse 1.25s ease-in-out infinite}
   .hl.wire.sel{stroke:#fff;stroke-width:2.5;fill-opacity:1;animation:selpulse 1.25s ease-in-out infinite}
   .hl.added.sel{filter:drop-shadow(0 0 4px var(--add))}
@@ -595,7 +603,7 @@ const trunc=(s,n)=>{s=String(s); return s.length>n ? s.slice(0,n-1)+'…' : s;};
 // rendering -- see the note above). A "frame"/
 // "value"-kind change has no glyph of its own — the quoted frame token
 // ("True":) is its own visual tell (see frameHeaderRow below).
-const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚', constant:'○', frame:'⬚', value:'⬚'};
+const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚', constant:'○', frame:'⬚', value:'⬚', terminal:'▭'};
 const CHANGE_TAG={added:'+', removed:'−', modified:'~'};
 // The change spelled out in words, after the element — redundant with the +/−/~
 // tag by design (the user asked for the explicit text form), coloured to match.
@@ -667,7 +675,9 @@ CHANGES.forEach((c,i)=>{ if(c.uid!=null && !(c.uid in UID_TO_CHANGE_I)) UID_TO_C
 // is node-first netlist syntax (instance_line/scope_header from diff.py). Context
 // folder rows (an unchanged case/frame that only contains changes) have no
 // CHANGES entry, so no number -- the ⬚/quoted label reads as the folder.
-const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', structure:'⬚ ', frame:'', constant:''};
+// constant/terminal bake their own glyph into the row text (via _constant_leaf_text/
+// _terminal_leaf_text), so their TREE_GLYPH is empty — no double glyph.
+const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', structure:'⬚ ', frame:'', constant:'', terminal:''};
 // A row is a FOLDER (has descendants, gets a disclosure chevron + .tchildren
 // container) iff its kind is scope/frame -- the netlist tree is already
 // pruned server-side so every scope/frame row leads to a change somewhere
@@ -736,9 +746,11 @@ function buildTreeDOM(nodes, container){
       header.className='item';
       header.onclick=()=>{ wrap.classList.toggle('collapsed'); if(ci!=null) jump(ci); };
     }else{
-      // A leaf only jumps if it correlates to a real CHANGES entry -- a
-      // constant row (uid always null) never does, so it renders like a
-      // non-clickable context header, same as Phase 3.
+      // A leaf jumps iff it correlates to a real CHANGES entry (ci!=null).
+      // node/wire/constant/terminal changes all carry a uid now, so their rows
+      // resolve to a CHANGES index and ARE clickable + badge-numbered; a pure
+      // CONTEXT row (an unchanged scope with no ElementChange of its own)
+      // resolves to null and renders as a non-clickable header.
       header.className='item'+(ci==null?' header':'');
       if(ci!=null) header.onclick=()=>jump(ci);
     }
@@ -844,14 +856,20 @@ function scrollTargets(){ return (mode==='split'||mode==='overlay') ? [beforePan
 function applyZoom(){
   const S=fitScale()*zoom;           // shared css-per-user scale → panes stay comparable
   const u=vbUnion();
+  // Overlay (and single before/after) SUPERIMPOSE the two svgs, so each is
+  // offset by its viewBox origin relative to the UNION box — identical LV coords
+  // then land on identical screen points and the layers register. Split stacks
+  // the panes in their OWN scrollers instead, so that offset only INDENTS the
+  // pane whose origin sits right of the union min (e.g. JKI__build: before x=284
+  // vs after x=144 pushed before in ~140px) — there's nothing to register
+  // against. Split therefore renders each svg FLUSH (margin 0); the tied-pan
+  // mirror re-adds the origin delta in LV space (mirrorScroll) so scrolling
+  // still keeps both panes on the same region.
+  const flush=(mode==='split');
   [beforePane,afterPane].forEach(p=>{const s=p.querySelector('svg'); if(!s)return;
     s.style.width=(s.viewBox.baseVal.width*S)+'px';
-    // Register this pane's tight viewBox inside the UNION box, so identical LV
-    // coordinates land on identical screen points in the other pane — Overlay
-    // stacks true-to-coordinate, and Split's raw mirrored scroll offsets keep
-    // both panes on the same LV region.
-    s.style.marginLeft=((s.viewBox.baseVal.x-u.minX)*S)+'px';
-    s.style.marginTop=((s.viewBox.baseVal.y-u.minY)*S)+'px';
+    s.style.marginLeft=(flush?0:(s.viewBox.baseVal.x-u.minX)*S)+'px';
+    s.style.marginTop =(flush?0:(s.viewBox.baseVal.y-u.minY)*S)+'px';
     s.querySelectorAll('.hl-num').forEach(t=>t.style.fontSize=(15/S)+'px');});
   // At the limits the button would be a no-op (zoom clamps to [zMin(),ZMAX]) —
   // read as disabled. applyZoom runs on every zoom change, including glides.
@@ -1158,9 +1176,28 @@ let syncingScroll=false;
 function mirrorScroll(src, dst){
   src.addEventListener('scroll', ()=>{
     if((mode!=='split'&&mode!=='overlay')||syncingScroll)return;
+    // Hold the guard across the INDUCED scroll event, not just this synchronous
+    // write. dst's svg can be a different size than src's, so writing src's
+    // offset onto dst gets browser-CLAMPED to dst's own scroll range; dst then
+    // fires its own 'scroll' a tick later. Resetting the flag synchronously
+    // (the old bug) let that clamped value mirror straight back and yank src to
+    // dst's max — the "after snaps me left over and over" fight when panning the
+    // wider pane past the narrower one's extent. rAF keeps the guard up until
+    // after the induced event has fired and been ignored.
     syncingScroll=true;
-    dst.scrollLeft=src.scrollLeft; dst.scrollTop=src.scrollTop;
-    syncingScroll=false;
+    // Overlay stacks both svgs union-registered, so raw scroll offsets already
+    // mean the same LV region — mirror 1:1. Split draws each svg FLUSH (no union
+    // margin, see applyZoom), so the same LV column sits at a DIFFERENT scroll
+    // offset in each pane by exactly the origin delta; add it back here (in css
+    // px) so tied-pan still locks both panes to the same LV region.
+    let dx=0, dy=0;
+    if(mode==='split'){
+      const S=fitScale()*zoom, sv=src.querySelector('svg'), dv=dst.querySelector('svg');
+      if(sv&&dv){ dx=(sv.viewBox.baseVal.x-dv.viewBox.baseVal.x)*S;
+                  dy=(sv.viewBox.baseVal.y-dv.viewBox.baseVal.y)*S; }
+    }
+    dst.scrollLeft=src.scrollLeft+dx; dst.scrollTop=src.scrollTop+dy;
+    requestAnimationFrame(()=>{ syncingScroll=false; });
   });
 }
 mirrorScroll(beforePane, afterPane);

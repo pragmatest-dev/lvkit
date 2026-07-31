@@ -1045,3 +1045,114 @@ class TestDisableStructureInnerChange:
         # collected (and reported) only because the diff recurses disable frames.
         assert any(c.uid == "201" for c in added)
         assert "unknown_primitive_2" in format_diff(ga, gb, na, nb)
+
+
+# Two versions of the measurement-plugin-labview "Add Library To Project.vi"
+# (Apache-2.0) in the samples cache: the AFTER adds a "project ref out"
+# indicator, removes the "Helper?" control, and lowercases three control
+# captions — the real diff that exposed the terminal-blind gap.
+_ADD_LIB_REPO = Path(".lvkit/cache/samples/measurement-plugin-labview")
+_ADD_LIB_PATH = "Source/Generator/_Editor/Add Library To Project.vi"
+_ADD_LIB_BEFORE = "9db7e1bf"
+_ADD_LIB_AFTER = "47feaf2a"
+
+
+class TestFPTerminalChanges:
+    """A VI's own FP controls/indicators (``FPTerminal``s on the VINode, not
+    operations) are diffed as ``kind="terminal"`` changes — add/remove/retype/
+    rename — correlated across versions by front-panel DCO uid then name. Before
+    this, an added/removed control was invisible (only its wire showed)."""
+
+    def _checkout(self, tmp_path: Path, ref: str, tag: str) -> Path:
+        if not (_ADD_LIB_REPO / ".git").exists():
+            pytest.skip("measurement-plugin-labview sample repo not present")
+        blob = subprocess.run(
+            ["git", "-C", str(_ADD_LIB_REPO), "show", f"{ref}:{_ADD_LIB_PATH}"],
+            capture_output=True,
+        )
+        if blob.returncode != 0 or not blob.stdout:
+            pytest.skip(f"ref {ref} unavailable in sample repo")
+        p = tmp_path / f"{tag}.vi"
+        p.write_bytes(blob.stdout)
+        return p
+
+    def test_add_remove_rename_are_terminal_changes(self, tmp_path: Path):
+        ga, na = _load(self._checkout(tmp_path, _ADD_LIB_BEFORE, "before"),
+                        layout=True)
+        gb, nb = _load(self._checkout(tmp_path, _ADD_LIB_AFTER, "after"),
+                       layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+        terms = [c for c in cmap.changes if c.kind == "terminal"]
+        by = {(c.change, c.label) for c in terms}
+
+        # The added indicator that was previously invisible — with real bounds so
+        # the viewer can draw its highlight box.
+        added_ind = [c for c in terms if c.change == "added"]
+        assert len(added_ind) == 1
+        assert added_ind[0].label == "project ref out"
+        assert added_ind[0].element == "indicator"
+        assert added_ind[0].bounds is not None
+        # The terminal OWNS its incident wire (drawn as its chain, in the
+        # terminal's colour) — so it carries chain_paths AND that wire is NOT
+        # ALSO reported as a separate "wire" change (don't-describe-twice, same
+        # as an added node/constant).
+        assert added_ind[0].chain_paths
+        assert not any(
+            c.kind == "wire" and c.label == "project ref out"
+            for c in cmap.changes
+        )
+
+        # The removed control (also previously invisible).
+        assert ("removed", "Helper?") in by
+
+        # The three case-only caption edits are RENAMES (uid-correlated), not
+        # six add/removes — the whole reason for uid-first matching.
+        renames = [c for c in terms if c.change == "modified"]
+        assert len(renames) == 3
+        assert all(c.element == "control" and " → " in (c.detail or "")
+                   for c in renames)
+        assert {"project ref", "library path", "new library name"} == {
+            c.label for c in renames
+        }
+
+
+class TestWireEndpointStability:
+    """A wire change is only reported between two STABLE operation boundaries.
+    If either contracted endpoint is an added/removed node, a constant, or a
+    tunnel/non-operation node (not in the wire diff's ``unchanged`` set), the
+    wire is that element's own story and is suppressed — it must not surface as a
+    standalone (and often mis-paired, floating) wire change. Regression guard for
+    a wire-suppression rewrite that keyed on added/removed *owners* instead of
+    endpoint STABILITY, so tunnel-fed inputs to unchanged nodes leaked as bogus
+    'modified'/'added' wires (DCAF input.vi: a Bundle-By-Name whose feed threads
+    added case tunnels)."""
+
+    REPO = ".lvkit/cache/samples/DCAF-DAQModule"
+    FILE_PATH = "source/module/execution/input.vi"
+    BASE_REF = "66fbafd5"
+    HEAD_REF = "38b8a1d6"
+
+    def _extract(self, tmp_path: Path, ref: str, name: str) -> Path:
+        if not (Path(self.REPO) / ".git").exists():
+            pytest.skip("DCAF-DAQModule sample repo not present")
+        r = subprocess.run(
+            ["git", "-C", self.REPO, "show", f"{ref}:{self.FILE_PATH}"],
+            capture_output=True,
+        )
+        if r.returncode != 0 or not r.stdout:
+            pytest.skip(f"ref {ref} unavailable")
+        p = tmp_path / name
+        p.write_bytes(r.stdout)
+        return p
+
+    def test_tunnel_fed_wires_not_reported(self, tmp_path: Path):
+        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "in_a.vi"),
+                       layout=True)
+        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "in_b.vi"),
+                       layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+        wires = [c for c in cmap.changes if c.kind == "wire"]
+        # The ONLY genuine wire change is the removed "In Place Element"; the
+        # tunnel-fed Bundle-By-Name inputs must NOT appear.
+        assert [c.change for c in wires] == ["removed"]
+        assert not any(c.label == "Bundle By Name" for c in wires)

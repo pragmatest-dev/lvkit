@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from ..models import (
     CaseFrame,
@@ -13,6 +13,7 @@ from ..models import (
     DisableStructureOperation,
     EventFrame,
     EventOperation,
+    FPTerminal,
     Frame,
     LoopOperation,
     Operation,
@@ -69,7 +70,7 @@ class ElementChange:
     """
     uid: str        # trailing numeric UID — matches SVG data-node / data-lv-struct
     full_id: str    # full op id, e.g. "TestCase.lvclass:run.vi::1065"
-    kind: str       # "node" | "structure" | "wire"
+    kind: str       # node|structure|wire|constant|terminal|frame|value
     change: str     # "added" | "removed" | "modified"
     label: str      # display name
     # Absolute-pixel bounds (x1, y1, x2, y2) from the owning version's Layout —
@@ -533,25 +534,121 @@ def _wire_path(
     return None
 
 
-def _incident_chain_paths(
-    layout: Layout | None, wires: list[Wire], node_uid: str,
+# An element "owns" the wires incident to it: for an added/removed node,
+# constant, or terminal, every incident wire is itself new/gone, so it belongs
+# to that element's add/remove — drawn as its ``chain_paths`` AND suppressed from
+# the standalone wire diff (don't-describe-twice). The ONLY thing that differs
+# per kind is how a wire is tested as "incident": a node/constant matches on the
+# endpoint NODE uid, an FP terminal on the endpoint TERMINAL uid (a terminal's
+# wire endpoint node is the always-unchanged VI ``__self__``, not the terminal).
+# So ownership is expressed once, as a wire-match predicate, and both the chain
+# geometry and the suppression key derive from it.
+_WireMatch = Callable[[Wire], bool]
+
+
+def _node_incident(node_uid: str) -> _WireMatch:
+    """Match a wire incident to ``node_uid`` (as source OR sink node)."""
+    return lambda w: node_uid in (
+        _uid_of(w.source.node_id), _uid_of(w.dest.node_id))
+
+
+def _term_incident(term_uid: str) -> _WireMatch:
+    """Match a wire incident to the FP terminal ``term_uid`` (source OR sink
+    terminal) — the key an FP terminal needs, since its endpoint node is the
+    shared ``__self__`` VI node rather than the terminal itself."""
+    return lambda w: term_uid in (
+        _uid_of(w.source.terminal_id), _uid_of(w.dest.terminal_id))
+
+
+def _incident_wires(wires: list[Wire], match: _WireMatch) -> list[Wire]:
+    """Every wire matched by ``match`` — one element's incident ("owned") set."""
+    return [w for w in wires if match(w)]
+
+
+def _chain_paths(
+    layout: Layout | None, wires: list[Wire], match: _WireMatch,
 ) -> list[list[Point]] | None:
-    """Polylines of every non-internal wire incident to ``node_uid`` (as source
-    OR sink) — the node's wire "chain". For an added/removed node, every
-    incident wire is itself new/gone, so the whole chain belongs to that node's
-    add/remove. Keyed per wire by its sink terminal (an input takes one wire, so
-    sinks are unique across the incident set). None when layout is absent or no
-    incident wire is drawable."""
+    """Polylines of every wire matched by ``match`` — an element's wire "chain",
+    drawn in its add/remove colour. Keyed per wire by its sink terminal (an input
+    takes one wire, so sinks are unique across the incident set). None when
+    layout is absent or no incident wire is drawable."""
     if layout is None:
         return None
     paths: list[list[Point]] = []
-    for w in wires:
-        if node_uid not in (_uid_of(w.source.node_id), _uid_of(w.dest.node_id)):
-            continue
+    for w in _incident_wires(wires, match):
         path = _wire_path(layout, wires, _uid_of(w.dest.terminal_id))
         if path is not None:
             paths.append(path)
     return paths or None
+
+
+def _node_bounds(layout: Layout | None, uid: str) -> Rect | None:
+    """A drawn element's absolute-pixel bounds from ``Layout.node_bounds``, keyed
+    by its raw uid — the box every change highlight (node, constant, terminal)
+    draws from. None when the graph was loaded without layout. (Terminals are in
+    ``node_bounds`` too, keyed by their BD terminal uid — see render/scene.py.)"""
+    return layout.node_bounds.get(uid) if layout is not None else None
+
+
+def _transition(old: object, new: object) -> str:
+    """Canonical ``old → new`` detail for any MODIFIED change — a constant value
+    edit, a terminal retype/rename, a frame's selector value change. One arrow
+    convention so every ``detail`` reads alike (and the netlist text renderer's
+    ``_ascii_arrows`` has a single form to map). Wire changes keep their own
+    deliberate ``← src (was …)`` idiom and don't use this."""
+    return f"{old} → {new}"
+
+
+# ── Change-kind registry ─────────────────────────────────────────────────────
+# The ``ElementChange.kind`` taxonomy in ONE place, so the wire diff and the
+# netlist tree derive their per-kind behaviour from named sets instead of the
+# hand-synced literal tuples that used to be scattered through this file (the two
+# ``("node","wire",…)`` filters in ``_netlist_diff`` drifted apart by a lone
+# ``"structure"``). Membership:
+#   • _LEAF_KINDS  — a leaf ROW in the containment tree.
+#   • _TREE_KINDS  — everything IN that tree (leaves + the structure folders);
+#     ``"frame"``/``"value"`` are handled separately, so they're deliberately out.
+#   • _FRAME_KINDS — the frame-selector changes handled outside the tree.
+# The per-kind netlist leaf-text renderer is ``_LEAF_TEXT`` (below, once its
+# helpers exist). Adding a kind = update these sets + its detection pass — no
+# hand-synced tuple to keep in step. (Wire-suppression needs NO per-kind knob
+# here: an added/removed node/constant/tunnel endpoint falls out of "endpoint
+# node not in the wire diff's ``unchanged`` set"; only added/removed FP terminals
+# — sub-node elements sharing the ``__self__`` node — are passed in explicitly as
+# ``changed_terms``; see ``_unstable_endpoint``.)
+_LEAF_KINDS = frozenset({"node", "wire", "constant", "terminal"})
+_TREE_KINDS = _LEAF_KINDS | frozenset({"structure"})
+_FRAME_KINDS = frozenset({"frame", "value"})
+
+
+def _unstable_endpoint(
+    entry: _SinkEntry | None, stable_nodes: set[str], changed_terms: set[str],
+) -> bool:
+    """Whether either end of this contracted wire is NOT a stable operation
+    boundary — so the wire is that endpoint's own story, not a standalone wire
+    change (don't-describe-twice). One test covers every case:
+
+    * a wire endpoint whose NODE isn't in ``stable_nodes`` (the unchanged/matched
+      operations + the VI's ``__self__``): an added or removed node, a CONSTANT
+      or a tunnel/non-operation node — none are stable producers/consumers a wire
+      change should be reported between. (This subsumes the old "sink not
+      unchanged" skip AND the "source not unchanged" downgrade.)
+    * a wire endpoint whose TERMINAL is an added/removed FP terminal
+      (``changed_terms``): terminals hang off the always-stable ``__self__``
+      node, so the node test can't see them — this is the one sub-node case.
+
+    Uses the CONTRACTED ends, so it's robust to tunnel routing. A new sub-node
+    kind (e.g. mux field terminals) joins ``changed_terms``; nothing else here
+    changes."""
+    if entry is None:
+        return False
+    src, sink = entry[2], entry[3]
+    return (
+        _uid_of(src.node_id) not in stable_nodes
+        or _uid_of(sink.node_id) not in stable_nodes
+        or _uid_of(src.terminal_id) in changed_terms
+        or _uid_of(sink.terminal_id) in changed_terms
+    )
 
 
 # One contracted sink: (canonical source node key, source terminal key, raw
@@ -576,6 +673,7 @@ def _wire_changes(
     a: dict[str, _ElemInfo], b: dict[str, _ElemInfo],
     exact: dict[str, str], fuzzy: dict[str, str],
     layout_a: Layout | None, layout_b: Layout | None,
+    changed_terms: set[str] | None = None,
 ) -> list[ElementChange]:
     """Wire endpoint diff (task #10), keyed on the SINK (input) terminal.
 
@@ -603,10 +701,11 @@ def _wire_changes(
     b_of_h = {h: bs for bs, h in h2b.items()}     # head uid -> base uid
     matched_a = set(h2b.keys())
     matched_b = set(h2b.values())
-    # Every node id that is the SAME logical node on both sides, in
-    # base-space canonical form: common (identical uid) or matched
-    # (exact/fuzzy dataflow match). The VI's own connector-pane/self node is
-    # always present on both sides by construction.
+    # STABLE nodes (base-space): the SAME logical operation on both sides —
+    # common (identical uid) or exact/fuzzy-matched — plus the VI's own
+    # ``__self__`` boundary. A wire endpoint whose node is NOT here is an added/
+    # removed op, a constant, or a tunnel/non-operation: never a stable producer
+    # or consumer a wire change should be reported between (see ``_unstable_endpoint``).
     unchanged = (a.keys() & b.keys()) | matched_a | {"__self__"}
 
     # CHANGED structures (base-space): cases/loops/sequences that are genuinely
@@ -755,12 +854,10 @@ def _wire_changes(
     sinks_a = keyed_sinks(graph_a, va, structs_a, va, True)
     sinks_b = keyed_sinks(graph_b, vb, structs_b, vb, False)
 
+    cterms = changed_terms or set()
+
     changes: list[ElementChange] = []
     for key in sorted(set(sinks_a) | set(sinks_b), key=_sink_sort_key):
-        node_key, _term_key = key
-        if node_key not in unchanged:
-            continue  # sink itself belongs to an added/removed node
-
         entry_a = sinks_a.get(key)
         entry_b = sinks_b.get(key)
 
@@ -779,21 +876,16 @@ def _wire_changes(
         if src_id_a == src_id_b:
             continue  # same effective source (or same absence) -- unchanged
 
-        # Reserve "modified" for rewires between two UNCHANGED nodes. If a
-        # source's node is itself added/removed, downgrade that endpoint to
-        # "no source" -- that node's own add/remove entry already tells its
-        # story (don't-describe-twice), and what's LEFT is the genuine
-        # add/remove of the OTHER endpoint (e.g. an unchanged sink losing its
-        # only real producer when something new displaces it).
-        if (
-            entry_a is not None and src_id_a is not None
-            and src_id_a[0] not in unchanged
-        ):
+        # DON'T-DESCRIBE-TWICE: drop an endpoint that isn't a stable operation
+        # boundary (its node is added/removed/constant/tunnel, or its terminal is
+        # an added/removed FP terminal) — that element already owns the wire (it
+        # draws it as its chain), so what's LEFT is the genuine add/remove of the
+        # OTHER endpoint. ONE check unifies the three parallel suppression paths
+        # this used to carry (sink-not-unchanged skip, source-not-unchanged
+        # downgrade, terminal-owned). See ``_unstable_endpoint``.
+        if _unstable_endpoint(entry_a, unchanged, cterms):
             entry_a = None
-        if (
-            entry_b is not None and src_id_b is not None
-            and src_id_b[0] not in unchanged
-        ):
+        if _unstable_endpoint(entry_b, unchanged, cterms):
             entry_b = None
         if entry_a is None and entry_b is None:
             continue  # both endpoints are already their own added/removed story
@@ -1120,7 +1212,7 @@ def _struct_frame_changes(
         )
         return _mk_frame_change(
             op_b, entry_b, head_uid, fb, "value", "modified",
-            detail=f"{_frame_display(fa, op_a)} → {_frame_display(fb, op_b)}",
+            detail=_transition(_frame_display(fa, op_a), _frame_display(fb, op_b)),
             frame_path_before=fp_before,
         )
 
@@ -1204,6 +1296,14 @@ def _matched_struct_pairs(
 # is the CLASSIFIER (paired + equal → unchanged/collapsed; paired + differing →
 # modified), never the identity, so a value edit reads as one modified constant
 # rather than a remove+add.
+#
+# This pass does NOT use the generic ``_correlate_by_keys`` ladder (which the
+# terminal pass does): its final tier is a value+type+locality MULTISET
+# CANCELLATION (identical unnamed constants in the same frame simply annihilate,
+# emitting nothing), not the 1:1 bucket-pop-then-classify the helper models — plus
+# a tier-0 cross-type-recycle skip and a tier-1 "anchored" gate that the helper
+# has no notion of. Forcing it through the shared ladder would contort both, so it
+# stays bespoke; the shared helper is for kinds with a plain key ladder.
 
 
 def _const_type(c: Constant) -> str | None:
@@ -1257,9 +1357,6 @@ def _constant_changes(
     cons_a = _const_consumers(wires_a, va, True, b_of_h)
     cons_b = _const_consumers(wires_b, vb, False, b_of_h)
 
-    def bounds(layout: Layout | None, uid: str) -> Rect | None:
-        return layout.node_bounds.get(uid) if layout is not None else None
-
     # Added/removed constants carry their incident wire "chain" (the feed wire
     # to/from the consumer), drawn in the add/remove colour on selection exactly
     # like an added/removed NODE's chain (that wire is itself new/gone). A
@@ -1274,8 +1371,8 @@ def _constant_changes(
         cu, fp = _constant_locality(cb, b)
         return ElementChange(
             uid, cb.id, "constant", "added", _const_label(cb),
-            bounds(layout_b, uid), detail=_value_disp(cb.value),
-            chain_paths=_incident_chain_paths(layout_b, wires_b, uid),
+            _node_bounds(layout_b, uid), detail=_value_disp(cb.value),
+            chain_paths=_chain_paths(layout_b, wires_b, _node_incident(uid)),
             container_uid=cu, frame_path=fp,
         )
 
@@ -1284,8 +1381,8 @@ def _constant_changes(
         cu, fp = _constant_locality(ca, a)
         return ElementChange(
             uid, ca.id, "constant", "removed", _const_label(ca),
-            bounds(layout_a, uid), detail=_value_disp(ca.value),
-            chain_paths=_incident_chain_paths(layout_a, wires_a, uid),
+            _node_bounds(layout_a, uid), detail=_value_disp(ca.value),
+            chain_paths=_chain_paths(layout_a, wires_a, _node_incident(uid)),
             container_uid=cu, frame_path=fp,
         )
 
@@ -1294,8 +1391,8 @@ def _constant_changes(
         cu, fp = _constant_locality(cb, b)
         return ElementChange(
             uid, cb.id, "constant", "modified", _const_label(cb),
-            bounds(layout_b, uid), bounds_before=bounds(layout_a, uid),
-            detail=f"{_value_disp(ca.value)} → {_value_disp(cb.value)}",
+            _node_bounds(layout_b, uid), bounds_before=_node_bounds(layout_a, uid),
+            detail=_transition(_value_disp(ca.value), _value_disp(cb.value)),
             container_uid=cu, frame_path=fp,
         )
 
@@ -1370,6 +1467,136 @@ def _constant_changes(
     return changes
 
 
+def _fp_terminals(graph: InMemoryVIGraph, vi: str, direction: str) -> list[FPTerminal]:
+    """The VI's own FP controls (``direction=="input"``) or indicators
+    (``"output"``) — every one with a BD terminal, connector-pane or not
+    (``public_only=False``). Filtered to ``FPTerminal`` so the correlation keys
+    (``fp_dco_uid``, ``is_indicator``) are available; the same enumeration the
+    renderer walks (``render/scene.py``)."""
+    terms = (graph.get_inputs(vi, public_only=False) if direction == "input"
+             else graph.get_outputs(vi, public_only=False))
+    return [t for t in terms if isinstance(t, FPTerminal)]
+
+
+_T = TypeVar("_T")
+
+
+def _correlate_by_keys(
+    items_a: list[_T], items_b: list[_T],
+    key_fns: Sequence[Callable[[_T], object | None]],
+) -> tuple[list[tuple[_T, _T]], list[_T], list[_T]]:
+    """Correlate two item lists by a LADDER of key functions. For each key in
+    order: bucket the still-unmatched B items by that key, then pop a 1:1 match
+    for each still-unmatched A item sharing the key (a ``None`` key never
+    matches). Later keys only see what earlier ones left. Returns
+    ``(pairs, leftover_a, leftover_b)`` — the shared skeleton of every "match by
+    exact identity, then fall back to a weaker key, then treat the rest as
+    add/remove" pass (e.g. terminals: FP-DCO-uid then name)."""
+    pairs: list[tuple[_T, _T]] = []
+    rem_a, rem_b = list(items_a), list(items_b)
+    for key_fn in key_fns:
+        buckets: dict[object, list[_T]] = defaultdict(list)
+        for tb in rem_b:
+            k = key_fn(tb)
+            if k is not None:
+                buckets[k].append(tb)
+        next_a, matched_b = [], set()
+        for ta in rem_a:
+            k = key_fn(ta)
+            bucket = buckets.get(k) if k is not None else None
+            if bucket:
+                tb = bucket.pop(0)
+                pairs.append((ta, tb))
+                matched_b.add(id(tb))
+            else:
+                next_a.append(ta)
+        rem_a = next_a
+        rem_b = [tb for tb in rem_b if id(tb) not in matched_b]
+    return pairs, rem_a, rem_b
+
+
+def _terminal_changes(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph, va: str, vb: str,
+    layout_a: Layout | None, layout_b: Layout | None,
+    wires_a: list[Wire], wires_b: list[Wire],
+) -> list[ElementChange]:
+    """FP control/indicator add / remove / retype / rename as
+    ``kind="terminal"`` ``ElementChange``s.
+
+    Controls/indicators live on the VINode as ``FPTerminal``s (not operations),
+    so the node/constant passes never see them — a whole added or removed
+    control is otherwise invisible, only its wire shows. Correlate the SAME
+    control across versions by its FRONT-PANEL DCO uid (``fp_dco_uid`` — the FP
+    object's identity, which survives a caption RENAME and, empirically, stays
+    stable across versions while the BD terminal uid can churn), then by
+    ``name`` for any whose DCO uid churned/absent. A matched pair with a changed
+    ``python_type`` is a RETYPE and with a changed ``name`` a RENAME — both
+    ``modified`` carrying the old→new in ``detail``. Genuine renames always keep
+    the DCO uid, so they're caught by the uid tier; a leftover pair where BOTH
+    the uid AND the name changed is indistinguishable from delete+add, so it's
+    reported as add+remove (never a manufactured rename). ``bounds`` come from
+    each side's own BD-terminal uid in ``Layout.node_bounds`` (the same lookup
+    ``render/scene.py`` uses to draw the terminal box). Frame-parking of a
+    terminal placed inside a case/sequence frame is a v1 gap — the box still
+    highlights from its absolute bounds, it just isn't hidden with its frame.
+    """
+    def word(t: FPTerminal) -> str:
+        return "indicator" if t.is_indicator else "control"
+
+    def added(tb: FPTerminal) -> ElementChange:
+        return ElementChange(
+            _uid_of(tb.id), tb.id, "terminal", "added", tb.name or "(unnamed)",
+            _node_bounds(layout_b, _uid_of(tb.id)), element=word(tb),
+            chain_paths=_chain_paths(layout_b, wires_b, _term_incident(_uid_of(tb.id))),
+        )
+
+    def removed(ta: FPTerminal) -> ElementChange:
+        return ElementChange(
+            _uid_of(ta.id), ta.id, "terminal", "removed", ta.name or "(unnamed)",
+            _node_bounds(layout_a, _uid_of(ta.id)), element=word(ta),
+            chain_paths=_chain_paths(layout_a, wires_a, _term_incident(_uid_of(ta.id))),
+        )
+
+    def modified(ta: FPTerminal, tb: FPTerminal) -> ElementChange | None:
+        """A retype and/or rename, or None when the pair is unchanged."""
+        type_a, type_b = ta.python_type(), tb.python_type()
+        name_a, name_b = ta.name, tb.name
+        if type_a != type_b and name_a != name_b:
+            detail = _transition(f"{name_a} : {type_a}", f"{name_b} : {type_b}")
+        elif type_a != type_b:
+            detail = _transition(type_a, type_b)
+        elif name_a != name_b:
+            detail = _transition(name_a, name_b)
+        else:
+            return None
+        return ElementChange(
+            _uid_of(tb.id), tb.id, "terminal", "modified", tb.name or "(unnamed)",
+            _node_bounds(layout_b, _uid_of(tb.id)),
+            bounds_before=_node_bounds(layout_a, _uid_of(ta.id)),
+            detail=detail, element=word(tb),
+        )
+
+    # Correlate per direction by a key ladder: FP DCO uid (the front-panel
+    # object identity — survives a rename), then name (for any whose uid
+    # churned). Matched pairs → retype/rename or unchanged; leftovers →
+    # add/remove. The bucket-pop tiering lives in ``_correlate_by_keys``.
+    changes: list[ElementChange] = []
+    for direction in ("input", "output"):
+        pairs, only_a, only_b = _correlate_by_keys(
+            _fp_terminals(graph_a, va, direction),
+            _fp_terminals(graph_b, vb, direction),
+            [lambda t: t.fp_dco_uid or None, lambda t: t.name or None],
+        )
+        for ta, tb in pairs:
+            mc = modified(ta, tb)
+            if mc is not None:
+                changes.append(mc)
+        changes.extend(added(tb) for tb in only_b)
+        changes.extend(removed(ta) for ta in only_a)
+
+    return changes
+
+
 def diff_uid(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str,
@@ -1399,9 +1626,6 @@ def diff_uid(
     layout_a = graph_a.get_layout(va)
     layout_b = graph_b.get_layout(vb)
 
-    def _bounds(layout: Layout | None, uid: str) -> Rect | None:
-        return layout.node_bounds.get(uid) if layout is not None else None
-
     # Match the UID-set leftovers by dataflow, and COLLAPSE every match to
     # unchanged. EXACT = identical wiring: the same node LabVIEW re-keyed. FUZZY =
     # the same NODE (same operation, mostly-same wiring) whose difference is a
@@ -1424,12 +1648,11 @@ def diff_uid(
         # own incident wires; a structure's "chain" would be every wire
         # anywhere inside it (task #27 -- viewer-only geometry, noise even
         # in the map, and never used for a structure highlight).
-        chain = (
-            _incident_chain_paths(layout_b, wires_b, uid) if kind == "node" else None
-        )
+        chain = (_chain_paths(layout_b, wires_b, _node_incident(uid))
+                 if kind == "node" else None)
         cmap.changes.append(
             ElementChange(uid, op.id, kind, "added", _elem_label(op, kind),
-                          _bounds(layout_b, uid),
+                          _node_bounds(layout_b, uid),
                           chain_paths=chain,
                           container_uid=entry.container_uid,
                           frame_path=entry.frame_path)
@@ -1438,12 +1661,11 @@ def diff_uid(
     for uid in a.keys() - b.keys() - matched_a:
         entry = a[uid]
         op, kind = entry.op, entry.kind
-        chain = (
-            _incident_chain_paths(layout_a, wires_a, uid) if kind == "node" else None
-        )
+        chain = (_chain_paths(layout_a, wires_a, _node_incident(uid))
+                 if kind == "node" else None)
         cmap.changes.append(
             ElementChange(uid, op.id, kind, "removed", _elem_label(op, kind),
-                          _bounds(layout_a, uid),
+                          _node_bounds(layout_a, uid),
                           chain_paths=chain,
                           container_uid=entry.container_uid,
                           frame_path=entry.frame_path)
@@ -1457,11 +1679,29 @@ def diff_uid(
         layout_a, layout_b, wires_a, wires_b,
     ))
 
+    # FP control/indicator changes (added/removed/retyped/renamed), as
+    # ``kind="terminal"`` elements. These live on the VINode (not as operations),
+    # so they're outside the node/constant passes; correlated by front-panel DCO
+    # uid then name (see ``_terminal_changes``).
+    cmap.changes.extend(_terminal_changes(
+        graph_a, graph_b, va, vb, layout_a, layout_b, wires_a, wires_b,
+    ))
+
+    # Added/removed FP terminal uids — the ONE sub-node population the wire diff
+    # can't infer from node membership (terminals hang off the always-stable
+    # ``__self__`` VI node). Everything else it suppresses (added/removed nodes,
+    # constants, tunnels) falls out of "endpoint node not in ``unchanged``"
+    # inside ``_wire_changes`` — no owner enumeration needed. A future sub-node
+    # kind (mux field terminals) would union its changed terminal uids here too.
+    changed_terms = {c.uid for c in cmap.changes
+                     if c.kind == "terminal" and c.change in ("added", "removed")}
+
     # Wire endpoint changes (#10): for every input terminal on an unchanged
     # node, compare its effective (tunnel-contracted) source across versions.
     # Reuses the exact/fuzzy node matching computed above.
     cmap.changes.extend(_wire_changes(
         graph_a, graph_b, va, vb, a, b, exact, fuzzy, layout_a, layout_b,
+        changed_terms,
     ))
 
     # Frame set changes: within every Case/Sequence structure matched across
@@ -1504,8 +1744,8 @@ def _reorder_by_tree(
     top-to-bottom, instead of the tree's containment-first traversal
     scrambling numbers assigned by the structures-then-uid sort above.
 
-    Builds the SAME netlist-diff rows the tree renders (constants excluded --
-    they carry no ``uid`` and never affect this map's own order), takes the
+    Builds the SAME netlist-diff rows the tree renders (constants and terminals
+    now carry real uids and are ordered alongside everything else), takes the
     order in which change uids FIRST appear walking those rows top-to-bottom
     (pre-order containment, per ``_netlist_diff``'s own ``_sort_key``/
     ``source_order`` -- dataflow/topological order is NOT used here), and
@@ -1599,7 +1839,7 @@ class NetlistDiffRow:
     depth: int          # nesting depth -- 2 spaces (text) / one indent (UI)
     text: str           # netlist-syntax content, NO gutter/indent baked in
     uid: str | None     # stable node/structure/wire uid, or None (context/const)
-    kind: str           # "scope" | "frame" | "node" | "wire" | "constant"
+    kind: str           # "scope" | "frame" | "node" | "wire" | "constant" | "terminal"
 
 
 def _rows_to_text(rows: list[NetlistDiffRow]) -> list[str]:
@@ -1623,6 +1863,35 @@ def _constant_leaf_text(c: ElementChange, *, detailed: bool) -> str:
     detail = _ascii_arrows(c.detail)
     sep = ":" if c.change == "modified" else " ="
     return f"{_CONST_GLYPH} {c.label}{sep} {detail}"
+
+
+# The glyph for an FP control/indicator (terminal) change -- a small box, same
+# leading-marker role as ``_CONST_GLYPH``/node/wire/scope so the change column
+# stays aligned. ``c.element`` ("control"/"indicator") names the kind of thing.
+_TERMINAL_GLYPH = "▭"
+
+
+def _terminal_leaf_text(c: ElementChange, *, detailed: bool) -> str:
+    """One terminal change leaf's netlist text: the terminal glyph + the
+    control/indicator word + its name. ``--verbose`` (``detailed``) appends the
+    ``old -> new`` retype/rename transition from ``c.detail`` (ASCII arrows).
+    The +/-/~ change tag lives in ``NetlistDiffRow.change``."""
+    head = f"{_TERMINAL_GLYPH} {c.element or 'terminal'} {c.label}"
+    if not detailed or not c.detail:
+        return head
+    return f"{head}: {_ascii_arrows(c.detail)}"
+
+
+# Per-kind netlist leaf-text renderer (glyph + text), the second half of the
+# change-kind registry above — kept here because it references the helpers just
+# defined. ``_netlist_diff``'s leaf switch dispatches through this, so a new
+# glyph-leaf kind adds one entry instead of another ``elif`` branch. node/wire
+# aren't here: they render as real netlist instance/connectivity lines, not a
+# glyph+label (see ``node_content``/``wire_content``).
+_LEAF_TEXT: dict[str, Callable[..., str]] = {
+    "constant": _constant_leaf_text,
+    "terminal": _terminal_leaf_text,
+}
 
 
 _TAG = {"added": "+", "removed": "-", "modified": "~"}
@@ -1716,9 +1985,9 @@ def _netlist_diff(
 
     elems = [
         c for c in cmap.changes
-        if c.kind in ("node", "wire", "structure", "constant")
+        if c.kind in _TREE_KINDS
     ]
-    frame_elems = [c for c in cmap.changes if c.kind in ("frame", "value")]
+    frame_elems = [c for c in cmap.changes if c.kind in _FRAME_KINDS]
     by_path: dict[tuple[Segment, ...], list[ElementChange]] = {}
     for c in elems:
         by_path.setdefault(_segments(c.frame_path), []).append(c)
@@ -1894,7 +2163,7 @@ def _netlist_diff(
         siblings += (
             (_sort_key(c.uid), "leaf", c)
             for c in here
-            if c.kind in ("node", "wire", "constant")
+            if c.kind in _LEAF_KINDS
         )
         siblings.sort(key=lambda s: s[0])
         for _, tag, payload in siblings:
@@ -1925,11 +2194,13 @@ def _netlist_diff(
                         change=c.change, depth=depth, text=content,
                         uid=c.uid, kind="wire",
                     ))
-            elif c.kind == "constant":
+            elif c.kind in _LEAF_TEXT:
+                # constant / terminal (and any future glyph-leaf kind): one
+                # ``glyph + text`` renderer per kind, registered in ``_LEAF_TEXT``.
                 rows.append(NetlistDiffRow(
                     change=c.change, depth=depth,
-                    text=_constant_leaf_text(c, detailed=detailed),
-                    uid=c.uid, kind="constant",
+                    text=_LEAF_TEXT[c.kind](c, detailed=detailed),
+                    uid=c.uid, kind=c.kind,
                 ))
         return rows
 

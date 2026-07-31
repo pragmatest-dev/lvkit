@@ -218,6 +218,14 @@ class FPTerminal(Terminal):
     is_indicator: bool = False
     is_public: bool = True
     control_type: str | None = None
+    # The FRONT-PANEL DCO uid this BD terminal references — the BD↔FP bridge
+    # (``fPTerm/<dco>@uid`` == the ``fPDCO@uid`` of the owning control). Unlike
+    # ``id`` (which carries the BD ``fPTerm`` heap uid), this is the front-panel
+    # OBJECT's identity, so it's the stable key for correlating "the same
+    # control" across two versions of a VI — including a rename (same fp_dco_uid,
+    # changed ``name``). See graph/diff.py's terminal correlation. None when the
+    # BD terminal has no resolvable FP DCO (rare).
+    fp_dco_uid: str | None = None
     default_value: ScalarValue = None
     enum_values: list[str] = []
     # Structure containment for a SPECIFIC on-diagram GLYPH of this control —
