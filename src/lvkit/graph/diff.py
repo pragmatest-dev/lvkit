@@ -15,6 +15,7 @@ from ..models import (
     EventOperation,
     FPTerminal,
     Frame,
+    InPlaceOperation,
     LoopOperation,
     Operation,
     SequenceFrame,
@@ -188,7 +189,7 @@ class ChangeMap:
 
 _STRUCT_OPS = (
     CaseOperation, LoopOperation, SequenceOperation, DisableStructureOperation,
-    EventOperation,
+    EventOperation, InPlaceOperation,
 )
 def _frames_of(op: Operation) -> Sequence[Frame] | None:
     """The frame list of a FRAME-BEARING structure, else None — the single
@@ -224,6 +225,8 @@ def _struct_label(op: Operation) -> str:
         return "Flat sequence"
     if isinstance(op, EventOperation):
         return "Event structure"
+    if isinstance(op, InPlaceOperation):
+        return "In Place Element structure"
     return op.node_type or "structure"
 
 
