@@ -108,6 +108,26 @@ def _flatten_fields(
     return result
 
 
+def _flatten_leaf_fields(
+    fields: list[ClusterField],
+) -> list[tuple[list[str], ClusterField]]:
+    """Depth-first LEAF-only flatten of nested cluster fields.
+
+    Unlike ``_flatten_fields`` (which also yields an entry for each
+    intermediate sub-cluster field, since Bundle/Unbundle By Name CAN
+    address a whole sub-cluster as a value), a nested cluster's raw
+    nMux/IPES-decompose flat ``<i>`` index counts LEAF elements only — an
+    intermediate sub-cluster is never itself an addressable flat slot.
+    Verified against a real corpus VI (DAQmx Module Runtime's private data:
+    ``DAQ Tasks``/``Channel Indeces`` sub-clusters, flat indices 7/1/9/3 ->
+    DI Index/AO Task/PWM Freq Index/DO Task).
+    """
+    return [
+        (path, f) for path, f in _flatten_fields(fields)
+        if not (f.type and f.type.fields)
+    ]
+
+
 def _nmux_raw_field_name(
     term: Terminal, class_fields: list[ClusterField] | None,
 ) -> str | None:

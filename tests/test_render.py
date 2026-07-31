@@ -2388,6 +2388,191 @@ def test_bundle_by_name_falls_back_to_bracketed_index_labels():
     assert glyph.bundling is True  # field terminals are inputs -> bundling
 
 
+# --------------------------------------------------------------------------- #
+# In Place Element Structure (IPES) border nodes — decomposeClusterNode is
+# structurally identical to nMux (same dcoAgg/dcoList/poser shape, see
+# parser/node_types.py::DecomposeClusterHandler) and gets the SAME Bundle/
+# Unbundle BY NAME treatment; decomposeMatchNode is a genuine whole-value
+# pass-through (no field split) and gets its own small arrow glyph. Neither
+# may ever show the internal "decompose" heap jargon in a user-facing name.
+# --------------------------------------------------------------------------- #
+
+def test_bundle_unbundle_name_shared_helper():
+    """``lvkit.models.bundle_unbundle_name`` is the ONE field-direction rule
+    both ``render.nodes.mux_display_name`` (render header) and
+    ``graph.construction`` (the ``decomposeClusterNode`` rename that feeds
+    describe/netlist) call — verify it directly at the source."""
+    from lvkit.models import Terminal, bundle_unbundle_name
+    agg = Terminal(id="agg", index=0, direction="input", nmux_role="agg")
+    fields_out = [
+        Terminal(id="f0", index=1, direction="output", nmux_role="list"),
+    ]
+    fields_in = [
+        Terminal(id="f0", index=1, direction="input", nmux_role="list"),
+    ]
+    assert bundle_unbundle_name([agg, *fields_out]) == "Unbundle"
+    assert bundle_unbundle_name([agg, *fields_in]) == "Bundle"
+    assert bundle_unbundle_name([agg, *fields_out], by_name=True) == (
+        "Unbundle By Name"
+    )
+    assert bundle_unbundle_name([agg, *fields_in], by_name=True) == (
+        "Bundle By Name"
+    )
+    # No field (``list``-role) terminals at all — nothing to key direction
+    # off; the caller decides the fallback.
+    assert bundle_unbundle_name([agg]) is None
+
+
+def test_decompose_cluster_node_graph_name_is_direction_aware():
+    """``graph/construction.py`` renames a ``decomposeClusterNode`` graph node
+    to the direction-correct Bundle/Unbundle By Name AFTER nMux-style
+    terminal-role enrichment — the same ``graph_node.name`` describe/netlist
+    read (``Operation.name`` comes straight from it, see
+    ``graph/operations.py``), so those surfaces never see "Decompose
+    Cluster" either."""
+    from lvkit.models import Terminal, bundle_unbundle_name
+
+    decompose_half = PrimitiveNode(
+        id="n0", vi="V", name="Bundle/Unbundle By Name",
+        node_type="decomposeClusterNode",
+        terminals=[
+            Terminal(id="agg", index=0, direction="input", nmux_role="agg"),
+            Terminal(id="f0", index=1, direction="output", nmux_role="list"),
+        ],
+    )
+    recompose_half = PrimitiveNode(
+        id="n1", vi="V", name="Bundle/Unbundle By Name",
+        node_type="decomposeClusterNode",
+        terminals=[
+            Terminal(id="f0", index=0, direction="input", nmux_role="list"),
+            Terminal(id="agg", index=1, direction="output", nmux_role="agg"),
+        ],
+    )
+    # Exercises the exact same rename construction.py applies once terminal
+    # roles are enriched (isinstance(node, SelectNode) block).
+    renamed = bundle_unbundle_name(decompose_half.terminals, by_name=True)
+    if renamed is not None:
+        decompose_half.name = renamed
+    renamed = bundle_unbundle_name(recompose_half.terminals, by_name=True)
+    if renamed is not None:
+        recompose_half.name = renamed
+    assert decompose_half.name == "Unbundle By Name"
+    assert recompose_half.name == "Bundle By Name"
+    assert "decompose" not in decompose_half.name.lower()
+    assert "decompose" not in recompose_half.name.lower()
+
+
+def test_decompose_cluster_node_resolves_to_unbundle_by_name():
+    """The IPES cluster border node's DECOMPOSE half (fields are OUTPUTS) is
+    Unbundle By Name — same field-direction rule as a real nMux."""
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.nodes import mux_display_name, resolve_glyph
+    node = _prim(
+        "decomposeClusterNode", "Bundle/Unbundle By Name",
+        dirs=("input", "output", "output"),
+        roles=("agg", "list", "list"),
+    )
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, BundleByNameGlyph)
+    assert mux_display_name(node) == "Unbundle By Name"
+
+
+def test_decompose_cluster_node_resolves_to_bundle_by_name():
+    """The IPES cluster border node's RECOMPOSE half (fields are INPUTS) is
+    Bundle By Name."""
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.nodes import mux_display_name, resolve_glyph
+    node = _prim(
+        "decomposeClusterNode", "Bundle/Unbundle By Name",
+        dirs=("input", "input", "output"),
+        roles=("list", "list", "agg"),
+    )
+    glyph = resolve_glyph(node, _ctx())
+    assert isinstance(glyph, BundleByNameGlyph)
+    assert mux_display_name(node) == "Bundle By Name"
+
+
+def test_decompose_match_node_resolves_to_in_place_element_glyph():
+    """decomposeMatchNode (the IPES's generic whole-value pass-through — the
+    corpus shows exactly 2 terminals, no dcoAgg/dcoList field shape at all)
+    draws as the clean-room ``InPlaceElementGlyph``, identically on both the
+    input-side and output-side border node."""
+    from lvkit.render.glyph import InPlaceElementGlyph
+    from lvkit.render.nodes import resolve_glyph
+    in_side = _prim(
+        "decomposeMatchNode", "In Place Element",
+        dirs=("input", "output"),
+    )
+    out_side = _prim(
+        "decomposeMatchNode", "In Place Element",
+        dirs=("input", "output"),
+    )
+    assert isinstance(resolve_glyph(in_side, _ctx()), InPlaceElementGlyph)
+    assert isinstance(resolve_glyph(out_side, _ctx()), InPlaceElementGlyph)
+
+
+@pytest.mark.parametrize(
+    "node_type", ["decomposeClusterNode", "decomposeArrayNode",
+                  "decomposeDataValRefNode", "decomposeMatchNode"],
+)
+def test_no_decompose_jargon_in_parser_display_name(node_type):
+    """No IPES border-node handler's ``display_name`` (the parser-level
+    fallback used when the heap carries no explicit label — see
+    ``NodeTypeHandler._extract_common``) may contain the internal "decompose"
+    word. This is the single static source ``node.name`` starts from before
+    any direction-aware graph-layer rename."""
+    from lvkit.parser.node_types import _HANDLERS
+    handler = next(h for h in _HANDLERS if h.xml_class == node_type)
+    assert "decompose" not in handler.display_name.lower()
+
+
+def test_no_decompose_jargon_in_resolved_render_names():
+    """Neither the Bundle/Unbundle-By-Name direction name nor the generic
+    In-Place-Element fallback label ever contains "decompose" — the render
+    header (``mux_display_name``), a describe/netlist-facing name, and the
+    FallbackBoxResolver's labeled-box text all read from the same values."""
+    from lvkit.render.glyph import WrappedBoxGlyph
+    from lvkit.render.nodes import mux_display_name, resolve_glyph
+
+    cluster_decompose = _prim(
+        "decomposeClusterNode", "Bundle/Unbundle By Name",
+        dirs=("input", "output"), roles=("agg", "list"),
+    )
+    assert "decompose" not in mux_display_name(cluster_decompose).lower()
+
+    for node_type in ("decomposeArrayNode", "decomposeDataValRefNode"):
+        fallback = _prim(node_type, "In Place Element", dirs=())
+        glyph = resolve_glyph(fallback, _ctx())
+        assert isinstance(glyph, WrappedBoxGlyph)
+        assert "decompose" not in glyph.label.lower()
+        assert glyph.label == "In Place Element"
+
+
+def test_describe_in_place_operation_never_shows_raw_node_type():
+    """``describe._describe_single_op``'s generic ``case _:`` fallback prints
+    ``f"{name} [{node_type}]"`` for any operation kind without a dedicated
+    one-liner — which used to leak "decomposeRecomposeStructure" verbatim for
+    an unlabeled In Place Element Structure. InPlaceOperation (and
+    DisableStructureOperation/EventOperation, same catch-all) now get their
+    own case that returns the already-faithful ``name`` untouched."""
+    from lvkit.graph.describe import _describe_single_op
+    from lvkit.models import InPlaceOperation
+
+    unlabeled = InPlaceOperation(
+        id="V::1", name="In Place Element", node_type="decomposeRecomposeStructure",
+        labels=[],
+    )
+    assert _describe_single_op(unlabeled) == "In Place Element"
+
+    labeled = InPlaceOperation(
+        id="V::2", name="write multiple elements.vi",
+        node_type="decomposeRecomposeStructure", labels=[],
+    )
+    result = _describe_single_op(labeled)
+    assert result == "write multiple elements.vi"
+    assert "decompose" not in result.lower()
+
+
 def test_comparison_primitives_use_the_arith_triangle():
     """The comparison functions reuse the borderless arithmetic triangle with
     their own symbol (same shape LabVIEW draws them with)."""
@@ -2595,6 +2780,358 @@ def test_nmux_on_class_private_data_draws_field_name():
     glyph = rn[raw_uid].glyph
     assert isinstance(glyph, BundleByNameGlyph)
     assert glyph.names == ("testsRun",)
+
+
+def _daqmx_runtime_paths() -> tuple[Path, Path] | None:
+    """``(input.vi, class-dir)`` for the DCAF-DAQModule sample, or None if
+    the sample isn't pulled locally."""
+    module_dir = Path(
+        ".lvkit/cache/samples/DCAF-DAQModule/source/module/execution",
+    )
+    vi_path = module_dir / "input.vi"
+    if not vi_path.exists():
+        return None
+    return vi_path, module_dir
+
+
+def test_parse_private_data_fields_is_authoritative_to_the_class():
+    """``structure._parse_private_data_fields`` must return the NAMED class's
+    own private-data fields, not the first "class private data" match found
+    in directory-glob order — which can belong to a completely different
+    class referenced as a parameter by an unrelated method VI. Regression
+    for the DAQmx Module Runtime corpus bug: blind first-match returned
+    ``instance ID``/``key-value pairs`` (a different class) instead of this
+    class's real ``DAQ Tasks``/``Channel Indeces``. Also exercises the
+    case-insensitive class-name match: the type reference is
+    ``DAQmx Module Runtime.lvclass`` but the file on disk is
+    ``Daqmx Module runtime.lvclass``.
+
+    Sibling method VIs of the SAME class can carry slightly different
+    private-data snapshots (LabVIEW inlines a per-method copy, saved
+    whenever that method was last edited) — this only pins that the WRONG
+    CLASS is never matched, not that a specific sibling method wins the
+    directory scan. ``_bundle_by_name_glyph`` additionally prefers the
+    CURRENTLY-RENDERED VI's own copy over this dep_graph result specifically
+    to sidestep such cross-method drift — see
+    ``test_bundle_by_name_resolves_nested_class_private_data_field_names``.
+    """
+    from lvkit.structure import _parse_private_data_fields
+
+    paths = _daqmx_runtime_paths()
+    if paths is None:
+        pytest.skip("sample VI not available")
+    _vi_path, module_dir = paths
+    lvclass_path = module_dir / "Daqmx Module runtime.lvclass"
+    if not lvclass_path.exists():
+        pytest.skip("sample .lvclass not available")
+
+    fields = _parse_private_data_fields(lvclass_path)
+    names = [f.name for f in fields]
+    assert names == ["DAQ Tasks", "Channel Indeces"]
+    assert names != ["instance ID", "key-value pairs"]  # the wrong-class bug
+    assert [sf.name for sf in fields[0].sub_fields] == [
+        "AI Task", "AO Task", "DI Task", "DO Task", "PWM Task",
+    ]
+    index_group = [sf.name for sf in fields[1].sub_fields]
+    assert index_group[:4] == ["AI Index", "AO Index", "DI Index", "DO Index"]
+
+
+def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
+    """``_resolve_nmux_field_name`` (backing ``_bundle_by_name_glyph``) must
+    flatten a NESTED private-data cluster LEAF-first — an intermediate
+    sub-cluster (``DAQ Tasks``, ``Channel Indeces``) is never itself an
+    addressable flat slot. Reproduces the exact corpus shape/indices (task:
+    DAQmx Module Runtime, indices 7/1/9/3 -> DI Index/AO Task/PWM Freq
+    Index/DO Task) without needing the sample VI on disk."""
+    from lvkit.models import ClusterField
+    from lvkit.render.nodes import _resolve_nmux_field_name
+
+    def sub(name: str) -> ClusterField:
+        return ClusterField(name=name, type=None)
+
+    daq_tasks = ClusterField(
+        name="DAQ Tasks",
+        type=LVType(
+            kind="cluster",
+            fields=[sub(n) for n in (
+                "AI Task", "AO Task", "DI Task", "DO Task", "PWM Task",
+            )],
+        ),
+    )
+    channel_indeces = ClusterField(
+        name="Channel Indeces",
+        type=LVType(
+            kind="cluster",
+            fields=[sub(n) for n in (
+                "AI Index", "AO Index", "DI Index", "DO Index",
+                "PWM Freq Index", "PWM DC Index",
+            )],
+        ),
+    )
+    fields = [daq_tasks, channel_indeces]
+
+    assert _resolve_nmux_field_name(7, fields) == "DI Index"
+    assert _resolve_nmux_field_name(1, fields) == "AO Task"
+    assert _resolve_nmux_field_name(9, fields) == "PWM Freq Index"
+    assert _resolve_nmux_field_name(3, fields) == "DO Task"
+    # Out of range (beyond every leaf) -> no name, caller falls back further.
+    assert _resolve_nmux_field_name(99, fields) is None
+    # No field index at all -> no name.
+    assert _resolve_nmux_field_name(None, fields) is None
+
+
+def test_resolve_nmux_field_name_falls_through_multiple_sources():
+    """Each row is resolved independently across BOTH sources in priority
+    order: the first source that has a name for THIS index wins, even if
+    an earlier source is present but doesn't cover the index (or is
+    empty)."""
+    from lvkit.models import ClusterField
+    from lvkit.render.nodes import _resolve_nmux_field_name
+
+    own = [ClusterField(name="onlyInOwn", type=None)]
+    dep = [
+        ClusterField(name="first", type=None),
+        ClusterField(name="second", type=None),
+    ]
+    # index 0 resolves from the first (own) source.
+    assert _resolve_nmux_field_name(0, own, dep) == "onlyInOwn"
+    # index 1 is out of range for own, falls through to dep.
+    assert _resolve_nmux_field_name(1, own, dep) == "second"
+    # Empty own source -> straight to dep.
+    assert _resolve_nmux_field_name(1, [], dep) == "second"
+    # Neither source covers it.
+    assert _resolve_nmux_field_name(5, own, dep) is None
+
+
+def test_bundle_by_name_resolves_nested_class_private_data_field_names():
+    """End-to-end: the IPES ``decomposeClusterNode`` border nodes on the real
+    DCAF-DAQModule ``input.vi`` (a method of ``Daqmx Module runtime.lvclass``)
+    must resolve their accessed private-data fields (indices 7/1/9/3) to the
+    real nested member names, not ``[7]``/``[1]``/``[9]``/``[3]`` brackets."""
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.nodes import _bundle_by_name_glyph
+
+    paths = _daqmx_runtime_paths()
+    if paths is None:
+        pytest.skip("sample VI not available")
+    vi_path, module_dir = paths
+
+    graph = InMemoryVIGraph()
+    graph.load_vi(str(vi_path), search_paths=[module_dir.parent])
+    vi_name = graph.resolve_vi_name(vi_path.name)
+
+    decompose_nodes = [
+        n for n in graph.iter_nodes(vi_name)
+        if getattr(n, "node_type", None) == "decomposeClusterNode"
+    ]
+    assert decompose_nodes, "expected decomposeClusterNode border nodes"
+    for node in decompose_nodes:
+        glyph = _bundle_by_name_glyph(node, graph)
+        assert isinstance(glyph, BundleByNameGlyph)
+        assert glyph.names == ("DI Index", "AO Task", "PWM Freq Index", "DO Task")
+        assert not any(n.startswith("[") for n in glyph.names)
+
+
+def test_bundle_by_name_resolves_class_private_data_with_no_class_on_disk():
+    """The SAME resolution must work when the owning ``.lvclass`` (and its
+    sibling method VIs) are UNAVAILABLE at render time — e.g. only
+    ``input.vi`` itself was copied out of the project — so the dep_graph
+    class-fields path can never resolve at all. The VI's OWN inline
+    "Cluster of class private data" copy is embedded in its own extracted
+    XML regardless of what else is on disk, so field names still resolve."""
+    import shutil
+    import tempfile
+
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.nodes import _bundle_by_name_glyph
+
+    paths = _daqmx_runtime_paths()
+    if paths is None:
+        pytest.skip("sample VI not available")
+    vi_path, _module_dir = paths
+
+    with tempfile.TemporaryDirectory() as tmp:
+        isolated_vi = Path(tmp) / vi_path.name
+        shutil.copy(vi_path, isolated_vi)
+
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(isolated_vi))  # only the VI itself exists in `tmp`
+        vi_name = graph.resolve_vi_name(isolated_vi.name)
+        assert not graph.get_class_fields("DAQmx Module Runtime.lvclass"), (
+            "this test's premise is that the owning class is NOT reachable "
+            "(a stub with no real fields, at best)"
+        )
+
+        decompose_nodes = [
+            n for n in graph.iter_nodes(vi_name)
+            if getattr(n, "node_type", None) == "decomposeClusterNode"
+        ]
+        assert decompose_nodes
+        for node in decompose_nodes:
+            glyph = _bundle_by_name_glyph(node, graph)
+            assert isinstance(glyph, BundleByNameGlyph)
+            assert glyph.names == (
+                "DI Index", "AO Task", "PWM Freq Index", "DO Task",
+            )
+
+
+def test_bundle_by_name_prefers_own_vi_copy_over_stale_dep_graph_snapshot():
+    """Sibling method VIs of the same class can carry slightly different
+    private-data snapshots (LabVIEW inlines a copy per method, saved
+    whenever that method was last edited). The dep_graph's
+    ``get_class_fields`` reflects whichever sibling method matched first in
+    ``_parse_private_data_fields``'s directory scan — which, for this
+    corpus class, is a STALE snapshot missing "PWM DC Index" and calling
+    the other field "PWM Index" instead of "PWM Freq Index".
+    ``_bundle_by_name_glyph`` must still render ``input.vi``'s OWN, correct
+    field name for its real field index — proof the own-VI-copy fallback is
+    tried FIRST, not merely as a last resort when dep_graph is unavailable."""
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.nodes import _bundle_by_name_glyph
+
+    paths = _daqmx_runtime_paths()
+    if paths is None:
+        pytest.skip("sample VI not available")
+    vi_path, _module_dir = paths
+
+    graph = InMemoryVIGraph()
+    graph.load_vi(str(vi_path))  # default search -> class resolves too
+    vi_name = graph.resolve_vi_name(vi_path.name)
+
+    dep_fields = graph.get_class_fields("DAQmx Module Runtime.lvclass")
+    assert dep_fields is not None, "the class DOES resolve (case-insensitive)"
+    channel_indeces = next(f for f in dep_fields if f.name == "Channel Indeces")
+    dep_subnames = [sf.name for sf in channel_indeces.type.fields]
+    assert "PWM Freq Index" not in dep_subnames, (
+        "this test's premise is a stale sibling-method snapshot in dep_graph"
+    )
+
+    decompose_nodes = [
+        n for n in graph.iter_nodes(vi_name)
+        if getattr(n, "node_type", None) == "decomposeClusterNode"
+    ]
+    assert decompose_nodes
+    for node in decompose_nodes:
+        glyph = _bundle_by_name_glyph(node, graph)
+        assert isinstance(glyph, BundleByNameGlyph)
+        # input.vi's OWN copy wins over the stale dep_graph snapshot.
+        assert glyph.names == ("DI Index", "AO Task", "PWM Freq Index", "DO Task")
+
+
+def test_bundle_by_name_attaches_resolved_names_to_terminals_for_the_panel():
+    """The resolved field name must reach the field TERMINAL's
+    ``display_name`` (not just the glyph row) so the hover connector-panel
+    (``render/draw.py``'s ``_terminal_label``/``_pane_label``) shows the
+    FULL, untruncated name — "PWM Freq Index", not the glyph's
+    width-truncated "PWM Freq I…". Single source of truth: both surfaces
+    must agree exactly."""
+    from lvkit.render.draw import _terminal_label
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.nodes import _bundle_by_name_glyph
+
+    paths = _daqmx_runtime_paths()
+    if paths is None:
+        pytest.skip("sample VI not available")
+    vi_path, module_dir = paths
+
+    graph = InMemoryVIGraph()
+    graph.load_vi(str(vi_path), search_paths=[module_dir.parent])
+    vi_name = graph.resolve_vi_name(vi_path.name)
+
+    decompose_nodes = [
+        n for n in graph.iter_nodes(vi_name)
+        if getattr(n, "node_type", None) == "decomposeClusterNode"
+    ]
+    assert decompose_nodes
+    for node in decompose_nodes:
+        glyph = _bundle_by_name_glyph(node, graph)
+        assert isinstance(glyph, BundleByNameGlyph)
+        assert glyph.names == ("DI Index", "AO Task", "PWM Freq Index", "DO Task")
+
+        field_terms = sorted(
+            (t for t in node.terminals if t.nmux_role == "list"),
+            key=lambda t: t.index,
+        )
+        assert [_terminal_label(t) for t in field_terms] == [
+            "DI Index", "AO Task", "PWM Freq Index", "DO Task",
+        ]
+        # The panel label is the FULL name, never the glyph's ellipsis-cut
+        # form, and never the generic index-based fallback.
+        assert all("…" not in _terminal_label(t) for t in field_terms)
+        assert all(
+            not _terminal_label(t).startswith("terminal ") for t in field_terms
+        )
+
+
+def test_resolve_bundle_by_name_labels_only_attaches_real_names():
+    """``_resolve_bundle_by_name_labels`` must set ``display_name`` ONLY when
+    a field source actually resolves a name — never for the ``t.name``
+    fallback (redundant: ``_terminal_display_name`` already falls back to
+    ``t.name`` on its own) nor for the bracketed-index last resort (a
+    bracket isn't a field name; the panel keeps its own ``terminal N``
+    default for that row)."""
+    from lvkit.models import ClusterField, Terminal
+    from lvkit.render.nodes import _resolve_bundle_by_name_labels
+
+    fields = [ClusterField(name="widgetCount", type=None)]
+    resolved = Terminal(
+        id="f0", index=0, direction="output",
+        nmux_role="list", nmux_field_index=0,
+    )
+    named_by_terminal = Terminal(
+        id="f1", index=1, direction="output",
+        nmux_role="list", nmux_field_index=None, name="caller side name",
+    )
+    unresolved = Terminal(
+        id="f2", index=2, direction="output",
+        nmux_role="list", nmux_field_index=5,
+    )
+    field_terms = [resolved, named_by_terminal, unresolved]
+
+    names = _resolve_bundle_by_name_labels(field_terms, fields)
+    assert names == ("widgetCount", "caller side name", "[5]")
+    assert resolved.display_name == "widgetCount"
+    assert named_by_terminal.display_name is None
+    assert unresolved.display_name is None
+
+
+def test_bundle_by_name_falls_back_to_dep_graph_when_vi_source_unknown():
+    """When the VI's own source path isn't known to the graph (so the
+    inline-copy fallback can't run at all — e.g. a synthetic/in-memory
+    node), a class-typed aggregate still resolves through the dep_graph
+    class fields (``get_class_fields``) alone. Additive/no-regression check
+    for the JKI-VI-Tester-style path, independent of any sample VI on
+    disk."""
+    from lvkit.models import ClusterField, Terminal
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.nodes import _bundle_by_name_glyph
+
+    graph = InMemoryVIGraph()
+    assert graph.get_vi_source_path("V") is None  # never loaded -> no source
+    graph._dep_graph.add_node(
+        "Synthetic.lvclass",
+        node_type="class",
+        fields=[ClusterField(name="widgetCount", type=None)],
+        parent_class=None,
+    )
+
+    terms = [
+        Terminal(
+            id="agg", index=0, direction="input", nmux_role="agg",
+            lv_type=LVType(kind="primitive", classname="Synthetic.lvclass"),
+        ),
+        Terminal(
+            id="f0", index=1, direction="output",
+            nmux_role="list", nmux_field_index=0,
+        ),
+    ]
+    node = PrimitiveNode(
+        id="n0", vi="V", name="Bundle/Unbundle By Name",
+        node_type="nMux", terminals=terms,
+    )
+    glyph = _bundle_by_name_glyph(node, graph)
+    assert isinstance(glyph, BundleByNameGlyph)
+    assert glyph.names == ("widgetCount",)
 
 
 # ---------------------------------------------------------------------------

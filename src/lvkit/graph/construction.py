@@ -17,6 +17,7 @@ from ..models import (
     LVType,
     Terminal,
     TunnelTerminal,
+    bundle_unbundle_name,
     control_type_to_lvtype,
 )
 from ..parser import (
@@ -597,6 +598,18 @@ class ConstructionMixin:
             # Mark nMux terminal roles (agg vs list) and field indices
             if isinstance(node, SelectNode):
                 self._enrich_nmux_terminals(node, graph_node)
+                if graph_node.node_type == "decomposeClusterNode":
+                    # The IPES cluster border node — Bundle/Unbundle BY NAME,
+                    # direction read off the FIELD terminals just enriched
+                    # above (same rule render.nodes.mux_display_name uses).
+                    # Fixed here, at the one place every consumer (render
+                    # header, describe, netlist) reads ``graph_node.name``
+                    # from, so "decompose" jargon never leaks to any of them.
+                    renamed = bundle_unbundle_name(
+                        graph_node.terminals, by_name=True,
+                    )
+                    if renamed is not None:
+                        graph_node.name = renamed
                 if node.poser_uid:
                     g.add_node(q_node_uid, node=graph_node, poser_uid=node.poser_uid)
                     vi_node_uids.add(q_node_uid)

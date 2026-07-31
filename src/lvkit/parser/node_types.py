@@ -869,7 +869,14 @@ class DecomposeClusterHandler(NodeTypeHandler):
     """
 
     xml_class = "decomposeClusterNode"
-    display_name = "Decompose Cluster"
+    # No "decompose" jargon in a user-facing name — this is LabVIEW's
+    # Bundle/Unbundle BY NAME at an In Place Element Structure boundary (same
+    # by-name field access as nMux). This static default is only a fallback:
+    # the graph layer overrides it with the direction-correct "Bundle By
+    # Name"/"Unbundle By Name" once terminal roles are known — see
+    # graph/construction.py's decomposeClusterNode rename and
+    # render/nodes.py::mux_display_name.
+    display_name = "Bundle/Unbundle By Name"
 
     def parse(self, elem: ET.Element) -> SelectNode:
         common = self._extract_common(elem)
@@ -927,7 +934,11 @@ class DecomposeArrayHandler(DecomposeClusterHandler):
     """
 
     xml_class = "decomposeArrayNode"
-    display_name = "Decompose Array"
+    # No "decompose" jargon in a user-facing name. Unlike decomposeClusterNode
+    # this does NOT get the Bundle/Unbundle-By-Name glyph treatment (out of
+    # scope — see render/nodes.py's ``_CLUSTER_MUX_TYPES``), so it stays the
+    # generic labeled-box fallback under the faithful In Place Element name.
+    display_name = "In Place Element"
 
 
 class _DecomposeDataValRefHandler(NodeTypeHandler):
@@ -938,7 +949,9 @@ class _DecomposeDataValRefHandler(NodeTypeHandler):
     """
 
     xml_class = "decomposeDataValRefNode"
-    display_name = "Decompose Data Value Reference"
+    # No "decompose" jargon in a user-facing name (generic labeled-box
+    # fallback — see DecomposeArrayHandler above).
+    display_name = "In Place Element"
 
     def parse(self, elem: ET.Element) -> ParsedNode:
         common = self._extract_common(elem)
@@ -952,7 +965,12 @@ class _DecomposeMatchHandler(NodeTypeHandler):
     """
 
     xml_class = "decomposeMatchNode"
-    display_name = "Decompose Match"
+    # No "decompose" jargon in a user-facing name. This is the IPES's generic
+    # whole-value pass-through border node (confirmed: 2 terminals, no
+    # dcoAgg/dcoList field shape at all — not a real bundle/unbundle), drawn
+    # as a right-arrow glyph on both halves — see render/nodes.py /
+    # render/glyph.py::InPlaceElementGlyph.
+    display_name = "In Place Element"
 
     def parse(self, elem: ET.Element) -> ParsedNode:
         common = self._extract_common(elem)

@@ -188,6 +188,28 @@ class Terminal(BaseModel):
         )
 
 
+def bundle_unbundle_name(
+    terminals: list[Terminal], *, by_name: bool = False,
+) -> str | None:
+    """Human Bundle/Unbundle name from FIELD (``nmux_role=="list"``) terminal
+    direction -- the ONE rule behind the whole cluster-mux family (nMux/mux/
+    demux, the IPES cluster border node ``decomposeClusterNode``, ...): fields
+    are INPUTS -> assembling a cluster (Bundle), fields are OUTPUTS -> taking
+    one apart (Unbundle). The AGGREGATE (``nmux_role=="agg"``) terminal(s) are
+    never counted. ``by_name`` selects the "By Name" wording (nMux /
+    decomposeClusterNode access fields by name, not position). Returns None
+    when there are no field terminals -- nothing to key the direction off;
+    the caller decides the fallback (a static default name, or leaving an
+    existing name untouched)."""
+    field_terms = [t for t in terminals if t.nmux_role == "list"]
+    if not field_terms:
+        return None
+    bundling = field_terms[0].direction == "input"
+    if by_name:
+        return "Bundle By Name" if bundling else "Unbundle By Name"
+    return "Bundle" if bundling else "Unbundle"
+
+
 class FPTerminal(Terminal):
     """A connector pane terminal on a VINode."""
 

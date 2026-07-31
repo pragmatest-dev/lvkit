@@ -40,10 +40,12 @@ from ..graph.models import (
     PrimitiveNode,
     VINode,
 )
-from ..models import LVType, Terminal
+from ..graph.op_walk import _flatten_leaf_fields
+from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
+from ..structure import _fields_from_xml, private_data_field_to_cluster_field
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
@@ -69,6 +71,7 @@ from .glyph import (
     Glyph,
     IconImageGlyph,
     InlineSvgGlyph,
+    InPlaceElementGlyph,
     InvokeNodeGlyph,
     LocalVariableGlyph,
     PropertyNodeGlyph,
@@ -225,7 +228,18 @@ _CONVERTER_ABBR = {
 # named dcoList/<i> fields via nmxDCO terminal DCOs, see
 # parser/node_types.py::_EventDataNodeHandler) so it shares the same
 # named-rows glyph instead of the old generic-fallback giant box.
-_CLUSTER_MUX_TYPES = frozenset({"nMux", "mux", "demux", "eventDataNode"})
+#
+# ``decomposeClusterNode`` (the In Place Element Structure's cluster border
+# node, parser/node_types.py::DecomposeClusterHandler) is ALSO structurally
+# identical — same dcoAgg/dcoList shape, same ``<poser>``-linked decompose/
+# recompose halves accessing fields BY NAME (confirmed: real corpus field
+# indices are non-sequential, e.g. {7, 1, 9, 3} — positional access would be
+# 0..N-1). It shares nMux's Bundle/Unbundle BY NAME treatment, not the
+# compact positional mux/demux one. The internal "decompose" heap jargon must
+# never reach a user-facing label — see ``mux_display_name`` below.
+_CLUSTER_MUX_TYPES = frozenset(
+    {"nMux", "mux", "demux", "eventDataNode", "decomposeClusterNode"},
+)
 
 # node_type -> (bundle name, unbundle name), for when direction can't be
 # determined from a ``list``-role terminal (defensive fallback only).
@@ -234,30 +248,36 @@ _MUX_TYPE_DEFAULT_NAMES = {
     "mux": "Bundle",
     "demux": "Unbundle",
     "eventDataNode": "Event Data",
+    "decomposeClusterNode": "Bundle/Unbundle By Name",
 }
+
+# node_types whose fields are accessed BY NAME (nMux's own "Node Multiplexer"
+# class, and the IPES cluster border node) rather than positionally (mux/
+# demux) — see ``_CLUSTER_MUX_TYPES`` docstring above.
+_BY_NAME_MUX_TYPES = frozenset({"nMux", "decomposeClusterNode"})
 
 _DEFAULT_ICON_SIZE = (24, 24)
 
 
 def mux_display_name(node: AnyGraphNode) -> str:
-    """Human name for an ``nMux``/``mux``/``demux`` node — never the internal
-    "Node Multiplexer"/"Multiplexer"/"Demultiplexer" XML-class jargon.
-    Direction is read from the FIELD (``nmux_role=="list"``) terminals, the
-    same rule the glyph resolver uses: fields are inputs -> Bundle, fields
-    are outputs -> Unbundle. Falls back to a type-based default if the node
-    has no field terminals (defensive; shouldn't happen for a real mux)."""
+    """Human name for an ``nMux``/``mux``/``demux``/``decomposeClusterNode``
+    node — never the internal "Node Multiplexer"/"Multiplexer"/
+    "Demultiplexer"/"Decompose Cluster" XML-class jargon. Direction is read
+    from the FIELD (``nmux_role=="list"``) terminals, the same rule the glyph
+    resolver uses: fields are inputs -> Bundle, fields are outputs ->
+    Unbundle. Falls back to a type-based default if the node has no field
+    terminals (defensive; shouldn't happen for a real mux)."""
     node_type = node.node_type
     # An Event Data/Filter Node isn't a real Bundle/Unbundle — it's always
     # "Event Data" regardless of field direction (the Filter Node's fields
     # can be writable, unlike a genuine Unbundle's read-only outputs).
     if node_type == "eventDataNode":
         return "Event Data"
-    field_terms = [t for t in node.terminals if t.nmux_role == "list"]
-    if field_terms:
-        bundling = field_terms[0].direction == "input"
-        if node_type == "nMux":
-            return "Bundle By Name" if bundling else "Unbundle By Name"
-        return "Bundle" if bundling else "Unbundle"
+    name = bundle_unbundle_name(
+        node.terminals, by_name=node_type in _BY_NAME_MUX_TYPES,
+    )
+    if name is not None:
+        return name
     if node_type is None:
         return "Bundle/Unbundle By Name"
     return _MUX_TYPE_DEFAULT_NAMES.get(node_type, "Bundle/Unbundle By Name")
@@ -489,24 +509,126 @@ class JsonGlyphResolver:
         return None
 
 
+def _own_class_private_data_fields(
+    vi_name: str, classname: str, graph: InMemoryVIGraph,
+) -> list[ClusterField]:
+    """This VI's OWN inline "Cluster of class private data" typedef — a
+    snapshot embedded in the VI's own VCTP, resolvable WITHOUT loading the
+    owning ``.lvclass`` at all (works under a ``MINIMAL`` load with no
+    ``--search-path``: the VI's own extracted XML already carries it). Tried
+    before the dep_graph class fields in ``_bundle_by_name_glyph`` because
+    it's cheap and available in the common case; ``get_class_fields`` (via
+    ``get_type_fields``) is the fallback, authoritative once the owning
+    class actually loads. Fails soft (empty list) on any extraction/parse
+    error — this is a decoration, never a reason to fail rendering.
+    """
+    vi_path = graph.get_vi_source_path(vi_name)
+    if vi_path is None:
+        return []
+    try:
+        _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path)
+    except Exception:
+        logger.debug(
+            "own private-data XML extraction failed for %r (%s)",
+            vi_name, vi_path, exc_info=True,
+        )
+        return []
+    if main_xml is None:
+        return []
+    fields = _fields_from_xml(main_xml, classname)
+    if not fields:
+        return []
+    return [private_data_field_to_cluster_field(f) for f in fields]
+
+
+def _resolve_nmux_field_name(
+    field_index: int | None, *field_sources: list[ClusterField],
+) -> str | None:
+    """Resolve a field-index's LabVIEW field name, trying each of
+    ``field_sources`` (in priority order) in turn — each row resolved
+    independently, so one source can cover a row another source misses.
+
+    Each source is flattened LEAF-first (``_flatten_leaf_fields``):
+    LabVIEW's flat ``<i>`` index for a NESTED cluster (e.g. a class
+    private-data cluster whose own fields are themselves sub-clusters) runs
+    over leaves only — an intermediate sub-cluster is never itself an
+    addressable flat slot.
+    """
+    if field_index is None:
+        return None
+    for fields in field_sources:
+        if not fields:
+            continue
+        flat = _flatten_leaf_fields(fields)
+        if 0 <= field_index < len(flat):
+            name = flat[field_index][1].name
+            if name:
+                return name
+    return None
+
+
+def _resolve_bundle_by_name_labels(
+    field_terms: list[Terminal], *field_sources: list[ClusterField],
+) -> tuple[str, ...]:
+    """Resolve each By-Name field terminal's label via the fall-through
+    chain (``_resolve_nmux_field_name`` over ``field_sources``, then the
+    terminal's own ``name``, then the bracketed index) and ATTACH a REAL
+    resolved name onto the terminal's ``display_name`` — the ONE place both
+    the (width-truncated) glyph row and the (untruncated) hover
+    connector-panel read from (``render/draw.py``'s ``_terminal_label`` /
+    ``_pane_label``, via ``graph.op_walk._terminal_display_name``, which is
+    ``display_name or name``). Only a genuinely resolved field name is
+    attached — the ``t.name``/bracketed-index fallbacks are glyph-row-only:
+    the panel already has its own ``terminal N`` default for that case, and
+    a bracketed index isn't a field name worth pinning onto the terminal.
+
+    Single source of truth: called once, from ``_bundle_by_name_glyph``
+    (which runs during scene construction, before the connector panel is
+    drawn), so both surfaces always agree.
+    """
+    names: list[str] = []
+    for t in field_terms:
+        fi = t.nmux_field_index
+        name = _resolve_nmux_field_name(fi, *field_sources)
+        if name:
+            t.display_name = name
+            names.append(name)
+        elif t.name:
+            names.append(t.name)
+        elif fi is not None:
+            names.append(f"[{fi}]")
+        else:
+            names.append("[?]")
+    return tuple(names)
+
+
 def _bundle_by_name_glyph(
     node: PrimitiveNode, graph: InMemoryVIGraph,
 ) -> BundleByNameGlyph | None:
-    """A Bundle/Unbundle-By-Name glyph for an ``nMux`` node, with each accessed
-    field's NAME resolved from the wired cluster's type. The ``agg`` terminal is
+    """A Bundle/Unbundle-By-Name glyph for an ``nMux`` (or ``decomposeClusterNode``
+    IPES cluster border) node, with each accessed field's NAME resolved from
+    the wired cluster's type. The ``agg`` terminal is
     the cluster; each ``list`` terminal carries an ``nmux_field_index`` into that
     field list. ``bundling`` is True when the cluster is the OUTPUT (fields in →
-    cluster out). Field names come from ``graph.get_type_fields()`` — the ONE API
-    for both anonymous clusters (fields inline on the terminal) and named/class
-    types (fields only in dep_graph, e.g. an LVOOP private-data cluster). Returns
-    None if no field names are resolvable (caller falls back to the compact glyph).
+    cluster out). Field names are resolved through a fall-through chain (each
+    row independently): (1) for a class-typed aggregate, THIS VI's own inline
+    private-data typedef copy (cheap, available even under a MINIMAL load with
+    no search-path — see ``_own_class_private_data_fields``); (2)
+    ``graph.get_type_fields()`` — dep_graph class fields (authoritative once
+    the owning class loads) or a non-class typedef/anonymous cluster's inline
+    fields; (3) the field terminal's own resolved name; (4) the accessed
+    index in brackets. Returns None if there are no field terminals at all
+    (caller falls back to the compact glyph).
     """
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
-    fields = (
-        graph.get_type_fields(agg.lv_type) or []
-        if agg is not None and agg.lv_type is not None
-        else []
-    )
+    own_fields: list[ClusterField] = []
+    dep_fields: list[ClusterField] = []
+    if agg is not None and agg.lv_type is not None:
+        if agg.lv_type.classname:
+            own_fields = _own_class_private_data_fields(
+                node.vi, agg.lv_type.classname, graph,
+            )
+        dep_fields = graph.get_type_fields(agg.lv_type) or []
     field_terms = sorted(
         (t for t in node.terminals if t.nmux_role == "list"), key=lambda t: t.index,
     )
@@ -518,22 +640,16 @@ def _bundle_by_name_glyph(
     # mistaken for a field literally named "0" (the user's convention). This is
     # the render reality when a typedef's VCTP fails to serialize (its names are
     # unrecoverable from the XML), yet the node must still show what it accesses.
-    names: list[str] = []
-    for t in field_terms:
-        fi = t.nmux_field_index
-        if fi is not None and 0 <= fi < len(fields) and fields[fi].name:
-            names.append(fields[fi].name)
-        elif t.name:
-            names.append(t.name)
-        elif fi is not None:
-            names.append(f"[{fi}]")
-        else:
-            names.append("[?]")
+    # ``_resolve_bundle_by_name_labels`` also ATTACHES each resolved name onto
+    # its terminal's ``display_name`` so the hover connector-panel (which has
+    # room to show the name untruncated) shows the SAME resolved name as this
+    # glyph row, not a generic "terminal N".
+    names = _resolve_bundle_by_name_labels(field_terms, own_fields, dep_fields)
     # Direction comes from the FIELD terminals, not the aggregate — there can
     # be TWO aggregate terminals (an input source cluster and an output
     # assembled cluster) sharing one DCO, so ``agg.direction`` is ambiguous.
     bundling = field_terms[0].direction == "input"
-    return BundleByNameGlyph(names=tuple(names), bundling=bundling)
+    return BundleByNameGlyph(names=names, bundling=bundling)
 
 
 def _event_data_glyph(
@@ -718,6 +834,15 @@ class OriginalGlyphResolver:
             return None
         if node.node_type in _CLUSTER_MUX_TYPES:
             return self._cluster_glyph(node, ctx.graph)
+        if node.node_type == "decomposeMatchNode":
+            # The IPES's generic whole-value pass-through border node (the
+            # "error through" case — a variant match, no field split: the
+            # corpus shows exactly 2 terminals, no dcoAgg/dcoList at all,
+            # unlike decomposeClusterNode's real field-bundling shape). Both
+            # the input-side and output-side border node draw IDENTICALLY —
+            # a small square with a rightward arrow — never the "Decompose
+            # Match" internal jargon.
+            return InPlaceElementGlyph()
         if node.node_type == "propNode":
             return _property_node_glyph(node)
         if node.node_type == "invokeNode":
@@ -754,10 +879,11 @@ class OriginalGlyphResolver:
         # assemble/disassemble, just a structurally-identical DCO shape).
         if node.node_type == "eventDataNode":
             return _event_data_glyph(node, graph)
-        # nMux is Bundle/Unbundle BY NAME — a box with the accessed field NAMES,
+        # nMux and the IPES cluster border node (decomposeClusterNode) are
+        # both Bundle/Unbundle BY NAME — a box with the accessed field NAMES,
         # resolved from the wired cluster's type (mux/demux are the compact,
         # positional Bundle/Unbundle handled by field count below).
-        if node.node_type == "nMux":
+        if node.node_type in _BY_NAME_MUX_TYPES:
             named = _bundle_by_name_glyph(node, graph)
             if named is not None:
                 return named

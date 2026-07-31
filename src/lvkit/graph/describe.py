@@ -10,6 +10,9 @@ from typing import TYPE_CHECKING
 
 from ..models import (
     CaseOperation,
+    DisableStructureOperation,
+    EventOperation,
+    InPlaceOperation,
     LoopOperation,
     LVType,
     Operation,
@@ -584,6 +587,14 @@ def _describe_single_op(op: Operation) -> str:
             return "For Loop"
         case SequenceOperation():
             return "Flat Sequence"
+        case InPlaceOperation() | DisableStructureOperation() | EventOperation():
+            # These structures' resolved ``name`` is already the faithful
+            # human label (a diagram label, or core.py's _NODE_TYPE_NAMES
+            # default — "In Place Element" for an IPES) -- never fall back
+            # to the raw internal XML class ("decomposeRecomposeStructure",
+            # "commentNode", "eventStruct") the way the generic case below
+            # does for truly unhandled operation kinds.
+            return name
         case _:
             return f"{name} [{op.node_type or 'unknown'}]"
 

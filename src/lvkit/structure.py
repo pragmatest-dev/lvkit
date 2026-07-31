@@ -6,11 +6,12 @@ import re
 import warnings
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from dataclasses import replace as dc_replace
 from pathlib import Path
 from typing import Any
 
 from lvkit.extractor import extract_vi_xml
-from lvkit.models import _LV_TO_PYTHON_TYPE
+from lvkit.models import _LV_TO_PYTHON_TYPE, ClusterField, LVType
 
 
 @dataclass
@@ -136,32 +137,83 @@ def _detect_accessor(method_name: str) -> tuple[str | None, str | None]:
     return (None, None)
 
 
-def _fields_from_xml(xml_path: Path) -> list[LVPrivateDataField] | None:
+def _same_class(label_text: str, classname: str) -> bool:
+    """Case-insensitive class-name match for a private-data owner Label vs.
+    a target ``<Name>.lvclass``.
+
+    LabVIEW class names are effectively case-insensitive — a type
+    reference's casing (e.g. ``DAQmx Module Runtime.lvclass``, as recorded
+    on a TypeDesc) can differ from the casing the class FILE was actually
+    saved under (e.g. ``Daqmx Module runtime.lvclass`` on disk). Compares
+    only the last ``:``-qualified component (a library-owned class's
+    reference may be library-prefixed).
+    """
+    def norm(s: str) -> str:
+        return s.rsplit(":", 1)[-1].strip().lower()
+
+    return bool(label_text) and norm(label_text) == norm(classname)
+
+
+def _fields_from_xml(
+    xml_path: Path, expected_classname: str | None = None,
+) -> list[LVPrivateDataField] | None:
     """Look for the "Cluster of class private data" TypeDesc in one main XML.
 
-    Returns the resolved fields, or None if this XML doesn't carry the
-    private-data TypeDesc (not every method VI references "this").
+    The private-data cluster is always wrapped in a ``TypeDef`` TypeDesc
+    that carries two sibling ``<Label Text="...">`` elements: the OWNING
+    class name (e.g. ``"DAQmx Module Runtime.lvclass"``) and the private-data
+    ``.ctl`` filename. When ``expected_classname`` is given, only a
+    private-data TypeDesc whose owning-class Label matches it
+    (case-insensitively, see ``_same_class``) is accepted — this makes the
+    lookup AUTHORITATIVE to one specific class instead of returning the
+    first "class private data" match found anywhere in the XML, which can
+    belong to a completely DIFFERENT class referenced as a parameter (e.g.
+    a generic error/variant-map class) rather than the VI's own class. Pass
+    ``None`` to accept the first match unconditionally (legacy behavior).
+
+    Returns the resolved fields, or None if this XML doesn't carry a
+    matching private-data TypeDesc (not every method VI references "this",
+    and one that does may reference a different class's private data).
     """
     try:
         tree = ET.parse(xml_path)
     except ET.ParseError:
         return None
     root = tree.getroot()
-    for typedesc in root.iter("TypeDesc"):
-        label = typedesc.get("Label", "")
-        if "class private data" in label.lower():
-            type_ids = [td.get("TypeID") for td in typedesc.findall("TypeDesc")]
-            fields = _resolve_type_ids(root, type_ids)
-            if fields:
-                return fields
+    for typedef in root.iter("TypeDesc"):
+        if typedef.get("Type") != "TypeDef":
+            continue
+        nested = typedef.find("TypeDesc[@Nested='True']")
+        if nested is None:
+            continue
+        label = nested.get("Label", "")
+        if "class private data" not in label.lower():
+            continue
+        if expected_classname is not None:
+            owner = typedef.find("Label")
+            owner_text = owner.get("Text", "") if owner is not None else ""
+            if not _same_class(owner_text, expected_classname):
+                continue
+        type_ids = [td.get("TypeID") for td in nested.findall("TypeDesc")]
+        fields = _resolve_type_ids(root, type_ids)
+        if fields:
+            return fields
     return None
 
 
 def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
-    """Parse private data fields from a method VI's XML in the class directory.
+    """Parse THIS class's own private data fields from a method VI's XML in
+    the class directory.
 
     Any method VI that uses the class object will have the
-    "Cluster of class private data" type definition in its VCTP section.
+    "Cluster of class private data" type definition in its VCTP section —
+    but a VI can also reference OTHER classes' private data (e.g. a
+    generic class taken as a parameter), so every candidate match is
+    verified against ``lvclass_path``'s own class name (case-insensitively
+    — see ``_fields_from_xml``/``_same_class``) before being accepted.
+    Without this check the first "class private data" match found in
+    directory-glob order could belong to a different class entirely.
+
     Field names and LV type names are extracted from the same XML's VCTP.
 
     For user-defined field types (classes, typedefs), the LV type name here
@@ -176,11 +228,12 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
     pre-extracted.
     """
     class_dir = lvclass_path.parent
+    expected_classname = f"{lvclass_path.stem}.lvclass"
 
-    for xml_path in class_dir.glob("*.xml"):
+    for xml_path in sorted(class_dir.glob("*.xml")):
         if "_BDHb" in xml_path.name or "_FPHb" in xml_path.name:
             continue
-        fields = _fields_from_xml(xml_path)
+        fields = _fields_from_xml(xml_path, expected_classname)
         if fields:
             return fields
 
@@ -191,11 +244,55 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
             continue
         if main_xml is None:
             continue
-        fields = _fields_from_xml(main_xml)
+        fields = _fields_from_xml(main_xml, expected_classname)
         if fields:
             return fields
 
     return []
+
+
+def _private_field_lvtype(lv_type_name: str) -> LVType | None:
+    """Classify a private-data field's raw LV type name into an ``LVType``.
+
+    Shared by dep_graph class-field population (``graph/loading.py``'s
+    ``load_lvclass``) and the render resolver's VI-own-inline-copy fallback
+    (``render/nodes.py``'s ``_bundle_by_name_glyph``) so both agree on shape.
+    """
+    if not lv_type_name:
+        return None
+    # Leaf component for classification
+    leaf = lv_type_name.rsplit(":", 1)[-1]
+    if leaf.endswith(".lvclass"):
+        return LVType(
+            kind="class",
+            underlying_type=lv_type_name,
+            classname=lv_type_name,
+        )
+    if leaf.endswith(".ctl"):
+        return LVType(
+            kind="typedef_ref",
+            underlying_type=lv_type_name,
+            typedef_name=lv_type_name,
+        )
+    if leaf == "Cluster":
+        return LVType(kind="cluster", underlying_type=lv_type_name)
+    if leaf == "Array":
+        return LVType(kind="array", underlying_type=lv_type_name)
+    return LVType(kind="primitive", underlying_type=lv_type_name)
+
+
+def private_data_field_to_cluster_field(f: LVPrivateDataField) -> ClusterField:
+    """Convert a parsed private-data field (with nested ``sub_fields``) to a
+    graph ``ClusterField``, preserving the nesting so nMux/IPES-decompose
+    flat-index resolution can flatten it consistently in both callers.
+    """
+    lv_type = _private_field_lvtype(f.lv_type_name)
+    if f.sub_fields and lv_type is not None:
+        lv_type = dc_replace(
+            lv_type,
+            fields=[private_data_field_to_cluster_field(sf) for sf in f.sub_fields],
+        )
+    return ClusterField(name=f.name, type=lv_type)
 
 
 def _resolve_type_ids(

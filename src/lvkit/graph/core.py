@@ -273,6 +273,25 @@ class InMemoryVIGraph(
 
         return lv_type
 
+    def _resolve_class_node_key(self, classname: str) -> str | None:
+        """Case-insensitive fallback lookup for a class dep_graph node key.
+
+        LabVIEW class names are effectively case-insensitive: a type
+        reference's casing (e.g. from a TypeDesc ``Item``) can differ from
+        the casing the class was actually loaded/qualified under. Exact
+        match is tried first by the caller (the common, cheap case) — this
+        scan runs only on a miss, and only over ``class``-kind nodes.
+        """
+        target = classname.lower()
+        for node, data in self._dep_graph.nodes(data=True):
+            if (
+                isinstance(node, str)
+                and data.get("node_type") == "class"
+                and node.lower() == target
+            ):
+                return node
+        return None
+
     def get_class_fields(
         self, classname: str,
     ) -> list[ClusterField] | None:
@@ -282,9 +301,21 @@ class InMemoryVIGraph(
         list, with parent fields first. Walks the inheritance chain recursively.
         Returns None if the class is not in dep_graph.
         """
-        if not self._dep_graph.has_node(classname):
-            return None
-        data = self._dep_graph.nodes[classname]
+        node_key = classname
+        if not self._dep_graph.has_node(node_key):
+            # A reference's casing that resolved to a differently-cased
+            # on-disk class file is recorded as an alias at load time (see
+            # ``LoadingMixin._load_dependency``'s ``.lvclass`` branch) —
+            # cheap exact lookup before the broader case-insensitive scan.
+            aliased = self._qualified_aliases.get(classname)
+            if aliased is not None and self._dep_graph.has_node(aliased):
+                node_key = aliased
+            else:
+                resolved = self._resolve_class_node_key(classname)
+                if resolved is None:
+                    return None
+                node_key = resolved
+        data = self._dep_graph.nodes[node_key]
         own_fields: list[ClusterField] = data.get("fields") or []
         parent_name: str | None = data.get("parent_class")
 

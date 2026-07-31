@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import replace as dc_replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -17,7 +16,7 @@ import networkx as nx
 
 from ..extractor import extract_llb, extract_vi_xml
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
-from ..models import ClusterField, LVType
+from ..models import LVType
 from ..parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
@@ -29,13 +28,13 @@ from ..parser import (
 )
 from ..parser.type_mapping import parse_type_map_rich
 from ..structure import (
-    LVPrivateDataField,
     get_project_classes,
     get_project_libraries,
     get_project_vis,
     parse_lvclass,
     parse_lvlib,
     parse_lvproj,
+    private_data_field_to_cluster_field,
 )
 from .models import PolyInfo, VIMetadata
 
@@ -47,6 +46,27 @@ if TYPE_CHECKING:
 # above) so the CLI can name the modes without pulling the graph stack; it is
 # re-exported here for the long-standing ``from lvkit.graph.loading import
 # LoadMode`` call sites.
+
+
+def _case_insensitive_match(directory: Path, filename: str) -> Path | None:
+    """Single-directory case-insensitive filename match.
+
+    LabVIEW class/typedef names are effectively case-insensitive — a type
+    reference's recorded casing (e.g. ``DAQmx Module Runtime.lvclass``, from
+    a TypeDesc ``Item``) can differ from the casing the file was actually
+    SAVED under on disk (e.g. ``Daqmx Module runtime.lvclass``). An exact
+    (case-sensitive) lookup is always tried first by the caller — this is
+    only the fallback, so it never changes behavior on a case-sensitive
+    filesystem where the exact name already matches.
+    """
+    target = filename.lower()
+    try:
+        for entry in directory.iterdir():
+            if entry.name.lower() == target:
+                return entry
+    except OSError:
+        return None
+    return None
 
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
@@ -281,8 +301,14 @@ class LoadingMixin:
         mode: LoadMode = LoadMode.FULL,
         search_paths: list[Path] | None = None,
         owner_chain: list[str] | None = None,
-    ) -> None:
-        """Load a .lvclass file.
+    ) -> str:
+        """Load a .lvclass file. Returns the dep_graph qname it was
+        registered under (``cls_qname``, built from the ON-DISK file's own
+        stem casing) — the CALLER may have referenced this class under a
+        different casing (a type reference's recorded casing can differ
+        from the file's actual casing), so callers that add dep_graph edges
+        or aliases must use this return value, never re-derive/assume the
+        qname themselves (see ``_load_dependency``'s ``.lvclass`` branch).
 
         ``MINIMAL`` is an INTERFACE load: add the class's private-data fields
         (and its parent chain's, via walk-up — nMux field indices run into the
@@ -304,40 +330,14 @@ class LoadingMixin:
         cls_name = cls.name + ".lvclass"
         cls_qname = ":".join(chain + [cls_name]) if chain else cls_name
 
-        # Add class node to dep_graph with field info
-        def _field_to_lvtype(lv_type_name: str) -> LVType | None:
-            if not lv_type_name:
-                return None
-            # Leaf component for classification
-            leaf = lv_type_name.rsplit(":", 1)[-1]
-            if leaf.endswith(".lvclass"):
-                return LVType(
-                    kind="class",
-                    underlying_type=lv_type_name,
-                    classname=lv_type_name,
-                )
-            if leaf.endswith(".ctl"):
-                return LVType(
-                    kind="typedef_ref",
-                    underlying_type=lv_type_name,
-                    typedef_name=lv_type_name,
-                )
-            if leaf == "Cluster":
-                return LVType(kind="cluster", underlying_type=lv_type_name)
-            if leaf == "Array":
-                return LVType(kind="array", underlying_type=lv_type_name)
-            return LVType(kind="primitive", underlying_type=lv_type_name)
-
-        def _to_cluster_field(f: LVPrivateDataField) -> ClusterField:
-            lv_type = _field_to_lvtype(f.lv_type_name)
-            if f.sub_fields and lv_type is not None:
-                lv_type = dc_replace(
-                    lv_type,
-                    fields=[_to_cluster_field(sf) for sf in f.sub_fields],
-                )
-            return ClusterField(name=f.name, type=lv_type)
-
-        fields = [_to_cluster_field(f) for f in cls.private_data_fields]
+        # Add class node to dep_graph with field info. The LVPrivateDataField
+        # -> ClusterField conversion (incl. nested sub-field typing) is
+        # shared with the render resolver's VI-own-inline-copy fallback —
+        # see structure.py::private_data_field_to_cluster_field.
+        fields = [
+            private_data_field_to_cluster_field(f)
+            for f in cls.private_data_fields
+        ]
         self._dep_graph.add_node(
             cls_qname,
             node_type="class",
@@ -358,7 +358,7 @@ class LoadingMixin:
                         self.load_lvclass(
                             parent_file, LoadMode.MINIMAL, search_paths=search_paths,
                         )
-            return
+            return cls_qname
 
         for method in cls.methods:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
@@ -377,18 +377,25 @@ class LoadingMixin:
                         accessor_field=method.accessor_field,
                     )
 
+        return cls_qname
+
     def _walk_up_find(
         self, start_dir: Path, filename: str, max_levels: int = 16,
     ) -> Path | None:
         """Walk up from ``start_dir`` looking for ``filename`` — e.g. an owning
         ``<Class>.lvclass`` that sits above a member VI's ``private/``/``protected/``
         subfolder. Filesystem-only (no parsing), bounded by ``max_levels`` so a
-        deep tree can't run away. Returns the first match, else None."""
+        deep tree can't run away. Returns the first match, else None. Falls
+        back to a case-insensitive match at each level (see
+        ``_case_insensitive_match``) when the exact name isn't there."""
         d = start_dir.resolve()
         for _ in range(max_levels):
             candidate = d / filename
             if candidate.exists():
                 return candidate
+            ci_match = _case_insensitive_match(d, filename)
+            if ci_match is not None:
+                return ci_match
             if d.parent == d:
                 break
             d = d.parent
@@ -807,12 +814,21 @@ class LoadingMixin:
                 if found is not None:
                     parts = qualified_name.split(":")
                     owner_chain = parts[:-1] if len(parts) > 1 else None
-                    self.load_lvclass(
+                    loaded_qname = self.load_lvclass(
                         found, LoadMode.MINIMAL, search_paths=search_paths,
                         owner_chain=owner_chain,
                     )
                     if caller_qname:
-                        self._dep_graph.add_edge(caller_qname, qualified_name)
+                        self._dep_graph.add_edge(caller_qname, loaded_qname)
+                    # The reference's casing can differ from the on-disk
+                    # file's own stem casing (found via case-insensitive
+                    # walk-up) — alias it to the REAL qname rather than
+                    # letting the edge below create a second, empty,
+                    # never-populated dep_graph node under the reference's
+                    # casing (get_class_fields would then match THAT one
+                    # first and always see no fields).
+                    if qualified_name != loaded_qname:
+                        self._qualified_aliases[qualified_name] = loaded_qname
                     return
             node_type = (
                 "class" if leaf.endswith(".lvclass") else
@@ -869,12 +885,17 @@ class LoadingMixin:
             owner_chain = parts[:-1] if len(parts) > 1 else None
             # MINIMAL: field-load the class (no method bodies) — enough for
             # by-name field names. FULL: load its whole method tree for codegen.
-            self.load_lvclass(
+            loaded_qname = self.load_lvclass(
                 resolved, mode,
                 search_paths=search_paths, owner_chain=owner_chain,
             )
             if caller_qname:
-                self._dep_graph.add_edge(caller_qname, qualified_name)
+                self._dep_graph.add_edge(caller_qname, loaded_qname)
+            # See the walk-up branch above: alias rather than let a
+            # differently-cased reference create a second, empty dep_graph
+            # node that shadows the real (populated) one.
+            if qualified_name != loaded_qname:
+                self._qualified_aliases[qualified_name] = loaded_qname
         elif leaf.endswith(".lvlib"):
             self.load_lvlib(resolved, mode, search_paths=search_paths)
             if caller_qname:
@@ -1041,16 +1062,26 @@ class LoadingMixin:
         search_paths: list[Path],
         caller_dir: Path,
     ) -> Path | None:
-        """Find a file by name in search paths."""
+        """Find a file by name in search paths. Falls back to a
+        case-insensitive match in each directory (see
+        ``_case_insensitive_match``) when the exact name isn't there — a
+        type reference's recorded casing can differ from the on-disk
+        file's actual casing."""
         # Check caller's directory first
         candidate = caller_dir / filename
         if candidate.exists():
             return candidate
+        ci_match = _case_insensitive_match(caller_dir, filename)
+        if ci_match is not None:
+            return ci_match
 
         for search_path in search_paths:
             candidate = search_path / filename
             if candidate.exists():
                 return candidate
+            ci_match = _case_insensitive_match(search_path, filename)
+            if ci_match is not None:
+                return ci_match
             # Sorted: rglob yields filesystem order, so an unsorted first-match
             # picked a different duplicate per run/machine — non-deterministic.
             for found in sorted(search_path.rglob(filename)):
