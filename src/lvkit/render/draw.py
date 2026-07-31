@@ -18,7 +18,6 @@ from ..graph.models import (
     DisableStructureNode,
     EventStructureNode,
     FormulaNode,
-    InPlaceNode,
     LocalVariableNode,
     PrimitiveNode,
     SequenceNode,
@@ -1300,31 +1299,32 @@ def _event_band_width(structure: RenderStructure, scene: Scene) -> float:
     return min(positive) if positive else _EVENT_BAND_FALLBACK_W
 
 
-def _draw_band_border(
-    structure: RenderStructure, scene: Scene, backend: Backend,
-    band_fill: str, edge: str,
+def _draw_event_border_band(
+    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
 ) -> None:
-    """A WIDE filled border BAND between the structure's outer heap bounds and
-    an inner rule inset by the measured band width (``_event_band_width``) —
-    LabVIEW's own wide hatched-border margin (see the reference screenshots)
-    instead of a thin line, the same way ``_draw_sequence_border`` gives a flat
-    sequence its film-strip rails. Shared by the Event Structure and the In-Place
-    Element Structure (their border tunnels sit ON this band, reading as attached
-    to it). Drawn as four abutting filled rects (never overlapping, so no
-    double-opacity at the corners) plus the outer + inner edge rules. This is the
-    one deliberate exception to ``draw_structure``'s "outline only" rule — the
-    fill is confined to the edge margin the layout already reserves for it, so it
+    """An Event Structure's border: a WIDE light-yellow BAND between the
+    outer heap bounds and an inner rule inset by the measured band width
+    (``_event_band_width``) — mirroring LabVIEW's own wide hatched-border
+    margin (see the reference screenshot) instead of a thin dashed line, the
+    same way ``_draw_sequence_border`` gives a flat sequence its film-strip
+    rails. Drawn as four abutting filled rects (never overlapping, so there's
+    no double-opacity at the corners) plus the outer + inner edge rules in
+    ``theme.event_border``. This is the one deliberate exception to
+    ``draw_structure``'s "outline only" rule (see its docstring) — the fill is
+    confined to the edge margin the layout already reserves for it, so it
     never covers an interior wire."""
     x1, y1, x2, y2 = structure.bounds
     w = _event_band_width(structure, scene)
     w = max(2.0, min(w, (x2 - x1) / 2 - 1.0, (y2 - y1) / 2 - 1.0))
-    backend.rect(x1, y1, x2, y1 + w, fill=band_fill, stroke="none")          # top
-    backend.rect(x1, y2 - w, x2, y2, fill=band_fill, stroke="none")          # bottom
-    backend.rect(x1, y1 + w, x1 + w, y2 - w, fill=band_fill, stroke="none")  # left
-    backend.rect(x2 - w, y1 + w, x2, y2 - w, fill=band_fill, stroke="none")  # right
-    backend.rect(x1, y1, x2, y2, fill="none", stroke=edge, stroke_width=1.2)
+    fill = theme.event_band
+    backend.rect(x1, y1, x2, y1 + w, fill=fill, stroke="none")          # top
+    backend.rect(x1, y2 - w, x2, y2, fill=fill, stroke="none")          # bottom
+    backend.rect(x1, y1 + w, x1 + w, y2 - w, fill=fill, stroke="none")  # left
+    backend.rect(x2 - w, y1 + w, x2, y2 - w, fill=fill, stroke="none")  # right
+    backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.event_border,
+                 stroke_width=1.2)
     backend.rect(x1 + w, y1 + w, x2 - w, y2 - w, fill="none",
-                 stroke=edge, stroke_width=1.0)
+                 stroke=theme.event_border, stroke_width=1.0)
 
 
 def _draw_frame_border(
@@ -1341,8 +1341,7 @@ def _draw_frame_border(
     x1, y1, x2, y2 = structure.bounds
     node = structure.node
     if isinstance(node, EventStructureNode):
-        _draw_band_border(structure, scene, backend,
-                          theme.event_band, theme.event_border)
+        _draw_event_border_band(structure, scene, backend, theme)
     else:
         default = scene.default_frame.get(structure.raw_uid, "")
         color = _error_border_color(scene, structure.raw_uid, default, theme)
@@ -1540,13 +1539,9 @@ def draw_structure(
         _draw_frame_border(structure, scene, backend, theme)
     elif kind == "flatSequence":
         _draw_sequence_border(structure, backend, theme)
-    elif isinstance(structure.node, InPlaceNode):
-        # In-Place Element Structure — a thick filled pale-yellow band (like the
-        # Event structure), so its in/out element tunnels read as attached to it.
-        _draw_band_border(structure, scene, backend,
-                          theme.inplace_band, theme.inplace_border)
     else:
-        # Anything else — a plain border (matches the prior renderer).
+        # In Place Element Structure, or anything else — a plain border
+        # (matches the prior renderer).
         backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                      stroke_width=1.2)
     # Border terminals (N/i/cond, tunnels, shift registers, selector) are NOT
