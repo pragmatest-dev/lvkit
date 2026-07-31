@@ -47,6 +47,13 @@ class Theme:
     # light-yellow fill.
     event_border: str = "#b8860b"
     event_band: str = "#fdf6cf"
+    # In-Place Element Structure border — LabVIEW draws it as a THICK filled
+    # pale-yellow band (like the Event structure), with the in-place in/out
+    # element tunnels sitting ON that band so they read as connected to it.
+    # Same band mechanism as the event border (draw.py::_draw_band_border); a
+    # slightly warmer/greyer pale yellow distinguishes it from the event gold.
+    inplace_border: str = "#c9a227"
+    inplace_band: str = "#f7f0c8"
     # Translucent wash painted over a DISABLED subdiagram of a Diagram/
     # Conditional Disable structure (every frame except the enabled one), so
     # its greyed-out contents read as inactive — matches LabVIEW. Applied at
