@@ -66,6 +66,29 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     assert val2 == "Refnum(5)"
 
 
+def test_fp_terminal_label_position_captured():
+    """An fPTerm's on-diagram label carries its DEVELOPER-PLACED position as a
+    direct ``<label>`` child's ``<bounds>``, relative to the terminal. It parses
+    through the same LabVIEW ``(top, left, bottom, right)`` -> ``(x1, y1, x2, y2)``
+    swap as every rect, so e.g. a raw ``(0, -60, 17, 0)`` is a label 60px to the
+    LEFT of the terminal (left of an input), not 60px above. Captured so the
+    renderer honors it instead of a fixed 'centered above' offset that collides
+    when terminals are close."""
+    from lvkit.parser.layout import _fp_label_box
+
+    term = ET.fromstring(
+        '<x class="fPTerm" uid="1">'
+        '<bounds>(159, 1816, 175, 1848)</bounds>'
+        '<label class="label" uid="2"><bounds>(0, -60, 17, 0)</bounds></label>'
+        '</x>'
+    )
+    # (top=0,left=-60,bottom=17,right=0) -> (x1=-60, y1=0, x2=0, y2=17): LEFT.
+    assert _fp_label_box(term) == (-60.0, 0.0, 0.0, 17.0)
+
+    bare = ET.fromstring('<x class="fPTerm"><bounds>(0,0,10,10)</bounds></x>')
+    assert _fp_label_box(bare) is None
+
+
 def test_fp_default_with_null_bytes_not_corrupted():
     """Task #78: an FP control's ``DefaultData`` is a length-prefixed binary
     blob whose null/control bytes are serialized as ``&#xNN;``. It must reach

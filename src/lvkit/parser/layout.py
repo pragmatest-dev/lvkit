@@ -188,6 +188,20 @@ def _const_label_box(ddo: ET.Element) -> Rect | None:
     return (ox + r[0], oy + r[1], ox + r[2], oy + r[3])
 
 
+def _fp_label_box(term: ET.Element) -> Rect | None:
+    """Relative rect of an fPTerm's on-diagram label — its direct ``<label>``
+    child's ``<bounds>``, positioned relative to the terminal's OWN origin (like
+    a constant caption in :func:`_const_label_box`, but an fPTerm carries the
+    label as a direct child, not a ``partsList`` part). This is the
+    DEVELOPER-PLACED position (above OR below the terminal — see the corpus:
+    some controls label below), so the renderer honors it instead of a fixed
+    'always above, centered' offset that collides when terminals are close."""
+    lab = term.find("label")
+    if lab is None or lab.get("class") != "label":
+        return None
+    return _rect(lab)
+
+
 class _LayoutBuilder:
     def __init__(self) -> None:
         self.node_bounds: dict[str, Rect] = {}
@@ -351,6 +365,15 @@ class _LayoutBuilder:
                         uid, ((abs_rect[0] + abs_rect[2]) / 2,
                               (abs_rect[1] + abs_rect[3]) / 2),
                     )
+                    # The label's saved position (relative to the terminal's
+                    # origin b[0]/b[1]) lifted into the same absolute frame as
+                    # abs_rect — so the renderer can honor above/below placement.
+                    lab = _fp_label_box(term)
+                    if lab is not None:
+                        self.label_bounds.setdefault(uid, (
+                            ox + b[0] + lab[0], oy + b[1] + lab[1],
+                            ox + b[0] + lab[2], oy + b[1] + lab[3],
+                        ))
                 continue
             if cls != "term":
                 continue

@@ -43,6 +43,7 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
     fit_label,
+    fit_wrapped,
     wrap_label,
 )
 from .nodes import _CLUSTER_MUX_TYPES, mux_display_name, mux_doc_url
@@ -1530,6 +1531,12 @@ _INDEX_LETTERS = "ijklmn"
 # outer rect + type label rather than drawing something illegible.
 _FP_MIN_ICON_SIZE = 20.0
 
+# Uniform inset inside a saved FP-terminal label box (all four sides): the box
+# auto-grew to text + LabVIEW's internal padding, so this keeps the fitted font
+# off every edge (right size) and reproduces LabVIEW's gap in every label
+# position — beside a terminal or above/below it.
+_FP_LABEL_MARGIN = 3.0
+
 
 def _fp_type_label(terminal: FPTerminal, scalar_type: LVType | None) -> str:
     """Bottom-center type label: the SCALAR/ELEMENT type repr, e.g. a DBL
@@ -1598,6 +1605,7 @@ def draw_fp_terminal(
     terminal: FPTerminal, bounds: tuple[float, float, float, float],
     backend: Backend, theme: Theme = DEFAULT_THEME,
     label_visible: bool = True,
+    label_bounds: tuple[float, float, float, float] | None = None,
 ) -> None:
     """Draw a control/indicator in LabVIEW's icon view: a grey panel bordered
     in the SCALAR/ELEMENT type's color (thick border = control, thin =
@@ -1617,10 +1625,43 @@ def draw_fp_terminal(
 
     label = terminal.name or ""
     if label and label_visible:
-        size = 8.0
-        # LabVIEW default: the FULL control/indicator name sits ABOVE the box,
-        # centered, overflowing the terminal width — never truncated.
-        backend.text((x1 + x2) / 2, y1 - 4, label, size, fill=theme.text)
+        if label_bounds is not None:
+            # Honor the DEVELOPER-PLACED label from the heap (``label_bounds`` —
+            # the fPTerm's own ``<label>`` rect, absolute x/y). The box AUTO-GREW
+            # (howGrow) to the text at LabVIEW's font, so it IS the text's own
+            # extent: derive the font size that fills it (largest single line
+            # fitting the box) rather than a fixed size that leaves the name
+            # swimming in white-space. Justify TOWARD the terminal — a label left
+            # of the terminal is right-justified (its text ends at the terminal
+            # edge), one to the right is left-justified, above/below centered —
+            # matching how LabVIEW anchors labels so close terminals don't
+            # collide.
+            lx1, ly1, lx2, ly2 = label_bounds
+            # The box auto-grew to text PLUS LabVIEW's small internal padding, so
+            # fitting text edge-to-edge over-sizes the font and butts it against
+            # the neighbour. Inset the box by a uniform margin on ALL sides — it
+            # holds the fitted font off every edge and reproduces LabVIEW's gap
+            # in every label position (left/right of a terminal, above/below).
+            m = _FP_LABEL_MARGIN
+            size, _, lines = fit_wrapped(
+                label, (lx2 - lx1) - 2 * m, (ly2 - ly1) - 2 * m, backend,
+                max_size=(ly2 - ly1) - 2 * m, max_lines=1,
+            )
+            shown = lines[0] if lines else label
+            ty = (ly1 + ly2) / 2 + size * 0.35
+            lcx, tcx = (lx1 + lx2) / 2, (x1 + x2) / 2
+            if lcx < tcx - 1:      # label sits LEFT of the terminal
+                backend.text(lx2 - m, ty, shown, size, anchor="end",
+                             fill=theme.text)
+            elif lcx > tcx + 1:    # label sits RIGHT of the terminal
+                backend.text(lx1 + m, ty, shown, size, anchor="start",
+                             fill=theme.text)
+            else:                  # centered above/below
+                backend.text(lcx, ty, shown, size, fill=theme.text)
+        else:
+            # No saved rect: the default full name, centered just above the box,
+            # overflowing the terminal width, never truncated.
+            backend.text((x1 + x2) / 2, y1 - 4, label, 8.0, fill=theme.text)
 
     type_label = _fp_type_label(terminal, scalar_type)
     compact = x2 - x1 < _FP_MIN_ICON_SIZE or y2 - y1 < _FP_MIN_ICON_SIZE
@@ -1759,7 +1800,10 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
     _draw_layer_content(base_structures, base_nets, base_nodes, scene, backend, theme)
 
     for fp in base_fps:
-        draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
+        draw_fp_terminal(
+            fp.terminal, fp.bounds, backend, theme,
+            fp.label_visible, fp.label_bounds,
+        )
 
     _draw_layer_coercion_dots(base_nets, base_dots, backend, theme)
 
@@ -1805,7 +1849,10 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             for bt in enclosing.border_terminals:
                 _draw_border_terminal(bt, backend, theme, frame_value)
         for fp in fps:
-            draw_fp_terminal(fp.terminal, fp.bounds, backend, theme, fp.label_visible)
+            draw_fp_terminal(
+                fp.terminal, fp.bounds, backend, theme,
+                fp.label_visible, fp.label_bounds,
+            )
         _draw_layer_coercion_dots(nets, dots, backend, theme)
         # Disable structure: every frame EXCEPT the enabled/default one is a
         # disabled subdiagram — wash it with a translucent grey mask so its

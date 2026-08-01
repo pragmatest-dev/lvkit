@@ -95,6 +95,12 @@ class RenderFPTerminal:
     bounds: Rect
     center: Point
     label_visible: bool = True
+    # Absolute rect of the terminal's on-diagram label at its DEVELOPER-PLACED
+    # position (``Layout.label_bounds`` — the fPTerm's own ``<label>`` child,
+    # ~one line of text: left of an input, right of an output, above/below).
+    # None when the heap carried no label rect; the renderer then falls back to
+    # the default 'centered just above the terminal' offset.
+    label_bounds: Rect | None = None
     # Frame path of the interactive-structure frame this terminal sits in
     # (derived from the node it wires to) — so an indicator placed inside a
     # case/sequence frame hides with that frame instead of showing in all of
@@ -1467,6 +1473,12 @@ def _drawn_bounds(
     for fp in fp_terminals:
         xs += [fp.bounds[0], fp.bounds[2]]
         ys += [fp.bounds[1], fp.bounds[3]]
+        # The name label sits OUTSIDE the terminal box (left of an input, right
+        # of an output, …) at its saved position — include it so the tight
+        # viewBox doesn't clip it.
+        if fp.label_bounds is not None and fp.label_visible:
+            xs += [fp.label_bounds[0], fp.label_bounds[2]]
+            ys += [fp.label_bounds[1], fp.label_bounds[3]]
     for net in wire_nets:
         for branch in net.branches:
             for x, y in branch:
@@ -1661,6 +1673,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             fp_terminals.append(RenderFPTerminal(
                 terminal=t, bounds=bounds, center=center,
                 label_visible=label_visible, frame_path=frame_path,
+                label_bounds=layout.label_bounds.get(raw_uid),
             ))
 
     if missing:
