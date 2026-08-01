@@ -79,7 +79,7 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
 )
-from .style import numeric_repr, type_family, type_repr, wire_style
+from .style import lv_type_label, numeric_repr, type_family, type_repr, wire_style
 
 logger = logging.getLogger(__name__)
 
@@ -981,6 +981,15 @@ def _leaf_const_glyph(
         # Show the bare text (quotes/escapes are a codegen artifact); empty
         # for an unset field.
         value = string_const_display(raw) if raw is not None else ""
+    elif lv_type is not None and lv_type.underlying_type == "Refnum":
+        # A refnum constant is a CLASS/LVObject constant (or a null refnum):
+        # label it by its class name, never the placeholder raw value the parser
+        # stores (e.g. "Refnum(1)"). Keyed on underlying_type, NOT the "refnum"
+        # family — a CLASS refnum has fam=="unknown" (type_family reserves
+        # "refnum" for GENERIC refs, whose wire is reference-green). Same rule as
+        # a class refnum terminal — see style.lv_type_label. The name word-wraps
+        # AND shrinks to fill the box (fit=True) instead of truncating.
+        return ConstantGlyph(lv_type_label(lv_type), color, fit=True)
     else:
         value = str(raw) if raw is not None else ""
     # String constants word-wrap to fill their (already content-sized) box.

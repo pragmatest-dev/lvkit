@@ -19,6 +19,7 @@ from ..models import (
     TunnelTerminal,
     bundle_unbundle_name,
     control_type_to_lvtype,
+    inplace_border_name,
 )
 from ..parser import (
     ParsedBlockDiagram,
@@ -595,6 +596,16 @@ class ConstructionMixin:
                     node, node_name, q_node_uid, node_terminals, description,
                     build_ctx,
                 )
+
+            # IPES DVR / array border tiles (plain PrimitiveNodes, no field
+            # shape): name each tile by its read/write role from the terminal
+            # types -- the same single-source rename seam as the cluster border
+            # node below, so "In Place Element" only survives as a fallback.
+            border_name = inplace_border_name(
+                graph_node.node_type or "", graph_node.terminals,
+            )
+            if border_name is not None:
+                graph_node.name = border_name
 
             # Mark nMux terminal roles (agg vs list) and field indices
             if isinstance(node, SelectNode):

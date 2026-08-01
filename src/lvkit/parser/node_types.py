@@ -949,8 +949,9 @@ class _DecomposeDataValRefHandler(NodeTypeHandler):
     """
 
     xml_class = "decomposeDataValRefNode"
-    # No "decompose" jargon in a user-facing name (generic labeled-box
-    # fallback — see DecomposeArrayHandler above).
+    # Generic FALLBACK label. The faithful per-tile name ("DVR Read" on the
+    # deref/read half, "DVR Write" on the store-back/write half) is set in graph
+    # construction from the DataValueRef terminal side — see inplace_border_name.
     display_name = "In Place Element"
 
     def parse(self, elem: ET.Element) -> ParsedNode:

@@ -28,9 +28,42 @@ from lvkit.parser import (
     parse_vi_metadata,
 )
 from lvkit.parser.utils import clean_labview_string, strip_surrounding_quotes
-from lvkit.parser.vi import _decode_default_data, _process_element_terminals
+from lvkit.parser.vi import (
+    _decode_default_data,
+    _decode_element,
+    _process_element_terminals,
+)
 
 # === Model Dataclass Tests ===
+
+
+def test_class_refnum_value_decodes_to_class_name_not_handle():
+    """A CLASS/LVObject refnum's DataFill decodes to its CLASS NAME (from the
+    resolved type), never the opaque 4-byte handle. The on-disk value even
+    embeds the class path after the handle (a marker byte + two length-prefixed
+    strings + padding); we do NOT trust the handle bytes — the label comes from
+    the type — and ``size`` stays 4 so cluster field decoding is unperturbed. A
+    PLAIN typed refnum (no classname) keeps its ``Refnum(<handle>)`` token."""
+    from lvkit.models import LVType
+
+    cls = LVType(
+        kind="primitive", underlying_type="Refnum", ref_type="UDClassInst",
+        classname="MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass",
+    )
+    raw = bytes.fromhex(
+        "0000000145284d6561737572656d656e744c696e6b204d6561737572656d656e74"
+        "205365727665722e6c766c69621a4d6561737572656d656e74436f6e746578742e"
+        "6c76636c6173730000000000000000000000"
+    )
+    val, size = _decode_element(raw, cls)
+    assert val == "MeasurementContext.lvclass"
+    assert "Refnum(" not in val
+    assert size == 4  # handle read stays 4 bytes — cluster alignment unchanged
+
+    # A generic refnum (no classname) keeps the handle token.
+    gen = LVType(kind="primitive", underlying_type="Refnum", ref_type="Occurrence")
+    val2, _ = _decode_element((5).to_bytes(4, "big"), gen)
+    assert val2 == "Refnum(5)"
 
 
 def test_fp_default_with_null_bytes_not_corrupted():

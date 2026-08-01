@@ -691,6 +691,39 @@ def test_build_scene_joins_graph_and_geometry():
             assert len(branch) >= 2
 
 
+def test_class_refnum_constant_labeled_by_class_name_not_refnum():
+    """A CLASS/LVObject constant (underlying ``Refnum`` WITH a ``classname``)
+    draws its CLASS NAME — wrapped-and-shrunk to fill the box (``fit``) — never
+    the parser's placeholder raw value (``"Refnum(1)"``) and never a generic
+    "Refnum". A class refnum is ``type_family=="unknown"`` (that family reserves
+    "refnum" for GENERIC refs whose wire is reference-green), so the constant
+    path keys on ``underlying_type``. Same class-name rule shared with terminal
+    labels — ``style.lv_type_label``."""
+    from lvkit.models import LVType
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+    from lvkit.render.style import lv_type_label, type_family
+
+    cls = LVType(kind="primitive", underlying_type="Refnum",
+                 ref_type="UDClassInst",
+                 classname="NI DAQmx.lvlib:DAQmx Module Configuration.lvclass")
+    assert type_family(cls) == "unknown"          # NOT the "refnum" family
+    assert lv_type_label(cls) == "DAQmx Module Configuration.lvclass"
+
+    glyph = _leaf_const_glyph(cls, raw="Refnum(1)")
+    assert isinstance(glyph, ConstantGlyph)
+    assert glyph.value == "DAQmx Module Configuration.lvclass"
+    assert glyph.value != "Refnum(1)"
+    assert glyph.fit is True                       # wrap + shrink, no truncation
+
+    # A GENERIC refnum constant (no classname) keeps the "<ref_type> Refnum"
+    # label — still never the placeholder raw value.
+    gen = LVType(kind="primitive", underlying_type="Refnum", ref_type="Occurrence")
+    assert type_family(gen) == "refnum"
+    assert lv_type_label(gen) == "Occurrence Refnum"
+    assert _leaf_const_glyph(gen, raw="Refnum(1)").value == "Occurrence Refnum"
+
+
 def test_builtin_reference_constants_render():
     """A built-in reference constant ("This Application" / "This VI":
     ``ctlRefConst`` with no ddo_uid) references a VI-server object, not a
@@ -2546,6 +2579,47 @@ def test_no_decompose_jargon_in_resolved_render_names():
         assert isinstance(glyph, WrappedBoxGlyph)
         assert "decompose" not in glyph.label.lower()
         assert glyph.label == "In Place Element"
+
+
+def _typed_term(index, direction, lv_type):
+    from lvkit.models import Terminal
+    return Terminal(id=f"t{index}", index=index, direction=direction,
+                    lv_type=lv_type)
+
+
+def test_inplace_border_name_dvr_read_vs_write():
+    """The DVR IPES border tiles are told apart purely by which side the
+    ``DataValueRef`` refnum sits on: input -> the read (deref) tile, output ->
+    the write (store-back) tile. No name jargon, no guessing."""
+    from lvkit.models import LVType, inplace_border_name
+    dvr = LVType(kind="primitive", underlying_type="Refnum",
+                 ref_type="DataValueRef")
+    cluster = LVType(kind="cluster", underlying_type="Cluster")
+    read = [_typed_term(0, "input", dvr), _typed_term(1, "output", cluster)]
+    write = [_typed_term(0, "input", cluster), _typed_term(1, "output", dvr)]
+    assert inplace_border_name("decomposeDataValRefNode", read) == "DVR Read"
+    assert inplace_border_name("decomposeDataValRefNode", write) == "DVR Write"
+
+
+def test_inplace_border_name_array_index_vs_replace():
+    """The array IPES border tiles: the replace (write) tile hands an array
+    back OUT (array-kind output); the index (read) tile only indexes an element
+    out. Keyed on the presence of an array-typed OUTPUT terminal."""
+    from lvkit.models import LVType, inplace_border_name
+    arr = LVType(kind="array", underlying_type="Array",
+                 element_type=LVType(kind="primitive", underlying_type="NumInt32"))
+    elem = LVType(kind="primitive", underlying_type="NumInt32")
+    index = [_typed_term(0, "input", arr), _typed_term(1, "output", elem)]
+    replace = [_typed_term(0, "input", arr), _typed_term(1, "output", arr)]
+    assert inplace_border_name("decomposeArrayNode", index) == "Array Index"
+    assert inplace_border_name("decomposeArrayNode", replace) == "Array Replace"
+
+
+def test_inplace_border_name_other_types_untouched():
+    """A node type the helper doesn't own returns None (leave its name alone)."""
+    from lvkit.models import inplace_border_name
+    assert inplace_border_name("decomposeMatchNode", []) is None
+    assert inplace_border_name("mux", []) is None
 
 
 def test_describe_in_place_operation_never_shows_raw_node_type():

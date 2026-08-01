@@ -274,6 +274,42 @@ def type_family(lv_type: LVType | None) -> str:
     return "unknown"
 
 
+def lv_type_label(lv_type: LVType | None) -> str:
+    """A LabVIEW-faithful type name for tooltips + constant/terminal labels:
+    ``Cluster``/``Error`` for clusters, ``[<elem>]`` (one bracket pair per
+    dimension) for arrays, ``<Kind> Refnum`` for references, ``Enum``/``Variant``,
+    and the LV scalar token (``DBL``/``I32``/``Boolean``/``String``/``Path``)
+    otherwise. NOT the Python type — a cluster reads "Cluster", never
+    ``dict[str, Any]``. Shared by draw.py (terminal type annotations) and
+    nodes.py (a class/refnum CONSTANT's box label), so both name a class refnum
+    the same way — by its class name, never a generic "Refnum"."""
+    if lv_type is None:
+        return "?"
+    fam = type_family(lv_type)
+    if fam == "error_cluster":
+        return "Error"
+    if fam == "cluster":
+        return "Cluster"
+    if fam == "array":
+        dims = lv_type.dimensions or 1
+        return "[" * dims + lv_type_label(lv_type.element_type) + "]" * dims
+    if fam == "enum":
+        return "Enum"
+    if fam == "variant":
+        return "Variant"
+    ut = lv_type.underlying_type or ""
+    if ut == "Refnum":
+        # A class/DVR object refnum reads as the CLASS, never a generic "Refnum":
+        # its short class name (lib qualifier stripped, ``.lvclass`` kept). Only a
+        # non-class typed refnum (queue, event, control ref, …) keeps "<t> Refnum".
+        if lv_type.classname:
+            return lv_type.classname.rsplit(":", 1)[-1]
+        return f"{lv_type.ref_type} Refnum" if lv_type.ref_type else "Refnum"
+    if ut in ("Boolean", "String", "Path"):
+        return ut
+    return type_repr(lv_type) or ut or "?"
+
+
 def wire_style(
     lv_type: LVType | None, theme: Theme = DEFAULT_THEME,
 ) -> WireStyle:

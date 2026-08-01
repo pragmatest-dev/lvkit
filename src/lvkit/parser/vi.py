@@ -1233,9 +1233,19 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         items = [f"'{k}': {v}" for k, v in field_values.items()]
         return "{" + ", ".join(items) + "}", idx
 
-    # Refnum: 4 bytes (opaque handle)
+    # Refnum: a 4-byte opaque handle. A CLASS/LVObject refnum reads as its CLASS
+    # NAME (from the resolved type), never the handle — the handle is a
+    # meaningless runtime cookie, and a class ref's on-disk value even embeds the
+    # class path AFTER the 4 bytes (a marker byte + two length-prefixed strings +
+    # padding, whose alignment isn't reliably derivable), which this fixed 4-byte
+    # read does NOT consume. The label comes from the TYPE, so it's right
+    # regardless of that under-read; ``size`` stays 4 (unchanged) so cluster
+    # field decoding is not perturbed. A plain typed refnum keeps its handle
+    # token. Same class-name rule as render.style.lv_type_label.
     if underlying == "Refnum":
         size = min(4, len(data))
+        if elem_type.classname:
+            return elem_type.classname.rsplit(":", 1)[-1], size
         val = int.from_bytes(data[:size], 'big')
         return f"Refnum({val})" if val else "None", size
 

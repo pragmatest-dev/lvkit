@@ -128,6 +128,31 @@ def wrap_label(
     return lines
 
 
+_FIT_GAP = 1.3  # extra px between baselines beyond the font size
+
+
+def fit_wrapped(
+    label: str, avail_w: float, avail_h: float, backend: Backend,
+    max_size: float, max_lines: int, min_size: float = 5.0,
+) -> tuple[float, float, list[str]]:
+    """Largest font (down to ``min_size``) at which the FULL ``label`` wraps into
+    at most ``max_lines`` lines that fit ``avail_w`` x ``avail_h`` — so a short
+    label stays big and one line, a long one shrinks and uses more lines, and
+    truncation happens only when even ``min_size`` can't hold it. Returns
+    ``(size, line_h, lines)``. Shared by WrappedBoxGlyph (subVI name box) and a
+    ConstantGlyph in ``fit`` mode (a class/refnum constant's class name)."""
+    best: tuple[float, float, list[str]] | None = None
+    for tenths in range(int(max_size * 10), int(min_size * 10) - 1, -5):
+        size = tenths / 10
+        line_h = size + _FIT_GAP
+        vfit = max(1, int(avail_h // line_h))
+        lines = wrap_label(label, avail_w, backend, size, min(max_lines, vfit))
+        best = (size, line_h, lines)
+        if lines and not lines[-1].endswith("…"):
+            return best  # full label shown at this (largest passing) size
+    return best if best is not None else (max_size, max_size, [])
+
+
 @dataclass(frozen=True)
 class WrappedBoxGlyph:
     """A subVI box with its NAME wrapped inside — LabVIEW's default look for a
@@ -178,27 +203,12 @@ class WrappedBoxGlyph:
         for i, line in enumerate(lines):
             backend.text(cx, first + i * line_h, line, size, fill=text_fill)
 
-    _GAP = 1.3  # extra px between baselines beyond the font size
-
     def _best_fit(
         self, avail_w: float, avail_h: float, backend: Backend,
     ) -> tuple[float, float, list[str]]:
-        """Largest font (down to a legibility floor) at which the FULL name
-        wraps into at most ``max_lines`` lines that fit the box — so a short
-        name stays big and one line, a long one shrinks and uses up to 4 lines,
-        and truncation happens only when even the smallest font can't hold it."""
-        best: tuple[float, float, list[str]] | None = None
-        for tenths in range(int(self.text_size * 10), 49, -5):  # 7.0 .. 5.0 step .5
-            size = tenths / 10
-            line_h = size + self._GAP
-            vfit = max(1, int(avail_h // line_h))
-            max_lines = min(self.max_lines, vfit)
-            lines = wrap_label(self.label, avail_w, backend, size, max_lines)
-            best = (size, line_h, lines)
-            if lines and not lines[-1].endswith("…"):
-                return best  # full name shown at this (largest passing) size
-        # Nothing fit without truncation — use the smallest tried (ellipsized).
-        return best if best is not None else (self.text_size, self.text_size, [])
+        return fit_wrapped(
+            self.label, avail_w, avail_h, backend, self.text_size, self.max_lines,
+        )
 
 
 def _truncate_to_width(
@@ -1427,6 +1437,11 @@ class ConstantGlyph:
     fill_attr: str = "term_fill"
     text_size: float = 9.0
     multiline: bool = False
+    # ``fit``: word-wrap AND shrink the text (best-fit, down to a legibility
+    # floor) so the FULL value fills the box — for a class/refnum constant whose
+    # class name is too long to truncate into one line but too meaningful to
+    # clip. Centered, unlike the top-left ``multiline`` string layout.
+    fit: bool = False
     text_attr: str = "const_text"
 
     def truncated_value(self, backend: Backend, bounds: Rect) -> str | None:
@@ -1437,6 +1452,12 @@ class ConstantGlyph:
         if not self.value:
             return None
         x1, y1, x2, y2 = bounds
+        if self.fit:
+            _, _, lines = fit_wrapped(
+                self.value, x2 - x1 - 5, y2 - y1 - 5, backend, self.text_size,
+                max_lines=4,
+            )
+            return self.value if (not lines or lines[-1].endswith("…")) else None
         if not self.multiline:
             fitted = fit_value(self.value, x2 - x1, backend, self.text_size)
             return self.value if fitted != self.value else None
@@ -1465,7 +1486,9 @@ class ConstantGlyph:
         )
         if not self.value:
             return
-        if self.multiline:
+        if self.fit:
+            self._draw_fit(backend, x1, y1, x2, y2, theme)
+        elif self.multiline:
             self._draw_wrapped(backend, x1, y1, x2, y2, theme)
         else:
             backend.text(
@@ -1474,6 +1497,24 @@ class ConstantGlyph:
                 self.text_size,
                 fill=getattr(theme, self.text_attr),
             )
+
+    def _draw_fit(
+        self, backend: Backend, x1: float, y1: float, x2: float, y2: float,
+        theme: Theme,
+    ) -> None:
+        """Wrapped + shrunk-to-fit, centered (see ``fit``)."""
+        pad = 2.5
+        size, line_h, lines = fit_wrapped(
+            self.value, x2 - x1 - 2 * pad, y2 - y1 - 2 * pad, backend,
+            self.text_size, max_lines=4,
+        )
+        if not lines:
+            return
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        first = cy - (len(lines) - 1) * line_h / 2 + size * 0.32
+        text_fill = getattr(theme, self.text_attr)
+        for i, line in enumerate(lines):
+            backend.text(cx, first + i * line_h, line, size, fill=text_fill)
 
     def _draw_wrapped(
         self, backend: Backend, x1: float, y1: float, x2: float, y2: float,

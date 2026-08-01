@@ -1204,3 +1204,54 @@ class TestNodeTerminalSetChanges:
         for c in node_mods:
             assert c.bounds is not None
             assert c.detail and ("+" in c.detail or "-" in c.detail)
+
+
+class TestSelectContractionPhantom:
+    """The Select function is modeled as a contractible 2-frame CaseOperation,
+    so a sink DOWNSTREAM of a Select contracts its effective source PAST the
+    Select to whichever operand feeds it. JKI build.vi inserts a SECOND 'Build
+    Array' between the original one and the Select; that flips the traced-through
+    source (426 -> the added 1268), which used to fabricate a phantom 'removed
+    wire' on the input of 'Build Application from Build File' -- a sink fed,
+    unchanged, by the For-Loop tunnels. The select-contraction guard in
+    _wire_changes suppresses exactly this (an add/remove that exists only because
+    the source became an added/removed node AND the contracted path threaded a
+    Select), while leaving a genuine producer change that never crosses a Select
+    (the validated run.vi residual, TestWireChanges) untouched. So build.vi's
+    diff is purely the inserted node + its constants -- NO wire change."""
+
+    REPO = ".lvkit/cache/samples/JKI-VI-Tester"
+    FILE_PATH = "source/build.vi"
+    BASE_REF = "fc14e943"
+    HEAD_REF = "c38cb98a"
+
+    def _extract(self, tmp_path: Path, ref: str, name: str) -> Path:
+        if not (Path(self.REPO) / ".git").exists():
+            pytest.skip("JKI-VI-Tester sample repo not present")
+        r = subprocess.run(
+            ["git", "-C", self.REPO, "show", f"{ref}:{self.FILE_PATH}"],
+            capture_output=True,
+        )
+        if r.returncode != 0 or not r.stdout:
+            pytest.skip(f"ref {ref} unavailable")
+        p = tmp_path / name
+        p.write_bytes(r.stdout)
+        return p
+
+    def test_no_phantom_wire_through_select(self, tmp_path: Path):
+        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "build_a.vi"),
+                       layout=True)
+        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "build_b.vi"),
+                       layout=True)
+        cmap = diff_uid(ga, gb, na, nb)
+        wires = [c for c in cmap.changes if c.kind == "wire"]
+        assert wires == [], (
+            "expected no wire changes (select-contraction phantom suppressed), "
+            f"got {[(c.uid, c.change, c.label) for c in wires]}"
+        )
+        # The real edit is still reported: the inserted 'Build Array', the new
+        # 'Build Path' nodes, and their 'Path constant's.
+        added = {(c.kind, c.label) for c in cmap.changes if c.change == "added"}
+        assert ("node", "Build Array") in added
+        assert ("node", "Build Path") in added
+        assert ("constant", "Path constant") in added

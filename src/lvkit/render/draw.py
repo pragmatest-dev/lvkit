@@ -64,6 +64,7 @@ from .scene import (
 from .style import (
     DEFAULT_THEME,
     Theme,
+    lv_type_label,
     numeric_sample,
     type_family,
     type_repr,
@@ -85,6 +86,7 @@ _STRUCTURE_STYLE = {
     # disabled diagrams is a follow-up.
     "commentNode": "case",
     "eventStruct": "event",
+    "decomposeRecomposeStructure": "inPlace",
 }
 
 # LabVIEW's array-control terminal icon always shows a 3-row index display
@@ -492,39 +494,6 @@ def _terminal_label(t: Terminal) -> str:
     return _terminal_display_name(t) or f"terminal {t.index}"
 
 
-def _lv_type_label(lv_type: LVType | None) -> str:
-    """A LabVIEW-faithful type name for tooltips: ``Cluster``/``Error`` for
-    clusters, ``[<elem>]`` (one bracket pair per dimension) for arrays,
-    ``<Kind> Refnum`` for references, ``Enum``/``Variant``, and the LV scalar
-    token (``DBL``/``I32``/``Boolean``/``String``/``Path``) otherwise. NOT the
-    Python type — a cluster reads "Cluster", never ``dict[str, Any]``."""
-    if lv_type is None:
-        return "?"
-    fam = type_family(lv_type)
-    if fam == "error_cluster":
-        return "Error"
-    if fam == "cluster":
-        return "Cluster"
-    if fam == "array":
-        dims = lv_type.dimensions or 1
-        return "[" * dims + _lv_type_label(lv_type.element_type) + "]" * dims
-    if fam == "enum":
-        return "Enum"
-    if fam == "variant":
-        return "Variant"
-    ut = lv_type.underlying_type or ""
-    if ut == "Refnum":
-        # A class/DVR object refnum reads as the CLASS, never a generic "Refnum":
-        # its short class name (lib qualifier stripped, ``.lvclass`` kept). Only a
-        # non-class typed refnum (queue, event, control ref, …) keeps "<t> Refnum".
-        if lv_type.classname:
-            return lv_type.classname.rsplit(":", 1)[-1]
-        return f"{lv_type.ref_type} Refnum" if lv_type.ref_type else "Refnum"
-    if ut in ("Boolean", "String", "Path"):
-        return ut
-    return type_repr(lv_type) or ut or "?"
-
-
 def _terminal_is_informative(t: Terminal) -> bool:
     """Whether a terminal is worth showing in context help. Skips pure EMPTY
     connector-pane slots — a position with no label AND no meaningful type
@@ -532,11 +501,11 @@ def _terminal_is_informative(t: Terminal) -> bool:
     any labeled or typed terminal is kept. A ``Void`` terminal is a dead pane
     slot with no data — LabVIEW draws neither a wire stub nor a label for it, so
     it is never shown even if it carries a leftover name."""
-    if t.lv_type is not None and _lv_type_label(t.lv_type) == "Void":
+    if t.lv_type is not None and lv_type_label(t.lv_type) == "Void":
         return False
     if _terminal_display_name(t):
         return True
-    return t.lv_type is not None and _lv_type_label(t.lv_type) != "?"
+    return t.lv_type is not None and lv_type_label(t.lv_type) != "?"
 
 
 def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
@@ -550,7 +519,7 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
     ]
 
     def fmt(t: Terminal) -> str:
-        ty = _lv_type_label(t.lv_type)
+        ty = lv_type_label(t.lv_type)
         return f"  {_terminal_label(t)}: {ty}"
 
     ins = sorted((t for t in terms if t.direction == "input"), key=lambda t: t.index)
@@ -683,7 +652,7 @@ def _pane_label(rt: RenderTerminal, side: str, frac: float,
                  backend: Backend, theme: Theme) -> _PaneLabel:
     t = rt.terminal
     name = _terminal_label(t)
-    type_str = f" ({_lv_type_label(t.lv_type)})"
+    type_str = f" ({lv_type_label(t.lv_type)})"
     name_w = backend.measure_text(name, _PANE_LABEL_SIZE)
     type_w = backend.measure_text(type_str, _PANE_TYPE_SIZE)
     if name_w + type_w > _PANE_MAX_LABEL_W:
@@ -1260,62 +1229,36 @@ def _error_border_color(
     )
 
 
-# Fallback Event Structure border-band width — used ONLY when a structure has
-# no interior content to measure from (an Event Structure with an empty
-# frame). Visually matched to the reference LabVIEW screenshot's hatched-
-# border margin (see ``_event_band_width``'s docstring for how the normal,
-# measured value is derived) — not a guessed generic default.
-_EVENT_BAND_FALLBACK_W = 10.0
-
-
-def _event_band_width(structure: RenderStructure, scene: Scene) -> float:
-    """The Event Structure's border-BAND thickness, MEASURED (never guessed)
-    from the gap LabVIEW's own heap layout already reserves between the
-    structure's outer heap ``bounds`` and its interior content (the Event
-    Data/Filter Node, and every other frame-owned node — ``node.parent`` is
-    this structure's own qualified id, see graph/construction.py's ``_stamp``).
-
-    Checked against real corpus VIs: the structure's own border TERMINALS
-    (``eventTimeOut``, ``eventDynDCO``, a plain passthrough tunnel) sit FLUSH
-    with the outer bounds — they're drawn ON the band, not inset from it — so
-    they measure a gap of ~0 and can't be used. Interior content, however, is
-    reliably inset by the band width on the LEFT and RIGHT edges (confirmed:
-    an Event Data Node's left gap and its paired Event Filter Node's right gap
-    agree exactly in every VI checked). The TOP gap is NOT used — it also
-    includes the ``[N] EventName`` selector bar's own height, which would
-    inflate the measurement — and the BOTTOM gap is noisier (not every frame
-    has content flush to it); LEFT/RIGHT alone give a clean, corroborated
-    measurement, applied uniformly to all four sides (LabVIEW's own hatched
-    border is the same thickness all around)."""
-    x1, _, x2, _ = structure.bounds
-    gaps: list[float] = []
-    for n in scene.nodes:
-        if n.node.parent != structure.node.id:
-            continue
-        nx1, _, nx2, _ = n.bounds
-        gaps.append(nx1 - x1)
-        gaps.append(x2 - nx2)
-    positive = [g for g in gaps if g > 0.5]
-    return min(positive) if positive else _EVENT_BAND_FALLBACK_W
+# Border-band widths, MEASURED from authoritative 1:1 LabVIEW reference
+# screenshots (not guessed, not dynamically inferred): the pale band sits
+# between two 1px rules, and the whole diagram is drawn in these same LV pixel
+# units, so a fixed width scales with everything else. Cross-checked that both
+# reference shots share one scale — a two-row label box measures ~30px in each,
+# matching the ~32-unit border tile.
+#   Event Structure: 7px hatched band (ref: the "[0] Timeout" event structure).
+#   In Place Element Structure: 3px band (ref: the bool/int IPES).
+_EVENT_BAND_W = 7.0
+_IPES_BAND_W = 3.0
 
 
 def _draw_event_border_band(
-    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
+    structure: RenderStructure, backend: Backend, theme: Theme, width: float,
 ) -> None:
-    """An Event Structure's border: a WIDE light-yellow BAND between the
-    outer heap bounds and an inner rule inset by the measured band width
-    (``_event_band_width``) — mirroring LabVIEW's own wide hatched-border
-    margin (see the reference screenshot) instead of a thin dashed line, the
-    same way ``_draw_sequence_border`` gives a flat sequence its film-strip
-    rails. Drawn as four abutting filled rects (never overlapping, so there's
-    no double-opacity at the corners) plus the outer + inner edge rules in
+    """A filled BAND border (Event Structure and In Place Element Structure):
+    a pale ``theme.event_band`` margin of ``width`` LV units between the outer
+    heap bounds and an inner rule, mirroring LabVIEW's own wide border (see the
+    reference screenshots) instead of a thin line — the same way
+    ``_draw_sequence_border`` gives a flat sequence its film-strip rails. Drawn
+    as four abutting filled rects (never overlapping, so there's no
+    double-opacity at the corners) plus the outer + inner edge rules in
     ``theme.event_border``. This is the one deliberate exception to
     ``draw_structure``'s "outline only" rule (see its docstring) — the fill is
-    confined to the edge margin the layout already reserves for it, so it
-    never covers an interior wire."""
+    confined to the edge margin, so it never covers an interior wire.
+
+    ``width`` is the fixed per-structure band thickness (``_EVENT_BAND_W`` /
+    ``_IPES_BAND_W``), measured from the reference screenshots."""
     x1, y1, x2, y2 = structure.bounds
-    w = _event_band_width(structure, scene)
-    w = max(2.0, min(w, (x2 - x1) / 2 - 1.0, (y2 - y1) / 2 - 1.0))
+    w = max(2.0, min(width, (x2 - x1) / 2 - 1.0, (y2 - y1) / 2 - 1.0))
     fill = theme.event_band
     backend.rect(x1, y1, x2, y1 + w, fill=fill, stroke="none")          # top
     backend.rect(x1, y2 - w, x2, y2, fill=fill, stroke="none")          # bottom
@@ -1341,7 +1284,7 @@ def _draw_frame_border(
     x1, y1, x2, y2 = structure.bounds
     node = structure.node
     if isinstance(node, EventStructureNode):
-        _draw_event_border_band(structure, scene, backend, theme)
+        _draw_event_border_band(structure, backend, theme, _EVENT_BAND_W)
     else:
         default = scene.default_frame.get(structure.raw_uid, "")
         color = _error_border_color(scene, structure.raw_uid, default, theme)
@@ -1539,9 +1482,15 @@ def draw_structure(
         _draw_frame_border(structure, scene, backend, theme)
     elif kind == "flatSequence":
         _draw_sequence_border(structure, backend, theme)
+    elif kind == "inPlace":
+        # In Place Element Structure — same filled border band + edge rules as
+        # an Event Structure (its decompose/recompose border nodes seat in the
+        # band). Fixed band width, NOT the event structure's measured margin:
+        # an IPES reserves no hatched border to measure, so the gap-to-content
+        # measurement runs wild (swallows the structure).
+        _draw_event_border_band(structure, backend, theme, _IPES_BAND_W)
     else:
-        # In Place Element Structure, or anything else — a plain border
-        # (matches the prior renderer).
+        # Anything else — a plain border (matches the prior renderer).
         backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
                      stroke_width=1.2)
     # Border terminals (N/i/cond, tunnels, shift registers, selector) are NOT

@@ -856,20 +856,19 @@ function scrollTargets(){ return (mode==='split'||mode==='overlay') ? [beforePan
 function applyZoom(){
   const S=fitScale()*zoom;           // shared css-per-user scale → panes stay comparable
   const u=vbUnion();
-  // Overlay (and single before/after) SUPERIMPOSE the two svgs, so each is
-  // offset by its viewBox origin relative to the UNION box — identical LV coords
-  // then land on identical screen points and the layers register. Split stacks
-  // the panes in their OWN scrollers instead, so that offset only INDENTS the
-  // pane whose origin sits right of the union min (e.g. JKI__build: before x=284
-  // vs after x=144 pushed before in ~140px) — there's nothing to register
-  // against. Split therefore renders each svg FLUSH (margin 0); the tied-pan
-  // mirror re-adds the origin delta in LV space (mirrorScroll) so scrolling
-  // still keeps both panes on the same region.
-  const flush=(mode==='split');
+  // EVERY mode registers the two svgs by the shared UNION box: each svg is
+  // offset by its viewBox origin relative to the union min, so identical LV
+  // coords land at identical screen points. Overlay superimposes the layers;
+  // split sits the panes in their own scrollers but shares that SAME LV
+  // coordinate registration, so the same LV column lands at the same screen x in
+  // both panes — the pane whose origin sits right of the union min is indented
+  // by the origin delta (e.g. JKI__build: before x=284 vs after x=144 indents
+  // before ~140px), leaving a gap exactly where the after-VI added content to
+  // the left. Tied-pan then mirrors 1:1 (see mirrorScroll) — no per-mode fixups.
   [beforePane,afterPane].forEach(p=>{const s=p.querySelector('svg'); if(!s)return;
     s.style.width=(s.viewBox.baseVal.width*S)+'px';
-    s.style.marginLeft=(flush?0:(s.viewBox.baseVal.x-u.minX)*S)+'px';
-    s.style.marginTop =(flush?0:(s.viewBox.baseVal.y-u.minY)*S)+'px';
+    s.style.marginLeft=((s.viewBox.baseVal.x-u.minX)*S)+'px';
+    s.style.marginTop =((s.viewBox.baseVal.y-u.minY)*S)+'px';
     s.querySelectorAll('.hl-num').forEach(t=>t.style.fontSize=(15/S)+'px');});
   // At the limits the button would be a no-op (zoom clamps to [zMin(),ZMAX]) —
   // read as disabled. applyZoom runs on every zoom change, including glides.
@@ -1185,18 +1184,10 @@ function mirrorScroll(src, dst){
     // wider pane past the narrower one's extent. rAF keeps the guard up until
     // after the induced event has fired and been ignored.
     syncingScroll=true;
-    // Overlay stacks both svgs union-registered, so raw scroll offsets already
-    // mean the same LV region — mirror 1:1. Split draws each svg FLUSH (no union
-    // margin, see applyZoom), so the same LV column sits at a DIFFERENT scroll
-    // offset in each pane by exactly the origin delta; add it back here (in css
-    // px) so tied-pan still locks both panes to the same LV region.
-    let dx=0, dy=0;
-    if(mode==='split'){
-      const S=fitScale()*zoom, sv=src.querySelector('svg'), dv=dst.querySelector('svg');
-      if(sv&&dv){ dx=(sv.viewBox.baseVal.x-dv.viewBox.baseVal.x)*S;
-                  dy=(sv.viewBox.baseVal.y-dv.viewBox.baseVal.y)*S; }
-    }
-    dst.scrollLeft=src.scrollLeft+dx; dst.scrollTop=src.scrollTop+dy;
+    // Both overlay and split register the two svgs by the shared UNION box (see
+    // applyZoom), so identical LV coords sit at identical scroll offsets in each
+    // pane — mirror tied-pan 1:1, no per-mode origin-delta fixup.
+    dst.scrollLeft=src.scrollLeft; dst.scrollTop=src.scrollTop;
     requestAnimationFrame(()=>{ syncingScroll=false; });
   });
 }

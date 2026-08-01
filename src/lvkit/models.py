@@ -210,6 +210,42 @@ def bundle_unbundle_name(
     return "Bundle" if bundling else "Unbundle"
 
 
+def inplace_border_name(
+    node_type: str, terminals: list[Terminal]
+) -> str | None:
+    """Faithful per-tile name for the two IN-PLACE-ELEMENT-STRUCTURE border
+    nodes that carry no field shape (unlike ``decomposeClusterNode``, which
+    goes through :func:`bundle_unbundle_name`). Both halves of the pair share a
+    node class; the READ (left) and WRITE (right) tile are told apart purely by
+    which side the distinguishing terminal type sits on -- no guessing:
+
+    - ``decomposeDataValRefNode`` -- the ``DataValueRef`` refnum is the INPUT on
+      the read tile (it derefs the reference) and the OUTPUT on the write tile
+      (it hands the reference back). -> ``"DVR Read"`` / ``"DVR Write"``.
+    - ``decomposeArrayNode`` -- the read tile only indexes (array in, element
+      out); the write tile replaces (array back OUT). An array-kind OUTPUT means
+      the replace half. -> ``"Array Index"`` / ``"Array Replace"``.
+
+    Returns ``None`` when the discriminating type isn't present (leave the
+    node's fallback name untouched). Public NI docs: the border nodes are the
+    'Data Value Reference Read / Write Element' and 'Array Index / Replace
+    Elements' nodes -- these are the compact per-tile forms."""
+    if node_type == "decomposeDataValRefNode":
+        for t in terminals:
+            lt = t.lv_type
+            if lt is not None and lt.ref_type == "DataValueRef":
+                return "DVR Read" if t.direction == "input" else "DVR Write"
+        return None
+    if node_type == "decomposeArrayNode":
+        has_array_out = any(
+            t.lv_type is not None and t.lv_type.kind == "array"
+            and t.direction == "output"
+            for t in terminals
+        )
+        return "Array Replace" if has_array_out else "Array Index"
+    return None
+
+
 class FPTerminal(Terminal):
     """A connector pane terminal on a VINode."""
 
