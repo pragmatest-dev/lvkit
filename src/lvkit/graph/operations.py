@@ -476,9 +476,15 @@ class OperationsMixin:
         vi_name: str,
         child_uids: list[str],
     ) -> list[CaseFrame] | list[SequenceFrame] | list[EventFrame]:
-        """Populate operations on existing frames from graph children."""
+        """Build a view of ``frames`` with operations populated.
+
+        Returns FRESH frame copies for the Operation tree — the incoming
+        ``frames`` (persistent state on the structure's graph node) are never
+        mutated. A getter must not have side effects on the graph.
+        """
         frame_to_uids = self._group_children_by_frame(child_uids)
 
+        result: list[CaseFrame | SequenceFrame | EventFrame] = []
         for list_position, frame in enumerate(frames):
             # Match by selector_value (cases), index (sequences), or list
             # POSITION (events -- there's no runtime selector_value/index of
@@ -491,13 +497,16 @@ class OperationsMixin:
             elif isinstance(frame, EventFrame):
                 key = str(list_position)
             else:
+                result.append(frame)
                 continue
             uids = frame_to_uids.get(key, [])
-            frame.inner_node_uids = uids
-            frame.operations = self._build_inner_nodes(uids, vi_name)
+            result.append(frame.model_copy(update={
+                "inner_node_uids": uids,
+                "operations": self._build_inner_nodes(uids, vi_name),
+            }))
 
         return cast(
-            "list[CaseFrame] | list[SequenceFrame] | list[EventFrame]", frames,
+            "list[CaseFrame] | list[SequenceFrame] | list[EventFrame]", result,
         )
 
     def _group_children_by_frame(
