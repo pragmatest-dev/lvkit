@@ -191,12 +191,18 @@ class TestFormatDiffConcise:
         # (removed vs. added) -- a deletion must always show, even when an
         # unrelated addition happens to live at the same path. Only a wire
         # sharing its OWN change value (added wire + added node) is
-        # redundant with that node's instance_line and gets suppressed.
+        # redundant with that node's instance_line and gets suppressed. The
+        # removed wire's source is an nMux (Bundle/Unbundle By Name) output,
+        # so the label is the resolved FIELD name (``isSkipped``, stamped by
+        # ``op_walk.stamp_nmux_lane_names`` from the VI's own embedded
+        # class private-data snapshot -- this pair loads with
+        # ``LoadMode.NONE``, no search path, so the owning class itself
+        # never resolves), not the generic node name.
         ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
         gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        wire_line = next(ln for ln in lines if "x = Bundle/Unbundle" in ln)
+        wire_line = next(ln for ln in lines if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
     def test_no_section_headers(self):
@@ -282,8 +288,8 @@ class TestFormatDiffVerbose:
         gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
         result = format_diff(ga, gb, na, nb, verbose=True)
         lines = result.splitlines()
-        assert sum(1 for ln in lines if "x = Bundle/Unbundle" in ln) == 1
-        wire_line = next(ln for ln in lines if "x = Bundle/Unbundle" in ln)
+        assert sum(1 for ln in lines if "x = isSkipped" in ln) == 1
+        wire_line = next(ln for ln in lines if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
 
@@ -847,7 +853,13 @@ class TestWireChanges:
         assert change.kind == "wire"
         assert change.change == "removed"
         assert change.label == "x"
-        assert change.detail == "← Bundle/Unbundle By Name"
+        # The lost producer (1489) is an nMux (Bundle/Unbundle By Name)
+        # output -- the detail is its resolved FIELD name ("isSkipped",
+        # stamped from the VI's own embedded class private-data snapshot;
+        # this pair loads with LoadMode.NONE, no search path, so the owning
+        # class itself never resolves via dep_graph -- see
+        # op_walk.stamp_nmux_lane_names), not the generic node name.
+        assert change.detail == "← isSkipped"
         # deleted wire -> both anchors come from the BEFORE layout: the sink it
         # used to reach (bounds) and the source it lost (bounds_before).
         assert change.bounds is not None

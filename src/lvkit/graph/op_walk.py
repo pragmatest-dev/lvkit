@@ -11,10 +11,12 @@ live here instead.
 from __future__ import annotations
 
 import ast
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from ..extractor import extract_vi_xml
 from ..models import (
     CaseFrame,
     CaseOperation,
@@ -30,12 +32,15 @@ from ..models import (
     _is_error_cluster,
 )
 from ..num_format import format_numeric_const
-from ..parser.constants import NODE_CLASS_NMUX
+from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..structure import _fields_from_xml, private_data_field_to_cluster_field
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
+
+logger = logging.getLogger(__name__)
 
 
 def _find_op_owning_terminal(
@@ -128,41 +133,149 @@ def _flatten_leaf_fields(
     ]
 
 
-def _nmux_raw_field_name(
-    term: Terminal, class_fields: list[ClusterField] | None,
-) -> str | None:
-    """Raw (un-mangled) LabVIEW field name for an nMux LIST terminal, via
-    ``Terminal.nmux_field_index``. Same index resolution as codegen's
-    ``nmux.py::_field_name``, but returns the LabVIEW name as-is (for
-    display in the netlist/describe projections) instead of a
-    Python-safe identifier.
+def _own_class_private_data_fields(
+    vi_name: str, classname: str, graph: InMemoryVIGraph,
+) -> list[ClusterField]:
+    """This VI's OWN inline "Cluster of class private data" typedef — a
+    snapshot embedded in the VI's own VCTP, resolvable WITHOUT loading the
+    owning ``.lvclass`` at all (works under a ``MINIMAL`` load with no
+    ``--search-path``: the VI's own extracted XML already carries it). Tried
+    before the dep_graph class fields in ``_nmux_field_sources`` because
+    it's cheap and available in the common case; ``get_type_fields`` (via
+    ``get_class_fields``) is the fallback, authoritative once the owning
+    class actually loads. Fails soft (empty list) on any extraction/parse
+    error — this is a decoration, never a reason to fail resolution.
     """
-    if term.nmux_field_index is None or not class_fields:
+    vi_path = graph.get_vi_source_path(vi_name)
+    if vi_path is None:
+        return []
+    try:
+        _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path)
+    except Exception:
+        logger.debug(
+            "own private-data XML extraction failed for %r (%s)",
+            vi_name, vi_path, exc_info=True,
+        )
+        return []
+    if main_xml is None:
+        return []
+    fields = _fields_from_xml(main_xml, classname)
+    if not fields:
+        return []
+    return [private_data_field_to_cluster_field(f) for f in fields]
+
+
+def _resolve_nmux_field_name(
+    field_index: int | None, *field_sources: list[ClusterField],
+) -> str | None:
+    """Resolve a field-index's LabVIEW field name, trying each of
+    ``field_sources`` (in priority order) in turn — each row resolved
+    independently, so one source can cover a row another source misses.
+
+    Each source is flattened LEAF-first (``_flatten_leaf_fields``):
+    LabVIEW's flat ``<i>`` index for a NESTED cluster (e.g. a class
+    private-data cluster whose own fields are themselves sub-clusters) runs
+    over leaves only — an intermediate sub-cluster is never itself an
+    addressable flat slot.
+    """
+    if field_index is None:
         return None
-    if term.nmux_field_index < len(class_fields):
-        return class_fields[term.nmux_field_index].name
-    flat = _flatten_fields(class_fields)
-    if term.nmux_field_index < len(flat):
-        path, _field = flat[term.nmux_field_index]
-        return path[-1]
+    for fields in field_sources:
+        if not fields:
+            continue
+        flat = _flatten_leaf_fields(fields)
+        if 0 <= field_index < len(flat):
+            name = flat[field_index][1].name
+            if name:
+                return name
     return None
 
 
-def _nmux_agg_fields(
-    op: Operation, graph: InMemoryVIGraph,
-) -> list[ClusterField] | None:
-    """The nMux op's aggregate (cluster/class) terminal's fields, via
-    ``InMemoryVIGraph.get_type_fields`` -- same lookup
-    ``codegen/nodes/nmux.py::generate`` uses to resolve field names."""
-    for t in op.terminals:
-        if t.nmux_role == "agg" and t.lv_type:
-            return graph.get_type_fields(t.lv_type)
-    return None
+def _nmux_field_sources(
+    vi_name: str, agg: Terminal | None, graph: InMemoryVIGraph,
+) -> tuple[list[ClusterField], list[ClusterField]]:
+    """``(own_fields, dep_fields)`` field sources for an nMux/decompose
+    aggregate terminal, in fall-through priority order: (1) for a
+    class-typed aggregate, THIS VI's own inline private-data typedef copy
+    (``_own_class_private_data_fields``); (2) ``graph.get_type_fields()`` --
+    dep_graph class fields (authoritative once the owning class loads) or a
+    non-class typedef/anonymous cluster's inline fields. Shared by
+    ``_nmux_lane_name`` (single-terminal) and render's ``_bundle_by_name_glyph``
+    (whole-node glyph build) so both compute the SAME sources."""
+    own_fields: list[ClusterField] = []
+    dep_fields: list[ClusterField] = []
+    if agg is not None and agg.lv_type is not None:
+        if agg.lv_type.classname:
+            own_fields = _own_class_private_data_fields(
+                vi_name, agg.lv_type.classname, graph,
+            )
+        dep_fields = graph.get_type_fields(agg.lv_type) or []
+    return own_fields, dep_fields
 
 
-def _is_nmux(op: Operation) -> bool:
-    """True if ``op`` is a Bundle/Unbundle By Name (nMux) node."""
-    return op.node_type == NODE_CLASS_NMUX
+def _nmux_lane_name(
+    term: Terminal, agg: Terminal | None, vi_name: str, graph: InMemoryVIGraph,
+) -> str | None:
+    """THE canonical field-name resolution for an nMux/decompose LIST
+    terminal, via ``term.nmux_field_index`` into the aggregate's field list
+    (``_nmux_field_sources``, then ``_resolve_nmux_field_name``). Returns
+    None when neither source resolves a name — callers keep their own
+    index/name fallback (a bracketed index or the terminal's own name is
+    display-only, never worth pinning onto ``display_name``)."""
+    own_fields, dep_fields = _nmux_field_sources(vi_name, agg, graph)
+    return _resolve_nmux_field_name(term.nmux_field_index, own_fields, dep_fields)
+
+
+def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
+    """Resolve and attach every nMux/decompose LIST terminal's real field
+    NAME onto ``Terminal.display_name``, graph-wide -- the ONE seam every
+    consumer (netlist, diff, describe; render redundantly but harmlessly)
+    relies on instead of each special-casing nMux terminals itself.
+
+    Walks ``graph.iter_nodes(vi_name)`` -- the FLAT per-VI node list (every
+    node under a VI, including loop-body/frame-nested nodes and an In Place
+    Element Structure's border decompose/recompose nodes, regardless of
+    containment depth) -- rather than the ``Operation`` tree
+    ``get_operations`` builds: ``get_operations`` has a mutating side effect
+    on ``CaseFrame``/``SequenceFrame``/``EventFrame.inner_node_uids``
+    (``operations.py``'s ``_populate_frame_operations``, called during
+    case/sequence/event Operation construction), so calling it here --
+    BEFORE a consumer's own first call -- would corrupt that frame data out
+    from under it (reproduced: it silently shrank/re-qualified a VI's case
+    frame contents in ``tests/test_render.py::
+    test_case_structures_render_all_frames_not_just_shown``). ``iter_nodes``
+    is a plain read.
+
+    Idempotent: only sets ``display_name`` when it is still unset AND a real
+    field name resolves -- never clobbers an already-resolved name, and
+    never stamps a bracketed-index/no-name placeholder (a caller's own
+    index fallback still applies for those, and a later fuller load, e.g.
+    once a class search-path resolves, can fill it in). Safe to call
+    repeatedly (e.g. once per top-level ``load_vi``).
+
+    Gated to ``NMUX_BY_NAME_NODE_CLASSES`` (``nMux``/``decomposeClusterNode``)
+    -- NOT every node carrying ``nmux_role`` terminals. ``mux``/``demux``
+    (loop/structure-boundary bundlers) share the exact same dcoAgg/dcoList
+    terminal shape but index POSITIONALLY, never by a real field name; naming
+    their ports/wires after whatever field happens to sit at that position
+    would be wrong, not just additive -- verified against a real corpus VI
+    (JKI-EasyXML's XML Loop Stack Recursion.vi) where an early, broader
+    version of this gate spuriously renamed a plain positional ``mux``
+    node's ports.
+    """
+    for vi_name in graph.list_vis():
+        for node in graph.iter_nodes(vi_name):
+            if node.node_type not in NMUX_BY_NAME_NODE_CLASSES:
+                continue
+            agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
+            if agg is None:
+                continue
+            for term in node.terminals:
+                if term.nmux_role != "list" or term.display_name is not None:
+                    continue
+                name = _nmux_lane_name(term, agg, vi_name, graph)
+                if name:
+                    term.display_name = name
 
 
 def _format_error_cluster(value: object) -> str:

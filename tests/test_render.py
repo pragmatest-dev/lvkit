@@ -2917,8 +2917,8 @@ def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
     addressable flat slot. Reproduces the exact corpus shape/indices (task:
     DAQmx Module Runtime, indices 7/1/9/3 -> DI Index/AO Task/PWM Freq
     Index/DO Task) without needing the sample VI on disk."""
+    from lvkit.graph.op_walk import _resolve_nmux_field_name
     from lvkit.models import ClusterField
-    from lvkit.render.nodes import _resolve_nmux_field_name
 
     def sub(name: str) -> ClusterField:
         return ClusterField(name=name, type=None)
@@ -2959,8 +2959,8 @@ def test_resolve_nmux_field_name_falls_through_multiple_sources():
     order: the first source that has a name for THIS index wins, even if
     an earlier source is present but doesn't cover the index (or is
     empty)."""
+    from lvkit.graph.op_walk import _resolve_nmux_field_name
     from lvkit.models import ClusterField
-    from lvkit.render.nodes import _resolve_nmux_field_name
 
     own = [ClusterField(name="onlyInOwn", type=None)]
     dep = [

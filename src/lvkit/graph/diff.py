@@ -36,9 +36,6 @@ from .netlist import (
 )
 from .op_walk import (
     _const_value_str,
-    _is_nmux,
-    _nmux_agg_fields,
-    _nmux_raw_field_name,
     _selector_label,
     _terminal_display_name,
 )
@@ -675,18 +672,20 @@ def _sink_sort_key(key: tuple[str, object]) -> tuple:
 def _terminal_label(
     t: Terminal, owner_op: Operation | None, graph: InMemoryVIGraph,
 ) -> str | None:
-    """The human identity of a node terminal. An nMux (Bundle/Unbundle-By-Name)
-    FIELD terminal (``nmux_role=="list"``) has no name of its own — its identity
-    is the struct/class FIELD it maps (via ``nmux_field_index``, the same way the
-    netlist does), whether it's a Bundle INPUT field or an Unbundle OUTPUT field;
-    every other terminal uses its own display name. None when neither resolves
-    (the caller falls back to node name / position). Shared by the wire-endpoint
-    labeler (``label_of``) and the node terminal-set delta (``_term_delta_detail``)
-    so an nMux field reads identically in both."""
-    if t.nmux_role == "list" and owner_op is not None and _is_nmux(owner_op):
-        field = _nmux_raw_field_name(t, _nmux_agg_fields(owner_op, graph))
-        if field:
-            return field
+    """The human identity of a node terminal: its resolved display name --
+    for an nMux/decompose (Bundle/Unbundle-By-Name) FIELD terminal
+    (``nmux_role=="list"``), this IS the struct/class FIELD it maps, stamped
+    once graph-wide at load time (see ``op_walk.stamp_nmux_lane_names``);
+    every other terminal uses its own name the same way. None when neither
+    resolves (the caller falls back to node name / position). Shared by the
+    wire-endpoint labeler (``label_of``) and the node terminal-set delta
+    (``_term_delta_detail``) so an nMux field reads identically in both.
+
+    ``owner_op``/``graph`` are unused now that nMux resolution happens once
+    at load time rather than per-lookup here -- kept in the signature so
+    every call site (which still has both in scope) stays unchanged.
+    """
+    del owner_op, graph
     return _terminal_display_name(t)
 
 

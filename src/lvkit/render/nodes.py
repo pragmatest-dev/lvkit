@@ -40,12 +40,12 @@ from ..graph.models import (
     PrimitiveNode,
     VINode,
 )
-from ..graph.op_walk import _flatten_leaf_fields
+from ..graph.op_walk import _nmux_field_sources, _resolve_nmux_field_name
 from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
+from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
-from ..structure import _fields_from_xml, private_data_field_to_cluster_field
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
@@ -253,8 +253,12 @@ _MUX_TYPE_DEFAULT_NAMES = {
 
 # node_types whose fields are accessed BY NAME (nMux's own "Node Multiplexer"
 # class, and the IPES cluster border node) rather than positionally (mux/
-# demux) — see ``_CLUSTER_MUX_TYPES`` docstring above.
-_BY_NAME_MUX_TYPES = frozenset({"nMux", "decomposeClusterNode"})
+# demux) — see ``_CLUSTER_MUX_TYPES`` docstring above. Shared with
+# ``graph.op_walk.stamp_nmux_lane_names`` (the netlist/diff/describe seam)
+# via ``parser.constants.NMUX_BY_NAME_NODE_CLASSES`` so render and the
+# graph-layer resolver can never disagree on which node classes get
+# field-name (not positional-index) treatment.
+_BY_NAME_MUX_TYPES = NMUX_BY_NAME_NODE_CLASSES
 
 _DEFAULT_ICON_SIZE = (24, 24)
 
@@ -509,64 +513,6 @@ class JsonGlyphResolver:
         return None
 
 
-def _own_class_private_data_fields(
-    vi_name: str, classname: str, graph: InMemoryVIGraph,
-) -> list[ClusterField]:
-    """This VI's OWN inline "Cluster of class private data" typedef — a
-    snapshot embedded in the VI's own VCTP, resolvable WITHOUT loading the
-    owning ``.lvclass`` at all (works under a ``MINIMAL`` load with no
-    ``--search-path``: the VI's own extracted XML already carries it). Tried
-    before the dep_graph class fields in ``_bundle_by_name_glyph`` because
-    it's cheap and available in the common case; ``get_class_fields`` (via
-    ``get_type_fields``) is the fallback, authoritative once the owning
-    class actually loads. Fails soft (empty list) on any extraction/parse
-    error — this is a decoration, never a reason to fail rendering.
-    """
-    vi_path = graph.get_vi_source_path(vi_name)
-    if vi_path is None:
-        return []
-    try:
-        _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path)
-    except Exception:
-        logger.debug(
-            "own private-data XML extraction failed for %r (%s)",
-            vi_name, vi_path, exc_info=True,
-        )
-        return []
-    if main_xml is None:
-        return []
-    fields = _fields_from_xml(main_xml, classname)
-    if not fields:
-        return []
-    return [private_data_field_to_cluster_field(f) for f in fields]
-
-
-def _resolve_nmux_field_name(
-    field_index: int | None, *field_sources: list[ClusterField],
-) -> str | None:
-    """Resolve a field-index's LabVIEW field name, trying each of
-    ``field_sources`` (in priority order) in turn — each row resolved
-    independently, so one source can cover a row another source misses.
-
-    Each source is flattened LEAF-first (``_flatten_leaf_fields``):
-    LabVIEW's flat ``<i>`` index for a NESTED cluster (e.g. a class
-    private-data cluster whose own fields are themselves sub-clusters) runs
-    over leaves only — an intermediate sub-cluster is never itself an
-    addressable flat slot.
-    """
-    if field_index is None:
-        return None
-    for fields in field_sources:
-        if not fields:
-            continue
-        flat = _flatten_leaf_fields(fields)
-        if 0 <= field_index < len(flat):
-            name = flat[field_index][1].name
-            if name:
-                return name
-    return None
-
-
 def _resolve_bundle_by_name_labels(
     field_terms: list[Terminal], *field_sources: list[ClusterField],
 ) -> tuple[str, ...]:
@@ -582,14 +528,21 @@ def _resolve_bundle_by_name_labels(
     the panel already has its own ``terminal N`` default for that case, and
     a bracketed index isn't a field name worth pinning onto the terminal.
 
-    Single source of truth: called once, from ``_bundle_by_name_glyph``
-    (which runs during scene construction, before the connector panel is
-    drawn), so both surfaces always agree.
+    ``_resolve_nmux_field_name`` (the actual field-index -> name math) now
+    lives in ``graph.op_walk`` — the SAME implementation
+    ``op_walk.stamp_nmux_lane_names`` uses for the netlist/diff/describe
+    seam (run once at VI load), so a terminal already stamped by that pass
+    is a no-op read here (``if t.display_name`` short-circuits below),
+    and one still being rendered from a bare, ungraphed node (e.g. built
+    directly in a test) resolves exactly the same way. Single source of
+    truth either way: called once, from ``_bundle_by_name_glyph`` (which
+    runs during scene construction, before the connector panel is drawn),
+    so both surfaces always agree.
     """
     names: list[str] = []
     for t in field_terms:
         fi = t.nmux_field_index
-        name = _resolve_nmux_field_name(fi, *field_sources)
+        name = t.display_name or _resolve_nmux_field_name(fi, *field_sources)
         if name:
             t.display_name = name
             names.append(name)
@@ -621,14 +574,7 @@ def _bundle_by_name_glyph(
     (caller falls back to the compact glyph).
     """
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
-    own_fields: list[ClusterField] = []
-    dep_fields: list[ClusterField] = []
-    if agg is not None and agg.lv_type is not None:
-        if agg.lv_type.classname:
-            own_fields = _own_class_private_data_fields(
-                node.vi, agg.lv_type.classname, graph,
-            )
-        dep_fields = graph.get_type_fields(agg.lv_type) or []
+    own_fields, dep_fields = _nmux_field_sources(node.vi, agg, graph)
     field_terms = sorted(
         (t for t in node.terminals if t.nmux_role == "list"), key=lambda t: t.index,
     )

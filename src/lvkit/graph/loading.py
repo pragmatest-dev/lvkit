@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import networkx as nx
 
@@ -37,9 +37,11 @@ from ..structure import (
     private_data_field_to_cluster_field,
 )
 from .models import PolyInfo, VIMetadata
+from .op_walk import stamp_nmux_lane_names
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
+    from .core import InMemoryVIGraph
 
 
 # LoadMode is defined in the light ``lvkit.load_mode`` leaf module (imported
@@ -208,6 +210,15 @@ class LoadingMixin:
         # Graph-level so every consumer (docs, render, MCP) sees the qualified
         # name; idempotent, so the redundant calls from batch loaders are cheap.
         self.resolve_dispatch_qnames()
+
+        # Resolve + stamp nMux/decompose lane (field) NAMES onto
+        # Terminal.display_name now that this VI and its referenced-type
+        # dependencies are loaded -- the ONE seam netlist/diff/describe read
+        # from instead of each re-resolving field names themselves (see
+        # op_walk.stamp_nmux_lane_names). Idempotent, so the redundant calls
+        # from batch loaders (load_lvclass/load_lvlib/load_directory, which
+        # all funnel through load_vi per member) are cheap.
+        stamp_nmux_lane_names(cast("InMemoryVIGraph", self))
 
     def load_lvlib(
         self,

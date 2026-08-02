@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING
 
 from ..models import (
     CaseOperation,
-    ClusterField,
     DisableStructureOperation,
     EventOperation,
     InPlaceOperation,
@@ -49,9 +48,6 @@ from .op_walk import (
     _const_value_str,
     _find_op_owning_terminal,
     _has_output_tunnel,
-    _is_nmux,
-    _nmux_agg_fields,
-    _nmux_raw_field_name,
     _paired_tunnel_id,
     _selector_label,
     _subvi_ports,
@@ -106,8 +102,9 @@ class NetlistPortBinding:
     port association -- the rendered form is ``port=net`` (see
     ``instance_line``). ``port`` is the input terminal's own name (the same
     naming rule as everywhere else in this module: ``display_name or name or
-    str(index)``, or the real nMux field name -- see ``_component_port_name``),
-    NOT the source net's name.
+    str(index)`` -- for an nMux/decompose LIST terminal ``display_name`` IS
+    the real field name, stamped once at load time; see
+    ``_component_port_name``), NOT the source net's name.
     """
 
     port: str
@@ -288,29 +285,22 @@ def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
 
 
 def _term_ref(
-    graph: InMemoryVIGraph,
     node_name: str,
     occurrence: int | None,
-    op: Operation,
     term: Terminal,
 ) -> NetRef:
     """Build a NetRef for a terminal OWNED by (produced at) ``node_name``.
 
     Naming rule: a terminal with a resolved display name uses that name as
-    ``bare`` -- preferring ``display_name`` (the resolved-def terminal name,
-    ``construction.py``) over the codegen ``name``, and for an nMux
-    (Bundle/Unbundle By Name) LIST output, the real LabVIEW field name via
-    ``Terminal.nmux_field_index`` (``op_walk._nmux_raw_field_name``, same
-    index resolution ``codegen/nodes/nmux.py`` uses) over a meaningless
+    ``bare`` -- preferring ``display_name`` (the resolved-def terminal name;
+    for an nMux/decompose LIST terminal this is the real LabVIEW field name,
+    stamped once graph-wide by ``op_walk.stamp_nmux_lane_names`` at load time
+    -- see ``construction.py``) over the codegen ``name``, over a meaningless
     numeric index. An unnamed terminal's ``bare`` is the only place a
     number-port shows (``Node[#n].idx``), fully qualified up front since a
     bare index alone would be meaningless.
     """
-    label = None
-    if term.direction == "output" and _is_nmux(op):
-        label = _nmux_raw_field_name(term, _nmux_agg_fields(op, graph))
-    if label is None:
-        label = _terminal_display_name(term)
+    label = _terminal_display_name(term)
     port = label or str(term.index)
     if label:
         bare = label
@@ -368,7 +358,7 @@ def _resolve_source(
                 continue
             node_name = _display_name(op)
             occurrence = build_ctx.occurrence_by_uid.get(_uid_of(op.id))
-            return _term_ref(graph, node_name, occurrence, op, term)
+            return _term_ref(node_name, occurrence, term)
 
         for t in ctx.inputs:
             if t.id == src.terminal_id:
@@ -437,16 +427,15 @@ def _build_instance(
     uid = _uid_of(op.id)
     name = _display_name(op)
     occurrence = build_ctx.occurrence_by_uid.get(uid)
-    class_fields = _nmux_agg_fields(op, graph) if _is_nmux(op) else None
     inputs = [
-        NetlistPortBinding(port=_component_port_name(t, class_fields), net=ref)
+        NetlistPortBinding(port=_component_port_name(t), net=ref)
         for t in op.terminals
         if t.direction == "input"
         if (ref := _input_ref(graph, ctx, root_ops, build_ctx, t))
         is not None
     ]
     outputs = [
-        _term_ref(graph, name, occurrence, op, t)
+        _term_ref(name, occurrence, t)
         for t in op.terminals
         if t.direction == "output"
     ]
@@ -707,38 +696,31 @@ def _component_identity(op: Operation) -> tuple[object, ...]:
     return (op.node_type or "unknown", prim_res_id, operation)
 
 
-def _component_port_name(
-    term: Terminal, class_fields: list[ClusterField] | None,
-) -> str:
+def _component_port_name(term: Terminal) -> str:
     """Port name for one of ``op``'s own terminals, in a synthesized
     (not wire-derived) component declaration.
 
-    For an nMux LIST terminal (a named field on a Bundle/Unbundle By Name
-    node -- input side for Bundle, output side for Unbundle), the real
-    LabVIEW field name via ``_nmux_raw_field_name``. Everything else:
-    ``display_name or name or str(index)``, per the netlist naming rule.
+    ``display_name or name or str(index)``, per the netlist naming rule --
+    for an nMux/decompose LIST terminal, ``display_name`` is the real
+    LabVIEW field name, stamped once graph-wide at load time (see
+    ``op_walk.stamp_nmux_lane_names``).
     """
-    if term.nmux_role == "list":
-        name = _nmux_raw_field_name(term, class_fields)
-        if name is not None:
-            return name
     return _terminal_display_name(term) or str(term.index)
 
 
 def _synthesize_ports(
-    op: Operation, graph: InMemoryVIGraph,
+    op: Operation,
 ) -> tuple[list[ComponentPort], list[ComponentPort]]:
     """Typed (inputs, outputs) for a primitive-like leaf op, from its OWN
     terminals -- there is no ``.vi`` connector pane to read a signature
     from. Includes error-cluster terminals: they are real ports on the
     node, matching every other interface in this module (subVI signatures,
     the VI's own signature line)."""
-    class_fields = _nmux_agg_fields(op, graph) if _is_nmux(op) else None
     ins: list[ComponentPort] = []
     outs: list[ComponentPort] = []
     for t in sorted(op.terminals, key=lambda t: t.index):
         port = ComponentPort(
-            name=_component_port_name(t, class_fields), type=t.python_type(),
+            name=_component_port_name(t), type=t.python_type(),
         )
         (ins if t.direction == "input" else outs).append(port)
     return ins, outs
@@ -814,7 +796,7 @@ def _build_components(
             continue
         if not isinstance(op, PrimitiveOperation):
             continue
-        ins, outs = _synthesize_ports(op, graph)
+        ins, outs = _synthesize_ports(op)
         key = _component_identity(op)
         groups.setdefault(key, []).append((op, ins, outs))
 
@@ -829,7 +811,7 @@ def _build_components(
             # actual call so ## Components declares exactly what ##
             # Netlist wires: both derive from the same call node's
             # terminals, so they can't disagree.
-            ins, outs = _synthesize_ports(subvi_reps[name], graph)
+            ins, outs = _synthesize_ports(subvi_reps[name])
         components.append(NetlistComponent(name=name, inputs=ins, outputs=outs))
     for instances in groups.values():
         components.extend(_dedupe_primitive_group(instances))

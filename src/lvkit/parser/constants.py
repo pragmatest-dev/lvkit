@@ -54,6 +54,22 @@ NODE_CLASS_FORMULA = "fBox"  # Formula Node (embedded C-like script)
 # In Place Element Structure (IPES)
 NODE_CLASS_DECOMPOSE_RECOMPOSE = "decomposeRecomposeStructure"
 
+# Node classes whose ``list``-role terminals (see NMuxHandler-family parsing)
+# are accessed BY NAME -- a real ``<i>`` field index into the aggregate
+# cluster/class's field list -- rather than positionally: the nMux "Node
+# Multiplexer" class itself, and ``decomposeClusterNode`` (the In Place
+# Element Structure's cluster border node, same dcoAgg/dcoList/poser shape,
+# see parser/node_types.py::DecomposeClusterHandler). Deliberately EXCLUDES
+# ``mux``/``demux`` (loop/structure-boundary bundlers -- structurally
+# identical SelectNode shape, but positional/sequential indices, never a
+# genuine by-name field lookup -- see _MuxHandler/_DemuxHandler) and
+# ``eventDataNode`` (also genuinely by-name, but resolved through its own
+# EventDataGlyph path in render, never through netlist/diff/describe).
+# Shared by render's Bundle/Unbundle-By-Name glyph selection and
+# graph.op_walk's canonical nMux lane-name resolver so both agree on exactly
+# which node classes get field-name (not index) treatment.
+NMUX_BY_NAME_NODE_CLASSES = frozenset({NODE_CLASS_NMUX, "decomposeClusterNode"})
+
 # Node classes that are explicitly ignored during parsing.
 # These are known LabVIEW elements with no Python equivalent and no dataflow
 # output — they are intentionally not converted to graph nodes.

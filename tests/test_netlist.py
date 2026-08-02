@@ -9,14 +9,17 @@ they're not present in a given environment).
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.netlist import build_netlist, render_netlist
+from lvkit.load_mode import LoadMode
 
 SCRATCHPAD = Path(
     "/tmp/claude-1000/-home-ryanf-repos-lvkit/3a7f874f-386b-432d-9712-edf3bc6c995e"
@@ -151,3 +154,65 @@ def test_netlist_deterministic_across_hash_seeds():
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
     assert digests[0] == digests[1]
+
+
+# --------------------------------------------------------------------------- #
+# nMux (Bundle/Unbundle By Name) field-name resolution -- the canonical
+# ``op_walk.stamp_nmux_lane_names`` seam that also backs render/diff/describe.
+# --------------------------------------------------------------------------- #
+
+_TESTRESULT_DIR = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult",
+)
+_TESTRESULT_VI = _TESTRESULT_DIR / "GetTestsRun.vi"
+
+
+def test_nmux_class_private_data_resolves_under_minimal_load_no_search_path():
+    """``GetTestsRun.vi`` unbundles ``TestResult.lvclass``'s own private data
+    (a genuine ``nMux`` node, not the IPES cluster-border kind) via its
+    single ``testsRun`` field. Loaded MINIMAL with NO search path at all --
+    an isolated copy in its own temp dir, so ``TestResult.lvclass`` and its
+    sibling method VIs are entirely unreachable -- the netlist must still
+    show the REAL field name ``testsRun``, resolved from the VI's own
+    embedded "Cluster of class private data" snapshot
+    (``op_walk._own_class_private_data_fields``/``stamp_nmux_lane_names``),
+    not a bare index or the node's own generic port fallback. Before this
+    seam existed, netlist/diff had no own-embedded fallback at all (only
+    render did) -- this reproduces exactly the scenario that used to leave
+    the field unresolved (``Bundle/Unbundle By Name.1``)."""
+    if not _TESTRESULT_VI.exists():
+        pytest.skip("JKI-VI-Tester sample not available")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        isolated_vi = Path(tmp) / _TESTRESULT_VI.name
+        shutil.copy(_TESTRESULT_VI, isolated_vi)
+
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(isolated_vi), mode=LoadMode.MINIMAL)
+        vi_name = graph.resolve_vi_name(isolated_vi.name)
+        assert not graph.get_class_fields("TestResult.lvclass"), (
+            "this test's premise is that the owning class is NOT reachable"
+        )
+
+        out = render_netlist(build_netlist(graph, vi_name))
+        assert "testsRun" in out
+        assert "Bundle/Unbundle By Name.1" not in out
+
+
+def test_nmux_class_private_data_dep_graph_case_unchanged():
+    """Regression guard for the DEP-fields case (the class DOES resolve via
+    the search path, as it always could): the resolved field name must be
+    IDENTICAL whether or not the VI's own embedded snapshot is also
+    available -- the own-embedded fallback must never override an
+    authoritative dep_graph resolution, and this path must be byte-for-byte
+    unchanged by the nMux-resolution consolidation."""
+    if not _TESTRESULT_VI.exists():
+        pytest.skip("JKI-VI-Tester sample not available")
+
+    graph = InMemoryVIGraph()
+    graph.load_vi(str(_TESTRESULT_VI), search_paths=[_TESTRESULT_DIR.parent])
+    vi_name = "TestResult.lvclass:GetTestsRun.vi"
+
+    out = render_netlist(build_netlist(graph, vi_name))
+    assert "testsRun" in out
+    assert "Bundle/Unbundle By Name.1" not in out
