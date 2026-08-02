@@ -230,6 +230,15 @@ def _parse_metadata(
         if lvsr is not None:
             qualified_name = lvsr.get("Name")
 
+    # The VI's OWN ownership chain (``<LIBN>`` "Library Names") — the owning
+    # .lvlib/.lvclass, outermost first. Self-described in the VI's binary, so a
+    # class member .vi carries it even in isolation. DISPLAY only (see
+    # ParsedVIMetadata.owning_libraries) — the bare ``qualified_name`` above
+    # remains the resolution key.
+    owning_libraries = [
+        e.text for e in main_root.findall(".//LIBN/Section/Library") if e.text
+    ]
+
     # Extract SubVI info
     (
         subvi_qualified_names,
@@ -250,6 +259,7 @@ def _parse_metadata(
 
     return ParsedVIMetadata(
         qualified_name=qualified_name,
+        owning_libraries=owning_libraries,
         source_path=source_path,
         type_map=type_map or {},
         subvi_qualified_names=subvi_qualified_names,

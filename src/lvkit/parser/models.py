@@ -441,6 +441,12 @@ class ParsedVIMetadata:
     Does NOT contain block diagram content.
     """
     qualified_name: str | None = None  # e.g., "Library.lvlib:VI.vi"
+    # The VI's OWNERSHIP CHAIN from its own ``<LIBN>`` block (owning .lvlib /
+    # .lvclass, outermost first) — e.g. ``["NI …SDK.lvlib", "Foo.lvclass"]``. The
+    # VI is self-describing, so this is present even for an isolated ``.vi`` (no
+    # class load, no filesystem). Used ONLY to build a DISPLAY-qualified name
+    # (``chain:leaf``); ``qualified_name`` above stays the bare resolution key.
+    owning_libraries: list[str] = field(default_factory=list)
     source_path: str | None = None  # Path to original .vi file
     type_map: dict[int, LVType] = field(default_factory=dict)  # TypeID → LVType mapping
     subvi_qualified_names: list[str] = field(default_factory=list)  # From VIVI entries

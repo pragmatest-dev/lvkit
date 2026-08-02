@@ -614,6 +614,7 @@ class LoadingMixin:
             self._vi_metadata[vi_name] = VIMetadata(
                 library=poly_metadata.get("library"),
                 qualified_name=poly_metadata.get("qualified_name"),
+                owning_libraries=poly_metadata.get("owning_libraries", []),
                 description=poly_metadata.get("description"),
             )
 

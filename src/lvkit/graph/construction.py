@@ -375,6 +375,7 @@ class ConstructionMixin:
             name=vi_name,
             terminals=vi_terminals,
             description=_meta.description if _meta else None,
+            owning_libraries=list(_meta.owning_libraries) if _meta else [],
         )
         g.add_node(vi_name, node=vi_node)
         vi_node_uids.add(vi_name)
@@ -929,6 +930,11 @@ class ConstructionMixin:
             # title disambiguates a bare leaf name.
             if not gnode.qualified_name and callee_qname:
                 gnode.qualified_name = callee_qname
+            # ...and the callee's OWNERSHIP CHAIN (from the callee's own <LIBN>),
+            # so a SubVI-CALL label can show ``Class.lvclass:method`` — the whole
+            # point of qualifying two classes' same-named methods.
+            if not gnode.owning_libraries and callee_node.owning_libraries:
+                gnode.owning_libraries = list(callee_node.owning_libraries)
 
             # Build callee terminal lookup: (index, direction) → Terminal
             callee_term_map: dict[tuple[int, str], Any] = {}

@@ -169,6 +169,7 @@ class OperationsMixin:
             "inner_nodes": inner_nodes,
             "description": gnode.description,
             "qualified_path": getattr(gnode, "qualified_path", None),
+            "owning_libraries": list(getattr(gnode, "owning_libraries", []) or []),
         }
 
         # Build the right operation subtype

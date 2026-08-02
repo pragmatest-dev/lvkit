@@ -231,10 +231,12 @@ def _struct_label(op: Operation) -> str:
 
 
 def _elem_label(op: Operation, kind: str) -> str:
-    """Display label — structures name their kind, nodes use their own name."""
+    """Display label — structures name their kind, a node/SubVI uses its
+    ``display_name`` (class-qualified when the op carries an ownership chain, so
+    two classes' same-named methods disambiguate)."""
     if kind == "structure":
         return _struct_label(op)
-    return op.name or op.node_type or "node"
+    return op.display_name
 
 
 @dataclass

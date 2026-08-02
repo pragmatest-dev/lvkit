@@ -64,6 +64,11 @@ class VINode(GraphNode):
     kind: Literal["vi"] = "vi"
     library: str | None = None
     qualified_name: str | None = None
+    # The VI's ownership chain from its own ``<LIBN>`` (owning .lvlib/.lvclass,
+    # outermost first). On a SubVI-CALL node it's the CALLEE's chain (copied when
+    # the callee resolves). DISPLAY only — a ``chain:name`` label that
+    # disambiguates two classes' same-named methods; never a resolution key.
+    owning_libraries: list[str] = []
     poly_variant_name: str | None = None
     # Fully qualified on-disk path components joined with /, e.g.
     # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
@@ -432,6 +437,9 @@ class VIMetadata:
 
     library: str | None = None
     qualified_name: str | None = None
+    # Ownership chain from ``<LIBN>`` (owning .lvlib/.lvclass, outermost first) —
+    # for a DISPLAY class-qualified name; see VINode.owning_libraries.
+    owning_libraries: list[str] = field(default_factory=list)
     # The VI's own documentation text (STRG/DSTM), shown in the hover help box.
     description: str | None = None
 

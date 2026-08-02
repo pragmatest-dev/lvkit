@@ -1260,3 +1260,50 @@ class TestSelectContractionPhantom:
         assert ("node", "Build Array") in added
         assert ("node", "Build Path") in added
         assert ("constant", "Path constant") in added
+
+
+def test_operation_display_name_qualifies_by_ownership_chain():
+    """``Operation.display_name`` reads the class-qualified label when the op
+    carries an ownership chain (its own / its callee's ``<LIBN>``), else the bare
+    name. DISPLAY only — identity/resolution is unaffected. ``_elem_label`` uses
+    it so two classes' same-named methods are distinct in the diff."""
+    from lvkit.models import Operation
+
+    qualified = Operation(
+        id="V::1", name="run.vi", labels=["SubVI"],
+        owning_libraries=["Foo.lvlib", "Bar.lvclass"],
+    )
+    assert qualified.display_name == "Foo.lvlib:Bar.lvclass:run.vi"
+    bare = Operation(id="V::2", name="run.vi", labels=["SubVI"])
+    assert bare.display_name == "run.vi"
+
+
+class TestQualifiedSubVINames:
+    """A SubVI-CALL op carries its CALLEE's ownership chain — copied from the
+    callee's own ``<LIBN>`` when the callee resolves — so its diff/netlist/
+    describe label reads ``…lvclass:method``. Self-described (no class load), and
+    the op's own ``name`` (resolution-facing) stays BARE."""
+
+    SAMPLE = Path(
+        ".lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/"
+        "Measurements/Measure Call Context/Reserve Sessions.vi"
+    )
+    SEARCH = Path(".lvkit/cache/samples/measurement-plugin-labview/Source")
+
+    def test_subvi_call_op_carries_class_qualified_display_name(self):
+        if not self.SAMPLE.exists():
+            pytest.skip("measurement sample not present")
+        g = InMemoryVIGraph()
+        g.load_vi(str(self.SAMPLE), mode=LoadMode.MINIMAL,
+                  search_paths=[self.SEARCH])
+        vn = g.resolve_vi_name(self.SAMPLE.name)
+        calls = [
+            op for op in g.get_operations(vn)
+            if op.node_type and ("iUse" in op.node_type
+                                 or op.node_type in ("dynIUse", "polyIUse"))
+        ]
+        qualified = [op for op in calls if ".lvclass:" in op.display_name]
+        assert qualified, "expected a class-qualified subVI call display_name"
+        for op in qualified:
+            assert op.display_name.endswith(op.name)     # display ends in the leaf
+            assert ".lvclass" not in (op.name or "")     # bare name unqualified

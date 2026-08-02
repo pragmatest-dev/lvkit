@@ -60,10 +60,15 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     if lvsr is not None:
         metadata["name"] = lvsr.get("Name", "unknown")
 
-    # Get library name from LIBN section
-    lib_elem = root.find(".//LIBN/Section/Library")
-    if lib_elem is not None and lib_elem.text:
-        metadata["library"] = lib_elem.text
+    # Get library name(s) from LIBN section. ``library`` stays the OUTERMOST
+    # (the owning .lvlib) as before; ``owning_libraries`` is the full ownership
+    # chain (.lvlib -> .lvclass, outermost first) used to build a DISPLAY
+    # class-qualified name — the VI is self-describing, so this is present even
+    # for an isolated .vi (no class load).
+    lib_elems = [e.text for e in root.findall(".//LIBN/Section/Library") if e.text]
+    if lib_elems:
+        metadata["library"] = lib_elems[0]
+        metadata["owning_libraries"] = lib_elems
 
     # Get qualified name from LIvi section
     lvin = root.find(".//LIvi/Section/LVIN")

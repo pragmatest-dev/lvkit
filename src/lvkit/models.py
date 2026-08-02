@@ -424,6 +424,22 @@ class Operation(BaseModel):
     # and for structures (loops, cases, sequences). Used by resolution
     # diagnostics to point an LLM at the real source file.
     qualified_path: str | None = None
+    # DISPLAY ownership chain (owning .lvlib/.lvclass, outermost first) from the
+    # VI's own ``<LIBN>`` — for a SubVI-call op it's the CALLEE's chain. Lets a
+    # label read ``Class.lvclass:method`` to disambiguate same-named methods of
+    # different classes; never a resolution key. Empty for primitives/structures.
+    owning_libraries: list[str] = []
+
+    @property
+    def display_name(self) -> str:
+        """Label for diff/netlist/describe. A VI/method op with an ownership
+        chain (from its own ``<LIBN>``) reads ``…lvlib:Class.lvclass:method`` so
+        two classes' same-named methods are distinct; otherwise the bare name.
+        Bare-name identity/resolution is unaffected — this is display only."""
+        base = self.name or self.node_type or "node"
+        if self.owning_libraries and self.name:
+            return ":".join([*self.owning_libraries, self.name])
+        return base
 
 
 class PrimitiveOperation(Operation):

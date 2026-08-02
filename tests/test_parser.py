@@ -66,6 +66,33 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     assert val2 == "Refnum(5)"
 
 
+def test_owning_libraries_from_libn_chain(tmp_path):
+    """A VI is self-describing: its ``<LIBN>`` block records its ownership chain
+    (owning .lvlib/.lvclass, outermost first). parse_vi_metadata captures the
+    FULL chain into ``owning_libraries`` (a DISPLAY class-qualifier source),
+    while ``library`` stays the outermost and ``qualified_name`` stays the BARE
+    resolution key. Present even for an isolated .vi -- no class load, no
+    filesystem."""
+    from lvkit.parser.metadata import parse_vi_metadata
+
+    xml = tmp_path / "m.xml"
+    xml.write_text(
+        '<RSRC>'
+        '<LVSR><Section Name="Reserve Sessions.vi"/></LVSR>'
+        '<LIBN><Section>'
+        '<Library>NI Measurement Plug-In SDK.lvlib</Library>'
+        '<Library>Measure Call Context.lvclass</Library>'
+        '</Section></LIBN>'
+        '</RSRC>'
+    )
+    m = parse_vi_metadata(xml)
+    assert m["owning_libraries"] == [
+        "NI Measurement Plug-In SDK.lvlib", "Measure Call Context.lvclass",
+    ]
+    assert m["library"] == "NI Measurement Plug-In SDK.lvlib"  # outermost, as before
+    assert m["qualified_name"] == "Reserve Sessions.vi"        # bare resolution key
+
+
 def test_fp_terminal_label_position_captured():
     """An fPTerm's on-diagram label carries its DEVELOPER-PLACED position as a
     direct ``<label>`` child's ``<bounds>``, relative to the terminal. It parses
