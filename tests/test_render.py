@@ -3604,6 +3604,13 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     assert glyph.rows == (("Value", False), ("Visible", True))
     assert glyph.class_name == "VI"  # header names the object class
 
+    # The resolved property NAME is pinned onto its VALUE terminal's
+    # display_name, so the hover connector-panel shows it (not "terminal N") —
+    # same single-source pattern as Bundle-By-Name.
+    assert node.terminals[2].display_name == "Value"    # idx 2 value term
+    assert node.terminals[3].display_name == "Visible"  # idx 3 value term
+    assert node.terminals[0].display_name is None       # reference term untouched
+
     # No properties -> None, so the caller falls back to the plain box.
     empty = PrimitiveNode(
         id="VI::10", vi="VI", node_type="propNode", name="Property Node"
