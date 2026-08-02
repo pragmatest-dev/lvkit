@@ -722,17 +722,6 @@ def _wire_changes(
     b_of_h = {h: bs for bs, h in h2b.items()}     # head uid -> base uid
     matched_a = set(h2b.keys())
     matched_b = set(h2b.values())
-    # Select-function uids (base-space). The Select function is modeled as a
-    # contractible 2-frame CaseOperation, so a sink DOWNSTREAM of a Select
-    # contracts its effective source PAST the Select to whichever operand feeds
-    # it -- but that operand is not the sink's real producer (the Select is). See
-    # the select-contraction guard in the sink loop below. Canonicalized to
-    # base-space to compare against the (already base-space) crossed sets.
-    select_structs = {
-        u for u in structs_a if a[u].op.node_type == "select"
-    } | {
-        b_of_h.get(u, u) for u in structs_b if b[u].op.node_type == "select"
-    }
     # STABLE nodes (base-space): the SAME logical operation on both sides —
     # common (identical uid) or exact/fuzzy-matched — plus the VI's own
     # ``__self__`` boundary. A wire endpoint whose node is NOT here is an added/
@@ -904,29 +893,34 @@ def _wire_changes(
         # OTHER endpoint. ONE check unifies the three parallel suppression paths
         # this used to carry (sink-not-unchanged skip, source-not-unchanged
         # downgrade, terminal-owned). See ``_unstable_endpoint``.
-        if _unstable_endpoint(entry_a, unchanged, cterms):
+        nulled_a = _unstable_endpoint(entry_a, unchanged, cterms)
+        nulled_b = _unstable_endpoint(entry_b, unchanged, cterms)
+        if nulled_a:
             entry_a = None
-        if _unstable_endpoint(entry_b, unchanged, cterms):
+        if nulled_b:
             entry_b = None
         if entry_a is None and entry_b is None:
             continue  # both endpoints are already their own added/removed story
 
-        # SELECT-CONTRACTION GUARD: this now reads as added/removed only because
-        # ONE endpoint was nulled (its source became an added/removed node). If
-        # the SURVIVING endpoint's contracted path threaded a Select, its
-        # "source" was traced PAST the Select to an operand that isn't the sink's
-        # real producer -- so an inserted/removed operand upstream of the Select
-        # fabricates a phantom add/remove on a sink whose real wire (into the
-        # Select's output) never moved. Suppress it. A genuine producer change
-        # that never crosses a Select (empty intersection -- the validated run.vi
-        # residual) is untouched, as is a modified wire between two stable nodes
-        # (both endpoints survive, so ``survivor`` is None).
-        survivor = (
-            entry_a if entry_b is None
-            else entry_b if entry_a is None
-            else None
+        # CONTRACTION-PHANTOM GUARD: this reads as added/removed ONLY because the
+        # OTHER endpoint was NULLED (its source became an added/removed node),
+        # AND the SURVIVING endpoint reaches the sink THROUGH a structure (its
+        # ``crossed`` set is non-empty) -- i.e. its "source" was contracted PAST a
+        # case/loop/sequence/Select/IPES to a node that ISN'T the sink's real
+        # producer. So an operand inserted/removed upstream of that structure
+        # fabricates an add/remove on a sink whose real (immediate) wire never
+        # moved; the added/removed operand already owns the rewiring. Suppress.
+        # Left untouched: a genuine change whose survivor is DIRECTLY wired (empty
+        # ``crossed`` -- the validated run.vi residual); a REAL deletion where the
+        # other endpoint was genuinely absent, not nulled (``other_nulled`` False,
+        # so a deleted wire through a structure still reports); and a modified wire
+        # between two stable nodes (both survive -> ``survivor`` None).
+        survivor, other_nulled = (
+            (entry_a, nulled_b) if entry_b is None and entry_a is not None
+            else (entry_b, nulled_a) if entry_a is None and entry_b is not None
+            else (None, False)
         )
-        if survivor is not None and survivor[4] & select_structs:
+        if survivor is not None and other_nulled and survivor[4]:
             continue
 
         if entry_a is None:

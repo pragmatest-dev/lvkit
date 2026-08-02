@@ -1207,18 +1207,23 @@ class TestNodeTerminalSetChanges:
 
 
 class TestSelectContractionPhantom:
-    """The Select function is modeled as a contractible 2-frame CaseOperation,
-    so a sink DOWNSTREAM of a Select contracts its effective source PAST the
-    Select to whichever operand feeds it. JKI build.vi inserts a SECOND 'Build
-    Array' between the original one and the Select; that flips the traced-through
-    source (426 -> the added 1268), which used to fabricate a phantom 'removed
-    wire' on the input of 'Build Application from Build File' -- a sink fed,
-    unchanged, by the For-Loop tunnels. The select-contraction guard in
-    _wire_changes suppresses exactly this (an add/remove that exists only because
-    the source became an added/removed node AND the contracted path threaded a
-    Select), while leaving a genuine producer change that never crosses a Select
-    (the validated run.vi residual, TestWireChanges) untouched. So build.vi's
-    diff is purely the inserted node + its constants -- NO wire change."""
+    """CONTRACTION-PHANTOM guard (general, over any structure a wire is contracted
+    through -- case/loop/sequence/event/disable/IPES/Select -- not just Select).
+
+    A sink DOWNSTREAM of a contractible structure gets its effective source
+    traced PAST that structure to whatever feeds it. JKI build.vi inserts a SECOND
+    'Build Array' between the original one and a Select (the path also crosses the
+    For-Loop); that flips the traced-through source (426 -> the added 1268), which
+    used to fabricate a phantom 'removed wire' on the input of 'Build Application
+    from Build File' -- a sink fed, unchanged, by the For-Loop tunnels. The guard
+    in _wire_changes suppresses exactly this: an add/remove that exists ONLY
+    because the OTHER endpoint was nulled (its source became an added/removed
+    node) AND the surviving endpoint reaches the sink through a structure
+    (non-empty ``crossed``). It leaves untouched a genuine change whose survivor
+    is DIRECTLY wired (empty ``crossed`` -- the run.vi residual, TestWireChanges)
+    and a REAL deletion where the other endpoint was genuinely absent, not nulled
+    (the DCAF removal, TestWireEndpointStability). So build.vi's diff is purely
+    the inserted node + its constants -- NO wire change."""
 
     REPO = ".lvkit/cache/samples/JKI-VI-Tester"
     FILE_PATH = "source/build.vi"
