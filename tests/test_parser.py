@@ -154,8 +154,6 @@ class TestNode:
             name="MySubVI.vi",
             inputs=["term1", "term2"],
             outputs=["term3"],
-            input_types=["int", "float"],
-            output_types=["path"],
         )
         assert node.uid == "456"
         assert node.node_type == "iUse"

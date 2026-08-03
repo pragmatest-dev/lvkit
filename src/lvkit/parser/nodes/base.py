@@ -6,18 +6,12 @@ import xml.etree.ElementTree as ET
 
 from lvkit.models import Tunnel
 
-from ..constants import (
-    NODE_CLASS_COMMENT,
-    STRUCTURE_NODE_CLASSES,
-    TERMINAL_CLASS,
-)
-from ..flags import is_output_terminal
-from ..utils import extract_label, safe_int, safe_text
+from ..constants import NODE_CLASS_COMMENT, STRUCTURE_NODE_CLASSES
+from ..utils import extract_label
 
 # Re-export extract_label for backward compatibility
 __all__ = [
     "extract_label",
-    "extract_terminal_types",
     "extract_tunnel_mapping",
     "frame_inner_node_uids",
 ]
@@ -57,36 +51,6 @@ def frame_inner_node_uids(diag_elem: ET.Element) -> list[str]:
                 seen.add(u)
                 uids.append(u)
     return uids
-
-
-def extract_terminal_types(
-    elem: ET.Element,
-) -> tuple[list[str], list[str]]:
-    """Extract input and output type descriptors from a node element.
-
-    Args:
-        elem: Node element with termList
-
-    Returns:
-        Tuple of (input_types, output_types) lists
-    """
-    input_types: list[str] = []
-    output_types: list[str] = []
-
-    selector = f".//termList/SL__arrayElement[@class='{TERMINAL_CLASS}']"
-    for term in elem.findall(selector):
-        type_desc = term.find(".//typeDesc")
-        obj_flags = term.find("objFlags")
-
-        type_str = safe_text(type_desc)
-        if type_str:
-            flags = safe_int(obj_flags)
-            if is_output_terminal(flags):
-                output_types.append(type_str)
-            else:
-                input_types.append(type_str)
-
-    return input_types, output_types
 
 
 def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> list[Tunnel]:

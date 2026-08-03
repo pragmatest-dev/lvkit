@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .models import ParsedNode
-from .nodes.base import extract_label, extract_terminal_types
+from .nodes.base import extract_label
 from .utils import clean_labview_string
 
 # =============================================================================
@@ -187,13 +187,10 @@ class NodeTypeHandler(ABC):
     def _extract_common(self, elem: ET.Element) -> dict[str, Any]:
         """Extract common fields from XML element."""
         name = extract_label(elem)
-        input_types, output_types = extract_terminal_types(elem)
         return {
             "uid": elem.get("uid"),
             "node_type": self.xml_class,
             "name": name or self.display_name,
-            "input_types": input_types,
-            "output_types": output_types,
         }
 
 
@@ -432,13 +429,10 @@ class WhileLoopHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> LoopNode:
         # Don't use extract_label for loops - it would find labels from inner nodes
-        input_types, output_types = extract_terminal_types(elem)
         return LoopNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,  # Always use "While Loop"
-            input_types=input_types,
-            output_types=output_types,
             loop_type="whileLoop",
         )
 
@@ -451,13 +445,10 @@ class ForLoopHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> LoopNode:
         # Don't use extract_label for loops - it would find labels from inner nodes
-        input_types, output_types = extract_terminal_types(elem)
         return LoopNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,
-            input_types=input_types,
-            output_types=output_types,
             loop_type="forLoop",
         )
 
@@ -477,13 +468,10 @@ class SelectHandler(NodeTypeHandler):
     display_name = "Select"
 
     def parse(self, elem: ET.Element) -> SelectNode:
-        input_types, output_types = extract_terminal_types(elem)
         return SelectNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,
-            input_types=input_types,
-            output_types=output_types,
         )
 
 
@@ -609,13 +597,10 @@ class FlatSequenceHandler(NodeTypeHandler):
     display_name = "Flat Sequence"
 
     def parse(self, elem: ET.Element) -> ParsedNode:
-        input_types, output_types = extract_terminal_types(elem)
         return ParsedNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,
-            input_types=input_types,
-            output_types=output_types,
         )
 
 
@@ -630,13 +615,10 @@ class StackedSequenceHandler(NodeTypeHandler):
     display_name = "Stacked Sequence"
 
     def parse(self, elem: ET.Element) -> ParsedNode:
-        input_types, output_types = extract_terminal_types(elem)
         return ParsedNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,
-            input_types=input_types,
-            output_types=output_types,
         )
 
 
@@ -664,13 +646,10 @@ class DisableStructureHandler(NodeTypeHandler):
     display_name = "Disable Structure"
 
     def parse(self, elem: ET.Element) -> ParsedNode:
-        input_types, output_types = extract_terminal_types(elem)
         return ParsedNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
             name=self.display_name,
-            input_types=input_types,
-            output_types=output_types,
         )
 
 

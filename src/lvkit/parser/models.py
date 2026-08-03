@@ -46,8 +46,6 @@ class ParsedNode:
     name: str | None = None
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
-    input_types: list[str] = field(default_factory=list)
-    output_types: list[str] = field(default_factory=list)
 
 
 @dataclass

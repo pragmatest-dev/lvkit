@@ -1,6 +1,6 @@
 """Node parsing submodule."""
 
-from .base import extract_label, extract_terminal_types
+from .base import extract_label
 from .case import extract_case_structures, parse_selector_tables
 from .constant import extract_constants
 from .decompose import extract_decompose_structures
@@ -20,5 +20,4 @@ __all__ = [
     "extract_loops",
     "is_disable_structure",
     "parse_selector_tables",
-    "extract_terminal_types",
 ]
