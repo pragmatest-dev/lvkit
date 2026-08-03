@@ -660,12 +660,15 @@ def _process_element_terminals(
         elif term_uid in wire_sinks:
             is_output = False
         else:
-            # Unwired terminal - fall back to flag-based detection
-            term_flags = safe_int(term.find("objFlags"))
+            # Unwired terminal — direction from the DCO's objFlags bit 0 ONLY.
+            # The term-level <objFlags> bit 0 is overloaded/unreliable for
+            # direction; a corpus study over 992 unwired ground-truth terminals
+            # (scripts/study_unwired_direction.py) scored dco_only 100% vs the
+            # old `term_flags | dco_flags` 99.8% (wrong exactly on the noisy
+            # bit-0 case, e.g. Search/Split String) vs term_only ~40%.
             dco_obj = dco.find("objFlags") if dco is not None else None
             dco_flags = safe_int(dco_obj)
-            combined_flags = term_flags | dco_flags
-            is_output = is_output_terminal(combined_flags)
+            is_output = is_output_terminal(dco_flags)
 
         # Resolve TypeID to ParsedType
         type_desc_elem = term.find(".//typeDesc")
