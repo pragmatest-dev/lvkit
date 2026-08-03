@@ -5431,13 +5431,13 @@
         {
           "index": 4,
           "direction": "in",
-          "name": "menu_tag",
+          "name": "after_item",
           "type": "String"
         },
         {
           "index": 5,
           "direction": "in",
-          "name": "after_item",
+          "name": "menu_tag",
           "type": "String"
         },
         {
@@ -5449,13 +5449,13 @@
         {
           "index": 7,
           "direction": "in",
-          "name": "item_names",
+          "name": "item_tags",
           "type": "Array"
         },
         {
           "index": 8,
           "direction": "in",
-          "name": "item_tags",
+          "name": "item_names",
           "type": "Array"
         },
         {
@@ -5484,7 +5484,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "Confirmed via NI doc exact match: 6 inputs (menu tag, menu reference, item names, item tags, error in, after item) + 3 outputs (menu reference out, item tags out, error out) = 9 named terminals, exactly matching the observed 9-terminal pane. Types pin most slots unambiguously: idx9=Refnum=menu reference, idx6=Cluster=error in, idx7/idx8=Array[String]=item names/item tags (this instance wired arrays; the doc also allows a single string per slot), idx3=Refnum=menu reference out, idx1=Array[String]=item tags out, idx0=Cluster=error out -- all confirmed unambiguous by output-column termBounds order, which matches the NI doc's output listing order exactly (top-to-bottom: menu reference out, item tags out, error out). The remaining ambiguity is idx4 vs idx5 (both scalar String): termBounds geometry places them in their own double-height connector-pane column, separate from the single-height 4-slot column holding menu_reference/item_names/item_tags/error_in (which independently matches doc order top-to-bottom). menu_tag is the FIRST-listed doc input and after_item is the LAST-listed; assigning top-of-column=idx5=menu_tag, bottom-of-column=idx4=after_item is a deduction (not a doc-confirmed index), supported by dataflow: idx5 (hypothesized menu_tag) IS wired in the sole corpus instance, idx4 (hypothesized after_item, a rarely-customized insertion-position parameter) is UNWIRED -- consistent with menu_tag being commonly specified and after_item commonly left at its default. Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false."
+      "note": "Confirmed via NI doc exact match: 6 inputs (menu tag, menu reference, item names, item tags, error in, after item) + 3 outputs (menu reference out, item tags out, error out) = 9 named terminals, exactly matching the observed 9-terminal pane. Types pin most slots unambiguously: idx9=Refnum=menu reference, idx6=Cluster=error in, idx7/idx8=Array[String]=item names/item tags (this instance wired arrays; the doc also allows a single string per slot), idx3=Refnum=menu reference out, idx1=Array[String]=item tags out, idx0=Cluster=error out -- all confirmed unambiguous by output-column termBounds order, which matches the NI doc's output listing order exactly (top-to-bottom: menu reference out, item tags out, error out). The remaining ambiguity is idx4 vs idx5 (both scalar String): termBounds geometry places them in their own double-height connector-pane column, separate from the single-height 4-slot column holding menu_reference/item_names/item_tags/error_in (which independently matches doc order top-to-bottom). menu_tag is the FIRST-listed doc input and after_item is the LAST-listed; assigning top-of-column=idx5=menu_tag, bottom-of-column=idx4=after_item is a deduction (not a doc-confirmed index), supported by dataflow: idx5 (hypothesized menu_tag) IS wired in the sole corpus instance, idx4 (hypothesized after_item, a rarely-customized insertion-position parameter) is UNWIRED -- consistent with menu_tag being commonly specified and after_item commonly left at its default. Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false. CORRECTION (2026-08-02, termBounds + NI doc connector-pane diagram): BOTH same-type input pairs were registered BACKWARDS and are fixed here. Parsed termBounds for this instance (uid 18661): inner single-height column top->bottom = idx9,idx8,idx7,idx6; double-height String column top->bottom = idx5,idx4. The doc diagram draws the input labels in that same geometric order (validated at both inner-column endpoints: idx9=menu_reference top, idx6=error_in bottom), so idx8=item_names/idx7=item_tags (was idx7=item_names) and idx5=menu_tag/idx4=after_item (was idx4=menu_tag -- which also CONTRADICTED this note's own deduction that idx5=menu_tag). Resolved by geometry, no guess."
     },
     "9004": {
       "name": "Delete Menu Items",

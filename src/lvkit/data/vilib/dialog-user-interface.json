@@ -551,7 +551,7 @@
           "enum_values": null,
           "python_param": "specific_error_code_to_clear_0_all",
           "direction": "input",
-          "index": 3
+          "index": 7
         },
         {
           "name": "error in (no error)",
@@ -569,7 +569,7 @@
           "enum_values": null,
           "python_param": "specific_error_cleared",
           "direction": "output",
-          "index": 2
+          "index": 3
         },
         {
           "name": "error out",
