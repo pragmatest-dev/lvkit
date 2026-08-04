@@ -159,7 +159,16 @@ def _own_class_private_data_fields(
         return []
     if main_xml is None:
         return []
-    fields = _fields_from_xml(main_xml, classname)
+    # allow_display_label_fallback: in the SINGLE-VI case (an uploaded VI with
+    # no .lvclass / .ctl on any search path) the class's private-data cluster is
+    # often labeled with its control's display name rather than "class private
+    # data"; accept it (identified by owner class + "<Class>.ctl") so fields
+    # resolve from the VI alone instead of falling back to raw [index]. The
+    # dep_graph/.ctl path (authoritative, and it dereferences by-reference data)
+    # is unaffected — it never sets this flag.
+    fields = _fields_from_xml(
+        main_xml, classname, allow_display_label_fallback=True
+    )
     if not fields:
         return []
     return [private_data_field_to_cluster_field(f) for f in fields]

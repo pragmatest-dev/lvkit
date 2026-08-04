@@ -154,8 +154,17 @@ def _same_class(label_text: str, classname: str) -> bool:
     return bool(label_text) and norm(label_text) == norm(classname)
 
 
+def _is_refnum_field(f: LVPrivateDataField) -> bool:
+    """True if a private-data field is itself a reference (a refnum / Data Value
+    Reference) rather than inline data — i.e. the class stores its real fields
+    behind that reference (by-reference private data)."""
+    return (f.lv_type_name or "").strip().lower() == "refnum"
+
+
 def _fields_from_xml(
-    xml_path: Path, expected_classname: str | None = None,
+    xml_path: Path,
+    expected_classname: str | None = None,
+    allow_display_label_fallback: bool = False,
 ) -> list[LVPrivateDataField] | None:
     """Look for the "Cluster of class private data" TypeDesc in one main XML.
 
@@ -171,6 +180,19 @@ def _fields_from_xml(
     a generic error/variant-map class) rather than the VI's own class. Pass
     ``None`` to accept the first match unconditionally (legacy behavior).
 
+    Two spellings of that wrapper occur in the wild:
+
+    * Canonical: the wrapped cluster's own Label is ``"...class private data"``.
+    * Otherwise: the wrapped cluster is labeled with the control's DISPLAY name
+      (e.g. ``"measurement context data"``) — still authoritatively THIS class's
+      private data, identified by the TypeDef's owner Labels (the expected class
+      + its ``.ctl``). Accepting this form is what lets a SINGLE uploaded VI name
+      its own class fields with no ``.lvclass`` attached (better than ``[index]``).
+
+    The owner match scans ALL of the TypeDef's ``<Label>`` children (the wrapper
+    carries several: owning library, class, and ``.ctl``), so it is robust to
+    the class not being the first one.
+
     Returns the resolved fields, or None if this XML doesn't carry a
     matching private-data TypeDesc (not every method VI references "this",
     and one that does may reference a different class's private data).
@@ -180,23 +202,79 @@ def _fields_from_xml(
     except ET.ParseError:
         return None
     root = tree.getroot()
-    for typedef in root.iter("TypeDesc"):
-        if typedef.get("Type") != "TypeDef":
-            continue
+
+    typedefs = [td for td in root.iter("TypeDesc") if td.get("Type") == "TypeDef"]
+
+    def _owner_labels(typedef: ET.Element) -> list[str]:
+        return [lbl.get("Text", "") or "" for lbl in typedef.findall("Label")]
+
+    def _owned_by_expected(typedef: ET.Element) -> bool:
+        if expected_classname is None:
+            return True
+        return any(_same_class(t, expected_classname) for t in _owner_labels(typedef))
+
+    def _stem(name: str) -> str:
+        # last ":"-qualified component, minus its extension, normalized
+        return name.rsplit(":", 1)[-1].rsplit(".", 1)[0].strip().lower()
+
+    def _is_class_private_ctl(typedef: ET.Element) -> bool:
+        # A class's OWN private-data control is conventionally named
+        # "<Class>.ctl" -- its stem matches the class's. This distinguishes it
+        # from member sub-controls (e.g. "DAQ Tasks.ctl") that are ALSO
+        # class-owned .ctl typedefs but are fields, not the private data.
+        cls_stem = _stem(expected_classname) if expected_classname else ""
+        return any(
+            t.lower().endswith(".ctl") and _stem(t) == cls_stem
+            for t in _owner_labels(typedef)
+        )
+
+    def _members(typedef: ET.Element) -> list[LVPrivateDataField] | None:
+        nested = typedef.find("TypeDesc[@Nested='True']")
+        if nested is None:
+            return None
+        type_ids = [td.get("TypeID") for td in nested.findall("TypeDesc")]
+        return _resolve_type_ids(root, type_ids)
+
+    # Pass 1 (canonical, UNCHANGED): the wrapped cluster's Label says "class
+    # private data", owned by the expected class. Authority comes from the
+    # FIRST <Label> (the direct owner) — scanning all labels here would let a
+    # different class that merely appears deeper in the label list win, so this
+    # match stays first-label-only exactly as before.
+    for typedef in typedefs:
         nested = typedef.find("TypeDesc[@Nested='True']")
         if nested is None:
             continue
-        label = nested.get("Label", "")
-        if "class private data" not in label.lower():
+        if "class private data" not in (nested.get("Label", "") or "").lower():
             continue
         if expected_classname is not None:
             owner = typedef.find("Label")
             owner_text = owner.get("Text", "") if owner is not None else ""
             if not _same_class(owner_text, expected_classname):
                 continue
-        type_ids = [td.get("TypeID") for td in nested.findall("TypeDesc")]
-        fields = _resolve_type_ids(root, type_ids)
+        fields = _members(typedef)
         if fields:
+            return fields
+
+    # Pass 2 (fallback — better than a raw [index]): the cluster is labeled with
+    # its control's DISPLAY name, not "class private data". Accept the TypeDef
+    # that IS this class's private-data control — its owner Labels name the
+    # expected class AND a ".ctl". Owner-authoritative, so it never grabs a
+    # different class's cluster; requires ``expected_classname`` to disambiguate.
+    if allow_display_label_fallback and expected_classname is not None:
+        for typedef in typedefs:
+            if not _owned_by_expected(typedef):
+                continue
+            if not _is_class_private_ctl(typedef):
+                continue
+            fields = _members(typedef)
+            if not fields:
+                continue
+            # A by-reference private data (the <Class>.ctl cluster is a single
+            # Data Value Reference wrapping the real fields) is left to the
+            # authoritative .ctl/dep path, which dereferences it — returning the
+            # bare wrapper name here would be worse than the plain index.
+            if all(_is_refnum_field(f) for f in fields):
+                continue
             return fields
     return None
 

@@ -178,6 +178,37 @@ def test_flattened_private_data_parser_direct(tmp_path: Path) -> None:
     assert [sf.name for sf in pin_map.sub_fields] == ["pin_map_id", "sites"]
 
 
+def test_single_vi_names_own_class_fields(tmp_path: Path) -> None:
+    """SINGLE VI, nothing else attached (the online-viewer upload case): a VI
+    whose class private-data cluster is labeled with the control's DISPLAY name
+    ("measurement context data") rather than "class private data" still names
+    its unbundle-by-name fields from its OWN VCTP — the wrapping TypeDef is
+    identified by its owner Labels (the class + its .ctl), so no .lvclass is
+    needed on the search path. Guards the Pass-2 owner-based fallback in
+    `_fields_from_xml`: without it these fields render as raw `[index]`.
+    """
+    if not (Path(_MC_REPO) / ".git").exists():
+        pytest.skip("measurement-plugin-labview sample repo not present")
+    vi = tmp_path / "Create.vi"
+    blob = subprocess.run(
+        ["git", "-C", _MC_REPO, "show", f"{_MC_REF_BEFORE}:{_MC_DIR}/Create.vi"],
+        capture_output=True,
+    )
+    vi.write_bytes(blob.stdout)
+
+    g = InMemoryVIGraph()
+    g.load_vi(vi, mode=LoadMode.MINIMAL)  # single VI: no class dir, no search path
+    stamped = {
+        t.display_name
+        for nid in g._graph.nodes
+        if isinstance((n := g._graph.nodes[nid].get("node")), PrimitiveNode)
+        and n.node_type == "nMux"
+        for t in n.terminals
+        if getattr(t, "nmux_role", None) == "list" and t.display_name
+    }
+    assert "pin_map_id" in stamped
+
+
 @pytest.mark.parametrize("mode", [LoadMode.MINIMAL, LoadMode.FULL])
 def test_ctl_private_data_class_fields_resolve(tmp_path: Path, mode) -> None:
     cdir = _extract_class_dir(tmp_path)
