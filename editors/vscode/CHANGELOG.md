@@ -2,6 +2,12 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.11]
+
+- **Bundles lvkit 0.5.8** — brings the render/diff fidelity work: front-panel
+  control/indicator diffs, In-Place Element borders, class refnum labels, and
+  class private-data field names.
+
 ## [0.1.9]
 
 - **Self-contained runtime — no first-run download, no setup.** 0.1.8 still

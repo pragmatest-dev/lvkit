@@ -28,7 +28,7 @@ VSCODE="$(cd "$HERE/.." && pwd)"
 TARGET="${1:-win32-x64}"
 
 # Pins — keep these explicit so the bundle is reproducible.
-LVKIT_PIN="${LVKIT_PIN:-0.5.7}"
+LVKIT_PIN="${LVKIT_PIN:-0.5.8}"
 PBS_RELEASE="${PBS_RELEASE:-20260728}"   # python-build-standalone release tag
 PY_VERSION="${PY_VERSION:-3.12.13}"      # CPython version within that release
 PY_XY="3.12"                             # major.minor for pip --python-version
