@@ -284,15 +284,18 @@ def _extend_frame_path(
 def _frame_value(frame: Frame) -> object:
     """The raw selector/index value identifying ``frame`` —
     ``CaseFrame.selector_value`` for a case, ``SequenceFrame.index`` for a
-    sequence (flat or stacked). Matches exactly what
-    render/scene.py::_frame_path stores as ``cur.frame`` for the same node,
-    so ``str()``-ing it here reproduces the identical token."""
+    sequence (flat or stacked), ``EventFrame.index`` for an event frame
+    (positional — the active frame is runtime-chosen, so it has no selector).
+    Matches exactly what render/scene.py::_frame_path stores as ``cur.frame``
+    for the same node (``construction.py`` stamps event children with
+    ``str(idx)`` too), so ``str()``-ing it here reproduces the identical token
+    and diff frame-paths correlate with the SVG ``data-path``."""
     if isinstance(frame, CaseFrame):
         return frame.selector_value
     if isinstance(frame, SequenceFrame):
         return frame.index
     if isinstance(frame, EventFrame):
-        return frame.event_label
+        return frame.index
     return None
 
 
@@ -669,26 +672,6 @@ def _sink_sort_key(key: tuple[str, object]) -> tuple:
     return (_uid_sort(node_key), term_rank)
 
 
-def _terminal_label(
-    t: Terminal, owner_op: Operation | None, graph: InMemoryVIGraph,
-) -> str | None:
-    """The human identity of a node terminal: its resolved display name --
-    for an nMux/decompose (Bundle/Unbundle-By-Name) FIELD terminal
-    (``nmux_role=="list"``), this IS the struct/class FIELD it maps, stamped
-    once graph-wide at load time (see ``op_walk.stamp_nmux_lane_names``);
-    every other terminal uses its own name the same way. None when neither
-    resolves (the caller falls back to node name / position). Shared by the
-    wire-endpoint labeler (``label_of``) and the node terminal-set delta
-    (``_term_delta_detail``) so an nMux field reads identically in both.
-
-    ``owner_op``/``graph`` are unused now that nMux resolution happens once
-    at load time rather than per-lookup here -- kept in the signature so
-    every call site (which still has both in scope) stays unchanged.
-    """
-    del owner_op, graph
-    return _terminal_display_name(t)
-
-
 def _wire_changes(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     va: str, vb: str,
@@ -803,7 +786,7 @@ def _wire_changes(
     )
 
     def label_of(
-        graph: InMemoryVIGraph, end: WireEnd, vi_self: str,
+        end: WireEnd, vi_self: str,
         elems: dict[str, _ElemInfo], self_terms: list[Terminal],
         consts: Mapping[str, str],
     ) -> str:
@@ -814,7 +797,6 @@ def _wire_changes(
         term_key = end.index if end.index is not None else end.name
         terminals: list[Terminal] = []
         owner_label: str | None = None
-        owner_op: Operation | None = None
         if end.node_id == vi_self:
             terminals = self_terms
         else:
@@ -822,7 +804,6 @@ def _wire_changes(
             if entry is not None:
                 terminals = entry.op.terminals
                 owner_label = entry.op.name or entry.op.node_type
-                owner_op = entry.op
         for t in terminals:
             match = (
                 t.index == term_key if isinstance(term_key, int)
@@ -832,8 +813,8 @@ def _wire_changes(
                 continue
             # Resolve the terminal's identity — an nMux output reads its struct/
             # class FIELD net (e.g. ``isSkipped``), everything else its own
-            # display name — via the shared ``_terminal_label`` resolver.
-            if (name := _terminal_label(t, owner_op, graph)) is not None:
+            # display name — stamped once at load (op_walk.stamp_nmux_lane_names).
+            if (name := _terminal_display_name(t)) is not None:
                 return name
         return (
             consts.get(end.node_id) or owner_label or end.name
@@ -938,8 +919,8 @@ def _wire_changes(
         if change == "removed":
             assert entry_a is not None
             dest_end = entry_a[3]
-            sink_label = label_of(graph_a, dest_end, va, a, self_terms_a, consts_a)
-            old_label = label_of(graph_a, entry_a[2], va, a, self_terms_a, consts_a)
+            sink_label = label_of(dest_end, va, a, self_terms_a, consts_a)
+            old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
             bounds = _point_rect(layout_a, _uid_of(dest_end.terminal_id))
             bounds_before = _point_rect(layout_a, _uid_of(entry_a[2].terminal_id))
             # The gutter (-) already says "removed" -- so render the connection
@@ -957,8 +938,8 @@ def _wire_changes(
         else:
             assert entry_b is not None
             dest_end = entry_b[3]
-            sink_label = label_of(graph_b, dest_end, vb, b, self_terms_b, consts_b)
-            new_label = label_of(graph_b, entry_b[2], vb, b, self_terms_b, consts_b)
+            sink_label = label_of(dest_end, vb, b, self_terms_b, consts_b)
+            new_label = label_of(entry_b[2], vb, b, self_terms_b, consts_b)
             bounds = _point_rect(layout_b, _uid_of(dest_end.terminal_id))
             path = _wire_path(layout_b, wires_b, _uid_of(dest_end.terminal_id))
             # Own pane is head (added & modified alike) -- reveal the OTHER
@@ -971,7 +952,7 @@ def _wire_changes(
                 detail = f"← {new_label}"
             else:
                 assert entry_a is not None
-                old_label = label_of(graph_a, entry_a[2], va, a, self_terms_a, consts_a)
+                old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
                 bounds_before = _point_rect(
                     layout_a, _uid_of(entry_a[2].terminal_id),
                 )
@@ -1041,6 +1022,14 @@ def _frame_display(frame: Frame, op: Operation) -> str:
     an error cluster as ``No Error``/``Error``, etc.); a sequence frame is its
     index. This keeps the flat-list label (``ElementChange.label``) and the tree
     frame label (rendered via ``_selector_label`` too) in agreement."""
+    if isinstance(op, DisableStructureOperation) and isinstance(frame, CaseFrame):
+        # Disable frames ARE CaseFrames, but their selector_value already IS the
+        # display text ("Enabled"/"Disabled"/"Frame N") and their is_default
+        # means "the active/compiled-in frame", not a catch-all default — so
+        # they must NOT go through _selector_label's is_default→"Default" branch
+        # (mirror netlist._build_disabled_scope, which bypasses it for the same
+        # reason).
+        return str(frame.selector_value)
     if isinstance(frame, CaseFrame):
         lv_type = (
             _selector_lv_type(op, op.selector_terminal)
@@ -1654,23 +1643,20 @@ def _matched_node_pairs(
 
 
 def _term_delta_detail(
-    added: list[Terminal], op_b: Operation, graph_b: InMemoryVIGraph,
-    removed: list[Terminal], op_a: Operation, graph_a: InMemoryVIGraph,
+    added: list[Terminal], removed: list[Terminal],
 ) -> str:
     """``+field, -param`` summary of a node's added/removed terminals — naming
-    each via the SHARED ``_terminal_label`` resolver (so an nMux field reads the
-    same here as in a wire change), falling back to ``dir[index]`` when unnamed.
-    Added terminals resolve against the head op/graph, removed against base."""
-    def lab(t: Terminal, op: Operation, graph: InMemoryVIGraph) -> str:
-        return _terminal_label(t, op, graph) or t.name or f"{t.direction}[{t.index}]"
+    each by its resolved display name (stamped once at load, so an nMux field
+    reads the same here as in a wire change), falling back to ``dir[index]``
+    when unnamed."""
+    def lab(t: Terminal) -> str:
+        return _terminal_display_name(t) or t.name or f"{t.direction}[{t.index}]"
     return ", ".join(
-        [f"+{lab(t, op_b, graph_b)}" for t in added]
-        + [f"-{lab(t, op_a, graph_a)}" for t in removed]
+        [f"+{lab(t)}" for t in added] + [f"-{lab(t)}" for t in removed]
     )
 
 
 def _node_terminal_changes(
-    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     a: dict[str, _ElemInfo], b: dict[str, _ElemInfo],
     exact: dict[str, str], fuzzy: dict[str, str],
     layout_a: Layout | None, layout_b: Layout | None,
@@ -1703,7 +1689,7 @@ def _node_terminal_changes(
             uid_h, eb.op.id, "node", "modified", _elem_label(eb.op, "node"),
             _node_bounds(layout_b, uid_h),
             bounds_before=_node_bounds(layout_a, uid_b),
-            detail=_term_delta_detail(added, eb.op, graph_b, removed, ea.op, graph_a),
+            detail=_term_delta_detail(added, removed),
             container_uid=eb.container_uid, frame_path=eb.frame_path,
         ))
         changed_terms |= {_uid_of(t.id) for t in added}
@@ -1806,7 +1792,7 @@ def diff_uid(
     # added/removed — reported as a node ``modified`` with the delta, its new/
     # gone terminals folding their wires in (below).
     node_term_changes, node_changed_terms = _node_terminal_changes(
-        graph_a, graph_b, a, b, exact, fuzzy, layout_a, layout_b,
+        a, b, exact, fuzzy, layout_a, layout_b,
     )
     cmap.changes.extend(node_term_changes)
 

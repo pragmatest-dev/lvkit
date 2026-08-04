@@ -59,6 +59,26 @@ def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
     )
 
 
+def _make_read_po(**overrides: object) -> argparse.Namespace:
+    """The pylabview "parsed options" namespace for an in-process RSRC READ.
+
+    Centralizes the read-path defaults (``verbose``/``print_map`` + the
+    typedesc/array/data limits) shared by every in-process
+    ``LVrsrcontainer.VI`` construction — here and in
+    :mod:`lvkit.flattened_typedesc`. Callers pass the site-specific fields
+    (``rsrc``/``xml``/``filebase``/…) as ``overrides``.
+    """
+    opts: dict[str, object] = {
+        "verbose": 0,
+        "print_map": None,
+        "typedesc_list_limit": 4095,
+        "array_data_limit": (2**28) - 1,
+        "store_as_data_above": 4095,
+    }
+    opts.update(overrides)
+    return argparse.Namespace(**opts)
+
+
 def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
     """Extract a VI to XML in-process, matching ``readRSRC -i <vi> -x``.
 
@@ -74,13 +94,11 @@ def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
     (extract) subcommand via argparse.
     """
     xml_path = output_dir / f"{vi_stem}.xml"
-    po = argparse.Namespace(
-        verbose=0,
+    po = _make_read_po(
         rsrc=str(vi_path),
         xml=str(xml_path),
         textcp="mac_roman",
         raw_connectors=False,
-        print_map=None,
         keep_names=False,
         filebase=vi_stem,
         list=False,
@@ -88,9 +106,6 @@ def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
         extract=True,
         create=False,
         password=None,
-        typedesc_list_limit=4095,
-        array_data_limit=(2**28) - 1,
-        store_as_data_above=4095,
     )
     with open(vi_path, "rb") as rsrc_fh:
         vi = _lv_rsrc.VI(po, rsrc_fh=rsrc_fh, text_encoding=po.textcp)
@@ -209,17 +224,12 @@ def _open_llb_vi(llb_path: Path) -> Any:
     except ImportError as exc:
         raise RuntimeError("pylabview is not installed") from exc
 
-    po = argparse.Namespace(
-        verbose=0,
+    po = _make_read_po(
         rsrc=str(llb_path),
         xml="",
         filebase=llb_path.stem,
-        print_map=None,
         keep_names=True,
         raw_connectors=False,
-        typedesc_list_limit=4095,
-        array_data_limit=(2**28) - 1,
-        store_as_data_above=4095,
     )
     with open(llb_path, "rb") as fh:
         vi = lvrsrc.VI(po, rsrc_fh=fh, text_encoding="mac_roman")

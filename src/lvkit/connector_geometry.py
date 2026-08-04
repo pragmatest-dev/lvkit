@@ -146,8 +146,16 @@ def rank_slots_by_geometry(slots: Sequence[Slot], tol: float = 8.0) -> list[Slot
     positioned = [s for s in slots if s.position is not None]
     unpositioned = [s for s in slots if s.position is None]
 
-    centers_x = [(s.position[0] + s.position[2]) / 2 for s in positioned if s.position]
-    centers_y = [(s.position[1] + s.position[3]) / 2 for s in positioned if s.position]
+    # positioned excludes None above; capture the narrowed rect per slot so the
+    # centers stay index-aligned with `positioned` (a trailing `if s.position`
+    # filter here would silently misalign col_ranks[i] if it ever dropped one).
+    centers_x: list[float] = []
+    centers_y: list[float] = []
+    for s in positioned:
+        pos = s.position
+        assert pos is not None
+        centers_x.append((pos[0] + pos[2]) / 2)
+        centers_y.append((pos[1] + pos[3]) / 2)
     col_ranks = _rank_by_tolerance(centers_x, tol, reverse=True)
     row_ranks = _rank_by_tolerance(centers_y, tol, reverse=True)
 

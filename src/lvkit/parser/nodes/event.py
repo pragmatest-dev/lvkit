@@ -156,6 +156,7 @@ def _extract_one_event_structure(
             inner_node_uids, data_node_uids, filter_node_uids, idx,
         )
         frames.append(EventFrame(
+            index=idx,
             event_label=labels[idx],
             inner_node_uids=inner_node_uids,
         ))

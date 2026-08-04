@@ -617,6 +617,12 @@ def _event_data_glyph(
     same heap class. Returns None if there are no field terminals at all
     (caller falls back to the generic box)."""
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
+    # NAMES resolve through the SAME shared, leaf-first resolver Bundle-By-Name
+    # uses (incl. the own-class private-data fallback), pinning display_name so
+    # the glyph row and the hover connector-panel agree. The positional
+    # ``fields`` list is kept ONLY for the per-row type-color FALLBACK (the
+    # terminal's own VCTP type is preferred, so this rarely fires).
+    own_fields, dep_fields = _nmux_field_sources(node.vi, agg, graph)
     fields = (
         graph.get_type_fields(agg.lv_type) or []
         if agg is not None and agg.lv_type is not None
@@ -630,15 +636,16 @@ def _event_data_glyph(
     rows: list[tuple[str, LVType | None]] = []
     for t in field_terms:
         fi = t.nmux_field_index
-        field = fields[fi] if fi is not None and 0 <= fi < len(fields) else None
-        if field is not None and field.name:
-            name = field.name
+        name = t.display_name or _resolve_nmux_field_name(fi, own_fields, dep_fields)
+        if name:
+            t.display_name = name
         elif t.name:
             name = t.name
         elif fi is not None:
             name = f"[{fi}]"
         else:
             name = "[?]"
+        field = fields[fi] if fi is not None and 0 <= fi < len(fields) else None
         lv_type = t.lv_type if t.lv_type is not None else (
             field.type if field is not None else None
         )

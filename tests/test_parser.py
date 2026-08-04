@@ -143,8 +143,6 @@ class TestNode:
         assert node.uid == "123"
         assert node.node_type == "prim"
         assert node.name is None
-        assert node.inputs == []
-        assert node.outputs == []
 
     def test_node_creation_full(self):
         """Test creating a ParsedNode with all fields."""
@@ -152,14 +150,10 @@ class TestNode:
             uid="456",
             node_type="iUse",
             name="MySubVI.vi",
-            inputs=["term1", "term2"],
-            outputs=["term3"],
         )
         assert node.uid == "456"
         assert node.node_type == "iUse"
         assert node.name == "MySubVI.vi"
-        assert len(node.inputs) == 2
-        assert len(node.outputs) == 1
 
 
 class TestConstant:

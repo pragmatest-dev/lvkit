@@ -7,6 +7,7 @@ _resolve_class_vi_path, _resolve_through_llb.
 
 from __future__ import annotations
 
+import logging
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -39,6 +40,8 @@ from ..structure import (
 )
 from .models import PolyInfo, VIMetadata
 from .op_walk import stamp_nmux_lane_names
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
@@ -372,6 +375,10 @@ class LoadingMixin:
             try:
                 pd_fields = private_data_from_lvclass_xml(lvclass_path)
             except Exception:
+                logger.debug(
+                    "flattened private-data recovery failed for %s",
+                    lvclass_path, exc_info=True,
+                )
                 pd_fields = []
             fields = [private_data_field_to_cluster_field(f) for f in pd_fields]
         self._dep_graph.add_node(

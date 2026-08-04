@@ -85,11 +85,12 @@ field with no ``sub_fields``.
 
 from __future__ import annotations
 
-import argparse
 import html
 import io
 import re
+import warnings
 from pathlib import Path
+from typing import Any
 
 # Import the patch layer before pylabview, matching lvkit.extractor's own
 # import order: it installs a compile-time SyntaxWarning filter (fires at
@@ -105,6 +106,7 @@ import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]  # n
 
 install_pylabview_patches()
 
+from lvkit.extractor import _make_read_po  # noqa: E402
 from lvkit.structure import LVPrivateDataField  # noqa: E402
 
 TD_FULL_TYPE = _lv_datatype.TD_FULL_TYPE
@@ -176,18 +178,6 @@ def _find_embedded_rsrc(raw: bytes) -> bytes | None:
     return raw[best:]
 
 
-def _make_po() -> argparse.Namespace:
-    """The pylabview "parsed options" namespace, matching the fields
-    ``lvkit.extractor`` already passes for in-process RSRC reads."""
-    return argparse.Namespace(
-        verbose=0,
-        typedesc_list_limit=4095,
-        array_data_limit=(2**28) - 1,
-        store_as_data_above=4095,
-        print_map=None,
-    )
-
-
 def _valid_label_length(window: bytes, i: int) -> int:
     """Same check as pylabview's ``TDObject.validLabelLength``: is
     ``window[i]`` a Pascal-string length byte whose string fills ``window``
@@ -223,23 +213,23 @@ def _recover_label(raw_data: bytes | None) -> bytes | None:
     return None
 
 
-def _resolve_client(client: object, section: object) -> object:
+def _resolve_client(client: Any, section: Any) -> Any:
     """Resolve a TD "client" reference (a cluster/typedef/refnum member) to
     its TDObject -- inline (``index == -1``, already ``.nested``) or by
     index into the flat VCTP TypeDesc list.
     """
-    index = client.index  # type: ignore[attr-defined]
+    index = client.index
     if index == -1:
-        return client.nested  # type: ignore[attr-defined]
-    return section.content[index].nested  # type: ignore[attr-defined]
+        return client.nested
+    return section.content[index].nested
 
 
-def _leaf_type_name(td: object) -> str:
+def _leaf_type_name(td: Any) -> str:
     """Bare LV type name for a non-cluster/non-typedef TD, in the same
     vocabulary ``lvkit.structure`` already uses (``TD_FULL_TYPE`` member
     names: ``"NumUInt64"``, ``"String"``, ``"Array"``, ``"Refnum"``, ...).
     """
-    otype = td.otype  # type: ignore[attr-defined]
+    otype = td.otype
     try:
         return TD_FULL_TYPE(otype).name
     except ValueError:
@@ -251,10 +241,17 @@ def _leaf_type_name(td: object) -> str:
         # rather than guessing a specific type.
         if (otype >> 4) == 0x7:
             return "Refnum"
+        # A wholly unrecognized family -- surface it rather than silently
+        # inventing a made-up primitive name (mirrors _resolve_type_ids's warn).
+        warnings.warn(
+            f"unrecognized LabVIEW obj_type 0x{otype:02X}; classifying "
+            "private-data field as an opaque leaf",
+            stacklevel=2,
+        )
         return f"Type_0x{otype:02X}"
 
 
-def _class_qualified_name(td: object) -> str | None:
+def _class_qualified_name(td: Any) -> str | None:
     """For a ``UDClassInst`` (user-defined class instance) refnum, its
     qualified ``.lvclass`` path from the parsed ``items`` list -- the same
     "join the path segments with ':'" convention as a TypeDef's qualified
@@ -272,9 +269,9 @@ def _class_qualified_name(td: object) -> str | None:
     return ":".join(p for p in parts if p)
 
 
-def _label_text(td: object, text_encoding: str) -> str:
-    label = td.label  # type: ignore[attr-defined]
-    oflags = td.oflags  # type: ignore[attr-defined]
+def _label_text(td: Any, text_encoding: str) -> str:
+    label = td.label
+    oflags = td.oflags
     if not label and (oflags & 0x40):
         label = _recover_label(getattr(td, "raw_data", None))
     if not label:
@@ -282,21 +279,35 @@ def _label_text(td: object, text_encoding: str) -> str:
     return label.decode(text_encoding, errors="replace")
 
 
+# Real private-data nesting is only a few levels deep; this bound (matching
+# _unwrap_to_top_cluster's range(8)) backstops a self-referential cluster in a
+# malformed embedded control, mirroring the _visited guard in
+# structure._resolve_type_ids.
+_MAX_TD_DEPTH = 16
+
+
 def _field_from_td(
-    td: object, section: object, text_encoding: str
+    td: Any, section: Any, text_encoding: str, depth: int = 0
 ) -> LVPrivateDataField:
-    otype = td.otype  # type: ignore[attr-defined]
+    otype = td.otype
+
+    if depth >= _MAX_TD_DEPTH:
+        # Cycle / pathological nesting in a malformed control -- stop recursing,
+        # name what this TD carries directly.
+        return LVPrivateDataField(name=_label_text(td, text_encoding))
 
     if otype == TD_FULL_TYPE.TypeDef:
-        labels = td.labels  # type: ignore[attr-defined]
+        labels = td.labels
         qualified = ":".join(
             seg.decode(text_encoding, errors="replace") for seg in labels
         )
-        inner = td.clients[0].nested  # type: ignore[attr-defined]  # always inline
+        inner = td.clients[0].nested  # always inline
         sub_fields: list[LVPrivateDataField] = []
         if inner.otype == TD_FULL_TYPE.Cluster:
             sub_fields = [
-                _field_from_td(_resolve_client(c, section), section, text_encoding)
+                _field_from_td(
+                    _resolve_client(c, section), section, text_encoding, depth + 1
+                )
                 for c in inner.clients
             ]
         return LVPrivateDataField(
@@ -307,8 +318,10 @@ def _field_from_td(
 
     if otype == TD_FULL_TYPE.Cluster:
         sub_fields = [
-            _field_from_td(_resolve_client(c, section), section, text_encoding)
-            for c in td.clients  # type: ignore[attr-defined]
+            _field_from_td(
+                _resolve_client(c, section), section, text_encoding, depth + 1
+            )
+            for c in td.clients
         ]
         return LVPrivateDataField(
             name=_label_text(td, text_encoding),
@@ -329,25 +342,25 @@ def _field_from_td(
     )
 
 
-def _unwrap_to_top_cluster(td: object, section: object) -> object:
+def _unwrap_to_top_cluster(td: Any, section: Any) -> Any:
     """Peel ``TypeDef`` indirection and a possible single-field
     Cluster-wrapping-a-``DataValueRef`` indirection (a private-data cluster
     that has been switched to store its fields by reference) down to the
     actual top-level private-data ``Cluster`` TD.
     """
     for _ in range(8):  # bounded: real nesting is 1-3 levels deep
-        otype = td.otype  # type: ignore[attr-defined]
+        otype = td.otype
         if otype == TD_FULL_TYPE.TypeDef:
-            td = td.clients[0].nested  # type: ignore[attr-defined]
+            td = td.clients[0].nested
             continue
         if otype == TD_FULL_TYPE.Cluster:
-            clients = td.clients  # type: ignore[attr-defined]
+            clients = td.clients
             if len(clients) == 1:
                 member = _resolve_client(clients[0], section)
                 if getattr(member, "reftype", None) == int(
                     REFNUM_TYPE.DataValueRef
                 ):
-                    td = _resolve_client(member.clients[0], section)  # type: ignore[attr-defined]
+                    td = _resolve_client(member.clients[0], section)
                     continue
         break
     return td
@@ -367,7 +380,7 @@ def parse_flattened_private_data(raw: bytes) -> list[LVPrivateDataField]:
     if inner is None:
         return []
 
-    po = _make_po()
+    po = _make_read_po()
     fh = _NamedBytesIO(inner, name="private_data.ctl")
     vi = _lv_rsrc.VI(po, rsrc_fh=fh, text_encoding="mac_roman")
 
@@ -388,13 +401,13 @@ def parse_flattened_private_data(raw: bytes) -> list[LVPrivateDataField]:
         return []
 
     top = _unwrap_to_top_cluster(root, section)
-    if top.otype != TD_FULL_TYPE.Cluster:  # type: ignore[attr-defined]
+    if top.otype != TD_FULL_TYPE.Cluster:
         return []
 
     text_encoding = vi.textEncoding
     return [
         _field_from_td(_resolve_client(c, section), section, text_encoding)
-        for c in top.clients  # type: ignore[attr-defined]
+        for c in top.clients
     ]
 
 

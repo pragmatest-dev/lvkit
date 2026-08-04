@@ -166,36 +166,36 @@ def _fields_from_xml(
     expected_classname: str | None = None,
     allow_display_label_fallback: bool = False,
 ) -> list[LVPrivateDataField] | None:
-    """Look for the "Cluster of class private data" TypeDesc in one main XML.
+    """Find THIS class's private-data cluster TypeDesc in one main XML
+    (canonical ``"class private data"`` label, or — opt-in — its control's
+    display-name label).
 
-    The private-data cluster is always wrapped in a ``TypeDef`` TypeDesc
-    that carries two sibling ``<Label Text="...">`` elements: the OWNING
-    class name (e.g. ``"DAQmx Module Runtime.lvclass"``) and the private-data
-    ``.ctl`` filename. When ``expected_classname`` is given, only a
-    private-data TypeDesc whose owning-class Label matches it
-    (case-insensitively, see ``_same_class``) is accepted — this makes the
-    lookup AUTHORITATIVE to one specific class instead of returning the
-    first "class private data" match found anywhere in the XML, which can
-    belong to a completely DIFFERENT class referenced as a parameter (e.g.
-    a generic error/variant-map class) rather than the VI's own class. Pass
-    ``None`` to accept the first match unconditionally (legacy behavior).
+    A class's private-data cluster is wrapped in a ``TypeDef`` TypeDesc whose
+    sibling ``<Label Text="...">`` children name the owning class
+    (``"<Class>.lvclass"``) and its control (``"<Class>.ctl"``). Two forms
+    occur, matched in two passes:
 
-    Two spellings of that wrapper occur in the wild:
+    * **Pass 1 (canonical, authoritative).** The wrapped cluster's own Label is
+      ``"...class private data"``. When ``expected_classname`` is given, the
+      TypeDef's FIRST ``<Label>`` (its direct owner) must match it
+      (case-insensitively, see ``_same_class``) — so a different class merely
+      referenced as a parameter is never returned. ``None`` accepts the first
+      canonical match unconditionally (legacy behavior).
+    * **Pass 2 (opt-in fallback, ``allow_display_label_fallback``).** The
+      cluster is labeled with its control's DISPLAY name (e.g.
+      ``"measurement context data"``) rather than ``"class private data"``.
+      Identified by the TypeDef's owner Labels — the expected class AND its
+      ``"<Class>.ctl"`` control (excluding member sub-controls like
+      ``"DAQ Tasks.ctl"``); by-reference data (a lone DataValueRef) is deferred
+      to the authoritative ``.ctl``/dep path. This lets a SINGLE uploaded VI
+      name its own class fields with no ``.lvclass`` attached (better than raw
+      ``[index]``). Off by default; only the single-VI resolver
+      (``op_walk._own_class_private_data_fields``) enables it.
 
-    * Canonical: the wrapped cluster's own Label is ``"...class private data"``.
-    * Otherwise: the wrapped cluster is labeled with the control's DISPLAY name
-      (e.g. ``"measurement context data"``) — still authoritatively THIS class's
-      private data, identified by the TypeDef's owner Labels (the expected class
-      + its ``.ctl``). Accepting this form is what lets a SINGLE uploaded VI name
-      its own class fields with no ``.lvclass`` attached (better than ``[index]``).
-
-    The owner match scans ALL of the TypeDef's ``<Label>`` children (the wrapper
-    carries several: owning library, class, and ``.ctl``), so it is robust to
-    the class not being the first one.
-
-    Returns the resolved fields, or None if this XML doesn't carry a
-    matching private-data TypeDesc (not every method VI references "this",
-    and one that does may reference a different class's private data).
+    Returns the resolved fields, or ``None`` if this XML carries no matching
+    private-data TypeDesc. ``None`` means "not found here, keep scanning other
+    XMLs" — distinct from ``[]`` ("no fields") — which
+    ``_parse_private_data_fields`` relies on.
     """
     try:
         tree = ET.parse(xml_path)
@@ -222,7 +222,9 @@ def _fields_from_xml(
         # "<Class>.ctl" -- its stem matches the class's. This distinguishes it
         # from member sub-controls (e.g. "DAQ Tasks.ctl") that are ALSO
         # class-owned .ctl typedefs but are fields, not the private data.
-        cls_stem = _stem(expected_classname) if expected_classname else ""
+        # Only reached from Pass 2, which is guarded by expected_classname.
+        assert expected_classname is not None
+        cls_stem = _stem(expected_classname)
         return any(
             t.lower().endswith(".ctl") and _stem(t) == cls_stem
             for t in _owner_labels(typedef)
@@ -269,10 +271,11 @@ def _fields_from_xml(
             fields = _members(typedef)
             if not fields:
                 continue
-            # A by-reference private data (the <Class>.ctl cluster is a single
-            # Data Value Reference wrapping the real fields) is left to the
-            # authoritative .ctl/dep path, which dereferences it — returning the
-            # bare wrapper name here would be worse than the plain index.
+            # A lone-refnum cluster is a by-reference wrapper (a single Data
+            # Value Reference / refnum standing in for the real fields). Pass 2
+            # cannot tell a DVR wrapper from a genuine by-value refnum field, so
+            # it defers ANY such cluster to the authoritative .ctl/dep path
+            # (which dereferences it) rather than surface the bare wrapper name.
             if all(_is_refnum_field(f) for f in fields):
                 continue
             return fields

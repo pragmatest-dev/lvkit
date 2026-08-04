@@ -660,15 +660,20 @@ def _process_element_terminals(
         elif term_uid in wire_sinks:
             is_output = False
         else:
-            # Unwired terminal — direction from the DCO's objFlags bit 0 ONLY.
-            # The term-level <objFlags> bit 0 is overloaded/unreliable for
-            # direction; a corpus study over 992 unwired ground-truth terminals
-            # (scripts/study_unwired_direction.py) scored dco_only 100% vs the
-            # old `term_flags | dco_flags` 99.8% (wrong exactly on the noisy
-            # bit-0 case, e.g. Search/Split String) vs term_only ~40%.
-            dco_obj = dco.find("objFlags") if dco is not None else None
-            dco_flags = safe_int(dco_obj)
-            is_output = is_output_terminal(dco_flags)
+            # Unwired terminal — direction from the DCO's objFlags bit 0 ONLY
+            # when a DCO is present. The term-level <objFlags> bit 0 is
+            # overloaded/unreliable for direction; a corpus study over 992
+            # unwired ground-truth terminals (scripts/study_unwired_direction.py)
+            # scored dco_only 100% vs the old `term_flags | dco_flags` 99.8%
+            # (wrong exactly on the noisy bit-0 case, e.g. Search/Split String)
+            # vs term_only ~40%. With NO DCO there is no authoritative signal
+            # (all 992 studied terminals had one), so fall back to the term-level
+            # flags — consulting the available data beats silently defaulting to
+            # input (safe_int(None) == 0 == input).
+            if dco is not None:
+                is_output = is_output_terminal(safe_int(dco.find("objFlags")))
+            else:
+                is_output = is_output_terminal(safe_int(term.find("objFlags")))
 
         # Resolve TypeID to ParsedType
         type_desc_elem = term.find(".//typeDesc")

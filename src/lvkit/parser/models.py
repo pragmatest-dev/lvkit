@@ -44,8 +44,6 @@ class ParsedNode:
     uid: str
     node_type: str  # XML class: "iUse", "prim", "cpdArith", "aBuild", etc.
     name: str | None = None
-    inputs: list[str] = field(default_factory=list)
-    outputs: list[str] = field(default_factory=list)
 
 
 @dataclass

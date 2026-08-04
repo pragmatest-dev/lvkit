@@ -150,7 +150,7 @@ _TYPE_REPR = {
     "NumInt8": "I8", "NumInt16": "I16", "NumInt32": "I32", "NumInt64": "I64",
     "NumUInt8": "U8", "NumUInt16": "U16", "NumUInt32": "U32", "NumUInt64": "U64",
     "Boolean": "TF", "String": "abc", "Path": "Path",
-    "Refnum": "Ref", "Variant": "Var", "LVVariant": "Var",
+    "Variant": "Var", "LVVariant": "Var",
 }
 
 
@@ -190,7 +190,7 @@ def type_repr(lv_type: LVType | None) -> str:
     if lv_type.kind == "primitive":
         # A class/DVR object refnum draws "Class"; a plain refnum (queue, event,
         # control ref, …) draws "Ref". (The full class name is the LARGE-form
-        # label — see draw.py's ``_lv_type_label``.)
+        # label — see ``lv_type_label`` in this module.)
         if lv_type.underlying_type == "Refnum":
             return "Class" if lv_type.classname else "Ref"
         return _TYPE_REPR.get(lv_type.underlying_type or "", "")

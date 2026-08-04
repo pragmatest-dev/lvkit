@@ -244,16 +244,14 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
     Walks ``graph.iter_nodes(vi_name)`` -- the FLAT per-VI node list (every
     node under a VI, including loop-body/frame-nested nodes and an In Place
     Element Structure's border decompose/recompose nodes, regardless of
-    containment depth) -- rather than the ``Operation`` tree
-    ``get_operations`` builds: ``get_operations`` has a mutating side effect
-    on ``CaseFrame``/``SequenceFrame``/``EventFrame.inner_node_uids``
-    (``operations.py``'s ``_populate_frame_operations``, called during
-    case/sequence/event Operation construction), so calling it here --
-    BEFORE a consumer's own first call -- would corrupt that frame data out
-    from under it (reproduced: it silently shrank/re-qualified a VI's case
-    frame contents in ``tests/test_render.py::
-    test_case_structures_render_all_frames_not_just_shown``). ``iter_nodes``
-    is a plain read.
+    containment depth) -- rather than the ``Operation`` tree ``get_operations``
+    builds: ``iter_nodes`` is the plain flat read this needs, reaching every
+    node at any depth without materializing the Operation/frame hierarchy.
+    (``get_operations`` became side-effect-free in ``b460375`` --
+    ``operations.py``'s ``_populate_frame_operations`` now returns fresh
+    ``model_copy`` frames instead of mutating ``inner_node_uids`` -- so the
+    historical hazard of calling it mid-load no longer applies; ``iter_nodes``
+    remains preferred as the cheaper, direct walk.)
 
     Idempotent: only sets ``display_name`` when it is still unset AND a real
     field name resolves -- never clobbers an already-resolved name, and
