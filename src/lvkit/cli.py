@@ -219,9 +219,19 @@ def main() -> int:
     )
 
     # MCP server command
-    subparsers.add_parser(
+    mcp_parser = subparsers.add_parser(
         "mcp",
         help="Run MCP server for VI analysis",
+    )
+    mcp_parser.add_argument(
+        "--selftest",
+        action="store_true",
+        help=(
+            "Initialize the server and list its tools, then exit (non-zero on "
+            "failure). A broken install (e.g. an incompatible mcp version) "
+            "otherwise fails silently — the client just registers zero tools. "
+            "Use in CI to catch it."
+        ),
     )
 
     # Describe command - human-readable VI description
@@ -691,8 +701,19 @@ def cmd_structure(args: argparse.Namespace) -> int:
         return 1
 
 
-def cmd_mcp(_args: argparse.Namespace) -> int:
-    """Handle the mcp command - run MCP server."""
+def cmd_mcp(args: argparse.Namespace) -> int:
+    """Handle the mcp command - run MCP server (or --selftest)."""
+    if getattr(args, "selftest", False):
+        from .mcp.server import selftest
+
+        try:
+            n = selftest()
+        except Exception as e:  # noqa: BLE001 — health check reports any failure
+            print(f"MCP selftest FAILED: {e}", file=sys.stderr)
+            return 1
+        print(f"MCP selftest OK: server initialized, {n} tools listed.")
+        return 0
+
     from .mcp.server import main as mcp_main
 
     try:

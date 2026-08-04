@@ -18,7 +18,7 @@ from mcp.types import TextContent, Tool
 
 from .. import primitive_resolver, vilib_resolver
 from ..codegen import build_module
-from ..graph import InMemoryVIGraph, LoadMode
+from ..graph import InMemoryVIGraph
 from ..graph.describe import (
     describe_constants as describe_constants_text,
 )
@@ -34,6 +34,7 @@ from ..graph.describe import (
 from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
+from ..load_mode import LoadMode
 from ..lv_detect import detect_labview
 from ..project_store import find_project_store
 from .tools import generate_documents, generate_python
@@ -670,6 +671,25 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     else:
         raise ValueError(f"Unknown tool: {name}")
+
+
+def selftest() -> int:
+    """Initialize the server and list its tools; return the tool count.
+
+    A one-command health check that exercises the same registration path a
+    client's ``initialize`` -> ``tools/list`` handshake hits. It catches the
+    import-time / API-mismatch class of failure — e.g. an ``mcp`` major-version
+    bump that removes the decorator API this module is built on — that otherwise
+    makes the server appear *absent* (client registers zero tools) rather than
+    *broken*. Raises on failure so the caller can exit non-zero; used by
+    ``lvkit mcp --selftest`` and CI.
+    """
+    # ``list_tools`` is wrapped by the ``@app.list_tools()`` decorator, whose
+    # type pyright can't see through (it reads the result as a non-coroutine
+    # taking an arg). The call is correct at runtime — this is the exact handler
+    # a ``tools/list`` request invokes.
+    tools = asyncio.run(list_tools())  # pyright: ignore[reportCallIssue, reportArgumentType]
+    return len(tools)
 
 
 async def async_main() -> None:
