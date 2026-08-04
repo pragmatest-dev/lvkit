@@ -1,0 +1,265 @@
+"""Build ``list[VIFacts]`` for a repo — path-keyed, no silent collisions.
+
+The in-memory graph (``InMemoryVIGraph``) is keyed by bare VI **name**, so a
+whole-repo ``load_directory`` silently collapses same-named loose VIs
+(measured: 487 files -> 422 in ``list_vis()`` on JKI VI Tester). This module
+path-keys ALL of them:
+
+1. Load the whole repo once at ``LoadMode.MINIMAL`` — the 422 (or however
+   many) non-collided VIs come out with full facts + the ``_dep_graph``
+   call/ownership edges.
+2. Project each loaded VI to ``VIFacts``, keyed by its resolved source path.
+3. Whatever ``.vi`` files under the repo did NOT come out of that load
+   (shadowed by a same-named sibling) get loaded + projected INDIVIDUALLY,
+   one fresh ``InMemoryVIGraph`` each — reported as ``collisions``, never
+   silently dropped.
+4. Merge: invert ``calls`` into a networkx call graph to compute
+   ``impact_score`` (transitive dependent count) per VI.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+import networkx as nx
+
+from .. import cache_paths
+from ..graph import InMemoryVIGraph, LoadMode
+from ..graph.models import Constant, VINode
+from ..models import FPTerminal
+from .model import (
+    WIRED_CONTROL,
+    WIRED_INDICATOR,
+    WIRED_NONE,
+    WIRED_OTHER,
+    ClassFact,
+    ConstantFact,
+    TerminalFact,
+    VIFacts,
+)
+from .query import build_call_graph
+
+
+@dataclass
+class BuildResult:
+    """Result of a full index build: the facts + how many VIs collided."""
+
+    facts: list[VIFacts]
+    collisions: int
+
+
+def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
+    """Build path-keyed ``VIFacts`` for every ``.vi`` in ``vi_paths``.
+
+    ``project_root`` is used as the single ``search_paths`` root for both the
+    whole-repo load and each individual collision load, so dependency
+    resolution behaves identically in both passes.
+    """
+    all_paths = {p.resolve() for p in vi_paths}
+
+    graph = InMemoryVIGraph()
+    graph.load_directory(project_root, LoadMode.MINIMAL, search_paths=[project_root])
+    _load_class_ownership(graph, project_root)
+
+    facts: dict[str, VIFacts] = {}
+    covered: set[Path] = set()
+    for vi_name in graph.list_vis():
+        src = graph.get_vi_source_path(vi_name)
+        if src is None:
+            continue
+        resolved = src.resolve()
+        # Only VIs that are actually repo files under project_root — a
+        # dependency that resolved to an external vi.lib/userlib VI is not
+        # part of THIS project's index.
+        if resolved not in all_paths:
+            continue
+        covered.add(resolved)
+        facts[str(resolved)] = project_vi_facts(graph, vi_name, resolved)
+
+    collision_paths = sorted(all_paths - covered)
+    for cp in collision_paths:
+        cgraph = InMemoryVIGraph()
+        cgraph.load_vi(cp, LoadMode.MINIMAL, search_paths=[project_root])
+        # A class method's own directory holds its .lvclass (LabVIEW's own
+        # convention — see _load_class_ownership below); scoped to just this
+        # VI's directory rather than the whole repo since only ONE VI is
+        # being projected out of this fresh graph.
+        for cls_path in sorted(cp.parent.glob("*.lvclass")):
+            cgraph.load_lvclass(cls_path, LoadMode.NONE, search_paths=[project_root])
+        vi_name = _vi_name_for_path(cgraph, cp)
+        if vi_name is None:
+            raise RuntimeError(
+                f"index build: {cp} did not load into its own fresh graph "
+                "(unexpected — every repo .vi should be individually loadable)"
+            )
+        facts[str(cp)] = project_vi_facts(cgraph, vi_name, cp)
+
+    call_graph = build_call_graph(facts.values())
+    for path, f in facts.items():
+        f.impact_score = (
+            len(nx.ancestors(call_graph, path)) if call_graph.has_node(path) else 0
+        )
+
+    return BuildResult(facts=list(facts.values()), collisions=len(collision_paths))
+
+
+def _load_class_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
+    """Establish class-ownership ("owns") edges for every ``.lvclass`` under
+    ``project_root``.
+
+    ``load_directory`` only walks ``.vi``/``.llb`` — it never touches a
+    ``.lvclass`` file directly, so a class's method VIs (loaded as plain loose
+    VIs by the directory walk) never get the "owns" edge that carries the
+    scope/accessor info ``ClassFact`` needs (``get_owning_class`` returns
+    ``None`` for all of them). Explicitly loading each class at
+    ``LoadMode.NONE`` fixes this cheaply: ``load_lvclass`` re-visits each
+    method (a no-op — LabVIEW's one-qname-per-memory invariant means an
+    already-loaded VI is never re-parsed) purely to add the ownership edge;
+    ``NONE`` (not ``MINIMAL``, which explicitly skips every method — see
+    ``load_lvclass``'s docstring) is what makes it load the method list at
+    all, and costs nothing extra since the methods themselves are already
+    loaded, richer, from the MINIMAL directory pass.
+    """
+    for cls_path in sorted(project_root.rglob("*.lvclass")):
+        graph.load_lvclass(cls_path, LoadMode.NONE, search_paths=[project_root])
+
+
+def _vi_name_for_path(graph: InMemoryVIGraph, vi_path: Path) -> str | None:
+    """Find the ``vi_name`` in a freshly-loaded graph whose source path IS
+    ``vi_path`` — a MINIMAL single-file load also leaf-loads direct SubVIs, so
+    ``list_vis()`` may hold more than one entry."""
+    for vi_name in graph.list_vis():
+        src = graph.get_vi_source_path(vi_name)
+        if src is not None and src.resolve() == vi_path:
+            return vi_name
+    return None
+
+
+def project_vi_facts(
+    graph: InMemoryVIGraph, vi_name: str, vi_path: Path,
+) -> VIFacts:
+    """Project one loaded VI's graph facts into a ``VIFacts`` row.
+
+    Every field here is intrinsic to the VI's own bytes (own connector pane,
+    own constants, own dep_graph edges, own terminal types) — see
+    ``model.py``'s module docstring for why that makes this a pure function
+    of the VI's content hash.
+    """
+    vnode = graph.get_graph_node(vi_name)
+    library = vnode.library if isinstance(vnode, VINode) else None
+    qualified_name = vnode.qualified_name if isinstance(vnode, VINode) else None
+
+    terminals: list[TerminalFact] = []
+    type_use_keys: set[str] = set()
+    all_terminals = [
+        *graph.get_inputs(vi_name, public_only=False),
+        *graph.get_outputs(vi_name, public_only=False),
+    ]
+    for t in all_terminals:
+        field_names: list[str] = []
+        if t.lv_type is not None:
+            fields = graph.get_type_fields(t.lv_type)
+            if fields:
+                field_names = [f.name for f in fields]
+            if t.lv_type.classname:
+                type_use_keys.add(t.lv_type.classname)
+            if t.lv_type.typedef_name:
+                type_use_keys.add(t.lv_type.typedef_name)
+        is_fp = isinstance(t, FPTerminal)
+        terminals.append(
+            TerminalFact(
+                name=t.name,
+                direction=t.direction,
+                is_indicator=bool(is_fp and t.is_indicator),
+                is_public=bool(is_fp and t.is_public),
+                control_type=t.control_type if is_fp else None,
+                py_type=t.python_type(),
+                is_error_cluster=t.is_error_cluster,
+                field_names=field_names,
+                fp_dco_uid=t.fp_dco_uid if is_fp else None,
+            )
+        )
+
+    constants: list[ConstantFact] = [
+        ConstantFact(
+            value=(
+                c.raw_value
+                if c.raw_value is not None
+                else (str(c.value) if c.value is not None else "")
+            ),
+            label=c.name,
+            py_type=c.lv_type.to_python() if c.lv_type else "Any",
+            wired_to=_constant_wired_to(graph, vi_name, c),
+        )
+        for c in graph.get_constants(vi_name)
+    ]
+
+    calls: list[str] = []
+    if vi_name in graph._dep_graph:
+        for succ in graph._dep_graph.successors(vi_name):
+            edata = graph._dep_graph.get_edge_data(vi_name, succ) or {}
+            if edata.get("rel") == "owns":
+                continue
+            # A call is VI -> VI. A successor that is a class/typedef/library
+            # node is a TYPE or containment reference (already captured in
+            # ``type_uses``), NOT a call — e.g. a method referencing its own
+            # class type for a "self" param yields a method -> class edge that
+            # is not an ``owns`` edge. Keep only VI successors (``node_type``
+            # is None for a loaded VI, "vi" for a stub) so the call graph stays
+            # pure and ``get_callers``/``blast_radius`` never see a class.
+            if graph._dep_graph.nodes[succ].get("node_type") in (
+                "class", "typedef", "library", "unknown",
+            ):
+                continue
+            calls.append(succ)
+
+    class_fact = _build_class_fact(graph, vi_name)
+
+    return VIFacts(
+        path=str(vi_path),
+        name=vi_path.name,
+        qualified_name=qualified_name,
+        library=library,
+        is_stub=graph.is_stub_vi(vi_name),
+        content_sha=cache_paths.sha256_file(vi_path),
+        terminals=terminals,
+        constants=constants,
+        calls=sorted(calls),
+        type_uses=sorted(type_use_keys),
+        class_fact=class_fact,
+        impact_score=0,  # filled at merge time
+    )
+
+
+def _constant_wired_to(
+    graph: InMemoryVIGraph, vi_name: str, c: Constant,
+) -> str:
+    """Classify what a constant's single output wire feeds: an indicator on
+    ``vi_name``'s own connector pane, a control input, something else on the
+    diagram, or nothing at all."""
+    dests = graph.outgoing_edges(c.id)
+    if not dests:
+        return WIRED_NONE
+    for dest in dests:
+        if dest.node_id != vi_name:
+            continue
+        term = graph.get_terminal(dest.terminal_id)
+        if isinstance(term, FPTerminal):
+            return WIRED_INDICATOR if term.is_indicator else WIRED_CONTROL
+    return WIRED_OTHER
+
+
+def _build_class_fact(graph: InMemoryVIGraph, vi_name: str) -> ClassFact | None:
+    owning_class = graph.get_owning_class(vi_name)
+    if owning_class is None:
+        return None
+    access = graph.get_method_access(vi_name)
+    hierarchy = graph.get_class_hierarchy(owning_class)
+    return ClassFact(
+        owning_class=owning_class,
+        parent=hierarchy.parent_class if hierarchy else None,
+        scope=access.scope if access else None,
+        is_accessor=bool(access and access.is_accessor),
+        accessor_field=access.accessor_field if access else None,
+    )

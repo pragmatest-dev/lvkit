@@ -234,6 +234,21 @@ def main() -> int:
         ),
     )
 
+    # Index command - build/refresh the code-understanding facts index
+    index_parser = subparsers.add_parser(
+        "index",
+        help="Build/refresh the code-understanding index for a VI repo",
+    )
+    index_parser.add_argument(
+        "input_path",
+        help=(
+            "Directory, .lvproj, .lvlib, .lvclass, or .vi file. A single-file "
+            "target indexes its ENCLOSING project (nearest .lvkit/ or .git "
+            "root), not just that file — the index always covers the whole "
+            "repo."
+        ),
+    )
+
     # Describe command - human-readable VI description
     desc_parser = subparsers.add_parser(
         "describe",
@@ -572,6 +587,8 @@ def main() -> int:
         return cmd_structure(args)
     elif args.command == "mcp":
         return cmd_mcp(args)
+    elif args.command == "index":
+        return cmd_index(args)
     elif args.command == "describe":
         return cmd_describe(args)
     elif args.command == "generate":
@@ -726,6 +743,28 @@ def cmd_mcp(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
+
+
+def cmd_index(args: argparse.Namespace) -> int:
+    """Handle the index command - build/refresh the facts index for a repo."""
+    import time
+
+    from .index.build import build_index
+    from .index.project import resolve_project
+    from .index.store import save
+
+    start = time.monotonic()
+    project_root, vi_paths = resolve_project(Path(args.input_path))
+    result = build_index(project_root, vi_paths)
+    save(project_root, result.facts)
+    ms = round((time.monotonic() - start) * 1000)
+
+    print(json.dumps({
+        "vis": len(result.facts),
+        "collisions": result.collisions,
+        "ms": ms,
+    }))
+    return 0
 
 
 def cmd_describe(args: argparse.Namespace) -> int:
