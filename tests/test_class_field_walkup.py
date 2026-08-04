@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.flattened_typedesc import private_data_from_lvclass_xml
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import PrimitiveNode
@@ -98,13 +99,13 @@ _MC_FIELDS = [
 ]
 
 
-def _extract_class_dir(dest: Path) -> Path | None:
+def _extract_class_dir(dest: Path, ref: str = _MC_REF) -> Path | None:
     """git-extract the MeasurementContext class dir (VIs + .lvclass + Data.ctl)
     into ``dest`` — the sample repo may be git-only with no working tree."""
     if not (Path(_MC_REPO) / ".git").exists():
         return None
     listed = subprocess.run(
-        ["git", "-C", _MC_REPO, "ls-tree", "--name-only", f"{_MC_REF}:{_MC_DIR}"],
+        ["git", "-C", _MC_REPO, "ls-tree", "--name-only", f"{ref}:{_MC_DIR}"],
         capture_output=True, text=True,
     )
     if listed.returncode != 0 or not listed.stdout.strip():
@@ -115,12 +116,66 @@ def _extract_class_dir(dest: Path) -> Path | None:
         if not name or name.endswith("/"):
             continue
         blob = subprocess.run(
-            ["git", "-C", _MC_REPO, "show", f"{_MC_REF}:{_MC_DIR}/{name}"],
+            ["git", "-C", _MC_REPO, "show", f"{ref}:{_MC_DIR}/{name}"],
             capture_output=True,
         )
         if blob.returncode == 0 and blob.stdout:
             (cdir / name).write_bytes(blob.stdout)
     return cdir
+
+
+# BEFORE the Data.ctl refactor (ref 7a8c33b8): the class private data lives
+# ONLY as the flattened NI.LVClass.FlattenedPrivateDataCTL property in the XML
+# source-only `.lvclass` — no method VI flattens the cluster into its VCTP, and
+# there is no `.ctl` file on disk. These are the class's OWN (pre-refactor)
+# fields, which genuinely differ from the post-refactor set above.
+_MC_REF_BEFORE = "7a8c33b8"
+_MC_FIELDS_BEFORE = ["pin map context", "gRPC server call"]
+
+
+def test_source_only_lvclass_flattened_private_data(tmp_path: Path) -> None:
+    """A source-only `.lvclass` whose private data survives only as the
+    flattened CTL property resolves its (pre-refactor) fields — recovered
+    straight from the class XML, with no `.ctl` file and no method VI carrying
+    the cluster.  Guards the flattened-CTL fallback in `load_lvclass`.
+    """
+    cdir = _extract_class_dir(tmp_path, ref=_MC_REF_BEFORE)
+    if cdir is None:
+        pytest.skip("measurement-plugin-labview sample repo not present")
+    assert not (cdir / "Data.ctl").exists()  # the whole point: no .ctl on disk
+
+    g = InMemoryVIGraph()
+    g.load_vi(cdir / "Create.vi", mode=LoadMode.MINIMAL)
+
+    fields = g.get_class_fields(_MC_CLASS)
+    assert fields is not None
+    assert [f.name for f in fields] == _MC_FIELDS_BEFORE
+
+    # The class-object unbundle now stamps a real leaf name (idx 0 ->
+    # 'pin_map_id', nested inside 'pin map context') instead of '[0]'.
+    stamped = {
+        t.display_name
+        for nid in g._graph.nodes
+        if isinstance((n := g._graph.nodes[nid].get("node")), PrimitiveNode)
+        and n.node_type == "nMux"
+        for t in n.terminals
+        if getattr(t, "nmux_role", None) == "list" and t.display_name
+    }
+    assert "pin_map_id" in stamped
+
+
+def test_flattened_private_data_parser_direct(tmp_path: Path) -> None:
+    """`private_data_from_lvclass_xml` decodes the flattened-CTL property to the
+    ordered current-generation fields, with nested sub-fields, from the
+    `.lvclass` alone (no graph, no method VIs)."""
+    cdir = _extract_class_dir(tmp_path, ref=_MC_REF_BEFORE)
+    if cdir is None:
+        pytest.skip("measurement-plugin-labview sample repo not present")
+
+    fields = private_data_from_lvclass_xml(cdir / "MeasurementContext.lvclass")
+    assert [f.name for f in fields] == _MC_FIELDS_BEFORE
+    pin_map = fields[0]
+    assert [sf.name for sf in pin_map.sub_fields] == ["pin_map_id", "sites"]
 
 
 @pytest.mark.parametrize("mode", [LoadMode.MINIMAL, LoadMode.FULL])

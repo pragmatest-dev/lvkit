@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, cast
 import networkx as nx
 
 from ..extractor import extract_llb, extract_vi_xml
+from ..flattened_typedesc import private_data_from_lvclass_xml
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
 from ..models import ClusterField, LVType
 from ..parser import (
@@ -361,6 +362,18 @@ class LoadingMixin:
                 ctl_fields, _ = self._ctl_root_fields(ctl)
                 if ctl_fields:
                     fields = ctl_fields
+        if not fields:
+            # Source-only .lvclass: neither a method VI's VCTP nor a .ctl file
+            # on disk carries the cluster (e.g. the pre-refactor layout where
+            # the private data is embedded ONLY as the flattened
+            # NI.LVClass.FlattenedPrivateDataCTL property in the class XML).
+            # Recover the field layout straight from that property. Best-effort:
+            # a malformed/older embedded control must never break class loading.
+            try:
+                pd_fields = private_data_from_lvclass_xml(lvclass_path)
+            except Exception:
+                pd_fields = []
+            fields = [private_data_field_to_cluster_field(f) for f in pd_fields]
         self._dep_graph.add_node(
             cls_qname,
             node_type="class",
