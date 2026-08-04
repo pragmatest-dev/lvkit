@@ -74,6 +74,17 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv build
+      # Install the built wheel into a CLEAN venv (deps resolved fresh from
+      # PyPI, not the lockfile) and start the MCP server. This is the exact
+      # fresh-install path where an unbounded `mcp` once resolved to 2.x and
+      # died at import — the client then registers zero tools and fails
+      # SILENTLY. --selftest turns that into a non-zero exit here so it can
+      # never reach a release again.
+      - name: MCP server starts on a fresh install
+        run: |
+          uv venv /tmp/mcp-check
+          uv pip install --python /tmp/mcp-check/bin/python dist/*.whl
+          /tmp/mcp-check/bin/lvkit mcp --selftest
       - uses: actions/upload-artifact@v4
         with:
           name: dist
