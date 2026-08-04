@@ -64,10 +64,15 @@ def test_key_python_code_semantics():
     assert "127" in str(res.resolve(prim_id=1140).python_code)
     # 2-input arithmetic: Add / Subtract / Multiply / Divide (operators give
     # LV's type coercion for free; Divide is true division -> always float).
+    # Operand order follows the connector pane, not the NI doc listing: the
+    # index space is Bottom->Top, so `x` (the documented UPPER input) is in_2
+    # and `y` is in_1 -- hence `in_2 - in_1` for x-y. Add and Multiply are
+    # commutative, so their formulas keep their original operand order.
+    # See tests/test_primitive_positional_order.py for the invariant.
     assert "in_1 + in_2" in str(res.resolve(prim_id=1050).python_code)
-    assert "in_1 - in_2" in str(res.resolve(prim_id=1051).python_code)
+    assert "in_2 - in_1" in str(res.resolve(prim_id=1051).python_code)
     assert "in_1 * in_2" in str(res.resolve(prim_id=1052).python_code)
-    assert "in_1 / in_2" in str(res.resolve(prim_id=1053).python_code)
+    assert "in_2 / in_1" in str(res.resolve(prim_id=1053).python_code)
 
 
 def test_paren_if_compound_preserves_operand_precedence():
