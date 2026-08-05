@@ -81,6 +81,39 @@ jobs:
         shell: bash
         run: bash editors/vscode/build/fetch-bundle.sh ${{ matrix.target }}
 
+      # Windows only: sign every bundled PE file so Smart App Control (which
+      # blocks unsigned native code on enforce-mode Win11) allows the bundled
+      # Python. SAC evaluates each extracted .exe/.dll/.pyd by its own hash, so
+      # all of them must be signed — not just the .vsix. `dotnet sign` is the
+      # cross-platform signer (this job runs on Ubuntu); Azure auth comes from
+      # the pragmatest-signing-ci service-principal secrets.
+      - name: Set up .NET (code-signing tool)
+        if: matrix.target == 'win32-x64'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Code-sign the bundled Windows runtime (Artifact Signing)
+        if: matrix.target == 'win32-x64'
+        shell: bash
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          dotnet tool install -g --prerelease sign
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          mapfile -t files < <(find editors/vscode/bin -type f \
+            \( -name '*.exe' -o -name '*.dll' -o -name '*.pyd' \))
+          echo "Signing ${#files[@]} PE files in the bundle"
+          sign code artifact-signing \
+            --verbosity information \
+            --timestamp-url http://timestamp.digicert.com \
+            --artifact-signing-endpoint https://wus2.codesigning.azure.net/ \
+            --artifact-signing-account pragmatest \
+            --artifact-signing-certificate-profile pragmatest-public-trust \
+            "${files[@]}"
+
       - name: Package .vsix for this platform
         shell: bash
         working-directory: editors/vscode
