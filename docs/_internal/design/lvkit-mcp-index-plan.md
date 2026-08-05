@@ -87,15 +87,29 @@ New package `src/lvkit/index/`, no MCP dependency. Everything CLI/pytest-testabl
 **Acceptance:** the four demo answers on JKI VI Tester, via CLI, path-keyed
 (487 symbols, not 422), first build < ~30 s, follow-on queries sub-ms.
 
-## Phase 2 — MCP 2.x server (thin wrapper)
+## Phase 2 — FastMCP server (thin wrapper) — DONE
 
-- [ ] **P2.1** Rewrite `mcp/server.py` on mcp 2.x (FastMCP `@mcp.tool()`).
-- [ ] **P2.2** Project-scoped index (keyed by project root) — retire the global
-  `_graph`; parallel-agent safe.
-- [ ] **P2.3** Expose `query.py` as tools + on-demand deep single-VI tools
-  (`describe`/`get_operations`/`get_dataflow`/`get_structure`) that load one VI
-  live. `index` tool builds/refreshes.
-- [ ] **P2.4** Lift the `<2` cap in the same PR; keep `--selftest` + CI green.
+- [x] **P2.1** Rewrote `mcp/server.py` on **FastMCP** (`@mcp.tool()`) — 19 tools,
+  selftest green. (See P2.4: FastMCP is the mcp **1.x** high-level API.)
+- [x] **P2.2** Project-scoped index cache keyed by project root (`_indexes`);
+  retired the module-global `_graph` + the `load`/`clear`/`list_loaded` session
+  dance. Different repos → different entries, so parallel agents don't collide.
+- [x] **P2.3** Exposed `query.py` as project tools (`index`, `find_symbols`,
+  `find_terminals`, `find_constants`, `find_type_usages`, `get_callers`,
+  `get_callees`, `blast_radius`, `get_signatures`, `visualize_project`) + deep
+  single-VI tools (`describe`/`get_operations`/`get_dataflow`/`get_structure`/
+  `get_constants`/`get_context`/`generate_ast_code`) that take a `vi_path` and
+  load one VI live. Verified end-to-end over real MCP stdio on JKI VI Tester:
+  error-indicator names in ONE call (`{'error out': 352, …}`), `get_callers`,
+  `blast_radius`, deep `describe`, Mermaid map — all green.
+- [~] **P2.4 — DEFERRED, cap NOT lifted (factual discovery).** `mcp` 2.0.0
+  removed `mcp.server.fastmcp` **entirely** (verified in a 2.0.0 venv — the
+  import that FastMCP, and this server, are built on is gone). 2.x's replacement
+  is a brand-new `mcp.server.mcpserver.MCPServer`; adopting it would abandon
+  mcp 1.x (what the shipped binaries + extension run) for an unstable fresh API
+  with no user benefit. Kept **`mcp>=1.2,<2`** (floor bumped to reflect the
+  FastMCP requirement); `--selftest` + the CI handshake remain the guard.
+  Revisit when 2.x stabilizes, or via the standalone `fastmcp` package.
 
 ## Phase 3 — premium + polish
 

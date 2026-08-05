@@ -1,17 +1,19 @@
-"""MCP tool-handler smoke tests against the relocated extraction cache (#78).
+"""MCP tool smoke tests — project-scoped (index) + deep single-VI + stateless.
 
-Drives the in-process ``lvkit.mcp.server.call_tool`` dispatcher for all 12 tools
-against a real sample VI. The autouse ``_hermetic_cache`` fixture points the
-extraction cache at a per-test tmp dir, so this also confirms the MCP path never
-writes into the repo. This is a smoke + wiring check: every tool returns without
-raising and produces non-empty text.
+Drives the FastMCP tool functions in-process (``@mcp.tool()`` leaves each async
+function directly awaitable) across all three groups against real samples. The
+autouse ``_hermetic_cache`` fixture points the cache (extraction AND the index
+DB) at a per-test tmp dir, so this also confirms the MCP path never writes into
+the repo. Wiring/smoke check: every tool returns without raising, non-empty.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Coroutine
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -19,75 +21,79 @@ from lvkit.mcp import server as srv
 
 pytestmark = pytest.mark.needs_samples
 
+# A standalone VI for the deep single-VI tools.
 SAMPLE = Path(
     ".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi"
 )
+# A small class dir for the project-scoped index tools (no same-named siblings).
+TESTCASE_DIR = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase")
 
 
-def _call(name: str, **arguments: object) -> str:
-    """Invoke an MCP tool handler in-process, returning its first text block."""
-    result = asyncio.run(srv.call_tool(name, dict(arguments)))  # type: ignore[arg-type]
-    assert result, f"{name} returned no content"
-    return result[0].text
+def _run(coro: Coroutine[Any, Any, Any]) -> Any:
+    return asyncio.run(coro)
 
 
-def test_all_mcp_tools_against_new_cache(tmp_path: Path) -> None:
+def test_deep_and_stateless_tools(tmp_path: Path) -> None:
     if not SAMPLE.exists():
         pytest.skip(f"sample VI not available: {SAMPLE}")
+    vi = str(SAMPLE)
 
-    # Start from a clean global graph (persists across tests otherwise).
-    _call("clear")
+    # Deep single-VI tools all take a vi_path and load on demand.
+    assert _run(srv.describe(vi))
+    assert _run(srv.get_operations(vi))
+    assert _run(srv.get_dataflow(vi))
+    assert _run(srv.get_constants(vi))
+    assert _run(srv.generate_ast_code(vi))
 
-    # load
-    loaded = json.loads(_call("load", vi_path=str(SAMPLE)))["loaded_vis"]
-    assert loaded
-
-    # Canonical internal VI name (file stem may differ from the VI's own name).
-    vi_name = srv._get_graph().resolve_vi_name(SAMPLE.name)
-
-    # list_loaded
-    listed = json.loads(_call("list_loaded"))["loaded_vis"]
-    assert vi_name in listed
-
-    # get_context (JSON) — pick an operation id for get_structure.
-    ctx = json.loads(_call("get_context", vi_name=vi_name))
+    ctx = json.loads(_run(srv.get_context(vi)))
     assert ctx["operations"] or ctx["inputs"] or ctx["outputs"]
+    if ctx["operations"]:
+        op_id = ctx["operations"][0]["id"]
+        # Returns text even when the op isn't a structure; just must not raise.
+        assert isinstance(_run(srv.get_structure(vi, op_id)), str)
 
-    # Read-only description tools.
-    assert _call("describe", vi_name=vi_name)
-    assert _call("get_operations", vi_name=vi_name)
-    assert _call("get_dataflow", vi_name=vi_name)
-    assert _call("get_constants", vi_name=vi_name)
-
-    # get_structure needs a real operation id; pull the first from the graph.
-    context = srv._get_graph().get_vi_context(vi_name)
-    if context.operations:
-        op_id = context.operations[0].id
-        assert _call("get_structure", vi_name=vi_name, operation_id=op_id)
-
-    # generate_ast_code (stateful; catches its own errors -> always text).
-    assert _call("generate_ast_code", vi_name=vi_name)
-
-    # Stateless generate paths — write into tmp, never the repo.
-    py_out = tmp_path / "py"
-    py_result = _call(
-        "generate_python",
-        vi_path=str(SAMPLE),
-        output_dir=str(py_out),
-        soft_unresolved=True,
+    # Stateless generators write into tmp, never the repo.
+    py_result = _run(
+        srv.generate_python(vi, str(tmp_path / "py"), soft_unresolved=True)
     )
     assert py_result
-
-    docs_out = tmp_path / "docs"
-    docs_result = _call(
-        "generate_documents",
-        library_path=str(SAMPLE),
-        output_dir=str(docs_out),
-    )
+    docs_result = _run(srv.generate_documents(vi, str(tmp_path / "docs")))
     assert docs_result
-
-    # clear tears the graph down again.
-    assert "cleared" in _call("clear").lower()
 
     # Nothing leaked into the source tree.
     assert not (SAMPLE.parent / ".lvkit" / "cache").exists()
+
+
+def test_index_tools() -> None:
+    if not TESTCASE_DIR.exists():
+        pytest.skip(f"sample class not available: {TESTCASE_DIR}")
+    project = str(TESTCASE_DIR)
+
+    # index() builds + persists; the other tools then read the facts.
+    built = _run(srv.index(project))
+    assert built["vis"] > 0
+    assert built["collisions"] == 0  # a single class dir has no name clashes
+
+    syms = _run(srv.find_symbols(project))
+    assert len(syms) == built["vis"]
+    assert all("impact_score" in s for s in syms)
+
+    # A class method exists; get_callers/blast_radius resolve a bare name.
+    a_method = syms[0]["path"]
+    assert isinstance(_run(srv.get_callers(project, a_method)), list)
+    assert isinstance(_run(srv.get_callees(project, a_method)), list)
+    br = _run(srv.blast_radius(project, a_method))
+    assert "impact_score" in br
+
+    # Bulk reads.
+    assert isinstance(_run(srv.find_terminals(project, direction="output")), list)
+    assert isinstance(_run(srv.find_constants(project)), list)
+    sigs = _run(srv.get_signatures(project))
+    assert len(sigs) == built["vis"]
+
+    # Mermaid visualization is self-contained text.
+    mm = _run(srv.visualize_project(project, scope="calls"))
+    assert mm.splitlines()[0] == "graph LR"
+    assert _run(srv.visualize_project(project, scope="classes")).startswith(
+        "classDiagram"
+    )

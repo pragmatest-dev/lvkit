@@ -1,20 +1,38 @@
-"""MCP server for VI analysis tools.
+"""MCP server for VI analysis — project-scoped, index-backed.
 
-Supports two modes:
-1. Stateless tools (analyze, generate_documents, generate_python) - subprocess-based
-2. Stateful graph tools (load, get_context, etc.) - graph persists across calls
+Built on ``mcp.server.fastmcp.FastMCP`` (the 2.x-forward decorator API), which
+supersedes the module-global ``mcp.server.Server`` + ``@app.list_tools()`` build
+this module used to have (that decorator was removed in mcp 2.0, silently
+disabling the server — see ``docs/_internal/design/lvkit-mcp-improvements.md``).
+
+Three tool groups:
+
+1. **Index-backed, project-scoped** (``index``, ``find_terminals``,
+   ``find_constants``, ``find_type_usages``, ``find_symbols``, ``get_callers``,
+   ``get_callees``, ``blast_radius``, ``get_signatures``, ``visualize_project``)
+   — answer *project-wide* questions in one call from the persisted, path-keyed
+   facts index (``lvkit.index``). No per-VI round trips, no name-collision bug.
+   State is a per-project-root cache, NOT a single global graph any ``clear``
+   could nuke — safe for an agent working across several repos in one session.
+
+2. **Deep single-VI** (``describe``, ``get_operations``, ``get_dataflow``,
+   ``get_structure``, ``get_constants``, ``get_context``, ``generate_ast_code``)
+   — token-heavy dataflow detail for ONE VI, loaded live on demand (XML already
+   cached). The Serena split: bulk/navigation off the index, depth on demand.
+
+3. **Stateless generators** (``generate_documents``, ``generate_python``) —
+   unchanged, subprocess-free wrappers over the same pipeline as the CLI.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from mcp.server.fastmcp import FastMCP
 
 from .. import primitive_resolver, vilib_resolver
 from ..codegen import build_module
@@ -34,22 +52,33 @@ from ..graph.describe import (
 from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
+from ..index import query as iq
+from ..index.build import build_index
+from ..index.model import VIFacts
+from ..index.project import resolve_project
+from ..index.store import load as store_load
+from ..index.store import save as store_save
 from ..load_mode import LoadMode
-from ..lv_detect import detect_labview
 from ..project_store import find_project_store
-from .tools import generate_documents, generate_python
+from .tools import generate_documents as _gen_documents
+from .tools import generate_python as _gen_python
+
+mcp = FastMCP("lvkit-mcp")
+
+# Per-project-root facts cache: {resolved project_root str -> [VIFacts]}. This
+# replaces the old module-global _graph — different repos get different entries,
+# so parallel agents on different projects never collide, and there is no
+# session-wide `clear` that wipes another caller's state.
+_indexes: dict[str, list[VIFacts]] = {}
 
 
 def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
-    """Discover .lvkit/ from a VI path and reset resolvers.
+    """Discover ``.lvkit/`` from a path and reset the primitive/vilib resolvers.
 
-    MCP may serve multiple projects in one session, so we re-resolve the
-    project store on every tool call that knows a target VI path.
-
-    The path may be a file (a .vi), a directory (an .lvlib, .lvclass, or a
-    folder of VIs), or a path that doesn't exist yet. We start the search
-    from the path itself when it's a directory and from its parent when
-    it's a file, then walk up looking for .lvkit/.
+    One MCP session may serve several projects, so the project store is
+    re-resolved on every call that knows a target path. The path may be a file
+    (a ``.vi``), a directory, or not exist yet — we start from the path itself
+    when it is a directory, its parent otherwise, then walk up for ``.lvkit/``.
     """
     p = Path(vi_path).resolve()
     start = p if p.is_dir() else p.parent
@@ -57,654 +86,454 @@ def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
     primitive_resolver.reset_resolver(project_data_dir=store)
     vilib_resolver.reset_resolver(project_data_dir=store)
 
-# Create MCP server instance
-app = Server("lvkit-mcp")
 
-# Stateful graph - persists across tool calls in the session
-_graph = None
+# ===== Index (project-scoped) =====
 
+def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFacts]]:
+    """Resolve ``project`` to its root and return ``(root, facts)``.
 
-def _get_graph():
-    """Get or create the in-memory graph."""
-    global _graph
-    if _graph is None:
-        _graph = InMemoryVIGraph()
-    return _graph
-
-
-@app.list_tools()
-async def list_tools() -> list[Tool]:
-    """List available tools."""
-    return [
-        Tool(
-            name="generate_documents",
-            description=(
-                "Generate static HTML documentation for LabVIEW VIs, libraries, "
-                "classes, or directories. "
-                "Creates a complete static website with individual pages for each VI, "
-                "cross-references, and a table of contents.\n\n"
-                "Each VI page includes:\n"
-                "- Summary and signature (inputs/outputs)\n"
-                "- Detailed parameter tables\n"
-                "- Visual dataflow diagram\n"
-                "- Dependencies (called SubVIs) with links\n"
-                "- Reverse links (VIs that call this one)\n\n"
-                "The output is a self-contained static HTML site with embedded CSS, "
-                "suitable for browsing locally or hosting on a web server.\n\n"
-                "IMPORTANT: This tool generates files directly and returns a summary. "
-                "Inform the user where the docs were generated and provide the path "
-                "to index.html."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "library_path": {
-                        "type": "string",
-                        "description": (
-                            "Path to .lvlib file, .lvclass file, .vi file, "
-                            "or directory containing VIs"
-                        ),
-                    },
-                    "output_dir": {
-                        "type": "string",
-                        "description": "Output directory for HTML documentation files",
-                    },
-                    "search_paths": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "Optional list of search paths for resolving dependencies"
-                        ),
-                        "default": [],
-                    },
-                    "load_mode": {
-                        "type": "string",
-                        "enum": ["none", "minimal", "full"],
-                        "description": (
-                            "Dependency depth. 'full' (default): whole SubVI/"
-                            "class-method tree — complete cross-references. "
-                            "'minimal': each VI + its direct SubVIs' connector "
-                            "panes + referenced-type fields — faithful, far "
-                            "cheaper. 'none': each VI alone."
-                        ),
-                        "default": "full",
-                    },
-                    "vilib_root": {
-                        "type": "string",
-                        "description": (
-                            "Path to LabVIEW vi.lib on disk for <vilib> resolution."
-                        ),
-                    },
-                    "userlib_root": {
-                        "type": "string",
-                        "description": (
-                            "Path to LabVIEW user.lib on disk for <userlib> resolution."
-                        ),
-                    },
-                    "auto_vilib": {
-                        "type": "boolean",
-                        "description": (
-                            "When vilib_root is not given, best-effort auto-detect a "
-                            "locally installed LabVIEW and use its vi.lib/user.lib. "
-                            "Non-fatal; set false to disable."
-                        ),
-                        "default": True,
-                    },
-                },
-                "required": ["library_path", "output_dir"],
-            },
-        ),
-        Tool(
-            name="generate_python",
-            description=(
-                "Generate Python code from a LabVIEW VI using AST-based "
-                "translation.\n\n"
-                "This tool converts VI dataflow logic to executable Python code. "
-                "It handles SubVI dependencies, primitives, and control/indicator "
-                "types.\n\n"
-                "OUTPUT REVIEW WORKFLOW:\n"
-                "1. Files are written to output_dir/<package_name>/\n"
-                "2. Response includes list of generated files with status (ok/error)\n"
-                "3. 'needs_review' list shows files requiring agent attention\n"
-                "4. 'errors' list shows specific problems to fix\n"
-                "5. Agent should READ the generated files and CORRECT any issues\n\n"
-                "COMMON ISSUES TO FIX:\n"
-                "- Missing dependencies: Add correct search_paths or implement stubs\n"
-                "- Syntax errors: Review and fix the generated code\n"
-                "- Stub functions: Implement missing VI logic\n\n"
-                "The agent receiving this output should:\n"
-                "1. Check if success=true\n"
-                "2. If not, read files in 'needs_review' to understand problems\n"
-                "3. Fix issues by editing the generated files\n"
-                "4. Re-run if search paths were missing"
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_path": {
-                        "type": "string",
-                        "description": (
-                            "Path to VI file (.vi) or block diagram XML (*_BDHb.xml)"
-                        ),
-                    },
-                    "output_dir": {
-                        "type": "string",
-                        "description": "Output directory for generated Python package",
-                    },
-                    "search_paths": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "Search paths for VI dependencies (e.g., OpenG libraries)"
-                        ),
-                        "default": [],
-                    },
-                    "soft_unresolved": {
-                        "type": "boolean",
-                        "description": (
-                            "If true, unknown primitives / vi.lib VIs are "
-                            "emitted as inline `raise PrimitiveResolutionNeeded(...)` "
-                            "/ `raise VILibResolutionNeeded(...)` statements "
-                            "instead of failing the build. Lets a downstream "
-                            "LLM see the diagnostic in context and either "
-                            "write a mapping into .lvkit/ or replace the "
-                            "raise with a contextual fix."
-                        ),
-                        "default": False,
-                    },
-                    "vilib_root": {
-                        "type": "string",
-                        "description": (
-                            "Path to LabVIEW vi.lib on disk for <vilib> resolution."
-                        ),
-                    },
-                    "userlib_root": {
-                        "type": "string",
-                        "description": (
-                            "Path to LabVIEW user.lib on disk for <userlib> resolution."
-                        ),
-                    },
-                    "auto_vilib": {
-                        "type": "boolean",
-                        "description": (
-                            "When vilib_root is not given, best-effort auto-detect a "
-                            "locally installed LabVIEW and use its vi.lib/user.lib. "
-                            "Non-fatal; set false to disable."
-                        ),
-                        "default": True,
-                    },
-                },
-                "required": ["vi_path", "output_dir"],
-            },
-        ),
-        # ===== Stateful Graph Tools =====
-        Tool(
-            name="load",
-            description=(
-                "Load a VI into the in-memory graph. "
-                "The graph persists across tool calls.\n\n"
-                "Use this to load VIs before querying them with get_context, "
-                "get_operations, get_dataflow, get_structure, or get_constants.\n\n"
-                "Returns list of loaded VIs "
-                "(includes dependencies unless load_mode is 'none')."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_path": {
-                        "type": "string",
-                        "description": "Path to VI file (.vi)",
-                    },
-                    "search_paths": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Directories to search for SubVI dependencies",
-                        "default": [],
-                    },
-                    "load_mode": {
-                        "type": "string",
-                        "enum": ["none", "minimal", "full"],
-                        "description": (
-                            "Dependency depth. 'minimal' (default): this VI + its "
-                            "direct SubVIs' connector panes + referenced-type "
-                            "fields — the faithful minimum for inspecting one VI. "
-                            "'full': the whole SubVI/class-method tree (needed "
-                            "before codegen). 'none': this VI alone."
-                        ),
-                        "default": "minimal",
-                    },
-                    "vilib_root": {
-                        "type": "string",
-                        "description": (
-                            "Path to LabVIEW vi.lib on disk for <vilib> resolution."
-                        ),
-                    },
-                    "userlib_root": {
-                        "type": "string",
-                        "description": (
-                            "Path to LabVIEW user.lib on disk for <userlib> resolution."
-                        ),
-                    },
-                    "auto_vilib": {
-                        "type": "boolean",
-                        "description": (
-                            "When vilib_root is not given, best-effort auto-detect a "
-                            "locally installed LabVIEW and use its vi.lib/user.lib. "
-                            "Non-fatal; set false to disable."
-                        ),
-                        "default": True,
-                    },
-                },
-                "required": ["vi_path"],
-            },
-        ),
-        Tool(
-            name="list_loaded",
-            description="List all VIs currently loaded in the graph.",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-            },
-        ),
-        Tool(
-            name="clear",
-            description=(
-                "Clear all VIs from the in-memory graph. "
-                "Use this to start fresh before loading a different project."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {},
-            },
-        ),
-        Tool(
-            name="get_context",
-            description=(
-                "Get the full context for a loaded VI including inputs, outputs, "
-                "operations, wires, and constants. Use after load."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_name": {
-                        "type": "string",
-                        "description": "Name of the VI (e.g., 'Strip Path.vi')",
-                    },
-                },
-                "required": ["vi_name"],
-            },
-        ),
-        Tool(
-            name="generate_ast_code",
-            description=(
-                "Generate Python code from a loaded VI using deterministic "
-                "AST translation.\n\n"
-                "Always produces valid Python syntax. May have PRIMITIVE_xxx stubs for "
-                "unknown primitives that need manual implementation.\n\n"
-                "Use after load to generate code for a specific VI."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_name": {
-                        "type": "string",
-                        "description": "Name of the VI to generate code for",
-                    },
-                },
-                "required": ["vi_name"],
-            },
-        ),
-        # ===== Graph Exploration Tools (LLM-readable) =====
-        Tool(
-            name="describe",
-            description=(
-                "Describe a loaded VI's purpose, signature, and structure "
-                "in human-readable text.\n\n"
-                "Shows: function signature, inputs/outputs with types, "
-                "SubVI calls with descriptions, control flow structures, "
-                "and key statistics.\n\n"
-                "Use this first to understand what a VI does before diving "
-                "into operations or dataflow."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_name": {
-                        "type": "string",
-                        "description": "Name of the VI",
-                    },
-                },
-                "required": ["vi_name"],
-            },
-        ),
-        Tool(
-            name="get_operations",
-            description=(
-                "Get the operations (execution steps) of a loaded VI "
-                "in human-readable format.\n\n"
-                "Shows operations in execution order with nested structures "
-                "(case frames, loop bodies). Each operation shows what it "
-                "does, its inputs/outputs, and primitive ID if applicable.\n\n"
-                "Use after describe to understand the detailed logic."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_name": {
-                        "type": "string",
-                        "description": "Name of the VI",
-                    },
-                },
-                "required": ["vi_name"],
-            },
-        ),
-        Tool(
-            name="get_dataflow",
-            description=(
-                "Show data flow (wire connections) for a loaded VI.\n\n"
-                "Shows which operations feed data to which other operations. "
-                "Optionally filter to show only connections for a specific "
-                "operation.\n\n"
-                "Use to trace how values flow through the VI."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_name": {
-                        "type": "string",
-                        "description": "Name of the VI",
-                    },
-                    "operation_id": {
-                        "type": "string",
-                        "description": (
-                            "Optional: filter to show only wires connected "
-                            "to this operation"
-                        ),
-                    },
-                },
-                "required": ["vi_name"],
-            },
-        ),
-        Tool(
-            name="get_structure",
-            description=(
-                "Get detailed information about a structure node "
-                "(case, loop, or sequence).\n\n"
-                "Shows: selector type and values for cases, "
-                "tunnel connections for loops, frame contents, "
-                "and inner operations.\n\n"
-                "Use when you need to understand a specific "
-                "control flow structure."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_name": {
-                        "type": "string",
-                        "description": "Name of the VI",
-                    },
-                    "operation_id": {
-                        "type": "string",
-                        "description": "ID of the structure operation",
-                    },
-                },
-                "required": ["vi_name", "operation_id"],
-            },
-        ),
-        Tool(
-            name="get_constants",
-            description=(
-                "List all constant values used in a loaded VI.\n\n"
-                "Shows each constant's name, type, and value."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "vi_name": {
-                        "type": "string",
-                        "description": "Name of the VI",
-                    },
-                },
-                "required": ["vi_name"],
-            },
-        ),
-    ]
+    Loads the persisted index when present; builds + saves it on first use (or
+    when ``rebuild``). Caches the facts per resolved root for the session.
+    """
+    root, vi_paths = resolve_project(Path(project))
+    key = str(root)
+    if rebuild or key not in _indexes:
+        _configure_resolvers_for_vi(root)
+        facts = [] if rebuild else store_load(root)
+        if not facts:
+            result = build_index(root, vi_paths)
+            store_save(root, result.facts)
+            facts = result.facts
+        _indexes[key] = facts
+    return root, _indexes[key]
 
 
-@app.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
-    """Handle tool calls."""
-    if name == "generate_documents":
-        library_path = arguments.get("library_path")
-        output_dir = arguments.get("output_dir")
-        search_paths = arguments.get("search_paths", [])
-        load_mode = arguments.get("load_mode", "full")
-        vilib_root = arguments.get("vilib_root")
-        userlib_root = arguments.get("userlib_root")
-        auto_vilib = arguments.get("auto_vilib", True)
+def _vi_summary(f: VIFacts) -> dict[str, Any]:
+    """A compact VI record for symbol/navigation results (no terminal dump)."""
+    return {
+        "path": f.path,
+        "name": f.name,
+        "qualified_name": f.qualified_name,
+        "library": f.library,
+        "owning_class": f.class_fact.owning_class if f.class_fact else None,
+        "is_stub": f.is_stub,
+        "impact_score": f.impact_score,
+    }
 
-        if not library_path:
-            raise ValueError("library_path is required")
-        if not output_dir:
-            raise ValueError("output_dir is required")
 
-        _configure_resolvers_for_vi(library_path)
+@mcp.tool()
+async def index(project: str) -> dict[str, Any]:
+    """Build or refresh the code-understanding index for a whole VI repo.
 
-        # Run documentation generation (synchronous function in async context)
-        result = await asyncio.to_thread(
-            generate_documents, library_path, output_dir, search_paths, load_mode,
-            vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
+    ``project`` is any path inside the repo (a directory, ``.lvproj``,
+    ``.lvclass``, ``.lvlib``, or ``.vi``); the enclosing project root is indexed.
+    Every ``.vi`` is projected into a persisted, path-keyed facts row — so
+    same-named VIs (``setUp.vi`` ×17) never collide the way a name-keyed graph
+    does. Run this once; the other project-scoped tools then answer in sub-ms.
+    Returns the VI count, how many needed the collision-safe individual load,
+    and the resolved project root.
+    """
+    import time
+
+    def _work() -> dict[str, Any]:
+        start = time.monotonic()
+        root, vi_paths = resolve_project(Path(project))
+        _configure_resolvers_for_vi(root)
+        result = build_index(root, vi_paths)
+        store_save(root, result.facts)
+        _indexes[str(root)] = result.facts
+        return {
+            "project_root": str(root),
+            "vis": len(result.facts),
+            "collisions": result.collisions,
+            "ms": round((time.monotonic() - start) * 1000),
+        }
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def find_terminals(
+    project: str,
+    direction: str | None = None,
+    is_error_cluster: bool | None = None,
+    py_type: str | None = None,
+    name: str | None = None,
+) -> list[dict[str, Any]]:
+    """Find connector-pane terminals (controls/indicators) across every VI.
+
+    On a connector pane an **indicator is an OUTPUT** terminal, so
+    ``direction="output"`` selects indicators and ``direction="input"`` selects
+    controls. Combine ``direction="output"`` with ``is_error_cluster=True`` for
+    the canonical "what names does this project use for error indicators?"
+    question — then tally the returned ``name`` values. Each result carries its
+    VI (``vi_path``/``vi_name``) plus the terminal's fields.
+    """
+    def _work() -> list[dict[str, Any]]:
+        _, facts = _get_index(project)
+        matches = iq.find_terminals(
+            facts, direction=direction, is_error_cluster=is_error_cluster,
+            py_type=py_type, name=name,
         )
+        return [asdict(m) for m in matches]
 
-        return [TextContent(type="text", text=result)]
+    return await asyncio.to_thread(_work)
 
-    elif name == "generate_python":
-        vi_path = arguments.get("vi_path")
-        output_dir = arguments.get("output_dir")
-        search_paths = arguments.get("search_paths", [])
-        soft_unresolved = arguments.get("soft_unresolved", False)
-        vilib_root = arguments.get("vilib_root")
-        userlib_root = arguments.get("userlib_root")
-        auto_vilib = arguments.get("auto_vilib", True)
 
-        if not vi_path:
-            raise ValueError("vi_path is required")
-        if not output_dir:
-            raise ValueError("output_dir is required")
+@mcp.tool()
+async def find_constants(
+    project: str, wired_to: str | None = None,
+) -> list[dict[str, Any]]:
+    """Find block-diagram constants across every VI, by what their wire feeds.
 
-        _configure_resolvers_for_vi(vi_path)
+    ``wired_to`` is one of ``indicator`` / ``control`` / ``other`` / ``unwired``
+    (precomputed at index time). ``wired_to="indicator"`` answers "every constant
+    wired directly to an indicator" without a per-VI wire trace.
+    """
+    def _work() -> list[dict[str, Any]]:
+        _, facts = _get_index(project)
+        return [asdict(m) for m in iq.find_constants(facts, wired_to=wired_to)]
 
-        # Run code generation (synchronous function in async context)
-        result = await asyncio.to_thread(
-            generate_python, vi_path, output_dir, search_paths,
-            include_code=False, soft_unresolved=soft_unresolved,
-            vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
-        )
+    return await asyncio.to_thread(_work)
 
-        # Return JSON for structured parsing by agent
-        result_json = result.model_dump_json(indent=2)
-        return [TextContent(type="text", text=result_json)]
 
-    # ===== Stateful Graph Tools =====
+@mcp.tool()
+async def find_type_usages(project: str, type_key: str) -> list[str]:
+    """Paths of every VI whose terminals reference ``type_key`` (a classname or
+    typedef name) — the reverse type-usage index ("who uses this typedef?")."""
+    def _work() -> list[str]:
+        _, facts = _get_index(project)
+        return iq.find_type_usages(facts, type_key)
 
-    elif name == "load":
-        vi_path = arguments.get("vi_path")
-        search_paths = arguments.get("search_paths", [])
-        load_mode = arguments.get("load_mode", "minimal")
-        vilib_root = arguments.get("vilib_root")
-        userlib_root = arguments.get("userlib_root")
-        auto_vilib = arguments.get("auto_vilib", True)
+    return await asyncio.to_thread(_work)
 
-        if not vi_path:
-            raise ValueError("vi_path is required")
 
-        _configure_resolvers_for_vi(vi_path)
-
-        def _load():
-            resolved_vilib = Path(vilib_root) if vilib_root else None
-            resolved_userlib = Path(userlib_root) if userlib_root else None
-            if resolved_vilib is None and auto_vilib:
-                detected = detect_labview()
-                if detected is not None:
-                    resolved_vilib = detected.vilib_root
-                    if resolved_userlib is None:
-                        resolved_userlib = detected.userlib_root
-
-            graph = _get_graph()
-            if resolved_vilib or resolved_userlib:
-                graph.set_library_roots(
-                    vilib_root=resolved_vilib,
-                    userlib_root=resolved_userlib,
-                )
-            search_path_objs = [Path(p) for p in search_paths] if search_paths else None
-            graph.load_vi(
-                Path(vi_path),
-                LoadMode(load_mode),
-                search_paths=search_path_objs,
-            )
-            return list(graph.list_vis())
-
-        loaded = await asyncio.to_thread(_load)
+@mcp.tool()
+async def find_symbols(
+    project: str, name: str | None = None, owning_class: str | None = None,
+) -> list[dict[str, Any]]:
+    """Workspace symbol search: VIs whose bare name contains ``name``
+    (case-insensitive) and/or that belong to ``owning_class``. Each result is a
+    compact record (path, qualified name, library, owning class, impact score).
+    """
+    def _work() -> list[dict[str, Any]]:
+        _, facts = _get_index(project)
         return [
-            TextContent(type="text", text=json.dumps({"loaded_vis": loaded}, indent=2))
+            _vi_summary(f)
+            for f in iq.find_symbols(facts, name=name, owning_class=owning_class)
         ]
 
-    elif name == "list_loaded":
-        graph = _get_graph()
-        vis = list(graph.list_vis())
-        return [
-            TextContent(type="text", text=json.dumps({"loaded_vis": vis}, indent=2))
-        ]
+    return await asyncio.to_thread(_work)
 
-    elif name == "clear":
-        global _graph
-        _graph = None
-        return [TextContent(type="text", text="Graph cleared.")]
 
-    elif name == "get_context":
-        vi_name = arguments.get("vi_name")
-        if not vi_name:
-            raise ValueError("vi_name is required")
+@mcp.tool()
+async def get_callers(project: str, vi: str) -> list[str]:
+    """Paths of VIs that call ``vi`` — pure call edges (a method's owning class
+    is never counted as a caller). ``vi`` may be a path, a qualified name, or an
+    unambiguous bare name."""
+    def _work() -> list[str]:
+        _, facts = _get_index(project)
+        return iq.get_callers(facts, vi)
 
-        graph = _get_graph()
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def get_callees(project: str, vi: str) -> list[str]:
+    """Paths of VIs that ``vi`` calls — pure call edges. ``vi`` may be a path, a
+    qualified name, or an unambiguous bare name."""
+    def _work() -> list[str]:
+        _, facts = _get_index(project)
+        return iq.get_callees(facts, vi)
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def blast_radius(
+    project: str, vi: str, depth: int | None = None,
+) -> dict[str, Any]:
+    """"What breaks if I change ``vi``?" — its transitive dependents over the
+    pure call graph, optionally bounded to ``depth`` hops. Returns the resolved
+    key, the dependent VI paths, and ``impact_score`` (their count)."""
+    def _work() -> dict[str, Any]:
+        _, facts = _get_index(project)
+        return asdict(iq.blast_radius(facts, vi, depth=depth))
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def get_signatures(
+    project: str, vi_names: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Connector panes of every indexed VI (or just ``vi_names``) in one call —
+    each terminal summarized (name, direction, type, cluster field names). The
+    bulk read for classifying terminals project-wide without a round trip per VI.
+    """
+    wanted = set(vi_names or [])
+
+    def _work() -> list[dict[str, Any]]:
+        _, facts = _get_index(project)
+        out: list[dict[str, Any]] = []
+        for f in facts:
+            if wanted and f.name not in wanted and f.path not in wanted:
+                continue
+            out.append({
+                "vi_path": f.path,
+                "vi_name": f.name,
+                "qualified_name": f.qualified_name,
+                "terminals": [
+                    {
+                        "name": t.name,
+                        "direction": t.direction,
+                        "py_type": t.py_type,
+                        "is_error_cluster": t.is_error_cluster,
+                        "field_names": t.field_names,
+                    }
+                    for t in f.terminals
+                ],
+            })
+        return out
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def visualize_project(
+    project: str, scope: str = "calls", highlight: str | None = None,
+) -> str:
+    """A self-contained **Mermaid** map of the project (paste into any Mermaid
+    renderer). ``scope="calls"`` draws the pure call graph; ``scope="classes"``
+    draws the class-inheritance tree. ``highlight`` (a VI path/qualified/bare
+    name) marks that VI and its blast-radius dependents — the visual twin of
+    ``blast_radius``. Clean-room: emits only Mermaid text, no external hosts."""
+    def _work() -> str:
+        _, facts = _get_index(project)
+        return _mermaid(facts, scope=scope, highlight=highlight)
+
+    return await asyncio.to_thread(_work)
+
+
+# ===== Deep single-VI (load on demand) =====
+
+def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
+    """Load ONE VI (MINIMAL) into a fresh graph and return ``(graph, vi_name)``.
+
+    A MINIMAL load also leaf-loads direct SubVIs, so ``list_vis()`` may hold
+    several names; we pick the one whose source path IS ``vi_path``.
+    """
+    p = Path(vi_path).resolve()
+    if not p.exists():
+        raise FileNotFoundError(f"VI not found: {vi_path}")
+    _configure_resolvers_for_vi(p)
+    graph = InMemoryVIGraph()
+    graph.load_vi(p, LoadMode.MINIMAL, search_paths=[p.parent])
+    for vi_name in graph.list_vis():
+        src = graph.get_vi_source_path(vi_name)
+        if src is not None and src.resolve() == p:
+            return graph, vi_name
+    # Fall back to the leaf-name resolver (single-VI graphs usually have one)
+    return graph, graph.resolve_vi_name(p.name)
+
+
+@mcp.tool()
+async def describe(vi_path: str) -> str:
+    """Human-readable purpose, signature, SubVI calls, and control flow for one
+    VI (loaded on demand). Start here before ``get_operations``/``get_dataflow``.
+    """
+    def _work() -> str:
+        graph, vi_name = _load_one(vi_path)
+        return describe_vi_text(graph, vi_name)
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def get_operations(vi_path: str) -> str:
+    """Execution-ordered operations of one VI, with nested structures (case
+    frames, loop bodies), loaded on demand."""
+    def _work() -> str:
+        graph, vi_name = _load_one(vi_path)
+        return describe_operations_text(graph, vi_name)
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def get_dataflow(vi_path: str, operation_id: str | None = None) -> str:
+    """Wire connections between one VI's operations, optionally filtered to a
+    single operation. Loaded on demand."""
+    def _work() -> str:
+        graph, vi_name = _load_one(vi_path)
+        return describe_dataflow_text(graph, vi_name, operation_id)
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def get_structure(vi_path: str, operation_id: str) -> str:
+    """Detail on one case/loop/sequence structure — selector and values,
+    tunnels, frame contents. Loaded on demand."""
+    def _work() -> str:
+        graph, vi_name = _load_one(vi_path)
+        return describe_structure_text(graph, vi_name, operation_id)
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def get_constants(vi_path: str) -> str:
+    """Every constant's name, type, and value in one VI (loaded on demand)."""
+    def _work() -> str:
+        graph, vi_name = _load_one(vi_path)
+        return describe_constants_text(graph, vi_name)
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def get_context(vi_path: str) -> str:
+    """Full structured context for one VI — inputs, outputs, operations, wires,
+    constants — as JSON. Loaded on demand. Heavier than ``describe``; use when
+    you need the raw structure, not prose."""
+    def _work() -> str:
+        graph, vi_name = _load_one(vi_path)
         context = graph.get_vi_context(vi_name)
-        if not context.inputs and not context.outputs and not context.operations:
-            return [TextContent(type="text", text=f"VI not found: {vi_name}")]
+        return json.dumps(context.model_dump(), indent=2, default=str)
 
-        # VIContext is Pydantic — model_dump() handles nested Pydantic types.
-        # LVType (dataclass) instances are serialized via default=str fallback
-        # until LVType migrates to Pydantic.
-        serialized = context.model_dump()
-        return [
-            TextContent(type="text", text=json.dumps(serialized, indent=2, default=str))
-        ]
+    return await asyncio.to_thread(_work)
 
-    elif name == "generate_ast_code":
-        vi_name = arguments.get("vi_name")
-        if not vi_name:
-            raise ValueError("vi_name is required")
 
-        graph = _get_graph()
+@mcp.tool()
+async def generate_ast_code(vi_path: str) -> str:
+    """Generate Python for one VI via the deterministic AST pipeline (loaded on
+    demand). Always valid syntax; may contain PRIMITIVE_xxx stubs for unknown
+    primitives."""
+    def _work() -> str:
+        graph, vi_name = _load_one(vi_path)
         context = graph.get_vi_context(vi_name)
-        if not context.inputs and not context.outputs and not context.operations:
-            return [TextContent(type="text", text=f"VI not found: {vi_name}")]
+        return build_module(context, vi_name)
 
-        def _generate():
-            return build_module(context, vi_name)
+    return await asyncio.to_thread(_work)
 
-        try:
-            code = await asyncio.to_thread(_generate)
-            return [TextContent(type="text", text=code)]
-        except Exception as e:
-            return [TextContent(type="text", text=f"AST generation failed: {e}")]
 
-    # ===== Graph Exploration Tools =====
+# ===== Stateless generators =====
 
-    elif name == "describe":
-        vi_name = arguments.get("vi_name")
-        if not vi_name:
-            raise ValueError("vi_name is required")
+@mcp.tool()
+async def generate_documents(
+    library_path: str,
+    output_dir: str,
+    search_paths: list[str] | None = None,
+    load_mode: str = "full",
+    vilib_root: str | None = None,
+    userlib_root: str | None = None,
+    auto_vilib: bool = True,
+) -> str:
+    """Generate a static HTML documentation site for a VI, library, class, or
+    directory (same output as ``lvkit docs``). Writes files and returns a
+    summary; tell the user the path to ``index.html``."""
+    _configure_resolvers_for_vi(library_path)
+    return await asyncio.to_thread(
+        _gen_documents, library_path, output_dir, search_paths or [], load_mode,
+        vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
+    )
 
-        graph = _get_graph()
-        text = describe_vi_text(graph, vi_name)
-        return [TextContent(type="text", text=text)]
 
-    elif name == "get_operations":
-        vi_name = arguments.get("vi_name")
-        if not vi_name:
-            raise ValueError("vi_name is required")
+@mcp.tool()
+async def generate_python(
+    vi_path: str,
+    output_dir: str,
+    search_paths: list[str] | None = None,
+    soft_unresolved: bool = False,
+    vilib_root: str | None = None,
+    userlib_root: str | None = None,
+    auto_vilib: bool = True,
+) -> str:
+    """Generate a Python package from a VI (same conversion as ``lvkit
+    generate``), with a ``needs_review``/``errors`` workflow for the calling
+    agent to read and correct the output. Returns JSON."""
+    _configure_resolvers_for_vi(vi_path)
+    result = await asyncio.to_thread(
+        _gen_python, vi_path, output_dir, search_paths or [],
+        include_code=False, soft_unresolved=soft_unresolved,
+        vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
+    )
+    return result.model_dump_json(indent=2)
 
-        graph = _get_graph()
-        text = describe_operations_text(graph, vi_name)
-        return [TextContent(type="text", text=text)]
 
-    elif name == "get_dataflow":
-        vi_name = arguments.get("vi_name")
-        operation_id = arguments.get("operation_id")
-        if not vi_name:
-            raise ValueError("vi_name is required")
+# ===== Mermaid rendering (project visualization) =====
 
-        graph = _get_graph()
-        text = describe_dataflow_text(graph, vi_name, operation_id)
-        return [TextContent(type="text", text=text)]
+def _mermaid_id(path: str, ids: dict[str, str]) -> str:
+    """Stable, Mermaid-safe node id for a path (n0, n1, …)."""
+    if path not in ids:
+        ids[path] = f"n{len(ids)}"
+    return ids[path]
 
-    elif name == "get_structure":
-        vi_name = arguments.get("vi_name")
-        operation_id = arguments.get("operation_id")
-        if not vi_name:
-            raise ValueError("vi_name is required")
-        if not operation_id:
-            raise ValueError("operation_id is required")
 
-        graph = _get_graph()
-        text = describe_structure_text(graph, vi_name, operation_id)
-        return [TextContent(type="text", text=text)]
+def _mermaid(vis: list[VIFacts], *, scope: str, highlight: str | None) -> str:
+    """Render the project as a Mermaid ``graph``/``classDiagram`` string."""
+    by_path = {f.path: f for f in vis}
+    label = {f.path: f.name for f in vis}
 
-    elif name == "get_constants":
-        vi_name = arguments.get("vi_name")
-        if not vi_name:
-            raise ValueError("vi_name is required")
+    if scope == "classes":
+        lines = ["classDiagram"]
+        seen: set[str] = set()
+        for f in vis:
+            cf = f.class_fact
+            if cf is None:
+                continue
+            cls = cf.owning_class
+            if cls not in seen:
+                lines.append(f"    class `{cls}`")
+                seen.add(cls)
+            if cf.parent and cf.parent not in seen:
+                lines.append(f"    class `{cf.parent}`")
+                seen.add(cf.parent)
+            if cf.parent:
+                lines.append(f"    `{cf.parent}` <|-- `{cls}`")
+        if len(lines) == 1:
+            lines.append("    class `(no classes indexed)`")
+        return "\n".join(lines)
 
-        graph = _get_graph()
-        text = describe_constants_text(graph, vi_name)
-        return [TextContent(type="text", text=text)]
+    # scope == "calls" (default): the pure call graph.
+    graph = iq.build_call_graph(vis)
+    hot: set[str] = set()
+    if highlight is not None:
+        br = iq.blast_radius(vis, highlight)
+        hot = {br.vi_key, *br.dependents}
 
-    else:
-        raise ValueError(f"Unknown tool: {name}")
+    ids: dict[str, str] = {}
+    lines = ["graph LR"]
+    for path in graph.nodes():
+        nid = _mermaid_id(path, ids)
+        name = label.get(path, Path(path).name).replace('"', "'")
+        lines.append(f'    {nid}["{name}"]')
+    for a, b in graph.edges():
+        lines.append(f"    {_mermaid_id(a, ids)} --> {_mermaid_id(b, ids)}")
+    for path in hot:
+        if path in by_path:
+            lines.append(f"    style {_mermaid_id(path, ids)} fill:#f9a,stroke:#c33")
+    return "\n".join(lines)
 
+
+# ===== Entry points =====
 
 def selftest() -> int:
-    """Initialize the server and list its tools; return the tool count.
+    """Initialize the server, list its tools, and return the count.
 
-    A one-command health check that exercises the same registration path a
-    client's ``initialize`` -> ``tools/list`` handshake hits. It catches the
-    import-time / API-mismatch class of failure — e.g. an ``mcp`` major-version
-    bump that removes the decorator API this module is built on — that otherwise
-    makes the server appear *absent* (client registers zero tools) rather than
-    *broken*. Raises on failure so the caller can exit non-zero; used by
-    ``lvkit mcp --selftest`` and CI.
+    The same registration path a client's ``initialize`` -> ``tools/list``
+    handshake hits — so a broken build (e.g. an ``mcp`` API break) is one command
+    away from a non-zero exit instead of appearing as a silently absent server.
+    Used by ``lvkit mcp --selftest`` and CI.
     """
-    # ``list_tools`` is wrapped by the ``@app.list_tools()`` decorator, whose
-    # type pyright can't see through (it reads the result as a non-coroutine
-    # taking an arg). The call is correct at runtime — this is the exact handler
-    # a ``tools/list`` request invokes.
-    tools = asyncio.run(list_tools())  # pyright: ignore[reportCallIssue, reportArgumentType]
+    tools = asyncio.run(mcp.list_tools())
     return len(tools)
 
 
-async def async_main() -> None:
-    """Run the MCP server via stdio (async)."""
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(
-            read_stream,
-            write_stream,
-            app.create_initialization_options(),
-        )
-
-
 def main() -> None:
-    """Run the MCP server via stdio (entry point)."""
-    asyncio.run(async_main())
+    """Run the MCP server over stdio (entry point)."""
+    mcp.run("stdio")
 
 
 if __name__ == "__main__":

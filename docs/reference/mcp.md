@@ -1,87 +1,109 @@
 # mcp
 
 Start the lvkit MCP (Model Context Protocol) server over stdio, so an AI agent
-can load a VI's graph and query it interactively — across multiple VIs in a
-single session, rather than one CLI invocation per question.
+can **index a VI repo once and then interrogate it like code** — project-wide
+questions answered from a persisted graph, plus deep single-VI inspection on
+demand.
 
 ## Synopsis
 
 ```bash
 lvkit mcp
+lvkit mcp --selftest   # initialize + list tools, exit non-zero on failure
 ```
 
-`mcp` takes no arguments beyond `-h`. It runs the same server as the
-`lvkit-mcp` console script installed with the `lvkit` package: `lvkit mcp` is
-the subcommand form, `lvkit-mcp` is a standalone entry point that calls the
-identical `main()`. Use whichever form your agent's launcher expects —
-`lvkit-mcp` is the one tools like `uvx` invoke by name.
+`mcp` takes no arguments beyond `-h` / `--selftest`. It runs the same server as
+the `lvkit-mcp` console script installed with the `lvkit` package.
+
+## Setup
+
+The server is **stdio** — your agent's runtime launches it and speaks to it; you
+don't run `lvkit mcp` by hand. Point the client's `command` at any lvkit that is
+on the machine.
+
+**Standalone binary (no Python/uv)** — the signed binary bundled with the VS Code
+extension, or a `lvkit-mcp-*.zip` from a GitHub release, is a complete MCP server:
+
+```json
+{ "mcpServers": { "lvkit": { "command": "/abs/path/to/lvkit", "args": ["mcp"] } } }
+```
+
+VS Code uses `.vscode/mcp.json` with a `"servers"` key and `"type": "stdio"`
+instead of the `"mcpServers"` shape above.
+
+**Via uv / pip** — if lvkit is installed as a Python package:
+
+```json
+{ "mcpServers": { "lvkit": { "command": "uvx", "args": ["--from", "lvkit", "lvkit-mcp"] } } }
+```
 
 ## Tools
 
-The server exposes 12 tools, in three groups.
+The server exposes tools in three groups.
 
-Stateless — no `load` required:
+### Project index — whole-repo questions in one call
 
-| Tool | Description |
-|------|-------------|
-| `generate_documents` | Generate the static HTML documentation site for a VI, library, class, or directory — same output as [`docs`](docs.md). |
-| `generate_python` | Generate a Python package from a VI — same conversion as [`generate`](generate.md), with an output-review workflow (`needs_review`/`errors` lists) for the calling agent. |
-
-Stateful graph — build and manage the in-memory VI graph for the session:
+`index` builds a persisted, **path-keyed** facts index for the enclosing project
+(so same-named VIs like `setUp.vi` ×17 never collide); the rest read it in sub-ms.
+All take a `project` path (any file/dir inside the repo).
 
 | Tool | Description |
 |------|-------------|
-| `load` | Load a VI, and by default its SubVIs, into the session's graph. |
-| `list_loaded` | List VIs currently loaded in the graph. |
-| `clear` | Clear the graph. |
-| `get_context` | Get a loaded VI's full context — inputs, outputs, operations, wires, constants. |
-| `generate_ast_code` | Generate Python for a loaded VI via the same AST translation as `generate`. |
+| `index` | Build/refresh the index for a repo. Returns VI count, collisions handled, and ms. |
+| `find_symbols` | Workspace symbol search — VIs by name substring and/or owning class. |
+| `find_terminals` | Controls/indicators across every VI, filtered by direction / error-cluster / type / name. `direction="output"` = indicators. |
+| `find_constants` | Constants across every VI, by what their wire feeds (`wired_to="indicator"` …). |
+| `find_type_usages` | VIs whose terminals reference a class/typedef (reverse type-usage). |
+| `get_callers` / `get_callees` | Pure call edges to/from a VI (ownership excluded). |
+| `blast_radius` | Transitive dependents of a VI — "what breaks if I change this?" |
+| `get_signatures` | Connector panes of every VI, terminals summarized — bulk classification. |
+| `visualize_project` | A self-contained Mermaid call graph or class tree, with optional blast-radius highlight. |
 
-Graph exploration — read a VI already in the graph:
+### Deep single-VI — load one VI live, on demand
+
+Each takes a `vi_path` (a real `.vi`) and loads it live (XML already cached) — no
+`load`/`clear` session state.
 
 | Tool | Description |
 |------|-------------|
-| `describe` | Human-readable signature, inputs/outputs, SubVI calls, and control flow — same content as [`describe`](describe.md). |
-| `get_operations` | Execution-ordered operations, with nested structures. |
-| `get_dataflow` | Wire connections between operations, optionally filtered to one operation. |
-| `get_structure` | Detail on one case/loop/sequence structure node — selector, tunnels, frame contents. |
-| `get_constants` | Every constant's name, type, and value. |
+| `describe` | Human-readable purpose, signature, SubVI calls, control flow. |
+| `get_operations` | Execution-ordered operations with nested structures. |
+| `get_dataflow` | Wire connections, optionally filtered to one operation. |
+| `get_structure` | Detail on one case/loop/sequence structure. |
+| `get_constants` | Every constant's name, type, value. |
+| `get_context` | Full structured context (inputs/outputs/operations/wires/constants) as JSON. |
+| `generate_ast_code` | Python for one VI via the deterministic AST pipeline. |
 
-The `get_context`, `generate_ast_code`, `describe`, `get_operations`,
-`get_dataflow`, `get_structure`, and `get_constants` tools all read from the
-session's graph and require a `load` call first.
+### Stateless generators
 
-## Example
+| Tool | Description |
+|------|-------------|
+| `generate_documents` | Generate the static HTML documentation site — same as [`docs`](docs.md). |
+| `generate_python` | Generate a Python package — same as [`generate`](generate.md), with a review workflow. |
 
-Add lvkit as an MCP server in your agent's configuration:
+## Example — the project-understanding demo
 
-```json
-{
-  "mcpServers": {
-    "lvkit": { "command": "uvx", "args": ["--from", "lvkit", "lvkit-mcp"] }
-  }
-}
-```
+Against JKI VI Tester (487 VIs):
 
-The agent's runtime starts the server itself over stdio and issues tool calls
-against it — you don't run `lvkit mcp` / `lvkit-mcp` by hand.
+1. `index(project="…/source")` → `{vis: 487, collisions: 65, ms: …}`.
+2. `find_terminals(project, direction="output", is_error_cluster=true)` → tally the
+   `name` values: *"what does this project call its error indicators?"* in one call.
+3. `get_callers(project, vi="…/fail.vi")` → *"does this VI have callers?"*
+4. `blast_radius(project, vi="…/fail.vi")` → *"what breaks if I change it?"*
 
 ## Notes
 
-- `load` takes the same SubVI resolution parameters as the CLI's resolution
-  flags — `search_paths`, `vilib_root`, `userlib_root`, `auto_vilib` — see
-  [SubVI & vi.lib resolution](subvi-resolution.md). `auto_vilib` defaults to
-  `true`, matching the CLI's default (auto-detection on unless
-  `--no-auto-vilib` is passed).
-- Before each `load`, `generate_python`, or `generate_documents` call, the
-  server re-resolves the project's `.lvkit/` store (see [setup](setup.md))
-  from the given VI path, so primitive and vi.lib mappings already saved
-  there apply without re-running `setup` per session.
+- The index is **project-scoped** (keyed by project root) — an agent can work
+  across several repos in one session without a shared global graph to clear.
+- The index is stored under `~/.lvkit/cache/index/projects/<slug>/index.db`
+  (SQLite/WAL), rebuilt cheaply from the content-hash-keyed extraction cache.
+- Before each call that knows a path, the server re-resolves the project's
+  `.lvkit/` store (see [setup](setup.md)), so saved primitive/vi.lib mappings apply.
+- The server targets `mcp` 1.x (FastMCP). `mcp` 2.0 removed that API surface; the
+  `mcp<2` pin is deliberate — `--selftest` and CI guard against a silent break.
 
 ## See also
 
 - [describe](describe.md) — the equivalent one-shot CLI query for a single VI.
-- [generate](generate.md) — the equivalent one-shot CLI conversion, including
-  `PrimitiveResolutionNeeded`/`VILibResolutionNeeded` behavior that
-  `generate_python` surfaces per file.
+- [generate](generate.md) — the equivalent one-shot CLI conversion.
 - [setup](setup.md) — install AI-agent skills that pair with this server.
