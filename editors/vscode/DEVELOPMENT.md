@@ -3,28 +3,22 @@
 Contributor and maintainer notes. User-facing docs are in [README.md](README.md).
 ## How the extension finds lvkit
 
-The extension resolves which `lvkit` to run (the `importStrategy` idiom, like Ruff),
-in order:
+The extension resolves which `lvkit` to run, in order: an explicit **`lvkit.path`**
+setting (**ignored in an untrusted workspace** — it names an executable to run) → the
+repo's own `.venv/bin/lvkit` (`.venv\Scripts\lvkit.exe` on Windows) → `uv run lvkit`
+when the repo has a `pyproject.toml`/`uv.lock` and `uv` is on `PATH` → **the bundled
+binary** (`bin/lvkit/lvkit[.exe]`) → a global `lvkit`. The first three let developers
+working inside the LVKit repo use their own latest build; everyone else falls through
+to the bundled binary automatically.
 
-1. an explicit **`lvkit.path`** setting — a developer pointing at their own build.
-   **Ignored in an untrusted workspace** (it names an executable to run).
-2. **`lvkit.importStrategy`** (default `useBundled`; forced to `useBundled` when the
-   workspace is untrusted):
-   - `useBundled` — the extension's **own self-contained runtime**: the bundled
-     python-build-standalone interpreter run as `<bin/python> -m lvkit` with
-     `PYTHONPATH=<bin/libs>` (where lvkit + deps are pre-installed). No uv, no venv.
-   - `fromEnvironment` — a `lvkit` already on `PATH` if present, else the bundle.
-
-Why a bundled Python + a module instead of a bundled `lvkit.exe`: on Windows, **Device
-Guard / Smart App Control** blocks an unsigned, zero-reputation PyInstaller exe — but
-they evaluate the binary being **loaded** (`python.exe` + the `.pyd` files it imports),
-not the launcher. Those are signed / high-reputation python-build-standalone + PyPI
-binaries (the same ones uv merely spawned in 0.1.8), and running lvkit as a **module**
-(`python -m lvkit`) means no `lvkit.exe` is ever created or executed. So 0.1.9 drops uv
-from the runtime entirely: it **ships** the interpreter with lvkit pre-installed and
-launches it directly — nothing is downloaded or assembled (0.1.8 fetched the runtime
-from the network on first use). `LVKIT_PIN` in `extension.js` fixes the exact version;
-bump it **and refetch the bundle** (`bin/libs` must match).
+The bundled binary is a **PyInstaller onedir** standalone build (`build/build-binary.sh`
++ `build/lvkit_entry.py`) — no Python install required on the user's machine. Earlier
+0.1.8/0.1.9 releases replaced this with a bundled `uv`/managed-Python runtime because the
+unsigned PyInstaller `.exe` was blocked by Windows Device Guard / Smart App Control; that
+is now solved by **signing** the Windows binary (every `.exe`/`.dll`/`.pyd` under
+`bin/lvkit/`) with Azure Artifact Signing in CI (`win32-x64` builds on a
+`windows-latest` runner specifically for this — Authenticode signing cannot run on
+Linux). macOS/Linux binaries ship unsigned (mac notarization is a separate, later item).
 
 ## Try it locally (dev host)
 
@@ -46,39 +40,26 @@ The extension versions on its **own** track (independent of the LVKit library) �
 in `extension.js`); bump that constant when a feature needs a newer library, and bump
 the extension `version` in `package.json` per its own release cadence.
 
-## Bundling the runtime
+## Building the bundled binary
 
-`bin/` is **not committed** (git-ignored, per-platform, ~250 MB). It holds the two
-components of the ready-to-run runtime (approach B — no uv, no venv):
-
-```
-bin/python/python/   a python-build-standalone install_only CPython 3.12
-bin/libs/            lvkit==<LVKIT_PIN> + its full dependency set, INSTALLED
-```
-
-Fetch both for a target before packaging (or for F5 testing):
+The `bin/` binary is **not committed** (git-ignored, ~70 MB, per-platform). Build it
+locally (needed once for F5 testing) or in CI at release time:
 
 ```bash
-editors/vscode/build/fetch-bundle.sh win32-x64   # Python + libs into bin/
-# also: linux-x64 | darwin-x64 | darwin-arm64 | win32-arm64 | linux-arm64
+uv pip install pyinstaller                     # once
+editors/vscode/build/build-binary.sh           # -> editors/vscode/bin/lvkit/lvkit
 ```
 
-`fetch-bundle.sh` downloads the pinned python-build-standalone tarball (`PBS_RELEASE` /
-`PY_VERSION` in the script) and `pip install --target bin/libs`s lvkit + deps for the
-target's platform tag(s). `pip install --target` unpacks wheels **without running** the
-target interpreter (`--platform`/`--python-version`/`--implementation` select the
-wheels), so a **win32** bundle builds fine from Linux. Everything is per-platform, so
-fetch the matching bundle for **each** target and ship one `.vsix` per platform (e.g.
-`npx @vscode/vsce package --target win32-x64`). vsce just bundles whatever is in `bin/`,
-so the fetched **Windows** components are what matter, not the build host.
+PyInstaller is platform-specific, so run it on **each** of macOS / Windows / Linux to
+produce that OS's binary; ship one platform-specific `.vsix` per target. The script
+builds against whatever `lvkit` is installed in the active environment (`uv pip install
+-e .` picks up the repo's own `pyproject.toml` version).
 
-Because you can't run a win32 Python on Linux, prove the **runtime mechanism** on the
-build host with a linux bundle: `fetch-bundle.sh linux-x64`, then
-`PYTHONPATH=bin/libs bin/python/python/bin/python3 -m lvkit --version` → `lvkit <pin>`
-(and a real `render … --format html` → exit 0). No uv, no venv anywhere.
-
-(The old PyInstaller path — `build/build-binary.sh` → `bin/lvkit/` — is superseded and
-no longer used; see "How the extension finds lvkit".)
+**Windows signing**: `windows-latest` in CI signs every `.exe`/`.dll`/`.pyd` under
+`bin/lvkit/` with the `azure/artifact-signing-action` (Azure Artifact Signing,
+`pragmatest` account / `pragmatest-public-trust` certificate profile) before packaging.
+This can only run on a Windows runner (Authenticode/`signtool` is Windows-only) — it
+cannot be reproduced locally on Linux/macOS dev machines.
 
 ## Publishing to the Marketplace
 
@@ -90,7 +71,7 @@ You need a **publisher** on the VS Code Marketplace and a token:
    (or via the Marketplace management page), then `npx @vscode/vsce login pragmatest`.
 3. Package + publish **per platform** (each carries its own `bin/`):
    `npx @vscode/vsce publish --target linux-x64` (and `win32-x64`, `darwin-x64`,
-   `darwin-arm64`). CI does this on an extension tag — see
+   `darwin-arm64`). CI does this on an extension tag, one job per platform runner — see
    `.github/workflows/publish-extension.yml`.
 
 The bundled binary means end users need nothing installed; developers inside the LVKit

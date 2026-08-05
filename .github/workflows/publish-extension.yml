@@ -2,15 +2,19 @@ name: Publish VS Code extension
 
 # Fires on an EXTENSION tag (ext-v*), separate from the PyPI publish (v*).
 #
-#   verify  ->  build (fan out: one .vsix per platform)  ->  publish (fan in)
+#   verify  ->  build (fan out: one .vsix per platform, native runner)  ->  publish (fan in)
 #
-# Each platform builds its binary AND packages its own .vsix, uploading the
-# finished artifact. The publish job then does exactly one thing: upload the
-# four .vsix files. All the work that can fail — PyInstaller, vsce's secret
-# scan, manifest validation, size limits — happens in the fan-out, so
+# Each platform builds ITS OWN bundled `lvkit` standalone binary (PyInstaller,
+# via build-binary.sh) on that platform's NATIVE runner and packages its own
+# .vsix, uploading the finished artifact. win32-x64 additionally code-signs
+# every PE in the bundle (Azure Artifact Signing) before packaging — Windows
+# Authenticode/signtool signing can ONLY run on a Windows runner, which is why
+# this job matrix uses a real per-OS `os` field instead of building everything
+# on one Linux runner. The publish job then does exactly one thing: upload the
+# four .vsix files. All the work that can fail — PyInstaller, signing, vsce's
+# secret scan, manifest validation, size limits — happens in the fan-out, so
 # `needs: build` is a real all-or-nothing gate: if any platform cannot be
-# packaged, NOTHING is published. Earlier revisions published targets one at a
-# time and repeatedly left some platforms live and others missing.
+# packaged, NOTHING is published.
 #
 # Packaging natively also keeps the executable bit correct without a tar
 # round-trip (upload-artifact does not preserve permissions, but a .vsix is a
@@ -49,70 +53,74 @@ jobs:
 
   build:
     needs: verify
-    # Every target builds on ONE Ubuntu runner: the extension bundles a
-    # self-contained runtime (approach B) — a python-build-standalone CPython +
-    # lvkit installed via `pip install --target` — and invokes it directly as
-    # `<bundled-python> -m lvkit`. `pip --target` unpacks wheels WITHOUT running
-    # the target interpreter, so a win32/darwin bundle builds fine on Linux;
-    # vsce's --target only stamps the manifest's TargetPlatform.
-    runs-on: ubuntu-latest
     strategy:
       # Report every platform's result instead of cancelling siblings on the
       # first failure — `needs: build` already blocks publishing unless all
       # four succeed, so full diagnostics cost nothing.
       fail-fast: false
       matrix:
-        target: [linux-x64, win32-x64, darwin-x64, darwin-arm64]
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win32-x64
+          # macos-13 was RETIRED 2025-12-04 (jobs queue forever and never
+          # start); macos-14 is deprecated (unsupported after 2026-11-02).
+          # macos-15 is the current arm64 image, macos-15-intel replaces the
+          # x86_64 label. Apple has discontinued x86_64 and GitHub drops macOS
+          # Intel when macOS 15 retires (Fall 2027) — darwin-x64 is sunsetting.
+          - os: macos-15-intel
+            target: darwin-x64
+          - os: macos-15
+            target: darwin-arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      # CPython 3.12 provides pip (for `pip install --target`) AND a `python3.12`
-      # for the hash-based .pyc precompile step (so first render is instant, not
-      # a ~20s recompile). Must match the bundle's pinned CPython minor (3.12).
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
 
-      # Fetch this target's self-contained runtime: python-build-standalone +
-      # lvkit + deps installed into bin/, with bytecode precompiled hash-based.
-      - name: Fetch bundled runtime for this platform
+      # PyInstaller builds a onedir bundle FROM THE REPO'S OWN lvkit (uv pip
+      # install -e .), so it always picks up whatever version is pinned in
+      # pyproject.toml at the tagged commit — nothing to bump here separately.
+      - name: Build bundled lvkit binary
         shell: bash
-        run: bash editors/vscode/build/fetch-bundle.sh ${{ matrix.target }}
-
-      # Windows only: sign every bundled PE file so Smart App Control (which
-      # blocks unsigned native code on enforce-mode Win11) allows the bundled
-      # Python. SAC evaluates each extracted .exe/.dll/.pyd by its own hash, so
-      # all of them must be signed — not just the .vsix. `dotnet sign` is the
-      # cross-platform signer (this job runs on Ubuntu); Azure auth comes from
-      # the pragmatest-signing-ci service-principal secrets.
-      - name: Set up .NET (code-signing tool)
-        if: matrix.target == 'win32-x64'
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Code-sign the bundled Windows runtime (Artifact Signing)
-        if: matrix.target == 'win32-x64'
-        shell: bash
-        env:
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         run: |
-          dotnet tool install -g --prerelease sign
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          mapfile -t files < <(find editors/vscode/bin -type f \
-            \( -name '*.exe' -o -name '*.dll' -o -name '*.pyd' \))
-          echo "Signing ${#files[@]} PE files in the bundle"
-          sign code artifact-signing \
-            --verbosity information \
-            --timestamp-url http://timestamp.digicert.com \
-            --artifact-signing-endpoint https://wus2.codesigning.azure.net/ \
-            --artifact-signing-account pragmatest \
-            --artifact-signing-certificate-profile pragmatest-public-trust \
-            "${files[@]}"
+          uv venv
+          uv pip install -e . pyinstaller
+          uv run bash editors/vscode/build/build-binary.sh
+
+      # Windows only: sign every PE in the bundle so Smart App Control (which
+      # blocks unsigned native code on enforce-mode Win11) allows the bundled
+      # lvkit binary. SAC evaluates each on-disk file by its own hash, so every
+      # .exe/.dll/.pyd under bin/lvkit/ must be signed, not just the .vsix.
+      # This MUST run on a Windows runner: Authenticode/signtool signing has no
+      # Linux equivalent (`dotnet sign` throws System.DllNotFoundException:
+      # kernel32.dll off Windows) — hence this job's per-OS matrix instead of
+      # building every target on one Ubuntu runner.
+      - name: Code-sign the bundled binary (Artifact Signing)
+        if: matrix.target == 'win32-x64'
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          # Force DefaultAzureCredential down the plain client-secret path (the
+          # documented approach for service-principal auth, no OIDC/id-token
+          # permission needed).
+          exclude-environment-credential: false
+          exclude-workload-identity-credential: true
+          exclude-managed-identity-credential: true
+          exclude-shared-token-cache-credential: true
+          exclude-visual-studio-credential: true
+          exclude-visual-studio-code-credential: true
+          endpoint: https://wus2.codesigning.azure.net/
+          signing-account-name: pragmatest
+          certificate-profile-name: pragmatest-public-trust
+          files-folder: ${{ github.workspace }}\editors\vscode\bin\lvkit
+          files-folder-filter: exe,dll,pyd
+          files-folder-recurse: true
 
       - name: Package .vsix for this platform
         shell: bash
