@@ -125,8 +125,14 @@ New package `src/lvkit/index/`, no MCP dependency. Everything CLI/pytest-testabl
   `lvkit index --refresh` and the MCP `index(project, refresh=True)` tool.
   Measured on JKI: unchanged repo refresh **86 ms vs 152 s** full build (~1800×).
   Tests: `TestIncrementalRefresh` (no-change / stale-sha / deletion).
-- [ ] **P3.3** Skills prefer MCP when connected, else CLI (update `skill_templates/`
-  — **after** the P2 tool surface settles, so skills aren't rewritten twice).
+- [x] **P3.3** Skills prefer MCP when connected, else CLI. Updated the two
+  MCP-referencing templates (`lvkit-describe`, `lvkit-convert`) to the P2 tool
+  surface — deep tools take a `vi_path` (no `load`/`clear`), plus the project
+  index tools (`index`/`find_*`/`get_callers`/`blast_radius`/`visualize_project`)
+  — with an explicit "prefer MCP when connected, else CLI" framing (= D.4).
+  Dropped stale `load`/`list_loaded`/`analyze` references. NOTE: the project
+  index queries are **MCP-only** today; a `lvkit query`/`explore` CLI would
+  complete the MCP-banned fallback (follow-up).
 
 ## Phase D — distribution: the signed binary as zero-setup transport
 

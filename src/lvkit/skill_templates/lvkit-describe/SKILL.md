@@ -55,11 +55,14 @@ Rules:
 - Use judgment on Constants — infer purpose from context, omit trivial ones
 - Interpretation leads; raw data follows
 
-## MCP alternative
+## MCP alternative (prefer when the lvkit MCP server is connected)
 
-If MCP tools are available, use them directly:
+The MCP tools take a VI path directly — no `load`/`clear` session step:
 
-- `load` → `describe` → `get_operations` → `get_dataflow` → `get_structure` → `get_constants`
+- **One VI:** `describe(vi_path)` → `get_operations(vi_path)` → `get_dataflow(vi_path)` → `get_structure(vi_path, operation_id)` → `get_constants(vi_path)`
+- **Whole project** (index once with `index(project)`): `find_symbols`, `find_terminals` (e.g. `direction="output", is_error_cluster=true` for error-indicator names), `get_callers`/`get_callees`, `blast_radius`, `get_signatures`, `visualize_project` — project-wide answers in one call each.
+
+If the server isn't connected, use the `lvkit …` CLI above.
 
 ## Note
 

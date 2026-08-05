@@ -104,27 +104,25 @@ lvkit mcp                          # Start MCP server for IDE integration
 
 ## MCP Tools (for IDE integration)
 
-The MCP server (`lvkit mcp`) provides tools for interactive exploration:
+When the lvkit MCP server (`lvkit mcp`) is connected, **prefer these tools over
+the CLI**; otherwise use the `lvkit …` commands above (each has a CLI
+equivalent, except the project-index queries, which are MCP-only for now).
 
-**Session:**
-- `load` — Load VI into persistent graph
-- `list_loaded` — List loaded VIs
+**Project index** — index a repo once (`index(project)`), then ask project-wide
+questions in one call each (no per-VI round trips, no name-collision loss):
+- `find_symbols` / `find_terminals` / `find_constants` / `find_type_usages`
+- `get_callers` / `get_callees` / `blast_radius` — call graph & change impact
+- `get_signatures` — every VI's connector pane, summarized
+- `visualize_project` — self-contained Mermaid call graph / class tree
 
-**Exploration:**
-- `describe` — Human-readable VI overview (signature, SubVIs, control flow)
-- `get_operations` — Execution order with nested structures
-- `get_dataflow` — Wire connections, optionally filtered by operation
-- `get_structure` — Case/loop/sequence details
-- `get_constants` — Constant values
+**Deep single-VI** — pass a `vi_path`, loaded on demand (no `load` step):
+- `describe` / `get_operations` / `get_dataflow` / `get_structure` /
+  `get_constants` / `get_context`
+- `generate_ast_code` — deterministic Python for one VI
 
 **Generation:**
-- `generate_ast_code` — Deterministic Python from loaded VI
-- `generate_python` — Full pipeline: load + generate + write files
-- `get_context` — Raw VI context as JSON
-
-**Documentation:**
-- `generate_documents` — Create HTML documentation
-- `analyze` — Parse and return VI structure
+- `generate_python` — full pipeline + a needs-review workflow
+- `generate_documents` — static HTML documentation site
 
 ## Related Skills
 
