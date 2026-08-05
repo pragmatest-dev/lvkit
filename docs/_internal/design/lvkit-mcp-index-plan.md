@@ -12,17 +12,25 @@ Branch: `mcp-improvements`. Each phase ends in a verified commit.
 
 - [x] **P0.1** Cap `mcp>=0.9.0,<2` (`pyproject.toml`) + relock. Verified: server
   imports, 12 tools list under mcp 1.27.0. Commit `e0b7fb1`.
-- [ ] **P0.2** `lvkit mcp --selftest` — initialize the server, list tools, print
+- [x] **P0.2** `lvkit mcp --selftest` — initialize the server, list tools, print
   the count, exit non-zero on any failure. Catches the import-time class of bug
   in one command. `cli.py` (`mcp` subparser + `cmd_mcp`). Reusable by CI + the
-  2.x rewrite. Test: `lvkit mcp --selftest` exits 0 and prints ≥12.
-- [ ] **P0.3** CI job: real `initialize` → `tools/list` handshake against the
+  2.x rewrite. Verified: `lvkit mcp --selftest` → `server initialized, 12 tools`.
+- [x] **P0.3** CI job: real `initialize` → `tools/list` handshake against the
   built package (or just `lvkit mcp --selftest`). An import error must never
-  reach a release again.
+  reach a release again. (Commit `7bd58c9`.)
+
+Un-breaking setup is only half the "trash garbage." Setup still needed
+uv/Python/pip to *run* the server at all — **Phase D** removes that: the signed
+standalone binary is already an MCP server today (D.1, verified).
 
 ## Phase 1 — the index engine (standalone `lvkit/index/`)
 
 New package `src/lvkit/index/`, no MCP dependency. Everything CLI/pytest-testable.
+
+> **Status: complete on this branch** (tasks P1 index engine + `lvkit index`
+> CLI + demo validation; 8/8 tests). The per-item boxes below predate that and
+> are left as the design record.
 
 - [ ] **P1.1 `model.py`** — facts dataclasses (strings only, serializable):
   `VIFacts` (path, name, qualified_name, library, klass, is_stub, content_sha),
@@ -97,3 +105,47 @@ New package `src/lvkit/index/`, no MCP dependency. Everything CLI/pytest-testabl
 - [ ] **P3.2** git-diff incremental refresh (no OS watcher).
 - [ ] **P3.3** Skills prefer MCP when connected, else CLI (update `skill_templates/`
   — **after** the P2 tool surface settles, so skills aren't rewritten twice).
+
+## Phase D — distribution: the signed binary as zero-setup transport
+
+An **independent axis** from the engine phases. P0 stopped the server dying
+silently; this removes the *other* half of the "trash garbage" setup — needing
+uv/Python/pip to run it at all. lvkit already builds a **code-signed standalone
+PyInstaller binary** (Azure Public Trust) for the VS Code extension, and it
+carries the whole CLI, `lvkit mcp` included. D.1 already holds today; D.3 waits
+on P2 (so what auto-registers is the good, project-scoped surface).
+
+- [x] **D.1 — verified: the signed bundle already *is* an MCP server.** Built the
+  onedir bundle (`editors/vscode/build/build-binary.sh`) and drove it over real
+  stdio: `initialize` → `serverInfo{lvkit-mcp}` → `tools/list` = all 12 tools,
+  with **zero** Python/uv/pip. `mcp` + compiled `pydantic_core` are pulled in by
+  PyInstaller's import graph with no extra `--collect-*` flags (`mcp` is a hard
+  dep — pyproject.toml). Same binary: `lvkit --version` → 0.5.8.
+- [ ] **D.2 — ship the binary as a release asset (Path A).** The
+  `publish-extension.yml` matrix already builds + signs all four platforms; add
+  an upload of the `bin/lvkit/` bundle to a GitHub Release so any MCP client can
+  point `command` at it. Setup collapses to
+  `{"command": "/abs/path/to/lvkit", "args": ["mcp"]}` — no `uvx --from lvkit`.
+  Document the snippet for Claude Desktop / Claude Code / Cursor.
+- [ ] **D.3 — VS Code auto-registration (Path B).** The extension already ships
+  and path-resolves the signed binary; register `<bundled>/lvkit mcp` via VS
+  Code's MCP provider API so agent mode gets the tools with **zero user config**.
+  VERIFY first (do not assume): the `McpServerDefinitionProvider` API surface +
+  the minimum `engines.vscode` it needs (manifest is `^1.75.0` today — likely too
+  old). Land **after P2** so the registered surface is project-scoped, not
+  today's global-`_graph` server.
+- [ ] **D.4 — enterprise-restriction fallback.** MCP is a convenience layer over
+  the CLI: every MCP tool is also a `lvkit` subcommand
+  (`describe`/`generate`/`diff`/`render`/`structure`/`index`). An MCP ban is a
+  client-side gate (Copilot/Cursor/Claude policy, upstream of us) — under it,
+  skills fall back to CLI shell-out (ties into P3.3) and the extension's own
+  render/diff (which never used MCP) are unaffected. Allow-list pitch: **local
+  stdio, zero network egress, code-signed** — the easiest profile to get an
+  exception for.
+
+**Environment reach** (governing rule: a `command` MCP server needs a real
+backend process *and* a matching-platform binary): desktop, Remote-SSH, Dev
+Containers, Codespaces, WSL → works; **browser-only virtual workspaces**
+(vscode.dev / github.dev) → not possible (no native process — the extension
+already declares `virtualWorkspaces: supported: false`); Cursor → Path A /
+sideload (Open VSX + its own MCP config, not our MS-Marketplace channel).

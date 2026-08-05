@@ -226,6 +226,8 @@ index-backed bulk tools. No LabVIEW needed — the corpus is already in the cach
   --selftest` (initialize → tools/list, non-zero on failure) + a CI handshake;
   batch `load` (dir/.lvlib/.lvclass expansion — prototyped in the old doc §2);
   path-key at the index layer (report collisions instead of silently dropping).
+  That un-breaks setup; **§8** covers the other half — the signed standalone
+  binary that removes the uv/Python prerequisite entirely.
 - **P1 — the demo.** Facts projection in cache + `find_terminals` /
   `get_callers` / `find_constants` + `lvkit index`. Acceptance = the three demo
   answers on JKI VI Tester.
@@ -303,7 +305,50 @@ makes it O(1); `visualize_project(highlight=run.vi)` shows the ripple.
 
 ---
 
-## 8. Open decisions (for the maintainer)
+## 8. Distribution & setup — the signed binary closes the "trash garbage" loop
+
+The "trash garbage setup" was **two** failures, and the sections above name only
+one. (a) The server **died silently** on a fresh resolve — `mcp>=2` removed the
+decorator API `server.py` was built on (§1 of the old doc); P0's `mcp<2` cap +
+`--selftest` + CI handshake fix that. (b) Even when it ran, *getting it there*
+meant provisioning uv/Python/pip and a `uvx --from lvkit lvkit-mcp` incantation.
+The **code-signed standalone binary** lvkit already builds for the VS Code
+extension fixes (b): it carries the whole CLI, `lvkit mcp` included, and needs no
+interpreter.
+
+**Verified, not assumed.** Built the onedir bundle
+(`editors/vscode/build/build-binary.sh`) and drove it over real MCP stdio:
+`initialize` → `tools/list` returned all **12 tools** with zero Python/uv;
+`mcp` + compiled `pydantic_core` are pulled in by PyInstaller's import graph with
+no extra `--collect-*` flags. So the transport carrier already exists, and it's
+code-signed (Azure Public Trust) — SAC/Device-Guard-clean, and the easiest
+possible profile for an enterprise allow-list (**local stdio, no network
+egress**).
+
+**Two setup paths, both on the one binary:**
+
+- **A — point any client at the binary:**
+  `{"command": ".../lvkit", "args": ["mcp"]}`. Needs the binary shipped as a
+  release asset (plan D.2). Works for Claude Desktop / Claude Code / Cursor.
+- **B — VS Code auto-registers** the bundled `lvkit mcp` (plan D.3, after P2) →
+  zero config for agent mode. Verify the `McpServerDefinitionProvider` API +
+  minimum `engines.vscode` first (`^1.75.0` today is likely too old).
+
+**Reach** follows one rule — a `command` server needs a real backend process and
+a matching-platform binary: desktop / Remote-SSH / Dev Containers / Codespaces /
+WSL work; **browser-only virtual workspaces** (vscode.dev / github.dev) cannot
+(no native process; the extension already declares
+`virtualWorkspaces: supported: false`). Cursor uses Path A (Open VSX + its own
+MCP config, not our MS-Marketplace channel).
+
+**Under an MCP ban the capability survives the transport.** Every MCP tool is
+also a CLI subcommand, so skills shell out to `lvkit …` (plan P3.3 / D.4) and the
+extension's render/diff — which never used MCP — keep working. MCP is a
+convenience layer, not a dependency.
+
+---
+
+## 9. Open decisions (for the maintainer)
 
 1. **Rollup substrate:** SQLite+FTS from the start (premium, more code) vs. JSON
    manifest first, SQLite when scale demands. (Per-VI JSON is the incremental
