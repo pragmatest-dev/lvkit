@@ -122,6 +122,30 @@ jobs:
           files-folder-filter: exe,dll,pyd
           files-folder-recurse: true
 
+      # Ship the SAME bundle (signed on win32) as a downloadable release asset,
+      # so lvkit works as a zero-setup MCP server / CLI with no Python/uv/pip.
+      # The onedir bundle is relocatable — verified `lvkit mcp` lists all 12
+      # tools from a fresh unzip. Asset is versioned by the BUNDLED lvkit
+      # (e.g. lvkit-mcp-0.5.8-win32-x64.zip), not the extension tag. `zip -y`
+      # keeps the exec bit + any framework symlinks; ubuntu/macos runners have
+      # `zip`, Windows uses Compress-Archive.
+      - name: Package standalone binary (unix)
+        if: matrix.target != 'win32-x64'
+        shell: bash
+        run: |
+          ver=$(editors/vscode/bin/lvkit/lvkit --version | awk '{print $2}')
+          ( cd editors/vscode/bin && zip -q -r -y \
+              "$GITHUB_WORKSPACE/lvkit-mcp-$ver-${{ matrix.target }}.zip" lvkit )
+          ls -la "lvkit-mcp-$ver-${{ matrix.target }}.zip"
+      - name: Package standalone binary (windows)
+        if: matrix.target == 'win32-x64'
+        shell: pwsh
+        run: |
+          $ver = (& "$env:GITHUB_WORKSPACE\editors\vscode\bin\lvkit\lvkit.exe" --version).Split(' ')[1]
+          Compress-Archive -Path "$env:GITHUB_WORKSPACE\editors\vscode\bin\lvkit" `
+            -DestinationPath "$env:GITHUB_WORKSPACE\lvkit-mcp-$ver-win32-x64.zip"
+          Get-ChildItem "$env:GITHUB_WORKSPACE\lvkit-mcp-$ver-win32-x64.zip"
+
       - name: Package .vsix for this platform
         shell: bash
         working-directory: editors/vscode
@@ -134,6 +158,12 @@ jobs:
         with:
           name: vsix-${{ matrix.target }}
           path: editors/vscode/lvkit-${{ matrix.target }}.vsix
+          retention-days: 5
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: lvkit-mcp-*.zip
           retention-days: 5
 
   publish:
@@ -171,3 +201,45 @@ jobs:
               --packagePath "vsix/lvkit-$target.vsix" --pat "$VSCE_PAT"
             echo "::endgroup::"
           done
+
+  # Attach the four standalone binary bundles to a GitHub Release for the tag —
+  # permanently downloadable (Actions artifacts expire), so lvkit can be used as
+  # a zero-setup MCP server / CLI. Independent of the Marketplace publish above;
+  # skipped on a dry-run (workflow_dispatch) because it is gated on the ext-v*
+  # tag ref, exactly like `publish`.
+  release-binaries:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/ext-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: bins
+          merge-multiple: true
+      - name: List assets
+        shell: bash
+        run: ls -la bins
+      - name: Attach standalone binaries to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bins/lvkit-mcp-*.zip
+          fail_on_unmatched_files: true
+          body: |
+            Standalone **lvkit** binaries, bundled with LVKit extension ${{ github.ref_name }}.
+
+            Use lvkit as a **zero-setup MCP server** (or CLI) — no Python/uv/pip:
+
+            ```json
+            { "mcpServers": { "lvkit": { "command": "/abs/path/to/lvkit", "args": ["mcp"] } } }
+            ```
+
+            Unzip and point your MCP client (or PATH) at `lvkit/lvkit`
+            (`lvkit\lvkit.exe` on Windows).
+
+            - **win32-x64** — Authenticode-signed (Azure Public Trust); runs under Smart App Control.
+            - **linux-x64** — unsigned ELF.
+            - **darwin-x64 / darwin-arm64** — unsigned; Gatekeeper quarantines
+              downloads — clear with `xattr -dr com.apple.quarantine lvkit/`.
