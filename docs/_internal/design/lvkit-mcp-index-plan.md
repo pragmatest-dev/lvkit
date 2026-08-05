@@ -116,7 +116,15 @@ New package `src/lvkit/index/`, no MCP dependency. Everything CLI/pytest-testabl
 - [ ] **P3.1** `visualize_project(scope?, highlight?)` — Mermaid/SVG project map
   (call graph / hierarchy / DSM) + blast-radius overlay. Reuse the renderer /
   pyvis.
-- [ ] **P3.2** git-diff incremental refresh (no OS watcher).
+- [x] **P3.2** Incremental refresh (no OS watcher). **Content-hash, not git**
+  (deviation from the original wording): a VI whose `sha256_file` still equals
+  its stored `content_sha` is reused; changed/new VIs rebuild via
+  `build_one_vi`; deleted ones drop; `impact_score` recomputed globally. Chosen
+  over git-diff because it is universal (no git repo needed), simpler, and
+  matches the model's existing `content_sha` incrementality key. Wired as
+  `lvkit index --refresh` and the MCP `index(project, refresh=True)` tool.
+  Measured on JKI: unchanged repo refresh **86 ms vs 152 s** full build (~1800×).
+  Tests: `TestIncrementalRefresh` (no-change / stale-sha / deletion).
 - [ ] **P3.3** Skills prefer MCP when connected, else CLI (update `skill_templates/`
   — **after** the P2 tool surface settles, so skills aren't rewritten twice).
 

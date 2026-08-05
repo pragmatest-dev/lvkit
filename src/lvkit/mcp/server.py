@@ -53,9 +53,10 @@ from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
 from ..index import query as iq
-from ..index.build import build_index
+from ..index.build import build_index, refresh_index
 from ..index.model import VIFacts
 from ..index.project import resolve_project
+from ..index.store import delete as store_delete
 from ..index.store import load as store_load
 from ..index.store import save as store_save
 from ..load_mode import LoadMode
@@ -122,7 +123,7 @@ def _vi_summary(f: VIFacts) -> dict[str, Any]:
 
 
 @mcp.tool()
-async def index(project: str) -> dict[str, Any]:
+async def index(project: str, refresh: bool = False) -> dict[str, Any]:
     """Build or refresh the code-understanding index for a whole VI repo.
 
     ``project`` is any path inside the repo (a directory, ``.lvproj``,
@@ -130,8 +131,11 @@ async def index(project: str) -> dict[str, Any]:
     Every ``.vi`` is projected into a persisted, path-keyed facts row — so
     same-named VIs (``setUp.vi`` ×17) never collide the way a name-keyed graph
     does. Run this once; the other project-scoped tools then answer in sub-ms.
-    Returns the VI count, how many needed the collision-safe individual load,
-    and the resolved project root.
+
+    ``refresh=True`` does an incremental update of an existing index — rebuild
+    only VIs whose content changed (or were added), drop deleted ones — instead
+    of a full rebuild. Returns the VI count (full build) or the rebuilt/deleted
+    counts (refresh), plus the resolved project root.
     """
     import time
 
@@ -139,6 +143,19 @@ async def index(project: str) -> dict[str, Any]:
         start = time.monotonic()
         root, vi_paths = resolve_project(Path(project))
         _configure_resolvers_for_vi(root)
+        stored = store_load(root) if refresh else []
+        if stored:
+            rr, merged = refresh_index(root, vi_paths, stored)
+            store_delete(root, rr.deleted)
+            store_save(root, merged)
+            _indexes[str(root)] = merged
+            return {
+                "project_root": str(root),
+                "rebuilt": len(rr.rebuilt),
+                "deleted": len(rr.deleted),
+                "total": rr.total,
+                "ms": round((time.monotonic() - start) * 1000),
+            }
         result = build_index(root, vi_paths)
         store_save(root, result.facts)
         _indexes[str(root)] = result.facts

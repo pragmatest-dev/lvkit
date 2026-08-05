@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.index.build import BuildResult, build_index
+from lvkit.index.build import BuildResult, build_index, refresh_index
 from lvkit.index.model import WIRED_INDICATOR
 from lvkit.index.project import resolve_project
 from lvkit.index.query import (
@@ -94,6 +94,41 @@ class TestSmallClassBuild:
         assert len(back.constants) == len(orig.constants)
         assert back.calls == orig.calls
         assert back.type_uses == orig.type_uses
+
+
+# === Incremental refresh (content-hash) — fast, on the small class dir =====
+
+
+class TestIncrementalRefresh:
+    def _built(self) -> tuple[Path, list[Path], list]:
+        root, vi_paths = resolve_project(TESTCASE_DIR)
+        return root, vi_paths, build_index(root, vi_paths).facts
+
+    def test_no_change_rebuilds_nothing(self):
+        root, vi_paths, stored = self._built()
+        rr, merged = refresh_index(root, vi_paths, stored)
+        assert rr.rebuilt == []
+        assert rr.deleted == []
+        assert rr.total == len(stored)
+        assert {f.path for f in merged} == {f.path for f in stored}
+
+    def test_stale_sha_forces_single_rebuild(self):
+        root, vi_paths, stored = self._built()
+        # Corrupt one fact's content hash -> refresh rebuilds ONLY that VI.
+        target = stored[0].path
+        stored[0].content_sha = "stale"
+        rr, merged = refresh_index(root, vi_paths, stored)
+        assert rr.rebuilt == [target]
+        back = {f.path: f for f in merged}[target]
+        assert back.content_sha and back.content_sha != "stale"
+
+    def test_deleted_file_is_dropped(self):
+        root, vi_paths, stored = self._built()
+        dropped = str(vi_paths[0].resolve())
+        rr, merged = refresh_index(root, vi_paths[1:], stored)
+        assert rr.rebuilt == []
+        assert dropped in rr.deleted
+        assert dropped not in {f.path for f in merged}
 
 
 # === Slow: the full JKI VI Tester corpus — the 4-question acceptance demo ==

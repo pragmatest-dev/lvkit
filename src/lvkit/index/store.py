@@ -186,6 +186,20 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
         conn.close()
 
 
+def delete(project_root: Path, paths: Iterable[str]) -> None:
+    """Delete every row belonging to each given VI path from the index DB.
+
+    Used by an incremental refresh to drop VIs whose ``.vi`` file is gone.
+    """
+    conn = _connect(project_root)
+    try:
+        with conn:
+            for path in paths:
+                _delete_vi(conn, path)
+    finally:
+        conn.close()
+
+
 def _delete_vi(conn: sqlite3.Connection, path: str) -> None:
     conn.execute("DELETE FROM vis WHERE path = ?", (path,))
     for table in _CHILD_TABLES:

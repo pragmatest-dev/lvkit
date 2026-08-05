@@ -248,6 +248,16 @@ def main() -> int:
             "repo."
         ),
     )
+    index_parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help=(
+            "Incrementally refresh an existing index: rebuild only VIs whose "
+            "content hash changed (or that were added), drop deleted ones, and "
+            "leave the rest untouched. Falls back to a full build if the repo "
+            "has never been indexed."
+        ),
+    )
 
     # Describe command - human-readable VI description
     desc_parser = subparsers.add_parser(
@@ -749,20 +759,34 @@ def cmd_index(args: argparse.Namespace) -> int:
     """Handle the index command - build/refresh the facts index for a repo."""
     import time
 
-    from .index.build import build_index
+    from .index.build import build_index, refresh_index
     from .index.project import resolve_project
+    from .index.store import delete as delete_index
+    from .index.store import load as load_index
     from .index.store import save
 
     start = time.monotonic()
     project_root, vi_paths = resolve_project(Path(args.input_path))
+
+    stored = load_index(project_root) if getattr(args, "refresh", False) else []
+    if stored:
+        rr, merged = refresh_index(project_root, vi_paths, stored)
+        delete_index(project_root, rr.deleted)
+        save(project_root, merged)
+        print(json.dumps({
+            "rebuilt": len(rr.rebuilt),
+            "deleted": len(rr.deleted),
+            "total": rr.total,
+            "ms": round((time.monotonic() - start) * 1000),
+        }))
+        return 0
+
     result = build_index(project_root, vi_paths)
     save(project_root, result.facts)
-    ms = round((time.monotonic() - start) * 1000)
-
     print(json.dumps({
         "vis": len(result.facts),
         "collisions": result.collisions,
-        "ms": ms,
+        "ms": round((time.monotonic() - start) * 1000),
     }))
     return 0
 

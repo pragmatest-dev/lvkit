@@ -79,29 +79,88 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
 
     collision_paths = sorted(all_paths - covered)
     for cp in collision_paths:
-        cgraph = InMemoryVIGraph()
-        cgraph.load_vi(cp, LoadMode.MINIMAL, search_paths=[project_root])
-        # A class method's own directory holds its .lvclass (LabVIEW's own
-        # convention — see _load_class_ownership below); scoped to just this
-        # VI's directory rather than the whole repo since only ONE VI is
-        # being projected out of this fresh graph.
-        for cls_path in sorted(cp.parent.glob("*.lvclass")):
-            cgraph.load_lvclass(cls_path, LoadMode.NONE, search_paths=[project_root])
-        vi_name = _vi_name_for_path(cgraph, cp)
-        if vi_name is None:
-            raise RuntimeError(
-                f"index build: {cp} did not load into its own fresh graph "
-                "(unexpected — every repo .vi should be individually loadable)"
-            )
-        facts[str(cp)] = project_vi_facts(cgraph, vi_name, cp)
+        facts[str(cp)] = build_one_vi(project_root, cp)
 
+    _recompute_impact(facts)
+    return BuildResult(facts=list(facts.values()), collisions=len(collision_paths))
+
+
+def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
+    """Project ONE ``.vi`` to ``VIFacts`` via a fresh single-VI graph.
+
+    The collision-safe path, shared by ``build_index`` (for shadowed VIs) and
+    ``refresh_index`` (for changed VIs): load just this VI at MINIMAL (which
+    also leaf-loads its direct SubVIs), plus any ``.lvclass`` in its own
+    directory so class-ownership facts resolve, then project. Every fact is
+    intrinsic to the VI's own bytes (see ``model.py``), so a single-VI build
+    equals what the whole-repo pass would have produced for it.
+    """
+    cp = vi_path.resolve()
+    cgraph = InMemoryVIGraph()
+    cgraph.load_vi(cp, LoadMode.MINIMAL, search_paths=[project_root])
+    # A class method's own directory holds its .lvclass (LabVIEW's convention);
+    # scoped to this VI's directory since only ONE VI is projected here.
+    for cls_path in sorted(cp.parent.glob("*.lvclass")):
+        cgraph.load_lvclass(cls_path, LoadMode.NONE, search_paths=[project_root])
+    vi_name = _vi_name_for_path(cgraph, cp)
+    if vi_name is None:
+        raise RuntimeError(
+            f"index build: {cp} did not load into its own fresh graph "
+            "(unexpected — every repo .vi should be individually loadable)"
+        )
+    return project_vi_facts(cgraph, vi_name, cp)
+
+
+def _recompute_impact(facts: dict[str, VIFacts]) -> None:
+    """Fill each VI's ``impact_score`` (transitive dependent count) from the
+    inverted call graph — cheap (a graph walk, no re-parse)."""
     call_graph = build_call_graph(facts.values())
     for path, f in facts.items():
         f.impact_score = (
             len(nx.ancestors(call_graph, path)) if call_graph.has_node(path) else 0
         )
 
-    return BuildResult(facts=list(facts.values()), collisions=len(collision_paths))
+
+@dataclass
+class RefreshResult:
+    """Result of an incremental refresh: which VIs changed, and the new total."""
+
+    rebuilt: list[str]  # paths rebuilt (content changed or newly added)
+    deleted: list[str]  # paths dropped (the .vi is gone)
+    total: int          # VIs in the index after the refresh
+
+
+def refresh_index(
+    project_root: Path, vi_paths: list[Path], stored: list[VIFacts],
+) -> tuple[RefreshResult, list[VIFacts]]:
+    """Incrementally refresh ``stored`` against the on-disk repo by content hash.
+
+    Content-hash — not git — so it works in any checkout (and matches how the
+    model already keys incrementality, ``VIFacts.content_sha``): a VI whose
+    ``sha256_file`` still equals its stored ``content_sha`` is reused untouched;
+    changed/new VIs are rebuilt via :func:`build_one_vi`; VIs whose file is gone
+    are dropped. ``impact_score`` is recomputed across the whole set. Returns the
+    result plus the merged facts for the caller to persist (``store.save`` the
+    facts, ``store.delete`` the ``deleted`` paths).
+    """
+    facts = {f.path: f for f in stored}
+    current = {str(p.resolve()): p for p in vi_paths}
+
+    deleted = [path for path in facts if path not in current]
+    for path in deleted:
+        del facts[path]
+
+    rebuilt: list[str] = []
+    for path, p in current.items():
+        existing = facts.get(path)
+        if existing is not None and existing.content_sha == cache_paths.sha256_file(p):
+            continue
+        facts[path] = build_one_vi(project_root, p)
+        rebuilt.append(path)
+
+    _recompute_impact(facts)
+    merged = list(facts.values())
+    return RefreshResult(rebuilt=rebuilt, deleted=deleted, total=len(merged)), merged
 
 
 def _load_class_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
