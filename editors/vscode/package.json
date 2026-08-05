@@ -2,7 +2,7 @@
   "name": "lvkit",
   "displayName": "LVKit",
   "description": "View and diff VIs without LabVIEW.",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "publisher": "pragmatest",
   "icon": "icon.png",
   "license": "Apache-2.0",
@@ -10,7 +10,7 @@
   "homepage": "https://pragmatest.com/lvkit",
   "bugs": { "url": "https://github.com/pragmatest-dev/lvkit/issues" },
   "galleryBanner": { "color": "#2b3038", "theme": "dark" },
-  "engines": { "vscode": "^1.75.0" },
+  "engines": { "vscode": "^1.101.0" },
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
@@ -24,9 +24,12 @@
   },
   "categories": ["Visualization", "SCM Providers", "Other"],
   "keywords": ["labview", "vi", "diff", "block diagram", "ni", "test"],
-  "activationEvents": ["onCommand:lvkit.diffVI", "onCustomEditor:lvkit.viPreview"],
+  "activationEvents": ["onCommand:lvkit.diffVI", "onCustomEditor:lvkit.viPreview", "onStartupFinished"],
   "main": "./extension.js",
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      { "id": "lvkit", "label": "LVKit VI tools" }
+    ],
     "configuration": {
       "title": "LVKit",
       "properties": {

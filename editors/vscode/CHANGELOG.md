@@ -2,6 +2,17 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.12]
+
+- **Zero-config MCP server for agent mode.** The extension now auto-registers its
+  bundled, signed `lvkit` as an MCP server via VS Code's MCP provider API, so
+  Copilot/agent mode gets the lvkit tools — whole-project code understanding
+  (`index`, `find_terminals`, `get_callers`, `blast_radius`, `visualize_project`,
+  …) plus per-VI inspection — with nothing to install or configure. Detected at
+  runtime, so it simply no-ops if unavailable.
+- **Requires VS Code ≥ 1.101** (`engines.vscode`), the version where the MCP
+  provider API is stable. (Older editors can still install 0.1.11.)
+
 ## [0.1.11]
 
 - **Back to a signed standalone binary — drops the bundled uv/managed-Python

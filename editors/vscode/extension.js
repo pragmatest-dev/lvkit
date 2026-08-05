@@ -94,6 +94,52 @@ function lvkitCmd(root) {
   return 'lvkit';
 }
 
+// Resolve the lvkit MCP server as {command, args} for McpStdioServerDefinition,
+// which needs the executable and its args SPLIT (not a shell prefix string). We
+// do NOT use `uv run lvkit` here — an MCP server is a long-lived process VS Code
+// launches directly, so we point at a real executable: the bundled signed binary
+// first, then a repo .venv (dev), then `lvkit` on PATH.
+function mcpServerSpec(root) {
+  const bundled = bundledLvkit();
+  if (bundled) return { command: bundled, args: ['mcp'] };
+  const venv = process.platform === 'win32'
+    ? path.join(root, '.venv', 'Scripts', 'lvkit.exe')
+    : path.join(root, '.venv', 'bin', 'lvkit');
+  if (fileExists(venv)) return { command: venv, args: ['mcp'] };
+  return { command: 'lvkit', args: ['mcp'] };
+}
+
+// Auto-register the bundled `lvkit mcp` server so VS Code agent mode gets the
+// lvkit tools with ZERO user config. The MCP server-definition provider API is
+// stable in VS Code >= 1.101; feature-detect it so the extension still loads on
+// older versions (render/diff are unaffected — the registration simply no-ops).
+function registerMcpProvider(context) {
+  if (typeof vscode.lm?.registerMcpServerDefinitionProvider !== 'function'
+      || typeof vscode.McpStdioServerDefinition !== 'function') {
+    return;
+  }
+  const provider = {
+    provideMcpServerDefinitions() {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || _extensionPath;
+      const spec = mcpServerSpec(root);
+      // Don't offer a server we can't launch: a bare `lvkit` with nothing on
+      // PATH and no bundle would just error in the MCP panel.
+      if (spec.command === 'lvkit' && !onPath('lvkit')) return [];
+      let version;
+      try {
+        version = cp.execSync(`"${spec.command}" --version`)
+          .toString().match(/(\d+\.\d+\.\d+)/)?.[1];
+      } catch (_) { /* version is optional */ }
+      return [new vscode.McpStdioServerDefinition({
+        label: 'LVKit', command: spec.command, args: spec.args, version,
+      })];
+    },
+  };
+  context.subscriptions.push(
+    vscode.lm.registerMcpServerDefinitionProvider('lvkit', provider)
+  );
+}
+
 function run(cmd, opts) {
   try {
     return cp.execSync(cmd, { maxBuffer: 1e9, ...opts });
@@ -407,6 +453,7 @@ function activate(context) {
     'lvkit.viPreview', new ViPreviewProvider(),
     { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false }
   ));
+  registerMcpProvider(context);
 }
 function deactivate() {}
 module.exports = { activate, deactivate };

@@ -157,13 +157,18 @@ on P2 (so what auto-registers is the good, project-scoped surface).
   Dry-run 30981139533 verified: 4/4 builds green, publish + release skipped; the
   downloaded linux artifact unzips (exec bit + mac framework symlinks preserved)
   and runs `lvkit mcp` → 12 tools. **Goes live on the next `ext-v*` tag.**
-- [ ] **D.3 — VS Code auto-registration (Path B).** The extension already ships
-  and path-resolves the signed binary; register `<bundled>/lvkit mcp` via VS
-  Code's MCP provider API so agent mode gets the tools with **zero user config**.
-  VERIFY first (do not assume): the `McpServerDefinitionProvider` API surface +
-  the minimum `engines.vscode` it needs (manifest is `^1.75.0` today — likely too
-  old). Land **after P2** so the registered surface is project-scoped, not
-  today's global-`_graph` server.
+- [x] **D.3 — VS Code auto-registration (Path B).** DONE (extension 0.1.12):
+  `registerMcpProvider` in `extension.js` registers the bundled `lvkit mcp` via
+  `vscode.lm.registerMcpServerDefinitionProvider` + a
+  `contributes.mcpServerDefinitionProviders` point → agent mode gets the P2
+  tools with **zero config**. VERIFIED (not assumed): the API is stable in VS
+  Code **≥ 1.101** — `vsce package` accepts the contribution point at
+  `engines.vscode: ^1.101.0` (it validates contributions against the engine).
+  Feature-detected (`typeof vscode.lm?.registerMcpServerDefinitionProvider`), so
+  the extension still loads on older editors (render/diff unaffected). Landed
+  after P2, so the registered surface is the project-scoped one. **NOT
+  published** — packaging-verified only; the `ext-v0.1.12` tag is the user's
+  call (the engine bump drops pre-1.101 editors from future updates).
 - [ ] **D.4 — enterprise-restriction fallback.** MCP is a convenience layer over
   the CLI: every MCP tool is also a `lvkit` subcommand
   (`describe`/`generate`/`diff`/`render`/`structure`/`index`). An MCP ban is a
