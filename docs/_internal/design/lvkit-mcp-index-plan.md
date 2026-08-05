@@ -121,12 +121,14 @@ on P2 (so what auto-registers is the good, project-scoped surface).
   with **zero** Python/uv/pip. `mcp` + compiled `pydantic_core` are pulled in by
   PyInstaller's import graph with no extra `--collect-*` flags (`mcp` is a hard
   dep — pyproject.toml). Same binary: `lvkit --version` → 0.5.8.
-- [ ] **D.2 — ship the binary as a release asset (Path A).** The
-  `publish-extension.yml` matrix already builds + signs all four platforms; add
-  an upload of the `bin/lvkit/` bundle to a GitHub Release so any MCP client can
-  point `command` at it. Setup collapses to
+- [x] **D.2 — ship the binary as a release asset (Path A).** DONE (`42afb7e`):
+  the `publish-extension.yml` build matrix zips the signed onedir bundle
+  (`lvkit-mcp-<lvkit-ver>-<target>.zip`) and a tag-gated `release-binaries` job
+  attaches all four to the GitHub Release. Setup collapses to
   `{"command": "/abs/path/to/lvkit", "args": ["mcp"]}` — no `uvx --from lvkit`.
-  Document the snippet for Claude Desktop / Claude Code / Cursor.
+  Dry-run 30981139533 verified: 4/4 builds green, publish + release skipped; the
+  downloaded linux artifact unzips (exec bit + mac framework symlinks preserved)
+  and runs `lvkit mcp` → 12 tools. **Goes live on the next `ext-v*` tag.**
 - [ ] **D.3 — VS Code auto-registration (Path B).** The extension already ships
   and path-resolves the signed binary; register `<bundled>/lvkit mcp` via VS
   Code's MCP provider API so agent mode gets the tools with **zero user config**.
