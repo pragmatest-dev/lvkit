@@ -71,6 +71,9 @@ def normalize_extracted_xml(path: Path, encoding: str | None = None) -> None:
         return
 
     text = path.read_text(encoding="utf-8")
+    # Pure ASCII is identical under mac_roman, nothing to transcode.
+    if text.isascii():
+        return
     normalized = "".join(
         _transcode_xml_token(token, target)
         for token in _XML_TOKEN_RE.split(text)
