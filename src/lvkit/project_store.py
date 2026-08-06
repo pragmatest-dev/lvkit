@@ -19,9 +19,9 @@ The store is a parallel layout to lvkit's bundled data:
 
 Resolvers load `.lvkit/` first, then fall back to lvkit's bundled data.
 
-This module also installs Claude Code skills and Copilot instructions
-from the packaged templates so downstream users can run lvkit's resolve
-workflows in their own LLM-enabled editor.
+This module also installs Claude Code, GitHub Copilot, and OpenAI Codex
+workflows from the packaged templates so downstream users can run lvkit's
+resolve workflows in their own LLM-enabled editor.
 """
 
 from __future__ import annotations
@@ -92,7 +92,8 @@ mapping and write it here.
 
 If you use Claude Code, run `lvkit init --skills claude` to install
 resolution skills into your project's `.claude/skills/`. For Copilot or
-Cursor, use `lvkit init --skills copilot`.
+Cursor, use `lvkit init --skills copilot`. For Codex, run
+`lvkit setup codex`; skills are installed into `.agents/skills/`.
 """
 
 
@@ -165,9 +166,9 @@ def init_project_store(root: Path) -> Path:
 # lvkit ships user-facing skill templates as package data under
 # `src/lvkit/skill_templates/lvkit-<name>/SKILL.md`. The functions below
 # install them into a downstream user's project so the user's LLM
-# editor (Claude Code, Copilot, Cursor) can run lvkit's workflows.
+# editor (Claude Code, GitHub Copilot, OpenAI Codex) can run lvkit's workflows.
 #
-# Two install targets:
+# Three install targets:
 #
 # - install_claude_skills(): copies SKILL.md files to .claude/skills/
 #   one-for-one. Claude Code reads them as auto-launchable skills.
@@ -177,6 +178,10 @@ def init_project_store(root: Path) -> Path:
 #   .github/instructions/lvkit.instructions.md router that auto-loads
 #   into every chat with a short list of available prompts. This dual
 #   pattern matches Claude Code's auto + explicit skill semantics.
+#
+# - install_codex_skills(): writes Agent Skills to .agents/skills/. Codex
+#   natively supports both description-based implicit activation and explicit
+#   $<name> mentions, so it does not need a separate router file.
 
 # Marker comment lvkit embeds in every generated Copilot file so users
 # (and re-installs) can recognize a lvkit-managed file.
@@ -360,6 +365,60 @@ def install_copilot_skills(
     return written
 
 
+def install_codex_skills(target_dir: Path, force: bool = False) -> list[Path]:
+    """Install lvkit's workflows as repository-scoped Codex skills.
+
+    Each packaged ``SKILL.md`` is converted to the Agent Skills shape Codex
+    consumes and written to
+    ``<target_dir>/.agents/skills/<name>/SKILL.md``. The conversion preserves
+    the portable ``name`` and ``description`` metadata, drops the
+    Claude-specific ``allowed-tools`` field, and rewrites cross-skill slash
+    commands to Codex's explicit ``$skill-name`` mention syntax.
+
+    Atomic with respect to local-edit detection: every destination is
+    validated before any skill file is written.
+
+    Args:
+        target_dir: Project root. The ``.agents/skills/`` tree is created
+            under this directory.
+        force: Overwrite existing files even if they have local edits.
+
+    Returns:
+        List of paths that were written or overwritten. Empty when all
+        installed skills are already up to date.
+    """
+    plan: list[tuple[Path, str]] = []
+    conflicts: list[Path] = []
+
+    for skill_dir in _iter_skill_templates():
+        template_file = skill_dir.joinpath("SKILL.md")
+        if not template_file.is_file():
+            raise ValueError(
+                f"Skill template directory {skill_dir.name!r} is missing"
+                " its SKILL.md — packaging or sync error."
+            )
+        skill_content = _build_codex_skill(
+            template_file.read_text(encoding="utf-8")
+        )
+        dest = target_dir / ".agents" / "skills" / skill_dir.name / "SKILL.md"
+        _stage_write(dest, skill_content, force, plan, conflicts)
+
+    if conflicts:
+        names = "\n  ".join(str(p) for p in conflicts)
+        raise FileExistsError(
+            f"{len(conflicts)} Codex skill file(s) have local edits and would"
+            f" be overwritten:\n  {names}\n"
+            "Re-run with force=True to overwrite."
+        )
+
+    written: list[Path] = []
+    for dest, new_content in plan:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(new_content, encoding="utf-8")
+        written.append(dest)
+    return written
+
+
 def _stage_write(
     dest: Path,
     new_content: str,
@@ -369,8 +428,8 @@ def _stage_write(
 ) -> None:
     """Add (dest, content) to plan, or to conflicts if local-edited.
 
-    Shared by ``install_claude_skills`` and ``install_copilot_skills``
-    for their atomic phase splits: phase 1 calls this for every
+    Shared by all skill installers for their atomic phase splits: phase 1
+    calls this for every
     destination so phase 2 can either commit everything in one pass or
     raise a single error listing every conflict. Files that already
     match the new content are silently skipped (not added to plan,
@@ -405,6 +464,47 @@ def _build_copilot_prompt(skill_md: str) -> str:
         f"description: {_yaml_quote(description)}\n"
         "---\n"
         f"{_COPILOT_MANAGED_MARKER}\n"
+        "\n"
+        f"{body.lstrip()}"
+    )
+
+
+def _build_codex_skill(skill_md: str) -> str:
+    """Build a Codex-compatible Agent Skill from a packaged SKILL.md.
+
+    Codex only needs the portable skill metadata and reads repository skills
+    from ``.agents/skills``. Internal references use ``$name`` because Codex
+    exposes explicit skill invocation through skill mentions rather than
+    per-skill slash commands. Obsolete CLI commands are removed or updated in
+    the Codex copy without changing the shared templates.
+    """
+    fm, body = _split_frontmatter(skill_md)
+    name = _yaml_get(fm, "name")
+    description = _yaml_get(fm, "description")
+    if not name or not description:
+        raise ValueError("Codex skill templates require name and description")
+
+    for skill_name in _SKILL_ORDER:
+        body = body.replace(f"/{skill_name}", f"${skill_name}")
+    body = body.replace("lvkit init", "lvkit setup")
+    body = "".join(
+        line
+        for line in body.splitlines(keepends=True)
+        if not line.lstrip().startswith(("lvkit llm-generate ", "lvkit check "))
+    )
+    if "python3 -c" in body or "grep -" in body:
+        body = (
+            "> **Shell compatibility:** Examples below use POSIX syntax. On "
+            "Windows, run them in WSL or Git Bash, or use equivalent "
+            "PowerShell commands.\n\n"
+            f"{body.lstrip()}"
+        )
+
+    return (
+        "---\n"
+        f"name: {name}\n"
+        f"description: {_yaml_quote(description)}\n"
+        "---\n"
         "\n"
         f"{body.lstrip()}"
     )

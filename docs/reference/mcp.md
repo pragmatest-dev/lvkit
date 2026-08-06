@@ -37,6 +37,18 @@ instead of the `"mcpServers"` shape above.
 { "mcpServers": { "lvkit": { "command": "uvx", "args": ["--from", "lvkit", "lvkit-mcp"] } } }
 ```
 
+**Codex** uses TOML — add the server to the project's `.codex/config.toml`
+(shared by the ChatGPT desktop app, Codex CLI, and the Codex IDE extension):
+
+```toml
+[mcp_servers.lvkit]
+command = "uvx"
+args = ["--from", "lvkit", "lvkit-mcp"]
+```
+
+`lvkit setup codex` installs the workflow skills only — it does not create or
+modify `.codex/config.toml`.
+
 ## Tools
 
 The server exposes tools in three groups.

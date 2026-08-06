@@ -26,6 +26,7 @@ from .project_store import (
     find_project_store,
     init_project_store,
     install_claude_skills,
+    install_codex_skills,
     install_copilot_skills,
 )
 
@@ -497,13 +498,14 @@ def main() -> int:
     setup_parser.add_argument(
         "skills",
         nargs="?",
-        choices=["claude", "copilot", "all"],
+        choices=["claude", "copilot", "codex", "all"],
         default=None,
         help=(
-            "AI agent to install skills for: claude, copilot, or all. "
+            "AI agent to install skills for: claude, copilot, codex, or all. "
             "Omit to auto-detect from project layout (CLAUDE.md / .claude/ "
             "for Claude Code; .github/copilot-instructions.md / "
-            ".github/instructions/ / .github/agents.md for Copilot)."
+            ".github/instructions/ / .github/agents.md for Copilot; "
+            "AGENTS.md / AGENTS.override.md / .agents/ / .codex/ for Codex)."
         ),
     )
     setup_parser.add_argument(
@@ -847,6 +849,13 @@ def _detect_ai_editors(root: Path) -> list[str]:
         or (root / ".github" / "agents.md").is_file()
     ):
         editors.append("copilot")
+    if (
+        (root / "AGENTS.md").is_file()
+        or (root / "AGENTS.override.md").is_file()
+        or (root / ".agents").is_dir()
+        or (root / ".codex").is_dir()
+    ):
+        editors.append("codex")
     return editors
 
 
@@ -856,7 +865,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
     # `lvkit setup copilot` binds "copilot" to `directory`. If the only
     # positional given is a skills choice, treat it as the skills target in
     # the current directory (the obvious intent).
-    if args.skills is None and args.directory in ("claude", "copilot", "all"):
+    skill_choices = ("claude", "copilot", "codex", "all")
+    if args.skills is None and args.directory in skill_choices:
         args.skills = args.directory
         args.directory = "."
 
@@ -874,8 +884,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
     # Resolve which editors to install for
     explicit = args.skills
     if explicit == "all":
-        editors = ["claude", "copilot"]
-    elif explicit in ("claude", "copilot"):
+        editors = ["claude", "copilot", "codex"]
+    elif explicit in ("claude", "copilot", "codex"):
         editors = [explicit]
     else:
         # Auto-detect from project layout
@@ -883,8 +893,9 @@ def cmd_setup(args: argparse.Namespace) -> int:
         if not editors:
             print(
                 "No AI agent detected. If you add one later, run `lvkit setup` again. "
-                "If you have one that wasn't detected, run `lvkit setup claude` or "
-                "`lvkit setup copilot` to install skills explicitly."
+                "If you have one that wasn't detected, run `lvkit setup claude`, "
+                "`lvkit setup copilot`, or `lvkit setup codex` to install skills "
+                "explicitly."
             )
             return 0
 
@@ -913,6 +924,18 @@ def cmd_setup(args: argparse.Namespace) -> int:
                 print(f"  {p}")
         else:
             print("Copilot files already up to date.")
+    if "codex" in editors:
+        try:
+            codex_written = install_codex_skills(root, force=force)
+        except FileExistsError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        if codex_written:
+            print(f"Installed {len(codex_written)} Codex skill(s):")
+            for p in codex_written:
+                print(f"  {p}")
+        else:
+            print("Codex skills already up to date.")
 
     return 0
 

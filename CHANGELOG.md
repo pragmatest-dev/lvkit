@@ -2,6 +2,20 @@
 
 lvkit follows semantic versioning.
 
+## [Unreleased]
+- **Fixed: `Divide`, `Subtract`, the ordered comparisons and the shift/scale
+  primitives had their two inputs swapped.** `describe` reported the operands
+  the wrong way round, and generated Python computed the inverse — `Divide`
+  returned the reciprocal, `Subtract` flipped sign, `Less?`/`Greater?` inverted.
+  19 entries are corrected. The connector-pane index space runs Bottom→Top, so
+  the documented upper input `x` takes the *higher* index; these entries had
+  been filled in from NI-doc listing order against ascending index. Commutative
+  entries (`Add`, `Multiply`, `And`, `Or`, `Exclusive Or`, `Equal?`,
+  `Not Equal?`) were affected too but showed no symptom, which is why this
+  survived. **If you have generated Python from a VI using any of the
+  non-commutative primitives, re-generate it.** A new gate
+  (`tests/test_primitive_positional_order.py`) makes the invariant permanent.
+
 ## [0.5.8]
 - **Fixes a broken fresh install** — capped `mcp<2`; mcp 2.0 removed the API the
   MCP server is built on, so a clean install had a dead server.
