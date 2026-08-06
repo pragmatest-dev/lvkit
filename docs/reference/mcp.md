@@ -63,6 +63,18 @@ Add lvkit as an MCP server in your agent's configuration:
 }
 ```
 
+For Codex, add the server to the trusted project's `.codex/config.toml`:
+
+```toml
+[mcp_servers.lvkit]
+command = "uvx"
+args = ["--from", "lvkit", "lvkit-mcp"]
+```
+
+The ChatGPT desktop app, Codex CLI, and Codex IDE extension share this
+project-scoped MCP configuration. `lvkit setup codex` installs workflow
+skills only; it deliberately does not create or modify `.codex/config.toml`.
+
 The agent's runtime starts the server itself over stdio and issues tool calls
 against it — you don't run `lvkit mcp` / `lvkit-mcp` by hand.
 

@@ -1,13 +1,13 @@
 # setup
 
 Create the project-local `.lvkit/` resolution store, and optionally install AI
-editor skills so an agent (Claude Code, Copilot) can help resolve unknown
-primitives and vi.lib VIs as it works.
+editor skills so an agent (Claude Code, GitHub Copilot, or OpenAI Codex) can
+help resolve unknown primitives and vi.lib VIs as it works.
 
 ## Synopsis
 
 ```bash
-lvkit setup [directory] [{claude,copilot,all}] [options]
+lvkit setup [directory] [{claude,copilot,codex,all}] [options]
 ```
 
 ## Arguments
@@ -15,7 +15,7 @@ lvkit setup [directory] [{claude,copilot,all}] [options]
 | Argument | Description |
 |----------|-------------|
 | `directory` | Directory in which to create `.lvkit/`. Must already exist — `setup` does not create it. Defaults to the current directory. |
-| `{claude,copilot,all}` | Which AI agent to install skills for. `all` installs both the Claude Code and Copilot skill sets. Omit to auto-detect from project layout: `CLAUDE.md` / `.claude/` for Claude Code, `.github/copilot-instructions.md` / `.github/instructions/` / `.github/agents.md` for Copilot. |
+| `{claude,copilot,codex,all}` | Which AI agent to install skills for. `all` installs Claude Code, Copilot, and Codex skill sets. Omit to auto-detect from project layout: `CLAUDE.md` / `.claude/` for Claude Code, `.github/copilot-instructions.md` / `.github/instructions/` / `.github/agents.md` for Copilot, and `AGENTS.md` / `AGENTS.override.md` / `.agents/` / `.codex/` for Codex. |
 
 ## Options
 
@@ -48,15 +48,28 @@ Installed 5 Claude Code skill(s):
 This auto-detects the project's AI agent from its layout, creates `.lvkit/` in
 the current directory, and installs the matching editor skills. Re-running
 with nothing changed prints "Claude Code skills already up to date." instead
-of rewriting the files. If auto-detection finds neither a Claude Code marker
-nor a Copilot marker, `setup` still creates `.lvkit/`, prints "No AI agent
-detected...", and exits `0` with no skills installed.
+of rewriting the files. If auto-detection finds no Claude Code, Copilot, or
+Codex marker, `setup` still creates `.lvkit/`, prints "No AI agent detected...",
+and exits `0` with no skills installed.
 
 To target a specific directory and agent explicitly:
 
 ```bash
 lvkit setup . claude
 ```
+
+For the ChatGPT desktop app, Codex CLI, or the Codex IDE extension:
+
+```bash
+lvkit setup codex
+```
+
+This installs the same five workflows under
+`.agents/skills/<name>/SKILL.md`. ChatGPT and Codex can activate them
+implicitly from their descriptions. In the ChatGPT desktop app, type `@` to
+select a skill. In Codex CLI or the IDE extension, use `$lvkit-describe`,
+`$lvkit-convert`, or another installed skill name. `setup` does not create
+or modify `AGENTS.md` or `.codex/config.toml`.
 
 ## Notes
 
@@ -80,7 +93,9 @@ lvkit setup . claude
   `lvkit-resolve-primitive`, `lvkit-resolve-vilib`, `lvkit-idiomatic`. Copilot
   gets the same five workflows as `.github/prompts/<name>.prompt.md` slash
   commands, plus a single `.github/instructions/lvkit.instructions.md` router
-  that auto-loads into every chat and suggests the right one.
+  that auto-loads into every chat and suggests the right one. Codex gets one
+  Agent Skill per workflow in `.agents/skills/<name>/SKILL.md`; its native
+  skill discovery provides both automatic and explicit invocation.
 - Neither a local LabVIEW install nor a prior [`detect`](detect.md) run is
   required — `setup` creates `.lvkit/` empty regardless. `.lvkit/vilib/` fills
   in later, as `generate`/`render` resolve vi.lib VIs against whatever
