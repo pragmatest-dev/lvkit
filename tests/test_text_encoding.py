@@ -117,3 +117,32 @@ def test_libd_names_use_labview_encoding(
     path.write_bytes(data)
 
     assert parse_iuse_from_libd(path) == {str(uid): "流场控制.lvclass:初始化.vi"}
+
+
+def test_env_override_beats_platform_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # LVKIT_TEXT_ENCODING lets a VI saved in another locale be read on this box;
+    # it must win even over the platform's own code page.
+    monkeypatch.setattr("lvkit.text_encoding.sys.platform", "win32")
+    monkeypatch.setattr(
+        "lvkit.text_encoding._windows_ansi_encoding",
+        lambda: "cp1252",
+    )
+    monkeypatch.setenv("LVKIT_TEXT_ENCODING", "cp936")
+    assert labview_text_encoding() == "cp936"
+
+    monkeypatch.delenv("LVKIT_TEXT_ENCODING", raising=False)
+    assert labview_text_encoding() == "cp1252"
+
+
+def test_normalize_skips_pure_ascii(tmp_path: Path) -> None:
+    # Pure ASCII is identical under mac_roman and every target, so the fast path
+    # leaves the file byte-for-byte untouched (no transcode, no rewrite).
+    path = tmp_path / "ascii.xml"
+    original = '<RSRC Encoding="mac_roman"><Name>error out</Name></RSRC>'
+    path.write_text(original, encoding="utf-8")
+
+    normalize_extracted_xml(path, "gbk")  # non-mac_roman target, ASCII content
+
+    assert path.read_text(encoding="utf-8") == original
