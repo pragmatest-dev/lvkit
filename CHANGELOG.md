@@ -16,6 +16,15 @@ lvkit follows semantic versioning.
   non-commutative primitives, re-generate it.** A new gate
   (`tests/test_primitive_positional_order.py`) makes the invariant permanent.
 
+## [0.5.8]
+- **Fixes a broken fresh install** — capped `mcp<2`; mcp 2.0 removed the API the
+  MCP server is built on, so a clean install had a dead server.
+- **Diff now covers front-panel controls & indicators** — added, removed,
+  retyped, or renamed connector-pane terminals show up.
+- **Render/diff fidelity:** In-Place Element borders, class refnums labeled by
+  class, front-panel terminal labels at their saved positions, corrected
+  connector-pane indices, and class private-data field names.
+
 ## [0.5.7]
 - **Re-opening or re-diffing a VI is now near-instant.** `render` and `diff`
   cache their output, so an unchanged VI skips the rebuild (render ~1.6 s →
