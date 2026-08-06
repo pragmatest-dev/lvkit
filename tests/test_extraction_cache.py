@@ -205,6 +205,28 @@ class TestLegacyMigration:
 
 
 class TestCacheFreshness:
+    def test_text_encoding_change_invalidates(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        vi = tmp_path / "x.vi"
+        vi.write_bytes(b"same bytes")
+        meta = tmp_path / "x.meta.json"
+        monkeypatch.setattr(extractor, "labview_text_encoding", lambda: "gbk")
+        extractor._write_cache_meta(vi, meta)
+
+        assert cache_paths.meta_fresh(
+            vi,
+            meta,
+            extra={"text_encoding": "gbk"},
+        )
+        assert not cache_paths.meta_fresh(
+            vi,
+            meta,
+            extra={"text_encoding": "cp1252"},
+        )
+
     def test_touch_hits_fastpath_content_edit_invalidates(
         self, tmp_path: Path
     ) -> None:

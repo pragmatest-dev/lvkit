@@ -172,6 +172,24 @@ class TestStringSelector:
         assert cs.frames[1].selector_value == "beta"
         assert cs.frames[2].selector_value == "gamma"
 
+    def test_string_uses_labview_code_page(self, monkeypatch):
+        monkeypatch.setattr(
+            "lvkit.text_encoding.labview_text_encoding",
+            lambda: "gbk",
+        )
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0)],
+            string_array=["初始化".encode("gbk").hex()],
+            num_diags=1,
+        )
+        ti = _make_terminal_info("sel1", "String")
+
+        cases = extract_case_structures(root, ti)
+
+        assert cases[0].frames[0].selector_value == "初始化"
+
     def test_string_without_terminal_info_falls_back(self):
         """Without terminal_info, string cases get raw integer values."""
         root = _build_case_xml(
