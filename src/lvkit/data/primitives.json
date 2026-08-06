@@ -83,25 +83,25 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic",
           "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic",
           "default_value": "0"
         }
       ],
       "python_code": {
-        "x_greater_than_y": "in_1 > in_2"
+        "x_greater_than_y": "in_2 > in_1"
       },
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater.html",
-      "note": "Same as 1102 but for arrays/clusters. Same semantics."
+      "note": "Same as 1102 but for arrays/clusters. Same semantics. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1054": {
       "name": "Absolute Value",
@@ -140,13 +140,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "boolean"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "boolean"
         }
       ],
@@ -157,7 +157,8 @@
         "result": "in_1 & in_2"
       },
       "inline": true,
-      "verified": true
+      "verified": true,
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1062": {
       "name": "Or",
@@ -173,13 +174,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "boolean"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "boolean"
         }
       ],
@@ -190,7 +191,8 @@
         "result": "in_1 | in_2"
       },
       "inline": true,
-      "verified": true
+      "verified": true,
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1063": {
       "name": "Exclusive Or",
@@ -206,13 +208,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic"
         }
       ],
@@ -224,7 +226,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "Polymorphic over Boolean AND integers (bitwise). Corpus only ever shows numeric use; python_code=boolean, python_code_int=bitwise."
+      "note": "Polymorphic over Boolean AND integers (bitwise). Corpus only ever shows numeric use; python_code=boolean, python_code_int=bitwise. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1051": {
       "name": "Subtract",
@@ -239,22 +241,23 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "numeric"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "numeric"
         }
       ],
       "python_code": {
-        "difference": "in_1 - in_2"
+        "difference": "in_2 - in_1"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/subtract.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/subtract.html",
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1141": {
       "name": "To Word Integer",
@@ -350,13 +353,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic"
         }
       ],
@@ -365,7 +368,8 @@
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add.html",
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1052": {
       "name": "Multiply",
@@ -380,13 +384,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic"
         }
       ],
@@ -395,7 +399,8 @@
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply.html",
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1057": {
       "name": "Absolute Value",
@@ -472,24 +477,25 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic",
           "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic",
           "default_value": "0"
         }
       ],
       "python_code": {
-        "greater_or_equal": "in_1 >= in_2"
+        "greater_or_equal": "in_2 >= in_1"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal.html",
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1112": {
       "name": "Empty String/Path?",
@@ -1108,24 +1114,25 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic",
           "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic",
           "default_value": "0"
         }
       ],
       "python_code": {
-        "result": "in_1 < in_2"
+        "result": "in_2 < in_1"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html",
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1108": {
       "name": "Quotient & Remainder",
@@ -1145,23 +1152,24 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 3,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic"
         }
       ],
       "python_code": {
-        "remainder": "in_2 % in_3",
-        "quotient": "in_2 // in_3"
+        "remainder": "in_3 % in_2",
+        "quotient": "in_3 // in_2"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/quotient-remainder.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/quotient-remainder.html",
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1105": {
       "name": "Not Equal?",
@@ -1176,14 +1184,14 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic",
           "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic",
           "default_value": "0"
         }
@@ -1193,7 +1201,8 @@
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html",
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1114": {
       "name": "Greater Or Equal To 0?",
@@ -1256,23 +1265,23 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "NumInt32"
         }
       ],
       "python_code": {
-        "shifted": "(in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)"
+        "shifted": "(in_2 << in_1) if in_1 >= 0 else (in_2 >> -in_1)"
       },
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/logical-shift.html",
-      "note": "primIndex=101. Polymorphic on x (any int type). y = shift count: positive=left, negative=right (LabVIEW semantics; Python `<<` only does left)."
+      "note": "primIndex=101. Polymorphic on x (any int type). y = shift count: positive=left, negative=right (LabVIEW semantics; Python `<<` only does left). | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1053": {
       "name": "Divide",
@@ -1287,23 +1296,23 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic"
         }
       ],
       "python_code": {
-        "quotient": "in_1 / in_2"
+        "quotient": "in_2 / in_1"
       },
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",
-      "note": "primIndex=106. Polymorphic. Per docs: int/int produces Float64 (matches our 22+ observed instances of NumInt32/NumInt32 -> NumFloat64). Python `/` operator has same semantics."
+      "note": "primIndex=106. Polymorphic. Per docs: int/int produces Float64 (matches our 22+ observed instances of NumInt32/NumInt32 -> NumFloat64). Python `/` operator has same semantics. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1111": {
       "name": "Less Or Equal?",
@@ -1318,23 +1327,23 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic"
         }
       ],
       "python_code": {
-        "x_less_or_equal_y": "in_1 <= in_2"
+        "x_less_or_equal_y": "in_2 <= in_1"
       },
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal.html",
-      "note": "primIndex=114. Polymorphic numeric comparison. 7 observed signatures across all integer/float type pairs."
+      "note": "primIndex=114. Polymorphic numeric comparison. 7 observed signatures across all integer/float type pairs. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "8056": {
       "name": "Delete",
@@ -1898,14 +1907,14 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic",
           "default_value": "0"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic",
           "default_value": "0"
         }
@@ -1915,7 +1924,8 @@
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal.html",
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1116": {
       "name": "Unresolved primitive 1116",
@@ -1970,7 +1980,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "1in/2out array\u2192array+array. Could be Split Number or type-specific split. Unconfirmed."
+      "note": "1in/2out array→array+array. Could be Split Number or type-specific split. Unconfirmed."
     },
     "1503": {
       "name": "Replace Substring",
@@ -4686,13 +4696,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "n",
           "type": "NumFloat64"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "n",
+          "name": "x",
           "type": "NumInt32"
         },
         {
@@ -4703,9 +4713,10 @@
         }
       ],
       "python_code": {
-        "result": "in_1 * (2.0 ** in_2)"
+        "result": "in_2 * (2.0 ** in_1)"
       },
-      "verified": true
+      "verified": true,
+      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1181": {
       "name": "Number To Hexadecimal String",
@@ -4846,13 +4857,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "n",
           "type": "NumUInt32"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "n",
+          "name": "x",
           "type": "NumInt32"
         },
         {
@@ -4863,9 +4874,9 @@
         }
       ],
       "python_code": {
-        "x_shifted": "((in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)) & 0xFFFFFFFF"
+        "x_shifted": "((in_2 << in_1) if in_1 >= 0 else (in_2 >> -in_1)) & 0xFFFFFFFF"
       },
-      "note": "positive n = shift left, negative = right, zero-fill; masked to source width (U32 here). MD5 builds its circular rotate from this.",
+      "note": "positive n = shift left, negative = right, zero-fill; masked to source width (U32 here). MD5 builds its circular rotate from this. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index.",
       "verified": false
     },
     "1188": {
@@ -4899,13 +4910,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "Boolean"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "Boolean"
         },
         {
@@ -4920,7 +4931,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "Valid Path: inputs are Empty String/Path? (1112) and Not A Number/Path/Refnum? (1128) - both badness predicates - and the output is validity, so valid = NOT(empty OR not-a-path) = NOR. And/Or/Xor/Not (1061-1064) are already claimed, and only NOR satisfies that truth table. Commutative, so operand order is irrelevant."
+      "note": "Valid Path: inputs are Empty String/Path? (1112) and Not A Number/Path/Refnum? (1128) - both badness predicates - and the output is validity, so valid = NOT(empty OR not-a-path) = NOR. And/Or/Xor/Not (1061-1064) are already claimed, and only NOR satisfies that truth table. Commutative, so operand order is irrelevant. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1425": {
       "name": "VI Library",
@@ -5043,13 +5054,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "x",
+          "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "y",
+          "name": "x",
           "type": "polymorphic"
         },
         {
@@ -5060,11 +5071,11 @@
         }
       ],
       "python_code": {
-        "x_to_the_y": "in_1 ** in_2"
+        "x_to_the_y": "in_2 ** in_1"
       },
       "inline": true,
       "verified": false,
-      "note": "Algorithm-forced: every call-site is 1213 -> Multiply -> Less? -> Select against a PCO_GetCameraDescription field (clamping a time to a camera limit). idx1 is fed by a constant decoding to 1000 whose DDO label is literally \"x\"; idx2 by a Subtract of timebase indices. PCO timebases are ns/us/ms, so value * 1000^dTB is the SDK unit conversion. Logarithm Base X excluded: log1000(dTB) is -inf at 0. Operand order follows the SHIPPED convention - see task #115, unresolved."
+      "note": "Algorithm-forced: every call-site is 1213 -> Multiply -> Less? -> Select against a PCO_GetCameraDescription field (clamping a time to a camera limit). idx1 is fed by a constant decoding to 1000 whose DDO label is literally \"x\"; idx2 by a Subtract of timebase indices. PCO timebases are ns/us/ms, so value * 1000^dTB is the SDK unit conversion. Logarithm Base X excluded: log1000(dTB) is -inf at 0. Operand order follows the SHIPPED convention - see task #115, unresolved. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
     },
     "1340": {
       "name": "One Button Dialog",
