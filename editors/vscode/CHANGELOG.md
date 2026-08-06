@@ -2,6 +2,15 @@
 
 The extension versions on its **own** track, independent of the LVKit library.
 
+## [0.1.12]
+
+- **Visual Diff from a VI's git history now shows that commit's changes.**
+  Running "Open Visual Diff" over a commit in the Timeline used to compare HEAD
+  against the working-tree file — HEAD-vs-HEAD on a clean tree, so it showed no
+  change. It now diffs the commit against its parent (`<commit>~1 → <commit>`),
+  the same "changes in this commit" a native diff shows, with each side labeled
+  by its short hash. Working-tree right-clicks still diff against HEAD. (#19)
+
 ## [0.1.11]
 
 - **Back to a signed standalone binary — drops the bundled uv/managed-Python

@@ -348,17 +348,71 @@ class ViPreviewProvider {
   }
 }
 
-// ---- right-click: unified before/after diff (working tree vs HEAD) ----------
+// ---- right-click: before/after Visual Diff --------------------------------
+// Resolve the two versions to diff, each as {ref: <git rev>} or {file: <path>}
+// (the working copy). Verified against real VS Code behavior (the LVKit Diff
+// Diagnostics run on #19):
+//   - A .vi renders via our CUSTOM editor, so a native diff does NOT populate
+//     `tab.input` — there are no original/modified sides to read. The command
+//     instead receives, as `arg`, the git: URI of ONE side: the commit being
+//     viewed (ref R).
+//   - So for a committed version we diff R against its PARENT R^ — exactly what
+//     a Timeline "this commit" entry shows (a commit vs its previous). (The old
+//     code diffed HEAD vs the on-disk file; on a clean tree HEAD == R == the
+//     same commit, so it rendered ONE VI twice — #19.)
+//   - A file: arg is the working copy -> diff it against HEAD.
+//   - If a real diff editor ever DOES expose two sides (a plain text diff rather
+//     than the custom editor), honour them.
+function diffSources(target) {
+  const input = vscode.window.tabGroups
+    && vscode.window.tabGroups.activeTabGroup
+    && vscode.window.tabGroups.activeTabGroup.activeTab
+    && vscode.window.tabGroups.activeTabGroup.activeTab.input;
+  if (input && input.original && input.modified && input.modified.fsPath
+      && input.modified.fsPath.toLowerCase().endsWith('.vi')
+      && (input.modified.fsPath === target.fsPath || input.original.fsPath === target.fsPath)) {
+    return { before: sideOf(input.original), after: sideOf(input.modified) };
+  }
+  if (target.scheme !== 'file') {
+    const ref = gitRawRef(target);
+    // `~1` (first parent), NOT `^`: on Windows cmd.exe `^` is the escape char,
+    // so `git show <sha>^:file` silently drops the caret -> the SAME commit on
+    // both sides. `~1` is identical to `^` here and shell-safe everywhere.
+    return { before: { ref: ref + '~1' }, after: { ref } };   // commit vs its parent
+  }
+  return { before: { ref: 'HEAD' }, after: { file: target.fsPath } };  // working tree vs HEAD
+}
+function sideOf(uri) {
+  return uri.scheme === 'file' ? { file: uri.fsPath } : { ref: gitRawRef(uri) };
+}
+
+// Raw git ref from a VS Code git: URI query ({path, ref}); empty/absent -> HEAD.
+function gitRawRef(uri) {
+  try { const r = JSON.parse(uri.query || '{}').ref; return r ? r : 'HEAD'; }
+  catch (_) { return 'HEAD'; }
+}
+
+// Materialize one side ({ref} or {file}) to a real .vi path lvkit can read + a
+// short label. A {file} side is the working copy (no ref label). A {ref} side is
+// extracted from git (`git show <ref>:<rel>`); rel uses POSIX separators — git
+// reads a backslash path as a literal filename ("exists on disk, but not in
+// 'HEAD'") on Windows.
+function materialize(src, rel, root, tmp, tag) {
+  if (src.file) return { viPath: src.file, ref: null };
+  const dest = path.join(tmp, `${tag}.vi`);
+  fs.writeFileSync(dest, run(`git show ${src.ref}:"${rel}"`, { cwd: root }));
+  let label = src.ref;
+  try { label = cp.execSync(`git rev-parse --short "${src.ref}"`, { cwd: root }).toString().trim(); }
+  catch (_) { /* keep the raw ref */ }
+  return { viPath: dest, ref: label };
+}
+
 async function diffVI(arg) {
-  const uri = arg && arg.resourceUri ? arg.resourceUri : arg;
-  if (!uri || !uri.fsPath) { vscode.window.showErrorMessage('lvkit: no .vi selected.'); return; }
-  const file = uri.fsPath;
-  // The Source Control menu can't filter by file type: `resourceExtname` is not
-  // among the context keys available in scm/resourceState/context (only
-  // scmProvider / scmResourceGroup / originalResourceScheme are), so gating the
-  // menu on it silently hid this command from the git panel. The menu now uses
-  // `scmProvider == git`, which means it shows for EVERY changed file — so the
-  // .vi check has to happen here instead.
+  const target = arg && (arg.resourceUri || arg);
+  if (!target || !target.fsPath) { vscode.window.showErrorMessage('lvkit: no .vi selected.'); return; }
+  const file = target.fsPath;
+  // The Source Control menu can't filter by file type (resourceExtname isn't an
+  // scm/resourceState/context key), so the .vi check has to happen here.
   if (!file.toLowerCase().endsWith('.vi')) {
     vscode.window.showErrorMessage(`lvkit: "${path.basename(file)}" is not a .vi file.`);
     return;
@@ -370,22 +424,21 @@ async function diffVI(arg) {
         const root = gitRootOr(path.dirname(file));
         checkLvkitVersion(root);
         const cmd = lvkitCmd(root);
-        // git refs (HEAD:<path>) require POSIX separators; path.relative yields
-        // backslashes on Windows, which git reads as a literal filename and
-        // rejects ("exists on disk, but not in 'HEAD'"). Normalize to '/'.
-        const rel = path.relative(root, file).split(path.sep).join('/');
         const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
-        const oldVi = path.join(tmp, path.basename(file)); // keep .vi suffix (lvkit needs it)
-        fs.writeFileSync(oldVi, run(`git show HEAD:"${rel}"`, { cwd: root }));
-        let headRef = 'HEAD';
-        try { headRef = cp.execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim(); }
-        catch (_) { /* keep 'HEAD' */ }
+        const rel = path.relative(root, file).split(path.sep).join('/');
+        const src = diffSources(target);
+        const before = materialize(src.before, rel, root, tmp, 'before');
+        const after = materialize(src.after, rel, root, tmp, 'after');
         const out = path.join(tmp, 'diff.html');
-        // --theme auto: the diff viewer chrome is already prefers-color-scheme
-        // adaptive; auto makes the embedded before/after diagrams follow the
-        // same signal. The injected initial theme + in-viewer control then let
-        // the user pin light/dark, persisted via wireThemePersistence().
-        run(`${cmd} diff "${oldVi}" "${file}" ${searchArgs(root)} --format html --theme auto --before-ref "${headRef}" -o "${out}"`, { cwd: root });
+        // Label each side with its ref so the viewer titles read "…@ <sha>";
+        // a null-ref side is lvkit's default "working copy".
+        const refArgs = [
+          before.ref ? `--before-ref "${before.ref}"` : '',
+          after.ref ? `--after-ref "${after.ref}"` : '',
+        ].join(' ').trim();
+        // --theme auto: the diff viewer chrome is prefers-color-scheme adaptive;
+        // auto makes the embedded before/after diagrams follow the same signal.
+        run(`${cmd} diff "${before.viPath}" "${after.viPath}" ${searchArgs(root)} --format html --theme auto ${refArgs} -o "${out}"`, { cwd: root });
         const panel = vscode.window.createWebviewPanel(
           'lvkitDiff', `VI Diff: ${path.basename(file)}`, vscode.ViewColumn.Active,
           { enableScripts: true, retainContextWhenHidden: true }
@@ -394,7 +447,12 @@ async function diffVI(arg) {
         panel.webview.html = withNonceCsp(html);
         wireThemePersistence(panel.webview);
       } catch (e) {
-        vscode.window.showErrorMessage('lvkit diff failed: ' + e.message);
+        // Common expected case: the FIRST commit has no parent for `~1`.
+        const first = /unknown revision|ambiguous argument|bad revision|does not have any commits/i.test(String(e.message));
+        const msg = first
+          ? 'no earlier revision to compare — this looks like the first commit of this VI.'
+          : 'diff failed: ' + e.message;
+        vscode.window.showErrorMessage('lvkit: ' + msg);
       }
     }
   );
