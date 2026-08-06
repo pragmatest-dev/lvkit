@@ -428,11 +428,10 @@ class WhileLoopHandler(NodeTypeHandler):
     display_name = "While Loop"
 
     def parse(self, elem: ET.Element) -> LoopNode:
-        # Don't use extract_label for loops - it would find labels from inner nodes
         return LoopNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=self.display_name,  # Always use "While Loop"
+            name=extract_label(elem) or self.display_name,
             loop_type="whileLoop",
         )
 
@@ -444,11 +443,10 @@ class ForLoopHandler(NodeTypeHandler):
     display_name = "For Loop"
 
     def parse(self, elem: ET.Element) -> LoopNode:
-        # Don't use extract_label for loops - it would find labels from inner nodes
         return LoopNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=self.display_name,
+            name=extract_label(elem) or self.display_name,
             loop_type="forLoop",
         )
 
@@ -458,10 +456,9 @@ class SelectHandler(NodeTypeHandler):
 
     In this LV version, class="select" IS the Case Structure -- so this
     node's subtree contains a whole nested frame (subVI calls, primitives,
-    etc.). Don't use extract_label here: its arbitrary-depth XPaths would
-    grab the first descendant's label (e.g. a subVI named "addSkipped.vi"
-    sitting in frame 0) and mis-name the WHOLE case structure with it.
-    Same reasoning as WhileLoopHandler/ForLoopHandler above.
+    etc.). extract_label is object-scoped: it returns this structure's OWN
+    label, never a descendant's (an inner "addSkipped.vi" in frame 0), so we
+    can use it directly and fall back to the display name.
     """
 
     xml_class = "select"
@@ -471,7 +468,7 @@ class SelectHandler(NodeTypeHandler):
         return SelectNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=self.display_name,
+            name=extract_label(elem) or self.display_name,
         )
 
 

@@ -148,28 +148,38 @@ def extract_label(elem: ET.Element) -> str | None:
     Returns:
         Label text or None if not found
     """
-    # Search paths in priority order
-    search_paths = [
-        # partID=16 is the user-visible control label
-        (".//*[@class='label'][partID='16']/.//text", True),
-        # Any label with valid text (older formats)
-        (".//*[@class='label']/.//text", True),
-        # Direct textRec/text
-        (".//textRec/text", True),
-        # label/textRec/text (some node types)
-        ("label/textRec/text", False),
-        # Formula Node terminal variable name (fBoxDCO/vblName)
-        ("vblName/text", False),
-    ]
-
-    for xpath, filter_pane in search_paths:
-        for text_elem in elem.findall(xpath):
-            if text_elem is not None and text_elem.text:
-                text = clean_labview_string(text_elem.text)
-                if not text:
-                    continue
-                if filter_pane and text.lower() == "pane":
-                    continue
+    # Object-scoped, grounded in LabVIEW's heap layout: an object's OWN label
+    # lives among its own parts -- inside its <partsList> (the grouping of a
+    # control's cosmetic parts + label), or, for node types that don't use
+    # partsList, as a DIRECT <label> child. A nested object (a cluster field, a
+    # loop frame's subVI) keeps its parts under ITSELF, outside this object's
+    # partsList -- so we never steal its label, which is the descendant grab
+    # that used to force per-caller guards. partID=16 is the user-visible label;
+    # prefer it, then any own label, then a bare textRec / Formula-Node name.
+    for xpath in (
+        "./partsList/*[@class='label'][partID='16']",
+        "./label[partID='16']",
+        "./partsList/*[@class='label']",
+        "./label",
+    ):
+        for label in elem.findall(xpath):
+            text = _first_text(label)
+            if text and text.lower() != "pane":
                 return text
+    for xpath in ("./textRec/text", "./vblName/text"):
+        el = elem.find(xpath)
+        if el is not None and el.text:
+            text = clean_labview_string(el.text)
+            if text and text.lower() != "pane":
+                return text
+    return None
 
+
+def _first_text(label: ET.Element) -> str | None:
+    """First non-empty cleaned text anywhere inside a label's own subtree."""
+    for t in label.iter("text"):
+        if t.text:
+            cleaned = clean_labview_string(t.text)
+            if cleaned:
+                return cleaned
     return None
