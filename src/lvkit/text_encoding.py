@@ -30,6 +30,10 @@ def _windows_ansi_encoding() -> str:
 
 def labview_text_encoding() -> str:
     """Return the native text encoding used by LabVIEW on this platform."""
+    # Override for a VI saved in a different locale than the reader's machine.
+    override = os.environ.get("LVKIT_TEXT_ENCODING")
+    if override:
+        return override
     if sys.platform == "win32":
         return _windows_ansi_encoding()
     if sys.platform == "darwin":
