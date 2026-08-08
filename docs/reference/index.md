@@ -23,6 +23,13 @@ to be resolved first.
 - [visualize](visualize.md) — an interactive dataflow or dependency graph across a whole library.
 - [docs](docs.md) — cross-referenced HTML documentation for a VI, library, or class.
 
+## Query across a repo
+
+- [query](query.md) — read-only SQL over a repo's code-understanding index; ask
+  project-wide questions (error-indicator names, callers, type usage) and get
+  back the answer, not a dump. Built/warmed by `lvkit index` and by the
+  understand/convert commands as you run them.
+
 ## Track changes
 
 - [diff](diff.md) — compare two versions of a VI: terminals, operations, and wiring.

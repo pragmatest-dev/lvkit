@@ -62,14 +62,16 @@ All take a `project` path (any file/dir inside the repo).
 | Tool | Description |
 |------|-------------|
 | `index` | Build/refresh the index for a repo. Returns VI count, collisions handled, and ms. |
-| `find_symbols` | Workspace symbol search — VIs by name substring and/or owning class. |
-| `find_terminals` | Controls/indicators across every VI, filtered by direction / error-cluster / type / name. `direction="output"` = indicators. |
-| `find_constants` | Constants across every VI, by what their wire feeds (`wired_to="indicator"` …). |
-| `find_type_usages` | VIs whose terminals reference a class/typedef (reverse type-usage). |
+| `query` | Run one read-only SQL `SELECT`/`WITH` over the index and get back just the answer (a `GROUP BY` histogram, not a row dump). Queries the curated views `vi`, `terminal`, `constant`, `call`, `type_use`, `class_fact`. Replaces the older per-question read tools. |
+| `query_schema` | List the views and their columns, so a query uses real column names. |
 | `get_callers` / `get_callees` | Pure call edges to/from a VI (ownership excluded). |
 | `blast_radius` | Transitive dependents of a VI — "what breaks if I change this?" |
-| `get_signatures` | Connector panes of every VI, terminals summarized — bulk classification. |
 | `visualize_project` | A self-contained Mermaid call graph or class tree, with optional blast-radius highlight. |
+
+Reads of terminals, constants, symbols, and type-uses go through `query`
+(e.g. `SELECT * FROM terminal WHERE …`); reachability stays as the typed
+`get_callers` / `get_callees` / `blast_radius` ops. The same SQL is available on
+the CLI as [`lvkit query`](query.md).
 
 ### Deep single-VI — load one VI live, on demand
 
@@ -98,8 +100,11 @@ Each takes a `vi_path` (a real `.vi`) and loads it live (XML already cached) —
 Against JKI VI Tester (487 VIs):
 
 1. `index(project="…/source")` → `{vis: 487, collisions: 65, ms: …}`.
-2. `find_terminals(project, direction="output", is_error_cluster=true)` → tally the
-   `name` values: *"what does this project call its error indicators?"* in one call.
+2. `query(project, sql="SELECT name, COUNT(*) AS n FROM terminal WHERE
+   is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC")` →
+   *"what does this project call its error indicators?"* as a small histogram, in
+   one call. (`query` builds/refreshes the index on first use, so step 1 is
+   optional.)
 3. `get_callers(project, vi="…/fail.vi")` → *"does this VI have callers?"*
 4. `blast_radius(project, vi="…/fail.vi")` → *"what breaks if I change it?"*
 
