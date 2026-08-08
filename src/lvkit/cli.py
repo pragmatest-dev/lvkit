@@ -1197,6 +1197,11 @@ def _load_diff_graphs(
     )
     vi_name_b = graph_b.resolve_vi_name(path_b.name)
 
+    # Progressive index: a diff warms both VIs' facts into their project store.
+    from .index.build import warm_index_for_vi
+    warm_index_for_vi(graph_a, vi_name_a, path_a)
+    warm_index_for_vi(graph_b, vi_name_b, path_b)
+
     return graph_a, vi_name_a, graph_b, vi_name_b
 
 
