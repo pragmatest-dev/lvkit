@@ -3,6 +3,20 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **New: ask a whole VI repo questions in SQL.** `lvkit query <path> "<SELECT>"`
+  runs read-only SQL over the project's code-understanding index and prints just
+  the answer — e.g. the names a project uses for error indicators, as a
+  histogram instead of hundreds of rows:
+  `lvkit query MyRepo "SELECT name, COUNT(*) AS n FROM terminal WHERE
+  is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC"`.
+  Query the curated views `vi`, `terminal`, `constant`, `call`, `type_use`,
+  `class_fact` (`--schema` lists their columns; `--format json` for machines).
+  The connection is strictly read-only — writes, `PRAGMA`, `ATTACH`, and stacked
+  statements are refused — and long queries are time- and row-capped. The MCP
+  server exposes the same thing as the `query`/`query_schema` tools, which
+  replace the older `find_terminals`/`find_constants`/`find_symbols`/
+  `find_type_usages`/`get_signatures` tools (call-graph questions stay as
+  `get_callers`/`get_callees`/`blast_radius`).
 - **Fixed: `Divide`, `Subtract`, the ordered comparisons and the shift/scale
   primitives had their two inputs swapped.** `describe` reported the operands
   the wrong way round, and generated Python computed the inverse — `Divide`

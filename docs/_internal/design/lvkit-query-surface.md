@@ -1,6 +1,15 @@
 # lvkit query surface — SQL over facts, typed ops for traversal
 
-**Status: accepted (2026-08-08).** Supersedes the query-*language* decision in
+**Status: accepted (2026-08-08); first slice IMPLEMENTED (2026-08-08).** The §7
+first slice shipped: `src/lvkit/index/sql.py` (view layer + structural read-only
+sandbox + `run_query`/`describe_schema`/`error_indicator_histogram`), the MCP
+`query`/`query_schema` tools, and the `lvkit query` CLI. The subsumed read tools
+(`find_*`/`get_signatures`) were retired (MCP 21→16 tools); reachability stays as
+the typed `get_callers`/`get_callees`/`blast_radius` ops. Validated on the JKI
+corpus. Open decisions in §9 (return shape settled on columnar; views are
+connection-time TEMP views) are resolved as built.
+
+Supersedes the query-*language* decision in
 `lvkit-graphql-api.md` (which proposed GraphQL — see §4 for why that flipped).
 Builds on `lvkit-mcp-index.md` (the two-tier index, unchanged) and
 `lvkit-mcp-index-plan.md` (the index engine). The parallel index *build* (perf)
