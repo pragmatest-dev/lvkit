@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import re
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -90,16 +92,47 @@ _indexes: dict[str, list[VIFacts]] = {}
 # (multi-repo sessions, headless agents), and a client that doesn't support
 # roots simply falls back to that explicit argument.
 
+# A Windows VS Code / Claude client speaks Windows paths (`C:\repo`, and roots
+# arrive as `file:///C:/repo`). When the server itself runs INSIDE WSL — the
+# common "run the WSL checkout, drive it from a Windows editor" setup — those
+# paths must be re-expressed as the WSL mount (`/mnt/c/repo`) or nothing
+# resolves. Applied at every point a path enters the server (roots + explicit
+# args), so `project` defaulting and relative targets work across the boundary.
+_WIN_DRIVE = re.compile(r"^([A-Za-z]):[\\/](.*)$")
+_WSL_UNC = re.compile(r"^\\\\wsl(?:\.localhost|\$)\\[^\\]+\\(.*)$")
+
+
+def _win_to_wsl_path(p: str) -> str:
+    """Map a Windows path to its WSL-visible form; a no-op on native Windows or
+    for an already-POSIX path.
+
+    - ``C:\\repo`` / ``C:/repo`` -> ``/mnt/c/repo`` (WSL's default automount;
+      override the mount root in ``/etc/wsl.conf`` if you've changed it).
+    - ``\\\\wsl.localhost\\Ubuntu\\home\\x`` (a WSL folder opened FROM Windows)
+      -> ``/home/x``.
+    """
+    if os.name == "nt":
+        return p  # native Windows process — its own paths are already correct
+    m = _WIN_DRIVE.match(p)
+    if m:
+        return f"/mnt/{m.group(1).lower()}/{m.group(2).replace(chr(92), '/')}"
+    m = _WSL_UNC.match(p)
+    if m:
+        return "/" + m.group(1).replace("\\", "/")
+    return p
+
+
 def _uri_to_path(uri: str) -> Path:
     """Convert a ``file://`` URI (as sent in MCP roots) to a local path.
 
-    Handles POSIX (``file:///home/x``) and Windows (``file:///C:/Users/x``,
-    which arrives as ``/C:/Users/x``) forms.
+    Handles POSIX (``file:///home/x``), Windows (``file:///C:/Users/x``, which
+    arrives as ``/C:/Users/x``), and — when the server runs under WSL — maps a
+    Windows drive path onto its ``/mnt`` mount (see :func:`_win_to_wsl_path`).
     """
     path = unquote(urlparse(uri).path)
     if len(path) >= 3 and path[0] == "/" and path[2] == ":":
         path = path[1:]  # Windows drive path: '/C:/...' -> 'C:/...'
-    return Path(path)
+    return Path(_win_to_wsl_path(path))
 
 
 async def _client_roots(ctx: Context | None) -> list[Path]:
@@ -118,9 +151,12 @@ async def _client_roots(ctx: Context | None) -> list[Path]:
 
 
 async def _resolve_project(project: str | None, ctx: Context | None) -> str:
-    """Resolve a project path: explicit ``project`` > first client root > cwd."""
+    """Resolve a project path: explicit ``project`` > first client root > cwd.
+
+    An explicit ``project`` may be a Windows path when a Windows editor drives a
+    WSL-hosted server — map it onto the WSL mount so it resolves."""
     if project:
-        return project
+        return _win_to_wsl_path(project)
     roots = await _client_roots(ctx)
     if roots:
         return str(roots[0])
@@ -135,6 +171,9 @@ async def _resolve_target(target: str, ctx: Context | None) -> str:
     works when the client is opened in that repo. If nothing matches it is
     returned unchanged, so the tool raises its own ``FileNotFoundError``.
     """
+    # Map first: a Windows ``C:\...`` arg isn't ``is_absolute()`` on a Linux
+    # (WSL) host, so it must be translated before the absolute-vs-relative test.
+    target = _win_to_wsl_path(target)
     if Path(target).is_absolute():
         return target
     for root in await _client_roots(ctx):

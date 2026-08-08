@@ -19,6 +19,7 @@ from lvkit.mcp.server import (
     _resolve_project,
     _resolve_target,
     _uri_to_path,
+    _win_to_wsl_path,
 )
 
 _SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
@@ -55,8 +56,40 @@ def test_uri_to_path_posix():
 
 
 def test_uri_to_path_windows_drive():
-    # A Windows client sends file:///C:/Users/x -> urlparse path is /C:/Users/x.
-    assert _uri_to_path("file:///C:/Users/ryanf/repo") == Path("C:/Users/ryanf/repo")
+    # A Windows client sends file:///C:/Users/x -> urlparse path is /C:/Users/x;
+    # on a non-Windows (WSL) host that maps onto the /mnt mount.
+    assert _uri_to_path("file:///C:/Users/ryanf/repo") == Path(
+        "/mnt/c/Users/ryanf/repo"
+    )
+
+
+# ---- _win_to_wsl_path (Windows client -> WSL-hosted server) -----------------
+
+
+def test_win_to_wsl_drive_forward_slash():
+    assert _win_to_wsl_path("C:/Users/ryanf/repo") == "/mnt/c/Users/ryanf/repo"
+
+
+def test_win_to_wsl_drive_backslash():
+    assert _win_to_wsl_path("D:\\work\\my repo") == "/mnt/d/work/my repo"
+
+
+def test_win_to_wsl_unc_wsl_localhost():
+    # A WSL folder opened FROM Windows arrives as a \\wsl.localhost\ UNC path.
+    assert (
+        _win_to_wsl_path("\\\\wsl.localhost\\Ubuntu\\home\\ryanf\\repo")
+        == "/home/ryanf/repo"
+    )
+
+
+def test_win_to_wsl_posix_is_noop():
+    assert _win_to_wsl_path("/home/ryanf/repo") == "/home/ryanf/repo"
+
+
+def test_win_to_wsl_native_windows_is_noop(monkeypatch: pytest.MonkeyPatch):
+    # On a native Windows process the path is already correct — never remap.
+    monkeypatch.setattr(mcp_server.os, "name", "nt")
+    assert _win_to_wsl_path("C:/Users/ryanf/repo") == "C:/Users/ryanf/repo"
 
 
 def test_uri_to_path_percent_encoded():
@@ -92,6 +125,16 @@ def test_resolve_target_absolute_passthrough(tmp_path):
     ctx = _ctx_for(tmp_path)
     abs_p = str(tmp_path / "x.vi")
     assert asyncio.run(_resolve_target(abs_p, ctx)) == abs_p
+
+
+def test_resolve_target_windows_abs_maps_to_wsl(tmp_path):
+    # A Windows client can pass an explicit C:\ path; on a WSL host it must map
+    # to /mnt/... and be treated as absolute (C:\ is NOT is_absolute() on Linux).
+    ctx = _ctx_for(tmp_path)
+    assert (
+        asyncio.run(_resolve_target("C:\\repo\\Sub\\run.vi", ctx))
+        == "/mnt/c/repo/Sub/run.vi"
+    )
 
 
 def test_resolve_target_relative_resolves_under_root(tmp_path):
