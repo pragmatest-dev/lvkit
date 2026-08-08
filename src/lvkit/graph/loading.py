@@ -24,6 +24,7 @@ from ..parser import (
     ParsedConnectorPane,
     ParsedDependencyRef,
     ParsedFrontPanel,
+    ParsedVI,
     parse_connector_pane_types,
     parse_vi,
     parse_vi_metadata,
@@ -40,6 +41,7 @@ from ..structure import (
 )
 from .models import PolyInfo, VIMetadata
 from .op_walk import stamp_nmux_lane_names
+from .parallel_parse import PARALLEL_THRESHOLD, parallel_parse_directory
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +128,7 @@ class LoadingMixin:
     _userlib_root: Path | None
     _layouts: dict[str, Layout]
     _want_layout: bool
+    _parse_cache: dict[str, ParsedVI] | None
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -518,12 +521,29 @@ class LoadingMixin:
 
         # Sorted: load order decides which same-named file claims a name first
         # when SubVI deps resolve, so filesystem order made loads irreproducible.
-        for vi_path in sorted(dir_path.rglob("*.vi")):
-            self.load_vi(vi_path, mode, search_paths)
+        vi_paths = sorted(dir_path.rglob("*.vi"))
 
-        for llb_path in sorted(dir_path.rglob("*.llb")):
-            if llb_path.is_file():
-                self.load_llb(llb_path, mode, search_paths)
+        # Above a size threshold, pre-parse (XML -> ParsedVI) across a process
+        # pool -- profiling showed parse_vi dominates a whole-directory load
+        # (~62% of wall time on JKI VI Tester). This ONLY warms
+        # self._parse_cache; the serial loop below, and every dependency-load
+        # code path it triggers, is completely unchanged -- graph assembly
+        # order stays exactly the sorted order iterated here, so codegen
+        # determinism is unaffected by which worker finishes when. Layout
+        # loads (rendering) skip this: parallel_parse_directory always parses
+        # layout=False.
+        if len(vi_paths) >= PARALLEL_THRESHOLD and not self._want_layout:
+            self._parse_cache = parallel_parse_directory(vi_paths)
+
+        try:
+            for vi_path in vi_paths:
+                self.load_vi(vi_path, mode, search_paths)
+
+            for llb_path in sorted(dir_path.rglob("*.llb")):
+                if llb_path.is_file():
+                    self.load_llb(llb_path, mode, search_paths)
+        finally:
+            self._parse_cache = None
 
     def load_llb(
         self,
@@ -597,7 +617,16 @@ class LoadingMixin:
         """
         # Parse VI using unified parse_vi(). When rendering (layout=True), the
         # geometry is decoded from this SAME parse and retained — no second read.
-        vi = parse_vi(
+        # A directory load's optional parallel pre-parse pass (see
+        # parallel_parse.py) may have already computed this VI's ParsedVI --
+        # reuse it (it's a pure function of the same XML files, so identical
+        # to a fresh call) instead of re-parsing. Also serves a repeat visit
+        # of the same VI within one load (as another VI's SubVI dependency)
+        # for free, since the cache isn't popped. Any miss (VI outside the
+        # pre-parsed set, layout wanted, or the pre-parse pass never ran)
+        # falls straight through to the normal serial parse.
+        cached_vi = self._parse_cache.get(str(bd_xml)) if self._parse_cache else None
+        vi = cached_vi if cached_vi is not None else parse_vi(
             bd_xml=bd_xml,
             fp_xml=fp_xml if fp_xml and fp_xml.exists() else None,
             main_xml=main_xml if main_xml and main_xml.exists() else None,

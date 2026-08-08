@@ -40,6 +40,39 @@ TESTCASE_DIR = JKI_ROOT / "source" / "Classes" / "TestCase"
 # === Fast: a small class dir — build + store round-trip ====================
 
 
+class TestParallelBuildEquivalence:
+    """``load_directory``'s optional parallel pre-parse (graph/parallel_parse.py)
+    must be byte-identical to the serial path — see graph/loading.py's
+    ``PARALLEL_THRESHOLD`` gate. The real threshold (50) is above this small
+    class dir's VI count, so both runs force the gate via monkeypatch: one
+    high (never parallel), one at 0 (always parallel, even for this small
+    dir) — same VI set either way, so any divergence is a real bug, not a
+    sample-size artifact.
+    """
+
+    def test_parallel_matches_serial(self, monkeypatch):
+        root, vi_paths = resolve_project(TESTCASE_DIR)
+        assert len(vi_paths) < 50  # sanity: confirms the real gate wouldn't fire here
+
+        monkeypatch.setattr("lvkit.graph.loading.PARALLEL_THRESHOLD", 10**9)
+        serial = build_index(root, vi_paths)
+
+        monkeypatch.setattr("lvkit.graph.loading.PARALLEL_THRESHOLD", 0)
+        parallel = build_index(root, vi_paths)
+
+        assert serial.collisions == parallel.collisions
+        assert {f.path for f in serial.facts} == {f.path for f in parallel.facts}
+
+        by_path_serial = {f.path: f for f in serial.facts}
+        by_path_parallel = {f.path: f for f in parallel.facts}
+        for path, sf in by_path_serial.items():
+            pf = by_path_parallel[path]
+            # Full dataclass equality: terminals (name/direction/is_error_cluster/
+            # py_type/field_names, in order), constants, calls, type_uses,
+            # class_fact, is_stub, impact_score -- everything VIFacts carries.
+            assert pf == sf, f"parallel facts diverged from serial for {path}"
+
+
 class TestSmallClassBuild:
     def test_build_over_testcase_dir(self):
         root, vi_paths = resolve_project(TESTCASE_DIR)

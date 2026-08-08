@@ -14,7 +14,7 @@ import networkx as nx
 
 from ..load_mode import LoadMode
 from ..models import ClusterField, LVType
-from ..parser.models import ParsedType
+from ..parser.models import ParsedType, ParsedVI
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
@@ -186,6 +186,12 @@ class InMemoryVIGraph(
         self._layouts: dict[str, Layout] = {}
         # Whether the current load should decode + retain geometry.
         self._want_layout: bool = False
+        # Pre-parsed VIs (bd_xml path str -> ParsedVI), warmed by
+        # load_directory's optional parallel pre-parse pass (see
+        # graph/parallel_parse.py). None outside that call: _load_vi_recursive
+        # falls back to its own parse_vi() call on any miss, so this is purely
+        # an optional cache, never a correctness dependency.
+        self._parse_cache: dict[str, ParsedVI] | None = None
 
     def set_library_roots(
         self,
@@ -230,6 +236,7 @@ class InMemoryVIGraph(
         self._vi_file_index = None
         self._vi_metadata.clear()
         self._layouts.clear()
+        self._parse_cache = None
 
     @staticmethod
     def _qid(vi_name: str, uid: str) -> str:
