@@ -63,6 +63,7 @@ from ..index import sql as isql
 from ..index.build import build_index, refresh_index, warm_all_loaded
 from ..index.model import VIFacts
 from ..index.project import resolve_project
+from ..index.store import db_path as store_db_path
 from ..index.store import delete as store_delete
 from ..index.store import load as store_load
 from ..index.store import save as store_save
@@ -164,10 +165,16 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
 
     Loads the persisted index when present; builds + saves it on first use (or
     when ``rebuild``). Caches the facts per resolved root for the session.
+
+    The in-memory ``_indexes`` cache must never mask an ABSENT on-disk store:
+    the ``query`` tool reads the SQLite file (not these facts), so if the cache
+    dir was cleared/moved out from under a long-lived server, a cache hit would
+    otherwise return facts while ``run_query`` sees no DB. So a hit whose DB file
+    is gone falls through to a rebuild+save.
     """
     root, vi_paths = resolve_project(Path(project))
     key = str(root)
-    if rebuild or key not in _indexes:
+    if rebuild or key not in _indexes or not store_db_path(root).exists():
         _configure_resolvers_for_vi(root)
         stored = [] if rebuild else store_load(root)
         if not stored:
