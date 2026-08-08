@@ -93,6 +93,24 @@ def test_index_tools() -> None:
     sigs = _run(srv.get_signatures(project))
     assert len(sigs) == built["vis"]
 
+    # The SQL query surface: schema introspection lists the views, and a
+    # GROUP BY returns the answer (columnar), not raw rows.
+    schema = _run(srv.query_schema())
+    assert {v["name"] for v in schema} >= {"vi", "terminal", "constant"}
+    qres = _run(
+        srv.query(
+            "SELECT name, COUNT(*) AS n FROM terminal "
+            "WHERE is_error_cluster = 1 AND direction = 'output' "
+            "GROUP BY name ORDER BY n DESC",
+            project=project,
+        )
+    )
+    assert qres["columns"] == ["name", "n"]
+    assert qres["truncated"] is False
+    # A bad (non-SELECT) statement is refused loudly.
+    with pytest.raises(srv.isql.QueryError):
+        _run(srv.query("DELETE FROM vis", project=project))
+
     # Mermaid visualization is self-contained text.
     mm = _run(srv.visualize_project(project, scope="calls"))
     assert mm.splitlines()[0] == "graph LR"

@@ -7,13 +7,17 @@ disabling the server — see ``docs/_internal/design/lvkit-mcp-improvements.md``
 
 Three tool groups:
 
-1. **Index-backed, project-scoped** (``index``, ``find_terminals``,
-   ``find_constants``, ``find_type_usages``, ``find_symbols``, ``get_callers``,
-   ``get_callees``, ``blast_radius``, ``get_signatures``, ``visualize_project``)
-   — answer *project-wide* questions in one call from the persisted, path-keyed
-   facts index (``lvkit.index``). No per-VI round trips, no name-collision bug.
-   State is a per-project-root cache, NOT a single global graph any ``clear``
-   could nuke — safe for an agent working across several repos in one session.
+1. **Index-backed, project-scoped** (``index``, ``query``, ``query_schema``,
+   ``find_terminals``, ``find_constants``, ``find_type_usages``,
+   ``find_symbols``, ``get_callers``, ``get_callees``, ``blast_radius``,
+   ``get_signatures``, ``visualize_project``) — answer *project-wide* questions
+   in one call from the persisted, path-keyed facts index (``lvkit.index``). The
+   ``query`` tool is read-only SQL over a curated view layer — it returns the
+   *answer* (a ``GROUP BY`` histogram), not the source rows, and subsumes the
+   ``find_*``/``get_signatures`` read tools. No per-VI round trips, no
+   name-collision bug. State is a per-project-root cache, NOT a single global
+   graph any ``clear`` could nuke — safe for an agent working across several
+   repos in one session.
 
 2. **Deep single-VI** (``describe``, ``get_operations``, ``get_dataflow``,
    ``get_structure``, ``get_constants``, ``get_context``, ``generate_ast_code``)
@@ -54,6 +58,7 @@ from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
 from ..index import query as iq
+from ..index import sql as isql
 from ..index.build import build_index, refresh_index, warm_index_for_vi
 from ..index.model import VIFacts
 from ..index.project import resolve_project
@@ -245,6 +250,48 @@ async def index(
         }
 
     return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def query(
+    sql: str, project: str | None = None, ctx: Context | None = None,
+) -> dict[str, Any]:
+    """Run one read-only SQL ``SELECT``/``WITH`` over the project's facts index
+    and get back **just the answer** — the token-efficient replacement for the
+    per-question read tools (``find_terminals``/``find_constants``/
+    ``find_symbols``/``find_type_usages``/``get_signatures``).
+
+    Query these curated views (call ``query_schema`` for their columns):
+    ``vi``, ``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``.
+    Example — the names this project uses for error indicators, as a histogram
+    rather than 379 raw rows::
+
+        SELECT name, COUNT(*) AS n FROM terminal
+        WHERE is_error_cluster = 1 AND direction = 'output'
+        GROUP BY name ORDER BY n DESC
+
+    Returns ``{columns, rows, row_count, truncated}`` (columnar). Only a single
+    SELECT/CTE is allowed — writes, ``PRAGMA``, ``ATTACH`` and stacked statements
+    are refused. The index is built/refreshed automatically on first use.
+    ``project`` defaults to the client's workspace root. Transitive questions
+    (callers, blast radius) are the ``get_callers``/``blast_radius`` tools, not
+    SQL.
+    """
+    project = await _resolve_project(project, ctx)
+
+    def _work() -> dict[str, Any]:
+        root, _ = _get_index(project)
+        return asdict(isql.run_query(root, sql))
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def query_schema() -> list[dict[str, Any]]:
+    """List the views and columns available to the ``query`` tool — call this
+    first so your SQL uses real column names instead of guessing. Each entry is
+    ``{name, columns:[{name, description}]}``."""
+    return [asdict(v) for v in isql.describe_schema()]
 
 
 @mcp.tool()
