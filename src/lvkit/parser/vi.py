@@ -10,6 +10,7 @@ Architecture:
 from __future__ import annotations
 
 import json
+import logging
 import re
 import struct
 import warnings
@@ -81,6 +82,8 @@ from .utils import (
 # this cap we skip it and degrade rather than crash. Real FP heaps are well
 # under this.
 _MAX_FP_HEAP_BYTES = 256 * 1024 * 1024
+
+logger = logging.getLogger(__name__)
 
 
 def _load_node_dco_maps() -> dict[str, dict[str, int]]:
@@ -1229,6 +1232,25 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
                 data[idx:], elem_type.element_type,
             )
             if elem_val is None:
+                break
+            # No forward progress (e.g. an undecodable element that returns
+            # consumed=0, like a non-PTH0 Path) means the remaining elements
+            # can never be decoded either — stop instead of spinning array_len
+            # times over the same offset (a misparsed length made this a
+            # 290M-iteration runaway that dominated whole-repo index builds).
+            # Logged so we can measure how often this fires and fix the ROOT
+            # parse cause (why the length/element type is wrong).
+            if consumed <= 0:
+                logger.warning(
+                    "constant-array decode truncated: %d of a claimed %d "
+                    "elements decoded before an element (type %r) consumed 0 "
+                    "bytes at offset %d — likely a misparsed array length or "
+                    "element type; the root parse cause is worth fixing.",
+                    len(elements), array_len,
+                    getattr(elem_type.element_type, "underlying_type", None)
+                    or getattr(elem_type.element_type, "kind", "?"),
+                    idx,
+                )
                 break
             elements.append(elem_val)
             idx += consumed
