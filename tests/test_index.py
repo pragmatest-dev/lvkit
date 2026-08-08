@@ -158,6 +158,7 @@ def jki_index() -> BuildResult:
             os.environ["LVKIT_CACHE_DIR"] = saved
 
 
+@pytest.mark.slow
 class TestFullCorpusDemo:
     def test_path_keyed_no_collision_loss(self, jki_index: BuildResult):
         """Demo #1: indexed VI count == every .vi file under the repo, not

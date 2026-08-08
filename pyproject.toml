@@ -63,6 +63,7 @@ dev = [
     "pyright",
     "pre-commit",
     "cairosvg>=2.9.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -114,6 +115,11 @@ select = ["E", "F", "I", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Parallel by default (pytest-xdist across all cores) and skip the slow
+# full-corpus acceptance tests — run those explicitly with `-m slow`, and
+# override parallelism with `-p no:xdist` / `-n0` when you need serial output.
+addopts = "-n auto -m 'not slow'"
 markers = [
     "needs_samples: test reads the local-only sample VI corpus (.lvkit/cache/samples). Auto-skipped when the corpus is absent; pull it with scripts/pull_samples.sh.",
+    "slow: full-corpus acceptance/integration test (e.g. indexing the whole sample set); excluded from the default run, opt in with `-m slow`.",
 ]
