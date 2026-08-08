@@ -31,8 +31,9 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
 from .. import primitive_resolver, vilib_resolver
 from ..codegen import build_module
@@ -71,6 +72,68 @@ mcp = FastMCP("lvkit-mcp")
 # so parallel agents on different projects never collide, and there is no
 # session-wide `clear` that wipes another caller's state.
 _indexes: dict[str, list[VIFacts]] = {}
+
+
+# ===== Workspace-root defaulting =====
+#
+# MCP clients advertise the folder(s) the user opened (VS Code / Claude Code
+# workspace) as `roots`. We read them so a caller who has already opened their
+# VI repo never has to repeat its path: `project` defaults to the first root,
+# and a relative VI path resolves under it. Passing an explicit path still wins
+# (multi-repo sessions, headless agents), and a client that doesn't support
+# roots simply falls back to that explicit argument.
+
+def _uri_to_path(uri: str) -> Path:
+    """Convert a ``file://`` URI (as sent in MCP roots) to a local path.
+
+    Handles POSIX (``file:///home/x``) and Windows (``file:///C:/Users/x``,
+    which arrives as ``/C:/Users/x``) forms.
+    """
+    path = unquote(urlparse(uri).path)
+    if len(path) >= 3 and path[0] == "/" and path[2] == ":":
+        path = path[1:]  # Windows drive path: '/C:/...' -> 'C:/...'
+    return Path(path)
+
+
+async def _client_roots(ctx: Context | None) -> list[Path]:
+    """Workspace folders the client advertised (empty if unsupported/declined).
+
+    Never raises: a client without the roots capability just yields ``[]``, and
+    the explicit path argument is the documented fallback.
+    """
+    if ctx is None:
+        return []
+    try:
+        result = await ctx.session.list_roots()
+    except Exception:
+        return []
+    return [_uri_to_path(str(r.uri)) for r in result.roots]
+
+
+async def _resolve_project(project: str | None, ctx: Context | None) -> str:
+    """Resolve a project path: explicit ``project`` > first client root > cwd."""
+    if project:
+        return project
+    roots = await _client_roots(ctx)
+    if roots:
+        return str(roots[0])
+    return str(Path.cwd())
+
+
+async def _resolve_target(target: str, ctx: Context | None) -> str:
+    """Resolve a VI/library path, allowing it to be relative to a client root.
+
+    An absolute path is used verbatim. A relative one is tried under each client
+    root and the first existing match wins — so ``describe("Classes/Foo/run.vi")``
+    works when the client is opened in that repo. If nothing matches it is
+    returned unchanged, so the tool raises its own ``FileNotFoundError``.
+    """
+    if Path(target).is_absolute():
+        return target
+    for root in await _client_roots(ctx):
+        if (root / target).exists():
+            return str(root / target)
+    return target
 
 
 def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
@@ -123,11 +186,15 @@ def _vi_summary(f: VIFacts) -> dict[str, Any]:
 
 
 @mcp.tool()
-async def index(project: str, refresh: bool = False) -> dict[str, Any]:
+async def index(
+    project: str | None = None, refresh: bool = False, ctx: Context | None = None,
+) -> dict[str, Any]:
     """Build or refresh the code-understanding index for a whole VI repo.
 
     ``project`` is any path inside the repo (a directory, ``.lvproj``,
     ``.lvclass``, ``.lvlib``, or ``.vi``); the enclosing project root is indexed.
+    Omit it to index the folder the client is opened in (the first workspace
+    root).
     Every ``.vi`` is projected into a persisted, path-keyed facts row — so
     same-named VIs (``setUp.vi`` ×17) never collide the way a name-keyed graph
     does. Run this once; the other project-scoped tools then answer in sub-ms.
@@ -138,6 +205,8 @@ async def index(project: str, refresh: bool = False) -> dict[str, Any]:
     counts (refresh), plus the resolved project root.
     """
     import time
+
+    project = await _resolve_project(project, ctx)
 
     def _work() -> dict[str, Any]:
         start = time.monotonic()
@@ -171,11 +240,12 @@ async def index(project: str, refresh: bool = False) -> dict[str, Any]:
 
 @mcp.tool()
 async def find_terminals(
-    project: str,
+    project: str | None = None,
     direction: str | None = None,
     is_error_cluster: bool | None = None,
     py_type: str | None = None,
     name: str | None = None,
+    ctx: Context | None = None,
 ) -> list[dict[str, Any]]:
     """Find connector-pane terminals (controls/indicators) across every VI.
 
@@ -184,8 +254,11 @@ async def find_terminals(
     controls. Combine ``direction="output"`` with ``is_error_cluster=True`` for
     the canonical "what names does this project use for error indicators?"
     question — then tally the returned ``name`` values. Each result carries its
-    VI (``vi_path``/``vi_name``) plus the terminal's fields.
+    VI (``vi_path``/``vi_name``) plus the terminal's fields. ``project`` defaults
+    to the client's workspace root.
     """
+    project = await _resolve_project(project, ctx)
+
     def _work() -> list[dict[str, Any]]:
         _, facts = _get_index(project)
         matches = iq.find_terminals(
@@ -199,14 +272,18 @@ async def find_terminals(
 
 @mcp.tool()
 async def find_constants(
-    project: str, wired_to: str | None = None,
+    project: str | None = None, wired_to: str | None = None,
+    ctx: Context | None = None,
 ) -> list[dict[str, Any]]:
     """Find block-diagram constants across every VI, by what their wire feeds.
 
     ``wired_to`` is one of ``indicator`` / ``control`` / ``other`` / ``unwired``
     (precomputed at index time). ``wired_to="indicator"`` answers "every constant
-    wired directly to an indicator" without a per-VI wire trace.
+    wired directly to an indicator" without a per-VI wire trace. ``project``
+    defaults to the client's workspace root.
     """
+    project = await _resolve_project(project, ctx)
+
     def _work() -> list[dict[str, Any]]:
         _, facts = _get_index(project)
         return [asdict(m) for m in iq.find_constants(facts, wired_to=wired_to)]
@@ -215,9 +292,14 @@ async def find_constants(
 
 
 @mcp.tool()
-async def find_type_usages(project: str, type_key: str) -> list[str]:
+async def find_type_usages(
+    type_key: str, project: str | None = None, ctx: Context | None = None,
+) -> list[str]:
     """Paths of every VI whose terminals reference ``type_key`` (a classname or
-    typedef name) — the reverse type-usage index ("who uses this typedef?")."""
+    typedef name) — the reverse type-usage index ("who uses this typedef?").
+    ``project`` defaults to the client's workspace root."""
+    project = await _resolve_project(project, ctx)
+
     def _work() -> list[str]:
         _, facts = _get_index(project)
         return iq.find_type_usages(facts, type_key)
@@ -227,12 +309,16 @@ async def find_type_usages(project: str, type_key: str) -> list[str]:
 
 @mcp.tool()
 async def find_symbols(
-    project: str, name: str | None = None, owning_class: str | None = None,
+    project: str | None = None, name: str | None = None,
+    owning_class: str | None = None, ctx: Context | None = None,
 ) -> list[dict[str, Any]]:
     """Workspace symbol search: VIs whose bare name contains ``name``
     (case-insensitive) and/or that belong to ``owning_class``. Each result is a
     compact record (path, qualified name, library, owning class, impact score).
+    ``project`` defaults to the client's workspace root.
     """
+    project = await _resolve_project(project, ctx)
+
     def _work() -> list[dict[str, Any]]:
         _, facts = _get_index(project)
         return [
@@ -244,10 +330,14 @@ async def find_symbols(
 
 
 @mcp.tool()
-async def get_callers(project: str, vi: str) -> list[str]:
+async def get_callers(
+    vi: str, project: str | None = None, ctx: Context | None = None,
+) -> list[str]:
     """Paths of VIs that call ``vi`` — pure call edges (a method's owning class
     is never counted as a caller). ``vi`` may be a path, a qualified name, or an
-    unambiguous bare name."""
+    unambiguous bare name. ``project`` defaults to the client's workspace root."""
+    project = await _resolve_project(project, ctx)
+
     def _work() -> list[str]:
         _, facts = _get_index(project)
         return iq.get_callers(facts, vi)
@@ -256,9 +346,14 @@ async def get_callers(project: str, vi: str) -> list[str]:
 
 
 @mcp.tool()
-async def get_callees(project: str, vi: str) -> list[str]:
+async def get_callees(
+    vi: str, project: str | None = None, ctx: Context | None = None,
+) -> list[str]:
     """Paths of VIs that ``vi`` calls — pure call edges. ``vi`` may be a path, a
-    qualified name, or an unambiguous bare name."""
+    qualified name, or an unambiguous bare name. ``project`` defaults to the
+    client's workspace root."""
+    project = await _resolve_project(project, ctx)
+
     def _work() -> list[str]:
         _, facts = _get_index(project)
         return iq.get_callees(facts, vi)
@@ -268,11 +363,15 @@ async def get_callees(project: str, vi: str) -> list[str]:
 
 @mcp.tool()
 async def blast_radius(
-    project: str, vi: str, depth: int | None = None,
+    vi: str, project: str | None = None, depth: int | None = None,
+    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """"What breaks if I change ``vi``?" — its transitive dependents over the
     pure call graph, optionally bounded to ``depth`` hops. Returns the resolved
-    key, the dependent VI paths, and ``impact_score`` (their count)."""
+    key, the dependent VI paths, and ``impact_score`` (their count). ``project``
+    defaults to the client's workspace root."""
+    project = await _resolve_project(project, ctx)
+
     def _work() -> dict[str, Any]:
         _, facts = _get_index(project)
         return asdict(iq.blast_radius(facts, vi, depth=depth))
@@ -282,12 +381,15 @@ async def blast_radius(
 
 @mcp.tool()
 async def get_signatures(
-    project: str, vi_names: list[str] | None = None,
+    project: str | None = None, vi_names: list[str] | None = None,
+    ctx: Context | None = None,
 ) -> list[dict[str, Any]]:
     """Connector panes of every indexed VI (or just ``vi_names``) in one call —
     each terminal summarized (name, direction, type, cluster field names). The
     bulk read for classifying terminals project-wide without a round trip per VI.
+    ``project`` defaults to the client's workspace root.
     """
+    project = await _resolve_project(project, ctx)
     wanted = set(vi_names or [])
 
     def _work() -> list[dict[str, Any]]:
@@ -318,13 +420,17 @@ async def get_signatures(
 
 @mcp.tool()
 async def visualize_project(
-    project: str, scope: str = "calls", highlight: str | None = None,
+    project: str | None = None, scope: str = "calls",
+    highlight: str | None = None, ctx: Context | None = None,
 ) -> str:
     """A self-contained **Mermaid** map of the project (paste into any Mermaid
     renderer). ``scope="calls"`` draws the pure call graph; ``scope="classes"``
     draws the class-inheritance tree. ``highlight`` (a VI path/qualified/bare
     name) marks that VI and its blast-radius dependents — the visual twin of
-    ``blast_radius``. Clean-room: emits only Mermaid text, no external hosts."""
+    ``blast_radius``. Clean-room: emits only Mermaid text, no external hosts.
+    ``project`` defaults to the client's workspace root."""
+    project = await _resolve_project(project, ctx)
+
     def _work() -> str:
         _, facts = _get_index(project)
         return _mermaid(facts, scope=scope, highlight=highlight)
@@ -355,10 +461,13 @@ def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
 
 
 @mcp.tool()
-async def describe(vi_path: str) -> str:
+async def describe(vi_path: str, ctx: Context | None = None) -> str:
     """Human-readable purpose, signature, SubVI calls, and control flow for one
     VI (loaded on demand). Start here before ``get_operations``/``get_dataflow``.
+    ``vi_path`` may be relative to the client's workspace root.
     """
+    vi_path = await _resolve_target(vi_path, ctx)
+
     def _work() -> str:
         graph, vi_name = _load_one(vi_path)
         return describe_vi_text(graph, vi_name)
@@ -367,9 +476,12 @@ async def describe(vi_path: str) -> str:
 
 
 @mcp.tool()
-async def get_operations(vi_path: str) -> str:
+async def get_operations(vi_path: str, ctx: Context | None = None) -> str:
     """Execution-ordered operations of one VI, with nested structures (case
-    frames, loop bodies), loaded on demand."""
+    frames, loop bodies), loaded on demand. ``vi_path`` may be relative to the
+    client's workspace root."""
+    vi_path = await _resolve_target(vi_path, ctx)
+
     def _work() -> str:
         graph, vi_name = _load_one(vi_path)
         return describe_operations_text(graph, vi_name)
@@ -378,9 +490,14 @@ async def get_operations(vi_path: str) -> str:
 
 
 @mcp.tool()
-async def get_dataflow(vi_path: str, operation_id: str | None = None) -> str:
+async def get_dataflow(
+    vi_path: str, operation_id: str | None = None, ctx: Context | None = None,
+) -> str:
     """Wire connections between one VI's operations, optionally filtered to a
-    single operation. Loaded on demand."""
+    single operation. Loaded on demand. ``vi_path`` may be relative to the
+    client's workspace root."""
+    vi_path = await _resolve_target(vi_path, ctx)
+
     def _work() -> str:
         graph, vi_name = _load_one(vi_path)
         return describe_dataflow_text(graph, vi_name, operation_id)
@@ -389,9 +506,14 @@ async def get_dataflow(vi_path: str, operation_id: str | None = None) -> str:
 
 
 @mcp.tool()
-async def get_structure(vi_path: str, operation_id: str) -> str:
+async def get_structure(
+    vi_path: str, operation_id: str, ctx: Context | None = None,
+) -> str:
     """Detail on one case/loop/sequence structure — selector and values,
-    tunnels, frame contents. Loaded on demand."""
+    tunnels, frame contents. Loaded on demand. ``vi_path`` may be relative to
+    the client's workspace root."""
+    vi_path = await _resolve_target(vi_path, ctx)
+
     def _work() -> str:
         graph, vi_name = _load_one(vi_path)
         return describe_structure_text(graph, vi_name, operation_id)
@@ -400,8 +522,11 @@ async def get_structure(vi_path: str, operation_id: str) -> str:
 
 
 @mcp.tool()
-async def get_constants(vi_path: str) -> str:
-    """Every constant's name, type, and value in one VI (loaded on demand)."""
+async def get_constants(vi_path: str, ctx: Context | None = None) -> str:
+    """Every constant's name, type, and value in one VI (loaded on demand).
+    ``vi_path`` may be relative to the client's workspace root."""
+    vi_path = await _resolve_target(vi_path, ctx)
+
     def _work() -> str:
         graph, vi_name = _load_one(vi_path)
         return describe_constants_text(graph, vi_name)
@@ -410,10 +535,13 @@ async def get_constants(vi_path: str) -> str:
 
 
 @mcp.tool()
-async def get_context(vi_path: str) -> str:
+async def get_context(vi_path: str, ctx: Context | None = None) -> str:
     """Full structured context for one VI — inputs, outputs, operations, wires,
     constants — as JSON. Loaded on demand. Heavier than ``describe``; use when
-    you need the raw structure, not prose."""
+    you need the raw structure, not prose. ``vi_path`` may be relative to the
+    client's workspace root."""
+    vi_path = await _resolve_target(vi_path, ctx)
+
     def _work() -> str:
         graph, vi_name = _load_one(vi_path)
         context = graph.get_vi_context(vi_name)
@@ -423,10 +551,12 @@ async def get_context(vi_path: str) -> str:
 
 
 @mcp.tool()
-async def generate_ast_code(vi_path: str) -> str:
+async def generate_ast_code(vi_path: str, ctx: Context | None = None) -> str:
     """Generate Python for one VI via the deterministic AST pipeline (loaded on
     demand). Always valid syntax; may contain PRIMITIVE_xxx stubs for unknown
-    primitives."""
+    primitives. ``vi_path`` may be relative to the client's workspace root."""
+    vi_path = await _resolve_target(vi_path, ctx)
+
     def _work() -> str:
         graph, vi_name = _load_one(vi_path)
         context = graph.get_vi_context(vi_name)
@@ -446,10 +576,13 @@ async def generate_documents(
     vilib_root: str | None = None,
     userlib_root: str | None = None,
     auto_vilib: bool = True,
+    ctx: Context | None = None,
 ) -> str:
     """Generate a static HTML documentation site for a VI, library, class, or
     directory (same output as ``lvkit docs``). Writes files and returns a
-    summary; tell the user the path to ``index.html``."""
+    summary; tell the user the path to ``index.html``. ``library_path`` may be
+    relative to the client's workspace root."""
+    library_path = await _resolve_target(library_path, ctx)
     _configure_resolvers_for_vi(library_path)
     return await asyncio.to_thread(
         _gen_documents, library_path, output_dir, search_paths or [], load_mode,
@@ -466,10 +599,13 @@ async def generate_python(
     vilib_root: str | None = None,
     userlib_root: str | None = None,
     auto_vilib: bool = True,
+    ctx: Context | None = None,
 ) -> str:
     """Generate a Python package from a VI (same conversion as ``lvkit
     generate``), with a ``needs_review``/``errors`` workflow for the calling
-    agent to read and correct the output. Returns JSON."""
+    agent to read and correct the output. Returns JSON. ``vi_path`` may be
+    relative to the client's workspace root."""
+    vi_path = await _resolve_target(vi_path, ctx)
     _configure_resolvers_for_vi(vi_path)
     result = await asyncio.to_thread(
         _gen_python, vi_path, output_dir, search_paths or [],

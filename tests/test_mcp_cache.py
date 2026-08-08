@@ -79,10 +79,12 @@ def test_index_tools() -> None:
     assert all("impact_score" in s for s in syms)
 
     # A class method exists; get_callers/blast_radius resolve a bare name.
+    # (vi is the first, required arg; project is the optional workspace-root
+    # default — call by keyword, exactly as an MCP client does.)
     a_method = syms[0]["path"]
-    assert isinstance(_run(srv.get_callers(project, a_method)), list)
-    assert isinstance(_run(srv.get_callees(project, a_method)), list)
-    br = _run(srv.blast_radius(project, a_method))
+    assert isinstance(_run(srv.get_callers(a_method, project=project)), list)
+    assert isinstance(_run(srv.get_callees(a_method, project=project)), list)
+    br = _run(srv.blast_radius(a_method, project=project))
     assert "impact_score" in br
 
     # Bulk reads.
