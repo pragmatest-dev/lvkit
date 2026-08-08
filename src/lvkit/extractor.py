@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import re
+import shutil
 import sys
+import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -57,11 +60,39 @@ def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
     _, source, _ = classify(vi_path, "extract")
     from lvkit.cache_paths import write_meta
 
+    # meta.json is the cache-VALID marker (readers gate on meta_fresh), so write
+    # it to a UNIQUE temp sidecar and atomically rename into place — a concurrent
+    # reader never sees a half-written meta, and racing writers (threads OR
+    # processes) can't corrupt or collide on it. mkstemp guarantees a unique
+    # name even within one process (os.getpid() alone collides across threads).
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{meta_path.name}.", suffix=".tmp", dir=meta_path.parent
+    )
+    os.close(fd)
+    tmp = Path(tmp_name)
     write_meta(
-        vi_path, meta_path,
+        vi_path, tmp,
         source=source, tool="pylabview", extracted_at=time.time(),
         text_encoding=labview_text_encoding(),
     )
+    os.replace(tmp, meta_path)
+
+
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Write ``data`` to ``path`` atomically — a unique temp file in the same
+    directory then ``os.replace`` — so concurrent extractors of the same
+    archive can't interleave into a half-written member file."""
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def _make_read_po(**overrides: object) -> argparse.Namespace:
@@ -182,22 +213,44 @@ def extract_vi_xml(
             main_xml if main_xml.exists() else None,
         )
 
-    # Cache miss - extract in-process, surfacing the real pylabview error on
-    # failure. There is deliberately NO subprocess fallback: it runs UNPATCHED
-    # pylabview (so it re-hits bugs we've patched), fails identically on genuine
-    # pylabview crashes, and only masks the true cause behind a wrapped error.
-    # The byte-identical gate confirmed in-process == subprocess output.
+    # Cache miss. Extract into a PRIVATE temp dir on the same filesystem, then
+    # atomically publish each artifact into the shared cache dir (meta.json
+    # LAST, as the cache-valid marker). This makes concurrent extractions of the
+    # SAME VI safe — two lvkit processes (parallel agents, a CI matrix, or a
+    # user running several commands) each publish COMPLETE files via atomic
+    # os.replace, and a reader (which gates on bd_xml + meta_fresh) never sees a
+    # half-written cache. Writing straight into output_dir would let concurrent
+    # writers interleave into the same file and corrupt it.
+    #
+    # There is deliberately NO subprocess fallback: it runs UNPATCHED pylabview
+    # (re-hitting bugs we've patched), fails identically on genuine crashes, and
+    # only masks the true cause behind a wrapped error. The byte-identical gate
+    # confirmed in-process == subprocess output.
+    tmp_dir = Path(
+        tempfile.mkdtemp(prefix=f".extract-{vi_stem}-", dir=output_dir.parent)
+    )
     try:
-        _extract_in_process(vi_path, output_dir, vi_stem)
-    except Exception as exc:
-        raise RuntimeError(
-            f"pylabview extraction failed for {vi_path.name}: {exc}"
-        ) from exc
+        try:
+            _extract_in_process(vi_path, tmp_dir, vi_stem)
+        except Exception as exc:
+            raise RuntimeError(
+                f"pylabview extraction failed for {vi_path.name}: {exc}"
+            ) from exc
+
+        if not (tmp_dir / f"{vi_stem}_BDHb.xml").exists():
+            raise RuntimeError(f"Block diagram XML not found: {vi_stem}_BDHb.xml")
+
+        # Publish every produced artifact atomically (same filesystem as the
+        # temp dir), then meta.json last so its appearance marks the cache valid.
+        for produced in sorted(tmp_dir.iterdir()):
+            if produced.is_file():
+                os.replace(produced, output_dir / produced.name)
+        _write_cache_meta(vi_path, meta_path)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     if not bd_xml.exists():
         raise RuntimeError(f"Block diagram XML not found: {bd_xml}")
-
-    _write_cache_meta(vi_path, meta_path)
 
     return (
         bd_xml,
@@ -316,7 +369,7 @@ def extract_llb(llb_path: Path) -> Path:
                 continue
             try:
                 bldata: io.BytesIO = block.getData(section_num=snum)
-                (cache_dir / member_name).write_bytes(bldata.read())
+                _atomic_write_bytes(cache_dir / member_name, bldata.read())
                 extracted_any = True
             except Exception:
                 pass  # Skip unreadable sections; they remain absent from cache
@@ -334,8 +387,8 @@ def extract_llb(llb_path: Path) -> Path:
                             member_name = _UNSAFE_CHARS.sub(
                                 "-", Path(member).name
                             )
-                            (cache_dir / member_name).write_bytes(
-                                zf.read(member)
+                            _atomic_write_bytes(
+                                cache_dir / member_name, zf.read(member)
                             )
                             extracted_any = True
             except Exception as exc:
