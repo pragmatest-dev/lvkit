@@ -234,7 +234,6 @@ class StatVIRefHandler(RefBuildHandler):
             lv_type=vi_ref_type,
             raw_value=vi_ref_name,
             label=vi_ref_name,
-            caption=node.caption,
             terminals=[Terminal(
                 id=q_node_uid, index=0,
                 direction="output", lv_type=vi_ref_type,

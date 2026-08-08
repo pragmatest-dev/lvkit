@@ -47,6 +47,7 @@ from .builders import (
     SUBVI_CALL_NODE_TYPES,
     GraphBuildContext,
 )
+from .core import _graph_node_to_op_kind
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -347,12 +348,17 @@ class ConstructionMixin:
             )
             vi_terminals.append(terminal)
 
-            # Register in term_lookup for wire resolution
+            # Register in term_lookup for wire resolution. Owning node is the
+            # VI itself (vi_node, built below once all FP terminals are
+            # collected) — every VINode maps to "vi" per
+            # _graph_node_to_op_kind, so that's used directly rather than
+            # deferring until vi_node exists.
             term_lookup[fp_term.uid] = WireEnd(
                 terminal_id=q_term_uid,
                 node_id=vi_name,
                 index=slot_index,
                 name=ctrl.name if ctrl else fp_term.name,
+                parent_kind="vi",
             )
             fp_dco_wire_ends[fp_term.fp_dco_uid] = term_lookup[fp_term.uid]
 
@@ -405,7 +411,6 @@ class ConstructionMixin:
                 lv_type=lv_type,
                 raw_value=const.value,
                 label=const.label,
-                caption=const.caption,
                 display_format=const.display_format,
                 terminals=[const_terminal],
             )
@@ -417,6 +422,7 @@ class ConstructionMixin:
                 node_id=q_const_uid,
                 index=0,
                 name=const.label,
+                parent_kind=_graph_node_to_op_kind(const_node),
             )
 
         # === 3. Add operations (SubVIs, primitives, structures) ===
@@ -511,6 +517,14 @@ class ConstructionMixin:
                 for kt in known_terminals:
                     if kt.name and kt.index is not None:
                         known_names[kt.index] = kt.name
+
+            # Snapshot of term_lookup keys before this node registers any of
+            # its own (raw_terms below, plus — for structures — the tunnel/
+            # sRN terminals _build_structure_terminals registers during the
+            # handler dispatch further down). Used after graph_node exists to
+            # backfill parent_kind on exactly the entries this node added —
+            # the node object isn't available yet at either registration site.
+            _term_lookup_keys_before = set(term_lookup)
 
             node_terminals: list[Terminal] = []
             for term_uid, t_info, lv_type in raw_terms:
@@ -608,6 +622,21 @@ class ConstructionMixin:
             )
             if border_name is not None:
                 graph_node.name = border_name
+
+            # Backfill parent_kind on every term_lookup entry this node just
+            # registered for itself (see snapshot above) now that graph_node
+            # exists. Covers both the raw per-node terminal loop and, for
+            # structures, the tunnel/sRN terminals _build_structure_terminals
+            # registered during handler dispatch.
+            _new_term_lookup_keys = set(term_lookup) - _term_lookup_keys_before
+            if _new_term_lookup_keys:
+                _node_kind = _graph_node_to_op_kind(graph_node)
+                for _t_uid in _new_term_lookup_keys:
+                    _we = term_lookup[_t_uid]
+                    if _we.parent_kind is None:
+                        term_lookup[_t_uid] = _we.model_copy(
+                            update={"parent_kind": _node_kind}
+                        )
 
             # Mark nMux terminal roles (agg vs list) and field indices
             if isinstance(node, SelectNode):
@@ -808,11 +837,16 @@ class ConstructionMixin:
                             if effective_parent != q_parent_uid:
                                 break
 
+                owner_node_id = effective_parent or q_term_uid
+                owner_node = g.nodes.get(owner_node_id, {}).get("node")
                 term_lookup[term_uid] = WireEnd(
                     terminal_id=q_term_uid,
-                    node_id=effective_parent or q_term_uid,
+                    node_id=owner_node_id,
                     index=t_info.index,
                     name=t_info.name,
+                    parent_kind=(
+                        _graph_node_to_op_kind(owner_node) if owner_node else None
+                    ),
                 )
 
         # === 6. Add edges (wires) ===
@@ -986,9 +1020,11 @@ class ConstructionMixin:
 
                 # Create dataflow edge
                 src_we = WireEnd(terminal_id=call_term.id, node_id=nid,
-                                 index=call_term.index, name=call_term.name)
+                                 index=call_term.index, name=call_term.name,
+                                 parent_kind=_graph_node_to_op_kind(gnode))
                 dst_we = WireEnd(terminal_id=callee_t.id, node_id=callee_name,
-                                 index=call_term.index, name=callee_t.name)
+                                 index=call_term.index, name=callee_t.name,
+                                 parent_kind=_graph_node_to_op_kind(callee_node))
                 if call_term.direction == "input":
                     g.add_edge(nid, callee_name, source=src_we, dest=dst_we)
                 else:

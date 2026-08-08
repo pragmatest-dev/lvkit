@@ -37,24 +37,35 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 
-# Map operation kind to classification tags
-_KIND_TO_TAGS: dict[str, list[str]] = {
-    "vi": ["SubVI"],
-    "primitive": ["Primitive"],
-    "caseStruct": ["CaseStructure"],
-    "loop": ["Loop"],
-    "operation": ["Operation"],
-    "constant": ["Constant"],
-    "formula": ["FormulaNode"],
-    "local_variable": ["LocalVariable"],
-    "disableStruct": ["DisableStructure"],
-    "eventStruct": ["EventStructure"],
+# Map operation kind (the coarse op-kind string from _graph_node_to_op_kind)
+# to its human-readable display label. Distinct key space from
+# parser.node_types.get_display_name, which maps raw parser node_type tokens
+# (e.g. "whileLoop", "forLoop") — do not try to merge the two.
+_KIND_TO_TAGS: dict[str, str] = {
+    "vi": "SubVI",
+    "primitive": "Primitive",
+    "caseStruct": "CaseStructure",
+    "loop": "Loop",
+    "operation": "Operation",
+    "constant": "Constant",
+    "formula": "FormulaNode",
+    "local_variable": "LocalVariable",
+    "disableStruct": "DisableStructure",
+    "eventStruct": "EventStructure",
+    "flatSequence": "FlatSequence",
+    "inPlaceStruct": "InPlaceStructure",
 }
+
+
+def kind_display(kind: str) -> str:
+    """Human-readable display label for an operation kind string."""
+    return _KIND_TO_TAGS.get(kind, kind)
+
 
 # Graph node kinds that represent executable operations
 _OPERATION_KINDS = (
     "vi", "primitive", "operation", "caseStruct", "loop", "formula",
-    "disableStruct", "eventStruct",
+    "disableStruct", "eventStruct", "flatSequence", "inPlaceStruct",
 )
 
 
@@ -89,6 +100,10 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
             return "caseStruct"
         if node.node_type in ("whileLoop", "forLoop"):
             return "loop"
+        if node.node_type in ("flatSequence", "seq", "sequence"):
+            return "flatSequence"
+        if node.node_type == "decomposeRecomposeStructure":
+            return "inPlaceStruct"
         return "operation"
     if isinstance(node, ConstantNode):
         return "constant"

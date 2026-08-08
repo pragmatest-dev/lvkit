@@ -449,12 +449,7 @@ class QueryMixin:
                 self._terminal_to_legacy_dict(t) for t in gnode.terminals
             ]
         elif isinstance(gnode, GraphPrimitiveNode):
-            kind = "primitive"
-            if gnode.node_type in ("caseStruct", "select"):
-                kind = "caseStruct"
-            elif gnode.node_type in ("whileLoop", "forLoop"):
-                kind = "loop"
-            result["kind"] = kind
+            result["kind"] = "primitive"
             result["prim_id"] = gnode.prim_id
             result["prim_index"] = gnode.prim_index
             result["operation"] = gnode.operation
@@ -469,13 +464,7 @@ class QueryMixin:
                 self._terminal_to_legacy_dict(t) for t in gnode.terminals
             ]
         elif isinstance(gnode, StructureNode):
-            if gnode.node_type in ("caseStruct", "select"):
-                kind = "caseStruct"
-            elif gnode.node_type in ("whileLoop", "forLoop"):
-                kind = "loop"
-            else:
-                kind = "operation"
-            result["kind"] = kind
+            result["kind"] = _graph_node_to_op_kind(gnode)
             result["terminals"] = [
                 self._terminal_to_legacy_dict(t) for t in gnode.terminals
             ]

@@ -22,7 +22,7 @@ from ..models import (
 )
 from ..parser.node_types import get_display_name
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
-from .core import _KIND_TO_TAGS
+from .core import kind_display
 from .models import Constant, VIContext
 from .netlist import build_netlist, component_line, render_netlist
 from .op_walk import (
@@ -236,7 +236,7 @@ def describe_structure(
             lines.append(f"Operation {operation_id}: {op.display_name}")
             node_word = get_display_name(op.node_type) if op.node_type else "unknown"
             lines.append(f"  Type: {node_word}")
-            lines.append(f"  Kind: {_KIND_TO_TAGS.get(op.kind, [op.kind])[0]}")
+            lines.append(f"  Kind: {kind_display(op.kind)}")
 
     return "\n".join(lines)
 
@@ -300,7 +300,10 @@ def _collect_subvi_names(operations: list[Operation]) -> set[str]:
         if op.kind == "vi" and op.name:
             names.add(op.name)
         match op:
-            case CaseOperation() | SequenceOperation():
+            case (
+                CaseOperation() | SequenceOperation() | EventOperation()
+                | DisableStructureOperation()
+            ):
                 for frame in op.frames:
                     names.update(_collect_subvi_names(frame.operations))
             case _:
@@ -459,6 +462,22 @@ def _collect_structures(
                         graph, ctx, frame.operations, root_ops,
                     ):
                         structures.append(f"  \\ {s}")
+            case EventOperation():
+                n_frames = len(op.frames)
+                structures.append(f"Event structure ({n_frames} frames)")
+                for frame in op.frames:
+                    for s in _collect_structures(
+                        graph, ctx, frame.operations, root_ops,
+                    ):
+                        structures.append(f"  \\ {s}")
+            case DisableStructureOperation():
+                n_frames = len(op.frames)
+                structures.append(f"Disable structure ({n_frames} frames)")
+                for frame in op.frames:
+                    for s in _collect_structures(
+                        graph, ctx, frame.operations, root_ops,
+                    ):
+                        structures.append(f"  \\ {s}")
             case _:
                 pass
         structures.extend(
@@ -562,6 +581,28 @@ def _describe_op_list(
                         _frame_constants(constants, op.id, i),
                         constants, lines, prefix, indent,
                         passthrough=False,
+                    )
+            case EventOperation():
+                for frame in op.frames:
+                    lines.append(f'{prefix}  Frame {frame.event_label}:')
+                    _describe_frame_body(
+                        frame.operations,
+                        _frame_constants(constants, op.id, frame.index),
+                        constants, lines, prefix, indent,
+                        passthrough=False,
+                    )
+            case DisableStructureOperation():
+                passthrough = _has_output_tunnel(op)
+                for frame in op.frames:
+                    default = " (default)" if frame.is_default else ""
+                    lines.append(
+                        f'{prefix}  Frame "{frame.selector_value}"{default}:'
+                    )
+                    _describe_frame_body(
+                        frame.operations,
+                        _frame_constants(constants, op.id, frame.selector_value),
+                        constants, lines, prefix, indent,
+                        passthrough=passthrough,
                     )
             case _:
                 if op.inner_nodes:

@@ -112,8 +112,11 @@ class OperationsMixin:
             # Query inner nodes by parent
             child_uids = self._get_children_of(uid, vi_name)
 
+            # `kind` already equals _graph_node_to_op_kind(gnode) from above
+            # for every structure type (that helper's isinstance/node_type
+            # checks mirror these branches exactly) — this switch only
+            # handles the frames= / tunnels= / inner_nodes= fields, not kind.
             if isinstance(gnode, LoopNode):
-                kind = "loop"
                 loop_type = gnode.loop_type
                 inner_nodes = self._build_inner_nodes(
                     child_uids, vi_name,
@@ -122,31 +125,26 @@ class OperationsMixin:
                 stop_cond_inverted = gnode.stop_condition_inverted
 
             elif isinstance(gnode, DisableStructureNode):
-                kind = "disableStruct"
                 case_frames = self._populate_frame_operations(  # type: ignore[assignment]
                     gnode.frames, vi_name, child_uids,
                 )
 
             elif isinstance(gnode, CaseStructureNode):
-                kind = "caseStruct"
                 selector_terminal = gnode.selector_terminal
                 case_frames = self._populate_frame_operations(  # type: ignore[assignment]
                     gnode.frames, vi_name, child_uids,
                 )
 
             elif isinstance(gnode, SequenceNode):
-                kind = "flatSequence"
                 seq_frames = self._populate_frame_operations(  # type: ignore[assignment]
                     gnode.frames, vi_name, child_uids,
                 )
 
             elif isinstance(gnode, InPlaceNode):
-                kind = "inPlaceStruct"
                 all_inner = self._build_inner_nodes(child_uids, vi_name)
                 decompose, recompose, inner_nodes = _classify_ipes_ops(all_inner)
 
             elif isinstance(gnode, EventStructureNode):
-                kind = "eventStruct"
                 event_frames = self._populate_frame_operations(  # type: ignore[assignment]
                     gnode.frames, vi_name, child_uids,
                 )

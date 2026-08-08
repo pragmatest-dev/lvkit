@@ -6,7 +6,7 @@ import ast
 import keyword
 import logging
 
-from lvkit.graph.core import _KIND_TO_TAGS
+from lvkit.graph.core import kind_display
 from lvkit.models import CaseFrame, CaseOperation, _is_error_cluster
 
 from ..ast_utils import (
@@ -256,7 +256,7 @@ def _fallback_selector(
             return to_var_name(flow.src_parent_name)
         pk = flow.src_parent_kind
         if pk and pk not in ("primitive", "operation"):
-            return to_var_name(_KIND_TO_TAGS.get(pk, [pk])[0])
+            return to_var_name(kind_display(pk))
     return "selector"
 
 
