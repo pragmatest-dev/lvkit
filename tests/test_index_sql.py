@@ -232,3 +232,71 @@ def test_timeout_aborts_runaway_recursion(tmp_path: Path):
 def test_unindexed_project_is_loud(tmp_path: Path):
     with pytest.raises(sql.QueryError, match="no index"):
         sql.run_query(tmp_path / "never-indexed", "SELECT * FROM vi")
+
+
+# === Acceptance: SQL over a REAL built index == the Python-filter answer ====
+#
+# The synthetic tests prove the SQL machinery; these prove the VIEW layer maps
+# onto real, freshly-built facts — the driving question answered over an index
+# that store.save() actually wrote (design §7 acceptance).
+
+_SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
+_JKI_ROOT = _SAMPLES / "JKI-VI-Tester"
+_TESTCASE_DIR = _JKI_ROOT / "source" / "Classes" / "TestCase"
+
+
+@pytest.mark.needs_samples
+def test_histogram_over_real_facts_matches_python_filter():
+    """On a real class dir: the SQL error-indicator histogram equals the
+    Counter of the index.query.find_terminals answer — the two surfaces agree."""
+    from collections import Counter
+
+    from lvkit.index.build import build_index
+    from lvkit.index.project import resolve_project
+    from lvkit.index.query import find_terminals
+
+    root, vi_paths = resolve_project(_TESTCASE_DIR)
+    facts = build_index(root, vi_paths).facts
+    save_index(root, facts)
+
+    sql_res = sql.error_indicator_histogram(root)
+    sql_hist = {name: n for name, n in sql_res.rows}
+
+    py_matches = find_terminals(facts, direction="output", is_error_cluster=True)
+    py_hist = dict(Counter(m.terminal.name for m in py_matches))
+
+    assert sql_hist == py_hist
+
+
+@pytest.mark.needs_samples
+@pytest.mark.slow
+def test_jki_error_indicator_histogram_13_rows():
+    """The full design-doc acceptance: over JKI VI Tester the histogram is a
+    small table dominated by 'error out' — the answer, not the 379 raw rows."""
+    if not (_JKI_ROOT.is_dir() and any(_JKI_ROOT.rglob("*.vi"))):
+        pytest.skip("JKI-VI-Tester sample not present")
+
+    import os
+
+    from lvkit.index.build import build_index
+    from lvkit.index.project import resolve_project
+
+    # Reuse the developer's warm extraction cache (see test_index.jki_index).
+    saved = os.environ.pop("LVKIT_CACHE_DIR", None)
+    try:
+        root, vi_paths = resolve_project(_JKI_ROOT)
+        facts = build_index(root, vi_paths).facts
+        save_index(root, facts)
+        res = sql.error_indicator_histogram(root)
+    finally:
+        if saved is not None:
+            os.environ["LVKIT_CACHE_DIR"] = saved
+
+    assert res.columns == ["name", "n"]
+    assert res.rows  # non-empty histogram
+    top_name, top_count = res.rows[0]
+    assert top_name == "error out"
+    assert top_count >= 298
+    # It's a small histogram (a handful of distinct names), not a row dump.
+    assert len(res.rows) < 30
+    assert not res.truncated
