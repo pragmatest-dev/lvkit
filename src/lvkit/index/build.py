@@ -39,6 +39,7 @@ from .model import (
     VIFacts,
 )
 from .query import build_call_graph
+from .store import save as store_save
 
 
 @dataclass
@@ -109,6 +110,30 @@ def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
             "(unexpected — every repo .vi should be individually loadable)"
         )
     return project_vi_facts(cgraph, vi_name, cp)
+
+
+def warm_index_for_vi(
+    graph: InMemoryVIGraph, vi_name: str, vi_path: Path,
+) -> None:
+    """Persist ONE already-loaded VI's facts into its project index.
+
+    This is what makes the index build **progressively**: every ordinary
+    single-VI load (a CLI ``render``/``describe``/``generate``, an MCP deep tool)
+    upserts that VI's row, so the index accumulates as the repo is used instead
+    of only from a whole-repo ``build_index``. The row is keyed by path with a
+    ``content_sha`` (``store.save`` deletes+inserts), so a later query reuses it
+    when unchanged; ``impact_score`` stays 0 until a full/refresh pass recomputes
+    it across the whole call graph (it needs the global inverse).
+
+    Best-effort by contract: warming must NEVER break the command that triggered
+    it (e.g. a read-only project dir), so any failure is swallowed.
+    """
+    try:
+        p = vi_path.resolve()
+        root = cache_paths._project_root_for(p) or p.parent
+        store_save(root, [project_vi_facts(graph, vi_name, p)])
+    except Exception:
+        pass  # progressive warming is best-effort — never fail the caller
 
 
 def _recompute_impact(facts: dict[str, VIFacts]) -> None:

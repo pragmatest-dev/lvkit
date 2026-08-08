@@ -806,6 +806,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
     try:
         from .graph import InMemoryVIGraph
+        from .index.build import warm_index_for_vi
 
         graph = InMemoryVIGraph()
         _configure_library_roots(graph, args)
@@ -829,6 +830,9 @@ def cmd_describe(args: argparse.Namespace) -> int:
             ]
             if preferred:
                 vi_name = preferred[0]
+
+        # Progressive index: this describe warms the project store with this VI.
+        warm_index_for_vi(graph, vi_name, input_path)
 
         print(describe_vi(graph, vi_name, verbose=args.verbose))
 

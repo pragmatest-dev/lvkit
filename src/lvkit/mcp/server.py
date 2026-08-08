@@ -54,7 +54,7 @@ from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
 from ..index import query as iq
-from ..index.build import build_index, refresh_index
+from ..index.build import build_index, refresh_index, warm_index_for_vi
 from ..index.model import VIFacts
 from ..index.project import resolve_project
 from ..index.store import delete as store_delete
@@ -163,11 +163,20 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
     key = str(root)
     if rebuild or key not in _indexes:
         _configure_resolvers_for_vi(root)
-        facts = [] if rebuild else store_load(root)
-        if not facts:
+        stored = [] if rebuild else store_load(root)
+        if not stored:
+            # Cold store: one fast whole-repo build.
             result = build_index(root, vi_paths)
             store_save(root, result.facts)
             facts = result.facts
+        else:
+            # Warm/partial store — progressively populated by single-VI loads.
+            # Gap-fill: reuse fresh rows, (re)build only missing/changed VIs, and
+            # recompute impact across the merged set (warmed rows carry
+            # impact_score=0 until a pass like this fills the global inverse).
+            rr, facts = refresh_index(root, vi_paths, stored)
+            store_delete(root, rr.deleted)
+            store_save(root, facts)
         _indexes[key] = facts
     return root, _indexes[key]
 
@@ -452,12 +461,19 @@ def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
     _configure_resolvers_for_vi(p)
     graph = InMemoryVIGraph()
     graph.load_vi(p, LoadMode.MINIMAL, search_paths=[p.parent])
-    for vi_name in graph.list_vis():
-        src = graph.get_vi_source_path(vi_name)
+    vi_name: str | None = None
+    for name in graph.list_vis():
+        src = graph.get_vi_source_path(name)
         if src is not None and src.resolve() == p:
-            return graph, vi_name
-    # Fall back to the leaf-name resolver (single-VI graphs usually have one)
-    return graph, graph.resolve_vi_name(p.name)
+            vi_name = name
+            break
+    if vi_name is None:
+        # Fall back to the leaf-name resolver (single-VI graphs usually have one)
+        vi_name = graph.resolve_vi_name(p.name)
+    # Progressive index: every deep single-VI load upserts that VI's facts into
+    # its project store, so the index accumulates as the repo is used.
+    warm_index_for_vi(graph, vi_name, p)
+    return graph, vi_name
 
 
 @mcp.tool()
