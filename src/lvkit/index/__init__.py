@@ -16,5 +16,24 @@ from .model import (
     TerminalFact,
     VIFacts,
 )
+from .sql import (
+    QueryError,
+    QueryResult,
+    ViewInfo,
+    describe_schema,
+    error_indicator_histogram,
+    run_query,
+)
 
-__all__ = ["VIFacts", "TerminalFact", "ConstantFact", "ClassFact"]
+__all__ = [
+    "VIFacts",
+    "TerminalFact",
+    "ConstantFact",
+    "ClassFact",
+    "run_query",
+    "describe_schema",
+    "error_indicator_histogram",
+    "QueryResult",
+    "QueryError",
+    "ViewInfo",
+]
