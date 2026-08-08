@@ -260,6 +260,42 @@ def main() -> int:
         ),
     )
 
+    # Query command - read-only SQL over the facts index
+    query_parser = subparsers.add_parser(
+        "query",
+        help="Run read-only SQL over a repo's code-understanding index",
+    )
+    query_parser.add_argument(
+        "input_path",
+        help=(
+            "Directory, .lvproj, .lvlib, .lvclass, or .vi file — its enclosing "
+            "project's index is queried. Build the index first with "
+            "`lvkit index`."
+        ),
+    )
+    query_parser.add_argument(
+        "sql",
+        nargs="?",
+        help=(
+            "A single read-only SELECT/WITH over the curated views "
+            "(vi, terminal, constant, call, type_use, class_fact). "
+            "Omit when using --schema. Example: \"SELECT name, COUNT(*) AS n "
+            "FROM terminal WHERE is_error_cluster=1 AND direction='output' "
+            "GROUP BY name ORDER BY n DESC\"."
+        ),
+    )
+    query_parser.add_argument(
+        "--schema",
+        action="store_true",
+        help="List the queryable views and their columns, then exit.",
+    )
+    query_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table).",
+    )
+
     # Describe command - human-readable VI description
     desc_parser = subparsers.add_parser(
         "describe",
@@ -601,6 +637,8 @@ def main() -> int:
         return cmd_mcp(args)
     elif args.command == "index":
         return cmd_index(args)
+    elif args.command == "query":
+        return cmd_query(args)
     elif args.command == "describe":
         return cmd_describe(args)
     elif args.command == "generate":
@@ -790,6 +828,65 @@ def cmd_index(args: argparse.Namespace) -> int:
         "collisions": result.collisions,
         "ms": round((time.monotonic() - start) * 1000),
     }))
+    return 0
+
+
+def _print_table(columns: list[str], rows: list[list[object]]) -> None:
+    """Print a compact aligned text table (empty state = a header + no rows)."""
+    cells = [[("" if v is None else str(v)) for v in row] for row in rows]
+    widths = [len(c) for c in columns]
+    for row in cells:
+        for i, c in enumerate(row):
+            widths[i] = max(widths[i], len(c))
+    print("  ".join(c.ljust(widths[i]) for i, c in enumerate(columns)))
+    print("  ".join("-" * w for w in widths))
+    for row in cells:
+        print("  ".join(c.ljust(widths[i]) for i, c in enumerate(row)))
+
+
+def cmd_query(args: argparse.Namespace) -> int:
+    """Handle the query command — read-only SQL over a repo's facts index."""
+    from dataclasses import asdict
+
+    from .index import sql as isql
+    from .index.project import resolve_project
+
+    project_root, _ = resolve_project(Path(args.input_path))
+
+    if args.schema:
+        views = isql.describe_schema()
+        if args.format == "json":
+            print(json.dumps([asdict(v) for v in views], indent=2))
+        else:
+            for v in views:
+                print(v.name)
+                for col in v.columns:
+                    print(f"  {col.name}: {col.description}")
+        return 0
+
+    if not args.sql:
+        print("query: provide a SQL statement, or use --schema", file=sys.stderr)
+        return 2
+
+    try:
+        res = isql.run_query(project_root, args.sql)
+    except isql.QueryError as e:
+        print(f"query error: {e}", file=sys.stderr)
+        return 2
+
+    if args.format == "json":
+        print(json.dumps({
+            "columns": res.columns,
+            "rows": res.rows,
+            "row_count": res.row_count,
+            "truncated": res.truncated,
+        }))
+    else:
+        _print_table(res.columns, res.rows)
+        if res.truncated:
+            print(
+                f"... (truncated at {res.row_count} rows)", file=sys.stderr
+            )
     return 0
 
 
