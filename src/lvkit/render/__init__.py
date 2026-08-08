@@ -458,5 +458,11 @@ def render_vi_file_titled(
             raise
         graph = _load(LoadMode.NONE)  # degrade: still render this VI's own diagram
     name = graph.resolve_vi_name(vi_name_hint)
+    # Every command that parses a VI warms the index — a render parses this VI
+    # (and, under MINIMAL, its SubVIs) into `graph`, so upsert their facts
+    # (best-effort; never fails the render). A cache HIT never reaches here, so
+    # a warm render pays nothing extra.
+    from ..index.build import warm_all_loaded
+    warm_all_loaded(graph)
     svg = render_vi(graph, name, theme=theme, theme_mode=theme_mode)
     return svg, name

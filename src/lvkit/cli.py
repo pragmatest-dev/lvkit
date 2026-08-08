@@ -903,7 +903,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
     try:
         from .graph import InMemoryVIGraph
-        from .index.build import warm_index_for_vi
+        from .index.build import warm_all_loaded
 
         graph = InMemoryVIGraph()
         _configure_library_roots(graph, args)
@@ -928,8 +928,9 @@ def cmd_describe(args: argparse.Namespace) -> int:
             if preferred:
                 vi_name = preferred[0]
 
-        # Progressive index: this describe warms the project store with this VI.
-        warm_index_for_vi(graph, vi_name, input_path)
+        # Progressive index: every parse warms the store — describe parses this
+        # VI (and its SubVIs under MINIMAL), so warm all of them.
+        warm_all_loaded(graph)
 
         print(describe_vi(graph, vi_name, verbose=args.verbose))
 
@@ -1540,6 +1541,10 @@ def cmd_visualize(args: argparse.Namespace) -> int:
         graph.load_directory(str(input_path), vmode, search_paths)
     else:
         graph.load_vi(str(input_path), vmode, search_paths)
+
+    # Every command that parses warms the index (best-effort).
+    from .index.build import warm_all_loaded
+    warm_all_loaded(graph)
 
     output = Path(args.output)
 

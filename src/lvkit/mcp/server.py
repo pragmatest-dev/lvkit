@@ -60,7 +60,7 @@ from ..graph.describe import (
 )
 from ..index import query as iq
 from ..index import sql as isql
-from ..index.build import build_index, refresh_index, warm_index_for_vi
+from ..index.build import build_index, refresh_index, warm_all_loaded
 from ..index.model import VIFacts
 from ..index.project import resolve_project
 from ..index.store import delete as store_delete
@@ -375,9 +375,10 @@ def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
     if vi_name is None:
         # Fall back to the leaf-name resolver (single-VI graphs usually have one)
         vi_name = graph.resolve_vi_name(p.name)
-    # Progressive index: every deep single-VI load upserts that VI's facts into
-    # its project store, so the index accumulates as the repo is used.
-    warm_index_for_vi(graph, vi_name, p)
+    # Progressive index: every parse warms the store — a MINIMAL load parses
+    # this VI AND its SubVIs, so warm all of them (accumulates as the repo is
+    # used).
+    warm_all_loaded(graph)
     return graph, vi_name
 
 

@@ -424,6 +424,11 @@ def generate_python(
             str(input_path), mode, search_paths=search_path_list,
         )
 
+    # Every command that parses a VI warms the index — generate parses the whole
+    # hierarchy into `graph`, so upsert each loaded VI's facts (best-effort).
+    from lvkit.index.build import warm_all_loaded
+    warm_all_loaded(graph)
+
     order = graph.get_conversion_order()
     print(f"\nConversion order ({len(order)} VIs):")
 

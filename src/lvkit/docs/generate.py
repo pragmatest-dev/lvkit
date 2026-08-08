@@ -367,6 +367,11 @@ def generate_documents(
     if not loaded_vis:
         return "Failed to load any VIs. Errors:\n" + "\n".join(failed_vis)
 
+    # Every command that parses a VI warms the index — docs parses the whole
+    # set into `graph`, so upsert each loaded VI's facts (best-effort).
+    from lvkit.index.build import warm_all_loaded
+    warm_all_loaded(graph)
+
     # Get polymorphic VI info
     poly_groups = graph.get_polymorphic_groups()
     poly_variant_to_wrapper = graph.get_poly_variant_wrappers()

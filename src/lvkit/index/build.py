@@ -136,6 +136,39 @@ def warm_index_for_vi(
         pass  # progressive warming is best-effort — never fail the caller
 
 
+def warm_all_loaded(graph: InMemoryVIGraph) -> None:
+    """Warm the index for EVERY VI this graph parsed (not just the entry VI).
+
+    The single wiring point for "every command that parses a VI builds the
+    index": a render/generate/docs/visualize load parses the entry VI *and* its
+    SubVIs into one graph, so this upserts each one that has a real source path
+    on disk. Multi-VI aware — a whole-directory or full-hierarchy load warms all
+    of them from the parse it already paid for. Facts are grouped by project root
+    and saved per root in one batch. Best-effort: never fails the caller.
+    """
+    try:
+        from collections import defaultdict
+
+        by_root: dict[Path, list[VIFacts]] = defaultdict(list)
+        for vi_name in graph.list_vis():
+            src = graph.get_vi_source_path(vi_name)
+            if src is None:
+                continue  # a JSON-only stub / vilib VI has no file to key on
+            try:
+                p = src.resolve()
+                root = cache_paths._project_root_for(p) or p.parent
+                by_root[root].append(project_vi_facts(graph, vi_name, p))
+            except Exception:
+                continue  # one bad VI must not sink the rest
+        for root, facts in by_root.items():
+            try:
+                store_save(root, facts)
+            except Exception:
+                pass
+    except Exception:
+        pass  # progressive warming is best-effort — never fail the caller
+
+
 def _recompute_impact(facts: dict[str, VIFacts]) -> None:
     """Fill each VI's ``impact_score`` (transitive dependent count) from the
     inverted call graph — cheap (a graph walk, no re-parse)."""
