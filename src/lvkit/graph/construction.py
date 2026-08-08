@@ -1089,27 +1089,46 @@ class ConstructionMixin:
 
         Same pattern as name resolution — follow the graph for types.
         """
-        # Propagate: if one side of a wire has lv_type and the other doesn't
-        changed = True
-        while changed:
-            changed = False
-            for _u, _v, _k, d in g.edges(data=True, keys=True):
+        # Resolve each wire's (src_term, dst_term) pair ONCE, via a per-node
+        # {terminal_id: terminal} index (O(1)), then run the type-propagation
+        # fixpoint over that flat list. The terminal *objects* are stable — only
+        # their .lv_type mutates — so resolving once is safe. The old code
+        # re-walked g.edges() AND linearly scanned node.terminals on every pass
+        # (O(passes x edges x terminals), the profile's ~820K generator calls);
+        # this is O(edges) to resolve + O(passes x edges) cheap attribute checks.
+        node_terms: dict[str, dict[str, Terminal]] = {}
+
+        def _term(node_id: str, term_id: str) -> Terminal | None:
+            idx = node_terms.get(node_id)
+            if idx is None:
+                node = g.nodes.get(node_id, {}).get("node")
+                idx = {t.id: t for t in node.terminals} if node else {}
+                node_terms[node_id] = idx
+            return idx.get(term_id)
+
+        # Scope to THIS VI's wires (out-edges of its own nodes), not the whole
+        # shared graph. The old `g.edges()` rescanned EVERY loaded VI's edges on
+        # every per-VI call — O(VIs x total_edges), the super-linear cost that
+        # made a 487-VI build 11x a 106-VI one. Intra-VI wires have both ends in
+        # vi_node_uids, so out-edges of vi_node_uids cover this VI's wires exactly
+        # once; other VIs' wires were already propagated in their own calls.
+        pairs: list[tuple[Terminal, Terminal]] = []
+        for nid in vi_node_uids:
+            for _u, _v, _k, d in g.out_edges(nid, data=True, keys=True):
                 src = d.get("source")
                 dst = d.get("dest")
                 if not src or not dst:
                     continue
-                src_node = g.nodes.get(src.node_id, {}).get("node")
-                dst_node = g.nodes.get(dst.node_id, {}).get("node")
-                if not src_node or not dst_node:
-                    continue
-                src_term = next(
-                    (t for t in src_node.terminals if t.id == src.terminal_id), None
-                )
-                dst_term = next(
-                    (t for t in dst_node.terminals if t.id == dst.terminal_id), None
-                )
-                if not src_term or not dst_term:
-                    continue
+                src_term = _term(src.node_id, src.terminal_id)
+                dst_term = _term(dst.node_id, dst.terminal_id)
+                if src_term is not None and dst_term is not None:
+                    pairs.append((src_term, dst_term))
+
+        # Propagate: if one side of a wire has lv_type and the other doesn't
+        changed = True
+        while changed:
+            changed = False
+            for src_term, dst_term in pairs:
                 if src_term.lv_type and not dst_term.lv_type:
                     dst_term.lv_type = src_term.lv_type
                     changed = True
