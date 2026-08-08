@@ -1,10 +1,12 @@
-"""Pure query functions over a loaded index (``list[VIFacts]``).
+"""Typed graph operations over a loaded index (``list[VIFacts]``).
 
-Every function here takes the in-memory facts list (as returned by
-``store.load()`` or fresh from ``build.build_index()``) and returns plain
-typed results — no SQLite, no graph object, no I/O. Cross-VI graph walks
-(``get_callers``/``get_callees``/``blast_radius``) rebuild a networkx
-``DiGraph`` from the ``calls`` rows on the fly via :func:`build_call_graph`.
+Cross-VI *traversal* — ``get_callers``/``get_callees``/``blast_radius`` — that
+deliberately stays OUT of the SQL surface (:mod:`lvkit.index.sql`): reachability
+is a graph walk, not a relational query (design doc §4). Each function takes the
+in-memory facts list (from ``store.load()`` or ``build.build_index()``) and
+rebuilds a networkx ``DiGraph`` from the ``calls`` rows on the fly via
+:func:`build_call_graph`. The relational/*definition* reads (terminals,
+constants, symbols, type-uses) are now answered by SQL over the view layer.
 """
 
 from __future__ import annotations
@@ -14,25 +16,7 @@ from dataclasses import dataclass
 
 import networkx as nx
 
-from .model import ConstantFact, TerminalFact, VIFacts
-
-
-@dataclass
-class TerminalMatch:
-    """One terminal, plus which VI it belongs to."""
-
-    vi_path: str
-    vi_name: str
-    terminal: TerminalFact
-
-
-@dataclass
-class ConstantMatch:
-    """One constant, plus which VI it belongs to."""
-
-    vi_path: str
-    vi_name: str
-    constant: ConstantFact
+from .model import VIFacts
 
 
 @dataclass
@@ -42,74 +26,6 @@ class BlastRadius:
     vi_key: str
     dependents: list[str]
     impact_score: int
-
-
-def find_terminals(
-    vis: Sequence[VIFacts],
-    *,
-    direction: str | None = None,
-    is_error_cluster: bool | None = None,
-    py_type: str | None = None,
-    name: str | None = None,
-) -> list[TerminalMatch]:
-    """Filter terminals across every indexed VI.
-
-    ``direction="output"`` selects indicators (an OUTPUT terminal on a
-    connector pane); combined with ``is_error_cluster=True`` this is the
-    "count the names used for error indicators" query.
-    """
-    results: list[TerminalMatch] = []
-    for f in vis:
-        for t in f.terminals:
-            if direction is not None and t.direction != direction:
-                continue
-            if is_error_cluster is not None and t.is_error_cluster != is_error_cluster:
-                continue
-            if py_type is not None and t.py_type != py_type:
-                continue
-            if name is not None and t.name != name:
-                continue
-            results.append(TerminalMatch(vi_path=f.path, vi_name=f.name, terminal=t))
-    return results
-
-
-def find_constants(
-    vis: Sequence[VIFacts], *, wired_to: str | None = None,
-) -> list[ConstantMatch]:
-    """Filter constants across every indexed VI, e.g. ``wired_to="indicator"``
-    for "constants wired directly to an indicator"."""
-    results: list[ConstantMatch] = []
-    for f in vis:
-        for c in f.constants:
-            if wired_to is not None and c.wired_to != wired_to:
-                continue
-            results.append(ConstantMatch(vi_path=f.path, vi_name=f.name, constant=c))
-    return results
-
-
-def find_type_usages(vis: Sequence[VIFacts], type_key: str) -> list[str]:
-    """Paths of every VI whose terminals reference ``type_key`` (a classname
-    or typedef name)."""
-    return sorted(f.path for f in vis if type_key in f.type_uses)
-
-
-def find_symbols(
-    vis: Sequence[VIFacts],
-    *,
-    name: str | None = None,
-    owning_class: str | None = None,
-) -> list[VIFacts]:
-    """Workspace symbol search: VIs whose bare name contains ``name``
-    (case-insensitive) and/or whose ``class_fact.owning_class`` matches."""
-    results: list[VIFacts] = []
-    for f in vis:
-        if name is not None and name.lower() not in f.name.lower():
-            continue
-        if owning_class is not None:
-            if f.class_fact is None or f.class_fact.owning_class != owning_class:
-                continue
-        results.append(f)
-    return results
 
 
 def get_callers(vis: Sequence[VIFacts], vi_key: str) -> list[str]:

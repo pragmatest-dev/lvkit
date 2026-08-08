@@ -74,29 +74,26 @@ def test_index_tools() -> None:
     assert built["vis"] > 0
     assert built["collisions"] == 0  # a single class dir has no name clashes
 
-    syms = _run(srv.find_symbols(project))
-    assert len(syms) == built["vis"]
-    assert all("impact_score" in s for s in syms)
+    # The SQL query surface subsumes the old find_*/get_signatures read tools:
+    # schema introspection lists the views, and reads/aggregates go through it.
+    schema = _run(srv.query_schema())
+    assert {v["name"] for v in schema} >= {"vi", "terminal", "constant"}
+
+    # Symbol/navigation read via SQL (replaces find_symbols): all VIs indexed.
+    vis = _run(srv.query("SELECT path FROM vi ORDER BY path", project=project))
+    assert vis["row_count"] == built["vis"]
 
     # A class method exists; get_callers/blast_radius resolve a bare name.
     # (vi is the first, required arg; project is the optional workspace-root
     # default — call by keyword, exactly as an MCP client does.)
-    a_method = syms[0]["path"]
+    a_method = vis["rows"][0][0]
     assert isinstance(_run(srv.get_callers(a_method, project=project)), list)
     assert isinstance(_run(srv.get_callees(a_method, project=project)), list)
     br = _run(srv.blast_radius(a_method, project=project))
     assert "impact_score" in br
 
-    # Bulk reads.
-    assert isinstance(_run(srv.find_terminals(project, direction="output")), list)
-    assert isinstance(_run(srv.find_constants(project)), list)
-    sigs = _run(srv.get_signatures(project))
-    assert len(sigs) == built["vis"]
-
-    # The SQL query surface: schema introspection lists the views, and a
-    # GROUP BY returns the answer (columnar), not raw rows.
-    schema = _run(srv.query_schema())
-    assert {v["name"] for v in schema} >= {"vi", "terminal", "constant"}
+    # The error-indicator histogram: a GROUP BY returns the answer (columnar),
+    # not the raw terminal rows the retired find_terminals dumped.
     qres = _run(
         srv.query(
             "SELECT name, COUNT(*) AS n FROM terminal "

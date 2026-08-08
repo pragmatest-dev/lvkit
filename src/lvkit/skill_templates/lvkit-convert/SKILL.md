@@ -106,13 +106,16 @@ lvkit mcp                          # Start MCP server for IDE integration
 
 When the lvkit MCP server (`lvkit mcp`) is connected, **prefer these tools over
 the CLI**; otherwise use the `lvkit …` commands above (each has a CLI
-equivalent, except the project-index queries, which are MCP-only for now).
+equivalent — including `lvkit index` and `lvkit query` for the project index).
 
 **Project index** — index a repo once (`index(project)`), then ask project-wide
 questions in one call each (no per-VI round trips, no name-collision loss):
-- `find_symbols` / `find_terminals` / `find_constants` / `find_type_usages`
+- `query(sql)` — read-only SQL over the curated views (`vi`, `terminal`,
+  `constant`, `call`, `type_use`, `class_fact`); `query_schema()` lists the
+  columns. Returns the answer (a `GROUP BY` histogram), not a row dump — this
+  replaces the old `find_*`/`get_signatures` read tools. Also available as
+  `lvkit query <path> "<SELECT>"` on the CLI.
 - `get_callers` / `get_callees` / `blast_radius` — call graph & change impact
-- `get_signatures` — every VI's connector pane, summarized
 - `visualize_project` — self-contained Mermaid call graph / class tree
 
 **Deep single-VI** — pass a `vi_path`, loaded on demand (no `load` step):

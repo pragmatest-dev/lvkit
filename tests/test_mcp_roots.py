@@ -113,11 +113,13 @@ def test_resolve_target_unmatched_relative_unchanged(tmp_path):
 
 @pytest.mark.needs_samples
 def test_project_tool_defaults_to_client_root():
-    """`find_symbols` with no `project` indexes the folder the client opened."""
+    """`query` with no `project` indexes the folder the client opened."""
     if not _TESTCASE_DIR.exists():
         pytest.skip("sample corpus absent")
     ctx = _ctx_for(_TESTCASE_DIR)
-    syms = asyncio.run(mcp_server.find_symbols(project=None, ctx=ctx))
-    assert syms, "expected VIs to be indexed from the client-root default"
+    res = asyncio.run(
+        mcp_server.query("SELECT path FROM vi", project=None, ctx=ctx)
+    )
+    assert res["rows"], "expected VIs to be indexed from the client-root default"
     root = str(_TESTCASE_DIR.resolve())
-    assert all(s["path"].startswith(root) for s in syms)
+    assert all(row[0].startswith(root) for row in res["rows"])

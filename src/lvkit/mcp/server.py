@@ -8,16 +8,17 @@ disabling the server — see ``docs/_internal/design/lvkit-mcp-improvements.md``
 Three tool groups:
 
 1. **Index-backed, project-scoped** (``index``, ``query``, ``query_schema``,
-   ``find_terminals``, ``find_constants``, ``find_type_usages``,
-   ``find_symbols``, ``get_callers``, ``get_callees``, ``blast_radius``,
-   ``get_signatures``, ``visualize_project``) — answer *project-wide* questions
-   in one call from the persisted, path-keyed facts index (``lvkit.index``). The
-   ``query`` tool is read-only SQL over a curated view layer — it returns the
-   *answer* (a ``GROUP BY`` histogram), not the source rows, and subsumes the
-   ``find_*``/``get_signatures`` read tools. No per-VI round trips, no
-   name-collision bug. State is a per-project-root cache, NOT a single global
-   graph any ``clear`` could nuke — safe for an agent working across several
-   repos in one session.
+   ``get_callers``, ``get_callees``, ``blast_radius``, ``visualize_project``) —
+   answer *project-wide* questions in one call from the persisted, path-keyed
+   facts index (``lvkit.index``). The ``query`` tool is read-only SQL over a
+   curated view layer — it returns the *answer* (a ``GROUP BY`` histogram), not
+   the source rows, and REPLACES the old per-question read tools
+   (``find_terminals``/``find_constants``/``find_symbols``/``find_type_usages``/
+   ``get_signatures``, retired 2026-08-08). Reachability stays typed:
+   ``get_callers``/``get_callees``/``blast_radius`` are graph ops, not SQL. No
+   per-VI round trips, no name-collision bug. State is a per-project-root cache,
+   NOT a single global graph any ``clear`` could nuke — safe for an agent
+   working across several repos in one session.
 
 2. **Deep single-VI** (``describe``, ``get_operations``, ``get_dataflow``,
    ``get_structure``, ``get_constants``, ``get_context``, ``generate_ast_code``)
@@ -186,19 +187,6 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
     return root, _indexes[key]
 
 
-def _vi_summary(f: VIFacts) -> dict[str, Any]:
-    """A compact VI record for symbol/navigation results (no terminal dump)."""
-    return {
-        "path": f.path,
-        "name": f.name,
-        "qualified_name": f.qualified_name,
-        "library": f.library,
-        "owning_class": f.class_fact.owning_class if f.class_fact else None,
-        "is_stub": f.is_stub,
-        "impact_score": f.impact_score,
-    }
-
-
 @mcp.tool()
 async def index(
     project: str | None = None, refresh: bool = False, ctx: Context | None = None,
@@ -257,9 +245,9 @@ async def query(
     sql: str, project: str | None = None, ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Run one read-only SQL ``SELECT``/``WITH`` over the project's facts index
-    and get back **just the answer** — the token-efficient replacement for the
-    per-question read tools (``find_terminals``/``find_constants``/
-    ``find_symbols``/``find_type_usages``/``get_signatures``).
+    and get back **just the answer** — the token-efficient way to read
+    terminals, constants, symbols, and type-uses project-wide (a server-computed
+    ``GROUP BY`` histogram, not a row dump).
 
     Query these curated views (call ``query_schema`` for their columns):
     ``vi``, ``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``.
@@ -292,97 +280,6 @@ async def query_schema() -> list[dict[str, Any]]:
     first so your SQL uses real column names instead of guessing. Each entry is
     ``{name, columns:[{name, description}]}``."""
     return [asdict(v) for v in isql.describe_schema()]
-
-
-@mcp.tool()
-async def find_terminals(
-    project: str | None = None,
-    direction: str | None = None,
-    is_error_cluster: bool | None = None,
-    py_type: str | None = None,
-    name: str | None = None,
-    ctx: Context | None = None,
-) -> list[dict[str, Any]]:
-    """Find connector-pane terminals (controls/indicators) across every VI.
-
-    On a connector pane an **indicator is an OUTPUT** terminal, so
-    ``direction="output"`` selects indicators and ``direction="input"`` selects
-    controls. Combine ``direction="output"`` with ``is_error_cluster=True`` for
-    the canonical "what names does this project use for error indicators?"
-    question — then tally the returned ``name`` values. Each result carries its
-    VI (``vi_path``/``vi_name``) plus the terminal's fields. ``project`` defaults
-    to the client's workspace root.
-    """
-    project = await _resolve_project(project, ctx)
-
-    def _work() -> list[dict[str, Any]]:
-        _, facts = _get_index(project)
-        matches = iq.find_terminals(
-            facts, direction=direction, is_error_cluster=is_error_cluster,
-            py_type=py_type, name=name,
-        )
-        return [asdict(m) for m in matches]
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def find_constants(
-    project: str | None = None, wired_to: str | None = None,
-    ctx: Context | None = None,
-) -> list[dict[str, Any]]:
-    """Find block-diagram constants across every VI, by what their wire feeds.
-
-    ``wired_to`` is one of ``indicator`` / ``control`` / ``other`` / ``unwired``
-    (precomputed at index time). ``wired_to="indicator"`` answers "every constant
-    wired directly to an indicator" without a per-VI wire trace. ``project``
-    defaults to the client's workspace root.
-    """
-    project = await _resolve_project(project, ctx)
-
-    def _work() -> list[dict[str, Any]]:
-        _, facts = _get_index(project)
-        return [asdict(m) for m in iq.find_constants(facts, wired_to=wired_to)]
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def find_type_usages(
-    type_key: str, project: str | None = None, ctx: Context | None = None,
-) -> list[str]:
-    """Paths of every VI whose terminals reference ``type_key`` (a classname or
-    typedef name) — the reverse type-usage index ("who uses this typedef?").
-    ``project`` defaults to the client's workspace root."""
-    project = await _resolve_project(project, ctx)
-
-    def _work() -> list[str]:
-        _, facts = _get_index(project)
-        return iq.find_type_usages(facts, type_key)
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def find_symbols(
-    project: str | None = None, name: str | None = None,
-    owning_class: str | None = None, ctx: Context | None = None,
-) -> list[dict[str, Any]]:
-    """Workspace symbol search: VIs whose bare name contains ``name``
-    (case-insensitive) and/or that belong to ``owning_class``. Each result is a
-    compact record (path, qualified name, library, owning class, impact score).
-    ``project`` defaults to the client's workspace root.
-    """
-    project = await _resolve_project(project, ctx)
-
-    def _work() -> list[dict[str, Any]]:
-        _, facts = _get_index(project)
-        return [
-            _vi_summary(f)
-            for f in iq.find_symbols(facts, name=name, owning_class=owning_class)
-        ]
-
-    return await asyncio.to_thread(_work)
 
 
 @mcp.tool()
@@ -431,45 +328,6 @@ async def blast_radius(
     def _work() -> dict[str, Any]:
         _, facts = _get_index(project)
         return asdict(iq.blast_radius(facts, vi, depth=depth))
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def get_signatures(
-    project: str | None = None, vi_names: list[str] | None = None,
-    ctx: Context | None = None,
-) -> list[dict[str, Any]]:
-    """Connector panes of every indexed VI (or just ``vi_names``) in one call —
-    each terminal summarized (name, direction, type, cluster field names). The
-    bulk read for classifying terminals project-wide without a round trip per VI.
-    ``project`` defaults to the client's workspace root.
-    """
-    project = await _resolve_project(project, ctx)
-    wanted = set(vi_names or [])
-
-    def _work() -> list[dict[str, Any]]:
-        _, facts = _get_index(project)
-        out: list[dict[str, Any]] = []
-        for f in facts:
-            if wanted and f.name not in wanted and f.path not in wanted:
-                continue
-            out.append({
-                "vi_path": f.path,
-                "vi_name": f.name,
-                "qualified_name": f.qualified_name,
-                "terminals": [
-                    {
-                        "name": t.name,
-                        "direction": t.direction,
-                        "py_type": t.py_type,
-                        "is_error_cluster": t.is_error_cluster,
-                        "field_names": t.field_names,
-                    }
-                    for t in f.terminals
-                ],
-            })
-        return out
 
     return await asyncio.to_thread(_work)
 

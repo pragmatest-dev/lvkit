@@ -26,12 +26,7 @@ import pytest
 from lvkit.index.build import BuildResult, build_index, refresh_index
 from lvkit.index.model import WIRED_INDICATOR
 from lvkit.index.project import resolve_project
-from lvkit.index.query import (
-    blast_radius,
-    find_constants,
-    find_terminals,
-    get_callers,
-)
+from lvkit.index.query import blast_radius, get_callers
 from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
 
@@ -171,12 +166,15 @@ class TestFullCorpusDemo:
     def test_error_indicator_tally(self, jki_index: BuildResult):
         """Demo #2: error-indicator terminals, tallied by name — 'error out'
         dominates."""
-        matches = find_terminals(
-            jki_index.facts, direction="output", is_error_cluster=True,
-        )
-        assert len(matches) >= 325
+        names = [
+            t.name
+            for f in jki_index.facts
+            for t in f.terminals
+            if t.is_error_cluster and t.direction == "output"
+        ]
+        assert len(names) >= 325
 
-        tally = Counter(m.terminal.name for m in matches)
+        tally = Counter(names)
         top_name, top_count = tally.most_common(1)[0]
         assert top_name == "error out"
         assert top_count >= 298
@@ -214,8 +212,13 @@ class TestFullCorpusDemo:
 
     def test_constants_wired_to_indicators(self, jki_index: BuildResult):
         """Demo #4: constants wired directly to an indicator, non-empty."""
-        matches = find_constants(jki_index.facts, wired_to=WIRED_INDICATOR)
-        assert matches
+        wired = [
+            c
+            for f in jki_index.facts
+            for c in f.constants
+            if c.wired_to == WIRED_INDICATOR
+        ]
+        assert wired
 
     def test_blast_radius(self, jki_index: BuildResult):
         """blast_radius returns transitive dependents; impact_score == len,

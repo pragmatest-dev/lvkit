@@ -246,14 +246,14 @@ _TESTCASE_DIR = _JKI_ROOT / "source" / "Classes" / "TestCase"
 
 
 @pytest.mark.needs_samples
-def test_histogram_over_real_facts_matches_python_filter():
-    """On a real class dir: the SQL error-indicator histogram equals the
-    Counter of the index.query.find_terminals answer — the two surfaces agree."""
+def test_histogram_over_real_facts_matches_independent_count():
+    """On a real class dir: the SQL error-indicator histogram equals an
+    independent Counter over the same facts — the view layer maps onto real,
+    store.save()-written rows (not just the synthetic ones)."""
     from collections import Counter
 
     from lvkit.index.build import build_index
     from lvkit.index.project import resolve_project
-    from lvkit.index.query import find_terminals
 
     root, vi_paths = resolve_project(_TESTCASE_DIR)
     facts = build_index(root, vi_paths).facts
@@ -262,10 +262,14 @@ def test_histogram_over_real_facts_matches_python_filter():
     sql_res = sql.error_indicator_histogram(root)
     sql_hist = {name: n for name, n in sql_res.rows}
 
-    py_matches = find_terminals(facts, direction="output", is_error_cluster=True)
-    py_hist = dict(Counter(m.terminal.name for m in py_matches))
+    expected = dict(Counter(
+        t.name
+        for f in facts
+        for t in f.terminals
+        if t.is_error_cluster and t.direction == "output"
+    ))
 
-    assert sql_hist == py_hist
+    assert sql_hist == expected
 
 
 @pytest.mark.needs_samples
