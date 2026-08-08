@@ -1284,9 +1284,32 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
     # field decoding is not perturbed. A plain typed refnum keeps its handle
     # token. Same class-name rule as render.style.lv_type_label.
     if underlying == "Refnum":
-        size = min(4, len(data))
         if elem_type.classname:
-            return elem_type.classname.rsplit(":", 1)[-1], size
+            # A CLASS/LVObject refnum's on-disk value is a class-name descriptor:
+            #   [4-byte class-chain count N][ N x [1-byte block-len]
+            #                                     [1-byte name-len][name] ]
+            # where block-len is self-inclusive (= 2 + name-len). Consuming only
+            # a fixed 4 bytes (the old behavior) left [block-len][name-len][name]
+            # in place, which a FOLLOWING cluster field then misread — e.g. an
+            # array field read the class-name bytes as a 290M length (the decode
+            # runaway). Parse the descriptor so cluster fields stay aligned.
+            # Verified across TestCase/TestResult/TestSuite/JUnitXML/LVObject.
+            name = elem_type.classname.rsplit(":", 1)[-1]
+            if len(data) >= 4:
+                n = int.from_bytes(data[:4], 'big')
+                idx = 4
+                if 0 <= n <= 16:  # a real class chain is short; guards garbage
+                    for _ in range(n):
+                        if idx >= len(data):
+                            break
+                        blk = data[idx]  # self-inclusive block length (2+namelen)
+                        if blk < 2 or idx + blk > len(data):
+                            idx = 4  # malformed descriptor — fall back to 4
+                            break
+                        idx += blk
+                    return name, idx
+            return name, min(4, len(data))
+        size = min(4, len(data))
         val = int.from_bytes(data[:size], 'big')
         return f"Refnum({val})" if val else "None", size
 

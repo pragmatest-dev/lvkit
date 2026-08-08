@@ -39,11 +39,18 @@ from lvkit.parser.vi import (
 
 def test_class_refnum_value_decodes_to_class_name_not_handle():
     """A CLASS/LVObject refnum's DataFill decodes to its CLASS NAME (from the
-    resolved type), never the opaque 4-byte handle. The on-disk value even
-    embeds the class path after the handle (a marker byte + two length-prefixed
-    strings + padding); we do NOT trust the handle bytes — the label comes from
-    the type — and ``size`` stays 4 so cluster field decoding is unperturbed. A
-    PLAIN typed refnum (no classname) keeps its ``Refnum(<handle>)`` token."""
+    resolved type), never the opaque handle. The on-disk value is a class-name
+    descriptor: ``[4-byte class-count N][ N x [1-byte block-len][1-byte name-len]
+    [name] ]`` — for a nested ``lib:class`` the block holds BOTH length-prefixed
+    strings (block-len is self-inclusive). We consume the WHOLE descriptor so a
+    following cluster field stays aligned: the old fixed-4-byte read left the
+    name bytes in place, which a later array field misread as a huge length (a
+    290M-element decode runaway). A PLAIN typed refnum (no classname) keeps its
+    ``Refnum(<handle>)`` token.
+
+    NOTE: the class's default-OBJECT data (its member instance) can follow the
+    descriptor and is class-dependent; that trailing region is not yet consumed
+    (see TASKS: class-refnum value under-consumed)."""
     from lvkit.models import LVType
 
     cls = LVType(
@@ -58,7 +65,8 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     val, size = _decode_element(raw, cls)
     assert val == "MeasurementContext.lvclass"
     assert "Refnum(" not in val
-    assert size == 4  # handle read stays 4 bytes — cluster alignment unchanged
+    # count(4) + self-inclusive block(0x45=69) = the whole name descriptor.
+    assert size == 73
 
     # A generic refnum (no classname) keeps the handle token.
     gen = LVType(kind="primitive", underlying_type="Refnum", ref_type="Occurrence")
