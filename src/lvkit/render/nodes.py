@@ -44,6 +44,7 @@ from ..graph.op_walk import _nmux_field_sources, _resolve_nmux_field_name
 from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
@@ -1107,7 +1108,9 @@ class FallbackBoxResolver:
     """The labeled box. ALWAYS returns a ``Glyph`` — resolution can't fail."""
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph:
-        label = node.name or node.node_type or "?"
+        label = node.name or (
+            get_display_name(node.node_type) if node.node_type else None
+        ) or "?"
         return WrappedBoxGlyph(
             label, "prim_fill", "prim_stroke", 1.0, text_attr="prim_text",
         )

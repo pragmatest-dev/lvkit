@@ -336,11 +336,11 @@ class TestSequenceInMemoryGraph:
         # Wire: start -> seq1 (typed WireEnd edges on MultiDiGraph)
         src = WireEnd(
             terminal_id="start_out", node_id="start",
-            index=0, labels=["SubVI"],
+            index=0, parent_kind="vi",
         )
         dst = WireEnd(
             terminal_id="tun_outer", node_id="seq1",
-            index=0, labels=["FlatSequence"],
+            index=0, parent_kind="operation",
         )
         g.add_edge("start", "seq1", source=src, dest=dst, vi=vi_name)
 
@@ -361,7 +361,7 @@ class TestSequenceInMemoryGraph:
             op for op in ops if op.node_type == "flatSequence"
         ]
         assert len(seq_ops) == 1
-        assert seq_ops[0].labels == ["FlatSequence"]
+        assert seq_ops[0].kind == "flatSequence"
 
     def test_inner_nodes_excluded_from_top_level(
         self, graph_with_sequence: InMemoryVIGraph,
@@ -418,7 +418,7 @@ class TestFlatSequenceCodeGen:
         op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             frames=[],
         )
         ctx = CodeGenContext()
@@ -433,7 +433,7 @@ class TestFlatSequenceCodeGen:
         inner_op = Operation(
             id="prim1",
             name="Add",
-            labels=["SubVI"],
+            kind="vi",
             node_type="iUse",
             terminals=[],
         )
@@ -441,7 +441,7 @@ class TestFlatSequenceCodeGen:
         op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             node_type="flatSequence",
             frames=[
                 SequenceFrame(
@@ -477,7 +477,7 @@ class TestFlatSequenceCodeGen:
         op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             node_type="flatSequence",
             frames=[
                 SequenceFrame(
@@ -512,7 +512,7 @@ class TestFlatSequenceCodeGen:
         op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             node_type="flatSequence",
             frames=[
                 SequenceFrame(
@@ -545,7 +545,7 @@ class TestCodeGenRegistry:
 
         op = SequenceOperation(
             id="1", name="Flat Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             node_type="flatSequence",
         )
         ctx = CodeGenContext()
@@ -559,7 +559,7 @@ class TestCodeGenRegistry:
 
         op = SequenceOperation(
             id="1", name="Stacked Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             node_type="seq",
         )
         ctx = CodeGenContext()

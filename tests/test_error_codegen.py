@@ -38,7 +38,7 @@ from lvkit.models import (
 def _make_op(
     op_id: str,
     name: str = "op",
-    labels: list[str] | None = None,
+    kind: str | None = None,
     node_type: str = "iUse",
     prim_res_id: int | None = None,
     terminals: list[Terminal] | None = None,
@@ -50,7 +50,7 @@ def _make_op(
     common = {
         "id": op_id,
         "name": name,
-        "labels": labels or ["SubVI"],
+        "kind": kind or "vi",
         "node_type": node_type,
         "terminals": terminals or [],
         "inner_nodes": inner_nodes or [],
@@ -90,11 +90,11 @@ class TestClassifyErrorNode:
     """classify_error_node identifies error handling patterns."""
 
     def test_merge_errors_prim_2401(self):
-        op = _make_op("m", prim_res_id=2401, labels=["Primitive"])
+        op = _make_op("m", prim_res_id=2401, kind="primitive")
         assert classify_error_node(op) == ErrorHandlingPattern.MERGE
 
     def test_clear_errors_subvi(self):
-        op = _make_op("c", name="Clear Errors.vi", labels=["SubVI"])
+        op = _make_op("c", name="Clear Errors.vi", kind="vi")
         assert classify_error_node(op) == ErrorHandlingPattern.CLEAR
 
     def test_error_case_structure(self):
@@ -103,18 +103,18 @@ class TestClassifyErrorNode:
         op = _make_op(
             "cs",
             node_type="structure",
-            labels=["CaseStructure"],
+            kind="caseStruct",
             terminals=[sel_term],
             selector_terminal="sel",
         )
         assert classify_error_node(op) == ErrorHandlingPattern.CASE_HANDLE
 
     def test_regular_subvi_is_none(self):
-        op = _make_op("v", name="My SubVI.vi", labels=["SubVI"])
+        op = _make_op("v", name="My SubVI.vi", kind="vi")
         assert classify_error_node(op) == ErrorHandlingPattern.NONE
 
     def test_regular_primitive_is_none(self):
-        op = _make_op("p", prim_res_id=1044, labels=["Primitive"])
+        op = _make_op("p", prim_res_id=1044, kind="primitive")
         assert classify_error_node(op) == ErrorHandlingPattern.NONE
 
 
@@ -136,18 +136,18 @@ class TestNeedsErrorHandling:
     def test_merge_errors_returns_true(self):
         ops = [
             _make_op("a"),
-            _make_op("m", prim_res_id=2401, labels=["Primitive"]),
+            _make_op("m", prim_res_id=2401, kind="primitive"),
         ]
         assert needs_error_handling(ops) is True
 
     def test_clear_errors_alone_returns_false(self):
         """Clear Errors doesn't need _held_error infrastructure."""
-        ops = [_make_op("c", name="Clear Errors.vi", labels=["SubVI"])]
+        ops = [_make_op("c", name="Clear Errors.vi", kind="vi")]
         assert needs_error_handling(ops) is False
 
     def test_merge_errors_in_case_frame(self):
         """Merge Errors nested in a case frame is detected."""
-        inner_op = _make_op("m", prim_res_id=2401, labels=["Primitive"])
+        inner_op = _make_op("m", prim_res_id=2401, kind="primitive")
         frame = CaseFrame(
             selector_value="default",
             is_default=True,
@@ -158,7 +158,7 @@ class TestNeedsErrorHandling:
 
     def test_merge_errors_in_inner_nodes(self):
         """Merge Errors in inner_nodes is detected."""
-        inner_op = _make_op("m", prim_res_id=2401, labels=["Primitive"])
+        inner_op = _make_op("m", prim_res_id=2401, kind="primitive")
         outer = _make_op("loop", inner_nodes=[inner_op])
         assert needs_error_handling([outer]) is True
 
@@ -176,7 +176,7 @@ class TestMergeErrorsNoOp:
             "m",
             name="Merge Errors",
             prim_res_id=2401,
-            labels=["Primitive"],
+            kind="primitive",
             node_type="prim",
         )
         assert isinstance(merge_op, PrimitiveOperation)
@@ -206,7 +206,7 @@ class TestFutureResultWrapping:
         ]
 
         if include_merge:
-            ops.append(_make_op("M", prim_res_id=2401, labels=["Primitive"]))
+            ops.append(_make_op("M", prim_res_id=2401, kind="primitive"))
 
         return VIContext(
             name="test_vi",
@@ -238,7 +238,7 @@ class TestFutureResultWrapping:
         ops = [
             _make_op("A", name="op_a", terminals=[a_out]),
             _make_op("B", name="op_b", terminals=[b_out]),
-            _make_op("M", prim_res_id=2401, labels=["Primitive"]),
+            _make_op("M", prim_res_id=2401, kind="primitive"),
         ]
 
         vi_ctx = VIContext(
@@ -269,7 +269,7 @@ def _make_chain_ctx(edges: dict[str, str]) -> CodeGenContext:
             src_terminal=out_tid,
             src_parent_id="",
             src_parent_name=None,
-            src_parent_labels=[],
+            src_parent_kind=None,
             src_slot_index=None,
         )
 
@@ -308,7 +308,7 @@ class TestClearErrorsWrapping:
         op_a = _make_op("A", name="op_a", terminals=[a_out])
         op_cl = _make_op(
             "CL", name="Clear Errors.vi",
-            labels=["SubVI"], terminals=[cl_in, cl_out],
+            kind="vi", terminals=[cl_in, cl_out],
         )
         op_b = _make_op("B", name="op_b", terminals=[b_in])
 
@@ -330,7 +330,7 @@ class TestClearErrorsWrapping:
         ops = [
             _make_op(
                 "CL", name="Clear Errors.vi",
-                labels=["SubVI"], terminals=[cl_in],
+                kind="vi", terminals=[cl_in],
             ),
         ]
         vi_ctx = VIContext(name="test_vi", operations=ops)
@@ -369,7 +369,7 @@ class TestClearErrorsWrapping:
         )
         op_cl = _make_op(
             "CL", name="Clear Errors.vi",
-            labels=["SubVI"], terminals=[cl_in],
+            kind="vi", terminals=[cl_in],
         )
 
         ctx = _make_chain_ctx({
@@ -412,7 +412,7 @@ class TestClearErrorsWrapping:
         op_a = _make_op("A", name="op_a", terminals=[a_out])
         op_cl = _make_op(
             "CL", name="Clear Errors.vi",
-            labels=["SubVI"], terminals=[cl_in],
+            kind="vi", terminals=[cl_in],
         )
 
         # No graph, no mock get_source — default ctx
@@ -471,7 +471,7 @@ class TestErrorBundleRaise:
         op = PrimitiveOperation(
             id="nmux_err",
             name="Bundle",
-            labels=["nMux"],
+            kind="primitive",
             node_type="nMux",
             terminals=[agg_in, agg_out, status_in, code_in, source_in],
         )
@@ -528,7 +528,7 @@ class TestErrorBundleRaise:
         op = PrimitiveOperation(
             id="nmux_err",
             name="Bundle",
-            labels=["nMux"],
+            kind="primitive",
             node_type="nMux",
             terminals=[agg_in, code_in],
         )

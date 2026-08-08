@@ -16,7 +16,7 @@ from typing import Any
 
 from .models import ParsedNode
 from .nodes.base import extract_label
-from .utils import clean_labview_string
+from .utils import clean_labview_string, extract_caption
 
 # =============================================================================
 # Node Subclasses
@@ -191,6 +191,8 @@ class NodeTypeHandler(ABC):
             "uid": elem.get("uid"),
             "node_type": self.xml_class,
             "name": name or self.display_name,
+            "label": name,
+            "caption": extract_caption(elem),
         }
 
 
@@ -431,7 +433,9 @@ class WhileLoopHandler(NodeTypeHandler):
         return LoopNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=extract_label(elem) or self.display_name,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
             loop_type="whileLoop",
         )
 
@@ -446,7 +450,9 @@ class ForLoopHandler(NodeTypeHandler):
         return LoopNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=extract_label(elem) or self.display_name,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
             loop_type="forLoop",
         )
 
@@ -468,7 +474,33 @@ class SelectHandler(NodeTypeHandler):
         return SelectNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=extract_label(elem) or self.display_name,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
+        )
+
+
+class CaseStructHandler(NodeTypeHandler):
+    """Handler for Case Structure nodes serialized as class="caseStruct".
+
+    Some LabVIEW versions serialize the Case Structure directly under this
+    class instead of "select" (see SelectHandler) -- structurally identical.
+    Frame content lives in ParsedCaseStructure, not on this bare node.
+    Previously unregistered: fell through to GenericHandler, which used the
+    raw XML class itself (not a real display word) as ``display_name``/
+    ``name`` fallback.
+    """
+
+    xml_class = "caseStruct"
+    display_name = "Case Structure"
+
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        return ParsedNode(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
         )
 
 
@@ -597,7 +629,9 @@ class FlatSequenceHandler(NodeTypeHandler):
         return ParsedNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=self.display_name,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
         )
 
 
@@ -615,7 +649,9 @@ class StackedSequenceHandler(NodeTypeHandler):
         return ParsedNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=self.display_name,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
         )
 
 
@@ -646,7 +682,33 @@ class DisableStructureHandler(NodeTypeHandler):
         return ParsedNode(
             uid=elem.get("uid", ""),
             node_type=self.xml_class,
-            name=self.display_name,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
+        )
+
+
+class EventStructHandler(NodeTypeHandler):
+    """Handler for Event Structure nodes (class="eventStruct").
+
+    Frame content (registered events, data/filter nodes) lives in
+    ParsedEventStructure (parser/nodes/event.py), not on this bare node --
+    mirrors FlatSequenceHandler/DisableStructureHandler. Previously
+    unregistered: fell through to GenericHandler, which used the raw XML
+    class itself ("eventStruct") as ``display_name``/``name`` fallback --
+    leaking it verbatim for an unlabeled Event Structure.
+    """
+
+    xml_class = "eventStruct"
+    display_name = "Event Structure"
+
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        return ParsedNode(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
         )
 
 
@@ -954,6 +1016,34 @@ class _DecomposeMatchHandler(NodeTypeHandler):
         return ParsedNode(**common)
 
 
+class DecomposeRecomposeStructureHandler(NodeTypeHandler):
+    """Handler for the In Place Element Structure (IPES) container itself
+    (class="decomposeRecomposeStructure") -- the outer border, distinct from
+    its inner decompose/recompose border tiles (decomposeClusterNode /
+    decomposeArrayNode / decomposeDataValRefNode / decomposeMatchNode, which
+    stay primitive-like operations parsed via ``_extract_common`` above).
+
+    Frame content lives in ParsedDecomposeRecomposeStructure, not on this
+    bare node -- mirrors FlatSequenceHandler/DisableStructureHandler.
+    Previously unregistered: fell through to GenericHandler, which used the
+    raw XML class itself ("decomposeRecomposeStructure") as
+    ``display_name``/``name`` fallback -- leaking it verbatim for an
+    unlabeled IPES structure.
+    """
+
+    xml_class = "decomposeRecomposeStructure"
+    display_name = "In Place Element"
+
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        return ParsedNode(
+            uid=elem.get("uid", ""),
+            node_type=self.xml_class,
+            name=None,
+            label=extract_label(elem),
+            caption=extract_caption(elem),
+        )
+
+
 class FormulaNodeHandler(NodeTypeHandler):
     """Handler for Formula Nodes (class="fBox")."""
 
@@ -1029,12 +1119,14 @@ _HANDLERS: list[NodeTypeHandler] = [
     WhileLoopHandler(),
     ForLoopHandler(),
     SelectHandler(),
+    CaseStructHandler(),
     PropertyNodeHandler(),
     InvokeNodeHandler(),
     FlatSequenceHandler(),
     StackedSequenceHandler(),
     _SequenceAliasHandler(),
     DisableStructureHandler(),
+    EventStructHandler(),
     PrintfHandler(),
     ScanfHandler(),
     NMuxHandler(),
@@ -1049,6 +1141,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     DecomposeArrayHandler(),
     _DecomposeDataValRefHandler(),
     _DecomposeMatchHandler(),
+    DecomposeRecomposeStructureHandler(),
     # Built-in primitives with specialized XML classes.
     # aDelete/aIndx/subset resolve by XML class via the node_types section of
     # primitives.json, so they carry NO primResID. Their old numeric IDs were

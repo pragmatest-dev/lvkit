@@ -60,7 +60,7 @@ class TestMakeVarName:
                 from_terminal_id="tun_outer",
                 to_terminal_id="dest1",
                 to_parent_name="Final Count",
-                to_parent_labels=["Indicator"],
+                to_parent_kind="vi",
             ),
         ]
         ctx = CodeGenContext.from_wires(data_flow)
@@ -242,7 +242,7 @@ class TestGetDestTerminalName:
                 from_terminal_id="src1",
                 to_terminal_id="dest1",
                 to_parent_name="Output Result",
-                to_parent_labels=["Indicator"],
+                to_parent_kind="vi",
             ),
         ]
         ctx = CodeGenContext.from_wires(data_flow)
@@ -262,7 +262,7 @@ class TestGetDestTerminalName:
                 from_terminal_id="src1",
                 to_terminal_id="subvi_term",
                 to_parent_name="Helper.vi",
-                to_parent_labels=["SubVI"],
+                to_parent_kind="vi",
                 to_slot_index=0,
             ),
         ]
@@ -367,7 +367,7 @@ class TestLoopCodeGenGenerate:
         loop_op = LoopOperation(
             id="loop1",
             name="For Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="forLoop",
             tunnels=[
                 Tunnel(
@@ -416,7 +416,7 @@ class TestLoopCodeGenGenerate:
         loop_op = LoopOperation(
             id="loop1",
             name="For Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="forLoop",
             tunnels=[
                 # lMax with no incoming flow to inner = N terminal
@@ -462,7 +462,7 @@ class TestLoopCodeGenGenerate:
         loop_op = LoopOperation(
             id="loop1",
             name="While Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="whileLoop",
             tunnels=[
                 Tunnel(
@@ -508,7 +508,7 @@ class TestLoopCodeGenGenerate:
         loop_op = LoopOperation(
             id="loop1",
             name="While Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="whileLoop",
             tunnels=[
                 Tunnel(
@@ -557,7 +557,7 @@ class TestLoopCodeGenGenerate:
         outer_loop = LoopOperation(
             id="outer",
             name="Outer For",
-            labels=["Loop"],
+            kind="loop",
             loop_type="forLoop",
             tunnels=[],
             inner_nodes=[],
@@ -571,7 +571,7 @@ class TestLoopCodeGenGenerate:
         inner_loop = LoopOperation(
             id="inner",
             name="Inner For",
-            labels=["Loop"],
+            kind="loop",
             loop_type="forLoop",
             tunnels=[],
             inner_nodes=[],
@@ -634,7 +634,7 @@ class TestLoopCodeGenExecutable:
         loop_op = LoopOperation(
             id="loop1",
             name="For Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="forLoop",
             tunnels=[
                 Tunnel(
@@ -683,7 +683,7 @@ class TestLoopCodeGenExecutable:
         ctx.bind("one_src", "1")
 
         add = PrimitiveOperation(
-            id="add", name="Add", labels=["Primitive"], primResID=1050,
+            id="add", name="Add", kind="primitive", primResID=1050,
             terminals=[
                 Terminal(id="add_x", index=1, direction="input", name="x"),
                 Terminal(id="add_y", index=2, direction="input", name="y"),
@@ -691,7 +691,7 @@ class TestLoopCodeGenExecutable:
             ],
         )
         loop_op = LoopOperation(
-            id="loop1", name="For Loop", labels=["Loop"], loop_type="forLoop",
+            id="loop1", name="For Loop", kind="loop", loop_type="forLoop",
             tunnels=[
                 Tunnel(outer_terminal_uid="n_outer",
                        inner_terminal_uid="n_inner", tunnel_type="lMax"),
@@ -729,7 +729,7 @@ class TestLoopCodeGenExecutable:
         loop_op = LoopOperation(
             id="loop1",
             name="While Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="whileLoop",
             tunnels=[
                 Tunnel(
@@ -802,7 +802,7 @@ class TestWhileLoopDoWhileSemantics:
         node = LoopOperation(
             id="loop1",
             name="While Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="whileLoop",
             tunnels=[],
             inner_nodes=[],
@@ -829,7 +829,7 @@ class TestWhileLoopDoWhileSemantics:
         node = LoopOperation(
             id="loop1",
             name="While Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="whileLoop",
             tunnels=[],
             inner_nodes=[],
@@ -863,7 +863,7 @@ class TestWhileLoopDoWhileSemantics:
         node = LoopOperation(
             id="loop1",
             name="While Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="whileLoop",
             tunnels=[],
             inner_nodes=[],
@@ -890,7 +890,7 @@ class TestWhileLoopDoWhileSemantics:
         loop_op = LoopOperation(
             id="loop1",
             name="While Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="whileLoop",
             tunnels=[],
             inner_nodes=[],
@@ -936,7 +936,7 @@ class TestForLoopConditionalTerminal:
         if stop is not None:
             ctx.bind("cond_calc", "should_stop")
         loop_op = LoopOperation(
-            id="loop1", name="For Loop", labels=["Loop"], loop_type="forLoop",
+            id="loop1", name="For Loop", kind="loop", loop_type="forLoop",
             tunnels=[Tunnel(outer_terminal_uid="lmax_outer",
                             inner_terminal_uid="lmax_inner", tunnel_type="lMax")],
             inner_nodes=[],
@@ -1025,7 +1025,7 @@ class TestUninitializedShiftRegister:
         return LoopOperation(
             id="loop1",
             name="While Loop",
-            labels=["Loop"],
+            kind="loop",
             loop_type="whileLoop",
             terminals=terminals,
             tunnels=[

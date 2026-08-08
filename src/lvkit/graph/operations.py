@@ -33,9 +33,7 @@ from ..models import (
     TunnelTerminal,
 )
 from .core import (
-    _NODE_TYPE_NAMES,
     _OPERATION_KINDS,
-    _get_operation_labels,
     _graph_node_to_op_kind,
     _node_order_key,
 )
@@ -80,10 +78,10 @@ class OperationsMixin:
         """
         gnode = self._graph.nodes[uid].get("node")
         if gnode is None:
-            return Operation(id=uid, name=None, labels=["Operation"])
+            return Operation(id=uid, name=None, kind="operation")
 
         op_kind = _graph_node_to_op_kind(gnode)
-        labels = _get_operation_labels(op_kind)
+        kind = op_kind
 
         # Build terminals, enriching SubVI terminals with callee param names
         terminals = list(gnode.terminals)
@@ -115,7 +113,7 @@ class OperationsMixin:
             child_uids = self._get_children_of(uid, vi_name)
 
             if isinstance(gnode, LoopNode):
-                labels = ["Loop"]
+                kind = "loop"
                 loop_type = gnode.loop_type
                 inner_nodes = self._build_inner_nodes(
                     child_uids, vi_name,
@@ -124,45 +122,47 @@ class OperationsMixin:
                 stop_cond_inverted = gnode.stop_condition_inverted
 
             elif isinstance(gnode, DisableStructureNode):
-                labels = ["DisableStructure"]
+                kind = "disableStruct"
                 case_frames = self._populate_frame_operations(  # type: ignore[assignment]
                     gnode.frames, vi_name, child_uids,
                 )
 
             elif isinstance(gnode, CaseStructureNode):
-                labels = ["CaseStructure"]
+                kind = "caseStruct"
                 selector_terminal = gnode.selector_terminal
                 case_frames = self._populate_frame_operations(  # type: ignore[assignment]
                     gnode.frames, vi_name, child_uids,
                 )
 
             elif isinstance(gnode, SequenceNode):
-                labels = ["FlatSequence"]
+                kind = "flatSequence"
                 seq_frames = self._populate_frame_operations(  # type: ignore[assignment]
                     gnode.frames, vi_name, child_uids,
                 )
 
             elif isinstance(gnode, InPlaceNode):
-                labels = ["InPlaceStructure"]
+                kind = "inPlaceStruct"
                 all_inner = self._build_inner_nodes(child_uids, vi_name)
                 decompose, recompose, inner_nodes = _classify_ipes_ops(all_inner)
 
             elif isinstance(gnode, EventStructureNode):
-                labels = ["EventStructure"]
+                kind = "eventStruct"
                 event_frames = self._populate_frame_operations(  # type: ignore[assignment]
                     gnode.frames, vi_name, child_uids,
                 )
 
-        # Name fallback for unnamed structures
+        # Structures have no codegen identity; name stays None (see
+        # Operation.display_name for how the type word is composed at the
+        # point of use, not stored here).
         node_name = gnode.name
-        if not node_name and node_type:
-            node_name = _NODE_TYPE_NAMES.get(node_type)
 
         # Common kwargs for all operation types
         common = {
             "id": uid,
             "name": node_name,
-            "labels": labels,
+            "label": gnode.label,
+            "caption": gnode.caption,
+            "kind": kind,
             "terminals": terminals,
             "node_type": node_type or None,
             "tunnels": tunnels,

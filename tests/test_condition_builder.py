@@ -72,7 +72,7 @@ class TestComparisonPrimitives:
         cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Equal?",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1102,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
@@ -101,7 +101,7 @@ class TestComparisonPrimitives:
         cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Greater Or Equal?",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1103,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
@@ -127,7 +127,7 @@ class TestComparisonPrimitives:
         cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Less?",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1107,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
@@ -157,7 +157,7 @@ class TestBooleanPrimitives:
         and_op = PrimitiveOperation(
             id="and1",
             name="And",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1100,
             terminals=[
                 Terminal(id="and_in1", index=0, direction="input"),
@@ -183,7 +183,7 @@ class TestBooleanPrimitives:
         or_op = PrimitiveOperation(
             id="or1",
             name="Or",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1101,
             terminals=[
                 Terminal(id="or_in1", index=0, direction="input"),
@@ -213,7 +213,7 @@ class TestNotPrimitive:
         not_op = PrimitiveOperation(
             id="not1",
             name="Not",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1109,
             terminals=[
                 Terminal(id="not_in", index=0, direction="input"),
@@ -253,7 +253,7 @@ class TestNestedExpressions:
         cmp1 = PrimitiveOperation(
             id="cmp1",
             name="Greater Or Equal?",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1103,
             terminals=[
                 Terminal(id="cmp1_in1", index=0, direction="input"),
@@ -266,7 +266,7 @@ class TestNestedExpressions:
         cmp2 = PrimitiveOperation(
             id="cmp2",
             name="Equal?",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1102,
             terminals=[
                 Terminal(id="cmp2_in1", index=0, direction="input"),
@@ -279,7 +279,7 @@ class TestNestedExpressions:
         or_op = PrimitiveOperation(
             id="or1",
             name="Or",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1101,
             terminals=[
                 Terminal(id="or_in1", index=0, direction="input"),
@@ -312,7 +312,7 @@ class TestNestedExpressions:
         cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Less?",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1107,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
@@ -325,7 +325,7 @@ class TestNestedExpressions:
         not_op = PrimitiveOperation(
             id="not1",
             name="Not",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1109,
             terminals=[
                 Terminal(id="not_in", index=0, direction="input"),
@@ -356,7 +356,7 @@ class TestCpdArithConditions:
         cpd_op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -382,7 +382,7 @@ class TestCpdArithConditions:
         cpd_op = PrimitiveOperation(
             id="cpd1",
             name="Compound And",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="and",
             terminals=[
@@ -429,7 +429,7 @@ class TestEdgeCases:
         unknown_op = PrimitiveOperation(
             id="unk1",
             name="Unknown",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=99999,
             terminals=[
                 Terminal(id="prim_out", index=0, direction="output"),
@@ -451,7 +451,7 @@ class TestEdgeCases:
         cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Equal?",
-            labels=["Primitive"],
+            kind="primitive",
             primResID=1102,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),

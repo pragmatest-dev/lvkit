@@ -122,7 +122,7 @@ def _collect_subvi_names(operations: list) -> list[str]:
     """Recursively collect SubVI names from operations including inner nodes."""
     names: list[str] = []
     for op in operations:
-        if "SubVI" in op.labels and op.name:
+        if op.kind == "vi" and op.name:
             names.append(op.name)
         if op.inner_nodes:
             names.extend(_collect_subvi_names(op.inner_nodes))
@@ -181,7 +181,7 @@ def _prepare_vi_documentation_data(
     def _extract_subvi_names(ops):
         names = []
         for op in ops:
-            if "SubVI" in (op.labels or []) and op.name:
+            if op.kind == "vi" and op.name:
                 names.append(op.name)
             names.extend(_extract_subvi_names(op.inner_nodes))
             if isinstance(op, CaseOperation | SequenceOperation):

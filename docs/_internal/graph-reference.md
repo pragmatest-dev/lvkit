@@ -351,7 +351,7 @@ One endpoint of a wire. Immutable (frozen).
 | `node_id` | `str` | Qualified parent node UID |
 | `index` | `int | None` | Terminal's connector pane slot index |
 | `name` | `str | None` | Terminal or node name |
-| `labels` | `list[str]` | Node labels (for identification) |
+| `parent_kind` | `str | None` | Raw op_kind of the node owning this terminal (e.g. `"vi"`, `"loop"`, `"caseStruct"`) |
 
 ### 5.2 Wire
 
@@ -773,7 +773,7 @@ An operation node for code generation, built from `GraphNode` subclasses:
 |-------|------|-------------|
 | `id` | `str` | Qualified operation ID |
 | `name` | `str | None` | Operation name |
-| `labels` | `list[str]` | Operation labels |
+| `tags` | `list[str]` | Operation classification tags |
 | `primResID` | `int | None` | Primitive resource ID |
 | `terminals` | `list[Terminal]` | Connected terminals |
 | `node_type` | `str | None` | Node type string |
@@ -809,7 +809,7 @@ A frame in a case structure or sequence:
 | `value` | `ScalarValue` | Decoded Python value |
 | `lv_type` | `LVType | None` | Type information |
 | `raw_value` | `str | None` | Raw string value |
-| `name` | `str | None` | Constant name |
+| `label` | `str | None` | LabVIEW label (partID 16), the constant's caption |
 
 ### 12.5 CodeGenContext
 
@@ -968,7 +968,7 @@ This ensures consistent naming across case frames — all frames use the same ou
 | `src_terminal` | `str` | Source terminal ID |
 | `src_parent_id` | `str` | Source node ID |
 | `src_parent_name` | `str | None` | Source node name |
-| `src_parent_labels` | `list[str]` | Source node labels |
+| `src_parent_kind` | `str | None` | Source node's raw op_kind |
 | `src_slot_index` | `int | None` | Source terminal slot index |
 
 **DestinationInfo** (returned by `ctx.get_destinations()`):
@@ -978,7 +978,7 @@ This ensures consistent naming across case frames — all frames use the same ou
 | `dest_terminal` | `str` | Destination terminal ID |
 | `dest_parent_id` | `str` | Destination node ID |
 | `dest_parent_name` | `str | None` | Destination node name |
-| `dest_parent_labels` | `list[str]` | Destination node labels |
+| `dest_parent_kind` | `str | None` | Destination node's raw op_kind |
 | `dest_slot_index` | `int | None` | Destination terminal slot index |
 
 ---

@@ -75,7 +75,7 @@ def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
             return formula.generate(node, ctx)
         case PrimitiveOperation():
             return _generate_primitive(node, ctx)
-        case _ if "Constant" in node.labels:
+        case _ if node.kind == "constant":
             return constant.generate(node, ctx)
         case _:
             return _generate_unknown(node)
@@ -122,7 +122,7 @@ def _generate_unknown(node: Operation) -> CodeFragment:
     """Emit a warning comment for unsupported node types."""
     node_name = node.name or "unknown"
     warning = (
-        f"# WARNING: Unknown node type {node.labels}"
+        f"# WARNING: Unknown node type {node.kind}"
         f" (id={node.id}, name={node_name})"
     )
     stmt = ast.Expr(value=ast.Constant(value=warning))

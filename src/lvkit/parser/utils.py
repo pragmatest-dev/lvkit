@@ -175,6 +175,43 @@ def extract_label(elem: ET.Element) -> str | None:
     return None
 
 
+def extract_caption(elem: ET.Element) -> str | None:
+    """Extract caption text from an XML element.
+
+    Searches for caption text in the proper location:
+    - partID=82 is the user-visible caption in LabVIEW -- a display-only
+      alias distinct from the label (partID=16, see extract_label).
+
+    Verified clean-room: pylabview's ``LVparts.PARTID`` enum defines
+    ``CAPTION = 82`` (``NAME_LABEL = 16``; partID 17 is unrelated --
+    ``SCALE``, a numeric/graph axis part, not a label at all). Confirmed
+    against real extracted front-panel XML: a control's own ``partsList``
+    carries sibling ``class='label'`` parts for partID 16 (label / code
+    identity, e.g. ``"pin_name"``) and partID 82 (caption / display alias,
+    e.g. ``"Pin Name"``) with independently-settable text -- when the
+    caption hasn't been customized it mirrors the label's text; when unset
+    entirely it's a lone null byte.
+
+    Object-scoped like extract_label: only this element's OWN partID=82
+    part is read, never a descendant's.
+
+    Args:
+        elem: XML element to search
+
+    Returns:
+        Caption text or None if not found/unset
+    """
+    for xpath in (
+        "./partsList/*[@class='label'][partID='82']",
+        "./label[partID='82']",
+    ):
+        for label in elem.findall(xpath):
+            text = _first_text(label)
+            if text and text.lower() != "pane":
+                return text
+    return None
+
+
 def _first_text(label: ET.Element) -> str | None:
     """First non-empty cleaned text anywhere inside a label's own subtree."""
     for t in label.iter("text"):

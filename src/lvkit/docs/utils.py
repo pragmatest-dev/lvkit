@@ -89,7 +89,7 @@ def _infer_from_context(vi_name: str, vi_context: VIContext) -> str:
     operations = vi_context.operations
 
     # Count SubVI calls
-    subvi_count = sum(1 for op in operations if "SubVI" in op.labels)
+    subvi_count = sum(1 for op in operations if op.kind == "vi")
 
     # Build description based on I/O
     parts = []

@@ -405,6 +405,7 @@ class ConstructionMixin:
                 lv_type=lv_type,
                 raw_value=const.value,
                 label=const.label,
+                caption=const.caption,
                 display_format=const.display_format,
                 terminals=[const_terminal],
             )

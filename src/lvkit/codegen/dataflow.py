@@ -88,11 +88,11 @@ class DataFlowTracer:
             # Check if op is an Operation dataclass or a dict
             if hasattr(op, 'terminals'):
                 op_id = op.id
-                op_labels = op.labels
+                op_kind = op.kind
                 terminals = op.terminals
             else:
                 op_id = op.get("id")
-                op_labels = op.get("labels", [])
+                op_kind = op.get("kind")
                 terminals = op.get("terminals", [])
 
             for term in terminals:
@@ -112,9 +112,9 @@ class DataFlowTracer:
                     term_type = term.get("type")
 
                 if term_id not in self._terminals:
-                    if "Primitive" in op_labels:
+                    if op_kind == "primitive":
                         parent_type = "primitive"
-                    elif "SubVI" in op_labels:
+                    elif op_kind == "vi":
                         parent_type = "subvi"
                     else:
                         parent_type = "operation"

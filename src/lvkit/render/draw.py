@@ -73,7 +73,8 @@ from .style import (
 )
 
 # Structure node_type -> border style key (graph-sourced; see node_type
-# values assigned in graph/construction.py / graph/core.py::_NODE_TYPE_NAMES).
+# values assigned in graph/construction.py / parser/node_types.py's per-class
+# handler registry, get_display_name()).
 _STRUCTURE_STYLE = {
     "forLoop": "forLoop",
     "whileLoop": "whileLoop",

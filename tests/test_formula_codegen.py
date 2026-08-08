@@ -30,7 +30,7 @@ def _op(
     return FormulaOperation(
         id="my_vi.vi::42",
         name="Formula Node",
-        labels=["FormulaNode"],
+        kind="formula",
         node_type="fBox",
         script=script,
         terminals=[
@@ -91,7 +91,7 @@ def test_formula_does_not_mutate_callers_array():
     this fails. This is the exact failure mode that corrupted Himmelt's VI."""
     arr = LVType(kind="array", underlying_type="Array", element_type=_dbl())
     op = FormulaOperation(
-        id="vi::9", name="Formula Node", labels=["FormulaNode"], node_type="fBox",
+        id="vi::9", name="Formula Node", kind="formula", node_type="fBox",
         script="int32 i=0;\nfor (i=0; i<n; i++) buf[i] = buf[i] + 1;",
         terminals=[
             Terminal(id="t_in", index=0, direction="input", name="buf", lv_type=arr),

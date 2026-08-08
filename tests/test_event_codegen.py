@@ -17,7 +17,7 @@ def _event_node(labels: list[str]) -> EventOperation:
     return EventOperation(
         id="es1",
         name="Event Structure",
-        labels=["Event"],
+        kind="eventStruct",
         frames=[EventFrame(event_label=label) for label in labels],
     )
 

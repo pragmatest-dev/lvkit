@@ -42,6 +42,7 @@ from ..models import (
     Terminal,
     _is_error_cluster,
 )
+from ..parser.node_types import get_display_name
 from .models import Constant, VIContext, WireEnd
 from .op_walk import (
     ComponentPort,
@@ -222,7 +223,8 @@ def _uid_of(op_id: str) -> str:
 
 
 def _display_name(op: Operation) -> str:
-    return op.name or op.node_type or "Node"
+    node_word = get_display_name(op.node_type) if op.node_type else None
+    return op.name or node_word or "Node"
 
 
 def _walk_flat(operations: list[Operation]) -> list[Operation]:
@@ -675,7 +677,7 @@ _STRUCTURE_OPERATION_TYPES = (
 def _is_subvi_call(op: Operation) -> bool:
     """Same test ``describe._collect_subvi_names`` uses: a labeled SubVI
     call with a resolvable callee name."""
-    return "SubVI" in op.labels and bool(op.name)
+    return op.kind == "vi" and bool(op.name)
 
 
 def _component_identity(op: Operation) -> tuple[object, ...]:

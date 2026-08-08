@@ -277,7 +277,7 @@ class CodeGenContext:
             src_terminal=src.terminal_id,
             src_parent_id=src.node_id,
             src_parent_name=src.name,
-            src_parent_labels=list(src.labels),
+            src_parent_kind=src.parent_kind,
             src_slot_index=src.index,
         )
 
@@ -290,7 +290,7 @@ class CodeGenContext:
                 dest_terminal=dst.terminal_id,
                 dest_parent_id=dst.node_id,
                 dest_parent_name=dst.name,
-                dest_parent_labels=list(dst.labels),
+                dest_parent_kind=dst.parent_kind,
                 dest_slot_index=dst.index,
             )
             for dst in self.graph.outgoing_edges(terminal_id)

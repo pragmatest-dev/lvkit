@@ -2,7 +2,7 @@
 
 Contains __init__, clear, _qid, _enrich_type, context manager, connect(),
 set_var_name, get_var_name, incoming_edges, outgoing_edges, terminal_is_wired,
-_kind_to_labels, and module-level helper functions.
+and module-level helper functions.
 """
 
 from __future__ import annotations
@@ -37,21 +37,8 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 
-# Map node types to human-readable names for nodes without explicit names
-_NODE_TYPE_NAMES: dict[str, str] = {
-    "whileLoop": "While Loop",
-    "forLoop": "For Loop",
-    "caseStruct": "Case Structure",
-    "seqFrame": "Sequence Frame",
-    "eventStruct": "Event Structure",
-    "flatSequence": "Flat Sequence",
-    "seq": "Stacked Sequence",
-    "decomposeRecomposeStructure": "In Place Element",
-    "commentNode": "Disable Structure",
-}
-
-# Map operation kind to labels
-_KIND_TO_LABELS: dict[str, list[str]] = {
+# Map operation kind to classification tags
+_KIND_TO_TAGS: dict[str, list[str]] = {
     "vi": ["SubVI"],
     "primitive": ["Primitive"],
     "caseStruct": ["CaseStructure"],
@@ -83,11 +70,6 @@ def _node_order_key(uid: str) -> tuple[str, int, str]:
     """
     base, _, tail = uid.rpartition("::")
     return (base, int(tail), "") if tail.isdigit() else (uid, -1, uid)
-
-
-def _get_operation_labels(kind: str) -> list[str]:
-    """Get labels for an operation based on its kind."""
-    return _KIND_TO_LABELS.get(kind, ["Operation"])
 
 
 def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
@@ -436,10 +418,6 @@ class InMemoryVIGraph(
             if src and src.terminal_id == terminal_id:
                 return True
         return False
-
-    def _kind_to_labels(self, kind: str) -> list[str]:
-        """Convert internal kind to labels list."""
-        return _KIND_TO_LABELS.get(kind, [])
 
     # === Context Manager ===
 

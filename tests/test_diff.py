@@ -628,7 +628,7 @@ class TestFrameSetChanges:
         #     -> VALUE changed, "2 → Default".
         #   - frame "4": head-only -> ADDED
         case_a = CaseOperation(
-            id="vi::500", name="Case", labels=["CaseStructure"],
+            id="vi::500", name="Case", kind="caseStruct",
             node_type="caseStructure",
             frames=[
                 CaseFrame(selector_value="1"),
@@ -640,7 +640,7 @@ class TestFrameSetChanges:
             ],
         )
         case_b = CaseOperation(
-            id="vi::500", name="Case", labels=["CaseStructure"],
+            id="vi::500", name="Case", kind="caseStruct",
             node_type="caseStructure",
             frames=[
                 CaseFrame(
@@ -693,12 +693,12 @@ class TestFrameSetChanges:
 
     def test_unchanged_case_frame_set_has_no_frame_changes(self):
         case_a = CaseOperation(
-            id="vi::500", name="Case", labels=["CaseStructure"],
+            id="vi::500", name="Case", kind="caseStruct",
             node_type="caseStructure",
             frames=[CaseFrame(selector_value="1"), CaseFrame(selector_value="2")],
         )
         case_b = CaseOperation(
-            id="vi::500", name="Case", labels=["CaseStructure"],
+            id="vi::500", name="Case", kind="caseStruct",
             node_type="caseStructure",
             frames=[CaseFrame(selector_value="1"), CaseFrame(selector_value="2")],
         )
@@ -715,15 +715,15 @@ class TestFrameSetChanges:
         # ("1 -> 0"), NOT remove "1" + add "0". (The reality-grounded MainUI
         # 36:1->0 case; the shared node itself stays unchanged, not reported.)
         node = PrimitiveOperation(
-            id="vi::700", name="Add", labels=["Add"], node_type="prim",
+            id="vi::700", name="Add", kind="primitive", node_type="prim",
         )
         case_a = CaseOperation(
-            id="vi::500", name="Case", labels=["CaseStructure"],
+            id="vi::500", name="Case", kind="caseStruct",
             node_type="caseStructure",
             frames=[CaseFrame(selector_value="1", operations=[node])],
         )
         case_b = CaseOperation(
-            id="vi::500", name="Case", labels=["CaseStructure"],
+            id="vi::500", name="Case", kind="caseStruct",
             node_type="caseStructure",
             frames=[CaseFrame(selector_value="0", operations=[node])],
         )
@@ -749,7 +749,7 @@ class TestFrameSetChanges:
         # it in a togglable lv-frame group), so its frame changes extend the
         # frame_path with their own segment.
         seq_a = SequenceOperation(
-            id="vi::700", name="Sequence", labels=["StackedSequence"],
+            id="vi::700", name="Sequence", kind="flatSequence",
             node_type="stackedSequence",
             frames=[
                 SequenceFrame(uid="10", index=0),
@@ -757,7 +757,7 @@ class TestFrameSetChanges:
             ],
         )
         seq_b = SequenceOperation(
-            id="vi::700", name="Sequence", labels=["StackedSequence"],
+            id="vi::700", name="Sequence", kind="flatSequence",
             node_type="stackedSequence",
             frames=[
                 SequenceFrame(uid="11", index=0),
@@ -791,12 +791,12 @@ class TestFrameSetChanges:
         # changes still get a real container_uid (the structure exists) but
         # must NOT gain a frame_path segment nothing in the SVG would match.
         seq_a = SequenceOperation(
-            id="vi::800", name="Flat Sequence", labels=["FlatSequence"],
+            id="vi::800", name="Flat Sequence", kind="flatSequence",
             node_type="flatSequence",
             frames=[SequenceFrame(uid="20", index=0)],
         )
         seq_b = SequenceOperation(
-            id="vi::800", name="Flat Sequence", labels=["FlatSequence"],
+            id="vi::800", name="Flat Sequence", kind="flatSequence",
             node_type="flatSequence",
             frames=[
                 SequenceFrame(uid="20", index=0),
@@ -1282,11 +1282,11 @@ def test_operation_display_name_qualifies_by_ownership_chain():
     from lvkit.models import Operation
 
     qualified = Operation(
-        id="V::1", name="run.vi", labels=["SubVI"],
+        id="V::1", name="run.vi", kind="vi",
         owning_libraries=["Foo.lvlib", "Bar.lvclass"],
     )
     assert qualified.display_name == "Foo.lvlib:Bar.lvclass:run.vi"
-    bare = Operation(id="V::2", name="run.vi", labels=["SubVI"])
+    bare = Operation(id="V::2", name="run.vi", kind="vi")
     assert bare.display_name == "run.vi"
 
 

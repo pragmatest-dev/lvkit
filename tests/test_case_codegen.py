@@ -50,7 +50,7 @@ def _case_node(
     terminals.extend(extra_terminals or [])
 
     return CaseOperation(
-        id="case1", name="Case", labels=[],
+        id="case1", name="Case", kind="caseStruct",
         terminals=terminals,
         tunnels=tunnels,
         selector_terminal=None,
@@ -311,7 +311,7 @@ class TestPreDeclareOutputsTypeDefault:
             tunnel_type="csTun", lv_type=_lv(underlying),
         )
         node = CaseOperation(
-            id="c", name="Case", labels=[], selector_terminal=None,
+            id="c", name="Case", kind="caseStruct", selector_terminal=None,
             terminals=[outer],
             tunnels=[Tunnel(outer_terminal_uid="o", inner_terminal_uid="i",
                             tunnel_type="csTun")],

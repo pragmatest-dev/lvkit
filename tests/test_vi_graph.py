@@ -136,29 +136,29 @@ class TestTypedGraphNodes:
         # Edges with typed WireEnd
         src_fp = WireEnd(
             terminal_id="fp_in", node_id=vi_name, index=0, name="X",
-            labels=["Control", "Input"],
+            parent_kind="vi",
         )
         dst_t1 = WireEnd(
-            terminal_id="t1", node_id="add1", index=0, labels=["Primitive"]
+            terminal_id="t1", node_id="add1", index=0, parent_kind="primitive"
         )
         graph._graph.add_edge(vi_name, "add1", source=src_fp, dest=dst_t1, vi=vi_name)
 
         src_const = WireEnd(
-            terminal_id="const1", node_id="const1", index=0, labels=["Constant"]
+            terminal_id="const1", node_id="const1", index=0, parent_kind="constant"
         )
         dst_t2 = WireEnd(
-            terminal_id="t2", node_id="add1", index=1, labels=["Primitive"]
+            terminal_id="t2", node_id="add1", index=1, parent_kind="primitive"
         )
         graph._graph.add_edge(
             "const1", "add1", source=src_const, dest=dst_t2, vi=vi_name
         )
 
         src_t3 = WireEnd(
-            terminal_id="t3", node_id="add1", index=2, labels=["Primitive"]
+            terminal_id="t3", node_id="add1", index=2, parent_kind="primitive"
         )
         dst_fp_out = WireEnd(
             terminal_id="fp_out", node_id=vi_name, index=1, name="Sum",
-            labels=["Indicator", "Output"],
+            parent_kind="vi",
         )
         graph._graph.add_edge(
             "add1", vi_name, source=src_t3, dest=dst_fp_out, vi=vi_name

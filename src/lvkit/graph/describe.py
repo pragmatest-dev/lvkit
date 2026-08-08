@@ -20,7 +20,9 @@ from ..models import (
     SequenceOperation,
     _is_error_cluster,
 )
+from ..parser.node_types import get_display_name
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
+from .core import _KIND_TO_TAGS
 from .models import Constant, VIContext
 from .netlist import build_netlist, component_line, render_netlist
 from .op_walk import (
@@ -231,9 +233,10 @@ def describe_structure(
         case SequenceOperation():
             _describe_sequence(op, lines)
         case _:
-            lines.append(f"Operation {operation_id}: {op.name}")
-            lines.append(f"  Type: {op.node_type}")
-            lines.append(f"  Labels: {op.labels}")
+            lines.append(f"Operation {operation_id}: {op.display_name}")
+            node_word = get_display_name(op.node_type) if op.node_type else "unknown"
+            lines.append(f"  Type: {node_word}")
+            lines.append(f"  Kind: {_KIND_TO_TAGS.get(op.kind, [op.kind])[0]}")
 
     return "\n".join(lines)
 
@@ -294,7 +297,7 @@ def _collect_subvi_names(operations: list[Operation]) -> set[str]:
     """Collect all SubVI names from operations recursively."""
     names: set[str] = set()
     for op in operations:
-        if "SubVI" in op.labels and op.name:
+        if op.kind == "vi" and op.name:
             names.add(op.name)
         match op:
             case CaseOperation() | SequenceOperation():
@@ -386,9 +389,24 @@ def _resolve_selector(
                 return t.name
         return None
     op, term = hit
-    op_name = op.name or op.id
     term_name = term.name or f"idx={term.index}"
-    return f"{op_name}.{term_name}"
+    return f"{_gated_source(op)}.{term_name}"
+
+
+def _gated_source(op: Operation) -> str:
+    """Name a selector/stop wire's source for a ``gated on …`` line, composed
+    for THIS view's intent — keep the structure TYPE visible. An identity-
+    bearing source (subVI/primitive) shows its identity (``display_name``); an
+    identity-LESS structure (``name is None``) shows its type word plus its own
+    author text, so a labeled loop reads ``For Loop "For Each Front Panel
+    Control"`` and an unlabeled one reads ``For Loop`` — the type is never
+    dropped in favour of a free-text label. Uses only clean truth fields (the
+    ``name`` split), never a string comparison against a type word."""
+    if op.name:
+        return op.display_name
+    author = op.caption or op.label
+    type_word = get_display_name(op.node_type) if op.node_type else "node"
+    return f'{type_word} "{author}"' if author else type_word
 
 
 def _collect_structures(
@@ -473,7 +491,7 @@ def _const_type_str(c: Constant) -> str:
 
 def _describe_constant_line(c: Constant) -> str:
     """One-line ``name: type = value`` for a constant."""
-    name = c.name or "(unnamed)"
+    name = c.label or "(unnamed)"
     return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}"
 
 
@@ -558,7 +576,7 @@ def _describe_single_op(op: Operation) -> str:
     """One-line description of an operation."""
     name = op.name or "unnamed"
 
-    if "SubVI" in op.labels:
+    if op.kind == "vi":
         named_inputs = [
             t.name for t in op.terminals
             if t.direction == "input" and t.name
@@ -588,15 +606,17 @@ def _describe_single_op(op: Operation) -> str:
         case SequenceOperation():
             return "Flat Sequence"
         case InPlaceOperation() | DisableStructureOperation() | EventOperation():
-            # These structures' resolved ``name`` is already the faithful
-            # human label (a diagram label, or core.py's _NODE_TYPE_NAMES
-            # default — "In Place Element" for an IPES) -- never fall back
-            # to the raw internal XML class ("decomposeRecomposeStructure",
-            # "commentNode", "eventStruct") the way the generic case below
-            # does for truly unhandled operation kinds.
-            return name
+            # These structures have no codegen identity (``name`` is None) --
+            # compose the faithful human label from caption/label/type-word
+            # (``display_name``) instead of the old baked-in ``name`` --
+            # never fall back to the raw internal XML class
+            # ("decomposeRecomposeStructure", "commentNode", "eventStruct")
+            # the way the generic case below does for truly unhandled
+            # operation kinds.
+            return op.display_name
         case _:
-            return f"{name} [{op.node_type or 'unknown'}]"
+            node_word = get_display_name(op.node_type) if op.node_type else "unknown"
+            return f"{name} [{node_word}]"
 
 
 def _find_operation(

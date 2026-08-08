@@ -416,7 +416,10 @@ class Operation(BaseModel):
 
     id: str
     name: str | None
-    labels: list[str]
+    label: str | None = None  # LabVIEW label (partID 16), see extract_label
+    caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
+    # The node's classification kind, e.g. "vi"/"loop"/"constant".
+    kind: str = "operation"
     terminals: list[Terminal] = []
     node_type: str | None = None
     tunnels: list[Tunnel] = []
@@ -438,14 +441,41 @@ class Operation(BaseModel):
 
     @property
     def display_name(self) -> str:
-        """Label for diff/netlist/describe. A VI/method op with an ownership
-        chain (from its own ``<LIBN>``) reads ``…lvlib:Class.lvclass:method`` so
-        two classes' same-named methods are distinct; otherwise the bare name.
-        Bare-name identity/resolution is unaffected — this is display only."""
-        base = self.name or self.node_type or "node"
+        """Shared "best human label" convenience — NOT a mandate every
+        consumer must route through (each view is still free to compose its
+        own display from the truth fields below when it needs to). Precedence
+        is IDENTITY-FIRST:
+        ``<qualified identity> or name or caption or label or
+        get_display_name(node_type)``.
+
+        The codegen/resolution identity ``name`` wins — qualified with
+        ``owning_libraries`` (from the callee's own ``<LIBN>``) as
+        ``…lvlib:Class.lvclass:method`` when both are present, so two classes'
+        same-named methods stay distinct. Only an identity-LESS node (a
+        structure or constant, ``name is None``) falls back to its OWN author
+        text ``caption or label`` (partID 82/16) — which is why a labeled loop
+        reads its label but a subVI keeps its qualified identity, not a
+        decorative node label. ``get_display_name(node_type)`` is the final
+        fallback: the one human type-word table, so an unlabeled, unnamed
+        structure (loop/case/sequence/event/in-place/disable) still reads e.g.
+        "For Loop" instead of the raw XML class.
+
+        Deferred import: ``lvkit.parser`` imports ``lvkit.models`` (Frame/
+        Operation live here so the parser can construct them directly — see
+        module docstring), so importing the parser back at module scope here
+        would be circular.
+        """
+        from .parser.node_types import get_display_name
+
         if self.owning_libraries and self.name:
             return ":".join([*self.owning_libraries, self.name])
-        return base
+        if self.name:
+            return self.name
+        if self.caption:
+            return self.caption
+        if self.label:
+            return self.label
+        return get_display_name(self.node_type) if self.node_type else "node"
 
 
 class PrimitiveOperation(Operation):
