@@ -97,6 +97,16 @@ def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
     return None
 
 
+# Dependency-load depth ordering. A VI already loaded at a >= depth need not be
+# reloaded; a request at a deeper level UPGRADES it (progressive partial->full).
+_MODE_RANK = {LoadMode.NONE: 0, LoadMode.MINIMAL: 1, LoadMode.FULL: 2}
+
+
+def _mode_covers(have: LoadMode | None, want: LoadMode) -> bool:
+    """Whether a VI whose deps were loaded at ``have`` already covers ``want``."""
+    return have is not None and _MODE_RANK[have] >= _MODE_RANK[want]
+
+
 class LoadingMixin:
     """Mixin providing VI loading methods."""
 
@@ -109,6 +119,7 @@ class LoadingMixin:
     _poly_info: dict[str, PolyInfo]
     _qualified_aliases: dict[str, str]
     _loaded_vis: set[str]
+    _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
     _vilib_root: Path | None
@@ -181,9 +192,16 @@ class LoadingMixin:
         else:
             raise ValueError(f"Expected .vi or *_BDHb.xml file: {vi_path}")
 
-        # Early return if already loaded (prevents re-parsing)
+        # Early return only if already loaded AT >= the requested depth. A VI
+        # first seen as a leaf (child NONE) must still UPGRADE when loaded in its
+        # own right, or it never gets its own SubVIs/call edges (see
+        # _dep_load_mode). ``vi_name`` here is unqualified; library/class VIs are
+        # keyed qualified in _loaded_vis, so they fall through to
+        # _load_vi_recursive, which repeats this check under the qualified name.
         vi_name = bd_xml.name.replace("_BDHb.xml", ".vi")
-        if vi_name in self._loaded_vis:
+        if vi_name in self._loaded_vis and _mode_covers(
+            self._dep_load_mode.get(vi_name), mode
+        ):
             return
 
         # Build search paths
@@ -597,7 +615,13 @@ class LoadingMixin:
         if vi_name in visited:
             return None
 
-        if vi_name in self._loaded_vis:
+        # Already loaded at a >= depth → done. Otherwise fall through to UPGRADE:
+        # re-walk this VI's dependencies at the deeper mode (adds the missing
+        # SubVI loads + call edges). The graph-node build below is guarded so it
+        # runs once; the node/metadata adds are idempotent.
+        if vi_name in self._loaded_vis and _mode_covers(
+            self._dep_load_mode.get(vi_name), mode
+        ):
             return vi_name
 
         if metadata.qualified_name and metadata.qualified_name != unqualified_name:
@@ -652,8 +676,13 @@ class LoadingMixin:
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)
 
-        # Mark as loaded
+        # Mark as loaded, and record the depth we're loading its deps at — BEFORE
+        # the dependency walk below, so a cyclic callee that re-enters this VI at
+        # the same (or lower) depth is covered and short-circuits instead of
+        # recursing forever. Recording it after the walk would reintroduce the
+        # infinite recursion the old unconditional _loaded_vis check prevented.
         self._loaded_vis.add(vi_name)
+        self._dep_load_mode[vi_name] = mode
 
         # Build dep_ref_map from recorded LinkSavePathRef data.
         # Used for both dependency loading and iUse path diagnostics.
@@ -708,11 +737,15 @@ class LoadingMixin:
 
         # Build the unified graph for this VI AFTER all callees are loaded.
         # Callees are in the graph → cross-VI edges work → types propagate.
-        self._add_vi_to_graph(
-            bd, fp, conpane, wiring_rules, vi_name, type_map,
-            iuse_to_qname=metadata.iuse_to_qualified_name,
-            iuse_to_qpath=iuse_to_qpath,
-        )
+        # Guarded: on an UPGRADE re-run the VI's nodes already exist (they're
+        # built for every depth, even a leaf/NONE load), so only the dependency
+        # walk above needed to re-run — re-adding would duplicate nodes.
+        if vi_name not in self._vi_nodes:
+            self._add_vi_to_graph(
+                bd, fp, conpane, wiring_rules, vi_name, type_map,
+                iuse_to_qname=metadata.iuse_to_qualified_name,
+                iuse_to_qpath=iuse_to_qpath,
+            )
 
         return vi_name
 

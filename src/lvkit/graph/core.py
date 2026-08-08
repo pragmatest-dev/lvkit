@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
+from ..load_mode import LoadMode
 from ..models import ClusterField, LVType
 from ..parser.models import ParsedType
 
@@ -160,6 +161,13 @@ class InMemoryVIGraph(
         self._qualified_aliases: dict[str, str] = {}
         # Track loaded VIs across multiple load_vi() calls to prevent re-parsing
         self._loaded_vis: set[str] = set()
+        # Depth a VI's DEPENDENCIES were loaded at (NONE/MINIMAL/FULL). A VI
+        # first seen as a leaf (a caller's SubVI, child NONE) records NONE here;
+        # a later load at a higher depth UPGRADES it (progressive partial->full)
+        # instead of being blocked by the already-loaded check — without this, a
+        # VI leaf-loaded before its own turn in a directory walk never gets its
+        # OWN call edges. Absent key == not yet dependency-loaded.
+        self._dep_load_mode: dict[str, LoadMode] = {}
         # Source file paths: vi_name -> Path to original .vi file
         self._source_paths: dict[str, Path] = {}
         # Search paths the graph was loaded with, retained so decoration-only
@@ -216,6 +224,7 @@ class InMemoryVIGraph(
         self._poly_info.clear()
         self._qualified_aliases.clear()
         self._loaded_vis.clear()
+        self._dep_load_mode.clear()
         self._source_paths.clear()
         self._search_paths = []
         self._vi_file_index = None
