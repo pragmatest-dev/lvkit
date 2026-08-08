@@ -1,7 +1,16 @@
 # A GraphQL query surface for lvkit
 
-**Status: proposal.** Written 2026-08-06 against the bundled `lvkit 0.5.8`
-(`repo/lvkit/lvkit.exe`, 19 MCP tools, `mcp 1.27.0`).
+> **Superseded (2026-08-08) by `lvkit-query-surface.md`** for the query-*language*
+> decision. That doc adopts **read-only SQL over a curated view layer + typed
+> graph ops** instead of GraphQL — chiefly because `GROUP BY` aggregation is
+> native to SQL and not to GraphQL, and the storage-coupling worry this doc
+> raised is answered by the view layer. **This doc is retained for its still-valid
+> arguments**: projection is mandatory (§2.1), aggregation must be first-class
+> (§4), the surface must abstract storage and the in-memory models (§2.5), and
+> the measured error-indicator payload (Appendix).
+
+**Status: proposal (superseded — see banner above).** Written 2026-08-06 against
+the bundled `lvkit 0.5.8` (`repo/lvkit/lvkit.exe`, 19 MCP tools, `mcp 1.27.0`).
 
 Companion to `lvkit-mcp-improvements.md`. That document lists individual defects
 in the MCP surface; this one argues that several of them share a root cause —
