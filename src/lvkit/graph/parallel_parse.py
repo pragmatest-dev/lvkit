@@ -27,6 +27,7 @@ this can only make a load faster, never break it.
 from __future__ import annotations
 
 import logging
+import multiprocessing as mp
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -91,7 +92,13 @@ def parallel_parse_directory(
 
     cache: dict[str, ParsedVI] = {}
     try:
-        with ProcessPoolExecutor(max_workers=workers) as pool:
+        # Use a SPAWN context, never fork: build_index runs inside the MCP
+        # server's thread pool (asyncio.to_thread), and forking a
+        # multi-threaded process risks a child deadlock (Python warns about
+        # exactly this). Spawn starts a clean interpreter — safe with threads,
+        # and its higher startup is amortized over the batched work.
+        ctx = mp.get_context("spawn")
+        with ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
             for result in pool.map(_parse_batch, batches):
                 cache.update(result)
     except Exception:
