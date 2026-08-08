@@ -88,17 +88,17 @@ def test_build_module_with_constant():
             ),
         ],
         constants=[
-            Constant(id="const:1", value=42, name="MyConst"),
+            Constant(id="const:1", value=42, label="MyConst"),
         ],
         operations=[
-            Operation(id="op:1", name="Constant", labels=["Constant"]),
+            Operation(id="op:1", name="Constant", kind="constant"),
         ],
         data_flow=[
             Wire.from_terminals(
                 from_terminal_id="const:1",
                 to_terminal_id="out:1",
-                from_parent_labels=["Constant"],
-                to_parent_labels=["Output"],
+                from_parent_kind="constant",
+                to_parent_kind="vi",
             ),
         ],
     )
@@ -151,7 +151,7 @@ def test_build_module_with_primitive():
             PrimitiveOperation(
                 id="op:1",
                 name="Add",
-                labels=["Primitive"],
+                kind="primitive",
                 primResID=1050,
                 terminals=[
                     Terminal(id="term:1", index=1, direction="input", name="x"),
@@ -164,20 +164,20 @@ def test_build_module_with_primitive():
             Wire.from_terminals(
                 from_terminal_id="inp:1",
                 to_terminal_id="term:1",
-                from_parent_labels=["Input"],
-                to_parent_labels=["Primitive"],
+                from_parent_kind="vi",
+                to_parent_kind="primitive",
             ),
             Wire.from_terminals(
                 from_terminal_id="inp:2",
                 to_terminal_id="term:2",
-                from_parent_labels=["Input"],
-                to_parent_labels=["Primitive"],
+                from_parent_kind="vi",
+                to_parent_kind="primitive",
             ),
             Wire.from_terminals(
                 from_terminal_id="term:3",
                 to_terminal_id="out:1",
-                from_parent_labels=["Primitive"],
-                to_parent_labels=["Output"],
+                from_parent_kind="primitive",
+                to_parent_kind="vi",
             ),
         ],
     )
@@ -221,7 +221,7 @@ def test_build_module_with_subvi():
             SubVIOperation(
                 id="op:1",
                 name="Helper VI.vi",
-                labels=["SubVI"],
+                kind="vi",
                 terminals=[
                     Terminal(id="term:1", index=0, direction="input", name="input"),
                     Terminal(id="term:2", index=1, direction="output", name="output"),
@@ -232,14 +232,14 @@ def test_build_module_with_subvi():
             Wire.from_terminals(
                 from_terminal_id="inp:1",
                 to_terminal_id="term:1",
-                from_parent_labels=["Input"],
-                to_parent_labels=["SubVI"],
+                from_parent_kind="vi",
+                to_parent_kind="vi",
             ),
             Wire.from_terminals(
                 from_terminal_id="term:2",
                 to_terminal_id="out:1",
-                from_parent_labels=["SubVI"],
-                to_parent_labels=["Output"],
+                from_parent_kind="vi",
+                to_parent_kind="vi",
             ),
         ],
     )
@@ -387,7 +387,7 @@ def test_build_module_with_while_loop():
             LoopOperation(
                 id="loop:1",
                 name="While Loop",
-                labels=["Loop"],
+                kind="loop",
                 loop_type="whileLoop",
                 tunnels=[
                     Tunnel(
@@ -407,14 +407,14 @@ def test_build_module_with_while_loop():
             Wire.from_terminals(
                 from_terminal_id="inp:1",
                 to_terminal_id="tun:outer1",
-                from_parent_labels=["Input"],
-                to_parent_labels=["Loop"],
+                from_parent_kind="vi",
+                to_parent_kind="loop",
             ),
             Wire.from_terminals(
                 from_terminal_id="tun:outer2",
                 to_terminal_id="out:1",
-                from_parent_labels=["Loop"],
-                to_parent_labels=["Output"],
+                from_parent_kind="loop",
+                to_parent_kind="vi",
             ),
         ],
     )
@@ -438,7 +438,7 @@ def test_build_module_with_for_loop():
             LoopOperation(
                 id="loop:1",
                 name="For Loop",
-                labels=["Loop"],
+                kind="loop",
                 loop_type="forLoop",
             ),
         ],
@@ -500,7 +500,7 @@ def test_unknown_primitive_raises_at_runtime():
             PrimitiveOperation(
                 id="op:1",
                 name="Mystery Primitive",
-                labels=["Primitive"],
+                kind="primitive",
                 primResID=99999,
             ),
         ],
@@ -519,7 +519,7 @@ def test_unknown_node_type_emits_warning():
     vi_context = VIContext(
         name="Unknown Node.vi",
         operations=[
-            Operation(id="op:1", name="Weird Node", labels=["SomethingWeird"]),
+            Operation(id="op:1", name="Weird Node", kind="SomethingWeird"),
         ],
     )
 
@@ -758,7 +758,7 @@ def test_dataflow_tracer_wired_inputs():
             Operation(
                 id="op1",
                 name="Test Op",
-                labels=["Operation"],
+                kind="operation",
                 terminals=[
                     Terminal(id="t1", index=0, direction="input"),
                     Terminal(id="t2", index=1, direction="input"),
@@ -802,7 +802,7 @@ def test_dataflow_tracer_wired_outputs():
             Operation(
                 id="op1",
                 name="Test Op",
-                labels=["Operation"],
+                kind="operation",
                 terminals=[
                     Terminal(id="t1", index=0, direction="input"),
                     Terminal(id="t2", index=1, direction="output"),
@@ -972,7 +972,7 @@ def test_build_module_with_case_structure():
             ),
         ],
         operations=[
-            Operation(id="case:1", name="Case Structure", labels=["Case"]),
+            Operation(id="case:1", name="Case Structure", kind="Case"),
         ],
     )
 
@@ -1088,13 +1088,13 @@ def test_build_module_with_nested_loops():
             LoopOperation(
                 id="outer:1",
                 name="Outer For",
-                labels=["Loop"],
+                kind="loop",
                 loop_type="forLoop",
                 inner_nodes=[
                     LoopOperation(
                         id="inner:1",
                         name="Inner While",
-                        labels=["Loop"],
+                        kind="loop",
                         loop_type="whileLoop",
                     ),
                 ],

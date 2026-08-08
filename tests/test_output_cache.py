@@ -63,6 +63,22 @@ class TestRenderCache:
         output_cache.store_render(vi, "html", OPT, V, "OUT")
         assert output_cache.lookup_render(vi, "html", "svg|dark", V) is None
 
+    def test_text_encoding_change_invalidates(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        vi = _project_vi(tmp_path)
+        monkeypatch.setattr(output_cache, "labview_text_encoding", lambda: "gbk")
+        output_cache.store_render(vi, "html", OPT, V, "OUT")
+        monkeypatch.setattr(
+            output_cache,
+            "labview_text_encoding",
+            lambda: "cp1252",
+        )
+
+        assert output_cache.lookup_render(vi, "html", OPT, V) is None
+
     def test_overwrite_in_place_one_slot(self, tmp_path: Path) -> None:
         """A path-addressed VI has exactly ONE render slot; a re-store after an
         edit overwrites it (no accumulation)."""

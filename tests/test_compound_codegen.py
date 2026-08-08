@@ -56,7 +56,7 @@ class TestCompoundArithGenerate:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -88,7 +88,7 @@ class TestCompoundArithGenerate:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound And",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="and",
             terminals=[
@@ -110,7 +110,7 @@ class TestCompoundArithGenerate:
         ctx.bind("t2", "b")
         u32 = LVType(kind="primitive", underlying_type="NumUInt32")
         op = PrimitiveOperation(
-            id="cpd", name="Compound", labels=["Compound"],
+            id="cpd", name="Compound", kind="primitive",
             node_type="cpdArith", operation=operation,
             terminals=[
                 Terminal(id="t1", index=1, direction="input", lv_type=u32,
@@ -152,7 +152,7 @@ class TestCompoundArithGenerate:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Add",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="add",
             terminals=[
@@ -178,7 +178,7 @@ class TestCompoundArithGenerate:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -200,7 +200,7 @@ class TestCompoundArithGenerate:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -223,7 +223,7 @@ class TestCompoundArithGenerate:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -257,7 +257,7 @@ class TestCompoundArithResolvesThroughDataflow:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -296,7 +296,7 @@ class TestCompoundArithExecutable:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -330,7 +330,7 @@ class TestCompoundArithExecutable:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound And",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="and",
             terminals=[
@@ -365,7 +365,7 @@ class TestCompoundArithExecutable:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Add",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="add",
             terminals=[
@@ -399,7 +399,7 @@ class TestCompoundArithInvert:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Add",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="add",
             terminals=[
@@ -451,7 +451,7 @@ class TestCompoundArithInvert:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Add",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="add",
             terminals=[
@@ -479,7 +479,7 @@ class TestCompoundArithInvert:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Or",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -514,7 +514,7 @@ class TestCompoundArithInvert:
         op = PrimitiveOperation(
             id="cpd1",
             name=f"Compound {operation}",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation=operation,
             terminals=[
@@ -555,7 +555,7 @@ class TestCompoundArithInvert:
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
         op = PrimitiveOperation(
-            id="cpd1", name="Compound ?", labels=["Compound"],
+            id="cpd1", name="Compound ?", kind="primitive",
             node_type="cpdArith", operation="unsupported",
             terminals=[
                 Terminal(id="term1", index=1, direction="input"),
@@ -576,7 +576,7 @@ class TestCompoundArithInvert:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Multiply",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="multiply",
             terminals=[
@@ -601,7 +601,7 @@ class TestCompoundArithInvert:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Multiply",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="multiply",
             terminals=[
@@ -627,7 +627,7 @@ class TestCompoundArithInvert:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Xor",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="xor",
             terminals=[
@@ -652,7 +652,7 @@ class TestCompoundArithInvert:
         op = PrimitiveOperation(
             id="cpd1",
             name="Compound Xor",
-            labels=["Compound"],
+            kind="primitive",
             node_type="cpdArith",
             operation="xor",
             terminals=[
@@ -713,7 +713,7 @@ class TestArrayBuildGenerate:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term1", index=0, direction="input"),
@@ -742,7 +742,7 @@ class TestArrayBuildGenerate:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term1", index=0, direction="input"),
@@ -764,7 +764,7 @@ class TestArrayBuildGenerate:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term1", index=0, direction="input"),
@@ -783,7 +783,7 @@ class TestArrayBuildGenerate:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_out", index=0, direction="output"),
@@ -818,7 +818,7 @@ class TestArrayBuildExecutable:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term1", index=0, direction="input"),
@@ -850,7 +850,7 @@ class TestArrayBuildExecutable:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_2", index=2, direction="input"),  # Out of order
@@ -877,7 +877,7 @@ class TestArrayBuildExecutable:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_out", index=0, direction="output"),
@@ -913,7 +913,7 @@ class TestArrayBuildWithArrayInputs:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_arr", index=0, direction="input", lv_type=array_type),
@@ -944,7 +944,7 @@ class TestArrayBuildWithArrayInputs:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 # no lv_type → treated as scalar
@@ -976,7 +976,7 @@ class TestArrayBuildWithArrayInputs:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_arr", index=0, direction="input", lv_type=array_type),
@@ -1004,7 +1004,7 @@ class TestArrayBuildWithArrayInputs:
         op = PrimitiveOperation(
             id="build1",
             name="Build Array",
-            labels=["ArrayBuild"],
+            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_a", index=0, direction="input", lv_type=array_type),

@@ -46,6 +46,8 @@ class GraphNode(BaseModel):
     id: str
     vi: str
     name: str | None = None
+    label: str | None = None  # LabVIEW label (partID 16), see extract_label
+    caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
     node_type: str | None = None
     terminals: list[Terminal] = []
     description: str | None = None
@@ -219,7 +221,8 @@ class ConstantNode(GraphNode):
     value: ScalarValue = None
     lv_type: LVType | None = None
     raw_value: str | None = None
-    label: str | None = None
+    # ``label`` inherited from GraphNode (partID 16) — this IS the constant's
+    # display text; codegen never treats a constant's label as an identity.
     # Raw printf-style numeric display-format string from the parser
     # (``ParsedConstant.display_format``, e.g. ``%.0x`` for hex), threaded
     # through unchanged — render/nodes.py is where it's interpreted.
@@ -268,7 +271,7 @@ class WireEnd(BaseModel):
     node_id: str
     index: int | None = None
     name: str | None = None
-    labels: list[str] = []
+    parent_kind: str | None = None
 
 
 class Wire(BaseModel):
@@ -291,8 +294,8 @@ class Wire(BaseModel):
         to_parent_id: str | None = None,
         from_parent_name: str | None = None,
         to_parent_name: str | None = None,
-        from_parent_labels: list[str] | None = None,
-        to_parent_labels: list[str] | None = None,
+        from_parent_kind: str | None = None,
+        to_parent_kind: str | None = None,
         from_slot_index: int | None = None,
         to_slot_index: int | None = None,
     ) -> Wire:
@@ -303,14 +306,14 @@ class Wire(BaseModel):
                 node_id=from_parent_id or from_terminal_id,
                 index=from_slot_index,
                 name=from_parent_name,
-                labels=from_parent_labels or [],
+                parent_kind=from_parent_kind,
             ),
             dest=WireEnd(
                 terminal_id=to_terminal_id,
                 node_id=to_parent_id or to_terminal_id,
                 index=to_slot_index,
                 name=to_parent_name,
-                labels=to_parent_labels or [],
+                parent_kind=to_parent_kind,
             ),
         )
 
@@ -340,12 +343,12 @@ class Wire(BaseModel):
         return self.dest.name
 
     @property
-    def from_parent_labels(self) -> list[str]:
-        return self.source.labels
+    def from_parent_kind(self) -> str | None:
+        return self.source.parent_kind
 
     @property
-    def to_parent_labels(self) -> list[str]:
-        return self.dest.labels
+    def to_parent_kind(self) -> str | None:
+        return self.dest.parent_kind
 
     @property
     def from_slot_index(self) -> int | None:
@@ -373,7 +376,7 @@ class Constant(BaseModel):
     # ConstantNode so describe/netlist render the LabVIEW radix like the renderer.
     display_format: str | None = None
     raw_value: str | None = None
-    name: str | None = None
+    label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:
     # parent = containing structure's node id, frame = selector value / index.
     parent: str | None = None
@@ -456,7 +459,7 @@ class SourceInfo:
     src_terminal: str
     src_parent_id: str
     src_parent_name: str | None = None
-    src_parent_labels: list[str] = field(default_factory=list)
+    src_parent_kind: str | None = None
     src_slot_index: int | None = None
 
 
@@ -467,7 +470,7 @@ class DestinationInfo:
     dest_terminal: str
     dest_parent_id: str
     dest_parent_name: str | None = None
-    dest_parent_labels: list[str] = field(default_factory=list)
+    dest_parent_kind: str | None = None
     dest_slot_index: int | None = None
 
 

@@ -85,7 +85,7 @@ def _obtain_op(
     return PrimitiveOperation(
         id=node_id,
         name="Obtain Queue",
-        labels=["Prim"],
+        kind="primitive",
         node_type="prim",
         primResID=9108,
         terminals=terminals,
@@ -106,7 +106,7 @@ def _enqueue_op(
     return PrimitiveOperation(
         id=node_id,
         name="Enqueue Element At Opposite End" if opposite_end else "Enqueue Element",
-        labels=["Prim"],
+        kind="primitive",
         node_type="prim",
         primResID=9129 if opposite_end else 9111,
         terminals=terminals,
@@ -124,7 +124,7 @@ def _dequeue_op(node_id: str = "dequeue") -> PrimitiveOperation:
     return PrimitiveOperation(
         id=node_id,
         name="Dequeue Element",
-        labels=["Prim"],
+        kind="primitive",
         node_type="prim",
         primResID=9113,
         terminals=terminals,
@@ -143,7 +143,7 @@ def _release_op(node_id: str = "release", *, force: bool = False) -> PrimitiveOp
         _terminal(f"{node_id}.remaining", 9, "output"),
     ]
     return PrimitiveOperation(
-        id=node_id, name="Release Queue", labels=["Prim"],
+        id=node_id, name="Release Queue", kind="primitive",
         node_type="prim", primResID=9109, terminals=terminals,
     )
 
@@ -385,7 +385,7 @@ def _status_op(node_id: str = "status") -> PrimitiveOperation:
     idx6=name, idx7=# elements, idx8=queue out, idx9=# pending remove,
     idx10=# pending insert (error terminals omitted, as in the other builders)."""
     return PrimitiveOperation(
-        id=node_id, name="Get Queue Status", labels=["Prim"],
+        id=node_id, name="Get Queue Status", kind="primitive",
         node_type="prim", primResID=9110,
         terminals=[
             _terminal(f"{node_id}.queue", 0, "input"),

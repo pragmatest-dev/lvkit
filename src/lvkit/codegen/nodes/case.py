@@ -6,6 +6,7 @@ import ast
 import keyword
 import logging
 
+from lvkit.graph.core import _KIND_TO_TAGS
 from lvkit.models import CaseFrame, CaseOperation, _is_error_cluster
 
 from ..ast_utils import (
@@ -253,9 +254,9 @@ def _fallback_selector(
     if flow:
         if flow.src_parent_name:
             return to_var_name(flow.src_parent_name)
-        for label in flow.src_parent_labels:
-            if label not in ("Primitive", "operation"):
-                return to_var_name(label)
+        pk = flow.src_parent_kind
+        if pk and pk not in ("primitive", "operation"):
+            return to_var_name(_KIND_TO_TAGS.get(pk, [pk])[0])
     return "selector"
 
 
@@ -305,8 +306,7 @@ def _generate_error_case(
         and len(error_frame.operations) > 0
     ):
         op_names = ", ".join(
-            op.name or op.node_type or "?"
-            for op in error_frame.operations
+            op.display_name for op in error_frame.operations
         )
         logger.info("LV error frame omitted in %s: %s", node.id, op_names)
 

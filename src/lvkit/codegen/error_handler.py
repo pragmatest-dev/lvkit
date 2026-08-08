@@ -81,7 +81,7 @@ def classify_error_node(op: Operation) -> ErrorHandlingPattern:
         return ErrorHandlingPattern.MERGE
 
     # Clear Errors VI
-    if "SubVI" in op.labels and op.name and "Clear Errors" in op.name:
+    if op.kind == "vi" and op.name and "Clear Errors" in op.name:
         return ErrorHandlingPattern.CLEAR
 
     # Error case structure: selector terminal carries error cluster type

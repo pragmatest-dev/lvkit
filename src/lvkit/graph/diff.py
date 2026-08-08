@@ -23,6 +23,7 @@ from ..models import (
     Terminal,
     _is_error_cluster,
 )
+from ..parser.node_types import get_display_name
 from .models import Constant, Wire, WireEnd
 from .netlist import (
     NetlistItem,
@@ -224,7 +225,7 @@ def _struct_label(op: Operation) -> str:
         return "Event structure"
     if isinstance(op, InPlaceOperation):
         return "In Place Element structure"
-    return op.node_type or "structure"
+    return get_display_name(op.node_type) if op.node_type else "structure"
 
 
 def _elem_label(op: Operation, kind: str) -> str:
@@ -373,7 +374,10 @@ def _match_elements(
     def kind(u: str) -> tuple[str, str]:
         entry = a.get(u) or b.get(u)
         op = entry.op if entry is not None else None
-        return (op.name or "", op.node_type or "") if op is not None else ("?", "?")
+        if op is None:
+            return ("?", "?")
+        node_word = get_display_name(op.node_type) if op.node_type else ""
+        return (op.name or "", node_word)
 
     def tok(v: str, base_side: bool) -> tuple:
         if v in common:
@@ -771,10 +775,10 @@ def _wire_changes(
     # netlist's ``_resolve_source`` renders the same wire -- diff and netlist
     # must read a constant-fed wire identically.
     consts_a = {
-        c.id: (c.name or _const_value_str(c)) for c in graph_a.get_constants(va)
+        c.id: (c.label or _const_value_str(c)) for c in graph_a.get_constants(va)
     }
     consts_b = {
-        c.id: (c.name or _const_value_str(c)) for c in graph_b.get_constants(vb)
+        c.id: (c.label or _const_value_str(c)) for c in graph_b.get_constants(vb)
     }
     self_terms_a = (
         graph_a.get_inputs(va, public_only=False)
@@ -803,7 +807,11 @@ def _wire_changes(
             entry = elems.get(_uid_of(end.node_id))
             if entry is not None:
                 terminals = entry.op.terminals
-                owner_label = entry.op.name or entry.op.node_type
+                node_word = (
+                    get_display_name(entry.op.node_type)
+                    if entry.op.node_type else None
+                )
+                owner_label = entry.op.name or node_word
         for t in terminals:
             match = (
                 t.index == term_key if isinstance(term_key, int)
@@ -1443,8 +1451,8 @@ def _constant_changes(
     ) -> tuple[tuple, bool]:
         ccons = frozenset(cons.get(_uid_of(c.id), set()))
         _, fp = _constant_locality(c, elems)
-        anchored_here = c.name is not None or any(n in anchored for n, _ in ccons)
-        return (c.name, fp, ccons), anchored_here
+        anchored_here = c.label is not None or any(n in anchored for n, _ in ccons)
+        return (c.label, fp, ccons), anchored_here
 
     b_by_key: dict[tuple, list[Constant]] = defaultdict(list)
     for cb in left_b:

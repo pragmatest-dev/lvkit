@@ -44,6 +44,8 @@ class ParsedNode:
     uid: str
     node_type: str  # XML class: "iUse", "prim", "cpdArith", "aBuild", etc.
     name: str | None = None
+    label: str | None = None  # LabVIEW label (partID 16), see extract_label
+    caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
 
 
 @dataclass
@@ -53,6 +55,7 @@ class ParsedConstant:
     type_desc: str
     value: str
     label: str | None = None
+    caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
     # Raw printf-style display-format string from the constant's own numeric
     # label part (e.g. '%.0x' = hex, '%.2f' = 2 decimal digits), verbatim
     # from the DCO's ddo/partsList/numLabel/format XML element. None when

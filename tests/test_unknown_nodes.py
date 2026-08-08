@@ -64,7 +64,7 @@ class TestUnknownNodeCodegenFailsLoudly:
         from lvkit.models import PrimitiveOperation
         return PrimitiveOperation(
             id="vi::n", node_type=node_type, primResID=None,
-            name=node_type, labels=[], terminals=[],
+            name=node_type, kind="primitive", terminals=[],
         )
 
     def test_generic_unknown_raises(self):

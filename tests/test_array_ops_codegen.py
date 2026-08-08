@@ -48,7 +48,7 @@ def _init_op(*dim_ids: str) -> PrimitiveOperation:
     return PrimitiveOperation(
         id="init1",
         name="Initialize Array",
-        labels=["ArrayInit"],
+        kind="primitive",
         node_type="aInit",
         terminals=terminals,
     )
@@ -157,7 +157,7 @@ class TestArrayInitMutableElement:
         op = PrimitiveOperation(
             id="init1",
             name="Initialize Array",
-            labels=["ArrayInit"],
+            kind="primitive",
             node_type="aInit",
             terminals=terminals,
         )
@@ -179,7 +179,7 @@ def _replace_op(new_elem_type: LVType | None = None) -> PrimitiveOperation:
     return PrimitiveOperation(
         id="rep1",
         name="Replace Array Subset",
-        labels=["ArrayReplace"],
+        kind="primitive",
         node_type="aReplace",
         terminals=[
             Terminal(id="arr", index=0, direction="input"),
@@ -338,7 +338,7 @@ def _insert_op(elem_type: LVType | None = None) -> PrimitiveOperation:
     return PrimitiveOperation(
         id="ins1",
         name="Insert Into Array",
-        labels=["ArrayInsert"],
+        kind="primitive",
         node_type="aInsert",
         terminals=[
             Terminal(id="arr", index=0, direction="input"),
@@ -447,7 +447,7 @@ def _reshape_op(source_ndim: int, *dim_ids: str) -> PrimitiveOperation:
     return PrimitiveOperation(
         id="rshp1",
         name="Reshape Array",
-        labels=["ArrayReshape"],
+        kind="primitive",
         node_type="aReshape",
         terminals=terminals,
     )

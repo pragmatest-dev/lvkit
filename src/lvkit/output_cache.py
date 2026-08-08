@@ -16,8 +16,9 @@ Addressing mirrors extraction (see :mod:`lvkit.cache_paths`):
   flat ``<cache>/render/adhoc/<sha>.<ext>`` and swept by TTL.
 
 Freshness = the VI-content signal ``cache_paths.meta_fresh`` already uses PLUS
-the lvkit ``version`` and an ``options`` tag — so a VI edit, an lvkit upgrade, or
-a different ``--format``/``--theme`` is a miss.
+the lvkit ``version``, text encoding, and an ``options`` tag — so a VI edit, an
+lvkit upgrade, a system-code-page change, or different ``--format``/``--theme``
+is a miss.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import time
 from pathlib import Path
 
 from lvkit import cache_paths
+from lvkit.text_encoding import labview_text_encoding
 
 # The genuinely-growing surfaces get an access-time TTL (a diff/adhoc entry is
 # worthless once its inputs move on — regenerate on demand). Path-addressed
@@ -149,7 +151,11 @@ def lookup_render(
     body_path, meta_path, _adhoc = _render_paths(input_path, fmt)
     return _read_if_fresh(
         input_path, body_path, meta_path,
-        {"lvkit_version": version, "options": options},
+        {
+            "lvkit_version": version,
+            "options": options,
+            "text_encoding": labview_text_encoding(),
+        },
     )
 
 
@@ -160,7 +166,12 @@ def store_render(
     body_path, meta_path, _adhoc = _render_paths(input_path, fmt)
     _write(
         body_path, meta_path, input_path, body,
-        {"lvkit_version": version, "options": options, "kind": "render"},
+        {
+            "lvkit_version": version,
+            "options": options,
+            "kind": "render",
+            "text_encoding": labview_text_encoding(),
+        },
     )
     return body_path
 
@@ -174,7 +185,12 @@ def lookup_diff(
     )
     return _read_if_fresh(
         after_path, body_path, meta_path,
-        {"lvkit_version": version, "options": options, "before_sha": before_sha},
+        {
+            "lvkit_version": version,
+            "options": options,
+            "before_sha": before_sha,
+            "text_encoding": labview_text_encoding(),
+        },
     )
 
 
@@ -191,6 +207,7 @@ def store_diff(
         {
             "lvkit_version": version, "options": options,
             "before_sha": before_sha, "kind": "diff",
+            "text_encoding": labview_text_encoding(),
         },
     )
     return body_path

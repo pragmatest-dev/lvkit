@@ -59,7 +59,7 @@ def _make_case_op(
     return CaseOperation(
         id="case_1",
         name="Case Structure",
-        labels=["CaseStructure"],
+        kind="caseStruct",
         node_type="caseStruct",
         terminals=terminals,
         selector_terminal=selector_id,
@@ -128,7 +128,7 @@ class TestErrorCaseUnwrap:
 
     def test_nonempty_error_frame_logs(self, caplog):
         inner_op = Operation(
-            id="cleanup", name="cleanup.vi", labels=["SubVI"],
+            id="cleanup", name="cleanup.vi", kind="vi",
             node_type="iUse", terminals=[],
         )
         op = _make_case_op("sel_1", _error_cluster_type(), frames=[
@@ -181,7 +181,7 @@ class TestNMuxRoles:
     def _make_nmux_op(self, terminals: list[Terminal]) -> PrimitiveOperation:
         return PrimitiveOperation(
             id="nmux_1", name="Node Multiplexer",
-            labels=["Primitive"], node_type="nMux",
+            kind="primitive", node_type="nMux",
             terminals=terminals,
         )
 
@@ -254,7 +254,7 @@ class TestPropertyDedup:
 
         op = PropertyOperation(
             id="prop_1", name="Property Node",
-            labels=["PropertyNode"], node_type="propNode",
+            kind="primitive", node_type="propNode",
             terminals=[
                 Terminal(id="ref_in", index=0, direction="input"),
                 Terminal(id="out_1", index=1, direction="output"),
@@ -300,7 +300,7 @@ class TestPassthroughElimination:
 
         op = PrimitiveOperation(
             id="prim_1", name="Passthrough",
-            labels=["Primitive"], node_type="prim",
+            kind="primitive", node_type="prim",
             primResID=9999,
             terminals=[
                 Terminal(id="in_t", index=0, direction="input"),
@@ -386,7 +386,7 @@ class TestSelectorTopoSort:
 
         # Build operations
         producer_op = PrimitiveOperation(
-            id="equal_1", name="Equal?", labels=["Primitive"],
+            id="equal_1", name="Equal?", kind="primitive",
             node_type="prim", primResID=1091,
             terminals=[
                 Terminal(id="eq_in", index=0, direction="input"),
@@ -394,7 +394,7 @@ class TestSelectorTopoSort:
             ],
         )
         case_op = CaseOperation(
-            id="case_1", name="Case", labels=["CaseStructure"],
+            id="case_1", name="Case", kind="caseStruct",
             node_type="caseStruct",
             terminals=[
                 Terminal(id="sel_in", index=0, direction="input", name="selector"),
@@ -462,7 +462,7 @@ class TestInvokeErrorSkip:
 
         op = InvokeOperation(
             id="invoke_1", name="Invoke",
-            labels=["InvokeNode"], node_type="invokeNode",
+            kind="primitive", node_type="invokeNode",
             terminals=[
                 Terminal(id="ref_t_in", index=0, direction="input"),
                 Terminal(

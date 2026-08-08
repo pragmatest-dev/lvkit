@@ -137,7 +137,7 @@ def _make_dynIUse_node(
     return SubVIOperation(
         id="node_1",
         name=name,
-        labels=["SubVI"],
+        kind="vi",
         node_type="dynIUse",
         terminals=terminals,
     )

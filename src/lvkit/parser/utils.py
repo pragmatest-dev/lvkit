@@ -148,28 +148,75 @@ def extract_label(elem: ET.Element) -> str | None:
     Returns:
         Label text or None if not found
     """
-    # Search paths in priority order
-    search_paths = [
-        # partID=16 is the user-visible control label
-        (".//*[@class='label'][partID='16']/.//text", True),
-        # Any label with valid text (older formats)
-        (".//*[@class='label']/.//text", True),
-        # Direct textRec/text
-        (".//textRec/text", True),
-        # label/textRec/text (some node types)
-        ("label/textRec/text", False),
-        # Formula Node terminal variable name (fBoxDCO/vblName)
-        ("vblName/text", False),
-    ]
-
-    for xpath, filter_pane in search_paths:
-        for text_elem in elem.findall(xpath):
-            if text_elem is not None and text_elem.text:
-                text = clean_labview_string(text_elem.text)
-                if not text:
-                    continue
-                if filter_pane and text.lower() == "pane":
-                    continue
+    # Object-scoped, grounded in LabVIEW's heap layout: an object's OWN label
+    # lives among its own parts -- inside its <partsList> (the grouping of a
+    # control's cosmetic parts + label), or, for node types that don't use
+    # partsList, as a DIRECT <label> child. A nested object (a cluster field, a
+    # loop frame's subVI) keeps its parts under ITSELF, outside this object's
+    # partsList -- so we never steal its label, which is the descendant grab
+    # that used to force per-caller guards. partID=16 is the user-visible label;
+    # prefer it, then any own label, then a bare textRec / Formula-Node name.
+    for xpath in (
+        "./partsList/*[@class='label'][partID='16']",
+        "./label[partID='16']",
+        "./partsList/*[@class='label']",
+        "./label",
+    ):
+        for label in elem.findall(xpath):
+            text = _first_text(label)
+            if text and text.lower() != "pane":
                 return text
+    for xpath in ("./textRec/text", "./vblName/text"):
+        el = elem.find(xpath)
+        if el is not None and el.text:
+            text = clean_labview_string(el.text)
+            if text and text.lower() != "pane":
+                return text
+    return None
 
+
+def extract_caption(elem: ET.Element) -> str | None:
+    """Extract caption text from an XML element.
+
+    Searches for caption text in the proper location:
+    - partID=82 is the user-visible caption in LabVIEW -- a display-only
+      alias distinct from the label (partID=16, see extract_label).
+
+    Verified clean-room: pylabview's ``LVparts.PARTID`` enum defines
+    ``CAPTION = 82`` (``NAME_LABEL = 16``; partID 17 is unrelated --
+    ``SCALE``, a numeric/graph axis part, not a label at all). Confirmed
+    against real extracted front-panel XML: a control's own ``partsList``
+    carries sibling ``class='label'`` parts for partID 16 (label / code
+    identity, e.g. ``"pin_name"``) and partID 82 (caption / display alias,
+    e.g. ``"Pin Name"``) with independently-settable text -- when the
+    caption hasn't been customized it mirrors the label's text; when unset
+    entirely it's a lone null byte.
+
+    Object-scoped like extract_label: only this element's OWN partID=82
+    part is read, never a descendant's.
+
+    Args:
+        elem: XML element to search
+
+    Returns:
+        Caption text or None if not found/unset
+    """
+    for xpath in (
+        "./partsList/*[@class='label'][partID='82']",
+        "./label[partID='82']",
+    ):
+        for label in elem.findall(xpath):
+            text = _first_text(label)
+            if text and text.lower() != "pane":
+                return text
+    return None
+
+
+def _first_text(label: ET.Element) -> str | None:
+    """First non-empty cleaned text anywhere inside a label's own subtree."""
+    for t in label.iter("text"):
+        if t.text:
+            cleaned = clean_labview_string(t.text)
+            if cleaned:
+                return cleaned
     return None

@@ -74,7 +74,6 @@ class QueryMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def _build_operation(self, uid: str, vi_name: str) -> Operation: ...
-        def _kind_to_labels(self, kind: str) -> list[str]: ...
         def has_parallel_branches(self, vi_name: str) -> bool: ...
         def get_class_fields(
             self, classname: str,
@@ -589,7 +588,7 @@ class QueryMixin:
                 lv_type=gnode.lv_type,
                 display_format=gnode.display_format,
                 raw_value=gnode.raw_value,
-                name=gnode.label,
+                label=gnode.label,
                 parent=gnode.parent,
                 frame=gnode.frame,
             ))
@@ -773,14 +772,12 @@ class QueryMixin:
                 if is_internal and not include_internal:
                     continue
 
-                # Look up parent node data for labels and names
+                # Look up parent node data for classification kind and names
                 from_node = self._get_typed_node(src_end.node_id)
                 to_node = self._get_typed_node(dst_end.node_id)
 
                 from_kind = _graph_node_to_op_kind(from_node) if from_node else ""
                 to_kind = _graph_node_to_op_kind(to_node) if to_node else ""
-                from_labels = self._kind_to_labels(from_kind)
-                to_labels = self._kind_to_labels(to_kind)
 
                 wire = Wire(
                     source=WireEnd(
@@ -788,14 +785,14 @@ class QueryMixin:
                         node_id=src_end.node_id,
                         index=src_end.index,
                         name=from_node.name if from_node else None,
-                        labels=from_labels,
+                        parent_kind=from_kind or None,
                     ),
                     dest=WireEnd(
                         terminal_id=dst_end.terminal_id,
                         node_id=dst_end.node_id,
                         index=dst_end.index,
                         name=to_node.name if to_node else None,
-                        labels=to_labels,
+                        parent_kind=to_kind or None,
                     ),
                 )
 

@@ -247,7 +247,7 @@ def project_vi_facts(
                 if c.raw_value is not None
                 else (str(c.value) if c.value is not None else "")
             ),
-            label=c.name,
+            label=c.label,
             py_type=c.lv_type.to_python() if c.lv_type else "Any",
             wired_to=_constant_wired_to(graph, vi_name, c),
         )

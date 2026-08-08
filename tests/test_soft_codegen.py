@@ -80,7 +80,7 @@ def test_operation_qualified_path_field_exists() -> None:
     op = Operation(
         id="op_1",
         name="something",
-        labels=["SubVI"],
+        kind="vi",
         qualified_path="<vilib>/Utility/foo.llb/Bar.vi",
     )
     assert op.qualified_path == "<vilib>/Utility/foo.llb/Bar.vi"
@@ -96,7 +96,7 @@ def test_soft_mode_primitive_emits_raise_statement() -> None:
     node = PrimitiveOperation(
         id="prim_unknown_1",
         name="Mystery",
-        labels=["Primitive"],
+        kind="primitive",
         terminals=[
             Terminal(
                 id="t0", index=0, direction="output", name="result",
@@ -134,7 +134,7 @@ def test_hard_mode_primitive_still_raises() -> None:
     node = PrimitiveOperation(
         id="prim_unknown_2",
         name="Mystery",
-        labels=["Primitive"],
+        kind="primitive",
         terminals=[],
         primResID=99999,
     )
@@ -154,7 +154,7 @@ def test_soft_mode_vilib_emits_raise_statement() -> None:
     node = SubVIOperation(
         id="subvi_1",
         name="Imaginary VI.vi",
-        labels=["SubVI"],
+        kind="vi",
         terminals=[
             Terminal(
                 id="t1", index=0, direction="input", name="in1",
@@ -194,7 +194,7 @@ def test_hard_mode_vilib_still_raises() -> None:
     node = SubVIOperation(
         id="subvi_2",
         name="Imaginary VI.vi",
-        labels=["SubVI"],
+        kind="vi",
         terminals=[],
         node_type="iUse",
     )
@@ -214,7 +214,7 @@ def test_soft_mode_generated_code_runs_and_raises() -> None:
     node = PrimitiveOperation(
         id="prim_runtime",
         name="Mystery",
-        labels=["Primitive"],
+        kind="primitive",
         terminals=[
             Terminal(
                 id="t_out", index=0, direction="output", name="result",
@@ -294,7 +294,7 @@ def test_emit_soft_unresolved_rejects_non_literal_kwarg() -> None:
     node = PrimitiveOperation(
         id="prim_guard",
         name="X",
-        labels=["Primitive"],
+        kind="primitive",
         terminals=[],
         primResID=1,
     )
@@ -320,7 +320,7 @@ def test_emit_soft_unresolved_rejects_non_literal_positional_arg() -> None:
     node = PrimitiveOperation(
         id="prim_guard_pos",
         name="X",
-        labels=["Primitive"],
+        kind="primitive",
         terminals=[],
         primResID=1,
     )
@@ -369,7 +369,7 @@ def test_emit_soft_unresolved_source_kwargs_unchecked() -> None:
     node = PrimitiveOperation(
         id="prim_src_kw",
         name="X",
-        labels=["Primitive"],
+        kind="primitive",
         terminals=[],
         primResID=1,
     )
@@ -403,7 +403,7 @@ def test_primitive_operation_has_no_qualified_path() -> None:
     op = PrimitiveOperation(
         id="prim_no_path",
         name="Add",
-        labels=["Primitive"],
+        kind="primitive",
         terminals=[],
         primResID=1419,
     )

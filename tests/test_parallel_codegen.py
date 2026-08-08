@@ -29,7 +29,7 @@ def _make_op(
     return Operation(
         id=op_id,
         name=name,
-        labels=["SubVI"],
+        kind="vi",
         node_type="iUse",
         terminals=terminals or [],
     )
@@ -237,7 +237,7 @@ class TestSequenceParallelIntegration:
         op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             node_type="flatSequence",
             frames=[
                 SequenceFrame(
@@ -262,7 +262,7 @@ class TestSequenceParallelIntegration:
         op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             node_type="flatSequence",
             frames=[
                 SequenceFrame(
@@ -287,7 +287,7 @@ class TestSequenceParallelIntegration:
         op = SequenceOperation(
             id="seq1",
             name="Flat Sequence",
-            labels=["FlatSequence"],
+            kind="flatSequence",
             node_type="flatSequence",
             frames=[
                 SequenceFrame(

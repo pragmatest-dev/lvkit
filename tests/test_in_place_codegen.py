@@ -55,7 +55,7 @@ def _dec_op(
             )
         )
     return PrimitiveOperation(
-        id=f"dec_{poser_uid}", name="Decompose", labels=[], poser_uid=poser_uid,
+        id=f"dec_{poser_uid}", name="Decompose", kind="primitive", poser_uid=poser_uid,
         terminals=terminals,
     )
 
@@ -82,7 +82,7 @@ def _rec_op(
         )
     )
     return PrimitiveOperation(
-        id=f"rec_{poser_uid}", name="Recompose", labels=[], poser_uid=poser_uid,
+        id=f"rec_{poser_uid}", name="Recompose", kind="primitive", poser_uid=poser_uid,
         terminals=terminals,
     )
 
@@ -100,7 +100,7 @@ class TestIPESInputTunnels:
         ctx.bind("outer_in", "my_var")
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="outer_in", index=0, direction="input")],
             tunnels=[Tunnel(
                 outer_terminal_uid="outer_in", inner_terminal_uid="inner_in",
@@ -121,7 +121,7 @@ class TestIPESInputTunnels:
         ctx.bind("outer_in", "my_var")
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="outer_in", index=0, direction="input")],
             tunnels=[Tunnel(
                 outer_terminal_uid="outer_in", inner_terminal_uid="inner_in",
@@ -137,7 +137,7 @@ class TestIPESInputTunnels:
         ctx = make_ctx("outer_in", "inner_in")
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="outer_in", index=0, direction="input")],
             tunnels=[Tunnel(
                 outer_terminal_uid="outer_in", inner_terminal_uid="inner_in",
@@ -162,7 +162,7 @@ class TestIPESOutputTunnels:
         ctx.bind("inner_out", "computed_val")
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="outer_out", index=0, direction="output")],
             tunnels=[Tunnel(
                 outer_terminal_uid="outer_out", inner_terminal_uid="inner_out",
@@ -178,7 +178,7 @@ class TestIPESOutputTunnels:
         ctx = make_ctx("outer_out", "inner_out")
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="outer_out", index=0, direction="output")],
             tunnels=[Tunnel(
                 outer_terminal_uid="outer_out", inner_terminal_uid="inner_out",
@@ -196,7 +196,7 @@ class TestIPESOutputTunnels:
         ctx.bind("out_inner", "result_val")
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[
                 Terminal(id="in_outer", index=0, direction="input"),
                 Terminal(id="out_outer", index=1, direction="output"),
@@ -234,7 +234,7 @@ class TestIPESDecomposeFieldBinding:
 
         dec = _dec_op("p1", "dec_agg", "dec_field_x", lv_type=lv_type)
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="cluster_in", index=0, direction="input")],
             tunnels=[],
             decompose_ops=[dec],
@@ -250,7 +250,7 @@ class TestIPESDecomposeFieldBinding:
 
         dec = _dec_op("p1", "dec_agg", "f0", "f1", "f2", lv_type=lv_type)
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="cluster_in", index=0, direction="input")],
             tunnels=[],
             decompose_ops=[dec],
@@ -269,7 +269,7 @@ class TestIPESDecomposeFieldBinding:
 
         dec = _dec_op("p1", "dec_agg", "dec_field_x", lv_type=lv_type)
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="cluster_in", index=0, direction="input")],
             tunnels=[],
             decompose_ops=[dec],
@@ -297,7 +297,7 @@ class TestIPESRecomposeWriteBack:
         rec = _rec_op("p1", "rec_agg_out", "rec_f", lv_type=lv_type)
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="cluster_in", index=0, direction="input")],
             tunnels=[],
             decompose_ops=[dec],
@@ -320,7 +320,7 @@ class TestIPESRecomposeWriteBack:
         rec = _rec_op("p1", "rec_agg_out", "rec_f", lv_type=lv_type)
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="cluster_in", index=0, direction="input")],
             tunnels=[],
             decompose_ops=[dec],
@@ -339,7 +339,7 @@ class TestIPESRecomposeWriteBack:
         rec = _rec_op("p1", "rec_agg_out", "rec_f", lv_type=lv_type)
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[],  # no data input terminal
             tunnels=[],
             recompose_ops=[rec],
@@ -362,7 +362,7 @@ class TestIPESRecomposeWriteBack:
         rec = _rec_op("p1", "rec_agg_out", "rec_a", "rec_b", lv_type=lv_type)
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="cluster_in", index=0, direction="input")],
             tunnels=[],
             decompose_ops=[dec],
@@ -394,7 +394,7 @@ class TestIPESFallbackData:
         dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=lv_type)
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[
                 Terminal(id="cluster_in", index=0, direction="input"),
                 Terminal(id="cluster_out", index=1, direction="output"),
@@ -419,7 +419,7 @@ class TestIPESFallbackData:
         dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=lv_type)
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[
                 Terminal(id="cluster_in", index=0, direction="input"),
                 Terminal(id="out_outer", index=1, direction="output"),
@@ -441,7 +441,7 @@ class TestIPESFallbackData:
         ctx = make_ctx("cluster_out")
 
         node = InPlaceOperation(
-            id="ipes", name="IPES", labels=[],
+            id="ipes", name="IPES", kind="inPlaceStruct",
             terminals=[Terminal(id="cluster_out", index=0, direction="output")],
             tunnels=[],
         )
@@ -474,7 +474,7 @@ class TestClassifyIpesOps:
 
     def test_classify_no_poser_uid_is_regular(self):
         op = PrimitiveOperation(
-            id="op1", name="Add", labels=[], poser_uid=None,
+            id="op1", name="Add", kind="primitive", poser_uid=None,
             terminals=[Terminal(id="t1", index=0, direction="input")],
         )
         decompose, recompose, regular = _classify_ipes_ops([op])
@@ -485,7 +485,7 @@ class TestClassifyIpesOps:
     def test_classify_passthrough_list_both_directions_is_regular(self):
         """Op with list_in AND list_out is ambiguous — treated as regular."""
         op = PrimitiveOperation(
-            id="op1", name="PassThrough", labels=[], poser_uid="p1",
+            id="op1", name="PassThrough", kind="primitive", poser_uid="p1",
             terminals=[
                 Terminal(id="t_in", index=0, direction="input", nmux_role="list"),
                 Terminal(id="t_out", index=1, direction="output", nmux_role="list"),
@@ -499,7 +499,9 @@ class TestClassifyIpesOps:
     def test_classify_mixed_set(self):
         dec = _dec_op("p1", "agg_in", "f_out")
         rec = _rec_op("p1", "agg_out", "f_in")
-        regular_op = PrimitiveOperation(id="op1", name="Add", labels=[], terminals=[])
+        regular_op = PrimitiveOperation(
+            id="op1", name="Add", kind="primitive", terminals=[],
+        )
         decompose, recompose, regular = _classify_ipes_ops([dec, rec, regular_op])
         assert len(decompose) == 1
         assert len(recompose) == 1

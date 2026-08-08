@@ -19,7 +19,7 @@ def _first_call_op(node_id: str = "fc1") -> PrimitiveOperation:
     return PrimitiveOperation(
         id=node_id,
         name="First Call?",
-        labels=["Prim"],
+        kind="primitive",
         node_type="prim",
         primResID=first_call.FIRST_CALL_PRIM_ID,
         terminals=[

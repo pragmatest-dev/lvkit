@@ -563,16 +563,9 @@ def _get_dest_terminal_name(
 
     dest_list = ctx.get_destinations(terminal_uid)
     for dest_info in dest_list:
-        # Check if it's a named indicator (output)
-        if (
-            dest_info.dest_parent_name
-            and "Indicator" in dest_info.dest_parent_labels
-        ):
-            return dest_info.dest_parent_name
-
         # Check if it flows to a SubVI input - use SubVI name as hint
         if (
-            "SubVI" in dest_info.dest_parent_labels
+            dest_info.dest_parent_kind == "vi"
             and dest_info.dest_parent_name
         ):
             return dest_info.dest_parent_name

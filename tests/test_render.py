@@ -2634,13 +2634,13 @@ def test_describe_in_place_operation_never_shows_raw_node_type():
 
     unlabeled = InPlaceOperation(
         id="V::1", name="In Place Element", node_type="decomposeRecomposeStructure",
-        labels=[],
+        kind="inPlaceStruct",
     )
     assert _describe_single_op(unlabeled) == "In Place Element"
 
     labeled = InPlaceOperation(
         id="V::2", name="write multiple elements.vi",
-        node_type="decomposeRecomposeStructure", labels=[],
+        node_type="decomposeRecomposeStructure", kind="inPlaceStruct",
     )
     result = _describe_single_op(labeled)
     assert result == "write multiple elements.vi"
