@@ -17,41 +17,19 @@ the `lvkit-mcp` console script installed with the `lvkit` package.
 
 ## Setup
 
-For the full matrix — VS Code extension, Claude Code plugin, Codex, uvx, and
-pre-release — and **which one fits your editor**, see [Installing the MCP
-server](install.md). The essentials:
-
 The server is **stdio** — your agent's runtime launches it and speaks to it; you
-don't run `lvkit mcp` by hand. Point the client's `command` at any lvkit that is
-on the machine.
-
-**Standalone binary (no Python/uv)** — the signed binary bundled with the VS Code
-extension, or a `lvkit-mcp-*.zip` from a GitHub release, is a complete MCP server:
-
-```json
-{ "mcpServers": { "lvkit": { "command": "/abs/path/to/lvkit", "args": ["mcp"] } } }
-```
-
-VS Code uses `.vscode/mcp.json` with a `"servers"` key and `"type": "stdio"`
-instead of the `"mcpServers"` shape above.
-
-**Via uv / pip** — if lvkit is installed as a Python package:
+don't run `lvkit mcp` by hand. With [uv](https://docs.astral.sh/uv/) installed,
+no separate lvkit install is needed:
 
 ```json
 { "mcpServers": { "lvkit": { "command": "uvx", "args": ["--from", "lvkit", "lvkit-mcp"] } } }
 ```
 
-**Codex** uses TOML — add the server to the project's `.codex/config.toml`
-(shared by the ChatGPT desktop app, Codex CLI, and the Codex IDE extension):
+Or, for Claude Code, `claude mcp add lvkit -- uvx --from lvkit lvkit-mcp`.
 
-```toml
-[mcp_servers.lvkit]
-command = "uvx"
-args = ["--from", "lvkit", "lvkit-mcp"]
-```
-
-`lvkit setup codex` installs the workflow skills only — it does not create or
-modify `.codex/config.toml`.
+For every client (Claude Code, Claude Desktop, VS Code, Codex, Cursor), the
+[no-uv fallbacks](install.md#without-uv), and the zero-config VS Code extension,
+see **[Installing the MCP server](install.md)**.
 
 ## Tools
 
