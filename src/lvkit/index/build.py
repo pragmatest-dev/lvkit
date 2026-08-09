@@ -459,10 +459,13 @@ def _build_class_fact(
     if owning_class is None:
         return None
     access = graph.get_method_access(vi_name)
-    hierarchy = graph.get_class_hierarchy(owning_class)
+    # Authoritative parent (get_class_parent, NOT the load-gated
+    # get_class_hierarchy): a collision-load graph never loads the parent, and
+    # gating on that produced a spurious NULL parent beside the real value for
+    # the same class (the WaitOnTestComplete duplicate). See get_class_parent.
     return ClassFact(
         owning_class=owning_class,
-        parent=hierarchy.parent_class if hierarchy else None,
+        parent=graph.get_class_parent(owning_class),
         scope=access.scope if access else None,
         is_accessor=bool(access and access.is_accessor),
         accessor_field=access.accessor_field if access else None,

@@ -183,6 +183,18 @@ class TestClassHierarchy:
         assert info is not None
         assert info.parent_class is None
 
+    def test_get_class_parent_surfaces_unloaded_parent(self):
+        """The INDEX path (get_class_parent) reports the AUTHORITATIVE parent
+        even when the parent node is NOT loaded — the complement of the
+        load-gated, link-safe get_class_hierarchy above. This keeps a method's
+        class_fact.parent stable across the single-VI collision-load path
+        (the WaitOnTestComplete duplicate)."""
+        g = InMemoryVIGraph()
+        _add_class(g, "Orphan.lvclass", parent_class="NeverLoaded")
+        assert g.get_class_parent("Orphan.lvclass") == "NeverLoaded.lvclass"
+        _add_class(g, "Root.lvclass", parent_class=None)
+        assert g.get_class_parent("Root.lvclass") is None
+
 
 class TestOwningClassAndAccess:
     def test_get_owning_class(self, class_graph: InMemoryVIGraph):

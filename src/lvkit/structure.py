@@ -42,6 +42,7 @@ class LVClass:
     name: str
     path: Path
     parent_class: str | None = None
+    is_vilib_parent: bool = False
     private_data_ctl: str | None = None
     methods: list[LVMethod] = field(default_factory=list)
     private_data_fields: list[LVPrivateDataField] = field(default_factory=list)
@@ -496,21 +497,17 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     root = tree.getroot()
 
     class_name = lvclass_path.stem
-    parent_class = None
     private_data_ctl = None
     methods: list[LVMethod] = []
 
-    # Try to get parent from Geneology XML property
-    for prop in root.findall("Property"):
-        if prop.get("Name") == "NI.LVClass.Geneology":
-            geneology_str = prop.find("String/Val")
-            if geneology_str is not None and geneology_str.text:
-                # The geneology contains parent class references
-                parent_class = _extract_parent_from_geneology(geneology_str.text)
-
-    # Fallback: try to find parent class in nearby directories
-    if parent_class is None:
-        parent_class = _find_parent_class_by_path(lvclass_path)
+    # Authoritative parent: decoded from NI.LVClass.ParentClassLinkInfo (see
+    # _parent_from_link_info). Absence of the property means this class is a
+    # root (no parent) -- confirmed against the full JKI-VI-Tester corpus
+    # (32/32 classes: every non-root class carries this property, every root
+    # class lacks it).
+    link_info = _parent_from_link_info(root)
+    parent_class = link_info[0] if link_info is not None else None
+    is_vilib_parent = link_info[1] if link_info is not None else False
 
     # Parse items recursively (methods and private data can be in folders)
     _parse_items(root, methods, private_data_ctl)
@@ -528,6 +525,7 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         name=class_name,
         path=lvclass_path,
         parent_class=parent_class,
+        is_vilib_parent=is_vilib_parent,
         private_data_ctl=private_data_ctl,
         methods=methods,
         private_data_fields=private_data_fields,
@@ -585,118 +583,82 @@ def _parse_items(
             ))
 
 
-def _find_parent_class_by_path(lvclass_path: Path) -> str | None:
-    """Try to find parent class by looking at the class's _Init.vi file.
+def _lv_base64_decode(text: str) -> bytes:
+    """Decode a LabVIEW-flavored base64 string (as used in
+    ``NI.LVClass.ParentClassLinkInfo``).
 
-    In LabVIEW inheritance, a child class's _Init.vi calls the parent
-    class's _Init.vi. We look for this pattern to detect inheritance.
+    LabVIEW's variant of base64 uses the same 4-chars-to-3-bytes packing as
+    standard base64 but a different alphabet: character codes are taken
+    directly as ``ord(c) - 33`` (i.e. the alphabet starts at ``'!'``, code
+    point 33) rather than the standard RFC 4648 alphabet. There is no
+    padding character; a trailing partial group (fewer than 4 chars) is
+    simply dropped, which is fine here since the payload we care about
+    (printable path components) sits well before the end of the buffer.
+    """
+    s = "".join(text.split())
+    out = bytearray()
+    for i in range(0, len(s) - 3, 4):
+        n = 0
+        for c in s[i : i + 4]:
+            n = (n << 6) | ((ord(c) - 33) & 0x3F)
+        out += bytes([(n >> 16) & 0xFF, (n >> 8) & 0xFF, n & 0xFF])
+    return bytes(out)
+
+
+_PRINTABLE_RUN_RE = re.compile(rb"[ -~]{4,}")
+_LVCLASS_TOKEN_RE = re.compile(r"([^\\/<>]+\.lvclass)$")
+
+
+def _parent_from_link_info(root: ET.Element) -> tuple[str, bool] | None:
+    """Decode the authoritative parent class from
+    ``NI.LVClass.ParentClassLinkInfo``.
+
+    Every non-root ``.lvclass`` carries this property; its text is
+    LabVIEW-base64 (see ``_lv_base64_decode``) wrapping a binary record
+    that contains the parent's ``<Name>.lvclass`` followed by a ``PTH0``
+    path marker and the path components leading to that parent file. Two
+    shapes are seen in the corpus:
+
+    * **in-repo**: a path RELATIVE to the child class's own directory tree
+      (e.g. ``TestRunner\\TestRunner.lvclass``).
+    * **vi.lib**: a path containing the literal ``<vilib>`` marker (e.g.
+      ``<vilib>\\addons\\_JKI Toolkits\\VI Tester\\TextTestRunner.llb\\
+      TextTestRunner.lvclass``).
+
+    Root classes (no parent) carry no ``ParentClassLinkInfo`` property at
+    all -- confirmed against all 32 classes in the JKI-VI-Tester corpus
+    (every non-root class has the property, every root class lacks it).
 
     Args:
-        lvclass_path: Path to the .lvclass file
+        root: The parsed ``.lvclass`` XML root element.
 
     Returns:
-        Parent class name or None
+        ``(parent_class_name, is_vilib)`` where ``parent_class_name`` has
+        no ``.lvclass`` suffix (matching ``LVClass.parent_class``'s
+        existing bare-name contract), or ``None`` if the property is
+        absent (this class is a root).
     """
-    class_name = lvclass_path.stem
-    class_dir = lvclass_path.parent
+    raw: str | None = None
+    for prop in root.findall("Property"):
+        if prop.get("Name") == "NI.LVClass.ParentClassLinkInfo":
+            raw = "".join(prop.itertext())
+            break
+    if not raw or not raw.strip():
+        return None
 
-    # ONLY look at the class's _Init.vi file - this is where parent
-    # class _Init calls appear. Looking at other methods would give
-    # false positives (e.g., factory methods creating other class objects).
-    init_xml_path = class_dir / f"{class_name}_Init.xml"
-    if init_xml_path.exists():
-        return _extract_parent_from_vi_xml(init_xml_path, class_name)
+    decoded = _lv_base64_decode(raw)
+    printable = [
+        m.group().decode("ascii", "replace")
+        for m in _PRINTABLE_RUN_RE.finditer(decoded)
+    ]
+    is_vilib = any("<vilib>" in run for run in printable)
 
-    # Fall back to extracting the _Init.vi on-demand (memory-flat, one VI)
-    # when no pre-extracted sidecar XML exists yet — e.g. a class pulled
-    # fresh via scripts/pull_samples.sh with nothing pre-extracted.
-    init_vi_path = class_dir / f"{class_name}_Init.vi"
-    if init_vi_path.exists():
-        try:
-            _bd_xml, _fp_xml, main_xml = extract_vi_xml(init_vi_path)
-        except RuntimeError:
-            return None
-        if main_xml is not None:
-            return _extract_parent_from_vi_xml(main_xml, class_name)
+    for run in printable:
+        match = _LVCLASS_TOKEN_RE.search(run)
+        token = match.group(1) if match else (run if run.endswith(".lvclass") else None)
+        if token:
+            return (token[: -len(".lvclass")], is_vilib)
 
-    return None
-
-
-def _extract_parent_from_vi_xml(xml_path: Path, current_class: str) -> str | None:
-    """Extract parent class name from a VI's XML file.
-
-    Method VIs contain LinkSaveQualName elements that reference their class
-    hierarchy. The parent class is identified by finding a call to
-    ParentClass_Init.vi in the class's own _Init method.
-
-    Args:
-        xml_path: Path to the VI's XML file
-        current_class: Name of the current class (to exclude)
-
-    Returns:
-        Parent class name or None
-    """
-    try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
-
-        # Look for LinkSaveQualName elements that contain both a .lvclass
-        # reference AND an _Init.vi call - this indicates parent class
-        for link_elem in root.iter("LinkSaveQualName"):
-            strings = link_elem.findall("String")
-            if len(strings) >= 2:
-                class_ref = None
-                has_init_call = False
-
-                for string_elem in strings:
-                    text = string_elem.text
-                    if not text:
-                        continue
-
-                    if text.endswith(".lvclass"):
-                        class_ref = text[:-8]  # Remove ".lvclass" suffix
-                    elif "_Init.vi" in text or "_init.vi" in text.lower():
-                        has_init_call = True
-
-                # If we found a class ref with an _Init call, and it's not
-                # the current class, this is likely the parent
-                if class_ref and has_init_call:
-                    # Only accept clean class names
-                    if not (
-                        class_ref.isidentifier()
-                        or all(c.isalnum() or c in "_- " for c in class_ref)
-                    ):
-                        continue
-
-                    # Skip if it's the current class
-                    if class_ref.lower() == current_class.lower():
-                        continue
-
-                    return class_ref
-
-    except ET.ParseError:
-        pass  # Malformed XML in method VI — not a reliable source of parent info
-    except Exception:  # noqa: BLE001 — filesystem / encoding errors; fall back to None
-        pass
-
-    return None
-
-
-def _extract_parent_from_geneology(geneology_data: str) -> str | None:
-    """Try to extract parent class name from geneology data.
-
-    The geneology data contains encoded XML with class hierarchy info.
-    This is a fallback - the method VI parsing is more reliable.
-
-    Args:
-        geneology_data: The encoded geneology string from NI.LVClass.Geneology
-
-    Returns:
-        Parent class name or None if not found/parseable
-    """
-    # The Geneology data is heavily encoded. Skip it and rely on
-    # _find_parent_class_by_path which parses method VI XML files.
-    # Those contain reliable plain-text class references.
     return None
 
 

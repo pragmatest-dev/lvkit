@@ -992,8 +992,12 @@ class QueryMixin:
             return None
 
         # parent_class is recorded as the bare ancestor name (no ".lvclass",
-        # no library qualification — see structure._find_parent_class_by_path).
-        # Re-qualify and only surface it if that class is itself loaded.
+        # no library qualification — see structure._parent_from_link_info).
+        # Re-qualify and only surface it if that class is itself loaded — this
+        # is the DOCS contract (html_generator links the parent page, so a
+        # not-loaded parent must not dangle). The INDEX, which wants the
+        # authoritative parent regardless of what's loaded, uses
+        # ``get_class_parent`` instead.
         parent_raw: str | None = data.get("parent_class")
         parent_class: str | None = None
         if parent_raw and parent_raw != "LabVIEW Object":
@@ -1040,6 +1044,29 @@ class QueryMixin:
             methods=methods,
             fields=fields,
         )
+
+    def get_class_parent(self, classname: str) -> str | None:
+        """The AUTHORITATIVE parent class of ``classname`` (bare name +
+        ``.lvclass``), or None if it's a root / not a loaded class node.
+
+        Unlike ``get_class_hierarchy``, this does NOT gate on the parent being
+        loaded: ``parent_class`` is decoded straight from the class file's
+        ``NI.LVClass.ParentClassLinkInfo`` (``structure._parent_from_link_info``),
+        so it is correct even in a single-VI collision-load graph
+        (``index/build.build_one_vi``) that never loads the parent. The index
+        uses this so a method's ``class_fact.parent`` is stable across load
+        paths — no spurious NULL beside the real value (the WaitOnTestComplete
+        duplicate). Docs keep the link-safe, load-gated ``get_class_hierarchy``.
+        """
+        if not self._dep_graph.has_node(classname) or classname in self._stubs:
+            return None
+        data = self._dep_graph.nodes[classname]
+        if data.get("node_type") != "class":
+            return None
+        parent_raw = data.get("parent_class")
+        if parent_raw and parent_raw != "LabVIEW Object":
+            return parent_raw + ".lvclass"
+        return None
 
     def get_method_access(self, vi_name: str) -> MethodAccessInfo | None:
         """Get access-scope info for a class method VI.
