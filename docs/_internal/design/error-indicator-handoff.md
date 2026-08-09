@@ -26,22 +26,46 @@ error output alongside a normal `error out`.
 
 ## Caveats — 18 rows are unresolved labels, not names
 
-**RESOLVED 2026-08-08 (commit 83da094) — and the root cause was NOT
-compression.** Byte-for-byte comparison of a `Built Project Integration` VI
-against its clean `LabVIEW Project Plugin` sibling (`VITester_Global_Init.vi`)
-showed identical heaps at every level EXCEPT the control's own `partID=16`
-label: `"error out"` in the clean copy vs. a literal single NUL byte
-(`<![CDATA["&#x00;"]]>`) in the affected copy. Everything else in the same heap
-decodes correctly, so pylabview's decompression is fine — the label bytes were
-simply **stripped by whatever build step produced `Built Project Integration`**.
-There is nothing to decompress and nothing to recover (the data was never
-stored); using the boilerplate tooltip text as a stand-in would be a
-name-guessing heuristic, which lvkit forbids. So the honest outcome is the
-`control_<uid>` fallback, now accompanied by a `logger.warning`
-(`_unresolved_control_name` in `parser/vi.py`), guarded by
-`tests/test_error_terminal_label_fallback.py`. The `source` leak (fallback #2
-below) was already fixed by the object-scoped `extract_label` (commit e751b86);
-verified zero `source` names today.
+**RESOLVED 2026-08-08 (commits 83da094, then a second-source pass) — and the
+root cause was NOT compression.** Byte-for-byte comparison of a `Built
+Project Integration` VI against its clean `LabVIEW Project Plugin` sibling
+(`VITester_Global_Init.vi`) showed identical heaps at every level EXCEPT the
+control's own `partID=16` label: `"error out"` in the clean copy vs. a literal
+single NUL byte (`<![CDATA["&#x00;"]]>`) in the affected copy. Everything else
+in the same heap decodes correctly, so pylabview's decompression is fine — the
+label bytes were simply **stripped by whatever build step produced
+`Built Project Integration`**.
+
+A second, independent source was then investigated and confirmed real: a
+VI's **VCTP flat type table** ("VI Consolidated Data Types", in the main
+`.xml`) can carry its own `Label=` attribute on a type descriptor,
+independent of the FP-heap object label. Resolved **authoritatively** — via
+the CONP/CPC2 ("Connector Pane Type Map" / "...v2") section's pointer through
+VCTP's own `TopLevel` consolidated-id table to the VI's OWN connector-pane
+`Function` type descriptor, **never** a heuristic match on slot count/shape
+(a VCTP lists every type used anywhere in the VI, including other VIs' call
+parameter types — `VITester_Global_Init.vi` alone has 4 same-shaped
+`Type="Function"` entries in one VCTP; only one is its own pane). Implemented
+in `front_panel.parse_connector_pane_labels`, verified on the clean siblings:
+it recovers `"error out"` / `"error in"` **purely from the type table**, with
+zero dependency on the FP heap (see `tests/test_connector_pane_label_recovery
+.py`). **But** for this specific corpus, the built copies' VCTP entries are
+*also* stripped (`Label` absent) at the exact slot the VI's own pane
+references — confirmed on all 4 of the built VIs that actually expose a
+public error terminal. So for these 14 VIs specifically there is still
+nothing to recover from either source; using the boilerplate tooltip text (or
+an unrelated same-shaped VCTP entry, e.g. the one on `Global_Init.vi`'s own
+call-site Function that happens to say `"error out"`) as a stand-in would be
+a name-guessing heuristic, which lvkit forbids.
+
+So the honest outcome, per terminal, is: own FP-heap label → VCTP flat-type
+table label (via the authoritative connector-pane Function) →
+`control_<uid>` fallback with a `logger.warning`
+(`_placeholder_control_name` / `_recover_or_warn_unresolved_labels` in
+`parser/vi.py`), guarded by `tests/test_error_terminal_label_fallback.py`
+and `tests/test_connector_pane_label_recovery.py`. The `source` leak
+(fallback #2 below) was already fixed by the object-scoped `extract_label`
+(commit e751b86); verified zero `source` names today.
 
 Historical note: lvkit fell back to a fabricated label for these VIs. Two
 fallback shapes, both confirmed from the graph itself (no raw-byte grepping

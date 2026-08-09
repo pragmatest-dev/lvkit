@@ -287,3 +287,123 @@ def parse_connector_pane_types(
         return rules
 
     return {}
+
+
+def _flat_type_table(root: ET.Element) -> list[ET.Element]:
+    """The VCTP's flat type list, in document order == FlatTypeID (every
+    reference to a "flat" type -- from a Cluster's own field list, a
+    Function's own parameter list, etc. -- is a position index into this
+    same list). This is every direct child of ``VCTP/Section`` EXCEPT the
+    trailing ``<TopLevel>`` consolidated-id index, which isn't a type."""
+    section = root.find(".//VCTP/Section")
+    if section is None:
+        return []
+    return [child for child in section if child.tag != "TopLevel"]
+
+
+def _consolidated_to_flat(root: ET.Element) -> dict[int, int]:
+    """VCTP's own TopLevel table: Consolidated TypeID (the numbering CONP,
+    CPC2, and BD/FP heap ``typeDesc`` references use) -> FlatTypeID
+    (position in ``_flat_type_table``)."""
+    mapping: dict[int, int] = {}
+    for td in root.findall(".//VCTP//TopLevel/TypeDesc"):
+        index = td.get("Index")
+        flat_id = td.get("FlatTypeID")
+        if index is not None and flat_id is not None:
+            mapping[int(index)] = int(flat_id)
+    return mapping
+
+
+def _resolve_own_connector_pane_function(root: ET.Element) -> ET.Element | None:
+    """The VI's OWN connector-pane Function type descriptor, resolved
+    authoritatively via the CPC2 ("Connector Pane Content Type v2", newer
+    saves) or CONP ("Connector Pane Type Map", older saves) section -- never
+    by scanning for a Function-shaped TypeDesc that merely happens to match
+    the wired slot count/pattern. A VI's VCTP lists EVERY type used anywhere
+    in the VI, including the parameter types of other VIs it calls, and more
+    than one of those can be a same-shaped ``Type="Function"`` entry
+    (verified on the JKI-VI-Tester corpus this was written against: one VI
+    had 4 distinct Function TypeDescs in its VCTP, only one of which was its
+    own connector pane).
+
+    CONP/CPC2 store a Consolidated TypeID directly -- one hop through VCTP's
+    own TopLevel table to the FlatTypeID -- unlike BD/FP heap ``typeDesc``
+    references, which are Heap TypeIDs needing an extra Heap->Consolidated
+    hop first (see the DTHP section's comments). Confirmed empirically: for
+    every VI checked, resolving CONP/CPC2 this way lands on a Function
+    descriptor whose wired slots (non-``Void`` children) line up exactly
+    with the front panel's own connector-pane wiring (FPHb ``conPane``);
+    going through the Heap->Consolidated chain does not.
+    """
+    pointer = root.find(".//CPC2/Section/TypeDesc")
+    if pointer is None:
+        pointer = root.find(".//CONP/Section/TypeDesc")
+    consolidated_id = pointer.get("TypeID") if pointer is not None else None
+    if consolidated_id is None:
+        return None
+
+    flat_id = _consolidated_to_flat(root).get(int(consolidated_id))
+    if flat_id is None:
+        return None
+
+    flats = _flat_type_table(root)
+    if not (0 <= flat_id < len(flats)):
+        return None
+
+    func = flats[flat_id]
+    return func if func.get("Type") == "Function" else None
+
+
+def parse_connector_pane_labels(main_xml_path: Path | str) -> dict[int, str]:
+    """Best-effort recovery of a connector-pane terminal's name from the
+    VI's flat type table (VCTP), for when the front-panel object's own
+    label (partID=16 in the FP heap) is empty or absent -- see
+    docs/_internal/design/error-indicator-handoff.md.
+
+    LabVIEW's VCTP ("VI Consolidated Data Types") independently records a
+    ``Label=`` attribute on a type descriptor when that type was named (a
+    cluster's own name, e.g.); that copy is a second, separate encoding of
+    the name from the FP heap's own partID=16 label, and can survive even
+    when the FP heap copy doesn't (confirmed on VITester_Item_NotifyChanged
+    .vi's un-stripped sibling copy, where the connector pane's flat type
+    carries ``Label="error out"``/``"error in"`` independently of the FP
+    object's own label). It can ALSO be absent in the same copy where the FP
+    label is gone (confirmed on the corpus this was written against) --
+    this is a best-effort second source, not a guaranteed recovery.
+
+    Resolves the VI's OWN connector-pane Function type (see
+    ``_resolve_own_connector_pane_function`` -- never a heuristic slot-count
+    match), then reads each slot's referenced type's ``Label`` directly. A
+    slot whose referenced type has no ``Label`` is simply absent from the
+    result. Never raises -- a missing/malformed resource section just means
+    an empty result.
+
+    Args:
+        main_xml_path: Path to the main .xml file (not BDHb/FPHb)
+
+    Returns:
+        Dict mapping connector-pane slot index -> label, for slots whose
+        referenced type carries a non-empty Label.
+    """
+    try:
+        root = ET.parse(main_xml_path).getroot()
+    except (ET.ParseError, OSError):
+        return {}
+
+    func = _resolve_own_connector_pane_function(root)
+    if func is None:
+        return {}
+
+    flats = _flat_type_table(root)
+    labels: dict[int, str] = {}
+    for slot_index, child in enumerate(func.findall("TypeDesc")):
+        type_id = child.get("TypeID")
+        if type_id is None:
+            continue
+        flat_id = int(type_id)
+        if not (0 <= flat_id < len(flats)):
+            continue
+        label = flats[flat_id].get("Label")
+        if label:
+            labels[slot_index] = label
+    return labels

@@ -7,14 +7,20 @@ label for the top-level error cluster control was nulled by whatever build /
 repackaging step produced that copy (their ``source/LabVIEW Project Plugin``
 siblings resolve cleanly as "error in" / "error out" — same uids, same
 surrounding heap, only the cluster's OWN partID=16 label text differs, from
-"error out" to a lone NUL byte). Investigated and confirmed NOT a
-decompression bug: every other string in the same heap decodes fine,
-including the child field names ("source"/"code"/"status") and the
-boilerplate tooltip text, so pylabview's decompression is working — the
-label bytes are simply gone from this copy. There is no clean-room path to
-recover data that was never stored, so lvkit falls back to the graceful
-``control_<uid>`` placeholder (never the leaked child-field name) and logs a
-warning so the gap is visible instead of silently mis-naming a terminal.
+"error out" to a lone NUL byte).
+
+Two possible recovery sources were investigated: the FP-heap object label
+itself (own partID=16/82 text) and the VCTP flat type table's independent
+``Label=`` attribute (see ``front_panel.parse_connector_pane_labels`` and
+``tests/test_connector_pane_label_recovery.py``, which proves that second
+source DOES work — it recovers "error out"/"error in" from the clean
+siblings' type tables alone). For THIS corpus's 14 built VIs, both sources
+are confirmed empty (not merely undecoded — every other string at the same
+heap depth, including child field names and boilerplate tooltip text,
+decodes fine), so there is nothing left to recover and lvkit falls back to
+the graceful ``control_<uid>`` placeholder (never the leaked child-field
+name) and logs a warning so the gap is visible instead of silently
+mis-naming a terminal.
 """
 
 from __future__ import annotations
@@ -91,15 +97,17 @@ def test_error_terminal_never_leaks_a_cluster_field_name(
             f"{vi_filename}: error-cluster terminal leaked child field name "
             f"{name!r} instead of falling back to control_<uid>"
         )
-        # Every name must be either the real label or the graceful fallback —
+        # Every name must be either a real "error ..." label (own FP label or
+        # recovered from the VCTP type table) or the graceful fallback —
         # never something else fabricated.
-        assert name == "error in" or name == "error out" or name.startswith(
-            "control_"
-        ), f"{vi_filename}: unexpected error-cluster terminal name {name!r}"
+        assert name.startswith("error") or name.startswith("control_"), (
+            f"{vi_filename}: unexpected error-cluster terminal name {name!r}"
+        )
 
-    # This corpus's 14 VIs are confirmed to have unresolvable labels (the
-    # cluster's own partID=16 text was nulled) -- when a terminal did fall
-    # back to control_<uid>, a warning must have been logged, never silence.
+    # This corpus's 14 VIs are confirmed to have unresolvable labels from
+    # BOTH sources (own partID=16 text AND the VCTP flat-type Label, see
+    # test_connector_pane_label_recovery.py) -- when a terminal did fall back
+    # to control_<uid>, a warning must have been logged, never silence.
     if any(n.startswith("control_") for n in error_names):
         assert any(
             "no resolvable label" in rec.message and vi_filename in rec.message

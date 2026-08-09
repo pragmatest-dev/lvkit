@@ -37,11 +37,13 @@ from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
     parse_connector_pane,
+    parse_connector_pane_labels,
 )
 from .layout import Layout, _icon_for_heap, build_layout_from_root
 from .metadata import parse_iuse_from_libd
 from .models import (
     ParsedBlockDiagram,
+    ParsedConnectorPane,
     ParsedConstant,
     ParsedDependencyRef,
     ParsedFPControl,
@@ -198,8 +200,9 @@ def parse_vi(
         # vi_path given) -- fall back to the BD XML's own name, stripped of
         # its cache-file suffix so warnings still read as a VI name.
         vi_label = bd_xml.name.replace("_BDHb.xml", ".vi")
+    unresolved_uids: set[str] = set()
     front_panel = _parse_front_panel(
-        fp_xml, block_diagram, metadata.type_map, vi_label=vi_label,
+        fp_xml, block_diagram, metadata.type_map, unresolved_uids=unresolved_uids,
     )
 
     # Parse connector pane
@@ -208,6 +211,17 @@ def parse_vi(
         fp_xml_path = Path(fp_xml)
         if fp_xml_path.exists():
             connector_pane = parse_connector_pane(fp_xml_path)
+
+    # A control whose own FP-heap label didn't resolve gets one more chance:
+    # the VCTP flat type table (in the main XML) records a Label
+    # independently of the FP heap, and sometimes survives when the FP
+    # copy doesn't -- see _recover_or_warn_unresolved_labels. Only settles
+    # on the control_<uid> placeholder (with a warning) once that also
+    # comes up empty.
+    if unresolved_uids:
+        _recover_or_warn_unresolved_labels(
+            front_panel, connector_pane, main_xml, vi_label, unresolved_uids,
+        )
 
     return ParsedVI(
         metadata=metadata,
@@ -356,9 +370,17 @@ def _parse_front_panel(
     fp_xml: Path | str | None,
     block_diagram: ParsedBlockDiagram,
     type_map: dict[int, LVType] | None = None,
-    vi_label: str = "<unknown VI>",
+    unresolved_uids: set[str] | None = None,
 ) -> ParsedFrontPanel:
-    """Parse front panel from FP XML."""
+    """Parse front panel from FP XML.
+
+    ``unresolved_uids``, if given, collects the uid of every control whose
+    own label didn't resolve (see ``_placeholder_control_name``) so a caller
+    can attempt a second-source recovery once the connector pane is also
+    parsed.
+    """
+    if unresolved_uids is None:
+        unresolved_uids = set()
     if fp_xml is None:
         return ParsedFrontPanel(controls=[], panel_bounds=(0, 0, 400, 600))
 
@@ -421,7 +443,8 @@ def _parse_front_panel(
             default_value = _decode_default_data(raw_data, control_type, lv_type)
 
         control = _parse_ddo(
-            ddo, uid, indicator_dco_uids, default_value, vi_label=vi_label,
+            ddo, uid, indicator_dco_uids, default_value,
+            unresolved_uids=unresolved_uids,
         )
         if control:
             control.ddo_uid = ddo.get("uid")
@@ -994,23 +1017,82 @@ def _parse_bounds(bounds_str: str) -> tuple[int, int, int, int]:
     return (0, 0, 100, 200)
 
 
-def _unresolved_control_name(vi_label: str, uid: str) -> str:
-    """Fallback name for a front-panel control whose own label didn't resolve
-    (e.g. a build/repackaging step nulled the label string but left the rest
-    of the heap intact — see docs/_internal/design/error-indicator-handoff.md).
+def _placeholder_control_name(uid: str, unresolved_uids: set[str]) -> str:
+    """Placeholder name for a front-panel control whose own label didn't
+    resolve (e.g. a build/repackaging step nulled the label string but left
+    the rest of the heap intact — see
+    docs/_internal/design/error-indicator-handoff.md).
 
     ``extract_label`` is object-scoped (never steals a nested object's label,
     e.g. a cluster field's name like "source"), so a miss here means the
-    control's OWN label text is genuinely gone, not merely mis-scoped. There
-    is no real name to fall back to, so we synthesize ``control_<uid>`` and
-    log a warning instead of raising — graceful degradation, not silence.
+    control's OWN label text is genuinely gone, not merely mis-scoped.
+    Records ``uid`` so a later pass (once the connector pane is parsed) can
+    try the VCTP flat-type-table ``Label`` as a second, independent source
+    before settling on this placeholder — see
+    ``_recover_or_warn_unresolved_labels``.
     """
-    logger.warning(
-        "%s: control uid=%s has no resolvable label (own partID=16/82 text "
-        "empty or absent) — falling back to 'control_%s'",
-        vi_label, uid, uid,
-    )
+    unresolved_uids.add(uid)
     return f"control_{uid}"
+
+
+def _uid_to_control_map(
+    controls: list[ParsedFPControl],
+) -> dict[str, ParsedFPControl]:
+    """Flatten a front panel's controls (including cluster children,
+    recursively) into a uid -> control lookup."""
+    result: dict[str, ParsedFPControl] = {}
+    for ctrl in controls:
+        result[ctrl.uid] = ctrl
+        result.update(_uid_to_control_map(ctrl.children))
+    return result
+
+
+def _recover_or_warn_unresolved_labels(
+    front_panel: ParsedFrontPanel,
+    connector_pane: ParsedConnectorPane | None,
+    main_xml: Path | str | None,
+    vi_label: str,
+    unresolved_uids: set[str],
+) -> None:
+    """Second chance for a control whose own FP-heap label didn't resolve:
+    if it's wired to a connector-pane slot, try that slot's VCTP flat-type
+    ``Label`` (an independent copy of the name -- see
+    ``front_panel.parse_connector_pane_labels``). Only controls that are
+    STILL unresolved after that fall back to the ``control_<uid>``
+    placeholder, and only THEN do we log -- never silently.
+
+    Sorted iteration over ``unresolved_uids`` keeps this deterministic
+    (a set has no stable order) so warning output is byte-reproducible.
+    """
+    slot_by_uid: dict[str, int] = {}
+    if connector_pane:
+        for slot in connector_pane.slots:
+            if slot.fp_dco_uid:
+                slot_by_uid[slot.fp_dco_uid] = slot.index
+
+    labels_by_slot: dict[int, str] = {}
+    if main_xml and slot_by_uid:
+        labels_by_slot = parse_connector_pane_labels(main_xml)
+
+    uid_to_control = _uid_to_control_map(front_panel.controls)
+
+    for uid in sorted(unresolved_uids):
+        control = uid_to_control.get(uid)
+        if control is None:
+            continue
+
+        slot_index = slot_by_uid.get(uid)
+        recovered = labels_by_slot.get(slot_index) if slot_index is not None else None
+        if recovered:
+            control.name = recovered
+            continue
+
+        logger.warning(
+            "%s: control uid=%s has no resolvable label (own partID=16/82 "
+            "text empty or absent, and no VCTP flat-type Label either) — "
+            "falling back to 'control_%s'",
+            vi_label, uid, uid,
+        )
 
 
 def _parse_ddo(
@@ -1018,10 +1100,12 @@ def _parse_ddo(
     uid: str,
     indicator_dco_uids: set[str],
     default_data: str | None = None,
-    vi_label: str = "<unknown VI>",
+    unresolved_uids: set[str] | None = None,
 ) -> ParsedFPControl | None:
     """Parse a data display object (ddo) into a ParsedFPControl."""
     control_type = ddo.get("class", "unknown")
+    if unresolved_uids is None:
+        unresolved_uids = set()
 
     # For typeDef, look inside for the actual control
     if control_type == "typeDef":
@@ -1032,9 +1116,12 @@ def _parse_ddo(
                 inner_ddo = child
                 break
         if inner_ddo is not None:
-            name = extract_label(ddo) or _unresolved_control_name(vi_label, uid)
+            name = extract_label(ddo) or _placeholder_control_name(
+                uid, unresolved_uids,
+            )
             inner_control = _parse_ddo(
-                inner_ddo, uid, indicator_dco_uids, default_data, vi_label=vi_label,
+                inner_ddo, uid, indicator_dco_uids, default_data,
+                unresolved_uids=unresolved_uids,
             )
             if inner_control:
                 inner_control.name = name
@@ -1049,7 +1136,7 @@ def _parse_ddo(
         bounds = (0, 0, 100, 200)
 
     # Get label/name
-    name = extract_label(ddo) or _unresolved_control_name(vi_label, uid)
+    name = extract_label(ddo) or _placeholder_control_name(uid, unresolved_uids)
 
     # Determine if indicator
     if indicator_dco_uids:
@@ -1067,7 +1154,8 @@ def _parse_ddo(
                 child_uid = child_elem.get("uid", "")
                 if child_uid:
                     child_control = _parse_ddo(
-                        child_elem, child_uid, set(), None, vi_label=vi_label,
+                        child_elem, child_uid, set(), None,
+                        unresolved_uids=unresolved_uids,
                     )
                     if child_control:
                         children.append(child_control)
