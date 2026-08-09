@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import logging
 import os
 import re
 import shutil
@@ -43,6 +44,64 @@ from lvkit.text_encoding import (  # noqa: E402
     labview_text_encoding,
     normalize_extracted_xml,
 )
+
+logger = logging.getLogger(__name__)
+
+# Windows caps a path at MAX_PATH (260, incl. the trailing NUL) unless the app
+# opts into long paths. Two-part defence: (1) extract into a SHALLOW staging dir
+# so the *temp* path never grows with project depth (the failure mode a deep
+# repo hits), and (2) watch the FINAL path with a margin so a genuinely deep
+# project announces itself in the logs BEFORE it can fail a real user — the
+# residual case (a final cache path that is itself > 260) whose structural fix
+# is bounding the per-project slug. Extraction is the deepest cache surface, so
+# if its path is safe the shorter render/diff/index leaves under the same slug
+# are too.
+_WIN_MAX_PATH = 260
+_WIN_PATH_WARN_AT = 240
+_warned_near_max_path = False
+
+
+def _staging_root() -> Path:
+    """SHALLOW per-user staging dir (``<cache>/.staging``) for extraction temp
+    files. On the same filesystem as every cache dir (both under
+    ``global_cache_root()``) so the publish ``os.replace`` stays atomic — but
+    kept OUT of the deep ``projects/<slug>/…`` output dir, so the temp path is
+    independent of how deep the project sits and a deep repo can't push it past
+    MAX_PATH."""
+    d = global_cache_root() / ".staging"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _warn_if_near_windows_limit(path: Path) -> None:
+    """Log ONCE per process when a cache path nears the Windows MAX_PATH limit —
+    the sensor that surfaces a deep repo in telemetry before it fails a user.
+    No-op off Windows."""
+    global _warned_near_max_path
+    if sys.platform != "win32" or _warned_near_max_path:
+        return
+    if len(str(path)) >= _WIN_PATH_WARN_AT:
+        _warned_near_max_path = True
+        logger.warning(
+            "lvkit cache path is %d chars, nearing Windows MAX_PATH (%d); a "
+            "deeper project will start failing extraction. Mitigate by setting "
+            "LVKIT_CACHE_DIR to a short root, enabling LongPathsEnabled, or "
+            "moving the project higher in the tree. Path: %s",
+            len(str(path)), _WIN_MAX_PATH, path,
+        )
+
+
+def _windows_long_path_hint(path: Path) -> str:
+    """Diagnostic suffix that turns a bare OSError into an actionable message
+    when a Windows path is genuinely over-length. '' unless on Windows AND over
+    the limit."""
+    if sys.platform != "win32" or len(str(path)) < _WIN_MAX_PATH:
+        return ""
+    return (
+        f" — this is a Windows MAX_PATH failure: the path is {len(str(path))} "
+        f"chars (limit {_WIN_MAX_PATH}). Set LVKIT_CACHE_DIR to a short root, "
+        f"enable LongPathsEnabled, or move the project higher in the tree."
+    )
 
 
 def _cache_target(vi_path: Path) -> Path:
@@ -226,15 +285,26 @@ def extract_vi_xml(
     # (re-hitting bugs we've patched), fails identically on genuine crashes, and
     # only masks the true cause behind a wrapped error. The byte-identical gate
     # confirmed in-process == subprocess output.
-    tmp_dir = Path(
-        tempfile.mkdtemp(prefix=f".extract-{vi_stem}-", dir=output_dir.parent)
-    )
+    # Advance sensor: if the FINAL path is nearing MAX_PATH, say so now (once)
+    # so a deep repo is visible in logs before it can fail a user.
+    _warn_if_near_windows_limit(bd_xml)
+
+    # Extract into a SHALLOW staging dir (``<cache>/.staging``), NOT nested under
+    # the deep ``projects/<slug>/…`` output dir. Two payoffs: the temp path is
+    # independent of project depth (a deep repo can't overflow it), and pylabview
+    # only ever writes short paths — no MAX_PATH exposure for the extractor at all.
+    # ``.x-`` prefix (no ``vi_stem``): mkdtemp's random suffix is already unique
+    # and the dir is private, so embedding the name only cost length. Same
+    # filesystem as output_dir (both under global_cache_root), so the publish
+    # os.replace stays atomic.
+    tmp_dir = Path(tempfile.mkdtemp(prefix=".x-", dir=_staging_root()))
     try:
         try:
             _extract_in_process(vi_path, tmp_dir, vi_stem)
         except Exception as exc:
             raise RuntimeError(
                 f"pylabview extraction failed for {vi_path.name}: {exc}"
+                f"{_windows_long_path_hint(tmp_dir / f'{vi_stem}_BDHb.xml')}"
             ) from exc
 
         if not (tmp_dir / f"{vi_stem}_BDHb.xml").exists():
@@ -246,6 +316,13 @@ def extract_vi_xml(
             if produced.is_file():
                 os.replace(produced, output_dir / produced.name)
         _write_cache_meta(vi_path, meta_path)
+    except OSError as exc:
+        # A publish/mkdir OSError on a genuinely deep FINAL path — augment the
+        # bare Errno with the Windows long-path diagnosis so it's actionable.
+        raise RuntimeError(
+            f"failed to write extraction cache for {vi_path.name}: {exc}"
+            f"{_windows_long_path_hint(bd_xml)}"
+        ) from exc
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
