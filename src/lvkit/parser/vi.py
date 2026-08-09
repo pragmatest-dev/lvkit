@@ -191,7 +191,16 @@ def parse_vi(
     )
 
     # Parse front panel
-    front_panel = _parse_front_panel(fp_xml, block_diagram, metadata.type_map)
+    if source_path_str:
+        vi_label = Path(source_path_str).name
+    else:
+        # No resolvable source .vi path (e.g. parsed from cached XML with no
+        # vi_path given) -- fall back to the BD XML's own name, stripped of
+        # its cache-file suffix so warnings still read as a VI name.
+        vi_label = bd_xml.name.replace("_BDHb.xml", ".vi")
+    front_panel = _parse_front_panel(
+        fp_xml, block_diagram, metadata.type_map, vi_label=vi_label,
+    )
 
     # Parse connector pane
     connector_pane = None
@@ -347,6 +356,7 @@ def _parse_front_panel(
     fp_xml: Path | str | None,
     block_diagram: ParsedBlockDiagram,
     type_map: dict[int, LVType] | None = None,
+    vi_label: str = "<unknown VI>",
 ) -> ParsedFrontPanel:
     """Parse front panel from FP XML."""
     if fp_xml is None:
@@ -410,7 +420,9 @@ def _parse_front_panel(
 
             default_value = _decode_default_data(raw_data, control_type, lv_type)
 
-        control = _parse_ddo(ddo, uid, indicator_dco_uids, default_value)
+        control = _parse_ddo(
+            ddo, uid, indicator_dco_uids, default_value, vi_label=vi_label,
+        )
         if control:
             control.ddo_uid = ddo.get("uid")
             controls.append(control)
@@ -982,11 +994,31 @@ def _parse_bounds(bounds_str: str) -> tuple[int, int, int, int]:
     return (0, 0, 100, 200)
 
 
+def _unresolved_control_name(vi_label: str, uid: str) -> str:
+    """Fallback name for a front-panel control whose own label didn't resolve
+    (e.g. a build/repackaging step nulled the label string but left the rest
+    of the heap intact — see docs/_internal/design/error-indicator-handoff.md).
+
+    ``extract_label`` is object-scoped (never steals a nested object's label,
+    e.g. a cluster field's name like "source"), so a miss here means the
+    control's OWN label text is genuinely gone, not merely mis-scoped. There
+    is no real name to fall back to, so we synthesize ``control_<uid>`` and
+    log a warning instead of raising — graceful degradation, not silence.
+    """
+    logger.warning(
+        "%s: control uid=%s has no resolvable label (own partID=16/82 text "
+        "empty or absent) — falling back to 'control_%s'",
+        vi_label, uid, uid,
+    )
+    return f"control_{uid}"
+
+
 def _parse_ddo(
     ddo: ET.Element,
     uid: str,
     indicator_dco_uids: set[str],
     default_data: str | None = None,
+    vi_label: str = "<unknown VI>",
 ) -> ParsedFPControl | None:
     """Parse a data display object (ddo) into a ParsedFPControl."""
     control_type = ddo.get("class", "unknown")
@@ -1000,8 +1032,10 @@ def _parse_ddo(
                 inner_ddo = child
                 break
         if inner_ddo is not None:
-            name = extract_label(ddo) or f"control_{uid}"
-            inner_control = _parse_ddo(inner_ddo, uid, indicator_dco_uids, default_data)
+            name = extract_label(ddo) or _unresolved_control_name(vi_label, uid)
+            inner_control = _parse_ddo(
+                inner_ddo, uid, indicator_dco_uids, default_data, vi_label=vi_label,
+            )
             if inner_control:
                 inner_control.name = name
                 return inner_control
@@ -1015,7 +1049,7 @@ def _parse_ddo(
         bounds = (0, 0, 100, 200)
 
     # Get label/name
-    name = extract_label(ddo) or f"control_{uid}"
+    name = extract_label(ddo) or _unresolved_control_name(vi_label, uid)
 
     # Determine if indicator
     if indicator_dco_uids:
@@ -1032,7 +1066,9 @@ def _parse_ddo(
             if child_class.startswith("std") and child_class != "stdClust":
                 child_uid = child_elem.get("uid", "")
                 if child_uid:
-                    child_control = _parse_ddo(child_elem, child_uid, set(), None)
+                    child_control = _parse_ddo(
+                        child_elem, child_uid, set(), None, vi_label=vi_label,
+                    )
                     if child_control:
                         children.append(child_control)
 
