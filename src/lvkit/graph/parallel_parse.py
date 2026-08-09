@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 import multiprocessing as mp
 import os
+import threading
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -73,6 +74,17 @@ def parallel_parse_directory(
     a broken process pool, ...) just means the caller's serial loop parses
     those VIs itself, exactly as if this pre-parse pass never ran.
     """
+    # Only spin up a process pool on the MAIN thread. build_index runs inside
+    # the MCP server via asyncio.to_thread — i.e. a worker thread of a
+    # long-running server process. Creating a spawn ProcessPoolExecutor there
+    # never makes progress (the reindex "structurally hangs"; workers are
+    # cleaned up on cancel, the DB is left untouched). The main-thread path
+    # (CLI / tests) is the context this optimization was validated on. This is
+    # perf-only and best-effort by contract, so off the main thread we return
+    # {} and every VI falls through to the caller's serial parse_vi().
+    if threading.current_thread() is not threading.main_thread():
+        return {}
+
     resolved: list[_ParseItem] = []
     for vi_path in vi_paths:
         try:
