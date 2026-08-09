@@ -519,18 +519,19 @@ class TestLibraryMembership:
         so they never perturb ``get_owning_class`` (see
         ``TestLoadLvlibClassMember`` for the direct graph-level check).
 
-        Only ``testExample.vi`` / ``test (Example).vi`` are asserted here:
-        ``setUp.vi``/``tearDown.vi`` are common JKI TestCase method names
-        (16-17 same-named files elsewhere in this corpus) that hit
-        ``build_index``'s path-keyed COLLISION path (``build_one_vi``) for
-        THIS specific file — which loads its ``.lvclass`` bare (no
-        owner_chain, same as ``_load_class_ownership``), so for a class
-        nested two libraries deep the "owns" edge guess doesn't match this
-        VI's fully qualified embedded name either. That's a narrow,
-        pre-existing limitation of the bare-class-loading convention shared
-        by ``_load_class_ownership``/``build_one_vi`` — orthogonal to Bug B
-        (unrelated to whether ``load_lvlib`` recognizes "LVClass") — so it's
-        documented here, not asserted as new behavior.
+        ALL FOUR methods are asserted here, including ``setUp.vi``/
+        ``tearDown.vi``: those are common JKI TestCase method names (16-17
+        same-named files elsewhere in this corpus) that hit ``build_index``'s
+        path-keyed COLLISION path (``build_one_vi``) for THIS specific file.
+        ``build_one_vi`` (``index/build.py``) now derives the owner chain
+        from the loaded VI's OWN fully-qualified ``vi_name``
+        (``_owner_chain_for_class``) and passes it to ``load_lvclass``, so
+        the collision path registers the class under the SAME qualified
+        qname its method VIs embed — matching what
+        ``_load_class_ownership``/``_load_library_ownership`` already do for
+        the whole-directory pass. Previously this was a narrow, documented
+        limitation (bare ``load_lvclass`` call, no ``owner_chain``) that left
+        ``class_fact`` ``None`` for these two collision-routed methods.
         """
         assert _MYLIBRARY_LVLIB.is_file()  # sanity: fixture lvlib exists
 
@@ -540,8 +541,7 @@ class TestLibraryMembership:
             and f.class_fact.owning_class == _MYLIBRARY_CLASS_NAME
         ]
         found = {Path(f.path).name for f in method_facts}
-        assert found == {"testExample.vi", "test (Example).vi"}
-        assert found <= _MYLIBRARY_CLASS_METHODS
+        assert found == _MYLIBRARY_CLASS_METHODS
 
         for f in method_facts:
             class_fact = f.class_fact

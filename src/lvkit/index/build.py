@@ -102,17 +102,45 @@ def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
     cp = vi_path.resolve()
     cgraph = InMemoryVIGraph()
     cgraph.load_vi(cp, LoadMode.MINIMAL, search_paths=[project_root])
-    # A class method's own directory holds its .lvclass (LabVIEW's convention);
-    # scoped to this VI's directory since only ONE VI is projected here.
-    for cls_path in sorted(cp.parent.glob("*.lvclass")):
-        cgraph.load_lvclass(cls_path, LoadMode.NONE, search_paths=[project_root])
     vi_name = _vi_name_for_path(cgraph, cp)
     if vi_name is None:
         raise RuntimeError(
             f"index build: {cp} did not load into its own fresh graph "
             "(unexpected — every repo .vi should be individually loadable)"
         )
+    # A class method's own directory holds its .lvclass (LabVIEW's convention);
+    # scoped to this VI's directory since only ONE VI is projected here. A
+    # class nested inside one or more .lvlib embeds a FULLY qualified name in
+    # its method VIs (e.g. "A.lvlib:B.lvlib:C.lvclass:m.vi") — load_lvclass
+    # must register the class under that SAME qualified qname (via
+    # owner_chain) or its "owns" edge lands on an under-qualified key that
+    # doesn't match the VI's actual node, and get_owning_class silently
+    # returns None (see _owner_chain_for_class).
+    chain, class_seg = _owner_chain_for_class(vi_name)
+    for cls_path in sorted(cp.parent.glob("*.lvclass")):
+        oc = (
+            chain
+            if (chain and class_seg and cls_path.name.lower() == class_seg.lower())
+            else None
+        )
+        cgraph.load_lvclass(
+            cls_path, LoadMode.NONE, search_paths=[project_root], owner_chain=oc,
+        )
     return project_vi_facts(cgraph, vi_name, cp)
+
+
+def _owner_chain_for_class(vi_name: str) -> tuple[list[str] | None, str | None]:
+    """From a fully-qualified VI key like
+    ``"A.lvlib:B.lvlib:C.lvclass:m.vi"``, return the ``.lvlib`` segments
+    BEFORE the class (``["A.lvlib", "B.lvlib"]``) and the class segment
+    filename (``"C.lvclass"``), so ``build_one_vi`` registers the class
+    under the SAME qualified qname its method VIs embed. ``(None, None)``
+    when the VI isn't a class method."""
+    parts = vi_name.split(":")
+    for i, seg in enumerate(parts):
+        if seg.endswith(".lvclass"):
+            return (parts[:i] or None), seg
+    return None, None
 
 
 def warm_index_for_vi(
