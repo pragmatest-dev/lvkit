@@ -17,18 +17,23 @@ Two tiers:
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 from collections import Counter
 from pathlib import Path
 
 import pytest
 
+from lvkit.cli import cmd_structure
+from lvkit.graph import InMemoryVIGraph, LoadMode
 from lvkit.index.build import BuildResult, build_index, refresh_index
 from lvkit.index.model import WIRED_INDICATOR
 from lvkit.index.project import resolve_project
 from lvkit.index.query import blast_radius, get_callers
 from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
+from lvkit.structure import parse_lvlib
 
 pytestmark = pytest.mark.needs_samples
 
@@ -276,16 +281,167 @@ class TestFullCorpusDemo:
         assert shallow.impact_score <= result.impact_score
 
 
-# === .lvlib membership -> "library" column (real corpus) ===================
+# === parse_lvlib folder recursion (real corpus, no graph build needed) =====
 
-# The real ``.lvlib`` in the JKI-VI-Tester corpus with plain ``Type="VI"``
-# members (as opposed to ``.../Tests/Library Test/MyLibrary.lvlib``, whose
-# one member is a ``Type="LVClass"`` item that ``load_lvlib`` doesn't
-# currently handle -- a separate, pre-existing gap, not this one).
+# A real .lvlib nests members inside Type="Folder" containers (Public/
+# Private/Protected/custom scope groups) — parse_lvlib must flatten those,
+# not just read top-level <Item>s. These three cover the shapes seen in the
+# corpus: fully nested (WaveGen, MeasurementServerTests) and flat/unaffected
+# (VITesterUtilities, used again below by TestLibraryMembership).
+_WAVEGEN_LVLIB = (
+    SAMPLES / "lv-flex-channel-examples" / "WaveGen" / "WaveGen.lvlib"
+)
+_MEASUREMENT_SERVER_TESTS_LVLIB = (
+    SAMPLES / "measurement-plugin-labview" / "Source" / "Tests" / "Tests.Runtime"
+    / "Measurement Server" / "MeasurementServerTests.lvlib"
+)
 _VITESTER_UTILITIES_LVLIB = (
     JKI_ROOT / "source" / "Libraries" / "VITesterUtilities.lvlib"
 )
 _VITESTER_UTILITIES_MEMBER_COUNT = 46  # <Item Type="VI" .../> count in the file
+
+# The one LVClass-typed member in the JKI-VI-Tester corpus's lvlib set —
+# MyLibrary.lvlib is flat (no Folder nesting), so this exercises the
+# Type="LVClass" branch independent of the folder-recursion fix above.
+# It is itself a "Library"-typed member of MyParentLibrary.lvlib (one level
+# up, same dir) — a REAL two-deep library nesting in the corpus. Its class
+# member's own method VIs embed a FULLY qualified name that carries that
+# whole chain (verified against the real corpus:
+# "MyParentLibrary.lvlib:MyLibrary.lvlib:ABC - Parentheses (Valid).lvclass:
+# setUp.vi"), so ``load_lvlib``'s LVClass branch MUST pass owner_chain for
+# the "owns" edge to land on the real VI node — entering through the
+# correct nesting (MyParentLibrary.lvlib, not MyLibrary.lvlib standalone)
+# is what makes that chain line up.
+_MYPARENTLIBRARY_LVLIB = (
+    JKI_ROOT / "source" / "Tests" / "Library Test" / "MyParentLibrary.lvlib"
+)
+_MYLIBRARY_LVLIB = (
+    JKI_ROOT / "source" / "Tests" / "Library Test" / "MyLibrary.lvlib"
+)
+_MYLIBRARY_CLASS_NAME = (
+    "MyParentLibrary.lvlib:MyLibrary.lvlib:ABC - Parentheses (Valid).lvclass"
+)
+_MYLIBRARY_CLASS_METHODS = {
+    "setUp.vi", "testExample.vi", "tearDown.vi", "test (Example).vi",
+}
+
+
+class TestParseLvlibFolderRecursion:
+    """``parse_lvlib`` (structure.py) must recurse into Type="Folder" items —
+    a member's URL is already the full relative path from the .lvlib, so
+    flattening the folder nesting during parse is correct and loses no
+    information.
+    """
+
+    def test_wavegen_recovers_nested_members(self):
+        if not _WAVEGEN_LVLIB.is_file():
+            pytest.skip(f"Sample not available: {_WAVEGEN_LVLIB}")
+
+        lib = parse_lvlib(_WAVEGEN_LVLIB)
+        assert len(lib.members) == 8
+        names = {m.name for m in lib.members}
+        assert "WaveGen.vi" in names
+        assert "Generate.vi" in names
+        # Folder containers themselves are never members.
+        assert all(m.member_type != "Folder" for m in lib.members)
+
+    def test_measurement_server_tests_recovers_nested_members(self):
+        if not _MEASUREMENT_SERVER_TESTS_LVLIB.is_file():
+            pytest.skip(f"Sample not available: {_MEASUREMENT_SERVER_TESTS_LVLIB}")
+
+        lib = parse_lvlib(_MEASUREMENT_SERVER_TESTS_LVLIB)
+        assert len(lib.members) == 192
+
+    def test_flat_lvlib_is_unaffected(self):
+        """A flat (non-nested) .lvlib's member count must not change."""
+        if not _VITESTER_UTILITIES_LVLIB.is_file():
+            pytest.skip(f"Sample not available: {_VITESTER_UTILITIES_LVLIB}")
+
+        lib = parse_lvlib(_VITESTER_UTILITIES_LVLIB)
+        assert len(lib.members) == _VITESTER_UTILITIES_MEMBER_COUNT
+        assert all(m.member_type == "VI" for m in lib.members)
+
+
+class TestStructureCommandLvlibMembers:
+    """``lvkit structure Foo.lvlib`` (cmd_structure, cli.py) prints/emits
+    ``Members (N)`` straight from ``lib.members`` — a user-facing guard for
+    the folder-recursion fix above, not just the internal ``parse_lvlib``
+    return value.
+    """
+
+    def test_json_reports_all_nested_members(
+        self, capsys: pytest.CaptureFixture[str],
+    ):
+        if not _WAVEGEN_LVLIB.is_file():
+            pytest.skip(f"Sample not available: {_WAVEGEN_LVLIB}")
+
+        rc = cmd_structure(
+            argparse.Namespace(input=str(_WAVEGEN_LVLIB), json=True, plan=False)
+        )
+        out = capsys.readouterr().out
+
+        assert rc == 0
+        data = json.loads(out)
+        assert len(data["members"]) == 8
+        names = {m["name"] for m in data["members"]}
+        assert "WaveGen.vi" in names
+        assert "Generate.vi" in names
+
+    def test_text_output_reports_member_count(
+        self, capsys: pytest.CaptureFixture[str],
+    ):
+        if not _WAVEGEN_LVLIB.is_file():
+            pytest.skip(f"Sample not available: {_WAVEGEN_LVLIB}")
+
+        rc = cmd_structure(
+            argparse.Namespace(input=str(_WAVEGEN_LVLIB), json=False, plan=False)
+        )
+        out = capsys.readouterr().out
+
+        assert rc == 0
+        assert "Members (8):" in out
+
+
+class TestLoadLvlibClassMember:
+    """``load_lvlib`` (graph/loading.py) must register a Type="LVClass"
+    member as a class node — previously dropped entirely because the branch
+    checked for ``member_type == "Class"``, a string real ``.lvlib`` XML
+    never uses (it's always "LVClass").
+    """
+
+    def test_class_member_becomes_class_node_with_methods(self):
+        if not _MYPARENTLIBRARY_LVLIB.is_file():
+            pytest.skip(f"Sample not available: {_MYPARENTLIBRARY_LVLIB}")
+        assert _MYLIBRARY_LVLIB.is_file()  # sanity: the nested lvlib exists too
+
+        # Enter through MyParentLibrary.lvlib (its real container) — not
+        # MyLibrary.lvlib directly — so owner_chain accumulates the full,
+        # correct two-library prefix. search_paths=[JKI_ROOT]: both
+        # lvlib's own nested-Library URL and the class's URL are one
+        # directory off from their real on-disk locations, so resolution
+        # falls through to _find_file's rglob(project_root) fallback — the
+        # same search_paths build.py's _load_library_ownership passes for
+        # the real index build.
+        graph = InMemoryVIGraph()
+        graph.load_lvlib(
+            _MYPARENTLIBRARY_LVLIB, LoadMode.FULL, search_paths=[JKI_ROOT],
+        )
+
+        assert _MYLIBRARY_CLASS_NAME in graph.list_classes()
+
+        # The class's methods loaded as real VI nodes, owned by the class
+        # (not left as a dead/unreachable member).
+        owned = {
+            succ for succ in graph._dep_graph.successors(_MYLIBRARY_CLASS_NAME)
+            if (graph._dep_graph.get_edge_data(_MYLIBRARY_CLASS_NAME, succ) or {})
+            .get("rel") == "owns"
+        }
+        # Qualified qnames ("Lib:Lib:Class.lvclass:Method.vi") aren't
+        # filesystem paths — split on ":" rather than Path(...).name.
+        assert {n.rsplit(":", 1)[-1] for n in owned} == _MYLIBRARY_CLASS_METHODS
+
+
+# === .lvlib membership -> "library" column (real corpus) ===================
 
 
 @pytest.mark.slow
@@ -344,3 +500,51 @@ class TestLibraryMembership:
         }
         class_method_paths = {f.path for f in class_methods}
         assert not (lib_members & class_method_paths)
+
+    def test_lvclass_library_member_gets_qualified_ownership(
+        self, jki_index: BuildResult,
+    ):
+        """Empirical check for the Bug-B interaction: MyLibrary.lvlib's one
+        member is ``ABC - Parentheses (Valid).lvclass`` (a ``Type="LVClass"``
+        item, previously dropped entirely — see ``TestLoadLvlibClassMember``
+        above). It ALSO sits on disk under ``project_root`` and so is ALSO
+        picked up directly, bare, by ``_load_class_ownership``'s
+        ``rglob("*.lvclass")`` — plus ``_load_library_ownership``'s OWN
+        independent top-level visit to ``MyLibrary.lvlib`` (it never knows
+        that lvlib is nested inside ``MyParentLibrary.lvlib``). Three
+        ``_dep_graph`` "class" nodes for the one physical class result, but
+        only the correctly-chained one (reached via ``MyParentLibrary.lvlib``)
+        has "owns" edges that resolve to the REAL method VI nodes — the other
+        two are inert orphans whose guessed target qnames match no loaded VI,
+        so they never perturb ``get_owning_class`` (see
+        ``TestLoadLvlibClassMember`` for the direct graph-level check).
+
+        Only ``testExample.vi`` / ``test (Example).vi`` are asserted here:
+        ``setUp.vi``/``tearDown.vi`` are common JKI TestCase method names
+        (16-17 same-named files elsewhere in this corpus) that hit
+        ``build_index``'s path-keyed COLLISION path (``build_one_vi``) for
+        THIS specific file — which loads its ``.lvclass`` bare (no
+        owner_chain, same as ``_load_class_ownership``), so for a class
+        nested two libraries deep the "owns" edge guess doesn't match this
+        VI's fully qualified embedded name either. That's a narrow,
+        pre-existing limitation of the bare-class-loading convention shared
+        by ``_load_class_ownership``/``build_one_vi`` — orthogonal to Bug B
+        (unrelated to whether ``load_lvlib`` recognizes "LVClass") — so it's
+        documented here, not asserted as new behavior.
+        """
+        assert _MYLIBRARY_LVLIB.is_file()  # sanity: fixture lvlib exists
+
+        method_facts = [
+            f for f in jki_index.facts
+            if f.class_fact is not None
+            and f.class_fact.owning_class == _MYLIBRARY_CLASS_NAME
+        ]
+        found = {Path(f.path).name for f in method_facts}
+        assert found == {"testExample.vi", "test (Example).vi"}
+        assert found <= _MYLIBRARY_CLASS_METHODS
+
+        for f in method_facts:
+            class_fact = f.class_fact
+            assert class_fact is not None
+            assert class_fact.owning_class == _MYLIBRARY_CLASS_NAME
+            assert f.library == _MYLIBRARY_CLASS_NAME

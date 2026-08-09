@@ -78,7 +78,7 @@ class LVProject:
 class LVLibraryMember:
     """A member (VI, class, or nested library) in a library."""
     name: str
-    member_type: str  # "VI", "Class", "Library"
+    member_type: str  # "VI", "LVClass", "Library"
     url: str
 
 
@@ -700,6 +700,36 @@ def _extract_parent_from_geneology(geneology_data: str) -> str | None:
     return None
 
 
+_LVLIB_LOADABLE_TYPES = frozenset({"VI", "LVClass", "Library"})
+
+
+def _collect_lvlib_members(items: list[ET.Element]) -> list[LVLibraryMember]:
+    """Flatten ``<Item>`` elements into loadable ``LVLibraryMember``s.
+
+    A real ``.lvlib`` nests members inside ``Type="Folder"`` containers used
+    purely for scope grouping (Public/Private/Protected/custom folders) — a
+    member's ``URL`` is already the full relative path from the ``.lvlib``,
+    independent of that folder nesting, so folders themselves are never
+    emitted as members, only recursed into. Other non-loadable item types
+    (``Document``, ``Friended Library``, ``Friends List``) are skipped.
+    Depth-first / document order, so the result is deterministic.
+    """
+    members: list[LVLibraryMember] = []
+    for item in items:
+        item_type = item.get("Type", "")
+        if item_type == "Folder":
+            members.extend(_collect_lvlib_members(item.findall("Item")))
+            continue
+        if item_type not in _LVLIB_LOADABLE_TYPES:
+            continue
+        members.append(LVLibraryMember(
+            name=item.get("Name", ""),
+            member_type=item_type,
+            url=item.get("URL", ""),
+        ))
+    return members
+
+
 def parse_lvlib(lvlib_path: Path | str) -> LVLibrary:
     """Parse a .lvlib file to extract library structure.
 
@@ -715,24 +745,16 @@ def parse_lvlib(lvlib_path: Path | str) -> LVLibrary:
 
     lib_name = lvlib_path.stem
     version = None
-    members = []
 
     # Get version from properties
     for prop in root.findall("Property"):
         if prop.get("Name") == "NI.Lib.Version":
             version = prop.text
 
-    # Parse items
-    for item in root.findall("Item"):
-        item_name = item.get("Name", "")
-        item_type = item.get("Type", "")
-        item_url = item.get("URL", "")
-
-        members.append(LVLibraryMember(
-            name=item_name,
-            member_type=item_type,
-            url=item_url,
-        ))
+    # Parse items — recursing into Type="Folder" containers so members
+    # nested under Public/Private/etc. are recovered too (see
+    # _collect_lvlib_members).
+    members = _collect_lvlib_members(root.findall("Item"))
 
     return LVLibrary(
         name=lib_name,

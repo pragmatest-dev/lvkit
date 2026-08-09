@@ -302,7 +302,7 @@ class LoadingMixin:
                         vi_qname = lib_qname + ":" + member_name
                         if vi_qname in self._dep_graph:
                             self._dep_graph.add_edge(lib_qname, vi_qname, rel="owns")
-            elif member.member_type == "Class":
+            elif member.member_type == "LVClass":
                 class_path = lvlib_path.parent / member.url
                 if not class_path.exists():
                     class_name = Path(member.url).name
@@ -312,6 +312,18 @@ class LoadingMixin:
                     if found:
                         class_path = found
                 if class_path.exists():
+                    # owner_chain matters here: a library-owned class's own
+                    # method VIs embed a FULLY qualified name that DOES carry
+                    # the containing library chain (verified against the real
+                    # corpus — JKI VI Tester's "ABC - Parentheses (Valid)."
+                    # "lvclass", nested under MyParentLibrary.lvlib:MyLibrary.
+                    # lvlib, has methods whose OWN metadata.qualified_name is
+                    # "MyParentLibrary.lvlib:MyLibrary.lvlib:ABC - Parentheses"
+                    # " (Valid).lvclass:setUp.vi" — so cls_qname must match
+                    # that chain for the "owns" edge (added inside
+                    # load_lvclass) to land on the real VI node. Dropping
+                    # owner_chain here silently loses that ownership
+                    # attribution instead of fixing anything.
                     self.load_lvclass(
                         class_path, mode, search_paths,
                         owner_chain=chain + [lib.name + ".lvlib"],
