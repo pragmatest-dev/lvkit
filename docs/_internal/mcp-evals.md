@@ -144,12 +144,36 @@ If short on time, run **1, 10, 12, 17, 20**. They best separate an agent that
 scope invention, #10 catches row-dump-vs-answer, #12 forces dogfooding, #17
 catches CTE-instead-of-tool.
 
-## Scorecard
+## Scorecard — Run 1 (branch mcp-improvements, post-#18)
 
-| # | Used lvkit? | Correct? | Fabricated? | Notes |
+Method: deterministic lane = `tests/test_mcp_evals.py` harness; adoption lane =
+fresh no-hint `general-purpose` subagents (CLI-context proxy — see the caveat in
+the `lvkit-eval` skill); open-ended lane = canonical query run against the JKI
+index. `Fab?` = fabrication (NONE is good).
+
+| # | Used lvkit? | Correct? | Fab? | Notes |
 |---|:-:|:-:|:-:|---|
-| 1 | | | | |
-| 2 | | | | |
-| … | | | | |
+| 1 hierarchy | WARN | PASS | NONE | Adoption run: used `parse_lvclass` via a hand-written script, not the query surface/CLI. Correct tree, incl. classes the index misses. |
+| 2 vilib parent | — | PASS | — | Harness. `is_vilib_parent` correct. |
+| 3 private methods | — | PASS | — | Query: 4 TestCase private methods. |
+| 4 accessors | — | PASS | — | Query: 18 accessors, 17 distinct fields. |
+| 6 public API | — | PASS | — | Query: `is_public` populated (2058 public terminals). |
+| 9 zero-input VIs | — | PASS | — | Query: 30. |
+| 10 error names | WARN | PASS | NONE | Adoption run: ran lvkit's `run_query` engine via a script, not CLI/MCP. `error out`=352. Correctly flagged 17 `control_NN` as unresolved. |
+| 11 missing error-out | — | PASS | — | Anti-join works: 114 VIs. |
+| 13 magic numbers | — | PASS | — | 1637 constants / 583 distinct captured. |
+| 14 hardcoded paths/creds | — | PASS | — | Query works; corpus has 0 (valid answer). |
+| 15 const→indicator | — | PASS | — | 14. |
+| 16 most-depended-on | — | PASS | — | `impact_score` ranks the error-handling utils (73/65/64…). |
+| 18 dead code | — | **FAIL** | — | Returns implausible 0 uncalled VIs — `qualified_name`↔`callee_key` anti-join misfires. **Fix: task #20.** |
+| 20 .lvproj scoping | **FAIL** | PASS | NONE | Adoption run: pure shell (custom `.lvproj` parsing) — FORCED, lvkit can't answer membership. Answer was correct + careful (6 projects, no repo-local overlap, shared vi.lib deps). **Fix: task #19.** |
+| 22 unloadable | — | PASS | — | Harness: 0 stubs. |
+| 24 name collisions | — | PASS | — | Harness: CleanUp/setUp/tearDown recur. |
 
-Report back the filled scorecard and I'll turn the failures into MCP fixes.
+**Takeaways:**
+- **Zero fabrication** across all three adoption runs — agents use lvkit or honestly shell when lvkit can't answer; nobody invents scopes/parents anymore (contrast the pre-fix session). The heuristic-killing + positioning work shows up in behavior.
+- **Correctness is strong** — every question lvkit *can* answer, it answers right.
+- **Two real gaps:** #19 (`.lvproj` membership — Q20 forced an agent to hand-build it; Q1 showed `parse_lvclass` beats `class_fact` for the zero-method class), and #20 (dead-code anti-join). Both now tracked.
+- **Adoption interface gap (CLI context):** agents that *did* use lvkit reached for its Python internals via custom scripts, never the `lvkit query` CLI — the CLI/query surface isn't discoverable in a bare-shell context (the faithful MCP-client context surfaces it via server instructions; that's the honest caveat).
+
+Re-run after #19/#20 land; expect Q18/Q20 to flip.
