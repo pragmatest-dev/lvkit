@@ -17,6 +17,10 @@ the `lvkit-mcp` console script installed with the `lvkit` package.
 
 ## Setup
 
+For the full matrix — VS Code extension, Claude Code plugin, Codex, uvx, and
+pre-release — and **which one fits your editor**, see [Installing the MCP
+server](install.md). The essentials:
+
 The server is **stdio** — your agent's runtime launches it and speaks to it; you
 don't run `lvkit mcp` by hand. Point the client's `command` at any lvkit that is
 on the machine.

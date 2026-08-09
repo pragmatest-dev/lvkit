@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-marketplace.json",
+  "name": "pragmatest",
+  "description": "Pragmatest tooling for Claude Code — read, diff, and convert LabVIEW without a LabVIEW license.",
+  "owner": {
+    "name": "Pragmatest",
+    "url": "https://github.com/pragmatest-dev"
+  },
+  "plugins": [
+    {
+      "name": "lvkit",
+      "source": "./plugins/lvkit",
+      "description": "Understand and convert LabVIEW VIs to Python without a LabVIEW license: bundles the lvkit MCP server (index a VI repo, then query it like code) and the lvkit workflow skills.",
+      "homepage": "https://github.com/pragmatest-dev/lvkit",
+      "license": "Apache-2.0",
+      "keywords": ["labview", "vi", "python", "mcp", "static-analysis", "code-generation"]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "lvkit",
+  "displayName": "LVKit",
+  "version": "0.1.0",
+  "description": "Understand and convert LabVIEW VIs to Python without a LabVIEW license — the lvkit MCP server plus its workflow skills.",
+  "author": {
+    "name": "Pragmatest"
+  },
+  "homepage": "https://github.com/pragmatest-dev/lvkit",
+  "repository": "https://github.com/pragmatest-dev/lvkit",
+  "license": "Apache-2.0",
+  "keywords": ["labview", "vi", "python", "mcp", "static-analysis", "code-generation"],
+  "mcpServers": {
+    "lvkit": {
+      "command": "uvx",
+      "args": ["--from", "lvkit", "lvkit-mcp"]
+    }
+  }
+}

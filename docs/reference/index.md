@@ -50,6 +50,7 @@ same-name collision loss.
 - [setup](setup.md) — install AI agent skills and create the project-local `.lvkit/` store.
 - [detect](detect.md) — find a locally installed LabVIEW and its `vi.lib` / `user.lib`.
 - [mcp](mcp.md) — run the MCP server so an AI agent can query VIs interactively.
+- [install](install.md) — get the MCP server in front of your agent: VS Code extension, Claude Code plugin, Codex, or uvx.
 
 ## Shared options
 
