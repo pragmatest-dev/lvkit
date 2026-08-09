@@ -60,7 +60,7 @@ Rules:
 The MCP tools take a VI path directly — no `load`/`clear` session step:
 
 - **One VI:** `describe(vi_path)` → `get_operations(vi_path)` → `get_dataflow(vi_path)` → `get_structure(vi_path, operation_id)` → `get_constants(vi_path)`
-- **Whole project** (index once with `index(project)`): `query(sql)` — read-only SQL over the curated views (`vi`, `terminal`, `constant`, `call`, `type_use`, `class_fact`); call `query_schema()` for the columns. It returns the *answer*, e.g. the error-indicator names as a histogram: `SELECT name, COUNT(*) AS n FROM terminal WHERE is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC`. Reachability stays typed: `get_callers`/`get_callees`, `blast_radius`, `visualize_project`.
+- **Whole project** (index once with `index(project)`): `query(sql)` — read-only SQL over the curated views (`vi`, `terminal`, `constant`, `call`, `type_use`, `class_fact`); call `query_schema()` for the columns. It returns the *answer*, e.g. the error-indicator names as a histogram: `SELECT name, COUNT(*) AS n FROM terminal WHERE is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC`. Reachability stays typed: `get_callers`/`get_callees`/`blast_radius` (CLI: `lvkit callers`/`callees`/`blast-radius`), plus `visualize_project`. Every project tool has both a CLI command and an MCP tool.
 
 If the server isn't connected, use the `lvkit …` CLI above.
 

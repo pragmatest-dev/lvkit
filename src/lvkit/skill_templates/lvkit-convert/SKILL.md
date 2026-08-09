@@ -116,6 +116,7 @@ questions in one call each (no per-VI round trips, no name-collision loss):
   replaces the old `find_*`/`get_signatures` read tools. Also available as
   `lvkit query <path> "<SELECT>"` on the CLI.
 - `get_callers` / `get_callees` / `blast_radius` — call graph & change impact
+  (CLI equivalents: `lvkit callers` / `callees` / `blast-radius`)
 - `visualize_project` — self-contained Mermaid call graph / class tree
 
 **Deep single-VI** — pass a `vi_path`, loaded on demand (no `load` step):

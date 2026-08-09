@@ -28,6 +28,24 @@ querying an unindexed project fails with a clear message.
 The SQL argument is optional only when `--schema` is given; otherwise it is
 required.
 
+## Building & refreshing the index
+
+`query` reads a persisted index. You rarely build it by hand — `query` (and the
+`callers`/`callees`/`blast-radius` commands) build it on first use and
+incrementally refresh it before each read, and ordinary `describe`/`render`/
+`generate`/`docs` runs warm it as you work. To build or refresh it explicitly:
+
+```bash
+lvkit index <path>              # build (or, with --refresh, incrementally update)
+lvkit index <path> --refresh    # rebuild only content-changed/added VIs; drop deleted
+```
+
+`<path>` resolves to its enclosing project, and the whole repo is indexed
+(path-keyed, so same-named VIs like `setUp.vi` ×17 never collide). A refresh is
+keyed by each VI's content hash, so it only re-parses what actually changed.
+Pass `--no-refresh` to `query`/`callers`/… to skip the pre-read refresh (faster,
+but results may be stale if a VI changed since the last build).
+
 ## The views
 
 Query these curated views (run `lvkit query <path> --schema` for the exact
@@ -43,8 +61,10 @@ columns of each):
 | `class_fact` | class-member VI | `vi_path`, `owning_class`, `parent`, `scope`, `is_accessor`, `accessor_field` |
 
 Reachability questions ("what calls this?", "what breaks if I change it?") are
-**not** SQL — they're a graph walk. Use the MCP `get_callers` / `get_callees` /
-`blast_radius` tools, or `impact_score` on the `vi` view for a precomputed
+**not** SQL — they're a graph walk, so they're separate commands, not views:
+[`lvkit callers`](callers.md) / `lvkit callees` / `lvkit blast-radius` (or the
+matching MCP `get_callers` / `get_callees` / `blast_radius` tools). For a quick
+count without the full list, `impact_score` on the `vi` view is a precomputed
 transitive-dependent count.
 
 ## Example
@@ -90,8 +110,11 @@ A rejected or failing query prints `query error: …` to stderr and exits `2`.
 - The index is stored per project root under
   `~/.lvkit/cache/index/projects/<slug>/index.db` (SQLite/WAL), rebuilt cheaply
   from the content-hash-keyed extraction cache.
-- The views are the stable contract; the underlying tables may change between
-  releases. The SQL dialect is SQLite's.
+- **The views are the interface; you never query the tables.** They are a
+  curated layer that decouples callers from the physical schema, so the tables
+  can change underneath without breaking your SQL. Pre-1.0, the views
+  themselves may still evolve — but they are the intentional, documented seam,
+  and `--schema` always reports the current shape. The SQL dialect is SQLite's.
 - The MCP server exposes the same surface as its `query` / `query_schema` tools
   — see [mcp](mcp.md).
 

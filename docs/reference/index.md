@@ -25,10 +25,15 @@ to be resolved first.
 
 ## Query across a repo
 
-- [query](query.md) — read-only SQL over a repo's code-understanding index; ask
-  project-wide questions (error-indicator names, callers, type usage) and get
-  back the answer, not a dump. Built/warmed by `lvkit index` and by the
-  understand/convert commands as you run them.
+Index a repo once (`lvkit index`, though the commands below build/refresh it for
+you), then ask project-wide questions in one call — no per-VI round trips, no
+same-name collision loss.
+
+- [query](query.md) — read-only SQL over the repo's index (views: `vi`,
+  `terminal`, `constant`, `call`, `type_use`, `class_fact`); get back the answer
+  (a `GROUP BY` histogram), not a dump. Also documents `lvkit index`.
+- [callers / callees / blast-radius](callers.md) — call graph & change impact:
+  who calls a VI, what it calls, and what breaks if you change it.
 
 ## Track changes
 

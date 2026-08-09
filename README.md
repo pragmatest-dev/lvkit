@@ -40,6 +40,8 @@ For a global install: `pipx install lvkit` or `uv tool install lvkit`.
 | `lvkit docs` | Generate cross-referenced HTML documentation |
 | `lvkit visualize` | Interactive dataflow or dependency graph (HTML) |
 | `lvkit generate` | Generate Python from a VI, library, or class (experimental — see [Cleanroom approach](#cleanroom-approach)) |
+| `lvkit index` / `lvkit query` | Index a whole repo, then ask project-wide questions in read-only SQL ([docs](docs/reference/query.md)) |
+| `lvkit callers` / `callees` / `blast-radius` | Call graph & change impact: who calls a VI, and what breaks if you change it ([docs](docs/reference/callers.md)) |
 | `lvkit structure` | Inspect `.lvproj`, `.lvlib`, or `.lvclass` structure |
 | `lvkit detect` | Detect a locally installed LabVIEW and its `vi.lib` / `user.lib` |
 | `lvkit setup` | Install AI agent skills; create the `.lvkit/` resolution store |
