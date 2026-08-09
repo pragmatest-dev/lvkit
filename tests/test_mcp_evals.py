@@ -95,7 +95,10 @@ class TestQ1ClassHierarchy:
             for f in jki_index.facts
             if f.class_fact is not None
         }
-        assert len(owning) == 27
+        # 27 + the 4 classes #18 recovered (Class1, MySecondTestCase,
+        # "Merge Errors TestCase", "Queue TestCase"). UserInterfaceTestCase
+        # (zero methods) stays unresolved — #19, out of scope here.
+        assert len(owning) == 31
 
     def test_no_owning_class_has_two_distinct_parents(self, jki_index: BuildResult):
         """The de-duplication invariant: every class_fact row resolved for
@@ -234,33 +237,51 @@ def test_q24_name_collisions_include_testcase_methods(jki_index: BuildResult):
 
 
 @pytest.mark.slow
+def test_q21_gap18_four_classes_resolve_class_fact(jki_index: BuildResult):
+    """Q21/#18 (also underlies Q1's owning-class count): Class1,
+    MySecondTestCase, "Merge Errors TestCase", and "Queue TestCase" each had
+    every method VI's ``class_fact`` unresolved (None) because the method
+    VI's own embedded metadata never reports a ``qualified_name`` — so
+    ``load_lvclass`` registered them under their bare filename, and the
+    computed ``cls_qname:filename`` ownership key never matched a node. Fixed
+    by falling back to source-path identity for the owns-edge (see
+    ``graph/loading.py::load_lvclass``). These 4 now resolve; each also gets
+    its parent from ``ParentClassLinkInfo``."""
+    gap_classes: dict[str, str | None] = {
+        "Class1.lvclass": None,
+        "MySecondTestCase.lvclass": "TestCase.lvclass",
+        "Merge Errors TestCase.lvclass": "TestCase.lvclass",
+        "Queue TestCase.lvclass": "TestCase.lvclass",
+    }
+    by_class: dict[str, set[str | None]] = {}
+    for f in jki_index.facts:
+        if f.class_fact is not None and f.class_fact.owning_class in gap_classes:
+            by_class.setdefault(f.class_fact.owning_class, set()).add(
+                f.class_fact.parent
+            )
+    assert set(gap_classes) <= set(by_class)
+    for owning_class, expected_parent in gap_classes.items():
+        assert by_class[owning_class] == {expected_parent}
+
+
+@pytest.mark.slow
 @pytest.mark.xfail(
     reason=(
-        "GAP #18: Class1, MySecondTestCase, UserInterfaceTestCase, "
-        "'Merge Errors TestCase', and 'Queue TestCase' should each resolve a "
-        "class_fact (owning_class == '<Name>.lvclass') for their method VIs, "
-        "same as the other 27 classes — but today every method under these "
-        "5 class dirs has class_fact=None (unresolved, not even a wrong "
-        "guess)."
+        "GAP #19: UserInterfaceTestCase has ZERO method VIs, so there is no "
+        "method VI for load_lvclass's owns-edge loop to ever visit — the "
+        "class-level index gap is distinct from #18's owns-edge bug (fixed "
+        "above) and needs a class-with-no-methods fact of its own."
     ),
 )
-def test_q21_gap18_five_classes_resolve_class_fact(jki_index: BuildResult):
-    """Q21/#18 (also underlies Q1's '27 of 32 resolve'): the 5 classes named
-    in the eval bank as unresolved SHOULD each have a resolved
-    class_fact.owning_class once #18 lands."""
-    gap_classes = {
-        "Class1.lvclass",
-        "MySecondTestCase.lvclass",
-        "UserInterfaceTestCase.lvclass",
-        "Merge Errors TestCase.lvclass",
-        "Queue TestCase.lvclass",
-    }
+def test_q21_gap19_zero_method_class_resolves(jki_index: BuildResult):
+    """Q21/#19: UserInterfaceTestCase (zero methods) should still surface as
+    a known class once #19 lands."""
     resolved = {
         f.class_fact.owning_class
         for f in jki_index.facts
         if f.class_fact is not None
     }
-    assert gap_classes <= resolved
+    assert "UserInterfaceTestCase.lvclass" in resolved
 
 
 @pytest.mark.xfail(

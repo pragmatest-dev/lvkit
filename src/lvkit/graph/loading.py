@@ -443,6 +443,32 @@ class LoadingMixin:
                 # Ownership edge — carries scope/accessor info for docs
                 # (class landing pages, access-level badges).
                 vi_name = cls_qname + ":" + Path(method.vi_path).name
+                if vi_name not in self._dep_graph:
+                    # Fast path missed: the method VI's own embedded
+                    # metadata never reports a qualified_name (#18 — e.g.
+                    # Class1, MySecondTestCase, "Merge Errors TestCase",
+                    # "Queue TestCase"), so ``_load_vi_recursive`` registered
+                    # it under its BARE filename instead of the qualified
+                    # key computed above. Fall back to SOURCE-PATH identity:
+                    # the file is unique, so if the bare-name node's
+                    # recorded source path IS this method's own file, that
+                    # node is our VI — attach the edge there instead of
+                    # silently dropping it. If the bare node belongs to a
+                    # DIFFERENT same-named VI (another VI won the bare-name
+                    # race first in a whole-repo load), leave it alone: this
+                    # instance isn't reachable in THIS graph and must be
+                    # resolved via the per-VI collision path
+                    # (index/build.py::build_one_vi), which re-invokes this
+                    # same method against a fresh single-VI graph that has
+                    # no collision to lose.
+                    bare_name = Path(method.vi_path).name
+                    bare_source = self._source_paths.get(bare_name)
+                    if (
+                        bare_name in self._dep_graph
+                        and bare_source is not None
+                        and bare_source.resolve() == vi_path.resolve()
+                    ):
+                        vi_name = bare_name
                 if vi_name in self._dep_graph:
                     self._dep_graph.add_edge(
                         cls_qname, vi_name,

@@ -24,11 +24,13 @@ Scorecard template at the bottom.
 
 1. **What classes are in this project and how do they inherit?**
    - *Answered by:* `query` over `class_fact` (owning_class, parent) → a tree.
-   - *Ground truth:* 32 `.lvclass` on disk; **27 resolve**, 5 don't (see [GAP #18]).
+   - *Ground truth:* 32 `.lvclass` on disk; **31 resolve** (#18 recovered 4);
+     the last, `UserInterfaceTestCase`, has zero methods so it can't attach a
+     class fact — that's the class-level-index gap (see [GAP #19]).
      Roots: `TestCase`, `TestSuite`, `TestRunner`, `TestResult`, `TestLoader`,
      `Class1`, `MyClass`. Depth ≤ 3. `TestRunner→TextTestRunner→…JUnitXML` and
      `TestResult→_TextTestResult→…JUnitXML`. `TestCase` has ~15 subclasses.
-   - *Watch for:* inventing parents for the 5 unresolved classes; inventing a
+   - *Watch for:* inventing a parent for the one unresolved class; inventing a
      single-`.lvproj` scope (see #20); listing `WaitOnTestComplete` twice (fixed).
 
 2. **Which classes inherit from a vi.lib class vs an in-repo class?**
