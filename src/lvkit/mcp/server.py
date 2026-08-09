@@ -74,7 +74,35 @@ from ..project_store import find_project_store
 from .tools import generate_documents as _gen_documents
 from .tools import generate_python as _gen_python
 
-mcp = FastMCP("lvkit-mcp")
+_INSTRUCTIONS = """\
+lvkit reads LabVIEW code. A LabVIEW project (`.vi`, `.lvclass`, `.lvlib`,
+`.lvproj`) is a BINARY format — `grep`, `cat`, `find`, and ad-hoc `python`
+scripts CANNOT parse it and return nothing usable. In a LabVIEW repo these
+tools are your ONLY way to see the code, so reach for them FIRST; do not grep
+a `.vi`.
+
+For any question about the project, start here:
+
+- Structure, classes & inheritance, terminals, constants, type usage —
+  `query` runs read-only SQL over the project's facts index (views: `vi`,
+  `class_fact`, `terminal`, `constant`, `call`, `type_use`; call
+  `query_schema` for columns). "What classes exist and how do they inherit?"
+  is `SELECT owning_class, parent FROM class_fact`. It returns the answer
+  (e.g. a GROUP BY histogram), not a row dump.
+- Who calls what / change impact — `get_callers`, `get_callees`,
+  `blast_radius` (transitive; not expressible in SQL).
+- A whole-project call graph / class tree diagram — `visualize_project`.
+- One VI in depth (pass a path, no load step) — `describe`,
+  `get_operations`, `get_dataflow`, `get_structure`, `get_constants`,
+  `get_context`.
+- Convert a VI to Python — `generate_python` / `generate_ast_code`; docs
+  site — `generate_documents`.
+
+`query`, `get_callers` and friends operate on the whole project at once and
+build/refresh the index automatically. Prefer them over per-VI round-trips.
+"""
+
+mcp = FastMCP("lvkit-mcp", instructions=_INSTRUCTIONS)
 
 # Per-project-root facts cache: {resolved project_root str -> [VIFacts]}. This
 # replaces the old module-global _graph — different repos get different entries,
@@ -290,10 +318,13 @@ async def index(
 async def query(
     sql: str, project: str | None = None, ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Run one read-only SQL ``SELECT``/``WITH`` over the project's facts index
-    and get back **just the answer** — the token-efficient way to read
-    terminals, constants, symbols, and type-uses project-wide (a server-computed
-    ``GROUP BY`` histogram, not a row dump).
+    """Read a LabVIEW project's structure — classes & inheritance, terminals,
+    constants, calls, type usage — by running one read-only SQL
+    ``SELECT``/``WITH`` over its facts index. The primary way to answer
+    project-wide questions about a repo you can't grep (``.vi`` is binary);
+    returns **just the answer** (a server-computed ``GROUP BY`` histogram, not a
+    row dump). "What classes exist and how do they inherit?" is
+    ``SELECT owning_class, parent FROM class_fact``.
 
     Query these curated views (call ``query_schema`` for their columns):
     ``vi``, ``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``.

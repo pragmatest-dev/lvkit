@@ -104,6 +104,11 @@ lvkit mcp                          # Start MCP server for IDE integration
 
 ## MCP Tools (for IDE integration)
 
+**A LabVIEW project (`.vi`/`.lvclass`/`.lvlib`/`.lvproj`) is a binary format —
+`grep`/`cat`/`find` and ad-hoc scripts return nothing usable.** lvkit is the
+only way to read it, so for any question about a LabVIEW repo reach for lvkit
+first; never grep a `.vi`.
+
 When the lvkit MCP server (`lvkit mcp`) is connected, **prefer these tools over
 the CLI**; otherwise use the `lvkit …` commands above (each has a CLI
 equivalent — including `lvkit index` and `lvkit query` for the project index).
