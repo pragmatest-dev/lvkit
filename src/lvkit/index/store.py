@@ -28,7 +28,13 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from .. import cache_paths
-from .model import ClassFact, ConstantFact, TerminalFact, VIFacts
+from .model import (
+    ClassFact,
+    ConstantFact,
+    LVProjMemberFact,
+    TerminalFact,
+    VIFacts,
+)
 
 SCHEMA_VERSION = 1
 
@@ -95,6 +101,22 @@ CREATE TABLE IF NOT EXISTS class_facts (
     is_accessor INTEGER NOT NULL DEFAULT 0,
     accessor_field TEXT
 );
+
+CREATE TABLE IF NOT EXISTS lvproj_members (
+    lvproj_path TEXT NOT NULL,
+    lvproj_name TEXT NOT NULL,
+    member_name TEXT NOT NULL,
+    member_url TEXT NOT NULL,
+    resolved_path TEXT,
+    member_type TEXT NOT NULL,
+    is_in_repo INTEGER NOT NULL,
+    target TEXT NOT NULL,
+    is_dependency INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lvproj_members_proj
+    ON lvproj_members(lvproj_path);
+CREATE INDEX IF NOT EXISTS idx_lvproj_members_resolved
+    ON lvproj_members(resolved_path);
 
 CREATE TABLE IF NOT EXISTS meta (
     vi_path TEXT PRIMARY KEY,
@@ -289,6 +311,66 @@ def delete(project_root: Path, paths: Iterable[str]) -> None:
         with conn:
             for path in paths:
                 _delete_vi(conn, path)
+    finally:
+        conn.close()
+
+
+def save_lvproj_members(
+    project_root: Path, members: Iterable[LVProjMemberFact],
+) -> None:
+    """Replace the project's ``.lvproj`` membership rows wholesale.
+
+    Membership is a **project-level** fact derived purely from the repo's
+    ``.lvproj`` XML (no VI content, no ``content_sha``) — cheap to recompute in
+    full — so unlike the per-VI ``save()`` this just clears the table and
+    reinserts, keeping it consistent with the current set of ``.lvproj`` files
+    (added/removed projects, moved members) on every build/refresh.
+    """
+    conn = _connect(project_root)
+    try:
+        with conn:
+            conn.execute("DELETE FROM lvproj_members")
+            conn.executemany(
+                "INSERT INTO lvproj_members(lvproj_path, lvproj_name, "
+                "member_name, member_url, resolved_path, member_type, "
+                "is_in_repo, target, is_dependency) VALUES (?,?,?,?,?,?,?,?,?)",
+                [
+                    (
+                        m.lvproj_path, m.lvproj_name, m.member_name, m.member_url,
+                        m.resolved_path, m.member_type, int(m.is_in_repo),
+                        m.target, int(m.is_dependency),
+                    )
+                    for m in members
+                ],
+            )
+    finally:
+        conn.close()
+
+
+def load_lvproj_members(project_root: Path) -> list[LVProjMemberFact]:
+    """Load every ``.lvproj`` membership row for ``project_root`` (``[]`` if
+    unindexed)."""
+    conn = _connect(project_root)
+    try:
+        rows = conn.execute(
+            "SELECT lvproj_path, lvproj_name, member_name, member_url, "
+            "resolved_path, member_type, is_in_repo, target, is_dependency "
+            "FROM lvproj_members"
+        ).fetchall()
+        return [
+            LVProjMemberFact(
+                lvproj_path=r[0],
+                lvproj_name=r[1],
+                member_name=r[2],
+                member_url=r[3],
+                resolved_path=r[4],
+                member_type=r[5],
+                is_in_repo=bool(r[6]),
+                target=r[7],
+                is_dependency=bool(r[8]),
+            )
+            for r in rows
+        ]
     finally:
         conn.close()
 

@@ -62,13 +62,19 @@ from ..graph.describe import (
 )
 from ..index import query as iq
 from ..index import sql as isql
-from ..index.build import build_index, refresh_index, warm_all_loaded
+from ..index.build import (
+    build_index,
+    build_lvproj_membership,
+    refresh_index,
+    warm_all_loaded,
+)
 from ..index.model import VIFacts
 from ..index.project import resolve_project
 from ..index.store import db_path as store_db_path
 from ..index.store import delete as store_delete
 from ..index.store import load as store_load
 from ..index.store import save as store_save
+from ..index.store import save_lvproj_members as store_save_lvproj_members
 from ..load_mode import LoadMode
 from ..project_store import find_project_store
 from .tools import generate_documents as _gen_documents
@@ -81,14 +87,21 @@ scripts CANNOT parse it and return nothing usable. In a LabVIEW repo these
 tools are your ONLY way to see the code, so reach for them FIRST; do not grep
 a `.vi`.
 
+lvkit indexes the whole REPOSITORY — every `.vi` on disk. A repo may hold many
+LabVIEW PROJECTS (`.lvproj` files); a VI can belong to several of them or none.
+"The project" is therefore ambiguous — don't assume one `.lvproj` scopes the
+repo. To filter by an actual LabVIEW project, use the `lvproj` view (membership
+is many-to-many): "classes in VIUnit.lvproj" is `SELECT member_name FROM lvproj
+WHERE lvproj_name='VIUnit' AND member_type='LVClass'`.
+
 For any question about the project, start here:
 
-- Structure, classes & inheritance, terminals, constants, type usage —
-  `query` runs read-only SQL over the project's facts index (views: `vi`,
-  `class_fact`, `terminal`, `constant`, `call`, `type_use`; call
-  `query_schema` for columns). "What classes exist and how do they inherit?"
-  is `SELECT owning_class, parent FROM class_fact`. It returns the answer
-  (e.g. a GROUP BY histogram), not a row dump.
+- Structure, classes & inheritance, terminals, constants, type usage,
+  `.lvproj` membership — `query` runs read-only SQL over the project's facts
+  index (views: `vi`, `class_fact`, `terminal`, `constant`, `call`,
+  `type_use`, `lvproj`; call `query_schema` for columns). "What classes exist
+  and how do they inherit?" is `SELECT owning_class, parent FROM class_fact`.
+  It returns the answer (e.g. a GROUP BY histogram), not a row dump.
 - Who calls what / change impact — `get_callers`, `get_callees`,
   `blast_radius` (transitive; not expressible in SQL).
 - A whole-project call graph / class tree diagram — `visualize_project`.
@@ -248,6 +261,7 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
             # Cold store: one fast whole-repo build.
             result = build_index(root, vi_paths)
             store_save(root, result.facts)
+            store_save_lvproj_members(root, result.lvproj_members)
             facts = result.facts
         else:
             # Warm/partial store — progressively populated by single-VI loads.
@@ -257,6 +271,9 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
             rr, facts = refresh_index(root, vi_paths, stored)
             store_delete(root, rr.deleted)
             store_save(root, facts)
+            # Membership is a cheap .lvproj-only reparse — refresh it wholesale
+            # so the `lvproj` view reflects added/removed projects.
+            store_save_lvproj_members(root, build_lvproj_membership(root))
         _indexes[key] = facts
     return root, _indexes[key]
 
@@ -293,6 +310,7 @@ async def index(
             rr, merged = refresh_index(root, vi_paths, stored)
             store_delete(root, rr.deleted)
             store_save(root, merged)
+            store_save_lvproj_members(root, build_lvproj_membership(root))
             _indexes[str(root)] = merged
             return {
                 "project_root": str(root),
@@ -303,6 +321,7 @@ async def index(
             }
         result = build_index(root, vi_paths)
         store_save(root, result.facts)
+        store_save_lvproj_members(root, result.lvproj_members)
         _indexes[str(root)] = result.facts
         return {
             "project_root": str(root),
@@ -327,7 +346,8 @@ async def query(
     ``SELECT owning_class, parent FROM class_fact``.
 
     Query these curated views (call ``query_schema`` for their columns):
-    ``vi``, ``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``.
+    ``vi``, ``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``,
+    ``lvproj`` (which VIs/classes belong to which ``.lvproj``).
     Example — the names this project uses for error indicators, as a histogram
     rather than 379 raw rows::
 

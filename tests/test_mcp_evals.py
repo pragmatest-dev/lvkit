@@ -32,6 +32,7 @@ from lvkit.index.build import BuildResult, build_index
 from lvkit.index.project import resolve_project
 from lvkit.index.sql import QueryResult
 from lvkit.index.store import save as save_index
+from lvkit.index.store import save_lvproj_members
 from lvkit.structure import parse_lvclass
 
 pytestmark = pytest.mark.needs_samples
@@ -58,6 +59,10 @@ def jki_index() -> BuildResult:
         root, vi_paths = resolve_project(JKI_ROOT)
         result = build_index(root, vi_paths)
         save_index(root, result.facts)
+        # Persist .lvproj membership too, so the `lvproj` view has rows to
+        # answer #19's membership questions (mirrors what `lvkit index` /
+        # the MCP index tool do after a build).
+        save_lvproj_members(root, result.lvproj_members)
         return result
     finally:
         if saved is not None:
@@ -284,17 +289,45 @@ def test_q21_gap19_zero_method_class_resolves(jki_index: BuildResult):
     assert "UserInterfaceTestCase.lvclass" in resolved
 
 
-@pytest.mark.xfail(
-    reason=(
-        "GAP #19: .lvproj membership (which VIs/classes belong to which of "
-        "the 6 .lvproj files, many-to-many) isn't modeled anywhere in the "
-        "SQL view layer yet — no view/column mentions 'lvproj'."
-    ),
-)
-def test_q20_gap19_lvproj_membership_is_modeled():
-    """Q20/#19 (membership half): a .lvproj-membership fact or view should
-    exist once #19 lands — e.g. a view name or column containing 'lvproj'."""
-    haystack = " ".join(isql.VIEWS.keys()) + " " + " ".join(
-        col for view in isql.VIEWS.values() for col in view.columns
+def test_q20_19_lvproj_membership_is_modeled():
+    """Q20/#19 (membership half, LANDED): the SQL view layer models .lvproj
+    membership — the `lvproj` view exists and its columns name it."""
+    assert "lvproj" in isql.VIEWS
+    cols = isql.VIEWS["lvproj"].columns
+    assert {"lvproj_name", "member_name", "member_type", "is_in_repo"} <= set(cols)
+
+
+@pytest.mark.slow
+def test_q20_19_lvproj_view_returns_six_projects(jki_index: BuildResult):
+    """Q20/#19: the `lvproj` view answers "which LabVIEW projects are here?" —
+    the 6 distinct `.lvproj` in the repo — and a join answers "classes in
+    VIUnit.lvproj".
+
+    The count is over `lvproj_path`, not `lvproj_name`: two of the six share
+    the stem 'Test Project' (5 distinct names), the same name collision the
+    path-keyed index exists to disentangle."""
+    res = _query("SELECT COUNT(DISTINCT lvproj_path) FROM lvproj")
+    assert res.rows == [[6]]
+    names = {
+        row[0]
+        for row in _query("SELECT DISTINCT lvproj_name FROM lvproj").rows
+    }
+    assert len(names) == 5  # 'Test Project' stem occurs twice
+    assert "VIUnit" in names
+
+    # A join answering "classes in VIUnit.lvproj" returns its own classes.
+    classes = _query(
+        "SELECT member_name FROM lvproj "
+        "WHERE lvproj_name='VIUnit' AND member_type='LVClass' "
+        "AND is_dependency=0 ORDER BY member_name"
     )
-    assert "lvproj" in haystack.lower()
+    class_names = {row[0] for row in classes.rows}
+    assert "TestCase.lvclass" in class_names
+    assert len(class_names) >= 20  # VIUnit declares ~21 own classes
+
+    # is_in_repo separates resolved-in-repo members from vi.lib dependency refs.
+    dep = _query(
+        "SELECT COUNT(*) FROM lvproj "
+        "WHERE lvproj_name='VIUnit' AND is_dependency=1 AND is_in_repo=1"
+    )
+    assert dep.rows == [[0]]  # every VIUnit dependency is external (not in-repo)

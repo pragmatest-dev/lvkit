@@ -28,6 +28,7 @@ from .. import cache_paths
 from ..graph import InMemoryVIGraph, LoadMode
 from ..graph.models import Constant, VINode
 from ..models import FPTerminal
+from ..structure import get_project_members, parse_lvproj
 from .model import (
     WIRED_CONTROL,
     WIRED_INDICATOR,
@@ -35,6 +36,7 @@ from .model import (
     WIRED_OTHER,
     ClassFact,
     ConstantFact,
+    LVProjMemberFact,
     TerminalFact,
     VIFacts,
 )
@@ -42,14 +44,22 @@ from .query import build_call_graph
 from .store import delete as store_delete
 from .store import load as store_load
 from .store import save as store_save
+from .store import save_lvproj_members as store_save_lvproj_members
 
 
 @dataclass
 class BuildResult:
-    """Result of a full index build: the facts + how many VIs collided."""
+    """Result of a full index build: the facts + how many VIs collided.
+
+    ``lvproj_members`` is the repo's ``.lvproj`` membership relation (project-
+    level, many-to-many) — see :func:`build_lvproj_membership`. Persisted
+    separately from ``facts`` (``store.save_lvproj_members``), since it's a
+    property of the ``.lvproj`` files, not of any one VI's bytes.
+    """
 
     facts: list[VIFacts]
     collisions: int
+    lvproj_members: list[LVProjMemberFact]
 
 
 def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
@@ -86,7 +96,50 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
         facts[str(cp)] = build_one_vi(project_root, cp)
 
     _recompute_impact(facts)
-    return BuildResult(facts=list(facts.values()), collisions=len(collision_paths))
+    return BuildResult(
+        facts=list(facts.values()),
+        collisions=len(collision_paths),
+        lvproj_members=build_lvproj_membership(project_root),
+    )
+
+
+def build_lvproj_membership(project_root: Path) -> list[LVProjMemberFact]:
+    """Build the ``.lvproj`` membership relation for every project under
+    ``project_root`` — one row per (``.lvproj``, member).
+
+    A repo holds MANY ``.lvproj`` and a VI can belong to several (or none), so
+    this is a many-to-many relation, not a per-VI column. Purely a parse of the
+    ``.lvproj`` XML (``structure.get_project_members`` — no VI load), so it's
+    cheap to rebuild in full on every index build/refresh. Each raw member is
+    resolved against disk here: ``resolved_path`` is the file it points at (or
+    None — many URLs encode a layout above the checkout, e.g. installed vi.lib
+    copies), and ``is_in_repo`` is True only when that file sits UNDER the
+    indexed root. Unresolved members are recorded, never dropped.
+    """
+    root = project_root.resolve()
+    rows: list[LVProjMemberFact] = []
+    for lvproj_path in sorted(project_root.rglob("*.lvproj")):
+        project = parse_lvproj(lvproj_path)
+        for m in get_project_members(project):
+            exists = m.path.exists()
+            resolved = m.path.resolve() if exists else None
+            is_in_repo = exists and resolved is not None and resolved.is_relative_to(
+                root
+            )
+            rows.append(
+                LVProjMemberFact(
+                    lvproj_path=str(lvproj_path.resolve()),
+                    lvproj_name=lvproj_path.stem,
+                    member_name=m.name,
+                    member_url=m.url,
+                    resolved_path=str(resolved) if resolved is not None else None,
+                    member_type=m.member_type,
+                    is_in_repo=is_in_repo,
+                    target=m.target,
+                    is_dependency=m.is_dependency,
+                )
+            )
+    return rows
 
 
 def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
@@ -264,11 +317,16 @@ def ensure_fresh_index(project_root: Path, vi_paths: list[Path]) -> None:
     """
     stored = store_load(project_root)
     if not stored:
-        store_save(project_root, build_index(project_root, vi_paths).facts)
+        result = build_index(project_root, vi_paths)
+        store_save(project_root, result.facts)
+        store_save_lvproj_members(project_root, result.lvproj_members)
         return
     rr, merged = refresh_index(project_root, vi_paths, stored)
     store_delete(project_root, rr.deleted)
     store_save(project_root, merged)
+    # Membership is a cheap .lvproj-only reparse (no VI content), so a refresh
+    # recomputes it wholesale — catches added/removed projects and moved members.
+    store_save_lvproj_members(project_root, build_lvproj_membership(project_root))
 
 
 def _load_class_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:

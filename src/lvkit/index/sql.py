@@ -140,6 +140,21 @@ VIEWS: dict[str, _View] = {
             "accessor_field": "the class field this accessor reads/writes, or NULL",
         },
     ),
+    "lvproj": _View(
+        body="FROM lvproj_members",
+        columns={
+            "lvproj_path": "abs path to the .lvproj file (a LabVIEW project)",
+            "lvproj_name": "the .lvproj stem, e.g. 'VIUnit'",
+            "member_name": "member item name as declared in the .lvproj",
+            "member_url": "raw member URL from the .lvproj (before path resolution)",
+            "resolved_path": "abs on-disk path the URL resolves to, or NULL",
+            "member_type": "member kind by extension: VI | Control | LVClass | Library",
+            "is_in_repo": "1 if resolved_path is a file UNDER the indexed repo root",
+            "target": "build/execution target it sits under, e.g. 'My Computer'",
+            "is_dependency": "1 if in the auto-collected Dependencies group "
+            "(transitive ref, mostly vi.lib); 0 if the project's own content",
+        },
+    ),
 }
 
 

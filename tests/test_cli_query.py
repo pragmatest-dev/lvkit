@@ -77,7 +77,9 @@ def test_schema_lists_views(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     rc = cmd_query(_args(tmp_path, schema=True))
     out = capsys.readouterr().out
     assert rc == 0
-    for view in ("vi", "terminal", "constant", "call", "type_use", "class_fact"):
+    for view in (
+        "vi", "terminal", "constant", "call", "type_use", "class_fact", "lvproj",
+    ):
         assert view in out
 
 

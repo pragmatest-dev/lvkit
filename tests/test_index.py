@@ -27,11 +27,17 @@ import pytest
 
 from lvkit.cli import cmd_structure
 from lvkit.graph import InMemoryVIGraph, LoadMode
-from lvkit.index.build import BuildResult, build_index, refresh_index
+from lvkit.index.build import (
+    BuildResult,
+    build_index,
+    build_lvproj_membership,
+    refresh_index,
+)
 from lvkit.index.model import WIRED_INDICATOR
 from lvkit.index.project import resolve_project
 from lvkit.index.query import blast_radius, get_callers
 from lvkit.index.store import load as load_index
+from lvkit.index.store import load_lvproj_members, save_lvproj_members
 from lvkit.index.store import save as save_index
 from lvkit.structure import parse_lvlib
 
@@ -548,3 +554,121 @@ class TestLibraryMembership:
             assert class_fact is not None
             assert class_fact.owning_class == _MYLIBRARY_CLASS_NAME
             assert f.library == _MYLIBRARY_CLASS_NAME
+
+
+# === .lvproj membership (#19) ===============================================
+
+# Own (is_dependency=False) VI-member count per .lvproj, keyed by path RELATIVE
+# to JKI_ROOT (two projects share the stem "Test Project", so name is NOT a
+# unique key — the same collision the path-keyed index exists to disentangle).
+# Observed by parsing each .lvproj's declared member list, extension-classified
+# (a .ctl tagged Type="VI" is a Control, not a VI). The four projects whose
+# members use relative/in-repo URLs reproduce the eval bank's ground-truth VI
+# counts exactly (VIUnit 83, Project Integration 49, Example 9, Test Project 4).
+# The two whose members point above the checkout carry their real
+# project-proper counts (JUnitXML 1 VI + 2 classes; VI Tester Plugin's Test
+# Project 4 VI + 4 classes), not the eval doc's transcribed 2/12.
+_EXPECTED_OWN_VI: dict[str, int] = {
+    "source/VIUnit.lvproj": 83,
+    "source/LabVIEW Project Plugin/VI Tester Project Integration.lvproj": 49,
+    "source/Examples/VI Tester Example.lvproj": 9,
+    "source/Prototype/Test Project/Test Project.lvproj": 4,
+    "source/Prototype/VI Tester Plugin/Test Project.lvproj": 4,
+    "source/Ant Plugin/Source/VI Tester JUnitXML.lvproj": 1,
+}
+
+
+def _rel_lvproj(m_lvproj_path: str) -> str:
+    return str(Path(m_lvproj_path).relative_to(JKI_ROOT.resolve()))
+
+
+@pytest.mark.skipif(not _HAVE_JKI, reason="JKI-VI-Tester sample not present")
+class TestLvprojMembership:
+    """``build_lvproj_membership`` (#19) records every ``.lvproj`` member as a
+    project-level, many-to-many fact — resolved-or-not, in-repo-or-not,
+    own-content-or-dependency — over the real JKI VI Tester corpus."""
+
+    def test_six_projects_with_expected_own_vi_counts(self):
+        members = build_lvproj_membership(JKI_ROOT)
+
+        # Six .lvproj files, but only FIVE distinct stems (two 'Test Project').
+        proj_paths = {m.lvproj_path for m in members}
+        assert len(proj_paths) == 6
+        assert len(list(JKI_ROOT.rglob("*.lvproj"))) == 6
+        assert {_rel_lvproj(p) for p in proj_paths} == set(_EXPECTED_OWN_VI)
+        assert len({m.lvproj_name for m in members}) == 5  # stem collision
+
+        # Own (non-dependency) VI members per project match the observed counts.
+        own_vi: Counter[str] = Counter(
+            _rel_lvproj(m.lvproj_path)
+            for m in members
+            if m.member_type == "VI" and not m.is_dependency
+        )
+        assert dict(own_vi) == _EXPECTED_OWN_VI
+
+    def test_known_member_and_dependency_split(self):
+        members = build_lvproj_membership(JKI_ROOT)
+        viunit = [m for m in members if m.lvproj_name == "VIUnit"]
+
+        # A known own member of VIUnit.lvproj.
+        assert any(
+            m.member_name == "TestCase.lvclass"
+            and m.member_type == "LVClass"
+            and not m.is_dependency
+            for m in viunit
+        )
+
+        # VIUnit pulls in a large auto-collected Dependencies group, and every
+        # dependency there is an external (vi.lib/userlib) ref — none resolve
+        # in-repo — which is exactly the is_dependency vs is_in_repo split.
+        deps = [m for m in viunit if m.is_dependency]
+        assert len(deps) > 100
+        assert all(not m.is_in_repo for m in deps)
+        assert all(m.resolved_path is None for m in deps)
+
+        # Targets come through: every member sits under a build target.
+        assert all(m.target for m in viunit)
+        assert "My Computer" in {m.target for m in viunit}
+
+    def test_is_in_repo_distinguishes_resolved_members(self):
+        members = build_lvproj_membership(JKI_ROOT)
+
+        # Only a handful of projects have members whose URLs resolve in-repo
+        # (Example + the Prototype Test Project); most .lvproj URLs encode a
+        # layout above the checkout. Every in-repo member must have a real
+        # resolved path on disk under the root.
+        in_repo = [m for m in members if m.is_in_repo]
+        assert in_repo  # some members DO resolve in-repo
+        for m in in_repo:
+            assert m.resolved_path is not None
+            assert Path(m.resolved_path).exists()
+            assert not m.is_dependency  # dependencies are all external here
+
+        # VI Tester Example's 9 own VIs all live in-repo (sibling files).
+        example_own = [
+            m for m in members
+            if m.lvproj_name == "VI Tester Example"
+            and m.member_type == "VI"
+            and not m.is_dependency
+        ]
+        assert len(example_own) == 9
+        assert all(m.is_in_repo for m in example_own)
+
+    def test_store_round_trip(self):
+        # The autouse ``_hermetic_cache`` fixture (tests/conftest.py) points
+        # LVKIT_CACHE_DIR at a per-test tmp dir, so the DB this writes is
+        # isolated from the developer's real index.
+        members = build_lvproj_membership(JKI_ROOT)
+
+        save_lvproj_members(JKI_ROOT, members)
+        reloaded = load_lvproj_members(JKI_ROOT)
+
+        assert len(reloaded) == len(members)
+        assert {_rel_lvproj(m.lvproj_path) for m in reloaded} == set(_EXPECTED_OWN_VI)
+        sample = next(m for m in reloaded if not m.is_dependency)
+        assert sample.target
+        assert sample.member_type in {"VI", "Control", "LVClass", "Library"}
+
+        # Wholesale replace: saving again doesn't duplicate rows.
+        save_lvproj_members(JKI_ROOT, members)
+        assert len(load_lvproj_members(JKI_ROOT)) == len(members)

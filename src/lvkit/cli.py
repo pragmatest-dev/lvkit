@@ -278,7 +278,7 @@ def main() -> int:
         nargs="?",
         help=(
             "A single read-only SELECT/WITH over the curated views "
-            "(vi, terminal, constant, call, type_use, class_fact). "
+            "(vi, terminal, constant, call, type_use, class_fact, lvproj). "
             "Omit when using --schema. Example: \"SELECT name, COUNT(*) AS n "
             "FROM terminal WHERE is_error_cluster=1 AND direction='output' "
             "GROUP BY name ORDER BY n DESC\"."
@@ -826,11 +826,11 @@ def cmd_index(args: argparse.Namespace) -> int:
     """Handle the index command - build/refresh the facts index for a repo."""
     import time
 
-    from .index.build import build_index, refresh_index
+    from .index.build import build_index, build_lvproj_membership, refresh_index
     from .index.project import resolve_project
     from .index.store import delete as delete_index
     from .index.store import load as load_index
-    from .index.store import save
+    from .index.store import save, save_lvproj_members
 
     start = time.monotonic()
     project_root, vi_paths = resolve_project(Path(args.input_path))
@@ -840,6 +840,7 @@ def cmd_index(args: argparse.Namespace) -> int:
         rr, merged = refresh_index(project_root, vi_paths, stored)
         delete_index(project_root, rr.deleted)
         save(project_root, merged)
+        save_lvproj_members(project_root, build_lvproj_membership(project_root))
         print(json.dumps({
             "rebuilt": len(rr.rebuilt),
             "deleted": len(rr.deleted),
@@ -850,6 +851,7 @@ def cmd_index(args: argparse.Namespace) -> int:
 
     result = build_index(project_root, vi_paths)
     save(project_root, result.facts)
+    save_lvproj_members(project_root, result.lvproj_members)
     print(json.dumps({
         "vis": len(result.facts),
         "collisions": result.collisions,

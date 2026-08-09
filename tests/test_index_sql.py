@@ -76,7 +76,9 @@ def _project(tmp_path: Path) -> Path:
 
 def test_describe_schema_lists_all_views():
     views = {v.name for v in sql.describe_schema()}
-    assert views == {"vi", "terminal", "constant", "call", "type_use", "class_fact"}
+    assert views == {
+        "vi", "terminal", "constant", "call", "type_use", "class_fact", "lvproj",
+    }
 
 
 def test_declared_columns_are_actually_selectable(tmp_path: Path):

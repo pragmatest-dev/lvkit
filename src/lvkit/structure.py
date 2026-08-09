@@ -76,6 +76,28 @@ class LVProject:
 
 
 @dataclass
+class LVProjectMember:
+    """One loadable member declared in a ``.lvproj``, with the tree context a
+    flat ``(name, path)`` list loses.
+
+    ``target`` is the nearest build/execution-target ancestor's name (a
+    ``.lvproj``'s top-level ``<Item>``s ARE its targets — ``My Computer`` and,
+    on real-time/FPGA systems, RT/FPGA targets); every member sits under one.
+    ``is_dependency`` is True when the member lives inside the target's auto-
+    collected ``Type="Dependencies"`` group (a pulled-in transitive reference,
+    mostly vi.lib), False when it's content the developer explicitly placed in
+    the project tree. ``path`` is ``proj_dir / url`` unresolved — existence /
+    in-repo classification is the index layer's job.
+    """
+    member_type: str  # "VI" | "Control" | "LVClass" | "Library"
+    name: str
+    url: str
+    path: Path
+    target: str
+    is_dependency: bool
+
+
+@dataclass
 class LVLibraryMember:
     """A member (VI, class, or nested library) in a library."""
     name: str
@@ -839,6 +861,71 @@ def get_project_libraries(project: LVProject) -> list[tuple[str, Path]]:
 
     collect_libs(project.items)
     return libs
+
+
+# A loadable member's file kind, keyed by its URL extension. LabVIEW tags a
+# control member ``Type="VI"`` in the .lvproj XML even though it is a ``.ctl``,
+# so the extension — not the XML ``Type`` — is the faithful member kind (this is
+# why ``get_project_vis`` overcounts VIs vs. the project's real ``.vi`` list).
+_LVPROJ_MEMBER_KINDS = {
+    "vi": "VI",
+    "ctl": "Control",
+    "lvclass": "LVClass",
+    "lvlib": "Library",
+}
+
+# Organizational containers under a target: descend to reach members, but the
+# container itself is never a member. (``Build`` — Build Specifications — is
+# skipped entirely: it holds build OUTPUTS like EXEs, not source members.)
+_LVPROJ_SKIP_AS_MEMBER = frozenset({"My Computer", "Folder", "Dependencies"})
+
+
+def get_project_members(project: LVProject) -> list[LVProjectMember]:
+    """Every loadable member (VI/Control/class/library) a ``.lvproj`` declares,
+    carrying its target + dependency context (see :class:`LVProjectMember`).
+
+    Walks the item tree once, tracking the nearest target ancestor and whether
+    any ancestor is the ``Dependencies`` group, so each member records ``target``
+    and ``is_dependency`` — the semantic split between the project's OWN content
+    and auto-collected transitive refs. ``Build`` subtrees are skipped whole;
+    ``Folder``/``Dependencies``/target containers are descended into but never
+    emitted as members. Member KIND is the URL extension, not the XML ``Type``
+    (see ``_LVPROJ_MEMBER_KINDS``), so a ``.ctl`` tagged ``Type="VI"`` is a
+    ``Control``, and the ``VI`` count matches the project's real ``.vi`` list.
+
+    Unlike ``get_project_vis``/``get_project_classes``/``get_project_libraries``
+    (which flatten every subtree, Dependencies included, and drop the URL), this
+    preserves the URL and the tree context the membership fact needs.
+    """
+    proj_dir = project.path.parent
+    members: list[LVProjectMember] = []
+
+    def walk(items: list[LVProjectItem], target: str, in_deps: bool) -> None:
+        for item in items:
+            if item.item_type == "Build":
+                continue
+            is_dep = in_deps or item.item_type == "Dependencies"
+            if item.url and item.item_type not in _LVPROJ_SKIP_AS_MEMBER:
+                ext = item.url.rsplit(".", 1)[-1].lower() if "." in item.url else ""
+                kind = _LVPROJ_MEMBER_KINDS.get(ext)
+                if kind is not None:
+                    members.append(
+                        LVProjectMember(
+                            member_type=kind,
+                            name=item.name,
+                            url=item.url,
+                            path=proj_dir / item.url,
+                            target=target,
+                            is_dependency=is_dep,
+                        )
+                    )
+            walk(item.children, target, is_dep)
+
+    # A .lvproj's top-level <Item>s are its targets; members live beneath one.
+    for top in project.items:
+        walk(top.children, top.name, top.item_type == "Dependencies")
+
+    return members
 
 
 def _library_entry(lib: LVLibrary, rel_path: str) -> dict[str, Any]:

@@ -92,6 +92,36 @@ class ClassFact:
 
 
 @dataclass
+class LVProjMemberFact:
+    """One membership edge: a ``.lvproj`` declares a member (VI/class/library).
+
+    A **project-level** fact, NOT a per-VI one — a repository holds many
+    ``.lvproj`` and a VI can belong to several (or none), so membership is a
+    separate many-to-many relation keyed by ``(lvproj_path, member)``, not a
+    column on ``VIFacts``. lvkit indexes the whole REPOSITORY (every ``.vi`` on
+    disk); the ``.lvproj`` is LabVIEW's own scoping unit within it.
+
+    ``resolved_path`` is the on-disk file the member's ``URL`` points at, or
+    None when it points outside the checkout (many ``.lvproj`` URLs encode a
+    layout above the repo — installed vi.lib copies, developer-desktop paths).
+    ``is_in_repo`` is True only when it resolves to a file UNDER the indexed
+    root. ``is_dependency`` (auto-collected transitive ref, mostly vi.lib) and
+    ``target`` (the build/execution target it sits under) come straight from
+    the ``.lvproj`` tree — see ``structure.LVProjectMember``.
+    """
+
+    lvproj_path: str        # abs path to the .lvproj file
+    lvproj_name: str        # .lvproj stem, e.g. 'VIUnit'
+    member_name: str        # member item name as declared in the .lvproj
+    member_url: str         # raw URL string from the .lvproj (pre-resolution)
+    resolved_path: str | None  # abs on-disk path, or None if it doesn't resolve
+    member_type: str        # VI | Control | LVClass | Library
+    is_in_repo: bool        # resolves to a file under the indexed project root
+    target: str             # target Item it lives under (e.g. 'My Computer')
+    is_dependency: bool      # in the auto-collected Dependencies group
+
+
+@dataclass
 class VIFacts:
     """The resolved facts of one VI. Keyed by ``path`` (the stable identity).
 
