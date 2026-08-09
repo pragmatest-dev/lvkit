@@ -68,6 +68,20 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
     ``project_root`` is used as the single ``search_paths`` root for both the
     whole-repo load and each individual collision load, so dependency
     resolution behaves identically in both passes.
+
+    .. important::
+       On a directory of 50+ VIs this pre-parses across a ``spawn`` process
+       pool (``graph.parallel_parse``). Python's ``spawn`` re-imports the
+       calling program's ``__main__`` module in each worker, so a **script**
+       that calls this at module level MUST guard the call::
+
+           if __name__ == "__main__":
+               build_index(root, vi_paths)
+
+       Without the guard, workers re-execute the script, the pool aborts
+       (``BrokenProcessPool``), and the build still completes via the serial
+       fallback — but noisily and slowly. The CLI/MCP entry points already
+       satisfy this; only ad-hoc API scripts need the guard.
     """
     all_paths = {p.resolve() for p in vi_paths}
 

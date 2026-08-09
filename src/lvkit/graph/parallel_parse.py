@@ -115,9 +115,15 @@ def parallel_parse_directory(
                 cache.update(result)
     except Exception:
         # BrokenProcessPool or any other pool-level failure -- fall all the
-        # way back to serial parsing rather than fail the build.
+        # way back to serial parsing rather than fail the build. The usual
+        # cause of BrokenProcessPool is an API script that calls build_index at
+        # module level without an ``if __name__ == "__main__":`` guard: spawn
+        # re-imports the script in each worker and the pool aborts. The build
+        # still completes here, serially.
         logger.warning(
-            "parallel parse of %d VIs failed -- falling back to serial parsing",
+            "parallel parse of %d VIs failed -- falling back to serial parsing "
+            "(if you're calling build_index from a script, guard it with "
+            "`if __name__ == \"__main__\":`)",
             len(vi_paths),
             exc_info=True,
         )
