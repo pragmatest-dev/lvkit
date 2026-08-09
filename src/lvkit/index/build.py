@@ -39,6 +39,8 @@ from .model import (
     VIFacts,
 )
 from .query import build_call_graph
+from .store import delete as store_delete
+from .store import load as store_load
 from .store import save as store_save
 
 
@@ -219,6 +221,25 @@ def refresh_index(
     _recompute_impact(facts)
     merged = list(facts.values())
     return RefreshResult(rebuilt=rebuilt, deleted=deleted, total=len(merged)), merged
+
+
+def ensure_fresh_index(project_root: Path, vi_paths: list[Path]) -> None:
+    """Make the persisted index reflect the current files, then return.
+
+    The gap-fill a read (a `query`) needs so it never serves stale rows: a cold
+    store gets one full build; a warm store gets an incremental refresh
+    (rebuild only content-changed/added VIs, drop deleted ones) keyed by
+    ``VIFacts.content_sha``. Persists to the store. This is the SAME cold-or-
+    refresh policy the MCP server applies before a query — shared here so the
+    CLI `lvkit query` stays fresh too.
+    """
+    stored = store_load(project_root)
+    if not stored:
+        store_save(project_root, build_index(project_root, vi_paths).facts)
+        return
+    rr, merged = refresh_index(project_root, vi_paths, stored)
+    store_delete(project_root, rr.deleted)
+    store_save(project_root, merged)
 
 
 def _load_class_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:

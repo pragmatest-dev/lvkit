@@ -290,6 +290,14 @@ def main() -> int:
         help="List the queryable views and their columns, then exit.",
     )
     query_parser.add_argument(
+        "--no-refresh",
+        action="store_true",
+        help=(
+            "Query the stored index as-is without first refreshing it. Faster, "
+            "but results may be stale if a VI changed since the last build."
+        ),
+    )
+    query_parser.add_argument(
         "--format",
         choices=["table", "json"],
         default="table",
@@ -851,7 +859,7 @@ def cmd_query(args: argparse.Namespace) -> int:
     from .index import sql as isql
     from .index.project import resolve_project
 
-    project_root, _ = resolve_project(Path(args.input_path))
+    project_root, vi_paths = resolve_project(Path(args.input_path))
 
     if args.schema:
         views = isql.describe_schema()
@@ -867,6 +875,14 @@ def cmd_query(args: argparse.Namespace) -> int:
     if not args.sql:
         print("query: provide a SQL statement, or use --schema", file=sys.stderr)
         return 2
+
+    # Freshness: build the index if cold, else incrementally refresh it, so a
+    # query reflects the current files (same policy the MCP server applies).
+    # `--no-refresh` skips this to query the stored index as-is (fast, but may
+    # be stale if a VI changed since the last build).
+    if not args.no_refresh:
+        from .index.build import ensure_fresh_index
+        ensure_fresh_index(project_root, vi_paths)
 
     try:
         res = isql.run_query(project_root, args.sql)
