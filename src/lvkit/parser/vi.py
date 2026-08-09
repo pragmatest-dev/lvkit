@@ -9,6 +9,7 @@ Architecture:
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import re
@@ -21,6 +22,7 @@ from lvkit.extractor import extract_vi_xml
 from lvkit.models import LVType
 from lvkit.text_encoding import decode_labview_text
 
+from . import parsed_cache
 from .constants import (
     FP_TERMINAL_CLASS,
     MULTI_LABEL_CLASS,
@@ -170,11 +172,38 @@ def parse_vi(
 
     # Derive source .vi path. Prefer the explicit vi_path argument since BD XML
     # may now live in a temp cache dir rather than next to the source file.
+    # Computed BEFORE the cache lookup below: it depends on the CALL SITE
+    # (vi_path / bd_xml's on-disk location), not on the XML content the cache
+    # key hashes, so it must be patched onto a cache hit rather than baked
+    # into the cached ParsedVI — the same XML content is legitimately parsed
+    # both with vi_path (a top-level load) and via bd_xml= alone (a SubVI
+    # dependency walk in loading.py), and those two calls must each get
+    # their OWN correct source_path, not whichever happened to populate the
+    # cache first.
     if vi_path is not None:
         source_path_str = str(Path(vi_path).resolve())
     else:
         source_path = bd_xml.with_name(bd_xml.name.replace("_BDHb.xml", ".vi"))
         source_path_str = str(source_path) if source_path.exists() else None
+
+    # Transparent second cache layer, stacked on top of the extraction cache
+    # (.vi -> XML): XML -> ParsedVI. Every caller (loading.py, parallel-parse
+    # workers, render, codegen) benefits with zero call-site changes. Only
+    # layout=False is cached (see parsed_cache module docstring); a hit
+    # returns immediately (after patching in this call's own source_path),
+    # skipping every parse step below.
+    cache_key = None if layout else parsed_cache.compute_key(bd_xml, fp_xml, main_xml)
+    if cache_key is not None:
+        cached = parsed_cache.load(cache_key)
+        if cached is not None:
+            if cached.metadata.source_path != source_path_str:
+                return dataclasses.replace(
+                    cached,
+                    metadata=dataclasses.replace(
+                        cached.metadata, source_path=source_path_str,
+                    ),
+                )
+            return cached
 
     # Parse metadata from main XML
     metadata = _parse_metadata(main_xml, source_path_str)
@@ -200,13 +229,16 @@ def parse_vi(
         if fp_xml_path.exists():
             connector_pane = parse_connector_pane(fp_xml_path)
 
-    return ParsedVI(
+    result = ParsedVI(
         metadata=metadata,
         block_diagram=block_diagram,
         front_panel=front_panel,
         connector_pane=connector_pane,
         layout=bd_layout,
     )
+    if cache_key is not None:
+        parsed_cache.store(cache_key, result)
+    return result
 
 
 def _parse_metadata(
