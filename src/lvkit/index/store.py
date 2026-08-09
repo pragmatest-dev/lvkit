@@ -121,18 +121,111 @@ def _connect(project_root: Path) -> sqlite3.Connection:
     return conn
 
 
+def _prior_container_facts(
+    conn: sqlite3.Connection, path: str,
+) -> tuple[str | None, str | None, ClassFact | None]:
+    """Read the prior ``content_sha``, ``library``, and ``class_fact`` for
+    ``path`` (all None if the VI has never been saved).
+
+    ``meta.content_sha`` is the freshness authority (written per-save, see
+    ``save()`` below); the ``vis``/``class_facts`` rows for the same path are
+    the container fields a progressive/partial re-save must not clobber with
+    NULLs when the VI's bytes haven't changed.
+    """
+    row = conn.execute(
+        "SELECT content_sha FROM meta WHERE vi_path = ?", (path,)
+    ).fetchone()
+    if row is None:
+        return None, None, None
+    prior_sha = row[0]
+
+    lib_row = conn.execute(
+        "SELECT library FROM vis WHERE path = ?", (path,)
+    ).fetchone()
+    prior_library = lib_row[0] if lib_row is not None else None
+
+    cf_row = conn.execute(
+        "SELECT owning_class, parent, scope, is_accessor, accessor_field "
+        "FROM class_facts WHERE vi_path = ?",
+        (path,),
+    ).fetchone()
+    prior_class_fact = (
+        ClassFact(
+            owning_class=cf_row[0],
+            parent=cf_row[1],
+            scope=cf_row[2],
+            is_accessor=bool(cf_row[3]),
+            accessor_field=cf_row[4],
+        )
+        if cf_row is not None
+        else None
+    )
+    return prior_sha, prior_library, prior_class_fact
+
+
 def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
-    """Upsert every given ``VIFacts`` row into the project's index DB."""
+    """Upsert every given ``VIFacts`` row into the project's index DB.
+
+    Coalesce-on-save: when a prior row exists for the same path AND the same
+    ``content_sha`` (same VI bytes — an incoming NULL container field is
+    ignorance from a partial/progressive build, not truth), the nullable
+    container fields (``library`` and the whole ``class_fact`` row) fall back
+    to the prior value instead of being clobbered. A changed sha (or no prior
+    row) means today's behavior: trust the incoming facts fully. The
+    terminals/constants/calls/type_uses child tables are intrinsic to a
+    single-VI load and are never coalesced — always overwritten.
+    """
     conn = _connect(project_root)
     try:
         with conn:
             for f in vis:
+                prior_sha, prior_library, prior_class_fact = (
+                    _prior_container_facts(conn, f.path)
+                )
+                same_vi = prior_sha is not None and prior_sha == f.content_sha
+                if not same_vi:
+                    library = f.library
+                    class_fact = f.class_fact
+                else:
+                    library = f.library if f.library is not None else prior_library
+                    if f.class_fact is None:
+                        # No class facts at all from this (partial) load —
+                        # preserve the entire prior row wholesale.
+                        class_fact = prior_class_fact
+                    elif prior_class_fact is None:
+                        class_fact = f.class_fact
+                    else:
+                        cfc = f.class_fact
+                        class_fact = ClassFact(
+                            owning_class=(
+                                cfc.owning_class
+                                if cfc.owning_class is not None
+                                else prior_class_fact.owning_class
+                            ),
+                            parent=(
+                                cfc.parent
+                                if cfc.parent is not None
+                                else prior_class_fact.parent
+                            ),
+                            scope=(
+                                cfc.scope
+                                if cfc.scope is not None
+                                else prior_class_fact.scope
+                            ),
+                            is_accessor=cfc.is_accessor,
+                            accessor_field=(
+                                cfc.accessor_field
+                                if cfc.accessor_field is not None
+                                else prior_class_fact.accessor_field
+                            ),
+                        )
+
                 _delete_vi(conn, f.path)
                 conn.execute(
                     "INSERT INTO vis(path, name, qualified_name, library, "
                     "is_stub, content_sha, impact_score) VALUES (?,?,?,?,?,?,?)",
                     (
-                        f.path, f.name, f.qualified_name, f.library,
+                        f.path, f.name, f.qualified_name, library,
                         int(f.is_stub), f.content_sha, f.impact_score,
                     ),
                 )
@@ -167,8 +260,8 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     "INSERT INTO type_uses(vi_path, type_key) VALUES (?,?)",
                     [(f.path, type_key) for type_key in f.type_uses],
                 )
-                if f.class_fact is not None:
-                    cf = f.class_fact
+                if class_fact is not None:
+                    cf = class_fact
                     conn.execute(
                         "INSERT INTO class_facts(vi_path, owning_class, parent, "
                         "scope, is_accessor, accessor_field) VALUES (?,?,?,?,?,?)",

@@ -213,6 +213,36 @@ class TestOwningClassAndAccess:
         assert class_graph.get_method_access("SomeOther.vi") is None
 
 
+class TestOwningLibrary:
+    """``get_owning_library`` is the ``.lvlib`` mirror of ``get_owning_class``
+    (queries.py) — same "owns"-edge predecessor scan, gated on
+    ``node_type == "library"`` instead of ``"class"``. Pure hand-built
+    dep_graph, no parsing, mirroring ``TestOwningClassAndAccess`` above."""
+
+    def test_get_owning_library(self):
+        g = InMemoryVIGraph()
+        g._dep_graph.add_node("MyLib.lvlib", node_type="library")
+        g._dep_graph.add_node("MyLib.lvlib:Foo.vi")
+        g._dep_graph.add_edge("MyLib.lvlib", "MyLib.lvlib:Foo.vi", rel="owns")
+
+        assert g.get_owning_library("MyLib.lvlib:Foo.vi") == "MyLib.lvlib"
+
+    def test_get_owning_library_none_for_non_member(self):
+        g = InMemoryVIGraph()
+        g._dep_graph.add_node("MyLib.lvlib", node_type="library")
+        g._dep_graph.add_node("SomeOther.vi")
+
+        assert g.get_owning_library("SomeOther.vi") is None
+
+    def test_get_owning_library_ignores_class_predecessor(
+        self, class_graph: InMemoryVIGraph,
+    ):
+        """A class-owned method's owner is a ``class`` node, never surfaced by
+        ``get_owning_library`` — the two queries are disjoint scans over the
+        same "owns" edge relation, gated on different ``node_type``s."""
+        assert class_graph.get_owning_library("Mid.lvclass:run.vi") is None
+
+
 class TestMethodOverrides:
     def test_parent_and_child_overrides(self):
         """A method defined on Base, Mid, and Leaf links up (overrides) and

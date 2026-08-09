@@ -960,6 +960,25 @@ class QueryMixin:
                 return pred
         return None
 
+    def get_owning_library(self, vi_name: str) -> str | None:
+        """Get the ``.lvlib`` that owns this VI directly, via its "owns" edge.
+
+        Exact mirror of ``get_owning_class`` but for ``node_type == "library"``
+        predecessors — ``load_lvlib`` records a library node + an "owns" edge
+        to each ``Type="VI"`` member the same way ``load_lvclass`` does for
+        methods (see ``loading.py``). Returns None if ``vi_name`` isn't a
+        library member VI (or the library was never loaded).
+        """
+        if vi_name not in self._dep_graph:
+            return None
+        for pred in self._dep_graph.predecessors(vi_name):
+            if self._dep_graph.nodes[pred].get("node_type") != "library":
+                continue
+            edata = self._dep_graph.get_edge_data(pred, vi_name) or {}
+            if edata.get("rel") == "owns":
+                return pred
+        return None
+
     def get_class_hierarchy(self, classname: str) -> ClassHierarchyInfo | None:
         """Get hierarchy info for one loaded class: parent, children,
         documented methods, and fields (own + inherited).

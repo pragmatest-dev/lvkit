@@ -99,6 +99,13 @@ class TestSmallClassBuild:
             class_fact = f.class_fact
             assert class_fact is not None
             assert class_fact.owning_class.endswith(".lvclass")
+            # A directory build loads class methods as loose VIs (no
+            # .lvlib/.lvclass "library" field on the VI itself) — build.
+            # project_vi_facts falls back to the owning .lvclass as the
+            # facts-index "library" column. This is the ALREADY-SHIPPED
+            # .lvclass half of that fallback; the sibling .lvlib half is
+            # covered by TestLibraryMembership below.
+            assert f.library == class_fact.owning_class
 
     def test_store_round_trip(self):
         root, vi_paths = resolve_project(TESTCASE_DIR)
@@ -267,3 +274,73 @@ class TestFullCorpusDemo:
         # A depth-1 radius is never larger than the unbounded one.
         shallow = blast_radius(jki_index.facts, candidate.path, depth=1)
         assert shallow.impact_score <= result.impact_score
+
+
+# === .lvlib membership -> "library" column (real corpus) ===================
+
+# The real ``.lvlib`` in the JKI-VI-Tester corpus with plain ``Type="VI"``
+# members (as opposed to ``.../Tests/Library Test/MyLibrary.lvlib``, whose
+# one member is a ``Type="LVClass"`` item that ``load_lvlib`` doesn't
+# currently handle -- a separate, pre-existing gap, not this one).
+_VITESTER_UTILITIES_LVLIB = (
+    JKI_ROOT / "source" / "Libraries" / "VITesterUtilities.lvlib"
+)
+_VITESTER_UTILITIES_MEMBER_COUNT = 46  # <Item Type="VI" .../> count in the file
+
+
+@pytest.mark.slow
+class TestLibraryMembership:
+    """``_load_library_ownership`` (build.py) is the ``.lvlib`` mirror of the
+    already-shipped ``_load_class_ownership``: a directory walk loads
+    ``.lvlib`` member VIs as loose files with no ``VINode.library`` set, so
+    without this pass ``VIFacts.library`` stays ``None`` for them.
+
+    Reuses the module-scoped ``jki_index`` fixture (built once for
+    ``TestFullCorpusDemo`` above) instead of paying for a second full-corpus
+    build.
+    """
+
+    def test_lvlib_members_get_library_fact(self, jki_index: BuildResult):
+        assert _VITESTER_UTILITIES_LVLIB.is_file()  # sanity: fixture VI exists
+
+        members = [
+            f for f in jki_index.facts if f.library == "VITesterUtilities.lvlib"
+        ]
+        assert len(members) == _VITESTER_UTILITIES_MEMBER_COUNT
+
+        # Spot-check one specific, known member VI.
+        by_name = {f.name: f for f in members}
+        assert "Get LVClass Name from TD.vi" in by_name
+        sample = by_name["Get LVClass Name from TD.vi"]
+        assert sample.library == "VITesterUtilities.lvlib"
+        # A plain .lvlib utility VI is not a class method.
+        assert sample.class_fact is None
+
+    def test_library_membership_does_not_perturb_class_ownership(
+        self, jki_index: BuildResult,
+    ):
+        """Regression guard: adding the ``.lvlib`` ownership pass alongside
+        the existing ``.lvclass`` ownership pass must not change ANY class
+        method's ``owning_class``/``library`` resolution — the two "owns"
+        edge scans (``get_owning_class`` / ``get_owning_library``) are gated
+        on disjoint ``node_type``s, so a class-owned VI must never also
+        resolve as a library member.
+        """
+        class_methods = [f for f in jki_index.facts if f.class_fact is not None]
+        assert class_methods  # JKI-VI-Tester is a class-heavy corpus
+
+        for f in class_methods:
+            class_fact = f.class_fact
+            assert class_fact is not None
+            assert f.library == class_fact.owning_class
+            assert class_fact.owning_class.endswith(".lvclass")
+
+        # No overlap: a VITesterUtilities.lvlib member is never ALSO a class
+        # method (confirmed against the real corpus -- these are disjoint
+        # VI sets).
+        lib_members = {
+            f.path for f in jki_index.facts
+            if f.library == "VITesterUtilities.lvlib"
+        }
+        class_method_paths = {f.path for f in class_methods}
+        assert not (lib_members & class_method_paths)

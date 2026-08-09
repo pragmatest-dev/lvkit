@@ -64,6 +64,7 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
     graph = InMemoryVIGraph()
     graph.load_directory(project_root, LoadMode.MINIMAL, search_paths=[project_root])
     _load_class_ownership(graph, project_root)
+    _load_library_ownership(graph, project_root)
 
     facts: dict[str, VIFacts] = {}
     covered: set[Path] = set()
@@ -263,6 +264,31 @@ def _load_class_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
         graph.load_lvclass(cls_path, LoadMode.NONE, search_paths=[project_root])
 
 
+def _load_library_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
+    """Establish library-ownership ("owns") edges for every ``.lvlib`` under
+    ``project_root`` — the ``.lvlib`` mirror of ``_load_class_ownership``.
+
+    ``load_directory`` only walks ``.vi``/``.llb`` — it never touches a
+    ``.lvlib`` file directly, so an unqualified directory walk never gets the
+    library node + "owns" edge ``get_owning_library`` needs. Explicitly
+    loading each ``.lvlib`` at ``LoadMode.NONE`` fixes this cheaply:
+    ``load_lvlib`` re-visits each member VI (a no-op re-parse — LabVIEW's
+    one-qname-per-memory invariant, same as ``load_lvclass``) purely to add
+    the library node + ownership edge. This is safe to run because a
+    library-member VI's OWN embedded metadata (``ParsedVI.metadata.
+    qualified_name``, read straight from the VI's ``LVIN``/``LVSR`` binary
+    blocks) already carries the SAME ``Lib.lvlib:VI.vi`` qualified key
+    ``load_lvlib`` independently computes from the ``.lvlib`` XML — verified
+    empirically against the real JKI-VI-Tester corpus's ``VITesterUtilities.
+    lvlib``: the directory-walk load and a subsequent ``load_lvlib`` call
+    register the SAME ``_dep_graph`` node for every member VI, so this pass
+    only ever ADDS the missing "owns" edge, never creates a duplicate/
+    shadow VI node.
+    """
+    for lib_path in sorted(project_root.rglob("*.lvlib")):
+        graph.load_lvlib(lib_path, LoadMode.NONE, search_paths=[project_root])
+
+
 def _vi_name_for_path(graph: InMemoryVIGraph, vi_path: Path) -> str | None:
     """Find the ``vi_name`` in a freshly-loaded graph whose source path IS
     ``vi_path`` — a MINIMAL single-file load also leaf-loads direct SubVIs, so
@@ -285,7 +311,18 @@ def project_vi_facts(
     of the VI's content hash.
     """
     vnode = graph.get_graph_node(vi_name)
-    library = vnode.library if isinstance(vnode, VINode) else None
+    # A directory build loads class methods (and library members) as loose
+    # VIs, so VINode.library is never set for them. get_owning_class/
+    # get_owning_library resolve via the ownership edge (_load_class_ownership
+    # / _load_library_ownership) instead: for a class member, the owning
+    # .lvclass IS the library; for a plain .lvlib member (not also a class
+    # method), the owning .lvlib is.
+    owning_class = graph.get_owning_class(vi_name)
+    library = (
+        (vnode.library if isinstance(vnode, VINode) else None)
+        or owning_class
+        or graph.get_owning_library(vi_name)
+    )
     qualified_name = vnode.qualified_name if isinstance(vnode, VINode) else None
 
     terminals: list[TerminalFact] = []
@@ -352,7 +389,7 @@ def project_vi_facts(
                 continue
             calls.append(succ)
 
-    class_fact = _build_class_fact(graph, vi_name)
+    class_fact = _build_class_fact(graph, vi_name, owning_class)
 
     return VIFacts(
         path=str(vi_path),
@@ -388,8 +425,9 @@ def _constant_wired_to(
     return WIRED_OTHER
 
 
-def _build_class_fact(graph: InMemoryVIGraph, vi_name: str) -> ClassFact | None:
-    owning_class = graph.get_owning_class(vi_name)
+def _build_class_fact(
+    graph: InMemoryVIGraph, vi_name: str, owning_class: str | None,
+) -> ClassFact | None:
     if owning_class is None:
         return None
     access = graph.get_method_access(vi_name)
