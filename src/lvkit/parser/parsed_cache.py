@@ -8,12 +8,17 @@ caches the next step: XML -> ``ParsedVI``. Profiling showed the XML decode
 
 Design:
 
-- **Key**: ``sha256`` of the BD/FP/main XML bytes actually fed to the parse,
-  plus :data:`SCHEMA_VERSION`, the running ``lvkit.__version__``, and the
-  ``layout`` flag. The version components mean a schema or tool change is an
-  automatic cache MISS (never a silently-stale hit) -- bump
-  ``SCHEMA_VERSION`` whenever ``ParsedVI`` or any of its nested dataclasses
-  changes shape in a way that would make an old pickle wrong.
+- **Key**: the SHARED content-identity spine — the extraction layer's
+  already-computed ``.vi`` ``sha256`` (from its ``meta.json`` sidecar, i.e.
+  ``cache_paths.sha256_file``) — plus :data:`SCHEMA_VERSION` and the running
+  ``lvkit.__version__``. Reusing that one signal (instead of re-hashing the XML)
+  means a ``.vi`` change invalidates THIS cache exactly as it invalidates
+  extraction/index/render, with no redundant read. Only ``layout=False`` is
+  cached, so no ``layout`` key dimension is needed. Falls back to hashing the
+  XML bytes when there's no sidecar (ad-hoc / temp extractions). The version
+  components make a schema or tool change an automatic MISS (never a
+  silently-stale hit) -- bump ``SCHEMA_VERSION`` whenever ``ParsedVI`` or a
+  nested dataclass changes shape in a way that would make an old pickle wrong.
 - **Only ``layout=False`` is cached.** ``parse_vi(layout=True)`` decodes
   geometry into ``ParsedVI.layout`` for rendering; render already has its own
   SVG output-cache, so caching the (larger, less-reused) layout variant isn't
@@ -48,6 +53,7 @@ populated the entry.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import pickle
@@ -78,6 +84,52 @@ def _cache_dir() -> Path:
     return global_cache_root() / "parsed"
 
 
+def _extraction_content_id(bd_xml: Path) -> str | None:
+    """The ``.vi`` content sha the EXTRACTION layer already computed, read from
+    its ``meta.json`` sidecar next to ``bd_xml`` — the shared content-identity
+    spine (``cache_paths.sha256_file``, written by ``extractor._write_cache_meta``).
+
+    Reusing it means the parse cache keys off the SAME signal every other cache
+    layer uses (a ``.vi`` change → new sha → miss, everywhere) WITHOUT a second
+    full read+hash of the (large) XML. The ``.vi`` sha is a complete identity
+    for a ``layout=False`` ParsedVI: the BD/FP/main XML and the deterministic
+    front-panel-heap-size guard are all pure functions of that content.
+
+    ``None`` when there is no sidecar (an ad-hoc / temp extraction, e.g. diff's
+    git-blob VIs) — the caller then falls back to hashing the XML bytes.
+    """
+    name = Path(bd_xml).name
+    if not name.endswith("_BDHb.xml"):
+        return None
+    meta = Path(bd_xml).parent / f"{name[: -len('_BDHb.xml')]}.meta.json"
+    try:
+        data = json.loads(meta.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    sha = data.get("sha256")
+    return sha if isinstance(sha, str) and sha else None
+
+
+def _hash_xml_bytes(
+    bd_xml: Path, fp_xml: Path | str | None, main_xml: Path | str | None,
+) -> str | None:
+    """Fallback content-id: hash the actual XML bytes fed to the parse. Used
+    only when there is no extraction sidecar to reuse (ad-hoc/temp)."""
+    try:
+        h = hashlib.sha256()
+        h.update(bd_xml.read_bytes())
+        for p in (fp_xml, main_xml):
+            if p is not None and Path(p).exists():
+                h.update(b"\x01")
+                h.update(Path(p).read_bytes())
+            else:
+                h.update(b"\x00")
+        return h.hexdigest()
+    except OSError:
+        logger.debug("parse cache: failed to hash inputs", exc_info=True)
+        return None
+
+
 def compute_key(
     bd_xml: Path | str,
     fp_xml: Path | str | None,
@@ -85,28 +137,25 @@ def compute_key(
 ) -> str | None:
     """Content-addressed cache key for one ``parse_vi(layout=False)`` call.
 
-    Hashes the ACTUAL bytes that will be parsed -- ``bd_xml`` is required;
-    ``fp_xml``/``main_xml`` are included only when present (mirroring the
-    optionality ``parse_vi`` itself honors, including the front-panel-heap
-    size guard already applied by the caller before this is computed).
+    Derives the content-id from the SHARED spine — the extraction layer's
+    already-computed ``.vi`` sha (:func:`_extraction_content_id`) — so a change
+    invalidates this cache the same way it invalidates every other, with no
+    redundant re-hash of the XML. Falls back to hashing the XML bytes when
+    there's no extraction sidecar. The key folds in :data:`SCHEMA_VERSION` and
+    the running ``__version__`` so a schema/tool change is an automatic miss,
+    never a silently-stale hit.
 
-    Returns ``None`` (never raises) if a file can't be read -- the caller
-    then simply skips the cache and parses normally.
+    Returns ``None`` (never raises) if the content-id can't be obtained — the
+    caller then simply skips the cache and parses normally.
     """
-    try:
-        h = hashlib.sha256()
-        h.update(Path(bd_xml).read_bytes())
-        for p in (fp_xml, main_xml):
-            if p is not None and Path(p).exists():
-                h.update(b"\x01")
-                h.update(Path(p).read_bytes())
-            else:
-                h.update(b"\x00")
-        h.update(f"|schema={SCHEMA_VERSION}|version={__version__}".encode())
-        return h.hexdigest()
-    except OSError:
-        logger.debug("parse cache: failed to hash inputs", exc_info=True)
+    bd = Path(bd_xml)
+    content_id = _extraction_content_id(bd) or _hash_xml_bytes(bd, fp_xml, main_xml)
+    if content_id is None:
         return None
+    h = hashlib.sha256()
+    h.update(content_id.encode())
+    h.update(f"|schema={SCHEMA_VERSION}|version={__version__}".encode())
+    return h.hexdigest()
 
 
 def load(key: str) -> ParsedVI | None:
