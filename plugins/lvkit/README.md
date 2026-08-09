@@ -4,10 +4,16 @@ Installs the [lvkit](https://github.com/pragmatest-dev/lvkit) MCP server **and**
 its workflow skills into Claude Code in one step, so an agent can read, diff, and
 convert LabVIEW VIs without a LabVIEW license.
 
+Published through the shared Pragmatest marketplace:
+
 ```
-/plugin marketplace add pragmatest-dev/lvkit
+/plugin marketplace add pragmatest-dev/plugins
 /plugin install lvkit@pragmatest
 ```
+
+This directory is the plugin *content*; the marketplace *catalog* that lists it
+lives in the `pragmatest-dev/plugins` repo and references this directory
+cross-repo (a `git-subdir` source). That catalog is what a user adds.
 
 The MCP server is launched via `uvx --from lvkit lvkit-mcp`, so [uv](https://docs.astral.sh/uv/)
 must be on the machine; uvx fetches lvkit from PyPI on first use. See

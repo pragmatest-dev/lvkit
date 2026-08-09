@@ -34,20 +34,25 @@ To point the extension at your own lvkit instead of the bundle, set
 
 The lvkit plugin bundles the MCP server and the five workflow skills
 (`lvkit-convert`, `lvkit-describe`, `lvkit-resolve-primitive`,
-`lvkit-resolve-vilib`, `lvkit-idiomatic`) in one installable unit:
+`lvkit-resolve-vilib`, `lvkit-idiomatic`) in one installable unit, published
+through the Pragmatest plugin marketplace:
 
 ```
-/plugin marketplace add pragmatest-dev/lvkit
+/plugin marketplace add pragmatest-dev/plugins
 /plugin install lvkit@pragmatest
 ```
 
-`@pragmatest` is the marketplace name (the `name` field in the repo's
-`.claude-plugin/marketplace.json`), not the repo. The plugin launches the server
-with `uvx --from lvkit lvkit-mcp`, so [uv](https://docs.astral.sh/uv/) must be on
-the machine — uvx fetches lvkit from PyPI on first use.
+`@pragmatest` is the marketplace name (the `name` field in the marketplace's
+`marketplace.json`), not the repo you added. The `pragmatest-dev/plugins`
+marketplace is a shared catalog — TesterKit and other Pragmatest tools install
+from the same `/plugin marketplace add`. The lvkit plugin itself lives here in
+the lvkit repo (`plugins/lvkit/`); the catalog references it cross-repo.
 
-This replaces the two manual steps you would otherwise run for Claude Code:
-`lvkit setup claude` (skills) plus a separate `claude mcp add` (server).
+The plugin launches the server with `uvx --from lvkit lvkit-mcp`, so
+[uv](https://docs.astral.sh/uv/) must be on the machine — uvx fetches lvkit from
+PyPI on first use. This replaces the two manual steps you would otherwise run for
+Claude Code: `lvkit setup claude` (skills) plus a separate `claude mcp add`
+(server).
 
 ## Codex
 

@@ -1,9 +1,11 @@
 """Guards for the in-repo Claude Code plugin (``plugins/lvkit/``).
 
-The plugin bundles lvkit's MCP server (via ``uvx --from lvkit lvkit-mcp``) and
-its workflow skills. Two things must stay true or the plugin ships broken:
+This repo holds the plugin CONTENT; the marketplace CATALOG that lists it lives
+in the shared umbrella repo (``pragmatest-dev/plugins``, marketplace name
+``pragmatest``), which references this ``plugins/lvkit/`` cross-repo. So the
+guards here are about the plugin itself, not a catalog:
 
-1. The manifests are valid JSON with the fields Claude Code requires and the
+1. ``plugin.json`` is valid JSON with the fields Claude Code requires and the
    MCP server wired to the same entry point the CLI installs.
 2. ``plugins/lvkit/skills/`` never drifts from ``src/lvkit/skill_templates/`` —
    the plugin skills are GENERATED from those templates (single source of
@@ -18,7 +20,6 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-MARKETPLACE = REPO_ROOT / ".claude-plugin" / "marketplace.json"
 PLUGIN_DIR = REPO_ROOT / "plugins" / "lvkit"
 PLUGIN_MANIFEST = PLUGIN_DIR / ".claude-plugin" / "plugin.json"
 TEMPLATES_DIR = REPO_ROOT / "src" / "lvkit" / "skill_templates"
@@ -33,19 +34,6 @@ def _load_build_module():
     sys.modules["build_claude_plugin"] = mod
     spec.loader.exec_module(mod)
     return mod
-
-
-def test_marketplace_manifest_is_valid():
-    data = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
-    assert data["name"], "marketplace needs a name (the @<marketplace> handle)"
-    assert data["owner"]["name"], "marketplace owner needs a name"
-
-    plugins = data["plugins"]
-    assert isinstance(plugins, list) and plugins
-    lvkit = next(p for p in plugins if p["name"] == "lvkit")
-    # A relative same-repo source must point at the plugin dir that exists.
-    assert lvkit["source"] == "./plugins/lvkit"
-    assert (REPO_ROOT / lvkit["source"]).is_dir()
 
 
 def test_plugin_manifest_wires_the_mcp_server():
