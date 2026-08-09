@@ -304,6 +304,23 @@ def main() -> int:
         help="Output format (default: table).",
     )
 
+    # Graph-op commands - call graph & change impact over the index (the CLI
+    # twin of the MCP get_callers/get_callees/blast_radius tools). Reachability
+    # is a graph walk, not SQL, so these are typed ops, not `query`.
+    _add_graphop_parser(
+        subparsers, "callers",
+        "VIs that call the given VI (who depends on it directly)",
+    )
+    _add_graphop_parser(
+        subparsers, "callees",
+        "VIs the given VI calls (its direct dependencies)",
+    )
+    _add_graphop_parser(
+        subparsers, "blast-radius",
+        "Transitive dependents of the given VI — what breaks if you change it",
+        depth=True,
+    )
+
     # Describe command - human-readable VI description
     desc_parser = subparsers.add_parser(
         "describe",
@@ -647,6 +664,8 @@ def main() -> int:
         return cmd_index(args)
     elif args.command == "query":
         return cmd_query(args)
+    elif args.command in ("callers", "callees", "blast-radius"):
+        return cmd_graph_op(args)
     elif args.command == "describe":
         return cmd_describe(args)
     elif args.command == "generate":
@@ -850,6 +869,82 @@ def _print_table(columns: list[str], rows: list[list[object]]) -> None:
     print("  ".join("-" * w for w in widths))
     for row in cells:
         print("  ".join(c.ljust(widths[i]) for i, c in enumerate(row)))
+
+
+def _add_graphop_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    name: str,
+    help_text: str,
+    *,
+    depth: bool = False,
+) -> None:
+    """Add one call-graph/impact subcommand (callers/callees/blast-radius) — the
+    CLI twin of an MCP graph-op tool. They share ``vi``/``project`` positionals
+    and the freshness + format flags; blast-radius also takes ``--depth``."""
+    p = subparsers.add_parser(name, help=help_text)
+    p.add_argument(
+        "vi",
+        help="The VI: a path, a qualified name, or an unambiguous bare name.",
+    )
+    p.add_argument(
+        "project",
+        help="Any path inside the repo; its enclosing project's index is used.",
+    )
+    if depth:
+        p.add_argument(
+            "--depth", type=int, default=None,
+            help="Bound the search to N hops (default: unbounded).",
+        )
+    p.add_argument(
+        "--format", choices=["table", "json"], default="table",
+        help="Output format (default: table).",
+    )
+    p.add_argument(
+        "--no-refresh", action="store_true",
+        help="Use the stored index as-is without refreshing first (may be stale).",
+    )
+
+
+def cmd_graph_op(args: argparse.Namespace) -> int:
+    """Handle callers/callees/blast-radius — typed call-graph ops over the index
+    (the CLI twin of the MCP get_callers/get_callees/blast_radius tools)."""
+    from dataclasses import asdict
+
+    from .index.build import ensure_fresh_index
+    from .index.project import resolve_project
+    from .index.query import blast_radius, get_callees, get_callers
+    from .index.store import load as store_load
+
+    project_root, vi_paths = resolve_project(Path(args.project))
+    if not args.no_refresh:
+        ensure_fresh_index(project_root, vi_paths)
+    facts = store_load(project_root)
+    if not facts:
+        print(
+            f"{args.command}: no index for {project_root} — build it first "
+            "(e.g. `lvkit index`)",
+            file=sys.stderr,
+        )
+        return 2
+
+    if args.command == "blast-radius":
+        br = blast_radius(facts, args.vi, depth=args.depth)
+        if args.format == "json":
+            print(json.dumps(asdict(br)))
+        else:
+            print(f"{br.impact_score} transitive dependent(s) of {br.vi_key}:")
+            for path in br.dependents:
+                print(f"  {path}")
+        return 0
+
+    op = get_callers if args.command == "callers" else get_callees
+    paths = op(facts, args.vi)
+    if args.format == "json":
+        print(json.dumps(paths))
+    else:
+        for path in paths:
+            print(path)
+    return 0
 
 
 def cmd_query(args: argparse.Namespace) -> int:
