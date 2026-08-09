@@ -1,0 +1,279 @@
+"""Correctness regression harness for the lvkit MCP evals question bank.
+
+Pins the *assertable* questions from ``docs/_internal/mcp-evals.md`` against
+the real JKI VI Tester corpus, so a regression in index building or the SQL
+view layer turns a green question RED instead of silently drifting the eval
+bank out of sync with reality. Open-ended questions (magic numbers, hardcoded
+creds, naming consistency, "what's the public API") aren't assertable this
+way — they're graded by the ``eval-judge`` skill instead (see the
+``lvkit-eval`` skill for the full loop).
+
+Pattern follows ``tests/test_index.py``'s ``TestFullCorpusDemo``: ``JKI_ROOT``
+/ ``_HAVE_JKI`` guard, module-scoped ``jki_index`` fixture (build once,
+reusing the developer's warm extraction cache), ``@pytest.mark.slow``.
+
+Every assertion below pins the value actually OBSERVED against the corpus
+(computed and printed while developing this file, then hardcoded) — not a
+hoped-for value. A baseline going RED is a real regression. The two
+``xfail``-marked tests are known gaps (#18, #19 in the eval bank): they FAIL
+today by design, and flipping to XPASS is the signal that the fix landed and
+the eval bank + this test need updating.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import pytest
+
+from lvkit.index import sql as isql
+from lvkit.index.build import BuildResult, build_index
+from lvkit.index.project import resolve_project
+from lvkit.index.sql import QueryResult
+from lvkit.index.store import save as save_index
+from lvkit.structure import parse_lvclass
+
+pytestmark = pytest.mark.needs_samples
+
+SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
+JKI_ROOT = SAMPLES / "JKI-VI-Tester"
+
+_HAVE_JKI = JKI_ROOT.is_dir() and any(JKI_ROOT.rglob("*.vi"))
+
+
+@pytest.fixture(scope="module")
+def jki_index() -> BuildResult:
+    """Build + persist the full JKI-VI-Tester index once, reusing the
+    developer's warm extraction cache (see ``test_index.jki_index`` — same
+    rationale: a cold 487-VI MINIMAL build is O(minutes), and this fixture
+    also ``save``s the built facts so ``_query`` below has a real on-disk
+    index to run SQL against, exactly like a ``lvkit index`` + ``query`` run
+    would)."""
+    if not _HAVE_JKI:
+        pytest.skip("JKI-VI-Tester sample not present")
+
+    saved = os.environ.pop("LVKIT_CACHE_DIR", None)
+    try:
+        root, vi_paths = resolve_project(JKI_ROOT)
+        result = build_index(root, vi_paths)
+        save_index(root, result.facts)
+        return result
+    finally:
+        if saved is not None:
+            os.environ["LVKIT_CACHE_DIR"] = saved
+
+
+def _query(sql: str) -> QueryResult:
+    """Run ``sql`` against the persisted JKI index (see ``jki_index``).
+
+    The per-test ``_hermetic_cache`` autouse fixture (``tests/conftest.py``)
+    points ``LVKIT_CACHE_DIR`` at a fresh per-test tmp dir so no test writes
+    to the real cache — which would also hide the on-disk index ``jki_index``
+    just saved there. So, like that fixture does for the build, unset it for
+    the duration of the query.
+    """
+    saved = os.environ.pop("LVKIT_CACHE_DIR", None)
+    try:
+        root, _ = resolve_project(JKI_ROOT)
+        return isql.run_query(root, sql)
+    finally:
+        if saved is not None:
+            os.environ["LVKIT_CACHE_DIR"] = saved
+
+
+# === A. Class & library structure ===========================================
+
+
+@pytest.mark.slow
+class TestQ1ClassHierarchy:
+    """Q1: 'What classes are in this project and how do they inherit?'"""
+
+    def test_distinct_owning_class_count(self, jki_index: BuildResult):
+        owning = {
+            f.class_fact.owning_class
+            for f in jki_index.facts
+            if f.class_fact is not None
+        }
+        assert len(owning) == 27
+
+    def test_no_owning_class_has_two_distinct_parents(self, jki_index: BuildResult):
+        """The de-duplication invariant: every class_fact row resolved for
+        the same owning_class must agree on its parent — a class can't
+        appear to have two different parents depending on which method VI
+        you ask."""
+        parents_by_class: dict[str, set[str | None]] = {}
+        for f in jki_index.facts:
+            if f.class_fact is None:
+                continue
+            parents_by_class.setdefault(f.class_fact.owning_class, set()).add(
+                f.class_fact.parent
+            )
+        multi = {k: v for k, v in parents_by_class.items() if len(v) > 1}
+        assert multi == {}
+
+    def test_wait_on_test_complete_vi_not_collapsed(self, jki_index: BuildResult):
+        """Path-keyed collision guard (distinct from the class-parent bug
+        below): the corpus has TWO same-named ``WaitOnTestComplete.vi`` files —
+        TestCase's own protected method and TestSuite's own protected method.
+        Path-keyed indexing must resolve each to ITS OWN owning class, never
+        collapse them, never leave either unresolved."""
+        wotc = [f for f in jki_index.facts if f.name == "WaitOnTestComplete.vi"]
+        assert len(wotc) == 2
+        assert all(f.class_fact is not None for f in wotc)  # zero unresolved
+        owning = {f.class_fact.owning_class for f in wotc if f.class_fact}
+        assert owning == {"TestCase.lvclass", "TestSuite.lvclass"}
+        assert all(f.class_fact.scope == "protected" for f in wotc if f.class_fact)
+
+    def test_wait_on_test_complete_class_single_parent(self, jki_index: BuildResult):
+        """The ACTUAL #15 regression the user reported: the
+        ``WaitOnTestComplete.lvclass`` CLASS (a TestCase subclass under
+        source/Tests/) showed BOTH a NULL and a TestCase parent, because its
+        collision-routed methods (CleanUp/setUp/tearDown) loaded the class
+        without its parent and get_class_hierarchy gated on that. Every method
+        of the class must now resolve a single ``TestCase.lvclass`` parent,
+        no NULL."""
+        methods = [
+            f for f in jki_index.facts
+            if f.class_fact
+            and f.class_fact.owning_class == "WaitOnTestComplete.lvclass"
+        ]
+        assert methods  # the class resolves at all
+        parents = {f.class_fact.parent for f in methods}
+        assert parents == {"TestCase.lvclass"}  # single value, no None
+
+
+@pytest.mark.skipif(not _HAVE_JKI, reason="JKI-VI-Tester sample not present")
+class TestQ2VilibVsInRepoParent:
+    """Q2: 'Which classes inherit from a vi.lib class vs an in-repo class?'
+
+    Reads ``parse_lvclass`` directly (no index build needed) — same clean-
+    room source ``structure.parse_lvclass`` uses for ``is_vilib_parent``.
+    """
+
+    def test_junitxml_runner_points_at_vilib(self):
+        path = (
+            JKI_ROOT / "source" / "Ant Plugin" / "Source" / "TextTestRunner.Ant"
+            / "TextTestRunner.JUnitXML.lvclass"
+        )
+        lv = parse_lvclass(path)
+        assert lv.is_vilib_parent is True
+        assert lv.parent_class == "TextTestRunner"
+
+    def test_texttestrunner_points_in_repo(self):
+        path = (
+            JKI_ROOT / "source" / "Classes" / "TextTestRunner"
+            / "TextTestRunner.lvclass"
+        )
+        lv = parse_lvclass(path)
+        assert lv.is_vilib_parent is False
+        assert lv.parent_class == "TestRunner"
+
+    def test_testcase_is_root_no_parent(self):
+        path = JKI_ROOT / "source" / "Classes" / "TestCase" / "TestCase.lvclass"
+        lv = parse_lvclass(path)
+        assert lv.is_vilib_parent is False
+        assert lv.parent_class is None
+
+
+# === C. Error handling =======================================================
+
+
+@pytest.mark.slow
+def test_q10_error_indicator_histogram_top_row(jki_index: BuildResult):
+    """Q10: 'What names does this project use for error indicators, and how
+    often?' — 'error out' dominates; pin its current count as baseline."""
+    res = _query(
+        "SELECT name, COUNT(*) n FROM terminal "
+        "WHERE is_error_cluster=1 AND direction='output' "
+        "GROUP BY name ORDER BY n DESC, name"
+    )
+    assert res.rows[0] == ["error out", 352]
+
+
+# === F. Project scoping =======================================================
+
+
+@pytest.mark.skipif(not _HAVE_JKI, reason="JKI-VI-Tester sample not present")
+def test_q20_lvproj_count():
+    """Q20: 'How many LabVIEW projects (.lvproj) are in this repo?'
+
+    Filesystem fact — the repository-vs-project baseline the eval's 'Watch
+    for' warns not to conflate with 'one project'."""
+    assert len(list(JKI_ROOT.rglob("*.lvproj"))) == 6
+
+
+# === G. Consistency / integrity ==============================================
+
+
+@pytest.mark.slow
+def test_q22_stub_count(jki_index: BuildResult):
+    """Q22: 'Which VIs couldn't be loaded (protected, missing deps, stubs)?'
+
+    Pin the current stub count as baseline — 0 in this corpus today."""
+    res = _query("SELECT COUNT(*) FROM vi WHERE is_stub=1")
+    assert res.rows == [[0]]
+
+
+@pytest.mark.slow
+def test_q24_name_collisions_include_testcase_methods(jki_index: BuildResult):
+    """Q24: 'Are there same-named VIs in different libraries that could be
+    confused?' — CleanUp/setUp/tearDown recur across TestCase subclasses;
+    pin their current counts as baseline."""
+    res = _query(
+        "SELECT name, COUNT(*) n FROM vi GROUP BY name HAVING COUNT(*)>1 "
+        "ORDER BY n DESC, name"
+    )
+    names = {row[0] for row in res.rows}
+    assert {"CleanUp.vi", "setUp.vi", "tearDown.vi"} <= names
+    top3 = {row[0]: row[1] for row in res.rows[:3]}
+    assert top3 == {"CleanUp.vi": 17, "setUp.vi": 17, "tearDown.vi": 16}
+
+
+# === Known gaps — xfail today; XPASS is the "update the eval" signal =======
+
+
+@pytest.mark.slow
+@pytest.mark.xfail(
+    reason=(
+        "GAP #18: Class1, MySecondTestCase, UserInterfaceTestCase, "
+        "'Merge Errors TestCase', and 'Queue TestCase' should each resolve a "
+        "class_fact (owning_class == '<Name>.lvclass') for their method VIs, "
+        "same as the other 27 classes — but today every method under these "
+        "5 class dirs has class_fact=None (unresolved, not even a wrong "
+        "guess)."
+    ),
+)
+def test_q21_gap18_five_classes_resolve_class_fact(jki_index: BuildResult):
+    """Q21/#18 (also underlies Q1's '27 of 32 resolve'): the 5 classes named
+    in the eval bank as unresolved SHOULD each have a resolved
+    class_fact.owning_class once #18 lands."""
+    gap_classes = {
+        "Class1.lvclass",
+        "MySecondTestCase.lvclass",
+        "UserInterfaceTestCase.lvclass",
+        "Merge Errors TestCase.lvclass",
+        "Queue TestCase.lvclass",
+    }
+    resolved = {
+        f.class_fact.owning_class
+        for f in jki_index.facts
+        if f.class_fact is not None
+    }
+    assert gap_classes <= resolved
+
+
+@pytest.mark.xfail(
+    reason=(
+        "GAP #19: .lvproj membership (which VIs/classes belong to which of "
+        "the 6 .lvproj files, many-to-many) isn't modeled anywhere in the "
+        "SQL view layer yet — no view/column mentions 'lvproj'."
+    ),
+)
+def test_q20_gap19_lvproj_membership_is_modeled():
+    """Q20/#19 (membership half): a .lvproj-membership fact or view should
+    exist once #19 lands — e.g. a view name or column containing 'lvproj'."""
+    haystack = " ".join(isql.VIEWS.keys()) + " " + " ".join(
+        col for view in isql.VIEWS.values() for col in view.columns
+    )
+    assert "lvproj" in haystack.lower()
