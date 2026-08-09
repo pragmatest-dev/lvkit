@@ -36,7 +36,7 @@ from .model import (
     VIFacts,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS vis (
@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS vis (
     library TEXT,
     is_stub INTEGER NOT NULL DEFAULT 0,
     content_sha TEXT NOT NULL DEFAULT '',
-    impact_score INTEGER NOT NULL DEFAULT 0
+    impact_score INTEGER NOT NULL DEFAULT 0,
+    callers_count INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_vis_name ON vis(name);
 CREATE INDEX IF NOT EXISTS idx_vis_qualified_name ON vis(qualified_name);
@@ -140,7 +141,24 @@ def _connect(project_root: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path(project_root))
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(_SCHEMA)
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring an already-created DB up to the current schema in place.
+
+    ``_SCHEMA`` uses ``CREATE TABLE IF NOT EXISTS``, so a column ADDED to an
+    existing table in a later ``SCHEMA_VERSION`` never lands on a pre-existing
+    DB. Add missing columns idempotently rather than dropping the (rebuildable)
+    cache — existing rows get the column's DEFAULT (0) until the next
+    build/refresh recomputes it across the whole call graph.
+    """
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(vis)")}
+    if "callers_count" not in existing:
+        conn.execute(
+            "ALTER TABLE vis ADD COLUMN callers_count INTEGER NOT NULL DEFAULT 0"
+        )
 
 
 def _prior_container_facts(
@@ -245,10 +263,12 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                 _delete_vi(conn, f.path)
                 conn.execute(
                     "INSERT INTO vis(path, name, qualified_name, library, "
-                    "is_stub, content_sha, impact_score) VALUES (?,?,?,?,?,?,?)",
+                    "is_stub, content_sha, impact_score, callers_count) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
                     (
                         f.path, f.name, f.qualified_name, library,
                         int(f.is_stub), f.content_sha, f.impact_score,
+                        f.callers_count,
                     ),
                 )
                 conn.executemany(
@@ -394,7 +414,7 @@ def load(project_root: Path) -> list[VIFacts]:
     try:
         vi_rows = conn.execute(
             "SELECT path, name, qualified_name, library, is_stub, "
-            "content_sha, impact_score FROM vis"
+            "content_sha, impact_score, callers_count FROM vis"
         ).fetchall()
 
         terminals_by_vi: dict[str, list[TerminalFact]] = {}
@@ -461,9 +481,10 @@ def load(project_root: Path) -> list[VIFacts]:
 
         results: list[VIFacts] = []
         for row in vi_rows:
-            path, name, qualified_name, library, is_stub, content_sha, impact_score = (
-                row
-            )
+            (
+                path, name, qualified_name, library, is_stub, content_sha,
+                impact_score, callers_count,
+            ) = row
             results.append(
                 VIFacts(
                     path=path,
@@ -478,6 +499,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     type_uses=type_uses_by_vi.get(path, []),
                     class_fact=class_fact_by_vi.get(path),
                     impact_score=impact_score,
+                    callers_count=callers_count,
                 )
             )
         return results

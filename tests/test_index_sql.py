@@ -133,6 +133,39 @@ def test_constants_wired_to_indicator(tmp_path: Path):
     assert res.rows == [["42", "answer"]]
 
 
+def test_uncalled_column_flags_dead_code(tmp_path: Path):
+    """#20: dead-code detection is a ``callers_count = 0`` filter on the ``vi``
+    view (a real, store-round-tripped column), NOT a fragile
+    ``qualified_name``/``callee_key`` name anti-join. The column persists and
+    is queryable; ``callers_count = 0`` selects exactly the uncalled VIs even
+    when ``qualified_name`` is NULL."""
+    facts = [
+        VIFacts(
+            path=str(tmp_path / "entry.vi"), name="entry.vi",
+            qualified_name=None, content_sha="s1", callers_count=0,
+        ),
+        VIFacts(
+            path=str(tmp_path / "sub.vi"), name="sub.vi",
+            qualified_name=None, content_sha="s2", callers_count=3,
+        ),
+    ]
+    save_index(tmp_path, facts)
+
+    dead = sql.run_query(tmp_path, "SELECT name FROM vi WHERE callers_count = 0")
+    assert dead.rows == [["entry.vi"]]
+
+    # The column round-trips (value, not just the DEFAULT).
+    both = sql.run_query(
+        tmp_path, "SELECT name, callers_count FROM vi ORDER BY name"
+    )
+    assert both.rows == [["entry.vi", 0], ["sub.vi", 3]]
+
+    # The canned helper is the same filter.
+    canned = sql.uncalled_vis(tmp_path)
+    assert canned.columns == ["path", "name", "library"]
+    assert [r[1] for r in canned.rows] == ["entry.vi"]
+
+
 def test_with_cte_is_allowed(tmp_path: Path):
     root = _project(tmp_path)
     res = sql.run_query(

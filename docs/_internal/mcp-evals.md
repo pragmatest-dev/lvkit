@@ -103,7 +103,12 @@ Scorecard template at the bottom.
     - *Watch for:* the agent writing a recursive CTE instead of using the tool.
 
 18. **Is anything dead code — VIs that nothing calls?**
-    - *Answered by:* anti-join on `call`.
+    - *Answered by:* `vi` filtered on `callers_count = 0` (direct in-repo
+      callers; `0` == uncalled). NOT a `qualified_name`/`callee_key` anti-join —
+      those never match (`qualified_name` is usually NULL, `callee_key` is a
+      bare filename), which is what returned an implausible 0.
+    - *Ground truth (JKI):* **284** uncalled of 487 (entry-point/example
+      runners + orphans).
 
 19. **Who calls `<a VI>`, directly or transitively?**
     - *Answered by:* `get_callers`.
@@ -165,7 +170,7 @@ index. `Fab?` = fabrication (NONE is good).
 | 14 hardcoded paths/creds | — | PASS | — | Query works; corpus has 0 (valid answer). |
 | 15 const→indicator | — | PASS | — | 14. |
 | 16 most-depended-on | — | PASS | — | `impact_score` ranks the error-handling utils (73/65/64…). |
-| 18 dead code | — | **FAIL** | — | Returns implausible 0 uncalled VIs — `qualified_name`↔`callee_key` anti-join misfires. **Fix: task #20.** |
+| 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **284** uncalled of 487. The old `qualified_name`↔`callee_key` anti-join returned an implausible 0 — replaced by a path-keyed direct-caller count. |
 | 20 .lvproj scoping | **FAIL** | PASS | NONE | Adoption run: pure shell (custom `.lvproj` parsing) — FORCED, lvkit can't answer membership. Answer was correct + careful (6 projects, no repo-local overlap, shared vi.lib deps). **Fix: task #19.** |
 | 22 unloadable | — | PASS | — | Harness: 0 stubs. |
 | 24 name collisions | — | PASS | — | Harness: CleanUp/setUp/tearDown recur. |
@@ -173,7 +178,8 @@ index. `Fab?` = fabrication (NONE is good).
 **Takeaways:**
 - **Zero fabrication** across all three adoption runs — agents use lvkit or honestly shell when lvkit can't answer; nobody invents scopes/parents anymore (contrast the pre-fix session). The heuristic-killing + positioning work shows up in behavior.
 - **Correctness is strong** — every question lvkit *can* answer, it answers right.
-- **Two real gaps:** #19 (`.lvproj` membership — Q20 forced an agent to hand-build it; Q1 showed `parse_lvclass` beats `class_fact` for the zero-method class), and #20 (dead-code anti-join). Both now tracked.
+- **Two real gaps, now fixed:** #19 (`.lvproj` membership — Q20 forced an agent to hand-build it; Q1 showed `parse_lvclass` beats `class_fact` for the zero-method class), and #20 (dead-code — the fragile name anti-join is replaced by the `vi.callers_count` column). Both landed.
 - **Adoption interface gap (CLI context):** agents that *did* use lvkit reached for its Python internals via custom scripts, never the `lvkit query` CLI — the CLI/query surface isn't discoverable in a bare-shell context (the faithful MCP-client context surfaces it via server instructions; that's the honest caveat).
 
-Re-run after #19/#20 land; expect Q18/Q20 to flip.
+#19/#20 have landed; Q18/Q20 now PASS (`callers_count` column + `.lvproj`
+membership modeling). Re-run to confirm.

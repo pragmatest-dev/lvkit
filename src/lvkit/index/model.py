@@ -147,3 +147,11 @@ class VIFacts:
     type_uses: list[str] = field(default_factory=list)  # class/typedef keys
     class_fact: ClassFact | None = None
     impact_score: int = 0  # transitive dependents (filled at merge)
+    # Direct in-repo callers of this VI (filled at merge from the inverted call
+    # graph, same machinery as ``impact_score``). ``callers_count == 0`` is the
+    # reliable dead-code / uncalled-VI signal: it is computed on PATH identity
+    # (via ``build_call_graph``'s callee-key -> path resolution), so it is
+    # correct even for the many VIs whose ``qualified_name`` is None and whose
+    # ``calls`` rows hold bare filenames rather than qualified names — a
+    # name-matching anti-join over those columns silently misfires.
+    callers_count: int = 0

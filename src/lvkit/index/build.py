@@ -268,13 +268,25 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
 
 
 def _recompute_impact(facts: dict[str, VIFacts]) -> None:
-    """Fill each VI's ``impact_score`` (transitive dependent count) from the
-    inverted call graph — cheap (a graph walk, no re-parse)."""
+    """Fill each VI's ``impact_score`` (transitive dependent count) AND
+    ``callers_count`` (direct in-repo callers) from the inverted call graph —
+    cheap (a graph walk, no re-parse).
+
+    Both are computed on the SAME path-keyed call graph
+    (:func:`build_call_graph`, which resolves each ``calls`` callee-key to a VI
+    path). ``callers_count`` is the in-degree — the honest dead-code signal
+    (``callers_count == 0`` == nothing in the repo calls this VI), correct even
+    when ``qualified_name`` is None and ``calls`` holds bare filenames, so a
+    user never has to write a fragile name-matching anti-join.
+    """
     call_graph = build_call_graph(facts.values())
     for path, f in facts.items():
-        f.impact_score = (
-            len(nx.ancestors(call_graph, path)) if call_graph.has_node(path) else 0
-        )
+        if call_graph.has_node(path):
+            f.impact_score = len(nx.ancestors(call_graph, path))
+            f.callers_count = call_graph.in_degree(path)
+        else:
+            f.impact_score = 0
+            f.callers_count = 0
 
 
 @dataclass

@@ -286,6 +286,46 @@ class TestFullCorpusDemo:
         shallow = blast_radius(jki_index.facts, candidate.path, depth=1)
         assert shallow.impact_score <= result.impact_score
 
+    def test_dead_code_via_callers_count(self, jki_index: BuildResult):
+        """#20: uncalled-VI / dead-code detection reads ``callers_count``
+        (direct in-repo callers, from the path-keyed inverse call graph), NOT
+        a ``qualified_name``/``callee_key`` name anti-join.
+
+        That anti-join returns an implausible 0 over this corpus because EVERY
+        vi row's ``qualified_name`` is NULL (so a ``qualified_name IS NOT NULL``
+        guard drops all 487) and every ``callee_key`` is a bare filename that
+        never matches a qualified name. ``callers_count`` sidesteps both: it is
+        keyed on VI path, so NULL-``qualified_name`` VIs are still classified.
+        """
+        # The old broken anti-join really does return 0 on this corpus — the
+        # exact #20 symptom the column replaces (computed here from the facts).
+        callee_keys = {c for f in jki_index.facts for c in f.calls}
+        naive_uncalled = sum(
+            1
+            for f in jki_index.facts
+            if f.qualified_name is not None and f.qualified_name not in callee_keys
+        )
+        assert naive_uncalled == 0
+
+        by_name: dict[str, list] = {}
+        for f in jki_index.facts:
+            by_name.setdefault(f.name, []).append(f)
+
+        # A common init subVI — definitely called (unique name in the corpus).
+        called = by_name["TestCase_Init.vi"]
+        assert len(called) == 1
+        assert called[0].callers_count == 12
+
+        # A genuine top-level example runner — nothing calls it (unique name).
+        uncalled = by_name["VI Tester JUnitXML Example.vi"]
+        assert len(uncalled) == 1
+        assert uncalled[0].callers_count == 0
+
+        total_uncalled = sum(1 for f in jki_index.facts if f.callers_count == 0)
+        # Plausible dead-code count: some, but not everything and not nothing.
+        assert 0 < total_uncalled < len(jki_index.facts)
+        assert total_uncalled == 284  # pinned baseline (observed)
+
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====
 

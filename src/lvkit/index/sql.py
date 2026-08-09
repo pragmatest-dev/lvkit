@@ -89,6 +89,11 @@ VIEWS: dict[str, _View] = {
             "library": "owning .lvclass/.lvlib, or NULL",
             "is_stub": "1 if the VI could not be fully loaded (placeholder facts)",
             "impact_score": "count of transitive dependents (0 until a full refresh)",
+            "callers_count": "number of in-repo VIs that directly call this VI; "
+            "0 == dead code / uncalled. Use this for uncalled-VI detection — it "
+            "is computed on VI path identity, so it is reliable even when "
+            "qualified_name is NULL (a name-matching anti-join over callee_key "
+            "silently misfires).",
         },
     ),
     "terminal": _View(
@@ -319,3 +324,17 @@ def error_indicator_histogram(project_root: Path) -> QueryResult:
     """Count the names this project uses for error indicators (the driving
     question) — returns the small histogram, never the raw terminal rows."""
     return run_query(project_root, ERROR_INDICATOR_HISTOGRAM_SQL)
+
+
+UNCALLED_VIS_SQL = (
+    "SELECT path, name, library FROM vi WHERE callers_count = 0 ORDER BY name"
+)
+
+
+def uncalled_vis(project_root: Path) -> QueryResult:
+    """The project's dead code: VIs that no in-repo VI calls (entry points and
+    orphans). A straight ``callers_count = 0`` filter on the ``vi`` view — NOT
+    the fragile ``qualified_name`` / ``callee_key`` name anti-join, which
+    misfires because ``qualified_name`` is often NULL and ``callee_key`` holds
+    bare filenames, never qualified names."""
+    return run_query(project_root, UNCALLED_VIS_SQL)

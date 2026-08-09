@@ -211,6 +211,46 @@ def test_q20_lvproj_count():
     assert len(list(JKI_ROOT.rglob("*.lvproj"))) == 6
 
 
+# === E. Impact / dead code ===================================================
+
+
+def test_q18_dead_code_column_is_modeled():
+    """Q18/#20 (fast half): the ``vi`` view exposes ``callers_count`` so
+    "VIs nothing calls" is a ``callers_count = 0`` filter, not a fragile
+    ``qualified_name``/``callee_key`` name anti-join."""
+    assert "callers_count" in isql.VIEWS["vi"].columns
+
+
+@pytest.mark.slow
+def test_q18_dead_code_uncalled(jki_index: BuildResult):
+    """Q18: 'Is anything dead code — VIs that nothing calls?'
+
+    The fixed answer is ``vi.callers_count = 0`` (#20). The old
+    ``qualified_name``/``callee_key`` anti-join returned an implausible 0
+    (every ``qualified_name`` is NULL and every ``callee_key`` is a bare
+    filename) — pinned below as the regression anchor for WHY the column
+    exists. New count: 284 uncalled of 487, incl. the JUnitXML example runner;
+    a common init subVI (``TestCase_Init.vi``) is NOT uncalled."""
+    # The old broken anti-join still returns the implausible 0.
+    broken = _query(
+        "SELECT COUNT(*) FROM vi WHERE qualified_name IS NOT NULL "
+        "AND qualified_name NOT IN (SELECT callee_key FROM call)"
+    )
+    assert broken.rows == [[0]]
+
+    total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
+    assert total.rows == [[284]]
+
+    called = _query(
+        "SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'"
+    )
+    assert called.rows == [[12]]
+    uncalled = _query(
+        "SELECT callers_count FROM vi WHERE name = 'VI Tester JUnitXML Example.vi'"
+    )
+    assert uncalled.rows == [[0]]
+
+
 # === G. Consistency / integrity ==============================================
 
 
