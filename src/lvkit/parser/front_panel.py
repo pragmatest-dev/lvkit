@@ -9,6 +9,7 @@ from pathlib import Path
 from lvkit.models import LVType
 from lvkit.parser.utils import clean_labview_string
 
+from .conp_types import decode_conp_terminals
 from .constants import FP_TERMINAL_CLASS
 from .flags import get_wiring_rule
 from .fp_heap_type import reconstruct_dco_lvtype
@@ -211,7 +212,45 @@ def extract_fp_terminals(
             parsed_type=parsed_type,
         ))
 
+    if fp_xml_path:
+        _apply_conp_types(terminals, fp_xml_path)
     return terminals
+
+
+def _apply_conp_types(
+    terminals: list[ParsedFPTerminal], fp_xml_path: Path | str,
+) -> None:
+    """Overlay pre-LV9 CONP types onto the connector-pane terminals.
+
+    CONP is the AUTHORITATIVE, fully-named type source for a pre-LV9 VI's
+    interface (field names, class names, enum labels — see ``conp_types``), so it
+    takes precedence over the structure-only FP-heap fallback. It's correlated by
+    connector-pane SLOT: CONP terminal at slot S -> the conpane slot with the same
+    index -> its ``fp_dco_uid`` -> the matching terminal. For LV9+ VIs CONP is an
+    empty stub (types live in VCTP), so this is a no-op there.
+    """
+    fp_path = Path(fp_xml_path)
+    conp_bin = fp_path.with_name(fp_path.name.replace("_FPHb.xml", "_CONP.bin"))
+    if not conp_bin.exists():
+        return
+    conp_terms = decode_conp_terminals(conp_bin.read_bytes())
+    if not conp_terms:
+        return
+    cpane = parse_connector_pane(fp_path)
+    if cpane is None:
+        return
+    slot_to_dco = {
+        s.index: s.fp_dco_uid for s in cpane.slots if s.fp_dco_uid
+    }
+    by_dco = {t.fp_dco_uid: t for t in terminals}
+    for ct in conp_terms:
+        if ct.lv_type is None:
+            continue
+        dco = slot_to_dco.get(ct.slot)
+        term = by_dco.get(dco) if dco else None
+        if term is None:
+            continue
+        term.parsed_type = _lvtype_to_parsed(ct.lv_type)
 
 
 def parse_connector_pane(fp_xml_path: Path | str) -> ParsedConnectorPane | None:

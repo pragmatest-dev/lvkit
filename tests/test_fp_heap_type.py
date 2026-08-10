@@ -139,7 +139,10 @@ _LV82_VI = (
 @pytest.mark.skipif(not _LV82_VI.exists(), reason="JKI-VI-Tester sample absent")
 def test_lv82_ring_and_clusters_resolve_end_to_end():
     """The LV8.2 VI has no VCTP; its ring + error clusters used to fall back to
-    the bare family word. Now they resolve via the FP-heap reconstructor."""
+    the bare family word. Now they resolve — the ring via the FP-heap
+    reconstructor, and (authoritatively, with field names) via CONP, so the
+    error clusters are even detected as such. See ``test_conp_types`` for the
+    CONP path in isolation."""
     from lvkit.mcp.server import _load_one
 
     g, name = _load_one(str(_LV82_VI))
@@ -153,9 +156,7 @@ def test_lv82_ring_and_clusters_resolve_end_to_end():
     assert any(
         lbl.startswith("enum{") and "Major Increment" in lbl for lbl in labels
     ), labels
-    # The clusters are recovered with structure (3 fields), not the bare word.
-    assert any(
-        lbl.startswith("cluster{") and lbl.count(",") == 2 for lbl in labels
-    ), labels
+    # CONP recovers the cluster field names, so the error clusters are detected.
+    assert "error cluster" in labels, labels
     # No structured terminal is left as the bare family word.
     assert "ring" not in labels and "cluster" not in labels, labels
