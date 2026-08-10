@@ -446,7 +446,9 @@ def project_vi_facts(
     for t in all_terminals:
         field_names: list[str] = []
         enum_values: list[str] = []
-        lv_type_label = "Any"
+        # Faithful label — resolved LVType, else the control_type family word
+        # (cluster/class/array/ring/refnum/…), never the Python token "Any".
+        lv_type_label = t.faithful_type_label()
         if t.lv_type is not None:
             fields = graph.get_type_fields(t.lv_type)
             if fields:
@@ -460,7 +462,6 @@ def project_vi_facts(
                     name for name, _ev in
                     sorted(t.lv_type.values.items(), key=lambda kv: kv[1].value)
                 ]
-            lv_type_label = t.lv_type.lv_label()
         is_fp = isinstance(t, FPTerminal)
         terminals.append(
             TerminalFact(

@@ -328,14 +328,16 @@ def _get_subvi_description(
 
 def _type_label(t: LVType | None) -> str:
     """Compact, FAITHFUL LVType label for class fields (never a Python
-    annotation — see ``LVType.lv_label()``)."""
-    return t.lv_label() if t is not None else "Any"
+    annotation — see ``LVType.lv_label()``). ``unknown`` (not ``Any``) when the
+    field's type didn't resolve."""
+    return t.lv_label() if t is not None else "unknown"
 
 
 def _terminal_type_label(t: Terminal) -> str:
     """FAITHFUL LabVIEW type label for a terminal (never ``python_type()``'s
-    codegen-target Python annotation)."""
-    return t.lv_type.lv_label() if t.lv_type is not None else "Any"
+    codegen-target Python annotation). Falls back to the control_type family
+    word (``cluster``/``class``/…) when the LVType didn't resolve."""
+    return t.faithful_type_label()
 
 
 def _describe_class_context(

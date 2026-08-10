@@ -140,6 +140,32 @@ Scorecard template at the bottom.
     - *Answered by:* `vi` GROUP BY name HAVING COUNT>1 (e.g. `CleanUp.vi`,
       `setUp.vi`, `tearDown.vi` recur across TestCase subclasses).
 
+## H. Type faithfulness  [validates the #7 faithful-LVType sweep]
+
+25. **What are the possible values of the `method` enum input to `CallTestMethod.vi`?**
+    - *Answered by:* `terminal.enum_values` (or the faithful `terminal.lv_type`
+      label) — e.g. `SELECT enum_values FROM terminal WHERE vi_path LIKE
+      '%CallTestMethod.vi' AND name='method'`.
+    - *Ground truth (JKI):* `{setUp, testMethod, tearDown}` (ordinal order);
+      `lv_type` = `method--Enum{setUp, testMethod, tearDown}`.
+    - *Watch for:* the agent reporting the type as `int`, or INFERRING the members
+      from the class's `*Refnum` field set instead of reading them — the exact
+      pre-#7 failure, when every surface projected the enum through `python_type()`.
+
+26. **Does the interface report LabVIEW types or Python types?**
+    - *Answered by:* `terminal.lv_type` / `describe` — a faithful label
+      (`MethodEnum{...}`, `error cluster`, `DBL`, `TestCase.lvclass`, `[DBL]`),
+      never a Python annotation.
+    - *Purpose:* a *meta* guard (like #12) — a known enum/cluster interface must
+      NOT render as `int` / `dict[str, Any]` / `float` outside codegen, and an
+      UNRESOLVED type falls back to its control_type family word
+      (`cluster`/`class`/`array`/`ring`/`refnum`) — never the Python token
+      `Any`. The lossy `py_type` column is documented as codegen-only; `lv_type`
+      is the answer column. Regression signal for the [faithful-types LAW].
+    - *Ground truth (JKI):* the 149 terminals whose LVType doesn't resolve are
+      83 cluster / 36 class / 16 array / 9 refnum / 4 ring / 1 color numeric —
+      the deeper "why unresolved?" gap is tracked separately.
+
 ---
 
 ## Sharpest discriminators

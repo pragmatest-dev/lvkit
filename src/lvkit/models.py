@@ -184,6 +184,38 @@ def _is_error_cluster(lv_type: LVType) -> bool:
     return False
 
 
+# control_type -> coarse LabVIEW family word, the FAITHFUL fallback label when a
+# terminal's LVType didn't resolve. Distinct from render/draw.py's glyph-family
+# map (which drives wire color); this yields the type WORD shown by
+# describe/index — so an unresolved cluster reads ``cluster``, a class control
+# ``class``, never the Python token ``Any``. Covers the structured controls
+# that actually show up unresolved (cluster/class/array/ring/refnum) plus the
+# common scalars.
+_CONTROL_FAMILY_LABEL: dict[str, str] = {
+    "stdClust": "cluster",
+    "udClassDDO": "class",
+    "indArr": "array",
+    "stdArray": "array",
+    "stdRefNum": "refnum",
+    "stdRing": "ring",
+    "stdEnum": "enum",
+    "stdColorNum": "color numeric",
+    "stdNum": "numeric",
+    "stdDBL": "DBL",
+    "stdSGL": "SGL",
+    "stdBool": "TF",
+    "stdString": "String",
+    "stdPath": "Path",
+}
+
+
+def _control_family_label(control_type: str | None) -> str:
+    """Faithful family word for a control_type, or ``unknown`` — never ``Any``."""
+    if not control_type:
+        return "unknown"
+    return _CONTROL_FAMILY_LABEL.get(control_type, "unknown")
+
+
 class TypeResolutionNeeded(Exception):
     """Raised when a named type dependency cannot be resolved.
 
@@ -225,6 +257,17 @@ class Terminal(BaseModel):
     def python_type(self) -> str:
         """Python type string derived from lv_type."""
         return self.lv_type.to_python() if self.lv_type else "Any"
+
+    def faithful_type_label(self) -> str:
+        """LabVIEW-faithful type label for describe/index/netlist — NEVER a
+        Python annotation. Prefers the resolved ``LVType`` (``lv_label``); when
+        the type didn't resolve, falls back to the ``control_type`` FAMILY word
+        (``cluster``/``class``/``array``/``ring``/``refnum``/…) so an unresolved
+        cluster reads ``cluster``, not the Python token ``Any``. ``unknown``
+        only when neither a resolved type nor a control family is available."""
+        if self.lv_type is not None:
+            return self.lv_type.lv_label()
+        return _control_family_label(getattr(self, "control_type", None))
 
     @property
     def is_error_cluster(self) -> bool:

@@ -147,7 +147,7 @@ class TestQ1ClassHierarchy:
             and f.class_fact.owning_class == "WaitOnTestComplete.lvclass"
         ]
         assert methods  # the class resolves at all
-        parents = {f.class_fact.parent for f in methods}
+        parents = {f.class_fact.parent for f in methods if f.class_fact}
         assert parents == {"TestCase.lvclass"}  # single value, no None
 
 
@@ -276,6 +276,56 @@ def test_q24_name_collisions_include_testcase_methods(jki_index: BuildResult):
     assert {"CleanUp.vi", "setUp.vi", "tearDown.vi"} <= names
     top3 = {row[0]: row[1] for row in res.rows[:3]}
     assert top3 == {"CleanUp.vi": 17, "setUp.vi": 17, "tearDown.vi": 16}
+
+
+# === H. Type faithfulness (validates the #7 faithful-LVType sweep) =========
+
+
+@pytest.mark.slow
+def test_q25_enum_interface_members_are_queryable(jki_index: BuildResult):
+    """Q25: 'What are the possible values of the `method` enum input to
+    CallTestMethod.vi?'
+
+    Answerable straight from the index — the faithful ``lv_type`` label carries
+    the members and ``enum_values`` is the ordinal-ordered JSON array. Before
+    the #7 faithful-type sweep every surface projected the enum through
+    ``python_type()`` to ``int``, so the members were unreadable and an agent
+    could only INFER them (the demonstrated MCP miss)."""
+    res = _query(
+        "SELECT lv_type, enum_values FROM terminal "
+        "WHERE vi_path LIKE '%CallTestMethod.vi' AND name='method'"
+    )
+    assert len(res.rows) == 1
+    lv_type, enum_values = res.rows[0]
+    assert lv_type == "method--Enum{setUp, testMethod, tearDown}"
+    for member in ("setUp", "testMethod", "tearDown"):
+        assert f'"{member}"' in str(enum_values)
+
+
+@pytest.mark.slow
+def test_q26_interface_types_are_faithful_not_python(jki_index: BuildResult):
+    """Q26 (meta guard for the faithful-types LAW): the answer column
+    ``lv_type`` never carries a Python annotation for a known type. The
+    ``method`` enum is not ``int``; and across the whole corpus no terminal's
+    ``lv_type`` is a Python projection token (``int``/``float``/``dict[str,
+    Any]``/…). ``Any`` is exempt — it's the honest "type unresolved" fallback,
+    not a lossy projection of a KNOWN type."""
+    enum_type = _query(
+        "SELECT lv_type FROM terminal "
+        "WHERE vi_path LIKE '%CallTestMethod.vi' AND name='method'"
+    ).rows[0][0]
+    assert enum_type != "int"
+    assert "{" in str(enum_type)  # carries its members
+
+    # No terminal leaks a Python annotation into the faithful column — not the
+    # codegen tokens, and not 'Any' (an unresolved type now falls back to its
+    # control_type family word: cluster/class/array/ring/refnum, never 'Any').
+    leaked = _query(
+        "SELECT COUNT(*) FROM terminal WHERE lv_type IN "
+        "('int','float','bool','str','dict[str, Any]','list[float]',"
+        "'list[int]','Any')"
+    )
+    assert leaked.rows == [[0]]
 
 
 # === Known gaps — xfail today; XPASS is the "update the eval" signal =======
