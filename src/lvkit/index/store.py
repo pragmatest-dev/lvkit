@@ -109,7 +109,8 @@ CREATE TABLE IF NOT EXISTS class_facts (
     parent TEXT,
     scope TEXT,
     is_accessor INTEGER NOT NULL DEFAULT 0,
-    accessor_field TEXT
+    accessor_field TEXT,
+    private_data TEXT NOT NULL DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS lvproj_members (
@@ -275,8 +276,8 @@ def _prior_container_facts(
     prior_library = lib_row[0] if lib_row is not None else None
 
     cf_row = conn.execute(
-        "SELECT owning_class, parent, scope, is_accessor, accessor_field "
-        "FROM class_facts WHERE vi_path = ?",
+        "SELECT owning_class, parent, scope, is_accessor, accessor_field, "
+        "private_data FROM class_facts WHERE vi_path = ?",
         (path,),
     ).fetchone()
     prior_class_fact = (
@@ -286,6 +287,7 @@ def _prior_container_facts(
             scope=cf_row[2],
             is_accessor=bool(cf_row[3]),
             accessor_field=cf_row[4],
+            private_data=json.loads(cf_row[5]),
         )
         if cf_row is not None
         else None
@@ -348,6 +350,11 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                                 if cfc.accessor_field is not None
                                 else prior_class_fact.accessor_field
                             ),
+                            private_data=(
+                                cfc.private_data
+                                if cfc.private_data
+                                else prior_class_fact.private_data
+                            ),
                         )
 
                 _delete_vi(conn, f.path)
@@ -400,10 +407,12 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     cf = class_fact
                     conn.execute(
                         "INSERT INTO class_facts(vi_path, owning_class, parent, "
-                        "scope, is_accessor, accessor_field) VALUES (?,?,?,?,?,?)",
+                        "scope, is_accessor, accessor_field, private_data) "
+                        "VALUES (?,?,?,?,?,?,?)",
                         (
                             f.path, cf.owning_class, cf.parent, cf.scope,
                             int(cf.is_accessor), cf.accessor_field,
+                            json.dumps(cf.private_data),
                         ),
                     )
                 conn.execute(
@@ -565,15 +574,19 @@ def load(project_root: Path) -> list[VIFacts]:
         class_fact_by_vi: dict[str, ClassFact] = {}
         for row in conn.execute(
             "SELECT vi_path, owning_class, parent, scope, is_accessor, "
-            "accessor_field FROM class_facts"
+            "accessor_field, private_data FROM class_facts"
         ):
-            vi_path, owning_class, parent, scope, is_accessor, accessor_field = row
+            (
+                vi_path, owning_class, parent, scope, is_accessor,
+                accessor_field, private_data,
+            ) = row
             class_fact_by_vi[vi_path] = ClassFact(
                 owning_class=owning_class,
                 parent=parent,
                 scope=scope,
                 is_accessor=bool(is_accessor),
                 accessor_field=accessor_field,
+                private_data=json.loads(private_data),
             )
 
         results: list[VIFacts] = []

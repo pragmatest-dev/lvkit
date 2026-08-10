@@ -289,6 +289,32 @@ def test_constant_lv_type_is_faithful_not_lossy_py_type(tmp_path: Path):
     assert rows["3"] == ("int", "I32")
 
 
+def test_class_private_data_round_trips(tmp_path: Path):
+    """A class method VI records its owning class's private-data fields (#8),
+    faithfully rendered 'name: <lv_type>', round-tripped and queryable."""
+    from lvkit.index.model import ClassFact
+
+    facts = [
+        VIFacts(
+            path=str(tmp_path / "setUp.vi"),
+            name="setUp.vi",
+            content_sha="sha-s",
+            class_fact=ClassFact(
+                owning_class="TestCase.lvclass",
+                private_data=["testMethodName: String", "isSkipped: TF"],
+            ),
+        ),
+    ]
+    save_index(tmp_path, facts)
+    res = sql.run_query(
+        tmp_path, "SELECT owning_class, private_data FROM class_fact"
+    )
+    assert res.rows == [[
+        "TestCase.lvclass",
+        '["testMethodName: String", "isSkipped: TF"]',
+    ]]
+
+
 def test_uncalled_column_flags_dead_code(tmp_path: Path):
     """#20: dead-code detection is a ``callers_count = 0`` filter on the ``vi``
     view (a real, store-round-tripped column), NOT a fragile

@@ -105,6 +105,10 @@ class ClassFact:
     scope: str | None = None
     is_accessor: bool = False
     accessor_field: str | None = None
+    # The owning class's private-data fields (incl. inherited), each rendered
+    # FAITHFULLY as "name: <lv_label>" — e.g. "testName: String". Empty for a
+    # class with no resolvable private data.
+    private_data: list[str] = field(default_factory=list)
 
 
 @dataclass

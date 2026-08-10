@@ -157,6 +157,9 @@ VIEWS: dict[str, _View] = {
             "scope": "member scope (public/private/protected), or NULL",
             "is_accessor": "1 if a generated property/accessor VI",
             "accessor_field": "the class field this accessor reads/writes, or NULL",
+            "private_data": "JSON array of the owning class's private-data fields "
+            "(incl. inherited), each FAITHFULLY rendered 'name: <lv_type>', e.g. "
+            "'[\"testName: String\", \"result: TestResult.lvclass\"]'",
         },
     ),
     "lvproj": _View(

@@ -555,6 +555,13 @@ def _build_class_fact(
     if owning_class is None:
         return None
     access = graph.get_method_access(vi_name)
+    # The owning class's private data, rendered FAITHFULLY (never to_python) —
+    # None when the class/its data isn't resolvable (e.g. an external class).
+    fields = graph.get_class_fields(owning_class)
+    private_data = [
+        f"{f.name}: {f.type.lv_label()}" if f.type else f.name
+        for f in (fields or [])
+    ]
     # Authoritative parent (get_class_parent, NOT the load-gated
     # get_class_hierarchy): a collision-load graph never loads the parent, and
     # gating on that produced a spurious NULL parent beside the real value for
@@ -565,4 +572,5 @@ def _build_class_fact(
         scope=access.scope if access else None,
         is_accessor=bool(access and access.is_accessor),
         accessor_field=access.accessor_field if access else None,
+        private_data=private_data,
     )
