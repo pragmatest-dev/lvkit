@@ -15,13 +15,21 @@ expects its own DB, not to be silently folded into the outer project's.
 
 WAL mode. Tables: ``vis``, ``terminals``, ``constants``,
 ``calls(caller_path, callee_key)``, ``type_uses``, ``class_facts``, and a
-``meta(vi_path, content_sha, schema_version)`` freshness row per VI. Upsert by
-path: ``save()`` deletes then reinserts every row belonging to each given
-``VIFacts.path`` (safe for both a full rebuild and a future partial refresh).
+``meta(vi_path, content_sha)`` freshness row per VI. Upsert by path: ``save()``
+deletes then reinserts every row belonging to each given ``VIFacts.path`` (safe
+for both a full rebuild and a partial refresh).
+
+**The whole DB is a CACHE of derived facts.** Per-VI freshness is keyed on VI
+*bytes* (``meta.content_sha``); the DB as a whole is keyed on a fingerprint of
+lvkit's own facts-producing source (``index_meta`` — see ``_facts_fingerprint``)
+so it self-invalidates the instant that code or bundled data changes, with no
+version bump to forget. See ``_ensure_facts_version``.
 """
 
 from __future__ import annotations
 
+import functools
+import hashlib
 import json
 import sqlite3
 from collections.abc import Iterable
@@ -35,8 +43,6 @@ from .model import (
     TerminalFact,
     VIFacts,
 )
-
-SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS vis (
@@ -123,12 +129,73 @@ CREATE INDEX IF NOT EXISTS idx_lvproj_members_resolved
 
 CREATE TABLE IF NOT EXISTS meta (
     vi_path TEXT PRIMARY KEY,
-    content_sha TEXT NOT NULL,
-    schema_version INTEGER NOT NULL
+    content_sha TEXT NOT NULL
 );
 """
 
 _CHILD_TABLES = ("terminals", "constants", "calls", "type_uses")
+
+# Every table that holds DERIVED facts — a pure cache of what lvkit's parser
+# produces from the VIs. Dropped wholesale when the facts fingerprint changes
+# (``_ensure_facts_version``). ``index_meta`` (the fingerprint itself) is NOT
+# here — it survives the wipe so the new fingerprint can be stamped onto it.
+_ALL_TABLES = (
+    "vis", "terminals", "constants", "calls", "type_uses", "class_facts",
+    "lvproj_members", "meta",
+)
+
+
+# Top-level package subdirs that DEMONSTRABLY don't feed the index — verified
+# absent from the import closure of ``index.build``/``index.store`` (the code
+# that actually produces facts), and pinned by
+# ``test_facts_fingerprint_skips_only_non_facts_dirs``. Skipping them means
+# editing codegen / docs / the formula transpiler / the MCP transport layer
+# doesn't force a needless full-corpus rebuild.
+#
+# This is an EXCLUDE list on purpose: the default for any file — including a
+# brand-new module or ``data/`` table — is to be hashed, so a new facts
+# dependency can never silently escape the fingerprint. The only failure mode
+# (a facts dep ADDED under one of these dirs) trips the guard test, which fails
+# loudly rather than letting staleness back in.
+_FINGERPRINT_SKIP_DIRS = frozenset({"codegen", "docs", "formula", "mcp"})
+
+
+@functools.lru_cache(maxsize=1)
+def _facts_fingerprint() -> str:
+    """A hash of lvkit's own facts-producing SOURCE + bundled data, so the index
+    self-invalidates the moment that changes — with no manual version to bump.
+
+    The index is a CACHE of what lvkit derives from each VI. Per-VI freshness is
+    keyed on VI bytes (``meta.content_sha``), but that cannot see a change to
+    lvkit's *extraction logic* (the VI bytes are identical) — so an edit to the
+    parser/graph/index code, or to a ``data/`` primitive/vilib table, would
+    otherwise keep serving facts built by the OLD code. That is silent staleness,
+    and it corrupts everything reading the index: queries, the MCP server, and
+    evals. A hand-bumped ``SCHEMA_VERSION`` can't defend against it because in
+    active development the bump is forgotten far more often than not.
+
+    Hashes every file in the package EXCEPT the ``_FINGERPRINT_SKIP_DIRS`` known
+    not to feed facts. Skipping is done by directory (a coarse, verifiable unit),
+    never by hand-picking the facts modules — an *include* list is a guess that
+    can miss a transitive dep and reintroduce staleness, whereas defaulting to
+    "hash it" over-invalidates at worst (one extra cold rebuild). Memoized: the
+    source cannot change within a live process (Python does not hot-reload), and
+    a dev editing lvkit restarts it before the next run anyway.
+    """
+    import lvkit
+    pkg = Path(lvkit.__file__).resolve().parent
+    h = hashlib.sha256()
+    for f in sorted(pkg.rglob("*")):
+        if not f.is_file() or f.suffix == ".pyc" or "__pycache__" in f.parts:
+            continue
+        rel = f.relative_to(pkg)
+        if rel.parts[0] in _FINGERPRINT_SKIP_DIRS:
+            continue
+        h.update(rel.as_posix().encode())
+        h.update(b"\0")
+        h.update(f.read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()
 
 
 def db_path(project_root: Path) -> Path:
@@ -142,37 +209,45 @@ def db_path(project_root: Path) -> Path:
 def _connect(project_root: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path(project_root))
     conn.execute("PRAGMA journal_mode=WAL")
+    _ensure_facts_version(conn)
     conn.executescript(_SCHEMA)
-    _migrate(conn)
     return conn
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
-    """Bring an already-created DB up to the current schema in place.
+def _ensure_facts_version(conn: sqlite3.Connection) -> None:
+    """Invalidate the whole index when lvkit's facts-producing code changed.
 
-    ``_SCHEMA`` uses ``CREATE TABLE IF NOT EXISTS``, so a column ADDED to an
-    existing table in a later ``SCHEMA_VERSION`` never lands on a pre-existing
-    DB. Add missing columns idempotently rather than dropping the (rebuildable)
-    cache — existing rows get the column's DEFAULT (0) until the next
-    build/refresh recomputes it across the whole call graph.
+    Runs at the single point every caller funnels through (``_connect``), before
+    the schema is (re)created. Compares the fingerprint stored in this DB against
+    the running code's :func:`_facts_fingerprint`. On a match, nothing to do. On
+    a mismatch — or a DB that predates the fingerprint (an older lvkit, or the
+    former hand-bumped ``schema_version`` scheme) — every derived-facts table is
+    dropped so the next build is a full, cold rebuild from the VIs. This is what
+    makes a parser change (identical VI bytes) actually re-derive facts instead
+    of silently reusing the stale ones; NO migrate-in-place, because a derived
+    cache with defaulted columns that never recompute IS the staleness bug.
+
+    Deliberately additive-safe: intentionally drops and lets the caller rebuild
+    rather than trying to preserve rows — the rows are all rederivable from VIs.
     """
-    existing = {row[1] for row in conn.execute("PRAGMA table_info(vis)")}
-    if "callers_count" not in existing:
-        conn.execute(
-            "ALTER TABLE vis ADD COLUMN callers_count INTEGER NOT NULL DEFAULT 0"
-        )
-
-    existing_terminals = {
-        row[1] for row in conn.execute("PRAGMA table_info(terminals)")
-    }
-    if "lv_type" not in existing_terminals:
-        conn.execute(
-            "ALTER TABLE terminals ADD COLUMN lv_type TEXT NOT NULL DEFAULT 'Any'"
-        )
-    if "enum_values" not in existing_terminals:
-        conn.execute(
-            "ALTER TABLE terminals ADD COLUMN enum_values TEXT NOT NULL DEFAULT '[]'"
-        )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS index_meta ("
+        "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL)"
+    )
+    current = _facts_fingerprint()
+    row = conn.execute(
+        "SELECT fingerprint FROM index_meta WHERE id = 0"
+    ).fetchone()
+    if row is not None and row[0] == current:
+        return
+    for table in _ALL_TABLES:
+        conn.execute(f"DROP TABLE IF EXISTS {table}")
+    conn.execute(
+        "INSERT INTO index_meta(id, fingerprint) VALUES (0, ?) "
+        "ON CONFLICT(id) DO UPDATE SET fingerprint = excluded.fingerprint",
+        (current,),
+    )
+    conn.commit()
 
 
 def _prior_container_facts(
@@ -328,9 +403,8 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                         ),
                     )
                 conn.execute(
-                    "INSERT INTO meta(vi_path, content_sha, schema_version) "
-                    "VALUES (?,?,?)",
-                    (f.path, f.content_sha, SCHEMA_VERSION),
+                    "INSERT INTO meta(vi_path, content_sha) VALUES (?,?)",
+                    (f.path, f.content_sha),
                 )
     finally:
         conn.close()

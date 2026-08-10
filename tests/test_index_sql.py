@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.index import sql
+from lvkit.index import store as store_mod
 from lvkit.index.model import (
     OUTPUT,
     WIRED_INDICATOR,
@@ -20,6 +21,7 @@ from lvkit.index.model import (
     TerminalFact,
     VIFacts,
 )
+from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
 
 
@@ -78,6 +80,84 @@ def _project(tmp_path: Path) -> Path:
     ]
     save_index(tmp_path, facts)
     return tmp_path
+
+
+# === Facts-version cache invalidation ======================================
+
+
+def test_facts_version_steady_state_keeps_cache(tmp_path: Path):
+    """With lvkit's code unchanged, the fingerprint matches on every connect, so
+    the derived-facts cache survives — no spurious re-wipe/rebuild per query."""
+    root = _project(tmp_path)
+    n1 = len(load_index(root))
+    assert n1 > 0
+    # A second connect (unchanged fingerprint) must return the SAME rows, proving
+    # it didn't drop the tables and hand back an empty cache.
+    assert len(load_index(root)) == n1
+
+
+def test_facts_version_invalidates_when_extraction_code_changes(
+    tmp_path: Path, monkeypatch
+):
+    """When lvkit's facts-producing source changes (fingerprint differs) the
+    whole cache is dropped on the next connect — even though the VI bytes are
+    identical. This is the guard that stopped a parser improvement from silently
+    serving stale types to queries, the MCP server, and evals.
+    """
+    root = _project(tmp_path)
+    assert load_index(root)  # populated under the real (matching) fingerprint
+
+    # Simulate an edit to lvkit's extraction code: the fingerprint no longer
+    # matches what stamped this DB.
+    monkeypatch.setattr(store_mod, "_facts_fingerprint", lambda: "changed-code")
+
+    # Next connect sees the mismatch and wipes the stale cache to force a cold
+    # rebuild; the content_sha of each VI is unchanged, so ONLY the fingerprint
+    # could have triggered this.
+    assert load_index(root) == []
+
+
+def test_facts_fingerprint_skips_only_non_facts_dirs():
+    """The dirs the fingerprint SKIPS must be genuinely irrelevant to facts.
+
+    Guards the ``_FINGERPRINT_SKIP_DIRS`` exclude list: if a module under a
+    skipped dir ever enters the import closure of ``index.build``/``store`` (the
+    code that produces facts), editing it would change facts yet leave the
+    fingerprint untouched — silent staleness. Computed in a CLEAN subprocess so
+    modules pytest imported for OTHER tests (codegen, mcp, …) can't pollute the
+    closure and mask a real escape.
+    """
+    import json
+    import subprocess
+    import sys
+
+    probe = (
+        "import importlib, sys, json\n"
+        "from pathlib import Path\n"
+        "import lvkit\n"
+        "importlib.import_module('lvkit.index.build')\n"
+        "importlib.import_module('lvkit.index.store')\n"
+        "pkg = Path(lvkit.__file__).resolve().parent\n"
+        "dirs = set()\n"
+        "for name, m in list(sys.modules.items()):\n"
+        "    f = getattr(m, '__file__', None)\n"
+        "    if not name.startswith('lvkit.') or not f:\n"
+        "        continue\n"
+        "    rel = Path(f).resolve().relative_to(pkg).parts\n"
+        "    if len(rel) > 1:\n"
+        "        dirs.add(rel[0])\n"
+        "print(json.dumps(sorted(dirs)))\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True, text=True, check=True,
+    )
+    closure_dirs = set(json.loads(out.stdout.strip().splitlines()[-1]))
+    escaped = closure_dirs & store_mod._FINGERPRINT_SKIP_DIRS
+    assert not escaped, (
+        f"facts import-closure now reaches skipped dir(s) {escaped}; either move "
+        f"the dependency out or drop it from _FINGERPRINT_SKIP_DIRS"
+    )
 
 
 # === Schema introspection ==================================================
