@@ -43,10 +43,16 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+# Whichever the installed SDK ships: mcp 2.0's MCPServer or 1.x's FastMCP. Only
+# one module exists at a time, so the OTHER branch is unresolvable to the type
+# checker — suppress the missing-import there (both are annotated so it holds
+# under whichever major is installed).
 try:  # mcp >= 2.0 renamed FastMCP -> MCPServer (identical decorator API)
-    from mcp.server.mcpserver import Context, MCPServer as _MCPServer
+    from mcp.server.mcpserver import Context  # type: ignore
+    from mcp.server.mcpserver import MCPServer as _MCPServer  # type: ignore
 except ImportError:  # mcp 1.x
-    from mcp.server.fastmcp import Context, FastMCP as _MCPServer
+    from mcp.server.fastmcp import Context  # type: ignore
+    from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore
 
 from .. import primitive_resolver, vilib_resolver
 from ..codegen import build_module
