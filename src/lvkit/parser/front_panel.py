@@ -11,6 +11,7 @@ from lvkit.parser.utils import clean_labview_string
 
 from .constants import FP_TERMINAL_CLASS
 from .flags import get_wiring_rule
+from .fp_heap_type import reconstruct_dco_lvtype
 from .models import (
     ParsedConnectorPane,
     ParsedConnectorPaneSlot,
@@ -55,10 +56,16 @@ _FP_INDICATOR_FLAG = 0x1
 class FpDcoInfo:
     """The stored attributes of one front-panel DCO node, read straight off the
     node: its type descriptor and its control/indicator designation.
-    ``is_indicator`` is None only when the node carries no ``objFlags``."""
+    ``is_indicator`` is None only when the node carries no ``objFlags``.
+
+    ``heap_type`` is the type reconstructed from the control's FP-heap subtree —
+    populated ONLY for structured controls (cluster/enum/array), as a clean-room
+    fallback for pre-LV9 VIs whose VCTP is absent (see ``fp_heap_type``). None
+    otherwise, so scalars stay on the ``control_type`` path."""
 
     type_desc: str | None = None
     is_indicator: bool | None = None
+    heap_type: LVType | None = None
 
 
 def extract_fp_dco_info(fp_xml_path: Path | str) -> dict[str, FpDcoInfo]:
@@ -85,7 +92,20 @@ def extract_fp_dco_info(fp_xml_path: Path | str) -> dict[str, FpDcoInfo]:
             text = obj_flags.text.strip()
             if text.lstrip("-").isdigit():
                 is_indicator = bool(int(text) & _FP_INDICATOR_FLAG)
-        info[uid] = FpDcoInfo(type_desc=type_desc, is_indicator=is_indicator)
+        # Reconstruct the type from the control's heap subtree, but keep only
+        # STRUCTURED results — scalars are handled faithfully by the existing
+        # control_type path, and a heap "Numeric" would drop a control_type's
+        # more specific I32/U16/… on the floor.
+        heap_type = reconstruct_dco_lvtype(dco)
+        if heap_type is not None and heap_type.kind not in (
+            "cluster", "enum", "array"
+        ):
+            heap_type = None
+        info[uid] = FpDcoInfo(
+            type_desc=type_desc,
+            is_indicator=is_indicator,
+            heap_type=heap_type,
+        )
 
     return info
 
@@ -148,6 +168,7 @@ def extract_fp_terminals(
             # back to the wire-direction inference below.
             "is_indicator": info.is_indicator if info else None,
             "type_desc": info.type_desc if info else None,
+            "heap_type": info.heap_type if info else None,
         }
 
     # Fallback for terminals whose DCO node stored no flag: a terminal that
@@ -169,7 +190,15 @@ def extract_fp_terminals(
         type_desc_str = data["type_desc"]
         if type_desc_str and type_map:
             lv_type = resolve_type_rich(type_desc_str, type_map)
-            parsed_type = _lvtype_to_parsed(lv_type)
+            # A bare ``TypeID(N)`` underlying_type means the id wasn't in the
+            # map (no / partial VCTP) — a passthrough, not a real resolution.
+            if not (lv_type.underlying_type or "").startswith("TypeID"):
+                parsed_type = _lvtype_to_parsed(lv_type)
+        # Clean-room fallback for VIs without a VCTP (pre-LV9): use the type
+        # reconstructed from the control's FP-heap subtree. Only fires when the
+        # VCTP path produced nothing, so LV9+ resolution is untouched.
+        if parsed_type is None and data["heap_type"] is not None:
+            parsed_type = _lvtype_to_parsed(data["heap_type"])
 
         # None here means no stored flag AND no incoming wire => a control.
         is_indicator = bool(data["is_indicator"])
