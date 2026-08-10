@@ -220,8 +220,13 @@ class _ConpDecoder:
                               element_type=elem, dimensions=ndims or 1), name
 
             if type_code == _REFNUM:
-                # u16 sub-kind, then (for a class refnum) the class name ending
-                # ``.lvclass``, then the terminal label as the final pstr.
+                # u16 sub-kind, then for a class refnum: [class name][label].
+                # The class name (``.lvclass``) is the TYPE; the pstr right after
+                # it is the terminal LABEL. LabVIEW's default label for a
+                # dynamic-dispatch terminal IS its class name, and a SECOND
+                # same-class terminal is disambiguated ``<class> 2`` — both are
+                # real labels (a developer rename, e.g. ``reference in``, sits in
+                # the same slot).
                 refkind = (
                     struct.unpack_from(">H", body, 0)[0] if len(body) >= 2
                     else None
@@ -230,9 +235,11 @@ class _ConpDecoder:
                 classname = next(
                     (s for s in strs if s.endswith(".lvclass")), None
                 )
-                name = strs[-1] if strs else None
-                if _is_type_identity(name):
-                    name = None  # a bare class name is not a terminal label
+                if classname is not None:
+                    ci = strs.index(classname)
+                    name = strs[ci + 1] if ci + 1 < len(strs) else None
+                else:
+                    name = strs[-1] if strs else None
                 return LVType(
                     kind="primitive", underlying_type="Refnum",
                     ref_type=_REFNUM_KIND.get(refkind) if refkind is not None

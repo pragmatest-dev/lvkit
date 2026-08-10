@@ -89,20 +89,32 @@ def test_refnum_kind_and_class_name():
     assert by_slot[1].lv_type.lv_label() == "Foo.lvclass"
 
 
-def test_class_identity_is_not_used_as_a_terminal_name():
-    """A refnum body carrying only a class name (no distinct label) must NOT
-    surface that ``.lvclass`` string as the terminal name — a garbled class
-    identity as a label is worse than none."""
+def test_class_refnum_label_follows_class_name():
+    """A class refnum is ``[class name][terminal label]``. The class name is the
+    TYPE; the label follows it. LabVIEW's default label for a dynamic-dispatch
+    terminal is its class name, disambiguated ``<class> 2`` for a second
+    same-class terminal — that IS the label, not garbled."""
     cls = _td(
         0x70,
-        struct.pack(">H", 30) + b"\x00" * 6 + b"\x13"
-        + _pstr("Class1.lvclass") + b"\x00" + _pstr("Class1.lvclass 2"),
+        struct.pack(">H", 30) + b"\x00" * 6
+        + _pstr("Class1.lvclass") + b"\x00\x00" + _pstr("Class1.lvclass 2"),
     )
     terms = decode_conp_terminals(_conp(cls, _td(0xF0, struct.pack(">HH", 1, 0))))
     assert len(terms) == 1
-    assert terms[0].name is None  # NOT the trailing "Class1.lvclass 2"
     assert terms[0].lv_type is not None
-    assert terms[0].lv_type.classname == "Class1.lvclass"
+    assert terms[0].lv_type.classname == "Class1.lvclass"  # the TYPE
+    assert terms[0].name == "Class1.lvclass 2"             # the LABEL
+
+    # A developer-renamed terminal sits in the same slot.
+    renamed = _td(
+        0x70,
+        struct.pack(">H", 30) + b"\x00" * 6
+        + _pstr("Class1.lvclass") + b"\x00\x00" + _pstr("reference in"),
+    )
+    t = decode_conp_terminals(
+        _conp(renamed, _td(0xF0, struct.pack(">HH", 1, 0)))
+    )[0]
+    assert t.name == "reference in"
 
 
 def test_malformed_conp_never_raises():
