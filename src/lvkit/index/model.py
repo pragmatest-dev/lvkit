@@ -46,6 +46,15 @@ class TerminalFact:
     full ``LVType`` tree. ``is_error_cluster`` is precomputed from
     ``Terminal.is_error_cluster`` so the demo query ("count error-indicator
     names") is a straight filter, not a re-derivation.
+
+    ``py_type`` is the LOSSY codegen-target projection (``Terminal.
+    python_type()`` — enum/ring collapse to ``"int"``, cluster to
+    ``"dict[str, Any]"``, …); kept for existing callers. ``lv_type`` is the
+    FAITHFUL LabVIEW type label (``Terminal.lv_type.lv_label()``) — prefer it
+    for anything that reads the type back. ``enum_values`` are the enum/ring
+    member names in ORDINAL order (empty for non-enum terminals), so "does
+    this project use an enum with member X" is a straight filter over the
+    index, not a full VI reload.
     """
 
     name: str | None
@@ -53,12 +62,18 @@ class TerminalFact:
     is_indicator: bool
     is_public: bool
     control_type: str | None
-    py_type: str  # Terminal.python_type()
+    py_type: str  # Terminal.python_type() — LOSSY codegen-target projection
     is_error_cluster: bool
     field_names: list[str] = field(default_factory=list)
     # The FP DCO uid — the durable BD<->FP bridge, stable across a rename
     # (same uid, changed name). Carried for correlation/diff parity.
     fp_dco_uid: str | None = None
+    # FAITHFUL LabVIEW type label — Terminal.lv_type.lv_label(), or "Any" when
+    # lv_type is None. Never a Python annotation; see LVType.lv_label().
+    lv_type: str = "Any"
+    # Enum/ring member names in ORDINAL order (by EnumValue.value); empty for
+    # non-enum terminals. From Terminal.lv_type.values.
+    enum_values: list[str] = field(default_factory=list)
 
 
 @dataclass

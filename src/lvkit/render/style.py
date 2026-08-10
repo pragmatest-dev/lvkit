@@ -11,7 +11,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 
-from ..models import LVType, _is_error_cluster
+from ..models import _LV_NUMERIC_TYPE_LABEL, LVType, _is_error_cluster
 
 
 @dataclass(frozen=True)
@@ -144,12 +144,13 @@ _COMPLEX_TYPES = {"NumComplex64", "NumComplex128", "NumComplexExt"}
 
 # LabVIEW data-type terminal text, exactly as the reference manual draws it
 # (e.g. an orange `[DBL]` box for a DBL array — verified against the PDF).
+# The numeric/Boolean/Path tokens are shared with ``LVType.lv_label()``'s
+# faithful text label (see ``models._LV_NUMERIC_TYPE_LABEL``); String/Variant
+# stay glyph-abbreviated here ("abc"/"Var") since this table drives compact
+# terminal-icon text, not prose.
 _TYPE_REPR = {
-    "NumFloat64": "DBL", "NumFloat32": "SGL", "NumFloatExt": "EXT",
-    "NumComplex64": "CSG", "NumComplex128": "CDB", "NumComplexExt": "CXT",
-    "NumInt8": "I8", "NumInt16": "I16", "NumInt32": "I32", "NumInt64": "I64",
-    "NumUInt8": "U8", "NumUInt16": "U16", "NumUInt32": "U32", "NumUInt64": "U64",
-    "Boolean": "TF", "String": "abc", "Path": "Path",
+    **_LV_NUMERIC_TYPE_LABEL,
+    "String": "abc",
     "Variant": "Var", "LVVariant": "Var",
 }
 

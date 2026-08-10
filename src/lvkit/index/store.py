@@ -36,7 +36,7 @@ from .model import (
     VIFacts,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS vis (
@@ -63,7 +63,9 @@ CREATE TABLE IF NOT EXISTS terminals (
     py_type TEXT NOT NULL,
     is_error_cluster INTEGER NOT NULL,
     field_names TEXT NOT NULL DEFAULT '[]',
-    fp_dco_uid TEXT
+    fp_dco_uid TEXT,
+    lv_type TEXT NOT NULL DEFAULT 'Any',
+    enum_values TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS idx_terminals_vi ON terminals(vi_path);
 CREATE INDEX IF NOT EXISTS idx_terminals_name ON terminals(name);
@@ -158,6 +160,18 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if "callers_count" not in existing:
         conn.execute(
             "ALTER TABLE vis ADD COLUMN callers_count INTEGER NOT NULL DEFAULT 0"
+        )
+
+    existing_terminals = {
+        row[1] for row in conn.execute("PRAGMA table_info(terminals)")
+    }
+    if "lv_type" not in existing_terminals:
+        conn.execute(
+            "ALTER TABLE terminals ADD COLUMN lv_type TEXT NOT NULL DEFAULT 'Any'"
+        )
+    if "enum_values" not in existing_terminals:
+        conn.execute(
+            "ALTER TABLE terminals ADD COLUMN enum_values TEXT NOT NULL DEFAULT '[]'"
         )
 
 
@@ -274,14 +288,15 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                 conn.executemany(
                     "INSERT INTO terminals(vi_path, ord, name, direction, "
                     "is_indicator, is_public, control_type, py_type, "
-                    "is_error_cluster, field_names, fp_dco_uid) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    "is_error_cluster, field_names, fp_dco_uid, lv_type, "
+                    "enum_values) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     [
                         (
                             f.path, i, t.name, t.direction, int(t.is_indicator),
                             int(t.is_public), t.control_type, t.py_type,
                             int(t.is_error_cluster), json.dumps(t.field_names),
-                            t.fp_dco_uid,
+                            t.fp_dco_uid, t.lv_type, json.dumps(t.enum_values),
                         )
                         for i, t in enumerate(f.terminals)
                     ],
@@ -421,12 +436,13 @@ def load(project_root: Path) -> list[VIFacts]:
         for row in conn.execute(
             "SELECT vi_path, name, direction, is_indicator, is_public, "
             "control_type, py_type, is_error_cluster, field_names, "
-            "fp_dco_uid FROM terminals ORDER BY vi_path, ord"
+            "fp_dco_uid, lv_type, enum_values FROM terminals "
+            "ORDER BY vi_path, ord"
         ):
             (
                 vi_path, name, direction, is_indicator, is_public,
                 control_type, py_type, is_error_cluster, field_names_json,
-                fp_dco_uid,
+                fp_dco_uid, lv_type, enum_values_json,
             ) = row
             terminals_by_vi.setdefault(vi_path, []).append(
                 TerminalFact(
@@ -439,6 +455,8 @@ def load(project_root: Path) -> list[VIFacts]:
                     is_error_cluster=bool(is_error_cluster),
                     field_names=json.loads(field_names_json),
                     fp_dco_uid=fp_dco_uid,
+                    lv_type=lv_type,
+                    enum_values=json.loads(enum_values_json),
                 )
             )
 

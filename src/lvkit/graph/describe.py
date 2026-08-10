@@ -18,7 +18,7 @@ from ..models import (
     Operation,
     PrimitiveOperation,
     SequenceOperation,
-    _is_error_cluster,
+    Terminal,
 )
 from ..parser.node_types import get_display_name
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
@@ -71,7 +71,7 @@ def describe_vi(
         lines.append("## Inputs")
         for inp in ctx.inputs:
             wiring = _wiring_label(inp.wiring_rule)
-            lines.append(f"  {inp.name}: {inp.python_type()} ({wiring})")
+            lines.append(f"  {inp.name}: {_terminal_type_label(inp)} ({wiring})")
         lines.append("")
     else:
         lines.append("## Inputs")
@@ -82,7 +82,7 @@ def describe_vi(
     if ctx.outputs:
         lines.append("## Outputs")
         for out in ctx.outputs:
-            lines.append(f"  {out.name}: {out.python_type()}")
+            lines.append(f"  {out.name}: {_terminal_type_label(out)}")
         lines.append("")
     else:
         lines.append("## Outputs")
@@ -170,7 +170,7 @@ def describe_operations(
         lines.append("")
         lines.append("Returns:")
         for out in ctx.outputs:
-            lines.append(f"  {out.name}: {out.python_type()}")
+            lines.append(f"  {out.name}: {_terminal_type_label(out)}")
 
     return "\n".join(lines)
 
@@ -269,12 +269,12 @@ def _format_signature(ctx: VIContext) -> str:
     inputs = []
     for inp in ctx.inputs:
         name = inp.name or "input"
-        type_str = inp.python_type()
+        type_str = _terminal_type_label(inp)
         inputs.append(f"{name}: {type_str}")
 
     outputs = []
     for out in ctx.outputs:
-        outputs.append(f"{out.name}: {out.python_type()}")
+        outputs.append(f"{out.name}: {_terminal_type_label(out)}")
 
     func_name = ctx.name.replace(".vi", "").replace(" ", "_").lower()
     params = ", ".join(inputs)
@@ -327,8 +327,15 @@ def _get_subvi_description(
 
 
 def _type_label(t: LVType | None) -> str:
-    """Compact human-readable LVType label for class fields."""
-    return t.to_python() if t is not None else "Any"
+    """Compact, FAITHFUL LVType label for class fields (never a Python
+    annotation — see ``LVType.lv_label()``)."""
+    return t.lv_label() if t is not None else "Any"
+
+
+def _terminal_type_label(t: Terminal) -> str:
+    """FAITHFUL LabVIEW type label for a terminal (never ``python_type()``'s
+    codegen-target Python annotation)."""
+    return t.lv_type.lv_label() if t.lv_type is not None else "Any"
 
 
 def _describe_class_context(
@@ -502,10 +509,9 @@ def _count_operations(operations: list[Operation]) -> int:
 
 
 def _const_type_str(c: Constant) -> str:
-    """Human-readable type label for a constant."""
-    if c.lv_type and _is_error_cluster(c.lv_type):
-        return "error cluster"
-    return c.lv_type.to_python() if c.lv_type else "unknown"
+    """FAITHFUL human-readable type label for a constant (``lv_label()``
+    already handles the error-cluster case internally)."""
+    return c.lv_type.lv_label() if c.lv_type else "unknown"
 
 
 def _describe_constant_line(c: Constant) -> str:
@@ -691,7 +697,7 @@ def _describe_case_structure(
 
     for t in op.terminals:
         if t.id == op.selector_terminal and t.lv_type:
-            lines.append(f"  Selector type: {t.lv_type.to_python()}")
+            lines.append(f"  Selector type: {t.lv_type.lv_label()}")
             break
 
     passthrough = _has_output_tunnel(op)

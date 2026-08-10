@@ -1338,7 +1338,10 @@ def _matched_struct_pairs(
 
 
 def _const_type(c: Constant) -> str | None:
-    return c.lv_type.to_python() if c.lv_type else None
+    """FAITHFUL type label for a constant, used both for display and for
+    change-detection equality (never ``to_python()`` — see LAW in
+    ``models.py``'s ``LVType.lv_label()``)."""
+    return c.lv_type.lv_label() if c.lv_type else None
 
 
 def _const_consumers(
@@ -1561,7 +1564,7 @@ def _terminal_changes(
     object's identity, which survives a caption RENAME and, empirically, stays
     stable across versions while the BD terminal uid can churn), then by
     ``name`` for any whose DCO uid churned/absent. A matched pair with a changed
-    ``python_type`` is a RETYPE and with a changed ``name`` a RENAME — both
+    faithful type label is a RETYPE and with a changed ``name`` a RENAME — both
     ``modified`` carrying the old→new in ``detail``. Genuine renames always keep
     the DCO uid, so they're caught by the uid tier; a leftover pair where BOTH
     the uid AND the name changed is indistinguishable from delete+add, so it's
@@ -1590,7 +1593,8 @@ def _terminal_changes(
 
     def modified(ta: FPTerminal, tb: FPTerminal) -> ElementChange | None:
         """A retype and/or rename, or None when the pair is unchanged."""
-        type_a, type_b = ta.python_type(), tb.python_type()
+        type_a = ta.lv_type.lv_label() if ta.lv_type else "Any"
+        type_b = tb.lv_type.lv_label() if tb.lv_type else "Any"
         name_a, name_b = ta.name, tb.name
         if type_a != type_b and name_a != name_b:
             detail = _transition(f"{name_a} : {type_a}", f"{name_b} : {type_b}")
@@ -2431,18 +2435,21 @@ def _diff_signature(
 
         for name in sorted(set(map_a) | set(map_b)):
             if name not in map_a:
+                tb = map_b[name].lv_type
                 changes.append(SignatureChange(
                     "added", direction, name,
-                    new_type=map_b[name].python_type(),
+                    new_type=tb.lv_label() if tb else "Any",
                 ))
             elif name not in map_b:
+                ta = map_a[name].lv_type
                 changes.append(SignatureChange(
                     "removed", direction, name,
-                    old_type=map_a[name].python_type(),
+                    old_type=ta.lv_label() if ta else "Any",
                 ))
             else:
-                type_a = map_a[name].python_type()
-                type_b = map_b[name].python_type()
+                ta, tb = map_a[name].lv_type, map_b[name].lv_type
+                type_a = ta.lv_label() if ta else "Any"
+                type_b = tb.lv_label() if tb else "Any"
                 if type_a != type_b:
                     changes.append(SignatureChange(
                         "type_changed", direction, name,
@@ -2470,8 +2477,7 @@ def _value_disp(value: object) -> str:
 
 
 def _const_label(c: Constant) -> str:
-    """Short label for a constant in a frame diff."""
-    if c.lv_type and _is_error_cluster(c.lv_type):
-        return "error cluster"
-    type_str = c.lv_type.to_python() if c.lv_type else "unknown"
+    """Short FAITHFUL label for a constant in a frame diff (``lv_label()``
+    already handles the error-cluster case internally)."""
+    type_str = c.lv_type.lv_label() if c.lv_type else "unknown"
     return f"{type_str} constant"

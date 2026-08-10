@@ -105,9 +105,19 @@ VIEWS: dict[str, _View] = {
             "is_indicator": "1 if an indicator (output side of the connector pane)",
             "is_public": "1 if on the public connector pane",
             "control_type": "front-panel control class, or NULL",
-            "py_type": "generated Python type for this terminal",
+            "py_type": "generated Python type for this terminal (LOSSY codegen "
+            "target — an enum collapses to 'int', a cluster to "
+            "'dict[str, Any]'); prefer lv_type for anything that reads the "
+            "type back",
             "is_error_cluster": "1 if this terminal carries a LabVIEW error cluster",
             "field_names": "JSON array of cluster field names (for cluster terminals)",
+            "lv_type": "FAITHFUL LabVIEW type label, e.g. 'DBL', "
+            "'MethodEnum{setUp, testMethod, tearDown}', 'error cluster', "
+            "'TestCase.lvclass' — never a Python annotation",
+            "enum_values": "JSON array of enum/ring member names in ordinal order "
+            "(empty for non-enum terminals) — query for terminals whose enum "
+            "carries a given member via e.g. "
+            "\"WHERE enum_values LIKE '%\"setUp\"%'\"",
         },
     ),
     "constant": _View(

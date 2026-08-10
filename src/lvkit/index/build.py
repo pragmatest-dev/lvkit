@@ -445,6 +445,8 @@ def project_vi_facts(
     ]
     for t in all_terminals:
         field_names: list[str] = []
+        enum_values: list[str] = []
+        lv_type_label = "Any"
         if t.lv_type is not None:
             fields = graph.get_type_fields(t.lv_type)
             if fields:
@@ -453,6 +455,12 @@ def project_vi_facts(
                 type_use_keys.add(t.lv_type.classname)
             if t.lv_type.typedef_name:
                 type_use_keys.add(t.lv_type.typedef_name)
+            if t.lv_type.values:
+                enum_values = [
+                    name for name, _ev in
+                    sorted(t.lv_type.values.items(), key=lambda kv: kv[1].value)
+                ]
+            lv_type_label = t.lv_type.lv_label()
         is_fp = isinstance(t, FPTerminal)
         terminals.append(
             TerminalFact(
@@ -465,6 +473,8 @@ def project_vi_facts(
                 is_error_cluster=t.is_error_cluster,
                 field_names=field_names,
                 fp_dco_uid=t.fp_dco_uid if is_fp else None,
+                lv_type=lv_type_label,
+                enum_values=enum_values,
             )
         )
 

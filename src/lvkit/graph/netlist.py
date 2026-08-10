@@ -202,7 +202,8 @@ class NetlistModule:
     """The whole VI as a netlist."""
 
     vi_name: str
-    # (name, python_type) for all boundary controls, error clusters included.
+    # (name, lv_label) for all boundary controls, error clusters included —
+    # the FAITHFUL LabVIEW type label, not a Python annotation.
     inputs: list[tuple[str, str]]
     outputs: list[tuple[str, str]]
     body: list[NetlistItem] = field(default_factory=list)
@@ -722,7 +723,8 @@ def _synthesize_ports(
     outs: list[ComponentPort] = []
     for t in sorted(op.terminals, key=lambda t: t.index):
         port = ComponentPort(
-            name=_component_port_name(t), type=t.python_type(),
+            name=_component_port_name(t),
+            type=t.lv_type.lv_label() if t.lv_type else "Any",
         )
         (ins if t.direction == "input" else outs).append(port)
     return ins, outs
@@ -861,8 +863,14 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         const_by_id={c.id: c for c in ctx.constants},
     )
 
-    inputs = [(t.name or "input", t.python_type()) for t in ctx.inputs]
-    outputs = [(t.name or "output", t.python_type()) for t in ctx.outputs]
+    inputs = [
+        (t.name or "input", t.lv_type.lv_label() if t.lv_type else "Any")
+        for t in ctx.inputs
+    ]
+    outputs = [
+        (t.name or "output", t.lv_type.lv_label() if t.lv_type else "Any")
+        for t in ctx.outputs
+    ]
 
     body = _build_items(graph, ctx, root_ops, root_ops, build_ctx)
     components = _build_components(graph, root_ops)

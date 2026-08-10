@@ -140,12 +140,12 @@ class QueryMixin:
                 if not isinstance(gnode, GraphPrimitiveNode):
                     continue
                 input_types = [
-                    t.python_type()
+                    t.lv_type.lv_label() if t.lv_type else "Any"
                     for t in gnode.terminals
                     if t.direction == "input"
                 ]
                 output_types = [
-                    t.python_type()
+                    t.lv_type.lv_label() if t.lv_type else "Any"
                     for t in gnode.terminals
                     if t.direction == "output"
                 ]
@@ -306,7 +306,9 @@ class QueryMixin:
                     and gnode.id != vi_name  # Not the VI definition itself
                 ):
                     for term in gnode.terminals:
-                        term_type = term.python_type()
+                        term_type = (
+                            term.lv_type.lv_label() if term.lv_type else "Any"
+                        )
                         if term_type == "unknown":
                             term_type = "Any"
                         if term.direction == "input":
@@ -487,7 +489,7 @@ class QueryMixin:
             "id": t.id,
             "index": t.index,
             "direction": t.direction,
-            "type": t.python_type(),
+            "type": t.lv_type.lv_label() if t.lv_type else "Any",
             "name": t.name,
         }
         if t.lv_type:
@@ -870,7 +872,7 @@ class QueryMixin:
                     id=t.id,
                     parent_id=gnode.id,
                     index=t.index,
-                    type=t.python_type(),
+                    type=t.lv_type.lv_label() if t.lv_type else "Any",
                     name=t.name,
                     direction=t.direction,
                 ))

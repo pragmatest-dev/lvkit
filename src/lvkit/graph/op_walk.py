@@ -431,11 +431,17 @@ def _subvi_ports(
     if qname in loaded:
         sctx = graph.get_vi_context(qname)
         ins = [
-            ComponentPort(name=t.name or str(t.index), type=t.python_type())
+            ComponentPort(
+                name=t.name or str(t.index),
+                type=t.lv_type.lv_label() if t.lv_type else "Any",
+            )
             for t in sctx.inputs
         ]
         outs = [
-            ComponentPort(name=t.name or str(t.index), type=t.python_type())
+            ComponentPort(
+                name=t.name or str(t.index),
+                type=t.lv_type.lv_label() if t.lv_type else "Any",
+            )
             for t in sctx.outputs
         ]
         return ins, outs

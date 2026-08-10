@@ -23,7 +23,14 @@ from lvkit.index.model import (
 from lvkit.index.store import save as save_index
 
 
-def _term(name: str, *, direction: str = OUTPUT, error: bool = False) -> TerminalFact:
+def _term(
+    name: str,
+    *,
+    direction: str = OUTPUT,
+    error: bool = False,
+    lv_type: str = "Any",
+    enum_values: list[str] | None = None,
+) -> TerminalFact:
     return TerminalFact(
         name=name,
         direction=direction,
@@ -32,6 +39,8 @@ def _term(name: str, *, direction: str = OUTPUT, error: bool = False) -> Termina
         control_type=None,
         py_type="object",
         is_error_cluster=error,
+        lv_type=lv_type,
+        enum_values=enum_values or [],
     )
 
 
@@ -131,6 +140,47 @@ def test_constants_wired_to_indicator(tmp_path: Path):
         root, "SELECT value, label FROM constant WHERE wired_to = 'indicator'"
     )
     assert res.rows == [["42", "answer"]]
+
+
+def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
+    """Schema v3 (#22): the faithful ``lv_type`` label and ordinal
+    ``enum_values`` round-trip through save/load and are queryable via SQL —
+    not just ``py_type``'s lossy codegen projection."""
+    facts = [
+        VIFacts(
+            path=str(tmp_path / "m.vi"),
+            name="m.vi",
+            content_sha="sha-m",
+            terminals=[
+                _term(
+                    "method", direction="input",
+                    lv_type="MethodEnum{setUp, testMethod, tearDown}",
+                    enum_values=["setUp", "testMethod", "tearDown"],
+                ),
+                _term("result"),  # non-enum terminal keeps the defaults
+            ],
+        ),
+    ]
+    save_index(tmp_path, facts)
+
+    res = sql.run_query(
+        tmp_path,
+        "SELECT name, lv_type, enum_values FROM terminal ORDER BY name",
+    )
+    assert res.columns == ["name", "lv_type", "enum_values"]
+    rows = {r[0]: (r[1], r[2]) for r in res.rows}
+    assert rows["method"] == (
+        "MethodEnum{setUp, testMethod, tearDown}",
+        '["setUp", "testMethod", "tearDown"]',
+    )
+    assert rows["result"] == ("Any", "[]")
+
+    # Queryable: find terminals whose enum carries a given member.
+    hits = sql.run_query(
+        tmp_path,
+        "SELECT name FROM terminal WHERE enum_values LIKE '%\"testMethod\"%'",
+    )
+    assert hits.rows == [["method"]]
 
 
 def test_uncalled_column_flags_dead_code(tmp_path: Path):

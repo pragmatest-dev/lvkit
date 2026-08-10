@@ -76,6 +76,72 @@ class LVType:
             return "Any"
         return "Any"
 
+    def lv_label(self) -> str:
+        """Render a LabVIEW-faithful type label from this type's structure.
+
+        The FAITHFUL counterpart to :meth:`to_python` — every non-codegen
+        surface (describe/netlist/diff/queries/docs) must use this, never
+        ``to_python()``, per the project's clean-room LAW: LabVIEW's strict
+        type system (enum members, cluster fields, refnum kinds, numeric
+        representation) is load-bearing and must never be silently narrowed
+        to a Python annotation outside the code generator.
+
+        - ``array``: bracket-nested element label, one pair per dimension
+          (``[DBL]``, ``[[I32]]``); an unresolved element renders ``?``.
+        - ``enum``/``ring``: ``{member, member, …}`` in ORDINAL order (by
+          ``EnumValue.value``), prefixed with the stripped typedef stem when
+          named (``MethodEnum{setUp, testMethod, tearDown}``) or the base
+          word when anonymous (``enum{...}`` / ``ring{...}``).
+        - ``cluster``/``typedef_ref``: ``"error cluster"`` for an error
+          cluster; otherwise ``Name{f1, f2}`` (named + fields), ``Name``
+          (named, fields unknown), ``cluster{f1, f2}`` (fields, unnamed), or
+          ``"cluster"`` (neither).
+        - ``primitive``: a class/DVR refnum renders its class name verbatim
+          (``TestCase.lvclass``) or ``"<ref_type> refnum"`` / ``"refnum"``;
+          other primitives map through the shared numeric/scalar token table,
+          falling back to the raw ``underlying_type`` (never "Any"/"int") for
+          an unmapped token.
+        """
+        if self.kind == "array":
+            dims = self.dimensions or 1
+            inner = self.element_type.lv_label() if self.element_type else "?"
+            return "[" * dims + inner + "]" * dims
+        if self.kind in ("enum", "ring"):
+            members = (
+                [
+                    name for name, _ev in
+                    sorted(self.values.items(), key=lambda kv: kv[1].value)
+                ]
+                if self.values else []
+            )
+            body = "{" + ", ".join(members) + "}"
+            if self.typedef_name:
+                return f"{_strip_typedef_stem(self.typedef_name)}{body}"
+            return ("enum" if self.kind == "enum" else "ring") + body
+        if self.kind in ("cluster", "typedef_ref"):
+            if _is_error_cluster(self):
+                return "error cluster"
+            fields = ", ".join(f.name for f in (self.fields or []))
+            name = _strip_typedef_stem(self.typedef_name) if self.typedef_name else None
+            if name and fields:
+                return f"{name}{{{fields}}}"
+            if name:
+                return name
+            if fields:
+                return f"cluster{{{fields}}}"
+            return "cluster"
+        if self.kind == "primitive":
+            if self.underlying_type == "Refnum":
+                if self.classname:
+                    return self.classname
+                if self.ref_type:
+                    return f"{self.ref_type} refnum"
+                return "refnum"
+            return _LV_LABEL_SCALAR.get(
+                self.underlying_type or "", self.underlying_type or "?"
+            )
+        return "?"
+
 
 @dataclass
 class EnumValue:
@@ -595,6 +661,31 @@ Frame.model_rebuild()
 # Utilities
 # ============================================================
 
+# LabVIEW's conventional short token for the numeric family + Boolean/Path —
+# shared by the renderer's glyph labels (render/style.py's ``_TYPE_REPR``,
+# terminal-icon text like a wire tooltip's "DBL"/"I32" box) AND
+# ``LVType.lv_label()``'s faithful text label. These read identically in
+# both contexts; String/Variant diverge (a glyph reads "abc"/"Var", a
+# faithful text label reads the full word) and stay defined separately in
+# each consumer — see ``_LV_LABEL_SCALAR`` below and ``render/style.py``.
+_LV_NUMERIC_TYPE_LABEL: dict[str, str] = {
+    "NumFloat64": "DBL", "NumFloat32": "SGL", "NumFloatExt": "EXT",
+    "NumComplex64": "CSG", "NumComplex128": "CDB", "NumComplexExt": "CXT",
+    "NumInt8": "I8", "NumInt16": "I16", "NumInt32": "I32", "NumInt64": "I64",
+    "NumUInt8": "U8", "NumUInt16": "U16", "NumUInt32": "U32", "NumUInt64": "U64",
+    "Boolean": "TF", "Path": "Path",
+}
+
+# The full faithful-label scalar map used by ``LVType.lv_label()`` — the
+# shared numeric/Boolean/Path table plus the non-numeric tokens spelled out
+# in full (a text label reads "String"/"Variant", never the glyph
+# abbreviation "abc"/"Var" — see ``render/style.py::_TYPE_REPR`` for that).
+_LV_LABEL_SCALAR: dict[str, str] = {
+    **_LV_NUMERIC_TYPE_LABEL,
+    "String": "String",
+    "Variant": "Variant", "LVVariant": "Variant",
+}
+
 _LV_TO_PYTHON_TYPE: dict[str, str] = {
     "NumInt8": "int",
     "NumInt16": "int",
@@ -637,3 +728,14 @@ def _sanitize_type_name(typedef_name: str) -> str:
     name = typedef_name.split(":")[-1].replace(".ctl", "")
     name = "".join(c for c in name if c.isalnum() or c == "_")
     return name
+
+
+def _strip_typedef_stem(typedef_name: str) -> str:
+    """The type's own display name from a possibly library-qualified
+    ``typedef_name``: drop everything before the last ``:`` qualifier and
+    strip a ``.ctl`` control-file extension. UNLIKE ``_sanitize_type_name``,
+    this is never mangled into a Python identifier — it's a LabVIEW label
+    (``lv_label()``), not a codegen type name, so spaces/punctuation in the
+    type's own name are kept verbatim (mirrors the stripping convention in
+    ``graph/construction.py``'s ``_format_lv_type_for_display``)."""
+    return typedef_name.rsplit(":", 1)[-1].replace(".ctl", "")

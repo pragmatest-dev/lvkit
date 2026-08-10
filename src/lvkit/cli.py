@@ -1946,7 +1946,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         lines.append("<b>Inputs:</b>")
         for t in inputs:
             tname = t.name or f"idx{t.index}"
-            ttype = t.python_type()
+            ttype = t.lv_type.lv_label() if t.lv_type else "Any"
             lines.append(f"  [{t.index}] {tname}: {ttype}")
 
     if outputs:
@@ -1954,7 +1954,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         lines.append("<b>Outputs:</b>")
         for t in outputs:
             tname = t.name or f"idx{t.index}"
-            ttype = t.python_type()
+            ttype = t.lv_type.lv_label() if t.lv_type else "Any"
             lines.append(f"  [{t.index}] {tname}: {ttype}")
 
     if kind == "constant":
@@ -1965,7 +1965,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         if raw:
             lines.append(f"Raw: {raw}")
         if lv_type:
-            lines.append(f"Type: {lv_type.to_python()}")
+            lines.append(f"Type: {lv_type.lv_label()}")
 
     if kind == "structure":
         frames = getattr(gnode, "frames", [])

@@ -157,7 +157,7 @@ def _prepare_vi_documentation_data(
 
         controls.append({
             "name": inp.name or f"input_{inp.index}",
-            "type": inp.python_type(),
+            "type": inp.lv_type.lv_label() if inp.lv_type else "Any",
             "default_value": default_val,
         })
 
@@ -165,7 +165,7 @@ def _prepare_vi_documentation_data(
     for out in outputs_dc:
         indicators.append({
             "name": out.name or f"output_{out.index}",
-            "type": out.python_type(),
+            "type": out.lv_type.lv_label() if out.lv_type else "Any",
         })
 
     graph_data = {
@@ -218,11 +218,17 @@ def _prepare_vi_documentation_data(
                 variant_params.append({
                     "name": variant_name,
                     "inputs": [
-                        {"name": inp.name, "type": inp.python_type()}
+                        {
+                            "name": inp.name,
+                            "type": inp.lv_type.lv_label() if inp.lv_type else "Any",
+                        }
                         for inp in variant_inputs
                     ],
                     "outputs": [
-                        {"name": out.name, "type": out.python_type()}
+                        {
+                            "name": out.name,
+                            "type": out.lv_type.lv_label() if out.lv_type else "Any",
+                        }
                         for out in variant_outputs
                     ],
                 })

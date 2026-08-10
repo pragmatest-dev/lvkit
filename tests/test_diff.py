@@ -264,9 +264,9 @@ class TestFormatDiffVerbose:
         concise = format_diff(ga, gb, na, nb)
         verbose = format_diff(ga, gb, na, nb, verbose=True)
         common = len(diff_uid(ga, gb, na, nb).common_node_uids)
-        assert "○ float constant" in concise
+        assert "○ DBL constant" in concise
         expected = (
-            concise.replace("○ float constant", "○ float constant = 0.0")
+            concise.replace("○ DBL constant", "○ DBL constant = 0.0")
             + f"\n\n({common} unchanged nodes)"
         )
         assert verbose == expected
@@ -542,7 +542,7 @@ class TestModifiedConstant:
         assert c.change == "modified"
         assert c.kind == "constant"
         assert c.detail == "old → new"
-        assert c.label == "str constant"
+        assert c.label == "String constant"
 
 
 # ── Locality stamping: container_uid / frame_path ───────────────────────
