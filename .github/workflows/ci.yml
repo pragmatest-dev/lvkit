@@ -75,11 +75,11 @@ jobs:
           python-version: "3.12"
       - run: uv build
       # Install the built wheel into a CLEAN venv (deps resolved fresh from
-      # PyPI, not the lockfile) and start the MCP server. This is the exact
-      # fresh-install path where an unbounded `mcp` once resolved to 2.x and
-      # died at import — the client then registers zero tools and fails
-      # SILENTLY. --selftest turns that into a non-zero exit here so it can
-      # never reach a release again.
+      # PyPI, not the lockfile, so `mcp` floats to the newest allowed — 2.x)
+      # and start the MCP server. A silent MCP API break (an import moving, as
+      # FastMCP -> MCPServer did in mcp 2.0) registers zero tools and fails
+      # SILENTLY at runtime; --selftest turns that into a non-zero exit here so
+      # it can never reach a release again — on whichever `mcp` major resolves.
       - name: MCP server starts on a fresh install
         run: |
           uv venv /tmp/mcp-check

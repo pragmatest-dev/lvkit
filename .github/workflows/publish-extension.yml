@@ -124,7 +124,7 @@ jobs:
 
       # Ship the SAME bundle (signed on win32) as a downloadable release asset,
       # so lvkit works as a zero-setup MCP server / CLI with no Python/uv/pip.
-      # The onedir bundle is relocatable — verified `lvkit mcp` lists all 12
+      # The onedir bundle is relocatable — verified `lvkit mcp` lists all 16
       # tools from a fresh unzip. Asset is versioned by the BUNDLED lvkit
       # (e.g. lvkit-mcp-0.5.8-win32-x64.zip), not the extension tag. `zip -y`
       # keeps the exec bit + any framework symlinks; ubuntu/macos runners have

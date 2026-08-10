@@ -355,7 +355,9 @@ should be allowed to finish, or at least return an error, rather than vanishing.
 ## Priority
 
 1. **§1 — cap `mcp<2`.** Without it the server does not run at all, and fails
-   invisibly. Everything else is moot.
+   invisibly. Everything else is moot. *(RESOLVED, superseded: the server now
+   imports MCPServer (mcp 2.0) or FastMCP (1.x), so it runs on both majors and
+   the `<2` cap is dropped — `mcp>=1.2`. See mcp/server.py's import shim.)*
 2. **§3 — bulk query.** The persistent graph is the differentiating feature and
    is currently unusable for project-scale questions.
 3. **§2 — project-level `load`.** Cheap, self-contained, and a prerequisite for

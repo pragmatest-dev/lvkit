@@ -310,7 +310,9 @@ makes it O(1); `visualize_project(highlight=run.vi)` shows the ripple.
 The "trash garbage setup" was **two** failures, and the sections above name only
 one. (a) The server **died silently** on a fresh resolve — `mcp>=2` removed the
 decorator API `server.py` was built on (§1 of the old doc); P0's `mcp<2` cap +
-`--selftest` + CI handshake fix that. (b) Even when it ran, *getting it there*
+`--selftest` + CI handshake fix that. *(Later superseded: server.py's import
+shim runs on FastMCP (1.x) OR MCPServer (2.0), so the cap is dropped and
+`--selftest`/CI now guard both majors.)* (b) Even when it ran, *getting it there*
 meant provisioning uv/Python/pip and a `uvx --from lvkit lvkit-mcp` incantation.
 The **code-signed standalone binary** lvkit already builds for the VS Code
 extension fixes (b): it carries the whole CLI, `lvkit mcp` included, and needs no

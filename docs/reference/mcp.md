@@ -98,8 +98,11 @@ Against JKI VI Tester (487 VIs):
   (SQLite/WAL), rebuilt cheaply from the content-hash-keyed extraction cache.
 - Before each call that knows a path, the server re-resolves the project's
   `.lvkit/` store (see [setup](setup.md)), so saved primitive/vi.lib mappings apply.
-- The server targets `mcp` 1.x (FastMCP). `mcp` 2.0 removed that API surface; the
-  `mcp<2` pin is deliberate — `--selftest` and CI guard against a silent break.
+- The server runs on **both** `mcp` 1.x and 2.0. mcp 2.0 renamed the decorator
+  server `FastMCP` → `MCPServer` (moving it from `mcp.server.fastmcp` to
+  `mcp.server.mcpserver`) with an otherwise identical API; the server imports
+  whichever the installed SDK ships. `--selftest` and CI guard against a silent
+  API break on either major.
 
 ## See also
 
