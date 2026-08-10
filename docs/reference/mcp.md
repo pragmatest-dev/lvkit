@@ -67,7 +67,7 @@ Each takes a `vi_path` (a real `.vi`) and loads it live (XML already cached) —
 | `get_dataflow` | Wire connections, optionally filtered to one operation. |
 | `get_structure` | Detail on one case/loop/sequence structure. |
 | `get_constants` | Every constant's name, type, value. |
-| `get_context` | Full structured context (inputs/outputs/operations/wires/constants) as JSON. |
+| `get_context` | The VI as the canonical **netlist IR** — `{vi, inputs, outputs, components, body}`, faithful type labels, a `kind`-tagged instance/scope body. The structured counterpart to `describe`'s prose. |
 | `generate_ast_code` | Python for one VI via the deterministic AST pipeline. |
 
 ### Stateless generators

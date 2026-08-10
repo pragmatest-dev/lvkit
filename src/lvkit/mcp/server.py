@@ -35,7 +35,6 @@ Three tool groups:
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import re
 from dataclasses import asdict
@@ -72,6 +71,7 @@ from ..graph.describe import (
 from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
+from ..graph.netlist import build_netlist, netlist_to_dict
 from ..index import query as iq
 from ..index import sql as isql
 from ..index.build import (
@@ -495,6 +495,7 @@ def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
 async def describe(vi_path: str, ctx: Context | None = None) -> str:
     """Human-readable purpose, signature, SubVI calls, and control flow for one
     VI (loaded on demand). Start here before ``get_operations``/``get_dataflow``.
+    For the STRUCTURED form (a program parsing the result), use ``get_context``.
     ``vi_path`` may be relative to the client's workspace root.
     """
     vi_path = await _resolve_target(vi_path, ctx)
@@ -566,17 +567,23 @@ async def get_constants(vi_path: str, ctx: Context | None = None) -> str:
 
 
 @mcp.tool()
-async def get_context(vi_path: str, ctx: Context | None = None) -> str:
-    """Full structured context for one VI — inputs, outputs, operations, wires,
-    constants — as JSON. Loaded on demand. Heavier than ``describe``; use when
-    you need the raw structure, not prose. ``vi_path`` may be relative to the
+async def get_context(vi_path: str, ctx: Context | None = None) -> dict[str, Any]:
+    """The VI's structure as the canonical **netlist IR** —
+    ``{vi, inputs, outputs, components, body}`` — for a program (not a person)
+    to parse. Loaded on demand; the structured counterpart to ``describe``'s
+    prose.
+
+    Boundary ``inputs``/``outputs`` carry the FAITHFUL LabVIEW type label
+    (``error cluster``, ``TestSuite.lvclass``, ``enum{...}``), the ``body`` is a
+    ``kind``-tagged ``instance``/``scope`` tree (scopes nest their frames'
+    bodies, wiring as ``port -> source.net`` bindings), and ``components`` are the
+    distinct subVI/primitive typed interfaces. ``vi_path`` may be relative to the
     client's workspace root."""
     vi_path = await _resolve_target(vi_path, ctx)
 
-    def _work() -> str:
+    def _work() -> dict[str, Any]:
         graph, vi_name = _load_one(vi_path)
-        context = graph.get_vi_context(vi_name)
-        return json.dumps(context.model_dump(), indent=2, default=str)
+        return netlist_to_dict(build_netlist(graph, vi_name))
 
     return await asyncio.to_thread(_work)
 

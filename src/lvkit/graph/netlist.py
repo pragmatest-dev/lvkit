@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..models import (
     CaseOperation,
@@ -1068,6 +1068,72 @@ def _render_items(
                 _render_instance(item, indent, lines, ambiguous)
             case NetlistScope():
                 _render_scope(item, indent, lines, ambiguous)
+
+
+def _netref_to_dict(ref: NetRef) -> dict[str, Any]:
+    return {
+        "node": ref.node, "port": ref.port,
+        "occurrence": ref.occurrence, "bare": ref.bare,
+    }
+
+
+def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
+    """One body item, tagged with a ``kind`` discriminator so the
+    ``instance``/``scope`` union survives JSON (``asdict`` would erase it)."""
+    if isinstance(item, NetlistInstance):
+        return {
+            "kind": "instance",
+            "uid": item.uid,
+            "name": item.name,
+            "occurrence": item.occurrence,
+            "inputs": [
+                {"port": b.port, "net": _netref_to_dict(b.net)}
+                for b in item.inputs
+            ],
+            "outputs": [_netref_to_dict(o) for o in item.outputs],
+        }
+    return {
+        "kind": "scope",
+        "uid": item.uid,
+        "scope_kind": item.kind,
+        "selector": _netref_to_dict(item.selector) if item.selector else None,
+        "frames": [
+            {
+                "label": f.label,
+                "value": f.value,
+                "is_default": f.is_default,
+                "passthrough": f.passthrough,
+                "body": [_item_to_dict(i) for i in f.body],
+            }
+            for f in item.frames
+        ],
+    }
+
+
+def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
+    """The netlist IR as a faithful JSON-able tree — the STRUCTURED counterpart
+    to :func:`render_netlist`'s ASCII projection.
+
+    One canonical structure for every ``format="json"`` surface (describe, diff,
+    the MCP tools) so they never drift into per-command ad-hoc shapes. Lossless
+    against the IR: boundary ``inputs``/``outputs`` carry the FAITHFUL LabVIEW
+    type label (not a Python annotation), the ``instance``/``scope`` union is
+    ``kind``-tagged, and scopes nest their frames' bodies recursively.
+    """
+    return {
+        "vi": module.vi_name,
+        "inputs": [{"name": n, "type": t} for n, t in module.inputs],
+        "outputs": [{"name": n, "type": t} for n, t in module.outputs],
+        "components": [
+            {
+                "name": c.name,
+                "inputs": [{"name": p.name, "type": p.type} for p in c.inputs],
+                "outputs": [{"name": p.name, "type": p.type} for p in c.outputs],
+            }
+            for c in module.components
+        ],
+        "body": [_item_to_dict(i) for i in module.body],
+    }
 
 
 def render_netlist(module: NetlistModule) -> str:

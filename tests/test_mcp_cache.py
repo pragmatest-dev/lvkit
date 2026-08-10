@@ -10,7 +10,6 @@ the repo. Wiring/smoke check: every tool returns without raising, non-empty.
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any
@@ -45,12 +44,14 @@ def test_deep_and_stateless_tools(tmp_path: Path) -> None:
     assert _run(srv.get_constants(vi))
     assert _run(srv.generate_ast_code(vi))
 
-    ctx = json.loads(_run(srv.get_context(vi)))
-    assert ctx["operations"] or ctx["inputs"] or ctx["outputs"]
-    if ctx["operations"]:
-        op_id = ctx["operations"][0]["id"]
-        # Returns text even when the op isn't a structure; just must not raise.
-        assert isinstance(_run(srv.get_structure(vi, op_id)), str)
+    # get_context now returns the canonical netlist IR dict (not a JSON string).
+    ctx = _run(srv.get_context(vi))
+    assert isinstance(ctx, dict)
+    assert ctx["inputs"] or ctx["outputs"] or ctx["body"]
+    scope_uids = [b["uid"] for b in ctx["body"] if b["kind"] == "scope"]
+    if scope_uids:
+        # Returns text even when the op isn't found; just must not raise.
+        assert isinstance(_run(srv.get_structure(vi, scope_uids[0])), str)
 
     # Stateless generators write into tmp, never the repo.
     py_result = _run(
