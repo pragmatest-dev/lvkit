@@ -86,7 +86,8 @@ class ConstantFact:
 
     value: str  # stringified constant value (raw_value or str(value))
     label: str | None
-    py_type: str
+    py_type: str  # LOSSY codegen projection; prefer lv_type to read the type
+    lv_type: str = "?"  # FAITHFUL LabVIEW type label (LVType.lv_label)
     wired_to: str = WIRED_NONE
 
 

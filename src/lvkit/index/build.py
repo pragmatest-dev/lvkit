@@ -488,6 +488,7 @@ def project_vi_facts(
             ),
             label=c.label,
             py_type=c.lv_type.to_python() if c.lv_type else "Any",
+            lv_type=c.lv_type.lv_label() if c.lv_type else "?",
             wired_to=_constant_wired_to(graph, vi_name, c),
         )
         for c in graph.get_constants(vi_name)

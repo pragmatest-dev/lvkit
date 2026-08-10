@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS constants (
     value TEXT NOT NULL,
     label TEXT,
     py_type TEXT NOT NULL,
+    lv_type TEXT NOT NULL DEFAULT '?',
     wired_to TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_constants_vi ON constants(vi_path);
@@ -378,9 +379,12 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                 )
                 conn.executemany(
                     "INSERT INTO constants(vi_path, ord, value, label, "
-                    "py_type, wired_to) VALUES (?,?,?,?,?,?)",
+                    "py_type, lv_type, wired_to) VALUES (?,?,?,?,?,?,?)",
                     [
-                        (f.path, i, c.value, c.label, c.py_type, c.wired_to)
+                        (
+                            f.path, i, c.value, c.label, c.py_type, c.lv_type,
+                            c.wired_to,
+                        )
                         for i, c in enumerate(f.constants)
                     ],
                 )
@@ -535,13 +539,14 @@ def load(project_root: Path) -> list[VIFacts]:
             )
 
         constants_by_vi: dict[str, list[ConstantFact]] = {}
-        for vi_path, value, label, py_type, wired_to in conn.execute(
-            "SELECT vi_path, value, label, py_type, wired_to FROM constants "
-            "ORDER BY vi_path, ord"
+        for vi_path, value, label, py_type, lv_type, wired_to in conn.execute(
+            "SELECT vi_path, value, label, py_type, lv_type, wired_to "
+            "FROM constants ORDER BY vi_path, ord"
         ):
             constants_by_vi.setdefault(vi_path, []).append(
                 ConstantFact(
-                    value=value, label=label, py_type=py_type, wired_to=wired_to,
+                    value=value, label=label, py_type=py_type,
+                    lv_type=lv_type, wired_to=wired_to,
                 )
             )
 

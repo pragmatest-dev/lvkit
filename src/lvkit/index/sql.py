@@ -126,7 +126,11 @@ VIEWS: dict[str, _View] = {
             "vi_path": "path of the VI the constant lives in",
             "value": "the constant's literal value, as text",
             "label": "the constant's label, or NULL",
-            "py_type": "generated Python type for the constant",
+            "py_type": "generated Python type for the constant (LOSSY codegen "
+            "target — prefer lv_type to read the type back)",
+            "lv_type": "FAITHFUL LabVIEW type label, e.g. 'DBL', "
+            "'error cluster', 'MethodEnum{setUp, tearDown}' — never a Python "
+            "annotation",
             "wired_to": "what the constant wires into, e.g. 'indicator'",
         },
     ),

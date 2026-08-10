@@ -263,6 +263,32 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
     assert hits.rows == [["method"]]
 
 
+def test_constant_lv_type_is_faithful_not_lossy_py_type(tmp_path: Path):
+    """A constant carries a FAITHFUL ``lv_type`` label alongside the lossy
+    ``py_type`` codegen projection (#8), same discipline as terminals."""
+    facts = [
+        VIFacts(
+            path=str(tmp_path / "k.vi"),
+            name="k.vi",
+            content_sha="sha-k",
+            constants=[
+                ConstantFact(
+                    value="0", label="err", py_type="dict[str, Any]",
+                    lv_type="error cluster",
+                ),
+                ConstantFact(value="3", label=None, py_type="int", lv_type="I32"),
+            ],
+        ),
+    ]
+    save_index(tmp_path, facts)
+    res = sql.run_query(
+        tmp_path, "SELECT value, py_type, lv_type FROM constant ORDER BY value"
+    )
+    rows = {r[0]: (r[1], r[2]) for r in res.rows}
+    assert rows["0"] == ("dict[str, Any]", "error cluster")
+    assert rows["3"] == ("int", "I32")
+
+
 def test_uncalled_column_flags_dead_code(tmp_path: Path):
     """#20: dead-code detection is a ``callers_count = 0`` filter on the ``vi``
     view (a real, store-round-tripped column), NOT a fragile
