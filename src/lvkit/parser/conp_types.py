@@ -82,6 +82,13 @@ def _pstr(data: bytes, off: int) -> tuple[str, int]:
     return data[off + 1:off + 1 + n].decode("latin1"), off + 1 + n
 
 
+def _is_type_identity(s: str | None) -> bool:
+    """A ``.lvclass``/``.ctl`` string is a TYPE identity, never a terminal label
+    — guards against a class/typedef name leaking in as a terminal name when a
+    refnum/typedef body carries no distinct label."""
+    return bool(s) and (".lvclass" in s or ".ctl" in s)  # type: ignore[arg-type]
+
+
 def _all_pstrs(body: bytes) -> list[str]:
     """Every length-prefixed string in ``body`` (best-effort; used for the
     name-bearing typedef/refnum bodies whose fixed layout is only partly known).
@@ -224,8 +231,8 @@ class _ConpDecoder:
                     (s for s in strs if s.endswith(".lvclass")), None
                 )
                 name = strs[-1] if strs else None
-                if name == classname:
-                    name = None
+                if _is_type_identity(name):
+                    name = None  # a bare class name is not a terminal label
                 return LVType(
                     kind="primitive", underlying_type="Refnum",
                     ref_type=_REFNUM_KIND.get(refkind) if refkind is not None
@@ -251,7 +258,7 @@ class _ConpDecoder:
         strs = _all_pstrs(body)
         typedef_name = next((s for s in strs if s.endswith(".ctl")), None)
         term_name = strs[-1] if strs else None
-        if term_name == typedef_name:
+        if _is_type_identity(term_name):
             term_name = None
         # Inner enum: locate a ``UnitUInt*`` code followed by ``u16 count``.
         for code in _ENUM_CODES:

@@ -89,6 +89,22 @@ def test_refnum_kind_and_class_name():
     assert by_slot[1].lv_type.lv_label() == "Foo.lvclass"
 
 
+def test_class_identity_is_not_used_as_a_terminal_name():
+    """A refnum body carrying only a class name (no distinct label) must NOT
+    surface that ``.lvclass`` string as the terminal name — a garbled class
+    identity as a label is worse than none."""
+    cls = _td(
+        0x70,
+        struct.pack(">H", 30) + b"\x00" * 6 + b"\x13"
+        + _pstr("Class1.lvclass") + b"\x00" + _pstr("Class1.lvclass 2"),
+    )
+    terms = decode_conp_terminals(_conp(cls, _td(0xF0, struct.pack(">HH", 1, 0))))
+    assert len(terms) == 1
+    assert terms[0].name is None  # NOT the trailing "Class1.lvclass 2"
+    assert terms[0].lv_type is not None
+    assert terms[0].lv_type.classname == "Class1.lvclass"
+
+
 def test_malformed_conp_never_raises():
     assert decode_conp_terminals(b"\xff\xff\xff\xff\x00\x0c") == []
     assert decode_conp_terminals(b"") == []
@@ -123,3 +139,27 @@ def test_lv82_class_refnum_resolves_to_class_name():
     labels = _labels(_NEW_VI)
     assert "TestSuite.lvclass" in labels, labels
     assert "class" not in labels, labels  # no bare family word left
+
+
+_LV82_VI = (
+    _SAMPLES / "JKI-VI-Tester" / "source" / "Build Support"
+    / "Package Builder Utilities"
+    / "Auto Increment Package Version__JKI_RIGHT_CLICK_BUILD_SUPPORT.vi"
+)
+
+
+@pytest.mark.needs_samples
+@pytest.mark.skipif(not _LV82_VI.exists(), reason="JKI-VI-Tester sample absent")
+def test_lv82_terminal_names_recovered_from_conp():
+    """Pre-LV9 controls have no resolvable FP-heap label (they fall back to
+    ``control_<uid>``); CONP carries the real connector-pane terminal names."""
+    from lvkit.mcp.server import _load_one
+
+    g, name = _load_one(str(_LV82_VI))
+    terms = [
+        *g.get_inputs(name, public_only=False),
+        *g.get_outputs(name, public_only=False),
+    ]
+    names = {t.name for t in terms}
+    assert {"error out", "Version String In", "Version String Out"} <= names, names
+    assert not any((n or "").startswith("control_") for n in names), names

@@ -21,6 +21,7 @@ from lvkit.extractor import extract_vi_xml
 from lvkit.models import LVType
 from lvkit.text_encoding import decode_labview_text
 
+from .conp_types import decode_conp_terminals
 from .constants import (
     FP_TERMINAL_CLASS,
     MULTI_LABEL_CLASS,
@@ -1047,6 +1048,23 @@ def _uid_to_control_map(
     return result
 
 
+def _conp_names_by_slot(main_xml: Path | str | None) -> dict[int, str]:
+    """Connector-pane terminal names from the CONP sidecar, keyed by slot.
+
+    The pre-LV9 name source (``*_CONP.bin`` beside the main XML); empty for an
+    LV9+ VI (empty CONP) or when the sidecar is absent."""
+    if not main_xml:
+        return {}
+    conp_bin = Path(main_xml).with_name(Path(main_xml).stem + "_CONP.bin")
+    if not conp_bin.exists():
+        return {}
+    return {
+        t.slot: t.name
+        for t in decode_conp_terminals(conp_bin.read_bytes())
+        if t.name
+    }
+
+
 def _recover_or_warn_unresolved_labels(
     front_panel: ParsedFrontPanel,
     connector_pane: ParsedConnectorPane | None,
@@ -1074,6 +1092,11 @@ def _recover_or_warn_unresolved_labels(
     if main_xml and slot_by_uid:
         labels_by_slot = parse_connector_pane_labels(main_xml)
 
+    # Pre-LV9 VIs have no VCTP flat-type labels (no VCTP at all); their
+    # connector-pane terminal names live in CONP — the same block that carries
+    # their types (see conp_types). Keyed by the same connector-pane slot.
+    conp_names_by_slot = _conp_names_by_slot(main_xml)
+
     uid_to_control = _uid_to_control_map(front_panel.controls)
 
     for uid in sorted(unresolved_uids):
@@ -1082,7 +1105,10 @@ def _recover_or_warn_unresolved_labels(
             continue
 
         slot_index = slot_by_uid.get(uid)
-        recovered = labels_by_slot.get(slot_index) if slot_index is not None else None
+        recovered = (
+            labels_by_slot.get(slot_index)
+            or conp_names_by_slot.get(slot_index)
+        ) if slot_index is not None else None
         if recovered:
             control.name = recovered
             continue
