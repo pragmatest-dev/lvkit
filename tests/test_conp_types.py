@@ -71,6 +71,24 @@ def test_void_slots_are_skipped():
     assert terms[0].lv_type.lv_label() == "DBL"
 
 
+def test_refnum_kind_and_class_name():
+    """A refnum's u16 sub-kind maps to a RefType (``Queue refnum``); a class
+    refnum (UDClassInst) additionally carries its ``.lvclass`` name."""
+    queue = _td(0x70, struct.pack(">HHH", 18, 1, 1) + _pstr("queue"))
+    cls = _td(
+        0x70,
+        struct.pack(">H", 30) + b"\x00" * 6 + b"\x13" + _pstr("Foo.lvclass")
+        + b"\x00" + _pstr("obj in"),
+    )
+    tds = [queue, cls, _td(0xF0, struct.pack(">HHH", 2, 0, 1))]
+    terms = decode_conp_terminals(_conp(*tds))
+    by_slot = {t.slot: t for t in terms}
+    assert by_slot[0].lv_type is not None
+    assert by_slot[0].lv_type.lv_label() == "Queue refnum"
+    assert by_slot[1].lv_type is not None
+    assert by_slot[1].lv_type.lv_label() == "Foo.lvclass"
+
+
 def test_malformed_conp_never_raises():
     assert decode_conp_terminals(b"\xff\xff\xff\xff\x00\x0c") == []
     assert decode_conp_terminals(b"") == []

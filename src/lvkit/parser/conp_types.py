@@ -46,6 +46,20 @@ _SCALAR_CODE: dict[int, str] = {
     0x32: "Path",
 }
 _ENUM_CODES = frozenset({0x15, 0x16, 0x17})  # UnitUInt8 / 16 / 32
+
+# Refnum sub-kind code (u16 at the start of a 0x70 body) -> the RefType name
+# LabVIEW uses (mirrors pylabview's REFNUM_TYPE / what the VCTP path stores in
+# ``LVType.ref_type``), so a CONP-decoded refnum renders identically — e.g.
+# ``Queue refnum``, ``LVObjCtl refnum`` — to a VCTP-decoded one.
+_REFNUM_KIND: dict[int, str] = {
+    0: "Generic", 1: "DataLog", 2: "ByteStream", 3: "Device", 4: "Occurrence",
+    5: "TCPNetConn", 7: "AutoRef", 8: "LVObjCtl", 9: "Menu", 11: "Imaq",
+    13: "DataSocket", 14: "VisaRef", 15: "IVIRef", 16: "UDPNetConn",
+    17: "NotifierRef", 18: "Queue", 19: "IrdaNetConn", 20: "UsrDefined",
+    21: "UsrDefndTag", 23: "EventReg", 24: "DotNet", 25: "UserEvent",
+    27: "Callback", 29: "UsrDefTagFlt", 30: "UDClassInst", 31: "BluetoothCon",
+    32: "DataValueRef", 33: "FIFORef", 34: "TDMSFile",
+}
 _STRINGISH = frozenset({0x30, 0x31, 0x34, 0x35})
 _CLUSTER, _ARRAY, _REFNUM = 0x50, 0x40, 0x70
 _VOID, _TYPEDEF, _CONPANE = 0x00, 0xF1, 0xF0
@@ -127,7 +141,7 @@ class _ConpDecoder:
 
         # First pass: decode every TD to (LVType, name), resolving member refs
         # against TDs already decoded (the list is strictly bottom-up).
-        for i, (type_code, body) in enumerate(self.tds):
+        for type_code, body in self.tds:
             if type_code == _CONPANE:
                 self.slot_map = self._decode_conpane(body)
                 self.lvtypes.append(None)
@@ -199,8 +213,12 @@ class _ConpDecoder:
                               element_type=elem, dimensions=ndims or 1), name
 
             if type_code == _REFNUM:
-                # Body carries a class name (ends ``.lvclass``) for a class
-                # refnum, then the terminal label as the final pstr.
+                # u16 sub-kind, then (for a class refnum) the class name ending
+                # ``.lvclass``, then the terminal label as the final pstr.
+                refkind = (
+                    struct.unpack_from(">H", body, 0)[0] if len(body) >= 2
+                    else None
+                )
                 strs = _all_pstrs(body)
                 classname = next(
                     (s for s in strs if s.endswith(".lvclass")), None
@@ -210,7 +228,8 @@ class _ConpDecoder:
                     name = None
                 return LVType(
                     kind="primitive", underlying_type="Refnum",
-                    ref_type="UDClassInst" if classname else None,
+                    ref_type=_REFNUM_KIND.get(refkind) if refkind is not None
+                    else None,
                     classname=classname,
                 ), name
 
