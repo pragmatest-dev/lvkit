@@ -1,6 +1,9 @@
 """MCP server for VI analysis — project-scoped, index-backed.
 
-Built on ``mcp.server.fastmcp.FastMCP`` (the 2.x-forward decorator API), which
+Built on the decorator-style server the mcp SDK ships: ``FastMCP`` in mcp 1.x
+(``mcp.server.fastmcp``), renamed ``MCPServer`` in mcp 2.0
+(``mcp.server.mcpserver``) with the SAME ``@tool``/``run``/``list_tools`` API.
+We import whichever exists (see below) so lvkit runs on both majors. This
 supersedes the module-global ``mcp.server.Server`` + ``@app.list_tools()`` build
 this module used to have (that decorator was removed in mcp 2.0, silently
 disabling the server — see ``docs/_internal/design/lvkit-mcp-improvements.md``).
@@ -40,7 +43,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-from mcp.server.fastmcp import Context, FastMCP
+try:  # mcp >= 2.0 renamed FastMCP -> MCPServer (identical decorator API)
+    from mcp.server.mcpserver import Context, MCPServer as _MCPServer
+except ImportError:  # mcp 1.x
+    from mcp.server.fastmcp import Context, FastMCP as _MCPServer
 
 from .. import primitive_resolver, vilib_resolver
 from ..codegen import build_module
@@ -115,7 +121,7 @@ For any question about the project, start here:
 build/refresh the index automatically. Prefer them over per-VI round-trips.
 """
 
-mcp = FastMCP("lvkit-mcp", instructions=_INSTRUCTIONS)
+mcp = _MCPServer("lvkit-mcp", instructions=_INSTRUCTIONS)
 
 # Per-project-root facts cache: {resolved project_root str -> [VIFacts]}. This
 # replaces the old module-global _graph — different repos get different entries,
