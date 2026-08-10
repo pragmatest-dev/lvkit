@@ -30,7 +30,7 @@ def _term(
     *,
     direction: str = OUTPUT,
     error: bool = False,
-    lv_type: str = "Any",
+    lv_type: str = "?",
     enum_values: list[str] | None = None,
 ) -> TerminalFact:
     return TerminalFact(
@@ -253,7 +253,7 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
         "MethodEnum{setUp, testMethod, tearDown}",
         '["setUp", "testMethod", "tearDown"]',
     )
-    assert rows["result"] == ("Any", "[]")
+    assert rows["result"] == ("?", "[]")
 
     # Queryable: find terminals whose enum carries a given member.
     hits = sql.run_query(

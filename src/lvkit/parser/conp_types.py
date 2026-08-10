@@ -32,8 +32,9 @@ from __future__ import annotations
 
 import struct
 from dataclasses import dataclass
+from pathlib import Path
 
-from ..models import ClusterField, EnumValue, LVType
+from ..models import ClusterField, EnumValue, LVType, enum_values_from_labels
 
 # TD_FULL_TYPE code -> the ``underlying_type`` string ``LVType.lv_label`` expects
 # (so a CONP-decoded scalar renders identically to a VCTP-decoded one).
@@ -84,8 +85,11 @@ def _pstr(data: bytes, off: int) -> tuple[str, int]:
 
 def _is_type_identity(s: str | None) -> bool:
     """A ``.lvclass``/``.ctl`` string is a TYPE identity, never a terminal label
-    — guards against a class/typedef name leaking in as a terminal name when a
-    refnum/typedef body carries no distinct label."""
+    — guards against a typedef name leaking in as a terminal name when a
+    ``0xf1`` typedef body carries no distinct label (see ``_decode_typedef``).
+    (The refnum branch keeps its class name as a valid label deliberately — a
+    class terminal's default label IS its class name — so it does NOT call this.)
+    """
     return bool(s) and (".lvclass" in s or ".ctl" in s)  # type: ignore[arg-type]
 
 
@@ -114,11 +118,11 @@ def _decode_enum(body: bytes, start: int) -> tuple[dict[str, EnumValue], int]:
     the ordinal-valued members and the offset past them."""
     (count,) = struct.unpack_from(">H", body, start)
     off = start + 2
-    values: dict[str, EnumValue] = {}
-    for i in range(count):
+    labels: list[str] = []
+    for _ in range(count):
         label, off = _pstr(body, off)
-        values[label] = EnumValue(value=i)
-    return values, off
+        labels.append(label)
+    return enum_values_from_labels(labels), off
 
 
 class _ConpDecoder:
@@ -196,13 +200,15 @@ class _ConpDecoder:
                     for k in range(fcount)
                 ]
                 name = self._name_at(body, 2 + fcount * 2)
+                # Filter out-of-range refs FIRST so the positional ``field_{i}``
+                # fallback numbers the KEPT fields contiguously (no gaps).
+                valid = [r for r in refs if r < len(self.lvtypes)]
                 fields = [
                     ClusterField(
                         name=self.names[r] or f"field_{i}",
-                        type=self.lvtypes[r] if r < len(self.lvtypes) else None,
+                        type=self.lvtypes[r],
                     )
-                    for i, r in enumerate(refs)
-                    if r < len(self.lvtypes)
+                    for i, r in enumerate(valid)
                 ]
                 return LVType(kind="cluster", underlying_type="Cluster",
                               fields=fields or None), name
@@ -310,6 +316,20 @@ class _ConpDecoder:
                 slot=slot, name=self.names[tdi], lv_type=self.lvtypes[tdi],
             ))
         return out
+
+
+def conp_sidecar_path(xml_path: Path | str) -> Path:
+    """The ``*_CONP.bin`` sidecar beside a VI's extracted XML, derived from ANY
+    of its sibling XMLs — the main ``<stem>.xml`` or a ``<stem>_FPHb.xml`` /
+    ``_BDHb.xml`` heap. One place so the two callers (front_panel type overlay,
+    vi.py name recovery) can't drift on the path."""
+    p = Path(xml_path)
+    stem = p.name
+    for suffix in ("_FPHb.xml", "_BDHb.xml", ".xml"):
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    return p.with_name(f"{stem}_CONP.bin")
 
 
 def decode_conp_terminals(conp_bytes: bytes) -> list[ConpTerminal]:

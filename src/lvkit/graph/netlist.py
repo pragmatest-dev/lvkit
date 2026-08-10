@@ -1077,6 +1077,24 @@ def _netref_to_dict(ref: NetRef) -> dict[str, Any]:
     }
 
 
+def _frame_to_dict(frame: NetlistFrame) -> dict[str, Any]:
+    return {
+        "label": frame.label,
+        "value": frame.value,
+        "is_default": frame.is_default,
+        "passthrough": frame.passthrough,
+        "body": [_item_to_dict(i) for i in frame.body],
+    }
+
+
+def _component_to_dict(comp: NetlistComponent) -> dict[str, Any]:
+    return {
+        "name": comp.name,
+        "inputs": [{"name": p.name, "type": p.type} for p in comp.inputs],
+        "outputs": [{"name": p.name, "type": p.type} for p in comp.outputs],
+    }
+
+
 def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
     """One body item, tagged with a ``kind`` discriminator so the
     ``instance``/``scope`` union survives JSON (``asdict`` would erase it)."""
@@ -1097,16 +1115,7 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
         "uid": item.uid,
         "scope_kind": item.kind,
         "selector": _netref_to_dict(item.selector) if item.selector else None,
-        "frames": [
-            {
-                "label": f.label,
-                "value": f.value,
-                "is_default": f.is_default,
-                "passthrough": f.passthrough,
-                "body": [_item_to_dict(i) for i in f.body],
-            }
-            for f in item.frames
-        ],
+        "frames": [_frame_to_dict(f) for f in item.frames],
     }
 
 
@@ -1124,14 +1133,7 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
         "vi": module.vi_name,
         "inputs": [{"name": n, "type": t} for n, t in module.inputs],
         "outputs": [{"name": n, "type": t} for n, t in module.outputs],
-        "components": [
-            {
-                "name": c.name,
-                "inputs": [{"name": p.name, "type": p.type} for p in c.inputs],
-                "outputs": [{"name": p.name, "type": p.type} for p in c.outputs],
-            }
-            for c in module.components
-        ],
+        "components": [_component_to_dict(c) for c in module.components],
         "body": [_item_to_dict(i) for i in module.body],
     }
 

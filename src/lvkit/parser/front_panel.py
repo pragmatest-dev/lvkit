@@ -9,7 +9,7 @@ from pathlib import Path
 from lvkit.models import LVType
 from lvkit.parser.utils import clean_labview_string
 
-from .conp_types import decode_conp_terminals
+from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import FP_TERMINAL_CLASS
 from .flags import get_wiring_rule
 from .fp_heap_type import reconstruct_dco_lvtype
@@ -224,13 +224,15 @@ def _apply_conp_types(
 
     CONP is the AUTHORITATIVE, fully-named type source for a pre-LV9 VI's
     interface (field names, class names, enum labels — see ``conp_types``), so it
-    takes precedence over the structure-only FP-heap fallback. It's correlated by
-    connector-pane SLOT: CONP terminal at slot S -> the conpane slot with the same
-    index -> its ``fp_dco_uid`` -> the matching terminal. For LV9+ VIs CONP is an
-    empty stub (types live in VCTP), so this is a no-op there.
+    OVERRIDES the structure-only FP-heap fallback the loop above set. It never
+    fights VCTP: CONP is non-empty ONLY for pre-LV9 VIs, which have no VCTP at
+    all, so a terminal already resolved from VCTP (LV9+) is never reached here
+    (LV9+ CONP is an empty stub -> ``decode_conp_terminals`` returns ``[]``).
+    Correlated by connector-pane SLOT: CONP terminal at slot S -> the conpane
+    slot with the same index -> its ``fp_dco_uid`` -> the matching terminal.
     """
     fp_path = Path(fp_xml_path)
-    conp_bin = fp_path.with_name(fp_path.name.replace("_FPHb.xml", "_CONP.bin"))
+    conp_bin = conp_sidecar_path(fp_path)
     if not conp_bin.exists():
         return
     conp_terms = decode_conp_terminals(conp_bin.read_bytes())

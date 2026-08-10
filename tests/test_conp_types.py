@@ -175,3 +175,39 @@ def test_lv82_terminal_names_recovered_from_conp():
     names = {t.name for t in terms}
     assert {"error out", "Version String In", "Version String Out"} <= names, names
     assert not any((n or "").startswith("control_") for n in names), names
+
+
+@pytest.mark.needs_samples
+@pytest.mark.skipif(not _LV82_VI.exists(), reason="JKI-VI-Tester sample absent")
+def test_conp_slot_alignment_agrees_with_control_type():
+    """The whole CONP overlay rests on CONP slot order == FPHb conpane order. A
+    misalignment would land (say) a cluster type on a string control while still
+    producing plausible-looking output. Cross-check: each resolved terminal's
+    FP-heap control_type family must agree with its CONP-resolved type kind."""
+    from lvkit.mcp.server import _load_one
+
+    # control_type -> predicate the faithful label must satisfy if aligned.
+    agrees = {
+        "stdClust": lambda lbl: lbl == "error cluster" or lbl.startswith(
+            ("cluster", "cluster{")
+        ),
+        "stdRing": lambda lbl: lbl.startswith("enum{") or lbl == "ring",
+        "stdString": lambda lbl: lbl == "String",
+    }
+    g, name = _load_one(str(_LV82_VI))
+    terms = [
+        *g.get_inputs(name, public_only=False),
+        *g.get_outputs(name, public_only=False),
+    ]
+    checked = 0
+    for t in terms:
+        control_type = getattr(t, "control_type", None) or ""
+        pred = agrees.get(control_type)
+        if pred is None:
+            continue
+        checked += 1
+        assert pred(t.faithful_type_label()), (
+            f"slot misalignment? {control_type} control resolved to "
+            f"{t.faithful_type_label()!r}"
+        )
+    assert checked >= 3  # this VI has clusters, a ring, and strings

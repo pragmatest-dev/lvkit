@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS terminals (
     is_error_cluster INTEGER NOT NULL,
     field_names TEXT NOT NULL DEFAULT '[]',
     fp_dco_uid TEXT,
-    lv_type TEXT NOT NULL DEFAULT 'Any',
+    lv_type TEXT NOT NULL DEFAULT '?',
     enum_values TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS idx_terminals_vi ON terminals(vi_path);

@@ -21,7 +21,7 @@ from lvkit.extractor import extract_vi_xml
 from lvkit.models import LVType
 from lvkit.text_encoding import decode_labview_text
 
-from .conp_types import decode_conp_terminals
+from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
     FP_TERMINAL_CLASS,
     MULTI_LABEL_CLASS,
@@ -1055,7 +1055,7 @@ def _conp_names_by_slot(main_xml: Path | str | None) -> dict[int, str]:
     LV9+ VI (empty CONP) or when the sidecar is absent."""
     if not main_xml:
         return {}
-    conp_bin = Path(main_xml).with_name(Path(main_xml).stem + "_CONP.bin")
+    conp_bin = conp_sidecar_path(main_xml)
     if not conp_bin.exists():
         return {}
     return {
@@ -1094,8 +1094,11 @@ def _recover_or_warn_unresolved_labels(
 
     # Pre-LV9 VIs have no VCTP flat-type labels (no VCTP at all); their
     # connector-pane terminal names live in CONP — the same block that carries
-    # their types (see conp_types). Keyed by the same connector-pane slot.
-    conp_names_by_slot = _conp_names_by_slot(main_xml)
+    # their types (see conp_types). Keyed by the same connector-pane slot, so it
+    # is only useful (and only worth decoding) when there IS a connector pane.
+    conp_names_by_slot: dict[int, str] = {}
+    if main_xml and slot_by_uid:
+        conp_names_by_slot = _conp_names_by_slot(main_xml)
 
     uid_to_control = _uid_to_control_map(front_panel.controls)
 

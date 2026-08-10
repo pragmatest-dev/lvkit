@@ -7,10 +7,18 @@ Plain, string-only dataclasses (JSON/SQLite-serializable, no Pydantic, no
 graph does (measured: 487 files -> 422 in ``list_vis()``). ``name`` /
 ``qualified_name`` are secondary, ambiguity-reporting indexes.
 
-Every field here is intrinsic to a VI's own bytes (own connector pane, own
+Almost every field is intrinsic to a VI's own bytes (own connector pane, own
 constants, own ``subvi_qualified_names`` / ``type_map``), so ``VIFacts`` is a
-pure function of the VI's content hash — which is what makes the index soundly
-per-VI incremental via ``cache_paths.meta_fresh``.
+(near-)pure function of the VI's content hash — which is what makes the index
+soundly per-VI incremental via ``cache_paths.meta_fresh``.
+
+The exception is ``ClassFact.parent`` and ``ClassFact.private_data``: these come
+from the owning ``.lvclass`` (``get_class_parent`` / ``get_class_fields``), not
+the member VI, so editing a class's parent or private data WITHOUT touching a
+member VI leaves those two fields stale until that VI (or the whole index, on an
+lvkit-code change — see ``store._facts_fingerprint``) is rebuilt. Keying member
+freshness on the owning ``.lvclass`` hash too is the sound fix (TODO); today the
+staleness window is a class-only edit between member-VI rebuilds.
 
 Sources (see graph/queries.py, models.py):
 - terminals  <- get_inputs/get_outputs (FPTerminal); is_error_cluster is
@@ -68,9 +76,10 @@ class TerminalFact:
     # The FP DCO uid — the durable BD<->FP bridge, stable across a rename
     # (same uid, changed name). Carried for correlation/diff parity.
     fp_dco_uid: str | None = None
-    # FAITHFUL LabVIEW type label — Terminal.lv_type.lv_label(), or "Any" when
-    # lv_type is None. Never a Python annotation; see LVType.lv_label().
-    lv_type: str = "Any"
+    # FAITHFUL LabVIEW type label — Terminal.faithful_type_label(): a family word
+    # ("cluster"/"unknown") when unresolved, never a Python annotation. "?" is a
+    # placeholder default the build always overwrites; matches ConstantFact.
+    lv_type: str = "?"
     # Enum/ring member names in ORDINAL order (by EnumValue.value); empty for
     # non-enum terminals. From Terminal.lv_type.values.
     enum_values: list[str] = field(default_factory=list)

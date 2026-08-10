@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 
-from ..models import ClusterField, EnumValue, LVType
+from ..models import ClusterField, LVType, enum_values_from_labels
 
 # Leaf FP control classes → their faithful scalar type token. (Numeric
 # representation — I32 vs U16 vs DBL — is a further refinement; a bare
@@ -129,8 +129,10 @@ def reconstruct_control_lvtype(
         items = _multilabel_items(ctrl)
         if not items:
             return None
-        values = {name: EnumValue(value=i) for i, name in enumerate(items)}
-        return LVType(kind="enum", underlying_type="Ring", values=values)
+        return LVType(
+            kind="enum", underlying_type="Ring",
+            values=enum_values_from_labels(items),
+        )
 
     if cls == "stdClust":
         fields: list[ClusterField] = []
