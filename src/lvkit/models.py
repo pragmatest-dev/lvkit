@@ -96,11 +96,13 @@ class LVType:
           cluster; otherwise ``Name{f1, f2}`` (named + fields), ``Name``
           (named, fields unknown), ``cluster{f1, f2}`` (fields, unnamed), or
           ``"cluster"`` (neither).
-        - ``primitive``: a class/DVR refnum renders its class name verbatim
-          (``TestCase.lvclass``) or ``"<ref_type> refnum"`` / ``"refnum"``;
-          other primitives map through the shared numeric/scalar token table,
-          falling back to the raw ``underlying_type`` (never "Any"/"int") for
-          an unmapped token.
+        - ``primitive``: a class refnum renders its class name verbatim
+          (``TestCase.lvclass``); a parametrized refnum shows its element in
+          braces like a cluster/enum (``Queue refnum{error cluster}``,
+          ``Notifier refnum{DBL}``); otherwise ``"<ref_type> refnum"`` /
+          ``"refnum"``. Other primitives map through the shared numeric/scalar
+          token table, falling back to the raw ``underlying_type`` (never
+          "Any"/"int") for an unmapped token.
         """
         if self.kind == "array":
             dims = self.dimensions or 1
@@ -135,6 +137,14 @@ class LVType:
                 if self.classname:
                     return self.classname
                 if self.ref_type:
+                    # A parametrized refnum shows its element in braces, like a
+                    # cluster/enum shows its members: ``Queue refnum{error
+                    # cluster}``, ``Notifier refnum{DBL}``.
+                    if self.element_type is not None:
+                        return (
+                            f"{self.ref_type} refnum"
+                            f"{{{self.element_type.lv_label()}}}"
+                        )
                     return f"{self.ref_type} refnum"
                 return "refnum"
             return _LV_LABEL_SCALAR.get(

@@ -359,6 +359,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             # Refnum type - extract RefType and class name if present
             ref_type = td.get("RefType")
             classname = None
+            element_type = None
 
             if ref_type == "UDClassInst":
                 # Extract fully qualified class name from <Item> chain.
@@ -369,12 +370,24 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 if items:
                     parts = [it.get("Text", "") for it in items]
                     classname = ":".join(parts)
+            else:
+                # A parametrized refnum (Queue/Notifier/UserEvent/DataValueRef)
+                # carries its element/payload type as a single nested TypeDesc,
+                # by TypeID. Resolve it so a Queue of error clusters is faithful,
+                # not a bare "Queue refnum". Only when there's EXACTLY one nested
+                # ref (EventReg lists several event types — not a single element).
+                nested = td.findall("TypeDesc[@TypeID]")
+                if len(nested) == 1:
+                    tid = nested[0].get("TypeID")
+                    if tid:
+                        element_type = resolve_type(int(tid), visited)
 
             lv_type = LVType(
                 kind="primitive",
                 underlying_type="Refnum",
                 ref_type=ref_type,
                 classname=classname,
+                element_type=element_type,
             )
 
         else:

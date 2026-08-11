@@ -167,3 +167,57 @@ class TestCycleDetection:
         assert len(lv_type.fields) == 1
         assert lv_type.fields[0].type is not None
         assert lv_type.fields[0].type.underlying_type == "Recursive"
+
+
+class TestRefnumElementType:
+    """A parametrized refnum (Queue/Notifier/DVR) carries its element/payload
+    type as a single nested TypeDesc; a class refnum keeps its class name; an
+    EventReg with several nested types has no single element."""
+
+    def _vctp(self, tmp_path, body: str):
+        xml = textwrap.dedent(f"""\
+            <?xml version="1.0" encoding="UTF-8"?>
+            <RSRC><VCTP><Section>
+            {body}
+            </Section></VCTP></RSRC>
+        """)
+        p = tmp_path / "refnum.xml"
+        p.write_text(xml)
+        return parse_vctp_types(p)
+
+    def test_queue_of_dbl_carries_element_and_renders_in_braces(self, tmp_path):
+        # FlatTypeID 0 = element (DBL); FlatTypeID 1 = Queue refnum of it.
+        result = self._vctp(tmp_path, """\
+            <TypeDesc Type="NumFloat64" />
+            <TypeDesc Type="Refnum" RefType="Queue">
+                <TypeDesc TypeID="0" />
+            </TypeDesc>""")
+        q = result[1]
+        assert q.underlying_type == "Refnum"
+        assert q.ref_type == "Queue"
+        assert q.element_type is not None
+        assert q.element_type.underlying_type == "NumFloat64"
+        assert q.lv_label() == "Queue refnum{DBL}"
+
+    def test_eventreg_with_multiple_nested_has_no_single_element(self, tmp_path):
+        result = self._vctp(tmp_path, """\
+            <TypeDesc Type="NumFloat64" />
+            <TypeDesc Type="Boolean" />
+            <TypeDesc Type="Refnum" RefType="EventReg">
+                <TypeDesc TypeID="0" />
+                <TypeDesc TypeID="1" />
+            </TypeDesc>""")
+        ev = result[2]
+        assert ev.ref_type == "EventReg"
+        assert ev.element_type is None
+        assert ev.lv_label() == "EventReg refnum"
+
+    def test_class_refnum_keeps_class_name_not_element(self, tmp_path):
+        result = self._vctp(tmp_path, """\
+            <TypeDesc Type="Refnum" RefType="UDClassInst">
+                <Item Text="TestCase.lvclass" />
+            </TypeDesc>""")
+        c = result[0]
+        assert c.classname == "TestCase.lvclass"
+        assert c.element_type is None
+        assert c.lv_label() == "TestCase.lvclass"

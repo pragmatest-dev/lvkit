@@ -21,8 +21,25 @@ aixml requires that live server — there is no offline path.
 chase a byte-identical emitter of NI's proprietary, LV-derived format. But note
 the parallel: aixml's model (nodes+uid, wires as `producer.terminal` refs, no
 coordinates) is **exactly what `graph/netlist.py`'s IR already captures** —
-`netlist_to_dict` is the clean-room, faithful-typed equivalent (it even adds
-types, which aixml lacks). So:
+`netlist_to_dict` is the clean-room, faithful-typed equivalent. So:
+
+> **Caveat (do NOT record as fact):** the aixml "gaps" catalogued from
+> labview-mcp's `docs/aixml-reference.md` (no class identity, dropped refnum
+> element, lost property/method names, palette-only subVIs) are limitations of
+> **labview-mcp's decoding** of aixml, NOT verified properties of aixml itself.
+> aixml comes out of NI's own **Nigel** service and must round-trip VI↔aixml for
+> the AI feature, so it is likely far more faithful than labview-mcp captured
+> (their own wording — invoke `target` is "a binary ID", names "not looked up
+> from outside LabVIEW" — points to under-decoding, not aixml loss). We CANNOT
+> verify real aixml clean-room (that needs LabVIEW). So this is NOT evidence that
+> "lvkit > aixml"; it only tells us where labview-mcp's parser stops.
+>
+> The one thing that survives as verified: comparing aixml's *documented*
+> `ref{Queue}{ELEM}` notation to lvkit's OWN output exposed a real gap **in
+> lvkit** — bare `Queue refnum`, element dropped. Fixed: the VCTP refnum parser
+> now resolves the single nested element and `lv_label` renders it consistently
+> (`Queue refnum{error cluster}`, even nested `EventReg refnum{UserEvent
+> refnum{...}}`). Pre-LV9 CONP refnum elements remain a follow-up.
 - **No literal aixml emitter** unless a concrete interop goal appears (feeding
   lvkit output INTO a LabVIEW-AI pipeline). Even then, matching a proprietary
   format reverse-engineered from LabVIEW is a moving, EULA-adjacent target.
