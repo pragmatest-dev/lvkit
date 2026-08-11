@@ -456,12 +456,27 @@ def _describe_class_context(
     parent = attrs.get("parent_class")
     if parent:
         lines.append(f"  parent: {parent}")
+    version = graph.get_class_version(cls)
+    if version:
+        lines.append(f"  version: {version}")
+    ancestors = graph.get_class_ancestors(cls)
+    if ancestors:
+        lines.append(f"  ancestors: {' -> '.join(ancestors)}")
     if fields:
         lines.append("  fields:")
         for f in fields:
             lines.append(f"    {f.name}: {_type_label(f.type)}")
     if siblings:
         lines.append(f"  methods: {', '.join(siblings)}")
+    # This method's own item properties -- terse, only when non-default.
+    access = graph.get_method_access(ctx.name)
+    if access is not None:
+        if access.is_static:
+            lines.append("  is_static: True")
+        if access.must_override:
+            lines.append("  must_override: True")
+        if access.must_call_parent:
+            lines.append("  must_call_parent: True")
     lines.append("")
     return lines
 

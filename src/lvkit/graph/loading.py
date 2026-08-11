@@ -472,6 +472,8 @@ class LoadingMixin:
             fields=fields,
             parent_class=cls.parent_class,
             fields_only=fields_only,
+            version=cls.version,
+            ancestors=cls.ancestors,
         )
 
         if fields_only:
@@ -529,6 +531,11 @@ class LoadingMixin:
                         is_accessor=method.is_accessor,
                         accessor_type=method.accessor_type,
                         accessor_field=method.accessor_field,
+                        is_static=method.is_static,
+                        must_override=method.must_override,
+                        must_call_parent=method.must_call_parent,
+                        priority=method.priority,
+                        execution_system=method.execution_system,
                     )
 
         return cls_qname

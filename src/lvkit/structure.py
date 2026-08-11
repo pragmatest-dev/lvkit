@@ -19,11 +19,25 @@ class LVMethod:
     """A method in a LabVIEW class."""
     name: str
     vi_path: str
-    scope: str  # "public", "private", "protected"
+    scope: str  # "public", "private", "protected", "community"
     is_static: bool = False
     is_accessor: bool = False
     accessor_type: str | None = None  # "getter" or "setter"
     accessor_field: str | None = None  # field name being accessed
+    # NI.ClassItem.MustOverride -- a child class MUST provide its own
+    # implementation of this dynamic-dispatch method. Default False when the
+    # property is absent (the overwhelming common case).
+    must_override: bool = False
+    # NI.ClassItem.MustCallParent -- an override of this method MUST call its
+    # parent implementation. Rare; default False when absent.
+    must_call_parent: bool = False
+    # NI.ClassItem.Priority, raw int verbatim. Only 2 distinct values seen in
+    # the corpus and their semantics are unconfirmed -- do NOT map to a label.
+    # None when the property is absent.
+    priority: int | None = None
+    # NI.ClassItem.ExecutionSystem, raw int verbatim (e.g. -1/1/3). Semantics
+    # unconfirmed -- do NOT map to a label. None when the property is absent.
+    execution_system: int | None = None
 
 
 @dataclass
@@ -46,6 +60,16 @@ class LVClass:
     private_data_ctl: str | None = None
     methods: list[LVMethod] = field(default_factory=list)
     private_data_fields: list[LVPrivateDataField] = field(default_factory=list)
+    # NI.Lib.Version, verbatim dotted-quad string (e.g. "1.0.0.7"). Present on
+    # ~100% of classes; None if absent.
+    version: str | None = None
+    # The FULL ancestor chain, nearest-first (immediate parent -> ... ->
+    # root) -- built by recursively following parent_class and resolving each
+    # ancestor's own .lvclass file on disk (see _build_ancestor_chain). Best
+    # effort: stops (without erroring) the moment an ancestor's file can't be
+    # located, so it may be a PREFIX of the true chain for a class whose
+    # ancestor tree isn't fully present in this checkout.
+    ancestors: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -105,11 +129,17 @@ class LVLibraryMember:
     url: str
 
 
-# Method scope mapping
+# Method scope mapping. LabVIEW's four member scopes (NI docs: Public /
+# Community / Protected / Private) -- value 4 ("community", a.k.a. "package
+# scope" in the UI) was previously missing, so those methods silently
+# mislabeled as the SCOPE_MAP.get(..., "public") default. Verified against
+# measurement-plugin-labview's Session Reservation.lvclass, which carries real
+# MethodScope=4 methods.
 SCOPE_MAP = {
     1: "public",
     2: "private",
     3: "protected",
+    4: "community",
 }
 
 # Accessor pattern detection
@@ -531,6 +561,18 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     parent_class = link_info[0] if link_info is not None else None
     is_vilib_parent = link_info[1] if link_info is not None else False
 
+    # Full ancestor chain, nearest-first -- best-effort on-disk resolution of
+    # each ancestor's own .lvclass file (see _build_ancestor_chain). Never
+    # decodes NI.LVClass.Geneology (opaque, leaks siblings).
+    ancestors = _build_ancestor_chain(lvclass_path, parent_class)
+
+    # NI.Lib.Version -- verbatim dotted-quad string, same convention as
+    # parse_lvlib's version property below.
+    version = None
+    for prop in root.findall("Property"):
+        if prop.get("Name") == "NI.Lib.Version":
+            version = prop.text
+
     # Parse items recursively (methods and private data can be in folders)
     _parse_items(root, methods, private_data_ctl)
 
@@ -551,6 +593,8 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         private_data_ctl=private_data_ctl,
         methods=methods,
         private_data_fields=private_data_fields,
+        version=version,
+        ancestors=ancestors,
     )
 
 
@@ -578,6 +622,16 @@ def _parse_items(
             # Get method properties
             scope_prop = item.find("Property[@Name='NI.ClassItem.MethodScope']")
             static_prop = item.find("Property[@Name='NI.ClassItem.IsStaticMethod']")
+            must_override_prop = item.find(
+                "Property[@Name='NI.ClassItem.MustOverride']"
+            )
+            must_call_parent_prop = item.find(
+                "Property[@Name='NI.ClassItem.MustCallParent']"
+            )
+            priority_prop = item.find("Property[@Name='NI.ClassItem.Priority']")
+            exec_system_prop = item.find(
+                "Property[@Name='NI.ClassItem.ExecutionSystem']"
+            )
 
             scope_val = 1  # default public
             if scope_prop is not None and scope_prop.text:
@@ -589,6 +643,28 @@ def _parse_items(
             is_static = False
             if static_prop is not None and static_prop.text:
                 is_static = static_prop.text.lower() == "true"
+
+            must_override = False
+            if must_override_prop is not None and must_override_prop.text:
+                must_override = must_override_prop.text.lower() == "true"
+
+            must_call_parent = False
+            if must_call_parent_prop is not None and must_call_parent_prop.text:
+                must_call_parent = must_call_parent_prop.text.lower() == "true"
+
+            priority: int | None = None
+            if priority_prop is not None and priority_prop.text:
+                try:
+                    priority = int(priority_prop.text)
+                except ValueError:
+                    pass
+
+            execution_system: int | None = None
+            if exec_system_prop is not None and exec_system_prop.text:
+                try:
+                    execution_system = int(exec_system_prop.text)
+                except ValueError:
+                    pass
 
             # Detect accessor methods
             accessor_type, accessor_field = _detect_accessor(item_name)
@@ -602,6 +678,10 @@ def _parse_items(
                 is_accessor=is_accessor,
                 accessor_type=accessor_type,
                 accessor_field=accessor_field,
+                must_override=must_override,
+                must_call_parent=must_call_parent,
+                priority=priority,
+                execution_system=execution_system,
             ))
 
 
@@ -682,6 +762,80 @@ def _parent_from_link_info(root: ET.Element) -> tuple[str, bool] | None:
             return (token[: -len(".lvclass")], is_vilib)
 
     return None
+
+
+def _resolve_ancestor_lvclass(
+    start_dir: Path, bare_name: str, max_levels: int = 6,
+) -> Path | None:
+    """Best-effort on-disk resolution of an ancestor class's ``.lvclass`` file.
+
+    An ancestor is rarely a direct sibling of its child (e.g.
+    ``_TextTestResult.JUnitXML.lvclass`` lives under ``Ant Plugin/Source/...``
+    while its parent ``_TextTestResult.lvclass`` lives under
+    ``Classes/_TextTestResult/`` -- a different branch of the same repo tree).
+    So this walks UP from ``start_dir``, and at each level searches DOWN
+    (``rglob``) for ``<bare_name>.lvclass`` -- stopping at the first level
+    that finds one. Bounded by ``max_levels`` so a genuinely-missing ancestor
+    (common: many corpora don't vendor every ancestor's file) can't runaway-
+    scan the filesystem. Falls back to a case-insensitive stem match at each
+    level (LabVIEW class names are effectively case-insensitive -- see
+    ``_same_class``).
+    """
+    target_lower = f"{bare_name}.lvclass".lower()
+    d = start_dir.resolve()
+    for _ in range(max_levels):
+        candidates = sorted(d.rglob("*.lvclass"))
+        exact = [p for p in candidates if p.stem == bare_name]
+        if exact:
+            return exact[0]
+        ci = [p for p in candidates if p.name.lower() == target_lower]
+        if ci:
+            return ci[0]
+        parent = d.parent
+        if parent == d:
+            break
+        d = parent
+    return None
+
+
+def _build_ancestor_chain(
+    lvclass_path: Path, parent_class: str | None,
+) -> list[str]:
+    """The FULL ancestor chain, nearest-first, by recursively following
+    ``NI.LVClass.ParentClassLinkInfo`` (via ``_parent_from_link_info``) up
+    from ``lvclass_path``.
+
+    Deliberately does NOT decode ``NI.LVClass.Geneology`` (an opaque base64
+    type-descriptor that also leaks sibling classes) -- this walks the SAME
+    authoritative per-class link a child already resolves its own immediate
+    parent from, just repeated up the tree. Each ancestor's ``.lvclass`` file
+    is located with ``_resolve_ancestor_lvclass``; when that lookup misses (the
+    ancestor's file isn't present in this checkout), the chain stops there --
+    tolerated, not an error, since the caller only has ``parent_class``'s bare
+    name to go on for that ancestor and cannot keep walking without its file.
+    """
+    ancestors: list[str] = []
+    seen = {lvclass_path.stem}
+    current_dir = lvclass_path.parent
+    current_parent = parent_class
+    while (
+        current_parent
+        and current_parent != "LabVIEW Object"
+        and current_parent not in seen
+    ):
+        ancestors.append(current_parent)
+        seen.add(current_parent)
+        parent_file = _resolve_ancestor_lvclass(current_dir, current_parent)
+        if parent_file is None:
+            break
+        try:
+            parent_root = ET.parse(parent_file).getroot()
+        except ET.ParseError:
+            break
+        link = _parent_from_link_info(parent_root)
+        current_parent = link[0] if link is not None else None
+        current_dir = parent_file.parent
+    return ancestors
 
 
 _LVLIB_LOADABLE_TYPES = frozenset({"VI", "LVClass", "Library"})

@@ -252,12 +252,28 @@ VIEWS: dict[str, _View] = {
             "vi_path": "path of the class-member VI",
             "owning_class": "the .lvclass this VI is a method of",
             "parent": "the parent class, or NULL",
-            "scope": "member scope (public/private/protected), or NULL",
+            "scope": "member scope (public/private/protected/community), or NULL",
             "is_accessor": "1 if a generated property/accessor VI",
             "accessor_field": "the class field this accessor reads/writes, or NULL",
             "private_data": "JSON array of the owning class's private-data fields "
             "(incl. inherited), each FAITHFULLY rendered 'name: <lv_type>', e.g. "
             "'[\"testName: String\", \"result: TestResult.lvclass\"]'",
+            "is_static": "1 if this method is a static (non-dynamic-dispatch) "
+            "class method",
+            "must_override": "1 if a child class MUST provide its own "
+            "implementation of this dynamic-dispatch method",
+            "must_call_parent": "1 if an override of this method MUST call its "
+            "parent implementation",
+            "class_version": "the owning class's NI.Lib.Version (dotted-quad "
+            "string, e.g. '1.0.0.7'), or NULL if absent",
+            "ancestors": "JSON array of the owning class's FULL ancestor chain, "
+            "nearest-first (immediate parent first); may be a PREFIX of the true "
+            "chain if an ancestor's .lvclass isn't present in this checkout",
+            "method_priority": "raw NI.ClassItem.Priority int for this method, "
+            "or NULL if absent (semantics unconfirmed -- not a label)",
+            "method_execution_system": "raw NI.ClassItem.ExecutionSystem int for "
+            "this method, or NULL if absent (semantics unconfirmed -- not a "
+            "label)",
         },
     ),
     "lvproj": _View(

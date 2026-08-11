@@ -105,8 +105,11 @@ class ClassFact:
     """Class facts for a VI that is a ``.lvclass`` method.
 
     ``parent`` is the owning class's parent (qualified, or None). ``scope`` /
-    accessor come from the class's ``rel="owns"`` edge. None on ``VIFacts`` for
-    non-method VIs.
+    accessor / ``is_static``/``must_override``/``must_call_parent`` come from
+    the class's ``rel="owns"`` edge (this specific method's own item
+    properties). ``class_version``/``ancestors`` come from the owning class
+    itself (like ``parent``), duplicated per method the same way ``parent``/
+    ``private_data`` already are. None on ``VIFacts`` for non-method VIs.
     """
 
     owning_class: str
@@ -118,6 +121,25 @@ class ClassFact:
     # FAITHFULLY as "name: <lv_label>" — e.g. "testName: String". Empty for a
     # class with no resolvable private data.
     private_data: list[str] = field(default_factory=list)
+    # NI.ClassItem.IsStaticMethod on THIS method's own Item — parsed by
+    # structure.LVMethod but previously dropped here on the way into ClassFact
+    # (a real gap: the index couldn't answer "which methods are static").
+    is_static: bool = False
+    # NI.ClassItem.MustOverride / MustCallParent on THIS method's own Item.
+    must_override: bool = False
+    must_call_parent: bool = False
+    # The owning class's NI.Lib.Version (dotted-quad string), or None if
+    # absent/unresolved.
+    class_version: str | None = None
+    # The owning class's FULL ancestor chain, nearest-first (see
+    # structure.LVClass.ancestors) — may be a PREFIX of the true chain when an
+    # ancestor's .lvclass isn't present in this checkout.
+    ancestors: list[str] = field(default_factory=list)
+    # NI.ClassItem.Priority / ExecutionSystem on THIS method's own Item, raw
+    # ints verbatim (semantics unconfirmed -- never mapped to a label). None
+    # when the property is absent.
+    method_priority: int | None = None
+    method_execution_system: int | None = None
 
 
 @dataclass

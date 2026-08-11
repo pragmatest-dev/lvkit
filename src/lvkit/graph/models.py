@@ -754,7 +754,13 @@ class MethodAccessInfo:
     """Access-scope info for a class method VI, from its owning class.
 
     ``scope`` is one of the scopes LabVIEW class items are parsed with today
-    ("public" / "protected" / "private" — see ``structure.SCOPE_MAP``).
+    ("public" / "protected" / "private" / "community" — see
+    ``structure.SCOPE_MAP``).
+
+    ``is_static`` / ``must_override`` / ``must_call_parent`` / ``priority`` /
+    ``execution_system`` mirror ``structure.LVMethod``'s same-named fields —
+    carried onto the "owns" edge at load time (``loading.load_lvclass``) so
+    this per-VI query surfaces them without a second class-file parse.
     """
 
     vi_name: str
@@ -762,6 +768,11 @@ class MethodAccessInfo:
     is_accessor: bool
     accessor_type: str | None
     accessor_field: str | None
+    is_static: bool = False
+    must_override: bool = False
+    must_call_parent: bool = False
+    priority: int | None = None
+    execution_system: int | None = None
 
 
 @dataclass

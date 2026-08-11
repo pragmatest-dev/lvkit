@@ -220,6 +220,23 @@ class _BuildCtx:
     const_by_id: dict[str, Constant]
 
 
+@dataclass(frozen=True)
+class NetlistClassContext:
+    """The owning ``.lvclass``'s context for a class-method VI -- the
+    ``get_context`` (MCP)/``netlist_to_dict`` counterpart to describe.py's
+    ``## Class`` section. ``None`` on ``NetlistModule`` for a non-method VI.
+    """
+
+    owning_class: str
+    parent: str | None
+    version: str | None
+    ancestors: list[str]
+    scope: str | None
+    is_static: bool
+    must_override: bool
+    must_call_parent: bool
+
+
 @dataclass
 class NetlistModule:
     """The whole VI as a netlist."""
@@ -243,6 +260,10 @@ class NetlistModule:
     # nested inside it (structural state, not a user setting). Same
     # netlist_to_dict-only carry-through as ``properties`` above.
     structure: VIStructure = field(default_factory=VIStructure)
+    # The owning class's context when this VI is a .lvclass method -- the
+    # describe.py ``## Class`` section's JSON counterpart. None for a non-
+    # method VI. Same netlist_to_dict-only carry-through as the two above.
+    class_context: NetlistClassContext | None = None
 
 
 # ============================================================
@@ -894,6 +915,32 @@ def _disambiguate_cross_group_names(components: list[NetlistComponent]) -> None:
             c.name = f"{name} ({i})"
 
 
+def _build_class_context(
+    graph: InMemoryVIGraph, ctx: VIContext,
+) -> NetlistClassContext | None:
+    """Mirror of ``describe._describe_class_context`` for the JSON IR: the
+    owning class's context when ``ctx`` is a ``.lvclass`` method VI, else
+    None."""
+    cls = ctx.library
+    if not cls or not cls.endswith(".lvclass"):
+        return None
+    if not graph._dep_graph.has_node(cls):
+        return None
+
+    parent = graph._dep_graph.nodes[cls].get("parent_class")
+    access = graph.get_method_access(ctx.name)
+    return NetlistClassContext(
+        owning_class=cls,
+        parent=parent,
+        version=graph.get_class_version(cls),
+        ancestors=graph.get_class_ancestors(cls),
+        scope=access.scope if access else None,
+        is_static=bool(access and access.is_static),
+        must_override=bool(access and access.must_override),
+        must_call_parent=bool(access and access.must_call_parent),
+    )
+
+
 def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     """Walk a VI's operations into a ``NetlistModule`` IR.
 
@@ -927,6 +974,7 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         vi_name=vi_name, inputs=inputs, outputs=outputs, body=body,
         components=components, properties=ctx.properties,
         structure=ctx.structure,
+        class_context=_build_class_context(graph, ctx),
     )
 
 
@@ -1229,6 +1277,11 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
         "body": [_item_to_dict(i) for i in module.body],
         "properties": _properties_to_dict(module.properties),
         "structure": _structure_to_dict(module.structure),
+        "class_context": (
+            _dataclass_asdict(module.class_context)
+            if module.class_context is not None
+            else None
+        ),
     }
 
 

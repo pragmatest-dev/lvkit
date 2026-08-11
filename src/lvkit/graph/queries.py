@@ -1076,6 +1076,38 @@ class QueryMixin:
             return parent_raw + ".lvclass"
         return None
 
+    def get_class_version(self, classname: str) -> str | None:
+        """The class's ``NI.Lib.Version`` (dotted-quad string), or None if
+        it's a not-loaded/stub class node or the property was absent.
+
+        Straight passthrough of ``structure.LVClass.version``, recorded on
+        the class node at load time (``loading.load_lvclass``).
+        """
+        if not self._dep_graph.has_node(classname) or classname in self._stubs:
+            return None
+        data = self._dep_graph.nodes[classname]
+        if data.get("node_type") != "class":
+            return None
+        version = data.get("version")
+        return version if isinstance(version, str) else None
+
+    def get_class_ancestors(self, classname: str) -> list[str]:
+        """The class's FULL ancestor chain, nearest-first, or ``[]`` if it's a
+        not-loaded/stub class node or no ancestor's file resolved.
+
+        Straight passthrough of ``structure.LVClass.ancestors`` — a best-effort
+        on-disk resolution done at parse time (see
+        ``structure._build_ancestor_chain``); may be a PREFIX of the true
+        chain when an ancestor's ``.lvclass`` isn't present in this checkout.
+        """
+        if not self._dep_graph.has_node(classname) or classname in self._stubs:
+            return []
+        data = self._dep_graph.nodes[classname]
+        if data.get("node_type") != "class":
+            return []
+        ancestors = data.get("ancestors")
+        return list(ancestors) if ancestors else []
+
     def get_method_access(self, vi_name: str) -> MethodAccessInfo | None:
         """Get access-scope info for a class method VI.
 
@@ -1096,6 +1128,11 @@ class QueryMixin:
             is_accessor=bool(edata.get("is_accessor")),
             accessor_type=edata.get("accessor_type"),
             accessor_field=edata.get("accessor_field"),
+            is_static=bool(edata.get("is_static")),
+            must_override=bool(edata.get("must_override")),
+            must_call_parent=bool(edata.get("must_call_parent")),
+            priority=edata.get("priority"),
+            execution_system=edata.get("execution_system"),
         )
 
     def get_method_overrides(self, vi_name: str) -> MethodOverrideInfo | None:

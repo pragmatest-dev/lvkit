@@ -637,4 +637,11 @@ def _build_class_fact(
         is_accessor=bool(access and access.is_accessor),
         accessor_field=access.accessor_field if access else None,
         private_data=private_data,
+        is_static=bool(access and access.is_static),
+        must_override=bool(access and access.must_override),
+        must_call_parent=bool(access and access.must_call_parent),
+        class_version=graph.get_class_version(owning_class),
+        ancestors=graph.get_class_ancestors(owning_class),
+        method_priority=access.priority if access else None,
+        method_execution_system=access.execution_system if access else None,
     )

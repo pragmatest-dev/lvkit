@@ -164,7 +164,14 @@ CREATE TABLE IF NOT EXISTS class_facts (
     scope TEXT,
     is_accessor INTEGER NOT NULL DEFAULT 0,
     accessor_field TEXT,
-    private_data TEXT NOT NULL DEFAULT '[]'
+    private_data TEXT NOT NULL DEFAULT '[]',
+    is_static INTEGER NOT NULL DEFAULT 0,
+    must_override INTEGER NOT NULL DEFAULT 0,
+    must_call_parent INTEGER NOT NULL DEFAULT 0,
+    class_version TEXT,
+    ancestors TEXT NOT NULL DEFAULT '[]',
+    method_priority INTEGER,
+    method_execution_system INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS lvproj_members (
@@ -395,7 +402,9 @@ def _prior_container_facts(
 
     cf_row = conn.execute(
         "SELECT owning_class, parent, scope, is_accessor, accessor_field, "
-        "private_data FROM class_facts WHERE vi_path = ?",
+        "private_data, is_static, must_override, must_call_parent, "
+        "class_version, ancestors, method_priority, method_execution_system "
+        "FROM class_facts WHERE vi_path = ?",
         (path,),
     ).fetchone()
     prior_class_fact = (
@@ -406,6 +415,13 @@ def _prior_container_facts(
             is_accessor=bool(cf_row[3]),
             accessor_field=cf_row[4],
             private_data=json.loads(cf_row[5]),
+            is_static=bool(cf_row[6]),
+            must_override=bool(cf_row[7]),
+            must_call_parent=bool(cf_row[8]),
+            class_version=cf_row[9],
+            ancestors=json.loads(cf_row[10]),
+            method_priority=cf_row[11],
+            method_execution_system=cf_row[12],
         )
         if cf_row is not None
         else None
@@ -457,6 +473,29 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                         else:
                             is_accessor = prior_class_fact.is_accessor
                             accessor_field = prior_class_fact.accessor_field
+                        # scope/is_static/must_override/must_call_parent/
+                        # method_priority/method_execution_system all come
+                        # from the SAME "owns" edge lookup (get_method_access)
+                        # -- gate the whole group on scope (like the accessor
+                        # pair above) so a partial load with no access info at
+                        # all doesn't clobber a previously-resolved method's
+                        # is_static/must_override with defaulted False/None.
+                        if cfc.scope is not None:
+                            scope = cfc.scope
+                            is_static = cfc.is_static
+                            must_override = cfc.must_override
+                            must_call_parent = cfc.must_call_parent
+                            method_priority = cfc.method_priority
+                            method_execution_system = cfc.method_execution_system
+                        else:
+                            scope = prior_class_fact.scope
+                            is_static = prior_class_fact.is_static
+                            must_override = prior_class_fact.must_override
+                            must_call_parent = prior_class_fact.must_call_parent
+                            method_priority = prior_class_fact.method_priority
+                            method_execution_system = (
+                                prior_class_fact.method_execution_system
+                            )
                         class_fact = ClassFact(
                             owning_class=(
                                 cfc.owning_class
@@ -468,11 +507,7 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                                 if cfc.parent is not None
                                 else prior_class_fact.parent
                             ),
-                            scope=(
-                                cfc.scope
-                                if cfc.scope is not None
-                                else prior_class_fact.scope
-                            ),
+                            scope=scope,
                             is_accessor=is_accessor,
                             accessor_field=accessor_field,
                             private_data=(
@@ -480,6 +515,21 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                                 if cfc.private_data
                                 else prior_class_fact.private_data
                             ),
+                            is_static=is_static,
+                            must_override=must_override,
+                            must_call_parent=must_call_parent,
+                            class_version=(
+                                cfc.class_version
+                                if cfc.class_version is not None
+                                else prior_class_fact.class_version
+                            ),
+                            ancestors=(
+                                cfc.ancestors
+                                if cfc.ancestors
+                                else prior_class_fact.ancestors
+                            ),
+                            method_priority=method_priority,
+                            method_execution_system=method_execution_system,
                         )
 
                 _delete_vi(conn, f.path)
@@ -541,12 +591,19 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     cf = class_fact
                     conn.execute(
                         "INSERT INTO class_facts(vi_path, owning_class, parent, "
-                        "scope, is_accessor, accessor_field, private_data) "
-                        "VALUES (?,?,?,?,?,?,?)",
+                        "scope, is_accessor, accessor_field, private_data, "
+                        "is_static, must_override, must_call_parent, "
+                        "class_version, ancestors, method_priority, "
+                        "method_execution_system) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         (
                             f.path, cf.owning_class, cf.parent, cf.scope,
                             int(cf.is_accessor), cf.accessor_field,
                             json.dumps(cf.private_data),
+                            int(cf.is_static), int(cf.must_override),
+                            int(cf.must_call_parent), cf.class_version,
+                            json.dumps(cf.ancestors), cf.method_priority,
+                            cf.method_execution_system,
                         ),
                     )
                 conn.execute(
@@ -710,11 +767,15 @@ def load(project_root: Path) -> list[VIFacts]:
         class_fact_by_vi: dict[str, ClassFact] = {}
         for row in conn.execute(
             "SELECT vi_path, owning_class, parent, scope, is_accessor, "
-            "accessor_field, private_data FROM class_facts"
+            "accessor_field, private_data, is_static, must_override, "
+            "must_call_parent, class_version, ancestors, method_priority, "
+            "method_execution_system FROM class_facts"
         ):
             (
                 vi_path, owning_class, parent, scope, is_accessor,
-                accessor_field, private_data,
+                accessor_field, private_data, is_static, must_override,
+                must_call_parent, class_version, ancestors, method_priority,
+                method_execution_system,
             ) = row
             class_fact_by_vi[vi_path] = ClassFact(
                 owning_class=owning_class,
@@ -723,6 +784,13 @@ def load(project_root: Path) -> list[VIFacts]:
                 is_accessor=bool(is_accessor),
                 accessor_field=accessor_field,
                 private_data=json.loads(private_data),
+                is_static=bool(is_static),
+                must_override=bool(must_override),
+                must_call_parent=bool(must_call_parent),
+                class_version=class_version,
+                ancestors=json.loads(ancestors),
+                method_priority=method_priority,
+                method_execution_system=method_execution_system,
             )
 
         results: list[VIFacts] = []
