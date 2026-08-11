@@ -27,7 +27,7 @@ import networkx as nx
 
 from .. import cache_paths
 from ..graph import InMemoryVIGraph, LoadMode
-from ..graph.models import Constant, VINode, VIProperties
+from ..graph.models import Constant, VINode, VIProperties, VIStructure
 from ..models import FPTerminal
 from ..structure import get_project_members, parse_lvproj
 from .model import (
@@ -436,11 +436,13 @@ def project_vi_facts(
     )
     qualified_name = vnode.qualified_name if isinstance(vnode, VINode) else None
 
-    # User-settable VI Properties, straight from VIMetadata (intrinsic to
-    # this VI's own bytes -- unlike ``library``/``owning_class`` above, which
-    # resolve via ownership edges to OTHER files).
-    vi_meta = graph._vi_metadata.get(vi_name)
-    properties = vi_meta.properties if vi_meta is not None else VIProperties()
+    # VI Properties + VIStructure, straight from the graph's sibling
+    # _vi_properties/_vi_structure facets (intrinsic to this VI's own
+    # bytes -- unlike ``library``/``owning_class`` above, which resolve via
+    # ownership edges to OTHER files). Neither is a VIMetadata field -- see
+    # graph/core.py's _vi_properties/_vi_structure.
+    properties = graph._vi_properties.get(vi_name, VIProperties())
+    structure = graph._vi_structure.get(vi_name, VIStructure())
 
     terminals: list[TerminalFact] = []
     type_use_keys: set[str] = set()
@@ -534,12 +536,62 @@ def project_vi_facts(
         class_fact=class_fact,
         impact_score=0,  # filled at merge time
         lv_version=properties.lv_version,
-        lock_state=properties.lock_state.value,
-        reentrant=properties.reentrant,
-        execution_priority=properties.execution_priority,
-        preferred_exec_system=properties.preferred_exec_system,
-        is_system_vi=properties.is_system_vi,
         vi_type=properties.vi_type,
+        lock_state=properties.lock_state.value,
+        exec_reentrant=properties.execution.reentrant,
+        exec_reentrancy_pooled=properties.execution.reentrancy_pooled,
+        exec_priority=properties.execution.priority,
+        exec_preferred_system=properties.execution.preferred_system,
+        exec_is_subroutine=properties.execution.is_subroutine,
+        exec_run_when_opened=properties.execution.run_when_opened,
+        exec_show_fp_when_loaded=properties.execution.show_fp_when_loaded,
+        exec_show_fp_when_called=properties.execution.show_fp_when_called,
+        exec_close_fp_after_call=properties.execution.close_fp_after_call,
+        exec_auto_preallocate_arrays=(
+            properties.execution.auto_preallocate_arrays
+        ),
+        exec_inline=properties.execution.inline,
+        exec_inlinable=properties.execution.inlinable,
+        exec_auto_error_handling=properties.execution.auto_error_handling,
+        exec_allow_debugging=properties.execution.allow_debugging,
+        exec_always_calls_parent=properties.execution.always_calls_parent,
+        exec_print_after_exec=properties.execution.print_after_exec,
+        window_show_title_bar=properties.window.show_title_bar,
+        window_show_menu_bar=properties.window.show_menu_bar,
+        window_show_toolbar=properties.window.show_toolbar,
+        window_show_scrollbar=properties.window.show_scrollbar,
+        window_auto_center=properties.window.auto_center,
+        window_size_to_screen=properties.window.size_to_screen,
+        window_no_runtime_popup_menu=properties.window.no_runtime_popup_menu,
+        window_scale_with_window=properties.window.scale_with_window,
+        window_mark_return_button=properties.window.mark_return_button,
+        window_auto_handle_menus=properties.window.auto_handle_menus,
+        window_can_close=properties.window.can_close,
+        window_can_resize=properties.window.can_resize,
+        window_can_minimize=properties.window.can_minimize,
+        window_transparent=properties.window.transparent,
+        toolbar_hide_run_button=properties.toolbar.hide_run_button,
+        toolbar_hide_abort_button=properties.toolbar.hide_abort_button,
+        toolbar_hide_free_run_button=properties.toolbar.hide_free_run_button,
+        instance_is_system_vi=properties.instance.is_system_vi,
+        instance_show_poly_selector=properties.instance.show_poly_selector,
+        instance_hide_instance_caption=(
+            properties.instance.hide_instance_caption
+        ),
+        instance_draw_instance_icon=properties.instance.draw_instance_icon,
+        instance_remote_panel=properties.instance.remote_panel,
+        struct_is_typedef=structure.is_typedef,
+        struct_is_strict_typedef=structure.is_strict_typedef,
+        struct_dynamic_dispatch=structure.dynamic_dispatch,
+        struct_source_only=structure.source_only,
+        struct_has_no_block_diagram=structure.has_no_block_diagram,
+        struct_is_instance_vi=structure.is_instance_vi,
+        struct_bad_node=structure.bad_node,
+        struct_bad_subvi=structure.bad_subvi,
+        struct_bad_subvi_link=structure.bad_subvi_link,
+        struct_bad_compile=structure.bad_compile,
+        struct_broken_poly=structure.broken_poly,
+        struct_is_broken=structure.is_broken,
     )
 
 

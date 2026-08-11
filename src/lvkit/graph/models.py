@@ -420,26 +420,130 @@ class LockState(Enum):
 
 
 @dataclass
-class VIProperties:
-    """User-settable VI Properties read from the main XML's ``<LVSR>`` block.
+class ExecutionProps:
+    """VI Properties -> Execution page, from ``<Execution>`` unless noted.
 
-    Cosmetic window-appearance/behavior/toolbar flags (FrontPanel/Flags12/
-    ButtonsHidden) are a deferred follow-up -- deliberately NOT captured here.
+    ``inline``/``inlinable``/``auto_error_handling``/``always_calls_parent``
+    come from ``<Execution2>``; ``allow_debugging``/``print_after_exec`` come
+    from ``<Instrument>`` (verified against a real extracted main .xml).
+    """
+
+    reentrant: bool = False  # IsReentrant
+    reentrancy_pooled: bool = False  # PooledReentrancy
+    priority: int | None = None  # Priority
+    preferred_system: int | None = None  # PrefExecSyst
+    is_subroutine: bool = False  # IsSubroutine
+    run_when_opened: bool = False  # RunOnOpen
+    show_fp_when_loaded: bool = False  # ShowFPOnLoad
+    show_fp_when_called: bool = False  # ShowFPOnCall
+    close_fp_after_call: bool = False  # CloseAfterCall
+    auto_preallocate_arrays: bool = False  # AllowAutoPrealloc
+    inline: bool = False  # ShouldInline (<Execution2>)
+    inlinable: bool = False  # InlinableDiagram (<Execution2>)
+    auto_error_handling: bool = False  # DefaultErrorHandling (<Execution2>)
+    allow_debugging: bool = False  # DebugCapable (<Instrument>)
+    always_calls_parent: bool = False  # AlwaysCallsParent (<Execution2>)
+    print_after_exec: bool = False  # PrintAfterExec (<Instrument>)
+
+
+@dataclass
+class WindowProps:
+    """VI Properties -> Window Appearance, from ``<FrontPanel>`` unless
+    noted. ``auto_handle_menus`` comes from ``<Flags0C>``; the
+    ``can_*``/``transparent`` fields come from ``<Flags12>``.
+    """
+
+    show_title_bar: bool = False  # ShowTitleBar
+    show_menu_bar: bool = False  # ShowMenuBar
+    show_toolbar: bool = False  # ToolBarVisible
+    show_scrollbar: int | None = None  # ShowScrollBar (raw bitmask, verbatim)
+    auto_center: bool = False  # AutoCenter
+    size_to_screen: bool = False  # SizeToScreen
+    no_runtime_popup_menu: bool = False  # NoRuntimePopUp
+    scale_with_window: bool = False  # ScaleProportn
+    mark_return_button: bool = False  # MarkReturnBtn
+    auto_handle_menus: bool = False  # AutoHndlMenus (<Flags0C>)
+    can_close: bool = False  # WndCanClose (<Flags12>)
+    can_resize: bool = False  # WndCanResize (<Flags12>)
+    can_minimize: bool = False  # WndCanMinimize (<Flags12>)
+    transparent: bool = False  # WndTransparent (<Flags12>)
+
+
+@dataclass
+class ToolbarProps:
+    """VI Properties -> Window Appearance -> hidden toolbar buttons, from
+    ``<ButtonsHidden>``. Only the three NAMED attributes -- the rest of
+    ``<ButtonsHidden>`` is unnamed ``ViBhBitN`` heap bits, deliberately
+    skipped (see ``VIProperties`` docstring).
+    """
+
+    hide_run_button: bool = False  # RunButton
+    hide_abort_button: bool = False  # AbortButton
+    hide_free_run_button: bool = False  # FreeRunButton
+
+
+@dataclass
+class InstanceProps:
+    """VI Properties instance/poly-VI flags, from ``<Execution2>``."""
+
+    is_system_vi: bool = False  # SystemVI
+    show_poly_selector: bool = False  # ShowPolySelector
+    hide_instance_caption: bool = False  # HideInstanceVICaption
+    draw_instance_icon: bool = False  # DrawInstanceIcon
+    remote_panel: bool = False  # RemotePanel
+
+
+@dataclass
+class VIStructure:
+    """VI kind + compile-health flags, from ``<Execution>`` unless noted.
+
+    NOT a user-settable VI Property (it is the VI's structural/health
+    STATE, not a dialog setting a user picks) -- so this is its own graph
+    facet (``InMemoryVIGraph._vi_structure`` / ``VIContext.structure``),
+    a SIBLING to ``VIProperties``, never nested inside it.
+    """
+
+    is_typedef: bool = False  # TypeDefVI
+    is_strict_typedef: bool = False  # StrictTypeDefVI
+    dynamic_dispatch: bool = False  # DynamicDispatch
+    source_only: bool = False  # SourceOnly (<Execution2>)
+    has_no_block_diagram: bool = False  # HasNoBD
+    is_instance_vi: bool = False  # InstanceVI (<Execution2>)
+    bad_node: bool = False  # BadNode
+    bad_subvi: bool = False  # BadSubVI
+    bad_subvi_link: bool = False  # BadSubVILink
+    bad_compile: bool = False  # BadCompile
+    broken_poly: bool = False  # BrokenPolyVI
+
+    @property
+    def is_broken(self) -> bool:
+        return any([
+            self.bad_node, self.bad_subvi, self.bad_subvi_link,
+            self.bad_compile, self.broken_poly,
+        ])
+
+
+@dataclass
+class VIProperties:
+    """VI Properties dialog settings read from the main XML's ``<LVSR>``
+    block -- comprehensive named flags, grouped to match the dialog's own
+    pages. Only unnamed heap bits (``ViBhBitN``/``InStBitN``/``ViFpBitN``/
+    ``WndBitN``/``WndFloatUnk*``) and opaque transient masks (``*Mask``/
+    ``UndoRedo*``/watermarks/``State``) are excluded.
+
+    VI kind/compile-health (``VIStructure``) is NOT a field here -- it is a
+    sibling facet, see ``VIStructure``'s docstring.
     """
 
     # "Major.Minor.Bugfix", e.g. "21.0.0" -- from <Version Major Minor Bugfix>.
     lv_version: str | None = None
-    lock_state: LockState = LockState.UNLOCKED
-    # <Execution IsReentrant="0|1">
-    reentrant: bool = False
-    # <Execution Priority="N">
-    execution_priority: int | None = None
-    # <Execution PrefExecSyst="N">
-    preferred_exec_system: int | None = None
-    # <Execution2 SystemVI="0|1">
-    is_system_vi: bool = False
     # <Instrument Type="..."> verbatim (e.g. "Control")
     vi_type: str | None = None
+    lock_state: LockState = LockState.UNLOCKED
+    execution: ExecutionProps = field(default_factory=ExecutionProps)
+    window: WindowProps = field(default_factory=WindowProps)
+    toolbar: ToolbarProps = field(default_factory=ToolbarProps)
+    instance: InstanceProps = field(default_factory=InstanceProps)
 
 
 class VIContext(BaseModel):
@@ -461,6 +565,9 @@ class VIContext(BaseModel):
     poly_variants: list[str] = []
     # User-settable VI Properties (Protection/Execution/…) from <LVSR>.
     properties: VIProperties = VIProperties()
+    # VI kind + compile-health (structural state, not a user setting) --
+    # a SIBLING facet to ``properties``, never nested inside it.
+    structure: VIStructure = VIStructure()
 
 
 # ============================================================
@@ -479,7 +586,11 @@ class PolyInfo:
 
 @dataclass
 class VIMetadata:
-    """VI metadata from main XML."""
+    """VI metadata from main XML -- IDENTITY only (library/qualified_name/
+    owning_libraries/description). VI Properties/VIStructure are separate,
+    sibling name-keyed facets on the graph (``_vi_properties``/
+    ``_vi_structure``), NOT fields here -- see ``InMemoryVIGraph.__init__``.
+    """
 
     library: str | None = None
     qualified_name: str | None = None
@@ -488,8 +599,6 @@ class VIMetadata:
     owning_libraries: list[str] = field(default_factory=list)
     # The VI's own documentation text (STRG/DSTM), shown in the hover help box.
     description: str | None = None
-    # User-settable VI Properties (Protection/Execution/…) from <LVSR>.
-    properties: VIProperties = field(default_factory=VIProperties)
 
 
 # ============================================================

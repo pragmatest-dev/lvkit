@@ -170,20 +170,77 @@ class VIFacts:
     library: str | None = None
     is_stub: bool = False
     content_sha: str = ""
-    # User-settable VI Properties (Protection/Execution/…) from the VI's own
-    # <LVSR> block -- intrinsic to its bytes, like terminals/constants (never
-    # coalesced across a partial re-save; see store.save()).
-    # lv_version: "Major.Minor.Bugfix", e.g. "21.0.0", or None if absent.
+    # VI Properties (Protection/Execution/Window/…) from the VI's own <LVSR>
+    # block -- intrinsic to its bytes, like terminals/constants (never
+    # coalesced across a partial re-save; see store.save()). Flattened from
+    # graph.models.VIProperties's grouped sub-structs (plus the sibling
+    # VIStructure facet's struct_* columns below) with a group-prefixed
+    # column per field -- a WIDE table is intended, every flag queryable
+    # (e.g. ``query vi WHERE struct_has_no_block_diagram=1``).
+    # "Major.Minor.Bugfix", e.g. "21.0.0", or None if absent.
     lv_version: str | None = None
-    # lock_state: one of graph.models.LockState's values ("unlocked" /
-    # "locked" / "password_protected") -- kept a plain string here (this
-    # module is deliberately Pydantic/LVType-free, see the module docstring).
-    lock_state: str = "unlocked"
-    reentrant: bool = False
-    execution_priority: int | None = None
-    preferred_exec_system: int | None = None
-    is_system_vi: bool = False
     vi_type: str | None = None  # <Instrument Type="..."> verbatim
+    # One of graph.models.LockState's values ("unlocked" / "locked" /
+    # "password_protected") -- kept a plain string here (this module is
+    # deliberately Pydantic/LVType-free, see the module docstring).
+    lock_state: str = "unlocked"
+    # exec_* <- graph.models.ExecutionProps
+    exec_reentrant: bool = False
+    exec_reentrancy_pooled: bool = False
+    exec_priority: int | None = None
+    exec_preferred_system: int | None = None
+    exec_is_subroutine: bool = False
+    exec_run_when_opened: bool = False
+    exec_show_fp_when_loaded: bool = False
+    exec_show_fp_when_called: bool = False
+    exec_close_fp_after_call: bool = False
+    exec_auto_preallocate_arrays: bool = False
+    exec_inline: bool = False
+    exec_inlinable: bool = False
+    exec_auto_error_handling: bool = False
+    exec_allow_debugging: bool = False
+    exec_always_calls_parent: bool = False
+    exec_print_after_exec: bool = False
+    # window_* <- graph.models.WindowProps
+    window_show_title_bar: bool = False
+    window_show_menu_bar: bool = False
+    window_show_toolbar: bool = False
+    window_show_scrollbar: int | None = None
+    window_auto_center: bool = False
+    window_size_to_screen: bool = False
+    window_no_runtime_popup_menu: bool = False
+    window_scale_with_window: bool = False
+    window_mark_return_button: bool = False
+    window_auto_handle_menus: bool = False
+    window_can_close: bool = False
+    window_can_resize: bool = False
+    window_can_minimize: bool = False
+    window_transparent: bool = False
+    # toolbar_* <- graph.models.ToolbarProps
+    toolbar_hide_run_button: bool = False
+    toolbar_hide_abort_button: bool = False
+    toolbar_hide_free_run_button: bool = False
+    # instance_* <- graph.models.InstanceProps
+    instance_is_system_vi: bool = False
+    instance_show_poly_selector: bool = False
+    instance_hide_instance_caption: bool = False
+    instance_draw_instance_icon: bool = False
+    instance_remote_panel: bool = False
+    # struct_* <- graph.models.VIStructure (VI kind + compile-health -- a
+    # SIBLING facet to VIProperties, never nested under it: structural
+    # state, not a user-settable property. See graph._vi_structure.)
+    struct_is_typedef: bool = False
+    struct_is_strict_typedef: bool = False
+    struct_dynamic_dispatch: bool = False
+    struct_source_only: bool = False
+    struct_has_no_block_diagram: bool = False
+    struct_is_instance_vi: bool = False
+    struct_bad_node: bool = False
+    struct_bad_subvi: bool = False
+    struct_bad_subvi_link: bool = False
+    struct_bad_compile: bool = False
+    struct_broken_poly: bool = False
+    struct_is_broken: bool = False  # VIStructure.is_broken, precomputed
     terminals: list[TerminalFact] = field(default_factory=list)
     constants: list[ConstantFact] = field(default_factory=list)
     calls: list[str] = field(default_factory=list)  # callee qualified-name keys

@@ -29,6 +29,8 @@ from .models import (
     StructureNode,
     VIMetadata,
     VINode,
+    VIProperties,
+    VIStructure,
     WireEnd,
 )
 from .models import (
@@ -175,8 +177,16 @@ class InMemoryVIGraph(
         # name even under a MINIMAL load that never walks the SubVI tree.
         self._search_paths: list[Path] = []
         self._vi_file_index: dict[str, Path] | None = None  # lazy name -> path
-        # VI metadata
+        # VI metadata (identity only -- library/qualified_name/owning_libraries/
+        # description). Sibling name-keyed facet dicts below carry the rest.
         self._vi_metadata: dict[str, VIMetadata] = {}
+        # VI Properties (Protection/Execution/Window/…) from <LVSR>, keyed by
+        # vi_name -- a sibling facet to _vi_metadata, NOT a VIMetadata field
+        # (see VIMetadata's docstring: identity only).
+        self._vi_properties: dict[str, VIProperties] = {}
+        # VI kind + compile-health (structural state, not a user setting) --
+        # a SIBLING facet to _vi_properties, never nested inside it.
+        self._vi_structure: dict[str, VIStructure] = {}
         # Optional disk roots for <vilib> / <userlib> path token resolution
         self._vilib_root: Path | None = None
         self._userlib_root: Path | None = None
@@ -235,6 +245,8 @@ class InMemoryVIGraph(
         self._search_paths = []
         self._vi_file_index = None
         self._vi_metadata.clear()
+        self._vi_properties.clear()
+        self._vi_structure.clear()
         self._layouts.clear()
         self._parse_cache = None
 

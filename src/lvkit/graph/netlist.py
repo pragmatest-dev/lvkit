@@ -26,6 +26,7 @@ port interface, declared once (see ``_build_components``), alongside
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import asdict as _dataclass_asdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -43,7 +44,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
-from .models import Constant, VIContext, VIProperties, WireEnd
+from .models import Constant, VIContext, VIProperties, VIStructure, WireEnd
 from .op_walk import (
     ComponentPort,
     _const_value_str,
@@ -216,6 +217,10 @@ class NetlistModule:
     # NOT rendered by ``render_netlist``'s ASCII text -- ``describe.py`` has
     # its own faithful ``## Properties`` section.
     properties: VIProperties = field(default_factory=VIProperties)
+    # VI kind + compile-health -- a SIBLING facet to ``properties``, never
+    # nested inside it (structural state, not a user setting). Same
+    # netlist_to_dict-only carry-through as ``properties`` above.
+    structure: VIStructure = field(default_factory=VIStructure)
 
 
 # ============================================================
@@ -887,6 +892,7 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     return NetlistModule(
         vi_name=vi_name, inputs=inputs, outputs=outputs, body=body,
         components=components, properties=ctx.properties,
+        structure=ctx.structure,
     )
 
 
@@ -1105,15 +1111,30 @@ def _component_to_dict(comp: NetlistComponent) -> dict[str, Any]:
 
 
 def _properties_to_dict(props: VIProperties) -> dict[str, Any]:
+    """Full nested VI-Properties structure -- every group, every field.
+
+    ``execution``/``window``/``toolbar``/``instance`` are plain dataclasses
+    with no nested Enum/dataclass fields of their own, so ``asdict`` is a
+    faithful, lossless conversion. ``lock_state`` is the one Enum field,
+    unwrapped to its string value.
+    """
     return {
         "lv_version": props.lv_version,
-        "lock_state": props.lock_state.value,
-        "reentrant": props.reentrant,
-        "execution_priority": props.execution_priority,
-        "preferred_exec_system": props.preferred_exec_system,
-        "is_system_vi": props.is_system_vi,
         "vi_type": props.vi_type,
+        "lock_state": props.lock_state.value,
+        "execution": _dataclass_asdict(props.execution),
+        "window": _dataclass_asdict(props.window),
+        "toolbar": _dataclass_asdict(props.toolbar),
+        "instance": _dataclass_asdict(props.instance),
     }
+
+
+def _structure_to_dict(struct: VIStructure) -> dict[str, Any]:
+    """Full ``VIStructure`` dict, incl. the derived ``is_broken`` property
+    (not a dataclass field, so ``asdict`` alone would omit it)."""
+    d = _dataclass_asdict(struct)
+    d["is_broken"] = struct.is_broken
+    return d
 
 
 def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
@@ -1157,6 +1178,7 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
         "components": [_component_to_dict(c) for c in module.components],
         "body": [_item_to_dict(i) for i in module.body],
         "properties": _properties_to_dict(module.properties),
+        "structure": _structure_to_dict(module.structure),
     }
 
 

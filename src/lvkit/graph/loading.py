@@ -11,7 +11,7 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import networkx as nx
 
@@ -39,7 +39,17 @@ from ..structure import (
     parse_lvproj,
     private_data_field_to_cluster_field,
 )
-from .models import LockState, PolyInfo, VIMetadata, VIProperties
+from .models import (
+    ExecutionProps,
+    InstanceProps,
+    LockState,
+    PolyInfo,
+    ToolbarProps,
+    VIMetadata,
+    VIProperties,
+    VIStructure,
+    WindowProps,
+)
 from .op_walk import stamp_nmux_lane_names
 from .parallel_parse import PARALLEL_THRESHOLD, parallel_parse_directory
 
@@ -75,6 +85,46 @@ def _case_insensitive_match(directory: Path, filename: str) -> Path | None:
     except OSError:
         return None
     return None
+
+
+def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
+    """Build the typed ``VIProperties`` facet from ``parse_vi_metadata``'s
+    plain nested dict-of-dicts (``lvsr._parse_lvsr_properties`` output,
+    merged into the same dict returned by ``parse_vi_metadata``).
+
+    The parser layer never imports graph models (see graph/models.py's
+    module docstring), so it returns plain str/bool/int -- this is the one
+    place that wraps them into the typed dataclasses/``LockState`` enum.
+    """
+    execution = cast("dict[str, Any]", poly_metadata.get("execution", {}))
+    window = cast("dict[str, Any]", poly_metadata.get("window", {}))
+    toolbar = cast("dict[str, Any]", poly_metadata.get("toolbar", {}))
+    instance = cast("dict[str, Any]", poly_metadata.get("instance", {}))
+    return VIProperties(
+        lv_version=cast("str | None", poly_metadata.get("lv_version")),
+        vi_type=cast("str | None", poly_metadata.get("vi_type")),
+        lock_state=LockState(
+            poly_metadata.get("lock_state", LockState.UNLOCKED.value)
+        ),
+        execution=ExecutionProps(**execution),
+        window=WindowProps(**window),
+        toolbar=ToolbarProps(**toolbar),
+        instance=InstanceProps(**instance),
+    )
+
+
+def _build_vi_structure(poly_metadata: dict[str, Any]) -> VIStructure:
+    """Build the typed ``VIStructure`` facet (VI kind + compile-health) --
+    a SIBLING facet to ``VIProperties``, never nested inside it (structural
+    state, not a user-settable property).
+
+    Sourced from the same ``parse_vi_metadata``/``_parse_lvsr_properties``
+    nested dict as ``_build_vi_properties``, under its ``"code"`` key --
+    the parser's own key name, unchanged (the parser cannot import graph
+    models, so it does not know this is now a separate graph facet).
+    """
+    code = cast("dict[str, Any]", poly_metadata.get("code", {}))
+    return VIStructure(**code)
 
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
@@ -124,6 +174,8 @@ class LoadingMixin:
     _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
+    _vi_properties: dict[str, VIProperties]
+    _vi_structure: dict[str, VIStructure]
     _vilib_root: Path | None
     _userlib_root: Path | None
     _layouts: dict[str, Layout]
@@ -738,20 +790,9 @@ class LoadingMixin:
                 qualified_name=poly_metadata.get("qualified_name"),
                 owning_libraries=poly_metadata.get("owning_libraries", []),
                 description=poly_metadata.get("description"),
-                properties=VIProperties(
-                    lv_version=poly_metadata.get("lv_version"),
-                    lock_state=LockState(
-                        poly_metadata.get("lock_state", LockState.UNLOCKED.value)
-                    ),
-                    reentrant=poly_metadata.get("reentrant", False),
-                    execution_priority=poly_metadata.get("execution_priority"),
-                    preferred_exec_system=poly_metadata.get(
-                        "preferred_exec_system"
-                    ),
-                    is_system_vi=poly_metadata.get("is_system_vi", False),
-                    vi_type=poly_metadata.get("vi_type"),
-                ),
             )
+            self._vi_properties[vi_name] = _build_vi_properties(poly_metadata)
+            self._vi_structure[vi_name] = _build_vi_structure(poly_metadata)
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)

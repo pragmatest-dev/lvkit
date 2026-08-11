@@ -96,17 +96,102 @@ VIEWS: dict[str, _View] = {
             "silently misfires).",
             "lv_version": "LabVIEW version the VI was saved with, "
             "'Major.Minor.Bugfix' (e.g. '21.0.0'), or NULL if absent",
-            "lock_state": "VI Properties -> Protection: 'unlocked', 'locked', "
-            "or 'password_protected'",
-            "reentrant": "1 if VI Properties -> Execution 'Reentrant execution' "
-            "is enabled",
-            "execution_priority": "VI Properties -> Execution priority code "
-            "(the LVSR Execution Priority attribute), or NULL if unset",
-            "preferred_exec_system": "VI Properties -> Execution preferred "
-            "execution system code, or NULL if unset",
-            "is_system_vi": "1 if flagged as a LabVIEW system VI",
             "vi_type": "VI kind from the Instrument record (e.g. 'Control'), "
             "or NULL",
+            "lock_state": "VI Properties -> Protection: 'unlocked', 'locked', "
+            "or 'password_protected'",
+            # -- exec_* : VI Properties -> Execution -------------------------
+            "exec_reentrant": "1 if VI Properties -> Execution 'Reentrant "
+            "execution' is enabled",
+            "exec_reentrancy_pooled": "1 if reentrant execution uses a shared "
+            "clone pool (vs. a preallocated clone per caller)",
+            "exec_priority": "Execution priority code (LVSR Priority "
+            "attribute), or NULL if unset",
+            "exec_preferred_system": "Execution preferred execution system "
+            "code (LVSR PrefExecSyst), or NULL if unset",
+            "exec_is_subroutine": "1 if VI Properties -> Execution priority "
+            "is 'subroutine'",
+            "exec_run_when_opened": "1 if 'Run when opened' is enabled",
+            "exec_show_fp_when_loaded": "1 if the front panel shows when the "
+            "VI is loaded into memory",
+            "exec_show_fp_when_called": "1 if the front panel shows when the "
+            "VI is called as a subVI",
+            "exec_close_fp_after_call": "1 if the front panel closes "
+            "afterwards when called as a subVI",
+            "exec_auto_preallocate_arrays": "1 if 'Auto handle array/string "
+            "resizing at subVI boundary' is enabled",
+            "exec_inline": "1 if the VI is set to inline into its callers",
+            "exec_inlinable": "1 if the block diagram is eligible for inlining",
+            "exec_auto_error_handling": "1 if automatic error handling is "
+            "enabled for this VI",
+            "exec_allow_debugging": "1 if 'Allow debugging' is enabled",
+            "exec_always_calls_parent": "1 if a dynamic-dispatch override "
+            "always calls its parent implementation first",
+            "exec_print_after_exec": "1 if 'Print panel after execution' is "
+            "enabled",
+            # -- window_* : VI Properties -> Window Appearance ---------------
+            "window_show_title_bar": "1 if the front panel window shows a "
+            "title bar",
+            "window_show_menu_bar": "1 if the front panel window shows a "
+            "menu bar",
+            "window_show_toolbar": "1 if the front panel window shows a "
+            "toolbar",
+            "window_show_scrollbar": "raw ShowScrollBar bitmask, verbatim, "
+            "or NULL if unset",
+            "window_auto_center": "1 if the front panel window auto-centers "
+            "on screen",
+            "window_size_to_screen": "1 if the front panel window auto-sizes "
+            "to the screen",
+            "window_no_runtime_popup_menu": "1 if the runtime shortcut menu "
+            "is disabled",
+            "window_scale_with_window": "1 if front-panel objects scale with "
+            "the window",
+            "window_mark_return_button": "1 if the default Enter/Return "
+            "button is highlighted",
+            "window_auto_handle_menus": "1 if the VI auto-handles its own "
+            "menu selections",
+            "window_can_close": "1 if the window's close button is enabled",
+            "window_can_resize": "1 if the window is user-resizable",
+            "window_can_minimize": "1 if the window's minimize button is "
+            "enabled",
+            "window_transparent": "1 if the window is drawn transparent",
+            # -- toolbar_* : hidden toolbar buttons ---------------------------
+            "toolbar_hide_run_button": "1 if the Run button is hidden",
+            "toolbar_hide_abort_button": "1 if the Abort button is hidden",
+            "toolbar_hide_free_run_button": "1 if the Run Continuously "
+            "button is hidden",
+            # -- instance_* : instance / poly-VI flags ------------------------
+            "instance_is_system_vi": "1 if flagged as a LabVIEW system VI",
+            "instance_show_poly_selector": "1 if a polymorphic VI shows its "
+            "instance selector",
+            "instance_hide_instance_caption": "1 if a poly-VI instance hides "
+            "its caption",
+            "instance_draw_instance_icon": "1 if a poly-VI instance draws its "
+            "own icon",
+            "instance_remote_panel": "1 if front-panel remote access is "
+            "enabled",
+            # -- struct_* : VI kind + compile health (VIStructure -- a facet
+            # SIBLING to VI Properties above, never nested under it) --------
+            "struct_is_typedef": "1 if this is a type-definition control/VI",
+            "struct_is_strict_typedef": "1 if this is a STRICT "
+            "type-definition control/VI",
+            "struct_dynamic_dispatch": "1 if this VI participates in "
+            "dynamic dispatch (a class method override point)",
+            "struct_source_only": "1 if the VI is source-only/separate "
+            "compiled code (no cached object code saved)",
+            "struct_has_no_block_diagram": "1 if the block diagram was "
+            "stripped (a run-only distribution build)",
+            "struct_is_instance_vi": "1 if this is a generated poly-VI "
+            "instance, not the poly wrapper itself",
+            "struct_bad_node": "1 if the VI has a broken node",
+            "struct_bad_subvi": "1 if the VI calls a broken subVI",
+            "struct_bad_subvi_link": "1 if a subVI call link is broken "
+            "(unresolved)",
+            "struct_bad_compile": "1 if the VI failed to compile",
+            "struct_broken_poly": "1 if a polymorphic VI has a broken variant",
+            "struct_is_broken": "1 if ANY of struct_bad_node/struct_bad_subvi/"
+            "struct_bad_subvi_link/struct_bad_compile/struct_broken_poly is "
+            "set (precomputed OR of the five)",
         },
     ),
     "terminal": _View(

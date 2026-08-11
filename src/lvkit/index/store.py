@@ -34,6 +34,7 @@ import json
 import sqlite3
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any, cast
 
 from .. import cache_paths
 from .model import (
@@ -55,12 +56,58 @@ CREATE TABLE IF NOT EXISTS vis (
     impact_score INTEGER NOT NULL DEFAULT 0,
     callers_count INTEGER NOT NULL DEFAULT 0,
     lv_version TEXT,
+    vi_type TEXT,
     lock_state TEXT NOT NULL DEFAULT 'unlocked',
-    reentrant INTEGER NOT NULL DEFAULT 0,
-    execution_priority INTEGER,
-    preferred_exec_system INTEGER,
-    is_system_vi INTEGER NOT NULL DEFAULT 0,
-    vi_type TEXT
+    exec_reentrant INTEGER NOT NULL DEFAULT 0,
+    exec_reentrancy_pooled INTEGER NOT NULL DEFAULT 0,
+    exec_priority INTEGER,
+    exec_preferred_system INTEGER,
+    exec_is_subroutine INTEGER NOT NULL DEFAULT 0,
+    exec_run_when_opened INTEGER NOT NULL DEFAULT 0,
+    exec_show_fp_when_loaded INTEGER NOT NULL DEFAULT 0,
+    exec_show_fp_when_called INTEGER NOT NULL DEFAULT 0,
+    exec_close_fp_after_call INTEGER NOT NULL DEFAULT 0,
+    exec_auto_preallocate_arrays INTEGER NOT NULL DEFAULT 0,
+    exec_inline INTEGER NOT NULL DEFAULT 0,
+    exec_inlinable INTEGER NOT NULL DEFAULT 0,
+    exec_auto_error_handling INTEGER NOT NULL DEFAULT 0,
+    exec_allow_debugging INTEGER NOT NULL DEFAULT 0,
+    exec_always_calls_parent INTEGER NOT NULL DEFAULT 0,
+    exec_print_after_exec INTEGER NOT NULL DEFAULT 0,
+    window_show_title_bar INTEGER NOT NULL DEFAULT 0,
+    window_show_menu_bar INTEGER NOT NULL DEFAULT 0,
+    window_show_toolbar INTEGER NOT NULL DEFAULT 0,
+    window_show_scrollbar INTEGER,
+    window_auto_center INTEGER NOT NULL DEFAULT 0,
+    window_size_to_screen INTEGER NOT NULL DEFAULT 0,
+    window_no_runtime_popup_menu INTEGER NOT NULL DEFAULT 0,
+    window_scale_with_window INTEGER NOT NULL DEFAULT 0,
+    window_mark_return_button INTEGER NOT NULL DEFAULT 0,
+    window_auto_handle_menus INTEGER NOT NULL DEFAULT 0,
+    window_can_close INTEGER NOT NULL DEFAULT 0,
+    window_can_resize INTEGER NOT NULL DEFAULT 0,
+    window_can_minimize INTEGER NOT NULL DEFAULT 0,
+    window_transparent INTEGER NOT NULL DEFAULT 0,
+    toolbar_hide_run_button INTEGER NOT NULL DEFAULT 0,
+    toolbar_hide_abort_button INTEGER NOT NULL DEFAULT 0,
+    toolbar_hide_free_run_button INTEGER NOT NULL DEFAULT 0,
+    instance_is_system_vi INTEGER NOT NULL DEFAULT 0,
+    instance_show_poly_selector INTEGER NOT NULL DEFAULT 0,
+    instance_hide_instance_caption INTEGER NOT NULL DEFAULT 0,
+    instance_draw_instance_icon INTEGER NOT NULL DEFAULT 0,
+    instance_remote_panel INTEGER NOT NULL DEFAULT 0,
+    struct_is_typedef INTEGER NOT NULL DEFAULT 0,
+    struct_is_strict_typedef INTEGER NOT NULL DEFAULT 0,
+    struct_dynamic_dispatch INTEGER NOT NULL DEFAULT 0,
+    struct_source_only INTEGER NOT NULL DEFAULT 0,
+    struct_has_no_block_diagram INTEGER NOT NULL DEFAULT 0,
+    struct_is_instance_vi INTEGER NOT NULL DEFAULT 0,
+    struct_bad_node INTEGER NOT NULL DEFAULT 0,
+    struct_bad_subvi INTEGER NOT NULL DEFAULT 0,
+    struct_bad_subvi_link INTEGER NOT NULL DEFAULT 0,
+    struct_bad_compile INTEGER NOT NULL DEFAULT 0,
+    struct_broken_poly INTEGER NOT NULL DEFAULT 0,
+    struct_is_broken INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_vis_name ON vis(name);
 CREATE INDEX IF NOT EXISTS idx_vis_qualified_name ON vis(qualified_name);
@@ -151,6 +198,70 @@ _CHILD_TABLES = ("terminals", "constants", "calls", "type_uses")
 _ALL_TABLES = (
     "vis", "terminals", "constants", "calls", "type_uses", "class_facts",
     "lvproj_members", "meta",
+)
+
+# VIProperties + VIStructure flattened columns on ``vis``: (column_name,
+# is_bool). ``column_name`` is always identical to the matching ``VIFacts``
+# attribute name (see index/model.py) so save()/load() round-trip all 53
+# columns from this single ordered list instead of hand-aligning that many
+# positional slots across the DDL/INSERT/SELECT. The last 12 (``struct_*``)
+# are VIStructure's -- a facet SIBLING to VIProperties, flattened into the
+# same wide ``vis`` row for one-query-per-VI convenience; they are not
+# "properties" of VIProperties itself.
+_FLAT_PROPERTY_COLUMNS: tuple[tuple[str, bool], ...] = (
+    ("lv_version", False),
+    ("vi_type", False),
+    ("lock_state", False),
+    ("exec_reentrant", True),
+    ("exec_reentrancy_pooled", True),
+    ("exec_priority", False),
+    ("exec_preferred_system", False),
+    ("exec_is_subroutine", True),
+    ("exec_run_when_opened", True),
+    ("exec_show_fp_when_loaded", True),
+    ("exec_show_fp_when_called", True),
+    ("exec_close_fp_after_call", True),
+    ("exec_auto_preallocate_arrays", True),
+    ("exec_inline", True),
+    ("exec_inlinable", True),
+    ("exec_auto_error_handling", True),
+    ("exec_allow_debugging", True),
+    ("exec_always_calls_parent", True),
+    ("exec_print_after_exec", True),
+    ("window_show_title_bar", True),
+    ("window_show_menu_bar", True),
+    ("window_show_toolbar", True),
+    ("window_show_scrollbar", False),
+    ("window_auto_center", True),
+    ("window_size_to_screen", True),
+    ("window_no_runtime_popup_menu", True),
+    ("window_scale_with_window", True),
+    ("window_mark_return_button", True),
+    ("window_auto_handle_menus", True),
+    ("window_can_close", True),
+    ("window_can_resize", True),
+    ("window_can_minimize", True),
+    ("window_transparent", True),
+    ("toolbar_hide_run_button", True),
+    ("toolbar_hide_abort_button", True),
+    ("toolbar_hide_free_run_button", True),
+    ("instance_is_system_vi", True),
+    ("instance_show_poly_selector", True),
+    ("instance_hide_instance_caption", True),
+    ("instance_draw_instance_icon", True),
+    ("instance_remote_panel", True),
+    ("struct_is_typedef", True),
+    ("struct_is_strict_typedef", True),
+    ("struct_dynamic_dispatch", True),
+    ("struct_source_only", True),
+    ("struct_has_no_block_diagram", True),
+    ("struct_is_instance_vi", True),
+    ("struct_bad_node", True),
+    ("struct_bad_subvi", True),
+    ("struct_bad_subvi_link", True),
+    ("struct_bad_compile", True),
+    ("struct_broken_poly", True),
+    ("struct_is_broken", True),
 )
 
 
@@ -372,19 +483,23 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                         )
 
                 _delete_vi(conn, f.path)
+                prop_cols = [c for c, _ in _FLAT_PROPERTY_COLUMNS]
+                prop_values = tuple(
+                    int(getattr(f, c)) if is_bool else getattr(f, c)
+                    for c, is_bool in _FLAT_PROPERTY_COLUMNS
+                )
+                base_cols = (
+                    "path", "name", "qualified_name", "library", "is_stub",
+                    "content_sha", "impact_score", "callers_count",
+                )
                 conn.execute(
-                    "INSERT INTO vis(path, name, qualified_name, library, "
-                    "is_stub, content_sha, impact_score, callers_count, "
-                    "lv_version, lock_state, reentrant, execution_priority, "
-                    "preferred_exec_system, is_system_vi, vi_type) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    f"INSERT INTO vis({', '.join(base_cols + tuple(prop_cols))}) "
+                    f"VALUES ({', '.join('?' * (len(base_cols) + len(prop_cols)))})",
                     (
                         f.path, f.name, f.qualified_name, library,
                         int(f.is_stub), f.content_sha, f.impact_score,
-                        f.callers_count, f.lv_version, f.lock_state,
-                        int(f.reentrant), f.execution_priority,
-                        f.preferred_exec_system, int(f.is_system_vi),
-                        f.vi_type,
+                        f.callers_count,
+                        *prop_values,
                     ),
                 )
                 conn.executemany(
@@ -533,11 +648,11 @@ def load(project_root: Path) -> list[VIFacts]:
     """
     conn = _connect(project_root)
     try:
+        prop_cols = [c for c, _ in _FLAT_PROPERTY_COLUMNS]
         vi_rows = conn.execute(
             "SELECT path, name, qualified_name, library, is_stub, "
-            "content_sha, impact_score, callers_count, lv_version, "
-            "lock_state, reentrant, execution_priority, "
-            "preferred_exec_system, is_system_vi, vi_type FROM vis"
+            "content_sha, impact_score, callers_count, "
+            f"{', '.join(prop_cols)} FROM vis"
         ).fetchall()
 
         terminals_by_vi: dict[str, list[TerminalFact]] = {}
@@ -612,12 +727,20 @@ def load(project_root: Path) -> list[VIFacts]:
 
         results: list[VIFacts] = []
         for row in vi_rows:
+            base = row[:8]
             (
                 path, name, qualified_name, library, is_stub, content_sha,
-                impact_score, callers_count, lv_version, lock_state,
-                reentrant, execution_priority, preferred_exec_system,
-                is_system_vi, vi_type,
-            ) = row
+                impact_score, callers_count,
+            ) = base
+            prop_kwargs = cast(
+                "dict[str, Any]",
+                {
+                    col: (bool(value) if is_bool else value)
+                    for (col, is_bool), value in zip(
+                        _FLAT_PROPERTY_COLUMNS, row[8:], strict=True
+                    )
+                },
+            )
             results.append(
                 VIFacts(
                     path=path,
@@ -633,13 +756,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     class_fact=class_fact_by_vi.get(path),
                     impact_score=impact_score,
                     callers_count=callers_count,
-                    lv_version=lv_version,
-                    lock_state=lock_state,
-                    reentrant=bool(reentrant),
-                    execution_priority=execution_priority,
-                    preferred_exec_system=preferred_exec_system,
-                    is_system_vi=bool(is_system_vi),
-                    vi_type=vi_type,
+                    **prop_kwargs,
                 )
             )
         return results

@@ -40,6 +40,8 @@ from .models import (
     VIContext,
     VIMetadata,
     VINode,
+    VIProperties,
+    VIStructure,
     Wire,
     WireEnd,
 )
@@ -65,6 +67,8 @@ class QueryMixin:
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
+    _vi_properties: dict[str, VIProperties]
+    _vi_structure: dict[str, VIStructure]
     _layouts: dict[str, Layout]
     _search_paths: list[Path]
     _vilib_root: Path | None
@@ -898,7 +902,8 @@ class QueryMixin:
             subvi_calls=subvi_calls,
             poly_variants=self.get_poly_variants(vi_name),
             has_parallel_branches=self.has_parallel_branches(vi_name),
-            properties=vi_meta.properties,
+            properties=self._vi_properties.get(vi_name, VIProperties()),
+            structure=self._vi_structure.get(vi_name, VIStructure()),
         )
 
     def get_subvi_calls(self, vi_name: str) -> list[SubVICall]:

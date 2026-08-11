@@ -134,13 +134,30 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     return metadata
 
 
-def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
-    """Parse the user-settable VI Properties lvkit tracks, from ``<LVSR>``.
+def _bool_attr(elem: ET.Element | None, attr: str) -> bool:
+    """``element.get(attr) == "1"`` -- False (default) if elem is None or
+    the attribute is absent, exactly as the VI Properties dialog's own
+    unset-flag default."""
+    return elem is not None and elem.get(attr) == "1"
 
-    Returns plain values (str/bool/int, never an ``Enum``) keyed
-    ``lv_version``/``lock_state``/``reentrant``/``execution_priority``/
-    ``preferred_exec_system``/``is_system_vi``/``vi_type`` -- the graph layer
-    (``graph.loading``) wraps ``lock_state`` into ``graph.models.LockState``.
+
+def _int_attr(elem: ET.Element | None, attr: str) -> int | None:
+    if elem is None:
+        return None
+    value = elem.get(attr)
+    return int(value) if value is not None else None
+
+
+def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
+    """Parse the VI Properties dialog settings lvkit tracks, from ``<LVSR>``.
+
+    Returns PLAIN nested data (dict-of-dicts, never a dataclass/``Enum`` --
+    the parser cannot import ``graph.models``) keyed exactly like
+    ``graph.models.VIProperties``'s sub-structs: ``lv_version``/``vi_type``/
+    ``lock_state`` at the top level, plus nested ``execution``/``window``/
+    ``toolbar``/``instance``/``code`` dicts. The graph layer
+    (``graph.loading``) builds the typed dataclasses from this, wrapping
+    ``lock_state`` into ``graph.models.LockState``.
 
     ``lock_state`` derivation (VI Properties -> Protection, a tri-state):
     read the LVSR ``<Library Protected="0|1">`` (NOT the ``<LIBN>`` owning-
@@ -149,15 +166,21 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     ``Protected=0`` -> unlocked; ``Protected=1`` + no real password ->
     locked; ``Protected=1`` + real password -> password_protected. There is
     no unlocked-with-password state.
+
+    Element paths (verified against a real extracted main .xml -- see
+    ``tests/test_vi_properties.py``): ``Execution``/``Execution2``/
+    ``Instrument``/``FrontPanel``/``ButtonsHidden``/``Flags0C``/``Flags12``
+    are all direct children of ``LVSR/Section``.
     """
     result: dict[str, Any] = {
         "lv_version": None,
-        "lock_state": LOCK_UNLOCKED,
-        "reentrant": False,
-        "execution_priority": None,
-        "preferred_exec_system": None,
-        "is_system_vi": False,
         "vi_type": None,
+        "lock_state": LOCK_UNLOCKED,
+        "execution": {},
+        "window": {},
+        "toolbar": {},
+        "instance": {},
+        "code": {},
     }
 
     version = root.find(".//LVSR/Section/Version")
@@ -167,6 +190,12 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         bugfix = version.get("Bugfix")
         if major is not None and minor is not None and bugfix is not None:
             result["lv_version"] = f"{major}.{minor}.{bugfix}"
+
+    instrument = root.find(".//LVSR/Section/Instrument")
+    if instrument is not None:
+        vi_type = instrument.get("Type")
+        if vi_type:
+            result["vi_type"] = vi_type
 
     # The LVSR <Library> carries Protected= — distinct from the <LIBN>
     # <Library> (bare owning-library name text, no Protected attribute).
@@ -191,24 +220,75 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         result["lock_state"] = LOCK_LOCKED
 
     execution = root.find(".//LVSR/Section/Execution")
-    if execution is not None:
-        result["reentrant"] = execution.get("IsReentrant") == "1"
-        priority = execution.get("Priority")
-        if priority is not None:
-            result["execution_priority"] = int(priority)
-        pref_exec_syst = execution.get("PrefExecSyst")
-        if pref_exec_syst is not None:
-            result["preferred_exec_system"] = int(pref_exec_syst)
-
     execution2 = root.find(".//LVSR/Section/Execution2")
-    if execution2 is not None:
-        result["is_system_vi"] = execution2.get("SystemVI") == "1"
-
     instrument = root.find(".//LVSR/Section/Instrument")
-    if instrument is not None:
-        vi_type = instrument.get("Type")
-        if vi_type:
-            result["vi_type"] = vi_type
+    result["execution"] = {
+        "reentrant": _bool_attr(execution, "IsReentrant"),
+        "reentrancy_pooled": _bool_attr(execution, "PooledReentrancy"),
+        "priority": _int_attr(execution, "Priority"),
+        "preferred_system": _int_attr(execution, "PrefExecSyst"),
+        "is_subroutine": _bool_attr(execution, "IsSubroutine"),
+        "run_when_opened": _bool_attr(execution, "RunOnOpen"),
+        "show_fp_when_loaded": _bool_attr(execution, "ShowFPOnLoad"),
+        "show_fp_when_called": _bool_attr(execution, "ShowFPOnCall"),
+        "close_fp_after_call": _bool_attr(execution, "CloseAfterCall"),
+        "auto_preallocate_arrays": _bool_attr(execution, "AllowAutoPrealloc"),
+        "inline": _bool_attr(execution2, "ShouldInline"),
+        "inlinable": _bool_attr(execution2, "InlinableDiagram"),
+        "auto_error_handling": _bool_attr(execution2, "DefaultErrorHandling"),
+        "allow_debugging": _bool_attr(instrument, "DebugCapable"),
+        "always_calls_parent": _bool_attr(execution2, "AlwaysCallsParent"),
+        "print_after_exec": _bool_attr(instrument, "PrintAfterExec"),
+    }
+
+    front_panel = root.find(".//LVSR/Section/FrontPanel")
+    flags0c = root.find(".//LVSR/Section/Flags0C")
+    flags12 = root.find(".//LVSR/Section/Flags12")
+    result["window"] = {
+        "show_title_bar": _bool_attr(front_panel, "ShowTitleBar"),
+        "show_menu_bar": _bool_attr(front_panel, "ShowMenuBar"),
+        "show_toolbar": _bool_attr(front_panel, "ToolBarVisible"),
+        "show_scrollbar": _int_attr(front_panel, "ShowScrollBar"),
+        "auto_center": _bool_attr(front_panel, "AutoCenter"),
+        "size_to_screen": _bool_attr(front_panel, "SizeToScreen"),
+        "no_runtime_popup_menu": _bool_attr(front_panel, "NoRuntimePopUp"),
+        "scale_with_window": _bool_attr(front_panel, "ScaleProportn"),
+        "mark_return_button": _bool_attr(front_panel, "MarkReturnBtn"),
+        "auto_handle_menus": _bool_attr(flags0c, "AutoHndlMenus"),
+        "can_close": _bool_attr(flags12, "WndCanClose"),
+        "can_resize": _bool_attr(flags12, "WndCanResize"),
+        "can_minimize": _bool_attr(flags12, "WndCanMinimize"),
+        "transparent": _bool_attr(flags12, "WndTransparent"),
+    }
+
+    buttons_hidden = root.find(".//LVSR/Section/ButtonsHidden")
+    result["toolbar"] = {
+        "hide_run_button": _bool_attr(buttons_hidden, "RunButton"),
+        "hide_abort_button": _bool_attr(buttons_hidden, "AbortButton"),
+        "hide_free_run_button": _bool_attr(buttons_hidden, "FreeRunButton"),
+    }
+
+    result["instance"] = {
+        "is_system_vi": _bool_attr(execution2, "SystemVI"),
+        "show_poly_selector": _bool_attr(execution2, "ShowPolySelector"),
+        "hide_instance_caption": _bool_attr(execution2, "HideInstanceVICaption"),
+        "draw_instance_icon": _bool_attr(execution2, "DrawInstanceIcon"),
+        "remote_panel": _bool_attr(execution2, "RemotePanel"),
+    }
+
+    result["code"] = {
+        "is_typedef": _bool_attr(execution, "TypeDefVI"),
+        "is_strict_typedef": _bool_attr(execution, "StrictTypeDefVI"),
+        "dynamic_dispatch": _bool_attr(execution, "DynamicDispatch"),
+        "source_only": _bool_attr(execution2, "SourceOnly"),
+        "has_no_block_diagram": _bool_attr(execution, "HasNoBD"),
+        "is_instance_vi": _bool_attr(execution2, "InstanceVI"),
+        "bad_node": _bool_attr(execution, "BadNode"),
+        "bad_subvi": _bool_attr(execution, "BadSubVI"),
+        "bad_subvi_link": _bool_attr(execution, "BadSubVILink"),
+        "bad_compile": _bool_attr(execution, "BadCompile"),
+        "broken_poly": _bool_attr(execution, "BrokenPolyVI"),
+    }
 
     return result
 
