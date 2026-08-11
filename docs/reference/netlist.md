@@ -90,6 +90,36 @@ VI with no inputs or outputs still prints empty parens:
 VI Tree - string__ogtk.vi () -> ()
 ```
 
+### VI properties & structure header
+
+Directly below the VI signature line, two optional metadata lines carry the
+VI's own settings and its kind/health — the netlist analog of a SPICE
+`.options` block or a Verilog `(* … *)` design attribute. Each prints only
+when it has notable content, so an unlocked, healthy, default VI shows
+neither:
+
+```text
+VITester_Item_Init.vi (Object) -> ()
+properties: lock=password_protected, reentrant
+structure: broken, typedef
+```
+
+- `properties:` — notable VI Properties: `lock=<state>` when the VI isn't
+  `unlocked`, then bare flags for the high-signal settings (`reentrant`,
+  `subroutine`, `run-on-open`, …).
+- `structure:` — set kind/health flags: `broken`, `typedef`,
+  `dynamic-dispatch`, `source-only`, `no-block-diagram`, `instance-vi`.
+
+The header is a high-signal SUMMARY, and deliberately so: the exhaustive set —
+every flag, window cosmetics, numeric execution priority — lives in
+`describe`'s `## Properties` / `## Structure` sections and the JSON
+`get_context`. Keeping the netlist header terse lets [`diff`](diff.md) flag a
+protection/reentrancy/health change on its own gutter line without reprinting
+a VI's entire configuration, and lets the interactive viewer surface the same
+facts as chrome badges. The header draws from the same `VIProperties` /
+`VIStructure` facets those sections do — it is one more rendering of that data,
+carried on the shared `build_netlist` IR, not a separate source.
+
 ### Instance (node) line — node-first, named-port
 
 `name(port=net, port=net) -> outNet, outNet`, or `name(port=net, ...)` when
