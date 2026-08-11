@@ -39,7 +39,19 @@ coordinates) is **exactly what `graph/netlist.py`'s IR already captures** —
 > lvkit** — bare `Queue refnum`, element dropped. Fixed: the VCTP refnum parser
 > now resolves the single nested element and `lv_label` renders it consistently
 > (`Queue refnum{error cluster}`, even nested `EventReg refnum{UserEvent
-> refnum{...}}`). Pre-LV9 CONP refnum elements remain a follow-up.
+> refnum{...}}`).
+>
+> Pre-LV9 CONP was investigated and needs NOTHING here. CONP encodes a refnum's
+> `refkind` (u16): `0x12` = a genuine `Queue` refnum (its descriptor carries no
+> element type — just `"queue"` — so there is no element to render), and `0x1e`
+> = a class-instance refnum whose ENTIRE descriptor string IS the class name.
+> The class name may itself begin with an ordinary word — the JKI corpus has
+> real `TestCase` subclasses literally named `Queue TestCase.lvclass` and
+> `Merge Errors TestCase.lvclass` (verified: `Examples/Queue TestCase/Queue
+> TestCase.lvclass`). These are NOT parametrized `Queue refnum{...}` types and
+> must NOT be split on a leading word — the whole string is the `.lvclass`. The
+> decoder already does this correctly; there is no phantom class and no CONP
+> element gap.
 - **No literal aixml emitter** unless a concrete interop goal appears (feeding
   lvkit output INTO a LabVIEW-AI pipeline). Even then, matching a proprietary
   format reverse-engineered from LabVIEW is a moving, EULA-adjacent target.
