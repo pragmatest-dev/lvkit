@@ -33,6 +33,7 @@ GIT_SETS=(
   "pylabview-full|https://github.com/mefistotelis/pylabview.git|MIT|https://github.com/mefistotelis/pylabview"
   "DCAF-DAQModule|https://github.com/LabVIEW-DCAF/DAQModule.git|Apache-2.0|https://github.com/LabVIEW-DCAF/DAQModule"
   "measurement-plugin-labview|https://github.com/ni/measurement-plugin-labview.git|MIT|https://github.com/ni/measurement-plugin-labview"
+  "ni-labview-icon-editor|https://github.com/ni/labview-icon-editor.git|MIT|https://github.com/ni/labview-icon-editor"
   "lv-flex-channel-examples|https://github.com/illuminated-g/lv-flex-channel-examples.git|MIT|https://github.com/illuminated-g/lv-flex-channel-examples"
   "LabVIEW-OOP-Classes|https://github.com/ismet55555/LabVIEW-OOP-Classes.git|MIT|https://github.com/ismet55555/LabVIEW-OOP-Classes"
 )
