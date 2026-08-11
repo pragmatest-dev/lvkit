@@ -91,7 +91,9 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
     - dco class="lSR" (left shift register): input tunnel
     - dco class="rSR" (right shift register): output tunnel
     - dco class="lpTun" (loop tunnel): simple pass-through
-    - dco class="lMax": accumulator output
+    - dco class="lMax": the For-loop N (iteration-count) INPUT terminal
+      (loopLimitDCO) — NOT an aggregation output; the indexing/accumulator
+      output is an lpTun (see Tunnel.mode)
     - The dco's termList contains [inner_uid, outer_uid]
 
     Args:

@@ -1181,7 +1181,7 @@ class ConstructionMixin:
                     t.index = fake_ti.index
 
     _INPUT_TUNNEL_TYPES = frozenset({
-        "lSR", "lpTun", "caseSel", "seqTun", "flatSeqTun",
+        "lSR", "lMax", "lpTun", "caseSel", "seqTun", "flatSeqTun",
     })
 
     def _build_structure_terminals(

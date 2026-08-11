@@ -357,13 +357,15 @@ class TestTunnelMapping:
         assert tunnel.direction == "out"
 
     def test_tunnel_lmax_direction(self):
-        """Test lMax tunnel direction."""
+        """lMax is the For-loop N (iteration-count) INPUT terminal
+        (loopLimitDCO), not an aggregation output — corpus-verified
+        (lMax count == loopLimitDCO count)."""
         tunnel = TunnelMapping(
             outer_terminal_uid="outer3",
             inner_terminal_uid="inner3",
             tunnel_type="lMax",
         )
-        assert tunnel.direction == "out"
+        assert tunnel.direction == "in"
 
     def test_tunnel_lptun_direction(self):
         """Test loop tunnel direction is unknown."""

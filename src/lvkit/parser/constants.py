@@ -143,7 +143,7 @@ CONDITIONAL_NODE_CLASSES = (NODE_CLASS_SELECT, NODE_CLASS_CASE_STRUCT)
 TUNNEL_CLASS_LEFT_SR = "lSR"  # Left shift register (input)
 TUNNEL_CLASS_RIGHT_SR = "rSR"  # Right shift register (output)
 TUNNEL_CLASS_LOOP_TUNNEL = "lpTun"  # Loop tunnel (simple pass-through)
-TUNNEL_CLASS_LMAX = "lMax"  # Accumulator/max output
+TUNNEL_CLASS_LMAX = "lMax"  # For-loop N (iteration-count) INPUT terminal (loopLimitDCO)
 TUNNEL_CLASS_SEQ_TUN = "seqTun"  # Sequence tunnel (pass-through between frames)
 TUNNEL_CLASS_FLAT_SEQ_TUN = "flatSeqTun"  # Flat seq tunnel (with mate)
 # IPES cluster/array/DVR tunnel
