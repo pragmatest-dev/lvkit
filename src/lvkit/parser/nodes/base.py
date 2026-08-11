@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvkit.models import Tunnel
+from lvkit.models import Tunnel, TunnelMode
 
 from ..constants import NODE_CLASS_COMMENT, STRUCTURE_NODE_CLASSES
-from ..utils import extract_label
+from ..utils import extract_label, safe_text
 
 # Re-export extract_label for backward compatibility
 __all__ = [
@@ -53,6 +53,35 @@ def frame_inner_node_uids(diag_elem: ET.Element) -> list[str]:
     return uids
 
 
+def _lp_tun_mode(dco: ET.Element) -> TunnelMode:
+    """Derive an ``lpTun`` dco's TunnelMode from its own child elements.
+
+    Corpus-decoded (see models.TunnelMode docstring for the full rationale
+    and per-branch corpus counts):
+
+    - ``innerLpTunDCO`` present:
+      - ``<IsConditional>True</IsConditional>`` (sibling of innerLpTunDCO,
+        both direct children of ``dco``) -> CONDITIONAL.
+      - ``<TunnelType>`` present -> INDEXING.
+      - ``<TunnelType>`` absent (only ``<DefaultTunnelType>``) -> LAST_VALUE.
+    - ``innerLpTunDCO`` absent:
+      - ``<TunnelType>02</TunnelType>`` -> CONCATENATING (MEDIUM confidence --
+        rare in the corpus).
+      - otherwise (bare ``<dcoFiller>``) -> PASSTHROUGH.
+    """
+    inner = dco.find("innerLpTunDCO")
+    if inner is not None:
+        is_conditional = safe_text(dco.find("IsConditional")).strip() == "True"
+        if is_conditional:
+            return TunnelMode.CONDITIONAL
+        if dco.find("TunnelType") is not None:
+            return TunnelMode.INDEXING
+        return TunnelMode.LAST_VALUE
+    if safe_text(dco.find("TunnelType")).strip() == "02":
+        return TunnelMode.CONCATENATING
+    return TunnelMode.PASSTHROUGH
+
+
 def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> list[Tunnel]:
     """Extract tunnel mapping(s) from a dco element.
 
@@ -96,11 +125,15 @@ def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> list[Tunnel]:
         return []
 
     outer_uid = term_refs[-1]
+    # TunnelMode is an lpTun-only concept (see models.TunnelMode) -- every
+    # other dco_class (lSR/rSR/lMax/csTun/seqTun/...) leaves mode=None.
+    mode = _lp_tun_mode(dco) if dco_class == "lpTun" else None
     return [
         Tunnel(
             outer_terminal_uid=outer_uid,
             inner_terminal_uid=inner_uid,
             tunnel_type=dco_class,
+            mode=mode,
         )
         for inner_uid in term_refs[:-1]
     ]

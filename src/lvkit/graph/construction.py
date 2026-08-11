@@ -1263,6 +1263,9 @@ class ConstructionMixin:
                 tunnel_type=ttype,
                 boundary="outer",
                 paired_id=q_inner_uid,
+                mode=tunnel.mode,
+                sr_initialized=tunnel.sr_initialized,
+                sr_stack_depth=tunnel.sr_stack_depth,
             )
             if outer_uid not in seen_uids:
                 structure_terminals.append(outer_terminal)
@@ -1294,6 +1297,9 @@ class ConstructionMixin:
                 boundary="inner",
                 paired_id=q_outer_uid,
                 frame=inner_frame,
+                mode=tunnel.mode,
+                sr_initialized=tunnel.sr_initialized,
+                sr_stack_depth=tunnel.sr_stack_depth,
             )
             if inner_uid not in seen_uids:
                 structure_terminals.append(inner_terminal)

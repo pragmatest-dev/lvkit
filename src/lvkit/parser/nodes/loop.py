@@ -15,8 +15,68 @@ from ..constants import (
 )
 from ..flags import is_inverted_terminal
 from ..models import ParsedLoopStructure
-from ..utils import safe_int
+from ..utils import safe_int, safe_text
 from .base import extract_tunnel_mapping
+
+
+def _wired_terminal_uids(root: ET.Element) -> set[str]:
+    """Every terminal uid that appears as a ``<signal>`` endpoint anywhere on
+    this VI's block diagram -- i.e. carries an external wire.
+
+    Used to detect an INITIALIZED shift register: an lSR tunnel's outer
+    terminal wired from outside the loop (a value feeding the register
+    before the loop starts) vs. an uninitialized one (no such wire -- the
+    register starts at its data type's default). Terminal uids are unique
+    within a VI's BD, so a whole-document scan (rather than tracking the
+    loop's specific enclosing diagram) is sufficient and simpler.
+    """
+    uids: set[str] = set()
+    for elem in root.iter("SL__arrayElement"):
+        if elem.get("class") != "signal":
+            continue
+        term_list = elem.find("termList")
+        if term_list is None:
+            continue
+        for e in term_list.findall("SL__arrayElement"):
+            u = e.get("uid")
+            if u:
+                uids.add(u)
+    return uids
+
+
+def _parse_hex_int(text: str | None) -> int | None:
+    """Parse a 2-digit hex byte string (e.g. ``ParForNumStaticWorkers``'s
+    ``"08"`` -> 8). None when absent, unparseable, or 0 (LabVIEW's "not
+    configured" sentinel -- see LoopOperation.parallel_static_workers)."""
+    if not text:
+        return None
+    try:
+        value = int(text, 16)
+    except ValueError:
+        return None
+    return value or None
+
+
+def _annotate_sr_tunnels(
+    tunnels: list[Tunnel],
+    dco_class: str,
+    dco: ET.Element,
+    wired_uids: set[str],
+) -> None:
+    """Populate the structural (no-bits) shift-register fields on freshly
+    extracted lSR/rSR tunnels in place -- see Tunnel.sr_initialized /
+    Tunnel.sr_stack_depth. No-op for any other dco_class."""
+    if dco_class == TUNNEL_CLASS_LEFT_SR:
+        for t in tunnels:
+            t.sr_initialized = t.outer_terminal_uid in wired_uids
+    elif dco_class == TUNNEL_CLASS_RIGHT_SR:
+        lsr_list = dco.find("lsrDCOList")
+        depth = (
+            len(lsr_list.findall("SL__arrayElement"))
+            if lsr_list is not None else None
+        )
+        for t in tunnels:
+            t.sr_stack_depth = depth
 
 
 def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
@@ -41,6 +101,9 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
         List of ParsedLoopStructure with tunnel mappings
     """
     loops: list[ParsedLoopStructure] = []
+    # Computed once per VI (terminal uids are unique within a BD) -- see
+    # _wired_terminal_uids docstring.
+    wired_uids = _wired_terminal_uids(root)
 
     for loop_class in LOOP_NODE_CLASSES:
         for loop_elem in root.findall(f".//*[@class='{loop_class}']"):
@@ -68,7 +131,11 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                     if dco is not None:
                         dco_class = dco.get("class", "")
                         if dco_class in TUNNEL_DCO_CLASSES:
-                            tunnels.extend(extract_tunnel_mapping(dco, dco_class))
+                            new_tunnels = extract_tunnel_mapping(dco, dco_class)
+                            _annotate_sr_tunnels(
+                                new_tunnels, dco_class, dco, wired_uids
+                            )
+                            tunnels.extend(new_tunnels)
                         # A while-loop serializes the RIGHT shift register
                         # NESTED inside the LEFT one (``<rsrDCO class="rSR">``),
                         # not as its own term the way a for-loop does. Extract
@@ -83,11 +150,16 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                             if rsr is not None and (
                                 rsr.get("class") == TUNNEL_CLASS_RIGHT_SR
                             ):
-                                tunnels.extend(
-                                    extract_tunnel_mapping(
-                                        rsr, TUNNEL_CLASS_RIGHT_SR
-                                    )
+                                new_rsr_tunnels = extract_tunnel_mapping(
+                                    rsr, TUNNEL_CLASS_RIGHT_SR
                                 )
+                                _annotate_sr_tunnels(
+                                    new_rsr_tunnels,
+                                    TUNNEL_CLASS_RIGHT_SR,
+                                    rsr,
+                                    wired_uids,
+                                )
+                                tunnels.extend(new_rsr_tunnels)
 
             # Find inner diagram
             diag_list = loop_elem.find("diagramList")
@@ -135,6 +207,15 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                     safe_int(dco_flags_elem)
                 )
 
+            # For-loop parallelism ("Configure Parallelism..."): a direct
+            # child <ParForWorkers uid=.../> of the forLoop element itself
+            # (never present on a while loop). <ParForIndexDistribution> is
+            # deliberately not modeled -- "00" in every corpus occurrence.
+            parallel = loop_elem.find("ParForWorkers") is not None
+            parallel_static_workers = _parse_hex_int(
+                safe_text(loop_elem.find("ParForNumStaticWorkers"))
+            )
+
             loops.append(ParsedLoopStructure(
                 uid=loop_uid,
                 loop_type=loop_class,
@@ -144,6 +225,8 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                 inner_node_uids=inner_node_uids,
                 stop_condition_terminal_uid=stop_condition_uid,
                 stop_condition_inverted=stop_condition_inverted,
+                parallel=parallel,
+                parallel_static_workers=parallel_static_workers,
             ))
 
     return loops

@@ -97,6 +97,8 @@ class OperationsMixin:
         loop_type: str | None = None
         stop_cond: str | None = None
         stop_cond_inverted = False
+        parallel = False
+        parallel_static_workers: int | None = None
         case_frames: list[CaseFrame] = []
         seq_frames: list[SequenceFrame] = []
         event_frames: list[EventFrame] = []
@@ -123,6 +125,8 @@ class OperationsMixin:
                 )
                 stop_cond = gnode.stop_condition_terminal
                 stop_cond_inverted = gnode.stop_condition_inverted
+                parallel = gnode.parallel
+                parallel_static_workers = gnode.parallel_static_workers
 
             elif isinstance(gnode, DisableStructureNode):
                 case_frames = self._populate_frame_operations(  # type: ignore[assignment]
@@ -204,6 +208,8 @@ class OperationsMixin:
                 loop_type=loop_type,
                 stop_condition_terminal=stop_cond,
                 stop_condition_inverted=stop_cond_inverted,
+                parallel=parallel,
+                parallel_static_workers=parallel_static_workers,
             )
         if isinstance(gnode, VINode):
             return SubVIOperation(
@@ -276,6 +282,13 @@ class OperationsMixin:
                 outer_terminal_uid=outer_uid,
                 inner_terminal_uid=inner_uid,
                 tunnel_type=term.tunnel_type,
+                # term is either boundary side of THIS tunnel -- construction.py
+                # stamps the same mode/sr_initialized/sr_stack_depth on both
+                # the outer and inner TunnelTerminal, so either one carries
+                # the value faithfully.
+                mode=term.mode,
+                sr_initialized=term.sr_initialized,
+                sr_stack_depth=term.sr_stack_depth,
             ))
 
         return tunnels

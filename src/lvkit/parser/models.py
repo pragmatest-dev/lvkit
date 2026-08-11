@@ -134,6 +134,12 @@ class ParsedLoopStructure:
     # (the opposite of TERMINAL_DCO_INVERTED's meaning on cpdArith
     # terminals, where bit 16 set means "invert").
     stop_condition_inverted: bool = False
+    # For-loop parallelism -- True when the forLoop element has a child
+    # <ParForWorkers uid=.../>. Always False for while loops.
+    parallel: bool = False
+    # <ParForNumStaticWorkers>, hex-parsed (e.g. "08" -> 8); None when absent
+    # or 0 (no static worker count configured).
+    parallel_static_workers: int | None = None
 
 
 from ..models import CaseFrame, SequenceFrame  # noqa: E402

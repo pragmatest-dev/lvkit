@@ -150,6 +150,22 @@ class NetlistFrame:
     passthrough: bool = False
 
 
+@dataclass(frozen=True)
+class NetlistTunnelInfo:
+    """One loop tunnel's structural facts -- JSON-only (``netlist_to_dict``
+    / the MCP ``get_context`` tool), never rendered by ``render_netlist``'s
+    ASCII text (tunnels are otherwise dissolved into wire resolution, not
+    surfaced as their own items -- see ``_build_loop_scope``). Mirrors
+    ``models.Tunnel``'s new fields directly; ``mode`` is the enum's string
+    VALUE (JSON-serializable), not the raw ``TunnelMode``.
+    """
+
+    tunnel_type: str
+    mode: str | None
+    sr_initialized: bool | None
+    sr_stack_depth: int | None
+
+
 @dataclass
 class NetlistScope:
     """A structure: case / for / while / sequence / disabled / event."""
@@ -158,6 +174,12 @@ class NetlistScope:
     kind: str  # "case" | "for" | "while" | "sequence" | "disabled" | "event"
     selector: NetRef | None
     frames: list[NetlistFrame]
+    # Loop-only (kind in ("for", "while")) -- False/None/empty for every
+    # other scope kind. JSON-only surface (see ``_item_to_dict``); the ASCII
+    # renderer (``scope_header``/``render_netlist``) never reads these.
+    parallel: bool = False
+    parallel_static_workers: int | None = None
+    tunnels: list[NetlistTunnelInfo] = field(default_factory=list)
 
 
 NetlistItem = NetlistInstance | NetlistScope
@@ -667,8 +689,20 @@ def _build_loop_scope(
         body=body,
         passthrough=_has_output_tunnel(op),
     )
+    tunnel_info = [
+        NetlistTunnelInfo(
+            tunnel_type=t.tunnel_type,
+            mode=t.mode.value if t.mode is not None else None,
+            sr_initialized=t.sr_initialized,
+            sr_stack_depth=t.sr_stack_depth,
+        )
+        for t in op.tunnels
+    ]
     return NetlistScope(
         uid=_uid_of(op.id), kind=kind, selector=selector, frames=[frame],
+        parallel=op.parallel,
+        parallel_static_workers=op.parallel_static_workers,
+        tunnels=tunnel_info,
     )
 
 
@@ -1152,13 +1186,29 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
             ],
             "outputs": [_netref_to_dict(o) for o in item.outputs],
         }
-    return {
+    d: dict[str, Any] = {
         "kind": "scope",
         "uid": item.uid,
         "scope_kind": item.kind,
         "selector": _netref_to_dict(item.selector) if item.selector else None,
         "frames": [_frame_to_dict(f) for f in item.frames],
     }
+    # Loop-only facts (see NetlistScope docstring) -- omitted for non-loop
+    # scope kinds rather than always-present-but-empty, to keep the JSON
+    # shape for case/sequence/disabled/event scopes unchanged.
+    if item.kind in ("for", "while"):
+        d["parallel"] = item.parallel
+        d["parallel_static_workers"] = item.parallel_static_workers
+        d["tunnels"] = [
+            {
+                "tunnel_type": t.tunnel_type,
+                "mode": t.mode,
+                "sr_initialized": t.sr_initialized,
+                "sr_stack_depth": t.sr_stack_depth,
+            }
+            for t in item.tunnels
+        ]
+    return d
 
 
 def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:

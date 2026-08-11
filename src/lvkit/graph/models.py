@@ -135,6 +135,10 @@ class LoopNode(StructureNode):
     # False = Stop-if-True (default). See ParsedLoopStructure for the
     # data evidence backing this polarity mapping.
     stop_condition_inverted: bool = False
+    # For-loop parallelism + static worker count -- see
+    # ParsedLoopStructure.parallel / .parallel_static_workers.
+    parallel: bool = False
+    parallel_static_workers: int | None = None
 
 
 class SequenceNode(StructureNode):

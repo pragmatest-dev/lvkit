@@ -48,6 +48,8 @@ class LoopBuildHandler(StructureBuildHandler):
         loop_struct = ctx.loop_by_uid.get(node.uid)
         stop_cond: str | None = None
         stop_cond_inverted = False
+        parallel = False
+        parallel_static_workers: int | None = None
 
         parser_tunnels: list = []
         if loop_struct:
@@ -55,6 +57,8 @@ class LoopBuildHandler(StructureBuildHandler):
             if loop_struct.stop_condition_terminal_uid:
                 stop_cond = ctx.qid(loop_struct.stop_condition_terminal_uid)
             stop_cond_inverted = loop_struct.stop_condition_inverted
+            parallel = loop_struct.parallel
+            parallel_static_workers = loop_struct.parallel_static_workers
 
         structure_terminals = ctx.build_structure_terminals(
             parser_tunnels, q_node_uid,
@@ -70,6 +74,8 @@ class LoopBuildHandler(StructureBuildHandler):
             loop_type=node.node_type,
             stop_condition_terminal=stop_cond,
             stop_condition_inverted=stop_cond_inverted,
+            parallel=parallel,
+            parallel_static_workers=parallel_static_workers,
         )
 
 

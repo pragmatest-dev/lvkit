@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel
@@ -404,6 +405,37 @@ class FPTerminal(Terminal):
     frame: str | int | None = None
 
 
+class TunnelMode(str, Enum):
+    """A loop tunnel's aggregation mode -- ``dco class="lpTun"`` ONLY (a
+    ``None`` ``Tunnel.mode`` means "not a loop tunnel", not "unknown"; every
+    other tunnel kind -- lSR/rSR/lMax/csTun/seqTun/... -- never carries a
+    mode). Decoded from the lpTun dco's own child elements (see
+    ``parser/nodes/base.py::_lp_tun_mode``):
+
+    - INDEXING: auto-indexing on the loop boundary (has ``innerLpTunDCO`` +
+      ``<TunnelType>01</TunnelType>``) -- the common for-loop array-building
+      tunnel.
+    - LAST_VALUE: has ``innerLpTunDCO`` but no ``<TunnelType>`` (only
+      ``<DefaultTunnelType>``) -- the loop-boundary tunnel passes only the
+      FINAL iteration's value through.
+    - CONCATENATING: no ``innerLpTunDCO``, ``<TunnelType>02</TunnelType>`` --
+      MEDIUM confidence, rare in the corpus (concatenates instead of
+      indexing; e.g. a String/array tunnel set to "Concatenate Outputs").
+    - CONDITIONAL: has ``innerLpTunDCO`` AND ``<IsConditional>True</
+      IsConditional>`` (with a sibling ``<LpTunConditionDCO>``) -- indexing
+      gated by a per-iteration boolean (LabVIEW's "Conditional Tunnel").
+    - PASSTHROUGH: no ``innerLpTunDCO``, no ``<TunnelType>`` (bare
+      ``<dcoFiller>``) -- a plain pass-through tunnel, same value in and out
+      every iteration.
+    """
+
+    INDEXING = "INDEXING"
+    LAST_VALUE = "LAST_VALUE"
+    CONCATENATING = "CONCATENATING"
+    CONDITIONAL = "CONDITIONAL"
+    PASSTHROUGH = "PASSTHROUGH"
+
+
 class TunnelTerminal(Terminal):
     """An outer or inner tunnel terminal on a StructureNode."""
 
@@ -414,6 +446,13 @@ class TunnelTerminal(Terminal):
     # For case-structure inner tunnels: the owning CaseFrame's selector_value.
     # None for outer tunnels and for non-case-structure tunnels (loop/sequence).
     frame: str | int | None = None
+    # Carried straight from the parsed Tunnel (construction.py) so
+    # graph/operations.py::_tunnels_from_terminals can round-trip them onto
+    # the rebuilt Tunnel -- see Tunnel.mode/sr_initialized/sr_stack_depth for
+    # what each means and which tunnel_type populates it.
+    mode: TunnelMode | None = None
+    sr_initialized: bool | None = None
+    sr_stack_depth: int | None = None
 
 
 class Tunnel(BaseModel):
@@ -423,6 +462,19 @@ class Tunnel(BaseModel):
     inner_terminal_uid: str
     tunnel_type: str  # "lSR", "rSR", "lpTun", "lMax", "caseSel", etc.
     paired_terminal_uid: str | None = None
+    # Loop-tunnel aggregation mode -- populated ONLY for ``tunnel_type ==
+    # "lpTun"`` (see TunnelMode); None for every other tunnel_type.
+    mode: TunnelMode | None = None
+    # Shift-register STRUCTURE, not bits -- populated ONLY on the matching
+    # tunnel_type, None on every other one:
+    # - sr_initialized: True when this lSR tunnel's outer terminal carries an
+    #   external wire (a value feeding the register before the loop starts).
+    #   Set on tunnel_type == "lSR" tunnels only.
+    sr_initialized: bool | None = None
+    # - sr_stack_depth: this rSR's shift-register depth (len(lsrDCOList)) --
+    #   1 for a normal (unstacked) shift register, N for an N-deep stacked
+    #   one. Set on tunnel_type == "rSR" tunnels only.
+    sr_stack_depth: int | None = None
 
     @property
     def direction(self) -> str:
@@ -649,6 +701,15 @@ class LoopOperation(Operation):
     # False = Stop-if-True (default). See ParsedLoopStructure for the
     # data evidence backing this polarity mapping.
     stop_condition_inverted: bool = False
+    # For-loop parallelism (LabVIEW's "Configure Parallelism..." dialog) --
+    # True when the forLoop element has a child <ParForWorkers>. Always False
+    # for while loops (they have no such element). See ParsedLoopStructure.
+    parallel: bool = False
+    # <ParForNumStaticWorkers> (hex text, e.g. "08" -> 8), when set and
+    # nonzero; None otherwise (absent, or "00" -- no static worker count
+    # configured). <ParForIndexDistribution> is deliberately NOT modeled --
+    # "00" in every corpus occurrence, so its other values are unconfirmed.
+    parallel_static_workers: int | None = None
 
 
 class SequenceOperation(Operation):

@@ -812,7 +812,18 @@ def _describe_case_structure(
 def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
     """Describe a loop in detail."""
     loop_kind = "While Loop" if op.loop_type == "whileLoop" else "For Loop"
-    lines.append(f"{loop_kind}: {op.id}")
+    # Terse, non-default-only: a serial loop (the overwhelming common case)
+    # prints nothing extra; a parallelized for-loop appends "(parallel)" or
+    # "(parallel, N workers)" when LabVIEW's static worker count is set.
+    parallel_note = ""
+    if op.parallel:
+        workers = (
+            f", {op.parallel_static_workers} workers"
+            if op.parallel_static_workers
+            else ""
+        )
+        parallel_note = f" (parallel{workers})"
+    lines.append(f"{loop_kind}{parallel_note}: {op.id}")
 
     if op.stop_condition_terminal:
         lines.append(
@@ -822,10 +833,19 @@ def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
     if op.tunnels:
         lines.append("  Tunnels:")
         for tunnel in op.tunnels:
+            detail = ""
+            if tunnel.mode is not None:
+                detail += f" mode={tunnel.mode.value}"
+            if tunnel.sr_initialized is not None:
+                detail += f" initialized={tunnel.sr_initialized}"
+            # 1 is a normal (unstacked) shift register -- the ubiquitous
+            # case; only call it out when it's genuinely stacked.
+            if tunnel.sr_stack_depth is not None and tunnel.sr_stack_depth != 1:
+                detail += f" stack_depth={tunnel.sr_stack_depth}"
             lines.append(
                 f"    {tunnel.tunnel_type}:"
                 f" outer={tunnel.outer_terminal_uid}"
-                f" -> inner={tunnel.inner_terminal_uid}"
+                f" -> inner={tunnel.inner_terminal_uid}{detail}"
             )
 
     if op.inner_nodes:
