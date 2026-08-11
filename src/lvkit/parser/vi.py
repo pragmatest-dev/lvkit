@@ -1238,26 +1238,34 @@ def _decode_default_data(
     return None
 
 
-def _decode_path_default(data: bytes) -> str | None:
-    """Decode a LabVIEW path from DefaultData bytes."""
+def _walk_path(data: bytes) -> tuple[str | None, int]:
+    """Walk a ``PTH0`` path DefaultData blob ONCE -> ``(value, bytes_consumed)``.
+
+    The single source for both the path string AND the byte count, so a path
+    field inside a cluster stays aligned with the following field (previously the
+    value and the consumed count were walked by two divergent loops). Returns
+    ``(None, 0)`` when ``data`` is not a ``PTH0`` blob.
+    """
+    if not data.startswith(b'PTH0'):
+        return None, 0
+    idx = 12  # PTH0 header
+    parts: list[str] = []
     try:
-        idx = 12
-        parts = []
         while idx < len(data):
             str_len = data[idx]
             idx += 1
-            if str_len > 0 and idx + str_len <= len(data):
-                part = decode_labview_text(data[idx : idx + str_len])
-                parts.append(part)
-                idx += str_len
-            else:
+            if str_len == 0 or idx + str_len > len(data):
                 break
-        if parts:
-            path_str = '/'.join(parts)
-            return f'Path("{path_str}")'
+            parts.append(decode_labview_text(data[idx : idx + str_len]))
+            idx += str_len
     except (IndexError, ValueError):
         pass
-    return None
+    return (f'Path("{"/".join(parts)}")' if parts else None), idx
+
+
+def _decode_path_default(data: bytes) -> str | None:
+    """Decode a LabVIEW path from DefaultData bytes (value only)."""
+    return _walk_path(data)[0]
 
 
 def _decode_string_default(data: bytes) -> str | None:
@@ -1276,9 +1284,10 @@ def _decode_string_default(data: bytes) -> str | None:
 
 
 def _decode_numeric_default(data: bytes) -> str | None:
-    """Decode a numeric value from DefaultData bytes."""
+    """Decode a numeric value from DefaultData bytes (no type info -> width is
+    inferred from the byte count: 1/2/4 -> integer, 8 -> float-or-integer)."""
     try:
-        if len(data) == 4:
+        if len(data) in (1, 2, 4):
             return str(int.from_bytes(data, 'big', signed=True))
         elif len(data) == 8:
             try:
@@ -1344,32 +1353,38 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         val = int.from_bytes(data[:size], 'big', signed=signed)
         return str(val), size
 
-    # Float and complex types
-    if underlying.startswith("NumFloat") or underlying.startswith("NumComplex"):
-        if underlying in ("NumFloat32", "NumComplex64"):
-            if len(data) < 4:
-                return None, 0
-            val = struct.unpack('>f', data[:4])[0]
-            return str(val), 4
-        else:  # NumFloat64, NumFloatExt, NumComplex128, NumComplexExt
-            if len(data) < 8:
-                return None, 0
-            val = struct.unpack('>d', data[:8])[0]
-            return str(val), 8
+    # Float and complex types. Widths are load-bearing: a complex is TWO
+    # components (NumComplex64 = 2x f32 = 8 bytes, NumComplex128 = 2x f64 = 16),
+    # and extended floats are 16/32 — under-reading them (the old code read every
+    # non-f32 as 8) desyncs the following cluster field.
+    if underlying.startswith(("NumFloat", "NumComplex")):
+        width = {
+            "NumFloat32": 4, "NumFloat64": 8, "NumFloatExt": 16,
+            "NumComplex64": 8, "NumComplex128": 16, "NumComplexExt": 32,
+        }.get(underlying)
+        if width is None or len(data) < width:
+            return None, 0
+        try:
+            if underlying == "NumFloat32":
+                val = str(struct.unpack('>f', data[:4])[0])
+            elif underlying == "NumFloat64":
+                val = str(struct.unpack('>d', data[:8])[0])
+            elif underlying == "NumComplex64":
+                re, im = struct.unpack('>ff', data[:8])
+                val = str(complex(re, im))
+            elif underlying == "NumComplex128":
+                re, im = struct.unpack('>dd', data[:16])
+                val = str(complex(re, im))
+            else:  # extended-precision (80/128-bit) — width known, no struct fmt
+                val = f"<{underlying}>"
+        except struct.error:
+            return None, 0
+        return val, width
 
-    # Path: PTH0 prefix
+    # Path: PTH0 prefix — one walk yields both the value and the byte count.
     if underlying == "Path":
-        if data.startswith(b'PTH0'):
-            path_val = _decode_path_default(data)
-            idx = 12
-            while idx < len(data):
-                seg_len = data[idx]
-                if seg_len == 0:
-                    idx += 1
-                    break
-                idx += 1 + seg_len
-            return path_val or 'Path("")', idx
-        return 'Path("")', 0
+        value, consumed = _walk_path(data)
+        return value or 'Path("")', consumed
 
     # Array: 4-byte length + elements
     if kind == "array" and elem_type.element_type:
@@ -1481,7 +1496,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
 
 
 def _get_numeric_size(type_name: str) -> int:
-    """Get byte size for a numeric type name."""
+    """Byte size for a numeric/enum type name, read from its width digit."""
     if "8" in type_name:
         return 1
     elif "16" in type_name:
@@ -1490,5 +1505,13 @@ def _get_numeric_size(type_name: str) -> int:
         return 4
     elif "64" in type_name:
         return 8
-    return 4  # Default
+    # No width digit — e.g. the reconstructors' bare "Enum"/"Ring", which carry
+    # no ordinal width. Warn rather than SILENTLY assume 4 bytes and desync a
+    # default-data decode (VCTP enums arrive as "UnitUInt*", so this is a trap
+    # for the newer convention, not a path hit today).
+    logger.warning(
+        "no width digit in numeric/enum type name %r — assuming 4 bytes; a "
+        "default-data decode of this type may misalign", type_name,
+    )
+    return 4
 

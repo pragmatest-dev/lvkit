@@ -19,6 +19,7 @@ path-keys ALL of them:
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -245,8 +246,6 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
     and saved per root in one batch. Best-effort: never fails the caller.
     """
     try:
-        from collections import defaultdict
-
         by_root: dict[Path, list[VIFacts]] = defaultdict(list)
         for vi_name in graph.list_vis():
             src = graph.get_vi_source_path(vi_name)

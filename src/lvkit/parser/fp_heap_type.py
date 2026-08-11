@@ -62,9 +62,13 @@ def _multilabel_items(ctrl: ET.Element) -> list[str]:
 
 def _wrapped_control(typedef: ET.Element) -> ET.Element | None:
     """The single control a ``typeDef`` DDO wraps — the first known-class control
-    in document order (the wrapped type precedes its own children)."""
+    in document order (the wrapped type precedes its own children). A nested
+    ``typeDef`` counts too: ``reconstruct_control_lvtype`` unwraps it in turn."""
     for e in typedef.iter():
-        if e is not typedef and e.get("class") in _KNOWN_CLASSES:
+        if e is typedef:
+            continue
+        cls = e.get("class")
+        if cls in _KNOWN_CLASSES or cls == "typeDef":
             return e
     return None
 
@@ -148,6 +152,10 @@ def reconstruct_control_lvtype(
         return LVType(kind="cluster", underlying_type="Cluster", fields=fields)
 
     if cls in _ARRAY_CLASSES:
+        # Unlike ring/cluster (which return None when empty), an array stays a
+        # faithful ``array`` even when its element type can't be reconstructed —
+        # array-ness itself is real information, and ``lv_label`` renders the
+        # unknown element as ``[?]``.
         elem = _array_element(ctrl)
         return LVType(
             kind="array",

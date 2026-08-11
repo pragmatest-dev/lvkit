@@ -37,6 +37,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -309,8 +310,6 @@ async def index(
     of a full rebuild. Returns the VI count (full build) or the rebuilt/deleted
     counts (refresh), plus the resolved project root.
     """
-    import time
-
     project = await _resolve_project(project, ctx)
 
     def _work() -> dict[str, Any]:

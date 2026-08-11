@@ -93,6 +93,24 @@ def _is_type_identity(s: str | None) -> bool:
     return bool(s) and (".lvclass" in s or ".ctl" in s)  # type: ignore[arg-type]
 
 
+def _typedef_term_name(
+    strs: list[str], typedef_name: str | None, values: dict[str, EnumValue],
+) -> str | None:
+    """The terminal label of a typedef TD: its trailing pstr — but None when that
+    string is a type identity (``.ctl``/``.lvclass``), the typedef's own name, or
+    one of the enum's item labels (an UN-renamed enum terminal ends in its last
+    item, which is NOT a terminal name)."""
+    name = strs[-1] if strs else None
+    if (
+        name is None
+        or _is_type_identity(name)
+        or name == typedef_name
+        or name in values
+    ):
+        return None
+    return name
+
+
 def _all_pstrs(body: bytes) -> list[str]:
     """Every length-prefixed string in ``body`` (best-effort; used for the
     name-bearing typedef/refnum bodies whose fixed layout is only partly known).
@@ -255,11 +273,9 @@ class _ConpDecoder:
 
             if type_code == _TYPEDEF:
                 return self._decode_typedef(body)
-
-            if type_code == _VOID:
-                return None, None
         except (struct.error, IndexError):
             return None, None
+        # Void (0x00) and any unmodelled type code: no type, no name.
         return None, None
 
     def _decode_typedef(
@@ -267,12 +283,11 @@ class _ConpDecoder:
     ) -> tuple[LVType | None, str | None]:
         """A ``0xf1`` typedef wraps an inner type and names the ``.ctl``. The
         pstrs are, in order: the typedef ``.ctl`` name, the inner enum's item
-        labels (when the inner type is an enum), then the terminal label."""
+        labels (when the inner type is an enum), then the terminal label — which
+        is absent for an un-renamed terminal, so the trailing pstr is then the
+        last ENUM LABEL, not a name (see ``_typedef_term_name``)."""
         strs = _all_pstrs(body)
         typedef_name = next((s for s in strs if s.endswith(".ctl")), None)
-        term_name = strs[-1] if strs else None
-        if _is_type_identity(term_name):
-            term_name = None
         # Inner enum: locate a ``UnitUInt*`` code followed by ``u16 count``.
         for code in _ENUM_CODES:
             idx = body.find(bytes([code]))
@@ -281,15 +296,19 @@ class _ConpDecoder:
                     values, _ = _decode_enum(body, idx + 1)
                 except (struct.error, IndexError):
                     values = {}
+                # The ordinal check only rejects duplicate-label collapses
+                # (``enum_values_from_labels`` always assigns ``i`` in order, so
+                # it fails ONLY when two labels collide) — a cheap guard that
+                # this offset is a real enum, not coincidental bytes.
                 if values and all(
                     v.value == i for i, v in enumerate(values.values())
                 ):
                     return LVType(
                         kind="enum", underlying_type="Enum",
                         values=values, typedef_name=typedef_name,
-                    ), term_name
+                    ), _typedef_term_name(strs, typedef_name, values)
                 idx = body.find(bytes([code]), idx + 1)
-        return None, term_name
+        return None, _typedef_term_name(strs, typedef_name, {})
 
     def _name_at(self, body: bytes, off: int) -> str | None:
         if 0 <= off < len(body):

@@ -328,6 +328,17 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                         class_fact = f.class_fact
                     else:
                         cfc = f.class_fact
+                        # Coalesce the accessor PAIR atomically: is_accessor and
+                        # accessor_field are one fact from the owns edge, so a
+                        # partial load with no accessor info must not leave
+                        # is_accessor=False beside a preserved accessor_field (a
+                        # self-contradictory row).
+                        if cfc.is_accessor or cfc.accessor_field is not None:
+                            is_accessor = cfc.is_accessor
+                            accessor_field = cfc.accessor_field
+                        else:
+                            is_accessor = prior_class_fact.is_accessor
+                            accessor_field = prior_class_fact.accessor_field
                         class_fact = ClassFact(
                             owning_class=(
                                 cfc.owning_class
@@ -344,12 +355,8 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                                 if cfc.scope is not None
                                 else prior_class_fact.scope
                             ),
-                            is_accessor=cfc.is_accessor,
-                            accessor_field=(
-                                cfc.accessor_field
-                                if cfc.accessor_field is not None
-                                else prior_class_fact.accessor_field
-                            ),
+                            is_accessor=is_accessor,
+                            accessor_field=accessor_field,
                             private_data=(
                                 cfc.private_data
                                 if cfc.private_data

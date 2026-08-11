@@ -625,6 +625,10 @@ def _build_sequence_scope(
             body=_build_items(
                 graph, ctx, frame.operations, root_ops, build_ctx,
             ),
+            # Sequence frames are never "pass-through": a flat-sequence output
+            # tunnel is ASSIGNED in exactly one frame (unlike a case, where an
+            # unwired tunnel routes the input through), so an empty frame here
+            # genuinely has no value flowing — ``(empty)``, not ``(pass-through)``.
             passthrough=False,
         )
         for frame in op.frames
