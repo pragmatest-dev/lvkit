@@ -27,7 +27,7 @@ import networkx as nx
 
 from .. import cache_paths
 from ..graph import InMemoryVIGraph, LoadMode
-from ..graph.models import Constant, VINode
+from ..graph.models import Constant, VINode, VIProperties
 from ..models import FPTerminal
 from ..structure import get_project_members, parse_lvproj
 from .model import (
@@ -436,6 +436,12 @@ def project_vi_facts(
     )
     qualified_name = vnode.qualified_name if isinstance(vnode, VINode) else None
 
+    # User-settable VI Properties, straight from VIMetadata (intrinsic to
+    # this VI's own bytes -- unlike ``library``/``owning_class`` above, which
+    # resolve via ownership edges to OTHER files).
+    vi_meta = graph._vi_metadata.get(vi_name)
+    properties = vi_meta.properties if vi_meta is not None else VIProperties()
+
     terminals: list[TerminalFact] = []
     type_use_keys: set[str] = set()
     all_terminals = [
@@ -527,6 +533,13 @@ def project_vi_facts(
         type_uses=sorted(type_use_keys),
         class_fact=class_fact,
         impact_score=0,  # filled at merge time
+        lv_version=properties.lv_version,
+        lock_state=properties.lock_state.value,
+        reentrant=properties.reentrant,
+        execution_priority=properties.execution_priority,
+        preferred_exec_system=properties.preferred_exec_system,
+        is_system_vi=properties.is_system_vi,
+        vi_type=properties.vi_type,
     )
 
 

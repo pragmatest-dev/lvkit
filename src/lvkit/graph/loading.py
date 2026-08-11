@@ -39,7 +39,7 @@ from ..structure import (
     parse_lvproj,
     private_data_field_to_cluster_field,
 )
-from .models import PolyInfo, VIMetadata
+from .models import LockState, PolyInfo, VIMetadata, VIProperties
 from .op_walk import stamp_nmux_lane_names
 from .parallel_parse import PARALLEL_THRESHOLD, parallel_parse_directory
 
@@ -738,6 +738,19 @@ class LoadingMixin:
                 qualified_name=poly_metadata.get("qualified_name"),
                 owning_libraries=poly_metadata.get("owning_libraries", []),
                 description=poly_metadata.get("description"),
+                properties=VIProperties(
+                    lv_version=poly_metadata.get("lv_version"),
+                    lock_state=LockState(
+                        poly_metadata.get("lock_state", LockState.UNLOCKED.value)
+                    ),
+                    reentrant=poly_metadata.get("reentrant", False),
+                    execution_priority=poly_metadata.get("execution_priority"),
+                    preferred_exec_system=poly_metadata.get(
+                        "preferred_exec_system"
+                    ),
+                    is_system_vi=poly_metadata.get("is_system_vi", False),
+                    vi_type=poly_metadata.get("vi_type"),
+                ),
             )
 
         # Add to dependency graph

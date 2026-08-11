@@ -170,6 +170,20 @@ class VIFacts:
     library: str | None = None
     is_stub: bool = False
     content_sha: str = ""
+    # User-settable VI Properties (Protection/Execution/…) from the VI's own
+    # <LVSR> block -- intrinsic to its bytes, like terminals/constants (never
+    # coalesced across a partial re-save; see store.save()).
+    # lv_version: "Major.Minor.Bugfix", e.g. "21.0.0", or None if absent.
+    lv_version: str | None = None
+    # lock_state: one of graph.models.LockState's values ("unlocked" /
+    # "locked" / "password_protected") -- kept a plain string here (this
+    # module is deliberately Pydantic/LVType-free, see the module docstring).
+    lock_state: str = "unlocked"
+    reentrant: bool = False
+    execution_priority: int | None = None
+    preferred_exec_system: int | None = None
+    is_system_vi: bool = False
+    vi_type: str | None = None  # <Instrument Type="..."> verbatim
     terminals: list[TerminalFact] = field(default_factory=list)
     constants: list[ConstantFact] = field(default_factory=list)
     calls: list[str] = field(default_factory=list)  # callee qualified-name keys

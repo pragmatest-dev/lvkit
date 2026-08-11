@@ -43,7 +43,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
-from .models import Constant, VIContext, WireEnd
+from .models import Constant, VIContext, VIProperties, WireEnd
 from .op_walk import (
     ComponentPort,
     _const_value_str,
@@ -211,6 +211,11 @@ class NetlistModule:
     # used in the VI, declared once -- see ``_build_components``. Sorted by
     # name for a deterministic ``## Components`` rendering.
     components: list[NetlistComponent] = field(default_factory=list)
+    # User-settable VI Properties (Protection/Execution/…) -- carried through
+    # for ``netlist_to_dict`` (the MCP ``get_context`` tool's JSON shape).
+    # NOT rendered by ``render_netlist``'s ASCII text -- ``describe.py`` has
+    # its own faithful ``## Properties`` section.
+    properties: VIProperties = field(default_factory=VIProperties)
 
 
 # ============================================================
@@ -881,7 +886,7 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
 
     return NetlistModule(
         vi_name=vi_name, inputs=inputs, outputs=outputs, body=body,
-        components=components,
+        components=components, properties=ctx.properties,
     )
 
 
@@ -1099,6 +1104,18 @@ def _component_to_dict(comp: NetlistComponent) -> dict[str, Any]:
     }
 
 
+def _properties_to_dict(props: VIProperties) -> dict[str, Any]:
+    return {
+        "lv_version": props.lv_version,
+        "lock_state": props.lock_state.value,
+        "reentrant": props.reentrant,
+        "execution_priority": props.execution_priority,
+        "preferred_exec_system": props.preferred_exec_system,
+        "is_system_vi": props.is_system_vi,
+        "vi_type": props.vi_type,
+    }
+
+
 def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
     """One body item, tagged with a ``kind`` discriminator so the
     ``instance``/``scope`` union survives JSON (``asdict`` would erase it)."""
@@ -1139,6 +1156,7 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
         "outputs": [{"name": n, "type": t} for n, t in module.outputs],
         "components": [_component_to_dict(c) for c in module.components],
         "body": [_item_to_dict(i) for i in module.body],
+        "properties": _properties_to_dict(module.properties),
     }
 
 

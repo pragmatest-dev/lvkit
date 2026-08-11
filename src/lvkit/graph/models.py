@@ -9,6 +9,7 @@ Dependency: lvkit.models (shared primitives + flow types)
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel
@@ -401,6 +402,46 @@ class TerminalRef(BaseModel):
     direction: str
 
 
+class LockState(Enum):
+    """VI Properties -> Protection tri-state (the LabVIEW VI Properties
+    dialog's Protection page has exactly these three states — verified
+    against NI docs).
+
+    Derived from the main XML's ``<LVSR>`` block: ``Library[@Protected]``
+    (the LVSR ``<Library>``, NOT the ``<LIBN>`` owning-library name) plus
+    whether a real (non-empty, non-placeholder) BD ``<Password Hash>`` is
+    present — see ``parser.metadata._parse_lvsr_properties``. There is no
+    unlocked-with-password state.
+    """
+
+    UNLOCKED = "unlocked"
+    LOCKED = "locked"
+    PASSWORD_PROTECTED = "password_protected"
+
+
+@dataclass
+class VIProperties:
+    """User-settable VI Properties read from the main XML's ``<LVSR>`` block.
+
+    Cosmetic window-appearance/behavior/toolbar flags (FrontPanel/Flags12/
+    ButtonsHidden) are a deferred follow-up -- deliberately NOT captured here.
+    """
+
+    # "Major.Minor.Bugfix", e.g. "21.0.0" -- from <Version Major Minor Bugfix>.
+    lv_version: str | None = None
+    lock_state: LockState = LockState.UNLOCKED
+    # <Execution IsReentrant="0|1">
+    reentrant: bool = False
+    # <Execution Priority="N">
+    execution_priority: int | None = None
+    # <Execution PrefExecSyst="N">
+    preferred_exec_system: int | None = None
+    # <Execution2 SystemVI="0|1">
+    is_system_vi: bool = False
+    # <Instrument Type="..."> verbatim (e.g. "Control")
+    vi_type: str | None = None
+
+
 class VIContext(BaseModel):
     """Complete VI context for code generation."""
 
@@ -418,6 +459,8 @@ class VIContext(BaseModel):
     data_flow: list[Wire] = []
     subvi_calls: list[SubVICall] = []
     poly_variants: list[str] = []
+    # User-settable VI Properties (Protection/Execution/…) from <LVSR>.
+    properties: VIProperties = VIProperties()
 
 
 # ============================================================
@@ -445,6 +488,8 @@ class VIMetadata:
     owning_libraries: list[str] = field(default_factory=list)
     # The VI's own documentation text (STRG/DSTM), shown in the hover help box.
     description: str | None = None
+    # User-settable VI Properties (Protection/Execution/…) from <LVSR>.
+    properties: VIProperties = field(default_factory=VIProperties)
 
 
 # ============================================================

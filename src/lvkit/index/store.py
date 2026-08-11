@@ -53,7 +53,14 @@ CREATE TABLE IF NOT EXISTS vis (
     is_stub INTEGER NOT NULL DEFAULT 0,
     content_sha TEXT NOT NULL DEFAULT '',
     impact_score INTEGER NOT NULL DEFAULT 0,
-    callers_count INTEGER NOT NULL DEFAULT 0
+    callers_count INTEGER NOT NULL DEFAULT 0,
+    lv_version TEXT,
+    lock_state TEXT NOT NULL DEFAULT 'unlocked',
+    reentrant INTEGER NOT NULL DEFAULT 0,
+    execution_priority INTEGER,
+    preferred_exec_system INTEGER,
+    is_system_vi INTEGER NOT NULL DEFAULT 0,
+    vi_type TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_vis_name ON vis(name);
 CREATE INDEX IF NOT EXISTS idx_vis_qualified_name ON vis(qualified_name);
@@ -367,12 +374,17 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                 _delete_vi(conn, f.path)
                 conn.execute(
                     "INSERT INTO vis(path, name, qualified_name, library, "
-                    "is_stub, content_sha, impact_score, callers_count) "
-                    "VALUES (?,?,?,?,?,?,?,?)",
+                    "is_stub, content_sha, impact_score, callers_count, "
+                    "lv_version, lock_state, reentrant, execution_priority, "
+                    "preferred_exec_system, is_system_vi, vi_type) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         f.path, f.name, f.qualified_name, library,
                         int(f.is_stub), f.content_sha, f.impact_score,
-                        f.callers_count,
+                        f.callers_count, f.lv_version, f.lock_state,
+                        int(f.reentrant), f.execution_priority,
+                        f.preferred_exec_system, int(f.is_system_vi),
+                        f.vi_type,
                     ),
                 )
                 conn.executemany(
@@ -523,7 +535,9 @@ def load(project_root: Path) -> list[VIFacts]:
     try:
         vi_rows = conn.execute(
             "SELECT path, name, qualified_name, library, is_stub, "
-            "content_sha, impact_score, callers_count FROM vis"
+            "content_sha, impact_score, callers_count, lv_version, "
+            "lock_state, reentrant, execution_priority, "
+            "preferred_exec_system, is_system_vi, vi_type FROM vis"
         ).fetchall()
 
         terminals_by_vi: dict[str, list[TerminalFact]] = {}
@@ -600,7 +614,9 @@ def load(project_root: Path) -> list[VIFacts]:
         for row in vi_rows:
             (
                 path, name, qualified_name, library, is_stub, content_sha,
-                impact_score, callers_count,
+                impact_score, callers_count, lv_version, lock_state,
+                reentrant, execution_priority, preferred_exec_system,
+                is_system_vi, vi_type,
             ) = row
             results.append(
                 VIFacts(
@@ -617,6 +633,13 @@ def load(project_root: Path) -> list[VIFacts]:
                     class_fact=class_fact_by_vi.get(path),
                     impact_score=impact_score,
                     callers_count=callers_count,
+                    lv_version=lv_version,
+                    lock_state=lock_state,
+                    reentrant=bool(reentrant),
+                    execution_priority=execution_priority,
+                    preferred_exec_system=preferred_exec_system,
+                    is_system_vi=bool(is_system_vi),
+                    vi_type=vi_type,
                 )
             )
         return results

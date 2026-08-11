@@ -94,6 +94,19 @@ VIEWS: dict[str, _View] = {
             "is computed on VI path identity, so it is reliable even when "
             "qualified_name is NULL (a name-matching anti-join over callee_key "
             "silently misfires).",
+            "lv_version": "LabVIEW version the VI was saved with, "
+            "'Major.Minor.Bugfix' (e.g. '21.0.0'), or NULL if absent",
+            "lock_state": "VI Properties -> Protection: 'unlocked', 'locked', "
+            "or 'password_protected'",
+            "reentrant": "1 if VI Properties -> Execution 'Reentrant execution' "
+            "is enabled",
+            "execution_priority": "VI Properties -> Execution priority code "
+            "(the LVSR Execution Priority attribute), or NULL if unset",
+            "preferred_exec_system": "VI Properties -> Execution preferred "
+            "execution system code, or NULL if unset",
+            "is_system_vi": "1 if flagged as a LabVIEW system VI",
+            "vi_type": "VI kind from the Instrument record (e.g. 'Control'), "
+            "or NULL",
         },
     ),
     "terminal": _View(

@@ -66,6 +66,11 @@ def describe_vi(
     lines.append(f"  {_format_signature(ctx)}")
     lines.append("")
 
+    # VI Properties: Protection/Execution, faithfully rendered (never a
+    # Python annotation -- these are LabVIEW's own VI Properties dialog
+    # values, not a codegen target).
+    lines.extend(_describe_properties(ctx))
+
     # Interface: Inputs
     if ctx.inputs:
         lines.append("## Inputs")
@@ -338,6 +343,31 @@ def _terminal_type_label(t: Terminal) -> str:
     codegen-target Python annotation). Falls back to the control_type family
     word (``cluster``/``class``/…) when the LVType didn't resolve."""
     return t.faithful_type_label()
+
+
+def _describe_properties(ctx: VIContext) -> list[str]:
+    """Render the VI's user-settable Properties (Protection/Execution/…).
+
+    ``lock`` and ``reentrant`` always show (core Protection/Execution
+    state); the rest only when the XML actually carried a value, to keep
+    the common case terse.
+    """
+    props = ctx.properties
+    lines = ["## Properties"]
+    lines.append(f"  lock: {props.lock_state.value}")
+    lines.append(f"  reentrant: {props.reentrant}")
+    if props.lv_version:
+        lines.append(f"  lv_version: {props.lv_version}")
+    if props.execution_priority is not None:
+        lines.append(f"  execution_priority: {props.execution_priority}")
+    if props.preferred_exec_system is not None:
+        lines.append(f"  preferred_exec_system: {props.preferred_exec_system}")
+    if props.is_system_vi:
+        lines.append(f"  is_system_vi: {props.is_system_vi}")
+    if props.vi_type:
+        lines.append(f"  vi_type: {props.vi_type}")
+    lines.append("")
+    return lines
 
 
 def _describe_class_context(

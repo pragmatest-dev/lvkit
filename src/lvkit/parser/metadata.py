@@ -13,6 +13,21 @@ from lvkit.text_encoding import decode_labview_text
 from .models import ParsedDependencyRef
 from .type_resolution import parse_typedef_refs
 
+# lock_state string values -- MUST mirror graph.models.LockState.value exactly
+# (parser/ never imports graph/, per graph/models.py's module docstring, so the
+# graph layer re-wraps these plain strings into the LockState enum).
+LOCK_UNLOCKED = "unlocked"
+LOCK_LOCKED = "locked"
+LOCK_PASSWORD_PROTECTED = "password_protected"
+
+# A BD ``<Password Hash>`` this shallow (empty-string, all-zero, or the MD5 of
+# the empty string) is a stubbed/no-password placeholder, not a real password.
+_EMPTY_PASSWORD_HASHES = frozenset({
+    "",
+    "0" * 32,
+    "d41d8cd98f00b204e9800998ecf8427e",
+})
+
 
 def get_qualified_name(xml_path: Path | str) -> str | None:
     """Fast extraction of just the qualified name from main XML.
@@ -103,6 +118,9 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     if hlpt is not None and hlpt.text:
         metadata["help_tag"] = hlpt.text
 
+    # User-settable VI Properties (Protection/Execution/…) from <LVSR>.
+    metadata.update(_parse_lvsr_properties(root))
+
     # Parse typedef references
     metadata["typedef_refs"] = parse_typedef_refs(root)
 
@@ -114,6 +132,85 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
         metadata["poly_selectors"] = poly_info["selectors"]
 
     return metadata
+
+
+def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
+    """Parse the user-settable VI Properties lvkit tracks, from ``<LVSR>``.
+
+    Returns plain values (str/bool/int, never an ``Enum``) keyed
+    ``lv_version``/``lock_state``/``reentrant``/``execution_priority``/
+    ``preferred_exec_system``/``is_system_vi``/``vi_type`` -- the graph layer
+    (``graph.loading``) wraps ``lock_state`` into ``graph.models.LockState``.
+
+    ``lock_state`` derivation (VI Properties -> Protection, a tri-state):
+    read the LVSR ``<Library Protected="0|1">`` (NOT the ``<LIBN>`` owning-
+    library name, a *different* ``<Library>`` element with no ``Protected``
+    attribute) plus whether a real BD ``<Password Hash>`` is present.
+    ``Protected=0`` -> unlocked; ``Protected=1`` + no real password ->
+    locked; ``Protected=1`` + real password -> password_protected. There is
+    no unlocked-with-password state.
+    """
+    result: dict[str, Any] = {
+        "lv_version": None,
+        "lock_state": LOCK_UNLOCKED,
+        "reentrant": False,
+        "execution_priority": None,
+        "preferred_exec_system": None,
+        "is_system_vi": False,
+        "vi_type": None,
+    }
+
+    version = root.find(".//LVSR/Section/Version")
+    if version is not None:
+        major = version.get("Major")
+        minor = version.get("Minor")
+        bugfix = version.get("Bugfix")
+        if major is not None and minor is not None and bugfix is not None:
+            result["lv_version"] = f"{major}.{minor}.{bugfix}"
+
+    # The LVSR <Library> carries Protected= — distinct from the <LIBN>
+    # <Library> (bare owning-library name text, no Protected attribute).
+    protected = False
+    for lib in root.findall(".//LVSR//Library"):
+        if "Protected" in lib.attrib:
+            protected = lib.get("Protected") == "1"
+            break
+
+    has_real_password = False
+    for pw in root.findall(".//Password"):
+        pw_hash = pw.get("Hash")
+        if pw_hash and pw_hash.lower() not in _EMPTY_PASSWORD_HASHES:
+            has_real_password = True
+            break
+
+    if not protected:
+        result["lock_state"] = LOCK_UNLOCKED
+    elif has_real_password:
+        result["lock_state"] = LOCK_PASSWORD_PROTECTED
+    else:
+        result["lock_state"] = LOCK_LOCKED
+
+    execution = root.find(".//LVSR/Section/Execution")
+    if execution is not None:
+        result["reentrant"] = execution.get("IsReentrant") == "1"
+        priority = execution.get("Priority")
+        if priority is not None:
+            result["execution_priority"] = int(priority)
+        pref_exec_syst = execution.get("PrefExecSyst")
+        if pref_exec_syst is not None:
+            result["preferred_exec_system"] = int(pref_exec_syst)
+
+    execution2 = root.find(".//LVSR/Section/Execution2")
+    if execution2 is not None:
+        result["is_system_vi"] = execution2.get("SystemVI") == "1"
+
+    instrument = root.find(".//LVSR/Section/Instrument")
+    if instrument is not None:
+        vi_type = instrument.get("Type")
+        if vi_type:
+            result["vi_type"] = vi_type
+
+    return result
 
 
 def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
