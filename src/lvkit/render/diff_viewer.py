@@ -23,25 +23,30 @@ from importlib.resources import files
 from typing import Any
 
 from ..graph.diff import ChangeMap
-from ..graph.models import CURATED_PROPERTY_FLAGS, CURATED_STRUCTURE_FLAGS, bool_str
+from ..graph.models import (
+    CURATED_HEALTH_FLAGS,
+    CURATED_KIND_FLAGS,
+    CURATED_PROPERTY_FLAGS,
+    bool_str,
+)
 from .help_tip import HELP_TIP
 from .properties_panel import DIFF_PROPERTIES_BUTTON, DIFF_PROPERTIES_PANEL
 from .theme_control import THEME_CONTROL_BUTTON, THEME_CONTROL_SCRIPT
 
 __all__ = ["build_diff_viewer"]
 
-# Matches a root-<svg> data-lv-properties='...'/data-lv-structure='...'
+# Matches a root-<svg> data-lv-properties='...'/data-lv-health='...'
 # attribute (see render/__init__.py's _vi_properties_data_attrs -- always
 # single-quoted, compact JSON). A plain regex over the raw SVG string, not a
 # real parse -- this module stays a PURE builder (no VI/graph access), so
 # re-deriving the metadata diff means reading it back out of the two already-
 # rendered SVGs the caller handed in, the same way a non-Python host (e.g.
 # the VS Code extension) would.
-_LV_DATA_ATTR_RE = re.compile(r"data-lv-(properties|structure)='([^']*)'")
+_LV_DATA_ATTR_RE = re.compile(r"data-lv-(properties|health)='([^']*)'")
 
 
 def _parse_lv_data_attrs(svg: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Pull one SVG's root-level ``(properties, structure)`` dicts back out of
+    """Pull one SVG's root-level ``(properties, health)`` dicts back out of
     its embedded ``data-lv-*`` JSON attributes. Scoped to the OPENING tag only
     (``svg.split(">", 1)[0]``, same technique ``tests/test_viewer_properties.
     py``'s ``_extract_attr`` uses) so a nested icon ``<svg>`` fragment further
@@ -50,7 +55,7 @@ def _parse_lv_data_attrs(svg: str) -> tuple[dict[str, Any], dict[str, Any]]:
     fail to build just because a pane's metadata is absent."""
     head = svg.split(">", 1)[0]
     props: dict[str, Any] = {}
-    struct: dict[str, Any] = {}
+    health: dict[str, Any] = {}
     for name, blob in _LV_DATA_ATTR_RE.findall(head):
         try:
             parsed = json.loads(blob)
@@ -59,14 +64,14 @@ def _parse_lv_data_attrs(svg: str) -> tuple[dict[str, Any], dict[str, Any]]:
         if name == "properties":
             props = parsed
         else:
-            struct = parsed
-    return props, struct
+            health = parsed
+    return props, health
 
 
 def _metadata_change(
     kind: str, field: str, label: str, old: object, new: object,
 ) -> dict[str, Any]:
-    """One VI-Properties/VIStructure change as a first-class ``CHANGES``
+    """One VI-Properties/VIHealth change as a first-class ``CHANGES``
     entry: ``uid=None`` (there is no diagram element to highlight -- only a
     VI-level setting), ``change="modified"`` (a MetadataChange is ALWAYS a
     value transition, never added/removed -- see ``diff.py``'s
@@ -79,8 +84,8 @@ def _metadata_change(
     bounds-less/uid-less change just renders its row with no diagram
     highlight attempt -- never a crash.
 
-    ``field`` is the RAW ``VIProperties``/``VIStructure`` dataclass field
-    name (e.g. ``"run_when_opened"``, ``"lock_state"``) -- NOT the curated
+    ``field`` is the RAW ``VIProperties``/``VIHealth`` dataclass field name
+    (e.g. ``"run_when_opened"``, ``"lock_state"``) -- NOT the curated
     display ``label`` (e.g. "run-on-open"), which can differ from it. It is
     the key the properties popover's own rows carry as ``data-key`` (see
     ``properties_panel.py``'s ``_PANEL_BODY_JS``), so clicking this CHANGES
@@ -103,20 +108,22 @@ _PROPERTY_ENUM_FIELDS: tuple[str, ...] = ("priority", "reentrancy", "exec_system
 
 
 def _metadata_changes(before_svg: str, after_svg: str) -> list[dict[str, Any]]:
-    """Curated VI-Properties/VIStructure changes between the two panes'
-    embedded facets, as first-class ``CHANGES`` entries -- so the Flat list
-    AND the header's "modified" tally include them, not just the Tree view
-    (``netlist_diff_rows``, computed separately by the caller from the loaded
-    graphs). Uses the SAME curated flag vocabulary
-    (``graph.models.CURATED_PROPERTY_FLAGS``/``CURATED_STRUCTURE_FLAGS``),
-    enum fields (``_PROPERTY_ENUM_FIELDS``/``typedef_status``), and
-    ``label: old -> new`` text shape as ``diff.py``'s
-    ``_diff_vi_properties``/``_diff_vi_structure``/``_metadata_change_text``
-    -- this is a pure re-derivation from the two SVGs' own already-embedded
-    JSON (see ``_parse_lv_data_attrs``), not a second pass over the graph
-    (``graph/diff.py`` stays untouched by this module)."""
-    before_props, before_struct = _parse_lv_data_attrs(before_svg)
-    after_props, after_struct = _parse_lv_data_attrs(after_svg)
+    """Curated VI-Properties (incl. ``kind``)/VIHealth changes between the
+    two panes' embedded facets, as first-class ``CHANGES`` entries -- so the
+    Flat list AND the header's "modified" tally include them, not just the
+    Tree view (``netlist_diff_rows``, computed separately by the caller from
+    the loaded graphs). Uses the SAME curated flag vocabulary
+    (``graph.models.CURATED_PROPERTY_FLAGS``/``CURATED_KIND_FLAGS``/
+    ``CURATED_HEALTH_FLAGS``), enum fields (``_PROPERTY_ENUM_FIELDS``/
+    ``kind.typedef_status``), and ``label: old -> new`` text shape as
+    ``diff.py``'s ``_diff_vi_properties``/``_diff_vi_health``/
+    ``_metadata_change_text`` -- this is a pure re-derivation from the two
+    SVGs' own already-embedded JSON (see ``_parse_lv_data_attrs``), not a
+    second pass over the graph (``graph/diff.py`` stays untouched by this
+    module). ``kind`` changes are tagged ``"property"`` (they live inside
+    ``VIProperties``); only health changes are tagged ``"health"``."""
+    before_props, before_health = _parse_lv_data_attrs(before_svg)
+    after_props, after_health = _parse_lv_data_attrs(after_svg)
 
     changes: list[dict[str, Any]] = []
 
@@ -145,20 +152,30 @@ def _metadata_changes(before_svg: str, after_svg: str) -> list[dict[str, Any]]:
                     "property", field, label, bool_str(old_v), bool_str(new_v),
                 ))
 
-    if before_struct and after_struct:
-        before_typedef = before_struct.get("typedef_status")
-        after_typedef = after_struct.get("typedef_status")
+        before_kind = before_props.get("kind") or {}
+        after_kind = after_props.get("kind") or {}
+        before_typedef = before_kind.get("typedef_status")
+        after_typedef = after_kind.get("typedef_status")
         if before_typedef != after_typedef:
             changes.append(_metadata_change(
-                "structure", "typedef_status", "typedef_status",
+                "property", "typedef_status", "typedef_status",
                 before_typedef, after_typedef,
             ))
-        for field, label in CURATED_STRUCTURE_FLAGS.items():
-            old_v = bool(before_struct.get(field))
-            new_v = bool(after_struct.get(field))
+        for field, label in CURATED_KIND_FLAGS.items():
+            old_v = bool(before_kind.get(field))
+            new_v = bool(after_kind.get(field))
             if old_v != new_v:
                 changes.append(_metadata_change(
-                    "structure", field, label, bool_str(old_v), bool_str(new_v),
+                    "property", field, label, bool_str(old_v), bool_str(new_v),
+                ))
+
+    if before_health and after_health:
+        for field, label in CURATED_HEALTH_FLAGS.items():
+            old_v = bool(before_health.get(field))
+            new_v = bool(after_health.get(field))
+            if old_v != new_v:
+                changes.append(_metadata_change(
+                    "health", field, label, bool_str(old_v), bool_str(new_v),
                 ))
 
     return changes
@@ -193,7 +210,7 @@ def build_diff_viewer(
     (that needs loaded graphs); the caller (``cmd_diff``) computes them and
     passes the JSON in. ``None``/omitted renders an empty tree (``[]``).
 
-    ``metadata_changes`` are VI-Properties/VIStructure changes as first-class
+    ``metadata_changes`` are VI-Properties/VIHealth changes as first-class
     ``CHANGES`` entries (``_metadata_change``'s shape) — so the Flat list AND
     the header's "modified" tally include them too, not just the Tree
     (netlist_rows already carries its own copy via ``_metadata_rows``,

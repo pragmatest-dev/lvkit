@@ -576,13 +576,12 @@ class InstanceProps:
 
 
 @dataclass
-class VIStructure:
-    """VI kind + compile-health flags, from ``<Execution>`` unless noted.
-
-    NOT a user-settable VI Property (it is the VI's structural/health
-    STATE, not a dialog setting a user picks) -- so this is its own graph
-    facet (``InMemoryVIGraph._vi_structure`` / ``VIContext.structure``),
-    a SIBLING to ``VIProperties``, never nested inside it.
+class KindProps:
+    """What ROLE the user made this VI. All user-configured, but set
+    outside the LVSR VI-Properties dialog (control-editor Type Def dropdown,
+    connector-pane Dynamic Dispatch, save options) -- so grouped as its own
+    sub-struct alongside Execution/Window/Toolbar/Instance. (Formerly part
+    of the mislabeled ``VIStructure`` facet.)
     """
 
     # TypeDefVI + StrictTypeDefVI
@@ -591,6 +590,16 @@ class VIStructure:
     source_only: bool = False  # SourceOnly (<Execution2>)
     has_no_block_diagram: bool = False  # HasNoBD
     is_instance_vi: bool = False  # InstanceVI (<Execution2>)
+
+
+@dataclass
+class VIHealth:
+    """Emergent compile-health STATE -- the ONLY non-choice VI facet (all
+    False for a healthy VI). A SIBLING facet to ``VIProperties`` (graph
+    ``_vi_health`` / ``VIContext.health``), never nested. Was
+    ``VIStructure``; its kind fields moved into ``VIProperties.kind``.
+    """
+
     bad_node: bool = False  # BadNode
     bad_subvi: bool = False  # BadSubVI
     bad_subvi_link: bool = False  # BadSubVILink
@@ -613,8 +622,10 @@ class VIProperties:
     ``WndBitN``/``WndFloatUnk*``) and opaque transient masks (``*Mask``/
     ``UndoRedo*``/watermarks/``State``) are excluded.
 
-    VI kind/compile-health (``VIStructure``) is NOT a field here -- it is a
-    sibling facet, see ``VIStructure``'s docstring.
+    ``kind`` (what ROLE the VI plays -- see ``KindProps``) is a sub-struct
+    here, like execution/window/toolbar/instance. Compile-HEALTH (an
+    emergent STATE, not a choice) is the separate ``VIHealth`` facet -- a
+    sibling to this whole dataclass, never nested inside it.
     """
 
     # "Major.Minor.Bugfix", e.g. "21.0.0" -- from <Version Major Minor Bugfix>.
@@ -630,15 +641,16 @@ class VIProperties:
     window: WindowProps = field(default_factory=WindowProps)
     toolbar: ToolbarProps = field(default_factory=ToolbarProps)
     instance: InstanceProps = field(default_factory=InstanceProps)
+    kind: KindProps = field(default_factory=KindProps)
 
 
 def bool_str(v: bool) -> str:
-    """Lowercase display form of a bool VI-Properties/Structure flag value
+    """Lowercase display form of a bool VI-Properties/VIHealth flag value
     (``"false"``/``"true"``) -- NOT Python's ``str(bool)`` (``"False"``/
     ``"True"``), matching the netlist header's own lowercase flag syntax
     (see ``docs/reference/netlist.md`` "VI properties & structure header").
     The ONE shared formatter for a curated flag's old/new value, e.g. in
-    ``diff._diff_vi_properties``/``_diff_vi_structure``."""
+    ``diff._diff_vi_properties``/``_diff_vi_health``."""
     return "true" if v else "false"
 
 
@@ -656,50 +668,56 @@ CURATED_PROPERTY_FLAGS: dict[str, str] = {
     "run_when_opened": "run-on-open",
 }
 
-# Curated boolean ``VIStructure`` flags -> display label, matching the
-# netlist header's own flag vocabulary (``docs/reference/netlist.md`` "VI
-# properties & structure header"). Drives ``diff.py``'s
-# ``_STRUCTURE_BOOL_FIELDS`` and the render-viewer's status chips -- one edit
-# changes both surfaces. ``lock_state``/``typedef_status`` are handled
-# separately everywhere (enum transitions, not bool flags).
-CURATED_STRUCTURE_FLAGS: dict[str, str] = {
-    "is_broken": "broken",
+# Curated boolean ``KindProps`` (``VIProperties.kind``) flags -> display
+# label, matching the netlist header's own flag vocabulary
+# (``docs/reference/netlist.md`` "VI properties & structure header"). Drives
+# ``diff.py``'s ``_KIND_BOOL_FIELDS`` and the render-viewer's status chips --
+# one edit changes both surfaces. ``typedef_status`` is handled separately
+# everywhere (an enum transition, not a bool flag).
+CURATED_KIND_FLAGS: dict[str, str] = {
     "dynamic_dispatch": "dynamic-dispatch",
     "source_only": "source-only",
     "has_no_block_diagram": "no-block-diagram",
     "is_instance_vi": "instance-vi",
 }
 
+# Curated boolean ``VIHealth`` flags -> display label, matching the netlist
+# header's own flag vocabulary (``docs/reference/netlist.md`` "VI properties
+# & structure header"). Drives ``diff.py``'s ``_HEALTH_BOOL_FIELDS`` and the
+# render-viewer's status chips -- one edit changes both surfaces.
+CURATED_HEALTH_FLAGS: dict[str, str] = {
+    "is_broken": "broken",
+}
+
 
 def vi_properties_to_dict(p: VIProperties) -> dict:
     """Canonical JSON shape for a ``VIProperties``: full nested groups
-    (``execution``/``window``/``toolbar``/``instance``, each a faithful
-    ``dataclasses.asdict`` -- they have no nested Enum/dataclass fields of
-    their own EXCEPT ``execution``'s ``priority``/``reentrancy``/
-    ``exec_system``), with every Enum field (``lock_state`` plus those three)
-    unwrapped to its string value (``dataclasses.asdict`` alone wouldn't
-    convert them). The ONE converter both the render viewer's SVG data attrs
-    (``render/__init__.py``'s ``_vi_properties_data_attrs``) and the netlist
-    JSON IR (``netlist.py``'s ``netlist_to_dict``) call, so the two surfaces
-    can't drift into different shapes."""
+    (``execution``/``window``/``toolbar``/``instance``/``kind``, each a
+    faithful ``dataclasses.asdict`` -- they have no nested Enum/dataclass
+    fields of their own EXCEPT ``execution``'s ``priority``/``reentrancy``/
+    ``exec_system`` and ``kind``'s ``typedef_status``), with every Enum field
+    (``lock_state`` plus those four) unwrapped to its string value
+    (``dataclasses.asdict`` alone wouldn't convert them). The ONE converter
+    both the render viewer's SVG data attrs (``render/__init__.py``'s
+    ``_vi_properties_data_attrs``) and the netlist JSON IR (``netlist.py``'s
+    ``netlist_to_dict``) call, so the two surfaces can't drift into
+    different shapes."""
     d = dataclasses.asdict(p)
     d["lock_state"] = p.lock_state.value
     d["execution"]["priority"] = p.execution.priority.value
     d["execution"]["reentrancy"] = p.execution.reentrancy.value
     d["execution"]["exec_system"] = p.execution.exec_system.value
+    d["kind"]["typedef_status"] = p.kind.typedef_status.value
     return d
 
 
-def vi_structure_to_dict(s: VIStructure) -> dict:
-    """Canonical JSON shape for a ``VIStructure``: every field, with
-    ``typedef_status`` unwrapped to its string value (``dataclasses.asdict``
-    alone wouldn't convert an Enum field), PLUS the derived ``is_broken``
-    property (``dataclasses.asdict`` alone omits it -- it isn't a dataclass
-    field). The ONE converter both the render viewer's SVG data attrs and the
-    netlist JSON IR call."""
-    d = dataclasses.asdict(s)
-    d["typedef_status"] = s.typedef_status.value
-    d["is_broken"] = s.is_broken
+def vi_health_to_dict(h: VIHealth) -> dict:
+    """Canonical JSON shape for a ``VIHealth``: every field, PLUS the
+    derived ``is_broken`` property (``dataclasses.asdict`` alone omits it --
+    it isn't a dataclass field). The ONE converter both the render viewer's
+    SVG data attrs and the netlist JSON IR call."""
+    d = dataclasses.asdict(h)
+    d["is_broken"] = h.is_broken
     return d
 
 
@@ -720,11 +738,11 @@ class VIContext(BaseModel):
     data_flow: list[Wire] = []
     subvi_calls: list[SubVICall] = []
     poly_variants: list[str] = []
-    # User-settable VI Properties (Protection/Execution/…) from <LVSR>.
+    # User-settable VI Properties (Protection/Execution/…/Kind) from <LVSR>.
     properties: VIProperties = VIProperties()
-    # VI kind + compile-health (structural state, not a user setting) --
-    # a SIBLING facet to ``properties``, never nested inside it.
-    structure: VIStructure = VIStructure()
+    # Compile-health (emergent state, not a user setting) -- a SIBLING facet
+    # to ``properties``, never nested inside it.
+    health: VIHealth = VIHealth()
 
 
 # ============================================================
@@ -744,9 +762,9 @@ class PolyInfo:
 @dataclass
 class VIMetadata:
     """VI metadata from main XML -- IDENTITY only (library/qualified_name/
-    owning_libraries/description). VI Properties/VIStructure are separate,
+    owning_libraries/description). VI Properties/VIHealth are separate,
     sibling name-keyed facets on the graph (``_vi_properties``/
-    ``_vi_structure``), NOT fields here -- see ``InMemoryVIGraph.__init__``.
+    ``_vi_health``), NOT fields here -- see ``InMemoryVIGraph.__init__``.
     """
 
     library: str | None = None

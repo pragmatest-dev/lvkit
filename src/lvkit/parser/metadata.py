@@ -245,11 +245,12 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     the parser cannot import ``graph.models``) keyed exactly like
     ``graph.models.VIProperties``'s sub-structs: ``lv_version``/``vi_type``/
     ``lock_state`` at the top level, plus nested ``execution``/``window``/
-    ``toolbar``/``instance``/``structure`` dicts. The graph layer
-    (``graph.loading``) builds the typed dataclasses from this, wrapping
-    ``lock_state`` (and ``execution["priority"]``/``["reentrancy"]``/
-    ``["exec_system"]``/``structure["typedef_status"]``) into their matching
-    ``graph.models`` Enum.
+    ``toolbar``/``instance``/``kind`` dicts (``kind`` feeds
+    ``VIProperties.kind``), plus a separate ``health`` dict (feeds the
+    sibling ``VIHealth`` facet). The graph layer (``graph.loading``) builds
+    the typed dataclasses from this, wrapping ``lock_state`` (and
+    ``execution["priority"]``/``["reentrancy"]``/``["exec_system"]``/
+    ``kind["typedef_status"]``) into their matching ``graph.models`` Enum.
 
     ``lock_state`` derivation (VI Properties -> Protection, a tri-state):
     read the LVSR ``<Library Protected="0|1">`` (NOT the ``<LIBN>`` owning-
@@ -278,7 +279,8 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "window": {},
         "toolbar": {},
         "instance": {},
-        "structure": {},
+        "kind": {},
+        "health": {},
     }
 
     version = root.find(".//LVSR/Section/Version")
@@ -375,7 +377,7 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "remote_panel": _bool_attr(execution2, "RemotePanel"),
     }
 
-    result["structure"] = {
+    result["kind"] = {
         "typedef_status": _typedef_status(
             _bool_attr(execution, "TypeDefVI"),
             _bool_attr(execution, "StrictTypeDefVI"),
@@ -384,6 +386,9 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "source_only": _bool_attr(execution2, "SourceOnly"),
         "has_no_block_diagram": _bool_attr(execution, "HasNoBD"),
         "is_instance_vi": _bool_attr(execution2, "InstanceVI"),
+    }
+
+    result["health"] = {
         "bad_node": _bool_attr(execution, "BadNode"),
         "bad_subvi": _bool_attr(execution, "BadSubVI"),
         "bad_subvi_link": _bool_attr(execution, "BadSubVILink"),

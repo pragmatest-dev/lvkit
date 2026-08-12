@@ -38,10 +38,10 @@ from .models import (
     SubVICall,
     TerminalRef,
     VIContext,
+    VIHealth,
     VIMetadata,
     VINode,
     VIProperties,
-    VIStructure,
     Wire,
     WireEnd,
 )
@@ -69,7 +69,7 @@ class QueryMixin:
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
-    _vi_structure: dict[str, VIStructure]
+    _vi_health: dict[str, VIHealth]
     _layouts: dict[str, Layout]
     _search_paths: list[Path]
     _vilib_root: Path | None
@@ -848,11 +848,11 @@ class QueryMixin:
         vi_name = self.resolve_vi_name(vi_name)
         return self._vi_properties.get(vi_name, VIProperties())
 
-    def get_vi_structure(self, vi_name: str) -> VIStructure:
-        """The VI's Structure facet (kind + compile-health) alone -- see
+    def get_vi_health(self, vi_name: str) -> VIHealth:
+        """The VI's Health facet (compile-health) alone -- see
         ``get_vi_properties``."""
         vi_name = self.resolve_vi_name(vi_name)
-        return self._vi_structure.get(vi_name, VIStructure())
+        return self._vi_health.get(vi_name, VIHealth())
 
     def get_vi_context(self, vi_name: str) -> VIContext:
         """Get complete VI context for code generation.
@@ -918,7 +918,7 @@ class QueryMixin:
             poly_variants=self.get_poly_variants(vi_name),
             has_parallel_branches=self.has_parallel_branches(vi_name),
             properties=self._vi_properties.get(vi_name, VIProperties()),
-            structure=self._vi_structure.get(vi_name, VIStructure()),
+            health=self._vi_health.get(vi_name, VIHealth()),
         )
 
     def get_subvi_calls(self, vi_name: str) -> list[SubVICall]:

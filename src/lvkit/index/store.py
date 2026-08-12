@@ -94,17 +94,17 @@ CREATE TABLE IF NOT EXISTS vis (
     instance_hide_instance_caption INTEGER NOT NULL DEFAULT 0,
     instance_draw_instance_icon INTEGER NOT NULL DEFAULT 0,
     instance_remote_panel INTEGER NOT NULL DEFAULT 0,
-    struct_typedef_status TEXT NOT NULL DEFAULT 'not_a_typedef',
-    struct_dynamic_dispatch INTEGER NOT NULL DEFAULT 0,
-    struct_source_only INTEGER NOT NULL DEFAULT 0,
-    struct_has_no_block_diagram INTEGER NOT NULL DEFAULT 0,
-    struct_is_instance_vi INTEGER NOT NULL DEFAULT 0,
-    struct_bad_node INTEGER NOT NULL DEFAULT 0,
-    struct_bad_subvi INTEGER NOT NULL DEFAULT 0,
-    struct_bad_subvi_link INTEGER NOT NULL DEFAULT 0,
-    struct_bad_compile INTEGER NOT NULL DEFAULT 0,
-    struct_broken_poly INTEGER NOT NULL DEFAULT 0,
-    struct_is_broken INTEGER NOT NULL DEFAULT 0
+    kind_typedef_status TEXT NOT NULL DEFAULT 'not_a_typedef',
+    kind_dynamic_dispatch INTEGER NOT NULL DEFAULT 0,
+    kind_source_only INTEGER NOT NULL DEFAULT 0,
+    kind_has_no_block_diagram INTEGER NOT NULL DEFAULT 0,
+    kind_is_instance_vi INTEGER NOT NULL DEFAULT 0,
+    health_bad_node INTEGER NOT NULL DEFAULT 0,
+    health_bad_subvi INTEGER NOT NULL DEFAULT 0,
+    health_bad_subvi_link INTEGER NOT NULL DEFAULT 0,
+    health_bad_compile INTEGER NOT NULL DEFAULT 0,
+    health_broken_poly INTEGER NOT NULL DEFAULT 0,
+    health_is_broken INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_vis_name ON vis(name);
 CREATE INDEX IF NOT EXISTS idx_vis_qualified_name ON vis(qualified_name);
@@ -202,14 +202,15 @@ _ALL_TABLES = (
     "lvproj_members", "meta",
 )
 
-# VIProperties + VIStructure flattened columns on ``vis``: (column_name,
+# VIProperties + VIHealth flattened columns on ``vis``: (column_name,
 # is_bool). ``column_name`` is always identical to the matching ``VIFacts``
 # attribute name (see index/model.py) so save()/load() round-trip all 50
 # columns from this single ordered list instead of hand-aligning that many
-# positional slots across the DDL/INSERT/SELECT. The last 12 (``struct_*``)
-# are VIStructure's -- a facet SIBLING to VIProperties, flattened into the
-# same wide ``vis`` row for one-query-per-VI convenience; they are not
-# "properties" of VIProperties itself.
+# positional slots across the DDL/INSERT/SELECT. The first 5 of the last 11
+# (``kind_*``) are VIProperties.kind's (a sub-struct, like exec_*/window_*/
+# …); the final 6 (``health_*``) are VIHealth's -- a facet SIBLING to
+# VIProperties, flattened into the same wide ``vis`` row for
+# one-query-per-VI convenience.
 _FLAT_PROPERTY_COLUMNS: tuple[tuple[str, bool], ...] = (
     ("lv_version", False),
     ("vi_type", False),
@@ -250,17 +251,17 @@ _FLAT_PROPERTY_COLUMNS: tuple[tuple[str, bool], ...] = (
     ("instance_hide_instance_caption", True),
     ("instance_draw_instance_icon", True),
     ("instance_remote_panel", True),
-    ("struct_typedef_status", False),
-    ("struct_dynamic_dispatch", True),
-    ("struct_source_only", True),
-    ("struct_has_no_block_diagram", True),
-    ("struct_is_instance_vi", True),
-    ("struct_bad_node", True),
-    ("struct_bad_subvi", True),
-    ("struct_bad_subvi_link", True),
-    ("struct_bad_compile", True),
-    ("struct_broken_poly", True),
-    ("struct_is_broken", True),
+    ("kind_typedef_status", False),
+    ("kind_dynamic_dispatch", True),
+    ("kind_source_only", True),
+    ("kind_has_no_block_diagram", True),
+    ("kind_is_instance_vi", True),
+    ("health_bad_node", True),
+    ("health_bad_subvi", True),
+    ("health_bad_subvi_link", True),
+    ("health_bad_compile", True),
+    ("health_broken_poly", True),
+    ("health_is_broken", True),
 )
 
 

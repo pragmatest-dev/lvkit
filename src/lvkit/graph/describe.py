@@ -29,9 +29,9 @@ from .models import (
     Constant,
     ExecutionProps,
     InstanceProps,
+    KindProps,
     ToolbarProps,
     VIContext,
-    VIStructure,
     WindowProps,
     bool_str,
 )
@@ -78,15 +78,15 @@ def describe_vi(
     lines.append(f"  {_format_signature(ctx)}")
     lines.append("")
 
-    # VI Properties: Protection/Execution/Window/…, faithfully rendered
+    # VI Properties: Protection/Execution/Window/…/Kind, faithfully rendered
     # (never a Python annotation -- these are LabVIEW's own VI Properties
     # dialog values, not a codegen target).
     lines.extend(_describe_properties(ctx))
 
-    # VI Structure: kind + compile-health -- a SIBLING section to
-    # ## Properties (VIStructure is a separate facet, never nested under
-    # VIProperties: it is structural/health state, not a user setting).
-    lines.extend(_describe_structure(ctx))
+    # VI Health: compile-health -- a SIBLING section to ## Properties
+    # (VIHealth is a separate facet, never nested under VIProperties: it is
+    # emergent state, not a user setting). Shown only when broken.
+    lines.extend(_describe_health(ctx))
 
     # Interface: Inputs
     if ctx.inputs:
@@ -363,12 +363,12 @@ def _terminal_type_label(t: Terminal) -> str:
 
 
 _FlagGroup = (
-    ExecutionProps | WindowProps | ToolbarProps | InstanceProps | VIStructure
+    ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
 )
 
 
 def _describe_flag_group(group: _FlagGroup, indent: str = "    ") -> list[str]:
-    """Render one VI-Properties/VIStructure sub-struct's non-default fields.
+    """Render one VI-Properties sub-struct's non-default fields.
 
     bool fields show only when True (rendered lowercase via ``bool_str``,
     matching the netlist/diff convention -- never Python's capitalized
@@ -395,15 +395,16 @@ def _describe_flag_group(group: _FlagGroup, indent: str = "    ") -> list[str]:
 
 def _describe_properties(ctx: VIContext) -> list[str]:
     """Render the VI's Properties dialog settings (Protection/Execution/
-    Window/…), faithfully and grouped to match the dialog's own pages.
+    Window/…) plus its Kind (what ROLE the VI plays), faithfully and
+    grouped to match the dialog's own pages.
 
     ``lock_state`` always shows; ``lv_version``/``vi_type`` show only when
     present (same non-default rule the nested groups below already follow --
     a stub/synthetic ``VIContext`` has neither); each nested group
-    (execution/window/toolbar/instance) shows -- with only its non-default
-    fields -- only when it has something set, so the common case stays
-    terse. VI kind/compile-health is a SEPARATE ``## Structure`` section
-    (see ``_describe_structure``), not part of this one.
+    (execution/window/toolbar/instance/kind) shows -- with only its
+    non-default fields -- only when it has something set, so the common
+    case stays terse. Compile-HEALTH is a SEPARATE ``## Health`` section
+    (see ``_describe_health``), not part of this one.
     """
     props = ctx.properties
     lines = ["## Properties"]
@@ -417,6 +418,7 @@ def _describe_properties(ctx: VIContext) -> list[str]:
         ("window", props.window),
         ("toolbar", props.toolbar),
         ("instance", props.instance),
+        ("kind", props.kind),
     ):
         group_lines = _describe_flag_group(group)
         if group_lines:
@@ -426,21 +428,23 @@ def _describe_properties(ctx: VIContext) -> list[str]:
     return lines
 
 
-def _describe_structure(ctx: VIContext) -> list[str]:
-    """Render the VI's structural/compile-health state (``VIStructure``) --
-    a SIBLING section to ``## Properties``, never folded into it: this is
-    intrinsic VI state (kind, broken-ness), not a user-settable property.
+def _describe_health(ctx: VIContext) -> list[str]:
+    """Render the VI's compile-health state (``VIHealth``) -- a SIBLING
+    section to ``## Properties``, never folded into it: this is emergent VI
+    state (broken-ness), not a user-settable property.
 
-    Shows only non-default fields (e.g. ``typedef_status``/``has_no_block_
-    diagram`` when non-default/True), plus ``is_broken`` whenever any bad_*
-    flag is set.
+    Rendered ONLY when the VI is broken (``health.is_broken``) -- listing
+    the true bad_* causes plus ``is_broken`` itself; omitted entirely for a
+    healthy VI (never an empty/"(none)" section, unlike ``## Properties``).
     """
-    struct = ctx.structure
-    body = _describe_flag_group(struct, indent="  ")
-    if struct.is_broken:
-        body.append(f"  is_broken: {bool_str(struct.is_broken)}")
-    lines = ["## Structure"]
-    lines.extend(body if body else ["  (none)"])
+    health = ctx.health
+    if not health.is_broken:
+        return []
+    lines = ["## Health"]
+    for f in dataclass_fields(health):
+        if getattr(health, f.name):
+            lines.append(f"  {f.name}: {bool_str(True)}")
+    lines.append(f"  is_broken: {bool_str(health.is_broken)}")
     lines.append("")
     return lines
 

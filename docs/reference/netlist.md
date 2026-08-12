@@ -93,41 +93,43 @@ VI Tree - string__ogtk.vi () -> ()
 ### VI properties & structure header
 
 The grammar reserves two metadata lines directly below the VI signature
-line — the LOCKED syntax for a VI's own settings and its kind/health, the
-netlist analog of a SPICE `.options` block or a Verilog `(* … *)` design
-attribute. Each would print only when it has notable content, so an
-unlocked, healthy, default VI would show neither:
+line — the LOCKED syntax for a VI's own settings (including its kind — what
+ROLE the VI plays) and its compile-health, the netlist analog of a SPICE
+`.options` block or a Verilog `(* … *)` design attribute. Each would print
+only when it has notable content, so an unlocked, healthy, default VI would
+show neither:
 
 ```text
 VITester_Item_Init.vi (Object) -> ()
-properties: lock=password_protected, reentrant
-structure: broken, typedef
+properties: lock=password_protected, reentrant, typedef
+health: broken
 ```
 
 - `properties:` — notable VI Properties: `lock=<state>` when the VI isn't
   `unlocked`, then bare flags for the high-signal settings (`reentrant`,
-  `subroutine`, `run-on-open`, …).
-- `structure:` — set kind/health flags: `broken`, `typedef`,
+  `subroutine`, `run-on-open`, …) plus its kind flags: `typedef`,
   `dynamic-dispatch`, `source-only`, `no-block-diagram`, `instance-vi`.
+- `health:` — set only when the VI is broken: `broken`.
 
 **`render_netlist` does not emit this header inline today** — `describe`
-already has its own `## Properties` / `## Structure` sections, so inlining
+already has its own `## Properties` / `## Health` sections, so inlining
 the same facts into `## Netlist` too would just duplicate them on the same
 page. This section instead fixes the canonical SYNTAX and curated flag
 vocabulary for those facts wherever they DO appear today:
-[`diff`](diff.md)'s own `Properties:` / `Structure:` sections (one
+[`diff`](diff.md)'s own `Properties:` / `Health:` sections (one
 `~ <flag>: <old> -> <new>` gutter line per changed flag, off the same
 curated set) and the interactive viewer's status chips + collapsible
-Properties panel. Both read the same `VIProperties` / `VIStructure` facets
-this header would draw from, carried on the shared `build_netlist` IR (see
-`netlist_to_dict`'s `properties` / `structure` keys) — one data source,
-several renderings. Emitting this header inline in `render_netlist` itself
-is a tracked follow-up (#21).
+Properties panel. Both read the same `VIProperties` (kind included) /
+`VIHealth` facets this header would draw from, carried on the shared
+`build_netlist` IR (see `netlist_to_dict`'s `properties` / `health` keys) —
+one data source, several renderings. Emitting this header inline in
+`render_netlist` itself is a tracked follow-up (#21).
 
 The exhaustive set — every flag, window cosmetics, numeric execution
-priority — lives in `describe`'s `## Properties` / `## Structure` sections
-and the JSON `get_context`; every rendering of this curated subset (here,
-`diff`, the viewer) is a high-signal SUMMARY only.
+priority — lives in `describe`'s `## Properties` section (kind included) and
+its `## Health` section (broken causes, shown only when broken), and the
+JSON `get_context`; every rendering of this curated subset (here, `diff`,
+the viewer) is a high-signal SUMMARY only.
 
 ### Instance (node) line — node-first, named-port
 

@@ -170,27 +170,29 @@ VIEWS: dict[str, _View] = {
             "own icon",
             "instance_remote_panel": "1 if front-panel remote access is "
             "enabled",
-            # -- struct_* : VI kind + compile health (VIStructure -- a facet
-            # SIBLING to VI Properties above, never nested under it) --------
-            "struct_typedef_status": "VI Structure type-definition kind "
+            # -- kind_* : what ROLE the VI plays (VIProperties.kind -- a
+            # sub-struct of VI Properties, like exec_*/window_*/…) ----------
+            "kind_typedef_status": "VI type-definition kind "
             "(LVSR TypeDefVI + StrictTypeDefVI, faithfully decoded): "
             "'not_a_typedef', 'typedef', or 'strict_typedef'",
-            "struct_dynamic_dispatch": "1 if this VI participates in "
+            "kind_dynamic_dispatch": "1 if this VI participates in "
             "dynamic dispatch (a class method override point)",
-            "struct_source_only": "1 if the VI is source-only/separate "
+            "kind_source_only": "1 if the VI is source-only/separate "
             "compiled code (no cached object code saved)",
-            "struct_has_no_block_diagram": "1 if the block diagram was "
+            "kind_has_no_block_diagram": "1 if the block diagram was "
             "stripped (a run-only distribution build)",
-            "struct_is_instance_vi": "1 if this is a generated poly-VI "
+            "kind_is_instance_vi": "1 if this is a generated poly-VI "
             "instance, not the poly wrapper itself",
-            "struct_bad_node": "1 if the VI has a broken node",
-            "struct_bad_subvi": "1 if the VI calls a broken subVI",
-            "struct_bad_subvi_link": "1 if a subVI call link is broken "
+            # -- health_* : compile health (VIHealth -- a facet SIBLING to
+            # VI Properties above, never nested under it) -------------------
+            "health_bad_node": "1 if the VI has a broken node",
+            "health_bad_subvi": "1 if the VI calls a broken subVI",
+            "health_bad_subvi_link": "1 if a subVI call link is broken "
             "(unresolved)",
-            "struct_bad_compile": "1 if the VI failed to compile",
-            "struct_broken_poly": "1 if a polymorphic VI has a broken variant",
-            "struct_is_broken": "1 if ANY of struct_bad_node/struct_bad_subvi/"
-            "struct_bad_subvi_link/struct_bad_compile/struct_broken_poly is "
+            "health_bad_compile": "1 if the VI failed to compile",
+            "health_broken_poly": "1 if a polymorphic VI has a broken variant",
+            "health_is_broken": "1 if ANY of health_bad_node/health_bad_subvi/"
+            "health_bad_subvi_link/health_bad_compile/health_broken_poly is "
             "set (precomputed OR of the five)",
         },
     ),

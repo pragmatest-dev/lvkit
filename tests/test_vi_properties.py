@@ -1,12 +1,15 @@
-"""Tests for the VI-Properties/VI-Structure graph facets, parsed from the
-main XML's ``<LVSR>`` block -- ``graph.models.VIProperties``/``VIStructure``/
-``LockState``/``Priority``/``Reentrancy``/``ExecSystem``/``TypedefStatus``.
+"""Tests for the VI-Properties/VI-Health graph facets, parsed from the
+main XML's ``<LVSR>`` block -- ``graph.models.VIProperties``/``VIHealth``/
+``KindProps``/``LockState``/``Priority``/``Reentrancy``/``ExecSystem``/
+``TypedefStatus``.
 
-VIProperties and VIStructure are SEPARATE, sibling graph facets
-(``InMemoryVIGraph._vi_properties`` / ``._vi_structure``, surfaced as
-``VIContext.properties`` / ``.structure``) -- neither is nested inside the
+VIProperties and VIHealth are SEPARATE, sibling graph facets
+(``InMemoryVIGraph._vi_properties`` / ``._vi_health``, surfaced as
+``VIContext.properties`` / ``.health``) -- neither is nested inside the
 other, and neither lives on ``VIMetadata`` (identity only: library/
-qualified_name/owning_libraries/description).
+qualified_name/owning_libraries/description). ``kind`` (what ROLE the VI
+plays -- typedef status, dynamic dispatch, …) is a SUB-STRUCT of
+``VIProperties`` (``VIProperties.kind``), not a separate facet.
 
 ``TestParseLvsrProperties`` exercises the pure XML-derivation logic
 (``parser.metadata._parse_lvsr_properties``) against synthetic XML, matching
@@ -41,7 +44,7 @@ by grepping every extracted main .xml for ``HasNoBD="1"``/
 or ``size_to_screen`` set. Real LabVIEW type-definitions (``TypeDefVI="1"``)
 are likewise never saved as ``.vi`` -- only as ``.ctl``, which
 ``InMemoryVIGraph.load_vi()`` does not accept (only ``load_typedef()``,
-which does not populate ``_vi_properties``/``_vi_structure``). Per lvkit's
+which does not populate ``_vi_properties``/``_vi_health``). Per lvkit's
 no-guessing rule, these are covered by the synthetic-XML unit tests below
 instead of being force-fit onto real data that doesn't exhibit them.
 
@@ -65,26 +68,28 @@ from lvkit.graph.models import (
     ExecSystem,
     ExecutionProps,
     InstanceProps,
+    KindProps,
     LockState,
     Priority,
     Reentrancy,
     ToolbarProps,
     TypedefStatus,
     VIContext,
+    VIHealth,
     VIProperties,
-    VIStructure,
     WindowProps,
 )
 from lvkit.parser.metadata import _parse_lvsr_properties
 
 
 class TestParseLvsrProperties:
-    """Unit tests for the pure ``<LVSR>`` -> VI-Properties/VIStructure
+    """Unit tests for the pure ``<LVSR>`` -> VI-Properties/VIHealth
     derivation. ``_parse_lvsr_properties`` returns a PLAIN nested
     dict-of-dicts (the parser cannot import graph models) keyed exactly
     like the graph dataclasses: top-level ``lv_version``/``vi_type``/
     ``lock_state``, plus nested ``execution``/``window``/``toolbar``/
-    ``instance``/``structure`` dicts (``"structure"`` feeds ``VIStructure``).
+    ``instance``/``kind`` dicts (``"kind"`` feeds ``VIProperties.kind`` --
+    ``KindProps``), plus a separate ``"health"`` dict (feeds ``VIHealth``).
     """
 
     def _root(self, xml: str) -> ET.Element:
@@ -304,9 +309,9 @@ class TestParseLvsrProperties:
         assert instance["hide_instance_caption"] is True
         assert instance["draw_instance_icon"] is True
         assert instance["remote_panel"] is True
-        structure = result["structure"]
-        assert structure["source_only"] is True
-        assert structure["is_instance_vi"] is True
+        kind = result["kind"]
+        assert kind["source_only"] is True
+        assert kind["is_instance_vi"] is True
 
     # -- window / toolbar ----------------------------------------------
 
@@ -355,9 +360,9 @@ class TestParseLvsrProperties:
         assert result["window"]["show_scrollbar"] is None
         assert result["window"]["show_title_bar"] is False
 
-    # -- structure (VIStructure) -----------------------------------------
+    # -- kind (KindProps) / health (VIHealth) -----------------------------
 
-    def test_structure_kind_and_health_fields(self) -> None:
+    def test_kind_and_health_fields(self) -> None:
         root = self._root(
             "<RSRC><LVSR><Section>"
             '<Execution TypeDefVI="1" StrictTypeDefVI="1" DynamicDispatch="1" '
@@ -366,15 +371,16 @@ class TestParseLvsrProperties:
             "</Section></LVSR></RSRC>"
         )
         result = _parse_lvsr_properties(root)
-        structure = result["structure"]
-        assert structure["typedef_status"] == TypedefStatus.STRICT_TYPEDEF.value
-        assert structure["dynamic_dispatch"] is True
-        assert structure["has_no_block_diagram"] is True
-        assert structure["bad_node"] is True
-        assert structure["bad_subvi"] is True
-        assert structure["bad_subvi_link"] is True
-        assert structure["bad_compile"] is True
-        assert structure["broken_poly"] is True
+        kind = result["kind"]
+        assert kind["typedef_status"] == TypedefStatus.STRICT_TYPEDEF.value
+        assert kind["dynamic_dispatch"] is True
+        assert kind["has_no_block_diagram"] is True
+        health = result["health"]
+        assert health["bad_node"] is True
+        assert health["bad_subvi"] is True
+        assert health["bad_subvi_link"] is True
+        assert health["bad_compile"] is True
+        assert health["broken_poly"] is True
 
     def test_typedef_status_codes_map_to_faithful_values(self) -> None:
         """(TypeDefVI, StrictTypeDefVI) -> faithful string value. (0, 1)
@@ -392,54 +398,50 @@ class TestParseLvsrProperties:
                 "</Section></LVSR></RSRC>"
             )
             result = _parse_lvsr_properties(root)
-            assert result["structure"]["typedef_status"] == status.value, (
+            assert result["kind"]["typedef_status"] == status.value, (
                 is_typedef, is_strict,
             )
 
-    def test_structure_defaults_when_execution_absent(self) -> None:
+    def test_kind_and_health_defaults_when_execution_absent(self) -> None:
         root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
         result = _parse_lvsr_properties(root)
-        structure = result["structure"]
-        assert structure["typedef_status"] == TypedefStatus.NOT_A_TYPEDEF.value
-        assert structure["has_no_block_diagram"] is False
-        assert structure["bad_node"] is False
+        kind = result["kind"]
+        assert kind["typedef_status"] == TypedefStatus.NOT_A_TYPEDEF.value
+        assert kind["has_no_block_diagram"] is False
+        assert result["health"]["bad_node"] is False
 
-    def test_vistructure_is_broken_from_synthetic_dict(self) -> None:
-        """VIStructure.is_broken (a derived property, not a parser field)
+    def test_vihealth_is_broken_from_synthetic_dict(self) -> None:
+        """VIHealth.is_broken (a derived property, not a parser field)
         against the parser's plain dict, built the same way graph.loading
-        does -- see _build_vi_structure."""
+        does -- see _build_vi_health."""
         root = self._root(
             '<RSRC><LVSR><Section><Execution BadCompile="1"/>'
             "</Section></LVSR></RSRC>"
         )
         result = _parse_lvsr_properties(root)
-        structure = dict(result["structure"])
-        structure["typedef_status"] = TypedefStatus(structure["typedef_status"])
-        struct = VIStructure(**structure)
-        assert struct.bad_compile is True
-        assert struct.is_broken is True
+        health = VIHealth(**dict(result["health"]))
+        assert health.bad_compile is True
+        assert health.is_broken is True
 
         clean_root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
-        clean_structure = dict(_parse_lvsr_properties(clean_root)["structure"])
-        clean_structure["typedef_status"] = TypedefStatus(
-            clean_structure["typedef_status"]
+        clean_health = VIHealth(
+            **dict(_parse_lvsr_properties(clean_root)["health"])
         )
-        clean_struct = VIStructure(**clean_structure)
-        assert clean_struct.is_broken is False
+        assert clean_health.is_broken is False
 
 
 class TestParserGraphKeyDrift:
     """Drift guard: ``graph.loading._build_vi_properties``/
-    ``_build_vi_structure`` splat ``_parse_lvsr_properties``'s nested dicts
+    ``_build_vi_health`` splat ``_parse_lvsr_properties``'s nested dicts
     straight into ``ExecutionProps(**execution)``/``WindowProps(**window)``/
     ``ToolbarProps(**toolbar)``/``InstanceProps(**instance)``/
-    ``VIStructure(**structure)`` -- an unknown key raises ``TypeError``, but
-    only for whichever real VI happens to populate the renamed key, so a
-    parser-side rename (or a dataclass-side rename with the parser left
-    behind) can sit undetected until some corpus VI trips it. Assert the KEY
-    SETS line up directly, so a rename fails HERE, on an empty/default-only
-    XML, every run -- not only when a real VI's XML happens to populate the
-    drifted field.
+    ``KindProps(**kind)``/``VIHealth(**health)`` -- an unknown key raises
+    ``TypeError``, but only for whichever real VI happens to populate the
+    renamed key, so a parser-side rename (or a dataclass-side rename with
+    the parser left behind) can sit undetected until some corpus VI trips
+    it. Assert the KEY SETS line up directly, so a rename fails HERE, on an
+    empty/default-only XML, every run -- not only when a real VI's XML
+    happens to populate the drifted field.
     """
 
     def _groups(self) -> dict[str, Any]:
@@ -462,14 +464,18 @@ class TestParserGraphKeyDrift:
         result = self._groups()
         assert set(result["instance"]) <= {f.name for f in fields(InstanceProps)}
 
-    def test_structure_keys_match_vistructure_fields(self) -> None:
+    def test_kind_keys_match_kindprops_fields(self) -> None:
         result = self._groups()
-        assert set(result["structure"]) <= {f.name for f in fields(VIStructure)}
+        assert set(result["kind"]) <= {f.name for f in fields(KindProps)}
+
+    def test_health_keys_match_vihealth_fields(self) -> None:
+        result = self._groups()
+        assert set(result["health"]) <= {f.name for f in fields(VIHealth)}
 
 
 # ---------------------------------------------------------------------------
 # describe.py rendering -- synthetic VIContext (no corpus/graph needed: the
-# render functions only read ctx.properties / ctx.structure).
+# render functions only read ctx.properties / ctx.health).
 # ---------------------------------------------------------------------------
 
 
@@ -530,31 +536,40 @@ class TestDescribeRendering:
         assert "reentrancy: shared_clone" in text
         assert "exec_system: standard" in text
 
-    def test_describe_structure_shows_broken_and_typedef_status(self) -> None:
-        from lvkit.graph.describe import _describe_structure
+    def test_describe_properties_shows_kind_group(self) -> None:
+        from lvkit.graph.describe import _describe_properties
 
         ctx = VIContext(
             name="x.vi",
-            structure=VIStructure(
-                bad_compile=True, typedef_status=TypedefStatus.STRICT_TYPEDEF,
+            properties=VIProperties(
+                kind=KindProps(typedef_status=TypedefStatus.STRICT_TYPEDEF),
             ),
         )
-        lines = _describe_structure(ctx)
+        lines = _describe_properties(ctx)
         text = "\n".join(lines)
-        assert "## Structure" in text
+        assert "## Properties" in text
+        assert "kind:" in text
         assert "typedef_status: strict_typedef" in text
+
+    def test_describe_health_shows_broken_causes(self) -> None:
+        from lvkit.graph.describe import _describe_health
+
+        ctx = VIContext(
+            name="x.vi",
+            health=VIHealth(bad_compile=True),
+        )
+        lines = _describe_health(ctx)
+        text = "\n".join(lines)
+        assert "## Health" in text
         assert "bad_compile: true" in text
         assert "is_broken: true" in text
 
-    def test_describe_structure_none_when_all_default(self) -> None:
-        from lvkit.graph.describe import _describe_structure
+    def test_describe_health_omitted_when_all_default(self) -> None:
+        from lvkit.graph.describe import _describe_health
 
         ctx = VIContext(name="x.vi")
-        lines = _describe_structure(ctx)
-        text = "\n".join(lines)
-        assert "## Structure" in text
-        assert "(none)" in text
-        assert "is_broken" not in text
+        lines = _describe_health(ctx)
+        assert lines == []
 
 
 # ---------------------------------------------------------------------------
@@ -656,7 +671,8 @@ class TestVIPropertiesCorpus:
 
     def test_describe_shows_properties(self) -> None:
         """describe_vi's ## Properties section faithfully surfaces lock_state
-        -- the CLI/MCP-visible text path (graph/describe.py)."""
+        -- the CLI/MCP-visible text path (graph/describe.py). This VI is
+        healthy, so ## Health is omitted entirely."""
         _skip_if_missing(PASSWORD_PROTECTED_VI)
         from lvkit.graph.describe import describe_vi
 
@@ -666,13 +682,13 @@ class TestVIPropertiesCorpus:
         text = describe_vi(g, vi_name)
         assert "## Properties" in text
         assert "lock_state: password_protected" in text
-        assert "## Structure" in text
+        assert "## Health" not in text
 
-    def test_get_context_json_shows_properties_and_structure(self) -> None:
+    def test_get_context_json_shows_properties_and_health(self) -> None:
         """netlist_to_dict (the MCP get_context tool's JSON shape) carries
-        the FULL nested properties structure through, plus a SEPARATE
-        top-level ``structure`` key (VIStructure is a sibling facet, never
-        nested under ``properties``)."""
+        the FULL nested properties structure through (kind included), plus a
+        SEPARATE top-level ``health`` key (VIHealth is a sibling facet,
+        never nested under ``properties``)."""
         _skip_if_missing(PASSWORD_PROTECTED_VI)
         from lvkit.graph.netlist import build_netlist, netlist_to_dict
 
@@ -685,7 +701,9 @@ class TestVIPropertiesCorpus:
         assert "window" in d["properties"]
         assert "toolbar" in d["properties"]
         assert "instance" in d["properties"]
-        assert "structure" not in d["properties"]  # lives in its own facet
-        assert "structure" in d
-        assert "is_broken" in d["structure"]
-        assert d["structure"]["is_broken"] is False
+        assert "kind" in d["properties"]
+        assert d["properties"]["kind"]["typedef_status"] == "not_a_typedef"
+        assert "health" not in d["properties"]  # lives in its own facet
+        assert "health" in d
+        assert "is_broken" in d["health"]
+        assert d["health"]["is_broken"] is False

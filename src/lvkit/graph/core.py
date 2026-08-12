@@ -27,10 +27,10 @@ from .models import (
     LocalVariableNode,
     PolyInfo,
     StructureNode,
+    VIHealth,
     VIMetadata,
     VINode,
     VIProperties,
-    VIStructure,
     WireEnd,
 )
 from .models import (
@@ -184,9 +184,9 @@ class InMemoryVIGraph(
         # vi_name -- a sibling facet to _vi_metadata, NOT a VIMetadata field
         # (see VIMetadata's docstring: identity only).
         self._vi_properties: dict[str, VIProperties] = {}
-        # VI kind + compile-health (structural state, not a user setting) --
-        # a SIBLING facet to _vi_properties, never nested inside it.
-        self._vi_structure: dict[str, VIStructure] = {}
+        # Compile-health (emergent state, not a user setting) -- a SIBLING
+        # facet to _vi_properties, never nested inside it.
+        self._vi_health: dict[str, VIHealth] = {}
         # Optional disk roots for <vilib> / <userlib> path token resolution
         self._vilib_root: Path | None = None
         self._userlib_root: Path | None = None
@@ -246,7 +246,7 @@ class InMemoryVIGraph(
         self._vi_file_index = None
         self._vi_metadata.clear()
         self._vi_properties.clear()
-        self._vi_structure.clear()
+        self._vi_health.clear()
         self._layouts.clear()
         self._parse_cache = None
 

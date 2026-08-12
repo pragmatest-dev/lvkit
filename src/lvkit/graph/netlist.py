@@ -47,11 +47,11 @@ from ..parser.node_types import get_display_name
 from .models import (
     Constant,
     VIContext,
+    VIHealth,
     VIProperties,
-    VIStructure,
     WireEnd,
+    vi_health_to_dict,
     vi_properties_to_dict,
-    vi_structure_to_dict,
 )
 from .op_walk import (
     ComponentPort,
@@ -248,10 +248,10 @@ class NetlistModule:
     # NOT rendered by ``render_netlist``'s ASCII text -- ``describe.py`` has
     # its own faithful ``## Properties`` section.
     properties: VIProperties = field(default_factory=VIProperties)
-    # VI kind + compile-health -- a SIBLING facet to ``properties``, never
-    # nested inside it (structural state, not a user setting). Same
+    # Compile-health -- a SIBLING facet to ``properties``, never nested
+    # inside it (emergent state, not a user setting). Same
     # netlist_to_dict-only carry-through as ``properties`` above.
-    structure: VIStructure = field(default_factory=VIStructure)
+    health: VIHealth = field(default_factory=VIHealth)
     # The owning class's context when this VI is a .lvclass method -- the
     # describe.py ``## Class`` section's JSON counterpart. None for a non-
     # method VI. Same netlist_to_dict-only carry-through as the two above.
@@ -952,7 +952,7 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     return NetlistModule(
         vi_name=vi_name, inputs=inputs, outputs=outputs, body=body,
         components=components, properties=ctx.properties,
-        structure=ctx.structure,
+        health=ctx.health,
         class_context=_build_class_context(graph, ctx),
     )
 
@@ -1228,7 +1228,7 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
         "components": [_component_to_dict(c) for c in module.components],
         "body": [_item_to_dict(i) for i in module.body],
         "properties": vi_properties_to_dict(module.properties),
-        "structure": vi_structure_to_dict(module.structure),
+        "health": vi_health_to_dict(module.health),
         "class_context": (
             _dataclass_asdict(module.class_context)
             if module.class_context is not None

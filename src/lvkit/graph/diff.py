@@ -25,11 +25,12 @@ from ..models import (
 )
 from ..parser.node_types import get_display_name
 from .models import (
+    CURATED_HEALTH_FLAGS,
+    CURATED_KIND_FLAGS,
     CURATED_PROPERTY_FLAGS,
-    CURATED_STRUCTURE_FLAGS,
     Constant,
+    VIHealth,
     VIProperties,
-    VIStructure,
     Wire,
     WireEnd,
     bool_str,
@@ -69,8 +70,8 @@ class SignatureChange:
 
 @dataclass
 class MetadataChange:
-    """One VI-level Properties/Structure change -- ALWAYS a value transition.
-    Properties/Structure are a FIXED schema every VI has (every VI has a
+    """One VI-level Properties/Health change -- ALWAYS a value transition.
+    Properties/Health are a FIXED schema every VI has (every VI has a
     lock_state, a reentrant flag, an is_broken flag, ...) -- a field's VALUE
     changes between versions, but the field itself is never added or removed.
     So unlike ``SignatureChange`` (added/removed/type_changed), there is only
@@ -1989,7 +1990,7 @@ class NetlistDiffRow:
     text: str           # netlist-syntax content, NO gutter/indent baked in
     uid: str | None     # stable node/structure/wire uid, or None (context/const)
     kind: str           # "scope" | "frame" | "node" | "wire" | "constant"
-                         # | "terminal" | "property" | "structure"
+                         # | "terminal" | "property" | "health"
 
 
 def _rows_to_text(rows: list[NetlistDiffRow]) -> list[str]:
@@ -2364,7 +2365,7 @@ _METADATA_CHANGE_TAG = "modified"
 
 
 def _metadata_change_text(c: MetadataChange) -> str:
-    """Netlist-syntax content for one Properties/Structure change leaf --
+    """Netlist-syntax content for one Properties/Health change leaf --
     always ``name: old -> new`` (a boolean flip renders as
     ``reentrant: false -> true``, same shape as an enum transition like
     ``lock: unlocked -> password_protected``). NO gutter/indent -- the
@@ -2385,9 +2386,9 @@ def _format_metadata_section(header: str, changes: list[MetadataChange]) -> str:
 
 
 def _metadata_rows(changes: list[MetadataChange], kind: str) -> list[NetlistDiffRow]:
-    """Project ``MetadataChange``s (Properties/Structure) as top-level
+    """Project ``MetadataChange``s (Properties/Health) as top-level
     (``depth=0``) ``NetlistDiffRow``s for the HTML viewer's Tree, so it shows
-    the SAME property/structure changes ``format_diff`` prints as text. No
+    the SAME property/health changes ``format_diff`` prints as text. No
     stable node uid exists for a VI-level setting, so ``uid`` is None -- like
     a module-level change, there is nothing in the diagram to highlight.
     ``change`` is always "modified" (see ``MetadataChange``'s docstring)."""
@@ -2436,7 +2437,7 @@ def format_diff(
         if signature:
             sections.append(_format_signature_section(signature))
 
-    # Properties/Structure changes surface in BOTH tiers (unlike Signature,
+    # Properties/Health changes surface in BOTH tiers (unlike Signature,
     # verbose-only): a VI going protected or broken is high-signal enough to
     # always show, mirroring the netlist header's own "always summarized"
     # positioning (docs/reference/netlist.md).
@@ -2444,9 +2445,9 @@ def format_diff(
     prop_changes = _diff_vi_properties(ctx_a.properties, ctx_b.properties)
     if prop_changes:
         sections.append(_format_metadata_section("Properties", prop_changes))
-    struct_changes = _diff_vi_structure(ctx_a.structure, ctx_b.structure)
-    if struct_changes:
-        sections.append(_format_metadata_section("Structure", struct_changes))
+    health_changes = _diff_vi_health(ctx_a.health, ctx_b.health)
+    if health_changes:
+        sections.append(_format_metadata_section("Health", health_changes))
 
     rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=verbose)
     if rows:
@@ -2468,11 +2469,11 @@ def diff_to_dict(
     vi_name_a: str, vi_name_b: str,
 ) -> dict[str, Any]:
     """The full ``lvkit diff`` as a JSON-ready dict: the uid-keyed element
-    ``ChangeMap`` PLUS the module-level Signature / Properties / Structure
+    ``ChangeMap`` PLUS the module-level Signature / Properties / Health
     sections that live OUTSIDE it (exactly as ``format_diff``'s text output
     carries them). ``--format json`` historically emitted only
     ``ChangeMap.to_dict()``, so those sections were text/viewer-Tree only; this
-    makes JSON parallel to the text report. Properties/Structure entries are
+    makes JSON parallel to the text report. Properties/Health entries are
     always a ``modified`` old->new pair (a fixed, always-present schema -- a VI
     property can never be added or removed, only changed).
     """
@@ -2491,9 +2492,9 @@ def diff_to_dict(
             {"field": m.name, "old": m.old, "new": m.new}
             for m in _diff_vi_properties(ctx_a.properties, ctx_b.properties)
         ],
-        "structure": [
+        "health": [
             {"field": m.name, "old": m.old, "new": m.new}
-            for m in _diff_vi_structure(ctx_a.structure, ctx_b.structure)
+            for m in _diff_vi_health(ctx_a.health, ctx_b.health)
         ],
     }
 
@@ -2518,7 +2519,7 @@ def netlist_diff_rows(
         _diff_vi_properties(ctx_a.properties, ctx_b.properties), "property",
     )
     rows += _metadata_rows(
-        _diff_vi_structure(ctx_a.structure, ctx_b.structure), "structure",
+        _diff_vi_health(ctx_a.health, ctx_b.health), "health",
     )
     rows += _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=detailed)
     return rows
@@ -2580,16 +2581,20 @@ def _diff_signature(
     return changes
 
 
-# Curated boolean VI Properties/VIStructure flags -> display name, sourced
-# from the ONE canonical maps in ``graph.models`` (``CURATED_PROPERTY_FLAGS``/
-# ``CURATED_STRUCTURE_FLAGS``) so the diff, the netlist header spec, and the
-# render-viewer's status chips can never drift into different flag sets --
-# see those maps' docstrings for what's included/excluded and why.
+# Curated boolean VI Properties/KindProps/VIHealth flags -> display name,
+# sourced from the ONE canonical maps in ``graph.models``
+# (``CURATED_PROPERTY_FLAGS``/``CURATED_KIND_FLAGS``/``CURATED_HEALTH_FLAGS``)
+# so the diff, the netlist header spec, and the render-viewer's status chips
+# can never drift into different flag sets -- see those maps' docstrings for
+# what's included/excluded and why.
 _PROPERTY_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
     CURATED_PROPERTY_FLAGS.items()
 )
-_STRUCTURE_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
-    CURATED_STRUCTURE_FLAGS.items()
+_KIND_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
+    CURATED_KIND_FLAGS.items()
+)
+_HEALTH_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
+    CURATED_HEALTH_FLAGS.items()
 )
 
 
@@ -2603,12 +2608,15 @@ _PROPERTY_ENUM_FIELDS: tuple[str, ...] = ("priority", "reentrancy", "exec_system
 def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChange]:
     """Curated VI Properties changes: ``lock_state`` plus the enum fields in
     ``_PROPERTY_ENUM_FIELDS`` (all enum TRANSITIONS) plus the high-signal
-    ``ExecutionProps`` flags in ``_PROPERTY_BOOL_FIELDS``. Every field is a
-    fixed part of the VI Properties schema -- a changed field is always an
-    old -> new VALUE transition, never an add/remove (see
-    ``MetadataChange``). Everything else on ``VIProperties`` (``lv_version``,
-    ``vi_type``, window/toolbar/instance settings) is deliberately never
-    compared -- see the diff philosophy note on ``_PROPERTY_BOOL_FIELDS``."""
+    ``ExecutionProps`` flags in ``_PROPERTY_BOOL_FIELDS``, PLUS ``kind``'s
+    ``typedef_status`` (an enum TRANSITION, exactly like ``lock_state``) and
+    the ``_KIND_BOOL_FIELDS`` (``kind`` is a sub-struct of ``VIProperties``,
+    not a separate facet -- see ``KindProps``). Every field is a fixed part
+    of the VI Properties schema -- a changed field is always an old -> new
+    VALUE transition, never an add/remove (see ``MetadataChange``).
+    Everything else on ``VIProperties`` (``lv_version``, ``vi_type``,
+    window/toolbar/instance settings) is deliberately never compared -- see
+    the diff philosophy note on ``_PROPERTY_BOOL_FIELDS``."""
     changes: list[MetadataChange] = []
     if pa.lock_state != pb.lock_state:
         changes.append(MetadataChange(
@@ -2626,23 +2634,28 @@ def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChan
         new_val = getattr(pb.execution, field_name)
         if old_val != new_val:
             changes.append(MetadataChange(label, bool_str(old_val), bool_str(new_val)))
+    if pa.kind.typedef_status != pb.kind.typedef_status:
+        changes.append(MetadataChange(
+            "typedef_status",
+            pa.kind.typedef_status.value, pb.kind.typedef_status.value,
+        ))
+    for field_name, label in _KIND_BOOL_FIELDS:
+        old_val = getattr(pa.kind, field_name)
+        new_val = getattr(pb.kind, field_name)
+        if old_val != new_val:
+            changes.append(MetadataChange(label, bool_str(old_val), bool_str(new_val)))
     return changes
 
 
-def _diff_vi_structure(sa: VIStructure, sb: VIStructure) -> list[MetadataChange]:
-    """Curated VIStructure changes: ``typedef_status`` (enum transition,
-    like ``lock_state``) plus the flags in ``_STRUCTURE_BOOL_FIELDS``
+def _diff_vi_health(ha: VIHealth, hb: VIHealth) -> list[MetadataChange]:
+    """Curated VIHealth changes: the flags in ``_HEALTH_BOOL_FIELDS``
     (``is_broken`` is the derived property -- any ``bad_*`` flag flipping
     shows as one ``broken: false -> true`` change rather than five separate
     ones). Always an old -> new value transition, never an add/remove (every
     VI has every one of these fields -- see ``MetadataChange``)."""
     changes: list[MetadataChange] = []
-    if sa.typedef_status != sb.typedef_status:
-        changes.append(MetadataChange(
-            "typedef_status", sa.typedef_status.value, sb.typedef_status.value,
-        ))
-    for field_name, label in _STRUCTURE_BOOL_FIELDS:
-        old_val, new_val = getattr(sa, field_name), getattr(sb, field_name)
+    for field_name, label in _HEALTH_BOOL_FIELDS:
+        old_val, new_val = getattr(ha, field_name), getattr(hb, field_name)
         if old_val != new_val:
             changes.append(MetadataChange(label, bool_str(old_val), bool_str(new_val)))
     return changes

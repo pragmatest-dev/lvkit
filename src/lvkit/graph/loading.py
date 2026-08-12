@@ -43,15 +43,16 @@ from .models import (
     ExecSystem,
     ExecutionProps,
     InstanceProps,
+    KindProps,
     LockState,
     PolyInfo,
     Priority,
     Reentrancy,
     ToolbarProps,
     TypedefStatus,
+    VIHealth,
     VIMetadata,
     VIProperties,
-    VIStructure,
     WindowProps,
 )
 from .op_walk import stamp_nmux_lane_names
@@ -99,6 +100,8 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     The parser layer never imports graph models (see graph/models.py's
     module docstring), so it returns plain str/bool/int -- this is the one
     place that wraps them into the typed dataclasses/``LockState`` enum.
+    ``kind`` (what ROLE the VI plays) is built here too, as a sub-struct --
+    see ``KindProps``.
     """
     execution = dict(cast("dict[str, Any]", poly_metadata.get("execution", {})))
     execution["priority"] = Priority(
@@ -113,6 +116,10 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     window = cast("dict[str, Any]", poly_metadata.get("window", {}))
     toolbar = cast("dict[str, Any]", poly_metadata.get("toolbar", {}))
     instance = cast("dict[str, Any]", poly_metadata.get("instance", {}))
+    kind = dict(cast("dict[str, Any]", poly_metadata.get("kind", {})))
+    kind["typedef_status"] = TypedefStatus(
+        kind.get("typedef_status", TypedefStatus.NOT_A_TYPEDEF.value)
+    )
     return VIProperties(
         lv_version=cast("str | None", poly_metadata.get("lv_version")),
         vi_type=cast("str | None", poly_metadata.get("vi_type")),
@@ -123,22 +130,20 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
         window=WindowProps(**window),
         toolbar=ToolbarProps(**toolbar),
         instance=InstanceProps(**instance),
+        kind=KindProps(**kind),
     )
 
 
-def _build_vi_structure(poly_metadata: dict[str, Any]) -> VIStructure:
-    """Build the typed ``VIStructure`` facet (VI kind + compile-health) --
-    a SIBLING facet to ``VIProperties``, never nested inside it (structural
-    state, not a user-settable property).
+def _build_vi_health(poly_metadata: dict[str, Any]) -> VIHealth:
+    """Build the typed ``VIHealth`` facet (compile-health) -- a SIBLING
+    facet to ``VIProperties``, never nested inside it (emergent state, not
+    a user-settable property).
 
     Sourced from the same ``parse_vi_metadata``/``_parse_lvsr_properties``
-    nested dict as ``_build_vi_properties``, under its ``"structure"`` key.
+    nested dict as ``_build_vi_properties``, under its ``"health"`` key.
     """
-    structure = dict(cast("dict[str, Any]", poly_metadata.get("structure", {})))
-    structure["typedef_status"] = TypedefStatus(
-        structure.get("typedef_status", TypedefStatus.NOT_A_TYPEDEF.value)
-    )
-    return VIStructure(**structure)
+    health = cast("dict[str, Any]", poly_metadata.get("health", {}))
+    return VIHealth(**health)
 
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:
@@ -189,7 +194,7 @@ class LoadingMixin:
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
-    _vi_structure: dict[str, VIStructure]
+    _vi_health: dict[str, VIHealth]
     _vilib_root: Path | None
     _userlib_root: Path | None
     _layouts: dict[str, Layout]
@@ -811,7 +816,7 @@ class LoadingMixin:
                 description=poly_metadata.get("description"),
             )
             self._vi_properties[vi_name] = _build_vi_properties(poly_metadata)
-            self._vi_structure[vi_name] = _build_vi_structure(poly_metadata)
+            self._vi_health[vi_name] = _build_vi_health(poly_metadata)
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_name)

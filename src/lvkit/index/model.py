@@ -190,10 +190,11 @@ class VIFacts:
     # VI Properties (Protection/Execution/Window/…) from the VI's own <LVSR>
     # block -- intrinsic to its bytes, like terminals/constants (never
     # coalesced across a partial re-save; see store.save()). Flattened from
-    # graph.models.VIProperties's grouped sub-structs (plus the sibling
-    # VIStructure facet's struct_* columns below) with a group-prefixed
-    # column per field -- a WIDE table is intended, every flag queryable
-    # (e.g. ``query vi WHERE struct_has_no_block_diagram=1``).
+    # graph.models.VIProperties's grouped sub-structs (including its
+    # kind_* sub-struct, plus the sibling VIHealth facet's health_*
+    # columns below) with a group-prefixed column per field -- a WIDE table
+    # is intended, every flag queryable
+    # (e.g. ``query vi WHERE kind_has_no_block_diagram=1``).
     # "Major.Minor.Bugfix", e.g. "21.0.0", or None if absent.
     lv_version: str | None = None
     vi_type: str | None = None  # <Instrument Type="..."> verbatim
@@ -244,22 +245,24 @@ class VIFacts:
     instance_hide_instance_caption: bool = False
     instance_draw_instance_icon: bool = False
     instance_remote_panel: bool = False
-    # struct_* <- graph.models.VIStructure (VI kind + compile-health -- a
-    # SIBLING facet to VIProperties, never nested under it: structural
-    # state, not a user-settable property. See graph._vi_structure.)
-    # ``struct_typedef_status`` is a FAITHFUL enum .value string
+    # kind_* <- graph.models.VIProperties.kind (KindProps -- what ROLE the
+    # VI plays; a sub-struct of VIProperties, like exec_*/window_*/…).
+    # ``kind_typedef_status`` is a FAITHFUL enum .value string
     # (graph.models.TypedefStatus).
-    struct_typedef_status: str = "not_a_typedef"
-    struct_dynamic_dispatch: bool = False
-    struct_source_only: bool = False
-    struct_has_no_block_diagram: bool = False
-    struct_is_instance_vi: bool = False
-    struct_bad_node: bool = False
-    struct_bad_subvi: bool = False
-    struct_bad_subvi_link: bool = False
-    struct_bad_compile: bool = False
-    struct_broken_poly: bool = False
-    struct_is_broken: bool = False  # VIStructure.is_broken, precomputed
+    kind_typedef_status: str = "not_a_typedef"
+    kind_dynamic_dispatch: bool = False
+    kind_source_only: bool = False
+    kind_has_no_block_diagram: bool = False
+    kind_is_instance_vi: bool = False
+    # health_* <- graph.models.VIHealth (compile-health -- a SIBLING facet
+    # to VIProperties, never nested under it: emergent state, not a
+    # user-settable property. See graph._vi_health.)
+    health_bad_node: bool = False
+    health_bad_subvi: bool = False
+    health_bad_subvi_link: bool = False
+    health_bad_compile: bool = False
+    health_broken_poly: bool = False
+    health_is_broken: bool = False  # VIHealth.is_broken, precomputed
     terminals: list[TerminalFact] = field(default_factory=list)
     constants: list[ConstantFact] = field(default_factory=list)
     calls: list[str] = field(default_factory=list)  # callee qualified-name keys

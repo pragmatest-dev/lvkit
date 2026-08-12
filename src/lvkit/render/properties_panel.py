@@ -1,6 +1,6 @@
 """VI-properties chrome for the render viewer (task #19): a single-glyph
 toolbar button + a collapsible "Properties" popover, driven ENTIRELY from the
-root ``<svg>``'s ``data-lv-properties``/``data-lv-structure`` JSON attributes
+root ``<svg>``'s ``data-lv-properties``/``data-lv-health`` JSON attributes
 (see ``render/__init__.py``'s ``_vi_properties_data_attrs``) — the SVG is the
 single carrier, so the same data a host reading the raw SVG (e.g. the VS Code
 extension) would parse is what this chrome reads too. The button + popover
@@ -10,7 +10,7 @@ away, so a second summary would only duplicate it.
 
 Also supplies the DIFF viewer's equivalent (``DIFF_PROPERTIES_BUTTON``/
 ``DIFF_PROPERTIES_PANEL``): the SAME popover — grouped VALUES (Version/
-Execution/Window/Toolbar/Instance/Structure), not a bespoke changes-only
+Execution/Window/Toolbar/Instance/Kind/Health), not a bespoke changes-only
 list — but sourced from the AFTER pane's ``data-lv-*`` dataset (so it reads
 like "the VI's current properties", exactly like the single-VI panel), with
 any row whose value differs from the BEFORE pane's dataset HIGHLIGHTED amber.
@@ -105,12 +105,12 @@ _PANEL_CSS = """
 
 # Shared row/group/buildPanel JS — the ONE value-rendering implementation
 # both panels use. Grouped like `describe` (Version / Execution / Window /
-# Toolbar / Instance / Structure): EVERY field shows (unfiltered), like the
-# diagram shows unchanged nodes -- "see every value, changed ones
+# Toolbar / Instance / Kind / Health): EVERY field shows (unfiltered), like
+# the diagram shows unchanged nodes -- "see every value, changed ones
 # highlighted" -- not just the non-default ones (that filter used to hide
 # most of a VI's actual properties from the single-VI popover).
 #
-# `beforeProps`/`beforeStruct` (declared by each panel's own preamble, see
+# `beforeProps`/`beforeHealth` (declared by each panel's own preamble, see
 # PROPERTIES_PANEL/DIFF_PROPERTIES_PANEL below) drive an OPTIONAL highlight:
 # when set, a shown field whose value differs from the matching before-side
 # value gets a `.lvkit-prop-changed` class. The single-VI panel's preamble
@@ -171,13 +171,14 @@ _PANEL_BODY_JS = """
           ["Window", props.window, beforeProps ? beforeProps.window : null],
           ["Toolbar", props.toolbar, beforeProps ? beforeProps.toolbar : null],
           ["Instance", props.instance, beforeProps ? beforeProps.instance : null],
+          ["Kind", props.kind, beforeProps ? beforeProps.kind : null],
         ].forEach(function (t) {
           var frag = group(t[0], t[1], t[2]);
           if (frag) { panel.appendChild(frag); any = true; }
         });
       }
-      var structFrag = group("Structure", struct, beforeStruct);
-      if (structFrag) { panel.appendChild(structFrag); any = true; }
+      var healthFrag = group("Health", health, beforeHealth);
+      if (healthFrag) { panel.appendChild(healthFrag); any = true; }
       if (!any) {
         var p = document.createElement("div");
         p.className = "lvkit-props-empty";
@@ -210,14 +211,14 @@ PROPERTIES_PANEL = (
     "    var btn = document.getElementById('__BTN_ID__');\n"
     "    if (!svg) return;\n"
     "\n"
-    "    var props = null, struct = null, beforeProps = null, beforeStruct = null;\n"
+    "    var props = null, health = null, beforeProps = null, beforeHealth = null;\n"
     "    try {\n"
     "      if (svg.dataset.lvProperties)\n"
     "        props = JSON.parse(svg.dataset.lvProperties);\n"
     "    } catch (e) { props = null; }\n"
     "    try {\n"
-    "      if (svg.dataset.lvStructure) struct = JSON.parse(svg.dataset.lvStructure);\n"
-    "    } catch (e) { struct = null; }\n"
+    "      if (svg.dataset.lvHealth) health = JSON.parse(svg.dataset.lvHealth);\n"
+    "    } catch (e) { health = null; }\n"
     + _PANEL_BODY_JS +
     "\n"
     "    if (btn) btn.addEventListener('click', function () {\n"
@@ -243,7 +244,7 @@ PROPERTIES_PANEL = (
 # differs -- diff_viewer.html-only (--mod/--panel aren't relied on outside
 # it); the render_viewer.html panel above never applies these classes.
 # `.lvkit-prop-selected` is the STRONGER state a click on the matching
-# property/structure CHANGES-list row applies (diff_viewer.html's
+# property/health CHANGES-list row applies (diff_viewer.html's
 # revealPropertyRow, keyed by data-key == the change's raw field name) --
 # a solid --mod fill + ring, clearly a step up from the passive tint every
 # changed row already wears, so the clicked row pops even among several
@@ -270,7 +271,7 @@ DIFF_PROPERTIES_PANEL = (
     "(function(){\n"
     "  try {\n"
     "    // Each pane's ROOT svg carries its own data-lv-properties/\n"
-    "    // data-lv-structure (render/__init__.py's _vi_properties_data_attrs).\n"
+    "    // data-lv-health (render/__init__.py's _vi_properties_data_attrs).\n"
     "    // The popover shows the AFTER pane's values (like the single-VI\n"
     "    // panel); the BEFORE pane's dataset is read ONLY to highlight rows\n"
     "    // that changed.\n"
@@ -282,24 +283,24 @@ DIFF_PROPERTIES_PANEL = (
     "    var btn = document.getElementById('__DIFF_BTN_ID__');\n"
     "    if (!afterSvg) return;\n"
     "\n"
-    "    var props = null, struct = null, beforeProps = null, beforeStruct = null;\n"
+    "    var props = null, health = null, beforeProps = null, beforeHealth = null;\n"
     "    try {\n"
     "      if (afterSvg.dataset.lvProperties)\n"
     "        props = JSON.parse(afterSvg.dataset.lvProperties);\n"
     "    } catch (e) { props = null; }\n"
     "    try {\n"
-    "      if (afterSvg.dataset.lvStructure)\n"
-    "        struct = JSON.parse(afterSvg.dataset.lvStructure);\n"
-    "    } catch (e) { struct = null; }\n"
+    "      if (afterSvg.dataset.lvHealth)\n"
+    "        health = JSON.parse(afterSvg.dataset.lvHealth);\n"
+    "    } catch (e) { health = null; }\n"
     "    if (beforeSvg) {\n"
     "      try {\n"
     "        if (beforeSvg.dataset.lvProperties)\n"
     "          beforeProps = JSON.parse(beforeSvg.dataset.lvProperties);\n"
     "      } catch (e) { beforeProps = null; }\n"
     "      try {\n"
-    "        if (beforeSvg.dataset.lvStructure)\n"
-    "          beforeStruct = JSON.parse(beforeSvg.dataset.lvStructure);\n"
-    "      } catch (e) { beforeStruct = null; }\n"
+    "        if (beforeSvg.dataset.lvHealth)\n"
+    "          beforeHealth = JSON.parse(beforeSvg.dataset.lvHealth);\n"
+    "      } catch (e) { beforeHealth = null; }\n"
     "    }\n"
     + _PANEL_BODY_JS +
     "\n"

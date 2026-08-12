@@ -19,7 +19,7 @@ from typing import Literal
 
 from ..graph.core import InMemoryVIGraph
 from ..graph.loading import LoadMode
-from ..graph.models import VINode, vi_properties_to_dict, vi_structure_to_dict
+from ..graph.models import VINode, vi_health_to_dict, vi_properties_to_dict
 from .backend import SvgBackend
 from .draw import draw_scene
 from .scene import Scene, build_scene
@@ -256,31 +256,31 @@ def _resolve_theme_mode(
 def _vi_properties_data_attrs(
     graph: InMemoryVIGraph, vi_name: str,
 ) -> dict[str, str]:
-    """Compact-JSON ``data-lv-properties``/``data-lv-structure`` payloads for
-    this VI's ``VIProperties``/``VIStructure`` facets (task #19).
+    """Compact-JSON ``data-lv-properties``/``data-lv-health`` payloads for
+    this VI's ``VIProperties``/``VIHealth`` facets (task #19).
 
-    The root ``<svg>`` is the single carrier for VI properties + structure —
+    The root ``<svg>`` is the single carrier for VI properties + health —
     read alike by the render-viewer chrome (status chips + the collapsible
     Properties panel, see ``render_viewer.py``) and any other host that only
     ever sees the raw SVG (e.g. the VS Code extension), same pattern as the
     existing ``data-lv-vi-rel`` per-node attribute. ``get_vi_context`` is the
     documented way to reach these graph facets (``VIContext.properties`` /
-    ``.structure``); a missing/unloaded VI degrades to the all-defaults
+    ``.health``); a missing/unloaded VI degrades to the all-defaults
     ``VIContext`` it already returns, never raises.
 
-    ``vi_properties_to_dict``/``vi_structure_to_dict`` (``graph/models.py``)
+    ``vi_properties_to_dict``/``vi_health_to_dict`` (``graph/models.py``)
     are the canonical converters -- ``LockState`` (an ``Enum``) swapped for
-    its ``.value`` string, ``VIStructure.is_broken`` (a derived ``@property``,
+    its ``.value`` string, ``VIHealth.is_broken`` (a derived ``@property``,
     so ``dataclasses.asdict`` skips it) added explicitly -- shared with the
     netlist JSON IR (``netlist.py``'s ``netlist_to_dict``) so both surfaces
     stay byte-for-byte the same shape.
     """
     ctx = graph.get_vi_context(vi_name)
     props = vi_properties_to_dict(ctx.properties)
-    struct = vi_structure_to_dict(ctx.structure)
+    health = vi_health_to_dict(ctx.health)
     return {
         "lv-properties": json.dumps(props, separators=(",", ":"), sort_keys=True),
-        "lv-structure": json.dumps(struct, separators=(",", ":"), sort_keys=True),
+        "lv-health": json.dumps(health, separators=(",", ":"), sort_keys=True),
     }
 
 
@@ -377,7 +377,7 @@ def _render_scene_svg(
     dark ``--lv-*`` palette block for ``dark``/``auto`` theme modes. Empty keeps
     the ``<style>`` byte-identical to the legacy light output. ``extra_attrs``
     (``None`` by default) becomes root-``<svg>`` ``data-*`` attributes — e.g.
-    ``render_vi``'s ``data-lv-properties``/``data-lv-structure`` (task #19)."""
+    ``render_vi``'s ``data-lv-properties``/``data-lv-health`` (task #19)."""
     backend = SvgBackend()
     draw_scene(scene, backend, theme)
     style = _BASE_CSS + extra_css

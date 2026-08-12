@@ -674,13 +674,15 @@ CHANGES.forEach((c,i)=>{ if(c.uid!=null && !(c.uid in UID_TO_CHANGE_I)) UID_TO_C
 // Tree rows mirror the Flat rows' annotations so switching Flat<->Tree keeps the
 // SAME items -- just nested. Same number badge (correlates to the on-diagram
 // badge, click-to-spotlight), same +/-/~ tag, and the kind ICON leads the line
-// (◻ node / ↔ wire / ⬚ structure) -- node-centric, visually parseable. The text
+// (◻ node / ↔ wire / ⬚ scope) -- node-centric, visually parseable. The text
 // is node-first netlist syntax (instance_line/scope_header from diff.py). Context
 // folder rows (an unchanged case/frame that only contains changes) have no
 // CHANGES entry, so no number -- the ⬚/quoted label reads as the folder.
 // constant/terminal bake their own glyph into the row text (via _constant_leaf_text/
-// _terminal_leaf_text), so their TREE_GLYPH is empty — no double glyph.
-const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', structure:'⬚ ', frame:'', constant:'', terminal:''};
+// _terminal_leaf_text), so their TREE_GLYPH is empty — no double glyph. "health"
+// is a VI-level facet row (no diagram element, formerly tagged "structure")
+// -- kept the SAME box glyph as "scope" (unchanged from before this rename).
+const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', health:'⬚ ', frame:'', constant:'', terminal:''};
 // A row is a FOLDER (has descendants, gets a disclosure chevron + .tchildren
 // container) iff its kind is scope/frame -- the netlist tree is already
 // pruned server-side so every scope/frame row leads to a change somewhere
@@ -1012,16 +1014,19 @@ function focus(i){
   glideRAF=requestAnimationFrame(step);
 }
 
-// A property/structure change (kind "property"/"structure", uid:null) has NO
+// A property/health change (kind "property"/"health", uid:null) has NO
 // diagram element -- it's a VI-level setting, not a node/wire/structure. Its
 // "reveal" is the properties-popover analog of focus(): open the popover (if
 // closed) and highlight+scroll to the matching row, keyed by `field` (the
-// RAW VIProperties/VIStructure dataclass field name diff_viewer.py's
+// RAW VIProperties/VIHealth dataclass field name diff_viewer.py's
 // _metadata_change stamps on the change, matching the data-key each popover
 // row carries -- see properties_panel.py's _PANEL_BODY_JS). A stronger
 // `.lvkit-prop-selected` state (defined alongside the passive
 // `.lvkit-prop-changed` tint in properties_panel.py's _DIFF_PANEL_EXTRA_CSS)
-// marks the specific clicked row.
+// marks the specific clicked row. (`c.kind==='structure'` below is a
+// SEPARATE, real diagram Case/Sequence-structure-node kind -- unrelated to
+// this VI-level facet -- matched here for its own pre-existing reasons, not
+// this refactor's.)
 function revealPropertyRow(c){
   const btn=document.getElementById('lvkitDiffPropsBtn');
   const panel=document.getElementById('lvkitDiffPropsPanel');
@@ -1037,14 +1042,14 @@ function jump(i){
   if(i===sel){ clearSel(); return; }   // re-selecting the current change toggles it OFF
   sel=i;
   const c=CHANGES[i];
-  // Property/structure changes have no diagram presence at all -- reveal via
+  // Property/health changes have no diagram presence at all -- reveal via
   // the properties popover instead of the diagram spotlight/zoom machinery
   // below (mode switching, frame reveal, focus() would all be no-ops for
   // them anyway, since they carry no bounds/uid/frame_path).
   const propPanelEl=document.getElementById('lvkitDiffPropsPanel');
   if(propPanelEl) propPanelEl.querySelectorAll('.lvkit-prop-selected')
     .forEach(el=>el.classList.remove('lvkit-prop-selected'));
-  if(c.kind==='property'||c.kind==='structure'){
+  if(c.kind==='property'||c.kind==='health'||c.kind==='structure'){
     document.querySelectorAll('.item').forEach(n=>n.classList.toggle('sel',+n.dataset.i===i));
     revealTreeRow(i);
     revealPropertyRow(c);

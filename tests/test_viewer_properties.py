@@ -1,13 +1,13 @@
-"""Tests for task #19 — VI properties + structure surfaced in the render
+"""Tests for task #19 — VI properties + health surfaced in the render
 viewer, SVG-embedded (a single-glyph toolbar button + collapsible popover; no
 header chips — the popover is the sole properties surface) — plus its
 diff-viewer counterpart (a vi-node-properties follow-up):
 
   - the SAME shared popover (grouped VALUES: Version/Execution/Window/
-    Toolbar/Instance/Structure), sourced from the AFTER pane's dataset, with
-    rows that differ from the BEFORE pane highlighted amber;
+    Toolbar/Instance/Kind/Health), sourced from the AFTER pane's dataset,
+    with rows that differ from the BEFORE pane highlighted amber;
   - the SAME properties button, ringed amber when >=1 shown value changed;
-  - VI-Properties/VIStructure changes as first-class entries in the diff's
+  - VI-Properties/VIHealth changes as first-class entries in the diff's
     CHANGES list (Flat AND Tree), counted in the header's "modified" tally.
 
 Mirrors ``tests/test_render_viewer.py``'s patterns: a pure-unit test with a
@@ -16,7 +16,7 @@ into ``build_render_viewer``'s output, plus an end-to-end test over the
 JKI-VI-Tester corpus's ``VITester_Item_Init.vi`` (password-protected +
 reentrant — the exact "notable properties" sample task #19 calls for) proving
 the root ``<svg>`` actually carries the expected ``data-lv-properties``/
-``data-lv-structure`` JSON.
+``data-lv-health`` JSON.
 """
 
 from __future__ import annotations
@@ -32,12 +32,13 @@ from lvkit.graph.diff import ChangeMap, diff_uid
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     ExecutionProps,
+    KindProps,
     LockState,
     Priority,
     Reentrancy,
     TypedefStatus,
+    VIHealth,
     VIProperties,
-    VIStructure,
 )
 from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
@@ -46,7 +47,7 @@ from lvkit.render.render_viewer import build_render_viewer
 
 # The content-rich VI the vi-node-properties diff sample uses (a real class
 # method, NOT the gutted VITester built project) — same VI loaded twice with
-# flipped property/structure facets, mirroring outputs/diff_properties_sample.
+# flipped property/health facets, mirroring outputs/diff_properties_sample.
 _RUN_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase/run.vi"
 )
@@ -73,16 +74,15 @@ def _flipped_run_vi_graphs() -> tuple[
     graph_a, vi_a = _load_run_vi()
     graph_b, vi_b = _load_run_vi()
     graph_a._vi_properties[vi_a] = VIProperties()
-    graph_a._vi_structure[vi_a] = VIStructure()
+    graph_a._vi_health[vi_a] = VIHealth()
     graph_b._vi_properties[vi_b] = VIProperties(
         lock_state=LockState.PASSWORD_PROTECTED,
         execution=ExecutionProps(
             reentrancy=Reentrancy.SHARED_CLONE, priority=Priority.SUBROUTINE,
         ),
+        kind=KindProps(typedef_status=TypedefStatus.TYPEDEF),
     )
-    graph_b._vi_structure[vi_b] = VIStructure(
-        bad_node=True, typedef_status=TypedefStatus.TYPEDEF,
-    )
+    graph_b._vi_health[vi_b] = VIHealth(bad_node=True)
     return graph_a, vi_a, graph_b, vi_b
 
 
@@ -122,7 +122,7 @@ def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
 
 class TestSvgCarriesPropertiesData:
     """Part A: the root <svg> is the single carrier for VIProperties/
-    VIStructure — both the viewer chrome AND a host that only sees the raw
+    VIHealth — both the viewer chrome AND a host that only sees the raw
     SVG (e.g. the VS Code extension) read from it."""
 
     def test_password_protected_reentrant_vi_embeds_expected_json(self):
@@ -132,32 +132,32 @@ class TestSvgCarriesPropertiesData:
         assert svg is not None
 
         assert "data-lv-properties=" in svg
-        assert "data-lv-structure=" in svg
+        assert "data-lv-health=" in svg
 
         # Pull the JSON back out of the attribute and parse it for real,
         # rather than substring-matching — proves it's valid, well-formed
         # JSON, not just a string that happens to contain the right text.
         props_json = _extract_attr(svg, "data-lv-properties")
-        struct_json = _extract_attr(svg, "data-lv-structure")
+        health_json = _extract_attr(svg, "data-lv-health")
         props = json.loads(props_json)
-        struct = json.loads(struct_json)
+        health = json.loads(health_json)
 
         assert props["lock_state"] == "password_protected"
         assert props["execution"]["reentrancy"] == "preallocated_clone"
-        assert struct["is_broken"] is False
-        assert struct["typedef_status"] == "not_a_typedef"
+        assert props["kind"]["typedef_status"] == "not_a_typedef"
+        assert health["is_broken"] is False
 
     def test_unloaded_vi_gets_all_default_properties_never_raises(self):
         """A VI the graph doesn't know about (or hasn't parsed the LVSR block
         for) degrades to the all-defaults VIContext — render must never raise
-        just because properties/structure are unavailable."""
+        just because properties/health are unavailable."""
         vi_path = _require_vitester_item_init()
         graph, vi = _load(vi_path)
         svg = render_vi(graph, vi)
         assert svg is not None
         # Sanity: still valid JSON even for the common (mostly-default) case.
         json.loads(_extract_attr(svg, "data-lv-properties"))
-        json.loads(_extract_attr(svg, "data-lv-structure"))
+        json.loads(_extract_attr(svg, "data-lv-health"))
 
 
 def _extract_attr(svg: str, attr: str) -> str:
@@ -179,7 +179,7 @@ class TestBuildRenderViewerPropertiesChrome:
     def _html(self) -> str:
         svg = (
             "<svg id='lv-stub' data-lv-properties='{\"lock_state\":"
-            "\"password_protected\"}' data-lv-structure='{\"is_broken\":"
+            "\"password_protected\"}' data-lv-health='{\"is_broken\":"
             "false}'>DIAGRAM-MARKER</svg>"
         )
         return build_render_viewer(svg, title="Stub VI")
@@ -214,7 +214,7 @@ class TestBuildRenderViewerPropertiesChrome:
         other way."""
         html = self._html()
         assert "dataset.lvProperties" in html
-        assert "dataset.lvStructure" in html
+        assert "dataset.lvHealth" in html
         # The panel groups these fields straight from the dataset (no
         # separate hand-typed chip-condition list anymore).
         assert "lock_state" in html
@@ -274,11 +274,11 @@ class TestBuildDiffViewerPropertiesChrome:
                after_props: str = '{"lock_state":"password_protected"}') -> str:
         before_svg = (
             f"<svg id='lv-before' data-lv-properties='{before_props}' "
-            "data-lv-structure='{}'>BEFORE-MARKER</svg>"
+            "data-lv-health='{}'>BEFORE-MARKER</svg>"
         )
         after_svg = (
             f"<svg id='lv-after' data-lv-properties='{after_props}' "
-            "data-lv-structure='{}'>AFTER-MARKER</svg>"
+            "data-lv-health='{}'>AFTER-MARKER</svg>"
         )
         cmap = ChangeMap(changes=[], common_node_uids=[])
         return build_diff_viewer(
@@ -313,16 +313,16 @@ class TestBuildDiffViewerPropertiesChrome:
 
     def test_shared_popover_not_a_bespoke_changes_list(self):
         """The diff panel reuses the SAME grouped-VALUE rendering as the
-        single-VI panel (Version/Execution/Window/Toolbar/Instance/Structure
-        groups via the shared _PANEL_BODY_JS) -- not a separate changes-only
-        list. Both panels must therefore share the SAME group titles/markup
-        vocabulary in their emitted script."""
+        single-VI panel (Version/Execution/Window/Toolbar/Instance/Kind/
+        Health groups via the shared _PANEL_BODY_JS) -- not a separate
+        changes-only list. Both panels must therefore share the SAME group
+        titles/markup vocabulary in their emitted script."""
         single_html = build_render_viewer(
             "<svg id='lv-stub' data-lv-properties='{}' "
-            "data-lv-structure='{}'>M</svg>", title="Stub VI",
+            "data-lv-health='{}'>M</svg>", title="Stub VI",
         )
         diff_html = self._html()
-        markers = ('"Version"', '"Execution"', '"Structure"', "function group(")
+        markers = ('"Version"', '"Execution"', '"Health"', "function group(")
         for marker in markers:
             assert marker in single_html
             assert marker in diff_html
@@ -330,14 +330,14 @@ class TestBuildDiffViewerPropertiesChrome:
     def test_script_reads_both_panes_datasets(self):
         html = self._html()
         assert "beforePane" in html and "afterPane" in html
-        # AFTER supplies the shown values ("props"/"struct", like the
+        # AFTER supplies the shown values ("props"/"health", like the
         # single-VI panel); BEFORE supplies the comparison-only side
-        # ("beforeProps"/"beforeStruct") used purely for highlighting.
+        # ("beforeProps"/"beforeHealth") used purely for highlighting.
         assert "afterSvg.dataset.lvProperties" in html
         assert "beforeSvg.dataset.lvProperties" in html
-        assert "afterSvg.dataset.lvStructure" in html
-        assert "beforeSvg.dataset.lvStructure" in html
-        assert "beforeProps" in html and "beforeStruct" in html
+        assert "afterSvg.dataset.lvHealth" in html
+        assert "beforeSvg.dataset.lvHealth" in html
+        assert "beforeProps" in html and "beforeHealth" in html
 
     def test_ring_and_highlight_css_key_off_mod(self):
         """The ring/changed-row CSS keys off --mod (the SAME amber the
@@ -356,7 +356,7 @@ class TestBuildDiffViewerPropertiesChrome:
 class TestBuildDiffViewerPropertiesEndToEnd:
     """Real before/after graphs (same VI loaded twice, facets reset then
     flipped on the AFTER side) -- proves the two panes actually embed
-    DIFFERING data-lv-properties/data-lv-structure JSON, so the client-side
+    DIFFERING data-lv-properties/data-lv-health JSON, so the client-side
     diff the pure-unit tests above exercise statically has real changed data
     to compute over, AND that build_diff_viewer folds the metadata changes
     into the CHANGES list + "modified" tally."""
@@ -397,10 +397,11 @@ class TestBuildDiffViewerPropertiesEndToEnd:
             title="run.vi", before_label="before", after_label="after",
         )
 
-        # Five metadata changes: lock, priority, reentrancy (props),
-        # is_broken, typedef_status (structure) -- see _flipped_run_vi_graphs.
+        # Five metadata changes: lock, priority, reentrancy, typedef_status
+        # (all "property" -- kind is a VIProperties sub-struct), is_broken
+        # ("health") -- see _flipped_run_vi_graphs.
         assert '"kind": "property"' in html
-        assert '"kind": "structure"' in html
+        assert '"kind": "health"' in html
         assert '"label": "lock: unlocked -> password_protected"' in html
         assert '"label": "reentrancy: non_reentrant -> shared_clone"' in html
         assert '"label": "priority: normal -> subroutine"' in html
@@ -432,24 +433,26 @@ class TestMetadataChangesHelper:
     (_metadata_changes/_parse_lv_data_attrs) -- pure string-level, no graph
     or sample VI needed."""
 
-    def test_parses_curated_property_and_structure_changes(self):
+    def test_parses_curated_property_and_health_changes(self):
         from lvkit.render.diff_viewer import _metadata_changes
 
         before_svg = (
             "<svg data-lv-properties='{\"lock_state\":\"unlocked\","
-            "\"execution\":{\"reentrancy\":\"non_reentrant\"}}' "
-            "data-lv-structure='{\"typedef_status\":\"not_a_typedef\"}'>M</svg>"
+            "\"execution\":{\"reentrancy\":\"non_reentrant\"},"
+            "\"kind\":{\"typedef_status\":\"not_a_typedef\"}}' "
+            "data-lv-health='{}'>M</svg>"
         )
         after_svg = (
             "<svg data-lv-properties='{\"lock_state\":\"locked\","
-            "\"execution\":{\"reentrancy\":\"shared_clone\"}}' "
-            "data-lv-structure='{\"typedef_status\":\"typedef\"}'>M</svg>"
+            "\"execution\":{\"reentrancy\":\"shared_clone\"},"
+            "\"kind\":{\"typedef_status\":\"typedef\"}}' "
+            "data-lv-health='{}'>M</svg>"
         )
         changes = _metadata_changes(before_svg, after_svg)
         by_kind = {(c["kind"], c["label"]) for c in changes}
         assert ("property", "lock: unlocked -> locked") in by_kind
         assert ("property", "reentrancy: non_reentrant -> shared_clone") in by_kind
-        assert ("structure", "typedef_status: not_a_typedef -> typedef") in by_kind
+        assert ("property", "typedef_status: not_a_typedef -> typedef") in by_kind
         for c in changes:
             assert c["change"] == "modified"
             assert c["uid"] is None
@@ -458,7 +461,7 @@ class TestMetadataChangesHelper:
     def test_field_is_the_raw_dataclass_field_not_the_curated_label(self):
         """`field` is what the click-to-reveal JS matches against the
         popover's `data-key` (see properties_panel.py's row()) -- it MUST be
-        the raw VIProperties/VIStructure field name, which differs from the
+        the raw VIProperties/VIHealth field name, which differs from the
         curated display label for several flags (e.g. "run-on-open" (label)
         vs "run_when_opened" (field); "broken" vs "is_broken"; "lock" vs
         "lock_state"). Enum fields (priority/reentrancy/exec_system/
@@ -468,12 +471,12 @@ class TestMetadataChangesHelper:
         before_svg = (
             "<svg data-lv-properties='{\"lock_state\":\"unlocked\","
             "\"execution\":{\"run_when_opened\":false}}' "
-            "data-lv-structure='{\"is_broken\":false}'>M</svg>"
+            "data-lv-health='{\"is_broken\":false}'>M</svg>"
         )
         after_svg = (
             "<svg data-lv-properties='{\"lock_state\":\"locked\","
             "\"execution\":{\"run_when_opened\":true}}' "
-            "data-lv-structure='{\"is_broken\":true}'>M</svg>"
+            "data-lv-health='{\"is_broken\":true}'>M</svg>"
         )
         changes = _metadata_changes(before_svg, after_svg)
         by_field = {c["field"]: c["label"] for c in changes}
@@ -486,7 +489,7 @@ class TestMetadataChangesHelper:
 
         svg = (
             "<svg data-lv-properties='{\"lock_state\":\"unlocked\"}' "
-            "data-lv-structure='{}'>M</svg>"
+            "data-lv-health='{}'>M</svg>"
         )
         assert _metadata_changes(svg, svg) == []
 
@@ -497,7 +500,7 @@ class TestMetadataChangesHelper:
 
 
 class TestClickToRevealPropertyRow:
-    """Click-to-reveal for property/structure CHANGES entries: the diagram
+    """Click-to-reveal for property/health CHANGES entries: the diagram
     has no element for them, so clicking one opens the properties popover
     and highlights the matching row instead (the property analog of
     "click a node change -> reveal the node"). These are markup/wiring
@@ -511,11 +514,11 @@ class TestClickToRevealPropertyRow:
         cmap = ChangeMap(changes=[], common_node_uids=[])
         before_svg = (
             "<svg id='lv-before' data-lv-properties='{\"lock_state\":"
-            "\"unlocked\"}' data-lv-structure='{}'>B</svg>"
+            "\"unlocked\"}' data-lv-health='{}'>B</svg>"
         )
         after_svg = (
             "<svg id='lv-after' data-lv-properties='{\"lock_state\":"
-            "\"password_protected\"}' data-lv-structure='{}'>A</svg>"
+            "\"password_protected\"}' data-lv-health='{}'>A</svg>"
         )
         return build_diff_viewer(
             cmap, before_svg, after_svg,
@@ -539,9 +542,11 @@ class TestClickToRevealPropertyRow:
         # Opens the popover if closed, keyed by data-key == c.field.
         assert "panel.hidden=false" in html.replace(" ", "")
         assert "data-key=\"'+c.field+'\"" in html
-        # jump() routes property/structure kinds to the popover instead of
-        # the diagram spotlight/zoom flow.
-        assert "c.kind==='property'||c.kind==='structure'" in html
+        # jump() routes property/health kinds to the popover instead of
+        # the diagram spotlight/zoom flow (real diagram Case/Sequence
+        # structure-node changes still carry the unrelated "structure" kind,
+        # matched here for its own pre-existing reasons).
+        assert "c.kind==='property'||c.kind==='health'||c.kind==='structure'" in html
         assert "revealPropertyRow(c)" in html
 
     def test_selected_state_css_stronger_than_passive_changed_tint(self):

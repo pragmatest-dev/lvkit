@@ -436,13 +436,13 @@ def project_vi_facts(
     )
     qualified_name = vnode.qualified_name if isinstance(vnode, VINode) else None
 
-    # VI Properties + VIStructure, straight from the graph's own accessors
-    # (intrinsic to this VI's own bytes -- unlike ``library``/
+    # VI Properties (kind included) + VIHealth, straight from the graph's
+    # own accessors (intrinsic to this VI's own bytes -- unlike ``library``/
     # ``owning_class`` above, which resolve via ownership edges to OTHER
     # files). Neither is a VIMetadata field -- see
-    # graph.queries.get_vi_properties/get_vi_structure.
+    # graph.queries.get_vi_properties/get_vi_health.
     properties = graph.get_vi_properties(vi_name)
-    structure = graph.get_vi_structure(vi_name)
+    health = graph.get_vi_health(vi_name)
 
     terminals: list[TerminalFact] = []
     type_use_keys: set[str] = set()
@@ -578,17 +578,17 @@ def project_vi_facts(
         ),
         instance_draw_instance_icon=properties.instance.draw_instance_icon,
         instance_remote_panel=properties.instance.remote_panel,
-        struct_typedef_status=structure.typedef_status.value,
-        struct_dynamic_dispatch=structure.dynamic_dispatch,
-        struct_source_only=structure.source_only,
-        struct_has_no_block_diagram=structure.has_no_block_diagram,
-        struct_is_instance_vi=structure.is_instance_vi,
-        struct_bad_node=structure.bad_node,
-        struct_bad_subvi=structure.bad_subvi,
-        struct_bad_subvi_link=structure.bad_subvi_link,
-        struct_bad_compile=structure.bad_compile,
-        struct_broken_poly=structure.broken_poly,
-        struct_is_broken=structure.is_broken,
+        kind_typedef_status=properties.kind.typedef_status.value,
+        kind_dynamic_dispatch=properties.kind.dynamic_dispatch,
+        kind_source_only=properties.kind.source_only,
+        kind_has_no_block_diagram=properties.kind.has_no_block_diagram,
+        kind_is_instance_vi=properties.kind.is_instance_vi,
+        health_bad_node=health.bad_node,
+        health_bad_subvi=health.bad_subvi,
+        health_bad_subvi_link=health.bad_subvi_link,
+        health_bad_compile=health.bad_compile,
+        health_broken_poly=health.broken_poly,
+        health_is_broken=health.is_broken,
     )
 
 
