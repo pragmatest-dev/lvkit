@@ -13,7 +13,7 @@ Render a VI's block diagram to a faithful, interactive diagram and open it in a 
 lvkit render "path/to/Some VI.vi" --format html -o outputs/some-vi.html
 ```
 
-`--format html` wraps the block diagram in an interactive viewer page (zoom/pan and a theme toggle — see [Read the diagram](#read-the-diagram) below); the default `--format svg` writes just the diagram itself, no toolbar. `-o` writes the file at that path; without `-o`, `render` still builds the diagram into its per-user cache and prints the cache path instead of writing a file (`Rendered <name> → cached (<path>). Pass -o FILE to write a file.`) — pass `-o` when you want a file to open, keep, or attach to a review.
+`--format html` wraps the block diagram in an interactive viewer page (zoom/pan and a theme toggle — see [Read the diagram](#read-the-diagram) below); the default `--format svg` writes just the diagram itself, no toolbar. `-o` writes the file at that path. Without `-o`, `render` only warms its internal build cache and prints where — it does *not* write an output file you can open — so **pass `-o` whenever you want a diagram to open, keep, or attach to a review**.
 
 If the VI calls SubVIs that live outside its own directory, add `--search-path`:
 

@@ -5,7 +5,7 @@ Give your AI agent live access to your VIs. lvkit's MCP (Model Context Protocol)
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) installed (recommended — see [Without uv](#without-uv) if you'd rather not). uv lets every client below run lvkit with **no separate install**: `uvx --from lvkit lvkit-mcp` fetches it from PyPI on demand.
-- One of the AI clients below: Claude Code, Claude Desktop, VS Code, Codex, or Cursor.
+- One of the AI clients below: Claude Code, VS Code, Codex, or Cursor.
 - The server reads `.vi` files off your local disk — it's a **local, stdio** server, not a hosted one. There's nothing to sign up for.
 
 ## Install uv
@@ -34,9 +34,9 @@ Every client launches the same server: `uvx --from lvkit lvkit-mcp`. Pick yours.
 claude mcp add lvkit -- uvx --from lvkit lvkit-mcp
 ```
 
-### Claude Desktop / Cursor / any client using the standard shape
+### Cursor / any client using the standard `mcpServers` shape
 
-Add to the client's MCP config (Claude Desktop: `claude_desktop_config.json`):
+Add to the client's MCP config:
 
 ```json
 {
@@ -110,28 +110,27 @@ lvkit mcp --selftest
 
 This initializes the server and lists its tools without staying resident, printing `MCP selftest OK: server initialized, N tools listed.` and exiting `0`. A broken install (e.g. an incompatible `mcp` package version) prints `MCP selftest FAILED: …` to stderr and exits non-zero instead of silently registering zero tools with your client.
 
-With uvx, no separate install needed:
+With uvx, no separate install needed — run the `lvkit` CLI through uvx so it parses the flag (the bare `lvkit-mcp` script is only the stdio server and ignores `--selftest`):
 
 ```bash
-uvx --from lvkit lvkit-mcp --selftest
+uvx --from lvkit lvkit mcp --selftest
 ```
 
 After configuring your client, restart it to pick up the new server, then ask it to list its tools (or open the client's MCP panel) and confirm the lvkit tools appear.
 
 ## Ask your first question
 
-Once the server is registered, point your agent at a real VI repo and ask a project-wide question. Against JKI VI Tester (487 VIs), for example:
+You don't script these calls yourself — you ask your agent the question in plain language and it picks the right tool. The calls shown below are what it invokes under the hood. Point it at a real VI or repo:
 
-1. **Index the repo**: the agent calls `index(project="…/source")` → `{vis: 487, collisions: 65, ms: …}`. (Optional — `query` builds/refreshes the index on first use too.)
-2. **Ask a project-wide question**: `query(project, sql="SELECT name, COUNT(*) AS n FROM terminal WHERE is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC")` answers *"what does this project call its error indicators?"* as a small histogram, in one call.
-3. **Check reachability**: `get_callers(project, vi="…/fail.vi")` answers *"does this VI have callers?"*
-4. **Assess a change**: `blast_radius(project, vi="…/fail.vi")` answers *"what breaks if I change it?"*
+- **Inspect one VI**, deep and on demand — *"what does this VI do?"* → the agent calls `describe(vi_path="…/Some VI.vi")` for the signature, SubVI calls, and control flow. No indexing needed; it loads the one VI live.
+- **Ask a project-wide question** — *"what does this project call its error indicators?"* → `query(sql="SELECT name, COUNT(*) AS n FROM terminal WHERE is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC", project="…")` answers as a small histogram, in one call. (`query` builds/refreshes the project index on first use.)
+- **Assess a change** — *"what breaks if I change fail.vi?"* → `blast_radius(vi="…/fail.vi", project="…")`.
 
-You don't have to script these calls yourself — just ask your agent the question in plain language ("what are the error indicator names in this project?", "what breaks if I change fail.vi?") and it picks the right tool. The full 16-tool surface — project index, deep single-VI inspection, and stateless generators — is documented in [reference/mcp](../reference/mcp.md).
+The full 16-tool surface — project index, deep single-VI inspection, and stateless generators — plus the worked JKI VI Tester (487 VIs) walkthrough, is in [reference/mcp](../reference/mcp.md).
 
 ## Troubleshooting
 
-- **Client shows zero lvkit tools after restart.** Run `lvkit mcp --selftest` (or `uvx --from lvkit lvkit-mcp --selftest`) directly — a non-zero exit means the server itself is broken (often an incompatible `mcp` package version), not a client config problem. Fix that first, then re-check the client config against the JSON/TOML above.
+- **Client shows zero lvkit tools after restart.** Run `lvkit mcp --selftest` (or `uvx --from lvkit lvkit mcp --selftest`) directly — a non-zero exit means the server itself is broken (often an incompatible `mcp` package version), not a client config problem. Fix that first, then re-check the client config against the JSON/TOML above.
 - **`uvx` not found.** uv isn't installed or isn't on `PATH` — see [Install uv](#install-uv), or use the [no-uv fallback](#without-uv).
 - **Client can't run a subprocess (locked-down environment).** Use the [no-uv fallback](#without-uv): `pip install lvkit`, then point `command` at the `lvkit` console script directly.
 - **On Windows, no Python and no uv available.** Install the lvkit VS Code extension — it bundles a signed standalone binary and registers itself with no config file at all.

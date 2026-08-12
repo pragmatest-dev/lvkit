@@ -9,7 +9,7 @@ Diff two versions of a VI — added/removed terminals, changed operations, rewir
 
 ## Run the diff
 
-For code review or CI, the default text output is the fastest path:
+For code review or CI, the default text output is usually what you want:
 
 ```bash
 lvkit diff "path/to/Some VI (old).vi" "path/to/Some VI (new).vi"
@@ -37,15 +37,15 @@ This renders a self-contained HTML file (default `outputs/vi-diff/<old-stem>__<n
 
 ### Reading the viewer
 
-- **Four view modes** in the toolbar: **overlay** (default — both versions overlaid with an opacity slider), **before**, **after**, and **split** (before above, after below, panning and zooming together).
+- **Two view modes** in the toolbar: **Split** (the default — before above, after below, panning and zooming in sync) and **Overlay** (both versions stacked with an opacity slider; drag it, or click its **before** / **after** ends to snap to one side).
 - **The change list** in the sidebar has one entry per added/removed/modified node or wire; each entry's number is drawn as a badge on the diagram next to what it correlates with. Click an entry (or its badge) to jump to it; `p`/`n` or the prev/next buttons step through the list in order.
 - **Selecting a change** spotlights it and dims the rest of the diagram. If the change lives inside a case or sequence frame that isn't currently showing, the viewer switches that frame into view in both panes first, so a change never hides behind an unselected case.
 - **Flat vs. Tree** toggle above the change list: Flat is the numbered list in engine order; Tree regroups the same list by containment (a structure's own line, its frames as sub-headers, changes nested beneath) — same clicks, same selection, just grouped differently.
-- Zoom (toolbar, `+`/`-`, or Ctrl/Cmd+scroll) is shared across all four view modes.
+- Zoom (toolbar, `+`/`-`, or Ctrl/Cmd+scroll) is shared across both view modes.
 
 ## Reading the text change tree
 
-The text output is a netlist — a node's own line reads `name(port=net, ...) -> outNets`, with each wired input bound to its source by port name rather than position; a structure's own line reads `case (selector):` / `while (...):` / `sequence:`, with its affected frames as quoted sub-headers and their changes indented beneath. An unchanged structure that merely *contains* a change still prints its own scope line, so a nested change always shows its enclosing case/loop context.
+The text output is a netlist — a node's own line reads `name(port=net, ...) -> outNets`, with each wired input shown by its source net's name rather than by position; a structure's own line reads `case (selector):` / `while (...):` / `sequence:`, with its affected frames as quoted sub-headers and their changes indented beneath. An unchanged structure that merely *contains* a change still prints its own scope line, so a nested change always shows its enclosing case/loop context.
 
 ```text
 + Strip Path(path=file name) -> stripped path, name
@@ -59,7 +59,7 @@ Read the `+`/`-`/`~` gutter the same way at every level: `+`/`-` on a node or st
 
 ## Use in CI
 
-`diff` always exits `0` when it successfully compares two VIs, **including when they're identical** — the exit code doesn't tell you whether the VIs differ. To gate on that, check the printed text (`No changes detected.` vs. an actual diff) or parse `--format json`, which serializes the same UID-correlated change map for scripts and AI agents to consume directly:
+`diff` always exits `0` when it successfully compares two VIs, **including when they're identical** — the exit code doesn't tell you whether the VIs differ. A tool *failure* (unreadable path, corrupt VI) exits non-zero instead, so `0` always means "compared successfully," identical or not — see [Exit codes](../reference/diff.md#exit-codes). To gate on whether they differ, check the printed text (`No changes detected.` vs. an actual diff) or parse `--format json`, which serializes the same UID-correlated change map for scripts and AI agents to consume directly:
 
 ```bash
 lvkit diff "path/to/Some VI (old).vi" "path/to/Some VI (new).vi" --format json

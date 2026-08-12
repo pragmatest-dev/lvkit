@@ -17,11 +17,9 @@ lvkit is an independent, clean-room project, not affiliated with, authorized by,
 
 ## Install
 
-```bash
-pip install lvkit
-```
+`pip install lvkit` (shown above). For a global, isolated install: `pipx install lvkit` or `uv tool install lvkit`.
 
-For a global install: `pipx install lvkit` or `uv tool install lvkit`. `lvkit visualize` needs an extra: `pip install lvkit[visualize]`.
+`lvkit visualize` — a whole-library dependency/dataflow graph view — needs an extra: `pip install lvkit[visualize]` (see [reference/visualize](reference/visualize.md)).
 
 ## Do something next
 
@@ -36,3 +34,5 @@ For a global install: `pipx install lvkit` or `uv tool install lvkit`. `lvkit vi
 - [reference/mcp](reference/mcp.md) — the MCP server's tools and a worked project-understanding demo.
 - [reference/render](reference/render.md) — the full `render` flag reference.
 - [reference/diff](reference/diff.md) — the full `diff` flag reference.
+- [reference/generate](reference/generate.md) — generate a Python transliteration of a VI (experimental; coverage is incremental).
+- [reference/docs](reference/docs.md) — generate cross-referenced HTML documentation for a VI, library, or class.

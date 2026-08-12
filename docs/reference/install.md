@@ -38,9 +38,9 @@ Every client launches the same server: `uvx --from lvkit lvkit-mcp`. Pick yours.
 claude mcp add lvkit -- uvx --from lvkit lvkit-mcp
 ```
 
-### Claude Desktop / Cursor / any client using the standard shape
+### Cursor / any client using the standard `mcpServers` shape
 
-Add to the client's MCP config (Claude Desktop: `claude_desktop_config.json`):
+Add to the client's MCP config:
 
 ```json
 {

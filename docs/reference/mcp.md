@@ -27,7 +27,7 @@ no separate lvkit install is needed:
 
 Or, for Claude Code, `claude mcp add lvkit -- uvx --from lvkit lvkit-mcp`.
 
-For every client (Claude Code, Claude Desktop, VS Code, Codex, Cursor), the
+For every client (Claude Code, VS Code, Codex, Cursor), the
 [no-uv fallbacks](install.md#without-uv), and the zero-config VS Code extension,
 see **[Installing the MCP server](install.md)**.
 
