@@ -12,6 +12,7 @@ resolver chain) -> ``draw.py`` (replays the resolved glyphs/structures/wires)
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from pathlib import Path
@@ -253,6 +254,37 @@ def _resolve_theme_mode(
     return css_var_theme(base), embedded_dark_css(theme_mode)
 
 
+def _vi_properties_data_attrs(
+    graph: InMemoryVIGraph, vi_name: str,
+) -> dict[str, str]:
+    """Compact-JSON ``data-lv-properties``/``data-lv-structure`` payloads for
+    this VI's ``VIProperties``/``VIStructure`` facets (task #19).
+
+    The root ``<svg>`` is the single carrier for VI properties + structure —
+    read alike by the render-viewer chrome (status chips + the collapsible
+    Properties panel, see ``render_viewer.py``) and any other host that only
+    ever sees the raw SVG (e.g. the VS Code extension), same pattern as the
+    existing ``data-lv-vi-rel`` per-node attribute. ``get_vi_context`` is the
+    documented way to reach these graph facets (``VIContext.properties`` /
+    ``.structure``); a missing/unloaded VI degrades to the all-defaults
+    ``VIContext`` it already returns, never raises.
+
+    ``LockState`` (an ``Enum``) is swapped for its ``.value`` string, and
+    ``VIStructure.is_broken`` (a derived ``@property``, so ``dataclasses.
+    asdict`` skips it) is added explicitly — both dicts are otherwise a
+    faithful field-for-field dump, ``json.dumps``-ready.
+    """
+    ctx = graph.get_vi_context(vi_name)
+    props = dataclasses.asdict(ctx.properties)
+    props["lock_state"] = ctx.properties.lock_state.value
+    struct = dataclasses.asdict(ctx.structure)
+    struct["is_broken"] = ctx.structure.is_broken
+    return {
+        "lv-properties": json.dumps(props, separators=(",", ":"), sort_keys=True),
+        "lv-structure": json.dumps(struct, separators=(",", ":"), sort_keys=True),
+    }
+
+
 def render_vi(
     graph: InMemoryVIGraph, vi_name: str, *,
     theme: Theme = DEFAULT_THEME, interactive: bool = True,
@@ -298,8 +330,10 @@ def render_vi(
     if scene is None:
         return None
     theme, extra_css = _resolve_theme_mode(theme_mode, theme)
+    extra_attrs = _vi_properties_data_attrs(graph, vi_name)
     return _render_scene_svg(
         scene, vi_name, theme, interactive=interactive, extra_css=extra_css,
+        extra_attrs=extra_attrs,
     )
 
 
@@ -336,12 +370,15 @@ _BASE_CSS = (
 def _render_scene_svg(
     scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME, *,
     interactive: bool = True, extra_css: str = "",
+    extra_attrs: dict[str, str] | None = None,
 ) -> str:
     """Draw an already-built ``Scene`` to a self-contained interactive SVG.
 
     ``extra_css`` (empty by default) is appended to the SVG's ``<style>`` — the
     dark ``--lv-*`` palette block for ``dark``/``auto`` theme modes. Empty keeps
-    the ``<style>`` byte-identical to the legacy light output."""
+    the ``<style>`` byte-identical to the legacy light output. ``extra_attrs``
+    (``None`` by default) becomes root-``<svg>`` ``data-*`` attributes — e.g.
+    ``render_vi``'s ``data-lv-properties``/``data-lv-structure`` (task #19)."""
     backend = SvgBackend()
     draw_scene(scene, backend, theme)
     style = _BASE_CSS + extra_css
@@ -363,9 +400,11 @@ def _render_scene_svg(
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
             scene.bounds, title=vi_name, script=script, root_id=root_id,
-            style=style,
+            style=style, extra_attrs=extra_attrs,
         )
-    return backend.render(scene.bounds, title=vi_name, style=style)
+    return backend.render(
+        scene.bounds, title=vi_name, style=style, extra_attrs=extra_attrs,
+    )
 
 
 def render_vi_with_subvis(

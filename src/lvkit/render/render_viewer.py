@@ -18,6 +18,7 @@ from __future__ import annotations
 from importlib.resources import files
 
 from .help_tip import HELP_TIP
+from .properties_panel import PROPERTIES_BUTTON, PROPERTIES_PANEL
 from .theme_control import THEME_CONTROL_BUTTON, THEME_CONTROL_SCRIPT
 
 __all__ = ["build_render_viewer"]
@@ -40,6 +41,8 @@ def build_render_viewer(svg: str, *, title: str) -> str:
         template.replace("__TITLE__", title)
         .replace("__THEME_BTN__", THEME_CONTROL_BUTTON)
         .replace("__THEME_SCRIPT__", THEME_CONTROL_SCRIPT)
+        .replace("__PROPERTIES_BTN__", PROPERTIES_BUTTON)
+        .replace("__PROPERTIES_PANEL__", PROPERTIES_PANEL)
         .replace("__HELP_TIP__", HELP_TIP)
         .replace("__SVG__", svg)
     )

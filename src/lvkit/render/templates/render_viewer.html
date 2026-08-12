@@ -66,8 +66,10 @@
 
 <header>
   <b>__TITLE__</b>
+  <span class="lvkit-chips" id="lvkitChips"></span>
   <div class="controls">
     <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit">fit</button></span>
+    __PROPERTIES_BTN__
     __THEME_BTN__
   </div>
 </header>
@@ -230,5 +232,7 @@ try{
     {subtree:true,attributes:true,attributeFilter:['class'],childList:true});
 }catch(_){ /* minimap optional */ }
 </script>
+
+__PROPERTIES_PANEL__
 
 __HELP_TIP__

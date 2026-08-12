@@ -264,7 +264,7 @@ class SvgBackend:
     def render(
         self, bounds: tuple[float, float, float, float], *, title: str | None = None,
         script: str | None = None, root_id: str | None = None,
-        style: str | None = None,
+        style: str | None = None, extra_attrs: dict[str, str] | None = None,
     ) -> str:
         """Wrap accumulated ops into a complete SVG document.
 
@@ -286,6 +286,11 @@ class SvgBackend:
         AND inline SVG in HTML (where the markers are just JS comments)
         both parse. It must not contain a literal ``</script>`` or the
         CDATA terminator ``]]>``.
+        ``extra_attrs``, when given, becomes ``data-<key>="<value>"`` attributes
+        on the root ``<svg>`` (keys sorted for determinism), quoted/escaped via
+        ``quoteattr`` — e.g. task #19's ``data-lv-properties``/``data-lv-
+        structure`` compact-JSON payloads, the single carrier both the viewer
+        chrome and a host (which only ever sees the raw SVG) read from.
         """
         x1, y1, x2, y2 = bounds
         w, h = x2 - x1, y2 - y1
@@ -296,8 +301,12 @@ class SvgBackend:
         # gives the same accessible name with no hover tooltip. (Per-node <title>s,
         # emitted by start_group, are unaffected — they're intentional node hovers.)
         aria_attr = f' role="img" aria-label={quoteattr(title)}' if title else ""
+        attrs = extra_attrs or {}
+        data_attr = "".join(
+            f" data-{k}={quoteattr(attrs[k])}" for k in sorted(attrs)
+        )
         head = (
-            f'<svg xmlns="http://www.w3.org/2000/svg"{id_attr}{aria_attr} '
+            f'<svg xmlns="http://www.w3.org/2000/svg"{id_attr}{aria_attr}{data_attr} '
             f'viewBox="{x1:.0f} {y1:.0f} {w:.0f} {h:.0f}" font-family="sans-serif">'
         )
         title_el = None
