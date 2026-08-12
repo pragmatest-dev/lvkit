@@ -83,12 +83,22 @@ def _pair() -> tuple[InMemoryVIGraph, InMemoryVIGraph, str, str]:
     return ga, gb, na, nb
 
 
+def _mod_row(result: str, content: str) -> bool:
+    """True iff some '~' (modified) netlist row's text contains ``content``.
+    Robust to the group-folder indent property/connector-pane rows now sit
+    under: the '~' gutter still leads the line, only the glyph+text indents."""
+    return any(
+        line.startswith("~") and content in line
+        for line in result.splitlines()
+    )
+
+
 class TestPropertiesTextSection:
     def test_lock_state_change_renders_enum_transition(self):
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(lock_state=LockState.PASSWORD_PROTECTED)
         result = format_diff(ga, gb, na, nb)
-        assert "~ ▤ lock: unlocked -> password_protected" in result.splitlines()
+        assert _mod_row(result, "▤ lock: unlocked -> password_protected")
 
     def test_reentrancy_enum_transition_on(self):
         # Properties are a FIXED schema -- every VI always has a reentrancy
@@ -99,8 +109,7 @@ class TestPropertiesTextSection:
             execution=ExecutionProps(reentrancy=Reentrancy.SHARED_CLONE)
         )
         result = format_diff(ga, gb, na, nb)
-        lines = result.splitlines()
-        assert "~ ▤ reentrancy: non_reentrant -> shared_clone" in lines
+        assert _mod_row(result, "▤ reentrancy: non_reentrant -> shared_clone")
         assert "+ reentrancy" not in result
         assert "- reentrancy" not in result
 
@@ -110,8 +119,7 @@ class TestPropertiesTextSection:
             execution=ExecutionProps(reentrancy=Reentrancy.PREALLOCATED_CLONE)
         )
         result = format_diff(ga, gb, na, nb)
-        lines = result.splitlines()
-        assert "~ ▤ reentrancy: preallocated_clone -> non_reentrant" in lines
+        assert _mod_row(result, "▤ reentrancy: preallocated_clone -> non_reentrant")
         assert "+ reentrancy" not in result
         assert "- reentrancy" not in result
 
@@ -123,9 +131,8 @@ class TestPropertiesTextSection:
             )
         )
         result = format_diff(ga, gb, na, nb)
-        lines = result.splitlines()
-        assert "~ ▤ priority: normal -> subroutine" in lines
-        assert "~ ▤ run-on-open: false -> true" in lines
+        assert _mod_row(result, "▤ priority: normal -> subroutine")
+        assert _mod_row(result, "▤ run-on-open: false -> true")
 
     def test_typedef_status_enum_transition(self):
         # typedef_status lives on VIProperties.kind -- a sub-struct of
@@ -136,8 +143,7 @@ class TestPropertiesTextSection:
             kind=KindProps(typedef_status=TypedefStatus.STRICT_TYPEDEF)
         )
         result = format_diff(ga, gb, na, nb)
-        lines = result.splitlines()
-        assert "~ ▤ typedef_status: not_a_typedef -> strict_typedef" in lines
+        assert _mod_row(result, "▤ typedef_status: not_a_typedef -> strict_typedef")
         assert "+ typedef_status" not in result
         assert "- typedef_status" not in result
 
@@ -150,10 +156,9 @@ class TestPropertiesTextSection:
             )
         )
         result = format_diff(ga, gb, na, nb)
-        lines = result.splitlines()
-        assert "~ ▤ dynamic-dispatch: false -> true" in lines
-        assert "~ ▤ source-only: false -> true" in lines
-        assert "~ ▤ no-block-diagram: false -> true" in lines
+        assert _mod_row(result, "▤ dynamic-dispatch: false -> true")
+        assert _mod_row(result, "▤ source-only: false -> true")
+        assert _mod_row(result, "▤ no-block-diagram: false -> true")
 
     def test_instance_vi_flag_turned_off(self):
         ga, gb, na, nb = _pair()
@@ -161,8 +166,7 @@ class TestPropertiesTextSection:
             kind=KindProps(is_instance_vi=True)
         )
         result = format_diff(ga, gb, na, nb)
-        lines = result.splitlines()
-        assert "~ ▤ instance-vi: true -> false" in lines
+        assert _mod_row(result, "▤ instance-vi: true -> false")
         assert "+ instance-vi" not in result
         assert "- instance-vi" not in result
 
@@ -172,8 +176,7 @@ class TestPropertiesTextSection:
             execution=ExecutionProps(exec_system=ExecSystem.STANDARD)
         )
         result = format_diff(ga, gb, na, nb)
-        lines = result.splitlines()
-        assert "~ ▤ exec_system: same_as_caller -> standard" in lines
+        assert _mod_row(result, "▤ exec_system: same_as_caller -> standard")
 
     def test_lv_version_change_is_suppressed(self):
         # lv_version bumps on every save -- pure noise, never diffed.
@@ -197,8 +200,8 @@ class TestPropertiesTextSection:
         gb._vi_properties[nb] = VIProperties(lock_state=LockState.LOCKED)
         concise = format_diff(ga, gb, na, nb)
         verbose = format_diff(ga, gb, na, nb, verbose=True)
-        assert "~ ▤ lock: unlocked -> locked" in concise.splitlines()
-        assert "~ ▤ lock: unlocked -> locked" in verbose.splitlines()
+        assert _mod_row(concise, "▤ lock: unlocked -> locked")
+        assert _mod_row(verbose, "▤ lock: unlocked -> locked")
 
     def test_property_row_order_matches_popover_group_order(self):
         # Property rows order the SAME as the properties popover: group order
@@ -269,11 +272,17 @@ class TestNetlistDiffRows:
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(lock_state=LockState.PASSWORD_PROTECTED)
         rows = netlist_diff_rows(ga, gb, na, nb)
+        # Property changes render under a "Properties:" group folder (a scope
+        # row) at the tree root, their leaves nested one level under it.
+        group = [r for r in rows if r.uid == "group:property"]
+        assert len(group) == 1
+        assert group[0].kind == "scope" and group[0].text == "Properties:"
+        assert group[0].depth == 0
         prop_rows = [r for r in rows if r.kind == "property"]
         assert len(prop_rows) == 1
         row = prop_rows[0]
         assert row.change == "modified"
-        assert row.depth == 0
+        assert row.depth == 1   # nested under the Properties: group folder
         assert row.uid == "property:lock_state"
         assert row.text == "▤ lock: unlocked -> password_protected"
 

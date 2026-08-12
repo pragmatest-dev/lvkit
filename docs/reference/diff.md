@@ -111,8 +111,9 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
 ```
 
 ```text
-~ ▭ input file name: String -> Path
-~ ▭ output new filename: String -> Path
+  Connector pane:
+~   ▭ input file name: String -> Path
+~   ▭ output new filename: String -> Path
 + Strip Path(path=file name) -> stripped path, name
 + Convert File Extension (String)__ogtk.vi(new ending (none)=new ending (none), file name=name) -> prev ending, new filename
 + Build Path(name or relative path=new filename, base path=stripped path) -> appended path
@@ -126,13 +127,18 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
 - = (unnamed str) = "'\\\\.[~\\\\.]*$'"
 ```
 
+VI-level changes group under their own folder LEADING the tree: connector-pane
+terminal changes under a `Connector pane:` header, property changes under a
+`Properties:` header (their leaves indented one level, ordered to match the
+properties popover).
+
 `--verbose` doesn't change WHICH changes are reported, or how they're
 nested — it's the exact same containment tree either way. It only adds:
 `kind="connector_pane"` rows for the VI's own connector-pane interface (a
 distinct concern the change map doesn't cover otherwise) — here, the two
-retyped connector-pane terminals (`~ ▭ input file name: String -> Path`)
-LEADING the tree, since the connector pane is the only kind gated to
-verbose-only (Properties rows, when present, show in both tiers — see
+retyped connector-pane terminals under the `Connector pane:` folder LEADING
+the tree, since the connector pane is the only kind gated to verbose-only
+(Properties rows, when present, show in both tiers — see
 [Options](#options); VI health is never a diff row at all, in either tier —
 see [JSON output](#json-output)); old→new detail on a modified constant's
 value instead of just its name; and, when at least one other change is

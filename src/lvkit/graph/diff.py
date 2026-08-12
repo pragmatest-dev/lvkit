@@ -2344,6 +2344,33 @@ def _netlist_diff(
     def render(path: tuple[Segment, ...], depth: int) -> list[NetlistDiffRow]:
         rows: list[NetlistDiffRow] = []
         here = by_path.get(path, [])
+        # VI-level authored changes render at the ROOT under their own group
+        # folder ("Connector pane", then "Properties"), LEADING the diagram
+        # changes -- not interleaved as loose siblings. Their frame_path is
+        # always None, so they only ever land at ``path == ()``. Each group's
+        # leaves keep their own uid (clickable/selectable in the viewer) and
+        # their popover-order ``_sort_key``; the folder header carries a
+        # synthetic ``group:{kind}`` uid (no CHANGES entry -> non-clickable).
+        if not path:
+            for gkind, gtitle in (
+                ("connector_pane", "Connector pane"), ("property", "Properties"),
+            ):
+                gleaves = sorted(
+                    (c for c in here if c.kind == gkind),
+                    key=lambda c: _sort_key(c.uid),
+                )
+                if not gleaves:
+                    continue
+                rows.append(NetlistDiffRow(
+                    change=None, depth=depth, text=f"{gtitle}:",
+                    uid=f"group:{gkind}", kind="scope",
+                ))
+                for gc in gleaves:
+                    rows.append(NetlistDiffRow(
+                        change=gc.change, depth=depth + 1,
+                        text=_LEAF_TEXT[gkind](gc, detailed=detailed),
+                        uid=gc.uid, kind=gkind,
+                    ))
         struct_by_uid = {
             c.uid: c for c in here
             if c.kind == "structure" and c.change in ("added", "removed")
@@ -2373,7 +2400,9 @@ def _netlist_diff(
         siblings += (
             (_sort_key(c.uid), "leaf", c)
             for c in here
-            if c.kind in _LEAF_KINDS
+            # property/connector_pane are rendered above under their group
+            # folder (root only), never as loose siblings.
+            if c.kind in _LEAF_KINDS and c.kind not in ("property", "connector_pane")
         )
         siblings.sort(key=lambda s: s[0])
         for _, tag, payload in siblings:
@@ -2444,7 +2473,12 @@ def format_diff(
 
     rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=verbose)
     if not verbose:
-        rows = [r for r in rows if r.kind != "connector_pane"]
+        # Connector pane is verbose-only in text -- drop its leaves AND the
+        # now-empty "Connector pane:" group folder header.
+        rows = [
+            r for r in rows
+            if r.kind != "connector_pane" and r.uid != "group:connector_pane"
+        ]
 
     sections: list[str] = []
     if rows:

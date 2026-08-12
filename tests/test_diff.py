@@ -247,15 +247,18 @@ class TestFormatDiffVerbose:
         assert "sequence:" in result or "while (" in result
 
     def test_different_vis_detect_connector_pane_changes(self):
-        # Connector-pane changes are ordinary kind="connector_pane" leaves
-        # now (no separate "Signature:" section) -- a connector-pane
-        # terminal add/remove/retype renders inline at the ROOT of the tree,
-        # leading every node/structure change, with the terminal glyph (▭).
+        # Connector-pane changes are ordinary kind="connector_pane" leaves,
+        # rendered (verbose-only) under a "Connector pane:" group folder at the
+        # tree ROOT, leading every node/structure change, with the terminal
+        # glyph (▭). VI_B has a 'Tree' input VI_A lacks -> an add (+).
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
         result = format_diff(ga, gb, na, nb, verbose=True)
-        # VI_B has a 'Tree' input that VI_A doesn't.
-        assert "+ ▭ input Tree" in result.splitlines()
+        assert "Connector pane:" in result
+        assert any(
+            line.startswith("+") and "▭ input Tree" in line
+            for line in result.splitlines()
+        )
 
     def test_format_produces_readable_output(self):
         ga, na = _load(VI_A)
