@@ -116,14 +116,15 @@ already has its own `## Properties` / `## Health` sections, so inlining
 the same facts into `## Netlist` too would just duplicate them on the same
 page. This section instead fixes the canonical SYNTAX and curated flag
 vocabulary for those facts wherever they DO appear today:
-[`diff`](diff.md)'s own `Properties:` / `Health:` sections (one
-`~ <flag>: <old> -> <new>` gutter line per changed flag, off the same
-curated set) and the interactive viewer's status chips + collapsible
-Properties panel. Both read the same `VIProperties` (kind included) /
-`VIHealth` facets this header would draw from, carried on the shared
-`build_netlist` IR (see `netlist_to_dict`'s `properties` / `health` keys) —
-one data source, several renderings. Emitting this header inline in
-`render_netlist` itself is a tracked follow-up (#21).
+[`diff`](diff.md)'s changed-flag rows (a `~ ▤ <flag>: <old> -> <new>` line
+per changed flag, off the same curated set — an ordinary leaf row at the
+ROOT of the change tree, not a separate section) and the interactive
+viewer's status chips + collapsible Properties panel. All read the same
+`VIProperties` (kind included) / `VIHealth` facets this header would draw
+from, carried on the shared `build_netlist` IR (see `netlist_to_dict`'s
+`properties` / `health` keys) — one data source, several renderings.
+Emitting this header inline in `render_netlist` itself is a tracked
+follow-up (#21).
 
 The exhaustive set — every flag, window cosmetics, numeric execution
 priority — lives in `describe`'s `## Properties` section (kind included) and

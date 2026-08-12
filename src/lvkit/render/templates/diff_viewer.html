@@ -605,8 +605,12 @@ const trunc=(s,n)=>{s=String(s); return s.length>n ? s.slice(0,n-1)+'…' : s;};
 // for the change-list UI (independent of the TEXT report's netlist-syntax
 // rendering -- see the note above). A "frame"/
 // "value"-kind change has no glyph of its own — the quoted frame token
-// ("True":) is its own visual tell (see frameHeaderRow below).
-const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚', constant:'○', frame:'⬚', value:'⬚', terminal:'▭'};
+// ("True":) is its own visual tell (see frameHeaderRow below). property/
+// health/signature mirror diff.py's own text glyphs (``_METADATA_GLYPH``/
+// ``_TERMINAL_GLYPH``) -- a signature change IS a connector-pane terminal,
+// the same kind of thing a control/indicator change is.
+const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚', constant:'○', frame:'⬚', value:'⬚',
+  terminal:'▭', property:'▤', health:'▤', signature:'▭'};
 const CHANGE_TAG={added:'+', removed:'−', modified:'~'};
 // The change spelled out in words, after the element — redundant with the +/−/~
 // tag by design (the user asked for the explicit text form), coloured to match.
@@ -622,12 +626,16 @@ function changeRowHtml(i){
   // The +/−/~ change tag lives in its own column.
   // ONE RULE, every row: "<type of thing> <change word>" as the primary line,
   // the specific identity/value as truncated subtext. The type word comes from
-  // whichever field the engine put it in (frames: element; constants: label is
-  // already "<pytype> constant"; node/wire/structure: the kind noun); the
-  // identity is the OTHER field (frame value, constant value, node/structure name).
+  // whichever field the engine put it in (frames: element; constants/
+  // property/health/signature: label is already the identity -- a field name
+  // ("lock"), a curated flag ("broken"), or "{direction} {name}"
+  // ("input Tree"); node/wire/structure: the kind noun); the identity is the
+  // OTHER field (frame value, constant value, node/structure name, or the
+  // property/health/signature's own old->new transition).
   const KIND_WORD={node:'node', wire:'wire', structure:'structure'};
-  const type = c.element || (c.kind==='constant' ? c.label : (KIND_WORD[c.kind]||c.kind));
-  const sub = c.element ? (c.detail||c.label) : (c.kind==='constant' ? c.detail : c.label);
+  const LABEL_IS_TYPE={constant:1, property:1, health:1, signature:1};
+  const type = c.element || (LABEL_IS_TYPE[c.kind] ? c.label : (KIND_WORD[c.kind]||c.kind));
+  const sub = c.element ? (c.detail||c.label) : (LABEL_IS_TYPE[c.kind] ? c.detail : c.label);
   const detail = sub
     ? '<div class="detail" title="'+esc(sub)+'">'+esc(trunc(sub, 32))+'</div>' : '';
   const prim = kindPrefix(c.kind)+esc(type)+
@@ -678,11 +686,11 @@ CHANGES.forEach((c,i)=>{ if(c.uid!=null && !(c.uid in UID_TO_CHANGE_I)) UID_TO_C
 // is node-first netlist syntax (instance_line/scope_header from diff.py). Context
 // folder rows (an unchanged case/frame that only contains changes) have no
 // CHANGES entry, so no number -- the ⬚/quoted label reads as the folder.
-// constant/terminal bake their own glyph into the row text (via _constant_leaf_text/
-// _terminal_leaf_text), so their TREE_GLYPH is empty — no double glyph. "health"
-// is a VI-level facet row (no diagram element, formerly tagged "structure")
-// -- kept the SAME box glyph as "scope" (unchanged from before this rename).
-const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', health:'⬚ ', frame:'', constant:'', terminal:''};
+// constant/terminal/property/health/signature all bake their own glyph into
+// the row text (via _constant_leaf_text/_terminal_leaf_text/
+// _metadata_leaf_text), so their TREE_GLYPH is empty — no double glyph.
+const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', frame:'', constant:'', terminal:'',
+  property:'', health:'', signature:''};
 // A row is a FOLDER (has descendants, gets a disclosure chevron + .tchildren
 // container) iff its kind is scope/frame -- the netlist tree is already
 // pruned server-side so every scope/frame row leads to a change somewhere
@@ -1014,26 +1022,26 @@ function focus(i){
   glideRAF=requestAnimationFrame(step);
 }
 
-// A property/health change (kind "property"/"health", uid:null) has NO
-// diagram element -- it's a VI-level setting, not a node/wire/structure. Its
-// "reveal" is the properties-popover analog of focus(): open the popover (if
-// closed) and highlight+scroll to the matching row, keyed by `field` (the
-// RAW VIProperties/VIHealth dataclass field name diff_viewer.py's
-// _metadata_change stamps on the change, matching the data-key each popover
-// row carries -- see properties_panel.py's _PANEL_BODY_JS). A stronger
-// `.lvkit-prop-selected` state (defined alongside the passive
-// `.lvkit-prop-changed` tint in properties_panel.py's _DIFF_PANEL_EXTRA_CSS)
-// marks the specific clicked row. (`c.kind==='structure'` below is a
-// SEPARATE, real diagram Case/Sequence-structure-node kind -- unrelated to
-// this VI-level facet -- matched here for its own pre-existing reasons, not
-// this refactor's.)
+// A property/health change (kind "property"/"health") has NO diagram
+// element -- it's a VI-level setting, not a node/wire/structure. Its uid is
+// a SYNTHETIC token (diff.py's ``"property:{label}"``/``"health:{label}"``
+// -- see graph/diff.py's ``_mk_metadata_change``), not a real LabVIEW UID, so
+// it never matches anything in the rendered SVG (no bounds, no data-node) --
+// that's what makes this "element-less" rather than an explicit null check.
+// Its "reveal" opens the popover (if closed) AND highlights + scrolls to the
+// SPECIFIC matching row: the change's synthetic uid is "property:<rawField>",
+// and <rawField> is the popover row's data-key (e.g. "lock_state"), so they
+// match directly. (`c.kind==='structure'` in jump() is a SEPARATE, real
+// diagram Case/Sequence-structure-node kind -- unrelated to this VI-level
+// facet -- handled there for its own pre-existing reasons.)
 function revealPropertyRow(c){
   const btn=document.getElementById('lvkitDiffPropsBtn');
   const panel=document.getElementById('lvkitDiffPropsPanel');
   if(!panel)return;
   if(panel.hidden){ panel.hidden=false; if(btn) btn.setAttribute('aria-expanded','true'); }
-  if(!c.field)return;
-  const cells=panel.querySelectorAll('[data-key="'+c.field+'"]');
+  const key=(c.uid||'').split(':').slice(1).join(':');
+  if(!key)return;
+  const cells=panel.querySelectorAll('[data-key="'+key+'"]');
   cells.forEach(el=>el.classList.add('lvkit-prop-selected'));
   if(cells[0]) cells[0].scrollIntoView({block:'nearest'});
 }
@@ -1045,11 +1053,17 @@ function jump(i){
   // Property/health changes have no diagram presence at all -- reveal via
   // the properties popover instead of the diagram spotlight/zoom machinery
   // below (mode switching, frame reveal, focus() would all be no-ops for
-  // them anyway, since they carry no bounds/uid/frame_path).
+  // them anyway, since they carry no bounds/frame_path, and their uid never
+  // matches a diagram element). A signature change is the SAME "no diagram
+  // element" shape but isn't part of the properties popover at all, so it
+  // deliberately falls through to the normal path below -- every step there
+  // (mode switch, focus()) already no-ops safely on a bounds-less/uid-less
+  // change (see e.g. a top-level constant with no bounds), leaving just the
+  // list-selection/highlight it needs.
   const propPanelEl=document.getElementById('lvkitDiffPropsPanel');
   if(propPanelEl) propPanelEl.querySelectorAll('.lvkit-prop-selected')
     .forEach(el=>el.classList.remove('lvkit-prop-selected'));
-  if(c.kind==='property'||c.kind==='health'||c.kind==='structure'){
+  if(c.kind==='property'||c.kind==='structure'){
     document.querySelectorAll('.item').forEach(n=>n.classList.toggle('sel',+n.dataset.i===i));
     revealTreeRow(i);
     revealPropertyRow(c);

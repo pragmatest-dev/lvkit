@@ -35,7 +35,7 @@ lvkit diff <vi_a> <vi_b> [options]
 | Option | Description |
 |--------|-------------|
 | `--format {text,json,html}` | Output serialization. `text` (default) is a concise, logical change summary — node/structure add/remove, wire connectivity, constant value changes — printed to stdout. `json` serializes the diff engine's UID-correlated change map (`ChangeMap.to_dict()`) — for scripts, CI, or an AI agent reading the diff. `html` writes a self-contained [interactive diff viewer](#interactive-diff-viewer) to a file. |
-| `-v`, `--verbose` | Show the change summary in full depth: a `Signature` section for the VI's own connector-pane interface, old→new detail on modified values, and a trailing unchanged-node tally. Both tiers already show the full recursive containment tree — `--verbose` adds depth, never a different shape. Only affects `--format text` — a detail level, not a format. |
+| `-v`, `--verbose` | Show the change summary in full depth: the VI's own connector-pane changes (a connector-pane terminal added/removed/retyped — verbose-only, unlike Properties, which always show), old→new detail on modified values, and a trailing unchanged-node tally. Both tiers already show the full recursive containment tree — `--verbose` adds depth, never a different shape. Only affects `--format text` — a detail level, not a format. |
 | `--long` | Back-compat alias for `--verbose`. |
 | `-o FILE`, `--output FILE` | Output file path. Used by `--format html` (default `outputs/vi-diff/<stemA>__<stemB>.html` when omitted) and `--format json` (prints to stdout instead when omitted). Has no effect on `--format text`, which always goes to stdout. |
 | `--open` | Render `--format html` and open it in a browser. With no explicit `--format`, `--open` resolves the format to `html`; combined with `--format text` or `--format json` it's an error (`Error: --open requires --format html`, exit `1`). |
@@ -111,10 +111,8 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
 ```
 
 ```text
-Signature:
-  ~ input: file name: str -> Path
-  ~ output: new filename: str -> Path
-
+~ ▭ input file name: String -> Path
+~ ▭ output new filename: String -> Path
 + Strip Path(path=file name) -> stripped path, name
 + Convert File Extension (String)__ogtk.vi(new ending (none)=new ending (none), file name=name) -> prev ending, new filename
 + Build Path(name or relative path=new filename, base path=stripped path) -> appended path
@@ -129,13 +127,18 @@ Signature:
 ```
 
 `--verbose` doesn't change WHICH changes are reported, or how they're
-nested — it's the exact same containment tree either way. It only adds: a
-`Signature` section BEFORE the tree (the VI's own connector-pane interface, a
-distinct concern the change map doesn't cover); old→new detail on a modified
-constant's value instead of just its name; and, when at least one other
-change is present, a trailing `(N unchanged nodes)` tally AFTER the tree. This
-pair happens to share no unchanged nodes at all, so no tally appears in
-either tier.
+nested — it's the exact same containment tree either way. It only adds:
+`kind="connector_pane"` rows for the VI's own connector-pane interface (a
+distinct concern the change map doesn't cover otherwise) — here, the two
+retyped connector-pane terminals (`~ ▭ input file name: String -> Path`)
+LEADING the tree, since the connector pane is the only kind gated to
+verbose-only (Properties rows, when present, show in both tiers — see
+[Options](#options); VI health is never a diff row at all, in either tier —
+see [JSON output](#json-output)); old→new detail on a modified constant's
+value instead of just its name; and, when at least one other change is
+present, a trailing `(N unchanged nodes)` tally AFTER the tree. This pair
+happens to share no unchanged nodes at all, so no tally appears in either
+tier.
 
 The `+`/`-`/`~` gutter (column 0) is orthogonal to WHAT changed — the same
 tag prefixes a structure's `case (...):` line, a node's `name(port=net, ...)
@@ -172,14 +175,25 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
   --search-path samples/OpenG/extracted --format json
 ```
 
-Prints the diff engine's `ChangeMap` as JSON: a `changes` list — one entry per
-added/removed/modified node, wire, or structure, each with `uid`, `full_id`,
-`kind`, `change` (`added`/`removed`/`modified`), `label`, `detail`, and diagram
-geometry (`bounds`, `path`, and for a modified element the prior-version
-`bounds_before`/`path_before`) — plus `common_nodes`, the count of nodes matched
-unchanged across both VIs. This is the same change map `--format html` renders
-into the viewer below, and what an editor integration or AI agent should parse
-instead of scraping `text` output.
+Prints the diff engine's `ChangeMap` as JSON: `{"changes": [...], "common_nodes":
+N}` — no other top-level keys. `changes` has one entry per added/removed/
+modified node, wire, structure, constant, FP control/indicator (`kind:
+"terminal"`), or VI-level facet (`kind: "property"`/`"connector_pane"` — the
+VI's own Properties/connector-pane interface, rendered as ordinary entries
+here too, unlike the text report where the connector pane is verbose-only).
+Each entry has `uid`, `full_id`, `kind`, `change` (`added`/`removed`/
+`modified`), `label`, `detail`, and diagram geometry (`bounds`, `path`, and
+for a modified element the prior-version `bounds_before`/`path_before` —
+always `null` for a property/connector_pane entry, which has no diagram
+element of its own). A property entry's `uid` is `property:{raw_field}` (the
+underlying `VIProperties`/`KindProps` field name, e.g. `property:lock_state`
+— not its curated `label`, e.g. `"lock"`); `common_nodes` is the count of
+nodes matched unchanged across both VIs. **VI health is never diffed** — it's
+an emergent characteristic, not an authored change (`describe`/the index
+still surface it) — so no `kind: "health"` entry, and no `health:`-prefixed
+`uid`, ever appears in this JSON. This is the same change map `--format html`
+renders into the viewer below, and what an editor integration or AI agent
+should parse instead of scraping `text` output.
 
 ## Interactive diff viewer
 

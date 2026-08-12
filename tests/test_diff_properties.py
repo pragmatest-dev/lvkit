@@ -1,7 +1,25 @@
-"""Tests for lvkit diff surfacing VI-level Properties/Health CHANGES
-(#18) -- ``_diff_vi_properties``/``_diff_vi_health`` in
-``lvkit.graph.diff``, wired into ``format_diff`` (text, both tiers) and
-``netlist_diff_rows`` (the HTML viewer's Tree).
+"""Tests for lvkit diff surfacing VI-level Properties CHANGES (#18) --
+``_diff_vi_properties`` in ``lvkit.graph.diff``, wired into ``format_diff``
+(text, both tiers) and ``netlist_diff_rows`` (the HTML viewer's Tree).
+
+Property changes are ordinary ``kind="property"`` ``ElementChange`` leaves
+inside the UID-keyed ``ChangeMap`` (a vi-node-properties follow-up that
+deleted the old bespoke ``MetadataChange``/separate-section format) --
+rendered at the ROOT of the netlist tree, LEADING every node/structure
+change, with a synthetic ``uid``/``full_id`` (``"property:{raw_field}"`` --
+the RAW ``VIProperties``/``KindProps`` field name, e.g. ``"lock_state"``, NOT
+the curated display ``label``), a curated ``label`` (e.g. ``"lock"``), and a
+``detail`` old->new transition. There is no more ``Properties:`` text
+section, and ``diff_to_dict`` no longer carries a separate top-level
+``"properties"`` array -- see ``diff.py``'s ``_mk_metadata_change``.
+
+VI HEALTH (``VIHealth``/``is_broken``) is deliberately NOT diffed at all --
+it's an emergent characteristic (like file size), not an authored change.
+There is no ``kind="health"``, no ``health:`` uid, and no "broken" row
+anywhere in ``format_diff``/``diff_to_dict``/``netlist_diff_rows``. Health
+still exists as a graph facet and shows up in ``describe``/the index, just
+never in the diff -- see ``TestHealthNeverDiffed`` below and the
+diff-philosophy note in ``diff_uid``.
 
 Real paired VIs differing ONLY in a VI Property are rare, so these tests
 load one real VI (twice, into ``graph_a``/``graph_b``) and then mutate the
@@ -70,20 +88,19 @@ class TestPropertiesTextSection:
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(lock_state=LockState.PASSWORD_PROTECTED)
         result = format_diff(ga, gb, na, nb)
-        assert "Properties:" in result
-        assert "~ lock: unlocked -> password_protected" in result
+        assert "~ ▤ lock: unlocked -> password_protected" in result.splitlines()
 
     def test_reentrancy_enum_transition_on(self):
-        # Properties/Structure are a FIXED schema -- every VI always has a
-        # reentrancy value, so a change renders as a VALUE transition (~),
-        # never as an added (+) row -- exactly like lock_state.
+        # Properties are a FIXED schema -- every VI always has a reentrancy
+        # value, so a change renders as a VALUE transition (~), never as an
+        # added (+) row -- exactly like lock_state.
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
             execution=ExecutionProps(reentrancy=Reentrancy.SHARED_CLONE)
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ reentrancy: non_reentrant -> shared_clone" in lines
+        assert "~ ▤ reentrancy: non_reentrant -> shared_clone" in lines
         assert "+ reentrancy" not in result
         assert "- reentrancy" not in result
 
@@ -94,7 +111,7 @@ class TestPropertiesTextSection:
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ reentrancy: preallocated_clone -> non_reentrant" in lines
+        assert "~ ▤ reentrancy: preallocated_clone -> non_reentrant" in lines
         assert "+ reentrancy" not in result
         assert "- reentrancy" not in result
 
@@ -107,21 +124,20 @@ class TestPropertiesTextSection:
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ priority: normal -> subroutine" in lines
-        assert "  ~ run-on-open: false -> true" in lines
+        assert "~ ▤ priority: normal -> subroutine" in lines
+        assert "~ ▤ run-on-open: false -> true" in lines
 
     def test_typedef_status_enum_transition(self):
         # typedef_status lives on VIProperties.kind -- a sub-struct of
-        # Properties, not a separate facet -- so its transition renders
-        # under Properties:, not Health:.
+        # Properties, not a separate facet -- so its transition renders as a
+        # "property" row, same as lock_state.
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
             kind=KindProps(typedef_status=TypedefStatus.STRICT_TYPEDEF)
         )
         result = format_diff(ga, gb, na, nb)
-        assert "Properties:" in result
         lines = result.splitlines()
-        assert "  ~ typedef_status: not_a_typedef -> strict_typedef" in lines
+        assert "~ ▤ typedef_status: not_a_typedef -> strict_typedef" in lines
         assert "+ typedef_status" not in result
         assert "- typedef_status" not in result
 
@@ -135,9 +151,9 @@ class TestPropertiesTextSection:
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ dynamic-dispatch: false -> true" in lines
-        assert "  ~ source-only: false -> true" in lines
-        assert "  ~ no-block-diagram: false -> true" in lines
+        assert "~ ▤ dynamic-dispatch: false -> true" in lines
+        assert "~ ▤ source-only: false -> true" in lines
+        assert "~ ▤ no-block-diagram: false -> true" in lines
 
     def test_instance_vi_flag_turned_off(self):
         ga, gb, na, nb = _pair()
@@ -146,7 +162,7 @@ class TestPropertiesTextSection:
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ instance-vi: true -> false" in lines
+        assert "~ ▤ instance-vi: true -> false" in lines
         assert "+ instance-vi" not in result
         assert "- instance-vi" not in result
 
@@ -157,7 +173,7 @@ class TestPropertiesTextSection:
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ exec_system: same_as_caller -> standard" in lines
+        assert "~ ▤ exec_system: same_as_caller -> standard" in lines
 
     def test_lv_version_change_is_suppressed(self):
         # lv_version bumps on every save -- pure noise, never diffed.
@@ -175,59 +191,77 @@ class TestPropertiesTextSection:
         assert result == ""
 
     def test_shown_in_concise_tier_not_just_verbose(self):
-        # Unlike Signature (verbose-only), a lock/reentrancy change is
-        # high-signal enough to always show.
+        # Unlike the connector pane (verbose-only), a lock/reentrancy change
+        # is high-signal enough to always show, in both tiers.
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(lock_state=LockState.LOCKED)
         concise = format_diff(ga, gb, na, nb)
         verbose = format_diff(ga, gb, na, nb, verbose=True)
-        assert "Properties:" in concise
-        assert "~ lock: unlocked -> locked" in concise
-        assert "Properties:" in verbose
-        assert "~ lock: unlocked -> locked" in verbose
+        assert "~ ▤ lock: unlocked -> locked" in concise.splitlines()
+        assert "~ ▤ lock: unlocked -> locked" in verbose.splitlines()
 
-
-class TestHealthTextSection:
-    def test_broken_flag_turned_on(self):
-        ga, gb, na, nb = _pair()
-        gb._vi_health[nb] = VIHealth(bad_compile=True)
-        result = format_diff(ga, gb, na, nb)
-        assert "Health:" in result
-        lines = result.splitlines()
-        assert "  ~ broken: false -> true" in lines
-        assert "+ broken" not in result
-        assert "- broken" not in result
-
-    def test_broken_shown_in_concise_tier_not_just_verbose(self):
-        ga, gb, na, nb = _pair()
-        gb._vi_health[nb] = VIHealth(bad_node=True)
-        concise = format_diff(ga, gb, na, nb)
-        verbose = format_diff(ga, gb, na, nb, verbose=True)
-        assert "  ~ broken: false -> true" in concise.splitlines()
-        assert "  ~ broken: false -> true" in verbose.splitlines()
-
-    def test_no_plus_minus_gutters_anywhere_in_metadata_sections(self):
-        # Every Properties/Health row is a value transition (~) -- the
-        # schema is fixed, so a field can never be "added"/"removed". Flipping
-        # several fields at once touches no diagram node, so the WHOLE report
-        # is just the Properties:/Health: sections -- every content line
-        # must be a "  ~ " row.
+    def test_property_row_order_matches_popover_group_order(self):
+        # Property rows order the SAME as the properties popover: group order
+        # (Version/lock_state=0, then Execution=1, ... then Kind=5), alpha
+        # within a group -- see diff.py's _PROPERTY_GROUP_RANK. Flip one field
+        # from each group at once and assert lock leads, then the Execution
+        # fields alphabetically, then the Kind fields alphabetically.
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
-            lock_state=LockState.LOCKED,
+            lock_state=LockState.PASSWORD_PROTECTED,
             execution=ExecutionProps(
                 reentrancy=Reentrancy.SHARED_CLONE, priority=Priority.SUBROUTINE,
+                exec_system=ExecSystem.STANDARD, run_when_opened=True,
             ),
             kind=KindProps(
                 typedef_status=TypedefStatus.TYPEDEF, dynamic_dispatch=True,
+                source_only=True, has_no_block_diagram=True,
+                is_instance_vi=True,
             ),
         )
-        gb._vi_health[nb] = VIHealth(bad_compile=True)
-        result = format_diff(ga, gb, na, nb)
-        for line in result.splitlines():
-            if not line or line in ("Properties:", "Health:"):
-                continue
-            assert line.startswith("  ~ "), line
+        d = diff_to_dict(ga, gb, na, nb)
+        prop_uids = [c["uid"] for c in d["changes"] if c["kind"] == "property"]
+        assert prop_uids == [
+            "property:lock_state",
+            "property:exec_system",
+            "property:priority",
+            "property:reentrancy",
+            "property:run_when_opened",
+            "property:dynamic_dispatch",
+            "property:has_no_block_diagram",
+            "property:is_instance_vi",
+            "property:source_only",
+            "property:typedef_status",
+        ]
+
+
+class TestHealthNeverDiffed:
+    """VI HEALTH is an emergent characteristic, deliberately omitted from the
+    diff entirely -- flipping ``_vi_health`` must produce NO diff output at
+    all: no ``kind=="health"`` row, no ``health:``-prefixed uid anywhere, and
+    no "broken" text row in ``format_diff`` (either tier)."""
+
+    def test_health_flip_produces_no_diff_output(self):
+        ga, gb, na, nb = _pair()
+        gb._vi_health[nb] = VIHealth(bad_node=True)
+
+        concise = format_diff(ga, gb, na, nb)
+        verbose = format_diff(ga, gb, na, nb, verbose=True)
+        assert concise == ""
+        assert verbose == ""
+        assert "broken" not in concise
+        assert "broken" not in verbose
+
+        rows = netlist_diff_rows(ga, gb, na, nb)
+        assert not [r for r in rows if r.kind == "health"]
+        assert not [r for r in rows if r.uid is not None
+                    and str(r.uid).startswith("health")]
+
+        d = diff_to_dict(ga, gb, na, nb)
+        assert not [c for c in d["changes"] if c["kind"] == "health"]
+        assert not [c for c in d["changes"]
+                    if str(c["uid"]).startswith("health")]
+        assert d["changes"] == []
 
 
 class TestNetlistDiffRows:
@@ -240,62 +274,56 @@ class TestNetlistDiffRows:
         row = prop_rows[0]
         assert row.change == "modified"
         assert row.depth == 0
-        assert row.uid is None
-        assert row.text == "lock: unlocked -> password_protected"
+        assert row.uid == "property:lock_state"
+        assert row.text == "▤ lock: unlocked -> password_protected"
 
-    def test_health_change_row_present(self):
-        ga, gb, na, nb = _pair()
-        gb._vi_health[nb] = VIHealth(bad_compile=True)
-        rows = netlist_diff_rows(ga, gb, na, nb)
-        health_rows = [r for r in rows if r.kind == "health"]
-        assert len(health_rows) == 1
-        row = health_rows[0]
-        assert row.change == "modified"
-        assert row.depth == 0
-        assert row.uid is None
-        assert row.text == "broken: false -> true"
-
-    def test_no_property_or_health_rows_when_unchanged(self):
+    def test_no_property_rows_when_unchanged(self):
         ga, gb, na, nb = _pair()
         rows = netlist_diff_rows(ga, gb, na, nb)
-        assert not [r for r in rows if r.kind in ("property", "health")]
+        assert not [r for r in rows if r.kind == "property"]
 
-    def test_no_added_or_removed_property_or_health_rows(self):
-        # Fixed schema -- a property/health row's ``change`` is ALWAYS
-        # "modified", never "added"/"removed" (those tags are reserved for
-        # genuine diagram elements that can appear/disappear).
+    def test_no_added_or_removed_property_rows(self):
+        # Fixed schema -- a property row's ``change`` is ALWAYS "modified",
+        # never "added"/"removed" (those tags are reserved for genuine
+        # diagram elements that can appear/disappear).
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
             lock_state=LockState.LOCKED,
             execution=ExecutionProps(reentrancy=Reentrancy.SHARED_CLONE),
             kind=KindProps(typedef_status=TypedefStatus.TYPEDEF),
         )
-        gb._vi_health[nb] = VIHealth(bad_compile=True)
         rows = netlist_diff_rows(ga, gb, na, nb)
-        meta_rows = [r for r in rows if r.kind in ("property", "health")]
-        assert len(meta_rows) == 4
-        assert all(r.change == "modified" for r in meta_rows)
+        prop_rows = [r for r in rows if r.kind == "property"]
+        assert len(prop_rows) == 3
+        assert all(r.change == "modified" for r in prop_rows)
 
 
 class TestJsonDiff:
-    """--format json (diff_to_dict) must carry the same Properties/Health
-    sections the text report does -- they used to be text/viewer-Tree only."""
+    """--format json (diff_to_dict) must carry the same Properties changes
+    the text report does -- as ordinary ``changes[]`` entries now, not a
+    separate top-level ``"properties"`` array."""
 
-    def test_diff_to_dict_includes_property_and_health_changes(self):
+    def test_diff_to_dict_includes_property_changes(self):
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
             lock_state=LockState.PASSWORD_PROTECTED
         )
-        gb._vi_health[nb] = VIHealth(bad_node=True)
         d = diff_to_dict(ga, gb, na, nb)
-        assert {"changes", "signature", "properties", "health"} <= set(d)
-        assert {
-            "field": "lock", "old": "unlocked", "new": "password_protected",
-        } in d["properties"]
-        assert {"field": "broken", "old": "false", "new": "true"} in d["health"]
+        # No separate top-level sections any more -- everything lives in
+        # "changes" (plus the unrelated "common_nodes" tally).
+        assert set(d) == {"changes", "common_nodes"}
+
+        lock_change = next(
+            c for c in d["changes"] if c["uid"] == "property:lock_state"
+        )
+        assert lock_change["kind"] == "property"
+        assert lock_change["change"] == "modified"
+        assert lock_change["label"] == "lock"
+        assert lock_change["detail"] == "unlocked → password_protected"
+        assert "old" not in lock_change and "new" not in lock_change
+        assert "field" not in lock_change
 
     def test_diff_to_dict_no_metadata_change_is_empty_sections(self):
         ga, gb, na, nb = _pair()
         d = diff_to_dict(ga, gb, na, nb)
-        assert d["properties"] == []
-        assert d["health"] == []
+        assert d["changes"] == []

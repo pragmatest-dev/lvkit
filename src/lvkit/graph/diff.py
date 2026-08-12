@@ -25,11 +25,9 @@ from ..models import (
 )
 from ..parser.node_types import get_display_name
 from .models import (
-    CURATED_HEALTH_FLAGS,
     CURATED_KIND_FLAGS,
     CURATED_PROPERTY_FLAGS,
     Constant,
-    VIHealth,
     VIProperties,
     Wire,
     WireEnd,
@@ -60,28 +58,6 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class SignatureChange:
-    category: str  # "added", "removed", "type_changed"
-    direction: str  # "input" or "output"
-    name: str
-    old_type: str | None = None
-    new_type: str | None = None
-
-
-@dataclass
-class MetadataChange:
-    """One VI-level Properties/Health change -- ALWAYS a value transition.
-    Properties/Health are a FIXED schema every VI has (every VI has a
-    lock_state, a reentrant flag, an is_broken flag, ...) -- a field's VALUE
-    changes between versions, but the field itself is never added or removed.
-    So unlike ``SignatureChange`` (added/removed/type_changed), there is only
-    one category: old -> new, rendered with the ``~`` gutter."""
-    name: str  # display name, e.g. "reentrant", "lock"
-    old: str   # old value, display string ("false"/"true", or an enum value)
-    new: str   # new value, display string
-
-
-@dataclass
 class ElementChange:
     """One LOGICAL change to the diagram, keyed by stable LabVIEW node UID.
 
@@ -93,6 +69,7 @@ class ElementChange:
     uid: str        # trailing numeric UID — matches SVG data-node / data-lv-struct
     full_id: str    # full op id, e.g. "TestCase.lvclass:run.vi::1065"
     kind: str       # node|structure|wire|constant|terminal|frame|value
+                     # |property|health|signature
     change: str     # "added" | "removed" | "modified"
     label: str      # display name
     # Absolute-pixel bounds (x1, y1, x2, y2) from the owning version's Layout —
@@ -648,9 +625,28 @@ def _transition(old: object, new: object) -> str:
 # node not in the wire diff's ``unchanged`` set"; only added/removed FP terminals
 # — sub-node elements sharing the ``__self__`` node — are passed in explicitly as
 # ``changed_terms``; see ``_unstable_endpoint``.)
-_LEAF_KINDS = frozenset({"node", "wire", "constant", "terminal"})
+_LEAF_KINDS = frozenset({
+    "node", "wire", "constant", "terminal", "property", "connector_pane",
+})
 _TREE_KINDS = _LEAF_KINDS | frozenset({"structure"})
 _FRAME_KINDS = frozenset({"frame", "value"})
+
+# Property field -> its popover GROUP rank (Version=0 < Execution=1 < ... <
+# Kind=5), so property diff rows order the SAME as the properties popover
+# (properties_panel.py buildPanel's group order; within a group both the
+# popover and ``_netlist_diff``'s ``_sort_key`` sort alphabetically by field).
+# Only the diffable fields need a rank; anything else falls to 9 (after the
+# known groups, still alpha). Connector-pane changes LEAD ahead of all
+# properties (see ``_sort_key``). Both are VI-level (container-less) AUTHORED
+# changes rendered at the tree's ROOT. (VI HEALTH is omitted from the diff
+# entirely -- an emergent characteristic, not an authored change.)
+_PROPERTY_GROUP_RANK: dict[str, int] = {
+    "lock_state": 0,
+    **{f: 1 for f in ("priority", "reentrancy", "exec_system")},
+    **{f: 1 for f in CURATED_PROPERTY_FLAGS},
+    "typedef_status": 5,
+    **{f: 5 for f in CURATED_KIND_FLAGS},
+}
 
 
 def _unstable_endpoint(
@@ -1855,6 +1851,21 @@ def diff_uid(
     for entry_a, entry_b in _matched_struct_pairs(a, b, exact, fuzzy):
         cmap.changes.extend(_struct_frame_changes(entry_a, entry_b, {**exact, **fuzzy}))
 
+    # VI-level (container-less) AUTHORED changes: the VI's own connector pane
+    # and its Properties facet, as ordinary ``ElementChange`` leaves (``kind``
+    # "connector_pane"/"property") -- exactly like a constant or a node, not a
+    # bespoke parallel report. Their ``frame_path`` is always None (there is no
+    # containing structure), so they render at the ROOT of the netlist tree,
+    # LEADING every node/structure change (see ``_netlist_diff``'s
+    # ``_sort_key``). VI HEALTH (is_broken) is deliberately NOT diffed: it is
+    # an emergent characteristic (like file size), not an authored change --
+    # the diff shows the CAUSE (a deleted subVI, a retyped wire) and
+    # brokenness is read off the VI itself (describe / the index health_*
+    # columns), never as a diff row. See the diff-philosophy note.
+    ctx_a, ctx_b = graph_a.get_vi_context(va), graph_b.get_vi_context(vb)
+    cmap.changes.extend(_diff_connector_pane(graph_a, graph_b, va, vb))
+    cmap.changes.extend(_diff_vi_properties(ctx_a.properties, ctx_b.properties))
+
     # Common UIDs and all matched pairs are unchanged at the node level — a node
     # wrapped in a new case, moved, re-keyed, or with only a wire added/removed is
     # not itself a changed node. EXCEPT a node whose own terminal SET changed:
@@ -1941,10 +1952,11 @@ def _reorder_by_tree(
 # DEPTH differs between tiers:
 #
 #   * concise (default): the tree, changes only.
-#   * --verbose: the SAME tree, PLUS a Signature section (the VI's own
+#   * --verbose: the SAME tree, PLUS ``kind="signature"`` rows (the VI's own
 #     connector-pane interface -- a distinct concern ``diff_uid`` doesn't
-#     cover), a modified constant's old→new detail instead of just its name,
-#     and a trailing unchanged-node tally.
+#     otherwise cover; the only kind gated to verbose-only -- Properties/
+#     Health rows show in BOTH tiers), a modified constant's old→new detail
+#     instead of just its name, and a trailing unchanged-node tally.
 #
 # Geometry (bounds/path/chain_paths) is never touched by either tier --
 # logical change only, exactly like a code diff.
@@ -2016,6 +2028,36 @@ def _constant_leaf_text(c: ElementChange, *, detailed: bool) -> str:
     return f"{_CONST_GLYPH} {c.label}{sep} {detail}"
 
 
+# The glyph for a VI-level Properties/Health change -- U+25A4 "SQUARE WITH
+# HORIZONTAL FILL", the SAME glyph the render viewer's properties-panel toggle
+# button uses (``render/properties_panel.py``'s ``PROPERTIES_GLYPH``), so a
+# property/health row in the netlist tree reads with the same visual mark as
+# the popover that shows its full context. A signature change instead uses
+# ``_TERMINAL_GLYPH`` (below) -- it IS a connector-pane terminal, the same
+# kind of thing a control/indicator change is.
+_METADATA_GLYPH = "▤"
+
+
+def _metadata_leaf_text(c: ElementChange, *, detailed: bool) -> str:
+    """One property or connector-pane change leaf's netlist text: the kind's
+    glyph plus its ``label`` (a curated field name for a property, or
+    ``"{direction} {name}"`` for a connector-pane terminal), plus -- for a
+    value TRANSITION only (``c.detail`` set, i.e. every property change and a
+    connector-pane retype) -- ``": old -> new"`` (ASCII arrows via
+    ``_ascii_arrows``). A connector-pane added/removed carries no ``detail``
+    (the label already says it all -- same convention as node/constant
+    added/removed), so it renders as bare ``glyph + label``. Unlike
+    ``_constant_leaf_text``, this NEVER gates on ``detailed`` -- a property
+    row has always shown its full old -> new value in both text tiers (see
+    ``format_diff``'s docstring), and a connector-pane row's own verbose-only
+    VISIBILITY is decided by the caller (``format_diff``), not by hiding its
+    detail here."""
+    glyph = _TERMINAL_GLYPH if c.kind == "connector_pane" else _METADATA_GLYPH
+    if not c.detail:
+        return f"{glyph} {c.label}"
+    return f"{glyph} {c.label}: {_ascii_arrows(c.detail)}"
+
+
 # The glyph for an FP control/indicator (terminal) change -- a small box, same
 # leading-marker role as ``_CONST_GLYPH``/node/wire/scope so the change column
 # stays aligned. ``c.element`` ("control"/"indicator") names the kind of thing.
@@ -2042,6 +2084,8 @@ def _terminal_leaf_text(c: ElementChange, *, detailed: bool) -> str:
 _LEAF_TEXT: dict[str, Callable[..., str]] = {
     "constant": _constant_leaf_text,
     "terminal": _terminal_leaf_text,
+    "property": _metadata_leaf_text,
+    "connector_pane": _metadata_leaf_text,
 }
 
 
@@ -2131,6 +2175,21 @@ def _netlist_diff(
     _past_every_uid = len(source_order)
 
     def _sort_key(uid: str) -> tuple[int, int, object]:
+        # Connector-pane + Property are VI-level (container-less) AUTHORED
+        # changes, keyed by a synthetic "kind:field" uid that never appears in
+        # either side's netlist -- they'd otherwise fall past EVERY real uid
+        # (tied at ``_past_every_uid``). Give them a LEADING rank (-1, before
+        # every real source_order position, which is >= 0) so they lead the
+        # root's output -- a module-level VI change is high-signal, like a code
+        # diff's file-header hunk before the body. Connector-pane leads (rank
+        # 0); property rows then order by their popover GROUP + alpha field
+        # (``_PROPERTY_GROUP_RANK``), so the diff list reads in the SAME order
+        # as the properties popover the reader cross-references.
+        prefix, _, field = uid.partition(":")
+        if prefix == "connector_pane":
+            return (-1, 0, uid)
+        if prefix == "property":
+            return (-1, 10 + _PROPERTY_GROUP_RANK.get(field, 9), field)
         rank, tie = _uid_sort(uid)
         return (source_order.get(uid, _past_every_uid), rank, tie)
 
@@ -2358,64 +2417,6 @@ def _netlist_diff(
     return render((), 0)
 
 
-# Every MetadataChange is a value transition -- the field itself can never be
-# added/removed (fixed schema), so it always renders on the "modified" gutter
-# (``~``, via ``_TAG``/``_gutter`` below), never "added"/"removed".
-_METADATA_CHANGE_TAG = "modified"
-
-
-def _metadata_change_text(c: MetadataChange) -> str:
-    """Netlist-syntax content for one Properties/Health change leaf --
-    always ``name: old -> new`` (a boolean flip renders as
-    ``reentrant: false -> true``, same shape as an enum transition like
-    ``lock: unlocked -> password_protected``). NO gutter/indent -- the
-    caller supplies both (``_format_metadata_section`` for text,
-    ``NetlistDiffRow`` for the HTML viewer's Tree)."""
-    return f"{c.name}: {c.old} -> {c.new}"
-
-
-def _format_metadata_section(header: str, changes: list[MetadataChange]) -> str:
-    """Render a list of ``MetadataChange`` as a ``<header>:`` section, one
-    ``  ~`` line per change -- the same shape ``_format_signature_section``
-    renders a ``Signature:`` section in. Every line is ``~`` (see
-    ``MetadataChange``'s docstring)."""
-    lines = [f"{header}:"]
-    for c in changes:
-        lines.append(f"  {_TAG[_METADATA_CHANGE_TAG]} {_metadata_change_text(c)}")
-    return "\n".join(lines)
-
-
-def _metadata_rows(changes: list[MetadataChange], kind: str) -> list[NetlistDiffRow]:
-    """Project ``MetadataChange``s (Properties/Health) as top-level
-    (``depth=0``) ``NetlistDiffRow``s for the HTML viewer's Tree, so it shows
-    the SAME property/health changes ``format_diff`` prints as text. No
-    stable node uid exists for a VI-level setting, so ``uid`` is None -- like
-    a module-level change, there is nothing in the diagram to highlight.
-    ``change`` is always "modified" (see ``MetadataChange``'s docstring)."""
-    return [
-        NetlistDiffRow(
-            change=_METADATA_CHANGE_TAG, depth=0,
-            text=_metadata_change_text(c), uid=None, kind=kind,
-        )
-        for c in changes
-    ]
-
-
-def _format_signature_section(changes: list[SignatureChange]) -> str:
-    lines = ["Signature:"]
-    for sig in changes:
-        if sig.category == "added":
-            lines.append(f"  + {sig.direction}: {sig.name} ({sig.new_type})")
-        elif sig.category == "removed":
-            lines.append(f"  - {sig.direction}: {sig.name} ({sig.old_type})")
-        elif sig.category == "type_changed":
-            lines.append(
-                f"  ~ {sig.direction}: {sig.name}:"
-                f" {sig.old_type} -> {sig.new_type}"
-            )
-    return "\n".join(lines)
-
-
 def format_diff(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str,
@@ -2425,31 +2426,27 @@ def format_diff(
     the module section header above), both tiers over the same ``diff_uid``
     ChangeMap. Empty string means no changes -- the caller (``cmd_diff``)
     prints "No changes detected."
+
+    Property/Health/Signature changes are ordinary ``ElementChange`` leaves
+    inside the ChangeMap now (``kind="property"``/``"health"``/``"signature"``,
+    see ``diff_uid``) -- there are no separate Signature:/Properties:/Health:
+    sections any more. They render at the ROOT of the tree (container-less,
+    ``frame_path`` None), LEADING every node/structure change (see
+    ``_netlist_diff``'s ``_sort_key``). Properties/Health show in BOTH tiers
+    (a VI going protected or broken is high-signal enough to always show,
+    mirroring the netlist header's own "always summarized" positioning,
+    ``docs/reference/netlist.md``); Signature stays verbose-only, so its rows
+    are filtered out of the concise tier here.
     """
     va = graph_a.resolve_vi_name(vi_name_a)
     vb = graph_b.resolve_vi_name(vi_name_b)
     cmap = diff_uid(graph_a, graph_b, va, vb)
 
-    sections: list[str] = []
-
-    if verbose:
-        signature = _diff_signature(graph_a, graph_b, va, vb)
-        if signature:
-            sections.append(_format_signature_section(signature))
-
-    # Properties/Health changes surface in BOTH tiers (unlike Signature,
-    # verbose-only): a VI going protected or broken is high-signal enough to
-    # always show, mirroring the netlist header's own "always summarized"
-    # positioning (docs/reference/netlist.md).
-    ctx_a, ctx_b = graph_a.get_vi_context(va), graph_b.get_vi_context(vb)
-    prop_changes = _diff_vi_properties(ctx_a.properties, ctx_b.properties)
-    if prop_changes:
-        sections.append(_format_metadata_section("Properties", prop_changes))
-    health_changes = _diff_vi_health(ctx_a.health, ctx_b.health)
-    if health_changes:
-        sections.append(_format_metadata_section("Health", health_changes))
-
     rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=verbose)
+    if not verbose:
+        rows = [r for r in rows if r.kind != "connector_pane"]
+
+    sections: list[str] = []
     if rows:
         sections.append("\n".join(_rows_to_text(rows)))
 
@@ -2468,35 +2465,16 @@ def diff_to_dict(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str,
 ) -> dict[str, Any]:
-    """The full ``lvkit diff`` as a JSON-ready dict: the uid-keyed element
-    ``ChangeMap`` PLUS the module-level Signature / Properties / Health
-    sections that live OUTSIDE it (exactly as ``format_diff``'s text output
-    carries them). ``--format json`` historically emitted only
-    ``ChangeMap.to_dict()``, so those sections were text/viewer-Tree only; this
-    makes JSON parallel to the text report. Properties/Health entries are
-    always a ``modified`` old->new pair (a fixed, always-present schema -- a VI
-    property can never be added or removed, only changed).
-    """
+    """The full ``lvkit diff`` as a JSON-ready dict -- today just
+    ``diff_uid(...).to_dict()``. Property/Health/Signature changes are
+    ordinary ``ElementChange`` entries inside ``"changes"`` now (``kind``
+    ``"property"``/``"health"``/``"signature"``), exactly like a constant or
+    a node -- there is no longer a separate top-level ``"signature"``/
+    ``"properties"``/``"health"`` array (JSON always includes all three,
+    unlike the text report's verbose-only gating of Signature)."""
     va = graph_a.resolve_vi_name(vi_name_a)
     vb = graph_b.resolve_vi_name(vi_name_b)
-    cmap = diff_uid(graph_a, graph_b, va, vb)
-    ctx_a, ctx_b = graph_a.get_vi_context(va), graph_b.get_vi_context(vb)
-    return {
-        **cmap.to_dict(),
-        "signature": [
-            {"category": s.category, "direction": s.direction, "name": s.name,
-             "old_type": s.old_type, "new_type": s.new_type}
-            for s in _diff_signature(graph_a, graph_b, va, vb)
-        ],
-        "properties": [
-            {"field": m.name, "old": m.old, "new": m.new}
-            for m in _diff_vi_properties(ctx_a.properties, ctx_b.properties)
-        ],
-        "health": [
-            {"field": m.name, "old": m.old, "new": m.new}
-            for m in _diff_vi_health(ctx_a.health, ctx_b.health)
-        ],
-    }
+    return diff_uid(graph_a, graph_b, va, vb).to_dict()
 
 
 def netlist_diff_rows(
@@ -2509,20 +2487,12 @@ def netlist_diff_rows(
     netlist-diff tree as ``lvkit diff`` prints, not a client-side
     reconstruction of it. Resolves VI names, builds the ``diff_uid`` change
     map exactly like ``format_diff`` does, then returns ``_netlist_diff``'s
-    rows unrendered."""
+    rows unrendered -- Property/Health/Signature rows included alongside
+    every other kind (no separate metadata-rows pass any more)."""
     va = graph_a.resolve_vi_name(vi_name_a)
     vb = graph_b.resolve_vi_name(vi_name_b)
     cmap = diff_uid(graph_a, graph_b, va, vb)
-
-    ctx_a, ctx_b = graph_a.get_vi_context(va), graph_b.get_vi_context(vb)
-    rows = _metadata_rows(
-        _diff_vi_properties(ctx_a.properties, ctx_b.properties), "property",
-    )
-    rows += _metadata_rows(
-        _diff_vi_health(ctx_a.health, ctx_b.health), "health",
-    )
-    rows += _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=detailed)
-    return rows
+    return _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=detailed)
 
 
 def rows_to_json(rows: list[NetlistDiffRow]) -> list[dict]:
@@ -2540,11 +2510,22 @@ def rows_to_json(rows: list[NetlistDiffRow]) -> list[dict]:
 # ── Comparison helpers ────────────────────────────────────────────────
 
 
-def _diff_signature(
+def _diff_connector_pane(
     ga: InMemoryVIGraph, gb: InMemoryVIGraph,
     va: str, vb: str,
-) -> list[SignatureChange]:
-    changes: list[SignatureChange] = []
+) -> list[ElementChange]:
+    """The VI's own connector-pane interface, diffed input/output-terminal by
+    name, as ``kind="connector_pane"`` ``ElementChange`` leaves -- a terminal
+    added/removed, or a matched (same name, both sides) terminal's type
+    changing. ``uid``/``full_id`` are synthetic (``"connector_pane:{direction}:
+    {name}"`` -- there is no stable LabVIEW UID for a connector-pane
+    terminal), and ``label`` keeps the direction so input/output stay
+    distinguishable (``"input Tree"``). Geometry/locality are always None --
+    the connector pane is a VI-level facet, not a diagram element (see
+    ``diff_uid``, which renders these at the tree's ROOT). Only a type change
+    carries a ``detail`` transition; added/removed say it all with the label
+    alone, matching every other kind's added/removed convention."""
+    changes: list[ElementChange] = []
     for direction in ("input", "output"):
         if direction == "input":
             terms_a = ga.get_inputs(va)
@@ -2557,44 +2538,37 @@ def _diff_signature(
         map_b = _terminal_map(terms_b)
 
         for name in sorted(set(map_a) | set(map_b)):
+            uid = f"connector_pane:{direction}:{name}"
+            label = f"{direction} {name}"
             if name not in map_a:
-                tb = map_b[name].lv_type
-                changes.append(SignatureChange(
-                    "added", direction, name,
-                    new_type=tb.lv_label() if tb else "Any",
-                ))
+                changes.append(
+                    ElementChange(uid, uid, "connector_pane", "added", label))
             elif name not in map_b:
-                ta = map_a[name].lv_type
-                changes.append(SignatureChange(
-                    "removed", direction, name,
-                    old_type=ta.lv_label() if ta else "Any",
-                ))
+                changes.append(
+                    ElementChange(uid, uid, "connector_pane", "removed", label))
             else:
                 ta, tb = map_a[name].lv_type, map_b[name].lv_type
                 type_a = ta.lv_label() if ta else "Any"
                 type_b = tb.lv_label() if tb else "Any"
                 if type_a != type_b:
-                    changes.append(SignatureChange(
-                        "type_changed", direction, name,
-                        old_type=type_a, new_type=type_b,
+                    changes.append(ElementChange(
+                        uid, uid, "connector_pane", "modified", label,
+                        detail=_transition(type_a, type_b),
                     ))
     return changes
 
 
-# Curated boolean VI Properties/KindProps/VIHealth flags -> display name,
-# sourced from the ONE canonical maps in ``graph.models``
-# (``CURATED_PROPERTY_FLAGS``/``CURATED_KIND_FLAGS``/``CURATED_HEALTH_FLAGS``)
-# so the diff, the netlist header spec, and the render-viewer's status chips
-# can never drift into different flag sets -- see those maps' docstrings for
-# what's included/excluded and why.
+# Curated boolean VI Properties/KindProps flags -> display name, sourced from
+# the ONE canonical maps in ``graph.models``
+# (``CURATED_PROPERTY_FLAGS``/``CURATED_KIND_FLAGS``) so the diff, the netlist
+# header spec, and the render-viewer's status chips can never drift into
+# different flag sets -- see those maps' docstrings for what's included/
+# excluded and why.
 _PROPERTY_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
     CURATED_PROPERTY_FLAGS.items()
 )
 _KIND_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
     CURATED_KIND_FLAGS.items()
-)
-_HEALTH_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
-    CURATED_HEALTH_FLAGS.items()
 )
 
 
@@ -2605,7 +2579,27 @@ _HEALTH_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
 _PROPERTY_ENUM_FIELDS: tuple[str, ...] = ("priority", "reentrancy", "exec_system")
 
 
-def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChange]:
+def _mk_metadata_change(
+    kind: str, field: str, label: str, old: object, new: object,
+) -> ElementChange:
+    """One VI-level Properties change as a ``kind="property"``
+    ``ElementChange`` leaf -- ALWAYS a value transition (the field itself can
+    never be added/removed; every VI has every one of these fields -- a fixed
+    schema), so ``change`` is always "modified".
+
+    ``field`` is the RAW property field name (e.g. ``lock_state``): it keys
+    the synthetic ``uid``/``full_id`` (``"{kind}:{field}"``) AND, in the diff
+    viewer, matches the properties popover's ``data-key`` so selecting the
+    change scrolls to + highlights that popover row, and drives the row's
+    popover-order sort (``_PROPERTY_GROUP_RANK``). ``label`` is the DISPLAY
+    name shown in the diff row (curated, e.g. ``lock``). Geometry/locality are
+    always None (see ``diff_uid``, which renders these at the tree's ROOT)."""
+    uid = f"{kind}:{field}"
+    detail = _transition(old, new)
+    return ElementChange(uid, uid, kind, "modified", label, detail=detail)
+
+
+def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[ElementChange]:
     """Curated VI Properties changes: ``lock_state`` plus the enum fields in
     ``_PROPERTY_ENUM_FIELDS`` (all enum TRANSITIONS) plus the high-signal
     ``ExecutionProps`` flags in ``_PROPERTY_BOOL_FIELDS``, PLUS ``kind``'s
@@ -2613,51 +2607,42 @@ def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChan
     the ``_KIND_BOOL_FIELDS`` (``kind`` is a sub-struct of ``VIProperties``,
     not a separate facet -- see ``KindProps``). Every field is a fixed part
     of the VI Properties schema -- a changed field is always an old -> new
-    VALUE transition, never an add/remove (see ``MetadataChange``).
+    VALUE transition, never an add/remove (see ``_mk_metadata_change``).
     Everything else on ``VIProperties`` (``lv_version``, ``vi_type``,
     window/toolbar/instance settings) is deliberately never compared -- see
     the diff philosophy note on ``_PROPERTY_BOOL_FIELDS``."""
-    changes: list[MetadataChange] = []
+    changes: list[ElementChange] = []
     if pa.lock_state != pb.lock_state:
-        changes.append(MetadataChange(
-            "lock", pa.lock_state.value, pb.lock_state.value,
+        changes.append(_mk_metadata_change(
+            "property", "lock_state", "lock",
+            pa.lock_state.value, pb.lock_state.value,
         ))
     for field_name in _PROPERTY_ENUM_FIELDS:
         old_enum = getattr(pa.execution, field_name)
         new_enum = getattr(pb.execution, field_name)
         if old_enum != new_enum:
-            changes.append(MetadataChange(
-                field_name, old_enum.value, new_enum.value,
+            changes.append(_mk_metadata_change(
+                "property", field_name, field_name, old_enum.value, new_enum.value,
             ))
     for field_name, label in _PROPERTY_BOOL_FIELDS:
         old_val = getattr(pa.execution, field_name)
         new_val = getattr(pb.execution, field_name)
         if old_val != new_val:
-            changes.append(MetadataChange(label, bool_str(old_val), bool_str(new_val)))
+            changes.append(_mk_metadata_change(
+                "property", field_name, label, bool_str(old_val), bool_str(new_val),
+            ))
     if pa.kind.typedef_status != pb.kind.typedef_status:
-        changes.append(MetadataChange(
-            "typedef_status",
+        changes.append(_mk_metadata_change(
+            "property", "typedef_status", "typedef_status",
             pa.kind.typedef_status.value, pb.kind.typedef_status.value,
         ))
     for field_name, label in _KIND_BOOL_FIELDS:
         old_val = getattr(pa.kind, field_name)
         new_val = getattr(pb.kind, field_name)
         if old_val != new_val:
-            changes.append(MetadataChange(label, bool_str(old_val), bool_str(new_val)))
-    return changes
-
-
-def _diff_vi_health(ha: VIHealth, hb: VIHealth) -> list[MetadataChange]:
-    """Curated VIHealth changes: the flags in ``_HEALTH_BOOL_FIELDS``
-    (``is_broken`` is the derived property -- any ``bad_*`` flag flipping
-    shows as one ``broken: false -> true`` change rather than five separate
-    ones). Always an old -> new value transition, never an add/remove (every
-    VI has every one of these fields -- see ``MetadataChange``)."""
-    changes: list[MetadataChange] = []
-    for field_name, label in _HEALTH_BOOL_FIELDS:
-        old_val, new_val = getattr(ha, field_name), getattr(hb, field_name)
-        if old_val != new_val:
-            changes.append(MetadataChange(label, bool_str(old_val), bool_str(new_val)))
+            changes.append(_mk_metadata_change(
+                "property", field_name, label, bool_str(old_val), bool_str(new_val),
+            ))
     return changes
 
 

@@ -88,7 +88,7 @@ DIFF_PROPERTIES_BUTTON = (
 # headers sit at different heights). Chrome-only tokens (already defined on
 # :root by both templates) — never data-theme (that toggle is diagram-only).
 _PANEL_CSS = """
-  .lvkit-props-panel{position:fixed;top:__TOP__px;right:16px;z-index:6;width:300px;
+  .lvkit-props-panel{position:fixed;top:__TOP__px;right:16px;z-index:70;width:300px;
     max-width:calc(100% - 32px);max-height:70vh;overflow:auto;
     background:var(--panel);border:1px solid var(--line);border-radius:8px;
     box-shadow:0 2px 12px rgba(0,0,0,.28);padding:10px 12px;font-size:12px}

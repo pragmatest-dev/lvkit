@@ -88,13 +88,19 @@ class TestFormatDiffConcise:
         # as netlist scope headers (locked syntax), not the diagram's own name.
         assert "sequence:" in result or "while (" in result
 
-    def test_concise_omits_signature_section(self):
-        # Signature is a --verbose-only depth add (a distinct concern from
-        # the UID-keyed ChangeMap -- see format_diff's docstring).
+    def test_concise_omits_connector_pane_section(self):
+        # Connector-pane changes ARE ordinary kind="connector_pane" leaves in
+        # the UID-keyed ChangeMap now (see format_diff's docstring), but stay
+        # a --verbose-only depth add for TEXT: format_diff filters kind==
+        # "connector_pane" rows out of the concise tier. VI_B has a 'Tree'
+        # input VI_A doesn't, so this VI pair always has connector-pane
+        # changes to omit.
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
-        result = format_diff(ga, gb, na, nb)
-        assert "Signature:" not in result
+        concise = format_diff(ga, gb, na, nb)
+        verbose = format_diff(ga, gb, na, nb, verbose=True)
+        assert "▭ input Tree" not in concise
+        assert "▭ input Tree" in verbose
 
     def test_concise_omits_unchanged_node_tally(self):
         ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
@@ -217,9 +223,11 @@ class TestFormatDiffConcise:
 
 
 class TestFormatDiffVerbose:
-    """--verbose: the SAME composition tree, PLUS a Signature section,
-    modified-value old->new detail, and a trailing unchanged-node tally --
-    same ChangeMap, more depth, never a different shape."""
+    """--verbose: the SAME composition tree, PLUS kind="connector_pane"
+    leaves (connector-pane terminal changes -- verbose-only, unlike
+    property changes, which show in both tiers), modified-value old->new
+    detail, and a trailing unchanged-node tally -- same ChangeMap, more
+    depth, never a different shape."""
 
     def test_identical_vi_produces_empty_report(self):
         ga, na = _load(VI_A)
@@ -238,19 +246,22 @@ class TestFormatDiffVerbose:
         result = format_diff(ga, gb, na, nb, verbose=True)
         assert "sequence:" in result or "while (" in result
 
-    def test_different_vis_detect_signature_changes(self):
+    def test_different_vis_detect_connector_pane_changes(self):
+        # Connector-pane changes are ordinary kind="connector_pane" leaves
+        # now (no separate "Signature:" section) -- a connector-pane
+        # terminal add/remove/retype renders inline at the ROOT of the tree,
+        # leading every node/structure change, with the terminal glyph (▭).
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
         result = format_diff(ga, gb, na, nb, verbose=True)
         # VI_B has a 'Tree' input that VI_A doesn't.
-        assert "Signature:" in result
-        assert "+ input: Tree" in result
+        assert "+ ▭ input Tree" in result.splitlines()
 
     def test_format_produces_readable_output(self):
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
         result = format_diff(ga, gb, na, nb, verbose=True)
-        assert "Signature:" in result
+        assert "▭ input Tree" in result
         assert "DAQmx Write.vi" in result
 
     def test_verbose_tree_matches_concise_tree(self):

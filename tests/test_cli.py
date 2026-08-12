@@ -67,8 +67,10 @@ def _run_diff(*args: str) -> subprocess.CompletedProcess:
 
 class TestFormatJson:
     def test_json_matches_diff_to_dict(self) -> None:
-        # --format json emits the FULL diff_to_dict (element ChangeMap PLUS the
-        # signature/properties/structure sections), not just ChangeMap.to_dict().
+        # --format json emits diff_to_dict -- today just diff_uid(...).to_dict():
+        # connector-pane/property changes are ordinary kind="connector_pane"/
+        # "property" entries inside "changes" now, not separate top-level
+        # sections. VI health is never diffed at all.
         _require_pair()
         result = _run_diff("--format", "json")
         assert result.returncode == 0, result.stderr
