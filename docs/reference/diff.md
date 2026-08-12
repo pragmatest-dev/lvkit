@@ -114,23 +114,32 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
   Connector pane:
 ~   ▭ input file name: String -> Path
 ~   ▭ output new filename: String -> Path
-+ Strip Path(path=file name) -> stripped path, name
-+ Convert File Extension (String)__ogtk.vi(new ending (none)=new ending (none), file name=name) -> prev ending, new filename
-+ Build Path(name or relative path=new filename, base path=stripped path) -> appended path
-- Match Pattern#1(string=file name, regular expression='\\.[~\\.]*$') -> before substring, match substring, after substring, offset past match
-- case (new ending (none)):
-    "Default":
--     Match Pattern#2(string=new ending (none), regular expression='^\\.') -> before substring, match substring, after substring, offset past match
--     Less Than 0?(x=Match Pattern#2.offset past match) -> result
--     Select(f_value='%s', selector=Less Than 0?.result, t_value='.%s') -> result
--     Format String(0=Select.result, 1=Match Pattern#1.before substring, 5=new ending (none)) -> Format String.2, Format String.4
-- = (unnamed str) = "'\\\\.[~\\\\.]*$'"
+  Block Diagram:
++   Strip Path(path=file name) -> stripped path, name
++   Convert File Extension (String)__ogtk.vi(new ending (none)=new ending (none), file name=name) -> prev ending, new filename
++   Build Path(name or relative path=new filename, base path=stripped path) -> appended path
+-   Match Pattern#1(string=file name, regular expression='\\.[~\\.]*$') -> before substring, match substring, after substring, offset past match
+-   case (new ending (none)):
+      "Default":
+-       Match Pattern#2(string=new ending (none), regular expression='^\\.') -> before substring, match substring, after substring, offset past match
+-       Less Than 0?(x=Match Pattern#2.offset past match) -> result
+-       Select(f_value='%s', selector=Less Than 0?.result, t_value='.%s') -> result
+-       Format String(0=Select.result, 1=Match Pattern#1.before substring, 5=new ending (none)) -> Format String.2, Format String.4
+-       ○ String constant = '^\\.'
+-       ○ String constant = '.%s'
+-       ○ String constant = '%s'
+~   ▭ indicator new filename: String -> Path
+~   ▭ control file name: String -> Path
+-   ○ String constant = '\\.[~\\.]*$'
 ```
 
-VI-level changes group under their own folder LEADING the tree: connector-pane
-terminal changes under a `Connector pane:` header, property changes under a
-`Properties:` header (their leaves indented one level, ordered to match the
-properties popover).
+When a VI has VI-level changes, the tree reads as three parallel group folders,
+each present only if it has changes: **`Connector pane:`** (terminal
+add/remove/retype), **`Properties:`** (VI Properties settings, ordered to match
+the properties popover), then **`Block Diagram:`** (all the node/wire/constant/
+structure changes). Their leaves indent one level under the header. A pure
+block-diagram diff (no VI-level changes) skips the folders and renders its rows
+flush, as before.
 
 `--verbose` doesn't change WHICH changes are reported, or how they're
 nested — it's the exact same containment tree either way. It only adds:

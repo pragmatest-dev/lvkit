@@ -695,7 +695,10 @@ const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', frame:'', constant:'',
 // container) iff its kind is scope/frame -- the netlist tree is already
 // pruned server-side so every scope/frame row leads to a change somewhere
 // under it. node/wire/constant rows are always LEAVES.
-function isFolderRow(row){ return row.kind==='scope' || row.kind==='frame'; }
+// 'group' = a VI-level group folder (Connector pane / Properties / Block
+// Diagram) -- a folder like scope/frame (collapsible, renders its children),
+// but glyph-less (no TREE_GLYPH entry) so it doesn't wear the case/loop ⬚.
+function isFolderRow(row){ return row.kind==='scope' || row.kind==='frame' || row.kind==='group'; }
 // Shared row content (number badge / +-~ tag / kind glyph / mono netlist
 // text) -- IDENTICAL for a folder header and a leaf, so switching Flat<->Tree
 // (or folder<->leaf) never drops an annotation (#31 regression this rebuild

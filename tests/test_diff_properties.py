@@ -276,7 +276,8 @@ class TestNetlistDiffRows:
         # row) at the tree root, their leaves nested one level under it.
         group = [r for r in rows if r.uid == "group:property"]
         assert len(group) == 1
-        assert group[0].kind == "scope" and group[0].text == "Properties:"
+        # A glyph-less "group" folder (not the case/loop "scope" kind).
+        assert group[0].kind == "group" and group[0].text == "Properties:"
         assert group[0].depth == 0
         prop_rows = [r for r in rows if r.kind == "property"]
         assert len(prop_rows) == 1
@@ -285,6 +286,28 @@ class TestNetlistDiffRows:
         assert row.depth == 1   # nested under the Properties: group folder
         assert row.uid == "property:lock_state"
         assert row.text == "▤ lock: unlocked -> password_protected"
+
+    def test_tree_leaf_numbers_are_sequential(self):
+        # The badge number a change shows == its index in
+        # ``diff_to_dict()["changes"]`` (the flat list). For the TREE numbers to
+        # read 1,2,3... top-to-bottom, the tree's leaf order must match that
+        # flat order -- guaranteed by ``diff_uid``'s ``_reorder_by_tree``. Assert
+        # the leaf rows' change-indices are exactly 0,1,2,... down the tree
+        # (group-folder header rows carry no CHANGES entry and are skipped).
+        ga, gb, na, nb = _pair()
+        gb._vi_properties[nb] = VIProperties(
+            lock_state=LockState.PASSWORD_PROTECTED,
+            execution=ExecutionProps(reentrancy=Reentrancy.SHARED_CLONE),
+            kind=KindProps(typedef_status=TypedefStatus.STRICT_TYPEDEF),
+        )
+        index_of = {
+            c["uid"]: i for i, c in enumerate(diff_to_dict(ga, gb, na, nb)["changes"])
+        }
+        tree_indices = [
+            index_of[r.uid] for r in netlist_diff_rows(ga, gb, na, nb)
+            if r.uid is not None and r.uid in index_of
+        ]
+        assert tree_indices == list(range(len(tree_indices)))
 
     def test_no_property_rows_when_unchanged(self):
         ga, gb, na, nb = _pair()

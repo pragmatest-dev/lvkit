@@ -2345,12 +2345,14 @@ def _netlist_diff(
         rows: list[NetlistDiffRow] = []
         here = by_path.get(path, [])
         # VI-level authored changes render at the ROOT under their own group
-        # folder ("Connector pane", then "Properties"), LEADING the diagram
-        # changes -- not interleaved as loose siblings. Their frame_path is
-        # always None, so they only ever land at ``path == ()``. Each group's
-        # leaves keep their own uid (clickable/selectable in the viewer) and
-        # their popover-order ``_sort_key``; the folder header carries a
-        # synthetic ``group:{kind}`` uid (no CHANGES entry -> non-clickable).
+        # FOLDER ("Connector pane", then "Properties"), LEADING the diagram
+        # changes. The folders are glyph-less ``kind="group"`` rows (NOT the
+        # ``scope`` structure kind, which would wear the case/loop ⬚ glyph in
+        # the viewer). Their frame_path is always None, so they only ever land
+        # at ``path == ()``. Each group's leaves keep their own uid
+        # (clickable/selectable) and popover-order ``_sort_key``; the folder
+        # header carries a synthetic ``group:{kind}`` uid (no CHANGES entry).
+        vi_group_present = False
         if not path:
             for gkind, gtitle in (
                 ("connector_pane", "Connector pane"), ("property", "Properties"),
@@ -2361,9 +2363,10 @@ def _netlist_diff(
                 )
                 if not gleaves:
                     continue
+                vi_group_present = True
                 rows.append(NetlistDiffRow(
                     change=None, depth=depth, text=f"{gtitle}:",
-                    uid=f"group:{gkind}", kind="scope",
+                    uid=f"group:{gkind}", kind="group",
                 ))
                 for gc in gleaves:
                     rows.append(NetlistDiffRow(
@@ -2405,6 +2408,18 @@ def _netlist_diff(
             if c.kind in _LEAF_KINDS and c.kind not in ("property", "connector_pane")
         )
         siblings.sort(key=lambda s: s[0])
+        # When VI-level groups lead the ROOT, wrap the diagram changes under a
+        # matching glyph-less "Block Diagram:" folder so all three concerns
+        # read as parallel groups (nothing floats at column 0). A pure code
+        # diff (no VI-level groups) stays ungrouped -- rows render flush as
+        # before.
+        content_depth = depth
+        if not path and vi_group_present and siblings:
+            rows.append(NetlistDiffRow(
+                change=None, depth=depth, text="Block Diagram:",
+                uid="group:block_diagram", kind="group",
+            ))
+            content_depth = depth + 1
         for _, tag, payload in siblings:
             if tag == "struct":
                 uid = payload
@@ -2412,32 +2427,32 @@ def _netlist_diff(
                 struct_c = struct_by_uid.get(uid)
                 rows.append(NetlistDiffRow(
                     change=struct_c.change if struct_c is not None else None,
-                    depth=depth,
+                    depth=content_depth,
                     text=struct_content(uid),
                     uid=uid,
                     kind="scope",
                 ))
-                rows.extend(render_struct_children(uid, path, depth + 1))
+                rows.extend(render_struct_children(uid, path, content_depth + 1))
                 continue
             c = payload
             assert isinstance(c, ElementChange)
             if c.kind == "node":
                 rows.append(NetlistDiffRow(
-                    change=c.change, depth=depth, text=node_content(c),
+                    change=c.change, depth=content_depth, text=node_content(c),
                     uid=c.uid, kind="node",
                 ))
             elif c.kind == "wire":
                 content = wire_content(c, here)
                 if content is not None:
                     rows.append(NetlistDiffRow(
-                        change=c.change, depth=depth, text=content,
+                        change=c.change, depth=content_depth, text=content,
                         uid=c.uid, kind="wire",
                     ))
             elif c.kind in _LEAF_TEXT:
                 # constant / terminal (and any future glyph-leaf kind): one
                 # ``glyph + text`` renderer per kind, registered in ``_LEAF_TEXT``.
                 rows.append(NetlistDiffRow(
-                    change=c.change, depth=depth,
+                    change=c.change, depth=content_depth,
                     text=_LEAF_TEXT[c.kind](c, detailed=detailed),
                     uid=c.uid, kind=c.kind,
                 ))
