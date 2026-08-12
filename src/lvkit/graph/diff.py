@@ -24,7 +24,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
-from .models import Constant, Wire, WireEnd
+from .models import Constant, VIProperties, VIStructure, Wire, WireEnd
 from .netlist import (
     NetlistItem,
     NetlistScope,
@@ -56,6 +56,19 @@ class SignatureChange:
     name: str
     old_type: str | None = None
     new_type: str | None = None
+
+
+@dataclass
+class MetadataChange:
+    """One VI-level Properties/Structure change -- ALWAYS a value transition.
+    Properties/Structure are a FIXED schema every VI has (every VI has a
+    lock_state, a reentrant flag, an is_broken flag, ...) -- a field's VALUE
+    changes between versions, but the field itself is never added or removed.
+    So unlike ``SignatureChange`` (added/removed/type_changed), there is only
+    one category: old -> new, rendered with the ``~`` gutter."""
+    name: str  # display name, e.g. "reentrant", "lock"
+    old: str   # old value, display string ("false"/"true", or an enum value)
+    new: str   # new value, display string
 
 
 @dataclass
@@ -1966,7 +1979,8 @@ class NetlistDiffRow:
     depth: int          # nesting depth -- 2 spaces (text) / one indent (UI)
     text: str           # netlist-syntax content, NO gutter/indent baked in
     uid: str | None     # stable node/structure/wire uid, or None (context/const)
-    kind: str           # "scope" | "frame" | "node" | "wire" | "constant" | "terminal"
+    kind: str           # "scope" | "frame" | "node" | "wire" | "constant"
+                         # | "terminal" | "property" | "structure"
 
 
 def _rows_to_text(rows: list[NetlistDiffRow]) -> list[str]:
@@ -2334,6 +2348,49 @@ def _netlist_diff(
     return render((), 0)
 
 
+# Every MetadataChange is a value transition -- the field itself can never be
+# added/removed (fixed schema), so it always renders on the "modified" gutter
+# (``~``, via ``_TAG``/``_gutter`` below), never "added"/"removed".
+_METADATA_CHANGE_TAG = "modified"
+
+
+def _metadata_change_text(c: MetadataChange) -> str:
+    """Netlist-syntax content for one Properties/Structure change leaf --
+    always ``name: old -> new`` (a boolean flip renders as
+    ``reentrant: false -> true``, same shape as an enum transition like
+    ``lock: unlocked -> password_protected``). NO gutter/indent -- the
+    caller supplies both (``_format_metadata_section`` for text,
+    ``NetlistDiffRow`` for the HTML viewer's Tree)."""
+    return f"{c.name}: {c.old} -> {c.new}"
+
+
+def _format_metadata_section(header: str, changes: list[MetadataChange]) -> str:
+    """Render a list of ``MetadataChange`` as a ``<header>:`` section, one
+    ``  ~`` line per change -- the same shape ``_format_signature_section``
+    renders a ``Signature:`` section in. Every line is ``~`` (see
+    ``MetadataChange``'s docstring)."""
+    lines = [f"{header}:"]
+    for c in changes:
+        lines.append(f"  {_TAG[_METADATA_CHANGE_TAG]} {_metadata_change_text(c)}")
+    return "\n".join(lines)
+
+
+def _metadata_rows(changes: list[MetadataChange], kind: str) -> list[NetlistDiffRow]:
+    """Project ``MetadataChange``s (Properties/Structure) as top-level
+    (``depth=0``) ``NetlistDiffRow``s for the HTML viewer's Tree, so it shows
+    the SAME property/structure changes ``format_diff`` prints as text. No
+    stable node uid exists for a VI-level setting, so ``uid`` is None -- like
+    a module-level change, there is nothing in the diagram to highlight.
+    ``change`` is always "modified" (see ``MetadataChange``'s docstring)."""
+    return [
+        NetlistDiffRow(
+            change=_METADATA_CHANGE_TAG, depth=0,
+            text=_metadata_change_text(c), uid=None, kind=kind,
+        )
+        for c in changes
+    ]
+
+
 def _format_signature_section(changes: list[SignatureChange]) -> str:
     lines = ["Signature:"]
     for sig in changes:
@@ -2370,6 +2427,18 @@ def format_diff(
         if signature:
             sections.append(_format_signature_section(signature))
 
+    # Properties/Structure changes surface in BOTH tiers (unlike Signature,
+    # verbose-only): a VI going protected or broken is high-signal enough to
+    # always show, mirroring the netlist header's own "always summarized"
+    # positioning (docs/reference/netlist.md).
+    ctx_a, ctx_b = graph_a.get_vi_context(va), graph_b.get_vi_context(vb)
+    prop_changes = _diff_vi_properties(ctx_a.properties, ctx_b.properties)
+    if prop_changes:
+        sections.append(_format_metadata_section("Properties", prop_changes))
+    struct_changes = _diff_vi_structure(ctx_a.structure, ctx_b.structure)
+    if struct_changes:
+        sections.append(_format_metadata_section("Structure", struct_changes))
+
     rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=verbose)
     if rows:
         sections.append("\n".join(_rows_to_text(rows)))
@@ -2399,7 +2468,16 @@ def netlist_diff_rows(
     va = graph_a.resolve_vi_name(vi_name_a)
     vb = graph_b.resolve_vi_name(vi_name_b)
     cmap = diff_uid(graph_a, graph_b, va, vb)
-    return _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=detailed)
+
+    ctx_a, ctx_b = graph_a.get_vi_context(va), graph_b.get_vi_context(vb)
+    rows = _metadata_rows(
+        _diff_vi_properties(ctx_a.properties, ctx_b.properties), "property",
+    )
+    rows += _metadata_rows(
+        _diff_vi_structure(ctx_a.structure, ctx_b.structure), "structure",
+    )
+    rows += _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=detailed)
+    return rows
 
 
 def rows_to_json(rows: list[NetlistDiffRow]) -> list[dict]:
@@ -2455,6 +2533,75 @@ def _diff_signature(
                         "type_changed", direction, name,
                         old_type=type_a, new_type=type_b,
                     ))
+    return changes
+
+
+# Curated boolean VI Properties -> display name. High-signal config that
+# actually changes VI behaviour (Properties dialog "Execution" page); NOT
+# every ``ExecutionProps`` field -- priority/exec-system/window/toolbar
+# cosmetics are deliberately suppressed noise (see ``lv_version`` below).
+_PROPERTY_BOOL_FIELDS: tuple[tuple[str, str], ...] = (
+    ("reentrant", "reentrant"),
+    ("is_subroutine", "subroutine"),
+    ("run_when_opened", "run-on-open"),
+)
+
+# Curated boolean VIStructure fields -> display name, matching the netlist
+# header's own flag vocabulary (docs/reference/netlist.md "VI properties &
+# structure header") plus ``is_strict_typedef`` (not in that terse header,
+# but a genuine structural distinction worth a diff line). ``lv_version``,
+# ``vi_type``, window/toolbar cosmetics, and numeric priority/exec-system are
+# NEVER diffed -- pure noise (``lv_version`` bumps on every save).
+_STRUCTURE_BOOL_FIELDS: tuple[tuple[str, str], ...] = (
+    ("is_broken", "broken"),
+    ("is_typedef", "typedef"),
+    ("is_strict_typedef", "strict-typedef"),
+    ("dynamic_dispatch", "dynamic-dispatch"),
+    ("source_only", "source-only"),
+    ("has_no_block_diagram", "no-block-diagram"),
+    ("is_instance_vi", "instance-vi"),
+)
+
+
+def _bool_str(v: bool) -> str:
+    """Lowercase display form of a bool VI-Properties/Structure flag value
+    (``"false"``/``"true"``) -- NOT Python's ``str(bool)`` (``"False"``/
+    ``"True"``), to match the netlist header's own lowercase flag syntax."""
+    return "true" if v else "false"
+
+
+def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChange]:
+    """Curated VI Properties changes: ``lock_state`` (enum transition) plus
+    the high-signal ``ExecutionProps`` flags in ``_PROPERTY_BOOL_FIELDS``.
+    Every field is a fixed part of the VI Properties schema -- a changed
+    field is always an old -> new VALUE transition, never an add/remove (see
+    ``MetadataChange``). Everything else on ``VIProperties`` (``lv_version``,
+    ``vi_type``, window/toolbar/instance settings, numeric priority) is
+    deliberately never compared -- see the diff philosophy note on
+    ``_PROPERTY_BOOL_FIELDS``."""
+    changes: list[MetadataChange] = []
+    if pa.lock_state != pb.lock_state:
+        changes.append(MetadataChange(
+            "lock", pa.lock_state.value, pb.lock_state.value,
+        ))
+    for field_name, label in _PROPERTY_BOOL_FIELDS:
+        va, vb = getattr(pa.execution, field_name), getattr(pb.execution, field_name)
+        if va != vb:
+            changes.append(MetadataChange(label, _bool_str(va), _bool_str(vb)))
+    return changes
+
+
+def _diff_vi_structure(sa: VIStructure, sb: VIStructure) -> list[MetadataChange]:
+    """Curated VIStructure changes: the flags in ``_STRUCTURE_BOOL_FIELDS``
+    (``is_broken`` is the derived property -- any ``bad_*`` flag flipping
+    shows as one ``broken: false -> true`` change rather than five separate
+    ones). Always an old -> new value transition, never an add/remove (every
+    VI has every one of these fields -- see ``MetadataChange``)."""
+    changes: list[MetadataChange] = []
+    for field_name, label in _STRUCTURE_BOOL_FIELDS:
+        va, vb = getattr(sa, field_name), getattr(sb, field_name)
+        if va != vb:
+            changes.append(MetadataChange(label, _bool_str(va), _bool_str(vb)))
     return changes
 
 
