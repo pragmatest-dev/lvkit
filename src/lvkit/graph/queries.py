@@ -11,7 +11,7 @@ query/query_single, get_all_constants/primitives/clusters.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -51,6 +51,7 @@ from .models import (
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
+    from .core import InMemoryVIGraph
 
 
 class QueryMixin:
@@ -1131,8 +1132,6 @@ class QueryMixin:
             is_static=bool(edata.get("is_static")),
             must_override=bool(edata.get("must_override")),
             must_call_parent=bool(edata.get("must_call_parent")),
-            priority=edata.get("priority"),
-            execution_system=edata.get("execution_system"),
         )
 
     def get_method_overrides(self, vi_name: str) -> MethodOverrideInfo | None:
@@ -1175,3 +1174,47 @@ class QueryMixin:
             overrides=overrides,
             overridden_by=overridden_by,
         )
+
+
+@dataclass(frozen=True)
+class ClassContext:
+    """The owning ``.lvclass``'s context for a class-method VI -- the ONE
+    shared collection of facts both ``describe.py``'s ``## Class`` section
+    and ``netlist.py``'s ``NetlistClassContext`` (the ``get_context``/MCP
+    JSON IR) render, via ``collect_class_context`` -- so the two surfaces
+    can't drift on what "the class context" means."""
+
+    owning_class: str
+    parent: str | None
+    version: str | None
+    ancestors: list[str]
+    scope: str | None
+    is_static: bool
+    must_override: bool
+    must_call_parent: bool
+
+
+def collect_class_context(
+    graph: InMemoryVIGraph, ctx: VIContext,
+) -> ClassContext | None:
+    """The owning class's context when ``ctx`` is a ``.lvclass`` method VI,
+    else None -- the single source both ``describe._describe_class_context``
+    and ``netlist._build_class_context`` build on."""
+    cls = ctx.library
+    if not cls or not cls.endswith(".lvclass"):
+        return None
+    if not graph._dep_graph.has_node(cls):
+        return None
+
+    parent = graph._dep_graph.nodes[cls].get("parent_class")
+    access = graph.get_method_access(ctx.name)
+    return ClassContext(
+        owning_class=cls,
+        parent=parent,
+        version=graph.get_class_version(cls),
+        ancestors=graph.get_class_ancestors(cls),
+        scope=access.scope if access else None,
+        is_static=bool(access and access.is_static),
+        must_override=bool(access and access.must_override),
+        must_call_parent=bool(access and access.must_call_parent),
+    )

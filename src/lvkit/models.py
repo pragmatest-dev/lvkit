@@ -476,20 +476,6 @@ class Tunnel(BaseModel):
     #   one. Set on tunnel_type == "rSR" tunnels only.
     sr_stack_depth: int | None = None
 
-    @property
-    def direction(self) -> str:
-        if self.tunnel_type == "lSR":
-            return "in"
-        if self.tunnel_type == "rSR":
-            return "out"
-        if self.tunnel_type == "lMax":
-            # lMax IS the For-loop N (iteration-count) INPUT terminal (the
-            # loopLimitDCO) — never an aggregation output. Corpus-verified:
-            # lMax count == loopLimitDCO count. The real indexing/accumulator
-            # output is an lpTun (see Tunnel.mode).
-            return "in"
-        return "unknown"
-
 
 class PropertyDef(BaseModel):
     """A property read/write on a property node."""

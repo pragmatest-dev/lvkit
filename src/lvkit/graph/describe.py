@@ -41,6 +41,7 @@ from .op_walk import (
     _render_ports,
     _subvi_ports,
 )
+from .queries import collect_class_context
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -386,7 +387,9 @@ def _describe_properties(ctx: VIContext) -> list[str]:
     """Render the VI's Properties dialog settings (Protection/Execution/
     Window/…), faithfully and grouped to match the dialog's own pages.
 
-    ``lock_state``/``lv_version``/``vi_type`` always show; each nested group
+    ``lock_state`` always shows; ``lv_version``/``vi_type`` show only when
+    present (same non-default rule the nested groups below already follow --
+    a stub/synthetic ``VIContext`` has neither); each nested group
     (execution/window/toolbar/instance) shows -- with only its non-default
     fields -- only when it has something set, so the common case stays
     terse. VI kind/compile-health is a SEPARATE ``## Structure`` section
@@ -395,8 +398,10 @@ def _describe_properties(ctx: VIContext) -> list[str]:
     props = ctx.properties
     lines = ["## Properties"]
     lines.append(f"  lock_state: {props.lock_state.value}")
-    lines.append(f"  lv_version: {props.lv_version}")
-    lines.append(f"  vi_type: {props.vi_type}")
+    if props.lv_version is not None:
+        lines.append(f"  lv_version: {props.lv_version}")
+    if props.vi_type is not None:
+        lines.append(f"  vi_type: {props.vi_type}")
     for group_name, group in (
         ("execution", props.execution),
         ("window", props.window),
@@ -437,31 +442,32 @@ def _describe_class_context(
     Surfaces the class's parent, fields, and sibling methods -- context an
     agent needs to write a method body but which is absent from the VI's
     own dataflow. Returns an empty list for non-class VIs.
+
+    Renders ``queries.collect_class_context`` -- the SAME collector
+    ``netlist._build_class_context`` wraps for the JSON IR -- so the two
+    surfaces can't drift on what "the class context" means. ``fields``/
+    ``methods`` (the class's private-data fields and sibling method names)
+    aren't part of that shared context (netlist has no use for them) and are
+    still gathered here directly.
     """
-    cls = ctx.library
-    if not cls or not cls.endswith(".lvclass"):
-        return []
-    if not graph._dep_graph.has_node(cls):
+    cc = collect_class_context(graph, ctx)
+    if cc is None:
         return []
 
-    attrs = graph._dep_graph.nodes[cls]
-    fields = graph.get_class_fields(cls) or []
+    fields = graph.get_class_fields(cc.owning_class) or []
     siblings = sorted({
         t.split(":")[-1]
-        for _, t, e in graph._dep_graph.edges(cls, data=True)
+        for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
         if e.get("rel") == "owns" and t.endswith(".vi")
     })
 
-    lines = ["## Class", f"  {cls}"]
-    parent = attrs.get("parent_class")
-    if parent:
-        lines.append(f"  parent: {parent}")
-    version = graph.get_class_version(cls)
-    if version:
-        lines.append(f"  version: {version}")
-    ancestors = graph.get_class_ancestors(cls)
-    if ancestors:
-        lines.append(f"  ancestors: {' -> '.join(ancestors)}")
+    lines = ["## Class", f"  {cc.owning_class}"]
+    if cc.parent:
+        lines.append(f"  parent: {cc.parent}")
+    if cc.version:
+        lines.append(f"  version: {cc.version}")
+    if cc.ancestors:
+        lines.append(f"  ancestors: {' -> '.join(cc.ancestors)}")
     if fields:
         lines.append("  fields:")
         for f in fields:
@@ -469,14 +475,14 @@ def _describe_class_context(
     if siblings:
         lines.append(f"  methods: {', '.join(siblings)}")
     # This method's own item properties -- terse, only when non-default.
-    access = graph.get_method_access(ctx.name)
-    if access is not None:
-        if access.is_static:
-            lines.append("  is_static: True")
-        if access.must_override:
-            lines.append("  must_override: True")
-        if access.must_call_parent:
-            lines.append("  must_call_parent: True")
+    if cc.scope:
+        lines.append(f"  scope: {cc.scope}")
+    if cc.is_static:
+        lines.append("  is_static: True")
+    if cc.must_override:
+        lines.append("  must_override: True")
+    if cc.must_call_parent:
+        lines.append("  must_call_parent: True")
     lines.append("")
     return lines
 

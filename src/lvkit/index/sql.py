@@ -269,11 +269,6 @@ VIEWS: dict[str, _View] = {
             "ancestors": "JSON array of the owning class's FULL ancestor chain, "
             "nearest-first (immediate parent first); may be a PREFIX of the true "
             "chain if an ancestor's .lvclass isn't present in this checkout",
-            "method_priority": "raw NI.ClassItem.Priority int for this method, "
-            "or NULL if absent (semantics unconfirmed -- not a label)",
-            "method_execution_system": "raw NI.ClassItem.ExecutionSystem int for "
-            "this method, or NULL if absent (semantics unconfirmed -- not a "
-            "label)",
         },
     ),
     "lvproj": _View(

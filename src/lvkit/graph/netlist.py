@@ -44,7 +44,15 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
-from .models import Constant, VIContext, VIProperties, VIStructure, WireEnd
+from .models import (
+    Constant,
+    VIContext,
+    VIProperties,
+    VIStructure,
+    WireEnd,
+    vi_properties_to_dict,
+    vi_structure_to_dict,
+)
 from .op_walk import (
     ComponentPort,
     _const_value_str,
@@ -55,6 +63,7 @@ from .op_walk import (
     _subvi_ports,
     _terminal_display_name,
 )
+from .queries import collect_class_context
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -918,26 +927,22 @@ def _disambiguate_cross_group_names(components: list[NetlistComponent]) -> None:
 def _build_class_context(
     graph: InMemoryVIGraph, ctx: VIContext,
 ) -> NetlistClassContext | None:
-    """Mirror of ``describe._describe_class_context`` for the JSON IR: the
-    owning class's context when ``ctx`` is a ``.lvclass`` method VI, else
-    None."""
-    cls = ctx.library
-    if not cls or not cls.endswith(".lvclass"):
+    """The JSON IR's class-context shape, wrapping the shared
+    ``queries.collect_class_context`` -- describe.py's ``## Class`` section
+    (``_describe_class_context``) builds on the SAME collector, so the two
+    surfaces can't drift on what "the class context" means."""
+    cc = collect_class_context(graph, ctx)
+    if cc is None:
         return None
-    if not graph._dep_graph.has_node(cls):
-        return None
-
-    parent = graph._dep_graph.nodes[cls].get("parent_class")
-    access = graph.get_method_access(ctx.name)
     return NetlistClassContext(
-        owning_class=cls,
-        parent=parent,
-        version=graph.get_class_version(cls),
-        ancestors=graph.get_class_ancestors(cls),
-        scope=access.scope if access else None,
-        is_static=bool(access and access.is_static),
-        must_override=bool(access and access.must_override),
-        must_call_parent=bool(access and access.must_call_parent),
+        owning_class=cc.owning_class,
+        parent=cc.parent,
+        version=cc.version,
+        ancestors=cc.ancestors,
+        scope=cc.scope,
+        is_static=cc.is_static,
+        must_override=cc.must_override,
+        must_call_parent=cc.must_call_parent,
     )
 
 
@@ -1192,33 +1197,6 @@ def _component_to_dict(comp: NetlistComponent) -> dict[str, Any]:
     }
 
 
-def _properties_to_dict(props: VIProperties) -> dict[str, Any]:
-    """Full nested VI-Properties structure -- every group, every field.
-
-    ``execution``/``window``/``toolbar``/``instance`` are plain dataclasses
-    with no nested Enum/dataclass fields of their own, so ``asdict`` is a
-    faithful, lossless conversion. ``lock_state`` is the one Enum field,
-    unwrapped to its string value.
-    """
-    return {
-        "lv_version": props.lv_version,
-        "vi_type": props.vi_type,
-        "lock_state": props.lock_state.value,
-        "execution": _dataclass_asdict(props.execution),
-        "window": _dataclass_asdict(props.window),
-        "toolbar": _dataclass_asdict(props.toolbar),
-        "instance": _dataclass_asdict(props.instance),
-    }
-
-
-def _structure_to_dict(struct: VIStructure) -> dict[str, Any]:
-    """Full ``VIStructure`` dict, incl. the derived ``is_broken`` property
-    (not a dataclass field, so ``asdict`` alone would omit it)."""
-    d = _dataclass_asdict(struct)
-    d["is_broken"] = struct.is_broken
-    return d
-
-
 def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
     """One body item, tagged with a ``kind`` discriminator so the
     ``instance``/``scope`` union survives JSON (``asdict`` would erase it)."""
@@ -1275,8 +1253,8 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
         "outputs": [{"name": n, "type": t} for n, t in module.outputs],
         "components": [_component_to_dict(c) for c in module.components],
         "body": [_item_to_dict(i) for i in module.body],
-        "properties": _properties_to_dict(module.properties),
-        "structure": _structure_to_dict(module.structure),
+        "properties": vi_properties_to_dict(module.properties),
+        "structure": vi_structure_to_dict(module.structure),
         "class_context": (
             _dataclass_asdict(module.class_context)
             if module.class_context is not None

@@ -35,7 +35,7 @@
        display:grid;grid-template-rows:auto 1fr;height:100vh}
   header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
          display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-  header b{font-size:15px;white-space:normal;overflow-wrap:anywhere}
+  header b{font-size:15px;white-space:normal;overflow-wrap:anywhere;flex:1 1 auto;min-width:0}
   .t-arr{white-space:nowrap}  /* "→ after" stays together — title breaks before the → */
   /* Header = three groups (titles · controls · legend). Each group is nowrap so
      it never fragments internally; the header's own flex-wrap breaks only
@@ -44,7 +44,10 @@
      zoom/hl/theme right via margin-left:auto); .legend grows just enough to keep
      its chips right-justified on its own row when stacked. */
   /* Title takes the whole first row; controls + legend flow onto the row(s)
-     below and wrap among themselves when narrow (header's own flex-wrap). */
+     below and wrap among themselves when narrow (header's own flex-wrap).
+     The title <b> grows/wraps (flex:1 1 auto above), pushing the properties
+     button to this row's right edge — same "button follows the VI name(s)"
+     placement as render_viewer.html's .titlerow. */
   .titles{display:flex;gap:14px;align-items:center;flex-wrap:nowrap;flex:0 0 100%}
   .controls{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
   .controls.grow{flex:100 1 auto}
@@ -335,13 +338,13 @@
 </style>
 
 <header>
-  <div class="titles"><b>__TITLE__</b></div>
+  <div class="titles"><b>__TITLE__</b>__DIFF_PROPERTIES_BTN__</div>
   <div class="controls grow">
     <button data-mode="split" class="active" title="Before above, after below — scroll and zoom stay in sync">Split</button>
     <button data-mode="overlay">Overlay</button>
     <span id="opWrap" hidden><button type="button" class="op-end" data-op="0" title="show BEFORE only">before</button><input id="op" type="range" min="0" max="100" value="70"><button type="button" class="op-end" data-op="100" title="show AFTER only">after</button></span>
     <span class="controls right">
-      <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit">fit</button></span>
+      <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit" title="Fit to view" aria-label="Fit to view">⛶</button></span>
       <button id="hlToggle" type="button" class="active"
         title="Change highlights: on (click to toggle)"
         aria-pressed="true" aria-label="Toggle change highlights">◉</button>
@@ -1009,11 +1012,44 @@ function focus(i){
   glideRAF=requestAnimationFrame(step);
 }
 
+// A property/structure change (kind "property"/"structure", uid:null) has NO
+// diagram element -- it's a VI-level setting, not a node/wire/structure. Its
+// "reveal" is the properties-popover analog of focus(): open the popover (if
+// closed) and highlight+scroll to the matching row, keyed by `field` (the
+// RAW VIProperties/VIStructure dataclass field name diff_viewer.py's
+// _metadata_change stamps on the change, matching the data-key each popover
+// row carries -- see properties_panel.py's _PANEL_BODY_JS). A stronger
+// `.lvkit-prop-selected` state (defined alongside the passive
+// `.lvkit-prop-changed` tint in properties_panel.py's _DIFF_PANEL_EXTRA_CSS)
+// marks the specific clicked row.
+function revealPropertyRow(c){
+  const btn=document.getElementById('lvkitDiffPropsBtn');
+  const panel=document.getElementById('lvkitDiffPropsPanel');
+  if(!panel)return;
+  if(panel.hidden){ panel.hidden=false; if(btn) btn.setAttribute('aria-expanded','true'); }
+  if(!c.field)return;
+  const cells=panel.querySelectorAll('[data-key="'+c.field+'"]');
+  cells.forEach(el=>el.classList.add('lvkit-prop-selected'));
+  if(cells[0]) cells[0].scrollIntoView({block:'nearest'});
+}
 function jump(i){
   if(i<0||i>=CHANGES.length)return;
   if(i===sel){ clearSel(); return; }   // re-selecting the current change toggles it OFF
   sel=i;
   const c=CHANGES[i];
+  // Property/structure changes have no diagram presence at all -- reveal via
+  // the properties popover instead of the diagram spotlight/zoom machinery
+  // below (mode switching, frame reveal, focus() would all be no-ops for
+  // them anyway, since they carry no bounds/uid/frame_path).
+  const propPanelEl=document.getElementById('lvkitDiffPropsPanel');
+  if(propPanelEl) propPanelEl.querySelectorAll('.lvkit-prop-selected')
+    .forEach(el=>el.classList.remove('lvkit-prop-selected'));
+  if(c.kind==='property'||c.kind==='structure'){
+    document.querySelectorAll('.item').forEach(n=>n.classList.toggle('sel',+n.dataset.i===i));
+    revealTreeRow(i);
+    revealPropertyRow(c);
+    return;
+  }
   // Respect the user's chosen view. Overlay + Split show BOTH versions,
   // so never yank out of them. Only correct a single-pane mode that's on the
   // wrong side for this change (added lives in after, removed in before) — otherwise
@@ -1048,6 +1084,9 @@ function jump(i){
 function clearSel(){
   sel=-1; stage.classList.remove('has-sel');
   document.querySelectorAll('.item.sel').forEach(n=>n.classList.remove('sel'));
+  const propPanelEl=document.getElementById('lvkitDiffPropsPanel');
+  if(propPanelEl) propPanelEl.querySelectorAll('.lvkit-prop-selected')
+    .forEach(el=>el.classList.remove('lvkit-prop-selected'));
   Object.values(rects).forEach(r=>r.classList.remove('sel'));
   Object.values(nums).forEach(t=>t.classList.remove('sel'));
   Object.values(parts).flat().forEach(el=>el.classList.remove('sel'));
@@ -1600,5 +1639,7 @@ if(mmB){
   if(h.get('c')) jump(+h.get('c')-1);
 })();
 </script>
+
+__DIFF_PROPERTIES_PANEL__
 
 __HELP_TIP__

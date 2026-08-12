@@ -31,7 +31,13 @@
        display:grid;grid-template-rows:auto 1fr;height:100vh}
   header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
          display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-  header b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* The title row is its own full-width flex line (flex:1 1 100% forces the
+     wrap below onto its own row) — the title grows/truncates, pushing the
+     properties button to the row's right edge, right where a reader's eye
+     already lands after the VI name. */
+  .titlerow{display:flex;align-items:center;gap:10px;flex:1 1 100%;min-width:0}
+  header b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    flex:1 1 auto;min-width:0}
   .controls{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;margin-left:auto}
   button{background:var(--btn);color:var(--fg);border:1px solid var(--line);border-radius:6px;
          padding:5px 10px;cursor:pointer;font:inherit}
@@ -65,11 +71,9 @@
 </style>
 
 <header>
-  <b>__TITLE__</b>
-  <span class="lvkit-chips" id="lvkitChips"></span>
+  <div class="titlerow"><b>__TITLE__</b>__PROPERTIES_BTN__</div>
   <div class="controls">
-    <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit">fit</button></span>
-    __PROPERTIES_BTN__
+    <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit" title="Fit to view" aria-label="Fit to view">⛶</button></span>
     __THEME_BTN__
   </div>
 </header>

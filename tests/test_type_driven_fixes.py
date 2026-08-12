@@ -7,12 +7,10 @@ guessing instead of using the actual lv_type data on terminals and constants.
 from __future__ import annotations
 
 from lvkit.codegen.context import CodeGenContext, _format_constant
-from lvkit.codegen.nodes import loop, primitive
-from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import Constant, WireEnd
+from lvkit.codegen.nodes import primitive
+from lvkit.graph.models import Constant
 from lvkit.models import ClusterField, LVType, Terminal
 from lvkit.primitive_resolver import _collect_imports
-from tests.helpers import make_node
 
 # ── Fix A: Type-driven constant decoding ────────────────────────────
 
@@ -223,76 +221,6 @@ class TestImportFieldReading:
         prim = {"name": "foo"}
         result = _collect_imports(prim)
         assert result == []
-
-
-# ── Fix D: Structural edge filtering ────────────────────────────────
-
-
-class TestStructuralEdgeFiltering:
-    """_has_incoming_flow must filter out structural self-edges (tunnel
-    outer→inner on the same node)."""
-
-    def test_self_edge_not_counted_as_incoming(self):
-        """Bug 9: Loop tunnel structural edge (same node_id for src and dest)
-        must not be counted as incoming data flow."""
-        graph = InMemoryVIGraph()
-        # Create a loop node with two terminals (outer and inner of same tunnel)
-        loop_node = make_node("loop1", ["outer_t", "inner_t"])
-        graph._graph.add_node("loop1", node=loop_node)
-        graph._term_to_node["outer_t"] = "loop1"
-        graph._term_to_node["inner_t"] = "loop1"
-        # Add a structural edge: same node, outer → inner
-        graph._graph.add_edge(
-            "loop1", "loop1",
-            source=WireEnd(terminal_id="outer_t", node_id="loop1"),
-            dest=WireEnd(terminal_id="inner_t", node_id="loop1"),
-        )
-        ctx = CodeGenContext(graph=graph)
-        # inner_t only has a self-edge — should NOT count as incoming
-        assert loop._has_incoming_flow("inner_t", ctx) is False
-
-    def test_real_incoming_edge_is_counted(self):
-        """Real data flow from a different node should be counted."""
-        graph = InMemoryVIGraph()
-        src_node = make_node("src1", ["src_out"])
-        loop_node = make_node("loop1", ["inner_t"])
-        graph._graph.add_node("src1", node=src_node)
-        graph._graph.add_node("loop1", node=loop_node)
-        graph._term_to_node["src_out"] = "src1"
-        graph._term_to_node["inner_t"] = "loop1"
-        # Add a real data edge: src1 → loop1
-        graph._graph.add_edge(
-            "src1", "loop1",
-            source=WireEnd(terminal_id="src_out", node_id="src1"),
-            dest=WireEnd(terminal_id="inner_t", node_id="loop1"),
-        )
-        ctx = CodeGenContext(graph=graph)
-        assert loop._has_incoming_flow("inner_t", ctx) is True
-
-    def test_mixed_self_and_real_edges(self):
-        """When both structural and real edges exist, should return True."""
-        graph = InMemoryVIGraph()
-        src_node = make_node("src1", ["src_out"])
-        loop_node = make_node("loop1", ["outer_t", "inner_t"])
-        graph._graph.add_node("src1", node=src_node)
-        graph._graph.add_node("loop1", node=loop_node)
-        graph._term_to_node["src_out"] = "src1"
-        graph._term_to_node["outer_t"] = "loop1"
-        graph._term_to_node["inner_t"] = "loop1"
-        # Self-edge
-        graph._graph.add_edge(
-            "loop1", "loop1",
-            source=WireEnd(terminal_id="outer_t", node_id="loop1"),
-            dest=WireEnd(terminal_id="inner_t", node_id="loop1"),
-        )
-        # Real edge
-        graph._graph.add_edge(
-            "src1", "loop1",
-            source=WireEnd(terminal_id="src_out", node_id="src1"),
-            dest=WireEnd(terminal_id="inner_t", node_id="loop1"),
-        )
-        ctx = CodeGenContext(graph=graph)
-        assert loop._has_incoming_flow("inner_t", ctx) is True
 
 
 # ── Fix F: Error cluster detection by type, not name ────────────────

@@ -31,13 +31,6 @@ class LVMethod:
     # NI.ClassItem.MustCallParent -- an override of this method MUST call its
     # parent implementation. Rare; default False when absent.
     must_call_parent: bool = False
-    # NI.ClassItem.Priority, raw int verbatim. Only 2 distinct values seen in
-    # the corpus and their semantics are unconfirmed -- do NOT map to a label.
-    # None when the property is absent.
-    priority: int | None = None
-    # NI.ClassItem.ExecutionSystem, raw int verbatim (e.g. -1/1/3). Semantics
-    # unconfirmed -- do NOT map to a label. None when the property is absent.
-    execution_system: int | None = None
 
 
 @dataclass
@@ -628,10 +621,6 @@ def _parse_items(
             must_call_parent_prop = item.find(
                 "Property[@Name='NI.ClassItem.MustCallParent']"
             )
-            priority_prop = item.find("Property[@Name='NI.ClassItem.Priority']")
-            exec_system_prop = item.find(
-                "Property[@Name='NI.ClassItem.ExecutionSystem']"
-            )
 
             scope_val = 1  # default public
             if scope_prop is not None and scope_prop.text:
@@ -652,20 +641,6 @@ def _parse_items(
             if must_call_parent_prop is not None and must_call_parent_prop.text:
                 must_call_parent = must_call_parent_prop.text.lower() == "true"
 
-            priority: int | None = None
-            if priority_prop is not None and priority_prop.text:
-                try:
-                    priority = int(priority_prop.text)
-                except ValueError:
-                    pass
-
-            execution_system: int | None = None
-            if exec_system_prop is not None and exec_system_prop.text:
-                try:
-                    execution_system = int(exec_system_prop.text)
-                except ValueError:
-                    pass
-
             # Detect accessor methods
             accessor_type, accessor_field = _detect_accessor(item_name)
             is_accessor = accessor_type is not None
@@ -680,8 +655,6 @@ def _parse_items(
                 accessor_field=accessor_field,
                 must_override=must_override,
                 must_call_parent=must_call_parent,
-                priority=priority,
-                execution_system=execution_system,
             ))
 
 
@@ -764,6 +737,29 @@ def _parent_from_link_info(root: ET.Element) -> tuple[str, bool] | None:
     return None
 
 
+# Memoized stem -> path index of every ``*.lvclass`` under a given root
+# directory (see ``_lvclass_stem_index``) -- keyed by the resolved root
+# ``_resolve_ancestor_lvclass`` climbs to, so a full-tree ``rglob`` only ever
+# runs ONCE per root, however many ancestor levels ``_build_ancestor_chain``
+# resolves through it.
+_LVCLASS_INDEX_CACHE: dict[Path, dict[str, Path]] = {}
+
+
+def _lvclass_stem_index(root: Path) -> dict[str, Path]:
+    """Stem -> path index of every ``*.lvclass`` under ``root``, built once
+    and memoized per root. Ties (two files sharing a stem) resolve to the
+    alphabetically-first path -- matching ``sorted(...)[0]``, the previous
+    per-level lookup's own tie-break."""
+    cached = _LVCLASS_INDEX_CACHE.get(root)
+    if cached is not None:
+        return cached
+    index: dict[str, Path] = {}
+    for p in sorted(root.rglob("*.lvclass")):
+        index.setdefault(p.stem, p)
+    _LVCLASS_INDEX_CACHE[root] = index
+    return index
+
+
 def _resolve_ancestor_lvclass(
     start_dir: Path, bare_name: str, max_levels: int = 6,
 ) -> Path | None:
@@ -773,28 +769,32 @@ def _resolve_ancestor_lvclass(
     ``_TextTestResult.JUnitXML.lvclass`` lives under ``Ant Plugin/Source/...``
     while its parent ``_TextTestResult.lvclass`` lives under
     ``Classes/_TextTestResult/`` -- a different branch of the same repo tree).
-    So this walks UP from ``start_dir``, and at each level searches DOWN
-    (``rglob``) for ``<bare_name>.lvclass`` -- stopping at the first level
-    that finds one. Bounded by ``max_levels`` so a genuinely-missing ancestor
-    (common: many corpora don't vendor every ancestor's file) can't runaway-
-    scan the filesystem. Falls back to a case-insensitive stem match at each
-    level (LabVIEW class names are effectively case-insensitive -- see
-    ``_same_class``).
+    So this climbs UP from ``start_dir`` (bounded by ``max_levels``, so a
+    genuinely-missing ancestor -- common: many corpora don't vendor every
+    ancestor's file -- can't runaway-scan the filesystem) to a single ROOT
+    directory, then looks ``bare_name`` up in that root's memoized stem index
+    (``_lvclass_stem_index``) -- one ``rglob`` per root rather than one per
+    level, since each level's search scope is a subset of the next (cross-
+    directory, cycle-safe: a symlink cycle under the root can make the
+    ``rglob`` itself slow, same as before, but never infinite-loop this
+    function). Falls back to a case-insensitive stem match (LabVIEW class
+    names are effectively case-insensitive -- see ``_same_class``).
     """
-    target_lower = f"{bare_name}.lvclass".lower()
     d = start_dir.resolve()
     for _ in range(max_levels):
-        candidates = sorted(d.rglob("*.lvclass"))
-        exact = [p for p in candidates if p.stem == bare_name]
-        if exact:
-            return exact[0]
-        ci = [p for p in candidates if p.name.lower() == target_lower]
-        if ci:
-            return ci[0]
         parent = d.parent
         if parent == d:
             break
         d = parent
+    index = _lvclass_stem_index(d)
+
+    exact = index.get(bare_name)
+    if exact is not None:
+        return exact
+    bare_lower = bare_name.lower()
+    for stem, path in index.items():
+        if stem.lower() == bare_lower:
+            return path
     return None
 
 

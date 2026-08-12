@@ -48,7 +48,9 @@ test_class_parent_linkinfo.py).
 
 from __future__ import annotations
 
+from dataclasses import fields
 from pathlib import Path
+from typing import Any
 from xml.etree import ElementTree as ET
 
 import pytest
@@ -57,10 +59,13 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     ExecutionProps,
+    InstanceProps,
     LockState,
+    ToolbarProps,
     VIContext,
     VIProperties,
     VIStructure,
+    WindowProps,
 )
 from lvkit.parser.metadata import _parse_lvsr_properties
 
@@ -331,6 +336,45 @@ class TestParseLvsrProperties:
         clean_root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
         clean_struct = VIStructure(**_parse_lvsr_properties(clean_root)["code"])
         assert clean_struct.is_broken is False
+
+
+class TestParserGraphKeyDrift:
+    """Drift guard: ``graph.loading._build_vi_properties``/
+    ``_build_vi_structure`` splat ``_parse_lvsr_properties``'s nested dicts
+    straight into ``ExecutionProps(**execution)``/``WindowProps(**window)``/
+    ``ToolbarProps(**toolbar)``/``InstanceProps(**instance)``/
+    ``VIStructure(**code)`` -- an unknown key raises ``TypeError``, but only
+    for whichever real VI happens to populate the renamed key, so a parser-
+    side rename (or a dataclass-side rename with the parser left behind) can
+    sit undetected until some corpus VI trips it. Assert the KEY SETS line up
+    directly, so a rename fails HERE, on an empty/default-only XML, every
+    run -- not only when a real VI's XML happens to populate the drifted
+    field.
+    """
+
+    def _groups(self) -> dict[str, Any]:
+        root = ET.fromstring("<RSRC><LVSR><Section/></LVSR></RSRC>")
+        return _parse_lvsr_properties(root)
+
+    def test_execution_keys_match_executionprops_fields(self) -> None:
+        result = self._groups()
+        assert set(result["execution"]) <= {f.name for f in fields(ExecutionProps)}
+
+    def test_window_keys_match_windowprops_fields(self) -> None:
+        result = self._groups()
+        assert set(result["window"]) <= {f.name for f in fields(WindowProps)}
+
+    def test_toolbar_keys_match_toolbarprops_fields(self) -> None:
+        result = self._groups()
+        assert set(result["toolbar"]) <= {f.name for f in fields(ToolbarProps)}
+
+    def test_instance_keys_match_instanceprops_fields(self) -> None:
+        result = self._groups()
+        assert set(result["instance"]) <= {f.name for f in fields(InstanceProps)}
+
+    def test_code_keys_match_vistructure_fields(self) -> None:
+        result = self._groups()
+        assert set(result["code"]) <= {f.name for f in fields(VIStructure)}
 
 
 # ---------------------------------------------------------------------------

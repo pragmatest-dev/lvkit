@@ -8,6 +8,7 @@ Dependency: lvkit.models (shared primitives + flow types)
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
@@ -550,6 +551,71 @@ class VIProperties:
     instance: InstanceProps = field(default_factory=InstanceProps)
 
 
+def bool_str(v: bool) -> str:
+    """Lowercase display form of a bool VI-Properties/Structure flag value
+    (``"false"``/``"true"``) -- NOT Python's ``str(bool)`` (``"False"``/
+    ``"True"``), matching the netlist header's own lowercase flag syntax
+    (see ``docs/reference/netlist.md`` "VI properties & structure header").
+    The ONE shared formatter for a curated flag's old/new value, e.g. in
+    ``diff._diff_vi_properties``/``_diff_vi_structure``."""
+    return "true" if v else "false"
+
+
+# Curated boolean ``ExecutionProps`` (VI Properties -> Execution page) flags
+# -> display label -- the ONE canonical set of high-signal settings that
+# actually change VI behaviour. NOT every ``ExecutionProps`` field --
+# priority/exec-system/window/toolbar cosmetics are deliberately excluded
+# noise (see ``VIProperties``'s own docstring). Drives ``diff.py``'s
+# ``_PROPERTY_BOOL_FIELDS`` and the render-viewer's status chips
+# (``render/properties_panel.py``) -- one edit changes both surfaces.
+CURATED_PROPERTY_FLAGS: dict[str, str] = {
+    "reentrant": "reentrant",
+    "is_subroutine": "subroutine",
+    "run_when_opened": "run-on-open",
+}
+
+# Curated boolean ``VIStructure`` flags -> display label, matching the
+# netlist header's own flag vocabulary (``docs/reference/netlist.md`` "VI
+# properties & structure header"). Drives ``diff.py``'s
+# ``_STRUCTURE_BOOL_FIELDS`` and the render-viewer's status chips -- one edit
+# changes both surfaces. ``lock_state`` is handled separately everywhere (an
+# enum transition, not a bool flag).
+CURATED_STRUCTURE_FLAGS: dict[str, str] = {
+    "is_broken": "broken",
+    "is_typedef": "typedef",
+    "is_strict_typedef": "strict-typedef",
+    "dynamic_dispatch": "dynamic-dispatch",
+    "source_only": "source-only",
+    "has_no_block_diagram": "no-block-diagram",
+    "is_instance_vi": "instance-vi",
+}
+
+
+def vi_properties_to_dict(p: VIProperties) -> dict:
+    """Canonical JSON shape for a ``VIProperties``: full nested groups
+    (``execution``/``window``/``toolbar``/``instance``, each a faithful
+    ``dataclasses.asdict`` -- they have no nested Enum/dataclass fields of
+    their own), with ``lock_state`` unwrapped to its string value (the one
+    Enum field ``asdict`` alone wouldn't convert). The ONE converter both the
+    render viewer's SVG data attrs (``render/__init__.py``'s
+    ``_vi_properties_data_attrs``) and the netlist JSON IR
+    (``netlist.py``'s ``netlist_to_dict``) call, so the two surfaces can't
+    drift into different shapes."""
+    d = dataclasses.asdict(p)
+    d["lock_state"] = p.lock_state.value
+    return d
+
+
+def vi_structure_to_dict(s: VIStructure) -> dict:
+    """Canonical JSON shape for a ``VIStructure``: every field, PLUS the
+    derived ``is_broken`` property (``dataclasses.asdict`` alone omits it --
+    it isn't a dataclass field). The ONE converter both the render viewer's
+    SVG data attrs and the netlist JSON IR call."""
+    d = dataclasses.asdict(s)
+    d["is_broken"] = s.is_broken
+    return d
+
+
 class VIContext(BaseModel):
     """Complete VI context for code generation."""
 
@@ -757,10 +823,10 @@ class MethodAccessInfo:
     ("public" / "protected" / "private" / "community" — see
     ``structure.SCOPE_MAP``).
 
-    ``is_static`` / ``must_override`` / ``must_call_parent`` / ``priority`` /
-    ``execution_system`` mirror ``structure.LVMethod``'s same-named fields —
-    carried onto the "owns" edge at load time (``loading.load_lvclass``) so
-    this per-VI query surfaces them without a second class-file parse.
+    ``is_static`` / ``must_override`` / ``must_call_parent`` mirror
+    ``structure.LVMethod``'s same-named fields — carried onto the "owns" edge
+    at load time (``loading.load_lvclass``) so this per-VI query surfaces
+    them without a second class-file parse.
     """
 
     vi_name: str
@@ -771,8 +837,6 @@ class MethodAccessInfo:
     is_static: bool = False
     must_override: bool = False
     must_call_parent: bool = False
-    priority: int | None = None
-    execution_system: int | None = None
 
 
 @dataclass

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from ..models import (
     CaseFrame,
@@ -24,7 +24,16 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
-from .models import Constant, VIProperties, VIStructure, Wire, WireEnd
+from .models import (
+    CURATED_PROPERTY_FLAGS,
+    CURATED_STRUCTURE_FLAGS,
+    Constant,
+    VIProperties,
+    VIStructure,
+    Wire,
+    WireEnd,
+    bool_str,
+)
 from .netlist import (
     NetlistItem,
     NetlistScope,
@@ -2457,7 +2466,7 @@ def format_diff(
 def diff_to_dict(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str,
-) -> dict:
+) -> dict[str, Any]:
     """The full ``lvkit diff`` as a JSON-ready dict: the uid-keyed element
     ``ChangeMap`` PLUS the module-level Signature / Properties / Structure
     sections that live OUTSIDE it (exactly as ``format_diff``'s text output
@@ -2571,38 +2580,17 @@ def _diff_signature(
     return changes
 
 
-# Curated boolean VI Properties -> display name. High-signal config that
-# actually changes VI behaviour (Properties dialog "Execution" page); NOT
-# every ``ExecutionProps`` field -- priority/exec-system/window/toolbar
-# cosmetics are deliberately suppressed noise (see ``lv_version`` below).
-_PROPERTY_BOOL_FIELDS: tuple[tuple[str, str], ...] = (
-    ("reentrant", "reentrant"),
-    ("is_subroutine", "subroutine"),
-    ("run_when_opened", "run-on-open"),
+# Curated boolean VI Properties/VIStructure flags -> display name, sourced
+# from the ONE canonical maps in ``graph.models`` (``CURATED_PROPERTY_FLAGS``/
+# ``CURATED_STRUCTURE_FLAGS``) so the diff, the netlist header spec, and the
+# render-viewer's status chips can never drift into different flag sets --
+# see those maps' docstrings for what's included/excluded and why.
+_PROPERTY_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
+    CURATED_PROPERTY_FLAGS.items()
 )
-
-# Curated boolean VIStructure fields -> display name, matching the netlist
-# header's own flag vocabulary (docs/reference/netlist.md "VI properties &
-# structure header") plus ``is_strict_typedef`` (not in that terse header,
-# but a genuine structural distinction worth a diff line). ``lv_version``,
-# ``vi_type``, window/toolbar cosmetics, and numeric priority/exec-system are
-# NEVER diffed -- pure noise (``lv_version`` bumps on every save).
-_STRUCTURE_BOOL_FIELDS: tuple[tuple[str, str], ...] = (
-    ("is_broken", "broken"),
-    ("is_typedef", "typedef"),
-    ("is_strict_typedef", "strict-typedef"),
-    ("dynamic_dispatch", "dynamic-dispatch"),
-    ("source_only", "source-only"),
-    ("has_no_block_diagram", "no-block-diagram"),
-    ("is_instance_vi", "instance-vi"),
+_STRUCTURE_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
+    CURATED_STRUCTURE_FLAGS.items()
 )
-
-
-def _bool_str(v: bool) -> str:
-    """Lowercase display form of a bool VI-Properties/Structure flag value
-    (``"false"``/``"true"``) -- NOT Python's ``str(bool)`` (``"False"``/
-    ``"True"``), to match the netlist header's own lowercase flag syntax."""
-    return "true" if v else "false"
 
 
 def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChange]:
@@ -2620,9 +2608,10 @@ def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChan
             "lock", pa.lock_state.value, pb.lock_state.value,
         ))
     for field_name, label in _PROPERTY_BOOL_FIELDS:
-        va, vb = getattr(pa.execution, field_name), getattr(pb.execution, field_name)
-        if va != vb:
-            changes.append(MetadataChange(label, _bool_str(va), _bool_str(vb)))
+        old_val = getattr(pa.execution, field_name)
+        new_val = getattr(pb.execution, field_name)
+        if old_val != new_val:
+            changes.append(MetadataChange(label, bool_str(old_val), bool_str(new_val)))
     return changes
 
 
@@ -2634,9 +2623,9 @@ def _diff_vi_structure(sa: VIStructure, sb: VIStructure) -> list[MetadataChange]
     VI has every one of these fields -- see ``MetadataChange``)."""
     changes: list[MetadataChange] = []
     for field_name, label in _STRUCTURE_BOOL_FIELDS:
-        va, vb = getattr(sa, field_name), getattr(sb, field_name)
-        if va != vb:
-            changes.append(MetadataChange(label, _bool_str(va), _bool_str(vb)))
+        old_val, new_val = getattr(sa, field_name), getattr(sb, field_name)
+        if old_val != new_val:
+            changes.append(MetadataChange(label, bool_str(old_val), bool_str(new_val)))
     return changes
 
 

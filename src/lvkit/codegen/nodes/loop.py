@@ -105,12 +105,13 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
                     inner_ctx.bind(inner_term, outer_var)
                 # For forLoop lpTun, binding happens after we determine loop style
 
-    # 2. Process OUTPUT tunnels - set up accumulators for lMax and lpTun (For loops)
-    # Note: lMax can be either:
-    # - The N terminal (iteration count) - outer has input, inner has no input
-    # - Auto-indexed output (accumulator) - inner receives values from loop body
+    # 2. Process OUTPUT tunnels - set up accumulators for lpTun (For loops)
+    # lMax is ALWAYS the N terminal (iteration count) -- corpus-verified
+    # (lMax count == loopLimitDCO count). It is never an auto-indexed
+    # accumulator; the real indexing/accumulator output is an lpTun tunnel
+    # (handled below).
     #
-    # For For loops, lpTun OUTPUT tunnels are also auto-indexed by default
+    # For For loops, lpTun OUTPUT tunnels are auto-indexed by default
     # (they accumulate into arrays, not just return last value)
     accum_tunnels: list[tuple[Tunnel, str]] = []  # (tunnel, accum_var)
     n_terminal_var: str | None = None  # For loop count
@@ -124,29 +125,16 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
             continue
 
         if tunnel_type == "lMax":
-            # Check if something flows INTO the inner terminal (accumulator)
-            # vs nothing flows in (N terminal for iteration count)
-            inner_has_source = _has_incoming_flow(inner_term, ctx)
-
-            if inner_has_source:
-                # Accumulator: init empty list before loop
-                accum_var = _make_var_name(tunnel, ctx)
-                pre_loop_stmts.append(
-                    build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
-                )
-                accum_tunnels.append((tunnel, accum_var))
-                bindings[outer_term] = accum_var
-            else:
-                # N terminal: try to get count from outer terminal
-                outer_var = ctx.resolve(outer_term)
-                if outer_var:
-                    # Check if array type - use len(), otherwise direct
-                    lv_type = _get_terminal_type(outer_term, ctx)
-                    if lv_type and lv_type.kind == "array":
-                        n_terminal_var = f"len({outer_var})"
-                    else:
-                        # Integer or unknown - use directly
-                        n_terminal_var = outer_var
+            # N terminal: try to get count from outer terminal
+            outer_var = ctx.resolve(outer_term)
+            if outer_var:
+                # Check if array type - use len(), otherwise direct
+                lv_type = _get_terminal_type(outer_term, ctx)
+                if lv_type and lv_type.kind == "array":
+                    n_terminal_var = f"len({outer_var})"
+                else:
+                    # Integer or unknown - use directly
+                    n_terminal_var = outer_var
 
         elif tunnel_type == "lpTun" and loop_type == "forLoop":
             # In For loops, lpTun OUTPUT tunnels are auto-indexed (accumulate)
@@ -431,10 +419,6 @@ def _make_var_name(tunnel: Tunnel, ctx: CodeGenContext | None = None) -> str:
                 return "counter"
         # Generic fallback for shift registers
         return "state"
-
-    elif tunnel.tunnel_type == "lMax":
-        # Accumulators build up arrays
-        return "results"
 
     # Fall back to generic tunnel name
     return "value"
@@ -851,24 +835,6 @@ def _find_all_autoindex_arrays(
                     results.append((outer_var, inner_term))
 
     return results
-
-def _has_incoming_flow(terminal_uid: str, ctx: CodeGenContext) -> bool:
-    """Check if a terminal has incoming data flow from the loop body.
-
-    Used to distinguish:
-    - lMax as N terminal (no incoming flow to inner terminal)
-    - lMax as accumulator (has incoming flow from loop body)
-
-    Structural edges (tunnel outer→inner on the same structure node)
-    are NOT data flow — they're the tunnel's own pass-through.
-    """
-    if ctx.graph is None:
-        return False
-    node_id = ctx.graph._term_to_node.get(terminal_uid)
-    for src in ctx.graph.incoming_edges(terminal_uid):
-        if src.node_id != node_id:
-            return True
-    return False
 
 
 # Comparison operator inversions for cleaner negation

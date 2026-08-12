@@ -338,44 +338,6 @@ class TestCpdArithOperation:
 class TestTunnelMapping:
     """Tests for the TunnelMapping dataclass."""
 
-    def test_tunnel_lsr_direction(self):
-        """Test left shift register tunnel direction."""
-        tunnel = TunnelMapping(
-            outer_terminal_uid="outer1",
-            inner_terminal_uid="inner1",
-            tunnel_type="lSR",
-        )
-        assert tunnel.direction == "in"
-
-    def test_tunnel_rsr_direction(self):
-        """Test right shift register tunnel direction."""
-        tunnel = TunnelMapping(
-            outer_terminal_uid="outer2",
-            inner_terminal_uid="inner2",
-            tunnel_type="rSR",
-        )
-        assert tunnel.direction == "out"
-
-    def test_tunnel_lmax_direction(self):
-        """lMax is the For-loop N (iteration-count) INPUT terminal
-        (loopLimitDCO), not an aggregation output — corpus-verified
-        (lMax count == loopLimitDCO count)."""
-        tunnel = TunnelMapping(
-            outer_terminal_uid="outer3",
-            inner_terminal_uid="inner3",
-            tunnel_type="lMax",
-        )
-        assert tunnel.direction == "in"
-
-    def test_tunnel_lptun_direction(self):
-        """Test loop tunnel direction is unknown."""
-        tunnel = TunnelMapping(
-            outer_terminal_uid="outer4",
-            inner_terminal_uid="inner4",
-            tunnel_type="lpTun",
-        )
-        assert tunnel.direction == "unknown"
-
     def test_tunnel_with_paired_terminal(self):
         """Test tunnel with paired terminal (shift register)."""
         tunnel = TunnelMapping(

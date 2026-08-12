@@ -534,8 +534,6 @@ class LoadingMixin:
                         is_static=method.is_static,
                         must_override=method.must_override,
                         must_call_parent=method.must_call_parent,
-                        priority=method.priority,
-                        execution_system=method.execution_system,
                     )
 
         return cls_qname

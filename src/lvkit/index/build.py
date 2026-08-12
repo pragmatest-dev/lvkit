@@ -642,6 +642,4 @@ def _build_class_fact(
         must_call_parent=bool(access and access.must_call_parent),
         class_version=graph.get_class_version(owning_class),
         ancestors=graph.get_class_ancestors(owning_class),
-        method_priority=access.priority if access else None,
-        method_execution_system=access.execution_system if access else None,
     )

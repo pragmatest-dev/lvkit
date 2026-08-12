@@ -12,7 +12,6 @@ resolver chain) -> ``draw.py`` (replays the resolved glyphs/structures/wires)
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import re
 from pathlib import Path
@@ -20,7 +19,7 @@ from typing import Literal
 
 from ..graph.core import InMemoryVIGraph
 from ..graph.loading import LoadMode
-from ..graph.models import VINode
+from ..graph.models import VINode, vi_properties_to_dict, vi_structure_to_dict
 from .backend import SvgBackend
 from .draw import draw_scene
 from .scene import Scene, build_scene
@@ -269,16 +268,16 @@ def _vi_properties_data_attrs(
     ``.structure``); a missing/unloaded VI degrades to the all-defaults
     ``VIContext`` it already returns, never raises.
 
-    ``LockState`` (an ``Enum``) is swapped for its ``.value`` string, and
-    ``VIStructure.is_broken`` (a derived ``@property``, so ``dataclasses.
-    asdict`` skips it) is added explicitly — both dicts are otherwise a
-    faithful field-for-field dump, ``json.dumps``-ready.
+    ``vi_properties_to_dict``/``vi_structure_to_dict`` (``graph/models.py``)
+    are the canonical converters -- ``LockState`` (an ``Enum``) swapped for
+    its ``.value`` string, ``VIStructure.is_broken`` (a derived ``@property``,
+    so ``dataclasses.asdict`` skips it) added explicitly -- shared with the
+    netlist JSON IR (``netlist.py``'s ``netlist_to_dict``) so both surfaces
+    stay byte-for-byte the same shape.
     """
     ctx = graph.get_vi_context(vi_name)
-    props = dataclasses.asdict(ctx.properties)
-    props["lock_state"] = ctx.properties.lock_state.value
-    struct = dataclasses.asdict(ctx.structure)
-    struct["is_broken"] = ctx.structure.is_broken
+    props = vi_properties_to_dict(ctx.properties)
+    struct = vi_structure_to_dict(ctx.structure)
     return {
         "lv-properties": json.dumps(props, separators=(",", ":"), sort_keys=True),
         "lv-structure": json.dumps(struct, separators=(",", ":"), sort_keys=True),

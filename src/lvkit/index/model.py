@@ -135,11 +135,6 @@ class ClassFact:
     # structure.LVClass.ancestors) — may be a PREFIX of the true chain when an
     # ancestor's .lvclass isn't present in this checkout.
     ancestors: list[str] = field(default_factory=list)
-    # NI.ClassItem.Priority / ExecutionSystem on THIS method's own Item, raw
-    # ints verbatim (semantics unconfirmed -- never mapped to a label). None
-    # when the property is absent.
-    method_priority: int | None = None
-    method_execution_system: int | None = None
 
 
 @dataclass

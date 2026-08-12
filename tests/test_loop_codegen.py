@@ -89,20 +89,6 @@ class TestMakeVarName:
         # Should use generic shift register name
         assert var_name == "state"
 
-    def test_make_var_name_fallback_for_lmax_accumulator(
-        self    ):
-        """Test fallback naming for lMax accumulator tunnels."""
-        ctx = CodeGenContext()
-
-        tunnel = Tunnel(
-            outer_terminal_uid="tun_outer",
-            inner_terminal_uid="tun_inner",
-            tunnel_type="lMax",
-        )
-
-        var_name = _make_var_name(tunnel, ctx)
-        assert var_name == "results"
-
     def test_make_var_name_generic_fallback(self):
         """Test generic fallback for unknown tunnel types."""
         ctx = CodeGenContext()
@@ -493,61 +479,6 @@ class TestLoopCodeGenGenerate:
         init_code = ast.unparse(init_assign)
         assert "= 0" in init_code, f"Should initialize to 0, got: {init_code}"
 
-    def test_generate_while_loop_accumulator_appends_values(
-        self    ):
-        """Test while loop with lMax accumulator generates append calls."""
-        # lMax with incoming flow = accumulator (builds list)
-        data_flow = [
-            Wire.from_terminals(
-                from_terminal_id="inner_result", to_terminal_id="lmax_inner"
-            ),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("inner_result", "computed_value")
-
-        loop_op = LoopOperation(
-            id="loop1",
-            name="While Loop",
-            kind="loop",
-            loop_type="whileLoop",
-            tunnels=[
-                Tunnel(
-                    outer_terminal_uid="lmax_outer",
-                    inner_terminal_uid="lmax_inner",
-                    tunnel_type="lMax",
-                ),
-            ],
-            inner_nodes=[],
-        )
-
-        fragment = loop.generate(loop_op, ctx)
-
-        # Find list initialization and while loop
-        init_assign = None
-        while_loop = None
-        for stmt in fragment.statements:
-            if isinstance(stmt, ast.Assign):
-                init_assign = stmt
-            if isinstance(stmt, ast.While):
-                while_loop = stmt
-
-        assert init_assign is not None
-        assert while_loop is not None
-
-        # Verify initialization is empty list
-        ast.fix_missing_locations(init_assign)
-        init_code = ast.unparse(init_assign)
-        assert "= []" in init_code, f"Should init empty list, got: {init_code}"
-
-        # Verify append call exists in loop body
-        ast.fix_missing_locations(while_loop)
-        loop_code = ast.unparse(while_loop)
-        assert ".append(" in loop_code, f"Should have append call, got: {loop_code}"
-        assert "computed_value" in loop_code, "Should append the inner result"
-
-        # Verify outer terminal is bound to accumulator
-        assert "lmax_outer" in fragment.bindings
-
     def test_generate_nested_loop_uses_different_index_vars(
         self    ):
         """Test that nested loops use i, j, k for index variables."""
@@ -708,66 +639,6 @@ class TestLoopCodeGenExecutable:
         assert acc_var is not None, "rSR outer terminal should be bound"
         result = self._compile_and_run(fragment.statements, {})
         assert result[acc_var] == 5
-
-    def test_while_loop_accumulator_initializes_empty_list(
-        self    ):
-        """Test that accumulator generates an empty list initialization.
-
-        Verifying actual accumulator behavior requires a full VI context with
-        inner operations. Here we verify the structural requirements:
-        - Empty list initialization before the loop
-        - Outer terminal is bound to the accumulator variable
-        """
-        data_flow = [
-            Wire.from_terminals(
-                from_terminal_id="val_src", to_terminal_id="lmax_inner"
-            ),
-        ]
-        ctx = CodeGenContext.from_wires(data_flow)
-        ctx.bind("val_src", "iteration")
-
-        loop_op = LoopOperation(
-            id="loop1",
-            name="While Loop",
-            kind="loop",
-            loop_type="whileLoop",
-            tunnels=[
-                Tunnel(
-                    outer_terminal_uid="lmax_outer",
-                    inner_terminal_uid="lmax_inner",
-                    tunnel_type="lMax",
-                ),
-            ],
-            inner_nodes=[],
-            stop_condition_terminal="stop_term",
-        )
-
-        fragment = loop.generate(loop_op, ctx)
-
-        # Find list initialization
-        init_assigns = [s for s in fragment.statements if isinstance(s, ast.Assign)]
-        assert len(init_assigns) >= 1, "Should have at least one initialization"
-
-        # One of them should initialize to []
-        found_list_init = False
-        for assign in init_assigns:
-            ast.fix_missing_locations(assign)
-            code = ast.unparse(assign)
-            if "= []" in code:
-                found_list_init = True
-                break
-        assert found_list_init, "Should initialize accumulator to empty list"
-
-        # Outer terminal should be bound
-        accum_var = fragment.bindings.get("lmax_outer")
-        assert accum_var is not None, "Outer terminal should be bound to accumulator"
-
-        # Accumulator should be the list variable
-        assert accum_var in [
-            assign.targets[0].id
-            for assign in init_assigns
-            if isinstance(assign.targets[0], ast.Name)
-        ]
 
 
 class TestWhileLoopDoWhileSemantics:
