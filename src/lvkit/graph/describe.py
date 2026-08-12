@@ -7,6 +7,7 @@ Used by the MCP server and CLI ``describe`` command.
 from __future__ import annotations
 
 from dataclasses import fields as dataclass_fields
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from ..models import (
@@ -32,6 +33,7 @@ from .models import (
     VIContext,
     VIStructure,
     WindowProps,
+    bool_str,
 )
 from .netlist import build_netlist, component_line, render_netlist
 from .op_walk import (
@@ -368,16 +370,24 @@ _FlagGroup = (
 def _describe_flag_group(group: _FlagGroup, indent: str = "    ") -> list[str]:
     """Render one VI-Properties/VIStructure sub-struct's non-default fields.
 
-    bool fields show only when True; ``int | None`` / ``str | None`` fields
-    show only when actually set (not None -- 0 counts as set). Keeps the
-    common (all-default) case terse instead of dumping dozens of ``False``s.
+    bool fields show only when True (rendered lowercase via ``bool_str``,
+    matching the netlist/diff convention -- never Python's capitalized
+    ``str(bool)``); Enum fields (``priority``/``reentrancy``/``exec_system``/
+    ``typedef_status``) show only when != the dataclass default, as their
+    ``.value`` string -- an enum TRANSITION's after-side rendering, matching
+    how ``diff.py`` shows them; ``int | None`` / ``str | None`` fields show
+    only when actually set (not None -- 0 counts as set). Keeps the common
+    (all-default) case terse instead of dumping dozens of ``False``s.
     """
     lines: list[str] = []
     for f in dataclass_fields(group):
         value = getattr(group, f.name)
         if isinstance(value, bool):
             if value:
-                lines.append(f"{indent}{f.name}: {value}")
+                lines.append(f"{indent}{f.name}: {bool_str(value)}")
+        elif isinstance(value, Enum):
+            if value != f.default:
+                lines.append(f"{indent}{f.name}: {value.value}")
         elif value is not None:
             lines.append(f"{indent}{f.name}: {value}")
     return lines
@@ -421,13 +431,14 @@ def _describe_structure(ctx: VIContext) -> list[str]:
     a SIBLING section to ``## Properties``, never folded into it: this is
     intrinsic VI state (kind, broken-ness), not a user-settable property.
 
-    Shows only non-default fields (e.g. ``is_typedef``/``has_no_block_
-    diagram`` when True), plus ``is_broken`` whenever any bad_* flag is set.
+    Shows only non-default fields (e.g. ``typedef_status``/``has_no_block_
+    diagram`` when non-default/True), plus ``is_broken`` whenever any bad_*
+    flag is set.
     """
     struct = ctx.structure
     body = _describe_flag_group(struct, indent="  ")
     if struct.is_broken:
-        body.append(f"  is_broken: {struct.is_broken}")
+        body.append(f"  is_broken: {bool_str(struct.is_broken)}")
     lines = ["## Structure"]
     lines.extend(body if body else ["  (none)"])
     lines.append("")
@@ -478,11 +489,11 @@ def _describe_class_context(
     if cc.scope:
         lines.append(f"  scope: {cc.scope}")
     if cc.is_static:
-        lines.append("  is_static: True")
+        lines.append(f"  is_static: {bool_str(cc.is_static)}")
     if cc.must_override:
-        lines.append("  must_override: True")
+        lines.append(f"  must_override: {bool_str(cc.must_override)}")
     if cc.must_call_parent:
-        lines.append("  must_call_parent: True")
+        lines.append(f"  must_call_parent: {bool_str(cc.must_call_parent)}")
     lines.append("")
     return lines
 

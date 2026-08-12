@@ -105,9 +105,10 @@ _PANEL_CSS = """
 
 # Shared row/group/buildPanel JS — the ONE value-rendering implementation
 # both panels use. Grouped like `describe` (Version / Execution / Window /
-# Toolbar / Instance / Structure): only non-default (truthy/non-null) fields
-# show, so the common case stays terse -- same convention as
-# graph/describe.py's _describe_properties/_describe_structure.
+# Toolbar / Instance / Structure): EVERY field shows (unfiltered), like the
+# diagram shows unchanged nodes -- "see every value, changed ones
+# highlighted" -- not just the non-default ones (that filter used to hide
+# most of a VI's actual properties from the single-VI popover).
 #
 # `beforeProps`/`beforeStruct` (declared by each panel's own preamble, see
 # PROPERTIES_PANEL/DIFF_PROPERTIES_PANEL below) drive an OPTIONAL highlight:
@@ -133,16 +134,9 @@ _PANEL_BODY_JS = """
       dl.appendChild(dt);
       dl.appendChild(dd);
     }
-    function group(title, obj, always, beforeObj) {
+    function group(title, obj, beforeObj) {
       if (!obj) return null;
-      var keys = Object.keys(obj)
-        .filter(function (k) {
-          var v = obj[k];
-          return always && always.indexOf(k) >= 0
-            ? v !== null && v !== undefined
-            : v !== false && v !== null && v !== undefined;
-        })
-        .sort();
+      var keys = Object.keys(obj).sort();
       if (!keys.length) return null;
       var frag = document.createDocumentFragment();
       var h = document.createElement("h4");
@@ -169,7 +163,7 @@ _PANEL_BODY_JS = """
         var top = group(
           "Version", { lock_state: props.lock_state, lv_version: props.lv_version,
                         vi_type: props.vi_type },
-          ["lock_state"], beforeTop,
+          beforeTop,
         );
         if (top) { panel.appendChild(top); any = true; }
         [
@@ -178,16 +172,16 @@ _PANEL_BODY_JS = """
           ["Toolbar", props.toolbar, beforeProps ? beforeProps.toolbar : null],
           ["Instance", props.instance, beforeProps ? beforeProps.instance : null],
         ].forEach(function (t) {
-          var frag = group(t[0], t[1], null, t[2]);
+          var frag = group(t[0], t[1], t[2]);
           if (frag) { panel.appendChild(frag); any = true; }
         });
       }
-      var structFrag = group("Structure", struct, null, beforeStruct);
+      var structFrag = group("Structure", struct, beforeStruct);
       if (structFrag) { panel.appendChild(structFrag); any = true; }
       if (!any) {
         var p = document.createElement("div");
         p.className = "lvkit-props-empty";
-        p.textContent = "(no notable properties)";
+        p.textContent = "(no properties available)";
         panel.appendChild(p);
       }
     }

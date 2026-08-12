@@ -58,11 +58,9 @@ CREATE TABLE IF NOT EXISTS vis (
     lv_version TEXT,
     vi_type TEXT,
     lock_state TEXT NOT NULL DEFAULT 'unlocked',
-    exec_reentrant INTEGER NOT NULL DEFAULT 0,
-    exec_reentrancy_pooled INTEGER NOT NULL DEFAULT 0,
-    exec_priority INTEGER,
-    exec_preferred_system INTEGER,
-    exec_is_subroutine INTEGER NOT NULL DEFAULT 0,
+    exec_priority TEXT NOT NULL DEFAULT 'normal',
+    reentrancy TEXT NOT NULL DEFAULT 'non_reentrant',
+    exec_system TEXT NOT NULL DEFAULT 'same_as_caller',
     exec_run_when_opened INTEGER NOT NULL DEFAULT 0,
     exec_show_fp_when_loaded INTEGER NOT NULL DEFAULT 0,
     exec_show_fp_when_called INTEGER NOT NULL DEFAULT 0,
@@ -96,8 +94,7 @@ CREATE TABLE IF NOT EXISTS vis (
     instance_hide_instance_caption INTEGER NOT NULL DEFAULT 0,
     instance_draw_instance_icon INTEGER NOT NULL DEFAULT 0,
     instance_remote_panel INTEGER NOT NULL DEFAULT 0,
-    struct_is_typedef INTEGER NOT NULL DEFAULT 0,
-    struct_is_strict_typedef INTEGER NOT NULL DEFAULT 0,
+    struct_typedef_status TEXT NOT NULL DEFAULT 'not_a_typedef',
     struct_dynamic_dispatch INTEGER NOT NULL DEFAULT 0,
     struct_source_only INTEGER NOT NULL DEFAULT 0,
     struct_has_no_block_diagram INTEGER NOT NULL DEFAULT 0,
@@ -207,7 +204,7 @@ _ALL_TABLES = (
 
 # VIProperties + VIStructure flattened columns on ``vis``: (column_name,
 # is_bool). ``column_name`` is always identical to the matching ``VIFacts``
-# attribute name (see index/model.py) so save()/load() round-trip all 53
+# attribute name (see index/model.py) so save()/load() round-trip all 50
 # columns from this single ordered list instead of hand-aligning that many
 # positional slots across the DDL/INSERT/SELECT. The last 12 (``struct_*``)
 # are VIStructure's -- a facet SIBLING to VIProperties, flattened into the
@@ -217,11 +214,9 @@ _FLAT_PROPERTY_COLUMNS: tuple[tuple[str, bool], ...] = (
     ("lv_version", False),
     ("vi_type", False),
     ("lock_state", False),
-    ("exec_reentrant", True),
-    ("exec_reentrancy_pooled", True),
     ("exec_priority", False),
-    ("exec_preferred_system", False),
-    ("exec_is_subroutine", True),
+    ("reentrancy", False),
+    ("exec_system", False),
     ("exec_run_when_opened", True),
     ("exec_show_fp_when_loaded", True),
     ("exec_show_fp_when_called", True),
@@ -255,8 +250,7 @@ _FLAT_PROPERTY_COLUMNS: tuple[tuple[str, bool], ...] = (
     ("instance_hide_instance_caption", True),
     ("instance_draw_instance_icon", True),
     ("instance_remote_panel", True),
-    ("struct_is_typedef", True),
-    ("struct_is_strict_typedef", True),
+    ("struct_typedef_status", False),
     ("struct_dynamic_dispatch", True),
     ("struct_source_only", True),
     ("struct_has_no_block_diagram", True),

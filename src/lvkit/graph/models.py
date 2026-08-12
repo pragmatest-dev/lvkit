@@ -407,6 +407,75 @@ class TerminalRef(BaseModel):
     direction: str
 
 
+class TypedefStatus(Enum):
+    """VI Structure -> type-definition kind (the LVSR ``TypeDefVI``/
+    ``StrictTypeDefVI`` pair, NI-doc + corpus verified).
+
+    Derived from ``<Execution TypeDefVI>``/``<Execution StrictTypeDefVI>`` --
+    see ``parser.metadata._parse_lvsr_properties``: ``(0, 0)`` ->
+    not_a_typedef, ``(1, 0)`` -> typedef, ``(1, 1)`` -> strict_typedef.
+    ``(0, 1)`` never occurs.
+    """
+
+    NOT_A_TYPEDEF = "not_a_typedef"
+    TYPEDEF = "typedef"
+    STRICT_TYPEDEF = "strict_typedef"
+
+
+class Priority(Enum):
+    """VI Properties -> Execution -> Priority (the LVSR ``Priority``
+    attribute -- a 0-indexed FILE FORMAT code, NOT the VI-Server scripting
+    enum, NI-doc + corpus verified).
+
+    Derived from ``<Execution Priority="N">``: 0=background, 1=normal,
+    2=above_normal, 3=high, 4=time_critical, 5=subroutine (also implies the
+    legacy ``IsSubroutine`` flag -- redundant, so the parser stops reading
+    it). See ``parser.metadata._parse_lvsr_properties``.
+    """
+
+    BACKGROUND = "background"
+    NORMAL = "normal"
+    ABOVE_NORMAL = "above_normal"
+    HIGH = "high"
+    TIME_CRITICAL = "time_critical"
+    SUBROUTINE = "subroutine"
+
+
+class Reentrancy(Enum):
+    """VI Properties -> Execution -> Reentrant execution (the LVSR
+    ``IsReentrant``/``PooledReentrancy`` pair, NI-doc + corpus verified).
+
+    Derived from ``<Execution IsReentrant>``/``<Execution PooledReentrancy>``:
+    ``IsReentrant=0`` -> non_reentrant (``PooledReentrancy`` is then IGNORED
+    -- a sticky leftover bit when non-reentrant); ``IsReentrant=1`` +
+    ``Pooled=0`` -> preallocated_clone; ``IsReentrant=1`` + ``Pooled=1`` ->
+    shared_clone. See ``parser.metadata._parse_lvsr_properties``.
+    """
+
+    NON_REENTRANT = "non_reentrant"
+    SHARED_CLONE = "shared_clone"
+    PREALLOCATED_CLONE = "preallocated_clone"
+
+
+class ExecSystem(Enum):
+    """VI Properties -> Execution -> Preferred execution system (the LVSR
+    ``PrefExecSyst`` attribute, NI-doc + corpus verified).
+
+    Derived from ``<Execution PrefExecSyst="N">``: -1=same_as_caller,
+    0=user_interface, 1=standard, 2=instrument_io, 3=data_acquisition,
+    4=other_1, 5=other_2. Any other/absent value -> same_as_caller (the
+    default). See ``parser.metadata._parse_lvsr_properties``.
+    """
+
+    SAME_AS_CALLER = "same_as_caller"
+    USER_INTERFACE = "user_interface"
+    STANDARD = "standard"
+    INSTRUMENT_IO = "instrument_io"
+    DATA_ACQUISITION = "data_acquisition"
+    OTHER_1 = "other_1"
+    OTHER_2 = "other_2"
+
+
 class LockState(Enum):
     """VI Properties -> Protection tri-state (the LabVIEW VI Properties
     dialog's Protection page has exactly these three states — verified
@@ -431,13 +500,16 @@ class ExecutionProps:
     ``inline``/``inlinable``/``auto_error_handling``/``always_calls_parent``
     come from ``<Execution2>``; ``allow_debugging``/``print_after_exec`` come
     from ``<Instrument>`` (verified against a real extracted main .xml).
+
+    ``priority``/``reentrancy``/``exec_system`` are FAITHFUL enums (see
+    ``Priority``/``Reentrancy``/``ExecSystem`` above) -- the legacy
+    ``IsSubroutine`` flag is redundant with ``priority == SUBROUTINE`` and is
+    no longer read.
     """
 
-    reentrant: bool = False  # IsReentrant
-    reentrancy_pooled: bool = False  # PooledReentrancy
-    priority: int | None = None  # Priority
-    preferred_system: int | None = None  # PrefExecSyst
-    is_subroutine: bool = False  # IsSubroutine
+    priority: Priority = Priority.NORMAL  # Priority
+    reentrancy: Reentrancy = Reentrancy.NON_REENTRANT  # IsReentrant + PooledReentrancy
+    exec_system: ExecSystem = ExecSystem.SAME_AS_CALLER  # PrefExecSyst
     run_when_opened: bool = False  # RunOnOpen
     show_fp_when_loaded: bool = False  # ShowFPOnLoad
     show_fp_when_called: bool = False  # ShowFPOnCall
@@ -461,7 +533,12 @@ class WindowProps:
     show_title_bar: bool = False  # ShowTitleBar
     show_menu_bar: bool = False  # ShowMenuBar
     show_toolbar: bool = False  # ToolBarVisible
-    show_scrollbar: int | None = None  # ShowScrollBar (raw bitmask, verbatim)
+    # ShowScrollBar: raw int, kept VERBATIM -- NOT remodeled. Really TWO
+    # checkboxes (horizontal/vertical scroll bar): 3=both (default), 0=none,
+    # 2=one. The bit<->axis mapping is unverified (insufficient corpus
+    # samples showing every combination), so this stays the raw LVSR value
+    # rather than a guessed enum/pair of bools.
+    show_scrollbar: int | None = None  # ShowScrollBar
     auto_center: bool = False  # AutoCenter
     size_to_screen: bool = False  # SizeToScreen
     no_runtime_popup_menu: bool = False  # NoRuntimePopUp
@@ -508,8 +585,8 @@ class VIStructure:
     a SIBLING to ``VIProperties``, never nested inside it.
     """
 
-    is_typedef: bool = False  # TypeDefVI
-    is_strict_typedef: bool = False  # StrictTypeDefVI
+    # TypeDefVI + StrictTypeDefVI
+    typedef_status: TypedefStatus = TypedefStatus.NOT_A_TYPEDEF
     dynamic_dispatch: bool = False  # DynamicDispatch
     source_only: bool = False  # SourceOnly (<Execution2>)
     has_no_block_diagram: bool = False  # HasNoBD
@@ -542,7 +619,11 @@ class VIProperties:
 
     # "Major.Minor.Bugfix", e.g. "21.0.0" -- from <Version Major Minor Bugfix>.
     lv_version: str | None = None
-    # <Instrument Type="..."> verbatim (e.g. "Control")
+    # <Instrument Type="..."> verbatim, kept RAW -- NOT remodeled. pylabview
+    # PARTIALLY decodes this (Control/Subsystem/Polymorph...) but also emits
+    # un-decoded ordinals like "11" outside NI's documented VI-Type 0-9
+    # range; a faithful enum needs a pylabview-source decode (follow-up), so
+    # this stays the raw string as pylabview emits it.
     vi_type: str | None = None
     lock_state: LockState = LockState.UNLOCKED
     execution: ExecutionProps = field(default_factory=ExecutionProps)
@@ -562,15 +643,16 @@ def bool_str(v: bool) -> str:
 
 
 # Curated boolean ``ExecutionProps`` (VI Properties -> Execution page) flags
-# -> display label -- the ONE canonical set of high-signal settings that
-# actually change VI behaviour. NOT every ``ExecutionProps`` field --
-# priority/exec-system/window/toolbar cosmetics are deliberately excluded
-# noise (see ``VIProperties``'s own docstring). Drives ``diff.py``'s
-# ``_PROPERTY_BOOL_FIELDS`` and the render-viewer's status chips
-# (``render/properties_panel.py``) -- one edit changes both surfaces.
+# -> display label -- the ONE canonical set of high-signal BOOLEAN settings
+# that actually change VI behaviour. NOT every ``ExecutionProps`` field --
+# window/toolbar cosmetics are deliberately excluded noise (see
+# ``VIProperties``'s own docstring); ``priority``/``reentrancy``/
+# ``exec_system`` are ENUM-valued (like ``lock_state``) and are handled
+# separately everywhere -- an enum transition in diff, an enum row in
+# describe/the popover -- NEVER folded into this bool-flag map. Drives
+# ``diff.py``'s ``_PROPERTY_BOOL_FIELDS`` and the render-viewer's status
+# chips (``render/properties_panel.py``) -- one edit changes both surfaces.
 CURATED_PROPERTY_FLAGS: dict[str, str] = {
-    "reentrant": "reentrant",
-    "is_subroutine": "subroutine",
     "run_when_opened": "run-on-open",
 }
 
@@ -578,12 +660,10 @@ CURATED_PROPERTY_FLAGS: dict[str, str] = {
 # netlist header's own flag vocabulary (``docs/reference/netlist.md`` "VI
 # properties & structure header"). Drives ``diff.py``'s
 # ``_STRUCTURE_BOOL_FIELDS`` and the render-viewer's status chips -- one edit
-# changes both surfaces. ``lock_state`` is handled separately everywhere (an
-# enum transition, not a bool flag).
+# changes both surfaces. ``lock_state``/``typedef_status`` are handled
+# separately everywhere (enum transitions, not bool flags).
 CURATED_STRUCTURE_FLAGS: dict[str, str] = {
     "is_broken": "broken",
-    "is_typedef": "typedef",
-    "is_strict_typedef": "strict-typedef",
     "dynamic_dispatch": "dynamic-dispatch",
     "source_only": "source-only",
     "has_no_block_diagram": "no-block-diagram",
@@ -595,23 +675,30 @@ def vi_properties_to_dict(p: VIProperties) -> dict:
     """Canonical JSON shape for a ``VIProperties``: full nested groups
     (``execution``/``window``/``toolbar``/``instance``, each a faithful
     ``dataclasses.asdict`` -- they have no nested Enum/dataclass fields of
-    their own), with ``lock_state`` unwrapped to its string value (the one
-    Enum field ``asdict`` alone wouldn't convert). The ONE converter both the
-    render viewer's SVG data attrs (``render/__init__.py``'s
-    ``_vi_properties_data_attrs``) and the netlist JSON IR
-    (``netlist.py``'s ``netlist_to_dict``) call, so the two surfaces can't
-    drift into different shapes."""
+    their own EXCEPT ``execution``'s ``priority``/``reentrancy``/
+    ``exec_system``), with every Enum field (``lock_state`` plus those three)
+    unwrapped to its string value (``dataclasses.asdict`` alone wouldn't
+    convert them). The ONE converter both the render viewer's SVG data attrs
+    (``render/__init__.py``'s ``_vi_properties_data_attrs``) and the netlist
+    JSON IR (``netlist.py``'s ``netlist_to_dict``) call, so the two surfaces
+    can't drift into different shapes."""
     d = dataclasses.asdict(p)
     d["lock_state"] = p.lock_state.value
+    d["execution"]["priority"] = p.execution.priority.value
+    d["execution"]["reentrancy"] = p.execution.reentrancy.value
+    d["execution"]["exec_system"] = p.execution.exec_system.value
     return d
 
 
 def vi_structure_to_dict(s: VIStructure) -> dict:
-    """Canonical JSON shape for a ``VIStructure``: every field, PLUS the
-    derived ``is_broken`` property (``dataclasses.asdict`` alone omits it --
-    it isn't a dataclass field). The ONE converter both the render viewer's
-    SVG data attrs and the netlist JSON IR call."""
+    """Canonical JSON shape for a ``VIStructure``: every field, with
+    ``typedef_status`` unwrapped to its string value (``dataclasses.asdict``
+    alone wouldn't convert an Enum field), PLUS the derived ``is_broken``
+    property (``dataclasses.asdict`` alone omits it -- it isn't a dataclass
+    field). The ONE converter both the render viewer's SVG data attrs and the
+    netlist JSON IR call."""
     d = dataclasses.asdict(s)
+    d["typedef_status"] = s.typedef_status.value
     d["is_broken"] = s.is_broken
     return d
 

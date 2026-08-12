@@ -27,7 +27,7 @@ import networkx as nx
 
 from .. import cache_paths
 from ..graph import InMemoryVIGraph, LoadMode
-from ..graph.models import Constant, VINode, VIProperties, VIStructure
+from ..graph.models import Constant, VINode
 from ..models import FPTerminal
 from ..structure import get_project_members, parse_lvproj
 from .model import (
@@ -436,13 +436,13 @@ def project_vi_facts(
     )
     qualified_name = vnode.qualified_name if isinstance(vnode, VINode) else None
 
-    # VI Properties + VIStructure, straight from the graph's sibling
-    # _vi_properties/_vi_structure facets (intrinsic to this VI's own
-    # bytes -- unlike ``library``/``owning_class`` above, which resolve via
-    # ownership edges to OTHER files). Neither is a VIMetadata field -- see
-    # graph/core.py's _vi_properties/_vi_structure.
-    properties = graph._vi_properties.get(vi_name, VIProperties())
-    structure = graph._vi_structure.get(vi_name, VIStructure())
+    # VI Properties + VIStructure, straight from the graph's own accessors
+    # (intrinsic to this VI's own bytes -- unlike ``library``/
+    # ``owning_class`` above, which resolve via ownership edges to OTHER
+    # files). Neither is a VIMetadata field -- see
+    # graph.queries.get_vi_properties/get_vi_structure.
+    properties = graph.get_vi_properties(vi_name)
+    structure = graph.get_vi_structure(vi_name)
 
     terminals: list[TerminalFact] = []
     type_use_keys: set[str] = set()
@@ -538,11 +538,9 @@ def project_vi_facts(
         lv_version=properties.lv_version,
         vi_type=properties.vi_type,
         lock_state=properties.lock_state.value,
-        exec_reentrant=properties.execution.reentrant,
-        exec_reentrancy_pooled=properties.execution.reentrancy_pooled,
-        exec_priority=properties.execution.priority,
-        exec_preferred_system=properties.execution.preferred_system,
-        exec_is_subroutine=properties.execution.is_subroutine,
+        exec_priority=properties.execution.priority.value,
+        reentrancy=properties.execution.reentrancy.value,
+        exec_system=properties.execution.exec_system.value,
         exec_run_when_opened=properties.execution.run_when_opened,
         exec_show_fp_when_loaded=properties.execution.show_fp_when_loaded,
         exec_show_fp_when_called=properties.execution.show_fp_when_called,
@@ -580,8 +578,7 @@ def project_vi_facts(
         ),
         instance_draw_instance_icon=properties.instance.draw_instance_icon,
         instance_remote_panel=properties.instance.remote_panel,
-        struct_is_typedef=structure.is_typedef,
-        struct_is_strict_typedef=structure.is_strict_typedef,
+        struct_typedef_status=structure.typedef_status.value,
         struct_dynamic_dispatch=structure.dynamic_dispatch,
         struct_source_only=structure.source_only,
         struct_has_no_block_diagram=structure.has_no_block_diagram,

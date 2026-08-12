@@ -2593,20 +2593,34 @@ _STRUCTURE_BOOL_FIELDS: tuple[tuple[str, str], ...] = tuple(
 )
 
 
+# Enum-valued ``ExecutionProps`` fields diffed as TRANSITIONS (old.value ->
+# new.value), exactly like ``lock_state`` -- never folded into the bool-flag
+# map (see ``CURATED_PROPERTY_FLAGS``'s docstring). The display name IS the
+# raw field name (no curated alias, unlike ``lock_state``'s "lock").
+_PROPERTY_ENUM_FIELDS: tuple[str, ...] = ("priority", "reentrancy", "exec_system")
+
+
 def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChange]:
-    """Curated VI Properties changes: ``lock_state`` (enum transition) plus
-    the high-signal ``ExecutionProps`` flags in ``_PROPERTY_BOOL_FIELDS``.
-    Every field is a fixed part of the VI Properties schema -- a changed
-    field is always an old -> new VALUE transition, never an add/remove (see
+    """Curated VI Properties changes: ``lock_state`` plus the enum fields in
+    ``_PROPERTY_ENUM_FIELDS`` (all enum TRANSITIONS) plus the high-signal
+    ``ExecutionProps`` flags in ``_PROPERTY_BOOL_FIELDS``. Every field is a
+    fixed part of the VI Properties schema -- a changed field is always an
+    old -> new VALUE transition, never an add/remove (see
     ``MetadataChange``). Everything else on ``VIProperties`` (``lv_version``,
-    ``vi_type``, window/toolbar/instance settings, numeric priority) is
-    deliberately never compared -- see the diff philosophy note on
-    ``_PROPERTY_BOOL_FIELDS``."""
+    ``vi_type``, window/toolbar/instance settings) is deliberately never
+    compared -- see the diff philosophy note on ``_PROPERTY_BOOL_FIELDS``."""
     changes: list[MetadataChange] = []
     if pa.lock_state != pb.lock_state:
         changes.append(MetadataChange(
             "lock", pa.lock_state.value, pb.lock_state.value,
         ))
+    for field_name in _PROPERTY_ENUM_FIELDS:
+        old_enum = getattr(pa.execution, field_name)
+        new_enum = getattr(pb.execution, field_name)
+        if old_enum != new_enum:
+            changes.append(MetadataChange(
+                field_name, old_enum.value, new_enum.value,
+            ))
     for field_name, label in _PROPERTY_BOOL_FIELDS:
         old_val = getattr(pa.execution, field_name)
         new_val = getattr(pb.execution, field_name)
@@ -2616,12 +2630,17 @@ def _diff_vi_properties(pa: VIProperties, pb: VIProperties) -> list[MetadataChan
 
 
 def _diff_vi_structure(sa: VIStructure, sb: VIStructure) -> list[MetadataChange]:
-    """Curated VIStructure changes: the flags in ``_STRUCTURE_BOOL_FIELDS``
+    """Curated VIStructure changes: ``typedef_status`` (enum transition,
+    like ``lock_state``) plus the flags in ``_STRUCTURE_BOOL_FIELDS``
     (``is_broken`` is the derived property -- any ``bad_*`` flag flipping
     shows as one ``broken: false -> true`` change rather than five separate
     ones). Always an old -> new value transition, never an add/remove (every
     VI has every one of these fields -- see ``MetadataChange``)."""
     changes: list[MetadataChange] = []
+    if sa.typedef_status != sb.typedef_status:
+        changes.append(MetadataChange(
+            "typedef_status", sa.typedef_status.value, sb.typedef_status.value,
+        ))
     for field_name, label in _STRUCTURE_BOOL_FIELDS:
         old_val, new_val = getattr(sa, field_name), getattr(sb, field_name)
         if old_val != new_val:

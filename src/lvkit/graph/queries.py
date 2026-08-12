@@ -840,6 +840,20 @@ class QueryMixin:
 
     # === Legacy API ===
 
+    def get_vi_properties(self, vi_name: str) -> VIProperties:
+        """The VI's Properties facet (Protection/Execution/Window/…) alone --
+        no full ``VIContext`` build. Same source ``get_vi_context`` reads
+        (``_vi_properties``); for callers that only need this one facet
+        (e.g. ``index/build.py``)."""
+        vi_name = self.resolve_vi_name(vi_name)
+        return self._vi_properties.get(vi_name, VIProperties())
+
+    def get_vi_structure(self, vi_name: str) -> VIStructure:
+        """The VI's Structure facet (kind + compile-health) alone -- see
+        ``get_vi_properties``."""
+        vi_name = self.resolve_vi_name(vi_name)
+        return self._vi_structure.get(vi_name, VIStructure())
+
     def get_vi_context(self, vi_name: str) -> VIContext:
         """Get complete VI context for code generation.
 
@@ -1180,8 +1194,9 @@ class QueryMixin:
 class ClassContext:
     """The owning ``.lvclass``'s context for a class-method VI -- the ONE
     shared collection of facts both ``describe.py``'s ``## Class`` section
-    and ``netlist.py``'s ``NetlistClassContext`` (the ``get_context``/MCP
-    JSON IR) render, via ``collect_class_context`` -- so the two surfaces
+    and ``netlist.py``'s ``NetlistModule.class_context`` (the ``get_context``/
+    MCP JSON IR, which carries this dataclass DIRECTLY -- no netlist-local
+    wrapper) render, via ``collect_class_context`` -- so the two surfaces
     can't drift on what "the class context" means."""
 
     owning_class: str

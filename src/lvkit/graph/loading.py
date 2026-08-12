@@ -40,11 +40,15 @@ from ..structure import (
     private_data_field_to_cluster_field,
 )
 from .models import (
+    ExecSystem,
     ExecutionProps,
     InstanceProps,
     LockState,
     PolyInfo,
+    Priority,
+    Reentrancy,
     ToolbarProps,
+    TypedefStatus,
     VIMetadata,
     VIProperties,
     VIStructure,
@@ -96,7 +100,16 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     module docstring), so it returns plain str/bool/int -- this is the one
     place that wraps them into the typed dataclasses/``LockState`` enum.
     """
-    execution = cast("dict[str, Any]", poly_metadata.get("execution", {}))
+    execution = dict(cast("dict[str, Any]", poly_metadata.get("execution", {})))
+    execution["priority"] = Priority(
+        execution.get("priority", Priority.NORMAL.value)
+    )
+    execution["reentrancy"] = Reentrancy(
+        execution.get("reentrancy", Reentrancy.NON_REENTRANT.value)
+    )
+    execution["exec_system"] = ExecSystem(
+        execution.get("exec_system", ExecSystem.SAME_AS_CALLER.value)
+    )
     window = cast("dict[str, Any]", poly_metadata.get("window", {}))
     toolbar = cast("dict[str, Any]", poly_metadata.get("toolbar", {}))
     instance = cast("dict[str, Any]", poly_metadata.get("instance", {}))
@@ -119,12 +132,13 @@ def _build_vi_structure(poly_metadata: dict[str, Any]) -> VIStructure:
     state, not a user-settable property).
 
     Sourced from the same ``parse_vi_metadata``/``_parse_lvsr_properties``
-    nested dict as ``_build_vi_properties``, under its ``"code"`` key --
-    the parser's own key name, unchanged (the parser cannot import graph
-    models, so it does not know this is now a separate graph facet).
+    nested dict as ``_build_vi_properties``, under its ``"structure"`` key.
     """
-    code = cast("dict[str, Any]", poly_metadata.get("code", {}))
-    return VIStructure(**code)
+    structure = dict(cast("dict[str, Any]", poly_metadata.get("structure", {})))
+    structure["typedef_status"] = TypedefStatus(
+        structure.get("typedef_status", TypedefStatus.NOT_A_TYPEDEF.value)
+    )
+    return VIStructure(**structure)
 
 
 def _get_fp_root_type_id(fp_xml: Path | None) -> int | None:

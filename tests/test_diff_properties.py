@@ -20,7 +20,16 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.diff import diff_to_dict, format_diff, netlist_diff_rows
 from lvkit.graph.loading import LoadMode
-from lvkit.graph.models import ExecutionProps, LockState, VIProperties, VIStructure
+from lvkit.graph.models import (
+    ExecSystem,
+    ExecutionProps,
+    LockState,
+    Priority,
+    Reentrancy,
+    TypedefStatus,
+    VIProperties,
+    VIStructure,
+)
 
 # Same real, permissively-licensed VI ``test_diff.py`` uses as VI_A -- any
 # loadable VI works here since we overwrite its properties/structure facets
@@ -63,40 +72,51 @@ class TestPropertiesTextSection:
         assert "Properties:" in result
         assert "~ lock: unlocked -> password_protected" in result
 
-    def test_reentrant_flag_turned_on(self):
+    def test_reentrancy_enum_transition_on(self):
         # Properties/Structure are a FIXED schema -- every VI always has a
-        # reentrant flag, so a flip renders as a VALUE transition (~), never
-        # as an added (+) row.
+        # reentrancy value, so a change renders as a VALUE transition (~),
+        # never as an added (+) row -- exactly like lock_state.
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
-            execution=ExecutionProps(reentrant=True)
+            execution=ExecutionProps(reentrancy=Reentrancy.SHARED_CLONE)
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ reentrant: false -> true" in lines
-        assert "+ reentrant" not in result
-        assert "- reentrant" not in result
+        assert "  ~ reentrancy: non_reentrant -> shared_clone" in lines
+        assert "+ reentrancy" not in result
+        assert "- reentrancy" not in result
 
-    def test_reentrant_flag_turned_off(self):
+    def test_reentrancy_enum_transition_off(self):
         ga, gb, na, nb = _pair()
         ga._vi_properties[na] = VIProperties(
-            execution=ExecutionProps(reentrant=True)
+            execution=ExecutionProps(reentrancy=Reentrancy.PREALLOCATED_CLONE)
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ reentrant: true -> false" in lines
-        assert "+ reentrant" not in result
-        assert "- reentrant" not in result
+        assert "  ~ reentrancy: preallocated_clone -> non_reentrant" in lines
+        assert "+ reentrancy" not in result
+        assert "- reentrancy" not in result
 
-    def test_subroutine_and_run_on_open_flags(self):
+    def test_priority_and_run_on_open(self):
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
-            execution=ExecutionProps(is_subroutine=True, run_when_opened=True)
+            execution=ExecutionProps(
+                priority=Priority.SUBROUTINE, run_when_opened=True,
+            )
         )
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ subroutine: false -> true" in lines
+        assert "  ~ priority: normal -> subroutine" in lines
         assert "  ~ run-on-open: false -> true" in lines
+
+    def test_exec_system_enum_transition(self):
+        ga, gb, na, nb = _pair()
+        gb._vi_properties[nb] = VIProperties(
+            execution=ExecutionProps(exec_system=ExecSystem.STANDARD)
+        )
+        result = format_diff(ga, gb, na, nb)
+        lines = result.splitlines()
+        assert "  ~ exec_system: same_as_caller -> standard" in lines
 
     def test_lv_version_change_is_suppressed(self):
         # lv_version bumps on every save -- pure noise, never diffed.
@@ -137,13 +157,14 @@ class TestStructureTextSection:
         assert "+ broken" not in result
         assert "- broken" not in result
 
-    def test_typedef_flags(self):
+    def test_typedef_status_enum_transition(self):
         ga, gb, na, nb = _pair()
-        gb._vi_structure[nb] = VIStructure(is_typedef=True, is_strict_typedef=True)
+        gb._vi_structure[nb] = VIStructure(typedef_status=TypedefStatus.STRICT_TYPEDEF)
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
-        assert "  ~ typedef: false -> true" in lines
-        assert "  ~ strict-typedef: false -> true" in lines
+        assert "  ~ typedef_status: not_a_typedef -> strict_typedef" in lines
+        assert "+ typedef_status" not in result
+        assert "- typedef_status" not in result
 
     def test_dynamic_dispatch_source_only_and_no_block_diagram_flags(self):
         ga, gb, na, nb = _pair()
@@ -182,10 +203,13 @@ class TestStructureTextSection:
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
             lock_state=LockState.LOCKED,
-            execution=ExecutionProps(reentrant=True, is_subroutine=True),
+            execution=ExecutionProps(
+                reentrancy=Reentrancy.SHARED_CLONE, priority=Priority.SUBROUTINE,
+            ),
         )
         gb._vi_structure[nb] = VIStructure(
-            bad_compile=True, is_typedef=True, dynamic_dispatch=True,
+            bad_compile=True, typedef_status=TypedefStatus.TYPEDEF,
+            dynamic_dispatch=True,
         )
         result = format_diff(ga, gb, na, nb)
         for line in result.splitlines():
@@ -231,9 +255,11 @@ class TestNetlistDiffRows:
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
             lock_state=LockState.LOCKED,
-            execution=ExecutionProps(reentrant=True),
+            execution=ExecutionProps(reentrancy=Reentrancy.SHARED_CLONE),
         )
-        gb._vi_structure[nb] = VIStructure(bad_compile=True, is_typedef=True)
+        gb._vi_structure[nb] = VIStructure(
+            bad_compile=True, typedef_status=TypedefStatus.TYPEDEF,
+        )
         rows = netlist_diff_rows(ga, gb, na, nb)
         meta_rows = [r for r in rows if r.kind in ("property", "structure")]
         assert len(meta_rows) == 4

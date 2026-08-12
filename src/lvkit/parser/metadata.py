@@ -20,6 +20,96 @@ LOCK_UNLOCKED = "unlocked"
 LOCK_LOCKED = "locked"
 LOCK_PASSWORD_PROTECTED = "password_protected"
 
+# priority string values -- MUST mirror graph.models.Priority.value exactly
+# (same parser/graph split as LOCK_* above).
+PRIORITY_BACKGROUND = "background"
+PRIORITY_NORMAL = "normal"
+PRIORITY_ABOVE_NORMAL = "above_normal"
+PRIORITY_HIGH = "high"
+PRIORITY_TIME_CRITICAL = "time_critical"
+PRIORITY_SUBROUTINE = "subroutine"
+
+# reentrancy string values -- MUST mirror graph.models.Reentrancy.value exactly.
+REENTRANCY_NON_REENTRANT = "non_reentrant"
+REENTRANCY_SHARED_CLONE = "shared_clone"
+REENTRANCY_PREALLOCATED_CLONE = "preallocated_clone"
+
+# exec_system string values -- MUST mirror graph.models.ExecSystem.value exactly.
+EXEC_SYSTEM_SAME_AS_CALLER = "same_as_caller"
+EXEC_SYSTEM_USER_INTERFACE = "user_interface"
+EXEC_SYSTEM_STANDARD = "standard"
+EXEC_SYSTEM_INSTRUMENT_IO = "instrument_io"
+EXEC_SYSTEM_DATA_ACQUISITION = "data_acquisition"
+EXEC_SYSTEM_OTHER_1 = "other_1"
+EXEC_SYSTEM_OTHER_2 = "other_2"
+
+# typedef_status string values -- MUST mirror graph.models.TypedefStatus.value
+# exactly.
+TYPEDEF_STATUS_NOT_A_TYPEDEF = "not_a_typedef"
+TYPEDEF_STATUS_TYPEDEF = "typedef"
+TYPEDEF_STATUS_STRICT_TYPEDEF = "strict_typedef"
+
+# Priority: LVSR ``Priority`` is a 0-indexed FILE FORMAT code -- NOT the
+# VI-Server scripting enum -- NI-doc + corpus verified (e.g. JKI-EasyXML's
+# "Fast Parser/Get Children.vi" has Priority="5" alongside IsSubroutine="1").
+_PRIORITY_BY_CODE: dict[int, str] = {
+    0: PRIORITY_BACKGROUND,
+    1: PRIORITY_NORMAL,
+    2: PRIORITY_ABOVE_NORMAL,
+    3: PRIORITY_HIGH,
+    4: PRIORITY_TIME_CRITICAL,
+    5: PRIORITY_SUBROUTINE,
+}
+
+# ExecSystem: LVSR ``PrefExecSyst`` -- NI-doc + corpus verified (e.g.
+# LabVIEW-OOP-Classes' "DAQ/Digital Input/DI_class/Update All.vi" has
+# PrefExecSyst="3" -> data_acquisition).
+_EXEC_SYSTEM_BY_CODE: dict[int, str] = {
+    -1: EXEC_SYSTEM_SAME_AS_CALLER,
+    0: EXEC_SYSTEM_USER_INTERFACE,
+    1: EXEC_SYSTEM_STANDARD,
+    2: EXEC_SYSTEM_INSTRUMENT_IO,
+    3: EXEC_SYSTEM_DATA_ACQUISITION,
+    4: EXEC_SYSTEM_OTHER_1,
+    5: EXEC_SYSTEM_OTHER_2,
+}
+
+
+def _priority_from_code(code: int | None) -> str:
+    """0-indexed LVSR ``Priority`` code -> faithful string value. Unknown or
+    absent codes fall back to the dataclass default (normal)."""
+    if code is None:
+        return PRIORITY_NORMAL
+    return _PRIORITY_BY_CODE.get(code, PRIORITY_NORMAL)
+
+
+def _reentrancy(is_reentrant: bool, pooled: bool) -> str:
+    """``IsReentrant``/``PooledReentrancy`` -> faithful string value.
+    ``IsReentrant=0`` ignores ``pooled`` entirely -- a sticky leftover bit
+    when non-reentrant, not a real pooling choice."""
+    if not is_reentrant:
+        return REENTRANCY_NON_REENTRANT
+    return REENTRANCY_SHARED_CLONE if pooled else REENTRANCY_PREALLOCATED_CLONE
+
+
+def _exec_system_from_code(code: int | None) -> str:
+    """LVSR ``PrefExecSyst`` code -> faithful string value. Unknown or absent
+    codes fall back to the dataclass default (same_as_caller)."""
+    if code is None:
+        return EXEC_SYSTEM_SAME_AS_CALLER
+    return _EXEC_SYSTEM_BY_CODE.get(code, EXEC_SYSTEM_SAME_AS_CALLER)
+
+
+def _typedef_status(is_typedef: bool, is_strict: bool) -> str:
+    """``TypeDefVI``/``StrictTypeDefVI`` -> faithful string value: (0, 0) ->
+    not_a_typedef, (1, 0) -> typedef, (1, 1) -> strict_typedef. (0, 1) never
+    occurs."""
+    if is_strict:
+        return TYPEDEF_STATUS_STRICT_TYPEDEF
+    if is_typedef:
+        return TYPEDEF_STATUS_TYPEDEF
+    return TYPEDEF_STATUS_NOT_A_TYPEDEF
+
 # A BD ``<Password Hash>`` this shallow (empty-string, all-zero, or the MD5 of
 # the empty string) is a stubbed/no-password placeholder, not a real password.
 _EMPTY_PASSWORD_HASHES = frozenset({
@@ -155,9 +245,11 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     the parser cannot import ``graph.models``) keyed exactly like
     ``graph.models.VIProperties``'s sub-structs: ``lv_version``/``vi_type``/
     ``lock_state`` at the top level, plus nested ``execution``/``window``/
-    ``toolbar``/``instance``/``code`` dicts. The graph layer
+    ``toolbar``/``instance``/``structure`` dicts. The graph layer
     (``graph.loading``) builds the typed dataclasses from this, wrapping
-    ``lock_state`` into ``graph.models.LockState``.
+    ``lock_state`` (and ``execution["priority"]``/``["reentrancy"]``/
+    ``["exec_system"]``/``structure["typedef_status"]``) into their matching
+    ``graph.models`` Enum.
 
     ``lock_state`` derivation (VI Properties -> Protection, a tri-state):
     read the LVSR ``<Library Protected="0|1">`` (NOT the ``<LIBN>`` owning-
@@ -166,6 +258,12 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     ``Protected=0`` -> unlocked; ``Protected=1`` + no real password ->
     locked; ``Protected=1`` + real password -> password_protected. There is
     no unlocked-with-password state.
+
+    ``priority``/``reentrancy``/``exec_system``/``typedef_status`` are
+    derived FAITHFUL enum string values (see ``_priority_from_code``/
+    ``_reentrancy``/``_exec_system_from_code``/``_typedef_status`` above) --
+    NI-doc + corpus verified. The legacy ``IsSubroutine`` flag is redundant
+    with ``priority == "subroutine"`` and is no longer read.
 
     Element paths (verified against a real extracted main .xml -- see
     ``tests/test_vi_properties.py``): ``Execution``/``Execution2``/
@@ -180,7 +278,7 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "window": {},
         "toolbar": {},
         "instance": {},
-        "code": {},
+        "structure": {},
     }
 
     version = root.find(".//LVSR/Section/Version")
@@ -223,11 +321,12 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     execution2 = root.find(".//LVSR/Section/Execution2")
     instrument = root.find(".//LVSR/Section/Instrument")
     result["execution"] = {
-        "reentrant": _bool_attr(execution, "IsReentrant"),
-        "reentrancy_pooled": _bool_attr(execution, "PooledReentrancy"),
-        "priority": _int_attr(execution, "Priority"),
-        "preferred_system": _int_attr(execution, "PrefExecSyst"),
-        "is_subroutine": _bool_attr(execution, "IsSubroutine"),
+        "priority": _priority_from_code(_int_attr(execution, "Priority")),
+        "reentrancy": _reentrancy(
+            _bool_attr(execution, "IsReentrant"),
+            _bool_attr(execution, "PooledReentrancy"),
+        ),
+        "exec_system": _exec_system_from_code(_int_attr(execution, "PrefExecSyst")),
         "run_when_opened": _bool_attr(execution, "RunOnOpen"),
         "show_fp_when_loaded": _bool_attr(execution, "ShowFPOnLoad"),
         "show_fp_when_called": _bool_attr(execution, "ShowFPOnCall"),
@@ -276,9 +375,11 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "remote_panel": _bool_attr(execution2, "RemotePanel"),
     }
 
-    result["code"] = {
-        "is_typedef": _bool_attr(execution, "TypeDefVI"),
-        "is_strict_typedef": _bool_attr(execution, "StrictTypeDefVI"),
+    result["structure"] = {
+        "typedef_status": _typedef_status(
+            _bool_attr(execution, "TypeDefVI"),
+            _bool_attr(execution, "StrictTypeDefVI"),
+        ),
         "dynamic_dispatch": _bool_attr(execution, "DynamicDispatch"),
         "source_only": _bool_attr(execution2, "SourceOnly"),
         "has_no_block_diagram": _bool_attr(execution, "HasNoBD"),

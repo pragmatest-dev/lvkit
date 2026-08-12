@@ -101,16 +101,16 @@ VIEWS: dict[str, _View] = {
             "lock_state": "VI Properties -> Protection: 'unlocked', 'locked', "
             "or 'password_protected'",
             # -- exec_* : VI Properties -> Execution -------------------------
-            "exec_reentrant": "1 if VI Properties -> Execution 'Reentrant "
-            "execution' is enabled",
-            "exec_reentrancy_pooled": "1 if reentrant execution uses a shared "
-            "clone pool (vs. a preallocated clone per caller)",
-            "exec_priority": "Execution priority code (LVSR Priority "
-            "attribute), or NULL if unset",
-            "exec_preferred_system": "Execution preferred execution system "
-            "code (LVSR PrefExecSyst), or NULL if unset",
-            "exec_is_subroutine": "1 if VI Properties -> Execution priority "
-            "is 'subroutine'",
+            "exec_priority": "VI Properties -> Execution priority (LVSR "
+            "Priority, faithfully decoded): 'background', 'normal', "
+            "'above_normal', 'high', 'time_critical', or 'subroutine'",
+            "reentrancy": "VI Properties -> Execution reentrant-execution "
+            "mode (LVSR IsReentrant + PooledReentrancy, faithfully decoded): "
+            "'non_reentrant', 'shared_clone', or 'preallocated_clone'",
+            "exec_system": "VI Properties -> Execution preferred execution "
+            "system (LVSR PrefExecSyst, faithfully decoded): "
+            "'same_as_caller', 'user_interface', 'standard', "
+            "'instrument_io', 'data_acquisition', 'other_1', or 'other_2'",
             "exec_run_when_opened": "1 if 'Run when opened' is enabled",
             "exec_show_fp_when_loaded": "1 if the front panel shows when the "
             "VI is loaded into memory",
@@ -172,9 +172,9 @@ VIEWS: dict[str, _View] = {
             "enabled",
             # -- struct_* : VI kind + compile health (VIStructure -- a facet
             # SIBLING to VI Properties above, never nested under it) --------
-            "struct_is_typedef": "1 if this is a type-definition control/VI",
-            "struct_is_strict_typedef": "1 if this is a STRICT "
-            "type-definition control/VI",
+            "struct_typedef_status": "VI Structure type-definition kind "
+            "(LVSR TypeDefVI + StrictTypeDefVI, faithfully decoded): "
+            "'not_a_typedef', 'typedef', or 'strict_typedef'",
             "struct_dynamic_dispatch": "1 if this VI participates in "
             "dynamic dispatch (a class method override point)",
             "struct_source_only": "1 if the VI is source-only/separate "

@@ -1,6 +1,6 @@
 """Tests for the VI-Properties/VI-Structure graph facets, parsed from the
 main XML's ``<LVSR>`` block -- ``graph.models.VIProperties``/``VIStructure``/
-``LockState``.
+``LockState``/``Priority``/``Reentrancy``/``ExecSystem``/``TypedefStatus``.
 
 VIProperties and VIStructure are SEPARATE, sibling graph facets
 (``InMemoryVIGraph._vi_properties`` / ``._vi_structure``, surfaced as
@@ -17,17 +17,21 @@ The corpus test classes below load real sample VIs end-to-end (through
 ``InMemoryVIGraph`` -> ``VIContext.properties``/``.structure``) and assert
 against ground-truth flags verified directly in the extracted XML:
 
-- password-protected + reentrant + lv_version: JKI-VI-Tester's
-  ``VITester_Item_Init.vi`` -- ``<Library Protected="1">`` + a real
-  (non-empty, non-placeholder) ``<Password Hash>``, ``IsReentrant="1"``,
-  ``<Version Major="9" .../>``.
+- password-protected + preallocated-clone reentrant + lv_version:
+  JKI-VI-Tester's ``VITester_Item_Init.vi`` -- ``<Library Protected="1">`` + a
+  real (non-empty, non-placeholder) ``<Password Hash>``, ``IsReentrant="1"``
+  + ``PooledReentrancy="0"``, ``<Version Major="9" .../>``.
 - locked (no password): LabVIEW-OOP-Classes' ``Database_UUT_New.vi`` --
   ``<Library Protected="1">`` with no ``<Password>`` element at all.
 - unlocked: lv-flex-channel-examples' ``DAQmx AO/DAQ AO.vi`` -- no
   ``Protected`` library section.
-- subroutine: JKI-EasyXML's ``Fast Parser/Get Children.vi`` --
-  ``IsSubroutine="1"`` (also all 3 toolbar buttons hidden, a subroutine
-  side effect).
+- subroutine priority: JKI-EasyXML's ``Fast Parser/Get Children.vi`` --
+  ``Priority="5"`` (also ``IsSubroutine="1"``, corroborating the mapping;
+  also all 3 toolbar buttons hidden, a subroutine side effect).
+- shared-clone reentrancy: JKI-EasyXML's ``Easy Write XML File.vi`` --
+  ``IsReentrant="1"`` + ``PooledReentrancy="1"``.
+- data-acquisition exec system: LabVIEW-OOP-Classes'
+  ``DAQ/Digital Input/DI_class/Update All.vi`` -- ``PrefExecSyst="3"``.
 - hidden toolbar buttons (Abort/Free Run, Run NOT hidden): JKI-VI-Tester's
   ``Project API/Launch VI Tester.vi``.
 
@@ -58,10 +62,14 @@ import pytest
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
+    ExecSystem,
     ExecutionProps,
     InstanceProps,
     LockState,
+    Priority,
+    Reentrancy,
     ToolbarProps,
+    TypedefStatus,
     VIContext,
     VIProperties,
     VIStructure,
@@ -76,8 +84,7 @@ class TestParseLvsrProperties:
     dict-of-dicts (the parser cannot import graph models) keyed exactly
     like the graph dataclasses: top-level ``lv_version``/``vi_type``/
     ``lock_state``, plus nested ``execution``/``window``/``toolbar``/
-    ``instance``/``code`` dicts (``"code"`` feeds ``VIStructure`` -- the
-    parser's own key name, unchanged by the graph-layer facet split).
+    ``instance``/``structure`` dicts (``"structure"`` feeds ``VIStructure``).
     """
 
     def _root(self, xml: str) -> ET.Element:
@@ -183,9 +190,9 @@ class TestParseLvsrProperties:
         assert result["lock_state"] == LockState.UNLOCKED.value
         assert result["lv_version"] is None
         assert result["vi_type"] is None
-        assert result["execution"]["reentrant"] is False
-        assert result["execution"]["priority"] is None
-        assert result["execution"]["preferred_system"] is None
+        assert result["execution"]["reentrancy"] == Reentrancy.NON_REENTRANT.value
+        assert result["execution"]["priority"] == Priority.NORMAL.value
+        assert result["execution"]["exec_system"] == ExecSystem.SAME_AS_CALLER.value
         assert result["instance"]["is_system_vi"] is False
 
     # -- execution / execution2 / instrument --------------------------
@@ -199,16 +206,76 @@ class TestParseLvsrProperties:
             "</Section></LVSR></RSRC>"
         )
         result = _parse_lvsr_properties(root)
-        assert result["execution"]["reentrant"] is True
-        assert result["execution"]["priority"] == 2
-        assert result["execution"]["preferred_system"] == -1
+        # IsReentrant=1 + PooledReentrancy absent(=0) -> preallocated_clone.
+        assert result["execution"]["reentrancy"] == Reentrancy.PREALLOCATED_CLONE.value
+        assert result["execution"]["priority"] == Priority.ABOVE_NORMAL.value
+        assert result["execution"]["exec_system"] == ExecSystem.SAME_AS_CALLER.value
         assert result["instance"]["is_system_vi"] is True
         assert result["vi_type"] == "Control"
+
+    def test_priority_codes_map_to_faithful_values(self) -> None:
+        """Every documented 0-indexed LVSR Priority code -> its faithful
+        string value (NI-doc + corpus verified -- see module docstring)."""
+        expected = {
+            0: Priority.BACKGROUND,
+            1: Priority.NORMAL,
+            2: Priority.ABOVE_NORMAL,
+            3: Priority.HIGH,
+            4: Priority.TIME_CRITICAL,
+            5: Priority.SUBROUTINE,
+        }
+        for code, priority in expected.items():
+            root = self._root(
+                f'<RSRC><LVSR><Section><Execution Priority="{code}"/>'
+                "</Section></LVSR></RSRC>"
+            )
+            result = _parse_lvsr_properties(root)
+            assert result["execution"]["priority"] == priority.value, code
+
+    def test_exec_system_codes_map_to_faithful_values(self) -> None:
+        """Every documented LVSR PrefExecSyst code -> its faithful string
+        value (NI-doc + corpus verified -- see module docstring)."""
+        expected = {
+            -1: ExecSystem.SAME_AS_CALLER,
+            0: ExecSystem.USER_INTERFACE,
+            1: ExecSystem.STANDARD,
+            2: ExecSystem.INSTRUMENT_IO,
+            3: ExecSystem.DATA_ACQUISITION,
+            4: ExecSystem.OTHER_1,
+            5: ExecSystem.OTHER_2,
+        }
+        for code, system in expected.items():
+            root = self._root(
+                f'<RSRC><LVSR><Section><Execution PrefExecSyst="{code}"/>'
+                "</Section></LVSR></RSRC>"
+            )
+            result = _parse_lvsr_properties(root)
+            assert result["execution"]["exec_system"] == system.value, code
+
+    def test_reentrancy_pooled_bit_ignored_when_not_reentrant(self) -> None:
+        """PooledReentrancy is a sticky leftover bit when IsReentrant=0 --
+        it must NOT flip the result to shared_clone."""
+        root = self._root(
+            "<RSRC><LVSR><Section>"
+            '<Execution IsReentrant="0" PooledReentrancy="1"/>'
+            "</Section></LVSR></RSRC>"
+        )
+        result = _parse_lvsr_properties(root)
+        assert result["execution"]["reentrancy"] == Reentrancy.NON_REENTRANT.value
+
+    def test_reentrancy_shared_clone(self) -> None:
+        root = self._root(
+            "<RSRC><LVSR><Section>"
+            '<Execution IsReentrant="1" PooledReentrancy="1"/>'
+            "</Section></LVSR></RSRC>"
+        )
+        result = _parse_lvsr_properties(root)
+        assert result["execution"]["reentrancy"] == Reentrancy.SHARED_CLONE.value
 
     def test_execution2_and_instrument_extra_fields(self) -> None:
         root = self._root(
             "<RSRC><LVSR><Section>"
-            '<Execution PooledReentrancy="1" IsSubroutine="1" RunOnOpen="1" '
+            '<Execution RunOnOpen="1" '
             'ShowFPOnLoad="1" ShowFPOnCall="1" CloseAfterCall="1" '
             'AllowAutoPrealloc="1"/>'
             '<Execution2 ShouldInline="1" InlinableDiagram="1" '
@@ -221,8 +288,6 @@ class TestParseLvsrProperties:
         )
         result = _parse_lvsr_properties(root)
         execution = result["execution"]
-        assert execution["reentrancy_pooled"] is True
-        assert execution["is_subroutine"] is True
         assert execution["run_when_opened"] is True
         assert execution["show_fp_when_loaded"] is True
         assert execution["show_fp_when_called"] is True
@@ -239,9 +304,9 @@ class TestParseLvsrProperties:
         assert instance["hide_instance_caption"] is True
         assert instance["draw_instance_icon"] is True
         assert instance["remote_panel"] is True
-        code = result["code"]
-        assert code["source_only"] is True
-        assert code["is_instance_vi"] is True
+        structure = result["structure"]
+        assert structure["source_only"] is True
+        assert structure["is_instance_vi"] is True
 
     # -- window / toolbar ----------------------------------------------
 
@@ -290,7 +355,7 @@ class TestParseLvsrProperties:
         assert result["window"]["show_scrollbar"] is None
         assert result["window"]["show_title_bar"] is False
 
-    # -- code / structure (VIStructure) ---------------------------------
+    # -- structure (VIStructure) -----------------------------------------
 
     def test_structure_kind_and_health_fields(self) -> None:
         root = self._root(
@@ -301,24 +366,43 @@ class TestParseLvsrProperties:
             "</Section></LVSR></RSRC>"
         )
         result = _parse_lvsr_properties(root)
-        code = result["code"]
-        assert code["is_typedef"] is True
-        assert code["is_strict_typedef"] is True
-        assert code["dynamic_dispatch"] is True
-        assert code["has_no_block_diagram"] is True
-        assert code["bad_node"] is True
-        assert code["bad_subvi"] is True
-        assert code["bad_subvi_link"] is True
-        assert code["bad_compile"] is True
-        assert code["broken_poly"] is True
+        structure = result["structure"]
+        assert structure["typedef_status"] == TypedefStatus.STRICT_TYPEDEF.value
+        assert structure["dynamic_dispatch"] is True
+        assert structure["has_no_block_diagram"] is True
+        assert structure["bad_node"] is True
+        assert structure["bad_subvi"] is True
+        assert structure["bad_subvi_link"] is True
+        assert structure["bad_compile"] is True
+        assert structure["broken_poly"] is True
+
+    def test_typedef_status_codes_map_to_faithful_values(self) -> None:
+        """(TypeDefVI, StrictTypeDefVI) -> faithful string value. (0, 1)
+        never occurs, per the module docstring, so it is not exercised."""
+        cases = {
+            (0, 0): TypedefStatus.NOT_A_TYPEDEF,
+            (1, 0): TypedefStatus.TYPEDEF,
+            (1, 1): TypedefStatus.STRICT_TYPEDEF,
+        }
+        for (is_typedef, is_strict), status in cases.items():
+            root = self._root(
+                "<RSRC><LVSR><Section>"
+                f'<Execution TypeDefVI="{is_typedef}" '
+                f'StrictTypeDefVI="{is_strict}"/>'
+                "</Section></LVSR></RSRC>"
+            )
+            result = _parse_lvsr_properties(root)
+            assert result["structure"]["typedef_status"] == status.value, (
+                is_typedef, is_strict,
+            )
 
     def test_structure_defaults_when_execution_absent(self) -> None:
         root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
         result = _parse_lvsr_properties(root)
-        code = result["code"]
-        assert code["is_typedef"] is False
-        assert code["has_no_block_diagram"] is False
-        assert code["bad_node"] is False
+        structure = result["structure"]
+        assert structure["typedef_status"] == TypedefStatus.NOT_A_TYPEDEF.value
+        assert structure["has_no_block_diagram"] is False
+        assert structure["bad_node"] is False
 
     def test_vistructure_is_broken_from_synthetic_dict(self) -> None:
         """VIStructure.is_broken (a derived property, not a parser field)
@@ -329,12 +413,18 @@ class TestParseLvsrProperties:
             "</Section></LVSR></RSRC>"
         )
         result = _parse_lvsr_properties(root)
-        struct = VIStructure(**result["code"])
+        structure = dict(result["structure"])
+        structure["typedef_status"] = TypedefStatus(structure["typedef_status"])
+        struct = VIStructure(**structure)
         assert struct.bad_compile is True
         assert struct.is_broken is True
 
         clean_root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
-        clean_struct = VIStructure(**_parse_lvsr_properties(clean_root)["code"])
+        clean_structure = dict(_parse_lvsr_properties(clean_root)["structure"])
+        clean_structure["typedef_status"] = TypedefStatus(
+            clean_structure["typedef_status"]
+        )
+        clean_struct = VIStructure(**clean_structure)
         assert clean_struct.is_broken is False
 
 
@@ -343,13 +433,13 @@ class TestParserGraphKeyDrift:
     ``_build_vi_structure`` splat ``_parse_lvsr_properties``'s nested dicts
     straight into ``ExecutionProps(**execution)``/``WindowProps(**window)``/
     ``ToolbarProps(**toolbar)``/``InstanceProps(**instance)``/
-    ``VIStructure(**code)`` -- an unknown key raises ``TypeError``, but only
-    for whichever real VI happens to populate the renamed key, so a parser-
-    side rename (or a dataclass-side rename with the parser left behind) can
-    sit undetected until some corpus VI trips it. Assert the KEY SETS line up
-    directly, so a rename fails HERE, on an empty/default-only XML, every
-    run -- not only when a real VI's XML happens to populate the drifted
-    field.
+    ``VIStructure(**structure)`` -- an unknown key raises ``TypeError``, but
+    only for whichever real VI happens to populate the renamed key, so a
+    parser-side rename (or a dataclass-side rename with the parser left
+    behind) can sit undetected until some corpus VI trips it. Assert the KEY
+    SETS line up directly, so a rename fails HERE, on an empty/default-only
+    XML, every run -- not only when a real VI's XML happens to populate the
+    drifted field.
     """
 
     def _groups(self) -> dict[str, Any]:
@@ -372,9 +462,9 @@ class TestParserGraphKeyDrift:
         result = self._groups()
         assert set(result["instance"]) <= {f.name for f in fields(InstanceProps)}
 
-    def test_code_keys_match_vistructure_fields(self) -> None:
+    def test_structure_keys_match_vistructure_fields(self) -> None:
         result = self._groups()
-        assert set(result["code"]) <= {f.name for f in fields(VIStructure)}
+        assert set(result["structure"]) <= {f.name for f in fields(VIStructure)}
 
 
 # ---------------------------------------------------------------------------
@@ -410,30 +500,51 @@ class TestDescribeRendering:
         ctx = VIContext(
             name="x.vi",
             properties=VIProperties(
-                execution=ExecutionProps(reentrant=True, priority=1),
+                execution=ExecutionProps(priority=Priority.SUBROUTINE),
             ),
         )
         lines = _describe_properties(ctx)
         text = "\n".join(lines)
         assert "execution:" in text
-        assert "reentrant: True" in text
-        assert "priority: 1" in text
-        # reentrancy_pooled defaults False -- must not be dumped.
-        assert "reentrancy_pooled" not in text
+        assert "priority: subroutine" in text
+        # reentrancy/exec_system default -- must not be dumped.
+        assert "reentrancy" not in text
+        assert "exec_system" not in text
 
-    def test_describe_structure_shows_broken_and_is_broken(self) -> None:
+    def test_describe_properties_renders_enum_fields_non_default_only(self) -> None:
+        from lvkit.graph.describe import _describe_properties
+
+        ctx = VIContext(
+            name="x.vi",
+            properties=VIProperties(
+                execution=ExecutionProps(
+                    priority=Priority.SUBROUTINE,
+                    reentrancy=Reentrancy.SHARED_CLONE,
+                    exec_system=ExecSystem.STANDARD,
+                ),
+            ),
+        )
+        lines = _describe_properties(ctx)
+        text = "\n".join(lines)
+        assert "priority: subroutine" in text
+        assert "reentrancy: shared_clone" in text
+        assert "exec_system: standard" in text
+
+    def test_describe_structure_shows_broken_and_typedef_status(self) -> None:
         from lvkit.graph.describe import _describe_structure
 
         ctx = VIContext(
             name="x.vi",
-            structure=VIStructure(bad_compile=True, is_typedef=True),
+            structure=VIStructure(
+                bad_compile=True, typedef_status=TypedefStatus.STRICT_TYPEDEF,
+            ),
         )
         lines = _describe_structure(ctx)
         text = "\n".join(lines)
         assert "## Structure" in text
-        assert "is_typedef: True" in text
-        assert "bad_compile: True" in text
-        assert "is_broken: True" in text
+        assert "typedef_status: strict_typedef" in text
+        assert "bad_compile: true" in text
+        assert "is_broken: true" in text
 
     def test_describe_structure_none_when_all_default(self) -> None:
         from lvkit.graph.describe import _describe_structure
@@ -467,6 +578,13 @@ SUBROUTINE_VI = Path(
 HIDDEN_TOOLBAR_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/Project API/Launch VI Tester.vi"
 )
+SHARED_CLONE_VI = Path(
+    ".lvkit/cache/samples/JKI-EasyXML/Source/Easy Write XML File.vi"
+)
+DATA_ACQUISITION_VI = Path(
+    ".lvkit/cache/samples/LabVIEW-OOP-Classes/DAQ/Digital Input/DI_class/"
+    "Update All.vi"
+)
 
 
 def _skip_if_missing(path: Path) -> None:
@@ -498,20 +616,34 @@ class TestVIPropertiesCorpus:
         assert props.lock_state == LockState.UNLOCKED
 
     def test_reentrant_and_lv_version_parse(self) -> None:
-        """Regression guard: reentrant + lv_version parse to real, non-default
-        values on a real sample VI (not just the dataclass default)."""
+        """Regression guard: reentrancy + lv_version parse to real, non-default
+        values on a real sample VI (not just the dataclass default) --
+        IsReentrant=1 + PooledReentrancy=0 -> preallocated_clone."""
         _skip_if_missing(PASSWORD_PROTECTED_VI)
         props = _context_for(PASSWORD_PROTECTED_VI).properties
-        assert props.execution.reentrant is True
+        assert props.execution.reentrancy == Reentrancy.PREALLOCATED_CLONE
         assert props.lv_version == "9.0.0"
         assert props.vi_type == "Control"
 
     def test_subroutine_vi(self) -> None:
         """A real subroutine VI -- VI Properties -> Execution priority ==
-        'subroutine' (LVSR IsSubroutine="1")."""
+        'subroutine' (LVSR Priority="5", corroborated by IsSubroutine="1")."""
         _skip_if_missing(SUBROUTINE_VI)
         props = _context_for(SUBROUTINE_VI).properties
-        assert props.execution.is_subroutine is True
+        assert props.execution.priority == Priority.SUBROUTINE
+
+    def test_shared_clone_reentrant_vi(self) -> None:
+        """A real VI with IsReentrant="1" PooledReentrancy="1" ->
+        reentrancy == SHARED_CLONE."""
+        _skip_if_missing(SHARED_CLONE_VI)
+        props = _context_for(SHARED_CLONE_VI).properties
+        assert props.execution.reentrancy == Reentrancy.SHARED_CLONE
+
+    def test_data_acquisition_exec_system_vi(self) -> None:
+        """A real VI with PrefExecSyst="3" -> exec_system == DATA_ACQUISITION."""
+        _skip_if_missing(DATA_ACQUISITION_VI)
+        props = _context_for(DATA_ACQUISITION_VI).properties
+        assert props.execution.exec_system == ExecSystem.DATA_ACQUISITION
 
     def test_hidden_toolbar_buttons_vi(self) -> None:
         """A real VI with Abort/Free-Run hidden but Run NOT hidden --
@@ -549,11 +681,11 @@ class TestVIPropertiesCorpus:
         vi_name = g.resolve_vi_name(PASSWORD_PROTECTED_VI.name)
         d = netlist_to_dict(build_netlist(g, vi_name))
         assert d["properties"]["lock_state"] == "password_protected"
-        assert d["properties"]["execution"]["reentrant"] is True
+        assert d["properties"]["execution"]["reentrancy"] == "preallocated_clone"
         assert "window" in d["properties"]
         assert "toolbar" in d["properties"]
         assert "instance" in d["properties"]
-        assert "code" not in d["properties"]  # moved to the structure facet
+        assert "structure" not in d["properties"]  # lives in its own facet
         assert "structure" in d
         assert "is_broken" in d["structure"]
         assert d["structure"]["is_broken"] is False

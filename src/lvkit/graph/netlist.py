@@ -63,7 +63,7 @@ from .op_walk import (
     _subvi_ports,
     _terminal_display_name,
 )
-from .queries import collect_class_context
+from .queries import ClassContext, collect_class_context
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -229,23 +229,6 @@ class _BuildCtx:
     const_by_id: dict[str, Constant]
 
 
-@dataclass(frozen=True)
-class NetlistClassContext:
-    """The owning ``.lvclass``'s context for a class-method VI -- the
-    ``get_context`` (MCP)/``netlist_to_dict`` counterpart to describe.py's
-    ``## Class`` section. ``None`` on ``NetlistModule`` for a non-method VI.
-    """
-
-    owning_class: str
-    parent: str | None
-    version: str | None
-    ancestors: list[str]
-    scope: str | None
-    is_static: bool
-    must_override: bool
-    must_call_parent: bool
-
-
 @dataclass
 class NetlistModule:
     """The whole VI as a netlist."""
@@ -272,7 +255,9 @@ class NetlistModule:
     # The owning class's context when this VI is a .lvclass method -- the
     # describe.py ``## Class`` section's JSON counterpart. None for a non-
     # method VI. Same netlist_to_dict-only carry-through as the two above.
-    class_context: NetlistClassContext | None = None
+    # ``ClassContext`` (queries.py) is shared verbatim -- no netlist-local
+    # wrapper type.
+    class_context: ClassContext | None = None
 
 
 # ============================================================
@@ -926,24 +911,13 @@ def _disambiguate_cross_group_names(components: list[NetlistComponent]) -> None:
 
 def _build_class_context(
     graph: InMemoryVIGraph, ctx: VIContext,
-) -> NetlistClassContext | None:
-    """The JSON IR's class-context shape, wrapping the shared
-    ``queries.collect_class_context`` -- describe.py's ``## Class`` section
+) -> ClassContext | None:
+    """The JSON IR's class-context shape -- the shared
+    ``queries.collect_class_context`` returned DIRECTLY (no netlist-local
+    wrapper dataclass). describe.py's ``## Class`` section
     (``_describe_class_context``) builds on the SAME collector, so the two
     surfaces can't drift on what "the class context" means."""
-    cc = collect_class_context(graph, ctx)
-    if cc is None:
-        return None
-    return NetlistClassContext(
-        owning_class=cc.owning_class,
-        parent=cc.parent,
-        version=cc.version,
-        ancestors=cc.ancestors,
-        scope=cc.scope,
-        is_static=cc.is_static,
-        must_override=cc.must_override,
-        must_call_parent=cc.must_call_parent,
-    )
+    return collect_class_context(graph, ctx)
 
 
 def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:

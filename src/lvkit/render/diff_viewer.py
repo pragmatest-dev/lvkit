@@ -80,8 +80,8 @@ def _metadata_change(
     highlight attempt -- never a crash.
 
     ``field`` is the RAW ``VIProperties``/``VIStructure`` dataclass field
-    name (e.g. ``"is_subroutine"``, ``"lock_state"``) -- NOT the curated
-    display ``label`` (e.g. "subroutine"), which can differ from it. It is
+    name (e.g. ``"run_when_opened"``, ``"lock_state"``) -- NOT the curated
+    display ``label`` (e.g. "run-on-open"), which can differ from it. It is
     the key the properties popover's own rows carry as ``data-key`` (see
     ``properties_panel.py``'s ``_PANEL_BODY_JS``), so clicking this CHANGES
     entry (diff_viewer.html's ``revealPropertyRow``) can look the matching
@@ -96,13 +96,20 @@ def _metadata_change(
     }
 
 
+# Enum-valued ``execution`` fields diffed as TRANSITIONS, mirroring
+# ``graph.diff._PROPERTY_ENUM_FIELDS`` -- the raw field name IS the display
+# label (no curated alias, unlike ``lock_state``'s "lock").
+_PROPERTY_ENUM_FIELDS: tuple[str, ...] = ("priority", "reentrancy", "exec_system")
+
+
 def _metadata_changes(before_svg: str, after_svg: str) -> list[dict[str, Any]]:
     """Curated VI-Properties/VIStructure changes between the two panes'
     embedded facets, as first-class ``CHANGES`` entries -- so the Flat list
     AND the header's "modified" tally include them, not just the Tree view
     (``netlist_diff_rows``, computed separately by the caller from the loaded
     graphs). Uses the SAME curated flag vocabulary
-    (``graph.models.CURATED_PROPERTY_FLAGS``/``CURATED_STRUCTURE_FLAGS``) and
+    (``graph.models.CURATED_PROPERTY_FLAGS``/``CURATED_STRUCTURE_FLAGS``),
+    enum fields (``_PROPERTY_ENUM_FIELDS``/``typedef_status``), and
     ``label: old -> new`` text shape as ``diff.py``'s
     ``_diff_vi_properties``/``_diff_vi_structure``/``_metadata_change_text``
     -- this is a pure re-derivation from the two SVGs' own already-embedded
@@ -123,6 +130,13 @@ def _metadata_changes(before_svg: str, after_svg: str) -> list[dict[str, Any]]:
 
         before_exec = before_props.get("execution") or {}
         after_exec = after_props.get("execution") or {}
+        for field in _PROPERTY_ENUM_FIELDS:
+            old_v = before_exec.get(field)
+            new_v = after_exec.get(field)
+            if old_v != new_v:
+                changes.append(_metadata_change(
+                    "property", field, field, old_v, new_v,
+                ))
         for field, label in CURATED_PROPERTY_FLAGS.items():
             old_v = bool(before_exec.get(field))
             new_v = bool(after_exec.get(field))
@@ -132,6 +146,13 @@ def _metadata_changes(before_svg: str, after_svg: str) -> list[dict[str, Any]]:
                 ))
 
     if before_struct and after_struct:
+        before_typedef = before_struct.get("typedef_status")
+        after_typedef = after_struct.get("typedef_status")
+        if before_typedef != after_typedef:
+            changes.append(_metadata_change(
+                "structure", "typedef_status", "typedef_status",
+                before_typedef, after_typedef,
+            ))
         for field, label in CURATED_STRUCTURE_FLAGS.items():
             old_v = bool(before_struct.get(field))
             new_v = bool(after_struct.get(field))

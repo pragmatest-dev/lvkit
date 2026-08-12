@@ -30,7 +30,15 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.diff import ChangeMap, diff_uid
 from lvkit.graph.loading import LoadMode
-from lvkit.graph.models import ExecutionProps, LockState, VIProperties, VIStructure
+from lvkit.graph.models import (
+    ExecutionProps,
+    LockState,
+    Priority,
+    Reentrancy,
+    TypedefStatus,
+    VIProperties,
+    VIStructure,
+)
 from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
 from lvkit.render.properties_panel import PROPERTIES_GLYPH
@@ -68,9 +76,13 @@ def _flipped_run_vi_graphs() -> tuple[
     graph_a._vi_structure[vi_a] = VIStructure()
     graph_b._vi_properties[vi_b] = VIProperties(
         lock_state=LockState.PASSWORD_PROTECTED,
-        execution=ExecutionProps(reentrant=True, is_subroutine=True),
+        execution=ExecutionProps(
+            reentrancy=Reentrancy.SHARED_CLONE, priority=Priority.SUBROUTINE,
+        ),
     )
-    graph_b._vi_structure[vi_b] = VIStructure(bad_node=True, is_typedef=True)
+    graph_b._vi_structure[vi_b] = VIStructure(
+        bad_node=True, typedef_status=TypedefStatus.TYPEDEF,
+    )
     return graph_a, vi_a, graph_b, vi_b
 
 
@@ -131,9 +143,9 @@ class TestSvgCarriesPropertiesData:
         struct = json.loads(struct_json)
 
         assert props["lock_state"] == "password_protected"
-        assert props["execution"]["reentrant"] is True
+        assert props["execution"]["reentrancy"] == "preallocated_clone"
         assert struct["is_broken"] is False
-        assert struct["is_typedef"] is False
+        assert struct["typedef_status"] == "not_a_typedef"
 
     def test_unloaded_vi_gets_all_default_properties_never_raises(self):
         """A VI the graph doesn't know about (or hasn't parsed the LVSR block
@@ -385,13 +397,14 @@ class TestBuildDiffViewerPropertiesEndToEnd:
             title="run.vi", before_label="before", after_label="after",
         )
 
-        # Five curated flags changed: lock, reentrant, is_subroutine (props),
-        # is_broken, is_typedef (structure) -- see _flipped_run_vi_graphs.
+        # Five metadata changes: lock, priority, reentrancy (props),
+        # is_broken, typedef_status (structure) -- see _flipped_run_vi_graphs.
         assert '"kind": "property"' in html
         assert '"kind": "structure"' in html
         assert '"label": "lock: unlocked -> password_protected"' in html
-        assert '"label": "reentrant: false -> true"' in html
-        assert '"label": "typedef: false -> true"' in html
+        assert '"label": "reentrancy: non_reentrant -> shared_clone"' in html
+        assert '"label": "priority: normal -> subroutine"' in html
+        assert '"label": "typedef_status: not_a_typedef -> typedef"' in html
         assert '"change": "modified"' in html
         assert "modified 5" in html  # __MOD__ substituted, includes metadata
 
@@ -424,19 +437,19 @@ class TestMetadataChangesHelper:
 
         before_svg = (
             "<svg data-lv-properties='{\"lock_state\":\"unlocked\","
-            "\"execution\":{\"reentrant\":false}}' "
-            "data-lv-structure='{\"is_typedef\":false}'>M</svg>"
+            "\"execution\":{\"reentrancy\":\"non_reentrant\"}}' "
+            "data-lv-structure='{\"typedef_status\":\"not_a_typedef\"}'>M</svg>"
         )
         after_svg = (
             "<svg data-lv-properties='{\"lock_state\":\"locked\","
-            "\"execution\":{\"reentrant\":true}}' "
-            "data-lv-structure='{\"is_typedef\":true}'>M</svg>"
+            "\"execution\":{\"reentrancy\":\"shared_clone\"}}' "
+            "data-lv-structure='{\"typedef_status\":\"typedef\"}'>M</svg>"
         )
         changes = _metadata_changes(before_svg, after_svg)
         by_kind = {(c["kind"], c["label"]) for c in changes}
         assert ("property", "lock: unlocked -> locked") in by_kind
-        assert ("property", "reentrant: false -> true") in by_kind
-        assert ("structure", "typedef: false -> true") in by_kind
+        assert ("property", "reentrancy: non_reentrant -> shared_clone") in by_kind
+        assert ("structure", "typedef_status: not_a_typedef -> typedef") in by_kind
         for c in changes:
             assert c["change"] == "modified"
             assert c["uid"] is None
@@ -446,25 +459,26 @@ class TestMetadataChangesHelper:
         """`field` is what the click-to-reveal JS matches against the
         popover's `data-key` (see properties_panel.py's row()) -- it MUST be
         the raw VIProperties/VIStructure field name, which differs from the
-        curated display label for several flags (e.g. "subroutine" (label)
-        vs "is_subroutine" (field); "broken" vs "is_broken"; "lock" vs
-        "lock_state")."""
+        curated display label for several flags (e.g. "run-on-open" (label)
+        vs "run_when_opened" (field); "broken" vs "is_broken"; "lock" vs
+        "lock_state"). Enum fields (priority/reentrancy/exec_system/
+        typedef_status) have no curated alias -- field == label prefix."""
         from lvkit.render.diff_viewer import _metadata_changes
 
         before_svg = (
             "<svg data-lv-properties='{\"lock_state\":\"unlocked\","
-            "\"execution\":{\"is_subroutine\":false}}' "
+            "\"execution\":{\"run_when_opened\":false}}' "
             "data-lv-structure='{\"is_broken\":false}'>M</svg>"
         )
         after_svg = (
             "<svg data-lv-properties='{\"lock_state\":\"locked\","
-            "\"execution\":{\"is_subroutine\":true}}' "
+            "\"execution\":{\"run_when_opened\":true}}' "
             "data-lv-structure='{\"is_broken\":true}'>M</svg>"
         )
         changes = _metadata_changes(before_svg, after_svg)
         by_field = {c["field"]: c["label"] for c in changes}
         assert by_field["lock_state"].startswith("lock:")
-        assert by_field["is_subroutine"].startswith("subroutine:")
+        assert by_field["run_when_opened"].startswith("run-on-open:")
         assert by_field["is_broken"].startswith("broken:")
 
     def test_no_metadata_when_identical(self):

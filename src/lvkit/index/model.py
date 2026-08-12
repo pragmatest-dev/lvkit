@@ -201,12 +201,13 @@ class VIFacts:
     # "password_protected") -- kept a plain string here (this module is
     # deliberately Pydantic/LVType-free, see the module docstring).
     lock_state: str = "unlocked"
-    # exec_* <- graph.models.ExecutionProps
-    exec_reentrant: bool = False
-    exec_reentrancy_pooled: bool = False
-    exec_priority: int | None = None
-    exec_preferred_system: int | None = None
-    exec_is_subroutine: bool = False
+    # exec_* <- graph.models.ExecutionProps. ``exec_priority``/``reentrancy``/
+    # ``exec_system`` are FAITHFUL enum .value strings (graph.models.Priority/
+    # Reentrancy/ExecSystem) -- the legacy is_subroutine flag is redundant
+    # with exec_priority == "subroutine" and is no longer stored.
+    exec_priority: str = "normal"
+    reentrancy: str = "non_reentrant"
+    exec_system: str = "same_as_caller"
     exec_run_when_opened: bool = False
     exec_show_fp_when_loaded: bool = False
     exec_show_fp_when_called: bool = False
@@ -246,8 +247,9 @@ class VIFacts:
     # struct_* <- graph.models.VIStructure (VI kind + compile-health -- a
     # SIBLING facet to VIProperties, never nested under it: structural
     # state, not a user-settable property. See graph._vi_structure.)
-    struct_is_typedef: bool = False
-    struct_is_strict_typedef: bool = False
+    # ``struct_typedef_status`` is a FAITHFUL enum .value string
+    # (graph.models.TypedefStatus).
+    struct_typedef_status: str = "not_a_typedef"
     struct_dynamic_dispatch: bool = False
     struct_source_only: bool = False
     struct_has_no_block_diagram: bool = False
