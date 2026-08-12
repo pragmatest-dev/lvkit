@@ -10,9 +10,23 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.diff import diff_uid, format_diff
+from lvkit.graph.diff import (
+    diff_to_dict,
+    diff_uid,
+    format_diff,
+    netlist_diff_rows,
+)
 from lvkit.graph.loading import LoadMode
-from lvkit.graph.models import Constant, VIContext
+from lvkit.graph.models import (
+    Constant,
+    ExecutionProps,
+    KindProps,
+    LockState,
+    Reentrancy,
+    TypedefStatus,
+    VIContext,
+    VIProperties,
+)
 from lvkit.models import (
     CaseFrame,
     CaseOperation,
@@ -259,6 +273,29 @@ class TestFormatDiffVerbose:
             line.startswith("+") and "▭ input Tree" in line
             for line in result.splitlines()
         )
+
+    def test_tree_leaf_numbers_are_sequential_mixed(self):
+        # The change-number badges must read 1,2,3... down the tree. On a REAL
+        # mixed diff -- two DIFFERENT VIs (node/constant/terminal/structure +
+        # connector-pane changes) PLUS a flipped property -- diff_uid's
+        # _reorder_by_tree sorts CHANGES into tree-leaf order, so the tree's
+        # leaf change-indices come out exactly 0,1,2,... A property-only diff is
+        # trivially sequential; this guards the interleaved multi-kind case.
+        ga, na = _load(VI_A)
+        gb, nb = _load(VI_B)
+        gb._vi_properties[nb] = VIProperties(
+            lock_state=LockState.PASSWORD_PROTECTED,
+            execution=ExecutionProps(reentrancy=Reentrancy.SHARED_CLONE),
+            kind=KindProps(typedef_status=TypedefStatus.STRICT_TYPEDEF),
+        )
+        changes = diff_to_dict(ga, gb, na, nb)["changes"]
+        assert {"property", "connector_pane", "node"} <= {c["kind"] for c in changes}
+        index_of = {c["uid"]: i for i, c in enumerate(changes)}
+        tree_indices = [
+            index_of[r.uid] for r in netlist_diff_rows(ga, gb, na, nb)
+            if r.uid is not None and r.uid in index_of
+        ]
+        assert tree_indices == list(range(len(tree_indices)))
 
     def test_format_produces_readable_output(self):
         ga, na = _load(VI_A)
