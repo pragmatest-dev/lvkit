@@ -260,6 +260,13 @@ _DIFF_PANEL_EXTRA_CSS = """
   .lvkit-props-panel dd.lvkit-prop-selected{
     background:color-mix(in srgb, var(--mod) 55%, transparent);
     outline:1px solid var(--mod);border-radius:3px;padding:1px 4px}
+  /* Change-list number stamped onto the matching popover row, so a reader can
+     tie "change N" in the list to the exact property it touched. */
+  .lvkit-props-panel dt .lvkit-prop-num{
+    display:inline-block;min-width:1.1em;margin-right:5px;padding:0 3px;
+    font-variant-numeric:tabular-nums;font-size:10px;line-height:1.4;
+    text-align:center;border-radius:3px;color:var(--fg);
+    background:color-mix(in srgb, var(--mod) 32%, transparent)}
 """
 
 DIFF_PROPERTIES_PANEL = (
@@ -315,6 +322,9 @@ DIFF_PROPERTIES_PANEL = (
     "      }\n"
     "      btn.addEventListener('click', function () {\n"
     "        if (!panel) return;\n"
+    "        // A manual open/close is NOT selection-driven, so a later\n"
+    "        // change-deselect must not auto-close it (see clearSel).\n"
+    "        window.lvkitPropPanelBySel = false;\n"
     "        panel.hidden = !panel.hidden;\n"
     "        btn.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');\n"
     "      });\n"

@@ -1038,13 +1038,35 @@ function revealPropertyRow(c){
   const btn=document.getElementById('lvkitDiffPropsBtn');
   const panel=document.getElementById('lvkitDiffPropsPanel');
   if(!panel)return;
-  if(panel.hidden){ panel.hidden=false; if(btn) btn.setAttribute('aria-expanded','true'); }
+  // Remember that the SELECTION opened the popover, so deselecting the change
+  // closes it again (clearSel); a manually-opened popover stays put.
+  if(panel.hidden){ panel.hidden=false; window.lvkitPropPanelBySel=true; if(btn) btn.setAttribute('aria-expanded','true'); }
   const key=(c.uid||'').split(':').slice(1).join(':');
   if(!key)return;
   const cells=panel.querySelectorAll('[data-key="'+key+'"]');
   cells.forEach(el=>el.classList.add('lvkit-prop-selected'));
   if(cells[0]) cells[0].scrollIntoView({block:'nearest'});
+  annotatePopoverBadges();
 }
+// Stamp each property change's list number onto its popover row (the <dt>),
+// so "change N" in the change list is visible on the exact property it
+// touched. Idempotent; run once deferred (after the popover is built) and
+// again on reveal -- the rows persist, so badges stay for both a
+// selection-opened and a manually-opened popover.
+function annotatePopoverBadges(){
+  const panel=document.getElementById('lvkitDiffPropsPanel');
+  if(!panel) return;
+  CHANGES.forEach((c,i)=>{
+    if(c.kind!=='property') return;
+    const key=(c.uid||'').split(':').slice(1).join(':');
+    const dt=panel.querySelector('dt[data-key="'+key+'"]');
+    if(!dt || dt.querySelector('.lvkit-prop-num')) return;
+    const b=document.createElement('span');
+    b.className='lvkit-prop-num'; b.textContent=(i+1);
+    dt.insertBefore(b, dt.firstChild);
+  });
+}
+setTimeout(annotatePopoverBadges, 0);
 function jump(i){
   if(i<0||i>=CHANGES.length)return;
   if(i===sel){ clearSel(); return; }   // re-selecting the current change toggles it OFF
@@ -1106,6 +1128,14 @@ function clearSel(){
   const propPanelEl=document.getElementById('lvkitDiffPropsPanel');
   if(propPanelEl) propPanelEl.querySelectorAll('.lvkit-prop-selected')
     .forEach(el=>el.classList.remove('lvkit-prop-selected'));
+  // If a property SELECTION opened the popover, deselecting closes it again
+  // (a manually-opened popover is left alone -- window.lvkitPropPanelBySel).
+  if(window.lvkitPropPanelBySel && propPanelEl && !propPanelEl.hidden){
+    propPanelEl.hidden=true;
+    const pbtn=document.getElementById('lvkitDiffPropsBtn');
+    if(pbtn) pbtn.setAttribute('aria-expanded','false');
+  }
+  window.lvkitPropPanelBySel=false;
   Object.values(rects).forEach(r=>r.classList.remove('sel'));
   Object.values(nums).forEach(t=>t.classList.remove('sel'));
   Object.values(parts).flat().forEach(el=>el.classList.remove('sel'));
