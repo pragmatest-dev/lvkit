@@ -81,12 +81,13 @@ def describe_vi(
     # VI Properties: Protection/Execution/Window/…/Kind, faithfully rendered
     # (never a Python annotation -- these are LabVIEW's own VI Properties
     # dialog values, not a codegen target).
-    lines.extend(_describe_properties(ctx))
+    lines.extend(_describe_properties(ctx, show_all=verbose))
 
     # VI Health: compile-health -- a SIBLING section to ## Properties
     # (VIHealth is a separate facet, never nested under VIProperties: it is
-    # emergent state, not a user setting). Shown only when broken.
-    lines.extend(_describe_health(ctx))
+    # emergent state, not a user setting). Terse: shown only when broken;
+    # verbose (-v): every field shown, healthy or not.
+    lines.extend(_describe_health(ctx, show_all=verbose))
 
     # Interface: Inputs
     if ctx.inputs:
@@ -367,44 +368,48 @@ _FlagGroup = (
 )
 
 
-def _describe_flag_group(group: _FlagGroup, indent: str = "    ") -> list[str]:
-    """Render one VI-Properties sub-struct's non-default fields.
+def _describe_flag_group(
+    group: _FlagGroup, indent: str = "    ", *, show_all: bool = False,
+) -> list[str]:
+    """Render one VI-Properties sub-struct's fields.
 
-    bool fields show only when True (rendered lowercase via ``bool_str``,
+    Values render lowercase via ``bool_str`` / the enum ``.value`` string,
     matching the netlist/diff convention -- never Python's capitalized
-    ``str(bool)``); Enum fields (``priority``/``reentrancy``/``exec_system``/
-    ``typedef_status``) show only when != the dataclass default, as their
-    ``.value`` string -- an enum TRANSITION's after-side rendering, matching
-    how ``diff.py`` shows them; ``int | None`` / ``str | None`` fields show
-    only when actually set (not None -- 0 counts as set). Keeps the common
-    (all-default) case terse instead of dumping dozens of ``False``s.
+    ``str(bool)``.
+
+    Default (terse, ``describe`` without ``-v``): bool fields show only when
+    True, Enum fields only when != the dataclass default, ``int|None`` /
+    ``str|None`` fields only when set -- keeps the common all-default case
+    from dumping dozens of ``False``s. ``show_all`` (``describe --verbose``):
+    EVERY field shows with its value -- verbose means verbose, nothing hidden
+    (the same full listing the properties popover gives).
     """
     lines: list[str] = []
     for f in dataclass_fields(group):
         value = getattr(group, f.name)
         if isinstance(value, bool):
-            if value:
+            if show_all or value:
                 lines.append(f"{indent}{f.name}: {bool_str(value)}")
         elif isinstance(value, Enum):
-            if value != f.default:
+            if show_all or value != f.default:
                 lines.append(f"{indent}{f.name}: {value.value}")
         elif value is not None:
             lines.append(f"{indent}{f.name}: {value}")
     return lines
 
 
-def _describe_properties(ctx: VIContext) -> list[str]:
+def _describe_properties(ctx: VIContext, *, show_all: bool = False) -> list[str]:
     """Render the VI's Properties dialog settings (Protection/Execution/
     Window/…) plus its Kind (what ROLE the VI plays), faithfully and
     grouped to match the dialog's own pages.
 
     ``lock_state`` always shows; ``lv_version``/``vi_type`` show only when
-    present (same non-default rule the nested groups below already follow --
-    a stub/synthetic ``VIContext`` has neither); each nested group
-    (execution/window/toolbar/instance/kind) shows -- with only its
-    non-default fields -- only when it has something set, so the common
-    case stays terse. Compile-HEALTH is a SEPARATE ``## Health`` section
-    (see ``_describe_health``), not part of this one.
+    present (a stub/synthetic ``VIContext`` has neither). Each nested group
+    (execution/window/toolbar/instance/kind) shows only when it has something
+    to render. Default (terse) shows only non-default fields; ``show_all``
+    (``describe --verbose``) shows EVERY field -- verbose hides nothing.
+    Compile-HEALTH is a SEPARATE ``## Health`` section (see
+    ``_describe_health``), not part of this one.
     """
     props = ctx.properties
     lines = ["## Properties"]
@@ -420,7 +425,7 @@ def _describe_properties(ctx: VIContext) -> list[str]:
         ("instance", props.instance),
         ("kind", props.kind),
     ):
-        group_lines = _describe_flag_group(group)
+        group_lines = _describe_flag_group(group, show_all=show_all)
         if group_lines:
             lines.append(f"  {group_name}:")
             lines.extend(group_lines)
@@ -428,22 +433,25 @@ def _describe_properties(ctx: VIContext) -> list[str]:
     return lines
 
 
-def _describe_health(ctx: VIContext) -> list[str]:
+def _describe_health(ctx: VIContext, *, show_all: bool = False) -> list[str]:
     """Render the VI's compile-health state (``VIHealth``) -- a SIBLING
     section to ``## Properties``, never folded into it: this is emergent VI
     state (broken-ness), not a user-settable property.
 
-    Rendered ONLY when the VI is broken (``health.is_broken``) -- listing
-    the true bad_* causes plus ``is_broken`` itself; omitted entirely for a
-    healthy VI (never an empty/"(none)" section, unlike ``## Properties``).
+    Default (terse): rendered ONLY when the VI is broken
+    (``health.is_broken``), listing the true bad_* causes plus ``is_broken``;
+    omitted entirely for a healthy VI (never an empty section). ``show_all``
+    (``describe --verbose``): every field shown with its value, even for a
+    healthy VI (all ``false``) -- verbose hides nothing.
     """
     health = ctx.health
-    if not health.is_broken:
+    if not show_all and not health.is_broken:
         return []
     lines = ["## Health"]
     for f in dataclass_fields(health):
-        if getattr(health, f.name):
-            lines.append(f"  {f.name}: {bool_str(True)}")
+        val = getattr(health, f.name)
+        if show_all or val:
+            lines.append(f"  {f.name}: {bool_str(val)}")
     lines.append(f"  is_broken: {bool_str(health.is_broken)}")
     lines.append("")
     return lines
