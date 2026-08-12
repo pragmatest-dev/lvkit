@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.diff import diff_uid, format_diff
+from lvkit.graph.diff import diff_to_dict, diff_uid, format_diff
 from lvkit.graph.loading import LoadMode
 
 BASE_VI = Path("outputs/vi-diff/run_base.vi")
@@ -66,7 +66,9 @@ def _run_diff(*args: str) -> subprocess.CompletedProcess:
 
 
 class TestFormatJson:
-    def test_json_matches_diff_uid_to_dict(self) -> None:
+    def test_json_matches_diff_to_dict(self) -> None:
+        # --format json emits the FULL diff_to_dict (element ChangeMap PLUS the
+        # signature/properties/structure sections), not just ChangeMap.to_dict().
         _require_pair()
         result = _run_diff("--format", "json")
         assert result.returncode == 0, result.stderr
@@ -75,7 +77,7 @@ class TestFormatJson:
 
         ga, na = _load(BASE_VI, layout=True)
         gb, nb = _load(HEAD_VI, layout=True)
-        expected = diff_uid(ga, gb, na, nb).to_dict()
+        expected = diff_to_dict(ga, gb, na, nb)
 
         assert got == expected
 
@@ -90,7 +92,7 @@ class TestFormatJson:
 
         ga, na = _load(BASE_VI, layout=True)
         gb, nb = _load(HEAD_VI, layout=True)
-        expected = diff_uid(ga, gb, na, nb).to_dict()
+        expected = diff_to_dict(ga, gb, na, nb)
 
         assert written == expected
 

@@ -2454,6 +2454,41 @@ def format_diff(
     return "\n\n".join(sections)
 
 
+def diff_to_dict(
+    graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
+    vi_name_a: str, vi_name_b: str,
+) -> dict:
+    """The full ``lvkit diff`` as a JSON-ready dict: the uid-keyed element
+    ``ChangeMap`` PLUS the module-level Signature / Properties / Structure
+    sections that live OUTSIDE it (exactly as ``format_diff``'s text output
+    carries them). ``--format json`` historically emitted only
+    ``ChangeMap.to_dict()``, so those sections were text/viewer-Tree only; this
+    makes JSON parallel to the text report. Properties/Structure entries are
+    always a ``modified`` old->new pair (a fixed, always-present schema -- a VI
+    property can never be added or removed, only changed).
+    """
+    va = graph_a.resolve_vi_name(vi_name_a)
+    vb = graph_b.resolve_vi_name(vi_name_b)
+    cmap = diff_uid(graph_a, graph_b, va, vb)
+    ctx_a, ctx_b = graph_a.get_vi_context(va), graph_b.get_vi_context(vb)
+    return {
+        **cmap.to_dict(),
+        "signature": [
+            {"category": s.category, "direction": s.direction, "name": s.name,
+             "old_type": s.old_type, "new_type": s.new_type}
+            for s in _diff_signature(graph_a, graph_b, va, vb)
+        ],
+        "properties": [
+            {"field": m.name, "old": m.old, "new": m.new}
+            for m in _diff_vi_properties(ctx_a.properties, ctx_b.properties)
+        ],
+        "structure": [
+            {"field": m.name, "old": m.old, "new": m.new}
+            for m in _diff_vi_structure(ctx_a.structure, ctx_b.structure)
+        ],
+    }
+
+
 def netlist_diff_rows(
     graph_a: InMemoryVIGraph, graph_b: InMemoryVIGraph,
     vi_name_a: str, vi_name_b: str, *, detailed: bool = False,

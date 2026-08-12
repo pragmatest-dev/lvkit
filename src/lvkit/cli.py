@@ -1430,7 +1430,13 @@ def _build_diff_body(
 ) -> str | int:
     """Build the diff body (text/json/html). Returns the body, or an int exit
     code. Imports the graph/render stack HERE — a cache hit never reaches it."""
-    from .graph.diff import diff_uid, format_diff, netlist_diff_rows, rows_to_json
+    from .graph.diff import (
+        diff_to_dict,
+        diff_uid,
+        format_diff,
+        netlist_diff_rows,
+        rows_to_json,
+    )
 
     if fmt == "text":
         graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
@@ -1445,8 +1451,9 @@ def _build_diff_body(
         args, path_a, path_b, layout=True,
     )
     if fmt == "json":
-        cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
-        return json.dumps(cmap.to_dict(), indent=2)
+        return json.dumps(
+            diff_to_dict(graph_a, graph_b, vi_name_a, vi_name_b), indent=2
+        )
 
     # fmt == "html". The viewer chrome is prefers-color-scheme adaptive AND
     # carries its own light/dark diagram-theme toggle; for that to re-theme the

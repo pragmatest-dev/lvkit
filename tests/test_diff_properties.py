@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.diff import format_diff, netlist_diff_rows
+from lvkit.graph.diff import diff_to_dict, format_diff, netlist_diff_rows
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import ExecutionProps, LockState, VIProperties, VIStructure
 
@@ -238,3 +238,27 @@ class TestNetlistDiffRows:
         meta_rows = [r for r in rows if r.kind in ("property", "structure")]
         assert len(meta_rows) == 4
         assert all(r.change == "modified" for r in meta_rows)
+
+
+class TestJsonDiff:
+    """--format json (diff_to_dict) must carry the same Properties/Structure
+    sections the text report does -- they used to be text/viewer-Tree only."""
+
+    def test_diff_to_dict_includes_property_and_structure_changes(self):
+        ga, gb, na, nb = _pair()
+        gb._vi_properties[nb] = VIProperties(
+            lock_state=LockState.PASSWORD_PROTECTED
+        )
+        gb._vi_structure[nb] = VIStructure(bad_node=True)
+        d = diff_to_dict(ga, gb, na, nb)
+        assert {"changes", "signature", "properties", "structure"} <= set(d)
+        assert {
+            "field": "lock", "old": "unlocked", "new": "password_protected",
+        } in d["properties"]
+        assert {"field": "broken", "old": "false", "new": "true"} in d["structure"]
+
+    def test_diff_to_dict_no_metadata_change_is_empty_sections(self):
+        ga, gb, na, nb = _pair()
+        d = diff_to_dict(ga, gb, na, nb)
+        assert d["properties"] == []
+        assert d["structure"] == []
