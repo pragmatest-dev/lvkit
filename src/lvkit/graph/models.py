@@ -750,6 +750,9 @@ class VIContext(BaseModel):
     # Connector-pane PATTERN number (FPHb conId) — key into the pattern-geometry
     # table for a faithful pane render. None when the VI has no connector pane.
     connector_pattern_id: int | None = None
+    # The VI's own documentation text (STRG/DSTM), including any callee-propagated
+    # description — the hover-help body. See VINode.description.
+    description: str | None = None
 
 
 # ============================================================

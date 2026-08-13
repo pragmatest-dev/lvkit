@@ -22,11 +22,10 @@ from ..graph.loading import LoadMode
 from ..graph.models import VINode, vi_health_to_dict, vi_properties_to_dict
 from .backend import SvgBackend
 from .connector_pane import pane_terminals, render_connector_pane_help
-from .connector_pane_geometry import get_pattern
 from .draw import draw_scene
 from .icons import icon_data_uri
 from .scene import Scene, build_scene
-from .style import DEFAULT_THEME, Theme, css_var_theme, lv_type_label, wire_style
+from .style import DEFAULT_THEME, Theme, css_var_theme
 from .theme_web import embedded_dark_css
 
 # How a rendered SVG carries light/dark colors:
@@ -281,53 +280,10 @@ def _vi_properties_data_attrs(
     ctx = graph.get_vi_context(vi_name)
     props = vi_properties_to_dict(ctx.properties)
     health = vi_health_to_dict(ctx.health)
-    attrs = {
+    return {
         "lv-properties": json.dumps(props, separators=(",", ":"), sort_keys=True),
         "lv-health": json.dumps(health, separators=(",", ":"), sort_keys=True),
     }
-    pane = _connector_pane_data(graph, vi_name)
-    if pane is not None:
-        attrs["lv-connector-pane"] = pane
-    return attrs
-
-
-def _connector_pane_data(graph: InMemoryVIGraph, vi_name: str) -> str | None:
-    """Compact-JSON ``data-lv-connector-pane`` payload: the VI's connector pane
-    as PRE-RESOLVED cells — each cell's grid rect (normalized 0..1), the wired
-    terminal's name/type/wire-color/direction/wiring-rule, or empty. Python owns
-    the pattern geometry (``connector_pane_geometry``) and the type→color map, so
-    the viewer chrome only PAINTS these cells — no geometry or color logic (and
-    so no drift) on the JS side. ``None`` when the VI has no connector pane.
-
-    Same single-carrier principle as ``data-lv-properties`` (#19): the root SVG
-    holds the data, the render/diff viewers promote it to an (overlaid) panel,
-    and a raw-SVG host (the VS Code extension) reads the same JSON.
-    """
-    ctx = graph.get_vi_context(vi_name)
-    con_id = ctx.connector_pattern_id
-    pattern = get_pattern(con_id) if con_id is not None else None
-    if pattern is None:
-        return None
-    by_index = {t.index: t for t in pane_terminals((*ctx.inputs, *ctx.outputs))}
-    cells: list[dict] = []
-    for c in pattern.cells:
-        cell: dict = {
-            "i": c.index, "x": round(c.x, 4), "y": round(c.y, 4),
-            "w": round(c.w, 4), "h": round(c.h, 4),
-        }
-        term = by_index.get(c.index)
-        if term is not None:
-            cell["name"] = term.name or ""
-            cell["type"] = lv_type_label(term.lv_type)
-            cell["color"] = wire_style(term.lv_type).color
-            cell["out"] = term.is_output
-            cell["rule"] = term.wiring_rule
-        cells.append(cell)
-    data = {
-        "con_id": con_id, "name": pattern.name,
-        "cols": pattern.cols, "rows": pattern.rows, "cells": cells,
-    }
-    return json.dumps(data, separators=(",", ":"), sort_keys=True)
 
 
 def render_vi(
@@ -405,14 +361,12 @@ def _vi_aside_svg(
     ctx = graph.get_vi_context(vi_name)
     if ctx.connector_pattern_id is None:
         return ""
-    node = graph._graph.nodes.get(vi_name, {}).get("node")
-    description = node.description if isinstance(node, VINode) else None
     icon_uri = icon_data_uri(scene.icon_png) if scene.icon_png is not None else None
     panel = render_connector_pane_help(
         ctx.connector_pattern_id,
         pane_terminals((*ctx.inputs, *ctx.outputs)),
         title=vi_name.split(":")[-1],
-        description=description,
+        description=ctx.description,
         icon_uri=icon_uri,
         theme=theme,
     )
@@ -454,11 +408,12 @@ _BASE_CSS = (
     ".lv-help{visibility:hidden;pointer-events:none;"
     "filter:drop-shadow(0 2px 12px rgba(0,0,0,.28))}"
     ".lv-help.lv-help-shown{visibility:visible}"
-    # The VI's icon + connector-pane aside (top-right, like a real VI): HIDDEN
-    # by default via an INLINE display:none on the group itself (so rasterizers
-    # honor it — see _vi_aside_svg); a host (render/diff viewer) reveals it in
-    # place by clearing that inline display. This rule only adds the lift shadow
-    # once shown. Inside the viewBox, so it never grows the canvas.
+    # The VI's icon + connector-pane aside (top-right, like a real VI): parked
+    # in <defs> so it is STRUCTURALLY non-rendered by default (rasterizers and
+    # sanitizers never paint it — see _vi_aside_svg); a host (render/diff viewer)
+    # reveals it by lifting a clone OUT of <defs> into the visible tree. This
+    # rule only adds the lift shadow once shown. Inside the viewBox, so it never
+    # grows the canvas.
     ".lv-vi-aside{filter:drop-shadow(0 2px 12px rgba(0,0,0,.28))}"
 )
 

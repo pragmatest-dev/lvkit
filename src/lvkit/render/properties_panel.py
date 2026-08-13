@@ -109,6 +109,17 @@ _PANEL_CSS = """
   .lvkit-props-empty{color:var(--dfg-muted)}
 """
 
+# One reader for a JSON dataset attr, shared by BOTH the single-VI and diff
+# script builders (the only difference between them is which SVG carries the
+# data). Returns null on a missing attr or malformed JSON -- the panel is
+# optional chrome and must never throw.
+_PARSE_DATASET_JS = (
+    "    function lvkitReadData(el, key) {\n"
+    "      try { return el && el.dataset[key] ? JSON.parse(el.dataset[key]) : null; }\n"
+    "      catch (e) { return null; }\n"
+    "    }\n"
+)
+
 # Shared row/group/buildPanel JS — the ONE value-rendering implementation
 # both panels use. Grouped like `describe` (Version / Execution / Window /
 # Toolbar / Instance / Kind / Health): EVERY field shows (unfiltered), like
@@ -222,21 +233,28 @@ PROPERTIES_PANEL = (
     "    var wrap = stageEl.closest('.stage-wrap');\n"
     "    if (wrap && panel) wrap.appendChild(panel);\n"
     "\n"
-    "    var props = null, health = null, beforeProps = null, beforeHealth = null;\n"
-    "    try {\n"
-    "      if (svg.dataset.lvProperties)\n"
-    "        props = JSON.parse(svg.dataset.lvProperties);\n"
-    "    } catch (e) { props = null; }\n"
-    "    try {\n"
-    "      if (svg.dataset.lvHealth) health = JSON.parse(svg.dataset.lvHealth);\n"
-    "    } catch (e) { health = null; }\n"
+    + _PARSE_DATASET_JS +
+    "    var props = lvkitReadData(svg, 'lvProperties');\n"
+    "    var health = lvkitReadData(svg, 'lvHealth');\n"
+    "    var beforeProps = null, beforeHealth = null;\n"
     + _PANEL_BODY_JS +
     "\n"
     "    if (btn) btn.addEventListener('click', function () {\n"
     "      if (!panel) return;\n"
+    "      // MUTUALLY EXCLUSIVE with the ▦ connector pane (shared view space),\n"
+    "      // same as the diff viewer.\n"
+    "      if (panel.hidden && window.lvkitCloseConnectorPanes)\n"
+    "        window.lvkitCloseConnectorPanes();\n"
     "      panel.hidden = !panel.hidden;\n"
     "      btn.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');\n"
     "    });\n"
+    "    // Let the connector pane close us (its open is our close).\n"
+    "    window.lvkitCloseProps = function () {\n"
+    "      if (panel && !panel.hidden) {\n"
+    "        panel.hidden = true;\n"
+    "        if (btn) btn.setAttribute('aria-expanded', 'false');\n"
+    "      }\n"
+    "    };\n"
     "  } catch (e) { /* properties chrome is optional -- never break the viewer */ }\n"
     "})();\n"
     "</script>"
@@ -278,11 +296,19 @@ _DIFF_PANEL_EXTRA_CSS = """
   @keyframes lvselpulse{
     0%,100%{box-shadow:0 0 0 2px var(--mod), 0 0 3px 1px var(--mod)}
     50%{box-shadow:0 0 0 4px var(--mod), 0 0 9px 2px var(--mod)}}
-  /* Spotlight: dim every OTHER changed row when one is picked (like .stage.has-sel). */
+  /* Spotlight: dim every OTHER changed row when one is picked -- the HTML analog
+     of the diagram's .stage.has-sel .hl:not(.sel) rule. The .32 is deliberately
+     lighter than the diagram's ~.18-.22: rows are plain text on a calm panel, so
+     they stay readable at a higher opacity than glyphs over a busy diagram would.
+     Same mechanic, surface-tuned value -- not drift. */
   .lvkit-props-panel.lvkit-has-sel
     .prop-row.lvkit-prop-changed:not(.lvkit-prop-selected){opacity:.32}
   /* Change number: the SAME bold, change-coloured, HALOED look as the diagram's
-     .hl-num -- an HTML text-shadow halo stands in for the SVG stroke halo. */
+     .hl-num -- an HTML text-shadow halo stands in for the SVG stroke halo. The
+     px SIZE deliberately tracks THIS panel's 12px body text, not the diagram's
+     17px .hl-num: that number lives in SVG diagram user-units (arbitrary zoom),
+     this one in the fixed-size popover, so matching the panel keeps it legible
+     rather than oversized. Same look, coordinate-appropriate scale. */
   .lvkit-props-panel .prop-row .lvkit-prop-num{
     font:bold 13px system-ui,sans-serif;margin-right:6px;color:var(--mod);
     font-variant-numeric:tabular-nums;
@@ -315,25 +341,11 @@ DIFF_PROPERTIES_PANEL = (
     "    var wrap = afterPane.closest('.stage-wrap');\n"
     "    if (wrap && panel) wrap.appendChild(panel);\n"
     "\n"
-    "    var props = null, health = null, beforeProps = null, beforeHealth = null;\n"
-    "    try {\n"
-    "      if (afterSvg.dataset.lvProperties)\n"
-    "        props = JSON.parse(afterSvg.dataset.lvProperties);\n"
-    "    } catch (e) { props = null; }\n"
-    "    try {\n"
-    "      if (afterSvg.dataset.lvHealth)\n"
-    "        health = JSON.parse(afterSvg.dataset.lvHealth);\n"
-    "    } catch (e) { health = null; }\n"
-    "    if (beforeSvg) {\n"
-    "      try {\n"
-    "        if (beforeSvg.dataset.lvProperties)\n"
-    "          beforeProps = JSON.parse(beforeSvg.dataset.lvProperties);\n"
-    "      } catch (e) { beforeProps = null; }\n"
-    "      try {\n"
-    "        if (beforeSvg.dataset.lvHealth)\n"
-    "          beforeHealth = JSON.parse(beforeSvg.dataset.lvHealth);\n"
-    "      } catch (e) { beforeHealth = null; }\n"
-    "    }\n"
+    + _PARSE_DATASET_JS +
+    "    var props = lvkitReadData(afterSvg, 'lvProperties');\n"
+    "    var health = lvkitReadData(afterSvg, 'lvHealth');\n"
+    "    var beforeProps = lvkitReadData(beforeSvg, 'lvProperties');\n"
+    "    var beforeHealth = lvkitReadData(beforeSvg, 'lvHealth');\n"
     + _PANEL_BODY_JS +
     "\n"
     "    // Ring the button amber iff >=1 shown value differs from BEFORE.\n"
@@ -347,9 +359,6 @@ DIFF_PROPERTIES_PANEL = (
     "      }\n"
     "      btn.addEventListener('click', function () {\n"
     "        if (!panel) return;\n"
-    "        // A manual open/close is NOT selection-driven, so a later\n"
-    "        // change-deselect must not auto-close it (see clearSel).\n"
-    "        window.lvkitPropPanelBySel = false;\n"
     "        // MUTUALLY EXCLUSIVE with the ▦ connector pane (shared view space).\n"
     "        if (panel.hidden && window.lvkitCloseConnectorPanes)\n"
     "          window.lvkitCloseConnectorPanes();\n"
@@ -360,7 +369,7 @@ DIFF_PROPERTIES_PANEL = (
     "    // Let the connector pane (and a selection-driven open) close us.\n"
     "    window.lvkitCloseProps = function () {\n"
     "      if (panel && !panel.hidden) {\n"
-    "        panel.hidden = true; window.lvkitPropPanelBySel = false;\n"
+    "        panel.hidden = true;\n"
     "        if (btn) btn.setAttribute('aria-expanded', 'false');\n"
     "      }\n"
     "    };\n"

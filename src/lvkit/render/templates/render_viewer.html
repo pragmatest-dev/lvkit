@@ -7,6 +7,9 @@
      --theme auto): the toolbar theme button flips document.documentElement's
      data-theme, which re-themes the inline SVG live (see theme_control.py). */
   :root{
+    --hl-r:6px;   /* ONE source of truth for the highlight corner radius, same
+                     token the diff viewer defines. Here the shared properties
+                     panel CSS (.prop-row) rounds from it. Change it once. */
     --bg:#ffffff;--panel:#f6f8fa;--fg:#1f2328;--line:#d0d7de;
     --canvas:#ffffff;--btn:#eaeef2;--btn-hover:#dfe4ea;--fg-muted:#57606a;
     --accent:#0969da;--accent-fg:#ffffff;

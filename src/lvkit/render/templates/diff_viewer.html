@@ -1084,10 +1084,9 @@ function revealPropertyRow(c){
   const btn=document.getElementById('lvkitDiffPropsBtn');
   const panel=document.getElementById('lvkitDiffPropsPanel');
   if(!panel)return;
-  // Remember that the SELECTION opened the popover, so deselecting the change
-  // closes it again (clearSel); a manually-opened popover stays put.
+  // Selecting a property change opens the popover (clearSel closes it again).
   if(window.lvkitCloseConnectorPanes) window.lvkitCloseConnectorPanes();  // mutually exclusive
-  if(panel.hidden){ panel.hidden=false; window.lvkitPropPanelBySel=true; if(btn) btn.setAttribute('aria-expanded','true'); }
+  if(panel.hidden){ panel.hidden=false; if(btn) btn.setAttribute('aria-expanded','true'); }
   const key=(c.uid||'').split(':').slice(1).join(':');
   if(!key)return;
   panel.classList.add('lvkit-has-sel');   // spotlight: dim the other changed rows
@@ -1202,8 +1201,7 @@ function clearSel(){
   if(propPanelEl){ propPanelEl.classList.remove('lvkit-has-sel');
     propPanelEl.querySelectorAll('.lvkit-prop-selected')
       .forEach(el=>el.classList.remove('lvkit-prop-selected')); }
-  window.lvkitPropPanelBySel=false;
-  clearConnectorSel();   // drop the .pt-hl/.pt-sel connector highlight too (toggle-off)
+  clearConnectorSel();   // drop the connector highlight too (toggle-off)
   Object.values(rects).forEach(r=>r.classList.remove('sel'));
   Object.values(nums).forEach(t=>t.classList.remove('sel'));
   Object.values(parts).flat().forEach(el=>el.classList.remove('sel'));
@@ -1279,7 +1277,6 @@ function applyBlend(){
 // a property has the ▤ popover) -- removed lives in the BEFORE pane, added in
 // the AFTER pane, modified in both. The pane <g.lv-pane-term data-pane-term=
 // "{dir}:{name}"> matches the change uid "connector_pane:{dir}:{name}".
-const PT_SVGNS='http://www.w3.org/2000/svg';
 const PT_CORR=11;   // fallback band width when a terminal has no text label
 function ptKey(c){ return (c.uid||'').split(':').slice(1).join(':'); }
 function ptBoxes(){ return window.lvkitConnectorBoxes?window.lvkitConnectorBoxes():[]; }
@@ -1371,7 +1368,7 @@ window.lvkitAnnotateConnectorPanes=function(boxes){
     const helpG=root.querySelector('.lv-vi-help')||root;
     // Highlight layer sits just behind the pane content (after the bg rect), so
     // the outline peeks around the cells/wires/text and the tint fills the gaps.
-    const layer=document.createElementNS(PT_SVGNS,'g'); layer.setAttribute('class','pt-hl-layer');
+    const layer=document.createElementNS(SVGNS,'g');
     helpG.appendChild(layer);   // ON TOP of the pane content (translucent overlay)
     CHANGES.forEach((c,i)=>{
       if(c.kind!=='connector_pane' || ptBoxesFor(c).indexOf(box)<0) return;
@@ -1400,9 +1397,9 @@ window.lvkitAnnotateConnectorPanes=function(boxes){
       // node colour+stroke, .hl.node.sel (stroke-width:4 + the shared selpulse),
       // the .hl.<change>.sel glow, AND the .stage.has-sel spotlight. Rounding is
       // the shared --hl-r. No connector-specific highlight CSS at all.
-      const grp=document.createElementNS(PT_SVGNS,'g');
+      const grp=document.createElementNS(SVGNS,'g');
       grp.setAttribute('class','pt-hl'); grp.dataset.paneTerm=key;
-      const shape=document.createElementNS(PT_SVGNS,'path');
+      const shape=document.createElementNS(SVGNS,'path');
       shape.setAttribute('class','hl node '+c.change);
       shape.setAttribute('vector-effect','non-scaling-stroke');
       shape.setAttribute('d', roundPath(ptUnionPts(pieces), PT_R));
@@ -1410,7 +1407,7 @@ window.lvkitAnnotateConnectorPanes=function(boxes){
       // number: the diagram's OWN .hl-num, placed OUTSIDE the band so it can't
       // overlap the highlight.
       if(tb){
-        const num=document.createElementNS(PT_SVGNS,'text');
+        const num=document.createElementNS(SVGNS,'text');
         num.setAttribute('class','hl-num '+c.change);
         const nx=isOut ? (tb.x+tb.w+bandW/2+9) : (tb.x-bandW/2-9);
         const ny=(hub?hub[1]:tb.y+tb.h/2)+5;

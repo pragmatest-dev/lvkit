@@ -9,9 +9,25 @@ wire's LabVIEW type to a color/width — it branches on the SOURCE terminal's
 from __future__ import annotations
 
 import dataclasses
+import re
 from dataclasses import dataclass
 
 from ..models import _LV_NUMERIC_TYPE_LABEL, LVType, _is_error_cluster
+
+# LabVIEW help/description strings carry rich-text tags (<B>..</B>, <BR>, ...).
+_HELP_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def clean_help_text(text: str | None) -> str | None:
+    """Plain-text a LabVIEW help/description string for display: strip its
+    rich-text tags (``<B>..</B>``, ``<BR>``, ...) and collapse whitespace/
+    newlines. Returns None for empty-or-whitespace-only text so a panel draws
+    no blank description line. Shared by every surface that shows a VI/node
+    description (the block-diagram hover panel AND the connector-pane aside),
+    so the same text reads identically whichever panel presents it."""
+    if not text:
+        return None
+    return " ".join(_HELP_TAG_RE.sub(" ", text).split()) or None
 
 
 @dataclass(frozen=True)

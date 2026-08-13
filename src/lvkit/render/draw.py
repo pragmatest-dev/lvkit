@@ -9,7 +9,6 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from ..graph.models import (
@@ -65,6 +64,7 @@ from .scene import (
 from .style import (
     DEFAULT_THEME,
     Theme,
+    clean_help_text,
     lv_type_label,
     numeric_sample,
     type_family,
@@ -426,20 +426,7 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
             header = mux_display_name(node)
     if header is None:
         return None
-    return header, _clean_help_text(getattr(node, "description", None))
-
-
-_HELP_TAG_RE = re.compile(r"<[^>]+>")
-
-
-def _clean_help_text(text: str | None) -> str | None:
-    """Plain-text a LabVIEW help/description string for display: strip its
-    rich-text tags (``<B>..</B>``, ``<BR>``, ...) and collapse whitespace/
-    newlines. Returns None for empty-or-whitespace-only text so the panel
-    draws no blank description line."""
-    if not text:
-        return None
-    return " ".join(_HELP_TAG_RE.sub(" ", text).split()) or None
+    return header, clean_help_text(getattr(node, "description", None))
 
 
 def _node_tooltip(node: AnyGraphNode) -> str | None:
@@ -573,6 +560,7 @@ _PANE_STUB_FULL = 20.0      # full stub length, icon edge -> label anchor
 _PANE_TEXT_GAP = 3.0        # label anchor -> first glyph of text
 _PANE_NT_GAP = 5.0          # gap between a terminal's name and its grey type
 _PANE_STUB_MARGIN = _PANE_STUB_FULL + _PANE_TEXT_GAP  # edge -> text start
+_PANE_CARD_RX = 3.0         # corner radius of the hover help-panel card
 
 _PANE_ROW_MIN_GAP = 11.0    # min vertical spacing between left/right labels
 _PANE_ROW_HALF = _PANE_LABEL_SIZE / 2 + 2.0  # vertical pad around a label row
@@ -716,8 +704,9 @@ def _pane_stub_points(edge: Point, side: str, final_perp: float) -> list[Point]:
     it ORIGINATES at the terminal's true edge point and runs ORTHOGONALLY
     (horizontal/vertical segments only — never a diagonal) out to its label
     slot. When the label sits exactly on the terminal's own edge fraction the
-    stub is a single straight run; when the label was moved to its evenly-
-    distributed row (see ``_layout``) the stub becomes a proper elbow/Z —
+    stub is a single straight run; when the label was moved to its assigned row
+    (straight rows nudged apart on collision, folded rows reach-stacked above/
+    below the icon — see ``_layout``) the stub becomes a proper elbow/Z —
     out along the side normal, across to the label's row/column, then in to
     the label anchor. The kinks are expected: that's how LabVIEW wires look,
     and they keep every stub visibly terminating at the REAL geometry even
@@ -814,10 +803,15 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
         for t, y in zip(straight, _spread_1d(
                 [t.ay for t in straight], [_PANE_ROW_MIN_GAP] * len(straight))):
             t.ly = y
-        # Stack folded leaders by REACH (horizontal distance to this side's hub)
-        # so they never cross: the LONGEST reach sits FURTHEST from the icon,
-        # clearing the shorter ones' vertical runs -- the SAME rule as the
-        # connector-pane help panel's _classify (kept in sync deliberately).
+        # FOLD_STACK_RULE (see connector_pane.py::_classify for the canonical
+        # statement): stack folded leaders by REACH (horizontal distance to this
+        # side's hub) so they never cross -- the LONGEST reach sits FURTHEST from
+        # the icon, clearing the shorter ones' vertical runs. In these PIXEL
+        # coords rows are placed OUTWARD from the icon, so each stack sorts
+        # ASCENDING (longest reach lands on the outside); the help panel, in
+        # normalized coords with top-down placement, sorts the mirror direction.
+        # Same invariant, coordinate-specific (sort, placement) pair -- keep in
+        # sync. Grep FOLD_STACK_RULE for both homes.
         side = terms[0].side if terms else "left"
         reach = lambda t: t.ax if side == "left" else icon_w - t.ax  # noqa: E731
         base_top = min([t.ly for t in straight] + [0.0]) - _PANE_ROW_MIN_GAP
@@ -888,7 +882,8 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     backend.begin_group(cls="lv-help", data={"node": node.node.id})
     backend.rect(
         0.0, 0.0, panel_w, panel_h,
-        fill=theme.canvas, stroke=theme.struct_border, stroke_width=1.0, rx=3,
+        fill=theme.canvas, stroke=theme.struct_border, stroke_width=1.0,
+        rx=_PANE_CARD_RX,
     )
     cx = panel_w / 2
     # Panel background is theme.canvas — pair with the canvas/default text role.

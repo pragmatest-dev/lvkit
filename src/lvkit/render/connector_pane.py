@@ -9,26 +9,31 @@ and returns an ``<svg>`` fragment. The graph adapter
 (:func:`pane_terminals_for_vi`) is what pulls those out of a loaded VI.
 
 Both homes for the pane use this one renderer: the standalone single-VI view,
-and the before/after diff (pass ``ring`` = the set of changed terminal indices
-to highlight them).
+and the before/after diff. Change highlighting is not baked in here — each
+terminal ``<g>``/cell carries a ``data-pane-term`` identity handle (see
+:func:`_term_id`) and the diff viewer does the ring/number overlay in JS.
 """
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from xml.sax.saxutils import escape
 
 from ..models import FPTerminal, LVType, Terminal
 from .connector_pane_geometry import PaneCell, get_pattern
-from .style import DEFAULT_THEME, Theme, lv_type_label, wire_style
+from .style import (
+    DEFAULT_THEME,
+    Theme,
+    clean_help_text,
+    lv_type_label,
+    wire_style,
+)
 
 __all__ = [
     "PaneTerminal",
     "pane_terminals",
     "render_connector_pane",
-    "render_connector_pane_compact",
-    "render_connector_pane_diff",
     "render_connector_pane_help",
 ]
 
@@ -37,6 +42,10 @@ __all__ = [
 _COL_W = 116
 _ROW_H = 34
 _PAD = 6  # outer margin around the whole pane (room for direction stubs)
+# SVG-baked corner radii (chrome, not the change-highlight radius -- these live
+# inside standalone SVGs that can't read the viewers' --hl-r CSS var).
+_CELL_RX = 2       # labeled-grid cell corner
+_HELP_CARD_RX = 4  # help-panel card corner
 
 # Wiring-rule -> border stroke width. LabVIEW draws a REQUIRED terminal bold, a
 # recommended one plain, an optional one thin. (0 unknown, 1 required,
@@ -64,29 +73,36 @@ def pane_terminals(terminals: Iterable[Terminal]) -> list[PaneTerminal]:
     .outputs`` — already filtered to public FP terminals) to ``PaneTerminal``,
     the render layer's slot-keyed view. Keeps this module free of any graph
     dependency."""
-    out: list[PaneTerminal] = []
-    for t in terminals:
-        out.append(PaneTerminal(
+    return [
+        PaneTerminal(
             index=t.index,
             name=t.name,
             lv_type=t.lv_type,
             is_output=t.direction == "output",
             wiring_rule=t.wiring_rule if isinstance(t, FPTerminal) else 0,
-        ))
-    return out
+        )
+        for t in terminals
+    ]
 
 
-def _esc(s: str) -> str:
-    return (
-        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    )
+# Element-text escape (&<>). Named alias so it reads as the sibling of
+# ``_escattr`` (which adds the double-quote escape for attribute values).
+_esc = escape
 
 
 def _escattr(s: str) -> str:
     """``_esc`` plus a double-quote escape, for a value going inside a
     double-quoted SVG/HTML attribute (a terminal name can contain ``"`` — e.g.
     the literal default in ``custom report message ("")``)."""
-    return _esc(s).replace('"', "&quot;")
+    return escape(s, {'"': "&quot;"})
+
+
+def _term_id(term: PaneTerminal) -> str:
+    """The terminal's stable identity key ``"{direction}:{name}"`` — the ONE
+    definition shared by the cell rects, the help-panel leader/label group, and
+    (via the diff engine's ``connector_pane:{direction}:{name}`` uid + the diff
+    viewer's ``ptKey``) the change ring/number matching. Must not diverge."""
+    return f'{"output" if term.is_output else "input"}:{term.name or ""}'
 
 
 def _tint(hex_color: str, amount: float) -> str:
@@ -115,8 +131,7 @@ def _tooltip(term: PaneTerminal) -> str:
 
 
 def _cell_svg_compact(
-    cell: PaneCell, term: PaneTerminal | None, W: float, H: float,
-    theme: Theme, ringed: bool,
+    cell: PaneCell, term: PaneTerminal | None, W: float, H: float, theme: Theme,
 ) -> list[str]:
     """One cell at ICON size — the faithful LabVIEW pane face: solid type color,
     no labels (the terminal name/type is a hover <title>), each cell keeping its
@@ -130,32 +145,19 @@ def _cell_svg_compact(
             f'stroke-width="0.4" opacity="0.5"/>'
         ]
     color = wire_style(term.lv_type, theme).color
-    # Identity handle matching the terminal's leader+label group in the help panel
-    # so the diff viewer can union the SQUARE with the wire + text (same key as the
-    # connector-pane change uid). This is the compact grid the help panel embeds.
-    cell_id = f'{"output" if term.is_output else "input"}:{term.name or ""}'
-    parts = [
-        f'<rect class="lv-pane-cell" data-pane-term="{_escattr(cell_id)}" '
+    # data-pane-term (see _term_id) lets the diff viewer union this SQUARE with the
+    # terminal's wire + label into one highlight; this is the grid the help panel
+    # embeds. Change highlighting is done by the viewer in JS, not baked here.
+    return [
+        f'<rect class="lv-pane-cell" data-pane-term="{_escattr(_term_id(term))}" '
         f'x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
         f'fill="{color}" stroke="{theme.struct_border}" stroke-width="0.4">'
         f'{_tooltip(term)}</rect>'
     ]
-    if ringed:
-        parts.append(
-            f'<rect x="{x - 1:.2f}" y="{y - 1:.2f}" width="{w + 2:.2f}" '
-            f'height="{h + 2:.2f}" fill="none" stroke="{theme.coercion_dot}" '
-            f'stroke-width="1.4"/>'
-        )
-    return parts
 
 
 def _cell_svg(
-    cell: PaneCell,
-    term: PaneTerminal | None,
-    W: float,
-    H: float,
-    theme: Theme,
-    ringed: bool,
+    cell: PaneCell, term: PaneTerminal | None, W: float, H: float, theme: Theme,
 ) -> list[str]:
     x, y = _PAD + cell.x * W, _PAD + cell.y * H
     w, h = cell.w * W, cell.h * H
@@ -165,7 +167,7 @@ def _cell_svg(
         # An empty slot the pattern offers but this VI doesn't wire.
         parts.append(
             f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
-            f'rx="2" fill="{theme.canvas}" stroke="{theme.subvi_stroke}" '
+            f'rx="{_CELL_RX}" fill="{theme.canvas}" stroke="{theme.subvi_stroke}" '
             f'stroke-width="0.8" stroke-dasharray="2 2" opacity="0.6"/>'
         )
         return parts
@@ -174,13 +176,11 @@ def _cell_svg(
     fill = _tint(color, 0.72)
     text_color = theme.text
     width = _RULE_WIDTH.get(term.wiring_rule, 1.2)
-    # Same identity handle as the terminal's leader+label group in the help panel
-    # (render_connector_pane_help) so the diff viewer can union the SQUARE with
-    # the wire + text into one highlight (matches the connector-pane change uid).
-    cell_id = f'{"output" if term.is_output else "input"}:{term.name or ""}'
+    # Same identity handle as the compact grid + the help-panel leader/label group
+    # (see _term_id) so the diff viewer can union the SQUARE with the wire + text.
     parts.append(
-        f'<rect class="lv-pane-cell" data-pane-term="{_escattr(cell_id)}" '
-        f'x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="2" '
+        f'<rect class="lv-pane-cell" data-pane-term="{_escattr(_term_id(term))}" '
+        f'x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="{_CELL_RX}" '
         f'fill="{fill}" stroke="{color}" stroke-width="{width}">'
         f'{_tooltip(term)}</rect>'
     )
@@ -211,12 +211,6 @@ def _cell_svg(
             f'<text x="{tx:.1f}" y="{y + h / 2 + 3.5:.1f}" font-size="10" '
             f'fill="{text_color}" font-family="sans-serif">{_esc(name)}</text>'
         )
-    if ringed:
-        parts.append(
-            f'<rect x="{x - 1.5:.1f}" y="{y - 1.5:.1f}" width="{w + 3:.1f}" '
-            f'height="{h + 3:.1f}" rx="3" fill="none" stroke="{theme.coercion_dot}"'
-            f' stroke-width="2.2"/>'
-        )
     return parts
 
 
@@ -225,24 +219,21 @@ def render_connector_pane(
     terminals: list[PaneTerminal],
     *,
     theme: Theme = DEFAULT_THEME,
-    ring: frozenset[int] = frozenset(),
 ) -> str:
     """Render the connector pane for ``pattern_id`` with ``terminals`` placed by
-    slot index. ``ring`` highlights the given indices (diff use). Returns a
-    self-contained ``<svg>`` element. Falls back to a plain input/output column
-    layout when the pattern id is unknown or absent, so a VI always renders."""
+    slot index. Returns a self-contained ``<svg>`` element. Falls back to a plain
+    input/output column layout when the pattern id is unknown or absent, so a VI
+    always renders."""
     by_index = {t.index: t for t in terminals}
     pattern = get_pattern(pattern_id) if pattern_id is not None else None
     if pattern is None:
-        return _fallback_svg(pattern_id, terminals, theme=theme, ring=ring)
+        return _fallback_svg(pattern_id, terminals, theme=theme)
 
     W = pattern.cols * _COL_W
     H = pattern.rows * _ROW_H
     body: list[str] = []
     for cell in pattern.cells:
-        body.extend(
-            _cell_svg(cell, by_index.get(cell.index), W, H, theme, cell.index in ring)
-        )
+        body.extend(_cell_svg(cell, by_index.get(cell.index), W, H, theme))
     svg_w, svg_h = W + 2 * _PAD, H + 2 * _PAD
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_w:.0f}" '
@@ -261,7 +252,6 @@ def render_connector_pane_compact(
     terminals: list[PaneTerminal],
     *,
     theme: Theme = DEFAULT_THEME,
-    ring: frozenset[int] = frozenset(),
     size: float = 40.0,
     height: float | None = None,
 ) -> str:
@@ -269,8 +259,7 @@ def render_connector_pane_compact(
     beside the icon: a small ``size``×``height`` colored grid (``height``
     defaults to ``size``), each cell in its true pattern shape (square / tall /
     column-spanning), filled by terminal type, name/type on hover (``<title>``).
-    No text labels. ``ring`` highlights changed cells (diff). Unknown conId → a
-    minimal box so it never breaks."""
+    No text labels. Unknown conId → a minimal box so it never breaks."""
     h = height if height is not None else size
     by_index = {t.index: t for t in terminals}
     pattern = get_pattern(pattern_id) if pattern_id is not None else None
@@ -279,10 +268,7 @@ def render_connector_pane_compact(
         parts = [inner]
         for cell in pattern.cells:
             parts.extend(
-                _cell_svg_compact(
-                    cell, by_index.get(cell.index), size, h, theme,
-                    cell.index in ring,
-                )
+                _cell_svg_compact(cell, by_index.get(cell.index), size, h, theme)
             )
         inner = "".join(parts)
     return (
@@ -346,6 +332,9 @@ def render_connector_pane_help(
     left, outputs right), with the VI icon + title and (wrapped) description
     above — the way LabVIEW's Context Help window presents a VI. Unknown conId
     falls back to the labeled column pane."""
+    # Strip LabVIEW rich-text tags so the aside reads the SAME as the node hover
+    # panel, which cleans the identical field via style.clean_help_text (audit A).
+    description = clean_help_text(description)
     pattern = get_pattern(pattern_id) if pattern_id is not None else None
     if pattern is None:
         return render_connector_pane(pattern_id, terminals, theme=theme)
@@ -383,12 +372,21 @@ def render_connector_pane_help(
             sum(r[0].y + r[0].h / 2 for r in outer) / len(outer) if outer else 0.5
         )
         cy = lambda r: r[0].y + r[0].h / 2  # noqa: E731
-        # Split by height (route each folded leader to the nearer margin), but
-        # STACK by REACH -- the horizontal distance to the hub -- so the leaders
+        # ===== FOLD_STACK_RULE (canonical statement) ==========================
+        # Split folded leaders by height (route each to the nearer margin), but
+        # STACK them by REACH -- the horizontal distance to the hub -- so they
         # never cross: the LONGEST reach rides on the OUTSIDE (top of the top
         # stack / bottom of the bottom stack), clearing every shorter leader's
         # vertical run. (Stacking by cell height instead let a long leader cross a
         # short one -- the crossings in #26.)
+        #
+        # draw.py::_layout enforces the SAME invariant for the hover tooltip, in
+        # PIXEL coords: because it places rows outward from the icon, it sorts each
+        # stack ASCENDING (longest reach ends up furthest out); HERE, in NORMALIZED
+        # 0..1 coords with a top-down placement, the top stack sorts DESCENDING and
+        # the bottom ASCENDING. Same rule, coordinate-specific (sort, placement)
+        # pairing -- keep the two in sync. Grep FOLD_STACK_RULE for both homes.
+        # ======================================================================
         cxm = lambda r: r[0].x + r[0].w / 2  # noqa: E731
         reach = lambda r: (1 - cxm(r)) if is_out else cxm(r)  # noqa: E731
         it = sorted([r for r in inner if cy(r) <= oc], key=reach, reverse=True)
@@ -451,7 +449,8 @@ def render_connector_pane_help(
     hcx = panel_w / 2  # header is centered on the panel's horizontal centre
     parts = [
         f'<g class="lv-vi-help">'
-        f'<rect x="0" y="0" width="{panel_w:.1f}" height="{panel_h:.1f}" rx="4" '
+        f'<rect x="0" y="0" width="{panel_w:.1f}" height="{panel_h:.1f}" '
+        f'rx="{_HELP_CARD_RX}" '
         f'fill="{theme.canvas}" stroke="{theme.struct_border}" stroke-width="1"/>'
     ]
     if icon_uri:
@@ -507,12 +506,10 @@ def render_connector_pane_help(
             f'fill="{theme.pane_type_text}">{_esc(type_str)}</tspan>'
             if type_str else ""
         )
-        # Identity handle: one <g> per terminal (leader + label), keyed
-        # "{direction}:{rawname}" to MATCH the diff engine's connector-pane change
-        # uid ("connector_pane:{direction}:{name}", _diff_connector_pane) so the
-        # diff viewer can ring/number the changed terminal. Diff-agnostic here —
-        # the renderer only stamps identity; the viewer does the matching.
-        term_id = f'{"output" if is_out else "input"}:{t.name or ""}'
+        # Identity handle: one <g> per terminal (leader + label). Same _term_id
+        # the cell rects use, matching the diff engine's connector-pane change uid
+        # so the diff viewer can ring/number the changed terminal (JS-side).
+        term_id = _term_id(t)
         parts.append(
             f'<g class="lv-pane-term" data-pane-term="{_escattr(term_id)}">'
         )
@@ -568,84 +565,11 @@ def render_connector_pane_help(
     )
 
 
-def _changed_names(
-    before: list[PaneTerminal], after: list[PaneTerminal]
-) -> set[str]:
-    """Terminal names that were added, removed, or had their type change —
-    the diff engine's own connector-pane rule (match by name; a type change is
-    a modify), computed here on the two slot lists so the render is
-    self-contained."""
-    a = {t.name: t for t in before if t.name}
-    b = {t.name: t for t in after if t.name}
-    changed: set[str] = set(a) ^ set(b)  # added or removed
-    for name in set(a) & set(b):
-        ta, tb = a[name].lv_type, b[name].lv_type
-        if lv_type_label(ta) != lv_type_label(tb):
-            changed.add(name)
-    return changed
-
-
-def _ring_for(terms: list[PaneTerminal], names: set[str]) -> frozenset[int]:
-    return frozenset(t.index for t in terms if t.name in names)
-
-
-def render_connector_pane_diff(
-    pattern_before: int | None,
-    before: list[PaneTerminal],
-    pattern_after: int | None,
-    after: list[PaneTerminal],
-    *,
-    theme: Theme = DEFAULT_THEME,
-) -> str:
-    """Render BEFORE and AFTER panes side by side, each with its changed cells
-    ringed. Changed = a terminal added / removed / retyped (matched by name).
-    Returns one ``<svg>`` containing both panes with captions."""
-    changed = _changed_names(before, after)
-    left = render_connector_pane(
-        pattern_before, before, theme=theme, ring=_ring_for(before, changed)
-    )
-    right = render_connector_pane(
-        pattern_after, after, theme=theme, ring=_ring_for(after, changed)
-    )
-    lw, lh = _svg_dims(left)
-    rw, rh = _svg_dims(right)
-    gap, cap_h = 28, 20
-    total_w = lw + gap + rw
-    total_h = max(lh, rh) + cap_h
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w:.0f}" '
-        f'height="{total_h:.0f}" viewBox="0 0 {total_w:.0f} {total_h:.0f}" '
-        f'font-family="sans-serif">'
-        f'<text x="0" y="13" font-size="12" font-weight="bold" '
-        f'fill="{theme.text}">before</text>'
-        f'<text x="{lw + gap:.0f}" y="13" font-size="12" font-weight="bold" '
-        f'fill="{theme.text}">after</text>'
-        f'<g transform="translate(0,{cap_h})">{_svg_inner(left)}</g>'
-        f'<g transform="translate({lw + gap:.0f},{cap_h})">{_svg_inner(right)}</g>'
-        "</svg>"
-    )
-
-
-def _svg_dims(svg: str) -> tuple[float, float]:
-    w = re.search(r'width="([\d.]+)"', svg)
-    h = re.search(r'height="([\d.]+)"', svg)
-    return (float(w.group(1)) if w else 0.0, float(h.group(1)) if h else 0.0)
-
-
-def _svg_inner(svg: str) -> str:
-    """Strip the outer <svg ...> wrapper so the content can be re-nested in a
-    <g>."""
-    start = svg.index(">") + 1
-    end = svg.rindex("</svg>")
-    return svg[start:end]
-
-
 def _fallback_svg(
     pattern_id: int | None,
     terminals: list[PaneTerminal],
     *,
     theme: Theme,
-    ring: frozenset[int],
 ) -> str:
     """Unknown/absent pattern: lay inputs in a left column, outputs in a right
     column, ordered by index. Honest about the missing geometry."""
@@ -660,7 +584,7 @@ def _fallback_svg(
         n = len(seq) or 1
         for i, t in enumerate(seq):
             cell = PaneCell(t.index, cx, i / n, 1 / cols, 1 / n)
-            body.extend(_cell_svg(cell, t, W, H, theme, t.index in ring))
+            body.extend(_cell_svg(cell, t, W, H, theme))
 
     if inputs:
         col(inputs, 0.0)

@@ -215,8 +215,11 @@ class TestBuildRenderViewerPropertiesChrome:
         dataset (the single source of truth) — never recompute state some
         other way."""
         html = self._html()
-        assert "dataset.lvProperties" in html
-        assert "dataset.lvHealth" in html
+        # Read via the shared lvkitReadData(el, key) helper, which pulls
+        # el.dataset[key] -- still straight off the embedded SVG's dataset.
+        assert "el.dataset[key]" in html
+        assert "lvkitReadData(svg, 'lvProperties')" in html
+        assert "lvkitReadData(svg, 'lvHealth')" in html
         # The panel groups these fields straight from the dataset (no
         # separate hand-typed chip-condition list anymore).
         assert "lock_state" in html
@@ -340,11 +343,12 @@ class TestBuildDiffViewerPropertiesChrome:
         assert "beforePane" in html and "afterPane" in html
         # AFTER supplies the shown values ("props"/"health", like the
         # single-VI panel); BEFORE supplies the comparison-only side
-        # ("beforeProps"/"beforeHealth") used purely for highlighting.
-        assert "afterSvg.dataset.lvProperties" in html
-        assert "beforeSvg.dataset.lvProperties" in html
-        assert "afterSvg.dataset.lvHealth" in html
-        assert "beforeSvg.dataset.lvHealth" in html
+        # ("beforeProps"/"beforeHealth") used purely for highlighting. Both
+        # sides read through the shared lvkitReadData(el, key) helper.
+        assert "lvkitReadData(afterSvg, 'lvProperties')" in html
+        assert "lvkitReadData(beforeSvg, 'lvProperties')" in html
+        assert "lvkitReadData(afterSvg, 'lvHealth')" in html
+        assert "lvkitReadData(beforeSvg, 'lvHealth')" in html
         assert "beforeProps" in html and "beforeHealth" in html
         # NOTE: the properties/health POPOVER panel (this section) always
         # shows the raw VIHealth facet regardless of whether health is

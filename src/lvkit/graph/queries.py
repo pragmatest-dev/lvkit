@@ -904,10 +904,13 @@ class QueryMixin:
 
         vi_meta = self._vi_metadata.get(vi_name, VIMetadata())
 
+        # Unguarded [vi_name] is safe: the `vi_name not in self._vi_nodes`
+        # early-return above guarantees membership in self._graph too (a VI is
+        # registered in both at load time).
         vi_gnode = self._graph.nodes[vi_name].get("node")
-        pattern_id = (
-            vi_gnode.connector_pattern_id if isinstance(vi_gnode, VINode) else None
-        )
+        is_vinode = isinstance(vi_gnode, VINode)
+        pattern_id = vi_gnode.connector_pattern_id if is_vinode else None
+        description = vi_gnode.description if is_vinode else None
 
         return VIContext(
             name=vi_name,
@@ -925,6 +928,7 @@ class QueryMixin:
             properties=self._vi_properties.get(vi_name, VIProperties()),
             health=self._vi_health.get(vi_name, VIHealth()),
             connector_pattern_id=pattern_id,
+            description=description,
         )
 
     def get_subvi_calls(self, vi_name: str) -> list[SubVICall]:
