@@ -82,6 +82,13 @@ def _esc(s: str) -> str:
     )
 
 
+def _escattr(s: str) -> str:
+    """``_esc`` plus a double-quote escape, for a value going inside a
+    double-quoted SVG/HTML attribute (a terminal name can contain ``"`` — e.g.
+    the literal default in ``custom report message ("")``)."""
+    return _esc(s).replace('"', "&quot;")
+
+
 def _tint(hex_color: str, amount: float) -> str:
     """Mix ``hex_color`` toward white by ``amount`` in [0,1] (1 => white)."""
     h = hex_color.lstrip("#")
@@ -123,8 +130,13 @@ def _cell_svg_compact(
             f'stroke-width="0.4" opacity="0.5"/>'
         ]
     color = wire_style(term.lv_type, theme).color
+    # Identity handle matching the terminal's leader+label group in the help panel
+    # so the diff viewer can union the SQUARE with the wire + text (same key as the
+    # connector-pane change uid). This is the compact grid the help panel embeds.
+    cell_id = f'{"output" if term.is_output else "input"}:{term.name or ""}'
     parts = [
-        f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+        f'<rect class="lv-pane-cell" data-pane-term="{_escattr(cell_id)}" '
+        f'x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
         f'fill="{color}" stroke="{theme.struct_border}" stroke-width="0.4">'
         f'{_tooltip(term)}</rect>'
     ]
@@ -162,8 +174,13 @@ def _cell_svg(
     fill = _tint(color, 0.72)
     text_color = theme.text
     width = _RULE_WIDTH.get(term.wiring_rule, 1.2)
+    # Same identity handle as the terminal's leader+label group in the help panel
+    # (render_connector_pane_help) so the diff viewer can union the SQUARE with
+    # the wire + text into one highlight (matches the connector-pane change uid).
+    cell_id = f'{"output" if term.is_output else "input"}:{term.name or ""}'
     parts.append(
-        f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="2" '
+        f'<rect class="lv-pane-cell" data-pane-term="{_escattr(cell_id)}" '
+        f'x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="2" '
         f'fill="{fill}" stroke="{color}" stroke-width="{width}">'
         f'{_tooltip(term)}</rect>'
     )
@@ -366,8 +383,16 @@ def render_connector_pane_help(
             sum(r[0].y + r[0].h / 2 for r in outer) / len(outer) if outer else 0.5
         )
         cy = lambda r: r[0].y + r[0].h / 2  # noqa: E731
-        it = sorted([r for r in inner if cy(r) <= oc], key=cy)
-        ib = sorted([r for r in inner if cy(r) > oc], key=cy)
+        # Split by height (route each folded leader to the nearer margin), but
+        # STACK by REACH -- the horizontal distance to the hub -- so the leaders
+        # never cross: the LONGEST reach rides on the OUTSIDE (top of the top
+        # stack / bottom of the bottom stack), clearing every shorter leader's
+        # vertical run. (Stacking by cell height instead let a long leader cross a
+        # short one -- the crossings in #26.)
+        cxm = lambda r: r[0].x + r[0].w / 2  # noqa: E731
+        reach = lambda r: (1 - cxm(r)) if is_out else cxm(r)  # noqa: E731
+        it = sorted([r for r in inner if cy(r) <= oc], key=reach, reverse=True)
+        ib = sorted([r for r in inner if cy(r) > oc], key=reach)
         return (it, outer, ib)
 
     def _label_w(rows: list[tuple[PaneCell, PaneTerminal]]) -> float:
@@ -482,6 +507,15 @@ def render_connector_pane_help(
             f'fill="{theme.pane_type_text}">{_esc(type_str)}</tspan>'
             if type_str else ""
         )
+        # Identity handle: one <g> per terminal (leader + label), keyed
+        # "{direction}:{rawname}" to MATCH the diff engine's connector-pane change
+        # uid ("connector_pane:{direction}:{name}", _diff_connector_pane) so the
+        # diff viewer can ring/number the changed terminal. Diff-agnostic here —
+        # the renderer only stamps identity; the viewer does the matching.
+        term_id = f'{"output" if is_out else "input"}:{t.name or ""}'
+        parts.append(
+            f'<g class="lv-pane-term" data-pane-term="{_escattr(term_id)}">'
+        )
         parts.append(
             f'<text x="{ax:.1f}" y="{ty:.1f}" text-anchor="{anchor}" '
             f'font-size="{_HELP_LABEL}" font-family="sans-serif" '
@@ -503,6 +537,7 @@ def render_connector_pane_help(
         parts.append(
             f'<path d="{path}" fill="none" stroke="{color}" stroke-width="1.4"/>'
         )
+        parts.append("</g>")
 
     def _place(side, is_out: bool) -> None:
         inner_top, outer, inner_bot = side

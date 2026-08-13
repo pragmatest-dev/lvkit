@@ -25,7 +25,6 @@ the root ``<svg>`` actually carries the expected ``data-lv-properties``/
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -501,11 +500,14 @@ class TestClickToRevealPropertyRow:
         assert '"field"' not in html
 
     def test_popover_rows_carry_matching_data_key(self):
-        """properties_panel.py's row() stamps the SAME raw field name onto
-        each dt/dd as data-key -- the join key revealPropertyRow uses."""
+        """properties_panel.py's row() builds ONE .prop-row element per property
+        (key + value) and stamps the raw field name onto it as data-key -- the
+        join key revealPropertyRow uses -- so the change highlight is a single
+        whole-row rectangle, not a box per cell."""
         html = self._diff_html()
-        assert "dt.dataset.key = key" in html
-        assert "dd.dataset.key = key" in html
+        assert 'r.className = "prop-row"' in html
+        assert "r.dataset.key = key" in html
+        assert '.prop-row[data-key="' in html   # revealed/numbered by whole row
 
     def test_reveal_function_present_and_wired_into_jump(self):
         html = self._diff_html()
@@ -519,36 +521,35 @@ class TestClickToRevealPropertyRow:
         assert "const key=(c.uid||'').split(':').slice(1).join(':');" in html
         assert 'data-key="\'+key+\'"' in html
         assert "c.field" not in html
-        # jump() routes "property" kind to the popover instead of the
-        # diagram spotlight/zoom flow -- NOT "health" (VI health is never
-        # diffed, so no CHANGES entry ever carries that kind). Real diagram
-        # Case/Sequence structure-node changes still carry the unrelated
-        # "structure" kind, matched here for its own pre-existing reasons.
-        assert "c.kind==='property'||c.kind==='structure'" in html
+        # jump() routes ONLY "property" kind to the popover -- NOT "health" (VI
+        # health is never diffed) and NOT "structure": a structure change is a
+        # REAL diagram Case/Sequence node (with bounds), so it takes the normal
+        # diagram spotlight, never the ▤ popover.
+        assert "if(c.kind==='property'){" in html
+        assert "c.kind==='property'||c.kind==='structure'" not in html
         assert "c.kind==='health'" not in html
         assert "revealPropertyRow(c)" in html
 
-    def test_selected_state_css_stronger_than_passive_changed_tint(self):
-        """`.lvkit-prop-selected` (click-selected) must be a DISTINCT, VISUALLY
-        STRONGER rule than the passive `.lvkit-prop-changed` tint every
-        changed row already wears -- both key off --mod, but selected uses a
-        higher mix percentage + an outline."""
+    def test_selected_state_stronger_than_passive_changed_and_matches_diagram(self):
+        """The whole-row highlight mirrors the diagram's .hl system: the PASSIVE
+        changed row has NO fill -- just a thin change-coloured border RING
+        (box-shadow spread), like .hl's fill-opacity:0 + stroke. The SELECTED row
+        is distinctly stronger: it ADDS a --mod fill AND a PULSING ring (the
+        lvselpulse animation, the HTML analog of the diagram's selpulse)."""
         html = self._diff_html()
-        assert ".lvkit-prop-selected{" in html
 
-        def _mix_pct(rule_selector: str) -> int:
-            start = html.index(rule_selector)
-            end = html.index("}", start)
-            m = re.search(r"var\(--mod\)\s+(\d+)%", html[start:end])
-            assert m, f"no color-mix percentage found for {rule_selector}"
-            return int(m.group(1))
+        def _rule(sel: str) -> str:
+            start = html.index(sel)
+            return html[start:html.index("}", start)]
 
-        changed_pct = _mix_pct(".lvkit-prop-changed{")
-        selected_pct = _mix_pct(".lvkit-prop-selected{")
-        assert selected_pct > changed_pct
-        selected_start = html.index(".lvkit-prop-selected{")
-        selected_end = html.index("}", selected_start)
-        assert "outline" in html[selected_start:selected_end]
+        passive = _rule(".prop-row.lvkit-prop-changed{")
+        selected = _rule(".prop-row.lvkit-prop-selected{")
+        # passive: no fill, a thin border ring only
+        assert "background:none" in passive and "box-shadow:0 0 0 1.5px" in passive
+        assert "color-mix" not in passive
+        # selected: adds a --mod fill (stronger) + the pulsing ring animation
+        assert "color-mix(in srgb, var(--mod) 20%" in selected
+        assert "animation:lvselpulse" in selected
 
     def test_clear_sel_also_clears_selected_popover_row(self):
         """Re-clicking the selected row (toggle-off) and jumping to an

@@ -27,6 +27,10 @@ import json
 from importlib.resources import files
 
 from ..graph.diff import ChangeMap
+from .connector_pane_panel import (
+    DIFF_CONNECTOR_PANE_BUTTON,
+    DIFF_CONNECTOR_PANE_SCRIPT,
+)
 from .help_tip import HELP_TIP
 from .properties_panel import DIFF_PROPERTIES_BUTTON, DIFF_PROPERTIES_PANEL
 from .theme_control import THEME_CONTROL_BUTTON, THEME_CONTROL_SCRIPT
@@ -99,6 +103,8 @@ def build_diff_viewer(
         .replace("__THEME_SCRIPT__", THEME_CONTROL_SCRIPT)
         .replace("__DIFF_PROPERTIES_BTN__", DIFF_PROPERTIES_BUTTON)
         .replace("__DIFF_PROPERTIES_PANEL__", DIFF_PROPERTIES_PANEL)
+        .replace("__DIFF_CONNECTOR_PANE_BTN__", DIFF_CONNECTOR_PANE_BUTTON)
+        .replace("__DIFF_CONNECTOR_PANE_SCRIPT__", DIFF_CONNECTOR_PANE_SCRIPT)
         .replace("__HELP_TIP__", HELP_TIP)
     )
     return "<!doctype html>\n<meta charset='utf-8'>\n" + html

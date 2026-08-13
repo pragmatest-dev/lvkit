@@ -8,6 +8,7 @@ from lvkit.render.connector_pane import (
     pane_terminals,
     render_connector_pane,
     render_connector_pane_diff,
+    render_connector_pane_help,
 )
 from lvkit.render.style import DEFAULT_THEME
 
@@ -123,3 +124,24 @@ def test_svg_escapes_special_chars_in_names():
     )
     assert "<b>" not in svg.replace("<svg", "")  # the name's <b> is escaped
     assert "&amp;c" in svg
+
+
+def test_help_panel_emits_terminal_identity_handles():
+    """Each terminal in the Context-Help panel wraps in a <g class="lv-pane-term"
+    data-pane-term="{direction}:{name}"> whose value MATCHES the diff engine's
+    connector-pane change uid suffix ("connector_pane:{direction}:{name}", see
+    graph/diff.py::_diff_connector_pane) -- the join the diff viewer uses to ring
+    + number a changed terminal. A quote in the name (a real default like ("""
+    '""' """)) is attribute-escaped so it can't break the handle."""
+    string_t = LVType(kind="primitive", underlying_type="String")
+    terms = [
+        PaneTerminal(8, "error in", _err(), is_output=False),
+        PaneTerminal(0, "error out", _err(), is_output=True),
+        PaneTerminal(11, 'msg ("")', string_t, is_output=False),
+    ]
+    svg = render_connector_pane_help(4815, terms, title="X")
+    assert 'class="lv-pane-term"' in svg
+    assert 'data-pane-term="input:error in"' in svg
+    assert 'data-pane-term="output:error out"' in svg
+    # the quote in the name escapes (matches the JSON-decoded change uid in-browser)
+    assert 'data-pane-term="input:msg (&quot;&quot;)"' in svg

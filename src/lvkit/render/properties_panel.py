@@ -101,10 +101,11 @@ _PANEL_CSS = """
   .lvkit-props-panel h4{margin:10px 0 4px;font-size:11px;text-transform:uppercase;
     letter-spacing:.03em;color:var(--dfg-muted)}
   .lvkit-props-panel h4:first-child{margin-top:0}
-  .lvkit-props-panel dl{margin:0;display:grid;grid-template-columns:auto auto;
-    justify-content:space-between;gap:2px 8px}
-  .lvkit-props-panel dt{color:var(--dfg-muted)}
-  .lvkit-props-panel dd{margin:0;text-align:right;overflow-wrap:anywhere}
+  .lvkit-props-panel .prop-rows{display:flex;flex-direction:column}
+  .lvkit-props-panel .prop-row{display:flex;justify-content:space-between;gap:10px;
+    padding:1px 5px;border-radius:var(--hl-r,6px)}
+  .lvkit-props-panel .prop-k{color:var(--dfg-muted)}
+  .lvkit-props-panel .prop-v{text-align:right;overflow-wrap:anywhere}
   .lvkit-props-empty{color:var(--dfg-muted)}
 """
 
@@ -124,20 +125,19 @@ _PANEL_CSS = """
 # diff-only fork.
 _PANEL_BODY_JS = """
     var changedCount = 0;
-    function row(dl, key, value, changed) {
-      var dt = document.createElement("dt");
-      dt.textContent = key;
-      dt.dataset.key = key;
-      var dd = document.createElement("dd");
-      dd.textContent = String(value);
-      dd.dataset.key = key;
-      if (changed) {
-        dt.className = "lvkit-prop-changed";
-        dd.className = "lvkit-prop-changed";
-        changedCount++;
-      }
-      dl.appendChild(dt);
-      dl.appendChild(dd);
+    function row(container, key, value, changed) {
+      // ONE element per property (key + value), so the change highlight covers
+      // the WHOLE ROW as a single ring -- not two boxes (dt + dd) per row.
+      var r = document.createElement("div");
+      r.className = "prop-row" + (changed ? " lvkit-prop-changed" : "");
+      r.dataset.key = key;
+      var k = document.createElement("span");
+      k.className = "prop-k"; k.textContent = key;
+      var v = document.createElement("span");
+      v.className = "prop-v"; v.textContent = String(value);
+      r.appendChild(k); r.appendChild(v);
+      if (changed) changedCount++;
+      container.appendChild(r);
     }
     function group(title, obj, beforeObj) {
       if (!obj) return null;
@@ -147,7 +147,8 @@ _PANEL_BODY_JS = """
       var h = document.createElement("h4");
       h.textContent = title;
       frag.appendChild(h);
-      var dl = document.createElement("dl");
+      var dl = document.createElement("div");
+      dl.className = "prop-rows";
       keys.forEach(function (k) {
         var changed = beforeObj
           ? JSON.stringify(obj[k]) !== JSON.stringify(beforeObj[k]) : false;
@@ -262,21 +263,30 @@ PROPERTIES_PANEL = (
 _DIFF_PANEL_EXTRA_CSS = """
   #__DIFF_BTN_ID__.lvkit-props-changed{
     box-shadow:0 0 0 2px var(--mod);border-color:var(--mod)}
-  .lvkit-props-panel dt.lvkit-prop-changed,
-  .lvkit-props-panel dd.lvkit-prop-changed{
-    background:color-mix(in srgb, var(--mod) 22%, transparent);
-    border-radius:3px;padding:1px 4px}
-  .lvkit-props-panel dt.lvkit-prop-selected,
-  .lvkit-props-panel dd.lvkit-prop-selected{
-    background:color-mix(in srgb, var(--mod) 55%, transparent);
-    outline:1px solid var(--mod);border-radius:3px;padding:1px 4px}
-  /* Change-list number stamped onto the matching popover row, so a reader can
-     tie "change N" in the list to the exact property it touched. */
-  .lvkit-props-panel dt .lvkit-prop-num{
-    display:inline-block;min-width:1.1em;margin-right:5px;padding:0 3px;
-    font-variant-numeric:tabular-nums;font-size:10px;line-height:1.4;
-    text-align:center;border-radius:3px;color:var(--fg);
-    background:color-mix(in srgb, var(--mod) 32%, transparent)}
+  /* WHOLE-ROW change highlight -- ONE rounded rectangle per property (not a box
+     per cell). Passive changed = NO fill, a thin change-coloured border RING
+     (box-shadow spread, no layout shift); selected = a faint fill + a PULSING
+     ring (grows on the beat -- the reliable HTML analog of the diagram's selpulse
+     stroke-width pulse) + the change-coloured glow. Radius is the SHARED --hl-r,
+     so the diagram, connector pane and properties round identically from one
+     place. HTML can't drive the SVG selpulse, so lvselpulse is its lone analog. */
+  .lvkit-props-panel .prop-row.lvkit-prop-changed{
+    background:none;box-shadow:0 0 0 1.5px var(--mod)}
+  .lvkit-props-panel .prop-row.lvkit-prop-selected{
+    background:color-mix(in srgb, var(--mod) 20%, transparent);
+    animation:lvselpulse 1.25s ease-in-out infinite}
+  @keyframes lvselpulse{
+    0%,100%{box-shadow:0 0 0 2px var(--mod), 0 0 3px 1px var(--mod)}
+    50%{box-shadow:0 0 0 4px var(--mod), 0 0 9px 2px var(--mod)}}
+  /* Spotlight: dim every OTHER changed row when one is picked (like .stage.has-sel). */
+  .lvkit-props-panel.lvkit-has-sel
+    .prop-row.lvkit-prop-changed:not(.lvkit-prop-selected){opacity:.32}
+  /* Change number: the SAME bold, change-coloured, HALOED look as the diagram's
+     .hl-num -- an HTML text-shadow halo stands in for the SVG stroke halo. */
+  .lvkit-props-panel .prop-row .lvkit-prop-num{
+    font:bold 13px system-ui,sans-serif;margin-right:6px;color:var(--mod);
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 0 2px var(--dpanel),0 0 2px var(--dpanel),0 0 2px var(--dpanel)}
 """
 
 DIFF_PROPERTIES_PANEL = (
@@ -340,10 +350,20 @@ DIFF_PROPERTIES_PANEL = (
     "        // A manual open/close is NOT selection-driven, so a later\n"
     "        // change-deselect must not auto-close it (see clearSel).\n"
     "        window.lvkitPropPanelBySel = false;\n"
+    "        // MUTUALLY EXCLUSIVE with the ▦ connector pane (shared view space).\n"
+    "        if (panel.hidden && window.lvkitCloseConnectorPanes)\n"
+    "          window.lvkitCloseConnectorPanes();\n"
     "        panel.hidden = !panel.hidden;\n"
     "        btn.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');\n"
     "      });\n"
     "    }\n"
+    "    // Let the connector pane (and a selection-driven open) close us.\n"
+    "    window.lvkitCloseProps = function () {\n"
+    "      if (panel && !panel.hidden) {\n"
+    "        panel.hidden = true; window.lvkitPropPanelBySel = false;\n"
+    "        if (btn) btn.setAttribute('aria-expanded', 'false');\n"
+    "      }\n"
+    "    };\n"
     "  } catch (e) {\n"
     "    /* diff properties chrome is optional -- never break the viewer */\n"
     "  }\n"

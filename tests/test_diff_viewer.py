@@ -177,6 +177,61 @@ class TestBuildDiffViewerPureUnit:
         assert '"detail": "1 \\u2192 2"' in html or "1 → 2" in html
 
 
+class TestConnectorPaneDiffWiring:
+    """The ▦ connector-pane compare (#26): one button reveals BOTH panes as
+    fixed per-pane overlays; each changed terminal gets an add/remove/modify ring
+    + change-number badge; a ``connector_pane`` change reveals/spotlights its
+    terminal in the pane view (its home, like a property's is the ▤ popover) —
+    NOT the block diagram."""
+
+    def _html(self) -> str:
+        cmap = ChangeMap(
+            changes=[
+                ElementChange(
+                    uid="connector_pane:input:msg",
+                    full_id="connector_pane:input:msg",
+                    kind="connector_pane", change="added", label="input msg",
+                ),
+            ],
+            common_node_uids=[],
+        )
+        return build_diff_viewer(
+            cmap, "<svg id='b'>B</svg>", "<svg id='h'>A</svg>",
+            title="Stub VI", before_label="a", after_label="b",
+        )
+
+    def test_button_and_reveal_wired(self):
+        html = self._html()
+        assert 'id="lvkitDiffPaneBtn"' in html
+        assert "lvkitShowConnectorPanes" in html and "lvkitConnectorBoxes" in html
+        assert ".lvkit-pane-overlay" in html  # fixed per-pane overlay CSS
+
+    def test_terminal_highlight_reuses_the_diagram_hl_classes(self):
+        html = self._html()
+        assert "lvkitAnnotateConnectorPanes" in html
+        # The connector highlight carries the diagram's OWN classes -- NOT a
+        # bespoke copy -- so it inherits every .hl / .hl-num / selpulse /
+        # .stage.has-sel rule. No parallel .pt-hl-shape/.pt-num CSS remains.
+        assert "'hl node '+c.change" in html      # shape = the diagram highlight
+        assert "'hl-num '+c.change" in html        # number = the diagram badge
+        assert ".pt-hl-shape" not in html
+        assert ".pt-num" not in html
+        # rounding + selection come from the shared source (--hl-r, selpulse).
+        assert "getPropertyValue('--hl-r')" in html
+        assert "roundPath(ptUnionPts(pieces), PT_R)" in html
+        assert "stage.classList.add('has-sel')" in html   # shared spotlight
+        # the ▦ button advertises the hidden change mix (green/red/amber ring)
+        for cls in ("pt-btn-added", "pt-btn-removed", "pt-btn-mixed"):
+            assert f"#lvkitDiffPaneBtn.{cls}" in html
+
+    def test_connector_change_reveals_pane_view_not_diagram(self):
+        html = self._html()
+        assert "revealConnectorTerminal" in html
+        assert "c.kind==='connector_pane'" in html
+        # and the change is carried in the list JSON the viewer renders
+        assert '"kind": "connector_pane"' in html
+
+
 class TestThemeAdaptiveChrome:
     """Part B: the viewer chrome is DEFAULT LIGHT with a
     ``@media (prefers-color-scheme: dark)`` override, so the standalone page is

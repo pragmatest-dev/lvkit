@@ -26,9 +26,13 @@ __all__ = [
     "CONNECTOR_PANE_GLYPH",
     "CONNECTOR_PANE_PANEL_BTN_ID",
     "CONNECTOR_PANE_SCRIPT",
+    "DIFF_CONNECTOR_PANE_BUTTON",
+    "DIFF_CONNECTOR_PANE_PANEL_BTN_ID",
+    "DIFF_CONNECTOR_PANE_SCRIPT",
 ]
 
 CONNECTOR_PANE_PANEL_BTN_ID = "lvkitPaneBtn"
+DIFF_CONNECTOR_PANE_PANEL_BTN_ID = "lvkitDiffPaneBtn"
 
 # U+25A6 "SQUARE WITH ORTHOGONAL CROSSHATCH FILL" — a plain grid glyph standing
 # in for the connector-pane grid. A unicode character styled like every other
@@ -77,6 +81,88 @@ CONNECTOR_PANE_SCRIPT = (
     "      });\n"
     "      btn.setAttribute('aria-expanded', 'true');\n"
     "    });\n"
+    "  } catch (e) { /* aside chrome is optional -- never break the viewer */ }\n"
+    "})();\n"
+    "</script>"
+)
+
+
+# ---------------------------------------------------------------------------
+# Diff-viewer variant: ONE ▦ button reveals BOTH connector panes at once as
+# fixed per-pane overlays -- the BEFORE VI's pane pinned in beforeWrap's top-
+# right, the AFTER's in afterWrap's -- for a stable side-by-side compare (unlike
+# the render viewer's in-SVG clone, these don't pan/zoom away, so the change
+# list can reliably spotlight a terminal). Each overlay is the panel <svg> lifted
+# out of its pane's <defs> aside into a positioned <div>. The reveal is
+# diff-agnostic; the viewer (diff_viewer.html) supplies the diff behaviour via
+# three window hooks it defines:
+#   * lvkitAnnotateConnectorPanes(boxes) -- ring + number the changed terminals
+#   * lvkitBlendConnectorPanes()         -- fade the two overlays with the slider
+#   * (this script exposes) lvkitShowConnectorPanes()/lvkitConnectorBoxes() so a
+#     change click can open the panes and reach the live overlay <div>s.
+# ---------------------------------------------------------------------------
+DIFF_CONNECTOR_PANE_BUTTON = (
+    f'<button id="{DIFF_CONNECTOR_PANE_PANEL_BTN_ID}" type="button" '
+    'class="lvkit-theme-btn" '
+    'title="Show/hide both connector panes (changed terminals ringed)" '
+    'aria-label="Toggle connector panes" '
+    f'aria-expanded="false">{CONNECTOR_PANE_GLYPH}</button>'
+)
+
+DIFF_CONNECTOR_PANE_SCRIPT = (
+    "<script>\n"
+    "(function(){\n"
+    "  try {\n"
+    f'    var btn = document.getElementById("{DIFF_CONNECTOR_PANE_PANEL_BTN_ID}");\n'
+    "    if (!btn) return;\n"
+    "    // Each pane's OWN aside panel svg + the wrap it pins into. Scoped by id\n"
+    "    // (never the minimap's .mm-over/.mm-under clones of these same svgs).\n"
+    "    var srcs = [\n"
+    "      { wrap: 'beforeWrap', pane: 'beforePane', side: 'before' },\n"
+    "      { wrap: 'afterWrap',  pane: 'afterPane',  side: 'after' }\n"
+    "    ].map(function (s) {\n"
+    "      var wrap = document.getElementById(s.wrap);\n"
+    "      var pane = document.getElementById(s.pane);\n"
+    "      var svg = pane && pane.querySelector('svg');\n"
+    "      var def = svg && svg.querySelector('defs > .lv-vi-aside');\n"
+    "      var panel = def && def.querySelector('svg');\n"
+    "      return (wrap && panel)\n"
+    "        ? { wrap: wrap, side: s.side, panel: panel } : null;\n"
+    "    }).filter(Boolean);\n"
+    "    if (!srcs.length) { btn.disabled = true; return; }\n"
+    "    var boxes = [];\n"
+    "    function hide() {\n"
+    "      boxes.forEach(function (b) { b.remove(); });\n"
+    "      boxes = [];\n"
+    "      btn.setAttribute('aria-expanded', 'false');\n"
+    "    }\n"
+    "    function show() {\n"
+    "      // The pane and the properties popover share the top-right view space --\n"
+    "      // keep them MUTUALLY EXCLUSIVE so neither clutters the other.\n"
+    "      if (window.lvkitCloseProps) window.lvkitCloseProps();\n"
+    "      srcs.forEach(function (s) {\n"
+    "        var box = document.createElement('div');\n"
+    "        box.className = 'lvkit-pane-overlay ' + s.side;\n"
+    "        box.dataset.side = s.side;\n"
+    "        box.appendChild(s.panel.cloneNode(true));\n"
+    "        s.wrap.appendChild(box);\n"
+    "        boxes.push(box);\n"
+    "      });\n"
+    "      btn.setAttribute('aria-expanded', 'true');\n"
+    "      if (window.lvkitAnnotateConnectorPanes)\n"
+    "        window.lvkitAnnotateConnectorPanes(boxes);\n"
+    "      if (window.lvkitBlendConnectorPanes) window.lvkitBlendConnectorPanes();\n"
+    "    }\n"
+    "    btn.addEventListener('click', function () {\n"
+    "      if (boxes.length) { hide(); } else { show(); }\n"
+    "    });\n"
+    "    // For the change list's click-to-view.\n"
+    "    window.lvkitShowConnectorPanes = function () {\n"
+    "      if (!boxes.length) { show(); }\n"
+    "      return boxes;\n"
+    "    };\n"
+    "    window.lvkitConnectorBoxes = function () { return boxes; };\n"
+    "    window.lvkitCloseConnectorPanes = function () { if (boxes.length) hide(); };\n"
     "  } catch (e) { /* aside chrome is optional -- never break the viewer */ }\n"
     "})();\n"
     "</script>"
