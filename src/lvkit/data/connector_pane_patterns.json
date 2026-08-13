@@ -8,7 +8,7 @@
     },
     "in_out_note": "This file is PURE GEOMETRY. Whether a given terminal is an input or an output is NOT a property of the pattern — it comes from the VI's own slots (ParsedConnectorPaneSlot.is_output). The renderer colors/labels each cell from the VI's actual terminal; the pattern only says where the cell is.",
     "provenance": "Cell grids + per-cell indices read from the LabVIEW Wiki public connector-pane pattern images (labviewwiki.org 'File:Connector_Pane_Pattern_<conId>.png', 128x128, clean-room source #2 — public web docs, NOT LabVIEW). conId population + corpus_files counts measured across 4569 extracted FPHb files in the local corpus. 4815 additionally cross-checked against the corpus-geometry-derived mapping in reference_connector_pane_terminal_index.",
-    "coverage": "Encodes the 13 conIds covering ~98.75% of the corpus (4512/4569 FPHb). Rarer conIds (4829, 4835, 4825, 4826, 4814, 4832, 4831, 4819, 4817, 4809, 4813, 4818) are not yet encoded; a consumer should fall back gracefully for an unknown conId."
+    "coverage": "Encodes ALL 36 published patterns, conId 4800-4835 (the complete LabVIEW connector-pane set). corpus_files is how many of the 4569 extracted FPHb files use each pattern (0 = valid pattern, just unused in the local corpus); 4815/4-2-2-4 alone is ~76%. Every index->cell map verified by overlaying the encoded indices back onto the wiki image."
   },
   "patterns": {
     "4800": {
@@ -47,11 +47,29 @@
       "corpus_files": 30,
       "columns": [[3, 2], [1, 0]]
     },
+    "4806": {
+      "name": "4",
+      "terminal_count": 4,
+      "corpus_files": 0,
+      "columns": [[3, 2, 1, 0]]
+    },
     "4807": {
       "name": "3-2",
       "terminal_count": 5,
       "corpus_files": 2,
       "columns": [[4, 3, 2], [1, 0]]
+    },
+    "4808": {
+      "name": "4-1",
+      "terminal_count": 5,
+      "corpus_files": 0,
+      "columns": [[4, 3, 2, 1], [0]]
+    },
+    "4809": {
+      "name": "4-2",
+      "terminal_count": 6,
+      "corpus_files": 1,
+      "columns": [[5, 4, 3, 2], [1, 0]]
     },
     "4810": {
       "name": "3-3",
@@ -59,17 +77,280 @@
       "corpus_files": 56,
       "columns": [[5, 4, 3], [2, 1, 0]]
     },
+    "4811": {
+      "name": "4-3",
+      "terminal_count": 7,
+      "corpus_files": 0,
+      "columns": [[6, 5, 4, 3], [2, 1, 0]]
+    },
     "4812": {
       "name": "4-4",
       "terminal_count": 8,
       "corpus_files": 151,
       "columns": [[7, 6, 5, 4], [3, 2, 1, 0]]
     },
+    "4813": {
+      "name": "4-1-4",
+      "terminal_count": 9,
+      "corpus_files": 1,
+      "columns": [[8, 7, 6, 5], [4], [3, 2, 1, 0]]
+    },
+    "4814": {
+      "name": "4-2-4",
+      "terminal_count": 10,
+      "corpus_files": 5,
+      "columns": [[9, 8, 7, 6], [5, 4], [3, 2, 1, 0]]
+    },
     "4815": {
       "name": "4-2-2-4",
       "terminal_count": 12,
       "corpus_files": 3496,
       "columns": [[11, 10, 9, 8], [7, 6], [5, 4], [3, 2, 1, 0]]
+    },
+    "4816": {
+      "name": "special-6",
+      "terminal_count": 6,
+      "corpus_files": 0,
+      "grid": {"cols": 3, "rows": 3},
+      "cells": [
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 3},
+        {"index": 2, "col": 0, "row": 1, "colspan": 2, "rowspan": 1},
+        {"index": 3, "col": 0, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 4, "col": 1, "row": 2, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4817": {
+      "name": "special-7",
+      "terminal_count": 7,
+      "corpus_files": 2,
+      "grid": {"cols": 3, "rows": 4},
+      "cells": [
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 2, "col": 0, "row": 1, "colspan": 2, "rowspan": 2},
+        {"index": 6, "col": 2, "row": 2, "colspan": 1, "rowspan": 2},
+        {"index": 3, "col": 0, "row": 3, "colspan": 1, "rowspan": 1},
+        {"index": 4, "col": 1, "row": 3, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4818": {
+      "name": "special-8",
+      "terminal_count": 8,
+      "corpus_files": 1,
+      "grid": {"cols": 3, "rows": 3},
+      "cells": [
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 0, "row": 1, "colspan": 2, "rowspan": 1},
+        {"index": 6, "col": 2, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 3, "col": 0, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 4, "col": 1, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 7, "col": 2, "row": 2, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4819": {
+      "name": "special-9",
+      "terminal_count": 9,
+      "corpus_files": 2,
+      "grid": {"cols": 3, "rows": 6},
+      "cells": [
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 6, "col": 2, "row": 1, "colspan": 1, "rowspan": 2},
+        {"index": 2, "col": 0, "row": 2, "colspan": 2, "rowspan": 2},
+        {"index": 7, "col": 2, "row": 3, "colspan": 1, "rowspan": 2},
+        {"index": 3, "col": 0, "row": 4, "colspan": 1, "rowspan": 2},
+        {"index": 4, "col": 1, "row": 4, "colspan": 1, "rowspan": 2},
+        {"index": 8, "col": 2, "row": 5, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4820": {
+      "name": "special-10",
+      "terminal_count": 10,
+      "corpus_files": 76,
+      "grid": {"cols": 4, "rows": 3},
+      "cells": [
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 6, "col": 3, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 0, "row": 1, "colspan": 2, "rowspan": 1},
+        {"index": 7, "col": 2, "row": 1, "colspan": 2, "rowspan": 1},
+        {"index": 3, "col": 0, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 4, "col": 1, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 8, "col": 2, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 9, "col": 3, "row": 2, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4821": {
+      "name": "special-11",
+      "terminal_count": 11,
+      "corpus_files": 0,
+      "grid": {"cols": 4, "rows": 6},
+      "cells": [
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 3},
+        {"index": 6, "col": 3, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 7, "col": 3, "row": 1, "colspan": 1, "rowspan": 2},
+        {"index": 2, "col": 0, "row": 2, "colspan": 2, "rowspan": 2},
+        {"index": 8, "col": 2, "row": 3, "colspan": 1, "rowspan": 3},
+        {"index": 9, "col": 3, "row": 3, "colspan": 1, "rowspan": 2},
+        {"index": 3, "col": 0, "row": 4, "colspan": 1, "rowspan": 2},
+        {"index": 4, "col": 1, "row": 4, "colspan": 1, "rowspan": 2},
+        {"index": 10, "col": 3, "row": 5, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4822": {
+      "name": "special-9b",
+      "terminal_count": 9,
+      "corpus_files": 0,
+      "grid": {"cols": 3, "rows": 6},
+      "cells": [
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 3},
+        {"index": 6, "col": 2, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 2, "col": 0, "row": 1, "colspan": 1, "rowspan": 2},
+        {"index": 7, "col": 2, "row": 2, "colspan": 1, "rowspan": 2},
+        {"index": 3, "col": 0, "row": 3, "colspan": 1, "rowspan": 2},
+        {"index": 4, "col": 1, "row": 3, "colspan": 1, "rowspan": 3},
+        {"index": 8, "col": 2, "row": 4, "colspan": 1, "rowspan": 2},
+        {"index": 5, "col": 0, "row": 5, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4823": {
+      "name": "4-1-1",
+      "terminal_count": 6,
+      "corpus_files": 0,
+      "columns": [[0, 1, 2, 3], [4], [5]]
+    },
+    "4824": {
+      "name": "4-1-2",
+      "terminal_count": 7,
+      "corpus_files": 0,
+      "columns": [[0, 1, 2, 3], [4], [5, 6]]
+    },
+    "4825": {
+      "name": "special-8b",
+      "terminal_count": 8,
+      "corpus_files": 8,
+      "grid": {"cols": 3, "rows": 6},
+      "cells": [
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 4, "col": 1, "row": 0, "colspan": 1, "rowspan": 6},
+        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 1, "col": 0, "row": 1, "colspan": 1, "rowspan": 2},
+        {"index": 6, "col": 2, "row": 2, "colspan": 1, "rowspan": 2},
+        {"index": 2, "col": 0, "row": 3, "colspan": 1, "rowspan": 2},
+        {"index": 7, "col": 2, "row": 4, "colspan": 1, "rowspan": 2},
+        {"index": 3, "col": 0, "row": 5, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4826": {
+      "name": "special-10b",
+      "terminal_count": 10,
+      "corpus_files": 5,
+      "grid": {"cols": 4, "rows": 4},
+      "cells": [
+        {"index": 9, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 5, "col": 1, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 4, "col": 2, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 3, "col": 3, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 8, "col": 0, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 3, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 7, "col": 0, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 3, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 6, "col": 0, "row": 3, "colspan": 1, "rowspan": 1},
+        {"index": 0, "col": 3, "row": 3, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4827": {
+      "name": "special-7b",
+      "terminal_count": 7,
+      "corpus_files": 0,
+      "grid": {"cols": 3, "rows": 4},
+      "cells": [
+        {"index": 6, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 1, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 0, "col": 2, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 5, "col": 0, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 4, "col": 0, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 1, "row": 2, "colspan": 1, "rowspan": 2},
+        {"index": 3, "col": 0, "row": 3, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4828": {
+      "name": "special-8c",
+      "terminal_count": 8,
+      "corpus_files": 0,
+      "grid": {"cols": 3, "rows": 4},
+      "cells": [
+        {"index": 7, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 3, "col": 1, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 1, "col": 2, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 6, "col": 0, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 5, "col": 0, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 1, "row": 2, "colspan": 1, "rowspan": 2},
+        {"index": 0, "col": 2, "row": 2, "colspan": 1, "rowspan": 2},
+        {"index": 4, "col": 0, "row": 3, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4829": {
+      "name": "special-11b",
+      "terminal_count": 11,
+      "corpus_files": 17,
+      "grid": {"cols": 4, "rows": 4},
+      "cells": [
+        {"index": 10, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 6, "col": 1, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 4, "col": 2, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 3, "col": 3, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 9, "col": 0, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 3, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 8, "col": 0, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 5, "col": 1, "row": 2, "colspan": 1, "rowspan": 2},
+        {"index": 1, "col": 3, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 7, "col": 0, "row": 3, "colspan": 1, "rowspan": 1},
+        {"index": 0, "col": 3, "row": 3, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4830": {
+      "name": "2-1-1",
+      "terminal_count": 4,
+      "corpus_files": 0,
+      "columns": [[3, 2], [1], [0]]
+    },
+    "4831": {
+      "name": "3-1-1",
+      "terminal_count": 5,
+      "corpus_files": 2,
+      "grid": {"cols": 3, "rows": 3},
+      "cells": [
+        {"index": 4, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 3},
+        {"index": 0, "col": 2, "row": 0, "colspan": 1, "rowspan": 3},
+        {"index": 3, "col": 0, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 0, "row": 2, "colspan": 1, "rowspan": 1}
+      ]
+    },
+    "4832": {
+      "name": "3-1-2",
+      "terminal_count": 6,
+      "corpus_files": 4,
+      "grid": {"cols": 3, "rows": 4},
+      "cells": [
+        {"index": 5, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 1, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 1, "col": 2, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 4, "col": 0, "row": 1, "colspan": 1, "rowspan": 2},
+        {"index": 0, "col": 2, "row": 2, "colspan": 1, "rowspan": 2},
+        {"index": 3, "col": 0, "row": 3, "colspan": 1, "rowspan": 1}
+      ]
     },
     "4833": {
       "name": "5-2-2-2-5",
@@ -83,22 +364,40 @@
       "corpus_files": 174,
       "columns": [[0, 1, 2, 3, 4, 5], [6, 7], [8, 9], [10, 11], [12, 13], [14, 15, 16, 17, 18, 19]]
     },
-    "4820": {
-      "name": "special-10 (4 / 2-wide / 4)",
-      "terminal_count": 10,
-      "corpus_files": 76,
-      "grid": { "cols": 4, "rows": 3 },
+    "4835": {
+      "name": "8x2-...-2x8",
+      "terminal_count": 28,
+      "corpus_files": 9,
+      "grid": {"cols": 8, "rows": 8},
       "cells": [
-        { "index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1 },
-        { "index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 1 },
-        { "index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 1 },
-        { "index": 6, "col": 3, "row": 0, "colspan": 1, "rowspan": 1 },
-        { "index": 2, "col": 0, "row": 1, "colspan": 2, "rowspan": 1 },
-        { "index": 7, "col": 2, "row": 1, "colspan": 2, "rowspan": 1 },
-        { "index": 3, "col": 0, "row": 2, "colspan": 1, "rowspan": 1 },
-        { "index": 4, "col": 1, "row": 2, "colspan": 1, "rowspan": 1 },
-        { "index": 8, "col": 2, "row": 2, "colspan": 1, "rowspan": 1 },
-        { "index": 9, "col": 3, "row": 2, "colspan": 1, "rowspan": 1 }
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 1, "col": 0, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 2, "col": 0, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 3, "col": 0, "row": 3, "colspan": 1, "rowspan": 1},
+        {"index": 4, "col": 0, "row": 4, "colspan": 1, "rowspan": 1},
+        {"index": 5, "col": 0, "row": 5, "colspan": 1, "rowspan": 1},
+        {"index": 6, "col": 0, "row": 6, "colspan": 1, "rowspan": 1},
+        {"index": 7, "col": 0, "row": 7, "colspan": 1, "rowspan": 1},
+        {"index": 8, "col": 1, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 10, "col": 2, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 12, "col": 3, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 14, "col": 4, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 16, "col": 5, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 18, "col": 6, "row": 0, "colspan": 1, "rowspan": 4},
+        {"index": 9, "col": 1, "row": 4, "colspan": 1, "rowspan": 4},
+        {"index": 11, "col": 2, "row": 4, "colspan": 1, "rowspan": 4},
+        {"index": 13, "col": 3, "row": 4, "colspan": 1, "rowspan": 4},
+        {"index": 15, "col": 4, "row": 4, "colspan": 1, "rowspan": 4},
+        {"index": 17, "col": 5, "row": 4, "colspan": 1, "rowspan": 4},
+        {"index": 19, "col": 6, "row": 4, "colspan": 1, "rowspan": 4},
+        {"index": 20, "col": 7, "row": 0, "colspan": 1, "rowspan": 1},
+        {"index": 21, "col": 7, "row": 1, "colspan": 1, "rowspan": 1},
+        {"index": 22, "col": 7, "row": 2, "colspan": 1, "rowspan": 1},
+        {"index": 23, "col": 7, "row": 3, "colspan": 1, "rowspan": 1},
+        {"index": 24, "col": 7, "row": 4, "colspan": 1, "rowspan": 1},
+        {"index": 25, "col": 7, "row": 5, "colspan": 1, "rowspan": 1},
+        {"index": 26, "col": 7, "row": 6, "colspan": 1, "rowspan": 1},
+        {"index": 27, "col": 7, "row": 7, "colspan": 1, "rowspan": 1}
       ]
     }
   }

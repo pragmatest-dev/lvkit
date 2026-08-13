@@ -37,6 +37,26 @@ def test_table_loads_and_dominant_pattern_present():
     assert p.name == "4-2-2-4"
 
 
+def test_all_36_published_patterns_present():
+    """The complete LabVIEW connector-pane set is conId 4800-4835."""
+    assert known_con_ids() == frozenset(range(4800, 4836))
+
+
+def test_index_origin_differs_per_pattern():
+    """The whole reason each map is transcribed, not computed: 4815 numbers
+    from the bottom-right, 4834 from the top-left. Guards against anyone
+    'simplifying' the table to one universal numbering rule."""
+    p4815 = get_pattern(4815)
+    p4834 = get_pattern(4834)
+    assert p4815 is not None and p4834 is not None
+    # 4815 idx0 = bottom-right
+    c = p4815.cell_by_index()[0]
+    assert c.x + c.w == pytest.approx(1.0) and c.y + c.h == pytest.approx(1.0)
+    # 4834 idx0 = top-left
+    c = p4834.cell_by_index()[0]
+    assert c.x == pytest.approx(0.0) and c.y == pytest.approx(0.0)
+
+
 @pytest.mark.parametrize("con_id", sorted(known_con_ids()))
 def test_indices_are_contiguous_0_to_n(con_id: int):
     p = get_pattern(con_id)
