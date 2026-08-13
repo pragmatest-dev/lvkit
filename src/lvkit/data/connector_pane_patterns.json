@@ -1,0 +1,105 @@
+{
+  "_meta": {
+    "description": "LabVIEW connector-pane pattern geometry, keyed by conId (the pattern number stored in the FPHb <conPane><conId>). Encodes, per pattern, the cell grid and which terminal INDEX occupies each cell — the data a faithful connector-pane renderer/diff needs, since LabVIEW does NOT persist the per-cell grid in the VI (only the conId; the grid is recomputed at draw time).",
+    "index_convention": "A terminal's index is its LabVIEW connector-pane SLOT index (the same index ParsedConnectorPaneSlot.index / VI-scripting ConnectorPane.Controls[] use). The index ORIGIN AND DIRECTION DIFFER PER PATTERN — there is no universal rule. 4815/4810/4812/... number Right->Left, Bottom->Top (idx0 = bottom-right); 4820/4834/... number from the top-left; 4833 uses a border interleave. Each pattern's index->cell map below is read verbatim from the authoritative pattern image, never extrapolated from a rule.",
+    "layout_forms": {
+      "columns": "columns[c] is the list of terminal indices in visual column c (left->right), ordered TOP->BOTTOM. Every column is drawn equal-width (1/ncols); a column's cells split ITS height equally (a column with fewer cells => taller, vertically-centered cells). Reproduces the outer-tall / inner-short look of e.g. 4-2-2-4.",
+      "grid": "For irregular patterns whose cells span columns (merged wide cells). grid={cols,rows}; cells=[{index,col,row,colspan,rowspan}] in integer grid units, col/row 0-based from the top-left."
+    },
+    "in_out_note": "This file is PURE GEOMETRY. Whether a given terminal is an input or an output is NOT a property of the pattern — it comes from the VI's own slots (ParsedConnectorPaneSlot.is_output). The renderer colors/labels each cell from the VI's actual terminal; the pattern only says where the cell is.",
+    "provenance": "Cell grids + per-cell indices read from the LabVIEW Wiki public connector-pane pattern images (labviewwiki.org 'File:Connector_Pane_Pattern_<conId>.png', 128x128, clean-room source #2 — public web docs, NOT LabVIEW). conId population + corpus_files counts measured across 4569 extracted FPHb files in the local corpus. 4815 additionally cross-checked against the corpus-geometry-derived mapping in reference_connector_pane_terminal_index.",
+    "coverage": "Encodes the 13 conIds covering ~98.75% of the corpus (4512/4569 FPHb). Rarer conIds (4829, 4835, 4825, 4826, 4814, 4832, 4831, 4819, 4817, 4809, 4813, 4818) are not yet encoded; a consumer should fall back gracefully for an unknown conId."
+  },
+  "patterns": {
+    "4800": {
+      "name": "1",
+      "terminal_count": 1,
+      "corpus_files": 320,
+      "columns": [[0]]
+    },
+    "4801": {
+      "name": "1-1",
+      "terminal_count": 2,
+      "corpus_files": 82,
+      "columns": [[1], [0]]
+    },
+    "4802": {
+      "name": "2-1",
+      "terminal_count": 3,
+      "corpus_files": 57,
+      "columns": [[2, 1], [0]]
+    },
+    "4803": {
+      "name": "3",
+      "terminal_count": 3,
+      "corpus_files": 6,
+      "columns": [[2, 1, 0]]
+    },
+    "4804": {
+      "name": "3-1",
+      "terminal_count": 4,
+      "corpus_files": 7,
+      "columns": [[3, 2, 1], [0]]
+    },
+    "4805": {
+      "name": "2-2",
+      "terminal_count": 4,
+      "corpus_files": 30,
+      "columns": [[3, 2], [1, 0]]
+    },
+    "4807": {
+      "name": "3-2",
+      "terminal_count": 5,
+      "corpus_files": 2,
+      "columns": [[4, 3, 2], [1, 0]]
+    },
+    "4810": {
+      "name": "3-3",
+      "terminal_count": 6,
+      "corpus_files": 56,
+      "columns": [[5, 4, 3], [2, 1, 0]]
+    },
+    "4812": {
+      "name": "4-4",
+      "terminal_count": 8,
+      "corpus_files": 151,
+      "columns": [[7, 6, 5, 4], [3, 2, 1, 0]]
+    },
+    "4815": {
+      "name": "4-2-2-4",
+      "terminal_count": 12,
+      "corpus_files": 3496,
+      "columns": [[11, 10, 9, 8], [7, 6], [5, 4], [3, 2, 1, 0]]
+    },
+    "4833": {
+      "name": "5-2-2-2-5",
+      "terminal_count": 16,
+      "corpus_files": 55,
+      "columns": [[0, 5, 7, 9, 11], [1, 12], [2, 13], [3, 14], [4, 6, 8, 10, 15]]
+    },
+    "4834": {
+      "name": "6-2-2-2-2-6",
+      "terminal_count": 20,
+      "corpus_files": 174,
+      "columns": [[0, 1, 2, 3, 4, 5], [6, 7], [8, 9], [10, 11], [12, 13], [14, 15, 16, 17, 18, 19]]
+    },
+    "4820": {
+      "name": "special-10 (4 / 2-wide / 4)",
+      "terminal_count": 10,
+      "corpus_files": 76,
+      "grid": { "cols": 4, "rows": 3 },
+      "cells": [
+        { "index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1 },
+        { "index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 1 },
+        { "index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 1 },
+        { "index": 6, "col": 3, "row": 0, "colspan": 1, "rowspan": 1 },
+        { "index": 2, "col": 0, "row": 1, "colspan": 2, "rowspan": 1 },
+        { "index": 7, "col": 2, "row": 1, "colspan": 2, "rowspan": 1 },
+        { "index": 3, "col": 0, "row": 2, "colspan": 1, "rowspan": 1 },
+        { "index": 4, "col": 1, "row": 2, "colspan": 1, "rowspan": 1 },
+        { "index": 8, "col": 2, "row": 2, "colspan": 1, "rowspan": 1 },
+        { "index": 9, "col": 3, "row": 2, "colspan": 1, "rowspan": 1 }
+      ]
+    }
+  }
+}
