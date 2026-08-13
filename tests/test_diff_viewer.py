@@ -209,23 +209,27 @@ class TestThemeAdaptiveChrome:
         assert "background:var(--canvas)" in html
         assert "--canvas:#ffffff" in html and "--canvas:#1b1c1e" in html
 
-    def test_toggle_themes_diagrams_only_never_chrome(self):
-        """DESIGN LAW: the ◐/☀/☾ button is the DIAGRAM theme control — it
-        re-themes only the embedded diagram SVGs (plus their --canvas
-        backdrop). The chrome follows the system/editor theme via plain
-        @media and must NEVER react to data-theme."""
+    def test_toggle_themes_diagram_surface_never_window_chrome(self):
+        """DESIGN LAW (revised): the ◐/☀/☾ button re-themes the DIAGRAM SURFACE
+        — the embedded diagram SVGs, their --canvas backdrop, AND the in-view
+        panels drawn over the diagram (the VI properties popover, via the --d*
+        tokens; VI properties are a VI-level construct shown over the VI). The
+        WINDOW CHROME (--bg/--panel/--fg/--line/--btn) follows the system/editor
+        theme via plain @media and must NEVER react to data-theme."""
         html = self._html()
-        # The ONLY data-theme-driven chrome property is the diagram backdrop.
+        # Diagram surface follows data-theme: the backdrop…
         assert ':root[data-theme="dark"]{--canvas:#1b1c1e}' in html
         assert ':root[data-theme="light"]{--canvas:#ffffff}' in html
-        # (stub SVGs carry no CSS, so every data-theme selector here is the
-        # viewer's own — exactly one dark rule, the backdrop.)
-        assert html.count(':root[data-theme="dark"]') == 1
-        # auto mode: backdrop follows the system scheme unless pinned…
+        # …and the in-view panel tokens (dark + light both keyed on the toggle;
+        # values are the diagram theme's own canvas role, so the panel is the
+        # same material as the drawn-in-SVG VI dialogs).
+        assert '--dpanel:#1b1c1e' in html and '--dpanel:#fbfbf5' in html
+        # auto mode: the diagram surface follows the system scheme unless pinned…
         assert ":not([data-theme]){--canvas:#1b1c1e}" in html
-        # …while the chrome palette is never guarded on / overridden by it.
+        # …while the window-chrome palette is NEVER guarded on / overridden by it.
         assert ":not([data-theme]){--bg" not in html
         assert '[data-theme="dark"]{--bg' not in html
+        assert '[data-theme="dark"]{--panel' not in html
 
 
 class TestPaneRegistrationAndBlendReveal:

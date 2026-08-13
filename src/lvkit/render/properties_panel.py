@@ -27,16 +27,17 @@ CLEAN-ROOM + THEME rules (hard, per task #19):
     The button glyph is a plain unicode character (``PROPERTIES_GLYPH``),
     matching every other toolbar button's own style (theme "◐", zoom
     "−"/"+"/"⛶", highlight "◉") — not a drawn SVG icon.
-  - They are viewer CHROME, so they follow the viewer/system theme via plain
-    ``@media (prefers-color-scheme: dark)`` — same tokens the rest of
-    ``render_viewer.html`` already defines (``--panel``/``--line``/``--fg``/
-    ``--fg-muted``/``--btn``). They must NEVER react to ``data-theme`` (that
-    toggle is diagram-only, see the ``render_viewer.html`` design-law
-    comment) and never draw anything into the SVG itself. The diff-viewer
-    variant leans on ``diff_viewer.html``'s own ``--mod`` token (the SAME
-    amber the "modified" legend swatch/tag already use) for its changed-row/
-    changed-ring colour, so a changed VI property reads with the same colour
-    language as a changed node/wire.
+  - The toggle BUTTON stays in the toolbar and follows the viewer/system theme
+    like every other toolbar button. The POPOVER, however, is part of the VI
+    VIEW SPACE: VI properties are a VI-level construct, so the panel is pinned
+    within the diagram stage (moved into ``.stage-wrap`` by the script, like the
+    ▦ connector-pane reveal) and themed to the DIAGRAM via the ``--d*`` tokens
+    (which follow the ◐/☀/☾ ``data-theme`` toggle — defined on :root by both
+    templates alongside ``--canvas``). The diff-viewer variant additionally
+    leans on ``diff_viewer.html``'s own ``--mod`` token (the SAME amber the
+    "modified" legend swatch/tag already use) for its changed-row/changed-ring
+    colour, so a changed VI property reads with the same colour language as a
+    changed node/wire.
 
 Same shared-placeholder-injection pattern as :mod:`lvkit.render.theme_control`
 and :mod:`lvkit.render.help_tip`: this module supplies static HTML/CSS/JS
@@ -83,24 +84,28 @@ DIFF_PROPERTIES_BUTTON = (
     f'aria-expanded="false">{PROPERTIES_GLYPH}</button>'
 )
 
-# Shared panel-box CSS (position/size/typography) — ONE definition used by
-# both PROPERTIES_PANEL and DIFF_PROPERTIES_PANEL via ``__TOP__`` (their
-# headers sit at different heights). Chrome-only tokens (already defined on
-# :root by both templates) — never data-theme (that toggle is diagram-only).
+# Shared panel-box CSS (position/size/typography) — ONE definition used by both
+# PROPERTIES_PANEL and DIFF_PROPERTIES_PANEL. The popover is part of the VI VIEW
+# SPACE: each viewer's script moves it into the positioned ``.stage-wrap`` so it
+# pins within the diagram stage's top-right (like the ▦ connector-pane reveal),
+# and it is themed to the DIAGRAM via the ``--d*`` tokens (which follow the
+# ◐/☀/☾ data-theme toggle, defined on :root by both templates) — VI properties
+# are a VI-level construct, shown over the VI, not window chrome.
 _PANEL_CSS = """
-  .lvkit-props-panel{position:fixed;top:__TOP__px;right:16px;z-index:70;width:300px;
-    max-width:calc(100% - 32px);max-height:70vh;overflow:auto;
-    background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  .lvkit-props-panel{position:absolute;top:8px;right:8px;left:auto;z-index:70;
+    width:300px;max-width:calc(100% - 32px);max-height:calc(100% - 16px);
+    overflow:auto;background:var(--dpanel);border:1px solid var(--dline);
+    border-radius:4px;color:var(--dfg);
     box-shadow:0 2px 12px rgba(0,0,0,.28);padding:10px 12px;font-size:12px}
   .lvkit-props-panel[hidden]{display:none}
   .lvkit-props-panel h4{margin:10px 0 4px;font-size:11px;text-transform:uppercase;
-    letter-spacing:.03em;color:var(--fg-muted)}
+    letter-spacing:.03em;color:var(--dfg-muted)}
   .lvkit-props-panel h4:first-child{margin-top:0}
   .lvkit-props-panel dl{margin:0;display:grid;grid-template-columns:auto auto;
     justify-content:space-between;gap:2px 8px}
-  .lvkit-props-panel dt{color:var(--fg-muted)}
+  .lvkit-props-panel dt{color:var(--dfg-muted)}
   .lvkit-props-panel dd{margin:0;text-align:right;overflow-wrap:anywhere}
-  .lvkit-props-empty{color:var(--fg-muted)}
+  .lvkit-props-empty{color:var(--dfg-muted)}
 """
 
 # Shared row/group/buildPanel JS — the ONE value-rendering implementation
@@ -196,7 +201,7 @@ _PANEL_BODY_JS = """
 # surface (no header status chips — dropped: with the popover always one
 # click away, a second always-visible summary was redundant chrome).
 PROPERTIES_PANEL = (
-    "<style>" + _PANEL_CSS.replace("__TOP__", "54") + "</style>\n"
+    "<style>" + _PANEL_CSS + "</style>\n"
     '<div class="lvkit-props-panel" id="lvkitPropsPanel" hidden></div>\n'
     "<script>\n"
     "(function(){\n"
@@ -210,6 +215,11 @@ PROPERTIES_PANEL = (
     "    var panel = document.getElementById('lvkitPropsPanel');\n"
     "    var btn = document.getElementById('__BTN_ID__');\n"
     "    if (!svg) return;\n"
+    "    // Move the popover INTO the diagram view space (the positioned\n"
+    "    // .stage-wrap), so it pins over the stage's top-right like the VI's\n"
+    "    // connector-pane reveal -- a VI-level construct shown over the VI.\n"
+    "    var wrap = stageEl.closest('.stage-wrap');\n"
+    "    if (wrap && panel) wrap.appendChild(panel);\n"
     "\n"
     "    var props = null, health = null, beforeProps = null, beforeHealth = null;\n"
     "    try {\n"
@@ -270,7 +280,7 @@ _DIFF_PANEL_EXTRA_CSS = """
 """
 
 DIFF_PROPERTIES_PANEL = (
-    "<style>" + _PANEL_CSS.replace("__TOP__", "64")
+    "<style>" + _PANEL_CSS
     + _DIFF_PANEL_EXTRA_CSS.replace("__DIFF_BTN_ID__", DIFF_PROPERTIES_PANEL_BTN_ID)
     + "</style>\n"
     '<div class="lvkit-props-panel" id="lvkitDiffPropsPanel" hidden></div>\n'
@@ -289,6 +299,11 @@ DIFF_PROPERTIES_PANEL = (
     "    var panel = document.getElementById('lvkitDiffPropsPanel');\n"
     "    var btn = document.getElementById('__DIFF_BTN_ID__');\n"
     "    if (!afterSvg) return;\n"
+    "    // Move the popover INTO the diagram view space (the positioned\n"
+    "    // .stage-wrap), pinned over the stage's top-right like the VI's\n"
+    "    // connector-pane reveal -- VI properties shown over the VI itself.\n"
+    "    var wrap = afterPane.closest('.stage-wrap');\n"
+    "    if (wrap && panel) wrap.appendChild(panel);\n"
     "\n"
     "    var props = null, health = null, beforeProps = null, beforeHealth = null;\n"
     "    try {\n"

@@ -236,17 +236,23 @@ class TestBuildRenderViewerPropertiesChrome:
         assert "beforeProps = null" in html
         assert "lvkit-props-changed" not in html
 
-    def test_chrome_css_follows_system_theme_not_data_theme(self):
-        """DESIGN LAW: the panel is chrome — plain
-        @media(prefers-color-scheme) tokens only, NEVER a rule keyed off
-        [data-theme] (that toggle is diagram-only)."""
+    def test_panel_is_diagram_surface_not_window_chrome(self):
+        """DESIGN LAW (revised): the properties popover is part of the VI VIEW
+        SPACE — pinned WITHIN the diagram stage (position:absolute, moved into
+        .stage-wrap) and themed to the DIAGRAM via the --d* tokens (which follow
+        the data-theme toggle in the template). It must NOT paint itself with the
+        window-chrome tokens (--panel/--fg-muted) nor pin to the window."""
         html = self._html()
         assert ".lvkit-props-panel{" in html
-        # No properties-chrome selector reacts to data-theme.
         start = html.index(".lvkit-props-panel{")
         end = html.index("</style>", start)
-        chrome_css = html[start:end]
-        assert "data-theme" not in chrome_css
+        panel_css = html[start:end]
+        # Themed by the diagram-surface tokens…
+        assert "var(--dpanel)" in panel_css and "var(--dfg-muted)" in panel_css
+        # …never the window-chrome palette.
+        assert "var(--panel)" not in panel_css and "var(--fg-muted)" not in panel_css
+        # Pinned WITHIN the diagram view, not fixed to the window.
+        assert "position:absolute" in panel_css and "position:fixed" not in panel_css
 
     def test_every_placeholder_substituted(self):
         html = self._html()

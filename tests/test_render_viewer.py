@@ -70,10 +70,12 @@ class TestBuildRenderViewerEndToEnd:
         assert ':root[data-theme="dark"]' in html
         assert f'id="{THEME_CONTROL_BTN_ID}"' in html
         assert 'id="zoomFit"' in html
-        # DESIGN LAW: the toggle themes the DIAGRAM only — the chrome palette
-        # never reacts to data-theme (only the --canvas diagram backdrop does).
+        # DESIGN LAW: the toggle themes the DIAGRAM SURFACE — its --canvas
+        # backdrop and the in-view panels drawn over it (the --d* properties-
+        # popover tokens) — but NEVER the window-chrome palette (--bg/--panel).
         assert '[data-theme="dark"]{--bg' not in html
         assert ':root[data-theme="dark"]{--canvas:#1b1c1e}' in html
+        assert ':root[data-theme="dark"]{--dpanel' in html
 
     def test_default_svg_render_is_byte_identical_to_light(self):
         """The ``--format svg`` (default) path renders with ``theme_mode='light'``
