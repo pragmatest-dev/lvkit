@@ -382,6 +382,7 @@ class ConstructionMixin:
             terminals=vi_terminals,
             description=_meta.description if _meta else None,
             owning_libraries=list(_meta.owning_libraries) if _meta else [],
+            connector_pattern_id=conpane.pattern_id if conpane else None,
         )
         g.add_node(vi_name, node=vi_node)
         vi_node_uids.add(vi_name)

@@ -68,6 +68,10 @@ class VINode(GraphNode):
     kind: Literal["vi"] = "vi"
     library: str | None = None
     qualified_name: str | None = None
+    # The connector-pane PATTERN number (FPHb ``<conPane><conId>``) — the key
+    # into ``render/connector_pane_geometry`` for the cell grid. None when the
+    # VI has no connector pane parsed. LabVIEW stores only this id, not the grid.
+    connector_pattern_id: int | None = None
     # The VI's ownership chain from its own ``<LIBN>`` (owning .lvlib/.lvclass,
     # outermost first). On a SubVI-CALL node it's the CALLEE's chain (copied when
     # the callee resolves). DISPLAY only — a ``chain:name`` label that
@@ -743,6 +747,9 @@ class VIContext(BaseModel):
     # Compile-health (emergent state, not a user setting) -- a SIBLING facet
     # to ``properties``, never nested inside it.
     health: VIHealth = VIHealth()
+    # Connector-pane PATTERN number (FPHb conId) — key into the pattern-geometry
+    # table for a faithful pane render. None when the VI has no connector pane.
+    connector_pattern_id: int | None = None
 
 
 # ============================================================

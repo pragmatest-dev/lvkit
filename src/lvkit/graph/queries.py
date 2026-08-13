@@ -904,6 +904,11 @@ class QueryMixin:
 
         vi_meta = self._vi_metadata.get(vi_name, VIMetadata())
 
+        vi_gnode = self._graph.nodes[vi_name].get("node")
+        pattern_id = (
+            vi_gnode.connector_pattern_id if isinstance(vi_gnode, VINode) else None
+        )
+
         return VIContext(
             name=vi_name,
             library=vi_meta.library,

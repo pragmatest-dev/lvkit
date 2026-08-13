@@ -44,6 +44,9 @@ class PanePattern:
     con_id: int
     name: str
     terminal_count: int
+    #: grid track counts, for proportional sizing (cols wide, rows tall)
+    cols: int
+    rows: int
     #: cells sorted by terminal index (0 .. terminal_count-1)
     cells: tuple[PaneCell, ...]
 
@@ -100,14 +103,21 @@ def _patterns() -> dict[int, PanePattern]:
     for con_id_str, spec in raw["patterns"].items():
         con_id = int(con_id_str)
         if "columns" in spec:
-            cells = _cells_from_columns(spec["columns"])
+            columns = spec["columns"]
+            cells = _cells_from_columns(columns)
+            cols = len(columns)
+            rows = max((len(c) for c in columns), default=1)
         else:
             cells = _cells_from_grid(spec["grid"], spec["cells"])
+            cols = int(spec["grid"]["cols"])
+            rows = int(spec["grid"]["rows"])
         cells.sort(key=lambda c: c.index)
         out[con_id] = PanePattern(
             con_id=con_id,
             name=spec["name"],
             terminal_count=int(spec["terminal_count"]),
+            cols=cols,
+            rows=rows,
             cells=tuple(cells),
         )
     return out
