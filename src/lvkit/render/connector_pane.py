@@ -310,7 +310,7 @@ _HELP_LABEL = 11.0
 _HELP_TYPE = 9.0
 _HELP_PANE = 76.0
 _HELP_LEADER = 26.0
-_HELP_ROW = 26.0  # room for a 2-line label (name over grey type)
+_HELP_ROW = 18.0  # single-line label spacing (name + inline grey type)
 _HELP_PAD = 12.0
 _HELP_TEXTGAP = 7.0
 _HELP_ICON = 40.0  # bigger, with title + description to its right
@@ -372,11 +372,12 @@ def render_connector_pane_help(
         return (it, outer, ib)
 
     def _label_w(rows: list[tuple[PaneCell, PaneTerminal]]) -> float:
-        # name over type (2 lines) — the column width is the WIDER of the two.
+        # one line: name + a grey type appended — width is name + gap + type.
         w = 0.0
         for _, t in rows:
-            w = max(w, _tw((t.name or f"idx {t.index}").strip(), _HELP_LABEL),
-                    _tw(lv_type_label(t.lv_type).strip(), _HELP_TYPE))
+            w = max(w, _tw((t.name or f"idx {t.index}").strip(), _HELP_LABEL)
+                    + _HELP_TEXTGAP + _tw(lv_type_label(t.lv_type).strip(),
+                                          _HELP_TYPE))
         return w
 
     left_w, right_w = _label_w(ins), _label_w(outs)
@@ -400,12 +401,10 @@ def render_connector_pane_help(
     header_h = max((_HELP_PAD + _HELP_ICON) if icon_uri else 0.0, text_bottom) + 8
     left = _classify(ins, False)
     right = _classify(outs, True)
-    # Stretch the pane vertically so the OUTER cells (up to 4) are row-spaced —
-    # then their labels sit ALIGNED with the terminals and the leaders run
-    # straight (no unnecessary kink). Width stays the pattern's own size.
-    pane_w = _HELP_PANE
-    n_outer = max(len(left[1]), len(right[1]), 1)
-    pane_h = max(_HELP_PANE, n_outer * _HELP_ROW)
+    # Keep the pane its natural square size; labels are a SINGLE line (name),
+    # with the type on hover — so outer labels align with their terminals (short
+    # cell spacing is enough) and leaders stay straight, no vertical stretch.
+    pane_w = pane_h = _HELP_PANE
     top_n = max(len(left[0]), len(right[0]))
     bot_n = max(len(left[2]), len(right[2]))
     top_margin = top_n * _HELP_ROW + (8 if top_n else 0)
@@ -449,14 +448,6 @@ def render_connector_pane_help(
         f'<g transform="translate({pane_x:.1f},{pane_y:.1f})">{grid}</g>'
     )
 
-    def _text(x: float, y: float, s: str, size: float, color: str) -> str:
-        # Explicit x + default (start) anchor only — never text-anchor="end"
-        # (cairosvg mis-renders it, so left labels would slide over the pane).
-        return (
-            f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" '
-            f'font-family="sans-serif" fill="{color}">{_esc(s)}</text>'
-        )
-
     def _wire_label(
         cell: PaneCell, t: PaneTerminal, label_y: float, is_out: bool, over: bool
     ) -> None:
@@ -464,25 +455,30 @@ def render_connector_pane_help(
         # Wires connect to the MIDDLE of the terminal cell.
         cxm = pane_x + (cell.x + cell.w / 2) * pane_w
         ccy = pane_y + (cell.y + cell.h / 2) * pane_h
-        # Trim trailing/leading whitespace so right-justified names line up.
+        # Trim whitespace so right-justified names line up; the type is appended
+        # to the END of the label in grey (like the connector-help tooltips).
         name = (t.name or f"idx {t.index}").strip()
         type_str = lv_type_label(t.lv_type).strip()
-        # Name over grey type, both anchored to the pane-facing edge: controls
-        # (inputs, left) right-justified, indicators (outputs, right) left-just.
-        name_y, type_y = label_y - 1, label_y + 10
-        if is_out:
+        total_w = _tw(name, _HELP_LABEL)
+        if type_str:
+            total_w += _HELP_TEXTGAP + _tw(type_str, _HELP_TYPE)
+        ty = label_y + _HELP_LABEL * 0.34
+        if is_out:  # indicators — left-justified at the leader
             hub = pane_x + pane_w + _HELP_LEADER
-            lx = hub + _HELP_TEXTGAP
-            parts.append(_text(lx, name_y, name, _HELP_LABEL, theme.text))
-            parts.append(_text(lx, type_y, type_str, _HELP_TYPE,
-                               theme.pane_type_text))
-        else:
+            sx = hub + _HELP_TEXTGAP
+        else:  # controls — right-justified at the leader
             hub = pane_x - _HELP_LEADER
-            rx = hub - _HELP_TEXTGAP
-            parts.append(_text(rx - _tw(name, _HELP_LABEL), name_y, name,
-                               _HELP_LABEL, theme.text))
-            parts.append(_text(rx - _tw(type_str, _HELP_TYPE), type_y, type_str,
-                               _HELP_TYPE, theme.pane_type_text))
+            sx = hub - _HELP_TEXTGAP - total_w
+        tspan = (
+            f'<tspan dx="{_HELP_TEXTGAP:.0f}" font-size="{_HELP_TYPE}" '
+            f'fill="{theme.pane_type_text}">{_esc(type_str)}</tspan>'
+            if type_str else ""
+        )
+        parts.append(
+            f'<text x="{sx:.1f}" y="{ty:.1f}" font-size="{_HELP_LABEL}" '
+            f'font-family="sans-serif" fill="{theme.text}">{_esc(name)}'
+            f'{tspan}</text>'
+        )
         # OUTER cells (over=False): out from the centre then a bend to the label.
         # INNER cells (over=True): up/down FIRST along the cell's own centre-line,
         # then out over/under the outer block — leaders never cross.
