@@ -571,18 +571,19 @@ _PANE_MAX_HEADER_W = 220.0  # title/description truncation width
 _PANE_STUB_OUT = 12.0       # straight run out of the icon edge, before a jog
 _PANE_STUB_FULL = 20.0      # full stub length, icon edge -> label anchor
 _PANE_TEXT_GAP = 3.0        # label anchor -> first glyph of text
+_PANE_NT_GAP = 5.0          # gap between a terminal's name and its grey type
 _PANE_STUB_MARGIN = _PANE_STUB_FULL + _PANE_TEXT_GAP  # edge -> text start
 
 _PANE_ROW_MIN_GAP = 11.0    # min vertical spacing between left/right labels
 _PANE_ROW_HALF = _PANE_LABEL_SIZE / 2 + 2.0  # vertical pad around a label row
-_PANE_COL_PAD = 6.0         # min horizontal padding between top/bottom labels
-_PANE_LINE_H = _PANE_LABEL_SIZE + 2.0  # one text line's height (top/bottom)
 
 # The glyph footprint is measured against the 32-unit LabVIEW icon cell: a full
 # 32-cell glyph scales to _PANE_ICON_TARGET px, sub-cell glyphs proportionally.
+# 48 = 80% of the original 60 px target — a touch smaller than before, but still
+# a readable thumbnail rather than a blown-up copy.
 _PANE_ICON_CELL = 32.0
-_PANE_ICON_TARGET = 60.0
-_PANE_ICON_MAX = 90.0       # cap so an oversized icon can't dominate the panel
+_PANE_ICON_TARGET = 48.0
+_PANE_ICON_MAX = 72.0       # cap so an oversized icon can't dominate the panel
 
 # fx/fy classification -> the outward unit normal a terminal's stub exits on.
 _SIDE_NORMAL: dict[str, Point] = {
@@ -609,7 +610,24 @@ class _PaneLabel:
 
     @property
     def total_w(self) -> float:
-        return self.name_w + self.type_w
+        return self.name_w + _PANE_NT_GAP + self.type_w
+
+
+@dataclass
+class _PaneTerm:
+    """One terminal placed for the help panel's LEFT/RIGHT-only layout: its
+    fitted label, the side its label sits on (``left`` for inputs, ``right`` for
+    outputs), whether it FOLDS (``top``/``bottom``-attached terminals route
+    up-over / down-under so no wire crosses; ``none`` = a straight side leader),
+    its icon-local attach point (``ax``,``ay``) and its assigned label row
+    (``ly``)."""
+
+    lb: _PaneLabel
+    side: str   # "left" | "right"
+    fold: str   # "none" | "top" | "bottom"
+    ax: float
+    ay: float
+    ly: float
 
 
 def _term_side_and_frac(
@@ -654,10 +672,12 @@ def _pane_label(rt: RenderTerminal, side: str, frac: float,
                  backend: Backend, theme: Theme) -> _PaneLabel:
     t = rt.terminal
     name = _terminal_label(t)
-    type_str = f" ({lv_type_label(t.lv_type)})"
+    # Grey type appended after the name (no parens) — the connector-pane help
+    # panel's label style; the name<->type gap is added at draw time.
+    type_str = lv_type_label(t.lv_type)
     name_w = backend.measure_text(name, _PANE_LABEL_SIZE)
     type_w = backend.measure_text(type_str, _PANE_TYPE_SIZE)
-    if name_w + type_w > _PANE_MAX_LABEL_W:
+    if name_w + _PANE_TEXT_GAP + type_w > _PANE_MAX_LABEL_W:
         # Type stays intact (short, meaningful); the name shrinks to fit.
         avail = max(10.0, _PANE_MAX_LABEL_W - type_w)
         name = fit_label(name, avail, backend, _PANE_LABEL_SIZE)
@@ -671,10 +691,10 @@ def _pane_label(rt: RenderTerminal, side: str, frac: float,
 def _spread_1d(values: list[float], min_gaps: list[float]) -> list[float]:
     """Nudge sorted ``values`` apart so consecutive entries are at least
     ``min_gaps[i]`` (the gap required BEFORE entry ``i``, i>=1) apart, then
-    re-centers the whole run on its original mean so one crowded pair
-    doesn't drag the group toward one end. Pure function of its inputs —
-    deterministic (no set/dict iteration, no hashing) so panel layout is
-    byte-reproducible across runs/hash seeds."""
+    re-centers the whole run on its original mean so one crowded pair doesn't
+    drag the group toward one end. Keeps each label as close as legibly possible
+    to its TRUE terminal height. Pure/deterministic (no set/dict iteration) so
+    panel layout is byte-reproducible across runs/hash seeds."""
     if not values:
         return []
     out = list(values)
@@ -696,8 +716,8 @@ def _pane_stub_points(edge: Point, side: str, final_perp: float) -> list[Point]:
     it ORIGINATES at the terminal's true edge point and runs ORTHOGONALLY
     (horizontal/vertical segments only — never a diagonal) out to its label
     slot. When the label sits exactly on the terminal's own edge fraction the
-    stub is a single straight run; when the label was spread apart for
-    legibility (see ``_spread_1d``) the stub becomes a proper elbow/Z —
+    stub is a single straight run; when the label was moved to its evenly-
+    distributed row (see ``_layout``) the stub becomes a proper elbow/Z —
     out along the side normal, across to the label's row/column, then in to
     the label anchor. The kinks are expected: that's how LabVIEW wires look,
     and they keep every stub visibly terminating at the REAL geometry even
@@ -735,105 +755,89 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     x1, y1, x2, y2 = bounds
     bw, bh = max(1e-6, x2 - x1), max(1e-6, y2 - y1)
 
-    sided: dict[str, list[_PaneLabel]] = {
-        "left": [], "right": [], "top": [], "bottom": [],
-    }
-    # Terminals sharing an identical ``termBounds`` rect occupy ONE connector-
-    # pane slot: a growable node (e.g. Scan From String) stores the slot
-    # position once on the input-default half, and the wired output half
-    # inherits it, so both alias to the same rect. They cannot both sit on that
-    # one point and we lack the output's own geometry — so place each co-located
-    # terminal by its KNOWN graph direction (input->left, output->right)
-    # instead of the shared rect, keeping the geometric ``frac`` for its height
-    # along that side. De-collides the pair AND puts the wired output on its
-    # correct side.
-    seen_rects: set[tuple[float, float, float, float]] = set()
-    shared_rects: set[tuple[float, float, float, float]] = set()
-    for rt in node.terminals:
-        if rt.bounds is not None:
-            (shared_rects if rt.bounds in seen_rects else seen_rects).add(rt.bounds)
-    for rt in node.terminals:
-        if not _terminal_is_informative(rt.terminal):
-            continue
-        side, frac = _term_side_and_frac(rt, bounds)
-        if rt.bounds is not None and rt.bounds in shared_rects:
-            if rt.terminal.nmux_role == "agg" and rt.terminal.direction == "input":
-                side = "top"
-            else:
-                side = "right" if rt.terminal.direction == "output" else "left"
-        sided[side].append(_pane_label(rt, side, frac, backend, theme))
-    for labels in sided.values():
-        labels.sort(key=lambda lb: lb.frac)
-
-    # Icon: the node's OWN glyph, scaled by a CONSTANT factor keyed to the
-    # 32-unit LabVIEW icon cell — so the panel icon's size is PROPORTIONAL to
-    # how much of that cell the glyph actually fills. A half-cell glyph shows
-    # half-size next to a full-cell one, matching the diagram, instead of every
-    # glyph being blown up to the same ~square (the old longer-side-normalized
-    # behavior). Both primitives and subVI icons live in this 32-cell space
-    # (constants have no panel), so the reference is exact. No MIN floor: even
-    # the smallest primitive is readable at this scale, and the terminal labels
-    # are spread apart (_spread_1d) with stubs routed to the glyph's true
-    # terminal points, so a small glyph never crams its terminals. Aspect ratio
-    # is preserved throughout; the MAX cap only keeps an oversized node (a big
-    # subVI/growable icon) from dominating the panel.
+    # Icon size FIRST — terminal attach points are icon-relative. The node's OWN
+    # glyph, scaled by a CONSTANT factor keyed to the 32-unit LabVIEW icon cell,
+    # so the panel icon is PROPORTIONAL to how much of that cell the glyph fills
+    # (a half-cell glyph shows half-size next to a full-cell one, matching the
+    # diagram). Aspect ratio is preserved; the MAX cap only stops an oversized
+    # subVI/growable icon from dominating the panel.
     scale = _PANE_ICON_TARGET / _PANE_ICON_CELL
     icon_w, icon_h = bw * scale, bh * scale
     if max(icon_w, icon_h) > _PANE_ICON_MAX:
         s = _PANE_ICON_MAX / max(icon_w, icon_h)
         icon_w, icon_h = icon_w * s, icon_h * s
 
-    # Left/right: labels stack VERTICALLY at their true icon-relative height
-    # (fy * icon_h), separated just enough to stay legible.
-    left_y0 = [lb.frac * icon_h for lb in sided["left"]]
-    right_y0 = [lb.frac * icon_h for lb in sided["right"]]
-    left_y = _spread_1d(left_y0, [_PANE_ROW_MIN_GAP] * len(left_y0))
-    right_y = _spread_1d(right_y0, [_PANE_ROW_MIN_GAP] * len(right_y0))
-    left_w = max((lb.total_w for lb in sided["left"]), default=0.0)
-    right_w = max((lb.total_w for lb in sided["right"]), default=0.0)
+    # Terminals sharing an identical ``termBounds`` rect occupy ONE connector-
+    # pane slot: a growable node (e.g. Scan From String) stores the slot once on
+    # the input-default half and the wired output half inherits it. Place each
+    # co-located terminal by its KNOWN graph direction instead of the shared rect.
+    seen_rects: set[tuple[float, float, float, float]] = set()
+    shared_rects: set[tuple[float, float, float, float]] = set()
+    for rt in node.terminals:
+        if rt.bounds is not None:
+            (shared_rects if rt.bounds in seen_rects else seen_rects).add(rt.bounds)
 
-    # Top/bottom: labels sit side by side HORIZONTALLY at their true
-    # icon-relative x (fx * icon_w), separated by their own text widths.
-    top_x0 = [lb.frac * icon_w for lb in sided["top"]]
-    bottom_x0 = [lb.frac * icon_w for lb in sided["bottom"]]
+    # Context-help layout (matches the connector-pane help panel): EVERY label
+    # sits on the LEFT (inputs) or RIGHT (outputs). A terminal attaching at that
+    # same side's edge gets a straight leader; one attaching at the TOP or BOTTOM
+    # edge is FOLDED to its direction side and STACKED above/below the straight
+    # rows, then routed up-over / down-under so no wire ever crosses the icon.
+    left_terms: list[_PaneTerm] = []
+    right_terms: list[_PaneTerm] = []
+    for rt in node.terminals:
+        if not _terminal_is_informative(rt.terminal):
+            continue
+        side, frac = _term_side_and_frac(rt, bounds)
+        if rt.bounds is not None and rt.bounds in shared_rects:
+            side = "right" if rt.terminal.direction == "output" else "left"
+        lb = _pane_label(rt, side, frac, backend, theme)
+        if side == "left":
+            lside, fold, ax, ay = "left", "none", 0.0, frac * icon_h
+        elif side == "right":
+            lside, fold, ax, ay = "right", "none", icon_w, frac * icon_h
+        else:  # top / bottom edge -> fold to the direction side
+            lside = "left" if rt.terminal.direction == "input" else "right"
+            fold, ax, ay = side, frac * icon_w, (0.0 if side == "top" else icon_h)
+        term = _PaneTerm(lb=lb, side=lside, fold=fold, ax=ax, ay=ay, ly=ay)
+        (left_terms if lside == "left" else right_terms).append(term)
 
-    def _col_gaps(labels: list[_PaneLabel]) -> list[float]:
-        gaps = [0.0] * len(labels)
-        for i in range(1, len(labels)):
-            gaps[i] = (labels[i - 1].total_w + labels[i].total_w) / 2 + _PANE_COL_PAD
-        return gaps
+    def _layout(terms: list[_PaneTerm]) -> None:
+        # Straight (side-attached) rows sit at their TRUE terminal height (only
+        # nudged apart when two would collide) — so the layout reads as if EVERY
+        # terminal were populated: a row's height is fixed by the terminal, not by
+        # how many neighbours happen to be wired, and left/right rows line up.
+        # Folded rows sit just ONE gap beyond that block (top-folds above the icon
+        # top, bottom-folds below the icon bottom) — close in, never sticking far
+        # out, yet clear of the icon so their up-over / down-under wire can't cross.
+        straight = sorted((t for t in terms if t.fold == "none"),
+                          key=lambda t: t.ay)
+        for t, y in zip(straight, _spread_1d(
+                [t.ay for t in straight], [_PANE_ROW_MIN_GAP] * len(straight))):
+            t.ly = y
+        base_top = min([t.ly for t in straight] + [0.0]) - _PANE_ROW_MIN_GAP
+        ftop = sorted((t for t in terms if t.fold == "top"), key=lambda t: t.ax)
+        for k, t in enumerate(reversed(ftop)):
+            t.ly = base_top - k * _PANE_ROW_MIN_GAP
+        base_bot = max([t.ly for t in straight] + [icon_h]) + _PANE_ROW_MIN_GAP
+        fbot = sorted((t for t in terms if t.fold == "bottom"), key=lambda t: t.ax)
+        for k, t in enumerate(fbot):
+            t.ly = base_bot + k * _PANE_ROW_MIN_GAP
 
-    top_x = _spread_1d(top_x0, _col_gaps(sided["top"]))
-    bottom_x = _spread_1d(bottom_x0, _col_gaps(sided["bottom"]))
+    _layout(left_terms)
+    _layout(right_terms)
+    all_terms = left_terms + right_terms
 
-    # Unified diagram extents (icon-local frame: icon spans [0,icon_w] x
-    # [0,icon_h]) over EVERY side's labels, so the panel is exactly as wide/
-    # tall as it needs to be — no wasted margin, nothing clipped.
-    xs_min, xs_max = [0.0], [icon_w]
-    if sided["left"]:
-        xs_min.append(-(_PANE_STUB_MARGIN + left_w))
-    if sided["right"]:
-        xs_max.append(icon_w + _PANE_STUB_MARGIN + right_w)
-    for x, lb in zip(top_x, sided["top"]):
-        xs_min.append(x - lb.total_w / 2)
-        xs_max.append(x + lb.total_w / 2)
-    for x, lb in zip(bottom_x, sided["bottom"]):
-        xs_min.append(x - lb.total_w / 2)
-        xs_max.append(x + lb.total_w / 2)
-    x_min, x_max = min(xs_min), max(xs_max)
+    # Icon-local diagram extents (icon spans [0,icon_w] x [0,icon_h]); labels sit
+    # a stub margin beyond the left/right edges, folded rows above/below.
+    left_w = max((t.lb.total_w for t in left_terms), default=0.0)
+    right_w = max((t.lb.total_w for t in right_terms), default=0.0)
+    x_min = -(_PANE_STUB_MARGIN + left_w) if left_terms else 0.0
+    x_max = icon_w + (_PANE_STUB_MARGIN + right_w if right_terms else 0.0)
     diagram_w = x_max - x_min
-
-    ys_min, ys_max = [0.0], [icon_h]
-    if left_y:
-        ys_min.append(min(left_y) - _PANE_ROW_HALF)
-        ys_max.append(max(left_y) + _PANE_ROW_HALF)
-    if right_y:
-        ys_min.append(min(right_y) - _PANE_ROW_HALF)
-        ys_max.append(max(right_y) + _PANE_ROW_HALF)
-    mid_h = max(ys_max) - min(ys_min)
-    top_h = (_PANE_STUB_MARGIN + _PANE_LINE_H) if sided["top"] else 0.0
-    bottom_h = (_PANE_STUB_MARGIN + _PANE_LINE_H) if sided["bottom"] else 0.0
-    diagram_h = top_h + mid_h + bottom_h
+    lys = [t.ly for t in all_terms]
+    y_min = min([0.0] + lys) - _PANE_ROW_HALF
+    y_max = max([icon_h] + lys) + _PANE_ROW_HALF
+    diagram_h = y_max - y_min
 
     full_title_w = backend.measure_text(header, _PANE_TITLE_SIZE)
     inner_w = max(diagram_w, min(full_title_w, _PANE_MAX_HEADER_W))
@@ -869,7 +873,7 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     icon_x1 = diagram_x0 - x_min
     icon_x2 = icon_x1 + icon_w
     diagram_y0 = header_h + _PANE_PAD
-    icon_y1 = diagram_y0 + top_h - min(ys_min)
+    icon_y1 = diagram_y0 - y_min
     icon_y2 = icon_y1 + icon_h
 
     # All panel styling (hidden-until-hover, no pointer capture, drop shadow)
@@ -895,47 +899,38 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
 
     node.glyph.draw(backend, (icon_x1, icon_y1, icon_x2, icon_y2), theme)
 
-    def _draw_side(labels: list[_PaneLabel], side: str, final: list[float]) -> None:
-        for lb, perp in zip(labels, final):
-            if side == "left":
-                edge = (icon_x1, icon_y1 + lb.frac * icon_h)
-            elif side == "right":
-                edge = (icon_x2, icon_y1 + lb.frac * icon_h)
-            elif side == "top":
-                edge = (icon_x1 + lb.frac * icon_w, icon_y1)
-            else:
-                edge = (icon_x1 + lb.frac * icon_w, icon_y2)
-            final_perp = perp + (icon_y1 if side in ("left", "right") else icon_x1)
-            pts = _pane_stub_points(edge, side, final_perp)
-            backend.path(pts, stroke=lb.color, stroke_width=lb.width)
-            end_x, end_y = pts[-1]
-            if side == "left":
-                ty = end_y + _PANE_LABEL_SIZE * 0.35
-                backend.text(end_x - _PANE_TEXT_GAP, ty, lb.type_str, _PANE_TYPE_SIZE,
-                             fill=theme.pane_type_text, anchor="end")
-                backend.text(end_x - _PANE_TEXT_GAP - lb.type_w, ty, lb.name,
-                             _PANE_LABEL_SIZE, anchor="end", fill=theme.text)
-            elif side == "right":
-                ty = end_y + _PANE_LABEL_SIZE * 0.35
-                backend.text(end_x + _PANE_TEXT_GAP, ty, lb.name, _PANE_LABEL_SIZE,
-                             anchor="start", fill=theme.text)
-                backend.text(end_x + _PANE_TEXT_GAP + lb.name_w, ty, lb.type_str,
-                             _PANE_TYPE_SIZE, fill=theme.pane_type_text, anchor="start")
-            else:
-                start_x = end_x - lb.total_w / 2
-                ty = (
-                    end_y - _PANE_TEXT_GAP if side == "top"
-                    else end_y + _PANE_TEXT_GAP + _PANE_LABEL_SIZE * 0.8
-                )
-                backend.text(start_x, ty, lb.name, _PANE_LABEL_SIZE, anchor="start",
-                             fill=theme.text)
-                backend.text(start_x + lb.name_w, ty, lb.type_str, _PANE_TYPE_SIZE,
-                             fill=theme.pane_type_text, anchor="start")
+    def _draw_term(t: _PaneTerm) -> None:
+        lb = t.lb
+        ly = icon_y1 + t.ly                        # label row (panel space)
+        ex, ey = icon_x1 + t.ax, icon_y1 + t.ay    # true attach point
+        if t.fold == "none":
+            # Straight left/right leader (an elbow only if its row was spread).
+            pts = _pane_stub_points((ex, ey), t.side, ly)
+        else:
+            # Fold: run vertically off the top/bottom edge to the label row, then
+            # horizontally out to the side's label hub — one clean orthogonal jog.
+            hub = (icon_x1 - _PANE_STUB_FULL if t.side == "left"
+                   else icon_x2 + _PANE_STUB_FULL)
+            pts = [(ex, ey), (ex, ly), (hub, ly)]
+        backend.path(pts, stroke=lb.color, stroke_width=lb.width)
+        end_x, end_y = pts[-1]
+        # Name adjacent to the wire, grey type beyond it, one fixed gap between
+        # them — identical to the connector-pane help panel.
+        ty = end_y + _PANE_LABEL_SIZE * 0.35
+        if t.side == "left":
+            backend.text(end_x - _PANE_TEXT_GAP, ty, lb.type_str, _PANE_TYPE_SIZE,
+                         fill=theme.pane_type_text, anchor="end")
+            backend.text(end_x - _PANE_TEXT_GAP - lb.type_w - _PANE_NT_GAP, ty,
+                         lb.name, _PANE_LABEL_SIZE, anchor="end", fill=theme.text)
+        else:
+            backend.text(end_x + _PANE_TEXT_GAP, ty, lb.name, _PANE_LABEL_SIZE,
+                         anchor="start", fill=theme.text)
+            backend.text(end_x + _PANE_TEXT_GAP + lb.name_w + _PANE_NT_GAP, ty,
+                         lb.type_str, _PANE_TYPE_SIZE, fill=theme.pane_type_text,
+                         anchor="start")
 
-    _draw_side(sided["left"], "left", left_y)
-    _draw_side(sided["right"], "right", right_y)
-    _draw_side(sided["top"], "top", top_x)
-    _draw_side(sided["bottom"], "bottom", bottom_x)
+    for t in all_terms:
+        _draw_term(t)
 
     backend.end_group()
 

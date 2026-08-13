@@ -310,7 +310,6 @@ _HELP_LABEL = 11.0
 _HELP_TYPE = 9.0
 _HELP_PANE = 76.0
 _HELP_LEADER = 26.0
-_HELP_ROW = 18.0  # single-line label spacing (name + inline grey type)
 _HELP_PAD = 12.0
 _HELP_TEXTGAP = 7.0
 _HELP_ICON = 40.0  # bigger, with title + description to its right
@@ -386,19 +385,19 @@ def render_connector_pane_help(
         + (_HELP_LEADER + right_w if outs else 0)
     )
     inner_w = max(diagram_w, 200.0)
-    # Header: bigger icon at the left, title + wrapped description to its RIGHT.
-    text_x = _HELP_PAD + (_HELP_ICON + 10 if icon_uri else 0)
-    head_w = inner_w + _HELP_PAD - text_x  # text area width, right of the icon
-    title_line = title if _tw(title, _HELP_TITLE) <= head_w else (
-        title[: max(1, int(head_w / (_HELP_TITLE * 0.6)) - 1)] + "…"
+    # Header is CENTERED and STACKED: icon on top, then title, then description.
+    wrap_w = inner_w - 8
+    title_line = title if _tw(title, _HELP_TITLE) <= wrap_w else (
+        title[: max(1, int(wrap_w / (_HELP_TITLE * 0.6)) - 1)] + "…"
     )
-    desc_lines = _wrap(description, head_w, _HELP_DESC, 4) if description else []
-    title_y = _HELP_PAD + 12
-    desc_y0 = _HELP_PAD + 27
-    text_bottom = (
-        desc_y0 + (len(desc_lines) - 1) * _HELP_DESC_LH if desc_lines else title_y
+    desc_lines = _wrap(description, wrap_w, _HELP_DESC, 4) if description else []
+    icon_bottom = _HELP_PAD + (_HELP_ICON if icon_uri else 0.0)
+    title_y = icon_bottom + _HELP_TITLE + (6 if icon_uri else 0.0)
+    desc_y0 = title_y + _HELP_DESC + 6
+    header_h = (
+        desc_y0 + (len(desc_lines) - 1) * _HELP_DESC_LH + 6 if desc_lines
+        else title_y + 6
     )
-    header_h = max((_HELP_PAD + _HELP_ICON) if icon_uri else 0.0, text_bottom) + 8
     left = _classify(ins, False)
     right = _classify(outs, True)
     # Keep the pane its natural square size; labels are a SINGLE line (name),
@@ -407,8 +406,13 @@ def render_connector_pane_help(
     pane_w = pane_h = _HELP_PANE
     top_n = max(len(left[0]), len(right[0]))
     bot_n = max(len(left[2]), len(right[2]))
-    top_margin = top_n * _HELP_ROW + (8 if top_n else 0)
-    bot_margin = bot_n * _HELP_ROW + (8 if bot_n else 0)
+    # Inner (middle-column) labels stack above/below the pane on the SAME vertical
+    # rhythm as the outer cells (pane height / row count), so the whole side reads
+    # as ONE evenly-spaced column — the top/bottom folded labels sit exactly one
+    # cell-row past the pane edge, never floating far above/below it.
+    row_h = pane_h / max(1, pattern.rows)
+    top_margin = top_n * row_h
+    bot_margin = bot_n * row_h
     diagram_h = top_margin + pane_h + bot_margin
     panel_w = inner_w + 2 * _HELP_PAD
     panel_h = header_h + diagram_h + 2 * _HELP_PAD
@@ -419,6 +423,7 @@ def render_connector_pane_help(
     )
     pane_y = diagram_top + top_margin
 
+    hcx = panel_w / 2  # header is centered on the panel's horizontal centre
     parts = [
         f'<g class="lv-vi-help">'
         f'<rect x="0" y="0" width="{panel_w:.1f}" height="{panel_h:.1f}" rx="4" '
@@ -426,19 +431,20 @@ def render_connector_pane_help(
     ]
     if icon_uri:
         parts.append(
-            f'<image x="{_HELP_PAD:.1f}" y="{_HELP_PAD:.1f}" '
+            f'<image x="{hcx - _HELP_ICON / 2:.1f}" y="{_HELP_PAD:.1f}" '
             f'width="{_HELP_ICON}" height="{_HELP_ICON}" href="{icon_uri}"/>'
         )
     parts.append(
-        f'<text x="{text_x:.1f}" y="{title_y:.1f}" font-size="{_HELP_TITLE}"'
-        f' font-weight="bold" font-family="sans-serif" fill="{theme.text}">'
-        f'{_esc(title_line)}</text>'
+        f'<text x="{hcx:.1f}" y="{title_y:.1f}" text-anchor="middle" '
+        f'font-size="{_HELP_TITLE}" font-weight="bold" font-family="sans-serif" '
+        f'fill="{theme.text}">{_esc(title_line)}</text>'
     )
     for i, dl in enumerate(desc_lines):
         parts.append(
-            f'<text x="{text_x:.1f}" y="{desc_y0 + i * _HELP_DESC_LH:.1f}" '
-            f'font-size="{_HELP_DESC}" font-family="sans-serif" '
-            f'fill="{theme.pane_type_text}">{_esc(dl)}</text>'
+            f'<text x="{hcx:.1f}" y="{desc_y0 + i * _HELP_DESC_LH:.1f}" '
+            f'text-anchor="middle" font-size="{_HELP_DESC}" '
+            f'font-family="sans-serif" fill="{theme.pane_type_text}">'
+            f'{_esc(dl)}</text>'
         )
     # The pane grid, nested at (pane_x, pane_y).
     grid = render_connector_pane_compact(
@@ -460,31 +466,27 @@ def render_connector_pane_help(
         name = (t.name or f"idx {t.index}").strip()
         type_str = lv_type_label(t.lv_type).strip()
         ty = label_y + _HELP_LABEL * 0.34
-        # Consistent order: NAME then grey TYPE (type on the RIGHT). The element
-        # ADJACENT to the wire is anchored EXACTLY at it (text-anchor) so labels
-        # line up: controls (inputs) end at the leader -> the type-right-edge
-        # aligns; indicators (outputs) start at it -> the name-left-edge aligns.
-        # The far element is placed by width estimate (secondary token).
+        # NAME then grey TYPE as ONE text with a FIXED dx gap, justified by
+        # text-anchor: controls (inputs) end at the leader on the right,
+        # indicators (outputs) start at it on the left. One element (not two
+        # estimate-placed ones) keeps the name<->type gap CONSTANT and the
+        # wire-adjacent end exact. (cairosvg mis-anchors tspans; browsers don't.)
         anchor = "start" if is_out else "end"
-        if is_out:
-            hub = pane_x + pane_w + _HELP_LEADER
-            nx = hub + _HELP_TEXTGAP
-            tx = nx + _tw(name, _HELP_LABEL) + _HELP_TEXTGAP
-        else:
-            hub = pane_x - _HELP_LEADER
-            tx = hub - _HELP_TEXTGAP
-            nx = (tx - _tw(type_str, _HELP_TYPE) - _HELP_TEXTGAP) if type_str else tx
-        parts.append(
-            f'<text x="{nx:.1f}" y="{ty:.1f}" text-anchor="{anchor}" '
-            f'font-size="{_HELP_LABEL}" font-family="sans-serif" '
-            f'fill="{theme.text}">{_esc(name)}</text>'
+        ax = (
+            pane_x + pane_w + _HELP_LEADER + _HELP_TEXTGAP if is_out
+            else pane_x - _HELP_LEADER - _HELP_TEXTGAP
         )
-        if type_str:
-            parts.append(
-                f'<text x="{tx:.1f}" y="{ty:.1f}" text-anchor="{anchor}" '
-                f'font-size="{_HELP_TYPE}" font-family="sans-serif" '
-                f'fill="{theme.pane_type_text}">{_esc(type_str)}</text>'
-            )
+        hub = pane_x + pane_w + _HELP_LEADER if is_out else pane_x - _HELP_LEADER
+        tspan = (
+            f'<tspan dx="{_HELP_TEXTGAP:.0f}" font-size="{_HELP_TYPE}" '
+            f'fill="{theme.pane_type_text}">{_esc(type_str)}</tspan>'
+            if type_str else ""
+        )
+        parts.append(
+            f'<text x="{ax:.1f}" y="{ty:.1f}" text-anchor="{anchor}" '
+            f'font-size="{_HELP_LABEL}" font-family="sans-serif" '
+            f'fill="{theme.text}">{_esc(name)}{tspan}</text>'
+        )
         # OUTER cells (over=False): out from the centre then a bend to the label.
         # INNER cells (over=True): up/down FIRST along the cell's own centre-line,
         # then out over/under the outer block — leaders never cross.
@@ -509,13 +511,15 @@ def render_connector_pane_help(
         for cell, t in outer:
             ccy = pane_y + (cell.y + cell.h / 2) * pane_h
             _wire_label(cell, t, ccy, is_out, over=False)
-        # Inner (middle-column) labels live in the reserved TOP / BOTTOM margins
-        # — above and below the outer band — routed over/under so nothing crosses.
+        # Inner (middle-column) labels continue the outer cell rhythm just past
+        # the pane edge — the top stack rising above it, the bottom stack below —
+        # routed over/under so nothing crosses.
+        n_top = len(inner_top)
         for k, (cell, t) in enumerate(inner_top):
-            _wire_label(cell, t, diagram_top + (k + 0.5) * _HELP_ROW,
+            _wire_label(cell, t, pane_y + row_h / 2 - (n_top - k) * row_h,
                         is_out, over=True)
         for k, (cell, t) in enumerate(inner_bot):
-            _wire_label(cell, t, (pane_y + pane_h) + (k + 0.5) * _HELP_ROW,
+            _wire_label(cell, t, pane_y + pane_h - row_h / 2 + (k + 1) * row_h,
                         is_out, over=True)
 
     _place(left, False)
