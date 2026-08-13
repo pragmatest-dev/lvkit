@@ -246,30 +246,33 @@ def render_connector_pane_compact(
     theme: Theme = DEFAULT_THEME,
     ring: frozenset[int] = frozenset(),
     size: float = 40.0,
+    height: float | None = None,
 ) -> str:
     """The ICON-SIZED pane face — the faithful LabVIEW connector pane as shown
-    beside the icon: a small ``size``×``size`` colored grid, each cell in its
-    true pattern shape (square / tall / column-spanning), filled by terminal
-    type, name/type on hover (``<title>``). No text labels. ``ring`` highlights
-    changed cells (diff). Unknown conId → a minimal box so it never breaks."""
+    beside the icon: a small ``size``×``height`` colored grid (``height``
+    defaults to ``size``), each cell in its true pattern shape (square / tall /
+    column-spanning), filled by terminal type, name/type on hover (``<title>``).
+    No text labels. ``ring`` highlights changed cells (diff). Unknown conId → a
+    minimal box so it never breaks."""
+    h = height if height is not None else size
     by_index = {t.index: t for t in terminals}
     pattern = get_pattern(pattern_id) if pattern_id is not None else None
-    inner = f'<rect width="{size:.1f}" height="{size:.1f}" fill="{theme.canvas}"/>'
+    inner = f'<rect width="{size:.1f}" height="{h:.1f}" fill="{theme.canvas}"/>'
     if pattern is not None:
         parts = [inner]
         for cell in pattern.cells:
             parts.extend(
                 _cell_svg_compact(
-                    cell, by_index.get(cell.index), size, size, theme,
+                    cell, by_index.get(cell.index), size, h, theme,
                     cell.index in ring,
                 )
             )
         inner = "".join(parts)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{size:.0f}" '
-        f'height="{size:.0f}" viewBox="0 0 {size:.0f} {size:.0f}">'
+        f'height="{h:.0f}" viewBox="0 0 {size:.0f} {h:.0f}">'
         f'{inner}'
-        f'<rect x="0" y="0" width="{size:.1f}" height="{size:.1f}" fill="none" '
+        f'<rect x="0" y="0" width="{size:.1f}" height="{h:.1f}" fill="none" '
         f'stroke="{theme.struct_border}" stroke-width="1"/>'
         f'</svg>'
     )
@@ -372,8 +375,8 @@ def render_connector_pane_help(
         # name over type (2 lines) — the column width is the WIDER of the two.
         w = 0.0
         for _, t in rows:
-            w = max(w, _tw(t.name or f"idx {t.index}", _HELP_LABEL),
-                    _tw(lv_type_label(t.lv_type), _HELP_TYPE))
+            w = max(w, _tw((t.name or f"idx {t.index}").strip(), _HELP_LABEL),
+                    _tw(lv_type_label(t.lv_type).strip(), _HELP_TYPE))
         return w
 
     left_w, right_w = _label_w(ins), _label_w(outs)
@@ -397,12 +400,17 @@ def render_connector_pane_help(
     header_h = max((_HELP_PAD + _HELP_ICON) if icon_uri else 0.0, text_bottom) + 8
     left = _classify(ins, False)
     right = _classify(outs, True)
+    # Stretch the pane vertically so the OUTER cells (up to 4) are row-spaced —
+    # then their labels sit ALIGNED with the terminals and the leaders run
+    # straight (no unnecessary kink). Width stays the pattern's own size.
+    pane_w = _HELP_PANE
+    n_outer = max(len(left[1]), len(right[1]), 1)
+    pane_h = max(_HELP_PANE, n_outer * _HELP_ROW)
     top_n = max(len(left[0]), len(right[0]))
     bot_n = max(len(left[2]), len(right[2]))
-    core_h = max(_HELP_PANE, len(left[1]) * _HELP_ROW, len(right[1]) * _HELP_ROW)
     top_margin = top_n * _HELP_ROW + (8 if top_n else 0)
     bot_margin = bot_n * _HELP_ROW + (8 if bot_n else 0)
-    diagram_h = top_margin + core_h + bot_margin
+    diagram_h = top_margin + pane_h + bot_margin
     panel_w = inner_w + 2 * _HELP_PAD
     panel_h = header_h + diagram_h + 2 * _HELP_PAD
 
@@ -410,7 +418,7 @@ def render_connector_pane_help(
     pane_x = _HELP_PAD + (inner_w - diagram_w) / 2 + (
         left_w + _HELP_LEADER if ins else 0
     )
-    pane_y = diagram_top + top_margin + (core_h - _HELP_PANE) / 2
+    pane_y = diagram_top + top_margin
 
     parts = [
         f'<g class="lv-vi-help">'
@@ -435,7 +443,7 @@ def render_connector_pane_help(
         )
     # The pane grid, nested at (pane_x, pane_y).
     grid = render_connector_pane_compact(
-        pattern_id, terminals, theme=theme, size=_HELP_PANE
+        pattern_id, terminals, theme=theme, size=pane_w, height=pane_h
     )
     parts.append(
         f'<g transform="translate({pane_x:.1f},{pane_y:.1f})">{grid}</g>'
@@ -454,15 +462,16 @@ def render_connector_pane_help(
     ) -> None:
         color = wire_style(t.lv_type, theme).color
         # Wires connect to the MIDDLE of the terminal cell.
-        cxm = pane_x + (cell.x + cell.w / 2) * _HELP_PANE
-        ccy = pane_y + (cell.y + cell.h / 2) * _HELP_PANE
-        name = t.name or f"idx {t.index}"
-        type_str = lv_type_label(t.lv_type)
+        cxm = pane_x + (cell.x + cell.w / 2) * pane_w
+        ccy = pane_y + (cell.y + cell.h / 2) * pane_h
+        # Trim trailing/leading whitespace so right-justified names line up.
+        name = (t.name or f"idx {t.index}").strip()
+        type_str = lv_type_label(t.lv_type).strip()
         # Name over grey type, both anchored to the pane-facing edge: controls
         # (inputs, left) right-justified, indicators (outputs, right) left-just.
         name_y, type_y = label_y - 1, label_y + 10
         if is_out:
-            hub = pane_x + _HELP_PANE + _HELP_LEADER
+            hub = pane_x + pane_w + _HELP_LEADER
             lx = hub + _HELP_TEXTGAP
             parts.append(_text(lx, name_y, name, _HELP_LABEL, theme.text))
             parts.append(_text(lx, type_y, type_str, _HELP_TYPE,
@@ -491,23 +500,20 @@ def render_connector_pane_help(
             f'<path d="{path}" fill="none" stroke="{color}" stroke-width="1.4"/>'
         )
 
-    core_top = diagram_top + top_margin
-
     def _place(side, is_out: bool) -> None:
         inner_top, outer, inner_bot = side
-        # Outer labels: evenly spaced by row-height (not cell-height, so 2-line
-        # labels never collide), centred on the pane, inside the CORE band.
-        oc = pane_y + _HELP_PANE / 2
-        for i, (cell, t) in enumerate(outer):
-            ly = oc + (i - (len(outer) - 1) / 2) * _HELP_ROW
-            _wire_label(cell, t, ly, is_out, over=False)
-        # Inner labels live in the reserved TOP / BOTTOM margins — ABOVE and
-        # BELOW the outer band — so they never collide with the outer labels.
+        # Outer labels sit ALIGNED with their terminal cell centre (the pane is
+        # stretched so they don't collide) — straight, un-kinked leaders.
+        for cell, t in outer:
+            ccy = pane_y + (cell.y + cell.h / 2) * pane_h
+            _wire_label(cell, t, ccy, is_out, over=False)
+        # Inner (middle-column) labels live in the reserved TOP / BOTTOM margins
+        # — above and below the outer band — routed over/under so nothing crosses.
         for k, (cell, t) in enumerate(inner_top):
             _wire_label(cell, t, diagram_top + (k + 0.5) * _HELP_ROW,
                         is_out, over=True)
         for k, (cell, t) in enumerate(inner_bot):
-            _wire_label(cell, t, (core_top + core_h) + (k + 0.5) * _HELP_ROW,
+            _wire_label(cell, t, (pane_y + pane_h) + (k + 0.5) * _HELP_ROW,
                         is_out, over=True)
 
     _place(left, False)
