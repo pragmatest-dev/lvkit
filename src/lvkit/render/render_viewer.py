@@ -17,11 +17,7 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-from .connector_pane_panel import (
-    CONNECTOR_PANE_BUTTON,
-    CONNECTOR_PANE_PANEL,
-    CONNECTOR_PANE_SCRIPT,
-)
+from .connector_pane_panel import CONNECTOR_PANE_BUTTON, CONNECTOR_PANE_SCRIPT
 from .help_tip import HELP_TIP
 from .properties_panel import PROPERTIES_BUTTON, PROPERTIES_PANEL
 from .theme_control import THEME_CONTROL_BUTTON, THEME_CONTROL_SCRIPT
@@ -49,7 +45,6 @@ def build_render_viewer(svg: str, *, title: str) -> str:
         .replace("__PROPERTIES_BTN__", PROPERTIES_BUTTON)
         .replace("__PROPERTIES_PANEL__", PROPERTIES_PANEL)
         .replace("__CONNECTOR_PANE_BTN__", CONNECTOR_PANE_BUTTON)
-        .replace("__CONNECTOR_PANE_PANEL__", CONNECTOR_PANE_PANEL)
         .replace("__CONNECTOR_PANE_SCRIPT__", CONNECTOR_PANE_SCRIPT)
         .replace("__HELP_TIP__", HELP_TIP)
         .replace("__SVG__", svg)

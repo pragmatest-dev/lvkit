@@ -24,7 +24,6 @@ from __future__ import annotations
 __all__ = [
     "CONNECTOR_PANE_BUTTON",
     "CONNECTOR_PANE_GLYPH",
-    "CONNECTOR_PANE_PANEL",
     "CONNECTOR_PANE_PANEL_BTN_ID",
     "CONNECTOR_PANE_SCRIPT",
 ]
@@ -44,52 +43,39 @@ CONNECTOR_PANE_BUTTON = (
     f'aria-expanded="false">{CONNECTOR_PANE_GLYPH}</button>'
 )
 
-# The fixed overlay the panel is promoted INTO — pinned to the viewer's own
-# top-right corner (like a real VI's Context Help window), so it floats over
-# the viewport, NOT the diagram's coordinate space (no diagram canvas around
-# it, no scaling with zoom). Chrome-only tokens (defined on :root by the
-# templates); never data-theme. Injected once near end-of-body.
-CONNECTOR_PANE_PANEL = (
-    "<style>\n"
-    "  .lvkit-pane-overlay{position:fixed;top:56px;right:16px;z-index:75;\n"
-    "    display:flex;flex-direction:column;gap:8px;max-width:calc(100% - 32px);\n"
-    "    max-height:82vh;overflow:auto;\n"
-    "    filter:drop-shadow(0 3px 14px rgba(0,0,0,.30))}\n"
-    "  .lvkit-pane-overlay[hidden]{display:none}\n"
-    "  .lvkit-pane-overlay svg{display:block;max-width:100%;height:auto}\n"
-    "</style>\n"
-    '<div class="lvkit-pane-overlay" id="lvkitPaneOverlay" hidden></div>'
-)
-
-# Promote by CLONING each aside's panel <svg> OUT of its <defs> into the fixed
-# overlay above; hide by clearing it. The source stays in <defs> (structurally
-# non-rendered), so nothing leaks when JS is stripped or the SVG is sanitized —
-# only this script makes it visible. The diff viewer's two panes each contribute
-# their panel (stacked). Robust to zero asides; never throws (optional chrome).
+# Reveal by CLONING each aside OUT of its <defs> into the visible tree; hide by
+# removing the clones. The source stays in <defs> (structurally non-rendered),
+# so nothing leaks when JS is stripped or the SVG is sanitized — only this
+# script, running in the viewer, ever makes it visible. Each clone is appended
+# to its OWN owning <svg> (so the diff viewer's two panes each get theirs), as
+# the last child so it paints on top, at the source group's transform (the VI's
+# top-right corner). Robust to zero asides; never throws (optional chrome).
 CONNECTOR_PANE_SCRIPT = (
     "<script>\n"
     "(function(){\n"
     "  try {\n"
     f'    var btn = document.getElementById("{CONNECTOR_PANE_PANEL_BTN_ID}");\n'
-    '    var overlay = document.getElementById("lvkitPaneOverlay");\n'
-    "    if (!btn || !overlay) return;\n"
-    '    var panels = document.querySelectorAll("svg defs > .lv-vi-aside > svg");\n'
-    "    if (!panels.length) { btn.disabled = true; return; }\n"
+    "    if (!btn) return;\n"
+    '    var defs = document.querySelectorAll("svg defs > .lv-vi-aside");\n'
+    "    if (!defs.length) { btn.disabled = true; return; }\n"
+    "    var clones = [];\n"
     "    btn.addEventListener('click', function () {\n"
-    "      if (!overlay.hidden) {\n"
-    "        overlay.hidden = true;\n"
-    "        overlay.textContent = '';\n"
+    "      if (clones.length) {\n"
+    "        clones.forEach(function (c) { c.remove(); });\n"
+    "        clones = [];\n"
     "        btn.setAttribute('aria-expanded', 'false');\n"
     "        return;\n"
     "      }\n"
-    "      overlay.textContent = '';\n"
-    "      panels.forEach(function (p) {\n"
-    "        overlay.appendChild(p.cloneNode(true));\n"
+    "      defs.forEach(function (d) {\n"
+    "        var svg = d.ownerSVGElement;\n"
+    "        if (!svg) return;\n"
+    "        var c = d.cloneNode(true);\n"
+    "        svg.appendChild(c);\n"
+    "        clones.push(c);\n"
     "      });\n"
-    "      overlay.hidden = false;\n"
     "      btn.setAttribute('aria-expanded', 'true');\n"
     "    });\n"
-    "  } catch (e) { /* pane chrome is optional -- never break the viewer */ }\n"
+    "  } catch (e) { /* aside chrome is optional -- never break the viewer */ }\n"
     "})();\n"
     "</script>"
 )
