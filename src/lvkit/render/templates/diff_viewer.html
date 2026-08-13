@@ -795,12 +795,15 @@ function buildTreeDOM(nodes, container){
       header.dataset.i=ci; header.dataset.k=CHANGES[ci].kind; header.dataset.d=CHANGES[ci].change;
     }
     if(folder){
-      // Folder rows always toggle (chevron OR anywhere on the row). A
-      // folder that IS ITSELF a change (ci!=null -- e.g. an added/removed
-      // case) ALSO jumps, in addition to toggling (#31 req: changed folders
-      // stay navigable, not just their leaves).
       header.className='item';
-      header.onclick=()=>{ wrap.classList.toggle('collapsed'); if(ci!=null) jump(ci); };
+      // The CHEVRON toggles the branch; clicking the row itself SELECTS the
+      // change. Doing both on one click made a folder-change unselectable -- each
+      // click flipped collapse AND the selection together (#26). A pure scope
+      // folder (no change of its own) has nothing to select, so it toggles
+      // anywhere on the row.
+      const chevEl=header.querySelector('.tchev');
+      if(chevEl) chevEl.onclick=e=>{ e.stopPropagation(); wrap.classList.toggle('collapsed'); };
+      header.onclick = ci!=null ? (()=>jump(ci)) : (()=>wrap.classList.toggle('collapsed'));
     }else{
       // A leaf jumps iff it correlates to a real CHANGES entry (ci!=null).
       // node/wire/constant/terminal changes all carry a uid now, so their rows

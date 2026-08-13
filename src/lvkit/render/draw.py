@@ -814,12 +814,18 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
         for t, y in zip(straight, _spread_1d(
                 [t.ay for t in straight], [_PANE_ROW_MIN_GAP] * len(straight))):
             t.ly = y
+        # Stack folded leaders by REACH (horizontal distance to this side's hub)
+        # so they never cross: the LONGEST reach sits FURTHEST from the icon,
+        # clearing the shorter ones' vertical runs -- the SAME rule as the
+        # connector-pane help panel's _classify (kept in sync deliberately).
+        side = terms[0].side if terms else "left"
+        reach = lambda t: t.ax if side == "left" else icon_w - t.ax  # noqa: E731
         base_top = min([t.ly for t in straight] + [0.0]) - _PANE_ROW_MIN_GAP
-        ftop = sorted((t for t in terms if t.fold == "top"), key=lambda t: t.ax)
-        for k, t in enumerate(reversed(ftop)):
+        ftop = sorted((t for t in terms if t.fold == "top"), key=reach)
+        for k, t in enumerate(ftop):
             t.ly = base_top - k * _PANE_ROW_MIN_GAP
         base_bot = max([t.ly for t in straight] + [icon_h]) + _PANE_ROW_MIN_GAP
-        fbot = sorted((t for t in terms if t.fold == "bottom"), key=lambda t: t.ax)
+        fbot = sorted((t for t in terms if t.fold == "bottom"), key=reach)
         for k, t in enumerate(fbot):
             t.ly = base_bot + k * _PANE_ROW_MIN_GAP
 
