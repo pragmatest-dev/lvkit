@@ -341,6 +341,33 @@ def render_connector_pane_help(
 
     ins, outs = _side(False), _side(True)
 
+    def _classify(
+        rows: list[tuple[PaneCell, PaneTerminal]], is_out: bool
+    ) -> tuple[list, list, list]:
+        """Split one side into (inner_top, outer, inner_bot). OUTER = the column
+        touching the pane's edge (straight leaders); INNER = the middle column,
+        whose cells route up-and-over / down-and-under so their leaders never
+        cross the outer ones — inner cells above the outer block go to the TOP
+        stack, below it to the BOTTOM stack."""
+        if not rows:
+            return ([], [], [])
+        if is_out:
+            key = max(c.x + c.w for c, _ in rows)
+            outer = [r for r in rows if abs((r[0].x + r[0].w) - key) < 1e-6]
+        else:
+            key = min(c.x for c, _ in rows)
+            outer = [r for r in rows if abs(r[0].x - key) < 1e-6]
+        outer_ids = {id(r) for r in outer}
+        inner = [r for r in rows if id(r) not in outer_ids]
+        outer.sort(key=lambda r: r[0].y + r[0].h / 2)
+        oc = (
+            sum(r[0].y + r[0].h / 2 for r in outer) / len(outer) if outer else 0.5
+        )
+        cy = lambda r: r[0].y + r[0].h / 2  # noqa: E731
+        it = sorted([r for r in inner if cy(r) <= oc], key=cy)
+        ib = sorted([r for r in inner if cy(r) > oc], key=cy)
+        return (it, outer, ib)
+
     def _label_w(rows: list[tuple[PaneCell, PaneTerminal]]) -> float:
         w = 0.0
         for _, t in rows:
@@ -365,14 +392,22 @@ def render_connector_pane_help(
         desc_y0 + (len(desc_lines) - 1) * _HELP_DESC_LH + 6
         if desc_lines else row1_bottom + 4
     )
-    diagram_h = max(_HELP_PANE, len(ins) * _HELP_ROW, len(outs) * _HELP_ROW)
+    left = _classify(ins, False)
+    right = _classify(outs, True)
+    top_n = max(len(left[0]), len(right[0]))
+    bot_n = max(len(left[2]), len(right[2]))
+    core_h = max(_HELP_PANE, len(left[1]) * _HELP_ROW, len(right[1]) * _HELP_ROW)
+    top_margin = top_n * _HELP_ROW + (8 if top_n else 0)
+    bot_margin = bot_n * _HELP_ROW + (8 if bot_n else 0)
+    diagram_h = top_margin + core_h + bot_margin
     panel_w = inner_w + 2 * _HELP_PAD
     panel_h = header_h + diagram_h + 2 * _HELP_PAD
 
+    diagram_top = header_h + _HELP_PAD
     pane_x = _HELP_PAD + (inner_w - diagram_w) / 2 + (
         left_w + _HELP_LEADER if ins else 0
     )
-    pane_y = header_h + _HELP_PAD + (diagram_h - _HELP_PANE) / 2
+    pane_y = diagram_top + top_margin + (core_h - _HELP_PANE) / 2
 
     title_x = _HELP_PAD + (_HELP_ICON + 6 if icon_uri else 0)
     title_y = _HELP_PAD + (15 if icon_uri else _HELP_TITLE)
@@ -413,42 +448,61 @@ def render_connector_pane_help(
             f'font-family="sans-serif" fill="{color}">{_esc(s)}</text>'
         )
 
-    def _leaders(rows, is_out: bool) -> None:
-        n = len(rows)
-        for r, (cell, t) in enumerate(rows):
-            color = wire_style(t.lv_type, theme).color
-            ccy = pane_y + (cell.y + cell.h / 2) * _HELP_PANE
-            # Distribute labels across the DIAGRAM band (not offset by the pane's
-            # own centering), so they always stay within the panel height.
-            ly = (header_h + _HELP_PAD) + (r + 0.5) * (diagram_h / n)
-            name = t.name or f"idx {t.index}"
-            type_str = lv_type_label(t.lv_type)
-            ty = ly + _HELP_LABEL * 0.35
-            if is_out:
-                ex = pane_x + _HELP_PANE
-                lx = ex + _HELP_LEADER
-                # name adjacent to the leader, type to its right.
-                nx = lx + _HELP_TEXTGAP
-                parts.append(_text(nx, ty, name, _HELP_LABEL, theme.text))
-                parts.append(_text(
-                    nx + _tw(name, _HELP_LABEL) + _HELP_TEXTGAP, ty, type_str,
-                    _HELP_TYPE, theme.pane_type_text))
-            else:
-                ex = pane_x
-                lx = ex - _HELP_LEADER
-                # name adjacent to the leader (right), type to its left.
-                nx = lx - _HELP_TEXTGAP - _tw(name, _HELP_LABEL)
-                parts.append(_text(nx, ty, name, _HELP_LABEL, theme.text))
-                parts.append(_text(
-                    nx - _HELP_TEXTGAP - _tw(type_str, _HELP_TYPE), ty, type_str,
-                    _HELP_TYPE, theme.pane_type_text))
-            parts.append(
-                f'<path d="M{ex:.1f},{ccy:.1f} L{lx:.1f},{ly:.1f}" '
-                f'fill="none" stroke="{color}" stroke-width="1.4"/>'
+    def _wire_label(
+        cell: PaneCell, t: PaneTerminal, label_y: float, is_out: bool, over: bool
+    ) -> None:
+        color = wire_style(t.lv_type, theme).color
+        ccy = pane_y + (cell.y + cell.h / 2) * _HELP_PANE
+        name = t.name or f"idx {t.index}"
+        type_str = lv_type_label(t.lv_type)
+        ty = label_y + _HELP_LABEL * 0.35
+        if is_out:
+            ex = pane_x + (cell.x + cell.w) * _HELP_PANE
+            hub = pane_x + _HELP_PANE + _HELP_LEADER
+            nx = hub + _HELP_TEXTGAP
+            parts.append(_text(nx, ty, name, _HELP_LABEL, theme.text))
+            parts.append(_text(
+                nx + _tw(name, _HELP_LABEL) + _HELP_TEXTGAP, ty, type_str,
+                _HELP_TYPE, theme.pane_type_text))
+        else:
+            ex = pane_x + cell.x * _HELP_PANE
+            hub = pane_x - _HELP_LEADER
+            nx = hub - _HELP_TEXTGAP - _tw(name, _HELP_LABEL)
+            parts.append(_text(nx, ty, name, _HELP_LABEL, theme.text))
+            parts.append(_text(
+                nx - _HELP_TEXTGAP - _tw(type_str, _HELP_TYPE), ty, type_str,
+                _HELP_TYPE, theme.pane_type_text))
+        # OUTER cells (over=False): straight out then a short bend to the label.
+        # INNER cells (over=True): up/down FIRST along the column edge, then out
+        # over/under the outer block — the leaders never cross.
+        if over:
+            path = (
+                f'M{ex:.1f},{ccy:.1f} L{ex:.1f},{label_y:.1f} '
+                f'L{hub:.1f},{label_y:.1f}'
             )
+        else:
+            path = (
+                f'M{ex:.1f},{ccy:.1f} L{hub:.1f},{ccy:.1f} '
+                f'L{hub:.1f},{label_y:.1f}'
+            )
+        parts.append(
+            f'<path d="{path}" fill="none" stroke="{color}" stroke-width="1.4"/>'
+        )
 
-    _leaders(ins, False)
-    _leaders(outs, True)
+    def _place(side, is_out: bool) -> None:
+        inner_top, outer, inner_bot = side
+        for cell, t in outer:
+            _wire_label(cell, t, pane_y + (cell.y + cell.h / 2) * _HELP_PANE,
+                        is_out, over=False)
+        for k, (cell, t) in enumerate(inner_top):
+            ly = pane_y - (len(inner_top) - k) * _HELP_ROW + _HELP_ROW * 0.35
+            _wire_label(cell, t, ly, is_out, over=True)
+        for k, (cell, t) in enumerate(inner_bot):
+            ly = pane_y + _HELP_PANE + (k + 1) * _HELP_ROW - _HELP_ROW * 0.35
+            _wire_label(cell, t, ly, is_out, over=True)
+
+    _place(left, False)
+    _place(right, True)
     parts.append("</g>")
     inner = "".join(parts)
     return (
