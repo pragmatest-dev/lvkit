@@ -242,6 +242,11 @@ class Scene:
     """Backend-agnostic view model for one VI's block diagram."""
 
     bounds: Rect
+    # The VI's own extracted icon raster (_ICON.png), from the layout build_scene
+    # used — carried so a consumer (the render aside / viewer) can show the real
+    # icon without a second heap read (graph.get_layout is None when the graph
+    # was loaded without layout=True). Not drawn into the diagram itself.
+    icon_png: Path | None = None
     fp_terminals: list[RenderFPTerminal] = field(default_factory=list)
     nodes: list[RenderNode] = field(default_factory=list)
     structures: list[RenderStructure] = field(default_factory=list)
@@ -1725,6 +1730,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
 
     return Scene(
         bounds=view_bounds,
+        icon_png=layout.icon_png,
         fp_terminals=fp_terminals,
         nodes=render_nodes,
         structures=structures,

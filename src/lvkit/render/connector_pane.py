@@ -27,7 +27,9 @@ __all__ = [
     "PaneTerminal",
     "pane_terminals",
     "render_connector_pane",
+    "render_connector_pane_compact",
     "render_connector_pane_diff",
+    "render_connector_pane_help",
 ]
 
 # Cell sizing (px). Cells are laid out in a normalized unit square by the
@@ -97,6 +99,44 @@ def _truncate(text: str, cell_w: float, *, px_per_char: float = 6.4) -> str:
     return text if len(text) <= limit else text[: max(1, limit - 1)] + "…"
 
 
+def _tooltip(term: PaneTerminal) -> str:
+    return (
+        f'<title>{_esc(term.name or "?")} : {_esc(lv_type_label(term.lv_type))}'
+        f' ({_RULE_TITLE.get(term.wiring_rule, "connected")},'
+        f' {"output" if term.is_output else "input"}, idx {term.index})</title>'
+    )
+
+
+def _cell_svg_compact(
+    cell: PaneCell, term: PaneTerminal | None, W: float, H: float,
+    theme: Theme, ringed: bool,
+) -> list[str]:
+    """One cell at ICON size — the faithful LabVIEW pane face: solid type color,
+    no labels (the terminal name/type is a hover <title>), each cell keeping its
+    true pattern shape (square, tall, or column-spanning). Empty slots faint."""
+    x, y = cell.x * W, cell.y * H
+    w, h = cell.w * W, cell.h * H
+    if term is None:
+        return [
+            f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+            f'fill="{theme.canvas}" stroke="{theme.subvi_stroke}" '
+            f'stroke-width="0.4" opacity="0.5"/>'
+        ]
+    color = wire_style(term.lv_type, theme).color
+    parts = [
+        f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+        f'fill="{color}" stroke="{theme.struct_border}" stroke-width="0.4">'
+        f'{_tooltip(term)}</rect>'
+    ]
+    if ringed:
+        parts.append(
+            f'<rect x="{x - 1:.2f}" y="{y - 1:.2f}" width="{w + 2:.2f}" '
+            f'height="{h + 2:.2f}" fill="none" stroke="{theme.coercion_dot}" '
+            f'stroke-width="1.4"/>'
+        )
+    return parts
+
+
 def _cell_svg(
     cell: PaneCell,
     term: PaneTerminal | None,
@@ -125,10 +165,7 @@ def _cell_svg(
     parts.append(
         f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="2" '
         f'fill="{fill}" stroke="{color}" stroke-width="{width}">'
-        f'<title>{_esc(term.name or "?")} : {_esc(lv_type_label(term.lv_type))}'
-        f' ({_RULE_TITLE.get(term.wiring_rule, "connected")},'
-        f' {"output" if term.is_output else "input"}, idx {term.index})</title>'
-        f'</rect>'
+        f'{_tooltip(term)}</rect>'
     )
     # Full-height accent bar in the true type color on the wire-entry edge
     # (left for an input, right for an output).
@@ -199,6 +236,225 @@ def render_connector_pane(
         f'stroke-width="1.4"/>'
         + "".join(body)
         + "</svg>"
+    )
+
+
+def render_connector_pane_compact(
+    pattern_id: int | None,
+    terminals: list[PaneTerminal],
+    *,
+    theme: Theme = DEFAULT_THEME,
+    ring: frozenset[int] = frozenset(),
+    size: float = 40.0,
+) -> str:
+    """The ICON-SIZED pane face — the faithful LabVIEW connector pane as shown
+    beside the icon: a small ``size``×``size`` colored grid, each cell in its
+    true pattern shape (square / tall / column-spanning), filled by terminal
+    type, name/type on hover (``<title>``). No text labels. ``ring`` highlights
+    changed cells (diff). Unknown conId → a minimal box so it never breaks."""
+    by_index = {t.index: t for t in terminals}
+    pattern = get_pattern(pattern_id) if pattern_id is not None else None
+    inner = f'<rect width="{size:.1f}" height="{size:.1f}" fill="{theme.canvas}"/>'
+    if pattern is not None:
+        parts = [inner]
+        for cell in pattern.cells:
+            parts.extend(
+                _cell_svg_compact(
+                    cell, by_index.get(cell.index), size, size, theme,
+                    cell.index in ring,
+                )
+            )
+        inner = "".join(parts)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size:.0f}" '
+        f'height="{size:.0f}" viewBox="0 0 {size:.0f} {size:.0f}">'
+        f'{inner}'
+        f'<rect x="0" y="0" width="{size:.1f}" height="{size:.1f}" fill="none" '
+        f'stroke="{theme.struct_border}" stroke-width="1"/>'
+        f'</svg>'
+    )
+
+
+def _tw(s: str, size: float) -> float:
+    """Rough proportional text width (no backend measure in this string
+    builder) — sans-serif averages ~0.6em/char, enough to size the panel."""
+    return len(s) * size * 0.6
+
+
+def _wrap(text: str, width: float, size: float, max_lines: int) -> list[str]:
+    out: list[str] = []
+    line = ""
+    for word in text.split():
+        trial = (line + " " + word).strip()
+        if _tw(trial, size) <= width or not line:
+            line = trial
+        else:
+            out.append(line)
+            line = word
+            if len(out) == max_lines - 1:
+                break
+    if line and len(out) < max_lines:
+        out.append(line)
+    if len(text.split()) and out and _tw(out[-1], size) > width:
+        out[-1] = out[-1][: max(1, int(width / (size * 0.55)) - 1)] + "…"
+    return out
+
+
+_HELP_TITLE = 12.0
+_HELP_DESC = 9.5
+_HELP_DESC_LH = 12.0
+_HELP_LABEL = 11.0
+_HELP_TYPE = 9.0
+_HELP_PANE = 76.0
+_HELP_LEADER = 26.0
+_HELP_ROW = 20.0
+_HELP_PAD = 12.0
+_HELP_TEXTGAP = 5.0
+_HELP_ICON = 22.0
+
+
+def render_connector_pane_help(
+    pattern_id: int | None,
+    terminals: list[PaneTerminal],
+    *,
+    title: str,
+    description: str | None = None,
+    icon_uri: str | None = None,
+    theme: Theme = DEFAULT_THEME,
+) -> str:
+    """A Context-Help-style panel: the connector-pane grid centered, each wired
+    terminal's NAME + type on a type-colored leader stub out to the side (inputs
+    left, outputs right), with the VI icon + title and (wrapped) description
+    above — the way LabVIEW's Context Help window presents a VI. Unknown conId
+    falls back to the labeled column pane."""
+    pattern = get_pattern(pattern_id) if pattern_id is not None else None
+    if pattern is None:
+        return render_connector_pane(pattern_id, terminals, theme=theme)
+    cx = pattern.cell_by_index()
+
+    def _side(is_out: bool) -> list[tuple[PaneCell, PaneTerminal]]:
+        rows = [
+            (cx[t.index], t) for t in terminals
+            if t.is_output == is_out and t.index in cx
+        ]
+        return sorted(rows, key=lambda ct: ct[0].y + ct[0].h / 2)
+
+    ins, outs = _side(False), _side(True)
+
+    def _label_w(rows: list[tuple[PaneCell, PaneTerminal]]) -> float:
+        w = 0.0
+        for _, t in rows:
+            w = max(w, _tw(t.name or f"idx {t.index}", _HELP_LABEL)
+                    + _HELP_TEXTGAP + _tw(lv_type_label(t.lv_type), _HELP_TYPE))
+        return w
+
+    left_w, right_w = _label_w(ins), _label_w(outs)
+    diagram_w = (
+        (left_w + _HELP_LEADER if ins else 0) + _HELP_PANE
+        + (_HELP_LEADER + right_w if outs else 0)
+    )
+    inner_w = max(diagram_w, 150.0)
+    title_line = title if _tw(title, _HELP_TITLE) <= inner_w else (
+        title[: max(1, int(inner_w / (_HELP_TITLE * 0.55)) - 1)] + "…"
+    )
+    desc_lines = _wrap(description, inner_w, _HELP_DESC, 4) if description else []
+    # Header layout: an icon+title ROW, then the wrapped description BELOW it.
+    row1_bottom = _HELP_PAD + (_HELP_ICON if icon_uri else _HELP_TITLE + 2)
+    desc_y0 = row1_bottom + _HELP_DESC + 4  # first description baseline
+    header_h = (
+        desc_y0 + (len(desc_lines) - 1) * _HELP_DESC_LH + 6
+        if desc_lines else row1_bottom + 4
+    )
+    diagram_h = max(_HELP_PANE, len(ins) * _HELP_ROW, len(outs) * _HELP_ROW)
+    panel_w = inner_w + 2 * _HELP_PAD
+    panel_h = header_h + diagram_h + 2 * _HELP_PAD
+
+    pane_x = _HELP_PAD + (inner_w - diagram_w) / 2 + (
+        left_w + _HELP_LEADER if ins else 0
+    )
+    pane_y = header_h + _HELP_PAD + (diagram_h - _HELP_PANE) / 2
+
+    title_x = _HELP_PAD + (_HELP_ICON + 6 if icon_uri else 0)
+    title_y = _HELP_PAD + (15 if icon_uri else _HELP_TITLE)
+    parts = [
+        f'<g class="lv-vi-help">'
+        f'<rect x="0" y="0" width="{panel_w:.1f}" height="{panel_h:.1f}" rx="4" '
+        f'fill="{theme.canvas}" stroke="{theme.struct_border}" stroke-width="1"/>'
+    ]
+    if icon_uri:
+        parts.append(
+            f'<image x="{_HELP_PAD:.1f}" y="{_HELP_PAD:.1f}" '
+            f'width="{_HELP_ICON}" height="{_HELP_ICON}" href="{icon_uri}"/>'
+        )
+    parts.append(
+        f'<text x="{title_x:.1f}" y="{title_y:.1f}" font-size="{_HELP_TITLE}"'
+        f' font-weight="bold" font-family="sans-serif" fill="{theme.text}">'
+        f'{_esc(title_line)}</text>'
+    )
+    for i, dl in enumerate(desc_lines):
+        parts.append(
+            f'<text x="{_HELP_PAD:.1f}" y="{desc_y0 + i * _HELP_DESC_LH:.1f}" '
+            f'font-size="{_HELP_DESC}" font-family="sans-serif" '
+            f'fill="{theme.pane_type_text}">{_esc(dl)}</text>'
+        )
+    # The pane grid, nested at (pane_x, pane_y).
+    grid = render_connector_pane_compact(
+        pattern_id, terminals, theme=theme, size=_HELP_PANE
+    )
+    parts.append(
+        f'<g transform="translate({pane_x:.1f},{pane_y:.1f})">{grid}</g>'
+    )
+
+    def _text(x: float, y: float, s: str, size: float, color: str) -> str:
+        # Explicit x + default (start) anchor only — never text-anchor="end"
+        # (cairosvg mis-renders it, so left labels would slide over the pane).
+        return (
+            f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" '
+            f'font-family="sans-serif" fill="{color}">{_esc(s)}</text>'
+        )
+
+    def _leaders(rows, is_out: bool) -> None:
+        n = len(rows)
+        for r, (cell, t) in enumerate(rows):
+            color = wire_style(t.lv_type, theme).color
+            ccy = pane_y + (cell.y + cell.h / 2) * _HELP_PANE
+            # Distribute labels across the DIAGRAM band (not offset by the pane's
+            # own centering), so they always stay within the panel height.
+            ly = (header_h + _HELP_PAD) + (r + 0.5) * (diagram_h / n)
+            name = t.name or f"idx {t.index}"
+            type_str = lv_type_label(t.lv_type)
+            ty = ly + _HELP_LABEL * 0.35
+            if is_out:
+                ex = pane_x + _HELP_PANE
+                lx = ex + _HELP_LEADER
+                # name adjacent to the leader, type to its right.
+                nx = lx + _HELP_TEXTGAP
+                parts.append(_text(nx, ty, name, _HELP_LABEL, theme.text))
+                parts.append(_text(
+                    nx + _tw(name, _HELP_LABEL) + _HELP_TEXTGAP, ty, type_str,
+                    _HELP_TYPE, theme.pane_type_text))
+            else:
+                ex = pane_x
+                lx = ex - _HELP_LEADER
+                # name adjacent to the leader (right), type to its left.
+                nx = lx - _HELP_TEXTGAP - _tw(name, _HELP_LABEL)
+                parts.append(_text(nx, ty, name, _HELP_LABEL, theme.text))
+                parts.append(_text(
+                    nx - _HELP_TEXTGAP - _tw(type_str, _HELP_TYPE), ty, type_str,
+                    _HELP_TYPE, theme.pane_type_text))
+            parts.append(
+                f'<path d="M{ex:.1f},{ccy:.1f} L{lx:.1f},{ly:.1f}" '
+                f'fill="none" stroke="{color}" stroke-width="1.4"/>'
+            )
+
+    _leaders(ins, False)
+    _leaders(outs, True)
+    parts.append("</g>")
+    inner = "".join(parts)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.0f}" '
+        f'height="{panel_h:.0f}" viewBox="0 0 {panel_w:.0f} {panel_h:.0f}">'
+        f'{inner}</svg>'
     )
 
 

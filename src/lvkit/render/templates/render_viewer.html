@@ -36,6 +36,7 @@
      properties button to the row's right edge, right where a reader's eye
      already lands after the VI name. */
   .titlerow{display:flex;align-items:center;gap:10px;flex:1 1 100%;min-width:0}
+  .titlebtns{display:inline-flex;gap:6px;align-items:center}
   header b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     flex:1 1 auto;min-width:0}
   .controls{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;margin-left:auto}
@@ -71,7 +72,7 @@
 </style>
 
 <header>
-  <div class="titlerow"><b>__TITLE__</b>__PROPERTIES_BTN__</div>
+  <div class="titlerow"><b>__TITLE__</b><span class="titlebtns">__CONNECTOR_PANE_BTN____PROPERTIES_BTN__</span></div>
   <div class="controls">
     <span class="zoomgrp" title="Zoom (+ / − / f, or Ctrl+wheel)"><button id="zoomOut">−</button><button id="zoomIn">+</button><button id="zoomFit" title="Fit to view" aria-label="Fit to view">⛶</button></span>
     __THEME_BTN__
@@ -238,5 +239,7 @@ try{
 </script>
 
 __PROPERTIES_PANEL__
+
+__CONNECTOR_PANE_SCRIPT__
 
 __HELP_TIP__

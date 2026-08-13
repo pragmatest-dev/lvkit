@@ -924,6 +924,7 @@ class QueryMixin:
             has_parallel_branches=self.has_parallel_branches(vi_name),
             properties=self._vi_properties.get(vi_name, VIProperties()),
             health=self._vi_health.get(vi_name, VIHealth()),
+            connector_pattern_id=pattern_id,
         )
 
     def get_subvi_calls(self, vi_name: str) -> list[SubVICall]:
