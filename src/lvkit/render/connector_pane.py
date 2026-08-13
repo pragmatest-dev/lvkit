@@ -459,26 +459,32 @@ def render_connector_pane_help(
         # to the END of the label in grey (like the connector-help tooltips).
         name = (t.name or f"idx {t.index}").strip()
         type_str = lv_type_label(t.lv_type).strip()
-        total_w = _tw(name, _HELP_LABEL)
-        if type_str:
-            total_w += _HELP_TEXTGAP + _tw(type_str, _HELP_TYPE)
         ty = label_y + _HELP_LABEL * 0.34
-        if is_out:  # indicators — left-justified at the leader
+        # Consistent order: NAME then grey TYPE (type on the RIGHT). The element
+        # ADJACENT to the wire is anchored EXACTLY at it (text-anchor) so labels
+        # line up: controls (inputs) end at the leader -> the type-right-edge
+        # aligns; indicators (outputs) start at it -> the name-left-edge aligns.
+        # The far element is placed by width estimate (secondary token).
+        anchor = "start" if is_out else "end"
+        if is_out:
             hub = pane_x + pane_w + _HELP_LEADER
-            sx = hub + _HELP_TEXTGAP
-        else:  # controls — right-justified at the leader
+            nx = hub + _HELP_TEXTGAP
+            tx = nx + _tw(name, _HELP_LABEL) + _HELP_TEXTGAP
+        else:
             hub = pane_x - _HELP_LEADER
-            sx = hub - _HELP_TEXTGAP - total_w
-        tspan = (
-            f'<tspan dx="{_HELP_TEXTGAP:.0f}" font-size="{_HELP_TYPE}" '
-            f'fill="{theme.pane_type_text}">{_esc(type_str)}</tspan>'
-            if type_str else ""
-        )
+            tx = hub - _HELP_TEXTGAP
+            nx = (tx - _tw(type_str, _HELP_TYPE) - _HELP_TEXTGAP) if type_str else tx
         parts.append(
-            f'<text x="{sx:.1f}" y="{ty:.1f}" font-size="{_HELP_LABEL}" '
-            f'font-family="sans-serif" fill="{theme.text}">{_esc(name)}'
-            f'{tspan}</text>'
+            f'<text x="{nx:.1f}" y="{ty:.1f}" text-anchor="{anchor}" '
+            f'font-size="{_HELP_LABEL}" font-family="sans-serif" '
+            f'fill="{theme.text}">{_esc(name)}</text>'
         )
+        if type_str:
+            parts.append(
+                f'<text x="{tx:.1f}" y="{ty:.1f}" text-anchor="{anchor}" '
+                f'font-size="{_HELP_TYPE}" font-family="sans-serif" '
+                f'fill="{theme.pane_type_text}">{_esc(type_str)}</text>'
+            )
         # OUTER cells (over=False): out from the centre then a bend to the label.
         # INNER cells (over=True): up/down FIRST along the cell's own centre-line,
         # then out over/under the outer block — leaders never cross.

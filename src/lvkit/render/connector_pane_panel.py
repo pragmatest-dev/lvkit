@@ -56,7 +56,9 @@ CONNECTOR_PANE_SCRIPT = (
     "  try {\n"
     f'    var btn = document.getElementById("{CONNECTOR_PANE_PANEL_BTN_ID}");\n'
     "    if (!btn) return;\n"
-    '    var defs = document.querySelectorAll("svg defs > .lv-vi-aside");\n'
+    '    var defs = Array.prototype.slice.call(\n'
+    '      document.querySelectorAll("svg defs > .lv-vi-aside")\n'
+    '    ).filter(function (d) { return !d.closest(".mm-mirror"); });\n'
     "    if (!defs.length) { btn.disabled = true; return; }\n"
     "    var clones = [];\n"
     "    btn.addEventListener('click', function () {\n"
