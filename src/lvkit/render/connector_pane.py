@@ -15,6 +15,7 @@ to highlight them).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -22,7 +23,12 @@ from ..models import FPTerminal, LVType, Terminal
 from .connector_pane_geometry import PaneCell, get_pattern
 from .style import DEFAULT_THEME, Theme, lv_type_label, wire_style
 
-__all__ = ["PaneTerminal", "pane_terminals", "render_connector_pane"]
+__all__ = [
+    "PaneTerminal",
+    "pane_terminals",
+    "render_connector_pane",
+    "render_connector_pane_diff",
+]
 
 # Cell sizing (px). Cells are laid out in a normalized unit square by the
 # geometry loader; these scale it to something with room for a name + type.
@@ -194,6 +200,78 @@ def render_connector_pane(
         + "".join(body)
         + "</svg>"
     )
+
+
+def _changed_names(
+    before: list[PaneTerminal], after: list[PaneTerminal]
+) -> set[str]:
+    """Terminal names that were added, removed, or had their type change —
+    the diff engine's own connector-pane rule (match by name; a type change is
+    a modify), computed here on the two slot lists so the render is
+    self-contained."""
+    a = {t.name: t for t in before if t.name}
+    b = {t.name: t for t in after if t.name}
+    changed: set[str] = set(a) ^ set(b)  # added or removed
+    for name in set(a) & set(b):
+        ta, tb = a[name].lv_type, b[name].lv_type
+        if lv_type_label(ta) != lv_type_label(tb):
+            changed.add(name)
+    return changed
+
+
+def _ring_for(terms: list[PaneTerminal], names: set[str]) -> frozenset[int]:
+    return frozenset(t.index for t in terms if t.name in names)
+
+
+def render_connector_pane_diff(
+    pattern_before: int | None,
+    before: list[PaneTerminal],
+    pattern_after: int | None,
+    after: list[PaneTerminal],
+    *,
+    theme: Theme = DEFAULT_THEME,
+) -> str:
+    """Render BEFORE and AFTER panes side by side, each with its changed cells
+    ringed. Changed = a terminal added / removed / retyped (matched by name).
+    Returns one ``<svg>`` containing both panes with captions."""
+    changed = _changed_names(before, after)
+    left = render_connector_pane(
+        pattern_before, before, theme=theme, ring=_ring_for(before, changed)
+    )
+    right = render_connector_pane(
+        pattern_after, after, theme=theme, ring=_ring_for(after, changed)
+    )
+    lw, lh = _svg_dims(left)
+    rw, rh = _svg_dims(right)
+    gap, cap_h = 28, 20
+    total_w = lw + gap + rw
+    total_h = max(lh, rh) + cap_h
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w:.0f}" '
+        f'height="{total_h:.0f}" viewBox="0 0 {total_w:.0f} {total_h:.0f}" '
+        f'font-family="sans-serif">'
+        f'<text x="0" y="13" font-size="12" font-weight="bold" '
+        f'fill="{theme.text}">before</text>'
+        f'<text x="{lw + gap:.0f}" y="13" font-size="12" font-weight="bold" '
+        f'fill="{theme.text}">after</text>'
+        f'<g transform="translate(0,{cap_h})">{_svg_inner(left)}</g>'
+        f'<g transform="translate({lw + gap:.0f},{cap_h})">{_svg_inner(right)}</g>'
+        "</svg>"
+    )
+
+
+def _svg_dims(svg: str) -> tuple[float, float]:
+    w = re.search(r'width="([\d.]+)"', svg)
+    h = re.search(r'height="([\d.]+)"', svg)
+    return (float(w.group(1)) if w else 0.0, float(h.group(1)) if h else 0.0)
+
+
+def _svg_inner(svg: str) -> str:
+    """Strip the outer <svg ...> wrapper so the content can be re-nested in a
+    <g>."""
+    start = svg.index(">") + 1
+    end = svg.rindex("</svg>")
+    return svg[start:end]
 
 
 def _fallback_svg(

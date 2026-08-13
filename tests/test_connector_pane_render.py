@@ -7,6 +7,7 @@ from lvkit.render.connector_pane import (
     PaneTerminal,
     pane_terminals,
     render_connector_pane,
+    render_connector_pane_diff,
 )
 from lvkit.render.style import DEFAULT_THEME
 
@@ -80,6 +81,40 @@ def test_pane_terminals_adapter_maps_fields():
     assert by_idx[0].is_output is True and by_idx[0].wiring_rule == 2
     assert by_idx[8].is_output is False and by_idx[8].wiring_rule == 3
     assert by_idx[0].name == "error out"
+
+
+def test_diff_rings_only_changed_terminals():
+    dbl = LVType(kind="primitive", underlying_type="Numeric")
+    before = [
+        PaneTerminal(8, "error in", _err(), is_output=False),
+        PaneTerminal(0, "error out", _err(), is_output=True),
+        PaneTerminal(11, "removed me", dbl, is_output=False),
+    ]
+    after = [
+        PaneTerminal(8, "error in", _err(), is_output=False),
+        PaneTerminal(0, "error out", _err(), is_output=True),
+        PaneTerminal(11, "added me", dbl, is_output=False),
+    ]
+    svg = render_connector_pane_diff(4815, before, 4815, after)
+    assert "before" in svg and "after" in svg
+    # exactly two rings: one on each side's changed terminal (idx 11)
+    assert svg.count(DEFAULT_THEME.coercion_dot) == 2
+
+
+def test_diff_type_change_rings_the_matched_terminal():
+    before = [PaneTerminal(0, "x", LVType(kind="primitive",
+              underlying_type="Boolean"), is_output=True)]
+    after = [PaneTerminal(0, "x", LVType(kind="primitive",
+             underlying_type="Numeric"), is_output=True)]
+    svg = render_connector_pane_diff(4800, before, 4800, after)
+    # a retype of the same-named terminal rings it on both sides
+    assert svg.count(DEFAULT_THEME.coercion_dot) == 2
+
+
+def test_diff_identical_panes_have_no_rings():
+    terms = _refs_and_errors()
+    svg = render_connector_pane_diff(4815, terms, 4815, list(terms))
+    assert svg.count(DEFAULT_THEME.coercion_dot) == 0
 
 
 def test_svg_escapes_special_chars_in_names():
