@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from lvkit.graph.netlist import (
     BoundaryOutput,
+    DefaultValue,
+    GammaCase,
+    GammaMerge,
     NetlistComponent,
     NetlistFrame,
     NetlistInstance,
@@ -106,6 +109,81 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     assert sc["frames"][1]["is_default"] is True
     assert sc["frames"][1]["passthrough"] is True
     assert sc["frames"][1]["body"] == []
+
+
+def test_case_scope_outputs_carries_gamma_merge_union_shape():
+    """A case scope's ``outputs`` -- the JSON counterpart of ``render_netlist``'s
+    ``out{k} := gamma(...)`` line -- carries the full net name, a "gamma" kind
+    tag, the selector NetRef, and one {frame, source} pair per frame. A
+    wired frame's ``source`` is a plain NetRef dict (no "kind" key, same as
+    every other net reference in this IR); an unwired frame's is a
+    discriminated ``{"kind": "default", ...}`` DefaultValue -- the two must
+    stay distinguishable without inspecting anything but the dict itself."""
+    scope = NetlistScope(
+        uid="9",
+        kind="case",
+        selector=_ref("Sel2", "0", "sel2"),
+        frames=[
+            NetlistFrame(
+                label="True", value="1", is_default=False, body=[],
+                passthrough=True,
+            ),
+            NetlistFrame(
+                label="Default", value="Default", is_default=True, body=[],
+                passthrough=True,
+            ),
+        ],
+        outputs=[
+            GammaMerge(
+                net="case0.out0",
+                selector=_ref("Sel2", "0", "sel2"),
+                cases=[
+                    GammaCase(
+                        frame_key="True",
+                        source=_ref("Subtract", "difference", "difference"),
+                    ),
+                    GammaCase(
+                        frame_key="default",
+                        source=DefaultValue(literal="0", lv_label="I32"),
+                    ),
+                ],
+            )
+        ],
+    )
+    module = NetlistModule(vi_name="g.vi", inputs=[], outputs=[], body=[scope])
+
+    d = netlist_to_dict(module)
+    sc = d["body"][0]
+    assert sc["scope_kind"] == "case"
+    assert len(sc["outputs"]) == 1
+
+    gamma = sc["outputs"][0]
+    assert gamma["net"] == "case0.out0"
+    assert gamma["kind"] == "gamma"
+    assert gamma["selector"]["bare"] == "sel2"
+    assert len(gamma["cases"]) == 2
+
+    wired = gamma["cases"][0]
+    assert wired["frame"] == "True"
+    assert wired["source"]["bare"] == "difference"
+    assert "kind" not in wired["source"]
+
+    unwired = gamma["cases"][1]
+    assert unwired["frame"] == "default"
+    assert unwired["source"] == {"kind": "default", "type": "I32", "literal": "0"}
+
+
+def test_non_case_scope_outputs_is_empty_list():
+    """``outputs`` is always present (never omitted) but empty for every
+    non-case scope kind -- loops/sequences/disabled/event structures don't
+    have gamma merges."""
+    scope = NetlistScope(
+        uid="2", kind="sequence", selector=None,
+        frames=[NetlistFrame(label="0", value="0", is_default=False, body=[])],
+    )
+    module = NetlistModule(vi_name="s2.vi", inputs=[], outputs=[], body=[scope])
+    d = netlist_to_dict(module)
+    assert d["body"][0]["outputs"] == []
 
 
 def test_scope_without_selector_serializes_null():

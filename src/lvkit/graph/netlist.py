@@ -41,6 +41,7 @@ from ..models import (
     PrimitiveOperation,
     SequenceOperation,
     Terminal,
+    TunnelTerminal,
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
@@ -55,9 +56,11 @@ from .models import (
 )
 from .op_walk import (
     ComponentPort,
+    _case_output_tunnel_outers,
     _const_value_str,
     _find_op_owning_terminal,
     _has_output_tunnel,
+    _is_gamma_output_tunnel,
     _paired_tunnel_id,
     _selector_label,
     _subvi_ports,
@@ -175,6 +178,60 @@ class NetlistTunnelInfo:
     sr_stack_depth: int | None
 
 
+@dataclass(frozen=True)
+class DefaultValue:
+    """The type default LabVIEW substitutes for an unwired case-output
+    tunnel ("use default if unwired" -- LabVIEW's real runtime behavior,
+    never a Python literal; see ``_default_literal``'s docstring for why
+    ``type_defaults.py``'s codegen-only forms are the wrong source here).
+
+    ``literal`` is the faithful default VALUE token (``"0"``, ``"0.0"``,
+    ``"False"``, ...); ``lv_label`` is the type's own faithful label
+    (``LVType.lv_label()``, e.g. ``"I32"``). Renders ``"0 (I32 default)"``.
+    """
+
+    literal: str
+    lv_label: str
+
+    def render(self) -> str:
+        return f"{self.literal} ({self.lv_label} default)"
+
+
+@dataclass(frozen=True)
+class GammaCase:
+    """One frame's contribution to a gamma merge (see ``GammaMerge``):
+    ``frame_key`` is the frame's own faithful selector label (``"default"``
+    for the catch-all default frame -- a distinguished literal, never the
+    frame's own ``"Default"`` display text, so a gamma line can't be
+    confused with a case-frame header); ``source`` is that frame's real
+    producer net, or the tunnel's type ``DefaultValue`` when the frame left
+    it unwired (LabVIEW routes the type default through, per LV's own
+    "use default if unwired" tunnel semantics -- never omitted, never
+    fabricated as a wire that doesn't exist).
+    """
+
+    frame_key: str
+    source: NetRef | DefaultValue
+
+
+@dataclass
+class GammaMerge:
+    """A case structure's OUTPUT tunnel, modeled as Gated-SSA's classic
+    gamma node: ONE named net (``case{id}.out{k}``) governed by the case's
+    selector, carrying exactly one source PER FRAME -- never a single
+    hop-through producer (netlist.py's finding #1: which frame actually
+    supplies the value is selector-dependent at runtime, so a case output
+    tunnel is a genuine multi-producer merge, not a single wire). ``net`` is
+    the SAME string a downstream consumer's ``NetlistPortBinding``/
+    ``BoundaryOutput`` resolves to via ``_resolve_source`` -- see
+    ``_gamma_net_name``, the one place that name is assembled.
+    """
+
+    net: str
+    selector: NetRef | None
+    cases: list[GammaCase]
+
+
 @dataclass
 class NetlistScope:
     """A structure: case / for / while / sequence / disabled / event."""
@@ -189,6 +246,9 @@ class NetlistScope:
     parallel: bool = False
     parallel_static_workers: int | None = None
     tunnels: list[NetlistTunnelInfo] = field(default_factory=list)
+    # Case-only (kind == "case") -- one GammaMerge per output tunnel on this
+    # case, see ``_build_case_outputs``. Empty for every other scope kind.
+    outputs: list[GammaMerge] = field(default_factory=list)
 
 
 NetlistItem = NetlistInstance | NetlistScope
@@ -223,10 +283,16 @@ class _BuildCtx:
     (``Constant.id``, matching a wire source's ``WireEnd.node_id``) -- lets
     ``_resolve_source`` join a wire's real constant VALUE instead of just
     the producing node's uid.port.
+
+    ``case_id_by_uid``: deterministic ``case0``, ``case1``, … id per
+    ``CaseOperation``, keyed by trailing node UID (see ``_assign_case_ids``)
+    -- used ONLY to name a case's gamma-merge output nets
+    (``case{id}.out{k}``), never as a scope-header ``#n`` tag.
     """
 
     occurrence_by_uid: dict[str, int]
     const_by_id: dict[str, Constant]
+    case_id_by_uid: dict[str, int]
 
 
 @dataclass
@@ -350,6 +416,88 @@ def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
     return occurrence_by_uid
 
 
+def _assign_case_ids(root_ops: list[Operation]) -> dict[str, int]:
+    """Deterministic ``case0``, ``case1``, … id per ``CaseOperation``, 0-based,
+    in the same node order the operation tree is already produced in
+    (``_walk_flat`` -- the ``_node_order_key`` order, see the deterministic-
+    node-order rule). Used ONLY to name a case's gamma-merge output nets
+    (``case{id}.out{k}``) -- deliberately NOT a ``#n`` scope-header tag (see
+    ``_assign_occurrences``, which excludes structures for the same reason:
+    a case's ``scope_header`` never carries an occurrence disambiguator).
+    """
+    ids: dict[str, int] = {}
+    next_id = 0
+    for op in _walk_flat(root_ops):
+        if isinstance(op, CaseOperation):
+            ids[_uid_of(op.id)] = next_id
+            next_id += 1
+    return ids
+
+
+def _gamma_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
+    """The gamma-merge net name for a case's output tunnel OUTER terminal --
+    ``case{id}.out{k}``, ``k`` being ``term``'s 0-based position among this
+    case's own output tunnels (``_case_output_tunnel_outers``, the SAME
+    ordering ``_build_case_outputs`` uses to number ``GammaMerge.net``, so a
+    consumer's resolved reference and the case scope's own definition line
+    always agree on the name).
+    """
+    case_id = build_ctx.case_id_by_uid[_uid_of(op.id)]
+    outers = _case_output_tunnel_outers(op)
+    k = next(i for i, t in enumerate(outers) if t.id == term.id)
+    return f"case{case_id}.out{k}"
+
+
+_INT_UNDERLYING_TYPES = frozenset({
+    "NumInt8", "NumInt16", "NumInt32", "NumInt64",
+    "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64",
+})
+_FLOAT_UNDERLYING_TYPES = frozenset({"NumFloat32", "NumFloat64", "NumFloatExt"})
+_COMPLEX_UNDERLYING_TYPES = frozenset(
+    {"NumComplex64", "NumComplex128", "NumComplexExt"}
+)
+
+
+def _default_literal(lv_type: LVType | None) -> str:
+    """The faithful LabVIEW VALUE text an unwired case-output tunnel carries
+    under "use default if unwired" -- LabVIEW's own runtime substitution,
+    never a Python literal (``type_defaults.py``'s forms are codegen-only;
+    per the clean-room LAW, a live/faithful surface like the netlist must
+    never describe a VI as Python outside the code generator). Only the
+    shapes actually observed feeding a case output tunnel are covered here;
+    anything else renders the honest ``"?"`` rather than guess.
+    """
+    if lv_type is None:
+        return "?"
+    if lv_type.kind == "primitive":
+        underlying = lv_type.underlying_type or ""
+        if underlying in _INT_UNDERLYING_TYPES:
+            return "0"
+        if underlying in _FLOAT_UNDERLYING_TYPES:
+            return "0.0"
+        if underlying in _COMPLEX_UNDERLYING_TYPES:
+            return "0+0i"
+        if underlying == "Boolean":
+            return "False"
+        if underlying in ("String", "SubString"):
+            return '""'
+        return "?"
+    if lv_type.kind in ("enum", "ring"):
+        if lv_type.values:
+            for member_name, ev in lv_type.values.items():
+                if ev.value == 0:
+                    return member_name
+        return "0"
+    if lv_type.kind == "array":
+        return "[]"
+    return "?"
+
+
+def _type_default(lv_type: LVType | None) -> DefaultValue:
+    label = lv_type.lv_label() if lv_type is not None else "?"
+    return DefaultValue(literal=_default_literal(lv_type), lv_label=label)
+
+
 def _term_ref(
     node_name: str,
     occurrence: int | None,
@@ -418,6 +566,16 @@ def _resolve_source(
         hit = _find_op_owning_terminal(root_ops, src.terminal_id)
         if hit is not None:
             op, term = hit
+            if _is_gamma_output_tunnel(op, term):
+                # A case output tunnel's outer terminal is shared by ONE
+                # inner terminal PER FRAME -- which frame actually supplies
+                # the value is selector-dependent, so this is a genuine
+                # multi-producer MERGE, not a single wire. Stop here and
+                # name the merge net instead of hopping into whichever frame
+                # ``_paired_tunnel_id`` would pick first (finding #1) --
+                # ``_build_case_outputs`` defines the merge itself.
+                name = _gamma_net_name(op, term, build_ctx)
+                return NetRef(node=None, port=name, occurrence=None, bare=name)
             paired = _paired_tunnel_id(op, term)
             if paired is not None and paired not in seen:
                 tid = paired
@@ -596,9 +754,65 @@ def _build_case_scope(
         )
         for frame in op.frames
     ]
+    outputs = _build_case_outputs(
+        graph, ctx, root_ops, op, build_ctx, selector, frames,
+    )
     return NetlistScope(
         uid=_uid_of(op.id), kind="case", selector=selector, frames=frames,
+        outputs=outputs,
     )
+
+
+def _build_case_outputs(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    root_ops: list[Operation],
+    op: CaseOperation,
+    build_ctx: _BuildCtx,
+    selector: NetRef | None,
+    frames: list[NetlistFrame],
+) -> list[GammaMerge]:
+    """One ``GammaMerge`` per output tunnel on this case -- Gated-SSA's
+    gamma: the case's own selector plus one (frame_key, source) pair per
+    frame (see the module docstring's finding #1). ``frames`` supplies each
+    frame's already-resolved display label/``is_default`` -- zipped against
+    ``op.frames`` by position since both were built from that SAME list, in
+    the same order.
+    """
+    case_id = build_ctx.case_id_by_uid[_uid_of(op.id)]
+    outers = _case_output_tunnel_outers(op)
+    gammas: list[GammaMerge] = []
+    for k, outer in enumerate(outers):
+        cases: list[GammaCase] = []
+        for raw_frame, nl_frame in zip(op.frames, frames, strict=True):
+            inner = next(
+                (
+                    t for t in op.terminals
+                    if isinstance(t, TunnelTerminal)
+                    and t.boundary == "inner"
+                    and t.paired_id == outer.id
+                    and t.frame == raw_frame.selector_value
+                ),
+                None,
+            )
+            source: NetRef | DefaultValue | None = None
+            if inner is not None:
+                source = _resolve_source(graph, ctx, root_ops, inner.id, build_ctx)
+            if source is None:
+                # Unwired inner tunnel (or, defensively, no inner terminal
+                # found at all) -- LabVIEW's "use default if unwired" routes
+                # the tunnel's own TYPE default through; never omit the frame.
+                lv_type = (inner.lv_type if inner is not None else None) \
+                    or outer.lv_type
+                source = _type_default(lv_type)
+            frame_key = "default" if nl_frame.is_default else nl_frame.label
+            cases.append(GammaCase(frame_key=frame_key, source=source))
+        gammas.append(
+            GammaMerge(
+                net=f"case{case_id}.out{k}", selector=selector, cases=cases,
+            )
+        )
+    return gammas
 
 
 def _build_disabled_scope(
@@ -951,6 +1165,7 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     build_ctx = _BuildCtx(
         occurrence_by_uid=_assign_occurrences(root_ops),
         const_by_id={c.id: c for c in ctx.constants},
+        case_id_by_uid=_assign_case_ids(root_ops),
     )
 
     inputs = [
@@ -1156,6 +1371,38 @@ def _render_scope(
     else:  # "for" / "while"
         _render_frame_body(scope.frames[0], indent + 1, lines, ambiguous)
 
+    # Case-only (see NetlistScope.outputs docstring) -- one gamma-merge
+    # definition line per output tunnel, at the same indent as this scope's
+    # own frame labels.
+    for gamma in scope.outputs:
+        lines.append(f"{prefix}  {_gamma_definition_line(gamma, ambiguous)}")
+
+
+def _render_gamma_source(source: NetRef | DefaultValue, ambiguous: set[str]) -> str:
+    if isinstance(source, DefaultValue):
+        return source.render()
+    return source.render(qualified=source.bare in ambiguous)
+
+
+def _gamma_definition_line(gamma: GammaMerge, ambiguous: set[str]) -> str:
+    """``"out0 := gamma(selector; True -> subtract3.difference, default -> 0
+    (I32 default))"`` -- the SHORT local name (``out{k}``, not the fully
+    qualified ``case{id}.out{k}``) since this line sits inside that case's
+    own scope, the same convention a frame's own header doesn't repeat the
+    case's selector name either. Arrow is ``->`` ONLY (the netlist syntax is
+    locked ASCII, no ``<-``, see ``.tmp/netlist-spec.md``).
+    """
+    sel_str = (
+        gamma.selector.render(qualified=gamma.selector.bare in ambiguous)
+        if gamma.selector is not None else "?"
+    )
+    cases_str = ", ".join(
+        f"{c.frame_key} -> {_render_gamma_source(c.source, ambiguous)}"
+        for c in gamma.cases
+    )
+    short_net = gamma.net.rsplit(".", 1)[-1]
+    return f"{short_net} := gamma({sel_str}; {cases_str})"
+
 
 def _render_items(
     items: list[NetlistItem], indent: int, lines: list[str], ambiguous: set[str],
@@ -1182,6 +1429,25 @@ def _frame_to_dict(frame: NetlistFrame) -> dict[str, Any]:
         "is_default": frame.is_default,
         "passthrough": frame.passthrough,
         "body": [_item_to_dict(i) for i in frame.body],
+    }
+
+
+def _gamma_source_to_dict(source: NetRef | DefaultValue) -> dict[str, Any]:
+    if isinstance(source, DefaultValue):
+        return {"kind": "default", "type": source.lv_label, "literal": source.literal}
+    return _netref_to_dict(source)
+
+
+def _gamma_case_to_dict(case: GammaCase) -> dict[str, Any]:
+    return {"frame": case.frame_key, "source": _gamma_source_to_dict(case.source)}
+
+
+def _gamma_to_dict(gamma: GammaMerge) -> dict[str, Any]:
+    return {
+        "net": gamma.net,
+        "kind": "gamma",
+        "selector": _netref_to_dict(gamma.selector) if gamma.selector else None,
+        "cases": [_gamma_case_to_dict(c) for c in gamma.cases],
     }
 
 
@@ -1214,6 +1480,10 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
         "scope_kind": item.kind,
         "selector": _netref_to_dict(item.selector) if item.selector else None,
         "frames": [_frame_to_dict(f) for f in item.frames],
+        # Case-only (see NetlistScope.outputs docstring) -- always present
+        # (empty for every non-case scope kind), one GammaMerge per output
+        # tunnel on this case.
+        "outputs": [_gamma_to_dict(g) for g in item.outputs],
     }
     # Loop-only facts (see NetlistScope docstring) -- omitted for non-loop
     # scope kinds rather than always-present-but-empty, to keep the JSON

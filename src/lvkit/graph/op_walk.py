@@ -93,6 +93,48 @@ def _paired_tunnel_id(op: Operation, term: Terminal) -> str | None:
     return None
 
 
+def _case_output_tunnel_outers(op: Operation) -> list[Terminal]:
+    """Every OUTER tunnel terminal on a case structure that carries a value
+    OUT of the case (``direction == "output"``), in ``op.terminals`` order --
+    the canonical 0-based numbering ``netlist.py`` uses to name a case's
+    gamma-merge output nets (``case{id}.out{k}``, see that module's finding
+    #1). Not itself gated to ``CaseOperation`` (mirrors ``_paired_tunnel_id``'s
+    own shape) -- callers only call this for a ``CaseOperation``.
+    """
+    return [
+        t for t in op.terminals
+        if isinstance(t, TunnelTerminal)
+        and t.boundary == "outer"
+        and t.direction == "output"
+    ]
+
+
+def _is_gamma_output_tunnel(op: Operation, term: Terminal) -> bool:
+    """True when ``term`` is a CASE structure's output tunnel OUTER terminal
+    paired to MORE THAN ONE inner terminal (one per frame) -- the shape
+    ``netlist._resolve_source`` must stop at and resolve as a named
+    gamma-merge net, never hop through to a single frame's producer (finding
+    #1: which frame supplies the value is selector-dependent, so hopping
+    through via ``_paired_tunnel_id`` silently picks one frame arbitrarily).
+
+    Scoped to ``CaseOperation`` only, by design -- loops/sequences/disable/
+    event structures keep their existing single-hop ``_paired_tunnel_id``
+    behavior unconditionally, even where their own output-tunnel shape might
+    coincidentally satisfy the same "> 1 paired inner" test (out of scope
+    for this pass -- see netlist.py's module docstring).
+    """
+    if not isinstance(op, CaseOperation) or not isinstance(term, TunnelTerminal):
+        return False
+    if term.boundary != "outer" or term.direction != "output":
+        return False
+    inners = {
+        tunnel.inner_terminal_uid
+        for tunnel in op.tunnels
+        if tunnel.outer_terminal_uid == term.id
+    }
+    return len(inners) > 1
+
+
 def _flatten_fields(
     fields: list[ClusterField],
 ) -> list[tuple[list[str], ClusterField]]:

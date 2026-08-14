@@ -18,7 +18,15 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.netlist import build_netlist, render_netlist
+from lvkit.graph.netlist import (
+    DefaultValue,
+    GammaMerge,
+    NetlistInstance,
+    NetlistScope,
+    NetRef,
+    build_netlist,
+    render_netlist,
+)
 from lvkit.load_mode import LoadMode
 
 SCRATCHPAD = Path(
@@ -70,6 +78,124 @@ def test_boundary_outputs_carry_their_source_net() -> None:
     header = render_netlist(module).splitlines()[0]
     assert "% Coverage=" in header
     assert "<-" not in header
+
+
+def _load_coverage_vi() -> tuple[InMemoryVIGraph, str]:
+    graph = InMemoryVIGraph()
+    graph.load_vi(
+        str(_COVERAGE_VI), LoadMode.MINIMAL,
+        search_paths=[_COVERAGE_VI.parents[3]],
+    )
+    vi_name = graph.resolve_vi_name(_COVERAGE_VI.name)
+    return graph, vi_name
+
+
+def _case_scopes(module) -> list[NetlistScope]:
+    return [
+        item for item in module.body
+        if isinstance(item, NetlistScope) and item.kind == "case"
+    ]
+
+
+def test_case_output_gamma_merges_feed_build_array() -> None:
+    """Finding #1 regression: each of the VI's 3 case structures counts a
+    filtered-VI-count subtract; ``Build Array`` collects all three. Before
+    the gamma-merge fix, ``_resolve_source`` hopped through the case's
+    output tunnel into whichever frame ``_paired_tunnel_id`` found first
+    (the unwired Default frame) and Build Array rendered with NO inputs at
+    all. It must now show all 3 inputs, each resolved to a named
+    ``case{N}.out{k}`` gamma-merge net -- never empty, never a bare
+    ``Subtract`` instance name."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_coverage_vi()
+    module = build_netlist(graph, vi_name)
+
+    build_array = next(
+        item for item in module.body
+        if isinstance(item, NetlistInstance) and item.name == "Build Array"
+    )
+    assert len(build_array.inputs) == 3
+    for binding in build_array.inputs:
+        net = binding.net
+        # A gamma net is a boundary-shaped NetRef (node=None, like a literal
+        # or a VI control) whose bare name is the case's own merge net.
+        assert net.node is None
+        assert net.bare.startswith("case")
+        assert ".out" in net.bare
+
+    out = render_netlist(module)
+    assert "Build Array()" not in out
+    for line in out.splitlines():
+        if line.strip().startswith("Build Array("):
+            assert "case" in line
+            assert ".out" in line
+            break
+    else:
+        pytest.fail("no 'Build Array(' line in rendered netlist")
+
+
+def test_case_scopes_carry_gamma_merge_with_selector_and_type_default() -> None:
+    """Every case scope in the VI declares a ``GammaMerge`` per output
+    tunnel, carrying the real selector net and one source per frame -- the
+    unwired ``Default`` frame's source must be an explicit ``DefaultValue``
+    (LabVIEW's "use default if unwired"), never omitted and never silently
+    resolved to another frame's producer."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_coverage_vi()
+    module = build_netlist(graph, vi_name)
+
+    case_scopes = _case_scopes(module)
+    assert len(case_scopes) == 3
+    for scope in case_scopes:
+        assert scope.outputs, f"case scope {scope.uid} has no gamma merges"
+        for gamma in scope.outputs:
+            assert isinstance(gamma, GammaMerge)
+            assert gamma.net.startswith("case")
+            assert ".out" in gamma.net
+            assert gamma.selector is not None  # "Ignore ..." is always wired
+            frame_keys = {c.frame_key for c in gamma.cases}
+            assert "default" in frame_keys
+            assert len(gamma.cases) == len(scope.frames)
+            default_case = next(
+                c for c in gamma.cases if c.frame_key == "default"
+            )
+            # At least one of this case's output tunnels leaves the Default
+            # frame genuinely unwired (a type default), the other is fed by
+            # the Default-frame pass-through of the filtered array -- assert
+            # the SHAPE (NetRef or DefaultValue), not which specific tunnel.
+            assert isinstance(default_case.source, (NetRef, DefaultValue))
+
+    # At least one gamma across the VI must show the real "use default if
+    # unwired" type-default substitution, faithfully labeled.
+    default_values = [
+        c.source
+        for scope in case_scopes
+        for gamma in scope.outputs
+        for c in gamma.cases
+        if isinstance(c.source, DefaultValue)
+    ]
+    assert default_values, "expected at least one unwired-tunnel type default"
+    assert any(dv.render() == "0 (I32 default)" for dv in default_values)
+
+
+def test_gamma_definition_line_uses_short_net_name_and_arrow_only() -> None:
+    """The rendered ``out{k} := gamma(...)`` line uses the SHORT local net
+    name (not the fully qualified ``case{N}.out{k}``) and the locked ``->``
+    arrow only -- never ``<-``."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_coverage_vi()
+    out = render_netlist(build_netlist(graph, vi_name))
+
+    gamma_lines = [ln for ln in out.splitlines() if ":= gamma(" in ln]
+    assert gamma_lines, "expected at least one gamma-merge definition line"
+    for line in gamma_lines:
+        assert "<-" not in line
+        stripped = line.strip()
+        assert stripped.startswith("out")
+        assert not stripped.startswith("case")
 
 
 class TestBuildNetlist:
