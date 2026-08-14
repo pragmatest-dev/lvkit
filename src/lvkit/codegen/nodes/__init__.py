@@ -13,6 +13,7 @@ from collections.abc import Callable
 from lvkit.models import (
     CaseOperation,
     EventOperation,
+    FeedbackOperation,
     FormulaOperation,
     InPlaceOperation,
     InvokeOperation,
@@ -73,6 +74,14 @@ def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
             return subvi.generate(node, ctx)
         case FormulaOperation():
             return formula.generate(node, ctx)
+        case FeedbackOperation():
+            # A Feedback Node carries loop-iteration state (a z^-N mu). Faithful
+            # Python codegen isn't implemented yet -- fail loud rather than emit
+            # a silently wrong body (the describe/netlist layer DOES model it).
+            raise UnknownNodeError(
+                f"Feedback Node codegen not yet supported "
+                f"(id={node.id}, name={node.name or 'Feedback Node'})"
+            )
         case PrimitiveOperation():
             return _generate_primitive(node, ctx)
         case _ if node.kind == "constant":

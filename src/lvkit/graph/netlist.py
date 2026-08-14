@@ -34,6 +34,7 @@ from ..models import (
     CaseOperation,
     DisableStructureOperation,
     EventOperation,
+    FeedbackOperation,
     InPlaceOperation,
     InvokeOperation,
     LoopOperation,
@@ -378,7 +379,36 @@ class NetlistScope:
     outputs: list[GammaMerge | MuMerge | EtaMerge] = field(default_factory=list)
 
 
-NetlistItem = NetlistInstance | NetlistScope
+@dataclass
+class NetlistFeedback:
+    """A LabVIEW Feedback Node (z^-N) projected as Gated-SSA's classic mu --
+    the SAME merge a loop shift register gets (see ``MuMerge``), but a
+    STANDALONE body item rather than a loop-scope output, because a Feedback
+    Node is its own node (it may sit anywhere, even outside a loop, carrying
+    state across VI calls). ONE named net (``fb{k}``) carries ``init`` (the
+    value before the first iteration) then ``recur`` (the value fed back for
+    the NEXT iteration).
+
+    ``init`` is the source wired into the master's INITIALIZER terminal, or
+    the type ``DefaultValue`` when unwired -- LabVIEW seeds an uninitialized
+    Feedback Node to its type default, never fabricated, mirroring
+    ``MuMerge.init``. ``recur`` is the source wired into the linked write side
+    (``slaveFBInputNode``'s ``rightFeedback`` input), or ``None`` when the
+    Feedback Node is genuinely never written to (a real, faithful state, not
+    an unresolved placeholder). ``delay`` is the z^-N depth
+    (``feedbackNodeDelay``); ``None`` when absent. A downstream consumer
+    reading the output resolves to ``fb{k}`` via ``_resolve_source`` -- see
+    ``_is_feedback_output_read``. ``uid`` is the master node's trailing UID.
+    """
+
+    uid: str
+    net: str
+    init: NetRef | DefaultValue
+    recur: NetRef | None
+    delay: int | None
+
+
+NetlistItem = NetlistInstance | NetlistScope | NetlistFeedback
 
 
 @dataclass
@@ -426,6 +456,14 @@ class _BuildCtx:
     const_by_id: dict[str, Constant]
     case_id_by_uid: dict[str, int]
     loop_id_by_uid: dict[str, int]
+    # ``fb0``, ``fb1``, … id per Feedback Node MASTER, keyed by trailing node
+    # UID (see ``_assign_feedback_ids``) -- names the ``fb{k}`` mu net a
+    # consumer reading the Feedback Node's output resolves to.
+    feedback_id_by_uid: dict[str, int]
+    # Every operation keyed by its full ``op.id`` -- lets a Feedback Node
+    # master reach its linked write side (``FeedbackOperation.partner_uid``)
+    # to resolve the mu ``recur`` source. Built once via ``_walk_flat``.
+    op_by_uid: dict[str, Operation]
 
 
 @dataclass
@@ -534,7 +572,11 @@ def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
         if not isinstance(
             op,
             (CaseOperation, LoopOperation, SequenceOperation,
-             DisableStructureOperation, InPlaceOperation, EventOperation),
+             DisableStructureOperation, InPlaceOperation, EventOperation,
+             # Feedback Nodes render as a mu net (``fb{k}``), never as a named
+             # instance -- counting them would tag a spurious "Feedback
+             # Node#n" occurrence, same reason structures are excluded.
+             FeedbackOperation),
         )
     ]
     names = [_display_name(op) for op in insts]
@@ -581,6 +623,35 @@ def _assign_loop_ids(root_ops: list[Operation]) -> dict[str, int]:
             ids[_uid_of(op.id)] = next_id
             next_id += 1
     return ids
+
+
+def _assign_feedback_ids(root_ops: list[Operation]) -> dict[str, int]:
+    """Deterministic ``fb0``, ``fb1``, … id per Feedback Node MASTER
+    (``FeedbackOperation.is_master``), 0-based, in ``_walk_flat`` node order
+    (the ``_node_order_key`` order). Used ONLY to name the ``fb{k}`` mu net a
+    consumer reading the Feedback Node's output resolves to -- the standalone
+    analogue of ``_assign_loop_ids`` (a Feedback Node is its own node, not a
+    loop-owned shift register, so it gets its own id space rather than a
+    ``loop{id}.shift{k}`` name)."""
+    ids: dict[str, int] = {}
+    next_id = 0
+    for op in _walk_flat(root_ops):
+        if isinstance(op, FeedbackOperation) and op.is_master:
+            ids[_uid_of(op.id)] = next_id
+            next_id += 1
+    return ids
+
+
+def _is_feedback_output_read(op: Operation, term: Terminal) -> bool:
+    """True when ``term`` is a Feedback Node MASTER's OUTPUT terminal
+    (``leftFeedback`` -- the value read this iteration). A wire whose source
+    lands here IS the mu recurrence, so ``_resolve_source`` names the
+    ``fb{k}`` net instead of the raw producing node.port."""
+    return (
+        isinstance(op, FeedbackOperation)
+        and op.is_master
+        and term.direction == "output"
+    )
 
 
 def _gamma_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
@@ -799,6 +870,16 @@ def _resolve_source(
                 # merge net -- ``_build_loop_shift_registers`` defines it.
                 name = _mu_net_name(op, term, build_ctx)
                 return NetRef(node=None, port=name, occurrence=None, bare=name)
+            if _is_feedback_output_read(op, term):
+                # A Feedback Node's output terminal IS the mu recurrence
+                # itself -- name the ``fb{k}`` net (defined by the standalone
+                # ``NetlistFeedback`` item ``_build_feedback`` emits) rather
+                # than the raw ``hiddenFBNode.0`` producer. Loop shift
+                # register's standalone-node analogue.
+                k = build_ctx.feedback_id_by_uid.get(_uid_of(op.id))
+                if k is not None:
+                    name = f"fb{k}"
+                    return NetRef(node=None, port=name, occurrence=None, bare=name)
             paired = _paired_tunnel_id(op, term)
             if paired is not None and paired not in seen:
                 tid = paired
@@ -945,6 +1026,52 @@ def _build_instance(
     )
 
 
+def _build_feedback(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    root_ops: list[Operation],
+    op: FeedbackOperation,
+    build_ctx: _BuildCtx,
+) -> NetlistFeedback:
+    """Project a Feedback Node MASTER as a standalone mu (see
+    ``NetlistFeedback``). ``init`` traces the master's OWN initializer (input)
+    terminal; ``recur`` traces the linked write side's (slave's) single input
+    terminal -- both via ``_resolve_source``, the same tracer every other net
+    uses. ``init`` falls back to the terminal's type default when unwired
+    (LabVIEW's own first-call seed), mirroring ``_build_loop_shift_registers``;
+    ``recur`` stays ``None`` when the Feedback Node is never written (a
+    faithful state, never defaulted)."""
+    k = build_ctx.feedback_id_by_uid[_uid_of(op.id)]
+
+    # init: the master's initializer terminal (the one INPUT terminal).
+    init_term = next((t for t in op.terminals if t.direction == "input"), None)
+    init: NetRef | DefaultValue | None = None
+    if init_term is not None:
+        init = _resolve_source(graph, ctx, root_ops, init_term.id, build_ctx)
+    if init is None:
+        lv_type = init_term.lv_type if init_term is not None else None
+        if lv_type is None:
+            out_term = next(
+                (t for t in op.terminals if t.direction == "output"), None
+            )
+            lv_type = out_term.lv_type if out_term is not None else None
+        init = _type_default(lv_type)
+
+    # recur: the written value on the linked write side's rightFeedback input.
+    recur: NetRef | None = None
+    slave = build_ctx.op_by_uid.get(op.partner_uid or "")
+    if slave is not None:
+        recur_term = next(
+            (t for t in slave.terminals if t.direction == "input"), None
+        )
+        if recur_term is not None:
+            recur = _resolve_source(graph, ctx, root_ops, recur_term.id, build_ctx)
+
+    return NetlistFeedback(
+        uid=_uid_of(op.id), net=f"fb{k}", init=init, recur=recur, delay=op.delay,
+    )
+
+
 def _build_items(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -978,6 +1105,15 @@ def _build_items(
                 items.append(
                     _build_sequence_scope(graph, ctx, root_ops, op, build_ctx)
                 )
+            case FeedbackOperation():
+                # The MASTER becomes one ``fb{k}`` mu item; the write side
+                # (slave) is DISSOLVED -- its written value is captured as the
+                # master's ``recur`` in ``_build_feedback``, so emitting it as
+                # its own instance would double-count the Feedback Node.
+                if op.is_master:
+                    items.append(
+                        _build_feedback(graph, ctx, root_ops, op, build_ctx)
+                    )
             case _:
                 items.append(
                     _build_instance(graph, ctx, root_ops, op, build_ctx)
@@ -1537,6 +1673,8 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         const_by_id={c.id: c for c in ctx.constants},
         case_id_by_uid=_assign_case_ids(root_ops),
         loop_id_by_uid=_assign_loop_ids(root_ops),
+        feedback_id_by_uid=_assign_feedback_ids(root_ops),
+        op_by_uid={op.id: op for op in _walk_flat(root_ops)},
     )
 
     inputs = [
@@ -1584,6 +1722,11 @@ def _collect_refs(items: list[NetlistItem]) -> list[NetRef]:
                     refs.append(item.selector)
                 for frame in item.frames:
                     refs.extend(_collect_refs(frame.body))
+            case NetlistFeedback():
+                if isinstance(item.init, NetRef):
+                    refs.append(item.init)
+                if item.recur is not None:
+                    refs.append(item.recur)
     return refs
 
 
@@ -1620,6 +1763,11 @@ def index_module(
                     scopes[item.uid] = item
                     for frame in item.frames:
                         walk(frame.body)
+                case NetlistFeedback():
+                    # A Feedback Node is neither an instance nor a scope --
+                    # not indexed here (diff tracks its uid via
+                    # _walk_netlist_order for ordering only).
+                    pass
 
     walk(module.body)
     return instances, scopes
@@ -1842,6 +1990,22 @@ def _eta_definition_line(eta: EtaMerge, ambiguous: set[str]) -> str:
     return f"{short_net} := eta({eta.index_mode}, {value_str})"
 
 
+def _feedback_definition_line(fb: NetlistFeedback, ambiguous: set[str]) -> str:
+    """``"fb0 := mu[z^-1](init -> 0.0 (DBL default), recur -> now.0)"`` -- a
+    Feedback Node as a standalone mu, the SAME ``init -> …, recur -> …`` form
+    a loop shift register's ``_mu_definition_line`` uses, tagged ``[z^-N]``
+    with the z-transform delay depth (LabVIEW's own "z^-1 block" view) when
+    the file carries one. ``recur`` is omitted entirely (never a fabricated
+    ``?``) when the Feedback Node is genuinely never written to -- same as
+    ``_mu_definition_line``. ``->`` ONLY (locked ASCII, no ``<-``)."""
+    tag = f"[z^-{fb.delay}]" if fb.delay is not None else ""
+    init_str = _render_merge_source(fb.init, ambiguous)
+    if fb.recur is None:
+        return f"{fb.net} := mu{tag}(init -> {init_str})"
+    recur_str = fb.recur.render(qualified=fb.recur.bare in ambiguous)
+    return f"{fb.net} := mu{tag}(init -> {init_str}, recur -> {recur_str})"
+
+
 def _merge_definition_line(
     merge: GammaMerge | MuMerge | EtaMerge, ambiguous: set[str],
 ) -> str:
@@ -1861,6 +2025,10 @@ def _render_items(
                 _render_instance(item, indent, lines, ambiguous)
             case NetlistScope():
                 _render_scope(item, indent, lines, ambiguous)
+            case NetlistFeedback():
+                lines.append(
+                    "  " * indent + _feedback_definition_line(item, ambiguous)
+                )
 
 
 def _netref_to_dict(ref: NetRef) -> dict[str, Any]:
@@ -1966,6 +2134,15 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
                 for b in item.inputs
             ],
             "outputs": [_netref_to_dict(o) for o in item.outputs],
+        }
+    if isinstance(item, NetlistFeedback):
+        return {
+            "kind": "feedback",
+            "uid": item.uid,
+            "net": item.net,
+            "delay": item.delay,
+            "init": _merge_source_to_dict(item.init),
+            "recur": _netref_to_dict(item.recur) if item.recur is not None else None,
         }
     d: dict[str, Any] = {
         "kind": "scope",

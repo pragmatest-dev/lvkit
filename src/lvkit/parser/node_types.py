@@ -162,6 +162,34 @@ class CallByRefNode(ParsedNode):
     frame_terminal_uids: list[str] = field(default_factory=list)
 
 
+@dataclass
+class FeedbackNode(ParsedNode):
+    """A LabVIEW Feedback Node (class="hiddenFBNode"/"slaveFBInputNode").
+
+    A Feedback Node is a Gated-SSA mu (exactly like a shift register): it
+    carries a value from one loop iteration -- or VI call -- to the next. It
+    is serialized as a MASTER/SLAVE PAIR, even when drawn as a single glyph:
+
+    - ``hiddenFBNode`` (MASTER, ``is_master=True``): owns the OUTPUT terminal
+      (``leftFeedback`` dco -- the value READ this iteration) and the
+      INITIALIZER terminal (``initFeedback`` dco -- used on the first
+      iteration). Carries ``<feedbackNodeDelay>`` (``delay_depth``, the
+      z^-N depth) and ``<SlaveFBInputNode uid>`` (``partner_uid``).
+    - ``slaveFBInputNode`` (SLAVE, ``is_master=False``): owns the single
+      INPUT terminal (``rightFeedback`` dco -- the value WRITTEN each
+      iteration) and back-links via ``<HiddenFBNode uid>`` (``partner_uid``).
+
+    Which terminal is output vs init is faithful from wire direction (the
+    master has exactly one output = read, one input = init); the master/slave
+    link and delay are both fully present in the block-diagram heap, so the
+    cross-iteration recurrence is determinable from the file alone.
+    """
+
+    is_master: bool = True
+    partner_uid: str | None = None  # the linked slave (master) / master (slave)
+    delay_depth: int | None = None  # z^-N depth from feedbackNodeDelay; master only
+
+
 # =============================================================================
 # Node Type Handlers
 # =============================================================================
@@ -345,6 +373,63 @@ class CallByRefHandler(NodeTypeHandler):
                     if t_uid:
                         frame_terminal_uids.append(t_uid)
         return CallByRefNode(**common, frame_terminal_uids=frame_terminal_uids)
+
+
+class FeedbackMasterHandler(NodeTypeHandler):
+    """Handler for the Feedback Node master/read side (class="hiddenFBNode").
+
+    Extracts the master->slave link (``<SlaveFBInputNode uid>``) and the
+    z^-N delay depth (``<feedbackNodeDelay>``, a 2-digit hex byte -- "01" ->
+    1). The output (leftFeedback) and initializer (initFeedback) terminals
+    carry on the base ParsedNode terminal fields, distinguished by direction.
+    Previously unregistered: fell through to GenericHandler, which leaked the
+    raw XML class "hiddenFBNode" as the node's display name.
+    """
+
+    xml_class = "hiddenFBNode"
+    display_name = "Feedback Node"
+
+    def parse(self, elem: ET.Element) -> FeedbackNode:
+        common = self._extract_common(elem)
+        slave = elem.find("SlaveFBInputNode")
+        partner_uid = slave.get("uid") if slave is not None else None
+        delay_depth = None
+        delay_text = elem.findtext("feedbackNodeDelay")
+        if delay_text:
+            try:
+                delay_depth = int(delay_text, 16)
+            except ValueError:
+                delay_depth = None
+        return FeedbackNode(
+            **common,
+            is_master=True,
+            partner_uid=partner_uid,
+            delay_depth=delay_depth,
+        )
+
+
+class FeedbackSlaveHandler(NodeTypeHandler):
+    """Handler for the Feedback Node write side (class="slaveFBInputNode").
+
+    Owns the single INPUT terminal (rightFeedback -- the value written each
+    iteration) and back-links to its master via ``<HiddenFBNode uid>``. The
+    netlist absorbs this side into the master's Feedback Node projection.
+    Previously unregistered: fell through to GenericHandler, which leaked the
+    raw XML class "slaveFBInputNode" as the node's display name.
+    """
+
+    xml_class = "slaveFBInputNode"
+    display_name = "Feedback Node"
+
+    def parse(self, elem: ET.Element) -> FeedbackNode:
+        common = self._extract_common(elem)
+        master = elem.find("HiddenFBNode")
+        partner_uid = master.get("uid") if master is not None else None
+        return FeedbackNode(
+            **common,
+            is_master=False,
+            partner_uid=partner_uid,
+        )
 
 
 class CpdArithHandler(NodeTypeHandler):
@@ -1130,6 +1215,8 @@ _HANDLERS: list[NodeTypeHandler] = [
     DynamicDispatchHandler(),
     CallParentHandler(),
     CallByRefHandler(),
+    FeedbackMasterHandler(),
+    FeedbackSlaveHandler(),
     CpdArithHandler(),
     ArrayBuildHandler(),
     ArrayInitHandler(),

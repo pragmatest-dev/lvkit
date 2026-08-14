@@ -27,6 +27,10 @@ NODE_CLASS_EVENT_STRUCT = "eventStruct"
 # unknown-node capture (which drew it as an oversized, mis-positioned box —
 # task #75).
 NODE_CLASS_EVENT_DATA_NODE = "eventDataNode"
+# Feedback Node master/read side (owns leftFeedback output + initFeedback init)
+NODE_CLASS_FEEDBACK_MASTER = "hiddenFBNode"
+# Feedback Node write side (owns rightFeedback input; linked to the master)
+NODE_CLASS_FEEDBACK_SLAVE = "slaveFBInputNode"
 NODE_CLASS_PROP_NODE = "propNode"
 NODE_CLASS_INVOKE_NODE = "invokeNode"
 NODE_CLASS_CPD_ARITH = "cpdArith"  # Compound arithmetic (e.g., Or of multiple booleans)
@@ -117,6 +121,11 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_CALL_BY_REF,
     NODE_CLASS_DECOMPOSE_RECOMPOSE,
     NODE_CLASS_EVENT_DATA_NODE,
+    # Feedback Node master/slave pair (z^-N state element) — previously reached
+    # only via the generic-operation sweep; now typed by their own handlers, so
+    # they must be whitelisted here (else _extract_nodes silently drops them).
+    NODE_CLASS_FEEDBACK_MASTER,
+    NODE_CLASS_FEEDBACK_SLAVE,
     # Inner decompose/recompose node types (inside IPES structures)
     "decomposeClusterNode",
     "decomposeArrayNode",

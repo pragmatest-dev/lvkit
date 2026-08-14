@@ -23,6 +23,7 @@ from lvkit.graph.netlist import (
     EtaMerge,
     GammaMerge,
     MuMerge,
+    NetlistFeedback,
     NetlistInstance,
     NetlistModule,
     NetlistScope,
@@ -126,6 +127,23 @@ _UNINITIALIZED_SR_VI = Path(
 )
 
 
+# Real corpus VI with a split Feedback Node inside a while loop: it writes
+# High Resolution Relative Seconds.vi's timestamp every iteration and reads
+# the PREVIOUS iteration's value back (a z^-1 delay), so a downstream Subtract
+# computes the per-iteration elapsed time (dt = now - prev). The master
+# (hiddenFBNode) owns the read/output + initializer terminals; the slave
+# (slaveFBInputNode) owns the written-value input; the master/slave link and
+# feedbackNodeDelay are both explicit in the block-diagram heap. Ground truth
+# located by grepping the extracted ``*_BDHb.xml`` for the feedback DCO
+# classes (leftFeedback/rightFeedback/initFeedback + SlaveFBInputNode).
+_FEEDBACK_VI = Path(
+    ".lvkit/cache/samples/lv-flex-channel-examples/WaveGen/WaveGen.vi"
+)
+_FEEDBACK_SEARCH_ROOT = Path(
+    ".lvkit/cache/samples/lv-flex-channel-examples/WaveGen"
+)
+
+
 def _load_vi(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), LoadMode.MINIMAL, search_paths=[search_root])
@@ -156,6 +174,81 @@ def _find_instance(scope: NetlistScope, name: str) -> NetlistInstance | None:
         if isinstance(item, NetlistInstance) and item.name == name:
             return item
     return None
+
+
+def _all_feedbacks(items: list) -> list[NetlistFeedback]:
+    """Every NetlistFeedback in a body, recursively (through every frame)."""
+    out: list[NetlistFeedback] = []
+    for item in items:
+        if isinstance(item, NetlistFeedback):
+            out.append(item)
+        elif isinstance(item, NetlistScope):
+            for frame in item.frames:
+                out.extend(_all_feedbacks(frame.body))
+    return out
+
+
+def test_feedback_node_renders_as_mu_and_class_names_do_not_leak() -> None:
+    """A Feedback Node is a standalone Gated-SSA mu (a z^-N state element).
+    The parser previously had no handler for its master/slave XML classes, so
+    the raw ``hiddenFBNode``/``slaveFBInputNode`` class names leaked into the
+    netlist and Components. Now the master projects as one ``fb{k}`` mu net
+    (init + recur), the write side is dissolved, and no raw class name
+    survives anywhere."""
+    if not _FEEDBACK_VI.exists():
+        pytest.skip("lv-flex-channel-examples sample corpus not present")
+    graph, vi_name = _load_vi(_FEEDBACK_VI, _FEEDBACK_SEARCH_ROOT)
+    module = build_netlist(graph, vi_name)
+
+    feedbacks = _all_feedbacks(module.body)
+    assert feedbacks, "expected a Feedback Node projected as a mu item"
+    fb = feedbacks[0]
+    assert fb.net == "fb0"
+    assert fb.delay == 1  # feedbackNodeDelay "01" -> z^-1
+    # Initializer terminal is unwired -> LabVIEW's DBL type default, never faked.
+    assert isinstance(fb.init, DefaultValue)
+    # Written every iteration -> a real recurrence (the timestamp source).
+    assert isinstance(fb.recur, NetRef)
+    assert fb.recur.bare == "High Resolution Relative Seconds.vi.0"
+
+    out = render_netlist(module)
+    # The raw XML class names must be GONE from the whole projection.
+    assert "hiddenFBNode" not in out
+    assert "slaveFBInputNode" not in out
+    fb_lines = [ln for ln in out.splitlines() if ln.strip().startswith("fb0 :=")]
+    assert fb_lines, "expected an fb0 mu-definition line"
+    line = fb_lines[0].strip()
+    assert "mu[z^-1]" in line
+    assert "init ->" in line and "recur ->" in line
+    assert "<-" not in line  # locked ASCII, arrows are -> only
+
+    # Components must not declare the feedback halves either.
+    comp_names = {c.name for c in module.components}
+    assert "hiddenFBNode" not in comp_names
+    assert "slaveFBInputNode" not in comp_names
+
+
+def test_feedback_output_consumer_resolves_to_named_fb_net() -> None:
+    """The downstream consumer reading the Feedback Node's output resolves to
+    the named ``fb0`` net -- never the raw ``hiddenFBNode.0`` producer (the
+    standalone-node analogue of a shift-register reader resolving to
+    ``loop{id}.shift{k}``)."""
+    if not _FEEDBACK_VI.exists():
+        pytest.skip("lv-flex-channel-examples sample corpus not present")
+    graph, vi_name = _load_vi(_FEEDBACK_VI, _FEEDBACK_SEARCH_ROOT)
+    module = build_netlist(graph, vi_name)
+
+    loop_scope = _find_loop_scope(module)
+    assert loop_scope is not None
+    subtract = _find_instance(loop_scope, "Subtract")
+    assert subtract is not None
+    fb_bindings = [b for b in subtract.inputs if b.net.bare == "fb0"]
+    assert fb_bindings, (
+        "Subtract should read the feedback output as fb0, got "
+        f"{[b.net.bare for b in subtract.inputs]}"
+    )
+    # A merge net has no producing node (like a boundary/const), renders bare.
+    assert fb_bindings[0].net.node is None
 
 
 def test_shift_register_renders_mu_and_inner_reader_resolves_to_shift_net() -> (

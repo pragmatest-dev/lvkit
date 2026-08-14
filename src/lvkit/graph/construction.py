@@ -28,11 +28,12 @@ from ..parser import (
 )
 from ..parser.models import ParsedConstant, ParsedType
 from ..parser.node_types import (
-    PrimitiveNode as ParserPrimitiveNode,
-)
-from ..parser.node_types import (
+    FeedbackNode,
     SelectNode,
     SubVINode,
+)
+from ..parser.node_types import (
+    PrimitiveNode as ParserPrimitiveNode,
 )
 from ..parser.vi import _decode_element
 from ..primitive_resolver import get_resolver as get_prim_resolver
@@ -658,6 +659,26 @@ class ConstructionMixin:
                     g.add_node(q_node_uid, node=graph_node, poser_uid=node.poser_uid)
                     vi_node_uids.add(q_node_uid)
                     continue
+
+            # Feedback Node (hiddenFBNode master / slaveFBInputNode write side):
+            # stash the master<->slave link + z^-N delay as node attributes so
+            # _build_operation can lift them onto a FeedbackOperation. The graph
+            # node itself stays a GraphPrimitiveNode, so render/codegen treat it
+            # exactly as before — only the Operation layer gains feedback
+            # identity. See parser FeedbackNode and models.FeedbackOperation.
+            if isinstance(node, FeedbackNode):
+                g.add_node(
+                    q_node_uid,
+                    node=graph_node,
+                    feedback_is_master=node.is_master,
+                    feedback_partner=(
+                        self._qid(vi_name, node.partner_uid)
+                        if node.partner_uid else None
+                    ),
+                    feedback_delay=node.delay_depth,
+                )
+                vi_node_uids.add(q_node_uid)
+                continue
 
             g.add_node(q_node_uid, node=graph_node)
             vi_node_uids.add(q_node_uid)

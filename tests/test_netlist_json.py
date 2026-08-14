@@ -16,6 +16,7 @@ from lvkit.graph.netlist import (
     GammaMerge,
     MuMerge,
     NetlistComponent,
+    NetlistFeedback,
     NetlistFrame,
     NetlistInstance,
     NetlistModule,
@@ -115,6 +116,42 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     assert sc["frames"][1]["is_default"] is True
     assert sc["frames"][1]["passthrough"] is True
     assert sc["frames"][1]["body"] == []
+
+
+def test_feedback_item_is_kind_tagged_with_mu_shape():
+    """A Feedback Node body item -- the JSON counterpart of
+    ``render_netlist``'s ``fb{k} := mu[z^-N](init -> …, recur -> …)`` line --
+    is discriminated by ``kind="feedback"`` and carries the net name, the
+    z^-N delay, and the mu ``init``/``recur`` sources (``init`` as a merge
+    source that may be a type default; ``recur`` a NetRef or null)."""
+    fb = NetlistFeedback(
+        uid="3719",
+        net="fb0",
+        init=DefaultValue(literal="0.0", lv_label="DBL"),
+        recur=_ref("now", "0", "now.0"),
+        delay=1,
+    )
+    module = NetlistModule(vi_name="m.vi", inputs=[], outputs=[], body=[fb])
+
+    d = netlist_to_dict(module)
+    assert [item["kind"] for item in d["body"]] == ["feedback"]
+    item = d["body"][0]
+    assert item["uid"] == "3719"
+    assert item["net"] == "fb0"
+    assert item["delay"] == 1
+    # init is a type-default merge source (never a fabricated wire).
+    assert item["init"] == {"kind": "default", "type": "DBL", "literal": "0.0"}
+    assert item["recur"]["bare"] == "now.0"
+
+    # recur=None (never-written Feedback Node) serializes as null, not omitted.
+    fb2 = NetlistFeedback(
+        uid="9", net="fb1", init=_ref(None, "seed", "seed"), recur=None, delay=None,
+    )
+    d2 = netlist_to_dict(
+        NetlistModule(vi_name="m.vi", inputs=[], outputs=[], body=[fb2])
+    )
+    assert d2["body"][0]["recur"] is None
+    assert d2["body"][0]["delay"] is None
 
 
 def test_case_scope_outputs_carries_gamma_merge_union_shape():

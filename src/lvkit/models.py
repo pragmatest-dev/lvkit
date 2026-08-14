@@ -656,6 +656,27 @@ class PrimitiveOperation(Operation):
     poser_uid: str | None = None  # Decompose/recompose pair UID (IPES)
 
 
+class FeedbackOperation(Operation):
+    """A LabVIEW Feedback Node (z^-N state element) -- a standalone Gated-SSA
+    mu, exactly like a loop shift register: it carries a value from one loop
+    iteration (or VI call) to the next.
+
+    Serialized as a MASTER/SLAVE pair (see parser ``FeedbackNode``). The
+    MASTER (``is_master=True``, class ``hiddenFBNode``) owns the OUTPUT (read)
+    and INITIALIZER terminals; the SLAVE (``is_master=False``, class
+    ``slaveFBInputNode``) owns the single INPUT (written value) terminal.
+    ``partner_uid`` is the fully qualified id of the other side; ``delay`` is
+    the z^-N depth (``feedbackNodeDelay``), present on the master only. The
+    netlist projects the master as one ``fb{k}`` mu net and dissolves the
+    slave into it (its written value becomes the mu ``recur``). Codegen is not
+    yet supported and fails loud.
+    """
+
+    is_master: bool = True
+    partner_uid: str | None = None
+    delay: int | None = None
+
+
 class SubVIOperation(Operation):
     """A SubVI call."""
 

@@ -17,6 +17,7 @@ from ..models import (
     DisableStructureOperation,
     EventFrame,
     EventOperation,
+    FeedbackOperation,
     FormulaOperation,
     FPTerminal,
     InPlaceOperation,
@@ -219,6 +220,18 @@ class OperationsMixin:
         if isinstance(gnode, GraphFormulaNode):
             return FormulaOperation(**common, script=gnode.script)
         if isinstance(gnode, GraphPrimitiveNode):
+            # Feedback Node: the graph node is a GraphPrimitiveNode carrying
+            # the master/slave link + delay as node attributes (see
+            # construction.py). Lift them onto a FeedbackOperation so the
+            # netlist can project it as a mu net and dissolve the write side.
+            fb_is_master = self._graph.nodes[uid].get("feedback_is_master")
+            if fb_is_master is not None:
+                return FeedbackOperation(
+                    **common,
+                    is_master=fb_is_master,
+                    partner_uid=self._graph.nodes[uid].get("feedback_partner"),
+                    delay=self._graph.nodes[uid].get("feedback_delay"),
+                )
             if gnode.properties:
                 return PropertyOperation(
                     **common,
