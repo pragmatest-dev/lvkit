@@ -592,7 +592,12 @@ async def get_context(vi_path: str, ctx: Context | None = None) -> dict[str, Any
     ``null`` if unwired). The ``body`` is a ``kind``-tagged ``instance``/``scope``
     tree (scopes nest their frames' bodies, wiring as ``port -> source.net``
     bindings), and ``components`` are the distinct subVI/primitive typed
-    interfaces. ``vi_path`` may be relative to the client's workspace root."""
+    interfaces. A structure's OUTPUT is a named Gated-SSA **merge net** a
+    consumer references by name: a scope's ``outputs`` carry
+    ``case{id}.out{k}`` = ``gamma`` (selector-dependent), ``loop{id}.shift{k}``
+    = ``mu`` (shift register), ``loop{id}.out{k}`` = ``eta`` (loop output,
+    array/last), and a feedback node is ``fb{k}`` = ``mu``. ``vi_path`` may be
+    relative to the client's workspace root."""
     vi_path = await _resolve_target(vi_path, ctx)
 
     def _work() -> dict[str, Any]:

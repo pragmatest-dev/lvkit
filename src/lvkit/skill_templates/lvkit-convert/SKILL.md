@@ -47,6 +47,23 @@ once. This one call subsumes `get_operations`/`get_dataflow`/
 `get_structure`/`get_constants` — reach for those individually only when you
 need one slice in isolation.
 
+**A structure's output is a named MERGE net, not a plain wire.** A value
+leaving a case/loop/feedback node is selector- or iteration-dependent, so the
+facts give it a name and a consumer just references that name (`element =
+case2.out1` means "fed by case #2's 2nd output" — there is no node called
+`case2`). Four kinds (Gated-SSA), each with its own port:
+- `case{id}.out{k}` = `gamma(selector; key -> val, …, default -> val)` — a
+  **case/switch output**: port the `if/elif/else` (or `match`) on the selector;
+  an unwired frame's `default` is the type default (`0`/`False`/`""`), never `None`.
+- `loop{id}.shift{k}` = `mu(init -> seed, recur -> next)` — a **shift register**:
+  an accumulator carried across iterations (initial `seed`, each iteration
+  writes `next`).
+- `loop{id}.out{k}` = `eta(index_mode, value)` — a **loop output tunnel**:
+  `array` builds a list one element per iteration (auto-indexing → a
+  comprehension), `last` passes only the final iteration's value.
+- `fb{k}` = `mu[z^-N](init, recur)` — a **Feedback Node**: loop-carried state
+  like a shift register, delayed N iterations.
+
 No MCP server connected: `lvkit describe <vi-path> -v` prints the same
 netlist IR as text (the `## Netlist` section). `lvkit render <vi-path> -o
 <vi>.svg` (CLI-only, no MCP twin) gives the faithful block-diagram picture
@@ -113,13 +130,12 @@ args), not generally. Don't trust the oracle blindly on a VI with array/
 cluster branches feeding an in-place-mutating operation; verify by
 executing both and asserting the source isn't mutated.
 
-**Loops.** A shift register (`lSR`/`rSR` tunnel) is an accumulator carried
-across iterations — its initial value comes from the outer wire if present
-(`sr_initialized`), else the type default. An auto-indexing tunnel
-(`TunnelMode.INDEXING`) builds/consumes one array element per iteration —
-port to `enumerate()`/indexed iteration, not a manual list-append you
-invented. A `LAST_VALUE` tunnel passes only the final iteration through, not
-every value. For-loop iteration count is `min(len(array), ..., N)` across
+**Loops.** A shift register (the `mu` net above) is an accumulator carried
+across iterations — its initial value comes from the outer wire if present,
+else the type default. An auto-indexing output (an `eta` with `index_mode:
+array`) builds one array element per iteration — port to a comprehension /
+indexed iteration, not a manual list-append you invented. A `last`-mode `eta`
+passes only the final iteration through, not every value. For-loop iteration count is `min(len(array), ..., N)` across
 every auto-indexed input plus the `N` terminal if wired; a while loop's stop
 terminal has a polarity (stop-if-true vs. continue-if-true) — read it, don't
 assume. A For Loop's optional conditional terminal (LabVIEW 2012+) is
