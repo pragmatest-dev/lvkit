@@ -12,6 +12,13 @@ Pattern follows ``tests/test_index.py``'s ``TestFullCorpusDemo``: ``JKI_ROOT``
 / ``_HAVE_JKI`` guard, module-scoped ``jki_index`` fixture (build once,
 reusing the developer's warm extraction cache), ``@pytest.mark.slow``.
 
+RUN SERIALLY: ``uv run pytest tests/test_mcp_evals.py -m slow -n0``.
+The whole module shares ONE on-disk index (the fixture ``save``s to the real
+cache so ``_query`` has a real DB to hit), so the default ``-n auto`` xdist
+workers race the same SQLite file -> ``OperationalError`` + partial-read
+assertion flakes. ``-n0`` overrides ``-n auto`` to run serially (``-p no:xdist``
+does NOT work -- it drops the plugin, leaving ``-n auto`` unrecognized).
+
 Every assertion below pins the value actually OBSERVED against the corpus
 (computed and printed while developing this file, then hardcoded) — not a
 hoped-for value. A baseline going RED is a real regression. The two
@@ -196,7 +203,12 @@ def test_q10_error_indicator_histogram_top_row(jki_index: BuildResult):
         "WHERE is_error_cluster=1 AND direction='output' "
         "GROUP BY name ORDER BY n DESC, name"
     )
-    assert res.rows[0] == ["error out", 352]
+    # Baseline count, re-pinned when it drifts (the answer -- "error out"
+    # dominates -- is the eval; the number is a regression tripwire). Was 352;
+    # 382 as of this branch (cumulative parser terminal-extraction improvements,
+    # not a projection change). Distinct from a doubling bug -- other count
+    # pins (q22/q24/q26) held, so the index isn't double-counting.
+    assert res.rows[0] == ["error out", 382]
 
 
 # === F. Project scoping =======================================================

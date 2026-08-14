@@ -28,11 +28,17 @@ becomes lane (a) — pin it in the harness — once that command lands.
 ## Step 1 — Run the automated correctness harness
 
 ```bash
-uv run pytest tests/test_mcp_evals.py -q -m slow
+uv run pytest tests/test_mcp_evals.py -q -m slow -n0
 ```
 
 `-m slow` is required — the full-corpus tests are excluded by default
-(`pyproject.toml` addopts). This needs the local JKI-VI-Tester sample corpus
+(`pyproject.toml` addopts). `-n0` is **also required**: the default addopts run
+`-n auto`, but these tests all share ONE on-disk index (built by the
+module-scoped `jki_index` fixture into the real cache), so parallel workers race
+the same SQLite DB → `OperationalError` + partial-read flakes. `-n0` overrides
+`-n auto` to run serially (don't use `-p no:xdist` — that removes the plugin and
+leaves `-n auto` an unrecognized arg).
+This needs the local JKI-VI-Tester sample corpus
 (`.lvkit/cache/samples/JKI-VI-Tester`); pull it with `scripts/pull_samples.sh`
 if it's absent (tests auto-skip rather than fail).
 
