@@ -544,6 +544,17 @@ def _walk_flat(operations: list[Operation]) -> list[Operation]:
     ``frame.operations``; everything else recurses into ``inner_nodes``
     (this covers loop bodies and IPES bodies, matching describe.py's
     generic fallback).
+
+    SHARED INVARIANT with ``op_walk.index_terminal_owners``/
+    ``_find_op_owning_terminal``: those two recurse ``inner_nodes`` ALWAYS
+    plus frames for structures, rather than branching case/sequence/disable/
+    event to frames-only like this walk does. The two recursions only agree
+    because a structure op never populates BOTH ``inner_nodes`` and
+    ``frames`` at once -- so either one is a no-op on any given op and the
+    walks visit the same set either way. Do NOT change this branching to
+    "recurse inner_nodes always" without checking that invariant still
+    holds -- this walk's order feeds occurrence/id assignment, so a changed
+    order changes ``build_netlist``'s output, not just internal structure.
     """
     flat: list[Operation] = []
     for op in operations:
@@ -808,7 +819,6 @@ def _term_ref(
 def _resolve_source(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     terminal_id: str,
     build_ctx: _BuildCtx,
 ) -> NetRef | None:
@@ -923,7 +933,6 @@ def _resolve_source(
 def _resolve_or_default(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     build_ctx: _BuildCtx,
     terminal_id: str | None,
     *fallback_terminals: Terminal | None,
@@ -947,7 +956,7 @@ def _resolve_or_default(
     """
     source: NetRef | None = None
     if terminal_id is not None:
-        source = _resolve_source(graph, ctx, root_ops, terminal_id, build_ctx)
+        source = _resolve_source(graph, ctx, terminal_id, build_ctx)
     if source is not None:
         return source
     lv_type = next(
@@ -963,7 +972,6 @@ def _resolve_or_default(
 def _input_ref(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     build_ctx: _BuildCtx,
     terminal: Terminal,
 ) -> NetRef | None:
@@ -975,13 +983,12 @@ def _input_ref(
     not rendered as a meaningless bare index. ``op.terminals`` enumerates a
     subVI's whole connector pane, so most pins on any given call are unwired.
     """
-    return _resolve_source(graph, ctx, root_ops, terminal.id, build_ctx)
+    return _resolve_source(graph, ctx, terminal.id, build_ctx)
 
 
 def _selector_ref(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     build_ctx: _BuildCtx,
     terminal_id: str | None,
 ) -> NetRef | None:
@@ -989,13 +996,12 @@ def _selector_ref(
     is no terminal to trace or its source can't be located."""
     if not terminal_id:
         return None
-    return _resolve_source(graph, ctx, root_ops, terminal_id, build_ctx)
+    return _resolve_source(graph, ctx, terminal_id, build_ctx)
 
 
 def _build_property_accesses(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     build_ctx: _BuildCtx,
     op: PropertyOperation,
     name: str,
@@ -1025,7 +1031,7 @@ def _build_property_accesses(
                 NetlistPropertyAccess(name=prop_name, direction="read", net=net)
             )
         else:
-            net = _input_ref(graph, ctx, root_ops, build_ctx, term)
+            net = _input_ref(graph, ctx, build_ctx, term)
             accesses.append(
                 NetlistPropertyAccess(name=prop_name, direction="write", net=net)
             )
@@ -1035,7 +1041,6 @@ def _build_property_accesses(
 def _build_instance(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: Operation,
     build_ctx: _BuildCtx,
 ) -> NetlistInstance:
@@ -1046,7 +1051,7 @@ def _build_instance(
         NetlistPortBinding(port=_component_port_name(t), net=ref, inverted=t.inverted)
         for t in op.terminals
         if t.direction == "input"
-        if (ref := _input_ref(graph, ctx, root_ops, build_ctx, t))
+        if (ref := _input_ref(graph, ctx, build_ctx, t))
         is not None
     ]
     outputs = [
@@ -1061,7 +1066,7 @@ def _build_instance(
     if isinstance(op, PropertyOperation):
         object_name = (op.object_name or "").strip() or None
         properties = _build_property_accesses(
-            graph, ctx, root_ops, build_ctx, op, name, occurrence,
+            graph, ctx, build_ctx, op, name, occurrence,
         )
     elif isinstance(op, InvokeOperation):
         object_name = (op.object_name or "").strip() or None
@@ -1076,7 +1081,6 @@ def _build_instance(
 def _build_feedback(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: FeedbackOperation,
     build_ctx: _BuildCtx,
 ) -> NetlistFeedback:
@@ -1095,7 +1099,7 @@ def _build_feedback(
     init_term = next((t for t in op.terminals if t.direction == "input"), None)
     out_term = next((t for t in op.terminals if t.direction == "output"), None)
     init = _resolve_or_default(
-        graph, ctx, root_ops, build_ctx,
+        graph, ctx, build_ctx,
         init_term.id if init_term is not None else None,
         init_term, out_term,
     )
@@ -1108,7 +1112,7 @@ def _build_feedback(
             (t for t in slave.terminals if t.direction == "input"), None
         )
         if recur_term is not None:
-            recur = _resolve_source(graph, ctx, root_ops, recur_term.id, build_ctx)
+            recur = _resolve_source(graph, ctx, recur_term.id, build_ctx)
 
     return NetlistFeedback(
         uid=_uid_of(op.id), net=f"fb{k}", init=init, recur=recur, delay=op.delay,
@@ -1119,7 +1123,6 @@ def _build_items(
     graph: InMemoryVIGraph,
     ctx: VIContext,
     operations: list[Operation],
-    root_ops: list[Operation],
     build_ctx: _BuildCtx,
 ) -> list[NetlistItem]:
     """Walk a list of operations exactly like ``_describe_op_list``
@@ -1129,43 +1132,27 @@ def _build_items(
     for op in operations:
         match op:
             case CaseOperation():
-                items.append(
-                    _build_case_scope(graph, ctx, root_ops, op, build_ctx)
-                )
+                items.append(_build_case_scope(graph, ctx, op, build_ctx))
             case DisableStructureOperation():
-                items.append(
-                    _build_disabled_scope(graph, ctx, root_ops, op, build_ctx)
-                )
+                items.append(_build_disabled_scope(graph, ctx, op, build_ctx))
             case EventOperation():
-                items.append(
-                    _build_event_scope(graph, ctx, root_ops, op, build_ctx)
-                )
+                items.append(_build_event_scope(graph, ctx, op, build_ctx))
             case LoopOperation():
-                items.append(
-                    _build_loop_scope(graph, ctx, root_ops, op, build_ctx)
-                )
+                items.append(_build_loop_scope(graph, ctx, op, build_ctx))
             case SequenceOperation():
-                items.append(
-                    _build_sequence_scope(graph, ctx, root_ops, op, build_ctx)
-                )
+                items.append(_build_sequence_scope(graph, ctx, op, build_ctx))
             case FeedbackOperation():
                 # The MASTER becomes one ``fb{k}`` mu item; the write side
                 # (slave) is DISSOLVED -- its written value is captured as the
                 # master's ``recur`` in ``_build_feedback``, so emitting it as
                 # its own instance would double-count the Feedback Node.
                 if op.is_master:
-                    items.append(
-                        _build_feedback(graph, ctx, root_ops, op, build_ctx)
-                    )
+                    items.append(_build_feedback(graph, ctx, op, build_ctx))
             case _:
-                items.append(
-                    _build_instance(graph, ctx, root_ops, op, build_ctx)
-                )
+                items.append(_build_instance(graph, ctx, op, build_ctx))
                 if op.inner_nodes:
                     items.extend(
-                        _build_items(
-                            graph, ctx, op.inner_nodes, root_ops, build_ctx,
-                        )
+                        _build_items(graph, ctx, op.inner_nodes, build_ctx)
                     )
     return items
 
@@ -1188,13 +1175,10 @@ def _selector_lv_type(op: Operation, selector_terminal: str | None) -> LVType | 
 def _build_case_scope(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: CaseOperation,
     build_ctx: _BuildCtx,
 ) -> NetlistScope:
-    selector = _selector_ref(
-        graph, ctx, root_ops, build_ctx, op.selector_terminal,
-    )
+    selector = _selector_ref(graph, ctx, build_ctx, op.selector_terminal)
     passthrough = _has_output_tunnel(op)
     lv_type = _selector_lv_type(op, op.selector_terminal)
     is_error = bool(lv_type and _is_error_cluster(lv_type))
@@ -1203,16 +1187,15 @@ def _build_case_scope(
             label=_selector_label(frame, lv_type, is_error),
             value=str(frame.selector_value),
             is_default=frame.is_default,
-            body=_build_items(
-                graph, ctx, frame.operations, root_ops, build_ctx,
-            ),
+            body=_build_items(graph, ctx, frame.operations, build_ctx),
             passthrough=passthrough,
         )
         for frame in op.frames
     ]
-    outputs = _build_case_outputs(
-        graph, ctx, root_ops, op, build_ctx, selector, frames,
-    )
+    case_id = build_ctx.case_id_by_uid[_uid_of(op.id)]
+    outputs: list[GammaMerge | MuMerge | EtaMerge] = [
+        *_build_case_outputs(graph, ctx, op, build_ctx, case_id, selector, frames),
+    ]
     return NetlistScope(
         uid=_uid_of(op.id), kind="case", selector=selector, frames=frames,
         outputs=outputs,
@@ -1222,22 +1205,23 @@ def _build_case_scope(
 def _build_case_outputs(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: CaseOperation,
     build_ctx: _BuildCtx,
+    case_id: int,
     selector: NetRef | None,
     frames: list[NetlistFrame],
-) -> list[GammaMerge | MuMerge | EtaMerge]:
+) -> list[GammaMerge]:
     """One ``GammaMerge`` per output tunnel on this case -- Gated-SSA's
     gamma: the case's own selector plus one (frame_key, source) pair per
     frame (see the module docstring's finding #1). ``frames`` supplies each
     frame's already-resolved display label/``is_default`` -- zipped against
     ``op.frames`` by position since both were built from that SAME list, in
-    the same order.
+    the same order. ``case_id`` is computed once by the caller
+    (``_build_case_scope``), matching the loop scope's ``loop_id`` convention
+    (see ``_build_loop_shift_registers``/``_build_loop_outputs``).
     """
-    case_id = build_ctx.case_id_by_uid[_uid_of(op.id)]
     outers = _case_output_tunnel_outers(op)
-    gammas: list[GammaMerge | MuMerge | EtaMerge] = []
+    gammas: list[GammaMerge] = []
     for k, outer in enumerate(outers):
         cases: list[GammaCase] = []
         for raw_frame, nl_frame in zip(op.frames, frames, strict=True):
@@ -1255,7 +1239,7 @@ def _build_case_outputs(
             # at all) -- LabVIEW's "use default if unwired" routes the
             # tunnel's own TYPE default through; never omit the frame.
             source = _resolve_or_default(
-                graph, ctx, root_ops, build_ctx,
+                graph, ctx, build_ctx,
                 inner.id if inner is not None else None,
                 inner, outer,
             )
@@ -1272,7 +1256,6 @@ def _build_case_outputs(
 def _build_disabled_scope(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: DisableStructureOperation,
     build_ctx: _BuildCtx,
 ) -> NetlistScope:
@@ -1294,9 +1277,7 @@ def _build_disabled_scope(
             label=str(frame.selector_value),
             value=str(frame.selector_value),
             is_default=frame.is_default,
-            body=_build_items(
-                graph, ctx, frame.operations, root_ops, build_ctx,
-            ),
+            body=_build_items(graph, ctx, frame.operations, build_ctx),
             passthrough=passthrough,
         )
         for frame in op.frames
@@ -1309,7 +1290,6 @@ def _build_disabled_scope(
 def _build_event_scope(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: EventOperation,
     build_ctx: _BuildCtx,
 ) -> NetlistScope:
@@ -1329,9 +1309,7 @@ def _build_event_scope(
             label=frame.event_label,
             value=frame.event_label,
             is_default=False,
-            body=_build_items(
-                graph, ctx, frame.operations, root_ops, build_ctx,
-            ),
+            body=_build_items(graph, ctx, frame.operations, build_ctx),
             passthrough=passthrough,
         )
         for frame in op.frames
@@ -1344,7 +1322,6 @@ def _build_event_scope(
 def _build_sequence_scope(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: SequenceOperation,
     build_ctx: _BuildCtx,
 ) -> NetlistScope:
@@ -1353,9 +1330,7 @@ def _build_sequence_scope(
             label=str(frame.index),
             value=str(frame.index),
             is_default=False,
-            body=_build_items(
-                graph, ctx, frame.operations, root_ops, build_ctx,
-            ),
+            body=_build_items(graph, ctx, frame.operations, build_ctx),
             # Sequence frames are never "pass-through": a flat-sequence output
             # tunnel is ASSIGNED in exactly one frame (unlike a case, where an
             # unwired tunnel routes the input through), so an empty frame here
@@ -1372,19 +1347,20 @@ def _build_sequence_scope(
 def _build_loop_shift_registers(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: LoopOperation,
     build_ctx: _BuildCtx,
     loop_id: int,
+    term_by_id: dict[str, Terminal],
 ) -> list[MuMerge]:
     """One ``MuMerge`` per shift register on this loop (Gated-SSA mu, see
     ``MuMerge``'s docstring) -- ``init``/``recur`` resolved from the SAME
     ``lSR``/``rSR`` pairing ``op_walk._loop_shift_register_pairs`` gives,
     which IS the canonical 0-based ``shift{k}`` numbering (matches
     ``_mu_net_name``, so a consumer's resolved reference and this scope's
-    own definition line always agree).
+    own definition line always agree). ``loop_id``/``term_by_id`` are
+    computed once by the caller (``_build_loop_scope``) and shared with
+    ``_build_loop_outputs``.
     """
-    term_by_id = {t.id: t for t in op.terminals}
     merges: list[MuMerge] = []
     for k, (lsr, rsr) in enumerate(_loop_shift_register_pairs(op)):
         # Uninitialized (or defensively unresolved) SR -- LabVIEW seeds it
@@ -1393,14 +1369,12 @@ def _build_loop_shift_registers(
         outer_t = term_by_id.get(lsr.outer_terminal_uid)
         inner_t = term_by_id.get(lsr.inner_terminal_uid)
         init = _resolve_or_default(
-            graph, ctx, root_ops, build_ctx,
+            graph, ctx, build_ctx,
             lsr.outer_terminal_uid if lsr.sr_initialized else None,
             outer_t, inner_t,
         )
         recur = (
-            _resolve_source(
-                graph, ctx, root_ops, rsr.inner_terminal_uid, build_ctx,
-            )
+            _resolve_source(graph, ctx, rsr.inner_terminal_uid, build_ctx)
             if rsr is not None else None
         )
         merges.append(
@@ -1412,10 +1386,10 @@ def _build_loop_shift_registers(
 def _build_loop_outputs(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: LoopOperation,
     build_ctx: _BuildCtx,
     loop_id: int,
+    term_by_id: dict[str, Terminal],
 ) -> list[EtaMerge]:
     """One ``EtaMerge`` per output tunnel on this loop (Gated-SSA eta, see
     ``EtaMerge``'s docstring) -- ``value`` is the inner per-iteration
@@ -1423,8 +1397,9 @@ def _build_loop_outputs(
     (``_eta_index_mode``). Numbering matches ``_eta_net_name``
     (``_loop_output_tunnel_outers``, the SAME ordering), so a consumer's
     resolved reference and this scope's own definition line always agree.
+    ``loop_id``/``term_by_id`` are computed once by the caller
+    (``_build_loop_scope``) and shared with ``_build_loop_shift_registers``.
     """
-    term_by_id = {t.id: t for t in op.terminals}
     tunnel_by_outer = {
         t.outer_terminal_uid: t for t in op.tunnels if t.tunnel_type == "lpTun"
     }
@@ -1436,7 +1411,7 @@ def _build_loop_outputs(
         # default like GammaCase's own unwired-tunnel fallback.
         inner_t = term_by_id.get(tunnel.inner_terminal_uid)
         value = _resolve_or_default(
-            graph, ctx, root_ops, build_ctx,
+            graph, ctx, build_ctx,
             tunnel.inner_terminal_uid, inner_t, outer,
         )
         merges.append(
@@ -1452,15 +1427,12 @@ def _build_loop_outputs(
 def _build_loop_scope(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
     op: LoopOperation,
     build_ctx: _BuildCtx,
 ) -> NetlistScope:
     kind = "while" if op.loop_type == "whileLoop" else "for"
-    selector = _selector_ref(
-        graph, ctx, root_ops, build_ctx, op.stop_condition_terminal,
-    )
-    body = _build_items(graph, ctx, op.inner_nodes, root_ops, build_ctx)
+    selector = _selector_ref(graph, ctx, build_ctx, op.stop_condition_terminal)
+    body = _build_items(graph, ctx, op.inner_nodes, build_ctx)
     frame = NetlistFrame(
         label="",
         value="",
@@ -1478,9 +1450,12 @@ def _build_loop_scope(
         for t in op.tunnels
     ]
     loop_id = build_ctx.loop_id_by_uid[_uid_of(op.id)]
+    term_by_id = {t.id: t for t in op.terminals}
     outputs: list[GammaMerge | MuMerge | EtaMerge] = [
-        *_build_loop_shift_registers(graph, ctx, root_ops, op, build_ctx, loop_id),
-        *_build_loop_outputs(graph, ctx, root_ops, op, build_ctx, loop_id),
+        *_build_loop_shift_registers(
+            graph, ctx, op, build_ctx, loop_id, term_by_id,
+        ),
+        *_build_loop_outputs(graph, ctx, op, build_ctx, loop_id, term_by_id),
     ]
     return NetlistScope(
         uid=_uid_of(op.id), kind=kind, selector=selector, frames=[frame],
@@ -1737,12 +1712,12 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
             lv_label=t.lv_type.lv_label() if t.lv_type else "Any",
             # An indicator is a sink; its incoming edge traces to the producing
             # net exactly like an input terminal does.
-            source=_resolve_source(graph, ctx, root_ops, t.id, build_ctx),
+            source=_resolve_source(graph, ctx, t.id, build_ctx),
         )
         for t in ctx.outputs
     ]
 
-    body = _build_items(graph, ctx, root_ops, root_ops, build_ctx)
+    body = _build_items(graph, ctx, root_ops, build_ctx)
     components = _build_components(graph, flat)
 
     return NetlistModule(
@@ -1878,8 +1853,8 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     is tied to the declared input port it feeds, not left positional. An
     inverted input (``NetlistPortBinding.inverted`` -- the "Not" bubble
     LabVIEW draws directly on that input, negating it before the node's own
-    operation runs) renders ``port=NOT net``: a ``NOT `` prefix on the net,
-    ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
+    operation runs) renders ``port=not(net)``: a function-form wrapper around
+    the net, ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
     ``_render_merge_source``/the module docstring already reserve arrows for.
     A non-inverted input is unchanged from before this flag existed.
 

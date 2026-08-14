@@ -85,6 +85,12 @@ def index_terminal_owners(
     case/sequence/disable/event structures) so the map and the scan never
     disagree. Terminal ids are unique, so first-writer-wins is moot; kept for
     safety.
+
+    SHARED INVARIANT with ``netlist._walk_flat``: that walk branches
+    case/sequence/disable/event structures to frames-ONLY instead of
+    recursing ``inner_nodes`` always like this does. The two recursions only
+    agree because a structure op never populates BOTH ``inner_nodes`` and
+    ``frames`` at once, so either branching visits the same set of ops.
     """
     if out is None:
         out = {}
