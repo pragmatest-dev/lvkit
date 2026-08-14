@@ -60,6 +60,12 @@ class CodeGenContext:
     # and either write a mapping into .lvkit/ or replace the raise with a
     # contextual fix.
     soft_unresolved: bool = False
+    # When set to a list, every resolution gap (unknown primitive / unmapped
+    # vi.lib VI) is APPENDED to it as the constructed exception object, instead
+    # of (or in addition to) raising. `lvkit unresolved` drives a soft build
+    # with a sink to batch-collect every gap in one pass. Shared across child
+    # contexts so a gap nested in a loop/case is still collected.
+    unresolved_sink: list[Exception] | None = field(default=None, repr=False)
     # Lives on context (not builder) because child() must share it
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
@@ -317,6 +323,7 @@ class CodeGenContext:
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             use_held_error_model=self.use_held_error_model,
             soft_unresolved=self.soft_unresolved,
+            unresolved_sink=self.unresolved_sink,  # Shared — one sink per pass
             _allocated_vars=self._allocated_vars,  # Shared — same scope
             array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,

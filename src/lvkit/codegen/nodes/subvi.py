@@ -789,6 +789,10 @@ def _emit_vilib_resolution(
     context = _build_resolution_context(node, ctx, vilib_vi)
     vi_name = node.name or ""
 
+    if ctx.unresolved_sink is not None:
+        # Batch-collection mode (`lvkit unresolved`): record and keep going.
+        ctx.unresolved_sink.append(VILibResolutionNeeded(vi_name, context=context))
+
     if not ctx.soft_unresolved:
         raise VILibResolutionNeeded(vi_name, context=context)
 

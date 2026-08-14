@@ -41,6 +41,7 @@ def build_module(
     has_parallel_branches: bool | None = None,
     graph: InMemoryVIGraph | None = None,
     soft_unresolved: bool = False,
+    unresolved_sink: list[Exception] | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -57,6 +58,9 @@ def build_module(
             failing the build. Generated Python is syntactically valid;
             running it raises the same exception that hard mode would
             raise at codegen time.
+        unresolved_sink: When a list, each resolution gap (unknown primitive /
+            unmapped vi.lib VI) is appended to it as the constructed exception.
+            `lvkit unresolved` uses this to batch-collect every gap in one pass.
 
     Returns:
         Python source code as string
@@ -67,6 +71,7 @@ def build_module(
     ctx.vi_name = vi_name
     ctx.qualified_vi_name = vi_context.qualified_name
     ctx.soft_unresolved = soft_unresolved
+    ctx.unresolved_sink = unresolved_sink
 
     # Determine if we need error handling infrastructure (graph-driven).
     # True only if Merge Errors (prim 2401) exists in the VI's operations.

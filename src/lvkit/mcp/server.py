@@ -204,8 +204,18 @@ async def _client_roots(ctx: Context | None) -> list[Path]:
     return [_uri_to_path(str(r.uri)) for r in result.roots]
 
 
+def _default_root() -> str:
+    """Fallback project root for a client that sends NO roots — notably Claude
+    Desktop, which has no workspace concept. The ``LVKIT_PROJECT_ROOT`` env var
+    if set (the ``.mcpb`` bundle points it at the VI folder the user picks in the
+    Desktop settings UI), else the cwd. An IDE/agent that sends a workspace root
+    takes precedence over this (see ``_resolve_project``/``_resolve_target``)."""
+    return os.environ.get("LVKIT_PROJECT_ROOT") or str(Path.cwd())
+
+
 async def _resolve_project(project: str | None, ctx: Context | None) -> str:
-    """Resolve a project path: explicit ``project`` > first client root > cwd.
+    """Resolve a project path: explicit ``project`` > first client root >
+    ``LVKIT_PROJECT_ROOT`` env > cwd.
 
     An explicit ``project`` may be a Windows path when a Windows editor drives a
     WSL-hosted server — map it onto the WSL mount so it resolves."""
@@ -214,7 +224,7 @@ async def _resolve_project(project: str | None, ctx: Context | None) -> str:
     roots = await _client_roots(ctx)
     if roots:
         return str(roots[0])
-    return str(Path.cwd())
+    return _win_to_wsl_path(_default_root())
 
 
 async def _resolve_target(target: str, ctx: Context | None) -> str:
@@ -233,6 +243,10 @@ async def _resolve_target(target: str, ctx: Context | None) -> str:
     for root in await _client_roots(ctx):
         if (root / target).exists():
             return str(root / target)
+    # No client root matched — try the env/cwd default (Claude Desktop path).
+    default_root = Path(_win_to_wsl_path(_default_root()))
+    if (default_root / target).exists():
+        return str(default_root / target)
     return target
 
 
@@ -573,16 +587,53 @@ async def get_context(vi_path: str, ctx: Context | None = None) -> dict[str, Any
     prose.
 
     Boundary ``inputs``/``outputs`` carry the FAITHFUL LabVIEW type label
-    (``error cluster``, ``TestSuite.lvclass``, ``enum{...}``), the ``body`` is a
-    ``kind``-tagged ``instance``/``scope`` tree (scopes nest their frames'
-    bodies, wiring as ``port -> source.net`` bindings), and ``components`` are the
-    distinct subVI/primitive typed interfaces. ``vi_path`` may be relative to the
-    client's workspace root."""
+    (``error cluster``, ``TestSuite.lvclass``, ``enum{...}``); each ``output``
+    also carries a ``source`` net (which producer drives that indicator, or
+    ``null`` if unwired). The ``body`` is a ``kind``-tagged ``instance``/``scope``
+    tree (scopes nest their frames' bodies, wiring as ``port -> source.net``
+    bindings), and ``components`` are the distinct subVI/primitive typed
+    interfaces. ``vi_path`` may be relative to the client's workspace root."""
     vi_path = await _resolve_target(vi_path, ctx)
 
     def _work() -> dict[str, Any]:
         graph, vi_name = _load_one(vi_path)
         return netlist_to_dict(build_netlist(graph, vi_name))
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def unresolved(
+    target: str,
+    search_paths: list[str] | None = None,
+    ctx: Context | None = None,
+) -> list[dict[str, Any]]:
+    """Every unknown primitive / unmapped vi.lib VI under ``target`` (a VI,
+    library, class, or directory), collected in ONE pass instead of the
+    one-at-a-time ``PrimitiveResolutionNeeded``/``VILibResolutionNeeded`` the
+    conversion loop raises. Use before converting a large library to triage the
+    gaps up front. Returns a list of ``{kind, identifier, name, count,
+    vi_names}`` (kind ∈ ``unknown_primitive``/``unmapped_vilib``/
+    ``terminal_mapping``). Empty list means no gaps. ``target`` may be relative
+    to the client's workspace root."""
+    target = await _resolve_target(target, ctx)
+    _configure_resolvers_for_vi(target)
+
+    def _work() -> list[dict[str, Any]]:
+        from ..unresolved import collect_unresolved
+        items = collect_unresolved(
+            target, search_paths=[Path(p) for p in (search_paths or [])],
+        )
+        return [
+            {
+                "kind": it.kind,
+                "identifier": it.identifier,
+                "name": it.name,
+                "count": it.count,
+                "vi_names": it.vi_names,
+            }
+            for it in items
+        ]
 
     return await asyncio.to_thread(_work)
 

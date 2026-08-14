@@ -687,6 +687,23 @@ def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
             return "[]"
     return "None"
 
+def _terminal_signature(
+    node: PrimitiveOperation, ctx: CodeGenContext,
+) -> list[dict[str, str | int | bool | None]]:
+    """The FULL connector pane (every terminal, wired AND unwired) as the
+    resolution diagnostics carry it — the identity a resolver matches against."""
+    return [
+        {
+            "index": term.index,
+            "direction": term.direction,
+            "name": term.name,
+            "type": term.lv_type.underlying_type if term.lv_type else None,
+            "wired": ctx.is_wired(term.id),
+        }
+        for term in node.terminals
+    ]
+
+
 def _emit_placeholder(
     node: PrimitiveOperation,
     resolved: ResolvedPrimitive,
@@ -702,6 +719,20 @@ def _emit_placeholder(
     name = resolved.name or "unknown"
     msg = f"Placeholder primitive {prim_id} ({name})"
     warnings.warn(msg, stacklevel=2)
+
+    if ctx.unresolved_sink is not None:
+        # A placeholder is a KNOWN primitive with no implementation — still a
+        # conversion gap. Record it (tagged) so `lvkit unresolved` reports it
+        # distinctly from a fully-unknown primResID.
+        exc = PrimitiveResolutionNeeded(
+            prim_id=prim_id,
+            prim_name=name,
+            terminals=_terminal_signature(node, ctx),
+            vi_name=ctx.vi_name,
+            qualified_vi_name=ctx.qualified_vi_name,
+        )
+        exc.is_placeholder = True  # type: ignore[attr-defined]
+        ctx.unresolved_sink.append(exc)
 
     # String literal acts as inline documentation in generated code
     marker = ast.Expr(value=ast.Constant(
@@ -730,16 +761,7 @@ def _emit_unknown(
     # serialized, wired AND unwired, each with its declared type. Mark wired
     # status so the resolver can identify by the whole pane, not just the
     # terminals that happen to have wires in this VI.
-    terminals = [
-        {
-            "index": term.index,
-            "direction": term.direction,
-            "name": term.name,
-            "type": term.lv_type.underlying_type if term.lv_type else None,
-            "wired": ctx.is_wired(term.id),
-        }
-        for term in node.terminals
-    ]
+    terminals = _terminal_signature(node, ctx)
 
     kwargs: dict[str, object] = {
         "prim_id": prim_id,
@@ -748,6 +770,13 @@ def _emit_unknown(
         "vi_name": ctx.vi_name,
         "qualified_vi_name": ctx.qualified_vi_name,
     }
+
+    if ctx.unresolved_sink is not None:
+        # Batch-collection mode (`lvkit unresolved`): record the gap and keep
+        # generating so every gap in the VI is surfaced in one pass.
+        ctx.unresolved_sink.append(
+            PrimitiveResolutionNeeded(**kwargs)  # type: ignore[arg-type]
+        )
 
     if not ctx.soft_unresolved:
         raise PrimitiveResolutionNeeded(**kwargs)  # type: ignore[arg-type]

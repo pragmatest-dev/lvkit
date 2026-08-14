@@ -584,6 +584,32 @@ def main() -> int:
         help="Overwrite existing skill files even if they have local edits",
     )
 
+    # Unresolved command - batch-collect every resolution gap
+    unresolved_parser = subparsers.add_parser(
+        "unresolved",
+        help=(
+            "List every unknown primitive / unmapped vi.lib VI in a VI, "
+            "library, or project — in one pass, instead of one at a time"
+        ),
+    )
+    unresolved_parser.add_argument(
+        "input_path",
+        help="Path to .vi, .lvlib, .lvclass, .llb, or directory",
+    )
+    unresolved_parser.add_argument(
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
+        help="Extra SubVI search path (repeatable). See `generate --help`.",
+    )
+    unresolved_parser.add_argument(
+        "--json", action="store_true", help="Output the gaps as JSON"
+    )
+    _add_project_root_arg(unresolved_parser)
+    _add_load_mode_arg(unresolved_parser)
+    _add_library_root_args(unresolved_parser)
+
     # Detect command
     detect_parser = subparsers.add_parser(
         "detect",
@@ -678,6 +704,8 @@ def main() -> int:
         return cmd_diff(args)
     elif args.command == "setup":
         return cmd_setup(args)
+    elif args.command == "unresolved":
+        return cmd_unresolved(args)
     elif args.command == "detect":
         return cmd_detect(args)
     elif args.command == "render":
@@ -1602,6 +1630,49 @@ def cmd_generate(args: argparse.Namespace) -> int:
         print(f"Error: {e}", file=sys.stderr)
         traceback.print_exc()
         return 1
+
+
+def cmd_unresolved(args: argparse.Namespace) -> int:
+    """Handle the unresolved command — batch-list every resolution gap."""
+    import json
+
+    from .unresolved import collect_unresolved, format_unresolved_report
+
+    input_path = Path(args.input_path)
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}", file=sys.stderr)
+        return 1
+
+    _configure_resolvers(args)
+
+    try:
+        sp = _auto_search_paths(args.search_paths, input_path) or None
+        vilib_root, userlib_root = _parse_library_roots(args)
+        items = collect_unresolved(
+            input_path,
+            search_paths=sp,
+            mode=_resolve_load_mode(args, LoadMode.FULL),
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+        )
+    except (ValueError, FileNotFoundError, KeyError, NotImplementedError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps([
+            {
+                "kind": it.kind,
+                "identifier": it.identifier,
+                "name": it.name,
+                "count": it.count,
+                "vi_names": it.vi_names,
+            }
+            for it in items
+        ], indent=2))
+    else:
+        print(format_unresolved_report(items, input_path.name))
+    return 0
 
 
 def cmd_docs(args: argparse.Namespace) -> int:
