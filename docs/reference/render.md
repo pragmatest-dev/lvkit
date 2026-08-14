@@ -66,6 +66,8 @@ diagram still renders.
 
 - Unlike [`visualize`](visualize.md), `render` needs no optional install
   extra — a plain `pip install lvkit` is enough.
+- Also available one-click, with no CLI, as the [VS Code extension](vscode-extension.md)'s
+  View command.
 
 ## See also
 

@@ -27,9 +27,11 @@ no separate lvkit install is needed:
 
 Or, for Claude Code, `claude mcp add lvkit -- uvx --from lvkit lvkit-mcp`.
 
-For every client (Claude Code, VS Code, Codex, Cursor), the
-[no-uv fallbacks](install.md#without-uv), and the zero-config VS Code extension,
-see **[Installing the MCP server](install.md)**.
+Also available one-click, with no config file to write: the Claude Desktop
+`.mcpb`, the Claude Code plugin, and the zero-config [VS Code extension](vscode-extension.md).
+For every install path — the one-click bundles, and hand-written config for
+Claude Code, VS Code, Codex, Copilot CLI, and Cursor — see
+**[Installing the MCP server](install.md)**.
 
 ## Tools
 
@@ -109,3 +111,4 @@ Against JKI VI Tester (487 VIs):
 - [describe](describe.md) — the equivalent one-shot CLI query for a single VI.
 - [generate](generate.md) — the equivalent one-shot CLI conversion.
 - [setup](setup.md) — install AI-agent skills that pair with this server.
+- [vscode-extension](vscode-extension.md) — the VS Code extension that auto-registers this server with no config file.

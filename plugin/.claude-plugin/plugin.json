@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "lvkit",
+  "displayName": "LVKit",
+  "version": "0.5.8",
+  "description": "Read, diff, and convert LabVIEW VIs without a LabVIEW license — a local MCP server plus five workflow skills. Self-contained binary; no Python, uv, or pip.",
+  "author": { "name": "Pragmatest" },
+  "homepage": "https://pragmatest.com",
+  "repository": "https://github.com/pragmatest-dev/lvkit",
+  "license": "Apache-2.0",
+  "keywords": ["labview", "vi", "ni", "mcp", "diff", "codegen"]
+}

@@ -286,6 +286,8 @@ clean `Error:` line.
 - Because `vi.lib` auto-detection uses whatever LabVIEW is installed on the
   machine (see [SubVI & vi.lib resolution](subvi-resolution.md)), pass
   `--no-auto-vilib` for a diff that's identical across machines and in CI.
+- Also available one-click, with no CLI, as the [VS Code extension](vscode-extension.md)'s
+  Open Visual Diff command.
 
 ## See also
 

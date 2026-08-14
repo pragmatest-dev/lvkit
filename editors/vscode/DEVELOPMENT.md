@@ -72,7 +72,9 @@ You need a **publisher** on the VS Code Marketplace and a token:
 3. Package + publish **per platform** (each carries its own `bin/`):
    `npx @vscode/vsce publish --target linux-x64` (and `win32-x64`, `darwin-x64`,
    `darwin-arm64`). CI does this on an extension tag, one job per platform runner — see
-   `.github/workflows/publish-extension.yml`.
+   `.github/workflows/publish-bundles.yml`, which builds the binary once per platform and
+   publishes every form (VSIX, standalone zip, Claude Code plugin archive, Claude Desktop
+   `.mcpb`).
 
 The bundled binary means end users need nothing installed; developers inside the LVKit
 repo still get their own build via the `.venv`/`uv run` resolution.

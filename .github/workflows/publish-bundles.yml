@@ -1,17 +1,19 @@
-name: Publish VS Code extension
+name: Publish lvkit bundles
 
-# Fires on an EXTENSION tag (ext-v*), separate from the PyPI publish (v*).
+# ONE build per platform, published as MANY forms. Fires on an EXTENSION tag
+# (ext-v*), separate from the PyPI publish (v*).
 #
-#   verify  ->  build (fan out: one .vsix per platform, native runner)  ->  publish (fan in)
+#   verify -> build (fan out: native runner per OS) -> publish (VSIX) + release-bundles
 #
-# Each platform builds ITS OWN bundled `lvkit` standalone binary (PyInstaller,
-# via build-binary.sh) on that platform's NATIVE runner and packages its own
-# .vsix, uploading the finished artifact. win32-x64 additionally code-signs
+# Each platform builds ITS OWN `lvkit` standalone binary once (PyInstaller, via
+# build-binary.sh) on that platform's NATIVE runner, then packages EVERY
+# distribution form from that single build: the VS Code .vsix, the standalone
+# binary zip, the Claude Code plugin archive, and (macOS+Windows) the Claude
+# Desktop .mcpb (see assemble_bundles.sh/.ps1). win32-x64 additionally code-signs
 # every PE in the bundle (Azure Artifact Signing) before packaging — Windows
 # Authenticode/signtool signing can ONLY run on a Windows runner, which is why
 # this job matrix uses a real per-OS `os` field instead of building everything
-# on one Linux runner. The publish job then does exactly one thing: upload the
-# four .vsix files. All the work that can fail — PyInstaller, signing, vsce's
+# on one Linux runner. All the work that can fail — PyInstaller, signing, vsce's
 # secret scan, manifest validation, size limits — happens in the fan-out, so
 # `needs: build` is a real all-or-nothing gate: if any platform cannot be
 # packaged, NOTHING is published.
@@ -146,6 +148,51 @@ jobs:
             -DestinationPath "$env:GITHUB_WORKSPACE\lvkit-mcp-$ver-win32-x64.zip"
           Get-ChildItem "$env:GITHUB_WORKSPACE\lvkit-mcp-$ver-win32-x64.zip"
 
+      # Resolve the BUNDLED lvkit version once (the plugin manifest + .mcpb are
+      # versioned by it, not by the extension tag).
+      - name: Resolve bundled lvkit version (unix)
+        if: matrix.target != 'win32-x64'
+        shell: bash
+        run: echo "LVKIT_VER=$(editors/vscode/bin/lvkit/lvkit --version | awk '{print $2}')" >> "$GITHUB_ENV"
+      - name: Resolve bundled lvkit version (windows)
+        if: matrix.target == 'win32-x64'
+        shell: pwsh
+        run: |
+          $v = (& "$env:GITHUB_WORKSPACE\editors\vscode\bin\lvkit\lvkit.exe" --version).Split(' ')[1]
+          "LVKIT_VER=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # Assemble the OTHER distribution forms from the SAME built (signed) binary:
+      # the Claude Code plugin archive (all targets) and the Claude Desktop .mcpb
+      # (macOS + Windows only — Desktop has no Linux). One build, many bundles.
+      - name: Assemble plugin + .mcpb bundles (unix)
+        if: matrix.target != 'win32-x64'
+        shell: bash
+        run: bash editors/vscode/build/assemble_bundles.sh "${{ matrix.target }}" "$LVKIT_VER"
+      - name: Assemble plugin + .mcpb bundles (windows)
+        if: matrix.target == 'win32-x64'
+        shell: pwsh
+        run: pwsh editors/vscode/build/assemble_bundles.ps1 -Target win32-x64 -Ver $env:LVKIT_VER
+
+      # SHA-256 sidecars for every release asset (integrity for the manual test
+      # plan and a future pinned marketplace.json).
+      - name: Checksums (unix)
+        if: matrix.target != 'win32-x64'
+        shell: bash
+        run: |
+          for f in lvkit-mcp-*.zip lvkit-plugin-*.zip lvkit-*.mcpb; do
+            [ -e "$f" ] || continue
+            shasum -a 256 "$f" > "$f.sha256"
+          done
+          ls -la lvkit-*.sha256
+      - name: Checksums (windows)
+        if: matrix.target == 'win32-x64'
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path 'lvkit-mcp-*.zip','lvkit-plugin-*.zip','lvkit-*.mcpb' -ErrorAction SilentlyContinue | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
+          }
+
       - name: Package .vsix for this platform
         shell: bash
         working-directory: editors/vscode
@@ -163,7 +210,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.target }}
-          path: lvkit-mcp-*.zip
+          path: |
+            lvkit-mcp-*.zip
+            lvkit-plugin-*.zip
+            lvkit-*.mcpb
+            lvkit-*.sha256
           retention-days: 5
 
   publish:
@@ -202,12 +253,12 @@ jobs:
             echo "::endgroup::"
           done
 
-  # Attach the four standalone binary bundles to a GitHub Release for the tag —
-  # permanently downloadable (Actions artifacts expire), so lvkit can be used as
-  # a zero-setup MCP server / CLI. Independent of the Marketplace publish above;
-  # skipped on a dry-run (workflow_dispatch) because it is gated on the ext-v*
-  # tag ref, exactly like `publish`.
-  release-binaries:
+  # Attach ALL distribution forms to a GitHub Release for the tag — permanently
+  # downloadable (Actions artifacts expire): the standalone binary zips, the
+  # Claude Code plugin archives, and the Claude Desktop .mcpb bundles, each with a
+  # .sha256 sidecar. Independent of the Marketplace publish above; skipped on a
+  # dry-run (workflow_dispatch) because it is gated on the ext-v* tag ref.
+  release-bundles:
     needs: build
     if: startsWith(github.ref, 'refs/tags/ext-v')
     runs-on: ubuntu-latest
@@ -222,22 +273,33 @@ jobs:
       - name: List assets
         shell: bash
         run: ls -la bins
-      - name: Attach standalone binaries to the release
+      - name: Attach all bundles to the release
         uses: softprops/action-gh-release@v2
         with:
-          files: bins/lvkit-mcp-*.zip
+          files: |
+            bins/lvkit-mcp-*.zip
+            bins/lvkit-plugin-*.zip
+            bins/lvkit-*.mcpb
+            bins/*.sha256
           fail_on_unmatched_files: true
           body: |
-            Standalone **lvkit** binaries, bundled with LVKit extension ${{ github.ref_name }}.
+            lvkit ${{ github.ref_name }} — install for your app, no Python/uv/pip.
 
-            Use lvkit as a **zero-setup MCP server** (or CLI) — no Python/uv/pip:
+            **One-click (recommended)**
+            - **Claude Desktop** — download `lvkit-<target>.mcpb`, double-click, pick your VI folder.
+            - **Claude Code** — `claude plugin marketplace add pragmatest-dev/lvkit` then
+              `claude plugin install lvkit-<target>@pragmatest-lvkit`.
+            - **VS Code** — install the LVKit extension from the Marketplace.
+
+            **Manual (any MCP client)** — download `lvkit-mcp-<version>-<target>.zip`, unzip, and
+            point your client at the binary:
 
             ```json
-            { "mcpServers": { "lvkit": { "command": "/abs/path/to/lvkit", "args": ["mcp"] } } }
+            { "mcpServers": { "lvkit": { "command": "/abs/path/to/lvkit/lvkit", "args": ["mcp"] } } }
             ```
+            (`lvkit\lvkit.exe` on Windows.)
 
-            Unzip and point your MCP client (or PATH) at `lvkit/lvkit`
-            (`lvkit\lvkit.exe` on Windows).
+            Each asset has a `.sha256` sidecar.
 
             - **win32-x64** — Authenticode-signed (Azure Public Trust); runs under Smart App Control.
             - **linux-x64** — unsigned ELF.

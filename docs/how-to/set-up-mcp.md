@@ -2,6 +2,12 @@
 
 Give your AI agent live access to your VIs. lvkit's MCP (Model Context Protocol) server lets an agent index a VI repo once and then query it like code — project-wide questions answered from a persisted graph, plus deep single-VI inspection on demand — instead of guessing at what a `.vi` binary contains.
 
+Using Claude Desktop, VS Code, or the Claude Code plugin? Skip straight to the
+one-click bundles in [reference/install](../reference/install.md#one-click-for-your-app)
+— no config file, no uv, no Python. The rest of this page is the manual,
+config-file path for Codex, Copilot CLI, Cursor, or a hand-rolled Claude Code
+setup.
+
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) installed (recommended — see [Without uv](#without-uv) if you'd rather not). uv lets every client below run lvkit with **no separate install**: `uvx --from lvkit lvkit-mcp` fetches it from PyPI on demand.
@@ -65,7 +71,7 @@ VS Code uses `.vscode/mcp.json` with a `"servers"` key and `"type": "stdio"`:
 }
 ```
 
-Or skip the config entirely: the lvkit VS Code extension (from the Marketplace) bundles a signed standalone binary and auto-registers the server (VS Code ≥ 1.101) — no `mcp.json`, no Python, no uv.
+Or skip the config entirely: the [lvkit VS Code extension](../reference/vscode-extension.md) (from the Marketplace) bundles a signed standalone binary and auto-registers the server (VS Code ≥ 1.101) — no `mcp.json`, no Python, no uv.
 
 ### Codex
 
@@ -100,7 +106,7 @@ pip install lvkit      # or: uv tool install lvkit / pipx install lvkit
 
 (`lvkit mcp` and the `lvkit-mcp` console script are the same server.)
 
-**No Python at all** — install the lvkit VS Code extension. It ships a signed standalone binary, so a LabVIEW developer on Windows needs neither Python nor uv.
+**No Python at all** — install the [lvkit VS Code extension](../reference/vscode-extension.md), or the Claude Desktop / Claude Code one-click bundles in [reference/install](../reference/install.md#one-click-for-your-app). Each ships a signed standalone binary, so a LabVIEW developer needs neither Python nor uv.
 
 ## Verify it works
 
@@ -133,12 +139,13 @@ The full 16-tool surface — project index, deep single-VI inspection, and state
 - **Client shows zero lvkit tools after restart.** Run `lvkit mcp --selftest` (or `uvx --from lvkit lvkit mcp --selftest`) directly — a non-zero exit means the server itself is broken (often an incompatible `mcp` package version), not a client config problem. Fix that first, then re-check the client config against the JSON/TOML above.
 - **`uvx` not found.** uv isn't installed or isn't on `PATH` — see [Install uv](#install-uv), or use the [no-uv fallback](#without-uv).
 - **Client can't run a subprocess (locked-down environment).** Use the [no-uv fallback](#without-uv): `pip install lvkit`, then point `command` at the `lvkit` console script directly.
-- **On Windows, no Python and no uv available.** Install the lvkit VS Code extension — it bundles a signed standalone binary and registers itself with no config file at all.
+- **No Python and no uv available.** Install the [lvkit VS Code extension](../reference/vscode-extension.md) — it bundles a signed standalone binary and registers itself with no config file at all.
 - **Results look stale after editing VIs.** The project index is content-hash-keyed but only refreshed on read; `index`/`query` refresh it automatically before each call unless the caller skips that (see [reference/mcp](../reference/mcp.md#notes)).
 
 ## See also
 
 - [reference/mcp](../reference/mcp.md) — the server's full tool list (project index, deep single-VI inspection, stateless generators) and notes on how the index is stored and refreshed.
-- [reference/install](../reference/install.md) — this same setup content as a reference page, plus the VS Code extension's `lvkit.path` setting.
+- [reference/install](../reference/install.md) — every install path, one-click bundles first, then this same config-file content as a reference page.
+- [reference/vscode-extension](../reference/vscode-extension.md) — the VS Code extension's view/diff/MCP surface and its `lvkit.path` setting.
 - [reference/setup](../reference/setup.md) — install AI-agent editor skills (separate from the MCP server) and create the project-local `.lvkit/` resolution store.
 - [reference/query](../reference/query.md) — the SQL surface behind the `query` tool, with the full view/column list.

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "lvkit": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/lvkit/lvkit",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}

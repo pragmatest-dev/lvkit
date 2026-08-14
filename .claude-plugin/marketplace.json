@@ -1,0 +1,68 @@
+{
+  "name": "pragmatest-lvkit",
+  "owner": {
+    "name": "Pragmatest",
+    "url": "https://github.com/pragmatest-dev/lvkit"
+  },
+  "metadata": {
+    "description": "lvkit — read, diff, and convert LabVIEW VIs without a LabVIEW license."
+  },
+  "plugins": [
+    {
+      "name": "lvkit-darwin-arm64",
+      "description": "lvkit MCP server + skills for LabVIEW VIs — macOS (Apple Silicon). Bundles a self-contained binary; no Python, uv, or pip.",
+      "author": { "name": "Pragmatest" },
+      "homepage": "https://pragmatest.com",
+      "repository": "https://github.com/pragmatest-dev/lvkit",
+      "license": "Apache-2.0",
+      "category": "development",
+      "keywords": ["labview", "vi", "ni", "mcp", "diff", "codegen"],
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/pragmatest-dev/lvkit/releases/latest/download/lvkit-plugin-darwin-arm64.zip"
+      }
+    },
+    {
+      "name": "lvkit-darwin-x64",
+      "description": "lvkit MCP server + skills for LabVIEW VIs — macOS (Intel). Bundles a self-contained binary; no Python, uv, or pip.",
+      "author": { "name": "Pragmatest" },
+      "homepage": "https://pragmatest.com",
+      "repository": "https://github.com/pragmatest-dev/lvkit",
+      "license": "Apache-2.0",
+      "category": "development",
+      "keywords": ["labview", "vi", "ni", "mcp", "diff", "codegen"],
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/pragmatest-dev/lvkit/releases/latest/download/lvkit-plugin-darwin-x64.zip"
+      }
+    },
+    {
+      "name": "lvkit-win32-x64",
+      "description": "lvkit MCP server + skills for LabVIEW VIs — Windows (x64). Bundles a signed self-contained binary; no Python, uv, or pip.",
+      "author": { "name": "Pragmatest" },
+      "homepage": "https://pragmatest.com",
+      "repository": "https://github.com/pragmatest-dev/lvkit",
+      "license": "Apache-2.0",
+      "category": "development",
+      "keywords": ["labview", "vi", "ni", "mcp", "diff", "codegen"],
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/pragmatest-dev/lvkit/releases/latest/download/lvkit-plugin-win32-x64.zip"
+      }
+    },
+    {
+      "name": "lvkit-linux-x64",
+      "description": "lvkit MCP server + skills for LabVIEW VIs — Linux (x64). Bundles a self-contained binary; no Python, uv, or pip.",
+      "author": { "name": "Pragmatest" },
+      "homepage": "https://pragmatest.com",
+      "repository": "https://github.com/pragmatest-dev/lvkit",
+      "license": "Apache-2.0",
+      "category": "development",
+      "keywords": ["labview", "vi", "ni", "mcp", "diff", "codegen"],
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/pragmatest-dev/lvkit/releases/latest/download/lvkit-plugin-linux-x64.zip"
+      }
+    }
+  ]
+}
