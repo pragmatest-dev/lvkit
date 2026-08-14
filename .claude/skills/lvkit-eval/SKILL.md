@@ -10,13 +10,20 @@ Question bank: `docs/_internal/mcp-evals.md` (24 questions, ground truth from
 the JKI VI Tester corpus). Grades three axes per question — **Used lvkit? /
 Correct? / Fabricated?**
 
-Judging has three lanes, pick per question:
+Judging has four lanes, pick per question:
 
 | Lane | Questions | Judge |
 |---|---|---|
 | (a) Deterministic facts | Q1, Q2, Q10, Q20 (count), Q22, Q24, gap #18/#19 | `tests/test_mcp_evals.py` |
-| (b) Open-ended | Q3–9, 11–19, 21, 23 (magic numbers, naming, "public API", …) | `eval-judge` skill |
-| (c) Conversion (future category, not the current 24) | "convert `<VI>` — is it faithful?" | `judge-output` skill |
+| (b) Open-ended query/facts | Q3–9, 11–19, 21, 23 (magic numbers, naming, "public API", …) | `eval-judge` skill |
+| (c) Conversion faithfulness | **cat. I (Q27–29)** — convert a VI, verify vs the oracle | `judge-output` skill + execute-both |
+| (d) Other-skill behavior | **cat. J/K (Q30–32)** — `/lvkit-review`, `/lvkit-document` | `eval-judge` skill |
+
+Categories A–H are the query/facts surface (lanes a/b). **Categories I–L
+(Q27–33) are the skill-behavior evals for `convert`/`review`/`document`/
+`resolve`** — behavior, not pinned facts, so judge them with the skill named in
+the eval bank, not the pytest harness. Cat. L (Q33, `lvkit unresolved` coverage)
+becomes lane (a) — pin it in the harness — once that command lands.
 
 ## Step 1 — Run the automated correctness harness
 
@@ -65,10 +72,11 @@ passing it:
 likely MCP fix per question — don't re-derive that rubric here, just invoke
 it.
 
-(Reserved: once a "convert `<VI>` — is it faithful?" category of eval
-question exists, judge those with the `judge-output` skill instead — it
-compares generated Python against the VI's graph. None of the current 24
-questions are conversion questions.)
+Conversion questions (cat. I, Q27–29) are judged with `judge-output` (it
+compares the port against the VI's graph — signature, control flow, SubVI
+calls, parallelism) PLUS an execute-both behavioral-equivalence run: run the
+hand-written port and `lvkit generate`'s oracle on the same inputs and diff the
+results. Review/document questions (cat. J/K) use `eval-judge`.
 
 ## Step 4 — Synthesize the scorecard
 

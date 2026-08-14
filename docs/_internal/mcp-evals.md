@@ -168,6 +168,56 @@ Scorecard template at the bottom.
 
 ---
 
+# Skill-behavior evals (the OTHER skills)
+
+Categories A–H exercise the **query/facts** surface (deterministic + open-ended
+lanes). The corpus is present, so these categories exercise the rest of the
+shipped skill set — `convert`, `review`, `document`, `resolve`, and the `lvkit`
+router. They are **not** pinned in `tests/test_mcp_evals.py` (behavior, not a
+fact); judge them with the skill named per category. Run each by handing a fresh
+agent ONLY the repo path + the question (no tool hint) — that also measures
+whether the `lvkit` router earns adoption where the scorecard found the CLI
+undiscoverable.
+
+## I. Conversion faithfulness  [judge: `judge-output` + execute-both]
+
+27. **Convert `<pick a VI with a For loop + an auto-indexing tunnel>` to Python — is it behaviorally faithful?**
+    - *Answered by:* `/lvkit-convert` — understand via `get_context`, write Python, verify vs the `lvkit generate` oracle (execute both, diff outputs).
+    - *Watch for:* a manual list-append where the tunnel auto-indexes (should be `enumerate`/indexed); serializing independent branches; ignoring the `N`-terminal iteration cap.
+
+28. **Convert a VI that has error clusters AND parallel branches — is the held-error model preserved?**
+    - *Answered by:* `/lvkit-convert`.
+    - *Watch for:* one `try/except` around everything (short-circuits branches that still run); dropping the first-error-at-merge semantics.
+
+29. **Convert a VI whose array wire branches into an in-place-mutating op — does the port avoid the aliasing bug?**
+    - *Answered by:* `/lvkit-convert`; execute — mutate one consumer, assert the other's copy is unchanged.
+    - *Watch for:* sharing one Python object across both consumers. NOTE: the `lvkit generate` oracle ITSELF has this gap except at the Formula-Node site — so this eval also guards the skill's "don't trust the oracle blindly on array/cluster branches" instruction.
+
+## J. Change review  [judge: `eval-judge`]
+
+30. **What changed between the two `WaitOnTestComplete.vi` copies in this repo, and who's affected?**  (the corpus has two same-named copies — a real diff)
+    - *Answered by:* `/lvkit-review` — `lvkit diff <a> <b>` + `blast_radius` for ripple.
+    - *Watch for:* a raw wire/terminal delta with no narrative; omitting the affected-callers (blast-radius) half.
+
+31. **Summarize what a specific commit changed to `<a VI under git>`.**  (commit vs parent)
+    - *Answered by:* `/lvkit-review` (git-history-aware diff).
+    - *Watch for:* diffing HEAD-vs-HEAD on a clean tree (shows nothing); a delta with no "why it matters".
+
+## K. Documentation  [judge: `eval-judge`]
+
+32. **Document `TestCase.lvclass`.**  (natural task — do NOT tell it to add summaries; the skill must know to)
+    - *Answered by:* `/lvkit-document` — `lvkit docs` for the structural site, then augment each page with describe's interpretation *by default*.
+    - *Watch for:* a structural-only site (signatures, no "what it does") — the skill failing to add interpretation unprompted is the failure; also a FABRICATED purpose for a VI whose intent isn't inferable from the graph.
+
+## L. Resolution coverage  [deterministic once `lvkit unresolved` lands → then pin in the harness]
+
+33. **What primitives / vi.lib VIs are unresolved across this repo?**
+    - *Answered by:* `lvkit unresolved <repo>` (batch) — or `/lvkit-resolve` per gap.
+    - *Ground truth (JKI):* [pin the unknown-primitive + unmapped-vilib count once `lvkit unresolved` exists]. Distinct from Q26's 149 unresolved-*type* terminals.
+    - *Watch for:* claiming zero gaps; conflating an unresolved-type terminal with an unresolved *primitive/VI*.
+
+---
+
 ## Sharpest discriminators
 
 If short on time, run **1, 10, 12, 17, 20**. They best separate an agent that
