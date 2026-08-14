@@ -62,7 +62,6 @@ from .op_walk import (
     ComponentPort,
     _case_output_tunnel_outers,
     _const_value_str,
-    _find_op_owning_terminal,
     _has_output_tunnel,
     _is_eta_output_tunnel,
     _is_gamma_output_tunnel,
@@ -74,6 +73,7 @@ from .op_walk import (
     _subvi_ports,
     _terminal_display_name,
     correlate_property_terminals,
+    index_terminal_owners,
 )
 from .queries import ClassContext, collect_class_context
 
@@ -464,6 +464,12 @@ class _BuildCtx:
     # master reach its linked write side (``FeedbackOperation.partner_uid``)
     # to resolve the mu ``recur`` source. Built once via ``_walk_flat``.
     op_by_uid: dict[str, Operation]
+    # Every terminal id -> its owning ``(op, terminal)``, built ONCE (see
+    # ``op_walk.index_terminal_owners``). ``_resolve_source`` does an O(1)
+    # lookup here instead of re-scanning the whole op tree per wire -- that
+    # linear rescan was an O(n^2) hot spot (6.4M ``_find_op_owning_terminal``
+    # calls on a 1k-node VI, ~half of build_netlist's time).
+    owner_by_terminal: dict[str, tuple[Operation, Terminal]]
 
 
 @dataclass
@@ -838,7 +844,7 @@ def _resolve_source(
             return None
         src: WireEnd = sources[0]
 
-        hit = _find_op_owning_terminal(root_ops, src.terminal_id)
+        hit = build_ctx.owner_by_terminal.get(src.terminal_id)
         if hit is not None:
             op, term = hit
             if _is_gamma_output_tunnel(op, term):
@@ -1675,6 +1681,7 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         loop_id_by_uid=_assign_loop_ids(root_ops),
         feedback_id_by_uid=_assign_feedback_ids(root_ops),
         op_by_uid={op.id: op for op in _walk_flat(root_ops)},
+        owner_by_terminal=index_terminal_owners(root_ops),
     )
 
     inputs = [

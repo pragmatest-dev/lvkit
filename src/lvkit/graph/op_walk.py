@@ -71,6 +71,38 @@ def _find_op_owning_terminal(
     return None
 
 
+def index_terminal_owners(
+    operations: list[Operation],
+    out: dict[str, tuple[Operation, Terminal]] | None = None,
+) -> dict[str, tuple[Operation, Terminal]]:
+    """Map every terminal id -> its owning ``(op, terminal)``, in ONE walk.
+
+    A precomputed form of ``_find_op_owning_terminal``: build this once per pass
+    and do O(1) lookups instead of re-scanning the whole op tree per wire (that
+    linear rescan is an O(n^2) hot spot in ``netlist.build_netlist`` --
+    ``_resolve_source`` traces many wires). Recurses IDENTICALLY to
+    ``_find_op_owning_terminal`` (``inner_nodes`` always, plus frames for
+    case/sequence/disable/event structures) so the map and the scan never
+    disagree. Terminal ids are unique, so first-writer-wins is moot; kept for
+    safety.
+    """
+    if out is None:
+        out = {}
+    for op in operations:
+        for t in op.terminals:
+            if t.id not in out:
+                out[t.id] = (op, t)
+        index_terminal_owners(op.inner_nodes, out)
+        if isinstance(
+            op,
+            (CaseOperation, SequenceOperation, DisableStructureOperation,
+             EventOperation),
+        ):
+            for frame in op.frames:
+                index_terminal_owners(frame.operations, out)
+    return out
+
+
 def _has_output_tunnel(op: Operation) -> bool:
     """True if the structure routes any value out (so an empty frame is a
     pass-through, not truly empty -- LV requires output tunnels wired in
