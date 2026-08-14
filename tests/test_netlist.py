@@ -58,6 +58,16 @@ _COVERAGE_VI = Path(
     "Graphical Test Runner/Graphical Test Runner Support/Calculate Test Coverage.vi"
 )
 
+# A corpus VI whose second Compound Arithmetic node has a real "Not" bubble
+# on one of its INPUT terminals (`Terminal.inverted`, DCO objFlags bit 16) --
+# `Compound Arithmetic#2` ANDs `Less?.result` with the NEGATION of
+# `Equal?#2.equal`. Ground truth located by grepping the JKI-VI-Tester
+# corpus's extracted `*_BDHb.xml` for `cpdArith` and parsing each candidate.
+_INVERTED_INPUT_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Menu Launch/"
+    "VI Tester Menu Launch.vi"
+)
+
 
 def test_boundary_outputs_carry_their_source_net() -> None:
     """Every wired indicator resolves to the net that drives it (get_context
@@ -439,6 +449,73 @@ def test_non_cpdarith_instance_has_no_operation_suffix() -> None:
     out = render_netlist(module)
     assert "Subtract#1(y=Array Size#2.size, x=Array Size#1.size) -> difference" in out
     assert "Subtract#1 [" not in out
+
+
+def _load_inverted_input_vi() -> tuple[InMemoryVIGraph, str]:
+    graph = InMemoryVIGraph()
+    graph.load_vi(
+        str(_INVERTED_INPUT_VI), LoadMode.MINIMAL,
+        search_paths=[_INVERTED_INPUT_VI.parents[1]],
+    )
+    vi_name = graph.resolve_vi_name(_INVERTED_INPUT_VI.name)
+    return graph, vi_name
+
+
+def test_compound_arithmetic_inverted_input_renders_negation_prefix() -> None:
+    """Audit finding: an INPUT terminal's "Not" bubble (``Terminal.inverted``,
+    already parsed from DCO objFlags bit 16 -- see ``construction.py``) used
+    to be dropped entirely by the netlist projection, so ``x AND NOT y``
+    rendered identically to ``x AND y``. This VI's second Compound
+    Arithmetic node ANDs ``Less?.result`` with the NEGATION of
+    ``Equal?#2.equal`` -- the rendered line must now wrap that one input in
+    ``not(...)``, and only that one. (``not(net)``, not a bare ``NOT ``/``!``
+    prefix, so it reads clearly and can't be mistaken for the primitive
+    named "Not Equal?".)"""
+    if not _INVERTED_INPUT_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_inverted_input_vi()
+    module = build_netlist(graph, vi_name)
+
+    instances = _cpdarith_instances(module)
+    assert {i.occurrence for i in instances} == {1, 2}
+    inst2 = next(i for i in instances if i.occurrence == 2)
+
+    bindings_by_port = {b.port: b for b in inst2.inputs}
+    assert bindings_by_port["1"].inverted is False
+    assert bindings_by_port["2"].inverted is True
+    # Faithful: the negation is an annotation on the BINDING, never on the
+    # net's own identity.
+    assert bindings_by_port["2"].net.bare == "equal"
+
+    out = render_netlist(module)
+    assert (
+        "Compound Arithmetic#2 [and]"
+        "(1=result, 2=not(Equal?#2.equal)) -> Compound Arithmetic#2.0" in out
+    )
+    # The sibling (non-inverted) Compound Arithmetic node's inputs are
+    # unaffected -- no negation wrapper appears anywhere on its line.
+    line1 = next(
+        line for line in out.splitlines() if "Compound Arithmetic#1 [" in line
+    )
+    assert "not(" not in line1
+
+
+def test_compound_arithmetic_non_inverted_inputs_unchanged() -> None:
+    """Non-inverted inputs on the SAME node as an inverted one render exactly
+    as they did before ``inverted`` existed -- no stray ``NOT `` prefix, and
+    the net names/occurrence tags are stable (identical to what
+    ``test_compound_arithmetic_operator_does_not_perturb_net_names`` already
+    asserts for the operator suffix)."""
+    if not _INVERTED_INPUT_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_inverted_input_vi()
+    module = build_netlist(graph, vi_name)
+
+    instances = _cpdarith_instances(module)
+    for inst in instances:
+        for b in inst.inputs:
+            if b.port != "2" or inst.occurrence != 2:
+                assert b.inverted is False
 
 
 def test_nmux_class_private_data_dep_graph_case_unchanged():

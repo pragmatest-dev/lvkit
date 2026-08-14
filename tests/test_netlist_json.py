@@ -204,6 +204,43 @@ def test_instance_carries_cpdarith_operation():
     assert body_inst["outputs"][0]["bare"] == "Compound Arithmetic#1.0"
 
 
+def test_input_binding_carries_inverted_flag():
+    """Audit finding: an INPUT terminal's "Not" bubble
+    (``NetlistPortBinding.inverted``, mirroring ``Terminal.inverted``) must be
+    readable straight off the JSON binding -- a program can't tell
+    ``x AND NOT y`` from ``x AND y`` by parsing rendered text. The inverted
+    binding's own net identity (``bare``/``occurrence``) is UNCHANGED --
+    ``inverted`` is an annotation on the binding, never on the net."""
+    inst = NetlistInstance(
+        uid="12",
+        name="Compound Arithmetic",
+        occurrence=2,
+        inputs=[
+            NetlistPortBinding(
+                port="1", net=_ref("Less?", "result", "result"),
+            ),
+            NetlistPortBinding(
+                port="2", net=_ref("Equal?", "equal", "equal", occ=2),
+                inverted=True,
+            ),
+        ],
+        outputs=[_ref("Compound Arithmetic", "0", "Compound Arithmetic#2.0")],
+        operation="and",
+    )
+    module = NetlistModule(vi_name="c.vi", inputs=[], outputs=[], body=[inst])
+
+    d = netlist_to_dict(module)
+    inputs = d["body"][0]["inputs"]
+    assert inputs[0]["port"] == "1"
+    assert inputs[0]["inverted"] is False
+    assert inputs[1]["port"] == "2"
+    assert inputs[1]["inverted"] is True
+    # Net identity is untouched by the flag.
+    assert inputs[1]["net"] == {
+        "node": "Equal?", "port": "equal", "occurrence": 2, "bare": "equal",
+    }
+
+
 def test_non_case_scope_outputs_is_empty_list():
     """``outputs`` is always present (never omitted) but empty for every
     non-case scope kind -- loops/sequences/disabled/event structures don't

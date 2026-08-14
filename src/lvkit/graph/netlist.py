@@ -119,10 +119,20 @@ class NetlistPortBinding:
     str(index)`` -- for an nMux/decompose LIST terminal ``display_name`` IS
     the real field name, stamped once at load time; see
     ``_component_port_name``), NOT the source net's name.
+
+    ``inverted`` mirrors the INPUT terminal's own ``Terminal.inverted`` flag
+    (the "Not" bubble LabVIEW draws directly on a Compound Arithmetic input --
+    that input is negated before the node's own operation runs, e.g.
+    ``x AND NOT y``). Annotation ONLY, exactly like ``NetlistInstance.
+    operation``: it changes how ``instance_line``/``netlist_to_dict`` DISPLAY
+    this binding, never the net's identity -- ``net`` (and its ``bare``/
+    ``occurrence``) stays exactly what it would be uninverted, so net-name
+    disambiguation and diffing are untouched.
     """
 
     port: str
     net: NetRef
+    inverted: bool = False
 
 
 @dataclass
@@ -660,7 +670,7 @@ def _build_instance(
     name = _display_name(op)
     occurrence = build_ctx.occurrence_by_uid.get(uid)
     inputs = [
-        NetlistPortBinding(port=_component_port_name(t), net=ref)
+        NetlistPortBinding(port=_component_port_name(t), net=ref, inverted=t.inverted)
         for t in op.terminals
         if t.direction == "input"
         if (ref := _input_ref(graph, ctx, root_ops, build_ctx, t))
@@ -1277,15 +1287,25 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
 
     Inputs use NAMED-PORT association (Verilog ``.port(net)`` / VHDL
     ``port => signal`` / Python kwargs), rendered ``port=net`` -- each wire
-    is tied to the declared input port it feeds, not left positional.
+    is tied to the declared input port it feeds, not left positional. An
+    inverted input (``NetlistPortBinding.inverted`` -- the "Not" bubble
+    LabVIEW draws directly on that input, negating it before the node's own
+    operation runs) renders ``port=NOT net``: a ``NOT `` prefix on the net,
+    ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
+    ``_render_gamma_source``/the module docstring already reserve arrows for.
+    A non-inverted input is unchanged from before this flag existed.
     """
     tag = f"#{instance.occurrence}" if instance.occurrence else ""
     op_suffix = f" [{instance.operation}]" if instance.operation else ""
     name_disp = f"{instance.name}{tag}{op_suffix}"
-    ins = ", ".join(
-        f"{b.port}={b.net.render(qualified=b.net.bare in ambiguous)}"
-        for b in instance.inputs
-    )
+    def _bind(b: NetlistPortBinding) -> str:
+        net = b.net.render(qualified=b.net.bare in ambiguous)
+        # An inverted input wraps the net in `not(...)` -- a function form that
+        # reads clearly and can't be mistaken for the primitive "Not Equal?"
+        # the way a bare `NOT `/`!` prefix glued to the name would.
+        return f"{b.port}={f'not({net})' if b.inverted else net}"
+
+    ins = ", ".join(_bind(b) for b in instance.inputs)
     base = f"{name_disp}({ins})"
     if instance.outputs:
         outs = ", ".join(ref.render(qualified=False) for ref in instance.outputs)
@@ -1481,7 +1501,11 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
             "occurrence": item.occurrence,
             "operation": item.operation,
             "inputs": [
-                {"port": b.port, "net": _netref_to_dict(b.net)}
+                {
+                    "port": b.port,
+                    "net": _netref_to_dict(b.net),
+                    "inverted": b.inverted,
+                }
                 for b in item.inputs
             ],
             "outputs": [_netref_to_dict(o) for o in item.outputs],
