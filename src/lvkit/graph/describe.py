@@ -885,6 +885,10 @@ def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
             detail = ""
             if tunnel.mode is not None:
                 detail += f" mode={tunnel.mode.value}"
+            # The orthogonal Conditional modifier (output tunnels) -- only
+            # surfaced when set, since most tunnels are unconditional.
+            if tunnel.conditional:
+                detail += " conditional=True"
             if tunnel.sr_initialized is not None:
                 detail += f" initialized={tunnel.sr_initialized}"
             # 1 is a normal (unstacked) shift register -- the ubiquitous

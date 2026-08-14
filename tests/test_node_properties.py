@@ -120,15 +120,19 @@ class TestTunnelMode:
         assert tunnel.tunnel_type == "lpTun"
         assert tunnel.mode == TunnelMode.INDEXING
 
-    def test_last_value(self) -> None:
-        """run_diff.vi forLoop 1694 -- one of its lpTun tunnels (dco uid 1866
-        in the raw XML, outer terminal uid 1896) is LAST_VALUE: outer==inner
-        Path, no per-iteration indexing."""
+    def test_input_no_indexing_is_passthrough(self) -> None:
+        """run_diff.vi forLoop 1694 -- its lpTun tunnel (dco uid 1866, outer
+        terminal uid 1896) is an INPUT tunnel with indexing OFF: outer==inner
+        Path, whole value passes straight in. Input tunnels are only
+        auto-index or no-indexing, so this is PASSTHROUGH -- NOT LAST_VALUE
+        (a last-value is an output-only mode; the graph re-labels the parser's
+        indexing-off default by direction, see construction.py)."""
         _skip_if_missing(RUN_DIFF_VI)
         op = _loop_op(RUN_DIFF_VI, "1694")
         tunnel = _tunnel_by_outer(op, "1896")
         assert tunnel.tunnel_type == "lpTun"
-        assert tunnel.mode == TunnelMode.LAST_VALUE
+        assert tunnel.mode == TunnelMode.PASSTHROUGH
+        assert tunnel.conditional is False
 
     def test_concatenating(self) -> None:
         """DCAF-DAQModule 'Create Test Configuration.vi' forLoop 1094 --
@@ -143,14 +147,17 @@ class TestTunnelMode:
     def test_conditional(self) -> None:
         """DCAF-DAQModule testing/Config.vi forLoop 167 -- two lpTun tunnels
         (dco uid 180 and 186, outer terminal uids 179 and 185) carry
-        <IsConditional>True</IsConditional> + a sibling
-        <LpTunConditionDCO> -- indexing gated by a per-iteration boolean."""
+        <IsConditional>True</IsConditional> + a sibling <LpTunConditionDCO>.
+        Conditional is an ORTHOGONAL modifier, not a mode: the base mode stays
+        INDEXING (element into array), with conditional=True layered on
+        (conditionally index each iteration's element)."""
         _skip_if_missing(CONFIG_VI)
         op = _loop_op(CONFIG_VI, "167")
         for outer_uid in ("179", "185"):
             tunnel = _tunnel_by_outer(op, outer_uid)
             assert tunnel.tunnel_type == "lpTun"
-            assert tunnel.mode == TunnelMode.CONDITIONAL
+            assert tunnel.mode == TunnelMode.INDEXING
+            assert tunnel.conditional is True
 
     def test_describe_shows_tunnel_mode(self) -> None:
         """describe_structure's per-loop tunnel line surfaces ``mode=``
@@ -202,6 +209,72 @@ class TestLpTunModeSynthetic:
         tunnels = extract_tunnel_mapping(dco, "lpTun")
         assert len(tunnels) == 1
         assert tunnels[0].mode == TunnelMode.PASSTHROUGH
+
+    @staticmethod
+    def _lp_tun(inner_objflags: str | None, *, tunnel_type: str | None = None,
+                conditional: bool = False) -> ET.Element:
+        """A lpTun dco with an innerLpTunDCO carrying the given objFlags (the
+        auto-index flag lives in bit 0x400000 there). Optional <TunnelType>
+        (older explicit index encoding) and <IsConditional>."""
+        of = (f"<objFlags>{inner_objflags}</objFlags>"
+              if inner_objflags is not None else "")
+        tt = f"<TunnelType>{tunnel_type}</TunnelType>" if tunnel_type else ""
+        cond = "<IsConditional>True</IsConditional>" if conditional else ""
+        return ET.fromstring(
+            f"""
+            <dco class="lpTun" uid="1">
+              <objFlags>2049</objFlags>
+              <termList elements="2">
+                <SL__arrayElement uid="2" />
+                <SL__arrayElement uid="3" />
+                </termList>
+              <typeDesc>TypeID(1)</typeDesc>
+              {tt}{cond}
+              <innerLpTunDCO class="innerLpTun" uid="4">
+                {of}
+                <termList elements="2">
+                  <SL__arrayElement uid="2" />
+                  <SL__arrayElement uid="3" />
+                  </termList>
+                <typeDesc>TypeID(2)</typeDesc>
+                <lpTunDCO uid="1" />
+                </innerLpTunDCO>
+              </dco>
+            """
+        )
+
+    def test_indexing_from_flag_bit(self) -> None:
+        """The auto-index flag is innerLpTunDCO objFlags bit 0x400000 -- set,
+        with NO <TunnelType>, still decodes to INDEXING (the 153-tunnel case
+        the old <TunnelType>-only rule missed)."""
+        t = extract_tunnel_mapping(self._lp_tun("4194304"), "lpTun")[0]
+        assert t.mode == TunnelMode.INDEXING
+        assert t.conditional is False
+
+    def test_indexing_from_tunnel_type(self) -> None:
+        """The older explicit encoding (<TunnelType>, flag bit clear) also
+        decodes to INDEXING."""
+        t = extract_tunnel_mapping(
+            self._lp_tun("16777216", tunnel_type="01"), "lpTun"
+        )[0]
+        assert t.mode == TunnelMode.INDEXING
+
+    def test_last_value_flag_clear(self) -> None:
+        """innerLpTunDCO present, index bit clear, no <TunnelType> -> the base
+        mode is LAST_VALUE (an output tunnel passing the final value; the graph
+        re-labels an input tunnel here as PASSTHROUGH by direction)."""
+        t = extract_tunnel_mapping(self._lp_tun("0"), "lpTun")[0]
+        assert t.mode == TunnelMode.LAST_VALUE
+        assert t.conditional is False
+
+    def test_conditional_is_orthogonal_to_base_mode(self) -> None:
+        """<IsConditional>True with the index flag set -> base INDEXING +
+        conditional=True (the modifier layers on, never replaces the mode)."""
+        t = extract_tunnel_mapping(
+            self._lp_tun("4194304", conditional=True), "lpTun"
+        )[0]
+        assert t.mode == TunnelMode.INDEXING
+        assert t.conditional is True
 
     def test_non_lp_tun_never_gets_a_mode(self) -> None:
         """mode is an lpTun-only concept -- lSR/rSR/lMax/... always None,

@@ -16,6 +16,7 @@ from ..models import (
     FPTerminal,
     LVType,
     Terminal,
+    TunnelMode,
     TunnelTerminal,
     bundle_unbundle_name,
     control_type_to_lvtype,
@@ -1271,6 +1272,19 @@ class ConstructionMixin:
             q_outer_uid = self._qid(vi_name, outer_uid)
             q_inner_uid = self._qid(vi_name, inner_uid)
 
+            # Direction-normalize the loop-tunnel mode now that direction is
+            # known (the parser sees only the file's flags, not which way data
+            # flows). An INPUT tunnel is auto-index (INDEXING) or no-indexing
+            # (PASSTHROUGH) only -- it has no last-value/concatenate/conditional
+            # semantics (those are output-only), so re-label its "indexing off"
+            # LAST_VALUE as PASSTHROUGH and clear conditional.
+            tun_mode = tunnel.mode
+            tun_conditional = tunnel.conditional
+            if is_input_tunnel and ttype == "lpTun":
+                if tun_mode == TunnelMode.LAST_VALUE:
+                    tun_mode = TunnelMode.PASSTHROUGH
+                tun_conditional = False
+
             # Outer terminal
             outer_lv_type = None
             if outer_ti and outer_ti.parsed_type:
@@ -1285,7 +1299,8 @@ class ConstructionMixin:
                 tunnel_type=ttype,
                 boundary="outer",
                 paired_id=q_inner_uid,
-                mode=tunnel.mode,
+                mode=tun_mode,
+                conditional=tun_conditional,
                 sr_initialized=tunnel.sr_initialized,
                 sr_stack_depth=tunnel.sr_stack_depth,
             )
@@ -1319,7 +1334,8 @@ class ConstructionMixin:
                 boundary="inner",
                 paired_id=q_outer_uid,
                 frame=inner_frame,
-                mode=tunnel.mode,
+                mode=tun_mode,
+                conditional=tun_conditional,
                 sr_initialized=tunnel.sr_initialized,
                 sr_stack_depth=tunnel.sr_stack_depth,
             )

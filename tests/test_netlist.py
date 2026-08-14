@@ -111,10 +111,11 @@ _SHIFT_REGISTER_VI = Path(
 # tunnel, consumed immediately after the loop (Array Size / Sort Array__
 # ogtk.vi / Conditional Auto-Indexing Tunnel__ogtk.vi). Ground truth located
 # the same way as _SHIFT_REGISTER_VI.
-_LAST_VALUE_LOOP_VI = Path(
+# A VI with a genuine CONDITIONAL output tunnel (the orthogonal modifier).
+_CONDITIONAL_LOOP_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
     "Graphical Test Runner/Graphical Test Runner Support/"
-    "Calculate Test Coverage.vi"
+    "Prepend Test Project Path If New.vi"
 )
 
 # Real corpus VI with a genuinely UNINITIALIZED shift register (an array
@@ -342,27 +343,54 @@ def test_auto_indexed_output_renders_eta_array_and_outside_consumer_resolves() -
         assert stripped.startswith("out")
 
 
-def test_last_value_output_renders_eta_last() -> None:
-    """A LAST_VALUE loop output tunnel renders ``eta(last, ...)`` -- the
-    other half of the eta-merge's index_mode (mirrors the auto-indexed
-    "array" case above)."""
-    if not _LAST_VALUE_LOOP_VI.exists():
+def test_eta_line_renders_base_mode_and_conditional_modifier() -> None:
+    """The eta line renders the BASE mode token (``array``/``last``/...) and
+    appends ``+cond`` for the orthogonal Conditional modifier -- never a
+    separate ``conditional`` mode. Hermetic: no VI in the sample corpus has a
+    genuine last-value OUTPUT tunnel (the old ``eta(last)`` cases were
+    mislabeled indexing -- inner element vs outer array), so exercise the
+    render directly."""
+    from lvkit.graph.netlist import _eta_definition_line
+
+    val = DefaultValue(literal="0", lv_label="I32")
+    last = _eta_definition_line(
+        EtaMerge(net="loop0.out0", index_mode="last", conditional=False, value=val),
+        set(),
+    )
+    assert "eta(last," in last
+    cond_index = _eta_definition_line(
+        EtaMerge(net="loop0.out0", index_mode="array", conditional=True, value=val),
+        set(),
+    )
+    assert "eta(array+cond," in cond_index
+    cond_last = _eta_definition_line(
+        EtaMerge(net="loop0.out0", index_mode="last", conditional=True, value=val),
+        set(),
+    )
+    assert "eta(last+cond," in cond_last
+
+
+def test_conditional_output_tunnel_carries_conditional_modifier() -> None:
+    """A real VI with a Conditional output tunnel yields an EtaMerge whose
+    base ``index_mode`` is unchanged and ``conditional`` is True (the modifier
+    is orthogonal, never a mode)."""
+    if not _CONDITIONAL_LOOP_VI.exists():
         pytest.skip("JKI-VI-Tester sample corpus not present")
-    graph, vi_name = _load_vi(_LAST_VALUE_LOOP_VI, _JKI_SOURCE_ROOT)
+    graph, vi_name = _load_vi(_CONDITIONAL_LOOP_VI, _JKI_SOURCE_ROOT)
     module = build_netlist(graph, vi_name)
 
-    last_etas = [
+    cond_etas = [
         m
         for scope in _all_scopes(module.body)
         for m in scope.outputs
-        if isinstance(m, EtaMerge) and m.index_mode == "last"
+        if isinstance(m, EtaMerge) and m.conditional
     ]
-    assert last_etas, "expected at least one last-value EtaMerge"
-
+    assert cond_etas, "expected at least one conditional EtaMerge"
+    assert all(e.index_mode in ("array", "last", "concat") for e in cond_etas)
     out = render_netlist(module)
-    eta_last_lines = [ln for ln in out.splitlines() if ":= eta(last," in ln]
-    assert eta_last_lines
-    for line in eta_last_lines:
+    eta_lines = [ln for ln in out.splitlines() if ":= eta(" in ln]
+    assert any("+cond," in ln for ln in eta_lines)
+    for line in eta_lines:
         assert "<-" not in line
         assert line.strip().startswith("out")
 

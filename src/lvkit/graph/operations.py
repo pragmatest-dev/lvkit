@@ -297,10 +297,11 @@ class OperationsMixin:
                 inner_terminal_uid=inner_uid,
                 tunnel_type=term.tunnel_type,
                 # term is either boundary side of THIS tunnel -- construction.py
-                # stamps the same mode/sr_initialized/sr_stack_depth on both
-                # the outer and inner TunnelTerminal, so either one carries
-                # the value faithfully.
+                # stamps the same mode/conditional/sr_initialized/sr_stack_depth
+                # on both the outer and inner TunnelTerminal, so either one
+                # carries the value faithfully.
                 mode=term.mode,
+                conditional=term.conditional,
                 sr_initialized=term.sr_initialized,
                 sr_stack_depth=term.sr_stack_depth,
             ))

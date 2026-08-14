@@ -406,33 +406,35 @@ class FPTerminal(Terminal):
 
 
 class TunnelMode(str, Enum):
-    """A loop tunnel's aggregation mode -- ``dco class="lpTun"`` ONLY (a
+    """A loop tunnel's BASE aggregation mode -- ``dco class="lpTun"`` ONLY (a
     ``None`` ``Tunnel.mode`` means "not a loop tunnel", not "unknown"; every
     other tunnel kind -- lSR/rSR/lMax/csTun/seqTun/... -- never carries a
-    mode). Decoded from the lpTun dco's own child elements (see
-    ``parser/nodes/base.py::_lp_tun_mode``):
+    mode). This is one of LabVIEW's two independent tunnel axes; the second is
+    the orthogonal ``Tunnel.conditional`` modifier (see there). Decoded from
+    the lpTun dco's own child elements (see ``parser/nodes/base.py::
+    _lp_tun_mode``):
 
-    - INDEXING: auto-indexing on the loop boundary (has ``innerLpTunDCO`` +
-      ``<TunnelType>01</TunnelType>``) -- the common for-loop array-building
-      tunnel.
-    - LAST_VALUE: has ``innerLpTunDCO`` but no ``<TunnelType>`` (only
-      ``<DefaultTunnelType>``) -- the loop-boundary tunnel passes only the
-      FINAL iteration's value through.
-    - CONCATENATING: no ``innerLpTunDCO``, ``<TunnelType>02</TunnelType>`` --
-      MEDIUM confidence, rare in the corpus (concatenates instead of
-      indexing; e.g. a String/array tunnel set to "Concatenate Outputs").
-    - CONDITIONAL: has ``innerLpTunDCO`` AND ``<IsConditional>True</
-      IsConditional>`` (with a sibling ``<LpTunConditionDCO>``) -- indexing
-      gated by a per-iteration boolean (LabVIEW's "Conditional Tunnel").
-    - PASSTHROUGH: no ``innerLpTunDCO``, no ``<TunnelType>`` (bare
-      ``<dcoFiller>``) -- a plain pass-through tunnel, same value in and out
-      every iteration.
+    - INDEXING: auto-index / auto-aggregate is ENABLED -- read directly from
+      the ``innerLpTunDCO``'s ``objFlags`` bit ``0x400000`` (a second, older
+      encoding uses an explicit ``<TunnelType>``). On an OUTPUT tunnel this
+      builds an array element-by-element (element inner -> array outer); on an
+      INPUT tunnel it indexes the array (array outer -> element inner). Same
+      flag, opposite directions -- LabVIEW calls both "indexing".
+    - LAST_VALUE: OUTPUT tunnel with indexing DISABLED (``innerLpTunDCO``
+      present, index bit clear) -- passes only the FINAL iteration's value.
+    - CONCATENATING: ``<TunnelType>02</TunnelType>`` -- concatenates all
+      iterations' inputs into one array of the same dimension (rare).
+    - PASSTHROUGH: INPUT tunnel with indexing disabled, or a plain non-loop
+      pass-through -- same value in and out every iteration.
+
+    The ``CONDITIONAL`` menu item is NOT a mode -- it is the orthogonal
+    ``Tunnel.conditional`` flag that layers onto ANY output base mode
+    (conditional last-value / conditional indexing / conditional concatenate).
     """
 
     INDEXING = "INDEXING"
     LAST_VALUE = "LAST_VALUE"
     CONCATENATING = "CONCATENATING"
-    CONDITIONAL = "CONDITIONAL"
     PASSTHROUGH = "PASSTHROUGH"
 
 
@@ -451,6 +453,7 @@ class TunnelTerminal(Terminal):
     # the rebuilt Tunnel -- see Tunnel.mode/sr_initialized/sr_stack_depth for
     # what each means and which tunnel_type populates it.
     mode: TunnelMode | None = None
+    conditional: bool = False
     sr_initialized: bool | None = None
     sr_stack_depth: int | None = None
 
@@ -462,9 +465,15 @@ class Tunnel(BaseModel):
     inner_terminal_uid: str
     tunnel_type: str  # "lSR", "rSR", "lpTun", "lMax", "caseSel", etc.
     paired_terminal_uid: str | None = None
-    # Loop-tunnel aggregation mode -- populated ONLY for ``tunnel_type ==
+    # Loop-tunnel BASE aggregation mode -- populated ONLY for ``tunnel_type ==
     # "lpTun"`` (see TunnelMode); None for every other tunnel_type.
     mode: TunnelMode | None = None
+    # Orthogonal "Conditional" modifier (LabVIEW's Conditional menu item) --
+    # True when an OUTPUT tunnel aggregates/keeps a value only on iterations
+    # where a per-iteration boolean holds. Layers onto ANY base mode (see
+    # TunnelMode); read from the lpTun dco's ``<IsConditional>True``. False for
+    # non-conditional and for input tunnels (indexing has no conditional).
+    conditional: bool = False
     # Shift-register STRUCTURE, not bits -- populated ONLY on the matching
     # tunnel_type, None on every other one:
     # - sr_initialized: True when this lSR tunnel's outer terminal carries an

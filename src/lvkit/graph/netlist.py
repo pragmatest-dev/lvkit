@@ -342,17 +342,19 @@ class EtaMerge:
     never a single hop-through to one iteration's producer (netlist.py's
     loop finding: which values actually reach a downstream consumer depends
     on the tunnel's aggregation mode, so a loop output tunnel is a genuine
-    merge across iterations, not a plain wire). ``index_mode`` is derived
-    straight from ``TunnelMode`` (see ``_eta_index_mode``) -- ``"array"``
-    for auto-indexing, ``"last"`` for last-value, and the corpus-observed
-    ``"conditional"``/``"concat"``/``"passthrough"`` for the rarer modes,
-    never collapsed into a guessed "array"/"last" pair. ``value`` is the
-    inner PER-ITERATION producer feeding this tunnel -- the type
-    ``DefaultValue`` on the rare unwired/broken-wire case, never omitted.
+    merge across iterations, not a plain wire). ``index_mode`` is the BASE
+    ``TunnelMode`` (see ``_eta_index_mode``) -- ``"array"`` for auto-indexing,
+    ``"last"`` for last-value, ``"concat"``/``"passthrough"`` for the rarer
+    modes -- and ``conditional`` is the orthogonal Conditional modifier
+    (aggregate/keep a value only on iterations where a per-iteration boolean
+    holds). ``value`` is the inner PER-ITERATION producer feeding this tunnel
+    -- the type ``DefaultValue`` on the rare unwired/broken-wire case, never
+    omitted.
     """
 
     net: str
-    index_mode: str  # TunnelMode value, lowercased ("array"/"last"/...)
+    index_mode: str  # base TunnelMode, lowercased ("array"/"last"/...)
+    conditional: bool  # LabVIEW's Conditional modifier, orthogonal to index_mode
     value: NetRef | DefaultValue
 
 
@@ -719,20 +721,18 @@ def _eta_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
 _ETA_INDEX_MODE_BY_TUNNEL_MODE: dict[TunnelMode, str] = {
     TunnelMode.INDEXING: "array",
     TunnelMode.LAST_VALUE: "last",
-    TunnelMode.CONDITIONAL: "conditional",
     TunnelMode.CONCATENATING: "concat",
     TunnelMode.PASSTHROUGH: "passthrough",
 }
 
 
 def _eta_index_mode(mode: TunnelMode | None) -> str:
-    """``EtaMerge.index_mode`` from a loop output tunnel's ``TunnelMode`` --
-    faithful, never guessed: every ``TunnelMode`` value maps to its own
-    distinct label (corpus-verified real OUTPUT-direction tunnels carry
-    all five -- ``CONDITIONAL``/``CONCATENATING``/``PASSTHROUGH`` are real,
-    not just ``INDEXING``/``LAST_VALUE``), so none are silently folded into
-    "array"/"last". ``None`` (shouldn't occur on a genuine ``lpTun`` tunnel)
-    renders the honest ``"?"`` rather than guess.
+    """``EtaMerge.index_mode`` from a loop output tunnel's BASE ``TunnelMode``
+    -- faithful, never guessed: every base value maps to its own distinct
+    label (``array``/``last``/``concat``/``passthrough``), so none are silently
+    folded together. The orthogonal Conditional modifier is carried separately
+    on ``EtaMerge.conditional``. ``None`` (shouldn't occur on a genuine
+    ``lpTun`` tunnel) renders the honest ``"?"`` rather than guess.
     """
     if mode is None:
         return "?"
@@ -1418,6 +1418,7 @@ def _build_loop_outputs(
             EtaMerge(
                 net=f"loop{loop_id}.out{k}",
                 index_mode=_eta_index_mode(tunnel.mode),
+                conditional=tunnel.conditional,
                 value=value,
             )
         )
@@ -2053,10 +2054,13 @@ def _mu_definition_line(mu: MuMerge, ambiguous: set[str]) -> str:
 
 def _eta_definition_line(eta: EtaMerge, ambiguous: set[str]) -> str:
     """``"out0 := eta(array, Accumulate.result)"`` -- the SHORT local name
-    (``out{k}``), ``index_mode`` first (matching ``EtaMerge`` field order).
+    (``out{k}``), ``index_mode`` first (matching ``EtaMerge`` field order). The
+    orthogonal Conditional modifier appends ``+cond`` to the mode token
+    (``eta(array+cond, ...)`` = conditionally index into the array).
     """
     value_str = _render_merge_source(eta.value, ambiguous)
-    return f"{_short_net(eta.net)} := eta({eta.index_mode}, {value_str})"
+    mode = f"{eta.index_mode}+cond" if eta.conditional else eta.index_mode
+    return f"{_short_net(eta.net)} := eta({mode}, {value_str})"
 
 
 def _feedback_definition_line(fb: NetlistFeedback, ambiguous: set[str]) -> str:
@@ -2146,6 +2150,7 @@ def _eta_to_dict(eta: EtaMerge) -> dict[str, Any]:
         "net": eta.net,
         "kind": "eta",
         "index_mode": eta.index_mode,
+        "conditional": eta.conditional,
         "value": _merge_source_to_dict(eta.value),
     }
 

@@ -241,6 +241,7 @@ def test_loop_scope_outputs_carries_mu_and_eta_merge_union_shape():
             EtaMerge(
                 net="loop0.out0",
                 index_mode="array",
+                conditional=False,
                 value=_ref("Accumulate", "result", "result"),
             ),
         ],
@@ -271,6 +272,7 @@ def test_loop_scope_outputs_carries_mu_and_eta_merge_union_shape():
     assert eta0["net"] == "loop0.out0"
     assert eta0["kind"] == "eta"
     assert eta0["index_mode"] == "array"
+    assert eta0["conditional"] is False
     assert eta0["value"]["bare"] == "result"
     assert "kind" not in eta0["value"]
 

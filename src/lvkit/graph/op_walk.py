@@ -181,12 +181,12 @@ def _loop_output_tunnel_outers(op: Operation) -> list[Terminal]:
     value OUT of the loop (``direction == "output"``), in ``op.terminals``
     order -- the canonical 0-based numbering ``netlist.py`` uses to name a
     loop's eta-merge output nets (``loop{id}.out{k}``). Direction is the
-    authoritative signal here, NOT ``mode``: corpus-verified (a real VI's
-    ``lpTun`` can carry ``TunnelMode.LAST_VALUE``/``CONDITIONAL``/etc. on an
-    INPUT-direction tunnel too -- the mode simply reflects how the dco's own
-    ``TunnelType`` child is configured, independent of which way data
-    actually flows through THIS instance) -- mirrors
-    ``_case_output_tunnel_outers``'s same ``direction == "output"`` filter.
+    authoritative signal here, NOT ``mode``: a real VI's ``lpTun`` carries a
+    base ``TunnelMode`` (``INDEXING``/``LAST_VALUE``/``PASSTHROUGH``/...) on
+    INPUT-direction tunnels too, so filtering by ``direction == "output"`` --
+    mirroring ``_case_output_tunnel_outers`` -- is what isolates the genuine
+    loop outputs. (construction.py already re-labels an input tunnel's
+    "indexing off" as ``PASSTHROUGH`` rather than ``LAST_VALUE``.)
     """
     return [
         t for t in op.terminals
