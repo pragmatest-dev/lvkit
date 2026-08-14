@@ -340,6 +340,77 @@ def test_non_property_instance_has_no_object_and_empty_properties():
     assert body_inst["properties"] == []
 
 
+def test_invoke_node_instance_carries_method_and_object():
+    """Audit finding mirror for Invoke Node: the JSON instance dict must
+    carry the invoked method -- the entire meaning of the node -- under
+    ``method``, and the target object CLASS under ``object`` (the SAME key
+    the Property Node work already added -- a program tells the two apart by
+    whether ``method`` is null), so a program reads which method is called
+    without parsing text. Mirrors uid 6753 of the real JKI-VI-Tester
+    "Graphical Test Runner - Main UI" VI (Invoke Node#1, "Point To Row
+    Column" on a "Tree (strict)" reference -- see test_netlist.py's real-VI
+    coverage). Parameter ports are never named (unrecoverable from the VI
+    file) and stay numeric."""
+    inst = NetlistInstance(
+        uid="6753",
+        name="Invoke Node",
+        occurrence=1,
+        inputs=[
+            NetlistPortBinding(
+                port="0",
+                net=_ref("Event Data Node", "3", "Event Data Node#12.3", occ=12),
+            ),
+            NetlistPortBinding(
+                port="6",
+                net=_ref("Event Data Node", "4", "Event Data Node#12.4", occ=12),
+            ),
+        ],
+        outputs=[_ref("Invoke Node", "1", "Invoke Node#1.1", occ=1)],
+        object_name="Tree (strict)",
+        method_name="Point To Row Column",
+    )
+    module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
+
+    d = netlist_to_dict(module)
+    body_inst = d["body"][0]
+    assert body_inst["method"] == "Point To Row Column"
+    assert body_inst["object"] == "Tree (strict)"
+    assert [b["port"] for b in body_inst["inputs"]] == ["0", "6"]
+    assert body_inst["outputs"][0]["bare"] == "Invoke Node#1.1"
+
+
+def test_invoke_node_without_object_name_has_null_object_but_keeps_method():
+    """Faithfulness: when ``object_name`` genuinely isn't resolvable, the
+    JSON must keep ``object`` null while ``method`` is still populated --
+    never fabricate an object class that wasn't in the file."""
+    inst = NetlistInstance(
+        uid="1", name="Invoke Node", occurrence=None,
+        inputs=[], outputs=[], method_name="Some Method",
+    )
+    module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
+
+    d = netlist_to_dict(module)
+    body_inst = d["body"][0]
+    assert body_inst["method"] == "Some Method"
+    assert body_inst["object"] is None
+
+
+def test_non_invoke_instance_has_no_method():
+    """Regression: an ordinary instance (not an Invoke Node) must serialize
+    exactly as before plus the new key -- ``method`` is ``None``."""
+    inst = NetlistInstance(
+        uid="1",
+        name="Not Equal?",
+        occurrence=None,
+        inputs=[NetlistPortBinding(port="x", net=_ref(None, "n", "n"))],
+        outputs=[_ref("Not Equal?", "result", "result")],
+    )
+    module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
+
+    d = netlist_to_dict(module)
+    assert d["body"][0]["method"] is None
+
+
 def test_non_case_scope_outputs_is_empty_list():
     """``outputs`` is always present (never omitted) but empty for every
     non-case scope kind -- loops/sequences/disabled/event structures don't

@@ -22,6 +22,7 @@ from lvkit.graph.netlist import (
     DefaultValue,
     GammaMerge,
     NetlistInstance,
+    NetlistModule,
     NetlistScope,
     NetRef,
     build_netlist,
@@ -630,6 +631,80 @@ def test_property_node_non_value_terminals_keep_numeric_ports() -> None:
     # ref-out (1) and error-out (3) stay numeric; only the correlated
     # property value terminal (originally "4") is named.
     assert output_ports == {"1", "3", "Project"}
+
+
+def _invoke_node_instances(module) -> list[NetlistInstance]:
+    instances, _scopes = index_module(module)
+    return [i for i in instances.values() if i.name == "Invoke Node"]
+
+
+def test_invoke_node_renders_method_and_object_and_keeps_numeric_params() -> None:
+    """Audit finding: an Invoke Node is a black box in the netlist -- WHICH
+    method it calls (the entire meaning of the node) was completely dropped,
+    rendering as bare numeric ports (``Invoke Node#1(0=..., 6=...)``). uid
+    6753 invokes "Point To Row Column" on a "Tree (strict)" reference -- the
+    rendered line must show ``object:method`` as a bracket suffix, the SAME
+    slot the Property Node work already uses for ``object_name`` alone.
+    Method PARAMETER names are never available in the VI file (they live in
+    the method's VI-server signature) -- ports 0/6 and the output occurrence
+    ports must stay exactly as numeric as before this fix; only the node's
+    OWN identity gains the method it calls, and net names (the ``->``
+    outputs, the input nets) are untouched."""
+    if not _PROPERTY_NODE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_property_node_vi()
+    module = build_netlist(graph, vi_name)
+
+    inst = next(i for i in _invoke_node_instances(module) if i.uid == "6753")
+    assert inst.object_name == "Tree (strict)"
+    assert inst.method_name == "Point To Row Column"
+    input_ports = {b.port for b in inst.inputs}
+    assert input_ports == {"0", "6"}  # params stay numeric -- names unrecoverable
+    output_ports = {o.port for o in inst.outputs}
+    assert output_ports == {"1", "3", "5", "7", "9", "11", "13", "15"}
+
+    out = render_netlist(module)
+    assert (
+        "Invoke Node#1 [Tree (strict):Point To Row Column]"
+        "(0=Event Data Node#12.3, 6=Event Data Node#12.4) -> "
+        "Invoke Node#1.1, Invoke Node#1.3, Invoke Node#1.5, Invoke Node#1.7, "
+        "Invoke Node#1.9, Invoke Node#1.11, Invoke Node#1.13, Invoke Node#1.15"
+        in out
+    )
+
+
+def test_invoke_node_second_object_class_also_renders() -> None:
+    """A second real invoke -- uid 915 ("Invoke Node#4") calls
+    "Library.Open" on an "App" reference -- covers a distinct object CLASS
+    and method in the same VI, confirming the bracket isn't hardcoded to one
+    node's data."""
+    if not _PROPERTY_NODE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_property_node_vi()
+    module = build_netlist(graph, vi_name)
+
+    inst = next(i for i in _invoke_node_instances(module) if i.uid == "915")
+    assert inst.object_name == "App"
+    assert inst.method_name == "Library.Open"
+
+    out = render_netlist(module)
+    line = next(line for line in out.splitlines() if "Invoke Node#4 [" in line)
+    assert "Invoke Node#4 [App:Library.Open](" in line
+
+
+def test_invoke_node_without_object_name_shows_method_only() -> None:
+    """Faithfulness: when ``object_name`` genuinely isn't resolvable, the
+    bracket must still show the method alone (``[method]``, not
+    ``[None:method]`` or a dropped bracket) -- never fabricate an object
+    class that wasn't in the file."""
+    inst = NetlistInstance(
+        uid="1", name="Invoke Node", occurrence=None,
+        inputs=[], outputs=[], method_name="Some Method",
+    )
+    module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
+
+    out = render_netlist(module)
+    assert "Invoke Node [Some Method](" in out
 
 
 def test_nmux_class_private_data_dep_graph_case_unchanged():

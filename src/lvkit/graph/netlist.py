@@ -35,6 +35,7 @@ from ..models import (
     DisableStructureOperation,
     EventOperation,
     InPlaceOperation,
+    InvokeOperation,
     LoopOperation,
     LVType,
     Operation,
@@ -184,8 +185,21 @@ class NetlistInstance:
     # A Property Node's target object CLASS (``PropertyOperation.
     # object_name``, e.g. "Bool", "Numeric", "VI" -- LabVIEW's own label
     # under the node's icon) -- ``None`` for every other instance kind.
-    # Annotation ONLY, same rendering/JSON treatment as ``operation`` above.
+    # An Invoke Node's target object CLASS (``InvokeOperation.object_name``,
+    # e.g. "Library", "VI Server") reuses this SAME field -- a
+    # ``PropertyOperation`` is never an ``InvokeOperation``, so the two never
+    # co-occur. Annotation ONLY, same rendering/JSON treatment as
+    # ``operation`` above.
     object_name: str | None = None
+    # An Invoke Node's method name (``InvokeOperation.method_name``) -- the
+    # entire meaning of the node -- ``None`` for every other instance kind.
+    # A distinct concept from cpdArith's ``operation``, so it gets its own
+    # field rather than overloading it. Parameter port NAMES are never
+    # available (they live in the method's VI-server signature, not the VI
+    # file) -- ``inputs``/``outputs`` stay numeric; this is the one thing we
+    # CAN say faithfully about an invoke call. Annotation ONLY, same
+    # rendering/JSON treatment as ``operation``/``object_name`` above.
+    method_name: str | None = None
     # Accessed properties (Property Node only) -- empty for every other
     # instance. See ``NetlistPropertyAccess``.
     properties: list[NetlistPropertyAccess] = field(default_factory=list)
@@ -760,15 +774,20 @@ def _build_instance(
     ]
     operation = op.operation if isinstance(op, PrimitiveOperation) else None
     object_name: str | None = None
+    method_name: str | None = None
     properties: list[NetlistPropertyAccess] = []
     if isinstance(op, PropertyOperation):
         object_name = (op.object_name or "").strip() or None
         properties = _build_property_accesses(
             graph, ctx, root_ops, build_ctx, op, name, occurrence,
         )
+    elif isinstance(op, InvokeOperation):
+        object_name = (op.object_name or "").strip() or None
+        method_name = (op.method_name or "").strip() or None
     return NetlistInstance(
         uid=uid, name=name, occurrence=occurrence, inputs=inputs, outputs=outputs,
-        operation=operation, object_name=object_name, properties=properties,
+        operation=operation, object_name=object_name, method_name=method_name,
+        properties=properties,
     )
 
 
@@ -1392,10 +1411,27 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     which side of ``->`` a property's port appears on (see
     ``NetlistInstance.properties`` for the JSON-only structured mirror of
     the same facts).
+
+    An Invoke Node's ``method_name`` gets the SAME bracket suffix slot,
+    rendered ``object:method`` (``Invoke Node#1 [Library:Open Project]``) --
+    ``:`` reads as "the method OF this object", the same idiom the
+    qualified-name display already uses elsewhere (``owning_libraries``
+    joined with ``:``). When ``object_name`` is absent the bracket holds
+    just the method. Parameter port NAMES are never available in the VI
+    file (they live in the method's VI-server signature) -- ``ins``/
+    ``outs`` below stay numeric for an invoke node, same as before this
+    fix; only the node's OWN identity gains the method it calls.
     """
     tag = f"#{instance.occurrence}" if instance.occurrence else ""
     op_suffix = f" [{instance.operation}]" if instance.operation else ""
-    obj_suffix = f" [{instance.object_name}]" if instance.object_name else ""
+    if instance.method_name:
+        obj = f"{instance.object_name}:{instance.method_name}" \
+            if instance.object_name else instance.method_name
+        obj_suffix = f" [{obj}]"
+    elif instance.object_name:
+        obj_suffix = f" [{instance.object_name}]"
+    else:
+        obj_suffix = ""
     name_disp = f"{instance.name}{tag}{op_suffix}{obj_suffix}"
     def _bind(b: NetlistPortBinding) -> str:
         net = b.net.render(qualified=b.net.bare in ambiguous)
@@ -1607,9 +1643,11 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
             "name": item.name,
             "occurrence": item.occurrence,
             "operation": item.operation,
-            # Property Node only (see NetlistInstance docstring) -- ``None``/
-            # ``[]`` for every other instance kind.
+            # Property Node / Invoke Node only (see NetlistInstance
+            # docstring) -- ``None``/``[]`` for every other instance kind.
             "object": item.object_name,
+            # Invoke Node only -- the method it calls. ``None`` otherwise.
+            "method": item.method_name,
             "properties": [_property_access_to_dict(p) for p in item.properties],
             "inputs": [
                 {
