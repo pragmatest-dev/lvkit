@@ -30,6 +30,7 @@ from lvkit.graph.netlist import (
     NetRef,
     build_netlist,
     index_module,
+    netlist_to_dict,
     render_netlist,
 )
 from lvkit.load_mode import LoadMode
@@ -500,6 +501,7 @@ def test_case_scopes_carry_gamma_merge_with_selector_and_type_default() -> None:
         c.source
         for scope in case_scopes
         for gamma in scope.outputs
+        if isinstance(gamma, GammaMerge)  # a case scope's outputs are all gammas
         for c in gamma.cases
         if isinstance(c.source, DefaultValue)
     ]
@@ -1023,3 +1025,40 @@ def test_nmux_class_private_data_dep_graph_case_unchanged():
     out = render_netlist(build_netlist(graph, vi_name))
     assert "testsRun" in out
     assert "Bundle/Unbundle By Name.1" not in out
+
+
+def test_get_context_dict_carries_representation_audit_fields() -> None:
+    """The MCP get_context surface (netlist_to_dict on a real VI, end-to-end)
+    carries the representation-audit additions -- not just the IR dataclasses:
+    case gamma merges, loop eta merges, and the Compound Arithmetic operator.
+    Calculate Test Coverage has all three (3 filter cases, 3 for-loops with
+    auto-indexed outputs, and cpdArith ANDs). Guards against a projection
+    regression that would leave get_context silently lossy again."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_coverage_vi()
+    d = netlist_to_dict(build_netlist(graph, vi_name))
+
+    def _walk(items):
+        for it in items:
+            yield it
+            if it.get("kind") == "scope":
+                for fr in it["frames"]:
+                    yield from _walk(fr["body"])
+
+    body_items = list(_walk(d["body"]))
+    scopes = [i for i in body_items if i.get("kind") == "scope"]
+    # case gamma merges present in a case scope's outputs
+    case_outs = [
+        o for sc in scopes if sc["scope_kind"] == "case" for o in sc["outputs"]
+    ]
+    assert any(o["kind"] == "gamma" and o["selector"] for o in case_outs)
+    # loop eta merges present in a loop scope's outputs
+    loop_outs = [
+        o for sc in scopes if sc["scope_kind"] in ("for", "while")
+        for o in sc["outputs"]
+    ]
+    assert any(o["kind"] == "eta" for o in loop_outs)
+    # Compound Arithmetic operator carried on an instance
+    insts = [i for i in body_items if i.get("kind") == "instance"]
+    assert any(i.get("operation") == "and" for i in insts)

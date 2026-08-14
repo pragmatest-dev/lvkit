@@ -144,3 +144,32 @@ def test_collect_unresolved_on_corpus_vi() -> None:
     assert items
     names = {it.name for it in items}
     assert any("Strip Path Extension" in n for n in names)
+
+
+_TESTCASE_CLASS = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass"
+)
+
+
+@pytest.mark.slow
+def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
+    """Eval bank Q33 ground truth: `lvkit unresolved` on TestCase.lvclass.
+
+    Pinned per the eval-harness convention (docs/_internal/mcp-evals.md): if a
+    future change resolves one of these primitives/vi.lib VIs (or a regression
+    stops detecting one), this count shifts and the test fails -- the signal to
+    update both the pin and the eval bank. Ground truth as of this branch:
+    18 distinct gaps = 9 placeholder primitives + 8 terminal-mapping + 1
+    unknown primitive (the generic eventRegNode)."""
+    from collections import Counter
+
+    if not _TESTCASE_CLASS.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    items = collect_unresolved(
+        _TESTCASE_CLASS, search_paths=[_TESTCASE_CLASS.parents[2]],
+    )
+    counts = Counter(it.kind for it in items)
+    assert len(items) == 18, f"expected 18 distinct gaps, got {len(items)}: {counts}"
+    assert counts["placeholder_primitive"] == 9
+    assert counts["terminal_mapping"] == 8
+    assert counts["unknown_primitive"] == 1
