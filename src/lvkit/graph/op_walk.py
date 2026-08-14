@@ -23,12 +23,14 @@ from ..models import (
     ClusterField,
     DisableStructureOperation,
     EventOperation,
+    LoopOperation,
     LVType,
     Operation,
     PropertyDef,
     SelectorRange,
     SequenceOperation,
     Terminal,
+    Tunnel,
     TunnelTerminal,
     _is_error_cluster,
 )
@@ -134,6 +136,91 @@ def _is_gamma_output_tunnel(op: Operation, term: Terminal) -> bool:
         if tunnel.outer_terminal_uid == term.id
     }
     return len(inners) > 1
+
+
+def _loop_output_tunnel_outers(op: Operation) -> list[Terminal]:
+    """Every OUTER ``lpTun`` terminal on a loop structure that carries a
+    value OUT of the loop (``direction == "output"``), in ``op.terminals``
+    order -- the canonical 0-based numbering ``netlist.py`` uses to name a
+    loop's eta-merge output nets (``loop{id}.out{k}``). Direction is the
+    authoritative signal here, NOT ``mode``: corpus-verified (a real VI's
+    ``lpTun`` can carry ``TunnelMode.LAST_VALUE``/``CONDITIONAL``/etc. on an
+    INPUT-direction tunnel too -- the mode simply reflects how the dco's own
+    ``TunnelType`` child is configured, independent of which way data
+    actually flows through THIS instance) -- mirrors
+    ``_case_output_tunnel_outers``'s same ``direction == "output"`` filter.
+    """
+    return [
+        t for t in op.terminals
+        if isinstance(t, TunnelTerminal)
+        and t.tunnel_type == "lpTun"
+        and t.boundary == "outer"
+        and t.direction == "output"
+    ]
+
+
+def _is_eta_output_tunnel(op: Operation, term: Terminal) -> bool:
+    """True when ``term`` is a LOOP structure's output tunnel OUTER
+    terminal -- the shape ``netlist._resolve_source`` must stop at and
+    resolve as a named eta-merge net (Gated-SSA eta: the value LEAVING the
+    loop, aggregated across every iteration -- auto-indexed into an array,
+    concatenated, conditionally indexed, or only the final iteration's
+    value), never hop through to the inner PER-ITERATION scalar producer
+    (the loop analogue of ``_is_gamma_output_tunnel``'s case finding: a
+    loop output tunnel's real value is the WHOLE aggregation, not one
+    iteration's producer).
+
+    Scoped to ``LoopOperation`` only, by design -- case/sequence/disable/
+    event structures keep their existing tunnel-hop behavior (gamma is
+    handled separately, by ``_is_gamma_output_tunnel``).
+    """
+    if not isinstance(op, LoopOperation) or not isinstance(term, TunnelTerminal):
+        return False
+    return (
+        term.tunnel_type == "lpTun"
+        and term.boundary == "outer"
+        and term.direction == "output"
+    )
+
+
+def _loop_shift_register_pairs(
+    op: Operation,
+) -> list[tuple[Tunnel, Tunnel | None]]:
+    """Pair each ``lSR`` tunnel with its ``rSR`` tunnel by ORDER of
+    appearance in ``op.tunnels`` -- LabVIEW lists left/right shift-register
+    tunnels in matching order, and the graph builder never populates
+    ``Tunnel.paired_terminal_uid`` (only the legacy parser path does) -- the
+    SAME positional heuristic ``codegen/nodes/loop.py``'s ``rsr_to_lsr_outer``
+    correlation uses. Returns one entry per ``lSR`` tunnel, in tunnel order
+    -- this IS the canonical 0-based ``shift{k}`` numbering (mirrors
+    ``_case_output_tunnel_outers``'s role for ``case{id}.out{k}``). The
+    paired ``rSR`` is ``None`` when a shift register genuinely has no
+    matching right terminal (defensive; not expected on a well-formed VI).
+    """
+    lsrs = [t for t in op.tunnels if t.tunnel_type == "lSR"]
+    rsrs = [t for t in op.tunnels if t.tunnel_type == "rSR"]
+    return [
+        (lsr, rsrs[i] if i < len(rsrs) else None) for i, lsr in enumerate(lsrs)
+    ]
+
+
+def _is_mu_shift_register_read(op: Operation, term: Terminal) -> bool:
+    """True when ``term`` is a LOOP shift-register terminal whose value IS
+    the Gated-SSA mu recurrence itself: the INNER ``lSR`` terminal (read by
+    a node inside the loop body every iteration) or the OUTER ``rSR``
+    terminal (the rarer direct read of a shift register's final value from
+    OUTSIDE the loop -- the mirror of a ``LAST_VALUE`` loop-output tunnel,
+    since the value sitting on the right terminal after the loop exits IS
+    the final recurrence value). ``netlist._resolve_source`` stops here and
+    resolves to the named mu-merge net (``loop{id}.shift{k}``) instead of
+    hopping straight to the INIT value via ``_paired_tunnel_id`` and losing
+    the recurrence (the loop analogue of the case gamma-merge finding).
+    """
+    if not isinstance(op, LoopOperation) or not isinstance(term, TunnelTerminal):
+        return False
+    if term.tunnel_type == "lSR" and term.boundary == "inner":
+        return True
+    return term.tunnel_type == "rSR" and term.boundary == "outer"
 
 
 def _flatten_fields(

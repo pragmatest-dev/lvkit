@@ -20,7 +20,9 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.netlist import (
     DefaultValue,
+    EtaMerge,
     GammaMerge,
+    MuMerge,
     NetlistInstance,
     NetlistModule,
     NetlistScope,
@@ -84,6 +86,210 @@ _PROPERTY_NODE_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
     "Graphical Test Runner/Graphical Test Runner - Main UI - .vi"
 )
+
+_JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
+
+# The loop analogue of the case gamma-merge fix (finding #1): a for-loop
+# shift-registers the error cluster across TestCase_Init.vi calls (an
+# INITIALIZED lSR, init'd from listAllTestMethods.vi's error out) and
+# auto-indexes the built TestCase objects into an array via an lpTun output
+# tunnel, consumed immediately after the loop by TestSuite_Init.vi. Before
+# this fix, the shift-register reader inside the loop hopped straight
+# through to the INIT wire (losing the recurrence) and the auto-indexed
+# consumer outside the loop resolved to a bare unrelated constant ("tests
+# (none)") instead of the built array. Ground truth located by grepping the
+# JKI-VI-Tester corpus's extracted *_BDHb.xml for lSR+lpTun and parsing each
+# candidate (see .tmp/probe_loop_candidates.py during development).
+_SHIFT_REGISTER_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestLoader/"
+    "loadTestsFromTestCase.vi"
+)
+
+# Real corpus VI whose case-scoped for-loops each carry a LAST_VALUE output
+# tunnel, consumed immediately after the loop (Array Size / Sort Array__
+# ogtk.vi / Conditional Auto-Indexing Tunnel__ogtk.vi). Ground truth located
+# the same way as _SHIFT_REGISTER_VI.
+_LAST_VALUE_LOOP_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
+    "Graphical Test Runner/Graphical Test Runner Support/"
+    "Calculate Test Coverage.vi"
+)
+
+# Real corpus VI with a genuinely UNINITIALIZED shift register (an array
+# accumulator whose left terminal has no external wire) -- the
+# "init -> [] ([String] default)" DefaultValue case. Ground truth located
+# the same way as _SHIFT_REGISTER_VI (see .tmp/probe_uninitialized_sr.py).
+_UNINITIALIZED_SR_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
+    "Graphical Test Runner/Graphical Test Runner Support/"
+    "Initialize Tests On Tree.vi"
+)
+
+
+def _load_vi(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str]:
+    graph = InMemoryVIGraph()
+    graph.load_vi(str(vi_path), LoadMode.MINIMAL, search_paths=[search_root])
+    vi_name = graph.resolve_vi_name(vi_path.name)
+    return graph, vi_name
+
+
+def _all_scopes(items: list) -> list[NetlistScope]:
+    """Every NetlistScope in a body, recursively (through every frame)."""
+    scopes: list[NetlistScope] = []
+    for item in items:
+        if isinstance(item, NetlistScope):
+            scopes.append(item)
+            for frame in item.frames:
+                scopes.extend(_all_scopes(frame.body))
+    return scopes
+
+
+def _find_loop_scope(module: NetlistModule) -> NetlistScope | None:
+    for scope in _all_scopes(module.body):
+        if scope.kind in ("for", "while"):
+            return scope
+    return None
+
+
+def _find_instance(scope: NetlistScope, name: str) -> NetlistInstance | None:
+    for item in scope.frames[0].body:
+        if isinstance(item, NetlistInstance) and item.name == name:
+            return item
+    return None
+
+
+def test_shift_register_renders_mu_and_inner_reader_resolves_to_shift_net() -> (
+    None
+):
+    """Loop analogue of the case gamma-merge fix: a shift register is a
+    genuine Gated-SSA mu recurrence, not a single hop-through to its init
+    value. Before this fix, a reader inside the loop resolved straight
+    through ``_paired_tunnel_id`` to the OUTER init wire, silently dropping
+    the per-iteration recurrence written back by the previous call."""
+    if not _SHIFT_REGISTER_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_vi(_SHIFT_REGISTER_VI, _JKI_SOURCE_ROOT)
+    module = build_netlist(graph, vi_name)
+
+    loop_scope = _find_loop_scope(module)
+    assert loop_scope is not None
+    mu_merges = [m for m in loop_scope.outputs if isinstance(m, MuMerge)]
+    assert mu_merges, "expected at least one MuMerge on the for-loop scope"
+    mu = mu_merges[0]
+    assert mu.net.startswith("loop")
+    assert ".shift" in mu.net
+    assert isinstance(mu.init, (NetRef, DefaultValue))
+    # This SR is genuinely written to every iteration -- a real recurrence.
+    assert isinstance(mu.recur, NetRef)
+
+    # A node inside the loop reading the LEFT SR terminal resolves to the
+    # SAME short mu net -- never hops through to the init value.
+    test_case_init = _find_instance(loop_scope, "TestCase_Init.vi")
+    assert test_case_init is not None
+    error_in_binding = next(
+        b for b in test_case_init.inputs if b.port.startswith("error in")
+    )
+    assert error_in_binding.net.node is None
+    assert error_in_binding.net.bare == mu.net
+
+    out = render_netlist(module)
+    mu_lines = [ln for ln in out.splitlines() if ":= mu(" in ln]
+    assert mu_lines, "expected at least one mu-merge definition line"
+    for line in mu_lines:
+        assert "<-" not in line
+        stripped = line.strip()
+        assert stripped.startswith("shift")
+        assert "init ->" in stripped
+
+
+def test_auto_indexed_output_renders_eta_array_and_outside_consumer_resolves() -> (
+    None
+):
+    """The loop analogue of the Build-Array gamma regression: an
+    auto-indexed loop output tunnel is a genuine array merge across every
+    iteration, not the inner per-iteration scalar producer. Before this
+    fix, TestSuite_Init.vi's ``tests`` input (wired to this tunnel from
+    OUTSIDE the loop) resolved to an unrelated bare constant instead of the
+    built TestCase array."""
+    if not _SHIFT_REGISTER_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_vi(_SHIFT_REGISTER_VI, _JKI_SOURCE_ROOT)
+    module = build_netlist(graph, vi_name)
+
+    loop_scope = _find_loop_scope(module)
+    assert loop_scope is not None
+    eta_merges = [m for m in loop_scope.outputs if isinstance(m, EtaMerge)]
+    assert eta_merges, "expected at least one EtaMerge on the for-loop scope"
+    eta = eta_merges[0]
+    assert eta.net.startswith("loop")
+    assert ".out" in eta.net
+    assert eta.index_mode == "array"
+
+    case_scope = next(
+        i for i in module.body if isinstance(i, NetlistScope) and i.kind == "case"
+    )
+    no_error_frame = next(f for f in case_scope.frames if not f.is_default)
+    suite_init = next(
+        item for item in no_error_frame.body
+        if isinstance(item, NetlistInstance) and item.name == "TestSuite_Init.vi"
+    )
+    tests_binding = next(
+        b for b in suite_init.inputs if b.port.startswith("tests")
+    )
+    assert tests_binding.net.node is None
+    assert tests_binding.net.bare == eta.net
+
+    out = render_netlist(module)
+    eta_lines = [ln for ln in out.splitlines() if ":= eta(" in ln]
+    assert any("array" in ln for ln in eta_lines)
+    for line in eta_lines:
+        assert "<-" not in line
+        stripped = line.strip()
+        assert stripped.startswith("out")
+
+
+def test_last_value_output_renders_eta_last() -> None:
+    """A LAST_VALUE loop output tunnel renders ``eta(last, ...)`` -- the
+    other half of the eta-merge's index_mode (mirrors the auto-indexed
+    "array" case above)."""
+    if not _LAST_VALUE_LOOP_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_vi(_LAST_VALUE_LOOP_VI, _JKI_SOURCE_ROOT)
+    module = build_netlist(graph, vi_name)
+
+    last_etas = [
+        m
+        for scope in _all_scopes(module.body)
+        for m in scope.outputs
+        if isinstance(m, EtaMerge) and m.index_mode == "last"
+    ]
+    assert last_etas, "expected at least one last-value EtaMerge"
+
+    out = render_netlist(module)
+    eta_last_lines = [ln for ln in out.splitlines() if ":= eta(last," in ln]
+    assert eta_last_lines
+    for line in eta_last_lines:
+        assert "<-" not in line
+        assert line.strip().startswith("out")
+
+
+def test_uninitialized_shift_register_init_is_type_default() -> None:
+    """An uninitialized shift register's ``init`` is an explicit type
+    ``DefaultValue`` (LabVIEW seeds it on the VI's first call) -- never
+    ``None``, never silently resolved to something else."""
+    if not _UNINITIALIZED_SR_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_vi(_UNINITIALIZED_SR_VI, _JKI_SOURCE_ROOT)
+    module = build_netlist(graph, vi_name)
+
+    default_inits = [
+        m.init
+        for scope in _all_scopes(module.body)
+        for m in scope.outputs
+        if isinstance(m, MuMerge) and isinstance(m.init, DefaultValue)
+    ]
+    assert default_inits, "expected at least one uninitialized-SR type default"
+    assert any(dv.literal == "[]" for dv in default_inits)
 
 
 def test_boundary_outputs_carry_their_source_net() -> None:

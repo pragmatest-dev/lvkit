@@ -11,8 +11,10 @@ from __future__ import annotations
 from lvkit.graph.netlist import (
     BoundaryOutput,
     DefaultValue,
+    EtaMerge,
     GammaCase,
     GammaMerge,
+    MuMerge,
     NetlistComponent,
     NetlistFrame,
     NetlistInstance,
@@ -175,6 +177,65 @@ def test_case_scope_outputs_carries_gamma_merge_union_shape():
     unwired = gamma["cases"][1]
     assert unwired["frame"] == "default"
     assert unwired["source"] == {"kind": "default", "type": "I32", "literal": "0"}
+
+
+def test_loop_scope_outputs_carries_mu_and_eta_merge_union_shape():
+    """A loop scope's ``outputs`` -- the JSON counterpart of
+    ``render_netlist``'s ``shift{k} := mu(...)``/``out{k} := eta(...)``
+    lines -- carries one ``{"kind": "mu", ...}`` entry per shift register
+    and one ``{"kind": "eta", ...}`` entry per output tunnel, alongside
+    (never replacing) case scopes' ``{"kind": "gamma", ...}`` shape."""
+    scope = NetlistScope(
+        uid="12",
+        kind="for",
+        selector=None,
+        frames=[NetlistFrame(label="", value="", is_default=False, body=[])],
+        outputs=[
+            MuMerge(
+                net="loop0.shift0",
+                init=DefaultValue(literal="0", lv_label="I32"),
+                recur=_ref("Increment", "result", "result"),
+            ),
+            MuMerge(
+                net="loop0.shift1",
+                init=_ref("Seed", "0", "seed_net"),
+                recur=None,
+            ),
+            EtaMerge(
+                net="loop0.out0",
+                index_mode="array",
+                value=_ref("Accumulate", "result", "result"),
+            ),
+        ],
+    )
+    module = NetlistModule(vi_name="l.vi", inputs=[], outputs=[], body=[scope])
+
+    d = netlist_to_dict(module)
+    sc = d["body"][0]
+    assert sc["scope_kind"] == "for"
+    assert len(sc["outputs"]) == 3
+
+    mu0 = sc["outputs"][0]
+    assert mu0["net"] == "loop0.shift0"
+    assert mu0["kind"] == "mu"
+    assert mu0["init"] == {"kind": "default", "type": "I32", "literal": "0"}
+    assert mu0["recur"]["bare"] == "result"
+    assert "kind" not in mu0["recur"]
+
+    mu1 = sc["outputs"][1]
+    assert mu1["kind"] == "mu"
+    assert mu1["init"]["bare"] == "seed_net"
+    assert "kind" not in mu1["init"]
+    # A shift register genuinely never written to has a null recur -- not
+    # an unresolved placeholder.
+    assert mu1["recur"] is None
+
+    eta0 = sc["outputs"][2]
+    assert eta0["net"] == "loop0.out0"
+    assert eta0["kind"] == "eta"
+    assert eta0["index_mode"] == "array"
+    assert eta0["value"]["bare"] == "result"
+    assert "kind" not in eta0["value"]
 
 
 def test_instance_carries_cpdarith_operation():

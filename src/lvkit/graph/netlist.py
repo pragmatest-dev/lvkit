@@ -43,6 +43,7 @@ from ..models import (
     PropertyOperation,
     SequenceOperation,
     Terminal,
+    TunnelMode,
     TunnelTerminal,
     _is_error_cluster,
 )
@@ -62,7 +63,11 @@ from .op_walk import (
     _const_value_str,
     _find_op_owning_terminal,
     _has_output_tunnel,
+    _is_eta_output_tunnel,
     _is_gamma_output_tunnel,
+    _is_mu_shift_register_read,
+    _loop_output_tunnel_outers,
+    _loop_shift_register_pairs,
     _paired_tunnel_id,
     _selector_label,
     _subvi_ports,
@@ -301,6 +306,54 @@ class GammaMerge:
     cases: list[GammaCase]
 
 
+@dataclass(frozen=True)
+class MuMerge:
+    """A loop shift register modeled as Gated-SSA's classic mu node: ONE
+    named net (``loop{id}.shift{k}``) carrying the recurrence across
+    iterations -- ``init`` (the value before the first iteration) and
+    ``recur`` (the value fed back for the NEXT iteration). ``net`` is the
+    SAME string a downstream reference resolves to via ``_resolve_source``
+    -- a node INSIDE the loop reading the LEFT (``lSR``) terminal, or --
+    rarer -- a consumer OUTSIDE the loop reading the RIGHT (``rSR``)
+    terminal directly (see ``op_walk._is_mu_shift_register_read``).
+
+    ``init`` is the outer source when the SR is initialized
+    (``Tunnel.sr_initialized``), else the type ``DefaultValue`` -- LabVIEW
+    seeds an uninitialized shift register to its type's default on the VI's
+    first call, never fabricated, mirroring ``GammaCase.source``'s "use
+    default if unwired" treatment. ``recur`` is the source wired into the
+    RIGHT (``rSR``) terminal inside the loop, or ``None`` when the shift
+    register is genuinely never written to -- a real, faithful state (the
+    value never changes across iterations), NOT an unresolved placeholder,
+    so it is never defaulted the way ``init`` is.
+    """
+
+    net: str
+    init: NetRef | DefaultValue
+    recur: NetRef | None
+
+
+@dataclass(frozen=True)
+class EtaMerge:
+    """A loop's OUTPUT tunnel modeled as Gated-SSA's classic eta node: ONE
+    named net (``loop{id}.out{k}``) carrying the value LEAVING the loop --
+    never a single hop-through to one iteration's producer (netlist.py's
+    loop finding: which values actually reach a downstream consumer depends
+    on the tunnel's aggregation mode, so a loop output tunnel is a genuine
+    merge across iterations, not a plain wire). ``index_mode`` is derived
+    straight from ``TunnelMode`` (see ``_eta_index_mode``) -- ``"array"``
+    for auto-indexing, ``"last"`` for last-value, and the corpus-observed
+    ``"conditional"``/``"concat"``/``"passthrough"`` for the rarer modes,
+    never collapsed into a guessed "array"/"last" pair. ``value`` is the
+    inner PER-ITERATION producer feeding this tunnel -- the type
+    ``DefaultValue`` on the rare unwired/broken-wire case, never omitted.
+    """
+
+    net: str
+    index_mode: str  # TunnelMode value, lowercased ("array"/"last"/...)
+    value: NetRef | DefaultValue
+
+
 @dataclass
 class NetlistScope:
     """A structure: case / for / while / sequence / disabled / event."""
@@ -315,9 +368,14 @@ class NetlistScope:
     parallel: bool = False
     parallel_static_workers: int | None = None
     tunnels: list[NetlistTunnelInfo] = field(default_factory=list)
-    # Case-only (kind == "case") -- one GammaMerge per output tunnel on this
-    # case, see ``_build_case_outputs``. Empty for every other scope kind.
-    outputs: list[GammaMerge] = field(default_factory=list)
+    # One merge per structural value-merge point on this scope: a case
+    # (kind == "case") carries one ``GammaMerge`` per output tunnel (see
+    # ``_build_case_outputs``); a loop (kind in ("for", "while")) carries
+    # one ``MuMerge`` per shift register and one ``EtaMerge`` per output
+    # tunnel (see ``_build_loop_shift_registers``/``_build_loop_outputs``,
+    # shift registers first). Empty for every other scope kind (sequence/
+    # disabled/event have no such merge).
+    outputs: list[GammaMerge | MuMerge | EtaMerge] = field(default_factory=list)
 
 
 NetlistItem = NetlistInstance | NetlistScope
@@ -357,11 +415,17 @@ class _BuildCtx:
     ``CaseOperation``, keyed by trailing node UID (see ``_assign_case_ids``)
     -- used ONLY to name a case's gamma-merge output nets
     (``case{id}.out{k}``), never as a scope-header ``#n`` tag.
+
+    ``loop_id_by_uid``: deterministic ``loop0``, ``loop1``, … id per
+    ``LoopOperation``, keyed by trailing node UID (see ``_assign_loop_ids``)
+    -- the loop analogue of ``case_id_by_uid``, used ONLY to name a loop's
+    mu/eta-merge nets (``loop{id}.shift{k}`` / ``loop{id}.out{k}``).
     """
 
     occurrence_by_uid: dict[str, int]
     const_by_id: dict[str, Constant]
     case_id_by_uid: dict[str, int]
+    loop_id_by_uid: dict[str, int]
 
 
 @dataclass
@@ -503,6 +567,22 @@ def _assign_case_ids(root_ops: list[Operation]) -> dict[str, int]:
     return ids
 
 
+def _assign_loop_ids(root_ops: list[Operation]) -> dict[str, int]:
+    """Deterministic ``loop0``, ``loop1``, … id per ``LoopOperation``,
+    0-based, in the same node order the operation tree is already produced
+    in (``_walk_flat``) -- the loop analogue of ``_assign_case_ids``. Used
+    ONLY to name a loop's mu/eta-merge nets (``loop{id}.shift{k}`` /
+    ``loop{id}.out{k}``), never as a scope-header ``#n`` tag.
+    """
+    ids: dict[str, int] = {}
+    next_id = 0
+    for op in _walk_flat(root_ops):
+        if isinstance(op, LoopOperation):
+            ids[_uid_of(op.id)] = next_id
+            next_id += 1
+    return ids
+
+
 def _gamma_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
     """The gamma-merge net name for a case's output tunnel OUTER terminal --
     ``case{id}.out{k}``, ``k`` being ``term``'s 0-based position among this
@@ -515,6 +595,61 @@ def _gamma_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
     outers = _case_output_tunnel_outers(op)
     k = next(i for i, t in enumerate(outers) if t.id == term.id)
     return f"case{case_id}.out{k}"
+
+
+def _mu_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
+    """The mu-merge net name for a loop shift-register terminal (either the
+    INNER ``lSR`` terminal or the OUTER ``rSR`` terminal -- see
+    ``op_walk._is_mu_shift_register_read``) -- ``loop{id}.shift{k}``, ``k``
+    being this terminal's shift-register PAIR's 0-based position
+    (``_loop_shift_register_pairs``, the SAME ordering
+    ``_build_loop_shift_registers`` uses to number ``MuMerge.net``, so a
+    consumer's resolved reference and the loop scope's own definition line
+    always agree on the name).
+    """
+    loop_id = build_ctx.loop_id_by_uid[_uid_of(op.id)]
+    pairs = _loop_shift_register_pairs(op)
+    k = next(
+        i for i, (lsr, rsr) in enumerate(pairs)
+        if lsr.inner_terminal_uid == term.id
+        or (rsr is not None and rsr.outer_terminal_uid == term.id)
+    )
+    return f"loop{loop_id}.shift{k}"
+
+
+def _eta_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
+    """The eta-merge net name for a loop's output tunnel OUTER terminal --
+    ``loop{id}.out{k}``, ``k`` being ``term``'s 0-based position among this
+    loop's own output tunnels (``_loop_output_tunnel_outers``, the SAME
+    ordering ``_build_loop_outputs`` uses to number ``EtaMerge.net``).
+    """
+    loop_id = build_ctx.loop_id_by_uid[_uid_of(op.id)]
+    outers = _loop_output_tunnel_outers(op)
+    k = next(i for i, t in enumerate(outers) if t.id == term.id)
+    return f"loop{loop_id}.out{k}"
+
+
+_ETA_INDEX_MODE_BY_TUNNEL_MODE: dict[TunnelMode, str] = {
+    TunnelMode.INDEXING: "array",
+    TunnelMode.LAST_VALUE: "last",
+    TunnelMode.CONDITIONAL: "conditional",
+    TunnelMode.CONCATENATING: "concat",
+    TunnelMode.PASSTHROUGH: "passthrough",
+}
+
+
+def _eta_index_mode(mode: TunnelMode | None) -> str:
+    """``EtaMerge.index_mode`` from a loop output tunnel's ``TunnelMode`` --
+    faithful, never guessed: every ``TunnelMode`` value maps to its own
+    distinct label (corpus-verified real OUTPUT-direction tunnels carry
+    all five -- ``CONDITIONAL``/``CONCATENATING``/``PASSTHROUGH`` are real,
+    not just ``INDEXING``/``LAST_VALUE``), so none are silently folded into
+    "array"/"last". ``None`` (shouldn't occur on a genuine ``lpTun`` tunnel)
+    renders the honest ``"?"`` rather than guess.
+    """
+    if mode is None:
+        return "?"
+    return _ETA_INDEX_MODE_BY_TUNNEL_MODE.get(mode, "?")
 
 
 _INT_UNDERLYING_TYPES = frozenset({
@@ -644,6 +779,25 @@ def _resolve_source(
                 # ``_paired_tunnel_id`` would pick first (finding #1) --
                 # ``_build_case_outputs`` defines the merge itself.
                 name = _gamma_net_name(op, term, build_ctx)
+                return NetRef(node=None, port=name, occurrence=None, bare=name)
+            if _is_eta_output_tunnel(op, term):
+                # A loop output tunnel's outer terminal carries the value
+                # LEAVING the loop -- an aggregation across every iteration
+                # (auto-indexed array, last-value, ...), not one iteration's
+                # producer. Stop here and name the merge net instead of
+                # hopping via ``_paired_tunnel_id`` into the inner scalar
+                # (the loop analogue of the case finding above) --
+                # ``_build_loop_outputs`` defines the merge itself.
+                name = _eta_net_name(op, term, build_ctx)
+                return NetRef(node=None, port=name, occurrence=None, bare=name)
+            if _is_mu_shift_register_read(op, term):
+                # A shift register's LEFT terminal (read inside the loop) or
+                # RIGHT terminal (rarely read directly from outside) IS the
+                # Gated-SSA recurrence itself -- hopping via
+                # ``_paired_tunnel_id`` would jump straight to the INIT wire
+                # and silently drop the recurrence. Stop here and name the
+                # merge net -- ``_build_loop_shift_registers`` defines it.
+                name = _mu_net_name(op, term, build_ctx)
                 return NetRef(node=None, port=name, occurrence=None, bare=name)
             paired = _paired_tunnel_id(op, term)
             if paired is not None and paired not in seen:
@@ -894,7 +1048,7 @@ def _build_case_outputs(
     build_ctx: _BuildCtx,
     selector: NetRef | None,
     frames: list[NetlistFrame],
-) -> list[GammaMerge]:
+) -> list[GammaMerge | MuMerge | EtaMerge]:
     """One ``GammaMerge`` per output tunnel on this case -- Gated-SSA's
     gamma: the case's own selector plus one (frame_key, source) pair per
     frame (see the module docstring's finding #1). ``frames`` supplies each
@@ -904,7 +1058,7 @@ def _build_case_outputs(
     """
     case_id = build_ctx.case_id_by_uid[_uid_of(op.id)]
     outers = _case_output_tunnel_outers(op)
-    gammas: list[GammaMerge] = []
+    gammas: list[GammaMerge | MuMerge | EtaMerge] = []
     for k, outer in enumerate(outers):
         cases: list[GammaCase] = []
         for raw_frame, nl_frame in zip(op.frames, frames, strict=True):
@@ -1038,6 +1192,93 @@ def _build_sequence_scope(
     )
 
 
+def _build_loop_shift_registers(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    root_ops: list[Operation],
+    op: LoopOperation,
+    build_ctx: _BuildCtx,
+    loop_id: int,
+) -> list[MuMerge]:
+    """One ``MuMerge`` per shift register on this loop (Gated-SSA mu, see
+    ``MuMerge``'s docstring) -- ``init``/``recur`` resolved from the SAME
+    ``lSR``/``rSR`` pairing ``op_walk._loop_shift_register_pairs`` gives,
+    which IS the canonical 0-based ``shift{k}`` numbering (matches
+    ``_mu_net_name``, so a consumer's resolved reference and this scope's
+    own definition line always agree).
+    """
+    term_by_id = {t.id: t for t in op.terminals}
+    merges: list[MuMerge] = []
+    for k, (lsr, rsr) in enumerate(_loop_shift_register_pairs(op)):
+        init: NetRef | DefaultValue | None = None
+        if lsr.sr_initialized:
+            init = _resolve_source(
+                graph, ctx, root_ops, lsr.outer_terminal_uid, build_ctx,
+            )
+        if init is None:
+            # Uninitialized (or defensively unresolved) SR -- LabVIEW seeds
+            # it to the type default on the VI's first call; never
+            # fabricated, mirroring GammaCase's own unwired-tunnel fallback.
+            outer_t = term_by_id.get(lsr.outer_terminal_uid)
+            inner_t = term_by_id.get(lsr.inner_terminal_uid)
+            lv_type = (outer_t.lv_type if outer_t else None) or (
+                inner_t.lv_type if inner_t else None
+            )
+            init = _type_default(lv_type)
+        recur = (
+            _resolve_source(
+                graph, ctx, root_ops, rsr.inner_terminal_uid, build_ctx,
+            )
+            if rsr is not None else None
+        )
+        merges.append(
+            MuMerge(net=f"loop{loop_id}.shift{k}", init=init, recur=recur)
+        )
+    return merges
+
+
+def _build_loop_outputs(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    root_ops: list[Operation],
+    op: LoopOperation,
+    build_ctx: _BuildCtx,
+    loop_id: int,
+) -> list[EtaMerge]:
+    """One ``EtaMerge`` per output tunnel on this loop (Gated-SSA eta, see
+    ``EtaMerge``'s docstring) -- ``value`` is the inner per-iteration
+    producer, ``index_mode`` the tunnel's own ``TunnelMode``
+    (``_eta_index_mode``). Numbering matches ``_eta_net_name``
+    (``_loop_output_tunnel_outers``, the SAME ordering), so a consumer's
+    resolved reference and this scope's own definition line always agree.
+    """
+    term_by_id = {t.id: t for t in op.terminals}
+    tunnel_by_outer = {
+        t.outer_terminal_uid: t for t in op.tunnels if t.tunnel_type == "lpTun"
+    }
+    outers = _loop_output_tunnel_outers(op)
+    merges: list[EtaMerge] = []
+    for k, outer in enumerate(outers):
+        tunnel = tunnel_by_outer[outer.id]
+        value: NetRef | DefaultValue | None = _resolve_source(
+            graph, ctx, root_ops, tunnel.inner_terminal_uid, build_ctx,
+        )
+        if value is None:
+            # Unwired/broken inner tunnel -- never omit; substitute the
+            # type default like GammaCase's own unwired-tunnel fallback.
+            inner_t = term_by_id.get(tunnel.inner_terminal_uid)
+            lv_type = (inner_t.lv_type if inner_t else None) or outer.lv_type
+            value = _type_default(lv_type)
+        merges.append(
+            EtaMerge(
+                net=f"loop{loop_id}.out{k}",
+                index_mode=_eta_index_mode(tunnel.mode),
+                value=value,
+            )
+        )
+    return merges
+
+
 def _build_loop_scope(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -1066,11 +1307,17 @@ def _build_loop_scope(
         )
         for t in op.tunnels
     ]
+    loop_id = build_ctx.loop_id_by_uid[_uid_of(op.id)]
+    outputs: list[GammaMerge | MuMerge | EtaMerge] = [
+        *_build_loop_shift_registers(graph, ctx, root_ops, op, build_ctx, loop_id),
+        *_build_loop_outputs(graph, ctx, root_ops, op, build_ctx, loop_id),
+    ]
     return NetlistScope(
         uid=_uid_of(op.id), kind=kind, selector=selector, frames=[frame],
         parallel=op.parallel,
         parallel_static_workers=op.parallel_static_workers,
         tunnels=tunnel_info,
+        outputs=outputs,
     )
 
 
@@ -1289,6 +1536,7 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         occurrence_by_uid=_assign_occurrences(root_ops),
         const_by_id={c.id: c for c in ctx.constants},
         case_id_by_uid=_assign_case_ids(root_ops),
+        loop_id_by_uid=_assign_loop_ids(root_ops),
     )
 
     inputs = [
@@ -1395,7 +1643,7 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     LabVIEW draws directly on that input, negating it before the node's own
     operation runs) renders ``port=NOT net``: a ``NOT `` prefix on the net,
     ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
-    ``_render_gamma_source``/the module docstring already reserve arrows for.
+    ``_render_merge_source``/the module docstring already reserve arrows for.
     A non-inverted input is unchanged from before this flag existed.
 
     A Property Node's ``object_name`` (its target CLASS, e.g. "Bool") gets
@@ -1537,14 +1785,15 @@ def _render_scope(
     else:  # "for" / "while"
         _render_frame_body(scope.frames[0], indent + 1, lines, ambiguous)
 
-    # Case-only (see NetlistScope.outputs docstring) -- one gamma-merge
-    # definition line per output tunnel, at the same indent as this scope's
-    # own frame labels.
-    for gamma in scope.outputs:
-        lines.append(f"{prefix}  {_gamma_definition_line(gamma, ambiguous)}")
+    # One merge definition line per structural value-merge point on this
+    # scope (see NetlistScope.outputs docstring) -- a case's GammaMerge, or
+    # a loop's MuMerge/EtaMerge -- at the same indent as this scope's own
+    # frame labels/body.
+    for merge in scope.outputs:
+        lines.append(f"{prefix}  {_merge_definition_line(merge, ambiguous)}")
 
 
-def _render_gamma_source(source: NetRef | DefaultValue, ambiguous: set[str]) -> str:
+def _render_merge_source(source: NetRef | DefaultValue, ambiguous: set[str]) -> str:
     if isinstance(source, DefaultValue):
         return source.render()
     return source.render(qualified=source.bare in ambiguous)
@@ -1563,11 +1812,44 @@ def _gamma_definition_line(gamma: GammaMerge, ambiguous: set[str]) -> str:
         if gamma.selector is not None else "?"
     )
     cases_str = ", ".join(
-        f"{c.frame_key} -> {_render_gamma_source(c.source, ambiguous)}"
+        f"{c.frame_key} -> {_render_merge_source(c.source, ambiguous)}"
         for c in gamma.cases
     )
     short_net = gamma.net.rsplit(".", 1)[-1]
     return f"{short_net} := gamma({sel_str}; {cases_str})"
+
+
+def _mu_definition_line(mu: MuMerge, ambiguous: set[str]) -> str:
+    """``"shift0 := mu(init -> seed_net, recur -> Increment.result)"`` -- the
+    SHORT local name (``shift{k}``), ``->`` ONLY. ``recur`` is omitted
+    entirely (not rendered as an unresolved ``?``) when the shift register
+    is genuinely never written to -- see ``MuMerge.recur``'s docstring.
+    """
+    init_str = _render_merge_source(mu.init, ambiguous)
+    short_net = mu.net.rsplit(".", 1)[-1]
+    if mu.recur is None:
+        return f"{short_net} := mu(init -> {init_str})"
+    recur_str = mu.recur.render(qualified=mu.recur.bare in ambiguous)
+    return f"{short_net} := mu(init -> {init_str}, recur -> {recur_str})"
+
+
+def _eta_definition_line(eta: EtaMerge, ambiguous: set[str]) -> str:
+    """``"out0 := eta(array, Accumulate.result)"`` -- the SHORT local name
+    (``out{k}``), ``index_mode`` first (matching ``EtaMerge`` field order).
+    """
+    value_str = _render_merge_source(eta.value, ambiguous)
+    short_net = eta.net.rsplit(".", 1)[-1]
+    return f"{short_net} := eta({eta.index_mode}, {value_str})"
+
+
+def _merge_definition_line(
+    merge: GammaMerge | MuMerge | EtaMerge, ambiguous: set[str],
+) -> str:
+    if isinstance(merge, GammaMerge):
+        return _gamma_definition_line(merge, ambiguous)
+    if isinstance(merge, MuMerge):
+        return _mu_definition_line(merge, ambiguous)
+    return _eta_definition_line(merge, ambiguous)
 
 
 def _render_items(
@@ -1598,14 +1880,14 @@ def _frame_to_dict(frame: NetlistFrame) -> dict[str, Any]:
     }
 
 
-def _gamma_source_to_dict(source: NetRef | DefaultValue) -> dict[str, Any]:
+def _merge_source_to_dict(source: NetRef | DefaultValue) -> dict[str, Any]:
     if isinstance(source, DefaultValue):
         return {"kind": "default", "type": source.lv_label, "literal": source.literal}
     return _netref_to_dict(source)
 
 
 def _gamma_case_to_dict(case: GammaCase) -> dict[str, Any]:
-    return {"frame": case.frame_key, "source": _gamma_source_to_dict(case.source)}
+    return {"frame": case.frame_key, "source": _merge_source_to_dict(case.source)}
 
 
 def _gamma_to_dict(gamma: GammaMerge) -> dict[str, Any]:
@@ -1615,6 +1897,32 @@ def _gamma_to_dict(gamma: GammaMerge) -> dict[str, Any]:
         "selector": _netref_to_dict(gamma.selector) if gamma.selector else None,
         "cases": [_gamma_case_to_dict(c) for c in gamma.cases],
     }
+
+
+def _mu_to_dict(mu: MuMerge) -> dict[str, Any]:
+    return {
+        "net": mu.net,
+        "kind": "mu",
+        "init": _merge_source_to_dict(mu.init),
+        "recur": _netref_to_dict(mu.recur) if mu.recur is not None else None,
+    }
+
+
+def _eta_to_dict(eta: EtaMerge) -> dict[str, Any]:
+    return {
+        "net": eta.net,
+        "kind": "eta",
+        "index_mode": eta.index_mode,
+        "value": _merge_source_to_dict(eta.value),
+    }
+
+
+def _merge_to_dict(merge: GammaMerge | MuMerge | EtaMerge) -> dict[str, Any]:
+    if isinstance(merge, GammaMerge):
+        return _gamma_to_dict(merge)
+    if isinstance(merge, MuMerge):
+        return _mu_to_dict(merge)
+    return _eta_to_dict(merge)
 
 
 def _component_to_dict(comp: NetlistComponent) -> dict[str, Any]:
@@ -1665,10 +1973,10 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
         "scope_kind": item.kind,
         "selector": _netref_to_dict(item.selector) if item.selector else None,
         "frames": [_frame_to_dict(f) for f in item.frames],
-        # Case-only (see NetlistScope.outputs docstring) -- always present
-        # (empty for every non-case scope kind), one GammaMerge per output
-        # tunnel on this case.
-        "outputs": [_gamma_to_dict(g) for g in item.outputs],
+        # Always present (empty for sequence/disabled/event scopes) -- see
+        # NetlistScope.outputs docstring: a case scope's GammaMerge, or a
+        # loop scope's MuMerge/EtaMerge, tagged-union by "kind".
+        "outputs": [_merge_to_dict(m) for m in item.outputs],
     }
     # Loop-only facts (see NetlistScope docstring) -- omitted for non-loop
     # scope kinds rather than always-present-but-empty, to keep the JSON
