@@ -12,7 +12,7 @@ ONE canonical projection, three consumers::
 
 This module builds the IR (``build_netlist``) and renders it to text
 (``render_netlist``). It reuses the same structure-walk helpers as
-``describe.py`` (``_find_op_owning_terminal``, ``_has_output_tunnel``,
+``describe.py`` (``index_terminal_owners``, ``_has_output_tunnel``,
 factored into ``op_walk.py`` to avoid a circular import between the two)
 rather than duplicating the walk.
 
@@ -26,6 +26,7 @@ port interface, declared once (see ``_build_components``), alongside
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import asdict as _dataclass_asdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -289,7 +290,7 @@ class GammaCase:
     source: NetRef | DefaultValue
 
 
-@dataclass
+@dataclass(frozen=True)
 class GammaMerge:
     """A case structure's OUTPUT tunnel, modeled as Gated-SSA's classic
     gamma node: ONE named net (``case{id}.out{k}``) governed by the case's
@@ -379,7 +380,7 @@ class NetlistScope:
     outputs: list[GammaMerge | MuMerge | EtaMerge] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class NetlistFeedback:
     """A LabVIEW Feedback Node (z^-N) projected as Gated-SSA's classic mu --
     the SAME merge a loop shift register gets (see ``MuMerge``), but a
@@ -442,14 +443,15 @@ class _BuildCtx:
     the producing node's uid.port.
 
     ``case_id_by_uid``: deterministic ``case0``, ``case1``, … id per
-    ``CaseOperation``, keyed by trailing node UID (see ``_assign_case_ids``)
-    -- used ONLY to name a case's gamma-merge output nets
-    (``case{id}.out{k}``), never as a scope-header ``#n`` tag.
+    ``CaseOperation``, keyed by trailing node UID (see
+    ``_assign_sequential_ids``) -- used ONLY to name a case's gamma-merge
+    output nets (``case{id}.out{k}``), never as a scope-header ``#n`` tag.
 
     ``loop_id_by_uid``: deterministic ``loop0``, ``loop1``, … id per
-    ``LoopOperation``, keyed by trailing node UID (see ``_assign_loop_ids``)
-    -- the loop analogue of ``case_id_by_uid``, used ONLY to name a loop's
-    mu/eta-merge nets (``loop{id}.shift{k}`` / ``loop{id}.out{k}``).
+    ``LoopOperation``, keyed by trailing node UID (see
+    ``_assign_sequential_ids``) -- the loop analogue of ``case_id_by_uid``,
+    used ONLY to name a loop's mu/eta-merge nets (``loop{id}.shift{k}`` /
+    ``loop{id}.out{k}``).
     """
 
     occurrence_by_uid: dict[str, int]
@@ -457,7 +459,7 @@ class _BuildCtx:
     case_id_by_uid: dict[str, int]
     loop_id_by_uid: dict[str, int]
     # ``fb0``, ``fb1``, … id per Feedback Node MASTER, keyed by trailing node
-    # UID (see ``_assign_feedback_ids``) -- names the ``fb{k}`` mu net a
+    # UID (see ``_assign_sequential_ids``) -- names the ``fb{k}`` mu net a
     # consumer reading the Feedback Node's output resolves to.
     feedback_id_by_uid: dict[str, int]
     # Every operation keyed by its full ``op.id`` -- lets a Feedback Node
@@ -559,12 +561,14 @@ def _walk_flat(operations: list[Operation]) -> list[Operation]:
     return flat
 
 
-def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
+def _assign_occurrences(flat: list[Operation]) -> dict[str, int]:
     """Assign ``#n`` occurrence numbers to node UIDs whose display name
-    repeats within the VI. 1-based, in deterministic node order (the
-    operation tree is already produced in ``_node_order_key`` order by the
-    graph layer -- see the deterministic-node-order rule). Names that are
-    unique in the VI are absent from the returned map (no tag).
+    repeats within the VI. 1-based, in ``flat``'s given order (the
+    deterministic ``_walk_flat`` / ``_node_order_key`` order -- see the
+    deterministic-node-order rule; ``build_netlist`` flattens once and
+    passes the same list here and to every other ``_assign_*``/indexing
+    helper). Names that are unique in the VI are absent from the returned
+    map (no tag).
 
     ONLY instance ops participate: structures render via ``scope_header`` and
     never use the ``#n`` tag, so counting them (e.g. a CaseOperation whose
@@ -574,7 +578,7 @@ def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
     ``_build_components``), so they must not get an occurrence tag either.
     """
     insts = [
-        op for op in _walk_flat(root_ops)
+        op for op in flat
         if not isinstance(
             op,
             (CaseOperation, LoopOperation, SequenceOperation,
@@ -597,52 +601,33 @@ def _assign_occurrences(root_ops: list[Operation]) -> dict[str, int]:
     return occurrence_by_uid
 
 
-def _assign_case_ids(root_ops: list[Operation]) -> dict[str, int]:
-    """Deterministic ``case0``, ``case1``, … id per ``CaseOperation``, 0-based,
-    in the same node order the operation tree is already produced in
-    (``_walk_flat`` -- the ``_node_order_key`` order, see the deterministic-
-    node-order rule). Used ONLY to name a case's gamma-merge output nets
-    (``case{id}.out{k}``) -- deliberately NOT a ``#n`` scope-header tag (see
-    ``_assign_occurrences``, which excludes structures for the same reason:
-    a case's ``scope_header`` never carries an occurrence disambiguator).
+def _assign_sequential_ids(
+    flat: list[Operation], predicate: Callable[[Operation], bool],
+) -> dict[str, int]:
+    """Deterministic 0-based id per operation matching ``predicate``, keyed
+    by trailing node UID, in ``flat``'s given order (the deterministic
+    ``_walk_flat`` / ``_node_order_key`` order -- see the deterministic-
+    node-order rule).
+
+    Shared by the three id spaces ``build_netlist`` threads through
+    ``_BuildCtx`` -- identical but for the filter:
+
+    - ``case_id_by_uid`` (``predicate`` selects ``CaseOperation``) -- used
+      ONLY to name a case's gamma-merge output nets (``case{id}.out{k}``).
+    - ``loop_id_by_uid`` (``LoopOperation``) -- the loop analogue, names a
+      loop's mu/eta-merge nets (``loop{id}.shift{k}`` / ``loop{id}.out{k}``).
+    - ``feedback_id_by_uid`` (``FeedbackOperation`` MASTERs only, via
+      ``op.is_master``) -- names the ``fb{k}`` mu net a consumer reading the
+      Feedback Node's output resolves to.
+
+    None of these is a ``#n`` scope-header tag -- see ``_assign_occurrences``,
+    which excludes structures for the same reason: a case/loop's own
+    ``scope_header`` never carries an occurrence disambiguator.
     """
     ids: dict[str, int] = {}
     next_id = 0
-    for op in _walk_flat(root_ops):
-        if isinstance(op, CaseOperation):
-            ids[_uid_of(op.id)] = next_id
-            next_id += 1
-    return ids
-
-
-def _assign_loop_ids(root_ops: list[Operation]) -> dict[str, int]:
-    """Deterministic ``loop0``, ``loop1``, … id per ``LoopOperation``,
-    0-based, in the same node order the operation tree is already produced
-    in (``_walk_flat``) -- the loop analogue of ``_assign_case_ids``. Used
-    ONLY to name a loop's mu/eta-merge nets (``loop{id}.shift{k}`` /
-    ``loop{id}.out{k}``), never as a scope-header ``#n`` tag.
-    """
-    ids: dict[str, int] = {}
-    next_id = 0
-    for op in _walk_flat(root_ops):
-        if isinstance(op, LoopOperation):
-            ids[_uid_of(op.id)] = next_id
-            next_id += 1
-    return ids
-
-
-def _assign_feedback_ids(root_ops: list[Operation]) -> dict[str, int]:
-    """Deterministic ``fb0``, ``fb1``, … id per Feedback Node MASTER
-    (``FeedbackOperation.is_master``), 0-based, in ``_walk_flat`` node order
-    (the ``_node_order_key`` order). Used ONLY to name the ``fb{k}`` mu net a
-    consumer reading the Feedback Node's output resolves to -- the standalone
-    analogue of ``_assign_loop_ids`` (a Feedback Node is its own node, not a
-    loop-owned shift register, so it gets its own id space rather than a
-    ``loop{id}.shift{k}`` name)."""
-    ids: dict[str, int] = {}
-    next_id = 0
-    for op in _walk_flat(root_ops):
-        if isinstance(op, FeedbackOperation) and op.is_master:
+    for op in flat:
+        if predicate(op):
             ids[_uid_of(op.id)] = next_id
             next_id += 1
     return ids
@@ -660,18 +645,36 @@ def _is_feedback_output_read(op: Operation, term: Terminal) -> bool:
     )
 
 
+def _tunnel_net_name(
+    op: Operation,
+    term: Terminal,
+    id_map: dict[str, int],
+    outers_fn: Callable[[Operation], list[Terminal]],
+    prefix: str,
+) -> str:
+    """The merge net name for a case/loop output-tunnel OUTER terminal --
+    ``{prefix}{id}.out{k}``, ``k`` being ``term``'s 0-based position among
+    this structure's own output tunnels (``outers_fn`` -- the SAME
+    enumerator ``_build_case_outputs``/``_build_loop_outputs`` use to number
+    ``GammaMerge.net``/``EtaMerge.net``, so a consumer's resolved reference
+    and the scope's own definition line always agree on the name).
+
+    Shared by ``_gamma_net_name`` (case) and ``_eta_net_name`` (loop) --
+    structurally identical but for the id map, the outer-terminal enumerator,
+    and the net prefix.
+    """
+    id_ = id_map[_uid_of(op.id)]
+    outers = outers_fn(op)
+    k = next(i for i, t in enumerate(outers) if t.id == term.id)
+    return f"{prefix}{id_}.out{k}"
+
+
 def _gamma_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
     """The gamma-merge net name for a case's output tunnel OUTER terminal --
-    ``case{id}.out{k}``, ``k`` being ``term``'s 0-based position among this
-    case's own output tunnels (``_case_output_tunnel_outers``, the SAME
-    ordering ``_build_case_outputs`` uses to number ``GammaMerge.net``, so a
-    consumer's resolved reference and the case scope's own definition line
-    always agree on the name).
-    """
-    case_id = build_ctx.case_id_by_uid[_uid_of(op.id)]
-    outers = _case_output_tunnel_outers(op)
-    k = next(i for i, t in enumerate(outers) if t.id == term.id)
-    return f"case{case_id}.out{k}"
+    ``case{id}.out{k}`` -- see ``_tunnel_net_name``."""
+    return _tunnel_net_name(
+        op, term, build_ctx.case_id_by_uid, _case_output_tunnel_outers, "case",
+    )
 
 
 def _mu_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
@@ -696,14 +699,10 @@ def _mu_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
 
 def _eta_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
     """The eta-merge net name for a loop's output tunnel OUTER terminal --
-    ``loop{id}.out{k}``, ``k`` being ``term``'s 0-based position among this
-    loop's own output tunnels (``_loop_output_tunnel_outers``, the SAME
-    ordering ``_build_loop_outputs`` uses to number ``EtaMerge.net``).
-    """
-    loop_id = build_ctx.loop_id_by_uid[_uid_of(op.id)]
-    outers = _loop_output_tunnel_outers(op)
-    k = next(i for i, t in enumerate(outers) if t.id == term.id)
-    return f"loop{loop_id}.out{k}"
+    ``loop{id}.out{k}`` -- see ``_tunnel_net_name``."""
+    return _tunnel_net_name(
+        op, term, build_ctx.loop_id_by_uid, _loop_output_tunnel_outers, "loop",
+    )
 
 
 _ETA_INDEX_MODE_BY_TUNNEL_MODE: dict[TunnelMode, str] = {
@@ -765,9 +764,10 @@ def _default_literal(lv_type: LVType | None) -> str:
         return "?"
     if lv_type.kind in ("enum", "ring"):
         if lv_type.values:
-            for member_name, ev in lv_type.values.items():
-                if ev.value == 0:
-                    return member_name
+            return next(
+                (name for name, ev in lv_type.values.items() if ev.value == 0),
+                "0",
+            )
         return "0"
     if lv_type.kind == "array":
         return "[]"
@@ -881,11 +881,12 @@ def _resolve_source(
                 # itself -- name the ``fb{k}`` net (defined by the standalone
                 # ``NetlistFeedback`` item ``_build_feedback`` emits) rather
                 # than the raw ``hiddenFBNode.0`` producer. Loop shift
-                # register's standalone-node analogue.
-                k = build_ctx.feedback_id_by_uid.get(_uid_of(op.id))
-                if k is not None:
-                    name = f"fb{k}"
-                    return NetRef(node=None, port=name, occurrence=None, bare=name)
+                # register's standalone-node analogue. Indexed directly (like
+                # gamma/eta/mu above): a MASTER Feedback Node always gets an
+                # id from ``_assign_sequential_ids`` in ``build_netlist``, so
+                # a miss here would mean a real bug, not a legitimate miss.
+                name = f"fb{build_ctx.feedback_id_by_uid[_uid_of(op.id)]}"
+                return NetRef(node=None, port=name, occurrence=None, bare=name)
             paired = _paired_tunnel_id(op, term)
             if paired is not None and paired not in seen:
                 tid = paired
@@ -917,6 +918,46 @@ def _resolve_source(
         return NetRef(
             node=node_name, port=port, occurrence=None, bare=f"{node_name}.{port}",
         )
+
+
+def _resolve_or_default(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    root_ops: list[Operation],
+    build_ctx: _BuildCtx,
+    terminal_id: str | None,
+    *fallback_terminals: Terminal | None,
+) -> NetRef | DefaultValue:
+    """Trace ``terminal_id`` via ``_resolve_source``, falling back to the
+    type default of the first ``fallback_terminals`` entry that has a
+    resolved ``lv_type`` when the trace comes back empty (``terminal_id`` is
+    ``None``, meaning the caller has no terminal to even attempt tracing --
+    or ``_resolve_source`` itself returns ``None``, meaning the terminal is
+    genuinely unwired).
+
+    Shared "trace-then-default" tail duplicated across ``_build_case_outputs``
+    (an unwired case-output inner tunnel), ``_build_loop_shift_registers`` (an
+    uninitialized shift register), ``_build_loop_outputs`` (an unwired loop
+    output tunnel), and ``_build_feedback`` (an unwired Feedback Node
+    initializer) -- each caller keeps its own terminal-selection logic (which
+    terminal to trace, which terminals to fall back to, in what order); only
+    this trace-then-default tail is common. Mirrors ``GammaCase.source``'s
+    "use default if unwired" treatment -- LabVIEW's own runtime substitution,
+    never fabricated.
+    """
+    source: NetRef | None = None
+    if terminal_id is not None:
+        source = _resolve_source(graph, ctx, root_ops, terminal_id, build_ctx)
+    if source is not None:
+        return source
+    lv_type = next(
+        (
+            t.lv_type for t in fallback_terminals
+            if t is not None and t.lv_type is not None
+        ),
+        None,
+    )
+    return _type_default(lv_type)
 
 
 def _input_ref(
@@ -1044,24 +1085,20 @@ def _build_feedback(
     terminal; ``recur`` traces the linked write side's (slave's) single input
     terminal -- both via ``_resolve_source``, the same tracer every other net
     uses. ``init`` falls back to the terminal's type default when unwired
-    (LabVIEW's own first-call seed), mirroring ``_build_loop_shift_registers``;
-    ``recur`` stays ``None`` when the Feedback Node is never written (a
-    faithful state, never defaulted)."""
+    (LabVIEW's own first-call seed, via ``_resolve_or_default``), mirroring
+    ``_build_loop_shift_registers``; ``recur`` stays ``None`` when the
+    Feedback Node is never written (a faithful state, never defaulted)."""
     k = build_ctx.feedback_id_by_uid[_uid_of(op.id)]
 
-    # init: the master's initializer terminal (the one INPUT terminal).
+    # init: the master's initializer terminal (the one INPUT terminal),
+    # falling back to the initializer's own type, else the output's.
     init_term = next((t for t in op.terminals if t.direction == "input"), None)
-    init: NetRef | DefaultValue | None = None
-    if init_term is not None:
-        init = _resolve_source(graph, ctx, root_ops, init_term.id, build_ctx)
-    if init is None:
-        lv_type = init_term.lv_type if init_term is not None else None
-        if lv_type is None:
-            out_term = next(
-                (t for t in op.terminals if t.direction == "output"), None
-            )
-            lv_type = out_term.lv_type if out_term is not None else None
-        init = _type_default(lv_type)
+    out_term = next((t for t in op.terminals if t.direction == "output"), None)
+    init = _resolve_or_default(
+        graph, ctx, root_ops, build_ctx,
+        init_term.id if init_term is not None else None,
+        init_term, out_term,
+    )
 
     # recur: the written value on the linked write side's rightFeedback input.
     recur: NetRef | None = None
@@ -1214,16 +1251,14 @@ def _build_case_outputs(
                 ),
                 None,
             )
-            source: NetRef | DefaultValue | None = None
-            if inner is not None:
-                source = _resolve_source(graph, ctx, root_ops, inner.id, build_ctx)
-            if source is None:
-                # Unwired inner tunnel (or, defensively, no inner terminal
-                # found at all) -- LabVIEW's "use default if unwired" routes
-                # the tunnel's own TYPE default through; never omit the frame.
-                lv_type = (inner.lv_type if inner is not None else None) \
-                    or outer.lv_type
-                source = _type_default(lv_type)
+            # Unwired inner tunnel (or, defensively, no inner terminal found
+            # at all) -- LabVIEW's "use default if unwired" routes the
+            # tunnel's own TYPE default through; never omit the frame.
+            source = _resolve_or_default(
+                graph, ctx, root_ops, build_ctx,
+                inner.id if inner is not None else None,
+                inner, outer,
+            )
             frame_key = "default" if nl_frame.is_default else nl_frame.label
             cases.append(GammaCase(frame_key=frame_key, source=source))
         gammas.append(
@@ -1352,21 +1387,16 @@ def _build_loop_shift_registers(
     term_by_id = {t.id: t for t in op.terminals}
     merges: list[MuMerge] = []
     for k, (lsr, rsr) in enumerate(_loop_shift_register_pairs(op)):
-        init: NetRef | DefaultValue | None = None
-        if lsr.sr_initialized:
-            init = _resolve_source(
-                graph, ctx, root_ops, lsr.outer_terminal_uid, build_ctx,
-            )
-        if init is None:
-            # Uninitialized (or defensively unresolved) SR -- LabVIEW seeds
-            # it to the type default on the VI's first call; never
-            # fabricated, mirroring GammaCase's own unwired-tunnel fallback.
-            outer_t = term_by_id.get(lsr.outer_terminal_uid)
-            inner_t = term_by_id.get(lsr.inner_terminal_uid)
-            lv_type = (outer_t.lv_type if outer_t else None) or (
-                inner_t.lv_type if inner_t else None
-            )
-            init = _type_default(lv_type)
+        # Uninitialized (or defensively unresolved) SR -- LabVIEW seeds it
+        # to the type default on the VI's first call; never fabricated,
+        # mirroring GammaCase's own unwired-tunnel fallback.
+        outer_t = term_by_id.get(lsr.outer_terminal_uid)
+        inner_t = term_by_id.get(lsr.inner_terminal_uid)
+        init = _resolve_or_default(
+            graph, ctx, root_ops, build_ctx,
+            lsr.outer_terminal_uid if lsr.sr_initialized else None,
+            outer_t, inner_t,
+        )
         recur = (
             _resolve_source(
                 graph, ctx, root_ops, rsr.inner_terminal_uid, build_ctx,
@@ -1402,15 +1432,13 @@ def _build_loop_outputs(
     merges: list[EtaMerge] = []
     for k, outer in enumerate(outers):
         tunnel = tunnel_by_outer[outer.id]
-        value: NetRef | DefaultValue | None = _resolve_source(
-            graph, ctx, root_ops, tunnel.inner_terminal_uid, build_ctx,
+        # Unwired/broken inner tunnel -- never omit; substitute the type
+        # default like GammaCase's own unwired-tunnel fallback.
+        inner_t = term_by_id.get(tunnel.inner_terminal_uid)
+        value = _resolve_or_default(
+            graph, ctx, root_ops, build_ctx,
+            tunnel.inner_terminal_uid, inner_t, outer,
         )
-        if value is None:
-            # Unwired/broken inner tunnel -- never omit; substitute the
-            # type default like GammaCase's own unwired-tunnel fallback.
-            inner_t = term_by_id.get(tunnel.inner_terminal_uid)
-            lv_type = (inner_t.lv_type if inner_t else None) or outer.lv_type
-            value = _type_default(lv_type)
         merges.append(
             EtaMerge(
                 net=f"loop{loop_id}.out{k}",
@@ -1578,12 +1606,17 @@ def _dedupe_primitive_group(
 
 
 def _build_components(
-    graph: InMemoryVIGraph, root_ops: list[Operation],
+    graph: InMemoryVIGraph, flat: list[Operation],
 ) -> list[NetlistComponent]:
     """Every distinct component (subVI or primitive-like leaf) actually
     used anywhere in the VI, sorted by declared name. Structures
     (case/loop/sequence/disabled/IPES) are containers, not components, and
-    are excluded -- ``## Netlist`` already shows their scopes."""
+    are excluded -- ``## Netlist`` already shows their scopes.
+
+    ``flat`` is the whole VI's already-flattened operation list
+    (``_walk_flat``) -- ``build_netlist`` flattens once and passes the same
+    list here and to every other indexing helper.
+    """
     subvi_order: list[str] = []
     seen_subvi: set[str] = set()
     subvi_reps: dict[str, Operation] = {}
@@ -1592,7 +1625,7 @@ def _build_components(
         list[tuple[Operation, list[ComponentPort], list[ComponentPort]]],
     ] = {}
 
-    for op in _walk_flat(root_ops):
+    for op in flat:
         if isinstance(op, _STRUCTURE_OPERATION_TYPES):
             continue
         if _is_subvi_call(op):
@@ -1673,14 +1706,24 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
     root_ops = ctx.operations
+    # Flattened once, reused everywhere a flat node-order walk is needed
+    # (each id-assignment pass, ``op_by_uid``, ``_build_components``) --
+    # previously each of those re-walked the tree independently.
+    flat = _walk_flat(root_ops)
 
     build_ctx = _BuildCtx(
-        occurrence_by_uid=_assign_occurrences(root_ops),
+        occurrence_by_uid=_assign_occurrences(flat),
         const_by_id={c.id: c for c in ctx.constants},
-        case_id_by_uid=_assign_case_ids(root_ops),
-        loop_id_by_uid=_assign_loop_ids(root_ops),
-        feedback_id_by_uid=_assign_feedback_ids(root_ops),
-        op_by_uid={op.id: op for op in _walk_flat(root_ops)},
+        case_id_by_uid=_assign_sequential_ids(
+            flat, lambda op: isinstance(op, CaseOperation),
+        ),
+        loop_id_by_uid=_assign_sequential_ids(
+            flat, lambda op: isinstance(op, LoopOperation),
+        ),
+        feedback_id_by_uid=_assign_sequential_ids(
+            flat, lambda op: isinstance(op, FeedbackOperation) and op.is_master,
+        ),
+        op_by_uid={op.id: op for op in flat},
         owner_by_terminal=index_terminal_owners(root_ops),
     )
 
@@ -1700,7 +1743,7 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     ]
 
     body = _build_items(graph, ctx, root_ops, root_ops, build_ctx)
-    components = _build_components(graph, root_ops)
+    components = _build_components(graph, flat)
 
     return NetlistModule(
         vi_name=vi_name, inputs=inputs, outputs=outputs, body=body,
@@ -1717,7 +1760,17 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
 
 def _collect_refs(items: list[NetlistItem]) -> list[NetRef]:
     """Every NetRef appearing anywhere in a body (inputs, outputs, and
-    scope selectors), for global bare-name disambiguation."""
+    scope selectors), for global bare-name disambiguation.
+
+    Deliberately does NOT recurse into any merge's source refs -- neither a
+    scope's ``GammaMerge.cases[].source`` / ``MuMerge.init``/``recur`` /
+    ``EtaMerge.value``, nor (symmetrically) a standalone ``NetlistFeedback``'s
+    ``init``/``recur``. Every one of those sources aliases a producer already
+    reachable elsewhere in the walk -- a boundary control (never ambiguous by
+    itself) or some instance's own output (collected when THAT instance is
+    walked) -- so re-adding the same identity here is redundant, not a
+    genuinely new disambiguation source.
+    """
     refs: list[NetRef] = []
     for item in items:
         match item:
@@ -1730,10 +1783,7 @@ def _collect_refs(items: list[NetlistItem]) -> list[NetRef]:
                 for frame in item.frames:
                     refs.extend(_collect_refs(frame.body))
             case NetlistFeedback():
-                if isinstance(item.init, NetRef):
-                    refs.append(item.init)
-                if item.recur is not None:
-                    refs.append(item.recur)
+                pass
     return refs
 
 
@@ -1780,50 +1830,23 @@ def index_module(
     return instances, scopes
 
 
-def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
-    """NODE-FIRST netlist line: ``"name(ins) -> outs"`` (``"name(ins)"`` when no
-    outputs) -- NO indent or gutter; callers own that.
-
-    Node-first is the real netlist convention: SPICE (``R1 n1 n2 1k``) and
-    Verilog (``and2 u1 (.a(w1), .b(w2))``) both lead with the COMPONENT, then
-    its connections. The node is the subject; wires are its attributes. It also
-    makes a VI and each node inside it read the SAME shape (``NAME(ins) -> outs``,
-    matching the ``render_netlist`` signature line) and keeps a diff node-centric
-    -- the changed node's name sits right after the ``+/-/~`` gutter.
-
-    Inputs use NAMED-PORT association (Verilog ``.port(net)`` / VHDL
-    ``port => signal`` / Python kwargs), rendered ``port=net`` -- each wire
-    is tied to the declared input port it feeds, not left positional. An
-    inverted input (``NetlistPortBinding.inverted`` -- the "Not" bubble
-    LabVIEW draws directly on that input, negating it before the node's own
-    operation runs) renders ``port=NOT net``: a ``NOT `` prefix on the net,
-    ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
-    ``_render_merge_source``/the module docstring already reserve arrows for.
-    A non-inverted input is unchanged from before this flag existed.
+def _instance_name_display(instance: NetlistInstance) -> str:
+    """The instance's own header text -- name, ``#n`` occurrence tag, and any
+    bracket suffix -- with NO ports/connections (that's ``instance_line``'s
+    job). Split out of ``instance_line`` since the header assembly (occurrence
+    + operation suffix + object/method suffix) is a self-contained concern.
 
     A Property Node's ``object_name`` (its target CLASS, e.g. "Bool") gets
     the same bracket-suffix treatment as ``operation`` -- the two never
     co-occur (a ``PropertyOperation`` is never a ``PrimitiveOperation``), so
-    one visual slot serves both without collision: ``Property Node#1 [Bool]
-    (Disabled=True) -> Enabled``. Each accessed property's port is already
-    labelled by its real NAME (not a numeric index) via the load-time
-    ``op_walk.stamp_property_value_names`` stamp on its VALUE terminal's
-    ``display_name`` -- a WRITTEN property shows as an input binding
-    (``Value=<net>``), a READ property as a named output net -- so no
-    further special-casing is needed here; direction is unambiguous from
-    which side of ``->`` a property's port appears on (see
-    ``NetlistInstance.properties`` for the JSON-only structured mirror of
-    the same facts).
+    one visual slot serves both without collision: ``Property Node#1 [Bool]``.
 
     An Invoke Node's ``method_name`` gets the SAME bracket suffix slot,
     rendered ``object:method`` (``Invoke Node#1 [Library:Open Project]``) --
     ``:`` reads as "the method OF this object", the same idiom the
     qualified-name display already uses elsewhere (``owning_libraries``
     joined with ``:``). When ``object_name`` is absent the bracket holds
-    just the method. Parameter port NAMES are never available in the VI
-    file (they live in the method's VI-server signature) -- ``ins``/
-    ``outs`` below stay numeric for an invoke node, same as before this
-    fix; only the node's OWN identity gains the method it calls.
+    just the method.
     """
     tag = f"#{instance.occurrence}" if instance.occurrence else ""
     op_suffix = f" [{instance.operation}]" if instance.operation else ""
@@ -1835,7 +1858,46 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
         obj_suffix = f" [{instance.object_name}]"
     else:
         obj_suffix = ""
-    name_disp = f"{instance.name}{tag}{op_suffix}{obj_suffix}"
+    return f"{instance.name}{tag}{op_suffix}{obj_suffix}"
+
+
+def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
+    """NODE-FIRST netlist line: ``"name(ins) -> outs"`` (``"name(ins)"`` when no
+    outputs) -- NO indent or gutter; callers own that.
+
+    Node-first is the real netlist convention: SPICE (``R1 n1 n2 1k``) and
+    Verilog (``and2 u1 (.a(w1), .b(w2))``) both lead with the COMPONENT, then
+    its connections. The node is the subject; wires are its attributes. It also
+    makes a VI and each node inside it read the SAME shape (``NAME(ins) -> outs``,
+    matching the ``render_netlist`` signature line) and keeps a diff node-centric
+    -- the changed node's name sits right after the ``+/-/~`` gutter. The
+    header itself (``name``/``#n``/bracket suffixes) is ``_instance_name_display``.
+
+    Inputs use NAMED-PORT association (Verilog ``.port(net)`` / VHDL
+    ``port => signal`` / Python kwargs), rendered ``port=net`` -- each wire
+    is tied to the declared input port it feeds, not left positional. An
+    inverted input (``NetlistPortBinding.inverted`` -- the "Not" bubble
+    LabVIEW draws directly on that input, negating it before the node's own
+    operation runs) renders ``port=NOT net``: a ``NOT `` prefix on the net,
+    ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
+    ``_render_merge_source``/the module docstring already reserve arrows for.
+    A non-inverted input is unchanged from before this flag existed.
+
+    Each accessed property's port is already labelled by its real NAME (not
+    a numeric index) via the load-time ``op_walk.stamp_property_value_names``
+    stamp on its VALUE terminal's ``display_name`` -- a WRITTEN property
+    shows as an input binding (``Value=<net>``), a READ property as a named
+    output net -- so no further special-casing is needed here; direction is
+    unambiguous from which side of ``->`` a property's port appears on (see
+    ``NetlistInstance.properties`` for the JSON-only structured mirror of
+    the same facts).
+
+    Parameter port NAMES are never available in the VI file for an Invoke
+    Node (they live in the method's VI-server signature) -- ``ins``/``outs``
+    below stay numeric for an invoke node; only the node's OWN identity
+    (``_instance_name_display``) gains the method it calls.
+    """
+    name_disp = _instance_name_display(instance)
     def _bind(b: NetlistPortBinding) -> str:
         net = b.net.render(qualified=b.net.bare in ambiguous)
         # An inverted input wraps the net in `not(...)` -- a function form that
@@ -1954,6 +2016,18 @@ def _render_merge_source(source: NetRef | DefaultValue, ambiguous: set[str]) -> 
     return source.render(qualified=source.bare in ambiguous)
 
 
+def _short_net(net: str) -> str:
+    """The SHORT local name (``out0``/``shift0``/...) of a fully qualified
+    merge net (``case3.out0``/``loop1.shift0``/...) -- a definition line
+    sits inside its own scope, so it never repeats that scope's own id
+    prefix (the same convention a frame's own header doesn't repeat the
+    case's selector name either). Feedback Nodes intentionally do NOT use
+    this -- a standalone ``fb{k}`` net has no scope prefix to strip, so
+    ``_feedback_definition_line`` renders ``fb.net`` in full.
+    """
+    return net.rsplit(".", 1)[-1]
+
+
 def _gamma_definition_line(gamma: GammaMerge, ambiguous: set[str]) -> str:
     """``"out0 := gamma(selector; True -> subtract3.difference, default -> 0
     (I32 default))"`` -- the SHORT local name (``out{k}``, not the fully
@@ -1970,22 +2044,36 @@ def _gamma_definition_line(gamma: GammaMerge, ambiguous: set[str]) -> str:
         f"{c.frame_key} -> {_render_merge_source(c.source, ambiguous)}"
         for c in gamma.cases
     )
-    short_net = gamma.net.rsplit(".", 1)[-1]
-    return f"{short_net} := gamma({sel_str}; {cases_str})"
+    return f"{_short_net(gamma.net)} := gamma({sel_str}; {cases_str})"
+
+
+def _render_mu(
+    net: str,
+    tag: str,
+    init: NetRef | DefaultValue,
+    recur: NetRef | None,
+    ambiguous: set[str],
+) -> str:
+    """``"{net} := mu{tag}(init -> ..., recur -> ...)"`` -- the shared mu
+    render both a loop shift register's ``_mu_definition_line`` (short local
+    ``shift{k}`` name, no tag) and a standalone Feedback Node's
+    ``_feedback_definition_line`` (full ``fb{k}`` name, ``[z^-N]`` tag) use.
+    ``recur`` is omitted entirely (never rendered as an unresolved ``?``)
+    when the shift register / Feedback Node is genuinely never written to --
+    see ``MuMerge.recur``'s docstring. ``->`` ONLY (locked ASCII, no ``<-``).
+    """
+    init_str = _render_merge_source(init, ambiguous)
+    if recur is None:
+        return f"{net} := mu{tag}(init -> {init_str})"
+    recur_str = _render_merge_source(recur, ambiguous)
+    return f"{net} := mu{tag}(init -> {init_str}, recur -> {recur_str})"
 
 
 def _mu_definition_line(mu: MuMerge, ambiguous: set[str]) -> str:
     """``"shift0 := mu(init -> seed_net, recur -> Increment.result)"`` -- the
-    SHORT local name (``shift{k}``), ``->`` ONLY. ``recur`` is omitted
-    entirely (not rendered as an unresolved ``?``) when the shift register
-    is genuinely never written to -- see ``MuMerge.recur``'s docstring.
+    SHORT local name (``shift{k}``) -- see ``_render_mu``.
     """
-    init_str = _render_merge_source(mu.init, ambiguous)
-    short_net = mu.net.rsplit(".", 1)[-1]
-    if mu.recur is None:
-        return f"{short_net} := mu(init -> {init_str})"
-    recur_str = mu.recur.render(qualified=mu.recur.bare in ambiguous)
-    return f"{short_net} := mu(init -> {init_str}, recur -> {recur_str})"
+    return _render_mu(_short_net(mu.net), "", mu.init, mu.recur, ambiguous)
 
 
 def _eta_definition_line(eta: EtaMerge, ambiguous: set[str]) -> str:
@@ -1993,24 +2081,19 @@ def _eta_definition_line(eta: EtaMerge, ambiguous: set[str]) -> str:
     (``out{k}``), ``index_mode`` first (matching ``EtaMerge`` field order).
     """
     value_str = _render_merge_source(eta.value, ambiguous)
-    short_net = eta.net.rsplit(".", 1)[-1]
-    return f"{short_net} := eta({eta.index_mode}, {value_str})"
+    return f"{_short_net(eta.net)} := eta({eta.index_mode}, {value_str})"
 
 
 def _feedback_definition_line(fb: NetlistFeedback, ambiguous: set[str]) -> str:
     """``"fb0 := mu[z^-1](init -> 0.0 (DBL default), recur -> now.0)"`` -- a
     Feedback Node as a standalone mu, the SAME ``init -> …, recur -> …`` form
-    a loop shift register's ``_mu_definition_line`` uses, tagged ``[z^-N]``
-    with the z-transform delay depth (LabVIEW's own "z^-1 block" view) when
-    the file carries one. ``recur`` is omitted entirely (never a fabricated
-    ``?``) when the Feedback Node is genuinely never written to -- same as
-    ``_mu_definition_line``. ``->`` ONLY (locked ASCII, no ``<-``)."""
+    a loop shift register's ``_mu_definition_line`` uses (see ``_render_mu``),
+    tagged ``[z^-N]`` with the z-transform delay depth (LabVIEW's own
+    "z^-1 block" view) when the file carries one. The FULL ``fb{k}`` net name
+    is used (not ``_short_net``) -- unlike a scope's own merges, a Feedback
+    Node has no enclosing scope prefix to strip."""
     tag = f"[z^-{fb.delay}]" if fb.delay is not None else ""
-    init_str = _render_merge_source(fb.init, ambiguous)
-    if fb.recur is None:
-        return f"{fb.net} := mu{tag}(init -> {init_str})"
-    recur_str = fb.recur.render(qualified=fb.recur.bare in ambiguous)
-    return f"{fb.net} := mu{tag}(init -> {init_str}, recur -> {recur_str})"
+    return _render_mu(fb.net, tag, fb.init, fb.recur, ambiguous)
 
 
 def _merge_definition_line(
@@ -2116,9 +2199,28 @@ def _property_access_to_dict(access: NetlistPropertyAccess) -> dict[str, Any]:
     }
 
 
+def _feedback_to_dict(fb: NetlistFeedback) -> dict[str, Any]:
+    """A standalone Feedback Node body item -- the JSON counterpart of
+    ``_feedback_definition_line``'s ``fb{k} := mu[z^-N](...)`` text. ``net``
+    leads (matching ``_gamma_to_dict``/``_mu_to_dict``/``_eta_to_dict``'s key
+    order -- a Feedback Node IS a standalone mu merge, see ``NetlistFeedback``'s
+    docstring), then the ``kind`` discriminator (here always ``"feedback"``,
+    distinguishing this from the ``instance``/``scope`` body-item kinds
+    ``_item_to_dict`` also tags)."""
+    return {
+        "net": fb.net,
+        "kind": "feedback",
+        "uid": fb.uid,
+        "delay": fb.delay,
+        "init": _merge_source_to_dict(fb.init),
+        "recur": _netref_to_dict(fb.recur) if fb.recur is not None else None,
+    }
+
+
 def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
     """One body item, tagged with a ``kind`` discriminator so the
-    ``instance``/``scope`` union survives JSON (``asdict`` would erase it)."""
+    ``instance``/``scope``/``feedback`` union survives JSON (``asdict`` would
+    erase it)."""
     if isinstance(item, NetlistInstance):
         return {
             "kind": "instance",
@@ -2143,14 +2245,7 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
             "outputs": [_netref_to_dict(o) for o in item.outputs],
         }
     if isinstance(item, NetlistFeedback):
-        return {
-            "kind": "feedback",
-            "uid": item.uid,
-            "net": item.net,
-            "delay": item.delay,
-            "init": _merge_source_to_dict(item.init),
-            "recur": _netref_to_dict(item.recur) if item.recur is not None else None,
-        }
+        return _feedback_to_dict(item)
     d: dict[str, Any] = {
         "kind": "scope",
         "uid": item.uid,
