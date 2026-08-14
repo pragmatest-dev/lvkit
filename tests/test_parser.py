@@ -285,7 +285,7 @@ class TestTerminalInvertGating:
         """A cpdArith element's terminal with the bit set is inverted."""
         elem = self._make_elem("cpdArith", "e1", "t1")
         terminal_info: dict[str, ParsedTerminalInfo] = {}
-        _process_element_terminals(elem, set(), set(), None, terminal_info)
+        _process_element_terminals(elem, set(), set(), None, terminal_info, {})
         assert terminal_info["t1"].inverted is True
 
     def test_non_cpd_arith_terminal_is_not_inverted(self):
@@ -294,8 +294,106 @@ class TestTerminalInvertGating:
         means "Not" on Compound Arithmetic."""
         elem = self._make_elem("prim", "e2", "t2")
         terminal_info: dict[str, ParsedTerminalInfo] = {}
-        _process_element_terminals(elem, set(), set(), None, terminal_info)
+        _process_element_terminals(elem, set(), set(), None, terminal_info, {})
         assert terminal_info["t2"].inverted is False
+
+
+class TestLoopTunnelInnerType:
+    """A loop tunnel's two faces carry DIFFERENT types when it auto-indexes:
+    the OUTER face is the array, the INNER face is the element. Both are
+    explicit in the file — the OUTER type sits in the ``lpTun`` dco's own
+    ``<typeDesc>`` (on the boundary ``<term>``), and the INNER type in that
+    dco's nested ``<innerLpTunDCO>``'s ``<typeDesc>``. The inner face's own
+    ``<term>`` (on the loop body) carries only a bare ``<dco uid=.../>``
+    back-ref, so its type must be resolved by following that ref to the
+    lpTun dco — NOT left None for the graph to guess by racing wires
+    (nondeterministic under PYTHONHASHSEED; see _build_lptun_inner_type_map)."""
+
+    # An auto-indexing for-loop output tunnel: outer = [Boolean] (array),
+    # inner = Boolean (element). The lpTun dco (uid d1) lives on the boundary
+    # term; the inner term (on the body diagram, under a prim node) is a bare
+    # <dco uid="d1"/> back-ref with no type of its own.
+    _XML = """
+<root>
+  <SL__arrayElement class="forLoop" uid="loop1">
+    <termList>
+      <SL__arrayElement class="term" uid="outer1">
+        <dco class="lpTun" uid="d1">
+          <typeDesc>TypeID(1)</typeDesc>
+          <innerLpTunDCO class="innerLpTun" uid="i1">
+            <termList>
+              <SL__arrayElement uid="inner1" />
+              <SL__arrayElement uid="outer1" />
+            </termList>
+            <typeDesc>TypeID(2)</typeDesc>
+          </innerLpTunDCO>
+        </dco>
+      </SL__arrayElement>
+    </termList>
+    <diagramList>
+      <SL__arrayElement class="diag" uid="body1">
+        <nodeList>
+          <SL__arrayElement class="prim" uid="node1">
+            <termList>
+              <SL__arrayElement class="term" uid="inner1">
+                <dco uid="d1" />
+              </SL__arrayElement>
+            </termList>
+          </SL__arrayElement>
+        </nodeList>
+      </SL__arrayElement>
+    </diagramList>
+  </SL__arrayElement>
+</root>
+"""
+
+    @staticmethod
+    def _type_map():
+        from lvkit.models import LVType
+
+        return {
+            1: LVType(
+                kind="array", underlying_type="Array",
+                element_type=LVType(kind="primitive", underlying_type="Boolean"),
+                dimensions=1,
+            ),
+            2: LVType(kind="primitive", underlying_type="Boolean"),
+        }
+
+    def test_inner_type_map_keys_by_dco_uid(self):
+        """The map indexes each lpTun dco uid -> its inner-face typeDesc text."""
+        from lvkit.parser.vi import _build_lptun_inner_type_map
+
+        root = ET.fromstring(self._XML)
+        assert _build_lptun_inner_type_map(root) == {"d1": "TypeID(2)"}
+
+    def test_inner_face_resolves_to_element_outer_to_array(self):
+        """Outer face -> array; inner face (bare dco ref) -> element, resolved
+        via the map — never None."""
+        from lvkit.parser.vi import _build_lptun_inner_type_map
+
+        root = ET.fromstring(self._XML)
+        inner_types = _build_lptun_inner_type_map(root)
+        type_map = self._type_map()
+        terminal_info: dict[str, ParsedTerminalInfo] = {}
+
+        loop = root.find(".//*[@uid='loop1']")
+        node = root.find(".//*[@uid='node1']")
+        assert loop is not None and node is not None
+        # Boundary term (owns the full lpTun dco) -> outer array type.
+        _process_element_terminals(
+            loop, set(), set(), type_map, terminal_info, inner_types,
+        )
+        # Body term (bare dco back-ref) -> inner element type.
+        _process_element_terminals(
+            node, set(), set(), type_map, terminal_info, inner_types,
+        )
+
+        outer = terminal_info["outer1"].parsed_type
+        inner = terminal_info["inner1"].parsed_type
+        assert outer is not None and outer.kind == "array"
+        assert inner is not None and inner.kind == "primitive"
+        assert inner.type_name == "Boolean"
 
 
 class TestCpdArithOperation:
