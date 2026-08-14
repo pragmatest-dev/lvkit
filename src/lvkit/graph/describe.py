@@ -38,10 +38,10 @@ from .models import (
 from .netlist import build_netlist, component_line, render_netlist
 from .op_walk import (
     _const_value_str,
-    _find_op_owning_terminal,
     _has_output_tunnel,
     _render_ports,
     _subvi_ports,
+    index_terminal_owners,
 )
 from .queries import collect_class_context
 
@@ -157,7 +157,9 @@ def describe_vi(
     # be both redundant and stale there (its selector naming doesn't hop
     # through tunnels the way ``build_netlist`` does).
     if not verbose:
-        structures = _collect_structures(graph, ctx, ctx.operations, ctx.operations)
+        structures = _collect_structures(
+            graph, ctx, ctx.operations, index_terminal_owners(ctx.operations),
+        )
         if structures:
             lines.append("## Control Flow")
             for s in structures:
@@ -513,13 +515,15 @@ def _describe_class_context(
 def _resolve_selector(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    root_ops: list[Operation],
+    owner_by_terminal: dict[str, tuple[Operation, Terminal]],
     selector_terminal: str | None,
 ) -> str | None:
     """Trace a selector/stop wire back one hop to identify what gates it.
 
     Returns a short ``Node.terminal`` label, a front-panel input name, or
-    None when the wire source can't be located.
+    None when the wire source can't be located. ``owner_by_terminal`` is the
+    VI-wide terminal->owner index (``op_walk.index_terminal_owners``, built
+    once) -- an O(1) lookup instead of re-scanning the whole op tree per call.
     """
     if not selector_terminal:
         return None
@@ -527,7 +531,7 @@ def _resolve_selector(
     if not sources:
         return None
     src = sources[0]
-    hit = _find_op_owning_terminal(root_ops, src.terminal_id)
+    hit = owner_by_terminal.get(src.terminal_id)
     if hit is None:
         for t in ctx.inputs:
             if t.id == src.terminal_id:
@@ -558,15 +562,16 @@ def _collect_structures(
     graph: InMemoryVIGraph,
     ctx: VIContext,
     operations: list[Operation],
-    root_ops: list[Operation],
+    owner_by_terminal: dict[str, tuple[Operation, Terminal]],
 ) -> list[str]:
     """Summarize control flow structures.
 
     Case/loop entries are annotated with what gates them -- the selector
     (or stop-condition) wire traced back one hop to its source operation
-    or front-panel input. ``root_ops`` is the VI's full top-level operation
-    list, kept constant through recursion so selector tracing can reach any
-    node regardless of nesting depth.
+    or front-panel input. ``owner_by_terminal`` is the VI-wide terminal->owner
+    index (built once at the top-level call), kept constant through recursion
+    so selector tracing is an O(1) lookup that reaches any node regardless of
+    nesting depth -- never an O(n) op-tree rescan per structure.
     """
     structures: list[str] = []
     for op in operations:
@@ -574,7 +579,7 @@ def _collect_structures(
             case CaseOperation():
                 n_frames = len(op.frames)
                 gated = _resolve_selector(
-                    graph, ctx, root_ops, op.selector_terminal,
+                    graph, ctx, owner_by_terminal, op.selector_terminal,
                 )
                 if gated:
                     sel = f", gated on {gated}"
@@ -585,13 +590,13 @@ def _collect_structures(
                 structures.append(f"Case structure ({n_frames} frames{sel})")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, root_ops,
+                        graph, ctx, frame.operations, owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case LoopOperation():
                 kind = "While loop" if op.loop_type == "whileLoop" else "For loop"
                 gated = _resolve_selector(
-                    graph, ctx, root_ops, op.stop_condition_terminal,
+                    graph, ctx, owner_by_terminal, op.stop_condition_terminal,
                 )
                 structures.append(
                     f"{kind} (stops when {gated})" if gated else kind
@@ -601,7 +606,7 @@ def _collect_structures(
                 structures.append(f"Flat sequence ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, root_ops,
+                        graph, ctx, frame.operations, owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case EventOperation():
@@ -609,7 +614,7 @@ def _collect_structures(
                 structures.append(f"Event structure ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, root_ops,
+                        graph, ctx, frame.operations, owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case DisableStructureOperation():
@@ -617,14 +622,14 @@ def _collect_structures(
                 structures.append(f"Disable structure ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, root_ops,
+                        graph, ctx, frame.operations, owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case _:
                 pass
         structures.extend(
             f"  \\ {s}"
-            for s in _collect_structures(graph, ctx, op.inner_nodes, root_ops)
+            for s in _collect_structures(graph, ctx, op.inner_nodes, owner_by_terminal)
         )
     return structures
 
