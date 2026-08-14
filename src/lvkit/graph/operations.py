@@ -225,6 +225,7 @@ class OperationsMixin:
                     object_name=gnode.object_name,
                     object_method_id=gnode.object_method_id,
                     properties=list(gnode.properties),
+                    value_terminal_ids=list(gnode.property_value_terminal_ids),
                 )
             if gnode.method_name:
                 return InvokeOperation(

@@ -55,7 +55,7 @@ from .models import (
     VIProperties,
     WindowProps,
 )
-from .op_walk import stamp_nmux_lane_names
+from .op_walk import stamp_nmux_lane_names, stamp_property_value_names
 from .parallel_parse import PARALLEL_THRESHOLD, parallel_parse_directory
 
 logger = logging.getLogger(__name__)
@@ -315,6 +315,12 @@ class LoadingMixin:
         # from batch loaders (load_lvclass/load_lvlib/load_directory, which
         # all funnel through load_vi per member) are cheap.
         stamp_nmux_lane_names(cast("InMemoryVIGraph", self))
+
+        # Resolve + stamp Property Node accessed-property NAMES onto their
+        # correlated VALUE terminal's Terminal.display_name -- same seam,
+        # same idempotency/cheapness rationale as the nMux stamp just above
+        # (see op_walk.stamp_property_value_names).
+        stamp_property_value_names(cast("InMemoryVIGraph", self))
 
     def load_lvlib(
         self,

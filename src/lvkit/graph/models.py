@@ -101,6 +101,17 @@ class PrimitiveNode(GraphNode):
     # rows 1..N = params [input, output]). Ids match ``terminals[i].id``.
     # See render/nodes.py:_invoke_node_glyph for how rows are built from this.
     invoke_row_terminal_ids: list[str] = []
+    # Property node only: qualified terminal ids from the parser's dcoList,
+    # ``properties[i]`` correlates to the terminal whose id is
+    # ``property_value_terminal_ids[i]`` -- LabVIEW's real dcoList/permDCOList
+    # structural split (the object reference in/out and error in/out ALWAYS
+    # live in permDCOList, never dcoList, regardless of their own TYPE). This
+    # is exact even when a property's value is itself Refnum-typed (e.g. a
+    # "Library:Project" property returns a Project reference) -- a type-based
+    # Refnum/error-cluster filter can't tell that apart from the object
+    # reference terminal, but this structural id list always can. See
+    # ``op_walk.correlate_property_terminals``.
+    property_value_terminal_ids: list[str] = []
 
 
 class StructureNode(GraphNode):

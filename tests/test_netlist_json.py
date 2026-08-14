@@ -18,6 +18,7 @@ from lvkit.graph.netlist import (
     NetlistInstance,
     NetlistModule,
     NetlistPortBinding,
+    NetlistPropertyAccess,
     NetlistScope,
     NetRef,
     netlist_to_dict,
@@ -239,6 +240,104 @@ def test_input_binding_carries_inverted_flag():
     assert inputs[1]["net"] == {
         "node": "Equal?", "port": "equal", "occurrence": 2, "bare": "equal",
     }
+
+
+def test_property_node_instance_carries_structured_properties_and_object():
+    """Audit finding: a Property Node used to be a black box in the JSON IR --
+    which properties it accesses, and whether each is a read or a write, was
+    completely lost (every value port rendered as a bare numeric index). The
+    instance dict must now carry a structured ``properties`` list (name +
+    direction + the net read from/written to) and the target object CLASS
+    under ``object`` -- a program reads which properties without parsing
+    text. Mirrors a real corpus Property Node with one write property
+    (``Disabled``) and one read property (``Enabled``, e.g. a downstream
+    query), targeting a "Bool" control -- shaped like the JKI-VI-Tester
+    "Graphical Test Runner - Main UI" VI's own Property Nodes (see
+    test_netlist.py's real-VI coverage)."""
+    inst = NetlistInstance(
+        uid="99",
+        name="Property Node",
+        occurrence=1,
+        inputs=[
+            NetlistPortBinding(
+                port="0", net=_ref("Bundle/Unbundle By Name", "ref", "ref"),
+            ),
+            NetlistPortBinding(port="Disabled", net=_ref(None, "True", "True")),
+        ],
+        outputs=[
+            _ref("Property Node", "1", "Property Node#1.1"),
+            _ref("Property Node", "Enabled", "Enabled"),
+        ],
+        object_name="Bool",
+        properties=[
+            NetlistPropertyAccess(
+                name="Disabled", direction="write", net=_ref(None, "True", "True"),
+            ),
+            NetlistPropertyAccess(
+                name="Enabled", direction="read",
+                net=_ref("Property Node", "Enabled", "Enabled", occ=1),
+            ),
+        ],
+    )
+    module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
+
+    d = netlist_to_dict(module)
+    body_inst = d["body"][0]
+    assert body_inst["object"] == "Bool"
+    assert body_inst["properties"] == [
+        {
+            "name": "Disabled", "direction": "write",
+            "net": {"node": None, "port": "True", "occurrence": None, "bare": "True"},
+        },
+        {
+            "name": "Enabled", "direction": "read",
+            "net": {
+                "node": "Property Node", "port": "Enabled",
+                "occurrence": 1, "bare": "Enabled",
+            },
+        },
+    ]
+
+
+def test_property_node_write_property_with_unwired_value_serializes_null_net():
+    """A write property whose value terminal is genuinely unwired has no
+    source net -- ``net`` must serialize as ``null``, never a fabricated
+    reference (mirrors ``BoundaryOutput.source``'s None convention)."""
+    inst = NetlistInstance(
+        uid="100",
+        name="Property Node",
+        occurrence=None,
+        inputs=[],
+        outputs=[],
+        object_name="Bool",
+        properties=[
+            NetlistPropertyAccess(name="Disabled", direction="write", net=None),
+        ],
+    )
+    module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
+
+    d = netlist_to_dict(module)
+    assert d["body"][0]["properties"] == [
+        {"name": "Disabled", "direction": "write", "net": None},
+    ]
+
+
+def test_non_property_instance_has_no_object_and_empty_properties():
+    """Regression: an ordinary instance (not a Property Node) must serialize
+    exactly as before -- ``object`` is ``None``, ``properties`` is empty."""
+    inst = NetlistInstance(
+        uid="1",
+        name="Not Equal?",
+        occurrence=None,
+        inputs=[NetlistPortBinding(port="x", net=_ref(None, "n", "n"))],
+        outputs=[_ref("Not Equal?", "result", "result")],
+    )
+    module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
+
+    d = netlist_to_dict(module)
+    body_inst = d["body"][0]
+    assert body_inst["object"] is None
+    assert body_inst["properties"] == []
 
 
 def test_non_case_scope_outputs_is_empty_list():

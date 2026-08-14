@@ -39,6 +39,7 @@ from ..models import (
     LVType,
     Operation,
     PrimitiveOperation,
+    PropertyOperation,
     SequenceOperation,
     Terminal,
     TunnelTerminal,
@@ -65,6 +66,7 @@ from .op_walk import (
     _selector_label,
     _subvi_ports,
     _terminal_display_name,
+    correlate_property_terminals,
 )
 from .queries import ClassContext, collect_class_context
 
@@ -135,6 +137,33 @@ class NetlistPortBinding:
     inverted: bool = False
 
 
+@dataclass(frozen=True)
+class NetlistPropertyAccess:
+    """One property access on a Property Node -- ``PropertyDef.name``
+    correlated to its VALUE terminal (``op_walk.correlate_property_terminals``,
+    the SAME correlation ``render/nodes.py::_property_node_glyph`` and the
+    load-time ``op_walk.stamp_property_value_names`` stamp use), annotated
+    with the real read/write DIRECTION of that terminal -- ``"read"`` for an
+    OUTPUT terminal (the property's current value flows out), ``"write"``
+    for an INPUT terminal (a value flows in, setting the property).
+
+    ``net`` is the SAME ``NetRef`` shape as any other instance port: for a
+    read, the net this property PRODUCES (identical to the matching entry in
+    ``NetlistInstance.outputs``); for a write, the net FEEDING it (identical
+    to the matching ``NetlistPortBinding.net`` in ``NetlistInstance.inputs``)
+    -- ``None`` only when a write property's value terminal is genuinely
+    unwired (never fabricated).
+
+    This is a structured ANNOTATION alongside ``inputs``/``outputs`` (which
+    already carry the same ports, now labelled by property name via the
+    load-time display-name stamp) -- not a replacement for them.
+    """
+
+    name: str
+    direction: str  # "read" | "write"
+    net: NetRef | None
+
+
 @dataclass
 class NetlistInstance:
     """One node instance -- a primitive, SubVI call, or other leaf op."""
@@ -152,6 +181,14 @@ class NetlistInstance:
     # ``_component_identity``: an And and an Or cpdArith are different
     # COMPONENTS but must not become different NET-naming identities here).
     operation: str | None = None
+    # A Property Node's target object CLASS (``PropertyOperation.
+    # object_name``, e.g. "Bool", "Numeric", "VI" -- LabVIEW's own label
+    # under the node's icon) -- ``None`` for every other instance kind.
+    # Annotation ONLY, same rendering/JSON treatment as ``operation`` above.
+    object_name: str | None = None
+    # Accessed properties (Property Node only) -- empty for every other
+    # instance. See ``NetlistPropertyAccess``.
+    properties: list[NetlistPropertyAccess] = field(default_factory=list)
 
 
 @dataclass
@@ -659,6 +696,46 @@ def _selector_ref(
     return _resolve_source(graph, ctx, root_ops, terminal_id, build_ctx)
 
 
+def _build_property_accesses(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    root_ops: list[Operation],
+    build_ctx: _BuildCtx,
+    op: PropertyOperation,
+    name: str,
+    occurrence: int | None,
+) -> list[NetlistPropertyAccess]:
+    """One ``NetlistPropertyAccess`` per accessed property, correlated to its
+    VALUE terminal via ``op_walk.correlate_property_terminals`` -- the SAME
+    correlation ``render/nodes.py::_property_node_glyph`` uses. A property
+    whose value terminal can't be correlated (fewer value terminals than
+    properties, or an unresolved name) is skipped here -- its terminal still
+    renders via the generic ``inputs``/``outputs`` numeric-port fallback,
+    never a fabricated name.
+    """
+    accesses: list[NetlistPropertyAccess] = []
+    correlated = correlate_property_terminals(
+        op.properties, op.terminals, op.value_terminal_ids,
+    )
+    for prop, term in correlated:
+        if term is None:
+            continue
+        prop_name = (prop.name or "").strip()
+        if not prop_name:
+            continue
+        if term.direction == "output":
+            net = _term_ref(name, occurrence, term)
+            accesses.append(
+                NetlistPropertyAccess(name=prop_name, direction="read", net=net)
+            )
+        else:
+            net = _input_ref(graph, ctx, root_ops, build_ctx, term)
+            accesses.append(
+                NetlistPropertyAccess(name=prop_name, direction="write", net=net)
+            )
+    return accesses
+
+
 def _build_instance(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -682,9 +759,16 @@ def _build_instance(
         if t.direction == "output"
     ]
     operation = op.operation if isinstance(op, PrimitiveOperation) else None
+    object_name: str | None = None
+    properties: list[NetlistPropertyAccess] = []
+    if isinstance(op, PropertyOperation):
+        object_name = (op.object_name or "").strip() or None
+        properties = _build_property_accesses(
+            graph, ctx, root_ops, build_ctx, op, name, occurrence,
+        )
     return NetlistInstance(
         uid=uid, name=name, occurrence=occurrence, inputs=inputs, outputs=outputs,
-        operation=operation,
+        operation=operation, object_name=object_name, properties=properties,
     )
 
 
@@ -1294,10 +1378,25 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
     ``_render_gamma_source``/the module docstring already reserve arrows for.
     A non-inverted input is unchanged from before this flag existed.
+
+    A Property Node's ``object_name`` (its target CLASS, e.g. "Bool") gets
+    the same bracket-suffix treatment as ``operation`` -- the two never
+    co-occur (a ``PropertyOperation`` is never a ``PrimitiveOperation``), so
+    one visual slot serves both without collision: ``Property Node#1 [Bool]
+    (Disabled=True) -> Enabled``. Each accessed property's port is already
+    labelled by its real NAME (not a numeric index) via the load-time
+    ``op_walk.stamp_property_value_names`` stamp on its VALUE terminal's
+    ``display_name`` -- a WRITTEN property shows as an input binding
+    (``Value=<net>``), a READ property as a named output net -- so no
+    further special-casing is needed here; direction is unambiguous from
+    which side of ``->`` a property's port appears on (see
+    ``NetlistInstance.properties`` for the JSON-only structured mirror of
+    the same facts).
     """
     tag = f"#{instance.occurrence}" if instance.occurrence else ""
     op_suffix = f" [{instance.operation}]" if instance.operation else ""
-    name_disp = f"{instance.name}{tag}{op_suffix}"
+    obj_suffix = f" [{instance.object_name}]" if instance.object_name else ""
+    name_disp = f"{instance.name}{tag}{op_suffix}{obj_suffix}"
     def _bind(b: NetlistPortBinding) -> str:
         net = b.net.render(qualified=b.net.bare in ambiguous)
         # An inverted input wraps the net in `not(...)` -- a function form that
@@ -1490,6 +1589,14 @@ def _component_to_dict(comp: NetlistComponent) -> dict[str, Any]:
     }
 
 
+def _property_access_to_dict(access: NetlistPropertyAccess) -> dict[str, Any]:
+    return {
+        "name": access.name,
+        "direction": access.direction,
+        "net": _netref_to_dict(access.net) if access.net is not None else None,
+    }
+
+
 def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
     """One body item, tagged with a ``kind`` discriminator so the
     ``instance``/``scope`` union survives JSON (``asdict`` would erase it)."""
@@ -1500,6 +1607,10 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
             "name": item.name,
             "occurrence": item.occurrence,
             "operation": item.operation,
+            # Property Node only (see NetlistInstance docstring) -- ``None``/
+            # ``[]`` for every other instance kind.
+            "object": item.object_name,
+            "properties": [_property_access_to_dict(p) for p in item.properties],
             "inputs": [
                 {
                     "port": b.port,

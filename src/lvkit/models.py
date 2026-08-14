@@ -666,6 +666,12 @@ class PropertyOperation(Operation):
     object_name: str | None = None
     object_method_id: str | None = None
     properties: list[PropertyDef] = []
+    # ``properties[i]`` correlates to the terminal whose id is
+    # ``value_terminal_ids[i]`` (matches a ``terminals[j].id``). See
+    # ``graph.op_walk.correlate_property_terminals`` and
+    # ``graph.models.PrimitiveNode.property_value_terminal_ids`` for why this
+    # is a structural (dcoList-based) correlation, not a type-based guess.
+    value_terminal_ids: list[str] = []
 
 
 class InvokeOperation(Operation):

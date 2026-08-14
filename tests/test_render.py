@@ -3578,7 +3578,11 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     property NAME (from node.properties) and marked read (value out) vs write
     (value in) by the value terminal's direction — not a blank "Property Node"
     box. Reference (Refnum) and error-cluster terminals are excluded from the
-    rows."""
+    rows via the STRUCTURAL dcoList correlation (``property_value_terminal_ids``
+    -- see ``op_walk.correlate_property_terminals``), not a type-based guess:
+    a property's own value can itself be Refnum-typed (a real corpus case,
+    see test_netlist.py's Library:Project coverage), so only the ids the
+    parser's dcoList actually names are treated as property values."""
     from lvkit.models import PropertyDef, Terminal
     from lvkit.render.glyph import PropertyNodeGlyph
     from lvkit.render.nodes import _property_node_glyph
@@ -3598,6 +3602,7 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
             term(2, "input", "NumFloat64"),   # Value  -> write
             term(3, "output", "Boolean"),     # Visible -> read
         ],
+        property_value_terminal_ids=["VI::2", "VI::3"],
     )
     glyph = _property_node_glyph(node)
     assert isinstance(glyph, PropertyNodeGlyph)

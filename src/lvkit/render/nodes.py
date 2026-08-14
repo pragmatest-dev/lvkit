@@ -40,7 +40,11 @@ from ..graph.models import (
     PrimitiveNode,
     VINode,
 )
-from ..graph.op_walk import _nmux_field_sources, _resolve_nmux_field_name
+from ..graph.op_walk import (
+    _nmux_field_sources,
+    _resolve_nmux_field_name,
+    correlate_property_terminals,
+)
 from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
@@ -662,38 +666,37 @@ def _event_data_glyph(
 def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     """A Property Node glyph: one row per accessed property, labelled with the
     property NAME and marked read/write. Names come from ``node.properties``
-    (parsed from the heap ``propItemInfo`` list). The per-row read/write flag is
-    the direction of that property's VALUE terminal — the terminals that are
-    neither the reference (``Refnum``) nor the error cluster, in index order.
+    (parsed from the heap ``propItemInfo`` list), correlated to each property's
+    VALUE terminal by ``op_walk.correlate_property_terminals`` -- the ONE
+    correlation the load-time display-name stamp (``op_walk.
+    stamp_property_value_names``) and the netlist projection also share. The
+    per-row read/write flag is the direction of that correlated terminal.
     Returns None when the node carries no property names, so the caller falls
     back to the plain "Property Node" box rather than an empty drawer."""
     props = getattr(node, "properties", None) or []
     if not props:
         return None
-    value_terms = sorted(
-        (
-            t for t in node.terminals
-            if t.lv_type is not None
-            and t.lv_type.underlying_type != "Refnum"
-            and type_family(t.lv_type) != "error_cluster"
-        ),
-        key=lambda t: t.index,
-    )
+    value_ids = getattr(node, "property_value_terminal_ids", None) or []
     rows: list[tuple[str, bool]] = []
-    for i, p in enumerate(props):
+    for i, (p, term) in enumerate(
+        correlate_property_terminals(props, node.terminals, value_ids)
+    ):
         resolved = (getattr(p, "name", None) or "").strip()
         name = resolved or f"[{i}]"
         # Value flows OUT of a read (output terminal); IN to a write. Default to
         # read when the value terminal can't be matched (read is the common case
         # and only flips a small marker, never the name).
-        is_read = value_terms[i].direction == "output" if i < len(value_terms) else True
-        # Pin the resolved property name onto its VALUE terminal's display_name --
-        # the ONE place the hover connector-panel reads (same pattern as
-        # Bundle-By-Name, see _resolve_bundle_by_name_labels) -- so the panel
-        # shows e.g. "data access:channel classification", not "terminal N". Only
-        # a REAL name is attached (never the "[i]" fallback).
-        if resolved and i < len(value_terms):
-            value_terms[i].display_name = resolved
+        is_read = term.direction == "output" if term is not None else True
+        # Pin the resolved property name onto its VALUE terminal's display_name
+        # -- redundant with the load-time stamp (every VI is stamped once at
+        # load) but harmless, same as stamp_nmux_lane_names' own "render
+        # redundantly but harmlessly" consumer. This is the ONE place the
+        # hover connector-panel reads (same pattern as Bundle-By-Name, see
+        # _resolve_bundle_by_name_labels) -- so the panel shows e.g. "data
+        # access:channel classification", not "terminal N". Only a REAL name
+        # is attached (never the "[i]" fallback).
+        if resolved and term is not None and term.display_name is None:
+            term.display_name = resolved
         rows.append((name, is_read))
     class_name = (getattr(node, "object_name", None) or "").strip()
     return PropertyNodeGlyph(rows=tuple(rows), class_name=class_name)

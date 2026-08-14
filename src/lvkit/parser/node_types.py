@@ -504,6 +504,45 @@ class CaseStructHandler(NodeTypeHandler):
         )
 
 
+def _dco_list_terminal_uids(elem: ET.Element) -> list[str]:
+    """Map an XML node's ``dcoList`` (dco uids, in heap/row order) to the
+    TERMINAL uids that contain them, preserving ``dcoList`` order.
+
+    ``dcoList`` is a node's real per-row/per-property terminal list --
+    structurally DISTINCT from the fixed ``permDCOList`` (object reference
+    in/out, error in/out on a Property/Invoke Node), which never appears in
+    ``dcoList`` regardless of its own resolved TYPE. This matters because a
+    property's VALUE can itself be Refnum-typed (e.g. a "Library:Project"
+    property returns a Project reference) -- a type-based filter (Refnum vs.
+    not) can't tell that apart from the object reference terminal, but this
+    structural dcoList/permDCOList split always can. Shared by
+    ``InvokeNodeHandler`` (``row_terminal_uids``) and ``PropertyNodeHandler``
+    (``dco_terminal_uids``).
+    """
+    dco_list_elem = elem.find("dcoList")
+    dco_list_uids: list[str] = []
+    if dco_list_elem is not None:
+        for child in dco_list_elem.findall("SL__arrayElement"):
+            uid = child.get("uid")
+            if uid:
+                dco_list_uids.append(uid)
+    if not dco_list_uids:
+        return []
+
+    dco_to_term: dict[str, str] = {}
+    term_list = elem.find("termList")
+    if term_list is not None:
+        for term_elem in term_list.findall("SL__arrayElement"):
+            t_uid = term_elem.get("uid")
+            dco_elem = term_elem.find("dco")
+            if t_uid and dco_elem is not None:
+                d_uid = dco_elem.get("uid")
+                if d_uid:
+                    dco_to_term[d_uid] = t_uid
+
+    return [dco_to_term[d_uid] for d_uid in dco_list_uids if d_uid in dco_to_term]
+
+
 @dataclass
 class PropertyNode(ParsedNode):
     """A property node (class="propNode")."""
@@ -511,6 +550,12 @@ class PropertyNode(ParsedNode):
     object_name: str = ""
     object_method_id: str = ""
     properties: list[dict[str, Any]] = field(default_factory=list)
+    # ``dcoList`` re-expressed as TERMINAL uids, one per accessed property,
+    # in heap order -- the FAITHFUL structural correlation between
+    # ``properties[i]`` and its VALUE terminal (see
+    # ``_dco_list_terminal_uids``). Exact even when a property's value is
+    # itself Refnum-typed, unlike a type-based (Refnum/error-cluster) filter.
+    dco_terminal_uids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -564,6 +609,7 @@ class PropertyNodeHandler(NodeTypeHandler):
             object_name=object_name,
             object_method_id=omid,
             properties=properties,
+            dco_terminal_uids=_dco_list_terminal_uids(elem),
         )
 
 
@@ -586,37 +632,8 @@ class InvokeNodeHandler(NodeTypeHandler):
             object_method_id=elem.findtext("oMId") or "",
             method_name=clean_labview_string(elem.findtext("methName")),
             method_code=meth_code,
-            row_terminal_uids=self._extract_row_terminal_uids(elem),
+            row_terminal_uids=_dco_list_terminal_uids(elem),
         )
-
-    def _extract_row_terminal_uids(self, elem: ET.Element) -> list[str]:
-        """Map ``dcoList`` (dco uids, 2 per row: method then params) to the
-        containing TERMINAL uids, preserving dcoList order. Mirrors
-        ``CallByRefHandler``'s dco-uid -> terminal-uid mapping pattern."""
-        dco_list_elem = elem.find("dcoList")
-        dco_list_uids: list[str] = []
-        if dco_list_elem is not None:
-            for child in dco_list_elem.findall("SL__arrayElement"):
-                uid = child.get("uid")
-                if uid:
-                    dco_list_uids.append(uid)
-        if not dco_list_uids:
-            return []
-
-        dco_to_term: dict[str, str] = {}
-        term_list = elem.find("termList")
-        if term_list is not None:
-            for term_elem in term_list.findall("SL__arrayElement"):
-                t_uid = term_elem.get("uid")
-                dco_elem = term_elem.find("dco")
-                if t_uid and dco_elem is not None:
-                    d_uid = dco_elem.get("uid")
-                    if d_uid:
-                        dco_to_term[d_uid] = t_uid
-
-        return [
-            dco_to_term[d_uid] for d_uid in dco_list_uids if d_uid in dco_to_term
-        ]
 
 
 class FlatSequenceHandler(NodeTypeHandler):

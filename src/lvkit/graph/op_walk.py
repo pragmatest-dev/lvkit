@@ -25,6 +25,7 @@ from ..models import (
     EventOperation,
     LVType,
     Operation,
+    PropertyDef,
     SelectorRange,
     SequenceOperation,
     Terminal,
@@ -323,6 +324,70 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
                 if term.nmux_role != "list" or term.display_name is not None:
                     continue
                 name = _nmux_lane_name(term, agg, vi_name, graph)
+                if name:
+                    term.display_name = name
+
+
+def correlate_property_terminals(
+    properties: list[PropertyDef],
+    terminals: list[Terminal],
+    value_terminal_ids: list[str],
+) -> list[tuple[PropertyDef, Terminal | None]]:
+    """Pair each accessed property (``PropertyOperation.properties`` /
+    ``PrimitiveNode.properties``) with its VALUE terminal, in index order,
+    via ``value_terminal_ids`` (``PropertyOperation.value_terminal_ids`` /
+    ``PrimitiveNode.property_value_terminal_ids`` -- the parser's real
+    dcoList, re-expressed as terminal ids, see
+    ``parser.node_types._dco_list_terminal_uids``).
+
+    This is a STRUCTURAL correlation (LabVIEW's own dcoList/permDCOList
+    split), not a type-based guess: the object reference in/out and error
+    in/out terminals ALWAYS live in permDCOList, never dcoList, regardless of
+    their own resolved type -- so this stays exact even when a property's
+    VALUE is itself Refnum-typed (e.g. a "Library:Project" property returns a
+    Project reference, confirmed on a real corpus VI -- a naive Refnum/
+    error-cluster type filter would wrongly exclude that terminal). This is
+    the ONE correlation every consumer (the SVG glyph, the load-time
+    display-name stamp, the netlist projection) shares -- see
+    ``render/nodes.py::_property_node_glyph`` and
+    ``stamp_property_value_names`` below.
+
+    ``terminal`` is ``None`` when a property's id has no matching terminal
+    (fewer ids than properties, or a stale/unresolved id -- shouldn't happen
+    on a real VI) -- callers decide how to degrade (fall back to the
+    terminal's own numeric port), never fabricate a name here.
+    """
+    by_id = {t.id: t for t in terminals}
+    return [
+        (p, by_id.get(value_terminal_ids[i]) if i < len(value_terminal_ids) else None)
+        for i, p in enumerate(properties)
+    ]
+
+
+def stamp_property_value_names(graph: InMemoryVIGraph) -> None:
+    """Resolve and attach every Property Node's accessed property NAME onto
+    its correlated VALUE terminal's ``Terminal.display_name``, graph-wide --
+    the SAME seam as ``stamp_nmux_lane_names`` above: the ONE place every
+    consumer (netlist, diff, describe; render redundantly but harmlessly)
+    relies on instead of each re-deriving the property<->terminal
+    correlation itself.
+
+    Idempotent: only sets ``display_name`` when it is still unset AND a real
+    property name resolves. Safe to call repeatedly (e.g. once per top-level
+    ``load_vi``).
+    """
+    for vi_name in graph.list_vis():
+        for node in graph.iter_nodes(vi_name):
+            props = getattr(node, "properties", None) or []
+            if not props:
+                continue
+            value_ids = getattr(node, "property_value_terminal_ids", None) or []
+            for prop, term in correlate_property_terminals(
+                props, node.terminals, value_ids,
+            ):
+                if term is None or term.display_name is not None:
+                    continue
+                name = (prop.name or "").strip()
                 if name:
                     term.display_name = name
 

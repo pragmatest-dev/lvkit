@@ -94,6 +94,9 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                     if isinstance(p, dict) else p
                     for p in node.properties
                 ]
+                prim_kwargs["property_value_terminal_ids"] = [
+                    ctx.qid(uid) for uid in node.dco_terminal_uids
+                ]
             elif isinstance(node, InvokeNode):
                 prim_kwargs["method_name"] = node.method_name
                 prim_kwargs["method_code"] = node.method_code

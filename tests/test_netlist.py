@@ -68,6 +68,22 @@ _INVERTED_INPUT_VI = Path(
     "VI Tester Menu Launch.vi"
 )
 
+# The audit's Property Node black-box finding: this VI's Property Nodes
+# cover a write-only node (uid 21, "Tree (strict)": "Active Item Tag" and
+# "Open?", both written), a read-only node whose VALUE terminal is itself
+# Refnum-typed (uid 1065, "Library": "Project" -- a "Library:Project"
+# property returns a Project reference, so a type-based Refnum filter would
+# wrongly treat that terminal as the object reference and leave it numeric),
+# and a mixed read node (uid 21 in the Tree Cell Selection frame, "Tree
+# (strict)": "ActiveColNum" write / "Cell String" read twice). Ground truth
+# located by grepping the JKI-VI-Tester corpus's extracted ``*_BDHb.xml`` for
+# ``propNode`` and parsing each candidate (see the module's real VI
+# probe -- ``.tmp/probe_list.py`` during development).
+_PROPERTY_NODE_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
+    "Graphical Test Runner/Graphical Test Runner - Main UI - .vi"
+)
+
 
 def test_boundary_outputs_carry_their_source_net() -> None:
     """Every wired indicator resolves to the net that drives it (get_context
@@ -516,6 +532,104 @@ def test_compound_arithmetic_non_inverted_inputs_unchanged() -> None:
         for b in inst.inputs:
             if b.port != "2" or inst.occurrence != 2:
                 assert b.inverted is False
+
+
+def _load_property_node_vi() -> tuple[InMemoryVIGraph, str]:
+    graph = InMemoryVIGraph()
+    graph.load_vi(
+        str(_PROPERTY_NODE_VI), LoadMode.MINIMAL,
+        search_paths=[_PROPERTY_NODE_VI.parents[3]],
+    )
+    vi_name = graph.resolve_vi_name(_PROPERTY_NODE_VI.name)
+    return graph, vi_name
+
+
+def _property_node_instances(module) -> list[NetlistInstance]:
+    instances, _scopes = index_module(module)
+    return [i for i in instances.values() if i.name == "Property Node"]
+
+
+def test_property_node_write_properties_render_named_bindings_and_object_class() -> (
+    None
+):
+    """Audit finding: a Property Node is a black box in the netlist -- which
+    properties it accesses, and whether each is read or written, was
+    completely lost (every value port rendered as a bare numeric index, e.g.
+    ``Property Node#1(0=..., 4=..., 5=True)``). uid 21 writes two properties
+    ("Active Item Tag", "Open?") on a "Tree (strict)" reference -- the
+    rendered line must show the object CLASS as a bracket suffix and each
+    WRITTEN property as a named ``port=net`` input binding, never a numeric
+    index."""
+    if not _PROPERTY_NODE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_property_node_vi()
+    module = build_netlist(graph, vi_name)
+
+    inst = next(i for i in _property_node_instances(module) if i.uid == "21")
+    assert inst.object_name == "Tree (strict)"
+    assert [(p.name, p.direction) for p in inst.properties] == [
+        ("Active Item Tag", "write"),
+        ("Open?", "write"),
+    ]
+    port_names = {b.port for b in inst.inputs}
+    assert {"Active Item Tag", "Open?"}.issubset(port_names)
+    assert "4" not in port_names and "5" not in port_names
+
+    out = render_netlist(module)
+    assert (
+        "Property Node#1 [Tree (strict)]"
+        "(0=Invoke Node#1.1, Active Item Tag=Invoke Node#1.11, Open?=True) -> "
+        "Property Node#1.1, Property Node#1.3" in out
+    )
+
+
+def test_property_node_read_property_correlates_refnum_valued_terminal() -> None:
+    """Audit finding + faithfulness regression: a property's VALUE can itself
+    be Refnum-typed (uid 1065's "Library:Project" property returns a Project
+    reference) -- a type-based Refnum/error-cluster filter would wrongly
+    exclude that terminal (mistaking it for the object reference passthrough)
+    and leave it numeric. The STRUCTURAL dcoList correlation
+    (``op_walk.correlate_property_terminals`` via
+    ``PropertyOperation.value_terminal_ids``) must still name it "Project",
+    while the object reference (port "0") and error terminals (ports "2"/
+    "3") stay numeric."""
+    if not _PROPERTY_NODE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_property_node_vi()
+    module = build_netlist(graph, vi_name)
+
+    inst = next(i for i in _property_node_instances(module) if i.uid == "1065")
+    assert inst.object_name == "Library"
+    assert len(inst.properties) == 1
+    prop = inst.properties[0]
+    assert prop.name == "Project"
+    assert prop.direction == "read"
+    assert prop.net is not None
+    assert prop.net.bare == "Project"
+
+    out = render_netlist(module)
+    line = next(line for line in out.splitlines() if "Property Node#7 [" in line)
+    assert line.endswith("Project")
+    assert ".4" not in line
+
+
+def test_property_node_non_value_terminals_keep_numeric_ports() -> None:
+    """Terminals that are NOT property values -- the object reference IN,
+    error IN, and error OUT -- must keep their existing numeric-port
+    treatment; only the correlated property VALUE terminal gets a real
+    name. Same uid 1065 instance as the Refnum-correlation test."""
+    if not _PROPERTY_NODE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_property_node_vi()
+    module = build_netlist(graph, vi_name)
+
+    inst = next(i for i in _property_node_instances(module) if i.uid == "1065")
+    input_ports = {b.port for b in inst.inputs}
+    assert input_ports == {"0", "2"}  # object ref in, error in -- unlabeled
+    output_ports = {o.port for o in inst.outputs}
+    # ref-out (1) and error-out (3) stay numeric; only the correlated
+    # property value terminal (originally "4") is named.
+    assert output_ports == {"1", "3", "Project"}
 
 
 def test_nmux_class_private_data_dep_graph_case_unchanged():
