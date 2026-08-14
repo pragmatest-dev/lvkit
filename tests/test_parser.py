@@ -307,7 +307,7 @@ class TestLoopTunnelInnerType:
     ``<term>`` (on the loop body) carries only a bare ``<dco uid=.../>``
     back-ref, so its type must be resolved by following that ref to the
     lpTun dco — NOT left None for the graph to guess by racing wires
-    (nondeterministic under PYTHONHASHSEED; see _build_lptun_inner_type_map)."""
+    (nondeterministic under PYTHONHASHSEED; see _build_tunnel_inner_type_map)."""
 
     # An auto-indexing for-loop output tunnel: outer = [Boolean] (array),
     # inner = Boolean (element). The lpTun dco (uid d1) lives on the boundary
@@ -362,18 +362,18 @@ class TestLoopTunnelInnerType:
 
     def test_inner_type_map_keys_by_dco_uid(self):
         """The map indexes each lpTun dco uid -> its inner-face typeDesc text."""
-        from lvkit.parser.vi import _build_lptun_inner_type_map
+        from lvkit.parser.vi import _build_tunnel_inner_type_map
 
         root = ET.fromstring(self._XML)
-        assert _build_lptun_inner_type_map(root) == {"d1": "TypeID(2)"}
+        assert _build_tunnel_inner_type_map(root) == {"d1": "TypeID(2)"}
 
     def test_inner_face_resolves_to_element_outer_to_array(self):
         """Outer face -> array; inner face (bare dco ref) -> element, resolved
         via the map — never None."""
-        from lvkit.parser.vi import _build_lptun_inner_type_map
+        from lvkit.parser.vi import _build_tunnel_inner_type_map
 
         root = ET.fromstring(self._XML)
-        inner_types = _build_lptun_inner_type_map(root)
+        inner_types = _build_tunnel_inner_type_map(root)
         type_map = self._type_map()
         terminal_info: dict[str, ParsedTerminalInfo] = {}
 
@@ -394,6 +394,75 @@ class TestLoopTunnelInnerType:
         assert outer is not None and outer.kind == "array"
         assert inner is not None and inner.kind == "primitive"
         assert inner.type_name == "Boolean"
+
+
+class TestCaseTunnelInnerType:
+    """A case/select tunnel is PASS-THROUGH: unlike an lpTun it has no nested
+    inner dco, so every face -- the boundary <term> that owns the dco, plus one
+    bare-dco-ref <term> per frame -- shares the dco's own <typeDesc>. Reading it
+    for the bare-ref inner faces stops the graph filling them by racing wires
+    (which flipped a cluster's typedef identity across PYTHONHASHSEED)."""
+
+    # A selTun with one outer boundary term (owns the dco, TypeID(7)) and two
+    # per-frame inner faces (bare <dco uid="s1"/> refs, one per case frame).
+    _XML = """
+<root>
+  <SL__arrayElement class="caseStruct" uid="case1">
+    <termList>
+      <SL__arrayElement class="term" uid="outerC">
+        <dco class="selTun" uid="s1">
+          <typeDesc>TypeID(7)</typeDesc>
+          <termList elements="3">
+            <SL__arrayElement uid="innerA" />
+            <SL__arrayElement uid="innerB" />
+            <SL__arrayElement uid="outerC" />
+            </termList>
+        </dco>
+      </SL__arrayElement>
+    </termList>
+    <diagramList>
+      <SL__arrayElement class="diag" uid="frameA">
+        <nodeList>
+          <SL__arrayElement class="prim" uid="nA">
+            <termList>
+              <SL__arrayElement class="term" uid="innerA">
+                <dco uid="s1" />
+                </SL__arrayElement>
+              </termList>
+          </SL__arrayElement>
+        </nodeList>
+      </SL__arrayElement>
+    </diagramList>
+  </SL__arrayElement>
+</root>
+"""
+
+    def test_map_uses_dco_own_typedesc(self):
+        """For a case tunnel the map value is the dco's OWN typeDesc (shared),
+        not a nested inner dco's."""
+        from lvkit.parser.vi import _build_tunnel_inner_type_map
+
+        assert _build_tunnel_inner_type_map(ET.fromstring(self._XML)) == {
+            "s1": "TypeID(7)"
+        }
+
+    def test_inner_face_resolves_to_shared_type(self):
+        """The bare-ref inner face resolves to the tunnel's shared type -- never
+        None (which would force the graph to race wires)."""
+        from lvkit.models import LVType
+        from lvkit.parser.vi import _build_tunnel_inner_type_map
+
+        root = ET.fromstring(self._XML)
+        inner_types = _build_tunnel_inner_type_map(root)
+        type_map = {7: LVType(kind="cluster", underlying_type="Cluster")}
+        terminal_info: dict[str, ParsedTerminalInfo] = {}
+        node = root.find(".//*[@uid='nA']")
+        assert node is not None
+        _process_element_terminals(
+            node, set(), set(), type_map, terminal_info, inner_types,
+        )
+        inner = terminal_info["innerA"].parsed_type
+        assert inner is not None and inner.kind == "cluster"
 
 
 class TestCpdArithOperation:

@@ -586,29 +586,45 @@ def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
     return enums
 
 
-def _build_lptun_inner_type_map(root: ET.Element) -> dict[str, str]:
-    """Map each loop-tunnel dco uid -> its INNER face's typeDesc text.
+# Case/select tunnel dco classes: pass-through (no array<->element transform),
+# so every face shares the dco's own <typeDesc> -- unlike an lpTun, whose inner
+# face has a DISTINCT type in <innerLpTunDCO>.
+_CASE_TUNNEL_DCO_CLASSES = frozenset({"selTun", "csTun", "caseSel"})
 
-    A loop tunnel's ``dco class="lpTun"`` is defined ONCE, on the OUTER
-    boundary ``<term>``; its direct ``<typeDesc>`` is the OUTER face's type. The
-    INNER face is a separate ``<term>`` on the loop-body diagram that carries
-    only a BARE ``<dco uid=.../>`` back-reference to that same dco — with no
-    type of its own. The inner face's real type lives in the lpTun dco's nested
-    ``<innerLpTunDCO>``'s ``<typeDesc>``. Keying it by the shared dco uid lets
-    the inner term resolve its own type (see the fallback in
-    ``_process_element_terminals``). For an auto-indexing tunnel the inner is
-    the ELEMENT and the outer the ARRAY (different TypeIDs, both explicit in the
-    file); for a last-value/pass-through tunnel they coincide.
+
+def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:
+    """Map each tunnel dco uid -> the typeDesc text for its INNER face(s).
+
+    A tunnel dco is defined ONCE, on the boundary ``<term>`` (its direct
+    ``<typeDesc>`` is that boundary face's type). Its INNER face(s) are separate
+    ``<term>`` elements -- on the loop body, or one per case/select frame --
+    that carry only a BARE ``<dco uid=.../>`` back-reference with NO type of
+    their own. Left unresolved, the graph fills them by racing wire propagation
+    (nondeterministic across processes; for a case tunnel it can flip a
+    cluster's typedef identity, for an lpTun it flipped element<->array). Read
+    the inner type straight from the file instead, keyed by the shared dco uid
+    (see the fallback in ``_process_element_terminals``):
+
+    - ``lpTun``: the inner face is the loop-body per-iteration value, whose type
+      DIFFERS from the outer for an auto-index tunnel (element vs array). It
+      lives in the dco's nested ``<innerLpTunDCO>``'s ``<typeDesc>``.
+    - case/select tunnels (``selTun``/``csTun``/``caseSel``): pass-through --
+      no nested inner dco; every face (outer + each frame's inner) shares the
+      dco's own ``<typeDesc>``.
     """
     inner_types: dict[str, str] = {}
     for dco in root.iter("dco"):
-        if dco.get("class") != "lpTun":
-            continue
+        cls = dco.get("class")
         uid = dco.get("uid")
-        inner_dco = dco.find("innerLpTunDCO")
-        if not uid or inner_dco is None:
+        if not uid:
             continue
-        type_desc = inner_dco.find("typeDesc")
+        if cls == "lpTun":
+            inner_dco = dco.find("innerLpTunDCO")
+            type_desc = inner_dco.find("typeDesc") if inner_dco is not None else None
+        elif cls in _CASE_TUNNEL_DCO_CLASSES:
+            type_desc = dco.find("typeDesc")
+        else:
+            continue
         if type_desc is not None and type_desc.text:
             inner_types[uid] = type_desc.text
     return inner_types
@@ -620,7 +636,7 @@ def _process_element_terminals(
     wire_sinks: set[str],
     type_map: dict[int, LVType] | None,
     terminal_info: dict[str, ParsedTerminalInfo],
-    lptun_inner_types: dict[str, str],
+    tunnel_inner_types: dict[str, str],
     fp_term_parent: dict[str, str] | None = None,
 ) -> None:
     """Extract terminals from a single TERMINAL_CONTAINER_CLASSES element.
@@ -764,7 +780,7 @@ def _process_element_terminals(
                 if candidate_type_desc is not None and candidate_type_desc.text:
                     type_desc_str = candidate_type_desc.text
                     break
-        if not type_desc_str and dco_uid and dco_uid in lptun_inner_types:
+        if not type_desc_str and dco_uid and dco_uid in tunnel_inner_types:
             # Loop-tunnel INNER face: its <term> (on the loop-body diagram)
             # holds only a bare <dco uid=.../> back-ref to the lpTun dco defined
             # on the OUTER boundary term — so the search above (scoped to this
@@ -772,8 +788,8 @@ def _process_element_terminals(
             # lives in that dco's <innerLpTunDCO><typeDesc>, indexed by dco uid.
             # This types the inner face directly from the file (the ELEMENT type
             # for an indexing tunnel), so the graph never guesses it by racing
-            # wire propagation. See _build_lptun_inner_type_map.
-            type_desc_str = lptun_inner_types[dco_uid]
+            # wire propagation. See _build_tunnel_inner_type_map.
+            type_desc_str = tunnel_inner_types[dco_uid]
         parsed_type = None
         if type_desc_str and type_map:
             lv_type = resolve_type_rich(type_desc_str, type_map)
@@ -815,7 +831,7 @@ def _walk_and_extract_terminals(
     terminal_info: dict[str, ParsedTerminalInfo],
     srn_to_structure: dict[str, str],
     current_structure_uid: str | None,
-    lptun_inner_types: dict[str, str],
+    tunnel_inner_types: dict[str, str],
     fp_term_parent: dict[str, str] | None = None,
 ) -> None:
     """Walk XML tree, extracting terminals and tracking sRN containment."""
@@ -838,7 +854,7 @@ def _walk_and_extract_terminals(
                      or _is_generic_operation_node(elem)):
         _process_element_terminals(
             elem, wire_sources, wire_sinks, type_map, terminal_info,
-            lptun_inner_types, fp_term_parent,
+            tunnel_inner_types, fp_term_parent,
         )
 
     # Record sRN → structure containment
@@ -856,7 +872,7 @@ def _walk_and_extract_terminals(
         _walk_and_extract_terminals(
             child, wire_sources, wire_sinks, type_map,
             terminal_info, srn_to_structure, next_structure_uid,
-            lptun_inner_types, fp_term_parent,
+            tunnel_inner_types, fp_term_parent,
         )
 
 
@@ -890,12 +906,12 @@ def _extract_terminal_info(
 
     # Loop-tunnel dco uid -> inner-face typeDesc, so a tunnel's inner <term>
     # (a bare dco back-ref, typeless on its own) can resolve its real type.
-    lptun_inner_types = _build_lptun_inner_type_map(root)
+    tunnel_inner_types = _build_tunnel_inner_type_map(root)
 
     # Walk XML hierarchically — preserves structure containment for sRN nodes
     _walk_and_extract_terminals(
         root, wire_sources, wire_sinks, type_map,
-        terminal_info, srn_to_structure, None, lptun_inner_types,
+        terminal_info, srn_to_structure, None, tunnel_inner_types,
         fp_term_parent,
     )
 
