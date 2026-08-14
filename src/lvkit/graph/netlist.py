@@ -230,6 +230,21 @@ class _BuildCtx:
 
 
 @dataclass
+class BoundaryOutput:
+    """A VI front-panel indicator (boundary output) and the net that drives it.
+
+    The producer→indicator wire is real dataflow the graph carries; without
+    ``source`` the netlist would declare the output's name/type but drop which
+    net produces it (the mirror of an input, which IS a source). ``source`` is
+    ``None`` only when the indicator is genuinely unwired.
+    """
+
+    name: str
+    lv_label: str  # FAITHFUL LabVIEW type label, not a Python annotation
+    source: NetRef | None
+
+
+@dataclass
 class NetlistModule:
     """The whole VI as a netlist."""
 
@@ -237,7 +252,8 @@ class NetlistModule:
     # (name, lv_label) for all boundary controls, error clusters included —
     # the FAITHFUL LabVIEW type label, not a Python annotation.
     inputs: list[tuple[str, str]]
-    outputs: list[tuple[str, str]]
+    # Each boundary indicator plus the net driving it (see BoundaryOutput).
+    outputs: list[BoundaryOutput]
     body: list[NetlistItem] = field(default_factory=list)
     # Every distinct component (subVI or primitive/nMux/cpdArith) actually
     # used in the VI, declared once -- see ``_build_components``. Sorted by
@@ -942,7 +958,13 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         for t in ctx.inputs
     ]
     outputs = [
-        (t.name or "output", t.lv_type.lv_label() if t.lv_type else "Any")
+        BoundaryOutput(
+            name=t.name or "output",
+            lv_label=t.lv_type.lv_label() if t.lv_type else "Any",
+            # An indicator is a sink; its incoming edge traces to the producing
+            # net exactly like an input terminal does.
+            source=_resolve_source(graph, ctx, root_ops, t.id, build_ctx),
+        )
         for t in ctx.outputs
     ]
 
@@ -1224,7 +1246,14 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
     return {
         "vi": module.vi_name,
         "inputs": [{"name": n, "type": t} for n, t in module.inputs],
-        "outputs": [{"name": n, "type": t} for n, t in module.outputs],
+        "outputs": [
+            {
+                "name": o.name,
+                "type": o.lv_label,
+                "source": _netref_to_dict(o.source) if o.source else None,
+            }
+            for o in module.outputs
+        ],
         "components": [_component_to_dict(c) for c in module.components],
         "body": [_item_to_dict(i) for i in module.body],
         "properties": vi_properties_to_dict(module.properties),
@@ -1244,10 +1273,17 @@ def render_netlist(module: NetlistModule) -> str:
     """
     lines: list[str] = []
     in_names = ", ".join(name for name, _ in module.inputs)
-    out_names = ", ".join(name for name, _ in module.outputs)
+    # Show each output's driving net inline as ``name=source`` (arrow-free, the
+    # same ``port=net`` idiom instance inputs use); bare name when unwired.
+    ambiguous = ambiguous_bares(module)
+    out_names = ", ".join(
+        f"{o.name}={o.source.render(qualified=o.source.bare in ambiguous)}"
+        if o.source is not None
+        else o.name
+        for o in module.outputs
+    )
     lines.append(f"{module.vi_name} ({in_names}) -> ({out_names})")
 
-    ambiguous = ambiguous_bares(module)
     _render_items(module.body, 0, lines, ambiguous)
 
     return "\n".join(lines)

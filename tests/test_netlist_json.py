@@ -9,6 +9,7 @@ frames' bodies recursively (the parts `dataclasses.asdict` would get wrong).
 from __future__ import annotations
 
 from lvkit.graph.netlist import (
+    BoundaryOutput,
     NetlistComponent,
     NetlistFrame,
     NetlistInstance,
@@ -51,7 +52,12 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     module = NetlistModule(
         vi_name="m.vi",
         inputs=[("x", "I32"), ("err in", "error cluster")],
-        outputs=[("y", "DBL")],
+        outputs=[
+            BoundaryOutput(
+                name="y", lv_label="DBL",
+                source=_ref("Increment", "out", "n2"),
+            )
+        ],
         body=[inner, scope],
         components=[
             NetlistComponent(
@@ -69,7 +75,16 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
         {"name": "x", "type": "I32"},
         {"name": "err in", "type": "error cluster"},  # faithful type label
     ]
-    assert d["outputs"] == [{"name": "y", "type": "DBL"}]
+    assert d["outputs"] == [
+        {
+            "name": "y",
+            "type": "DBL",
+            "source": {
+                "node": "Increment", "port": "out",
+                "occurrence": None, "bare": "n2",
+            },
+        }
+    ]
     assert d["components"][0]["name"] == "Increment"
     assert d["components"][0]["inputs"] == [{"name": "x", "type": "I32"}]
 

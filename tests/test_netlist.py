@@ -42,6 +42,36 @@ def _require_vis() -> None:
         pytest.skip("JKI run_OLD.vi/run_NEW.vi pair not staged in scratchpad")
 
 
+# A corpus VI whose 5 front-panel indicators are each driven by a distinct
+# producer — the regression for "boundary outputs carry no source net".
+_COVERAGE_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
+    "Graphical Test Runner/Graphical Test Runner Support/Calculate Test Coverage.vi"
+)
+
+
+def test_boundary_outputs_carry_their_source_net() -> None:
+    """Every wired indicator resolves to the net that drives it (get_context
+    used to declare output name/type but drop the producer→indicator wire)."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph = InMemoryVIGraph()
+    graph.load_vi(
+        str(_COVERAGE_VI), LoadMode.MINIMAL,
+        search_paths=[_COVERAGE_VI.parents[3]],
+    )
+    vi_name = graph.resolve_vi_name(_COVERAGE_VI.name)
+    module = build_netlist(graph, vi_name)
+
+    assert len(module.outputs) == 5
+    # All five indicators are wired in this VI — none may be a dropped source.
+    assert all(o.source is not None for o in module.outputs)
+    # The source shows up inline in the rendered signature (arrow-free binding).
+    header = render_netlist(module).splitlines()[0]
+    assert "% Coverage=" in header
+    assert "<-" not in header
+
+
 class TestBuildNetlist:
     """Execute build_netlist + render_netlist against the real run_NEW.vi
     and assert on real substrings/invariants -- never syntax-only, and
