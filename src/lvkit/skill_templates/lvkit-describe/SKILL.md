@@ -12,11 +12,27 @@ Run `lvkit describe` on the VI:
 lvkit describe "<vi-path>" --search-path "<library-path>"
 ```
 
-To see the VI's faithful block diagram, render it to SVG:
+## Getting the facts
+
+Prefer the MCP tools when the lvkit MCP server is connected — they take a VI
+path directly, loaded on demand, no session `load`/`clear` step:
+`describe(vi_path)` → `get_operations(vi_path)` → `get_dataflow(vi_path)` →
+`get_structure(vi_path, operation_id)` → `get_constants(vi_path)`. For a
+program (not a person) to parse the same facts, `get_context(vi_path)`
+returns the structured netlist IR (`{vi, inputs, outputs, components, body,
+properties, health}`) in one call instead of five.
+
+Otherwise use the `lvkit describe` CLI above — same facts, prose form.
+`-v/--verbose` adds the full netlist section.
+
+To see the VI's faithful block diagram, render it to SVG (CLI-only, no MCP
+twin):
 
 ```bash
 lvkit render "<vi-path>" --search-path "<library-path>" -o "<vi>.svg"
 ```
+
+For a repo-wide question instead of one VI, use `/lvkit-query`.
 
 **Report to the user using this format:**
 
@@ -54,15 +70,6 @@ Rules:
 - Collapse repeated dependencies: `DAQmx Write.vi ×3`
 - Use judgment on Constants — infer purpose from context, omit trivial ones
 - Interpretation leads; raw data follows
-
-## MCP alternative (prefer when the lvkit MCP server is connected)
-
-The MCP tools take a VI path directly — no `load`/`clear` session step:
-
-- **One VI:** `describe(vi_path)` → `get_operations(vi_path)` → `get_dataflow(vi_path)` → `get_structure(vi_path, operation_id)` → `get_constants(vi_path)`
-- **Whole project** (index once with `index(project)`): `query(sql)` — read-only SQL over the curated views (`vi`, `terminal`, `constant`, `call`, `type_use`, `class_fact`); call `query_schema()` for the columns. It returns the *answer*, e.g. the error-indicator names as a histogram: `SELECT name, COUNT(*) AS n FROM terminal WHERE is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC`. Reachability stays typed: `get_callers`/`get_callees`/`blast_radius` (CLI: `lvkit callers`/`callees`/`blast-radius`), plus `visualize_project`. Every project tool has both a CLI command and an MCP tool.
-
-If the server isn't connected, use the `lvkit …` CLI above.
 
 ## Note
 

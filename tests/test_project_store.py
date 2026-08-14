@@ -213,7 +213,7 @@ def test_no_project_store_default_behavior() -> None:
 
 
 # ============================================================
-# CLI: lvkit init
+# CLI: lvkit setup
 # ============================================================
 
 
@@ -278,7 +278,7 @@ def test_cli_setup_auto_detects_codex(tmp_path: Path) -> None:
         cwd=tmp_path, capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert "Installed 5 Codex skill(s)" in result.stdout
+    assert "Installed 7 Codex skill(s)" in result.stdout
     assert (
         tmp_path / ".agents" / "skills" / "lvkit-describe" / "SKILL.md"
     ).is_file()
@@ -311,13 +311,15 @@ def test_install_claude_skills_creates_all_user_facing(tmp_path: Path) -> None:
     from lvkit.project_store import install_claude_skills
 
     written = install_claude_skills(tmp_path)
-    assert len(written) == 5
+    assert len(written) == 7
     for skill in (
-        "lvkit-resolve-primitive",
-        "lvkit-resolve-vilib",
+        "lvkit",
         "lvkit-describe",
+        "lvkit-query",
         "lvkit-convert",
-        "lvkit-idiomatic",
+        "lvkit-document",
+        "lvkit-review",
+        "lvkit-resolve",
     ):
         path = tmp_path / ".claude" / "skills" / skill / "SKILL.md"
         assert path.is_file(), f"missing {path}"
@@ -371,7 +373,7 @@ def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
     from lvkit.project_store import install_claude_skills
 
     # Create a conflicting file for ONE skill before the install runs.
-    # The other 4 skills don't exist yet — without the atomic phase
+    # The other 6 skills don't exist yet — without the atomic phase
     # split, they'd get written before the install hit the conflict.
     skills_dir = tmp_path / ".claude" / "skills"
     (skills_dir / "lvkit-convert").mkdir(parents=True)
@@ -380,13 +382,15 @@ def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError, match="local edits"):
         install_claude_skills(tmp_path)
 
-    # Critical: the OTHER 4 skills must NOT have been written. The
+    # Critical: the OTHER 6 skills must NOT have been written. The
     # install must be all-or-nothing for the conflict-validation phase.
     for skill in (
-        "lvkit-resolve-primitive",
-        "lvkit-resolve-vilib",
+        "lvkit",
         "lvkit-describe",
-        "lvkit-idiomatic",
+        "lvkit-query",
+        "lvkit-document",
+        "lvkit-review",
+        "lvkit-resolve",
     ):
         path = skills_dir / skill / "SKILL.md"
         assert not path.exists(), (
@@ -397,21 +401,23 @@ def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
 
 
 # ============================================================
-# Copilot install: 5 prompts + 1 router instruction
+# Copilot install: 7 prompts + 1 router instruction
 # ============================================================
 
 
 _LVKIT_SKILLS = (
+    "lvkit",
     "lvkit-describe",
+    "lvkit-query",
     "lvkit-convert",
-    "lvkit-resolve-primitive",
-    "lvkit-resolve-vilib",
-    "lvkit-idiomatic",
+    "lvkit-document",
+    "lvkit-review",
+    "lvkit-resolve",
 )
 
 
 def test_install_copilot_skills_writes_prompts_and_router(tmp_path: Path) -> None:
-    """install_copilot_skills writes 5 prompts + 1 router file."""
+    """install_copilot_skills writes 7 prompts + 1 router file."""
     from lvkit.project_store import install_copilot_skills
 
     written = install_copilot_skills(tmp_path)
@@ -455,9 +461,9 @@ def test_install_copilot_skills_prompt_bodies_use_lvkit_prefix(
 
     Regression test for the rename: a maintainer who edits a SKILL.md
     body and forgets to update a slash command (e.g. leaves
-    `/resolve-primitive` instead of `/lvkit-resolve-primitive`) would
-    ship a prompt that tells Copilot to invoke a skill that doesn't
-    exist. Catch this at test time.
+    `/resolve` instead of `/lvkit-resolve`) would ship a prompt that
+    tells Copilot to invoke a skill that doesn't exist. Catch this at
+    test time.
     """
     import re
 
@@ -468,12 +474,12 @@ def test_install_copilot_skills_prompt_bodies_use_lvkit_prefix(
 
     # Bare names that would be wrong if found inline.
     bare_skill_names = {
-        "convert",
         "describe",
-        "describe-vi",
-        "idiomatic",
-        "resolve-primitive",
-        "resolve-vilib",
+        "query",
+        "convert",
+        "document",
+        "review",
+        "resolve",
     }
 
     for skill in _LVKIT_SKILLS:
@@ -502,11 +508,13 @@ def test_install_copilot_skills_router_uses_workflow_order(tmp_path: Path) -> No
     ).read_text()
 
     expected_order = [
+        "/lvkit",
         "/lvkit-describe",
+        "/lvkit-query",
         "/lvkit-convert",
-        "/lvkit-resolve-primitive",
-        "/lvkit-resolve-vilib",
-        "/lvkit-idiomatic",
+        "/lvkit-document",
+        "/lvkit-review",
+        "/lvkit-resolve",
     ]
     positions = [router_text.find(name) for name in expected_order]
     assert all(p >= 0 for p in positions), "missing prompt reference(s)"
@@ -562,7 +570,7 @@ def test_install_copilot_skills_force_overwrites(tmp_path: Path) -> None:
 
 
 # ============================================================
-# Codex install: 5 repository-scoped Agent Skills
+# Codex install: 7 repository-scoped Agent Skills
 # ============================================================
 
 
@@ -588,16 +596,14 @@ def test_install_codex_skills_writes_agent_skills(tmp_path: Path) -> None:
         assert "lvkit check" not in text
 
     convert = (skills_dir / "lvkit-convert" / "SKILL.md").read_text()
-    assert "$lvkit-resolve-primitive" in convert
-    assert "$lvkit-resolve-vilib" in convert
-    assert "$lvkit-idiomatic" in convert
-    assert "lvkit setup" in convert
+    assert "$lvkit-query" in convert
+    assert "$lvkit-resolve" in convert
+    assert "$lvkit-document" in convert
 
-    primitive = (
-        skills_dir / "lvkit-resolve-primitive" / "SKILL.md"
-    ).read_text()
-    assert "Shell compatibility" in primitive
-    assert "PowerShell" in primitive
+    resolve = (skills_dir / "lvkit-resolve" / "SKILL.md").read_text()
+    assert "lvkit setup" in resolve
+    assert "Shell compatibility" in resolve
+    assert "PowerShell" in resolve
 
 
 def test_install_codex_skills_is_idempotent(tmp_path: Path) -> None:
@@ -685,7 +691,7 @@ def test_cli_setup_skills_claude(tmp_path: Path) -> None:
         text=True,
         check=True,
     )
-    assert "Installed 5 Claude Code skill(s)" in result.stdout
+    assert "Installed 7 Claude Code skill(s)" in result.stdout
     assert (
         tmp_path / ".claude" / "skills" / "lvkit-convert" / "SKILL.md"
     ).is_file()
@@ -705,7 +711,7 @@ def test_cli_setup_skills_codex(tmp_path: Path) -> None:
         text=True,
         check=True,
     )
-    assert "Installed 5 Codex skill(s)" in result.stdout
+    assert "Installed 7 Codex skill(s)" in result.stdout
     assert (
         tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md"
     ).is_file()
@@ -725,11 +731,11 @@ def test_cli_setup_skills_all(tmp_path: Path) -> None:
         text=True,
         check=True,
     )
-    assert "Installed 5 Claude Code skill(s)" in result.stdout
-    assert "Installed 6 Copilot file(s)" in result.stdout  # 5 prompts + router
-    assert "Installed 5 Codex skill(s)" in result.stdout
+    assert "Installed 7 Claude Code skill(s)" in result.stdout
+    assert "Installed 8 Copilot file(s)" in result.stdout  # 7 prompts + router
+    assert "Installed 7 Codex skill(s)" in result.stdout
     assert (
-        tmp_path / ".claude" / "skills" / "lvkit-resolve-primitive" / "SKILL.md"
+        tmp_path / ".claude" / "skills" / "lvkit-resolve" / "SKILL.md"
     ).is_file()
     assert (
         tmp_path / ".github" / "prompts" / "lvkit-convert.prompt.md"

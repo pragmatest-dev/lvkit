@@ -90,9 +90,9 @@ diagnostic context — including the qualified path of the unknown VI. An
 LLM with access to your LabVIEW sources can use this to author the
 mapping and write it here.
 
-If you use Claude Code, run `lvkit init --skills claude` to install
+If you use Claude Code, run `lvkit setup claude` to install
 resolution skills into your project's `.claude/skills/`. For Copilot or
-Cursor, use `lvkit init --skills copilot`. For Codex, run
+Cursor, use `lvkit setup copilot`. For Codex, run
 `lvkit setup codex`; skills are installed into `.agents/skills/`.
 """
 
@@ -186,7 +186,7 @@ def init_project_store(root: Path) -> Path:
 # Marker comment lvkit embeds in every generated Copilot file so users
 # (and re-installs) can recognize a lvkit-managed file.
 _COPILOT_MANAGED_MARKER = (
-    "<!-- lvkit: managed by `lvkit init --skills`, "
+    "<!-- lvkit: managed by `lvkit setup`, "
     "re-running will overwrite this file -->"
 )
 
@@ -200,11 +200,13 @@ _COPILOT_MANAGED_MARKER = (
 # order — they install fine, they just sort to the end of the router.
 # To put a new skill in a specific position, add it to this list.
 _SKILL_ORDER = [
+    "lvkit",           # positioning / router — the entry point
     "lvkit-describe",
+    "lvkit-query",
     "lvkit-convert",
-    "lvkit-resolve-primitive",
-    "lvkit-resolve-vilib",
-    "lvkit-idiomatic",
+    "lvkit-document",
+    "lvkit-review",
+    "lvkit-resolve",
 ]
 
 
@@ -475,8 +477,8 @@ def _build_codex_skill(skill_md: str) -> str:
     Codex only needs the portable skill metadata and reads repository skills
     from ``.agents/skills``. Internal references use ``$name`` because Codex
     exposes explicit skill invocation through skill mentions rather than
-    per-skill slash commands. Obsolete CLI commands are removed or updated in
-    the Codex copy without changing the shared templates.
+    per-skill slash commands. Lines referencing a nonexistent CLI command
+    (``lvkit llm-generate``/``lvkit check``) are stripped as a safety net.
     """
     fm, body = _split_frontmatter(skill_md)
     name = _yaml_get(fm, "name")
@@ -486,7 +488,6 @@ def _build_codex_skill(skill_md: str) -> str:
 
     for skill_name in _SKILL_ORDER:
         body = body.replace(f"/{skill_name}", f"${skill_name}")
-    body = body.replace("lvkit init", "lvkit setup")
     body = "".join(
         line
         for line in body.splitlines(keepends=True)
@@ -535,7 +536,7 @@ def _build_copilot_router(skill_dirs: list[Any]) -> str:
         "# lvkit: LabVIEW VI to Python workflows",
         "",
         "This project uses lvkit for LabVIEW VI to Python conversion.",
-        "Five workflows are available as prompts. Suggest the appropriate",
+        "These workflows are available as prompts. Suggest the appropriate",
         "slash command when context matches; the user can also invoke",
         "them directly:",
         "",
@@ -548,7 +549,7 @@ def _build_copilot_router(skill_dirs: list[Any]) -> str:
     lines.extend(
         [
             "",
-            "Run `lvkit init --skills copilot` to refresh these prompts and",
+            "Run `lvkit setup copilot` to refresh these prompts and",
             "this router file.",
             "",
         ]

@@ -1,148 +1,191 @@
 ---
 name: lvkit-convert
-description: Convert LabVIEW VI files to Python using lvkit. Generates mechanical translation, resolves all errors, then cleans up to idiomatic Python. Also handles documentation generation and MCP server.
+description: Hand-write an idiomatic Python (or other language) port of a LabVIEW VI from its lvkit facts, then verify it against the deterministic `lvkit generate` oracle. Teaches the LabVIEW-to-code gotchas an AI gets wrong by default. Works via CLI or MCP.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
-# lvkit - LabVIEW VI to Python Conversion
-
-Convert LabVIEW VI files to Python without requiring a LabVIEW license.
-
-## Workflow
-
-The conversion is a **loop**: generate → resolve unknowns → re-generate → clean up. Repeat until 0 errors, then make it idiomatic.
-
-Substitute the placeholders below with the user's actual paths:
-
-- `<vi-path>` — the .vi, .lvclass, .lvlib, or directory you're converting
-- `<output-dir>` — where generated Python should land
-- `<library-path>` — additional search path for SubVIs (repeat the flag for multiple)
-
-### Step 1: Generate Python (mechanical translation)
+# Convert a VI
 
 ```bash
-# Single VI
-lvkit generate "<vi-path>" -o "<output-dir>" --search-path "<library-path>"
-
-# LabVIEW class
-lvkit generate "<vi-path>.lvclass" -o "<output-dir>" --search-path "<library-path>"
-
-# LabVIEW library
-lvkit generate "<vi-path>.lvlib" -o "<output-dir>" --search-path "<library-path>"
-
-# Directory of VIs
-lvkit generate "<vi-folder>/" -o "<output-dir>" --search-path "<library-path>"
+lvkit describe "<vi-path>" --search-path "<library-path>" -v
 ```
 
-Check the summary at the end: `error: N`. If N > 0, proceed to Step 2.
-
-### Step 2: Resolve unknowns (loop until 0 errors)
-
-If the error summary shows errors, resolve them ONE AT A TIME:
-
-- `PrimitiveResolutionNeeded` → invoke `/lvkit-resolve-primitive` skill with the primResID
-- `TerminalResolutionNeeded` → invoke `/lvkit-resolve-primitive` skill (terminal mismatch on known primitive)
-- `VILibResolutionNeeded` → invoke `/lvkit-resolve-vilib` skill with the VI name
-- `TypeResolutionNeeded` → investigate nMux field indexing (flattened depth-first index vs typedef fields)
-
-After resolving each unknown, re-run `lvkit generate`. Repeat until `error: 0`.
-
-**Note:** Resolving one error may uncover NEW errors from VIs that previously couldn't proceed. This is expected — keep looping.
-
-**Alternative — soft mode:** if you'd rather defer all unknowns to runtime instead of fixing them up front, pass `--placeholder-on-unresolved` to `lvkit generate`. Each unknown primitive or vi.lib VI becomes an inline `raise PrimitiveResolutionNeeded(...)` / `raise VILibResolutionNeeded(...)` in the generated Python with full diagnostic context. The build succeeds; runtime fails on the unresolved call. Useful if you want to fix the gaps contextually in the Python rather than via JSON mappings.
-
-### Step 3: Clean up to idiomatic Python
-
-After 0 errors, the generated code is correct but mechanical. For each generated `.py` file, invoke `/lvkit-idiomatic` to rewrite it.
-
-If you want context first:
+Read the netlist section this prints (inputs, outputs, wiring, structures).
+Write `<vi-path>.py` by hand from those facts, applying the guardrails
+below. Then verify it against the mechanical oracle:
 
 ```bash
-lvkit describe "<vi-path>" --search-path "<library-path>"
+lvkit generate "<vi-path>" -o outputs --search-path "<library-path>"
 ```
 
-### Safe to change (cosmetic):
-- **Variable names** — `daqmx_create_task_task_out` → `task`
-- **Garbled unicode names** — fix encoding artifacts
-- **Unused imports** — remove
-- **Add docstrings** — describe what the function does
-- **String formatting** — `500 / 1000` → `0.5`
-- **Context managers** — wrap resource lifecycle in `try/finally` or `with`
-- **List comprehensions** — replace explicit loops where clear
-- **Exception handling** — replace held-error patterns with try/except
-
-### NEVER change (behavioral):
-- **Parallel branches** — `ThreadPoolExecutor` blocks represent real LabVIEW parallelism
-- **Operation order** — the topological sort is correct
-- **Loop structure** — `while not stop` preserves stop terminal semantics
-- **Function parameters** — front panel controls, don't change types/defaults
-- **Return values** — front panel indicators, don't remove outputs
-- **Error cluster handling** — if present, the held-error pattern is intentional
-
-### Step 4: Generate documentation (optional)
-
-```bash
-lvkit docs "<vi-path>" "<output-dir>/docs" --search-path "<library-path>"
+```
+  vilib: 3
+  ast:   12
+  stub:  0
+  error: 0
 ```
 
-Creates a browsable HTML site with cross-referenced VI documentation.
+Run both your hand-written port and `outputs/<vi>/<vi>.py` with the same
+inputs and diff the results — behavioral equivalence, not a source-code
+comparison. Any target language works this way; Python is the worked
+example below because it's the only language `lvkit generate` emits today.
 
-## Commands
+## Getting the facts
 
-```bash
-lvkit generate <path> -o dir       # AST-based Python generation (primary)
-lvkit llm-generate <path> -o dir   # LLM-based idiomatic generation
-lvkit docs <path> <dir>            # HTML documentation
-lvkit describe <path>              # Human-readable VI overview
-lvkit diff <vi_a> <vi_b>           # Compare two VI versions
-lvkit visualize <path>             # Interactive graph visualization
-lvkit structure <path>             # Show project structure
-lvkit check                        # Check dependencies
-lvkit init                         # Create .lvkit/ project store
-lvkit mcp                          # Start MCP server for IDE integration
+Prefer `get_context(vi_path)` over MCP — it returns the netlist IR in one
+call: `{vi, inputs, outputs, components, body, properties, health}`.
+Boundary `inputs`/`outputs` carry the FAITHFUL LabVIEW type (`"error
+cluster"`, `"TestCase.lvclass"`, `"MethodEnum{setUp, tearDown}"`), never a
+Python annotation. Each `output` also carries a `source` — the net that
+drives that indicator (`{node, port, bare}`, or `null` if unwired) — so
+read the VI's return wiring from there; don't infer which producer feeds an
+output by type or position. `body` is a `kind`-tagged tree of `instance`/`scope`
+nodes — scopes (loops, cases, sequences) nest their frames' bodies, and
+wiring is expressed as `port -> source.net` bindings, not source order.
+`components` lists each distinct subVI/primitive's typed port interface
+once. This one call subsumes `get_operations`/`get_dataflow`/
+`get_structure`/`get_constants` — reach for those individually only when you
+need one slice in isolation.
+
+No MCP server connected: `lvkit describe <vi-path> -v` prints the same
+netlist IR as text (the `## Netlist` section). `lvkit render <vi-path> -o
+<vi>.svg` (CLI-only, no MCP twin) gives the faithful block-diagram picture
+when the text form is ambiguous.
+
+For facts about how OTHER VIs call this one, or what a typedef's fields are
+project-wide, use `/lvkit-query` (`query`/`get_callers` — cross-VI facts
+`get_context` doesn't carry, since it's scoped to one VI).
+
+## The guardrails
+
+Any agent can turn a dataflow graph into a function. What it gets wrong,
+reliably, is the LabVIEW-isms below — that's the value of this skill.
+
+**Wiring is truth, not source order.** LabVIEW has no statement order;
+`body`'s `port -> source.net` bindings ARE the execution order. Two
+operations with no wire between them ran in parallel in LabVIEW — don't
+invent a sequence.
+
+**Preserve real parallelism.** Independent branches (no wire between them)
+execute concurrently in LabVIEW; port that as real concurrency (e.g.
+`concurrent.futures.ThreadPoolExecutor` in Python), not a serialized
+sequence — and don't over-parallelize branches that DO share a hidden
+dependency (a global, a reference, a queue) the wiring alone won't show you.
+
+**Held-error model, if the VI has error clusters AND parallel branches.**
+LabVIEW keeps running every parallel branch even after one raises, and
+raises the FIRST error at the merge point. Port that shape explicitly —
+don't let a bare `try/except` short-circuit the branches that still need to
+run:
+
+```python
+def my_vi(input_data):
+    _held_error = None
+    try:
+        branch_0_result = branch_0_operations()
+    except LabVIEWError as e:
+        _held_error = _held_error or e
+        branch_0_result = None
+    try:
+        branch_1_result = branch_1_operations()
+    except LabVIEWError as e:
+        _held_error = _held_error or e
+        branch_1_result = None
+    if _held_error:
+        raise _held_error
+    return result
 ```
 
-## MCP Tools (for IDE integration)
+If the VI has no error clusters, just let exceptions propagate naturally —
+don't manufacture a held-error scaffold where LabVIEW had none.
 
-**A LabVIEW project (`.vi`/`.lvclass`/`.lvlib`/`.lvproj`) is a binary format —
-`grep`/`cat`/`find` and ad-hoc scripts return nothing usable.** lvkit is the
-only way to read it, so for any question about a LabVIEW repo reach for lvkit
-first; never grep a `.vi`.
+**Value-copy at a wire branch — the aliasing trap.** LabVIEW arrays and
+clusters are value semantics: branching a wire to two consumers copies the
+value, so one consumer mutating "its" copy never affects the other. Python
+is reference semantics — the same object handed to two consumers aliases,
+and an in-place mutation in one leaks into the other. This only bites where
+your target language does in-place mutation (array-subset replace, in-place
+element update, etc.); copy at the branch point whenever a downstream
+consumer mutates, and don't blindly copy every branch (read-only branches
+can share). **`lvkit generate`'s own oracle has this same gap** — it's
+patched at exactly one site (the Formula Node backend copies its array
+args), not generally. Don't trust the oracle blindly on a VI with array/
+cluster branches feeding an in-place-mutating operation; verify by
+executing both and asserting the source isn't mutated.
 
-When the lvkit MCP server (`lvkit mcp`) is connected, **prefer these tools over
-the CLI**; otherwise use the `lvkit …` commands above (each has a CLI
-equivalent — including `lvkit index` and `lvkit query` for the project index).
+**Loops.** A shift register (`lSR`/`rSR` tunnel) is an accumulator carried
+across iterations — its initial value comes from the outer wire if present
+(`sr_initialized`), else the type default. An auto-indexing tunnel
+(`TunnelMode.INDEXING`) builds/consumes one array element per iteration —
+port to `enumerate()`/indexed iteration, not a manual list-append you
+invented. A `LAST_VALUE` tunnel passes only the final iteration through, not
+every value. For-loop iteration count is `min(len(array), ..., N)` across
+every auto-indexed input plus the `N` terminal if wired; a while loop's stop
+terminal has a polarity (stop-if-true vs. continue-if-true) — read it, don't
+assume. A For Loop's optional conditional terminal (LabVIEW 2012+) is
+tested at the END of each iteration — the stopping iteration still
+contributes its output.
 
-**Project index** — index a repo once (`index(project)`), then ask project-wide
-questions in one call each (no per-VI round trips, no name-collision loss):
-- `query(sql)` — read-only SQL over the curated views (`vi`, `terminal`,
-  `constant`, `call`, `type_use`, `class_fact`); `query_schema()` lists the
-  columns. Returns the answer (a `GROUP BY` histogram), not a row dump — this
-  replaces the old `find_*`/`get_signatures` read tools. Also available as
-  `lvkit query <path> "<SELECT>"` on the CLI.
-- `get_callers` / `get_callees` / `blast_radius` — call graph & change impact
-  (CLI equivalents: `lvkit callers` / `callees` / `blast-radius`)
-- `visualize_project` — self-contained Mermaid call graph / class tree
+**Case default + unwired-tunnel default.** An unwired output tunnel on a
+case frame doesn't mean "no value" — LabVIEW emits that terminal's TYPE
+default (`0`/`False`/`""`/...) for any frame that doesn't wire it. Port a
+default value, not `None`. A case structure's `Default` frame is a real
+fallback branch, not a placeholder to drop.
 
-**Deep single-VI** — pass a `vi_path`, loaded on demand (no `load` step):
-- `describe` / `get_operations` / `get_dataflow` / `get_structure` /
-  `get_constants` / `get_context`
-- `generate_ast_code` — deterministic Python for one VI
+**Coercion → explicit casts.** LabVIEW silently coerces numeric types at a
+wire junction (marked with a coercion dot on the receiving terminal in the
+diagram). Python has no implicit numeric coercion — where `get_context`
+shows a wire's producer and consumer typed differently (e.g. `I32` into a
+`DBL` terminal), insert the explicit cast LabVIEW performed silently.
 
-**Generation:**
-- `generate_python` — full pipeline + a needs-review workflow
-- `generate_documents` — static HTML documentation site
+**Clusters/typedefs → dataclasses.** A LabVIEW cluster (and a strict
+typedef control) is a fixed set of named, typed fields — port it to a
+dataclass with the same field names and faithful types, not a bare dict
+(`class_fact.private_data` from `/lvkit-query` gives you a class's full
+field list, inherited fields included).
 
-## Related Skills
+## Unknowns are data, not errors
 
-- `/lvkit-resolve-primitive` — Resolve unknown LabVIEW primitives
-- `/lvkit-resolve-vilib` — Resolve unknown vilib VIs
-- `/lvkit-describe` — Describe a VI's graph (CLI-based, no MCP)
-- `/lvkit-idiomatic` — Rewrite mechanical Python to idiomatic code
+A query-driven port never throws `PrimitiveResolutionNeeded`/
+`VILibResolutionNeeded` — those are `lvkit generate`'s exceptions, raised
+only by the deterministic oracle. In the facts (`get_context`/`describe`),
+an unresolved primitive shows as `[prim N]` and an unmapped vi.lib VI shows
+as its bare filename. Identify it inline the same way `/lvkit-resolve` does
+— the primitive's full terminal signature (every terminal, wired or not,
+with its type) plus public NI documentation — and either write the correct
+code or leave a clearly marked `# TODO: unresolved [prim N]` and move on.
 
-## Troubleshooting
+`lvkit unresolved <path>` batch-collects every resolution gap in a VI or
+library up front (each unknown primitive's terminal signature, each
+unmapped vi.lib VI's caller context) — run it before converting a large
+library instead of hitting gaps one at a time. `/lvkit-resolve` is the
+*optional* path for persisting a mapping to `.lvkit/` so it's resolved for
+every future VI, not a required step in this loop.
 
-- **Missing SubVI**: Add `--search-path` pointing to the VI's library directory
-- **JKI naming**: VIs named `Name__LibName.vi` — add the library source as a search path
-- **Type errors**: Check that code uses dataclass attributes, not `.get()`
-- **Import issues**: Check the generated `__init__.py` and import paths
+## Cleaning up existing generated code
+
+If you're starting from `lvkit generate`'s mechanical output instead of
+writing from facts, the same guardrails apply as edits, plus:
+
+**Safe to change (cosmetic):** variable names (`daqmx_create_task_task_out`
+→ `task`), garbled-encoding artifacts, unused imports, docstrings, literal
+simplification (`500 / 1000` → `0.5`), context managers for resource
+lifecycle, list comprehensions for clear loops.
+
+**Never change (behavioral):** operation order, parallel branches, loop
+structure, function parameters (front-panel controls — don't change types
+or defaults), return values (front-panel indicators — don't drop outputs),
+held-error handling if present.
+
+## Optional: soft-fail the oracle instead of fixing gaps up front
+
+`lvkit generate --placeholder-on-unresolved` emits an inline `raise
+PrimitiveResolutionNeeded(...)`/`raise VILibResolutionNeeded(...)` for each
+gap instead of failing the build — useful for generating an oracle to diff
+against even when it isn't complete yet.
+
+## Related
+
+- `/lvkit-query` — cross-VI facts (callers, typedef fields, project-wide search)
+- `/lvkit-resolve` — persist a primitive/vi.lib mapping so it never recurs
+- `/lvkit-document` — generate a documentation site instead of code
