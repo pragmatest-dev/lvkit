@@ -52,13 +52,3 @@ repos:
         pass_filenames: false
         require_serial: true
         stages: [pre-commit]
-
-      - id: sync-skills
-        name: sync skill templates
-        entry: scripts/sync_skills.sh
-        language: system
-        # Trigger on any SKILL.md change under either tree. The script
-        # discovers skills dynamically from src/lvkit/skill_templates/ —
-        # adding a new packaged skill requires no hook-config change.
-        files: '^(\.claude/skills/.*/SKILL\.md|src/lvkit/skill_templates/claude/.*/SKILL\.md)$'
-        pass_filenames: false
