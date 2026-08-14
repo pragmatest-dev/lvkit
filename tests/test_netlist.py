@@ -25,6 +25,7 @@ from lvkit.graph.netlist import (
     NetlistScope,
     NetRef,
     build_netlist,
+    index_module,
     render_netlist,
 )
 from lvkit.load_mode import LoadMode
@@ -353,6 +354,91 @@ def test_nmux_class_private_data_resolves_under_minimal_load_no_search_path():
         out = render_netlist(build_netlist(graph, vi_name))
         assert "testsRun" in out
         assert "Bundle/Unbundle By Name.1" not in out
+
+
+def _cpdarith_instances(module) -> list[NetlistInstance]:
+    instances, _scopes = index_module(module)
+    return [i for i in instances.values() if i.name == "Compound Arithmetic"]
+
+
+def test_compound_arithmetic_renders_its_operator() -> None:
+    """Audit finding: a cpdArith node's operator (add/multiply/and/or/xor,
+    already parsed onto ``PrimitiveOperation.operation``) used to be dropped
+    by the netlist projection -- every Compound Arithmetic instance
+    rendered identically regardless of whether it was an AND, OR, or XOR.
+    This VI's two Compound Arithmetic nodes both AND two Not-Equal? results
+    -- the rendered line must now say so via a bracketed suffix, and the
+    IR field driving it must carry the raw operation string."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_coverage_vi()
+    module = build_netlist(graph, vi_name)
+
+    instances = _cpdarith_instances(module)
+    assert len(instances) == 2
+    for inst in instances:
+        assert inst.operation == "and"
+
+    out = render_netlist(module)
+    lines = [
+        line for line in out.splitlines()
+        if "Compound Arithmetic#" in line and "(1=" in line
+    ]
+    assert len(lines) == 2
+    for line in lines:
+        assert "[and]" in line
+    assert (
+        "Compound Arithmetic#1 [and]"
+        "(1=Not Equal?#1.result, 2=Not Equal?#2.result) -> "
+        "Compound Arithmetic#1.0" in out
+    )
+
+
+def test_compound_arithmetic_operator_does_not_perturb_net_names() -> None:
+    """The operator is a display annotation only -- it must NOT change the
+    net names a Compound Arithmetic instance produces or is referenced by
+    (the ``NetRef``/occurrence identity), since those ripple into every
+    downstream wire reference and the ambiguous-bare disambiguation."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_coverage_vi()
+    module = build_netlist(graph, vi_name)
+
+    instances = _cpdarith_instances(module)
+    assert {i.uid for i in instances} != set()
+    for inst in instances:
+        assert inst.name == "Compound Arithmetic"  # unsuffixed by operation
+        for out_ref in inst.outputs:
+            assert out_ref.node == "Compound Arithmetic"
+            assert out_ref.bare == f"Compound Arithmetic#{inst.occurrence}.0"
+
+    out = render_netlist(module)
+    # The producing-net names referenced downstream are unchanged -- no
+    # operator text leaks into a net name.
+    assert "Compound Arithmetic#1.0" in out
+    assert "Compound Arithmetic#2.0" in out
+    assert "[and].0" not in out
+    assert "and.0" not in out
+
+
+def test_non_cpdarith_instance_has_no_operation_suffix() -> None:
+    """Regression: an ordinary instance (no ``operation`` on its op) must
+    render and serialize exactly as before -- no suffix, ``operation`` is
+    ``None``."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_coverage_vi()
+    module = build_netlist(graph, vi_name)
+
+    instances, _scopes = index_module(module)
+    non_cpdarith = [i for i in instances.values() if i.name != "Compound Arithmetic"]
+    assert non_cpdarith
+    for inst in non_cpdarith:
+        assert inst.operation is None
+
+    out = render_netlist(module)
+    assert "Subtract#1(y=Array Size#2.size, x=Array Size#1.size) -> difference" in out
+    assert "Subtract#1 [" not in out
 
 
 def test_nmux_class_private_data_dep_graph_case_unchanged():

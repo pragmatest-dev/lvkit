@@ -134,6 +134,14 @@ class NetlistInstance:
     occurrence: int | None
     inputs: list[NetlistPortBinding]  # port=net binding per wired input port
     outputs: list[NetRef]  # net produced at each output port, in terminal order
+    # cpdArith's mode (add/multiply/and/or/xor) -- ``None`` for every other
+    # instance. Annotation ONLY: rendered as a display suffix by
+    # ``instance_line`` and carried as its own JSON key by ``_item_to_dict``,
+    # but never folds into ``name``/``NetRef`` -- net names and occurrence
+    # tags must stay exactly what they are today (see module docstring on
+    # ``_component_identity``: an And and an Or cpdArith are different
+    # COMPONENTS but must not become different NET-naming identities here).
+    operation: str | None = None
 
 
 @dataclass
@@ -663,8 +671,10 @@ def _build_instance(
         for t in op.terminals
         if t.direction == "output"
     ]
+    operation = op.operation if isinstance(op, PrimitiveOperation) else None
     return NetlistInstance(
         uid=uid, name=name, occurrence=occurrence, inputs=inputs, outputs=outputs,
+        operation=operation,
     )
 
 
@@ -1270,7 +1280,8 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     is tied to the declared input port it feeds, not left positional.
     """
     tag = f"#{instance.occurrence}" if instance.occurrence else ""
-    name_disp = f"{instance.name}{tag}"
+    op_suffix = f" [{instance.operation}]" if instance.operation else ""
+    name_disp = f"{instance.name}{tag}{op_suffix}"
     ins = ", ".join(
         f"{b.port}={b.net.render(qualified=b.net.bare in ambiguous)}"
         for b in instance.inputs
@@ -1468,6 +1479,7 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
             "uid": item.uid,
             "name": item.name,
             "occurrence": item.occurrence,
+            "operation": item.operation,
             "inputs": [
                 {"port": b.port, "net": _netref_to_dict(b.net)}
                 for b in item.inputs

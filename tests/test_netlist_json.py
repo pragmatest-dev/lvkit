@@ -99,6 +99,9 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     assert inst["inputs"][0]["port"] == "x"
     assert inst["inputs"][0]["net"]["bare"] == "n"
     assert inst["outputs"][0]["bare"] == "n2"
+    # A non-cpdArith instance carries no operation -- the key is present
+    # (stable shape) but null.
+    assert inst["operation"] is None
 
     sc = d["body"][1]
     assert sc["scope_kind"] == "case"
@@ -171,6 +174,34 @@ def test_case_scope_outputs_carries_gamma_merge_union_shape():
     unwired = gamma["cases"][1]
     assert unwired["frame"] == "default"
     assert unwired["source"] == {"kind": "default", "type": "I32", "literal": "0"}
+
+
+def test_instance_carries_cpdarith_operation():
+    """Audit finding: a Compound Arithmetic (``cpdArith``) instance's mode
+    (add/multiply/and/or/xor) must be readable straight off the JSON
+    instance dict -- a program can't tell an AND from an OR from the
+    display ``name`` alone (both render "Compound Arithmetic")."""
+    inst = NetlistInstance(
+        uid="12",
+        name="Compound Arithmetic",
+        occurrence=1,
+        inputs=[
+            NetlistPortBinding(port="1", net=_ref("Not Equal?", "result", "result")),
+            NetlistPortBinding(port="2", net=_ref("Not Equal?", "result", "result")),
+        ],
+        outputs=[_ref("Compound Arithmetic", "0", "Compound Arithmetic#1.0")],
+        operation="and",
+    )
+    module = NetlistModule(vi_name="c.vi", inputs=[], outputs=[], body=[inst])
+
+    d = netlist_to_dict(module)
+    body_inst = d["body"][0]
+    assert body_inst["kind"] == "instance"
+    assert body_inst["name"] == "Compound Arithmetic"
+    assert body_inst["operation"] == "and"
+    # The operator annotation must not perturb the net identity fields.
+    assert body_inst["occurrence"] == 1
+    assert body_inst["outputs"][0]["bare"] == "Compound Arithmetic#1.0"
 
 
 def test_non_case_scope_outputs_is_empty_list():
