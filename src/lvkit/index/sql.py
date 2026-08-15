@@ -200,7 +200,11 @@ VIEWS: dict[str, _View] = {
             "field_names": "JSON array of cluster field names (for cluster terminals)",
             "type_descriptor": "the exact LabVIEW type descriptor, e.g. 'DBL', "
             "'MethodEnum{setUp, testMethod, tearDown}', 'Error', "
-            "'TestCase.lvclass'; '' when the type is unresolved",
+            "'TestCase.lvclass'; '' when the type is unresolved. Open-ended (one "
+            "per typedef/cluster shape/class) — enumerate this project's actual "
+            "descriptors with SELECT DISTINCT type_descriptor; for kind-level "
+            "filters (all clusters, all enums) use type_kind, which is a closed "
+            "set",
             "type_kind": "kind of the type: primitive | enum | cluster | array | "
             "ring | typedef_ref | class; NULL when genuinely unknown",
             "enum_values": "JSON array of enum/ring member names in ordinal order "
@@ -216,7 +220,10 @@ VIEWS: dict[str, _View] = {
             "value": "the constant's literal value, as text",
             "label": "the constant's label, or NULL",
             "type_descriptor": "the exact LabVIEW type descriptor, e.g. 'DBL', "
-            "'Error', 'MethodEnum{setUp, tearDown}'; '' when unresolved",
+            "'Error', 'MethodEnum{setUp, tearDown}'; '' when unresolved. "
+            "Open-ended — enumerate this project's actual descriptors with "
+            "SELECT DISTINCT type_descriptor; for kind-level filters use "
+            "type_kind, which is a closed set",
             "type_kind": "kind of the type: primitive | enum | cluster | array | "
             "ring | typedef_ref | class; NULL when genuinely unknown",
             "wired_to": "what the constant wires into, e.g. 'indicator'",
