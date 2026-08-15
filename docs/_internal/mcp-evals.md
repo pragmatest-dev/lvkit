@@ -166,9 +166,11 @@ Scorecard template at the bottom.
 23. **Where are terminal names inconsistent across similar VIs?**
     - *Answered by:* `terminal` GROUP BY name / structure.
 
-24. **Are there same-named VIs in different libraries that could be confused?**
-    - *Answered by:* `vi` GROUP BY name HAVING COUNT>1 (e.g. `CleanUp.vi`,
-      `setUp.vi`, `tearDown.vi` recur across TestCase subclasses).
+24. *(Cut — "could be confused" is subjective and false: LabVIEW namespaces by
+    library, so same-named VIs in different libraries are distinct files, not a
+    confusion risk. The path-keyed-collision **count** it relied on is still
+    guarded in the harness — see `test_pathkeyed_name_collisions_not_double_counted`,
+    the anti-double-count tripwire.)*
 
 ## H. Type faithfulness  [validates the #7 faithful-LVType sweep]
 
@@ -316,7 +318,6 @@ index. `Fab?` = fabrication (NONE is good).
 | 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **232** uncalled of 487. The naive `qualified_name`↔`callee_key` string anti-join reports 198 false-dead (qualified vs bare-filename keys never match) — replaced by the format-tolerant call-graph in-degree. |
 | 20 .lvproj scoping | **FAIL** | PASS | NONE | Adoption run: pure shell (custom `.lvproj` parsing) — FORCED, lvkit can't answer membership. Answer was correct + careful (6 projects, no repo-local overlap, shared vi.lib deps). **Fix: task #19.** |
 | 22 unloadable | — | PASS | — | Harness: 0 stubs. |
-| 24 name collisions | — | PASS | — | Harness: CleanUp/setUp/tearDown recur. |
 
 **Takeaways:**
 - **Zero fabrication** across all three adoption runs — agents use lvkit or honestly shell when lvkit can't answer; nobody invents scopes/parents anymore (contrast the pre-fix session). The heuristic-killing + positioning work shows up in behavior.

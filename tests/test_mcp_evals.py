@@ -236,7 +236,8 @@ def test_q10_error_indicator_histogram_top_row(jki_index: BuildResult):
     # dominates -- is the eval; the number is a regression tripwire). Was 352;
     # 382 as of this branch (cumulative parser terminal-extraction improvements,
     # not a projection change). Distinct from a doubling bug -- other count
-    # pins (q22/q24/q26) held, so the index isn't double-counting.
+    # pins (q22/q26 + the path-keyed collision counts) held, so the index
+    # isn't double-counting.
     assert res.rows[0] == ["error out", 382]
 
 
@@ -352,10 +353,15 @@ def test_q22_stub_count(jki_index: BuildResult):
 
 
 @pytest.mark.slow
-def test_q24_name_collisions_include_testcase_methods(jki_index: BuildResult):
-    """Q24: 'Are there same-named VIs in different libraries that could be
-    confused?' — CleanUp/setUp/tearDown recur across TestCase subclasses;
-    pin their current counts as baseline."""
+def test_pathkeyed_name_collisions_not_double_counted(jki_index: BuildResult):
+    """Path-keyed indexing must count same-named VIs correctly — neither
+    collapsing distinct files that share a filename nor double-counting them.
+    CleanUp/setUp/tearDown recur across the TestCase subclasses; these exact
+    counts are the anti-double-count tripwire (cited by
+    :func:`test_q10_error_indicator_histogram_top_row`). (The old 'same-named
+    VIs that could be confused?' eval question was cut — LabVIEW namespaces by
+    library, so the copies are distinct files, not a confusion risk — but this
+    structural invariant is worth keeping.)"""
     res = _query(
         "SELECT name, COUNT(*) n FROM vi GROUP BY name HAVING COUNT(*)>1 "
         "ORDER BY n DESC, name"
