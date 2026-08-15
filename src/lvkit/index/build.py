@@ -31,15 +31,12 @@ from ..graph.models import Constant, VINode
 from ..models import FPTerminal
 from ..structure import get_project_members, parse_lvproj
 from .model import (
-    WIRED_CONTROL,
-    WIRED_INDICATOR,
-    WIRED_NONE,
-    WIRED_OTHER,
     ClassFact,
     ConstantFact,
     LVProjMemberFact,
     TerminalFact,
     VIFacts,
+    WiredTo,
 )
 from .query import build_call_graph
 from .store import delete as store_delete
@@ -594,20 +591,20 @@ def project_vi_facts(
 
 def _constant_wired_to(
     graph: InMemoryVIGraph, vi_name: str, c: Constant,
-) -> str:
+) -> WiredTo:
     """Classify what a constant's single output wire feeds: an indicator on
     ``vi_name``'s own connector pane, a control input, something else on the
     diagram, or nothing at all."""
     dests = graph.outgoing_edges(c.id)
     if not dests:
-        return WIRED_NONE
+        return WiredTo.UNWIRED
     for dest in dests:
         if dest.node_id != vi_name:
             continue
         term = graph.get_terminal(dest.terminal_id)
         if isinstance(term, FPTerminal):
-            return WIRED_INDICATOR if term.is_indicator else WIRED_CONTROL
-    return WIRED_OTHER
+            return WiredTo.INDICATOR if term.is_indicator else WiredTo.CONTROL
+    return WiredTo.OTHER
 
 
 def _build_class_fact(

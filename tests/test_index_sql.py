@@ -16,10 +16,10 @@ from lvkit.index import sql
 from lvkit.index import store as store_mod
 from lvkit.index.model import (
     OUTPUT,
-    WIRED_INDICATOR,
     ConstantFact,
     TerminalFact,
     VIFacts,
+    WiredTo,
 )
 from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
@@ -63,7 +63,7 @@ def _project(tmp_path: Path) -> Path:
             ],
             constants=[
                 ConstantFact(value="42", label="answer", py_type="int",
-                             wired_to=WIRED_INDICATOR),
+                             wired_to=WiredTo.INDICATOR),
             ],
             calls=["Lib.lvlib:b.vi"],
         ),

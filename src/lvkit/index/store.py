@@ -43,6 +43,7 @@ from .model import (
     LVProjMemberFact,
     TerminalFact,
     VIFacts,
+    WiredTo,
 )
 
 _SCHEMA = """
@@ -557,7 +558,7 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     [
                         (
                             f.path, i, c.value, c.label, c.py_type, c.lv_type,
-                            c.wired_to,
+                            c.wired_to.value,
                         )
                         for i, c in enumerate(f.constants)
                     ],
@@ -729,7 +730,7 @@ def load(project_root: Path) -> list[VIFacts]:
             constants_by_vi.setdefault(vi_path, []).append(
                 ConstantFact(
                     value=value, label=label, py_type=py_type,
-                    lv_type=lv_type, wired_to=wired_to,
+                    lv_type=lv_type, wired_to=WiredTo(wired_to),
                 )
             )
 

@@ -29,6 +29,7 @@ model (`codegen/error_handler.py`), not per-primitive.
 from __future__ import annotations
 
 import ast
+from enum import IntEnum
 
 from lvkit.models import PrimitiveOperation, Terminal
 
@@ -36,19 +37,23 @@ from ..ast_utils import build_multi_assign, parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
-OBTAIN_QUEUE = 9108
-ENQUEUE_ELEMENT = 9111
-DEQUEUE_ELEMENT = 9113
-ENQUEUE_AT_OPPOSITE_END = 9129
-RELEASE_QUEUE = 9109
-GET_QUEUE_STATUS = 9110
 
-QUEUE_PRIM_IDS = frozenset(
-    {
-        OBTAIN_QUEUE, ENQUEUE_ELEMENT, DEQUEUE_ELEMENT, ENQUEUE_AT_OPPOSITE_END,
-        RELEASE_QUEUE, GET_QUEUE_STATUS,
-    },
-)
+class QueueOp(IntEnum):
+    """LabVIEW queue-operation ``primResID`` codes. ``IntEnum`` because the code
+    IS the raw int carried on ``PrimitiveOperation.primResID`` -- a member
+    compares equal to it and lives in the ``QUEUE_PRIM_IDS`` membership set."""
+
+    OBTAIN = 9108
+    ENQUEUE = 9111
+    DEQUEUE = 9113
+    ENQUEUE_OPPOSITE_END = 9129
+    RELEASE = 9109
+    GET_STATUS = 9110
+
+
+# Membership set for the nodes/__init__ dispatcher; an int primResID matches a
+# member (IntEnum hashes/compares as its int).
+QUEUE_PRIM_IDS = frozenset(QueueOp)
 
 _QUEUE_IMPORT = (
     "from lvkit.labview_queue import ("
@@ -62,19 +67,19 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     by_index: dict[int, Terminal] = {t.index: t for t in node.terminals}
     prim_id = node.primResID
 
-    if prim_id == OBTAIN_QUEUE:
+    if prim_id == QueueOp.OBTAIN:
         return _generate_obtain_queue(node, by_index, ctx)
-    if prim_id == ENQUEUE_ELEMENT:
+    if prim_id == QueueOp.ENQUEUE:
         return _generate_enqueue(node, by_index, ctx, "enqueue_element")
-    if prim_id == ENQUEUE_AT_OPPOSITE_END:
+    if prim_id == QueueOp.ENQUEUE_OPPOSITE_END:
         return _generate_enqueue(
             node, by_index, ctx, "enqueue_element_at_opposite_end",
         )
-    if prim_id == DEQUEUE_ELEMENT:
+    if prim_id == QueueOp.DEQUEUE:
         return _generate_dequeue(node, by_index, ctx)
-    if prim_id == RELEASE_QUEUE:
+    if prim_id == QueueOp.RELEASE:
         return _generate_release_queue(node, by_index, ctx)
-    if prim_id == GET_QUEUE_STATUS:
+    if prim_id == QueueOp.GET_STATUS:
         return _generate_get_queue_status(node, by_index, ctx)
 
     raise ValueError(

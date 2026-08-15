@@ -32,16 +32,23 @@ Sources (see graph/queries.py, models.py):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 # Terminal direction values (mirror models.Terminal.direction).
 INPUT = "input"
 OUTPUT = "output"
 
-# ConstantFact.wired_to values.
-WIRED_INDICATOR = "indicator"
-WIRED_CONTROL = "control"
-WIRED_OTHER = "other"
-WIRED_NONE = "unwired"
+class WiredTo(str, Enum):
+    """What a block-diagram constant's output wire feeds — precomputed on
+    ``ConstantFact.wired_to`` so "constants wired to indicators" is a filter, not
+    a per-query wire trace. ``(str, Enum)`` (not ``StrEnum`` — 3.11+) so a member
+    IS its string: it lands verbatim in a SQLite ``TEXT`` column and compares
+    equal to the plain string read back out."""
+
+    INDICATOR = "indicator"
+    CONTROL = "control"
+    OTHER = "other"
+    UNWIRED = "unwired"
 
 
 @dataclass
@@ -97,7 +104,7 @@ class ConstantFact:
     label: str | None
     py_type: str  # LOSSY codegen projection; prefer lv_type to read the type
     lv_type: str = "?"  # FAITHFUL LabVIEW type label (LVType.lv_label)
-    wired_to: str = WIRED_NONE
+    wired_to: WiredTo = WiredTo.UNWIRED
 
 
 @dataclass

@@ -33,7 +33,7 @@ from lvkit.index.build import (
     build_lvproj_membership,
     refresh_index,
 )
-from lvkit.index.model import WIRED_INDICATOR
+from lvkit.index.model import WiredTo
 from lvkit.index.project import resolve_project
 from lvkit.index.query import blast_radius, get_callers
 from lvkit.index.store import load as load_index
@@ -267,7 +267,7 @@ class TestFullCorpusDemo:
             c
             for f in jki_index.facts
             for c in f.constants
-            if c.wired_to == WIRED_INDICATOR
+            if c.wired_to == WiredTo.INDICATOR
         ]
         assert wired
 

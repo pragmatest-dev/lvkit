@@ -286,7 +286,7 @@ class ParsedConnectorPaneSlot:
     index: int  # Slot position (0-based)
     fp_dco_uid: str | None = None  # UID of the connected fPDCO
     is_output: bool = False  # True if output terminal
-    wiring_rule: int = 0  # ParsedWiringRule value (0-4)
+    wiring_rule: ParsedWiringRule = ParsedWiringRule.INVALID
     type_id: str | None = None  # TypeID reference
 
 

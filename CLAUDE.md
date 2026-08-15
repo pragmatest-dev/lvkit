@@ -218,6 +218,10 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 - mypy with strict mode for type checking
 - Line length: 88 characters
 - **Prefer dataclasses over dicts** - Use typed dataclasses from `models.py` or `graph/models.py` instead of raw dictionaries. Use attribute access (`obj.field`) not `.get("field")`
+- **Enums, and how to pick a base** - A closed, named value set is an `Enum` — never a bare-constants namespace class (`class X: A = 0; B = 1`) or a loose module-level group. Choose the base by how the value lives **at rest** and whether raw scalars still flow through the code:
+  - Raw `int`/`str` values are compared with `==`/`in` or built positionally at many sites (a discriminator read from the VI binary, a value stored in a SQLite `TEXT` column) → **mix in that type** so the member equals the raw value drop-in: `IntEnum` (e.g. `ParsedWiringRule` — a `0–4` from the binary) or `class X(str, Enum)` (e.g. `TunnelMode`, `LVTypeKind`). Do **not** use `StrEnum` — it's 3.11+ and we target 3.10; `(str, Enum)` is the house idiom.
+  - The value space is fully owned — members are passed around as typed objects and `.value` is read only for display/serialization, never compared to a raw literal → **bare `Enum`** (e.g. `Priority`, `LockState`). If you ever write `member == "literal"` against one of these, it's a bug (always `False`); fix the call site or change the base.
+  - Never a **plain `Enum`** over values that are compared with `== <raw>` elsewhere — that silently breaks every such site.
 
 ## Output Directory
 
