@@ -19,6 +19,19 @@ So: **NEVER tell the maintainer to "open it in LabVIEW", "click the node", "chec
 
 When stuck: do MORE of 1–4, or write a `"placeholder": true` primitive entry. Ask the maintainer to describe the *algorithm/domain* if needed — **never to inspect LabVIEW.** Also: ship ZERO NI-derived artwork (clean-room glyphs only).
 
+## ⛔ VERIFY BEFORE CLAIMING — NEVER OFFLOAD THE CHECK TO THE MAINTAINER (READ THIS FIRST)
+
+**Every factual statement about this codebase — architecture, behavior, an API, a line, a count, a timing, "X is faster/bigger than Y", "the code does Z" — MUST be backed by a receipt from THIS session: a `file:line` you read, or command/test output you ran, cited inline.** No exceptions.
+
+- **Verify BEFORE you state it, not when challenged.** A claim reaches the maintainer only after you've already checked it. The maintainer must NEVER be the one who catches a wrong claim — if they have to adversarially re-check you, you have already failed.
+- **Never infer-then-assert.** Reasoning from memory, from a partial read, or from "this is probably how it works" is the exact failure mode. Grepping one thing and inferring a conclusion is NOT verification — read the whole relevant path end to end.
+- **If you have not verified it, do not say it.** Say "I haven't checked — checking now" and go check, or say "I don't know." A plausible guess stated as fact is worse than "I don't know."
+- **Memory NEVER holds code facts** (mechanisms, line numbers, counts, timings) — they go stale and become confabulation. Memory holds only how-we-work, hard constraints, LabVIEW-format facts, and pointers. Re-read code facts from the source every time.
+- **Plans are claims too.** Every premise in a plan is cited (`file:line`) or measured before it's written — do not build on an unverified premise.
+- **NEVER answer a behavioral failure with a verbal promise alone.** "I'll do better" / "I'll hold to that" evaporates on the next compaction or clear. Any behavioral correction MUST be written to disk **in the same turn** — the durable instruction surfaces (this `CLAUDE.md` and the memory files, belt-and-suspenders) — or it does not count. A commitment that isn't written did not happen.
+
+This is not "try harder." It is a hard gate: unverified → unsaid; unwritten commitment → didn't happen.
+
 ## Commands
 
 Always use `uv run` — it automatically activates the project venv without a separate activation step.
