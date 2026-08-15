@@ -45,9 +45,17 @@ Scorecard template at the bottom.
 
 3. **What are the private methods of `TestCase.lvclass`?**
    - *Answered by:* `query` `class_fact WHERE owning_class='TestCase.lvclass' AND scope='private'`.
+   - *Ground truth (JKI):* exactly **4** — `closeMethodViReference.vi`,
+     `openMethodViReference.vi`, `CallTestMethod.vi`, `testMethod.vi`.
+     `scope='private'` catches all four regardless of folder (the trap: some sit
+     directly under the class dir, one under `private/`).
 
 4. **Which class fields have accessors, and which field does each read/write?**
    - *Answered by:* `class_fact WHERE is_accessor=1` → `accessor_field`.
+   - *Ground truth (JKI):* **18** accessors across **9** classes; each field has
+     exactly one accessor VI. e.g. `TestCase` → {`CustomReportText`,
+     `SkipMessage`}, `TestRunner` → {`StartTime`, `StopTime`, `TestTimingInfo`,
+     `PublicEvents`}. Full map pinned in `test_q4_accessor_field_map`.
 
 5. **If I change `TestCase.lvclass`, what inherits from it?**
    - *Answered by:* children of `TestCase` in `class_fact` (+ `blast_radius` for VIs).

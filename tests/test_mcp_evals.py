@@ -180,6 +180,60 @@ class TestQ1ClassHierarchy:
         assert parents == {"TestCase.lvclass"}  # single value, no None
 
 
+@pytest.mark.slow
+def test_q3_testcase_private_methods(jki_index: BuildResult):
+    """Q3: 'What are the private methods of TestCase.lvclass?' A definitive
+    enumerable set — pin it EXACT. scope='private' catches all four regardless
+    of folder (two sit directly under the class dir, one under private/, and
+    testMethod.vi at the class root)."""
+    res = _query(
+        "SELECT vi_path FROM class_fact "
+        "WHERE owning_class='TestCase.lvclass' AND scope='private'"
+    )
+    methods = {str(row[0]).rsplit("/", 1)[-1] for row in res.rows}
+    assert methods == {
+        "closeMethodViReference.vi",
+        "openMethodViReference.vi",
+        "CallTestMethod.vi",
+        "testMethod.vi",
+    }
+
+
+@pytest.mark.slow
+def test_q4_accessor_field_map(jki_index: BuildResult):
+    """Q4: 'Which class fields have accessors, and which field does each
+    read/write?' A definitive enumerable map — pin the EXACT set of
+    (owning_class, field) pairs. 18 accessors across 9 classes; every field has
+    exactly one accessor VI (no read/write pair splits the field into two rows).
+    """
+    res = _query(
+        "SELECT owning_class, accessor_field FROM class_fact WHERE is_accessor=1"
+    )
+    pairs = {(row[0], row[1]) for row in res.rows}
+    assert pairs == {
+        ("Class1.lvclass", "Queue"),
+        ("FrameworkSubTestSuite.lvclass", "Special"),
+        ("TestCase.lvclass", "CustomReportText"),
+        ("TestCase.lvclass", "SkipMessage"),
+        ("TestLoader.lvclass", "TestsFromTestCase"),
+        ("TestLoader.lvclass", "TestsFromTestCaseByClassPath"),
+        ("TestLoader.lvclass", "TestsFromTestCaseObject"),
+        ("TestResult.lvclass", "ShouldStop"),
+        ("TestResult.lvclass", "Test Skipped Message"),
+        ("TestRunner.lvclass", "PublicEvents"),
+        ("TestRunner.lvclass", "StartTime"),
+        ("TestRunner.lvclass", "StopTime"),
+        ("TestRunner.lvclass", "TestTimingInfo"),
+        ("TestSuite.lvclass", "SkipMessage"),
+        ("TextTestRunner.lvclass", "descriptions"),
+        ("TextTestRunner.lvclass", "stream"),
+        ("TextTestRunner.lvclass", "verbosity"),
+        ("_TextTestResult.lvclass", "Description"),
+    }
+    # Each (class, field) pair is unique — no field double-counted.
+    assert len(res.rows) == 18
+
+
 @pytest.mark.skipif(not _HAVE_JKI, reason="JKI-VI-Tester sample not present")
 class TestQ2VilibVsInRepoParent:
     """Q2: 'Which classes inherit from a vi.lib class vs an in-repo class?'
