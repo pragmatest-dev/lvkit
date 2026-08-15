@@ -533,7 +533,7 @@ class VILibResolver:
         for terminal in vi.terminals:
             if terminal.type and terminal.type.endswith(".ctl"):
                 lv_type = self.resolve_type(terminal.type)
-                if lv_type and lv_type.kind == "enum":
+                if lv_type and lv_type.kind == LVTypeKind.ENUM:
                     enum_typedefs.add(terminal.type)
                     needs_intenum = True
 

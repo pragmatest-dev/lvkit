@@ -711,13 +711,13 @@ def _reshape_default_element(elem_type: LVType | None) -> ast.expr:
     kind = elem_type.kind
     underlying = elem_type.underlying_type
 
-    if kind == "array":
+    if kind == LVTypeKind.ARRAY:
         return ast.List(elts=[], ctx=ast.Load())
-    if kind == "cluster":
+    if kind == LVTypeKind.CLUSTER:
         return ast.Constant(value=None)
-    if kind in ("enum", "ring"):
+    if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
-    if kind == "primitive":
+    if kind == LVTypeKind.PRIMITIVE:
         if underlying == "String":
             return ast.Constant(value="")
         if underlying == "Boolean":

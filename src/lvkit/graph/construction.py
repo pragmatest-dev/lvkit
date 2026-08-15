@@ -187,13 +187,13 @@ _TYPE_CATEGORIES = {
 }
 
 
-def _lv_type_category(underlying: str, kind: str) -> str:
+def _lv_type_category(underlying: str, kind: LVTypeKind) -> str:
     """Map LV type to a category for matching."""
-    if kind == "cluster":
+    if kind == LVTypeKind.CLUSTER:
         return "cluster"
-    if kind == "array":
+    if kind == LVTypeKind.ARRAY:
         return "array"
-    if kind in ("enum", "ring"):
+    if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "numeric"
     cat = _TYPE_CATEGORIES.get(underlying)
     if cat:

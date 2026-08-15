@@ -6,7 +6,7 @@ import ast
 import re
 from typing import NoReturn
 
-from lvkit.models import Operation, SubVIOperation, Terminal
+from lvkit.models import LVTypeKind, Operation, SubVIOperation, Terminal
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
     ResolutionContext,
@@ -451,7 +451,7 @@ def _resolve_enum_value(
     resolver = get_resolver()
     lv_type = resolver.resolve_type(vilib_term.type)
 
-    if not lv_type or lv_type.kind != "enum" or not lv_type.values:
+    if not lv_type or lv_type.kind != LVTypeKind.ENUM or not lv_type.values:
         return value
 
     # Reverse lookup: find enum member with this value

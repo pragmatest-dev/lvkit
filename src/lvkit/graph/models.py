@@ -69,7 +69,7 @@ class VINode(GraphNode):
     library: str | None = None
     qualified_name: str | None = None
     # The connector-pane PATTERN number (FPHb ``<conPane><conId>``) — the key
-    # into ``render/connector_pane_geometry`` for the cell grid. None when the
+    # into ``connector_pane_geometry`` for the cell grid. None when the
     # VI has no connector pane parsed. LabVIEW stores only this id, not the grid.
     connector_pattern_id: int | None = None
     # The VI's ownership chain from its own ``<LIBN>`` (owning .lvlib/.lvclass,

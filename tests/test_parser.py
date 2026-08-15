@@ -596,21 +596,12 @@ class TestConnectorPaneSlot:
         slot = ParsedConnectorPaneSlot(index=0)
         assert slot.index == 0
         assert slot.fp_dco_uid is None
-        assert slot.is_output is False
-        assert slot.wiring_rule == 0
 
     def test_slot_connected(self):
         """Test creating a connected slot."""
-        slot = ParsedConnectorPaneSlot(
-            index=3,
-            fp_dco_uid="dco123",
-            is_output=True,
-            wiring_rule=ParsedWiringRule.REQUIRED,
-            type_id="TypeID(10)",
-        )
+        slot = ParsedConnectorPaneSlot(index=3, fp_dco_uid="dco123")
+        assert slot.index == 3
         assert slot.fp_dco_uid == "dco123"
-        assert slot.is_output is True
-        assert slot.wiring_rule == 1
 
 
 class TestConnectorPane:

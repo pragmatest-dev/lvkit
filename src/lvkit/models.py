@@ -205,7 +205,7 @@ def _is_error_cluster(lv_type: LVType) -> bool:
     1. TypeDef name contains "error" (case-insensitive)
     2. Cluster with status/code/source fields
     """
-    if lv_type.kind not in ("cluster", "typedef_ref"):
+    if lv_type.kind not in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return False
 
     # Check typedef name

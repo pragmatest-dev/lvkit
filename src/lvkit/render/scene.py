@@ -32,6 +32,7 @@ from ..graph.op_walk import _selector_label, is_no_error_selector
 from ..models import (
     FPTerminal,
     LVType,
+    LVTypeKind,
     Terminal,
     TunnelTerminal,
     _is_error_cluster,
@@ -919,10 +920,10 @@ def _wire_carrier_type(
     """
     if (
         src_type is not None
-        and src_type.kind == "array"
+        and src_type.kind == LVTypeKind.ARRAY
         and src_type.element_type is not None
     ):
-        if any(dt is not None and dt.kind != "array" for dt in dest_types):
+        if any(dt is not None and dt.kind != LVTypeKind.ARRAY for dt in dest_types):
             return src_type.element_type
     return src_type
 

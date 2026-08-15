@@ -14,9 +14,10 @@ column-major pass within each disposition group, then the next group:
    direction (DD input = Required, DD output = Recommended).
 3. **geometry** — the connector-pane reading order WITHIN a level: inputs
    column-major LEFT->RIGHT (`cell.x` asc, then `cell.y`), outputs column-major
-   RIGHT->LEFT (`cell.x` desc, then `cell.y`) — computed from the pattern's cell
-   geometry, unless the pattern carries a `terminal_order` override (for outlier
-   patterns), in which case the slot's position in that sequence is used.
+   RIGHT->LEFT (`cell.x` desc, then `cell.y`) — computed from the pattern's
+   image-transcribed cell placement. Because it sorts by a cell's POSITION (not
+   by assuming index==reading-order), a pattern whose numbering zig-zags
+   (4816-4825, 4833-4835) still reads correctly, with no per-pattern override.
 
 Direction is NEVER inferred from geometry; callers pass it. The order is total
 and deterministic (fallback: slot index).
@@ -70,16 +71,10 @@ def ordered_interface(
 ) -> list[Terminal]:
     """Order one direction group of interface terminals by the canonical key."""
     pattern = get_pattern(pattern_id) if pattern_id is not None else None
-    override = pattern.terminal_order if pattern else None
     cell_by_index = pattern.cell_by_index() if pattern else {}
 
     def geometry_key(t: Terminal) -> tuple[int, float, float]:
         idx = t.index
-        if override is not None:
-            # Explicit outlier order: rank by position in the sequence.
-            if idx in override:
-                return (0, float(override.index(idx)), 0.0)
-            return (1, float(idx if idx is not None and idx >= 0 else _UNPLACED), 0.0)
         cell = cell_by_index.get(idx) if idx is not None else None
         if cell is None:
             return (1, float(idx if idx is not None and idx >= 0 else _UNPLACED), 0.0)

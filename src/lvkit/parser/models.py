@@ -295,9 +295,9 @@ class ParsedConnectorPaneSlot:
 
     index: int  # Slot position (0-based)
     fp_dco_uid: str | None = None  # UID of the connected fPDCO
-    is_output: bool = False  # True if output terminal
-    wiring_rule: ParsedWiringRule = ParsedWiringRule.INVALID
-    type_id: str | None = None  # TypeID reference
+    # NB: a slot carries only its position + the fPDCO it connects. Direction,
+    # wiring rule, and type are NOT stored here -- they are read per FP terminal
+    # (is_indicator) and via the separate parse_connector_pane_types path.
 
 
 @dataclass

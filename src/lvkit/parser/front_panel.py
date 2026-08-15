@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.models import LVType
+from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.utils import clean_labview_string
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
@@ -97,7 +97,11 @@ def extract_fp_dco_info(fp_xml_path: Path | str) -> dict[str, FpDcoInfo]:
         # control_type path, and a heap "Numeric" would drop a control_type's
         # more specific I32/U16/… on the floor.
         heap_type = reconstruct_dco_lvtype(dco)
-        if heap_type is not None and heap_type.kind not in ("cluster", "enum", "array"):
+        if heap_type is not None and heap_type.kind not in (
+            LVTypeKind.CLUSTER,
+            LVTypeKind.ENUM,
+            LVTypeKind.ARRAY,
+        ):
             heap_type = None
         info[uid] = FpDcoInfo(
             type_desc=type_desc,

@@ -1872,7 +1872,9 @@ def _pane_terminal(t: Terminal, direction: str) -> ConnectorPaneTerminal:
     """One interface terminal -> its ``ConnectorPaneTerminal`` contract record."""
     return ConnectorPaneTerminal(
         name=t.name or direction,
-        type=t.lv_type.lv_label() if t.lv_type else "Any",
+        # FAITHFUL label (family-word fallback when unresolved) -- same as
+        # describe's ## Inputs/## Outputs, never the codegen "Any".
+        type=t.faithful_type_label(),
         direction=direction,
         index=t.index,
         is_required=is_required(t, direction),

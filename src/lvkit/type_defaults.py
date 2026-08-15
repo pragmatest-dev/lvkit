@@ -8,7 +8,7 @@ Used in code generation when we need a default value, such as:
 
 from __future__ import annotations
 
-from .models import LVType, _is_error_cluster
+from .models import LVType, LVTypeKind, _is_error_cluster
 from .vilib_resolver import derive_python_name
 
 # Map LabVIEW numeric type names to Python defaults
@@ -52,10 +52,10 @@ def get_default_for_type(lv_type: LVType | None) -> str:
     if _is_error_cluster(lv_type):
         return ERROR_CLUSTER_DEFAULT
 
-    if kind == "primitive":
+    if kind == LVTypeKind.PRIMITIVE:
         return _get_primitive_default(underlying)
 
-    elif kind == "array":
+    elif kind == LVTypeKind.ARRAY:
         # Empty array, but we could generate typed empty list
         # e.g., list[int]() for Array[NumInt32]
         if lv_type.element_type:
@@ -64,7 +64,7 @@ def get_default_for_type(lv_type: LVType | None) -> str:
             pass
         return "[]"
 
-    elif kind == "cluster":
+    elif kind == LVTypeKind.CLUSTER:
         # For non-error clusters, generate dict with field defaults
         if lv_type.fields:
             field_defaults = []
@@ -74,7 +74,7 @@ def get_default_for_type(lv_type: LVType | None) -> str:
             return "{" + ", ".join(field_defaults) + "}"
         return "{}"
 
-    elif kind in ("enum", "ring"):
+    elif kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         # Enums default to first value (usually index 0)
         if lv_type.values:
             # Find the enum member with value 0 (default)
@@ -92,7 +92,7 @@ def get_default_for_type(lv_type: LVType | None) -> str:
                 return f"{class_name}.{first_member}"
         return "0"
 
-    elif kind == "typedef_ref":
+    elif kind == LVTypeKind.TYPEDEF_REF:
         # TypeDef reference - try to resolve or return None
         return "None"
 

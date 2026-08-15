@@ -49,15 +49,12 @@ class PanePattern:
     #: grid track counts, for proportional sizing (cols wide, rows tall)
     cols: int
     rows: int
-    #: cells sorted by terminal index (0 .. terminal_count-1)
+    #: cells sorted by terminal index (0 .. terminal_count-1). The per-index
+    #: placement here IS each pattern's canonical order encoding (image-
+    #: transcribed): ``interface_order`` and the renderer both sort by a cell's
+    #: position, never by assuming index==reading-order, so a pattern whose
+    #: NUMBERING zig-zags (4816-4825, 4833-4835) still reads correctly.
     cells: tuple[PaneCell, ...]
-    #: OPTIONAL per-pattern reading-order OVERRIDE (slot indices, preferred
-    #: order) for the few outlier patterns whose cell geometry doesn't sort into
-    #: the intended order under the standard rule (inputs column-major
-    #: left->right, outputs right->left). ``None`` => use the geometric sort. See
-    #: ``graph.interface_order``. Present in the JSON only where an outlier was
-    #: corrected against the pane image.
-    terminal_order: tuple[int, ...] | None = None
 
     def cell_by_index(self) -> dict[int, PaneCell]:
         return {c.index: c for c in self.cells}
@@ -121,7 +118,6 @@ def _patterns() -> dict[int, PanePattern]:
             cols = int(spec["grid"]["cols"])
             rows = int(spec["grid"]["rows"])
         cells.sort(key=lambda c: c.index)
-        raw_order = spec.get("terminal_order")
         out[con_id] = PanePattern(
             con_id=con_id,
             name=spec["name"],
@@ -129,7 +125,6 @@ def _patterns() -> dict[int, PanePattern]:
             cols=cols,
             rows=rows,
             cells=tuple(cells),
-            terminal_order=(tuple(int(i) for i in raw_order) if raw_order else None),
         )
     return out
 

@@ -36,6 +36,7 @@ GIT_SETS=(
   "ni-labview-icon-editor|https://github.com/ni/labview-icon-editor.git|MIT|https://github.com/ni/labview-icon-editor"
   "lv-flex-channel-examples|https://github.com/illuminated-g/lv-flex-channel-examples.git|MIT|https://github.com/illuminated-g/lv-flex-channel-examples"
   "LabVIEW-OOP-Classes|https://github.com/ismet55555/LabVIEW-OOP-Classes.git|MIT|https://github.com/ismet55555/LabVIEW-OOP-Classes"
+  "actor-framework|https://github.com/ni/actor-framework.git|MIT|https://github.com/ni/actor-framework"
 )
 
 for entry in "${GIT_SETS[@]}"; do

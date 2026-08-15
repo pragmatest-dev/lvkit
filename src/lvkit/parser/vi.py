@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from lvkit.extractor import extract_vi_xml
-from lvkit.models import LVType
+from lvkit.models import LVType, LVTypeKind
 from lvkit.text_encoding import decode_labview_text
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
@@ -1464,7 +1464,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         return ("True" if data[0] else "False"), 1
 
     # Enum: decode as its underlying integer type
-    if kind == "enum":
+    if kind == LVTypeKind.ENUM:
         size = _get_numeric_size(underlying)
         if len(data) < size:
             return None, 0
@@ -1518,7 +1518,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         return value or 'Path("")', consumed
 
     # Array: 4-byte length + elements
-    if kind == "array" and elem_type.element_type:
+    if kind == LVTypeKind.ARRAY and elem_type.element_type:
         if len(data) < 4:
             return None, 0
         array_len = int.from_bytes(data[:4], "big")
@@ -1558,7 +1558,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         return "[" + ", ".join(elements) + "]", idx
 
     # Cluster: sequential fields
-    if kind == "cluster" and elem_type.fields:
+    if kind == LVTypeKind.CLUSTER and elem_type.fields:
         idx = 0
         field_values = {}
         for field in elem_type.fields:

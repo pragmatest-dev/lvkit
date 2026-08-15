@@ -2945,11 +2945,15 @@ def _pane_terminal_detail(a: Terminal, b: Terminal) -> str | None:
     facets join with ``;`` so one terminal is one change leaf (uid is per-name)."""
     facets: list[str] = []
 
-    type_a = a.lv_type.lv_label() if a.lv_type else "Any"
-    type_b = b.lv_type.lv_label() if b.lv_type else "Any"
+    type_a = a.faithful_type_label()
+    type_b = b.faithful_type_label()
     if type_a != type_b:
         facets.append(_transition(type_a, type_b))
 
+    # Full disposition (requirement level) is an authored contract change, so a
+    # diff surfaces EVERY transition -- including Recommended<->Optional, which
+    # describe deliberately collapses to its unmarked baseline (describe only
+    # marks Required). The diff is finer-grained than describe here, on purpose.
     if a.wiring_rule != b.wiring_rule:
         facets.append(
             _transition(

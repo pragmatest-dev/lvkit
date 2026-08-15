@@ -97,7 +97,7 @@ class TerminalFact:
 class ConstantFact:
     """A block-diagram constant, plus what its output wire feeds.
 
-    ``wired_to`` is precomputed (WIRED_INDICATOR/CONTROL/OTHER/NONE) so
+    ``wired_to`` is precomputed (WiredTo.INDICATOR/CONTROL/OTHER/UNWIRED) so
     "constants wired to indicators" is a filter, not a per-query wire trace.
     """
 
