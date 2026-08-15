@@ -20,8 +20,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from xml.sax.saxutils import escape
 
+from ..connector_pane_geometry import PaneCell, get_pattern
 from ..models import FPTerminal, LVType, Terminal
-from .connector_pane_geometry import PaneCell, get_pattern
 from .style import (
     DEFAULT_THEME,
     Theme,

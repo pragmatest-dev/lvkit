@@ -10,7 +10,9 @@ into normalized ``PaneCell`` rectangles the renderer/diff can draw directly.
 
 Pure geometry: a cell knows its ``index`` and its rect, nothing about whether
 the terminal is an input or an output (that comes from the VI's own
-``ParsedConnectorPaneSlot.is_output``, not the pattern).
+``ParsedConnectorPaneSlot.is_output``, not the pattern). Lives at the package
+top level (not under ``render/``) so both ``render`` and ``graph`` can import it
+without a cycle — ``render/__init__`` eagerly imports ``graph.core``.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import json
 from dataclasses import dataclass
 from functools import lru_cache
 
-from .._data import data_dir
+from ._data import data_dir
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,13 @@ class PanePattern:
     rows: int
     #: cells sorted by terminal index (0 .. terminal_count-1)
     cells: tuple[PaneCell, ...]
+    #: OPTIONAL per-pattern reading-order OVERRIDE (slot indices, preferred
+    #: order) for the few outlier patterns whose cell geometry doesn't sort into
+    #: the intended order under the standard rule (inputs column-major
+    #: left->right, outputs right->left). ``None`` => use the geometric sort. See
+    #: ``graph.interface_order``. Present in the JSON only where an outlier was
+    #: corrected against the pane image.
+    terminal_order: tuple[int, ...] | None = None
 
     def cell_by_index(self) -> dict[int, PaneCell]:
         return {c.index: c for c in self.cells}
@@ -112,6 +121,7 @@ def _patterns() -> dict[int, PanePattern]:
             cols = int(spec["grid"]["cols"])
             rows = int(spec["grid"]["rows"])
         cells.sort(key=lambda c: c.index)
+        raw_order = spec.get("terminal_order")
         out[con_id] = PanePattern(
             con_id=con_id,
             name=spec["name"],
@@ -119,6 +129,9 @@ def _patterns() -> dict[int, PanePattern]:
             cols=cols,
             rows=rows,
             cells=tuple(cells),
+            terminal_order=(
+                tuple(int(i) for i in raw_order) if raw_order else None
+            ),
         )
     return out
 

@@ -19,12 +19,14 @@ from ..models import (
     LVType,
     Operation,
     PrimitiveOperation,
+    ScalarValue,
     SequenceOperation,
     Terminal,
 )
 from ..parser.node_types import get_display_name
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .core import kind_display
+from .interface_order import is_required
 from .models import (
     Constant,
     ExecutionProps,
@@ -89,28 +91,30 @@ def describe_vi(
     # verbose (-v): every field shown, healthy or not.
     lines.extend(_describe_health(ctx, show_all=verbose))
 
-    # Interface: Inputs
+    # Connector pane, in canonical order (errors last, Required first, then pane
+    # geometry). Terse: unmarked is the baseline; only the exceptions annotate --
+    # ``(required)`` (a caller MUST wire it) and ``= default``. Verbose adds each
+    # terminal's ``[idx N]`` pane slot and the VI's connector pattern.
+    pattern_note = (
+        f" (pattern {ctx.connector_pattern_id})"
+        if verbose and ctx.connector_pattern_id is not None
+        else ""
+    )
+    lines.append("## Inputs" + pattern_note)
     if ctx.inputs:
-        lines.append("## Inputs")
         for inp in ctx.inputs:
-            wiring = _wiring_label(inp.wiring_rule)
-            lines.append(f"  {inp.name}: {_terminal_type_label(inp)} ({wiring})")
-        lines.append("")
+            lines.append("  " + _pane_terminal_line(inp, "input", verbose))
     else:
-        lines.append("## Inputs")
         lines.append("  (none)")
-        lines.append("")
+    lines.append("")
 
-    # Interface: Outputs
+    lines.append("## Outputs")
     if ctx.outputs:
-        lines.append("## Outputs")
         for out in ctx.outputs:
-            lines.append(f"  {out.name}: {_terminal_type_label(out)}")
-        lines.append("")
+            lines.append("  " + _pane_terminal_line(out, "output", verbose))
     else:
-        lines.append("## Outputs")
         lines.append("  (none)")
-        lines.append("")
+    lines.append("")
 
     # Class context: when this VI is a .lvclass method
     lines.extend(_describe_class_context(graph, ctx))
@@ -308,14 +312,31 @@ def _format_signature(ctx: VIContext) -> str:
     return f"{func_name}({params}) -> {ret}"
 
 
-def _wiring_label(rule: int) -> str:
-    """Convert wiring rule to human label."""
-    return {
-        0: "unknown",
-        1: "required",
-        2: "recommended",
-        3: "optional",
-    }.get(rule, "unknown")
+def _default_suffix(default: ScalarValue) -> str:
+    """`` = <value>`` for a terminal's default, or ``''`` when it has none.
+
+    Only a genuinely-set default annotates (``default`` is ``None`` when the
+    terminal carries no default). Strings render quoted so ``""`` reads as an
+    intentional empty-string default, not a missing one.
+    """
+    if default is None:
+        return ""
+    return f' = "{default}"' if isinstance(default, str) else f" = {default}"
+
+
+def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
+    """One connector-pane terminal as ``name: type [(required)] [= default]``.
+
+    Only the exceptions annotate -- ``(required)`` (Required, inputs only) and a
+    set default. Verbose appends the ``[idx N]`` connector-pane slot.
+    """
+    line = f"{t.name}: {_terminal_type_label(t)}"
+    if is_required(t, direction):
+        line += " (required)"
+    line += _default_suffix(t.default_value)
+    if verbose and t.index is not None and t.index >= 0:
+        line += f" [idx {t.index}]"
+    return line
 
 
 def _collect_subvi_names(operations: list[Operation]) -> set[str]:

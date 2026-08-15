@@ -20,6 +20,7 @@ import networkx as nx
 from ..models import ClusterField, FPTerminal, Operation, Terminal
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
+from .interface_order import ordered_interface
 from .models import (
     AnyGraphNode,
     ClassFieldEntry,
@@ -539,12 +540,12 @@ class QueryMixin:
             if public_only and isinstance(t, FPTerminal) and not t.is_public:
                 continue
             results.append(t)
-        return results
+        return ordered_interface(results, "input", gnode.connector_pattern_id)
 
     def get_outputs(
         self, vi_name: str, *, public_only: bool = True
     ) -> list[Terminal]:
-        """Get VI output terminals.
+        """Get VI output terminals, in canonical connector-pane order.
 
         Reads from the VINode's terminal list (FPTerminal indicators).
         """
@@ -563,7 +564,7 @@ class QueryMixin:
             if public_only and isinstance(t, FPTerminal) and not t.is_public:
                 continue
             results.append(t)
-        return results
+        return ordered_interface(results, "output", gnode.connector_pattern_id)
 
     def get_constants(self, vi_name: str) -> list[Constant]:
         """Get all constants in a VI."""

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import IntEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -95,8 +96,13 @@ class ParsedTerminalInfo:
     inverted: bool = False  # DCO objFlags bit 16: "Not" applied to this terminal
 
 
-class ParsedWiringRule:
-    """Terminal wiring rule - controls required/recommended/optional status."""
+class ParsedWiringRule(IntEnum):
+    """Terminal wiring rule - controls required/recommended/optional status.
+
+    ``IntEnum`` so a member IS its LabVIEW wiring-rule int (0-4): it compares
+    equal to the raw ``Terminal.wiring_rule`` value and serializes as that int,
+    while giving the value set a name, iteration, and value->name lookup.
+    """
     INVALID = 0
     REQUIRED = 1
     RECOMMENDED = 2

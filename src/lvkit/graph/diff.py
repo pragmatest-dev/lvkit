@@ -23,6 +23,7 @@ from ..models import (
     Terminal,
     _is_error_cluster,
 )
+from ..parser.models import ParsedWiringRule
 from ..parser.node_types import get_display_name
 from .models import (
     CURATED_KIND_FLAGS,
@@ -2596,15 +2597,63 @@ def _diff_connector_pane(
                 changes.append(
                     ElementChange(uid, uid, "connector_pane", "removed", label))
             else:
-                ta, tb = map_a[name].lv_type, map_b[name].lv_type
-                type_a = ta.lv_label() if ta else "Any"
-                type_b = tb.lv_label() if tb else "Any"
-                if type_a != type_b:
+                detail = _pane_terminal_detail(map_a[name], map_b[name])
+                if detail:
                     changes.append(ElementChange(
                         uid, uid, "connector_pane", "modified", label,
-                        detail=_transition(type_a, type_b),
+                        detail=detail,
                     ))
+
+    # VI-level: the connector PATTERN (conId) itself changing -- a re-paned VI.
+    pat_a = ga.get_vi_context(va).connector_pattern_id
+    pat_b = gb.get_vi_context(vb).connector_pattern_id
+    if pat_a != pat_b:
+        changes.append(ElementChange(
+            "connector_pane:pattern", "connector_pane:pattern",
+            "connector_pane", "modified", "connector pattern",
+            detail=_transition(pat_a, pat_b),
+        ))
     return changes
+
+
+_DISPOSITION_NAME = {
+    int(ParsedWiringRule.INVALID): "unknown",
+    int(ParsedWiringRule.REQUIRED): "Required",
+    int(ParsedWiringRule.RECOMMENDED): "Recommended",
+    int(ParsedWiringRule.OPTIONAL): "Optional",
+    int(ParsedWiringRule.DYNAMIC_DISPATCH): "Dynamic Dispatch",
+}
+
+
+def _pane_terminal_detail(a: Terminal, b: Terminal) -> str | None:
+    """The ``old → new`` detail for a matched connector-pane terminal whose
+    authored CONTRACT changed -- its type, disposition (requirement level),
+    default value, or connector slot. ``None`` when nothing authored changed
+    (a pure reorder never lands here: terminals match by name). Multiple changed
+    facets join with ``;`` so one terminal is one change leaf (uid is per-name)."""
+    facets: list[str] = []
+
+    type_a = a.lv_type.lv_label() if a.lv_type else "Any"
+    type_b = b.lv_type.lv_label() if b.lv_type else "Any"
+    if type_a != type_b:
+        facets.append(_transition(type_a, type_b))
+
+    if a.wiring_rule != b.wiring_rule:
+        facets.append(_transition(
+            _DISPOSITION_NAME.get(a.wiring_rule, "unknown"),
+            _DISPOSITION_NAME.get(b.wiring_rule, "unknown"),
+        ))
+
+    if a.default_value != b.default_value:
+        facets.append(_transition(
+            f"default {_value_disp(a.default_value)}",
+            f"default {_value_disp(b.default_value)}",
+        ))
+
+    if a.index != b.index:
+        facets.append(_transition(f"slot {a.index}", f"slot {b.index}"))
+
+    return "; ".join(facets) if facets else None
 
 
 # Curated boolean VI Properties/KindProps flags -> display name, sourced from

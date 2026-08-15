@@ -43,6 +43,7 @@ from ..models import (
     Operation,
     PrimitiveOperation,
     PropertyOperation,
+    ScalarValue,
     SequenceOperation,
     Terminal,
     TunnelMode,
@@ -50,6 +51,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
+from .interface_order import is_required
 from .models import (
     Constant,
     VIContext,
@@ -492,6 +494,32 @@ class BoundaryOutput:
 
 
 @dataclass
+class ConnectorPaneTerminal:
+    """One terminal of a VI's connector pane — the authored CONTRACT for a pane
+    slot, distinct from the net that drives/reads it (a ``BoundaryOutput`` carries
+    the wiring; this carries the pane terminal). "Connector pane", not
+    "signature": a signature is the Python/codegen lens; the VI's own word for its
+    interface is the connector pane. Ordered canonically by
+    ``graph.interface_order`` (errors last, Required first, then pane geometry).
+    """
+
+    name: str
+    type: str  # FAITHFUL LabVIEW type label, not a Python annotation
+    direction: str  # "input" | "output"
+    index: int | None  # connector-pane slot index (None if unassigned)
+    is_required: bool  # caller MUST wire it — inputs only (never an output)
+    default: ScalarValue  # terminal default value, None when it has none
+
+
+@dataclass
+class ConnectorPane:
+    """A VI's connector pane: its wiring pattern plus its ordered terminals."""
+
+    pattern_id: int | None  # the connector pattern (conId), None if unknown
+    terminals: list[ConnectorPaneTerminal] = field(default_factory=list)
+
+
+@dataclass
 class NetlistModule:
     """The whole VI as a netlist."""
 
@@ -521,6 +549,14 @@ class NetlistModule:
     # ``ClassContext`` (queries.py) is shared verbatim -- no netlist-local
     # wrapper type.
     class_context: ClassContext | None = None
+    # The VI's authored connector pane: its pattern + every terminal
+    # (canonically ordered). A SIBLING facet to the connectivity ``inputs``/
+    # ``outputs`` above -- carried through for ``netlist_to_dict`` (get_context);
+    # ``render_netlist``'s ASCII stays pure connectivity, ``describe.py`` renders
+    # the pane's ``## Inputs``/``## Outputs``.
+    connector_pane: ConnectorPane = field(
+        default_factory=lambda: ConnectorPane(pattern_id=None)
+    )
 
 
 # ============================================================
@@ -1718,6 +1754,15 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         for t in ctx.outputs
     ]
 
+    # The authored connector pane (canonical order already applied by get_inputs/
+    # get_outputs): input terminals first, then outputs -- each self-tags
+    # direction.
+    connector_pane = ConnectorPane(
+        pattern_id=ctx.connector_pattern_id,
+        terminals=[_pane_terminal(t, "input") for t in ctx.inputs]
+        + [_pane_terminal(t, "output") for t in ctx.outputs],
+    )
+
     body = _build_items(graph, ctx, root_ops, build_ctx)
     components = _build_components(graph, flat)
 
@@ -1726,6 +1771,19 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         components=components, properties=ctx.properties,
         health=ctx.health,
         class_context=_build_class_context(graph, ctx),
+        connector_pane=connector_pane,
+    )
+
+
+def _pane_terminal(t: Terminal, direction: str) -> ConnectorPaneTerminal:
+    """One interface terminal -> its ``ConnectorPaneTerminal`` contract record."""
+    return ConnectorPaneTerminal(
+        name=t.name or direction,
+        type=t.lv_type.lv_label() if t.lv_type else "Any",
+        direction=direction,
+        index=t.index,
+        is_required=is_required(t, direction),
+        default=t.default_value,
     )
 
 
@@ -2267,6 +2325,22 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
     """
     return {
         "vi": module.vi_name,
+        # Authored connector pane (pattern + canonically-ordered terminals), a
+        # sibling to the connectivity inputs/outputs below.
+        "connector_pane": {
+            "pattern": module.connector_pane.pattern_id,
+            "terminals": [
+                {
+                    "name": p.name,
+                    "type": p.type,
+                    "direction": p.direction,
+                    "index": p.index,
+                    "required": p.is_required,
+                    "default": p.default,
+                }
+                for p in module.connector_pane.terminals
+            ],
+        },
         "inputs": [{"name": n, "type": t} for n, t in module.inputs],
         "outputs": [
             {
