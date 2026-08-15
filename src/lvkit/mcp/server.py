@@ -379,7 +379,7 @@ async def query(
     ``vi``, ``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``,
     ``lvproj`` (which VIs/classes belong to which ``.lvproj``).
     Example — the names this project uses for error indicators, as a histogram
-    rather than 379 raw rows::
+    rather than 406 raw rows::
 
         SELECT name, COUNT(*) AS n FROM terminal
         WHERE type_descriptor = 'Error' AND direction = 'output'

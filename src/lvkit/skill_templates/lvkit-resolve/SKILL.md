@@ -1,6 +1,6 @@
 ---
 name: lvkit-resolve
-description: Identify an unknown LabVIEW primitive, terminal mismatch, or vi.lib VI and persist the mapping to the project's .lvkit/ store. Optional/advanced — query-driven conversion (/lvkit-convert) handles unknowns inline; use this to make a mapping stick for every future VI.
+description: Identify an unknown LabVIEW primitive, terminal mismatch, or vi.lib VI and persist the mapping to the project's .lvkit/ store. Optional/advanced — query-driven conversion (/lvkit-convert) handles unknowns inline; use this to make a mapping stick for every future VI. Gap-triage works via CLI or the MCP `unresolved` tool; the persist step (writing .lvkit/ mappings, `lvkit setup`) is CLI/filesystem.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---
 

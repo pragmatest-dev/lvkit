@@ -82,9 +82,11 @@ lvkit query MyRepo \
 ```text
 name                    n
 ----------------------  ---
-error out               352
+error out               382
+control_100             3
+control_101             3
 Error out               2
-vi error out            1
+Test Method Error       2
 …
 ```
 

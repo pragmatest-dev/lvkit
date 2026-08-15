@@ -4,7 +4,7 @@ This is the relational half of the query architecture (design doc
 ``docs/_internal/design/lvkit-query-surface.md`` §3): the ONE ``query`` entry
 point that replaces the read-half of the hand-shaped MCP tools. It answers the
 driving question — *"count the names this project uses for error indicators"* —
-as a single ``GROUP BY`` that returns the 13-row histogram, not the 379 terminal
+as a single ``GROUP BY`` that returns the 16-row histogram, not the 406 terminal
 rows the old tool dumped.
 
 Callers get **read-only SQL over a small, curated VIEW layer** (``vi``,

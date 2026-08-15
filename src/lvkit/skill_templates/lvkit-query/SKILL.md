@@ -61,7 +61,7 @@ The value of this skill is translating a plain-English question into the
 right `SELECT` against those columns. Some worked examples:
 
 **"What names does this project use for error indicators?"** (the driving
-example — returns the small histogram, not the 379 raw terminal rows). Error
+example — returns the small histogram, not the 406 raw terminal rows). Error
 clusters are duck-typed in LabVIEW (no nominal type), so lvkit gives them the
 built-in-style descriptor `Error` — match on shape via `type_descriptor`, not
 on any assumed name:

@@ -527,9 +527,9 @@ def test_histogram_over_real_facts_matches_independent_count():
 
 @pytest.mark.needs_samples
 @pytest.mark.slow
-def test_jki_error_indicator_histogram_13_rows():
+def test_jki_error_indicator_histogram_16_rows():
     """The full design-doc acceptance: over JKI VI Tester the histogram is a
-    small table dominated by 'error out' — the answer, not the 379 raw rows."""
+    small table dominated by 'error out' — the answer, not the 406 raw rows."""
     if not (_JKI_ROOT.is_dir() and any(_JKI_ROOT.rglob("*.vi"))):
         pytest.skip("JKI-VI-Tester sample not present")
 
@@ -554,6 +554,6 @@ def test_jki_error_indicator_histogram_13_rows():
     top_name, top_count = res.rows[0]
     assert top_name == "error out"
     assert top_count == 382
-    # It's a small histogram (a handful of distinct names), not a row dump.
-    assert len(res.rows) < 30
+    # It's a small histogram, not a row dump — exactly 16 distinct names.
+    assert len(res.rows) == 16
     assert not res.truncated
