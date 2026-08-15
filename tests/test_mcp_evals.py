@@ -240,6 +240,45 @@ def test_q10_error_indicator_histogram_top_row(jki_index: BuildResult):
     assert res.rows[0] == ["error out", 382]
 
 
+@pytest.mark.slow
+def test_q8_error_cluster_input_vis(jki_index: BuildResult):
+    """Q8: 'Which VIs take an error cluster as an input?' A definitive
+    structural count — pin it EXACT. Error clusters are identified by their
+    type (``type_descriptor='Error'``), NOT by terminal name, so this catches
+    the ``error in``/fallback-labelled inputs a name-grep would miss."""
+    res = _query(
+        "SELECT COUNT(DISTINCT vi_path) FROM terminal "
+        "WHERE type_descriptor='Error' AND direction='input'"
+    )
+    assert res.rows == [[395]]
+
+
+@pytest.mark.slow
+def test_q9_no_input_vis(jki_index: BuildResult):
+    """Q9: 'Which VIs have no inputs (entry points / top-level runners)?'
+    Definitive — a VI whose path never appears as an input-terminal owner."""
+    res = _query(
+        "SELECT COUNT(*) FROM vi WHERE path NOT IN "
+        "(SELECT DISTINCT vi_path FROM terminal WHERE direction='input')"
+    )
+    assert res.rows == [[30]]
+
+
+@pytest.mark.slow
+def test_q11_no_error_out_vis(jki_index: BuildResult):
+    """Q11: 'Which VIs have NO error out terminal?' Definitive — the
+    complement of the 382 VIs that carry exactly one ``error out`` output
+    (see :func:`test_q10_error_indicator_histogram_top_row`): 487 - 382 = 105.
+    """
+    res = _query(
+        "SELECT COUNT(*) FROM vi WHERE path NOT IN "
+        "(SELECT DISTINCT vi_path FROM terminal "
+        "WHERE type_descriptor='Error' AND direction='output' "
+        "AND name='error out')"
+    )
+    assert res.rows == [[105]]
+
+
 # === F. Project scoping =======================================================
 
 

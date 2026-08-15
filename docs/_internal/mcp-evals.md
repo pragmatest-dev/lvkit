@@ -65,9 +65,12 @@ Scorecard template at the bottom.
 
 8. **Which VIs take an error cluster as an input?**
    - *Answered by:* `terminal WHERE type_descriptor='Error' AND direction='input'`.
+   - *Ground truth (JKI):* **395** VIs (`COUNT(DISTINCT vi_path)`). Identified
+     by SHAPE, not name — same trap as Q10/Q12.
 
 9. **Which VIs have no inputs (entry points / top-level runners)?**
    - *Answered by:* `query` — VIs with no `direction='input'` terminal rows.
+   - *Ground truth (JKI):* **30** of 487.
 
 ## C. Error handling
 
@@ -94,6 +97,8 @@ Scorecard template at the bottom.
 
 11. **Which VIs have NO `error out` terminal?**
     - *Answered by:* anti-join (`vi` LEFT JOIN error-out `terminal`, WHERE NULL).
+    - *Ground truth (JKI):* **105** of 487 — the exact complement of the 382
+      that carry one `error out` (Q10). 382 + 105 = 487.
     - *Watch for:* the agent struggling with an *absence* query.
 
 12. **Are error clusters identified by their structure (status/code/source) or by name?**
