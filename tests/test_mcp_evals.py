@@ -112,6 +112,27 @@ class TestQ1ClassHierarchy:
         # (zero methods) stays unresolved — #19, out of scope here.
         assert len(owning) == 31
 
+    def test_testcase_direct_subclass_count(self, jki_index: BuildResult):
+        """Q1/Q5: 'How many classes inherit from TestCase?' A definitive
+        structural answer — pin it EXACT, no range. Direct subclasses are the
+        distinct owning_classes whose parent is ``TestCase.lvclass``; none of
+        the 14 have children of their own, so the transitive answer is also 14.
+        """
+        subclasses = {
+            f.class_fact.owning_class
+            for f in jki_index.facts
+            if f.class_fact is not None
+            and f.class_fact.parent == "TestCase.lvclass"
+        }
+        assert len(subclasses) == 14
+        # No grandchildren: nothing lists one of the 14 as its parent.
+        grandchildren = {
+            f.class_fact.owning_class
+            for f in jki_index.facts
+            if f.class_fact is not None and f.class_fact.parent in subclasses
+        }
+        assert grandchildren == set()
+
     def test_no_owning_class_has_two_distinct_parents(self, jki_index: BuildResult):
         """The de-duplication invariant: every class_fact row resolved for
         the same owning_class must agree on its parent — a class can't

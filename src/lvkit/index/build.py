@@ -275,10 +275,14 @@ def _recompute_impact(facts: dict[str, VIFacts]) -> None:
 
     Both are computed on the SAME path-keyed call graph
     (:func:`build_call_graph`, which resolves each ``calls`` callee-key to a VI
-    path). ``callers_count`` is the in-degree — the honest dead-code signal
-    (``callers_count == 0`` == nothing in the repo calls this VI), correct even
-    when ``qualified_name`` is None and ``calls`` holds bare filenames, so a
-    user never has to write a fragile name-matching anti-join.
+    path via path / qualified-name / unambiguous-leaf-name tiers).
+    ``callers_count`` is the in-degree — the honest dead-code signal
+    (``callers_count == 0`` == nothing in the repo calls this VI), so a user
+    never has to write a fragile name-matching anti-join. Accuracy DOES depend
+    on ``qualified_name`` being populated: a lib-qualified callee-key
+    (``Foo.lvlib:Bar.vi``) whose target has no ``qualified_name`` falls back to
+    the bare leaf ``Bar.vi``, and if that leaf is ambiguous the resolver drops
+    the edge rather than guess — under-counting callers, over-counting dead.
     """
     call_graph = build_call_graph(facts.values())
     for path, f in facts.items():

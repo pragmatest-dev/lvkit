@@ -31,7 +31,8 @@ Scorecard template at the bottom.
      class fact — that's the class-level-index gap (see [GAP #19]).
      Roots: `TestCase`, `TestSuite`, `TestRunner`, `TestResult`, `TestLoader`,
      `Class1`, `MyClass`. Depth ≤ 3. `TestRunner→TextTestRunner→…JUnitXML` and
-     `TestResult→_TextTestResult→…JUnitXML`. `TestCase` has ~15 subclasses.
+     `TestResult→_TextTestResult→…JUnitXML`. `TestCase` has **14** subclasses,
+     all direct (none of the 14 have children of their own).
    - *Watch for:* inventing a parent for the one unresolved class; inventing a
      single-`.lvproj` scope (see #20); listing `WaitOnTestComplete` twice (fixed).
 
@@ -50,7 +51,9 @@ Scorecard template at the bottom.
 
 5. **If I change `TestCase.lvclass`, what inherits from it?**
    - *Answered by:* children of `TestCase` in `class_fact` (+ `blast_radius` for VIs).
-   - *Ground truth:* ~15 direct subclasses.
+   - *Ground truth:* **14** subclasses — `COUNT(DISTINCT owning_class) WHERE
+     parent='TestCase.lvclass'`. All direct; none have children of their own, so
+     the transitive answer is also 14.
 
 ## B. API surface
 
