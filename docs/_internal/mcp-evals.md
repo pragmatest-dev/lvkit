@@ -271,27 +271,43 @@ LabVIEW hides these edges: an enqueue / actor `Send` / `Generate Event` and its
 matching dequeue / `Actor Core` / event registrant share only a queue-or-user-
 event **refnum**, never a wire — so `grep` AND visual dataflow both miss the
 routing. "What messages go where" is exactly what a graph reader should recover
-and a text search can't. Ground truth from the Actor Framework
-(`configurable-af-example`), DQMH (`configurable-dqmh-example`), and
-Event-Source-Actor samples. These currently EXPOSE the gap — lvkit has no
-cross-VI reference-flow / producer↔consumer trace today; adding them drives that
-feature.
+and a text search can't. Ground truth from the Event-Source-Actor
+(`Event-Source-Actor`), DQMH (`configurable-dqmh-example`), and — partially —
+the Actor Framework (`configurable-af-example`) samples. These currently EXPOSE
+the gap — lvkit has no cross-VI reference-flow / producer↔consumer trace today;
+adding them drives that feature.
 
-34. **In the Configurable AF example, what messages can `ConfigurableActor` receive, and where is each handled?**
-    - *Answered by:* trace the actor's enqueuer refnum — the `Send *` message-class overrides that enqueue onto it (producers, across caller VIs) → `ConfigurableActor/Actor Core.vi`'s message loop → each message class's `Do.vi` (the handler). The producer→handler link is the shared enqueuer refnum, not a wire.
+**The one confirmed gap all four share:** lvkit resolves per-VI structure (call
+graph, class hierarchy, cluster/terminal types, per-node prims) but has **no
+cross-VI refnum-identity edge** — it cannot say "this mint/obtain site creates
+refnum R; these fire/enqueue nodes act on R; this event-frame/dequeue consumes
+R." Producer↔consumer is recoverable today only by a human matching *names*.
+Two `primitives.json` placeholders block the eventual trace and are flagged for
+a separate resolution pass: **2074** ("Register Event Source (internal)",
+`verified:false` — its identity is uncertain and needs clean-room resolution)
+and **2458** (absent entirely; appears only in ESA `Generate Event.vi`).
+
+34. **In the Event Source Actor template, what messages can the `Event Source Actor` receive, and where is each handled?**
+    - *Answered by:* the actor's message classes under `Source/Template Source/Event Source Messages/` — each `<Msg>.lvclass` pairs a `Send *.vi` (producer, enqueues onto the actor) with a `Do.vi` (the handler the framework `Actor Core.vi` loop runs). Producer→handler is the shared enqueuer refnum, not a wire.
+    - *Ground truth (ESA):* four source-side messages, each with a `Do.vi` — `Generate Event Msg`, `Register For Event Msg`, `Unregister For Event Msg`, `Unregister Msg`. (Plus `Receive Event Msg` on the receiver side and `Update Msg` on the Timed Loop Controller.) The base Actor messages (Stop, Last Ack, …) live in vi.lib, not the checkout.
     - *Watch for:* reporting "no connections" because nothing is wired between a sender and Actor Core; listing message classes without pairing each to its `Do.vi`; missing that `Send` is a dynamic-dispatch enqueue.
+    - *(Originally pointed at the Configurable AF example — but that sample authors ZERO custom message classes (2 classes, no `Do.vi`/`Send*.vi`); repointed to ESA, which has the real message-class/handler structure.)*
 
 35. **Map the request and broadcast events in the Configurable DQMH module — who fires each, and who consumes it?**
     - *Answered by:* the public Request VIs fire a request user event (producer) consumed by `Main.vi`'s Event Handling Loop → routed to the Message Handling Loop; the MHL fires Broadcast user events (producer) consumed by any VI registered via `Obtain Broadcast Events for Registration.vi`. The event refnums are minted in `Obtain Request/Broadcast Events.vi`.
+    - *Ground truth (DQMH):* **8 request events** (`Obtain Request Events.vi` = 8× Create User Event): {Stop Module, Show Panel, Hide Panel, Show Diagram, Get Module Execution Status, GetQualifiedName, GetConfiguration, Modify Configuration} — each fired by the public request VI of the same name, all consumed by `Main.vi`'s Event Handling Loop. **6 broadcast events** (`Obtain Broadcast Events.vi` = 6×): {Module Did Init, Status Updated, Error Reported, Module Did Stop, Update Module Execution Status, Module Configuration} — each fired by its broadcast VI, consumed by any VI registered via `Obtain Broadcast Events for Registration.vi` (in this checkout only `Test ConfigurableQMH API.vi`).
     - *Watch for:* conflating request- vs broadcast-direction; treating the EHL and MHL as unrelated loops; claiming a broadcast has no consumers because its registrants live in other VIs.
 
-36. **In the Event Source Actor template, which VIs generate user events and which register to receive them?**
-    - *Answered by:* `Generate Event.vi` fires the actor's user event (producer); `Register For Event.vi` / `Read Events Registrants.vi` wire in external registrants (consumers). Producer and each consumer share only the user-event refnum.
-    - *Watch for:* listing the event VIs with no producer/consumer *direction*; missing registrants that live in separate VIs.
+36. **In the Event Source Actor template, how does a generated event reach its subscribers — what's the producer→consumer path?**
+    - *Answered by:* NOT a LabVIEW user event (ESA has **zero** Create-User-Event nodes — verified). `Event Source Actor.lvclass:Generate Event.vi` reads the actor's **Registration Map** of subscriber `Message Enqueuer`s and fans out via `Send Receive Event.vi` (an AF message enqueue) to each — a For-loop send over the map, not a single fire. Subscribers add/remove their enqueuer through `Register For Event.vi` / `Unregister For Event.vi`; `Read Events Registrants.vi` reads the map. Delivery lands as a `Receive Event Msg` handled by the receiver's `Receive Event Msg.lvclass:Do.vi`.
+    - *Watch for:* calling it a user event (there is none); missing that the subscriber list is a runtime Map of enqueuers, not a wired fan-out; treating `Generate Event.vi` as a terminal node instead of a per-registrant send loop.
+    - *(Originally framed as user events — corrected; ESA is AF-message pub/sub via a Registration Map of enqueuers, verified by 0 Create-User-Event nodes anywhere in the sample.)*
 
-37. **Pick one named queue in an AF or DQMH project and list every producer (enqueue site) and consumer (dequeue site) across the whole project.**
-    - *Answered by:* find the Obtain Queue site, then every Enqueue (producer) and Dequeue (consumer) referencing the SAME queue refnum across all VIs — a cross-VI reference-flow trace, not a per-VI wire trace.
-    - *Watch for:* a single-VI answer (misses cross-VI ends); pairing by queue-NAME string only (misses unnamed / refnum-passed queues); calling the enqueue and dequeue unrelated because they sit in different VIs with no wire between them.
+37. **In the Configurable DQMH module, list every producer (enqueue site) and consumer (dequeue site) of the module message queue.**
+    - *Answered by:* at the wrapper-VI level — `Main.vi` calls `Delacor_lib_QMH_Enqueue Message (poly).vi` / `(Single).vi` (producers) and `Delacor_lib_QMH_Dequeue Message.vi` (consumer, the MHL). The raw `Obtain/Enqueue/Dequeue Queue` primitives (9108/9111/9113) live inside the Delacor library / vi.lib, **not the checkout** (0 occurrences in the sample), so only the wrapper granularity is resolvable here.
+    - *Ground truth (DQMH):* in this checkout every enqueue/dequeue wrapper call sits inside `Main.vi` (the EHL→MHL hand-off); the queue is private to the module.
+    - *Watch for:* a single-VI answer (misses cross-VI ends when they exist); pairing by queue-NAME string only; calling enqueue and dequeue unrelated because they sit in different VIs with no wire between them.
+    - *(Originally asked for the raw Obtain/Enqueue/Dequeue trace "across the whole project" — but those prims ship in uncheckedin vi.lib; scoped to the answerable wrapper-VI level.)*
 
 ---
 
