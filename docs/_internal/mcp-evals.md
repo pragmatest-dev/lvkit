@@ -69,10 +69,22 @@ Scorecard template at the bottom.
 ## C. Error handling
 
 10. **What names does this project use for error indicators, and how often?**
-    - *Answered by:* `terminal WHERE is_error_cluster=1 AND direction='output' GROUP BY name`.
-    - *Ground truth:* `error out` dominates (~350+); a few case variants
-      (`Error out`, `Error Out`) and a handful of custom names.
-    - *Watch for:* a raw row dump instead of a histogram; folding case variants.
+    - *Answered by:* `terminal WHERE is_error_cluster=1 AND direction='output'
+      GROUP BY name` — identify the SET by shape, then histogram the name.
+    - *Ground truth (shape-based):* **406** error-cluster output terminals, 16
+      distinct names. `error out` dominates (**382**); a few case variants
+      (`Error out` ×2, `Error Out` ×1), custom names (`Test Method Error`,
+      `Constructor Error`, `filtered error details`), and — critically —
+      several with an UNRESOLVED label (`control_NNN`) that carry no error-ish
+      text at all. (A name-grep on this corpus finds ~361 and calls it done.)
+    - *Watch for:* **identifying the error-indicator set by NAME** (grepping
+      labels for "error") **instead of by SHAPE** (`{status, code, source}`) —
+      the trap this question is built to spring. It looks like a name question,
+      but name is the value to histogram, never the filter: a name-filter is
+      circular (it can only return names that matched it) and silently misses
+      the shape-only clusters (the `control_NNN` fallback-labelled ones), so it
+      cannot be exhaustive and cannot self-detect the gap. Also: a raw row dump
+      instead of a histogram; folding case variants.
 
 11. **Which VIs have NO `error out` terminal?**
     - *Answered by:* anti-join (`vi` LEFT JOIN error-out `terminal`, WHERE NULL).
