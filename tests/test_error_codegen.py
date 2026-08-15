@@ -29,6 +29,7 @@ from lvkit.models import (
     CaseFrame,
     CaseOperation,
     LVType,
+    LVTypeKind,
     Operation,
     PrimitiveOperation,
     Terminal,
@@ -98,7 +99,7 @@ class TestClassifyErrorNode:
         assert classify_error_node(op) == ErrorHandlingPattern.CLEAR
 
     def test_error_case_structure(self):
-        error_type = LVType(kind="cluster", typedef_name="Error Cluster")
+        error_type = LVType(kind=LVTypeKind.CLUSTER, typedef_name="Error Cluster")
         sel_term = _make_terminal("sel", "input", lv_type=error_type)
         op = _make_op(
             "cs",
@@ -437,7 +438,7 @@ class TestErrorBundleRaise:
         from lvkit.models import ClusterField
 
         error_type = LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             typedef_name="Error Cluster",
         )
         # AGG terminal carries the error cluster type
@@ -510,7 +511,7 @@ class TestErrorBundleRaise:
         from lvkit.models import ClusterField
 
         error_type = LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             typedef_name="Error Cluster",
         )
         agg_in = Terminal(

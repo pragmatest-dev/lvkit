@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from lvkit.extractor import extract_vi_xml
-from lvkit.models import _LV_TO_PYTHON_TYPE, ClusterField, LVType
+from lvkit.models import _LV_TO_PYTHON_TYPE, ClusterField, LVType, LVTypeKind
 
 
 @dataclass
@@ -391,21 +391,21 @@ def _private_field_lvtype(lv_type_name: str) -> LVType | None:
     leaf = lv_type_name.rsplit(":", 1)[-1]
     if leaf.endswith(".lvclass"):
         return LVType(
-            kind="class",
+            kind=LVTypeKind.CLASS,
             underlying_type=lv_type_name,
             classname=lv_type_name,
         )
     if leaf.endswith(".ctl"):
         return LVType(
-            kind="typedef_ref",
+            kind=LVTypeKind.TYPEDEF_REF,
             underlying_type=lv_type_name,
             typedef_name=lv_type_name,
         )
     if leaf == "Cluster":
-        return LVType(kind="cluster", underlying_type=lv_type_name)
+        return LVType(kind=LVTypeKind.CLUSTER, underlying_type=lv_type_name)
     if leaf == "Array":
-        return LVType(kind="array", underlying_type=lv_type_name)
-    return LVType(kind="primitive", underlying_type=lv_type_name)
+        return LVType(kind=LVTypeKind.ARRAY, underlying_type=lv_type_name)
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=lv_type_name)
 
 
 def private_data_field_to_cluster_field(f: LVPrivateDataField) -> ClusterField:

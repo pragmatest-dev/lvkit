@@ -282,10 +282,10 @@ class TestBuildFramePattern:
 # ---------------------------------------------------------------------------
 
 from lvkit.codegen.ast_utils import default_value_expr  # noqa: E402
-from lvkit.models import LVType, TunnelTerminal  # noqa: E402
+from lvkit.models import LVType, LVTypeKind, TunnelTerminal  # noqa: E402
 
 
-def _lv(underlying, kind="primitive"):
+def _lv(underlying, kind: LVTypeKind = LVTypeKind.PRIMITIVE):
     return LVType(kind=kind, underlying_type=underlying)
 
 
@@ -297,10 +297,10 @@ class TestDefaultValueExpr:
         assert ast.unparse(default_value_expr(_lv("String"))) == "''"
 
     def test_enum_default_is_zero(self):
-        assert ast.unparse(default_value_expr(_lv("", kind="enum"))) == "0"
+        assert ast.unparse(default_value_expr(_lv("", kind=LVTypeKind.ENUM))) == "0"
 
     def test_complex_and_unknown_default_none(self):
-        assert ast.unparse(default_value_expr(_lv("", kind="array"))) == "None"
+        assert ast.unparse(default_value_expr(_lv("", kind=LVTypeKind.ARRAY))) == "None"
         assert ast.unparse(default_value_expr(None)) == "None"
 
 

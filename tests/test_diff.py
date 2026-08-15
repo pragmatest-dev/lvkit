@@ -31,6 +31,7 @@ from lvkit.models import (
     CaseFrame,
     CaseOperation,
     LVType,
+    LVTypeKind,
     PrimitiveOperation,
     SelectorRange,
     SequenceFrame,
@@ -510,7 +511,7 @@ def _const(uid: str, value, underlying: str = "NumInt32") -> Constant:
     return Constant(
         id=f"vi::{uid}",
         value=value,
-        lv_type=LVType(kind="primitive", underlying_type=underlying),
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=underlying),
     )
 
 

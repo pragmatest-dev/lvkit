@@ -21,6 +21,7 @@ from lvkit.graph.models import PrimitiveNode, Wire, WireEnd
 from lvkit.models import (
     LoopOperation,
     LVType,
+    LVTypeKind,
     PrimitiveOperation,
     Terminal,
     Tunnel,
@@ -915,7 +916,7 @@ class TestUninitializedShiftRegister:
         )
 
     def test_registers_module_global_seeded_to_type_default(self):
-        lv_type = LVType(kind="primitive", underlying_type="NumUInt16")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
         ctx, terminals = self._ctx_and_terminals(lv_type)
         loop_op = self._loop_op(terminals)
 
@@ -929,7 +930,7 @@ class TestUninitializedShiftRegister:
         assert code == f"{name} = 0"
 
     def test_emits_global_declaration_and_seeds_local_from_it(self):
-        lv_type = LVType(kind="primitive", underlying_type="NumUInt16")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
         ctx, terminals = self._ctx_and_terminals(lv_type)
         loop_op = self._loop_op(terminals)
 
@@ -949,7 +950,7 @@ class TestUninitializedShiftRegister:
         assert ast.unparse(seed).endswith(f"= {global_name}")
 
     def test_writes_back_to_global_after_loop(self):
-        lv_type = LVType(kind="primitive", underlying_type="NumUInt16")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
         ctx, terminals = self._ctx_and_terminals(lv_type)
         loop_op = self._loop_op(terminals)
 
@@ -968,7 +969,7 @@ class TestUninitializedShiftRegister:
         and (c) is updated to whatever was wired into rSR each call --
         exactly the LV2/functional-global semantics this lowering exists
         for."""
-        lv_type = LVType(kind="primitive", underlying_type="NumUInt16")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
         ctx, terminals = self._ctx_and_terminals(lv_type)
         loop_op = self._loop_op(terminals)
 

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..load_mode import LoadMode
-from ..models import ClusterField, LVType
+from ..models import ClusterField, LVType, LVTypeKind
 from ..parser.models import ParsedType, ParsedVI
 
 if TYPE_CHECKING:
@@ -266,7 +266,7 @@ class InMemoryVIGraph(
             return None
 
         lv_type = LVType(
-            kind=parsed_type.kind,
+            kind=LVTypeKind(parsed_type.kind),
             underlying_type=parsed_type.type_name,
             ref_type=parsed_type.ref_type,
             classname=parsed_type.classname,

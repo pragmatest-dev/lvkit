@@ -8,7 +8,7 @@ import pytest
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from lvkit.models import ClusterField, LVType
+from lvkit.models import ClusterField, LVType, LVTypeKind
 
 SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
 TESTCASE_LVCLASS = (
@@ -21,14 +21,14 @@ class TestGetTypeFields:
 
     def test_class_fields_from_dep_graph(self):
         graph = InMemoryVIGraph()
-        float_type = LVType(kind="primitive", underlying_type="NumFloat")
+        float_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat")
         fields = [
             ClusterField(name="x", type=float_type),
             ClusterField(name="y", type=float_type),
         ]
         graph._dep_graph.add_node("Foo.lvclass", node_type="class", fields=fields)
 
-        result = graph.get_type_fields(LVType(kind="class", classname="Foo.lvclass"))
+        result = graph.get_type_fields(LVType(kind=LVTypeKind.CLASS, classname="Foo.lvclass"))
         assert result == fields
 
     def test_typedef_fields_from_dep_graph(self):
@@ -36,12 +36,12 @@ class TestGetTypeFields:
         fields = [
             ClusterField(
                 name="status",
-                type=LVType(kind="primitive", underlying_type="Boolean"),
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
             ),
         ]
         graph._dep_graph.add_node("Bar.ctl", node_type="typedef", fields=fields)
 
-        result = graph.get_type_fields(LVType(kind="cluster", typedef_name="Bar.ctl"))
+        result = graph.get_type_fields(LVType(kind=LVTypeKind.CLUSTER, typedef_name="Bar.ctl"))
         assert result == fields
 
     def test_inline_cluster_fields(self):
@@ -49,10 +49,10 @@ class TestGetTypeFields:
         inline_fields = [
             ClusterField(
                 name="a",
-                type=LVType(kind="primitive", underlying_type="String"),
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
             ),
         ]
-        lv_type = LVType(kind="cluster", fields=inline_fields)
+        lv_type = LVType(kind=LVTypeKind.CLUSTER, fields=inline_fields)
 
         result = graph.get_type_fields(lv_type)
         assert result == inline_fields
@@ -60,7 +60,7 @@ class TestGetTypeFields:
     def test_unknown_named_type_returns_none(self):
         graph = InMemoryVIGraph()
         result = graph.get_type_fields(
-            LVType(kind="class", classname="Unknown.lvclass"),
+            LVType(kind=LVTypeKind.CLASS, classname="Unknown.lvclass"),
         )
         assert result is None
 

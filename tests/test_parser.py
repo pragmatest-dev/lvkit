@@ -51,10 +51,10 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     NOTE: the class's default-OBJECT data (its member instance) can follow the
     descriptor and is class-dependent; that trailing region is not yet consumed
     (see TASKS: class-refnum value under-consumed)."""
-    from lvkit.models import LVType
+    from lvkit.models import LVType, LVTypeKind
 
     cls = LVType(
-        kind="primitive", underlying_type="Refnum", ref_type="UDClassInst",
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="UDClassInst",
         classname="MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass",
     )
     raw = bytes.fromhex(
@@ -69,7 +69,7 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     assert size == 73
 
     # A generic refnum (no classname) keeps the handle token.
-    gen = LVType(kind="primitive", underlying_type="Refnum", ref_type="Occurrence")
+    gen = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence")
     val2, _ = _decode_element((5).to_bytes(4, "big"), gen)
     assert val2 == "Refnum(5)"
 
@@ -349,15 +349,15 @@ class TestLoopTunnelInnerType:
 
     @staticmethod
     def _type_map():
-        from lvkit.models import LVType
+        from lvkit.models import LVType, LVTypeKind
 
         return {
             1: LVType(
-                kind="array", underlying_type="Array",
-                element_type=LVType(kind="primitive", underlying_type="Boolean"),
+                kind=LVTypeKind.ARRAY, underlying_type="Array",
+                element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
                 dimensions=1,
             ),
-            2: LVType(kind="primitive", underlying_type="Boolean"),
+            2: LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         }
 
     def test_inner_type_map_keys_by_dco_uid(self):
@@ -449,12 +449,12 @@ class TestCaseTunnelInnerType:
     def test_inner_face_resolves_to_shared_type(self):
         """The bare-ref inner face resolves to the tunnel's shared type -- never
         None (which would force the graph to race wires)."""
-        from lvkit.models import LVType
+        from lvkit.models import LVType, LVTypeKind
         from lvkit.parser.vi import _build_tunnel_inner_type_map
 
         root = ET.fromstring(self._XML)
         inner_types = _build_tunnel_inner_type_map(root)
-        type_map = {7: LVType(kind="cluster", underlying_type="Cluster")}
+        type_map = {7: LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster")}
         terminal_info: dict[str, ParsedTerminalInfo] = {}
         node = root.find(".//*[@uid='nA']")
         assert node is not None

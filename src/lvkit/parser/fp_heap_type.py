@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 
-from ..models import ClusterField, LVType, enum_values_from_labels
+from ..models import ClusterField, LVType, LVTypeKind, enum_values_from_labels
 
 # Leaf FP control classes → their faithful scalar type token. (Numeric
 # representation — I32 vs U16 vs DBL — is a further refinement; a bare
@@ -134,7 +134,7 @@ def reconstruct_control_lvtype(
         if not items:
             return None
         return LVType(
-            kind="enum", underlying_type="Ring",
+            kind=LVTypeKind.ENUM, underlying_type="Ring",
             values=enum_values_from_labels(items),
         )
 
@@ -149,7 +149,7 @@ def reconstruct_control_lvtype(
             )
         if not fields:
             return None
-        return LVType(kind="cluster", underlying_type="Cluster", fields=fields)
+        return LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster", fields=fields)
 
     if cls in _ARRAY_CLASSES:
         # Unlike ring/cluster (which return None when empty), an array stays a
@@ -158,7 +158,7 @@ def reconstruct_control_lvtype(
         # unknown element as ``[?]``.
         elem = _array_element(ctrl)
         return LVType(
-            kind="array",
+            kind=LVTypeKind.ARRAY,
             underlying_type="Array",
             element_type=(
                 reconstruct_control_lvtype(elem, depth + 1)
@@ -168,7 +168,7 @@ def reconstruct_control_lvtype(
         )
 
     if cls in _SCALAR_CLASSES:
-        return LVType(kind="primitive", underlying_type=_SCALAR_CLASSES[cls])
+        return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=_SCALAR_CLASSES[cls])
 
     return None
 

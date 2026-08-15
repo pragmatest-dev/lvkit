@@ -29,11 +29,30 @@ ScalarValue = str | int | float | bool | None
 # ============================================================
 
 
+class LVTypeKind(str, Enum):
+    """The family of a resolved ``LVType`` — its top-level discriminator.
+
+    A CLOSED set: every ``LVType`` is built with one of these (an unrecognized
+    LabVIEW type name collapses to ``PRIMITIVE`` in ``parser.type_mapping``); there
+    is no "unknown" kind. ``(str, Enum)`` (not ``StrEnum`` — 3.11+) so a member IS
+    its string and compares equal to a raw ``"primitive"`` literal drop-in — the
+    ~40 construction sites and the comparisons all keep working.
+    """
+
+    PRIMITIVE = "primitive"
+    ENUM = "enum"
+    CLUSTER = "cluster"
+    ARRAY = "array"
+    RING = "ring"
+    TYPEDEF_REF = "typedef_ref"
+    CLASS = "class"
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types."""
 
-    kind: str  # "primitive", "enum", "cluster", "array", "ring", "typedef_ref"
+    kind: LVTypeKind
     underlying_type: str | None = None
     ref_type: str | None = None
     classname: str | None = None
@@ -48,29 +67,29 @@ class LVType:
 
     def to_python(self) -> str:
         """Render as Python type annotation string."""
-        if self.kind == "primitive":
+        if self.kind == LVTypeKind.PRIMITIVE:
             # Refnum with class name → use the class type
             if self.underlying_type == "Refnum" and self.classname:
                 name = _sanitize_type_name(self.classname.replace(".lvclass", ""))
                 return name or "Any"
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
-        elif self.kind == "array":
+        elif self.kind == LVTypeKind.ARRAY:
             inner = self.element_type.to_python() if self.element_type else "Any"
             result = f"list[{inner}]"
             for _ in range((self.dimensions or 1) - 1):
                 result = f"list[{result}]"
             return result
-        elif self.kind == "cluster":
+        elif self.kind == LVTypeKind.CLUSTER:
             if self.typedef_name:
                 name = _sanitize_type_name(self.typedef_name)
                 return name or "dict[str, Any]"
             return "dict[str, Any]"
-        elif self.kind in ("enum", "ring"):
+        elif self.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
             if self.typedef_name:
                 name = _sanitize_type_name(self.typedef_name)
                 return name or "int"
             return "int"
-        elif self.kind == "typedef_ref":
+        elif self.kind == LVTypeKind.TYPEDEF_REF:
             if self.typedef_name:
                 name = _sanitize_type_name(self.typedef_name)
                 return name or "Any"
@@ -105,11 +124,11 @@ class LVType:
           token table, falling back to the raw ``underlying_type`` (never
           "Any"/"int") for an unmapped token.
         """
-        if self.kind == "array":
+        if self.kind == LVTypeKind.ARRAY:
             dims = self.dimensions or 1
             inner = self.element_type.lv_label() if self.element_type else "?"
             return "[" * dims + inner + "]" * dims
-        if self.kind in ("enum", "ring"):
+        if self.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
             members = (
                 [
                     name for name, _ev in
@@ -120,8 +139,8 @@ class LVType:
             body = "{" + ", ".join(members) + "}"
             if self.typedef_name:
                 return f"{_strip_typedef_stem(self.typedef_name)}{body}"
-            return ("enum" if self.kind == "enum" else "ring") + body
-        if self.kind in ("cluster", "typedef_ref"):
+            return ("enum" if self.kind == LVTypeKind.ENUM else "ring") + body
+        if self.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
             if _is_error_cluster(self):
                 return "error cluster"
             fields = ", ".join(f.name for f in (self.fields or []))
@@ -133,7 +152,7 @@ class LVType:
             if fields:
                 return f"cluster{{{fields}}}"
             return "cluster"
-        if self.kind == "primitive":
+        if self.kind == LVTypeKind.PRIMITIVE:
             if self.underlying_type == "Refnum":
                 if self.classname:
                     return self.classname
@@ -365,7 +384,7 @@ def inplace_border_name(
         return None
     if node_type == "decomposeArrayNode":
         has_array_out = any(
-            t.lv_type is not None and t.lv_type.kind == "array"
+            t.lv_type is not None and t.lv_type.kind == LVTypeKind.ARRAY
             and t.direction == "output"
             for t in terminals
         )
@@ -859,15 +878,15 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
 def control_type_to_lvtype(control_type: str) -> LVType | None:
     """Map a LabVIEW control type to LVType."""
     mapping = {
-        "stdPath": LVType(kind="primitive", underlying_type="Path"),
-        "stdString": LVType(kind="primitive", underlying_type="String"),
-        "stdBool": LVType(kind="primitive", underlying_type="Boolean"),
-        "stdNum": LVType(kind="primitive", underlying_type="NumFloat64"),
-        "stdDBL": LVType(kind="primitive", underlying_type="NumFloat64"),
-        "stdI32": LVType(kind="primitive", underlying_type="NumInt32"),
-        "stdI16": LVType(kind="primitive", underlying_type="NumInt16"),
-        "stdU32": LVType(kind="primitive", underlying_type="NumUInt32"),
-        "stdU16": LVType(kind="primitive", underlying_type="NumUInt16"),
+        "stdPath": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
+        "stdString": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+        "stdBool": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+        "stdNum": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+        "stdDBL": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+        "stdI32": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+        "stdI16": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16"),
+        "stdU32": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt32"),
+        "stdU16": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16"),
     }
     return mapping.get(control_type)
 

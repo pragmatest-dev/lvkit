@@ -28,7 +28,7 @@ from lvkit.graph.models import (
     StructureNode,
 )
 from lvkit.graph.op_walk import _format_ranges, _selector_label
-from lvkit.models import FPTerminal, LVType
+from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.parser.layout import Layout, Point, Rect, build_layout
 from lvkit.parser.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
 from lvkit.render import render_vi, render_vi_file
@@ -68,7 +68,7 @@ def _enum_type(names):
     from lvkit.models import EnumValue, LVType
 
     return LVType(
-        kind="enum",
+        kind=LVTypeKind.ENUM,
         underlying_type="UnitUInt16",
         values={n: EnumValue(value=i) for i, n in enumerate(names)},
     )
@@ -89,7 +89,7 @@ def test_format_ranges_single_range_and_list():
 def test_selector_label_boolean_and_default():
     from lvkit.models import LVType
 
-    bool_t = LVType(kind="primitive", underlying_type="Boolean")
+    bool_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
     assert _selector_label(_frame("True"), bool_t, False) == "True"
     assert _selector_label(_frame("False"), bool_t, False) == "False"
     assert _selector_label(_frame("Default", is_default=True), bool_t, False) \
@@ -109,14 +109,14 @@ def test_selector_label_enum_names_ranges_and_list():
 def test_selector_label_string_quoted():
     from lvkit.models import LVType
 
-    t = LVType(kind="primitive", underlying_type="String")
+    t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     assert _selector_label(_frame("Stop"), t, False) == '"Stop"'
 
 
 def test_selector_label_error_no_error_and_error():
     from lvkit.models import LVType
 
-    t = LVType(kind="cluster")
+    t = LVType(kind=LVTypeKind.CLUSTER)
     assert _selector_label(_frame("0", [(0, 0)]), t, True) == "No Error"
     assert _selector_label(_frame("1", [(1, 1)]), t, True) == "Error"
     # Error frame that is the structure's default is still "Error", not "Default"
@@ -135,7 +135,7 @@ def _num_input(index, repr_name):
 
     t = Terminal(
         id=f"t{index}", index=index, direction="input",
-        lv_type=LVType(kind="primitive", underlying_type=repr_name),
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=repr_name),
     )
     return RenderTerminal(terminal=t, center=(10.0, 10.0 * index),
                           bounds=(5.0, 10.0 * index - 4, 15.0, 10.0 * index + 4))
@@ -268,8 +268,8 @@ def test_substring_type_colors_as_string_not_unknown():
     from lvkit.models import LVType
     from lvkit.render.style import DEFAULT_THEME, type_family, wire_style
 
-    sub = LVType(kind="primitive", underlying_type="SubString")
-    string = LVType(kind="primitive", underlying_type="String")
+    sub = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="SubString")
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     assert type_family(sub) == "string"
     assert wire_style(sub).color == wire_style(string).color
     assert wire_style(sub).color != DEFAULT_THEME.wire_default
@@ -704,7 +704,7 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     from lvkit.render.nodes import _leaf_const_glyph
     from lvkit.render.style import lv_type_label, type_family
 
-    cls = LVType(kind="primitive", underlying_type="Refnum",
+    cls = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum",
                  ref_type="UDClassInst",
                  classname="NI DAQmx.lvlib:DAQmx Module Configuration.lvclass")
     assert type_family(cls) == "unknown"          # NOT the "refnum" family
@@ -718,7 +718,7 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
 
     # A GENERIC refnum constant (no classname) keeps the "<ref_type> Refnum"
     # label — still never the placeholder raw value.
-    gen = LVType(kind="primitive", underlying_type="Refnum", ref_type="Occurrence")
+    gen = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence")
     assert type_family(gen) == "refnum"
     assert lv_type_label(gen) == "Occurrence Refnum"
     assert _leaf_const_glyph(gen, raw="Refnum(1)").value == "Occurrence Refnum"
@@ -1659,11 +1659,11 @@ def test_format_numeric_const_hex_octal_binary_decimal():
     # letter (x/o/b), uppercase hex digits, no zero-padding at precision 0 —
     # verified against the "Current VIs Reference.vi" corpus VI's own label
     # ("0x02 => ...") documenting its own constant's value (task #59).
-    u8 = LVType(kind="primitive", underlying_type="NumUInt8")
+    u8 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt8")
     assert _format_numeric_const(u8, "31", "%.0x") == "x1F"
-    u16 = LVType(kind="primitive", underlying_type="NumUInt16")
+    u16 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
     assert _format_numeric_const(u16, "237", "%.0b") == "b11101101"
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
     assert _format_numeric_const(i32, "2", "%.0x") == "x2"
     # No format string (LabVIEW default decimal) -> caller falls back.
     assert _format_numeric_const(i32, "31", None) is None
@@ -1672,9 +1672,9 @@ def test_format_numeric_const_hex_octal_binary_decimal():
 def test_format_numeric_const_negative_twos_complement_by_bit_width():
     # A negative value hex-displayed shows the type's own two's-complement
     # bit pattern (I16 -1 -> xFFFF), not a Python-style "-x1".
-    i16 = LVType(kind="primitive", underlying_type="NumInt16")
+    i16 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16")
     assert _format_numeric_const(i16, "-1", "%.0x") == "xFFFF"
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
     assert _format_numeric_const(i32, "-1", "%.0x") == "xFFFFFFFF"
     # Unknown/unresolved type: can't determine the bit width to
     # two's-complement against — don't guess, fall back instead.
@@ -1682,7 +1682,7 @@ def test_format_numeric_const_negative_twos_complement_by_bit_width():
 
 
 def test_format_numeric_const_float_precision():
-    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
+    dbl = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
     assert _format_numeric_const(dbl, "1.9375", "%.2f") == "1.94"
     assert _format_numeric_const(dbl, "3.0", "%.1f") == "3.0"
     assert _format_numeric_const(dbl, "31", "%.0f") == "31"
@@ -1691,7 +1691,7 @@ def test_format_numeric_const_float_precision():
 def test_format_numeric_const_unrecognized_format_falls_back():
     # LabVIEW's timestamp format ('%<...>T') and other specs this function
     # doesn't understand return None rather than a guessed rendering.
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
     assert _format_numeric_const(i32, "5", "%<%.3X\n%x>T") is None
     assert _format_numeric_const(i32, "5", "%#_13g") is None
     assert _format_numeric_const(i32, "5", None) is None
@@ -1735,13 +1735,13 @@ def test_string_constant_boxes_trimmed_top_left_anchored():
 
 
 def test_wire_style_covers_full_type_table():
-    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
-    boolean = LVType(kind="primitive", underlying_type="Boolean")
-    string = LVType(kind="primitive", underlying_type="String")
-    path = LVType(kind="primitive", underlying_type="Path")
-    cluster = LVType(kind="cluster", fields=[])
-    error_cluster = LVType(kind="cluster", typedef_name="Error Cluster", fields=[])
+    dbl = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    boolean = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    path = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+    cluster = LVType(kind=LVTypeKind.CLUSTER, fields=[])
+    error_cluster = LVType(kind=LVTypeKind.CLUSTER, typedef_name="Error Cluster", fields=[])
 
     assert wire_style(dbl).color == DEFAULT_THEME.wire_float
     assert wire_style(i32).color == DEFAULT_THEME.wire_int
@@ -1759,9 +1759,9 @@ def test_wire_style_covers_full_type_table():
 
 
 def test_wire_style_array_width_scales_with_dimensions():
-    scalar = LVType(kind="primitive", underlying_type="NumFloat64")
-    arr_1d = LVType(kind="array", dimensions=1, element_type=scalar)
-    arr_2d = LVType(kind="array", dimensions=2, element_type=scalar)
+    scalar = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    arr_1d = LVType(kind=LVTypeKind.ARRAY, dimensions=1, element_type=scalar)
+    arr_2d = LVType(kind=LVTypeKind.ARRAY, dimensions=2, element_type=scalar)
 
     base = wire_style(scalar).width
     # Array wires are drawn markedly bolder than the scalar element, thicker
@@ -1773,16 +1773,16 @@ def test_wire_style_array_width_scales_with_dimensions():
 
 
 def test_coercion_key_ignores_provenance_but_catches_type_mismatch():
-    a = LVType(kind="primitive", underlying_type="NumFloat64", description="foo")
-    b = LVType(kind="primitive", underlying_type="NumFloat64", description="bar")
-    c = LVType(kind="primitive", underlying_type="NumInt32")
+    a = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64", description="foo")
+    b = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64", description="bar")
+    c = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
     assert coercion_key(a) == coercion_key(b)
     assert coercion_key(a) != coercion_key(c)
     assert coercion_key(None) is None
 
-    arr_a = LVType(kind="array", dimensions=1, element_type=a)
-    arr_c = LVType(kind="array", dimensions=1, element_type=c)
+    arr_a = LVType(kind=LVTypeKind.ARRAY, dimensions=1, element_type=a)
+    arr_c = LVType(kind=LVTypeKind.ARRAY, dimensions=1, element_type=c)
     assert coercion_key(arr_a) != coercion_key(arr_c)
 
 
@@ -1803,9 +1803,9 @@ def _render_fp_terminal(lv_type: LVType | None, is_indicator: bool = False) -> s
 
 def test_numeric_control_glyph_is_type_repr():
     # Real LabVIEW data-type terminals show the type name, e.g. DBL / I32.
-    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumFloat64"))
+    svg = _render_fp_terminal(LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"))
     assert ">DBL<" in svg
-    svg_int = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumInt32"))
+    svg_int = _render_fp_terminal(LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"))
     assert ">I32<" in svg_int
 
 
@@ -1818,8 +1818,8 @@ def test_array_control_glyph_is_icon_view():
     # shows its letter — matching the ground truth's small grey index
     # block with a readable letter — so this checks for both the cell
     # itself (its fill color) and the rendered "i" glyph.
-    arr = LVType(kind="array", dimensions=1,
-                 element_type=LVType(kind="primitive", underlying_type="NumFloat64"))
+    arr = LVType(kind=LVTypeKind.ARRAY, dimensions=1,
+                 element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"))
     svg = _render_fp_terminal(arr)
     assert "[DBL]" not in svg
     assert ">DBL<" in svg
@@ -1828,26 +1828,26 @@ def test_array_control_glyph_is_icon_view():
 
 
 def test_numeric_control_shows_value_sample():
-    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumFloat64"))
+    svg = _render_fp_terminal(LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"))
     assert "1.23" in svg
 
 
 def test_boolean_control_glyph_is_tf():
-    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="Boolean"))
+    svg = _render_fp_terminal(LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"))
     assert ">TF<" in svg
 
 
 def test_string_control_glyph_present():
-    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="String"))
+    svg = _render_fp_terminal(LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"))
     assert "abc" in svg
 
 
 def test_control_border_thicker_than_indicator_border():
     control_svg = _render_fp_terminal(
-        LVType(kind="primitive", underlying_type="NumFloat64"), is_indicator=False,
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"), is_indicator=False,
     )
     indicator_svg = _render_fp_terminal(
-        LVType(kind="primitive", underlying_type="NumFloat64"), is_indicator=True,
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"), is_indicator=True,
     )
     assert 'stroke-width="3.0"' in control_svg
     assert 'stroke-width="1.5"' in indicator_svg
@@ -1995,10 +1995,10 @@ def test_coercion_is_numeric_representation_only():
     # NOT a structural change (array -> element at an auto-index tunnel).
     from lvkit.render.style import numeric_repr
 
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
-    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
-    arr_dbl = LVType(kind="array", dimensions=1, element_type=dbl)
-    string = LVType(kind="primitive", underlying_type="String")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    dbl = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    arr_dbl = LVType(kind=LVTypeKind.ARRAY, dimensions=1, element_type=dbl)
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
 
     def coerces(a, b):
         ra, rb = numeric_repr(a), numeric_repr(b)
@@ -2326,7 +2326,7 @@ def test_cluster_constant_compacted_to_natural_rows():
         return ConstantNode(
             id="V::5", vi="V", name="c",
             lv_type=LVType(
-                kind="cluster",
+                kind=LVTypeKind.CLUSTER,
                 fields=[ClusterField(name=f"f{i}") for i in range(n_fields)],
             ),
         )
@@ -2353,7 +2353,7 @@ def test_cluster_constant_compacted_to_natural_rows():
 
     # A non-cluster constant (no fields) is ignored.
     scalar = ConstantNode(id="V::5", vi="V", name="c",
-                          lv_type=LVType(kind="primitive"))
+                          lv_type=LVType(kind=LVTypeKind.PRIMITIVE))
     b3, _ = _compact_cluster_const_geom(_Graph([scalar]), "V", layout)
     assert b3 == {}
 
@@ -2592,9 +2592,9 @@ def test_inplace_border_name_dvr_read_vs_write():
     ``DataValueRef`` refnum sits on: input -> the read (deref) tile, output ->
     the write (store-back) tile. No name jargon, no guessing."""
     from lvkit.models import LVType, inplace_border_name
-    dvr = LVType(kind="primitive", underlying_type="Refnum",
+    dvr = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum",
                  ref_type="DataValueRef")
-    cluster = LVType(kind="cluster", underlying_type="Cluster")
+    cluster = LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster")
     read = [_typed_term(0, "input", dvr), _typed_term(1, "output", cluster)]
     write = [_typed_term(0, "input", cluster), _typed_term(1, "output", dvr)]
     assert inplace_border_name("decomposeDataValRefNode", read) == "DVR Read"
@@ -2606,9 +2606,9 @@ def test_inplace_border_name_array_index_vs_replace():
     back OUT (array-kind output); the index (read) tile only indexes an element
     out. Keyed on the presence of an array-typed OUTPUT terminal."""
     from lvkit.models import LVType, inplace_border_name
-    arr = LVType(kind="array", underlying_type="Array",
-                 element_type=LVType(kind="primitive", underlying_type="NumInt32"))
-    elem = LVType(kind="primitive", underlying_type="NumInt32")
+    arr = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array",
+                 element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"))
+    elem = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
     index = [_typed_term(0, "input", arr), _typed_term(1, "output", elem)]
     replace = [_typed_term(0, "input", arr), _typed_term(1, "output", arr)]
     assert inplace_border_name("decomposeArrayNode", index) == "Array Index"
@@ -2730,7 +2730,7 @@ def test_string_constant_has_full_text_tooltip():
     full = "a very long string constant that will not fit in this little box"
     node = ConstantNode(
         id="c1", vi="v", value=full,
-        lv_type=LVType(kind="primitive", underlying_type="String"),
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
     )
     rn = RenderNode(node=node, bounds=(0.0, 0.0, 40.0, 16.0),
                     glyph=ConstantGlyph(full, "#000000", multiline=True))
@@ -2926,7 +2926,7 @@ def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
     daq_tasks = ClusterField(
         name="DAQ Tasks",
         type=LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             fields=[sub(n) for n in (
                 "AI Task", "AO Task", "DI Task", "DO Task", "PWM Task",
             )],
@@ -2935,7 +2935,7 @@ def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
     channel_indeces = ClusterField(
         name="Channel Indeces",
         type=LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             fields=[sub(n) for n in (
                 "AI Index", "AO Index", "DI Index", "DO Index",
                 "PWM Freq Index", "PWM DC Index",
@@ -3192,7 +3192,7 @@ def test_bundle_by_name_falls_back_to_dep_graph_when_vi_source_unknown():
     terms = [
         Terminal(
             id="agg", index=0, direction="input", nmux_role="agg",
-            lv_type=LVType(kind="primitive", classname="Synthetic.lvclass"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, classname="Synthetic.lvclass"),
         ),
         Terminal(
             id="f0", index=1, direction="output",
@@ -3562,13 +3562,13 @@ def test_refnum_wire_is_dark_green_not_grey():
     take the generic green (its wire is the class's own colour)."""
     from lvkit.render.style import type_family
 
-    generic_ref = LVType(kind="primitive", underlying_type="Refnum",
+    generic_ref = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum",
                          ref_type="DataLogRefnum")
     assert type_family(generic_ref) == "refnum"
     assert wire_style(generic_ref).color == DEFAULT_THEME.wire_refnum
     assert wire_style(generic_ref).color != DEFAULT_THEME.wire_default
 
-    lvoop = LVType(kind="primitive", underlying_type="Refnum",
+    lvoop = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum",
                    ref_type="UDClassInst", classname="Camera.lvclass")
     assert type_family(lvoop) != "refnum"
 
@@ -3590,7 +3590,7 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     def term(idx, direction, ut):
         return Terminal(
             id=f"VI::{idx}", index=idx, direction=direction,
-            lv_type=LVType(kind="primitive", underlying_type=ut),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=ut),
         )
     node = PrimitiveNode(
         id="VI::9", vi="VI", node_type="propNode", name="Property Node",
@@ -3631,8 +3631,8 @@ def test_compact_array_terminal_brackets_element_type():
     from lvkit.render.draw import draw_fp_terminal
 
     arr = LVType(
-        kind="array", underlying_type="Array",
-        element_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+        kind=LVTypeKind.ARRAY, underlying_type="Array",
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
         dimensions=1,
     )
     t = FPTerminal(id="x", index=0, direction="output", name="data",

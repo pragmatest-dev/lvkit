@@ -13,15 +13,15 @@ import pytest
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import formula
-from lvkit.models import FormulaOperation, LVType, Terminal
+from lvkit.models import FormulaOperation, LVType, LVTypeKind, Terminal
 
 
 def _dbl() -> LVType:
-    return LVType(kind="primitive", underlying_type="NumFloat64")
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 
 
 def _i16() -> LVType:
-    return LVType(kind="primitive", underlying_type="NumInt16")
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16")
 
 
 def _op(
@@ -89,7 +89,7 @@ def test_formula_does_not_mutate_callers_array():
     ANY future copy mechanism (formula-call copy OR value-copy-at-branch): if a
     branching change re-introduces aliasing, the caller's list gets mutated and
     this fails. This is the exact failure mode that corrupted Himmelt's VI."""
-    arr = LVType(kind="array", underlying_type="Array", element_type=_dbl())
+    arr = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=_dbl())
     op = FormulaOperation(
         id="vi::9", name="Formula Node", kind="formula", node_type="fBox",
         script="int32 i=0;\nfor (i=0; i<n; i++) buf[i] = buf[i] + 1;",
@@ -97,7 +97,7 @@ def test_formula_does_not_mutate_callers_array():
             Terminal(id="t_in", index=0, direction="input", name="buf", lv_type=arr),
             Terminal(id="t_out", index=1, direction="output", name="buf", lv_type=arr),
             Terminal(id="t_n", index=2, direction="input", name="n",
-                     lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
+                     lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")),
         ],
     )
     from tests.helpers import make_ctx

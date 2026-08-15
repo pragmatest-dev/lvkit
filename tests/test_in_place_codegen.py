@@ -19,6 +19,7 @@ from lvkit.models import (
     ClusterField,
     InPlaceOperation,
     LVType,
+    LVTypeKind,
     PrimitiveOperation,
     Terminal,
     Tunnel,
@@ -32,7 +33,7 @@ from tests.helpers import make_ctx
 
 def _cluster_type(*field_names: str) -> LVType:
     """Build a cluster LVType with named fields."""
-    return LVType(kind="cluster", fields=[ClusterField(name=n) for n in field_names])
+    return LVType(kind=LVTypeKind.CLUSTER, fields=[ClusterField(name=n) for n in field_names])
 
 
 def _dec_op(

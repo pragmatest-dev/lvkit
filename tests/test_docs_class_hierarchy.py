@@ -25,7 +25,7 @@ from lvkit.graph.models import (
     MethodAccessInfo,
     MethodOverrideInfo,
 )
-from lvkit.models import ClusterField, LVType
+from lvkit.models import ClusterField, LVType, LVTypeKind
 
 SAMPLE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 
@@ -93,8 +93,8 @@ def class_graph() -> InMemoryVIGraph:
     """
     g = InMemoryVIGraph()
 
-    counter_type = LVType(kind="primitive", underlying_type="I32")
-    label_type = LVType(kind="primitive", underlying_type="String")
+    counter_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32")
+    label_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     _add_class(
         g, "Base.lvclass",
         fields=[ClusterField(name="counter", type=counter_type)],
@@ -158,8 +158,8 @@ class TestClassHierarchy:
     def test_fields_mark_inherited_vs_own(self, class_graph: InMemoryVIGraph):
         info = class_graph.get_class_hierarchy("Mid.lvclass")
         assert info is not None
-        counter_type = LVType(kind="primitive", underlying_type="I32")
-        label_type = LVType(kind="primitive", underlying_type="String")
+        counter_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32")
+        label_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
         assert info.fields == [
             ClassFieldEntry(
                 field=ClusterField(name="counter", type=counter_type),
@@ -353,7 +353,7 @@ class TestClassPageGeneration:
             fields=[
                 ClassFieldEntry(
                     field=ClusterField(
-                        name="x", type=LVType(kind="primitive", underlying_type="I32")
+                        name="x", type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32")
                     ),
                     inherited=False,
                 ),

@@ -16,7 +16,7 @@ from lvkit.graph.interface_order import (
     ordered_interface,
     requirement_rank,
 )
-from lvkit.models import LVType, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule as W
 
 _DOMINANT = 4815  # 4-2-2-4 pane: leftmost col = idx 11,10,9,8; rightmost = 3,2,1,0
@@ -33,9 +33,9 @@ def _term(
     type_name: str = "I32",
 ) -> Terminal:
     lv = (
-        LVType(kind="typedef_ref", typedef_name="Error Cluster")
+        LVType(kind=LVTypeKind.TYPEDEF_REF, typedef_name="Error Cluster")
         if error
-        else LVType(kind="primitive", underlying_type=type_name)
+        else LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_name)
     )
     return Terminal(
         id=name,

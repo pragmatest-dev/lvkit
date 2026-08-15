@@ -12,6 +12,7 @@ from lvkit.models import (
     FPTerminal,
     LoopOperation,
     LVType,
+    LVTypeKind,
     Operation,
     PrimitiveOperation,
     SubVIOperation,
@@ -34,7 +35,7 @@ def test_build_module_minimal():
                 name="A",
                 is_indicator=False,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
             ),
             FPTerminal(
                 id="inp:2",
@@ -43,7 +44,7 @@ def test_build_module_minimal():
                 name="B",
                 is_indicator=False,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
             ),
         ],
         outputs=[
@@ -54,7 +55,7 @@ def test_build_module_minimal():
                 name="Sum",
                 is_indicator=True,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
             ),
         ],
     )
@@ -84,7 +85,7 @@ def test_build_module_with_constant():
                 name="Value",
                 is_indicator=True,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
             ),
         ],
         constants=[
@@ -124,7 +125,7 @@ def test_build_module_with_primitive():
                 name="X",
                 is_indicator=False,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
             ),
             FPTerminal(
                 id="inp:2",
@@ -133,7 +134,7 @@ def test_build_module_with_primitive():
                 name="Y",
                 is_indicator=False,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
             ),
         ],
         outputs=[
@@ -144,7 +145,7 @@ def test_build_module_with_primitive():
                 name="Result",
                 is_indicator=True,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
             ),
         ],
         operations=[
@@ -203,7 +204,7 @@ def test_build_module_with_subvi():
                 name="Input Value",
                 is_indicator=False,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="String"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
             ),
         ],
         outputs=[
@@ -214,7 +215,7 @@ def test_build_module_with_subvi():
                 name="Output Value",
                 is_indicator=True,
                 is_public=True,
-                lv_type=LVType(kind="primitive", underlying_type="String"),
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
             ),
         ],
         operations=[
@@ -1138,7 +1139,7 @@ class TestLVTypeToPython:
 
         for int_type in ["NumInt8", "NumInt16", "NumInt32", "NumInt64",
                          "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"]:
-            lv_type = LVType(kind="primitive", underlying_type=int_type)
+            lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=int_type)
             assert lv_type.to_python() == "int"
 
     def test_primitive_float_types(self):
@@ -1146,72 +1147,72 @@ class TestLVTypeToPython:
         from lvkit.models import LVType
 
         for float_type in ["NumFloat32", "NumFloat64"]:
-            lv_type = LVType(kind="primitive", underlying_type=float_type)
+            lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=float_type)
             assert lv_type.to_python() == "float"
 
     def test_primitive_string(self):
         """Test String maps to str."""
         from lvkit.models import LVType
 
-        lv_type = LVType(kind="primitive", underlying_type="String")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
         assert lv_type.to_python() == "str"
 
     def test_primitive_boolean(self):
         """Test Boolean maps to bool."""
         from lvkit.models import LVType
 
-        lv_type = LVType(kind="primitive", underlying_type="Boolean")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
         assert lv_type.to_python() == "bool"
 
     def test_primitive_path(self):
         """Test Path maps to Path."""
         from lvkit.models import LVType
 
-        lv_type = LVType(kind="primitive", underlying_type="Path")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
         assert lv_type.to_python() == "Path"
 
     def test_primitive_variant(self):
         """Test Variant maps to Any."""
         from lvkit.models import LVType
 
-        lv_type = LVType(kind="primitive", underlying_type="Variant")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Variant")
         assert lv_type.to_python() == "Any"
 
     def test_primitive_void(self):
         """Test Void maps to None."""
         from lvkit.models import LVType
 
-        lv_type = LVType(kind="primitive", underlying_type="Void")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Void")
         assert lv_type.to_python() == "None"
 
     def test_primitive_unknown(self):
         """Test unknown primitive type maps to Any."""
         from lvkit.models import LVType
 
-        lv_type = LVType(kind="primitive", underlying_type="UnknownType")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="UnknownType")
         assert lv_type.to_python() == "Any"
 
     def test_array_1d(self):
         """Test 1D array type annotation."""
         from lvkit.models import LVType
 
-        element = LVType(kind="primitive", underlying_type="NumInt32")
-        arr = LVType(kind="array", element_type=element, dimensions=1)
+        element = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+        arr = LVType(kind=LVTypeKind.ARRAY, element_type=element, dimensions=1)
         assert arr.to_python() == "list[int]"
 
     def test_array_2d(self):
         """Test 2D array type annotation."""
         from lvkit.models import LVType
 
-        element = LVType(kind="primitive", underlying_type="NumFloat64")
-        arr = LVType(kind="array", element_type=element, dimensions=2)
+        element = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+        arr = LVType(kind=LVTypeKind.ARRAY, element_type=element, dimensions=2)
         assert arr.to_python() == "list[list[float]]"
 
     def test_array_no_element_type(self):
         """Test array with no element type defaults to Any."""
         from lvkit.models import LVType
 
-        arr = LVType(kind="array")
+        arr = LVType(kind=LVTypeKind.ARRAY)
         assert arr.to_python() == "list[Any]"
 
     def test_cluster_with_typedef_name(self):
@@ -1219,7 +1220,7 @@ class TestLVTypeToPython:
         from lvkit.models import LVType
 
         cluster = LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             typedef_name="error.ctl:Error Cluster.ctl"
         )
         assert cluster.to_python() == "ErrorCluster"
@@ -1228,7 +1229,7 @@ class TestLVTypeToPython:
         """Test cluster without typedef name uses generic dict."""
         from lvkit.models import LVType
 
-        cluster = LVType(kind="cluster")
+        cluster = LVType(kind=LVTypeKind.CLUSTER)
         assert cluster.to_python() == "dict[str, Any]"
 
     def test_enum_with_typedef_name(self):
@@ -1236,7 +1237,7 @@ class TestLVTypeToPython:
         from lvkit.models import LVType
 
         enum = LVType(
-            kind="enum",
+            kind=LVTypeKind.ENUM,
             typedef_name="lib:FileMode.ctl"
         )
         assert enum.to_python() == "FileMode"
@@ -1245,7 +1246,7 @@ class TestLVTypeToPython:
         """Test enum without typedef name uses int."""
         from lvkit.models import LVType
 
-        enum = LVType(kind="enum")
+        enum = LVType(kind=LVTypeKind.ENUM)
         assert enum.to_python() == "int"
 
     def test_ring_with_typedef_name(self):
@@ -1253,7 +1254,7 @@ class TestLVTypeToPython:
         from lvkit.models import LVType
 
         ring = LVType(
-            kind="ring",
+            kind=LVTypeKind.RING,
             typedef_name="option.ctl:OptionRing.ctl"
         )
         assert ring.to_python() == "OptionRing"
@@ -1262,7 +1263,7 @@ class TestLVTypeToPython:
         """Test ring without typedef name uses int."""
         from lvkit.models import LVType
 
-        ring = LVType(kind="ring")
+        ring = LVType(kind=LVTypeKind.RING)
         assert ring.to_python() == "int"
 
     def test_typedef_ref_with_name(self):
@@ -1271,7 +1272,7 @@ class TestLVTypeToPython:
 
         # typedef_name uses ":" format like other typedef names
         ref = LVType(
-            kind="typedef_ref",
+            kind=LVTypeKind.TYPEDEF_REF,
             typedef_name="vi.lib/Utility:TypeDef.ctl"
         )
         assert ref.to_python() == "TypeDef"
@@ -1280,14 +1281,16 @@ class TestLVTypeToPython:
         """Test typedef_ref without name uses Any."""
         from lvkit.models import LVType
 
-        ref = LVType(kind="typedef_ref")
+        ref = LVType(kind=LVTypeKind.TYPEDEF_REF)
         assert ref.to_python() == "Any"
 
     def test_unknown_kind(self):
         """Test unknown kind returns Any."""
         from lvkit.models import LVType
 
-        lv_type = LVType(kind="unknown_kind")
+        # Deliberately out-of-enum: exercises to_python's defensive fallback
+        # (unreachable with the closed LVTypeKind, kept as a guard).
+        lv_type = LVType(kind="unknown_kind")  # type: ignore[arg-type]
         assert lv_type.to_python() == "Any"
 
 
@@ -1302,7 +1305,7 @@ class TestLVTypeLvLabel:
         from lvkit.models import EnumValue, LVType
 
         enum = LVType(
-            kind="enum",
+            kind=LVTypeKind.ENUM,
             typedef_name="lib:MethodEnum.ctl",
             values={
                 "tearDown": EnumValue(value=2),
@@ -1316,7 +1319,7 @@ class TestLVTypeLvLabel:
         from lvkit.models import EnumValue, LVType
 
         ring = LVType(
-            kind="ring",
+            kind=LVTypeKind.RING,
             values={"b": EnumValue(value=1), "a": EnumValue(value=0)},
         )
         assert ring.lv_label() == "ring{a, b}"
@@ -1324,14 +1327,14 @@ class TestLVTypeLvLabel:
     def test_enum_with_no_values_is_empty_braces(self):
         from lvkit.models import LVType
 
-        enum = LVType(kind="enum")
+        enum = LVType(kind=LVTypeKind.ENUM)
         assert enum.lv_label() == "enum{}"
 
     def test_error_cluster_reads_error_cluster(self):
         from lvkit.models import ClusterField, LVType
 
         err = LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             typedef_name="lib:Error Cluster.ctl",
             fields=[
                 ClusterField(name="status"),
@@ -1345,7 +1348,7 @@ class TestLVTypeLvLabel:
         from lvkit.models import ClusterField, LVType
 
         cluster = LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             typedef_name="lib:TestResult.ctl",
             fields=[ClusterField(name="passed"), ClusterField(name="message")],
         )
@@ -1354,46 +1357,46 @@ class TestLVTypeLvLabel:
     def test_anonymous_cluster_with_fields(self):
         from lvkit.models import ClusterField, LVType
 
-        cluster = LVType(kind="cluster", fields=[ClusterField(name="x")])
+        cluster = LVType(kind=LVTypeKind.CLUSTER, fields=[ClusterField(name="x")])
         assert cluster.lv_label() == "cluster{x}"
 
     def test_anonymous_cluster_without_fields(self):
         from lvkit.models import LVType
 
-        cluster = LVType(kind="cluster")
+        cluster = LVType(kind=LVTypeKind.CLUSTER)
         assert cluster.lv_label() == "cluster"
 
     def test_nested_array_brackets_per_dimension(self):
         from lvkit.models import LVType
 
-        inner = LVType(kind="primitive", underlying_type="NumInt32")
-        outer = LVType(kind="array", element_type=inner, dimensions=2)
+        inner = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+        outer = LVType(kind=LVTypeKind.ARRAY, element_type=inner, dimensions=2)
         assert outer.lv_label() == "[[I32]]"
 
     def test_array_with_unresolved_element(self):
         from lvkit.models import LVType
 
-        arr = LVType(kind="array", dimensions=1)
+        arr = LVType(kind=LVTypeKind.ARRAY, dimensions=1)
         assert arr.lv_label() == "[?]"
 
     def test_refnum_with_class_shows_class_verbatim(self):
         from lvkit.models import LVType
 
         ref = LVType(
-            kind="primitive", underlying_type="Refnum", classname="TestCase.lvclass",
+            kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", classname="TestCase.lvclass",
         )
         assert ref.lv_label() == "TestCase.lvclass"
 
     def test_refnum_with_ref_type_no_class(self):
         from lvkit.models import LVType
 
-        ref = LVType(kind="primitive", underlying_type="Refnum", ref_type="Queue")
+        ref = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue")
         assert ref.lv_label() == "Queue refnum"
 
     def test_generic_refnum_no_class_no_ref_type(self):
         from lvkit.models import LVType
 
-        ref = LVType(kind="primitive", underlying_type="Refnum")
+        ref = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
         assert ref.lv_label() == "refnum"
 
     def test_plain_numeric_scalars(self):
@@ -1407,13 +1410,13 @@ class TestLVTypeLvLabel:
             "Path": "Path",
         }
         for underlying, expected in cases.items():
-            lv_type = LVType(kind="primitive", underlying_type=underlying)
+            lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=underlying)
             assert lv_type.lv_label() == expected
 
     def test_unmapped_underlying_type_falls_back_to_raw_string(self):
         from lvkit.models import LVType
 
-        lv_type = LVType(kind="primitive", underlying_type="SomeExoticType")
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="SomeExoticType")
         assert lv_type.lv_label() == "SomeExoticType"
 
 

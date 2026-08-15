@@ -34,7 +34,13 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..models import ClusterField, EnumValue, LVType, enum_values_from_labels
+from ..models import (
+    ClusterField,
+    EnumValue,
+    LVType,
+    LVTypeKind,
+    enum_values_from_labels,
+)
 
 # TD_FULL_TYPE code -> the ``underlying_type`` string ``LVType.lv_label`` expects
 # (so a CONP-decoded scalar renders identically to a VCTP-decoded one).
@@ -202,13 +208,13 @@ class _ConpDecoder:
                 name_off = 4 if type_code in _STRINGISH else 0
                 name = self._name_at(body, name_off)
                 return LVType(
-                    kind="primitive", underlying_type=_SCALAR_CODE[type_code],
+                    kind=LVTypeKind.PRIMITIVE, underlying_type=_SCALAR_CODE[type_code],
                 ), name
 
             if type_code in _ENUM_CODES:
                 values, off = _decode_enum(body, 0)
                 name = self._name_at(body, off)
-                return LVType(kind="enum", underlying_type="Enum",
+                return LVType(kind=LVTypeKind.ENUM, underlying_type="Enum",
                               values=values), name
 
             if type_code == _CLUSTER:
@@ -228,7 +234,7 @@ class _ConpDecoder:
                     )
                     for i, r in enumerate(valid)
                 ]
-                return LVType(kind="cluster", underlying_type="Cluster",
+                return LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster",
                               fields=fields or None), name
 
             if type_code == _ARRAY:
@@ -240,7 +246,7 @@ class _ConpDecoder:
                     if elem_ref < len(self.lvtypes) else None
                 )
                 name = self._trailing_name(body)
-                return LVType(kind="array", underlying_type="Array",
+                return LVType(kind=LVTypeKind.ARRAY, underlying_type="Array",
                               element_type=elem, dimensions=ndims or 1), name
 
             if type_code == _REFNUM:
@@ -265,7 +271,7 @@ class _ConpDecoder:
                 else:
                     name = strs[-1] if strs else None
                 return LVType(
-                    kind="primitive", underlying_type="Refnum",
+                    kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum",
                     ref_type=_REFNUM_KIND.get(refkind) if refkind is not None
                     else None,
                     classname=classname,
@@ -304,7 +310,7 @@ class _ConpDecoder:
                     v.value == i for i, v in enumerate(values.values())
                 ):
                     return LVType(
-                        kind="enum", underlying_type="Enum",
+                        kind=LVTypeKind.ENUM, underlying_type="Enum",
                         values=values, typedef_name=typedef_name,
                     ), _typedef_term_name(strs, typedef_name, values)
                 idx = body.find(bytes([code]), idx + 1)

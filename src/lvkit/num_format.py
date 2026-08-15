@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from .models import LVType
+from .models import LVType, LVTypeKind
 
 # A numeric constant's DCO display-format is a printf-ish spec. We only handle
 # the plain forms (a precision and a conversion letter); anything more exotic
@@ -40,7 +40,7 @@ def int_byte_width(lv_type: LVType | None) -> int | None:
     Used to two's-complement a negative value to its type's bit width
     before hex/octal/binary display — LabVIEW shows e.g. I16 -1 as
     ``xFFFF``, not a Python-style ``-x1``."""
-    if lv_type is None or lv_type.kind != "primitive":
+    if lv_type is None or lv_type.kind != LVTypeKind.PRIMITIVE:
         return None
     return _INT_BYTE_WIDTH.get(lv_type.underlying_type or "")
 

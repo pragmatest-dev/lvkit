@@ -10,7 +10,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from ..models import LVType
+from ..models import LVType, LVTypeKind
 from .models import ParsedResolvedTypeDefValue, ParsedTypeDefRef
 from .type_mapping import parse_type_map_rich
 
@@ -63,8 +63,8 @@ def resolve_type_rich(type_ref: str, type_map: dict[int, LVType]) -> LVType:
     match = re.match(r'TypeID\((\d+)\)', type_ref)
     if match:
         type_id = int(match.group(1))
-        return type_map.get(type_id, LVType(kind="primitive", underlying_type=type_ref))
-    return LVType(kind="primitive", underlying_type=type_ref)
+        return type_map.get(type_id, LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_ref))
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_ref)
 
 
 def parse_type_chain(xml_path: Path | str) -> dict:

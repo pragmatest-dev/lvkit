@@ -15,6 +15,7 @@ from ..models import (
     CaseFrame,
     FPTerminal,
     LVType,
+    LVTypeKind,
     Terminal,
     TunnelMode,
     TunnelTerminal,
@@ -220,28 +221,28 @@ class ConstructionMixin:
     @staticmethod
     def _format_lv_type_for_display(lv_type: LVType) -> str:
         """Format LVType for human-readable display."""
-        if lv_type.kind == "primitive":
+        if lv_type.kind == LVTypeKind.PRIMITIVE:
             return lv_type.underlying_type or "Any"
-        elif lv_type.kind == "enum":
+        elif lv_type.kind == LVTypeKind.ENUM:
             if lv_type.typedef_name:
                 name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
                 return name
             return "Enum"
-        elif lv_type.kind == "cluster":
+        elif lv_type.kind == LVTypeKind.CLUSTER:
             if lv_type.typedef_name:
                 name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
                 return name
             return "Cluster"
-        elif lv_type.kind == "array":
+        elif lv_type.kind == LVTypeKind.ARRAY:
             if lv_type.element_type:
                 elem = ConstructionMixin._format_lv_type_for_display(
                     lv_type.element_type
                 )
                 return f"Array[{elem}]"
             return "Array"
-        elif lv_type.kind == "ring":
+        elif lv_type.kind == LVTypeKind.RING:
             return "Ring"
-        elif lv_type.kind == "typedef_ref":
+        elif lv_type.kind == LVTypeKind.TYPEDEF_REF:
             if lv_type.typedef_name:
                 name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
                 return name
@@ -1161,7 +1162,7 @@ class ConstructionMixin:
                 # Both have type but one has fields and the other doesn't:
                 # enrich the incomplete side (same wire = same type)
                 elif (src_term.lv_type and dst_term.lv_type
-                      and src_term.lv_type.kind == dst_term.lv_type.kind == "cluster"):
+                      and src_term.lv_type.kind == dst_term.lv_type.kind == LVTypeKind.CLUSTER):
                     if src_term.lv_type.fields and not dst_term.lv_type.fields:
                         dst_term.lv_type.fields = src_term.lv_type.fields
                         changed = True

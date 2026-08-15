@@ -15,7 +15,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from lvkit.models import LVType, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.node_types import CtlRefConstNode, GRefNode, StatVIRefNode
 
 from ..models import ConstantNode, LocalVariableNode, WireEnd
@@ -226,7 +226,7 @@ class StatVIRefHandler(RefBuildHandler):
                 ctx.vi_name, node.uid,
             )
             return True
-        vi_ref_type = LVType(kind="primitive", underlying_type="VIRefnum")
+        vi_ref_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="VIRefnum")
         const_node = ConstantNode(
             id=q_node_uid,
             vi=ctx.vi_name,

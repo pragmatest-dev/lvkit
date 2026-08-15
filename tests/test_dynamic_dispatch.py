@@ -10,7 +10,7 @@ import ast
 import xml.etree.ElementTree as ET
 
 from lvkit.codegen.nodes import subvi
-from lvkit.models import LVType, SubVIOperation, Terminal
+from lvkit.models import LVType, LVTypeKind, SubVIOperation, Terminal
 from lvkit.parser.vi import _extract_subvi_info, _resolve_qualified_name
 from tests.helpers import make_ctx
 
@@ -152,12 +152,12 @@ class TestDynamicDispatchCodegen:
             name="addSuccess.vi",
             inputs=[
                 Terminal(id="t_in_0", index=0, direction="input",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                         lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst")),
                 Terminal(id="t_in_1", index=1, direction="input"),
             ],
             outputs=[
                 Terminal(id="t_out_0", index=2, direction="output",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                         lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst")),
             ],
         )
         ctx = _make_ctx_with_bindings(
@@ -179,7 +179,7 @@ class TestDynamicDispatchCodegen:
             inputs=[
                 Terminal(id="t_str", index=0, direction="input"),
                 Terminal(id="t_obj", index=1, direction="input",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                         lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst")),
             ],
         )
         ctx = _make_ctx_with_bindings({"t_str": "my_string", "t_obj": "my_object"})
@@ -214,11 +214,11 @@ class TestDynamicDispatchCodegen:
             name="addSuccess.vi",
             inputs=[
                 Terminal(id="t_in", index=0, direction="input",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                         lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst")),
             ],
             outputs=[
                 Terminal(id="t_out", index=1, direction="output",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                         lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst")),
                 Terminal(id="t_out2", index=2, direction="output",
                          name="count"),
             ],
@@ -270,11 +270,11 @@ class TestDynamicDispatchCodegen:
         
         class_term = Terminal(
             id="t1", index=0, direction="input",
-            lv_type=LVType(kind="primitive", ref_type="UDClassInst"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
         )
         non_class_term = Terminal(
             id="t2", index=1, direction="input",
-            lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
         )
         no_type_term = Terminal(id="t3", index=2, direction="input")
 

@@ -20,7 +20,7 @@ from lvkit.codegen.ast_optimizer import eliminate_dead_code
 from lvkit.codegen.context import _format_constant
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
-from lvkit.models import LVType, SubVIOperation
+from lvkit.models import LVType, LVTypeKind, SubVIOperation
 
 # =============================================================
 # Boolean constant formatting
@@ -33,28 +33,28 @@ class TestBooleanFormatting:
     def test_boolean_true_from_hex_01(self):
         const = Constant(
             id="c1", value="True",
-            lv_type=LVType(kind="primitive", underlying_type="Boolean"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         assert _format_constant(const) == "True"
 
     def test_boolean_false_from_hex_0000(self):
         const = Constant(
             id="c2", value="0000",
-            lv_type=LVType(kind="primitive", underlying_type="Boolean"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         assert _format_constant(const) == "False"
 
     def test_boolean_false_from_zero(self):
         const = Constant(
             id="c3", value="0",
-            lv_type=LVType(kind="primitive", underlying_type="Boolean"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         assert _format_constant(const) == "False"
 
     def test_boolean_true_from_one(self):
         const = Constant(
             id="c4", value="1",
-            lv_type=LVType(kind="primitive", underlying_type="Boolean"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         assert _format_constant(const) == "True"
 
@@ -71,7 +71,7 @@ class TestPathFormatting:
         """DAQmx channel strings like 'Dev1/port0/line0' are strings, not paths."""
         const = Constant(
             id="c1", value='"Dev1/port0/line0"',
-            lv_type=LVType(kind="primitive", underlying_type="Tag"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Tag"),
         )
         result = _format_constant(const)
         assert "Path(" not in result
@@ -81,7 +81,7 @@ class TestPathFormatting:
         """Constants with underlying_type=Path should use Path()."""
         const = Constant(
             id="c2", value="some/file.txt",
-            lv_type=LVType(kind="primitive", underlying_type="Path"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
         )
         result = _format_constant(const)
         assert result == "Path('some/file.txt')"
@@ -90,7 +90,7 @@ class TestPathFormatting:
         """Plain strings without path-like content stay as strings."""
         const = Constant(
             id="c3", value='"hello"',
-            lv_type=LVType(kind="primitive", underlying_type="String"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
         )
         result = _format_constant(const)
         assert result == "'hello'"

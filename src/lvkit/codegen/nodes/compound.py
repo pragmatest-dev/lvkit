@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import LVType, PrimitiveOperation, Terminal
+from lvkit.models import LVType, LVTypeKind, PrimitiveOperation, Terminal
 
 from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name, uint_mask
 from ..context import CodeGenContext
@@ -267,7 +267,7 @@ def generate_array_build(
         val = ctx.resolve(inp.id)
         if val:
             input_names.append(val)
-            is_array = inp.lv_type is not None and inp.lv_type.kind == "array"
+            is_array = inp.lv_type is not None and inp.lv_type.kind == LVTypeKind.ARRAY
             if is_array:
                 # Concatenate array-typed inputs directly
                 parts.append(parse_expr(val))
@@ -465,7 +465,7 @@ def generate_array_replace(
 def _is_array_type(term: Terminal | None) -> bool:
     """True if the terminal's LabVIEW type is an array."""
     return bool(
-        term is not None and term.lv_type is not None and term.lv_type.kind == "array"
+        term is not None and term.lv_type is not None and term.lv_type.kind == LVTypeKind.ARRAY
     )
 
 
@@ -602,7 +602,7 @@ def generate_array_reshape(
         )
 
     lv_type = array_term.lv_type
-    if lv_type is None or lv_type.kind != "array" or not lv_type.dimensions:
+    if lv_type is None or lv_type.kind != LVTypeKind.ARRAY or not lv_type.dimensions:
         raise CodeGenError(
             "Reshape Array requires the source array's resolved LabVIEW "
             f"type (to know its dimensionality) for node {node.id}, but "

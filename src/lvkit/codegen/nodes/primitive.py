@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 
-from lvkit.models import PrimitiveOperation, Terminal
+from lvkit.models import LVTypeKind, PrimitiveOperation, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.primitive_resolver import (
     PrimitiveResolutionNeeded,
@@ -31,7 +31,7 @@ def _has_array_input(node: PrimitiveOperation) -> bool:
     """True if any wired input terminal carries an array type."""
     return any(
         t.direction == "input" and t.lv_type is not None
-        and t.lv_type.kind == "array"
+        and t.lv_type.kind == LVTypeKind.ARRAY
         for t in node.terminals
     )
 
@@ -185,7 +185,7 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     # operators over them even after single-use expression inlining.
     for term in node.terminals:
         if (term.direction == "output" and term.lv_type is not None
-                and term.lv_type.kind == "array"):
+                and term.lv_type.kind == LVTypeKind.ARRAY):
             bound = fragment.bindings.get(term.id)
             if bound and bound.isidentifier():
                 ctx.array_vars.add(bound)
@@ -683,7 +683,7 @@ def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
             "int", "float", "numeric",
         ):
             return "0"
-        if lv_type.kind == "array":
+        if lv_type.kind == LVTypeKind.ARRAY:
             return "[]"
     return "None"
 

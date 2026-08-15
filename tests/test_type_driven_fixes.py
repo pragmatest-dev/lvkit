@@ -9,7 +9,7 @@ from __future__ import annotations
 from lvkit.codegen.context import CodeGenContext, _format_constant
 from lvkit.codegen.nodes import primitive
 from lvkit.graph.models import Constant
-from lvkit.models import ClusterField, LVType, Terminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 from lvkit.primitive_resolver import _collect_imports
 
 # ── Fix A: Type-driven constant decoding ────────────────────────────
@@ -25,7 +25,7 @@ class TestTypeDrivenConstantDecoding:
         const = Constant(
             id="c1",
             value="7FFFFFFFFFFFFFFF",
-            lv_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
         )
         result = _format_constant(const)
         # Should be a valid float, not the raw hex string
@@ -38,7 +38,7 @@ class TestTypeDrivenConstantDecoding:
         const = Constant(
             id="c2",
             value="0A",
-            lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
         )
         result = _format_constant(const)
         assert result == "10"
@@ -48,7 +48,7 @@ class TestTypeDrivenConstantDecoding:
         const = Constant(
             id="c3",
             value="40490FDB",
-            lv_type=LVType(kind="primitive", underlying_type="NumFloat32"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat32"),
         )
         result = _format_constant(const)
         val = float(result)
@@ -59,7 +59,7 @@ class TestTypeDrivenConstantDecoding:
         const = Constant(
             id="c4",
             value="42",
-            lv_type=LVType(kind="primitive", underlying_type="NumInt16"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16"),
         )
         result = _format_constant(const)
         assert result == "42"
@@ -70,7 +70,7 @@ class TestTypeDrivenConstantDecoding:
         const = Constant(
             id="c5",
             value='"42"',
-            lv_type=LVType(kind="primitive", underlying_type="String"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
         )
         result = _format_constant(const)
         assert result == "'42'"
@@ -80,7 +80,7 @@ class TestTypeDrivenConstantDecoding:
         const = Constant(
             id="c6",
             value='""',
-            lv_type=LVType(kind="primitive", underlying_type="String"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
         )
         result = _format_constant(const)
         assert result == "''"
@@ -101,7 +101,7 @@ class TestTypeDrivenTerminalDefaults:
             index=0,
             direction="input",
             name="string length",  # name contains "string" but type is numeric
-            lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
         )
         ctx = CodeGenContext()
         result = primitive._default_for_type(term, ctx)
@@ -114,7 +114,7 @@ class TestTypeDrivenTerminalDefaults:
             index=1,
             direction="input",
             name="input",
-            lv_type=LVType(kind="primitive", underlying_type="String"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
         )
         ctx = CodeGenContext()
         result = primitive._default_for_type(term, ctx)
@@ -127,7 +127,7 @@ class TestTypeDrivenTerminalDefaults:
             index=2,
             direction="input",
             name="enable",
-            lv_type=LVType(kind="primitive", underlying_type="Boolean"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         ctx = CodeGenContext()
         result = primitive._default_for_type(term, ctx)
@@ -140,7 +140,7 @@ class TestTypeDrivenTerminalDefaults:
             index=3,
             direction="input",
             name="file path",
-            lv_type=LVType(kind="primitive", underlying_type="Path"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
         )
         ctx = CodeGenContext()
         result = primitive._default_for_type(term, ctx)
@@ -154,7 +154,7 @@ class TestTypeDrivenTerminalDefaults:
             index=4,
             direction="input",
             name="data",
-            lv_type=LVType(kind="array", underlying_type=None),
+            lv_type=LVType(kind=LVTypeKind.ARRAY, underlying_type=None),
         )
         ctx = CodeGenContext()
         result = primitive._default_for_type(term, ctx)
@@ -181,7 +181,7 @@ class TestTypeDrivenTerminalDefaults:
             index=0,
             direction="input",
             name="some_input",  # no "refnum" in name
-            lv_type=LVType(kind="primitive", underlying_type="Refnum"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum"),
         )
         ctx = CodeGenContext()
         # With no primResID match for file I/O, should fall through to default
@@ -232,7 +232,7 @@ class TestErrorClusterByType:
 
     def _error_cluster_type(self) -> LVType:
         return LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             underlying_type="Cluster",
             fields=[
                 ClusterField(name="status"),
@@ -249,7 +249,7 @@ class TestErrorClusterByType:
             index=0,
             direction="output",
             name="error_out",
-            lv_type=LVType(kind="primitive", underlying_type="String"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
         )
         # is_error_cluster should be False because the type is String
         assert term.is_error_cluster is False
@@ -273,6 +273,6 @@ class TestErrorClusterByType:
             index=2,
             direction="input",
             name="error_count",
-            lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
         )
         assert term.is_error_cluster is False

@@ -25,6 +25,7 @@ from ..models import (
     EventOperation,
     LoopOperation,
     LVType,
+    LVTypeKind,
     Operation,
     PropertyDef,
     SelectorRange,
@@ -605,7 +606,7 @@ def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) ->
         return "Error"
     if frame.is_default or sv == "Default":
         return "Default"
-    if lv_type and lv_type.kind in ("enum", "ring") and lv_type.values \
+    if lv_type and lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING) and lv_type.values \
             and frame.selector_ranges:
         int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
         return _format_ranges(

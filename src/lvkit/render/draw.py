@@ -23,7 +23,7 @@ from ..graph.models import (
     VINode,
 )
 from ..graph.op_walk import _terminal_display_name
-from ..models import FPTerminal, LVType, Terminal
+from ..models import FPTerminal, LVType, LVTypeKind, Terminal
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend, Point
@@ -1612,7 +1612,7 @@ def draw_fp_terminal(
     on the left. The name label stays ABOVE the box, as before."""
     x1, y1, x2, y2 = bounds
     lv_type = terminal.lv_type
-    is_array = lv_type is not None and lv_type.kind == "array"
+    is_array = lv_type is not None and lv_type.kind == LVTypeKind.ARRAY
     scalar_type = lv_type.element_type if lv_type is not None and is_array else lv_type
     color = wire_style(scalar_type, theme).color
     stroke_width = 1.5 if terminal.is_indicator else 3.0

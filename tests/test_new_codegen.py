@@ -17,6 +17,7 @@ from lvkit.models import (
     ClusterField,
     InvokeOperation,
     LVType,
+    LVTypeKind,
     Operation,
     PrimitiveOperation,
     PropertyDef,
@@ -31,7 +32,7 @@ from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_
 def _error_cluster_type() -> LVType:
     """LVType representing a LabVIEW error cluster."""
     return LVType(
-        kind="cluster",
+        kind=LVTypeKind.CLUSTER,
         underlying_type="Cluster",
         fields=[
             ClusterField(name="status"),
@@ -89,7 +90,7 @@ class TestErrorSelectorByType:
         assert case._is_error_selector_by_type(op, ctx) is True
 
     def test_rejects_boolean(self):
-        bool_type = LVType(kind="primitive", underlying_type="Boolean")
+        bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
         op = _make_case_op("sel_1", bool_type)
         ctx = _make_ctx_with_binding("sel_1", "flag")
         assert case._is_error_selector_by_type(op, ctx) is False
@@ -101,7 +102,7 @@ class TestErrorSelectorByType:
 
     def test_rejects_cluster_without_error_fields(self):
         cluster_type = LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             underlying_type="Cluster",
             fields=[ClusterField(name="x"), ClusterField(name="y")],
         )
@@ -158,7 +159,7 @@ class TestErrorInputNotBound:
         normal_term = Terminal(
             id="data_in", index=1, direction="input",
             name="data",
-            lv_type=LVType(kind="primitive", underlying_type="String"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
         )
         vi_ctx = VIContext(
             name="test.vi",
@@ -471,7 +472,7 @@ class TestInvokeErrorSkip:
                 ),
                 Terminal(
                     id="data_t_in", index=4, direction="input",
-                    lv_type=LVType(kind="primitive", underlying_type="String"),
+                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
                 ),
             ],
             method_name="Ctrl Val.Set",

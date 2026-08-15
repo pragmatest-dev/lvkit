@@ -12,7 +12,7 @@ import dataclasses
 import re
 from dataclasses import dataclass
 
-from ..models import _LV_NUMERIC_TYPE_LABEL, LVType, _is_error_cluster
+from ..models import _LV_NUMERIC_TYPE_LABEL, LVType, LVTypeKind, _is_error_cluster
 
 # LabVIEW help/description strings carry rich-text tags (<B>..</B>, <BR>, ...).
 _HELP_TAG_RE = re.compile(r"<[^>]+>")
@@ -181,9 +181,9 @@ def numeric_repr(lv_type: LVType | None) -> str | None:
     structural differences like array↔element at an auto-indexing tunnel."""
     if lv_type is None:
         return None
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         return numeric_repr(lv_type.element_type)
-    if lv_type.kind == "primitive" and lv_type.underlying_type in _NUMERIC_TYPES:
+    if lv_type.kind == LVTypeKind.PRIMITIVE and lv_type.underlying_type in _NUMERIC_TYPES:
         return lv_type.underlying_type
     return None
 
@@ -196,15 +196,15 @@ def type_repr(lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return ""
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         dims = lv_type.dimensions or 1
         inner = type_repr(lv_type.element_type) or "?"
         return "[" * dims + inner + "]" * dims
-    if lv_type.kind in ("enum", "ring"):
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "Enum"
-    if lv_type.kind in ("cluster", "typedef_ref"):
+    if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return ""  # clusters have no single-token repr
-    if lv_type.kind == "primitive":
+    if lv_type.kind == LVTypeKind.PRIMITIVE:
         # A class/DVR object refnum draws "Class"; a plain refnum (queue, event,
         # control ref, …) draws "Ref". (The full class name is the LARGE-form
         # label — see ``lv_type_label`` in this module.)
@@ -221,7 +221,7 @@ def numeric_sample(lv_type: LVType | None) -> str | None:
     types with no text glyph (e.g. Boolean, which LabVIEW draws as a button)."""
     if lv_type is None:
         return None
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         return numeric_sample(lv_type.element_type)
     ut = lv_type.underlying_type or ""
     if "Float" in ut or "Ext" in ut or "Complex" in ut:
@@ -257,13 +257,13 @@ def type_family(lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return "unknown"
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         return "array"
-    if lv_type.kind in ("enum", "ring"):
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "enum"
-    if lv_type.kind in ("cluster", "typedef_ref"):
+    if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return "error_cluster" if _is_error_cluster(lv_type) else "cluster"
-    if lv_type.kind == "primitive":
+    if lv_type.kind == LVTypeKind.PRIMITIVE:
         ut = lv_type.underlying_type or ""
         if ut in _FLOAT_TYPES or ut in _COMPLEX_TYPES:
             return "float"
@@ -340,7 +340,7 @@ def wire_style(
     if lv_type is None:
         return WireStyle(theme.wire_default, _LINE_W)
 
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         inner = wire_style(lv_type.element_type, theme)
         return WireStyle(
             inner.color, inner.width + _ARRAY_W_PER_DIM * (lv_type.dimensions or 1),

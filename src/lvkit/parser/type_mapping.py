@@ -9,7 +9,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from ..models import ClusterField, EnumValue, LVType
+from ..models import ClusterField, EnumValue, LVType, LVTypeKind
 from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
 
@@ -191,13 +191,13 @@ def _make_primitive_lvtype(type_name: str) -> LVType:
     """Create an LVType for a primitive type name."""
     # Map LabVIEW type names to kind
     if type_name in ("Cluster",):
-        return LVType(kind="cluster", underlying_type=type_name)
+        return LVType(kind=LVTypeKind.CLUSTER, underlying_type=type_name)
     elif type_name in ("Array",):
-        return LVType(kind="array", underlying_type=type_name)
+        return LVType(kind=LVTypeKind.ARRAY, underlying_type=type_name)
     elif type_name.startswith("Enum") or type_name == "Ring":
-        return LVType(kind="enum", underlying_type=type_name)
+        return LVType(kind=LVTypeKind.ENUM, underlying_type=type_name)
     else:
-        return LVType(kind="primitive", underlying_type=type_name)
+        return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_name)
 
 
 def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
@@ -238,7 +238,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
 
         if fid in visited:
             # Cycle detection - return placeholder
-            return LVType(kind="primitive", underlying_type="Recursive")
+            return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Recursive")
 
         if fid in resolved:
             return resolved[fid]
@@ -265,7 +265,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                         fields.append(ClusterField(name=field_name, type=field_type))
 
             lv_type = LVType(
-                kind="cluster",
+                kind=LVTypeKind.CLUSTER,
                 underlying_type="Cluster",
                 fields=fields if fields else None,
             )
@@ -286,7 +286,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                     break
 
             lv_type = LVType(
-                kind="array",
+                kind=LVTypeKind.ARRAY,
                 underlying_type=type_name,
                 element_type=element_type,
                 dimensions=dims if dims > 0 else 1,
@@ -350,7 +350,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                         enum_values[el.text] = EnumValue(value=i)
 
             lv_type = LVType(
-                kind="enum",
+                kind=LVTypeKind.ENUM,
                 underlying_type=type_name,
                 values=enum_values,
             )
@@ -383,7 +383,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                         element_type = resolve_type(int(tid), visited)
 
             lv_type = LVType(
-                kind="primitive",
+                kind=LVTypeKind.PRIMITIVE,
                 underlying_type="Refnum",
                 ref_type=ref_type,
                 classname=classname,
@@ -407,15 +407,16 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
     return resolved
 
 
-def _get_kind(type_name: str) -> str:
-    """Get LVType kind from type name."""
+def _get_kind(type_name: str) -> LVTypeKind:
+    """Get LVType kind from type name. An unrecognized name is a PRIMITIVE (the
+    closed-set catch-all -- there is no "unknown" kind)."""
     if type_name == "Cluster":
-        return "cluster"
+        return LVTypeKind.CLUSTER
     elif type_name == "Array":
-        return "array"
+        return LVTypeKind.ARRAY
     elif type_name.startswith("Enum") or type_name == "Ring":
-        return "enum"
+        return LVTypeKind.ENUM
     elif type_name.startswith("Unit"):
-        return "enum"  # UnitUInt16 etc are often enums
+        return LVTypeKind.ENUM  # UnitUInt16 etc are often enums
     else:
-        return "primitive"
+        return LVTypeKind.PRIMITIVE

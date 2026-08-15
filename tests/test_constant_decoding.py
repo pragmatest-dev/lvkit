@@ -8,7 +8,7 @@ The decoded_value is a human-readable string representation.
 from __future__ import annotations
 
 from lvkit.graph.construction import decode_constant
-from lvkit.models import ClusterField, LVType
+from lvkit.models import ClusterField, LVType, LVTypeKind
 from lvkit.parser.models import ParsedConstant
 
 
@@ -17,7 +17,7 @@ def _make_const(hex_val: str, label: str | None = None) -> ParsedConstant:
 
 
 def _make_type(
-    kind: str,
+    kind: LVTypeKind,
     underlying: str | None = None,
     fields: list[ClusterField] | None = None,
     element_type: LVType | None = None,
@@ -32,8 +32,8 @@ def _make_type(
 
 def _array_of(underlying: str) -> LVType:
     return _make_type(
-        "array", "Array",
-        element_type=_make_type("primitive", underlying),
+        LVTypeKind.ARRAY, "Array",
+        element_type=_make_type(LVTypeKind.PRIMITIVE, underlying),
     )
 
 
@@ -44,7 +44,7 @@ def _decode(hex_val: str, lv_type: LVType) -> tuple[str, str]:
 # === Boolean ===
 
 class TestBoolean:
-    LV = _make_type("primitive", "Boolean")
+    LV = _make_type(LVTypeKind.PRIMITIVE, "Boolean")
 
     def test_true_1byte(self):
         _, v = _decode("01", self.LV)
@@ -67,39 +67,39 @@ class TestBoolean:
 
 class TestIntegers:
     def test_int8(self):
-        _, v = _decode("FF", _make_type("primitive", "NumInt8"))
+        _, v = _decode("FF", _make_type(LVTypeKind.PRIMITIVE, "NumInt8"))
         assert v == "-1"
 
     def test_uint8(self):
-        _, v = _decode("FF", _make_type("primitive", "NumUInt8"))
+        _, v = _decode("FF", _make_type(LVTypeKind.PRIMITIVE, "NumUInt8"))
         assert v == "255"
 
     def test_int16(self):
-        _, v = _decode("4000", _make_type("primitive", "NumInt16"))
+        _, v = _decode("4000", _make_type(LVTypeKind.PRIMITIVE, "NumInt16"))
         assert v == "16384"
 
     def test_uint16(self):
-        _, v = _decode("0002", _make_type("primitive", "NumUInt16"))
+        _, v = _decode("0002", _make_type(LVTypeKind.PRIMITIVE, "NumUInt16"))
         assert v == "2"
 
     def test_int32(self):
-        _, v = _decode("00000001", _make_type("primitive", "NumInt32"))
+        _, v = _decode("00000001", _make_type(LVTypeKind.PRIMITIVE, "NumInt32"))
         assert v == "1"
 
     def test_int32_negative(self):
-        _, v = _decode("FFFFFFFF", _make_type("primitive", "NumInt32"))
+        _, v = _decode("FFFFFFFF", _make_type(LVTypeKind.PRIMITIVE, "NumInt32"))
         assert v == "-1"
 
     def test_uint32(self):
-        _, v = _decode("FFFFFFFF", _make_type("primitive", "NumUInt32"))
+        _, v = _decode("FFFFFFFF", _make_type(LVTypeKind.PRIMITIVE, "NumUInt32"))
         assert v == "4294967295"
 
     def test_int64(self):
-        _, v = _decode("0000000000000000", _make_type("primitive", "NumInt64"))
+        _, v = _decode("0000000000000000", _make_type(LVTypeKind.PRIMITIVE, "NumInt64"))
         assert v == "0"
 
     def test_uint64(self):
-        _, v = _decode("0000000000000001", _make_type("primitive", "NumUInt64"))
+        _, v = _decode("0000000000000001", _make_type(LVTypeKind.PRIMITIVE, "NumUInt64"))
         assert v == "1"
 
 
@@ -107,22 +107,22 @@ class TestIntegers:
 
 class TestFloats:
     def test_float32(self):
-        _, v = _decode("3F800000", _make_type("primitive", "NumFloat32"))
+        _, v = _decode("3F800000", _make_type(LVTypeKind.PRIMITIVE, "NumFloat32"))
         assert float(v) == 1.0
 
     def test_float64(self):
-        _, v = _decode("3FF0000000000000", _make_type("primitive", "NumFloat64"))
+        _, v = _decode("3FF0000000000000", _make_type(LVTypeKind.PRIMITIVE, "NumFloat64"))
         assert float(v) == 1.0
 
     def test_float64_zero(self):
-        _, v = _decode("0000000000000000", _make_type("primitive", "NumFloat64"))
+        _, v = _decode("0000000000000000", _make_type(LVTypeKind.PRIMITIVE, "NumFloat64"))
         assert float(v) == 0.0
 
 
 # === String ===
 
 class TestString:
-    LV = _make_type("primitive", "String")
+    LV = _make_type(LVTypeKind.PRIMITIVE, "String")
 
     def test_empty_string(self):
         _, v = _decode("00000000", self.LV)
@@ -143,7 +143,7 @@ class TestPath:
     def test_not_a_path(self):
         _, v = _decode(
             "50544830000000000000000000000000",
-            _make_type("primitive", "Path"),
+            _make_type(LVTypeKind.PRIMITIVE, "Path"),
         )
         assert v is not None
         assert "raw" not in str(v).lower() or "path" in str(v).lower()
@@ -153,15 +153,15 @@ class TestPath:
 
 class TestEnum:
     def test_enum_uint16(self):
-        _, v = _decode("0002", _make_type("enum", "UnitUInt16"))
+        _, v = _decode("0002", _make_type(LVTypeKind.ENUM, "UnitUInt16"))
         assert v == "2"
 
     def test_enum_uint8(self):
-        _, v = _decode("03", _make_type("enum", "UnitUInt8"))
+        _, v = _decode("03", _make_type(LVTypeKind.ENUM, "UnitUInt8"))
         assert v == "3"
 
     def test_enum_uint32(self):
-        _, v = _decode("00000001", _make_type("enum", "UnitUInt32"))
+        _, v = _decode("00000001", _make_type(LVTypeKind.ENUM, "UnitUInt32"))
         assert v == "1"
 
 
@@ -171,14 +171,14 @@ class TestComplex:
     def test_complex64(self):
         _, v = _decode(
             "3F80000000000000",
-            _make_type("primitive", "NumComplex64"),
+            _make_type(LVTypeKind.PRIMITIVE, "NumComplex64"),
         )
         assert v is not None
 
     def test_complex128(self):
         _, v = _decode(
             "3FF00000000000000000000000000000",
-            _make_type("primitive", "NumComplex128"),
+            _make_type(LVTypeKind.PRIMITIVE, "NumComplex128"),
         )
         assert v is not None
 
@@ -189,11 +189,11 @@ class TestCluster:
     def test_error_cluster(self):
         """Error cluster: {status: Bool, code: I32, source: String}."""
         lv_type = _make_type(
-            "cluster", "Cluster",
+            LVTypeKind.CLUSTER, "Cluster",
             fields=[
-                ClusterField(name="status", type=_make_type("primitive", "Boolean")),
-                ClusterField(name="code", type=_make_type("primitive", "NumInt32")),
-                ClusterField(name="source", type=_make_type("primitive", "String")),
+                ClusterField(name="status", type=_make_type(LVTypeKind.PRIMITIVE, "Boolean")),
+                ClusterField(name="code", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
+                ClusterField(name="source", type=_make_type(LVTypeKind.PRIMITIVE, "String")),
             ],
         )
         raw = "00" + "00000000" + "00000000"
@@ -204,17 +204,17 @@ class TestCluster:
 
     def test_nested_cluster(self):
         inner = _make_type(
-            "cluster", "Cluster",
+            LVTypeKind.CLUSTER, "Cluster",
             fields=[
-                ClusterField(name="x", type=_make_type("primitive", "NumInt32")),
-                ClusterField(name="y", type=_make_type("primitive", "NumInt32")),
+                ClusterField(name="x", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
+                ClusterField(name="y", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
             ],
         )
         outer = _make_type(
-            "cluster", "Cluster",
+            LVTypeKind.CLUSTER, "Cluster",
             fields=[
                 ClusterField(name="point", type=inner),
-                ClusterField(name="label", type=_make_type("primitive", "String")),
+                ClusterField(name="label", type=_make_type(LVTypeKind.PRIMITIVE, "String")),
             ],
         )
         raw = "00000001" + "00000002" + "00000002" + "6869"
@@ -259,13 +259,13 @@ class TestArray:
 class TestCompoundNesting:
     def test_array_of_clusters(self):
         cluster_type = _make_type(
-            "cluster", "Cluster",
+            LVTypeKind.CLUSTER, "Cluster",
             fields=[
-                ClusterField(name="x", type=_make_type("primitive", "NumInt32")),
-                ClusterField(name="y", type=_make_type("primitive", "NumInt32")),
+                ClusterField(name="x", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
+                ClusterField(name="y", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
             ],
         )
-        lv_type = _make_type("array", "Array", element_type=cluster_type)
+        lv_type = _make_type(LVTypeKind.ARRAY, "Array", element_type=cluster_type)
         raw = "00000002" + "00000001" + "00000002" + "00000003" + "00000004"
         _, v = _decode(raw, lv_type)
         assert "x" in v
@@ -275,9 +275,9 @@ class TestCompoundNesting:
 
     def test_cluster_with_array(self):
         lv_type = _make_type(
-            "cluster", "Cluster",
+            LVTypeKind.CLUSTER, "Cluster",
             fields=[
-                ClusterField(name="name", type=_make_type("primitive", "String")),
+                ClusterField(name="name", type=_make_type(LVTypeKind.PRIMITIVE, "String")),
                 ClusterField(
                     name="values",
                     type=_array_of("NumInt32"),
@@ -294,9 +294,9 @@ class TestCompoundNesting:
 
     def test_cluster_with_bool_and_array(self):
         lv_type = _make_type(
-            "cluster", "Cluster",
+            LVTypeKind.CLUSTER, "Cluster",
             fields=[
-                ClusterField(name="active", type=_make_type("primitive", "Boolean")),
+                ClusterField(name="active", type=_make_type(LVTypeKind.PRIMITIVE, "Boolean")),
                 ClusterField(
                     name="data",
                     type=_array_of("NumInt16"),
@@ -316,7 +316,7 @@ class TestCompoundNesting:
 
 class TestRefnum:
     def test_refnum_decodes(self):
-        _, v = _decode("00000000", _make_type("primitive", "Refnum"))
+        _, v = _decode("00000000", _make_type(LVTypeKind.PRIMITIVE, "Refnum"))
         assert v is not None
 
 
@@ -324,7 +324,7 @@ class TestRefnum:
 
 class TestVariant:
     def test_variant_decodes(self):
-        _, v = _decode("00000000", _make_type("primitive", "LVVariant"))
+        _, v = _decode("00000000", _make_type(LVTypeKind.PRIMITIVE, "LVVariant"))
         assert v is not None
 
 
@@ -334,7 +334,7 @@ class TestTimestamp:
     def test_timestamp_decodes(self):
         _, v = _decode(
             "0000000000000000" + "0000000000000000",
-            _make_type("primitive", "MeasureData"),
+            _make_type(LVTypeKind.PRIMITIVE, "MeasureData"),
         )
         assert v is not None
 

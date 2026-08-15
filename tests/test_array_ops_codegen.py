@@ -12,11 +12,11 @@ import ast
 import copy
 
 from lvkit.codegen.nodes import compound
-from lvkit.models import LVType, PrimitiveOperation, Terminal
+from lvkit.models import LVType, LVTypeKind, PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
 
-ARRAY_TYPE = LVType(kind="array")
-CLUSTER_TYPE = LVType(kind="cluster")
+ARRAY_TYPE = LVType(kind=LVTypeKind.ARRAY)
+CLUSTER_TYPE = LVType(kind=LVTypeKind.CLUSTER)
 
 
 def _compile_and_run(statements: list, local_vars: dict) -> dict:
@@ -431,11 +431,11 @@ class TestArrayInsertSubarray:
 # terminal, 1-D output -- dimension-terminal count tracks the requested
 # OUTPUT rank, not the source array's own rank.
 
-INT_TYPE = LVType(kind="primitive", underlying_type="NumInt32")
+INT_TYPE = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
 
 def _reshape_op(source_ndim: int, *dim_ids: str) -> PrimitiveOperation:
-    array_type = LVType(kind="array", element_type=INT_TYPE, dimensions=source_ndim)
+    array_type = LVType(kind=LVTypeKind.ARRAY, element_type=INT_TYPE, dimensions=source_ndim)
     terminals = [
         Terminal(id="arr", index=0, direction="input", lv_type=array_type),
         Terminal(id="out", index=1, direction="output"),

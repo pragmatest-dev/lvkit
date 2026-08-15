@@ -40,6 +40,7 @@ from ..models import (
     InvokeOperation,
     LoopOperation,
     LVType,
+    LVTypeKind,
     Operation,
     PrimitiveOperation,
     PropertyOperation,
@@ -796,7 +797,7 @@ def _default_literal(lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return "?"
-    if lv_type.kind == "primitive":
+    if lv_type.kind == LVTypeKind.PRIMITIVE:
         underlying = lv_type.underlying_type or ""
         if underlying in _INT_UNDERLYING_TYPES:
             return "0"
@@ -809,14 +810,14 @@ def _default_literal(lv_type: LVType | None) -> str:
         if underlying in ("String", "SubString"):
             return '""'
         return "?"
-    if lv_type.kind in ("enum", "ring"):
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         if lv_type.values:
             return next(
                 (name for name, ev in lv_type.values.items() if ev.value == 0),
                 "0",
             )
         return "0"
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         return "[]"
     return "?"
 

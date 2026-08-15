@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from lvkit._data import data_dir as _bundled_data_dir
-from lvkit.models import ClusterField, EnumValue, LVType
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from lvkit.primitive_resolver import NodeIcon
 
 
@@ -401,10 +401,10 @@ class VILibResolver:
         """
         if type_spec.endswith(".ctl"):
             # It's a typedef reference - lazy resolution
-            return LVType(kind="typedef_ref", typedef_path=type_spec)
+            return LVType(kind=LVTypeKind.TYPEDEF_REF, typedef_path=type_spec)
         else:
             # It's a primitive type
-            return LVType(kind="primitive", underlying_type=type_spec)
+            return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_spec)
 
     def resolve_type(self, typedef_path: str) -> LVType | None:
         """Resolve a typedef path to its LVType.
@@ -847,7 +847,7 @@ class VILibResolver:
             type_str = None
 
             if lv_type:
-                if lv_type.kind == "typedef_ref" and lv_type.typedef_path:
+                if lv_type.kind == LVTypeKind.TYPEDEF_REF and lv_type.typedef_path:
                     type_str = lv_type.typedef_path
                     # Auto-create typedef if needed
                     self._ensure_typedef(lv_type)

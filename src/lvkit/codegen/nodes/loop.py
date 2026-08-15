@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import LoopOperation, LVType, Operation, Tunnel
+from lvkit.models import LoopOperation, LVType, LVTypeKind, Operation, Tunnel
 
 from ..ast_utils import (
     build_assign,
@@ -130,7 +130,7 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
             if outer_var:
                 # Check if array type - use len(), otherwise direct
                 lv_type = _get_terminal_type(outer_term, ctx)
-                if lv_type and lv_type.kind == "array":
+                if lv_type and lv_type.kind == LVTypeKind.ARRAY:
                     n_terminal_var = f"len({outer_var})"
                 else:
                     # Integer or unknown - use directly
@@ -176,7 +176,7 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
                     lv_type = _get_terminal_type(outer_term, ctx)
                     # Treat as array if type is array OR unknown (backward compat)
                     # Only treat as scalar if type is known and NOT an array
-                    is_array = lv_type is None or lv_type.kind == "array"
+                    is_array = lv_type is None or lv_type.kind == LVTypeKind.ARRAY
                     if is_array:
                         lpTun_array_inputs.append(
                             (outer_var, inner_term, outer_term)
@@ -410,14 +410,12 @@ def _make_var_name(tunnel: Tunnel, ctx: CodeGenContext | None = None) -> str:
         # Shift registers: use semantic names based on common patterns
         # Try to infer from the data type or use generic names
         lv_type = _get_terminal_type(outer, ctx) if ctx else None
-        if lv_type:
-            if lv_type.kind == "string":
-                return "accumulated_str"
-            elif lv_type.kind == "array":
-                return "collected"
-            elif lv_type.kind in ("int", "float", "numeric"):
-                return "counter"
-        # Generic fallback for shift registers
+        if lv_type and lv_type.kind == LVTypeKind.ARRAY:
+            return "collected"
+        # A string- or numeric-specific name ("accumulated_str"/"counter") would
+        # key on underlying_type, not kind -- kind is only ever an LVTypeKind
+        # family value (never "string"/"int"/"float"), so those checks were dead.
+        # That refinement isn't wired up; fall through to the generic name.
         return "state"
 
     # Fall back to generic tunnel name
@@ -831,7 +829,7 @@ def _find_all_autoindex_arrays(
             if outer_var:
                 lv_type = _get_terminal_type(outer_term, ctx)
                 # Treat as array if type is array OR unknown (backward compat)
-                if lv_type is None or lv_type.kind == "array":
+                if lv_type is None or lv_type.kind == LVTypeKind.ARRAY:
                     results.append((outer_var, inner_term))
 
     return results

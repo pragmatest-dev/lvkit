@@ -17,7 +17,7 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import ConstantNode, InPlaceNode, PrimitiveNode, VINode
-from lvkit.models import LVType, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.primitive_resolver import NodeIcon, PrimitiveEntry, ResolvedPrimitive
 from lvkit.render.backend import SvgBackend
 from lvkit.render.glyph import (
@@ -206,7 +206,7 @@ def test_negated_gate_bubble_sits_on_output_side():
 def test_constant_node_resolves_via_generated_glyph():
     node = ConstantNode(
         id="vi::3", vi="vi", value=0.0,
-        lv_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
         terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
@@ -218,7 +218,7 @@ def test_constant_node_resolves_via_generated_glyph():
 def test_boolean_constant_resolves_to_boolean_glyph():
     from lvkit.render.nodes import _bool_value
 
-    bool_t = LVType(kind="primitive", underlying_type="Boolean")
+    bool_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
     true_node = ConstantNode(id="vi::t", vi="vi", value="True", lv_type=bool_t,
                              terminals=[])
     false_node = ConstantNode(id="vi::f", vi="vi", value="0000", lv_type=bool_t,
@@ -361,7 +361,7 @@ def test_cpd_arith_boolean_add_renders_as_logical_or():
     logical OR (see codegen/nodes/compound.py::generate_compound_arith),
     so the glyph must show 'or' (drawn as ``∨``), not the raw '+' — mirrors
     node 802 in the stacked_sequence sample."""
-    bool_t = LVType(kind="primitive", underlying_type="Boolean")
+    bool_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
     node = PrimitiveNode(
         id="vi::20", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
         operation="add",
@@ -388,7 +388,7 @@ def test_cpd_arith_boolean_add_renders_as_logical_or():
 def test_cpd_arith_numeric_add_still_renders_as_plus():
     """A NUMERIC-terminal cpdArith node with operation "add" is ordinary
     arithmetic addition — the glyph must keep the '+' symbol."""
-    num_t = LVType(kind="primitive", underlying_type="NumFloat64")
+    num_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
     node = PrimitiveNode(
         id="vi::21", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
         operation="add",
@@ -406,7 +406,7 @@ def test_cpd_arith_numeric_add_still_renders_as_plus():
 def test_cpd_arith_three_inputs_draws_two_horizontal_dividers():
     """A 3-input cpdArith node draws 1 vertical operator-cell divider plus
     2 horizontal row dividers (one per input boundary) = 3 lines total."""
-    num_t = LVType(kind="primitive", underlying_type="NumFloat64")
+    num_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
     node = PrimitiveNode(
         id="vi::22", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
         operation="add",
