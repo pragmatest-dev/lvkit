@@ -5,6 +5,7 @@ parser-structure indexes) plus a handle to the ConstructionMixin for its
 helper methods. Typed as ``Any`` for the mixin to avoid a construction↔build
 import cycle — build/ is imported BY construction, never the reverse.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,23 +17,23 @@ from lvkit.parser.models import ParsedBlockDiagram
 
 @dataclass
 class GraphBuildContext:
-    mixin: Any                    # ConstructionMixin (_qid/_build_*/_enrich_type)
+    mixin: Any  # ConstructionMixin (_qid/_build_*/_enrich_type)
     bd: ParsedBlockDiagram
     vi_name: str
-    term_lookup: dict[str, Any]   # terminal_uid -> WireEnd (mutated in place)
+    term_lookup: dict[str, Any]  # terminal_uid -> WireEnd (mutated in place)
     loop_by_uid: dict[str, Any]
     case_by_uid: dict[str, Any]
     flatseq_by_uid: dict[str, Any]
     decompose_by_uid: dict[str, Any]
     disable_by_uid: dict[str, Any]
     event_by_uid: dict[str, Any]
-    iuse_to_qname: dict[str, str]   # iUse uid -> qualified callee name
-    iuse_to_qpath: dict[str, str]   # iUse uid -> qualified on-disk path
+    iuse_to_qname: dict[str, str]  # iUse uid -> qualified callee name
+    iuse_to_qpath: dict[str, str]  # iUse uid -> qualified on-disk path
     # For the early ref handlers (ctlRefConst / gRef / statVIRef):
-    fp: Any                         # ParsedFrontPanel | None
-    ddo_to_fpdco: dict[str, str]    # inner ddo uid -> fPDCO uid
+    fp: Any  # ParsedFrontPanel | None
+    ddo_to_fpdco: dict[str, str]  # inner ddo uid -> fPDCO uid
     param_wire_ends: dict[int, Any]  # control-list index -> FP terminal WireEnd
-    vi_node_uids: set[str]          # graph node uids for this VI (mutated)
+    vi_node_uids: set[str]  # graph node uids for this VI (mutated)
 
     # --- thin pass-throughs to the mixin helpers (keep call sites readable) ---
     def qid(self, uid: str) -> str:
@@ -46,10 +47,17 @@ class GraphBuildContext:
         return self.mixin._graph
 
     def build_structure_terminals(
-        self, tunnels: list, q_node_uid: str, **kwargs: Any,
+        self,
+        tunnels: list,
+        q_node_uid: str,
+        **kwargs: Any,
     ) -> list[Terminal]:
         return self.mixin._build_structure_terminals(
-            self.bd, tunnels, q_node_uid, self.term_lookup, self.vi_name,
+            self.bd,
+            tunnels,
+            q_node_uid,
+            self.term_lookup,
+            self.vi_name,
             **kwargs,
         )
 

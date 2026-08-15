@@ -162,9 +162,7 @@ def test_windows_prefers_current_version(tmp_path, monkeypatch):
     old = _make_install(tmp_path, "LV 2019", vilib=True, userlib=False)
     tree = _FakeKey(
         subkeys={
-            "CurrentVersion": _FakeKey(
-                values={"Path": str(cur), "Version": "21.0"}
-            ),
+            "CurrentVersion": _FakeKey(values={"Path": str(cur), "Version": "21.0"}),
             "19.0": _FakeKey(values={"Path": str(old), "Version": "19.0"}),
         }
     )

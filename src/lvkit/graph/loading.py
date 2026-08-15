@@ -104,9 +104,7 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     see ``KindProps``.
     """
     execution = dict(cast("dict[str, Any]", poly_metadata.get("execution", {})))
-    execution["priority"] = Priority(
-        execution.get("priority", Priority.NORMAL.value)
-    )
+    execution["priority"] = Priority(execution.get("priority", Priority.NORMAL.value))
     execution["reentrancy"] = Reentrancy(
         execution.get("reentrancy", Reentrancy.NON_REENTRANT.value)
     )
@@ -123,9 +121,7 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     return VIProperties(
         lv_version=cast("str | None", poly_metadata.get("lv_version")),
         vi_type=cast("str | None", poly_metadata.get("vi_type")),
-        lock_state=LockState(
-            poly_metadata.get("lock_state", LockState.UNLOCKED.value)
-        ),
+        lock_state=LockState(poly_metadata.get("lock_state", LockState.UNLOCKED.value)),
         execution=ExecutionProps(**execution),
         window=WindowProps(**window),
         toolbar=ToolbarProps(**toolbar),
@@ -358,7 +354,8 @@ class LoadingMixin:
                             ctl_path = found
                     if ctl_path.exists():
                         self.load_typedef(
-                            ctl_path, typedef_qname=typedef_qname,
+                            ctl_path,
+                            typedef_qname=typedef_qname,
                             search_paths=search_paths,
                         )
                     elif not self._dep_graph.has_node(typedef_qname):
@@ -371,7 +368,9 @@ class LoadingMixin:
                     if not vi_path.exists():
                         # Relative path doesn't resolve — search by filename
                         vi_path = self._find_subvi(
-                            member_name, search_paths, lvlib_path.parent,
+                            member_name,
+                            search_paths,
+                            lvlib_path.parent,
                         )
                     if vi_path and vi_path.exists():
                         self.load_vi(vi_path, mode, search_paths)
@@ -384,7 +383,9 @@ class LoadingMixin:
                 if not class_path.exists():
                     class_name = Path(member.url).name
                     found = self._find_file(
-                        class_name, search_paths, lvlib_path.parent,
+                        class_name,
+                        search_paths,
+                        lvlib_path.parent,
                     )
                     if found:
                         class_path = found
@@ -402,7 +403,9 @@ class LoadingMixin:
                     # owner_chain here silently loses that ownership
                     # attribution instead of fixing anything.
                     self.load_lvclass(
-                        class_path, mode, search_paths,
+                        class_path,
+                        mode,
+                        search_paths,
                         owner_chain=chain + [lib.name + ".lvlib"],
                     )
             elif member.member_type == "Library":
@@ -410,13 +413,17 @@ class LoadingMixin:
                 if not nested_path.exists():
                     lib_name_file = Path(member.url).name
                     found = self._find_file(
-                        lib_name_file, search_paths, lvlib_path.parent,
+                        lib_name_file,
+                        search_paths,
+                        lvlib_path.parent,
                     )
                     if found:
                         nested_path = found
                 if nested_path.exists():
                     self.load_lvlib(
-                        nested_path, mode, search_paths,
+                        nested_path,
+                        mode,
+                        search_paths,
                         owner_chain=chain + [lib.name + ".lvlib"],
                     )
 
@@ -460,8 +467,7 @@ class LoadingMixin:
         # shared with the render resolver's VI-own-inline-copy fallback —
         # see structure.py::private_data_field_to_cluster_field.
         fields = [
-            private_data_field_to_cluster_field(f)
-            for f in cls.private_data_fields
+            private_data_field_to_cluster_field(f) for f in cls.private_data_fields
         ]
         if not fields:
             # No inline "class private data" cluster found in a method VI's VCTP
@@ -469,8 +475,7 @@ class LoadingMixin:
             # private data as a control (.ctl) typedef instead. Read the fields
             # straight from that control (same .ctl extraction as load_typedef);
             # its file may differ from the class's recorded logical name.
-            ctl = self._find_private_data_ctl(
-                lvclass_path.parent, cls.private_data_ctl)
+            ctl = self._find_private_data_ctl(lvclass_path.parent, cls.private_data_ctl)
             if ctl is not None:
                 ctl_fields, _ = self._ctl_root_fields(ctl)
                 if ctl_fields:
@@ -487,7 +492,8 @@ class LoadingMixin:
             except Exception:
                 logger.debug(
                     "flattened private-data recovery failed for %s",
-                    lvclass_path, exc_info=True,
+                    lvclass_path,
+                    exc_info=True,
                 )
                 pd_fields = []
             fields = [private_data_field_to_cluster_field(f) for f in pd_fields]
@@ -511,7 +517,9 @@ class LoadingMixin:
                     parent_file = self._walk_up_find(lvclass_path.parent, parent_key)
                     if parent_file is not None:
                         self.load_lvclass(
-                            parent_file, LoadMode.MINIMAL, search_paths=search_paths,
+                            parent_file,
+                            LoadMode.MINIMAL,
+                            search_paths=search_paths,
                         )
             return cls_qname
 
@@ -550,7 +558,8 @@ class LoadingMixin:
                         vi_name = bare_name
                 if vi_name in self._dep_graph:
                     self._dep_graph.add_edge(
-                        cls_qname, vi_name,
+                        cls_qname,
+                        vi_name,
                         rel="owns",
                         scope=method.scope,
                         is_accessor=method.is_accessor,
@@ -564,7 +573,10 @@ class LoadingMixin:
         return cls_qname
 
     def _walk_up_find(
-        self, start_dir: Path, filename: str, max_levels: int = 16,
+        self,
+        start_dir: Path,
+        filename: str,
+        max_levels: int = 16,
     ) -> Path | None:
         """Walk up from ``start_dir`` looking for ``filename`` — e.g. an owning
         ``<Class>.lvclass`` that sits above a member VI's ``private/``/``protected/``
@@ -746,11 +758,15 @@ class LoadingMixin:
         # pre-parsed set, layout wanted, or the pre-parse pass never ran)
         # falls straight through to the normal serial parse.
         cached_vi = self._parse_cache.get(str(bd_xml)) if self._parse_cache else None
-        vi = cached_vi if cached_vi is not None else parse_vi(
-            bd_xml=bd_xml,
-            fp_xml=fp_xml if fp_xml and fp_xml.exists() else None,
-            main_xml=main_xml if main_xml and main_xml.exists() else None,
-            layout=self._want_layout,
+        vi = (
+            cached_vi
+            if cached_vi is not None
+            else parse_vi(
+                bd_xml=bd_xml,
+                fp_xml=fp_xml if fp_xml and fp_xml.exists() else None,
+                main_xml=main_xml if main_xml and main_xml.exists() else None,
+                layout=self._want_layout,
+            )
         )
 
         metadata = vi.metadata
@@ -893,7 +909,12 @@ class LoadingMixin:
         # walk above needed to re-run — re-adding would duplicate nodes.
         if vi_name not in self._vi_nodes:
             self._add_vi_to_graph(
-                bd, fp, conpane, wiring_rules, vi_name, type_map,
+                bd,
+                fp,
+                conpane,
+                wiring_rules,
+                vi_name,
+                type_map,
                 iuse_to_qname=metadata.iuse_to_qualified_name,
                 iuse_to_qpath=iuse_to_qpath,
             )
@@ -901,7 +922,8 @@ class LoadingMixin:
         return vi_name
 
     def _ctl_root_fields(
-        self, ctl_path: Path,
+        self,
+        ctl_path: Path,
     ) -> tuple[list[ClusterField] | None, dict[int, LVType]]:
         """The root cluster fields + full type_map of a control (.ctl). The
         single ``.ctl`` field-extraction, shared by ``load_typedef`` and the
@@ -922,7 +944,9 @@ class LoadingMixin:
         return (root.fields if root is not None else None), type_map
 
     def _find_private_data_ctl(
-        self, class_dir: Path, recorded_name: str | None,
+        self,
+        class_dir: Path,
+        recorded_name: str | None,
     ) -> Path | None:
         """The class's private-data control FILE. LabVIEW records a LOGICAL name
         for it (e.g. ``<Class>.ctl``) that can differ from the on-disk file
@@ -967,12 +991,18 @@ class LoadingMixin:
             for lv_type in type_map.values():
                 if lv_type.classname and lv_type.classname != "LabVIEW Object":
                     self._load_dependency(
-                        lv_type.classname, None, ctl_path, search_paths,
+                        lv_type.classname,
+                        None,
+                        ctl_path,
+                        search_paths,
                         caller_qname=qname,
                     )
                 if lv_type.typedef_name:
                     self._load_dependency(
-                        lv_type.typedef_name, None, ctl_path, search_paths,
+                        lv_type.typedef_name,
+                        None,
+                        ctl_path,
+                        search_paths,
                         caller_qname=qname,
                     )
         else:
@@ -1038,9 +1068,11 @@ class LoadingMixin:
         # their container file — redirect to the actual sibling ``.vi`` so it
         # leaf-loads and its param names resolve. If the sibling isn't there,
         # drop to None and let the name-based search below find it.
-        if (resolved is not None
-                and leaf.endswith(".vi")
-                and resolved.suffix.lower() in (".lvclass", ".lvlib")):
+        if (
+            resolved is not None
+            and leaf.endswith(".vi")
+            and resolved.suffix.lower() in (".lvclass", ".lvlib")
+        ):
             member = resolved.with_name(leaf)
             resolved = member if member.exists() else None
 
@@ -1064,7 +1096,9 @@ class LoadingMixin:
                     parts = qualified_name.split(":")
                     owner_chain = parts[:-1] if len(parts) > 1 else None
                     loaded_qname = self.load_lvclass(
-                        found, LoadMode.MINIMAL, search_paths=search_paths,
+                        found,
+                        LoadMode.MINIMAL,
+                        search_paths=search_paths,
                         owner_chain=owner_chain,
                     )
                     if caller_qname:
@@ -1080,20 +1114,24 @@ class LoadingMixin:
                         self._qualified_aliases[qualified_name] = loaded_qname
                     return
             node_type = (
-                "class" if leaf.endswith(".lvclass") else
-                "typedef" if leaf.endswith(".ctl") else
-                "library" if leaf.endswith(".lvlib") else
-                "vi"
+                "class"
+                if leaf.endswith(".lvclass")
+                else "typedef"
+                if leaf.endswith(".ctl")
+                else "library"
+                if leaf.endswith(".lvlib")
+                else "vi"
             )
             # Carry path_tokens from the parser so downstream consumers
             # (export, diagnostics) know what `<vilib>/...` family the
             # missing dep belongs to. Purely additive node attr.
             path_tokens = (
-                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens
-                else None
+                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
             )
             self._dep_graph.add_node(
-                qualified_name, node_type=node_type, path_tokens=path_tokens,
+                qualified_name,
+                node_type=node_type,
+                path_tokens=path_tokens,
             )
             self._stubs.add(qualified_name)
             if caller_qname:
@@ -1109,7 +1147,9 @@ class LoadingMixin:
                 # — so the transitive tree is never walked. FULL recurses fully.
                 child_mode = LoadMode.FULL if mode is LoadMode.FULL else LoadMode.NONE
                 loaded_name = self._load_vi_recursive(
-                    bd_xml, fp_xml, main_xml,
+                    bd_xml,
+                    fp_xml,
+                    main_xml,
                     search_paths=search_paths,
                     visited=set(),
                     source_dir=resolved.parent,
@@ -1121,13 +1161,17 @@ class LoadingMixin:
                     if qualified_name != loaded_name:
                         self._qualified_aliases[qualified_name] = loaded_name
                     # Auto-cache terminal layout for vilib VIs loaded from disk
-                    if (dep_ref is not None
-                            and dep_ref.path_tokens
-                            and dep_ref.path_tokens[0] == "<vilib>"):
+                    if (
+                        dep_ref is not None
+                        and dep_ref.path_tokens
+                        and dep_ref.path_tokens[0] == "<vilib>"
+                    ):
                         self._cache_vilib_terminal_layout(loaded_name, dep_ref)
             except (RuntimeError, OSError):
                 self._stub_subvi(
-                    qualified_name, caller_qname or "", dep_ref=dep_ref,
+                    qualified_name,
+                    caller_qname or "",
+                    dep_ref=dep_ref,
                 )
         elif leaf.endswith(".lvclass"):
             parts = qualified_name.split(":")
@@ -1135,8 +1179,10 @@ class LoadingMixin:
             # MINIMAL: field-load the class (no method bodies) — enough for
             # by-name field names. FULL: load its whole method tree for codegen.
             loaded_qname = self.load_lvclass(
-                resolved, mode,
-                search_paths=search_paths, owner_chain=owner_chain,
+                resolved,
+                mode,
+                search_paths=search_paths,
+                owner_chain=owner_chain,
             )
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, loaded_qname)
@@ -1151,18 +1197,21 @@ class LoadingMixin:
                 self._dep_graph.add_edge(caller_qname, qualified_name)
         elif leaf.endswith(".ctl"):
             self.load_typedef(
-                resolved, typedef_qname=qualified_name, search_paths=search_paths,
+                resolved,
+                typedef_qname=qualified_name,
+                search_paths=search_paths,
             )
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, qualified_name)
         else:
             # Unknown extension — stub rather than guess.
             path_tokens = (
-                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens
-                else None
+                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
             )
             self._dep_graph.add_node(
-                qualified_name, node_type="unknown", path_tokens=path_tokens,
+                qualified_name,
+                node_type="unknown",
+                path_tokens=path_tokens,
             )
             self._stubs.add(qualified_name)
             if caller_qname:
@@ -1181,12 +1230,12 @@ class LoadingMixin:
         """
         self._stubs.add(name)
         path_tokens = (
-            list(dep_ref.path_tokens)
-            if dep_ref and dep_ref.path_tokens
-            else None
+            list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
         )
         self._dep_graph.add_node(
-            name, node_type="vi", path_tokens=path_tokens,
+            name,
+            node_type="vi",
+            path_tokens=path_tokens,
         )
 
     def _cache_vilib_terminal_layout(

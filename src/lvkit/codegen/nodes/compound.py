@@ -49,7 +49,9 @@ def _is_integer(term: object) -> bool:
 
 
 def _invert_expr(
-    expr: ast.expr, boolean: bool, operation: str,
+    expr: ast.expr,
+    boolean: bool,
+    operation: str,
     lv_type: LVType | None = None,
 ) -> ast.expr:
     """Wrap an expression with a Compound-Arithmetic terminal's "Invert".
@@ -66,20 +68,17 @@ def _invert_expr(
     if operation == "add":
         return ast.UnaryOp(op=ast.USub(), operand=expr)
     if operation == "multiply":
-        return ast.BinOp(
-            left=ast.Constant(value=1), op=ast.Div(), right=expr
-        )
+        return ast.BinOp(left=ast.Constant(value=1), op=ast.Div(), right=expr)
     inv: ast.expr = ast.UnaryOp(op=ast.Invert(), operand=expr)
     mask = uint_mask(lv_type)
     if mask is not None:
-        inv = ast.BinOp(
-            left=inv, op=ast.BitAnd(), right=ast.Constant(value=mask)
-        )
+        inv = ast.BinOp(left=inv, op=ast.BitAnd(), right=ast.Constant(value=mask))
     return inv
 
 
 def generate_compound_arith(
-    node: PrimitiveOperation, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for compound arithmetic (cpdArith).
 
@@ -148,9 +147,7 @@ def generate_compound_arith(
     if len(input_exprs) == 1:
         combined = parse_expr(input_exprs[0])
         if output_term.inverted:
-            combined = _invert_expr(
-                combined, boolean, operation, output_term.lv_type
-            )
+            combined = _invert_expr(combined, boolean, operation, output_term.lv_type)
             stmt = build_assign(var_name, combined)
             return CodeFragment(
                 statements=[stmt],
@@ -211,9 +208,7 @@ def generate_compound_arith(
         )
 
     if output_term.inverted:
-        combined = _invert_expr(
-            combined, boolean, operation, output_term.lv_type
-        )
+        combined = _invert_expr(combined, boolean, operation, output_term.lv_type)
 
     stmt = build_assign(var_name, combined)
     return CodeFragment(
@@ -225,9 +220,7 @@ def generate_compound_arith(
 def _make_arith_var_name(operation: str, input_names: list[str]) -> str:
     """Generate a semantic variable name for compound arithmetic."""
     if operation in ("or", "and"):
-        stop_keywords = {
-            "stop", "done", "exit", "quit", "end", "finish", "complete"
-        }
+        stop_keywords = {"stop", "done", "exit", "quit", "end", "finish", "complete"}
         for name in input_names:
             if any(kw in name.lower() for kw in stop_keywords):
                 return "should_stop"
@@ -240,7 +233,8 @@ def _make_arith_var_name(operation: str, input_names: list[str]) -> str:
 
 
 def generate_array_build(
-    node: PrimitiveOperation, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for array building (aBuild).
 
@@ -318,7 +312,8 @@ def _make_array_var_name(input_names: list[str]) -> str:
 
 
 def generate_array_init(
-    node: PrimitiveOperation, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for Initialize Array (aInit).
 
@@ -337,7 +332,8 @@ def generate_array_init(
     """
     terminals = node.terminals
     inputs = sorted(
-        (t for t in terminals if t.direction == "input"), key=lambda t: t.index,
+        (t for t in terminals if t.direction == "input"),
+        key=lambda t: t.index,
     )
     outputs = [t for t in terminals if t.direction == "output"]
     if not outputs:
@@ -394,7 +390,9 @@ def generate_array_init(
             )
 
     var_name = ctx.make_output_var(
-        "initialized_array", node.id, terminal_id=output_term.id,
+        "initialized_array",
+        node.id,
+        terminal_id=output_term.id,
     )
     stmt = build_assign(var_name, expr)
 
@@ -406,7 +404,8 @@ def generate_array_init(
 
 
 def generate_array_replace(
-    node: PrimitiveOperation, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for Replace Array Subset (aReplace).
 
@@ -442,16 +441,16 @@ def generate_array_replace(
         new_elem_val = "[]" if is_subset else "None"
     subset_str = new_elem_val if is_subset else f"[{new_elem_val}]"
 
-    body_str = (
-        f"_n = max(0, min(len({subset_str}), len({array_val}) - ({index_val})))"
-    )
+    body_str = f"_n = max(0, min(len({subset_str}), len({array_val}) - ({index_val})))"
     expr_str = (
         f"{array_val}[:{index_val}] + ({subset_str})[:_n] "
         f"+ {array_val}[({index_val}) + _n:]"
     )
 
     var_name = ctx.make_output_var(
-        "output_array", node.id, terminal_id=output_term.id,
+        "output_array",
+        node.id,
+        terminal_id=output_term.id,
     )
     body_stmt = parse_stmt(body_str)
     assign_stmt = build_assign(var_name, parse_expr(expr_str))
@@ -465,12 +464,15 @@ def generate_array_replace(
 def _is_array_type(term: Terminal | None) -> bool:
     """True if the terminal's LabVIEW type is an array."""
     return bool(
-        term is not None and term.lv_type is not None and term.lv_type.kind == LVTypeKind.ARRAY
+        term is not None
+        and term.lv_type is not None
+        and term.lv_type.kind == LVTypeKind.ARRAY
     )
 
 
 def generate_array_insert(
-    node: PrimitiveOperation, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for Insert Into Array (aInsert).
 
@@ -504,7 +506,8 @@ def generate_array_insert(
     unlike Replace Array Subset, this is a true no-op, not a clip.
     """
     inputs = sorted(
-        (t for t in node.terminals if t.direction == "input"), key=lambda t: t.index,
+        (t for t in node.terminals if t.direction == "input"),
+        key=lambda t: t.index,
     )
     outputs = [t for t in node.terminals if t.direction == "output"]
     if not outputs or len(inputs) < 2:
@@ -541,7 +544,9 @@ def generate_array_insert(
     )
 
     var_name = ctx.make_output_var(
-        "output_array", node.id, terminal_id=output_term.id,
+        "output_array",
+        node.id,
+        terminal_id=output_term.id,
     )
     stmt = build_assign(var_name, parse_expr(expr_str))
 
@@ -552,7 +557,8 @@ def generate_array_insert(
 
 
 def generate_array_reshape(
-    node: PrimitiveOperation, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for Reshape Array (aReshape).
 
@@ -576,7 +582,8 @@ def generate_array_reshape(
     verify against.
     """
     inputs = sorted(
-        (t for t in node.terminals if t.direction == "input"), key=lambda t: t.index,
+        (t for t in node.terminals if t.direction == "input"),
+        key=lambda t: t.index,
     )
     outputs = [t for t in node.terminals if t.direction == "output"]
     if not outputs or not inputs:
@@ -637,7 +644,9 @@ def generate_array_reshape(
     pad_stmt = build_assign(flat_var, parse_expr(pad_expr_str))
 
     var_name = ctx.make_output_var(
-        "reshaped_array", node.id, terminal_id=output_term.id,
+        "reshaped_array",
+        node.id,
+        terminal_id=output_term.id,
     )
 
     if target_ndim == 1:
@@ -646,8 +655,7 @@ def generate_array_reshape(
         d0_str = ast.unparse(dim_exprs[0])
         d1_str = ast.unparse(dim_exprs[1])
         expr_str = (
-            f"[{flat_var}[_ri*{d1_str}:(_ri+1)*{d1_str}] "
-            f"for _ri in range({d0_str})]"
+            f"[{flat_var}[_ri*{d1_str}:(_ri+1)*{d1_str}] for _ri in range({d0_str})]"
         )
         final_stmt = build_assign(var_name, parse_expr(expr_str))
 
@@ -667,7 +675,9 @@ def _build_flatten_expr(array_val: str, source_ndim: int) -> ast.expr:
     base = parse_expr(array_val)
     if source_ndim <= 1:
         return ast.Call(
-            func=ast.Name(id="list", ctx=ast.Load()), args=[base], keywords=[],
+            func=ast.Name(id="list", ctx=ast.Load()),
+            args=[base],
+            keywords=[],
         )
 
     loop_vars = [f"_lv{i}" for i in range(source_ndim)]
@@ -713,8 +723,14 @@ def _reshape_default_element(elem_type: LVType | None) -> ast.expr:
         if underlying == "Boolean":
             return ast.Constant(value=False)
         if underlying in (
-            "NumInt8", "NumInt16", "NumInt32", "NumInt64",
-            "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64",
+            "NumInt8",
+            "NumInt16",
+            "NumInt32",
+            "NumInt64",
+            "NumUInt8",
+            "NumUInt16",
+            "NumUInt32",
+            "NumUInt64",
         ):
             return ast.Constant(value=0)
         if underlying in ("NumFloat32", "NumFloat64"):

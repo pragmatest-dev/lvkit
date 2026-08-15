@@ -241,7 +241,8 @@ _HOVER_PANEL_JS = """(function() {
 
 
 def _resolve_theme_mode(
-    theme_mode: ThemeMode, base: Theme,
+    theme_mode: ThemeMode,
+    base: Theme,
 ) -> tuple[Theme, str]:
     """Map a ``theme_mode`` to the ``(theme, extra_css)`` a render needs.
 
@@ -256,7 +257,8 @@ def _resolve_theme_mode(
 
 
 def _vi_properties_data_attrs(
-    graph: InMemoryVIGraph, vi_name: str,
+    graph: InMemoryVIGraph,
+    vi_name: str,
 ) -> dict[str, str]:
     """Compact-JSON ``data-lv-properties``/``data-lv-health`` payloads for
     this VI's ``VIProperties``/``VIHealth`` facets (task #19).
@@ -287,8 +289,11 @@ def _vi_properties_data_attrs(
 
 
 def render_vi(
-    graph: InMemoryVIGraph, vi_name: str, *,
-    theme: Theme = DEFAULT_THEME, interactive: bool = True,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    *,
+    theme: Theme = DEFAULT_THEME,
+    interactive: bool = True,
     theme_mode: ThemeMode = "light",
 ) -> str | None:
     """Render one VI's block diagram to an SVG string.
@@ -333,7 +338,11 @@ def render_vi(
     theme, extra_css = _resolve_theme_mode(theme_mode, theme)
     extra_attrs = _vi_properties_data_attrs(graph, vi_name)
     svg = _render_scene_svg(
-        scene, vi_name, theme, interactive=interactive, extra_css=extra_css,
+        scene,
+        vi_name,
+        theme,
+        interactive=interactive,
+        extra_css=extra_css,
         extra_attrs=extra_attrs,
     )
     aside = _vi_aside_svg(graph, vi_name, scene, theme)
@@ -347,7 +356,10 @@ _ASIDE_PAD = 8.0
 
 
 def _vi_aside_svg(
-    graph: InMemoryVIGraph, vi_name: str, scene: Scene, theme: Theme,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    scene: Scene,
+    theme: Theme,
 ) -> str:
     """The VI's connector-pane Context-Help panel (icon + title + description +
     the pane grid with each terminal's name on a leader stub), pinned TOP-RIGHT
@@ -419,8 +431,12 @@ _BASE_CSS = (
 
 
 def _render_scene_svg(
-    scene: Scene, vi_name: str, theme: Theme = DEFAULT_THEME, *,
-    interactive: bool = True, extra_css: str = "",
+    scene: Scene,
+    vi_name: str,
+    theme: Theme = DEFAULT_THEME,
+    *,
+    interactive: bool = True,
+    extra_css: str = "",
     extra_attrs: dict[str, str] | None = None,
 ) -> str:
     """Draw an already-built ``Scene`` to a self-contained interactive SVG.
@@ -450,16 +466,26 @@ def _render_scene_svg(
         root_id = _root_id(vi_name)
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
-            scene.bounds, title=vi_name, script=script, root_id=root_id,
-            style=style, extra_attrs=extra_attrs,
+            scene.bounds,
+            title=vi_name,
+            script=script,
+            root_id=root_id,
+            style=style,
+            extra_attrs=extra_attrs,
         )
     return backend.render(
-        scene.bounds, title=vi_name, style=style, extra_attrs=extra_attrs,
+        scene.bounds,
+        title=vi_name,
+        style=style,
+        extra_attrs=extra_attrs,
     )
 
 
 def render_vi_with_subvis(
-    graph: InMemoryVIGraph, vi_name: str, *, theme: Theme = DEFAULT_THEME,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    *,
+    theme: Theme = DEFAULT_THEME,
 ) -> tuple[str | None, dict[str, str]]:
     """Render one VI, and also return the ``data-node`` id -> target VI name map
     for the subVI-call nodes on its diagram.
@@ -509,8 +535,12 @@ def render_vi_file(
     SubVIs) so the VI still renders."""
     return render_vi_file_titled(
         path,
-        search_paths=search_paths, vilib_root=vilib_root,
-        userlib_root=userlib_root, mode=mode, theme=theme, theme_mode=theme_mode,
+        search_paths=search_paths,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        mode=mode,
+        theme=theme,
+        theme_mode=theme_mode,
     )[0]
 
 
@@ -553,6 +583,7 @@ def render_vi_file_titled(
     # (best-effort; never fails the render). A cache HIT never reaches here, so
     # a warm render pays nothing extra.
     from ..index.build import warm_all_loaded
+
     warm_all_loaded(graph)
     svg = render_vi(graph, name, theme=theme, theme_mode=theme_mode)
     return svg, name

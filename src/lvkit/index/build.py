@@ -135,8 +135,8 @@ def build_lvproj_membership(project_root: Path) -> list[LVProjMemberFact]:
         for m in get_project_members(project):
             exists = m.path.exists()
             resolved = m.path.resolve() if exists else None
-            is_in_repo = exists and resolved is not None and resolved.is_relative_to(
-                root
+            is_in_repo = (
+                exists and resolved is not None and resolved.is_relative_to(root)
             )
             rows.append(
                 LVProjMemberFact(
@@ -189,7 +189,10 @@ def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
             else None
         )
         cgraph.load_lvclass(
-            cls_path, LoadMode.NONE, search_paths=[project_root], owner_chain=oc,
+            cls_path,
+            LoadMode.NONE,
+            search_paths=[project_root],
+            owner_chain=oc,
         )
     return project_vi_facts(cgraph, vi_name, cp)
 
@@ -209,7 +212,9 @@ def _owner_chain_for_class(vi_name: str) -> tuple[list[str] | None, str | None]:
 
 
 def warm_index_for_vi(
-    graph: InMemoryVIGraph, vi_name: str, vi_path: Path,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    vi_path: Path,
 ) -> None:
     """Persist ONE already-loaded VI's facts into its project index.
 
@@ -291,11 +296,13 @@ class RefreshResult:
 
     rebuilt: list[str]  # paths rebuilt (content changed or newly added)
     deleted: list[str]  # paths dropped (the .vi is gone)
-    total: int          # VIs in the index after the refresh
+    total: int  # VIs in the index after the refresh
 
 
 def refresh_index(
-    project_root: Path, vi_paths: list[Path], stored: list[VIFacts],
+    project_root: Path,
+    vi_paths: list[Path],
+    stored: list[VIFacts],
 ) -> tuple[RefreshResult, list[VIFacts]]:
     """Incrementally refresh ``stored`` against the on-disk repo by content hash.
 
@@ -409,7 +416,9 @@ def _vi_name_for_path(graph: InMemoryVIGraph, vi_path: Path) -> str | None:
 
 
 def project_vi_facts(
-    graph: InMemoryVIGraph, vi_name: str, vi_path: Path,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    vi_path: Path,
 ) -> VIFacts:
     """Project one loaded VI's graph facts into a ``VIFacts`` row.
 
@@ -463,8 +472,10 @@ def project_vi_facts(
                 type_use_keys.add(t.lv_type.typedef_name)
             if t.lv_type.values:
                 enum_values = [
-                    name for name, _ev in
-                    sorted(t.lv_type.values.items(), key=lambda kv: kv[1].value)
+                    name
+                    for name, _ev in sorted(
+                        t.lv_type.values.items(), key=lambda kv: kv[1].value
+                    )
                 ]
         is_fp = isinstance(t, FPTerminal)
         terminals.append(
@@ -512,7 +523,10 @@ def project_vi_facts(
             # is None for a loaded VI, "vi" for a stub) so the call graph stays
             # pure and ``get_callers``/``blast_radius`` never see a class.
             if graph._dep_graph.nodes[succ].get("node_type") in (
-                "class", "typedef", "library", "unknown",
+                "class",
+                "typedef",
+                "library",
+                "unknown",
             ):
                 continue
             calls.append(succ)
@@ -542,9 +556,7 @@ def project_vi_facts(
         exec_show_fp_when_loaded=properties.execution.show_fp_when_loaded,
         exec_show_fp_when_called=properties.execution.show_fp_when_called,
         exec_close_fp_after_call=properties.execution.close_fp_after_call,
-        exec_auto_preallocate_arrays=(
-            properties.execution.auto_preallocate_arrays
-        ),
+        exec_auto_preallocate_arrays=(properties.execution.auto_preallocate_arrays),
         exec_inline=properties.execution.inline,
         exec_inlinable=properties.execution.inlinable,
         exec_auto_error_handling=properties.execution.auto_error_handling,
@@ -570,9 +582,7 @@ def project_vi_facts(
         toolbar_hide_free_run_button=properties.toolbar.hide_free_run_button,
         instance_is_system_vi=properties.instance.is_system_vi,
         instance_show_poly_selector=properties.instance.show_poly_selector,
-        instance_hide_instance_caption=(
-            properties.instance.hide_instance_caption
-        ),
+        instance_hide_instance_caption=(properties.instance.hide_instance_caption),
         instance_draw_instance_icon=properties.instance.draw_instance_icon,
         instance_remote_panel=properties.instance.remote_panel,
         kind_typedef_status=properties.kind.typedef_status.value,
@@ -590,7 +600,9 @@ def project_vi_facts(
 
 
 def _constant_wired_to(
-    graph: InMemoryVIGraph, vi_name: str, c: Constant,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    c: Constant,
 ) -> WiredTo:
     """Classify what a constant's single output wire feeds: an indicator on
     ``vi_name``'s own connector pane, a control input, something else on the
@@ -608,7 +620,9 @@ def _constant_wired_to(
 
 
 def _build_class_fact(
-    graph: InMemoryVIGraph, vi_name: str, owning_class: str | None,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    owning_class: str | None,
 ) -> ClassFact | None:
     if owning_class is None:
         return None
@@ -617,8 +631,7 @@ def _build_class_fact(
     # None when the class/its data isn't resolvable (e.g. an external class).
     fields = graph.get_class_fields(owning_class)
     private_data = [
-        f"{f.name}: {f.type.lv_label()}" if f.type else f.name
-        for f in (fields or [])
+        f"{f.name}: {f.type.lv_label()}" if f.type else f.name for f in (fields or [])
     ]
     # Authoritative parent (get_class_parent, NOT the load-gated
     # get_class_hierarchy): a collision-load graph never loads the parent, and

@@ -186,8 +186,7 @@ def init_project_store(root: Path) -> Path:
 # Marker comment lvkit embeds in every generated Copilot file so users
 # (and re-installs) can recognize a lvkit-managed file.
 _COPILOT_MANAGED_MARKER = (
-    "<!-- lvkit: managed by `lvkit setup`, "
-    "re-running will overwrite this file -->"
+    "<!-- lvkit: managed by `lvkit setup`, re-running will overwrite this file -->"
 )
 
 # Logical workflow order. The Copilot router lists prompts in this
@@ -200,7 +199,7 @@ _COPILOT_MANAGED_MARKER = (
 # order — they install fine, they just sort to the end of the router.
 # To put a new skill in a specific position, add it to this list.
 _SKILL_ORDER = [
-    "lvkit",           # positioning / router — the entry point
+    "lvkit",  # positioning / router — the entry point
     "lvkit-describe",
     "lvkit-query",
     "lvkit-convert",
@@ -219,12 +218,12 @@ def _iter_skill_templates() -> list[Any]:
     template_root = files("lvkit.skill_templates")
     return sorted(
         (
-            d for d in template_root.iterdir()
+            d
+            for d in template_root.iterdir()
             if d.is_dir() and not d.name.startswith(("_", "."))
         ),
         key=lambda d: (
-            _SKILL_ORDER.index(d.name) if d.name in _SKILL_ORDER
-            else len(_SKILL_ORDER),
+            _SKILL_ORDER.index(d.name) if d.name in _SKILL_ORDER else len(_SKILL_ORDER),
             d.name,
         ),
     )
@@ -292,9 +291,7 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
     return written
 
 
-def install_copilot_skills(
-    target_dir: Path, force: bool = False
-) -> list[Path]:
+def install_copilot_skills(target_dir: Path, force: bool = False) -> list[Path]:
     """Install lvkit's workflows for GitHub Copilot.
 
     Writes two file types under `<target_dir>/.github/`:
@@ -399,9 +396,7 @@ def install_codex_skills(target_dir: Path, force: bool = False) -> list[Path]:
                 f"Skill template directory {skill_dir.name!r} is missing"
                 " its SKILL.md — packaging or sync error."
             )
-        skill_content = _build_codex_skill(
-            template_file.read_text(encoding="utf-8")
-        )
+        skill_content = _build_codex_skill(template_file.read_text(encoding="utf-8"))
         dest = target_dir / ".agents" / "skills" / skill_dir.name / "SKILL.md"
         _stage_write(dest, skill_content, force, plan, conflicts)
 
@@ -577,7 +572,7 @@ def _split_frontmatter(text: str) -> tuple[str, str]:
             "Malformed SKILL.md: opens with `---` frontmatter but has"
             " no closing `---` delimiter."
         )
-    return text[4:end], text[end + len("\n---\n"):]
+    return text[4:end], text[end + len("\n---\n") :]
 
 
 def _yaml_get(frontmatter: str, key: str) -> str | None:
@@ -591,12 +586,8 @@ def _yaml_get(frontmatter: str, key: str) -> str | None:
     prefix = f"{key}:"
     for line in frontmatter.splitlines():
         if line.startswith(prefix):
-            value = line[len(prefix):].strip()
-            if (
-                len(value) >= 2
-                and value.startswith('"')
-                and value.endswith('"')
-            ):
+            value = line[len(prefix) :].strip()
+            if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
                 # Strip the wrapping quotes and unescape the same minimal
                 # set _yaml_quote escapes.
                 value = value[1:-1].replace('\\"', '"').replace("\\\\", "\\")

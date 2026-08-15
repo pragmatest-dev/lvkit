@@ -146,19 +146,19 @@ class TestFormatDiffConcise:
         # nested one level deeper than the structure's own header line
         lines = result.splitlines()
         struct_i = next(
-            i for i, ln in enumerate(lines)
+            i
+            for i, ln in enumerate(lines)
             if ln.startswith("+ ") and "case (Bundle/Unbundle By Name#2" in ln
         )
         frame_i = next(
             i for i, ln in enumerate(lines[struct_i:], struct_i) if '"True":' in ln
         )
         node_i = next(
-            i for i, ln in enumerate(lines[frame_i:], frame_i)
+            i
+            for i, ln in enumerate(lines[frame_i:], frame_i)
             if "addSkipped.vi" in ln and i != struct_i
         )
-        assert _depth(lines[struct_i]) < _depth(lines[frame_i]) < _depth(
-            lines[node_i]
-        )
+        assert _depth(lines[struct_i]) < _depth(lines[frame_i]) < _depth(lines[node_i])
 
     def test_unchanged_container_gets_no_header_but_still_nests(self):
         # The OTHER added node (1065) sits in an UNCHANGED case (753) --
@@ -175,7 +175,8 @@ class TestFormatDiffConcise:
         assert "Bundle/Unbundle By Name#2" in result
         lines = result.splitlines()
         node_i = next(
-            i for i, ln in enumerate(lines)
+            i
+            for i, ln in enumerate(lines)
             if ln.startswith("+ ") and "Bundle/Unbundle By Name#2" in ln
         )
         assert node_i > 0
@@ -199,7 +200,8 @@ class TestFormatDiffConcise:
         assert "addSkipped.vi#2" in result
         lines = result.splitlines()
         struct_line = next(
-            ln for ln in lines
+            ln
+            for ln in lines
             if ln.startswith("+ ") and "case (Bundle/Unbundle By Name#2" in ln
         )
         node_line = next(ln for ln in lines if "addSkipped.vi#2" in ln)
@@ -293,7 +295,8 @@ class TestFormatDiffVerbose:
         assert {"property", "connector_pane", "node"} <= {c["kind"] for c in changes}
         index_of = {c["uid"]: i for i, c in enumerate(changes)}
         tree_indices = [
-            index_of[r.uid] for r in netlist_diff_rows(ga, gb, na, nb)
+            index_of[r.uid]
+            for r in netlist_diff_rows(ga, gb, na, nb)
             if r.uid is not None and r.uid in index_of
         ]
         assert tree_indices == list(range(len(tree_indices)))
@@ -442,7 +445,9 @@ class TestNetlistFormDiffOnJKIPair:
                 [sys.executable, "-c", script],
                 cwd=Path(__file__).resolve().parent.parent,
                 env={**os.environ, "PYTHONHASHSEED": seed},
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             assert result.returncode == 0, result.stderr
             digests.append(result.stdout.strip())
@@ -680,7 +685,9 @@ class TestFrameSetChanges:
         #     -> VALUE changed, "2 → Default".
         #   - frame "4": head-only -> ADDED
         case_a = CaseOperation(
-            id="vi::500", name="Case", kind="caseStruct",
+            id="vi::500",
+            name="Case",
+            kind="caseStruct",
             node_type="caseStructure",
             frames=[
                 CaseFrame(selector_value="1"),
@@ -692,7 +699,9 @@ class TestFrameSetChanges:
             ],
         )
         case_b = CaseOperation(
-            id="vi::500", name="Case", kind="caseStruct",
+            id="vi::500",
+            name="Case",
+            kind="caseStruct",
             node_type="caseStructure",
             frames=[
                 CaseFrame(
@@ -710,9 +719,7 @@ class TestFrameSetChanges:
         gb = _StubGraph([], operations=[case_b])
         cmap = diff_uid(ga, gb, "vi", "vi")
 
-        frame_changes = {
-            c.uid: c for c in cmap.changes if c.kind in ("frame", "value")
-        }
+        frame_changes = {c.uid: c for c in cmap.changes if c.kind in ("frame", "value")}
         assert set(frame_changes) == {"~1", "~2", "900", "~4"}
 
         removed = frame_changes["~1"]
@@ -745,12 +752,16 @@ class TestFrameSetChanges:
 
     def test_unchanged_case_frame_set_has_no_frame_changes(self):
         case_a = CaseOperation(
-            id="vi::500", name="Case", kind="caseStruct",
+            id="vi::500",
+            name="Case",
+            kind="caseStruct",
             node_type="caseStructure",
             frames=[CaseFrame(selector_value="1"), CaseFrame(selector_value="2")],
         )
         case_b = CaseOperation(
-            id="vi::500", name="Case", kind="caseStruct",
+            id="vi::500",
+            name="Case",
+            kind="caseStruct",
             node_type="caseStructure",
             frames=[CaseFrame(selector_value="1"), CaseFrame(selector_value="2")],
         )
@@ -767,21 +778,30 @@ class TestFrameSetChanges:
         # ("1 -> 0"), NOT remove "1" + add "0". (The reality-grounded MainUI
         # 36:1->0 case; the shared node itself stays unchanged, not reported.)
         node = PrimitiveOperation(
-            id="vi::700", name="Add", kind="primitive", node_type="prim",
+            id="vi::700",
+            name="Add",
+            kind="primitive",
+            node_type="prim",
         )
         case_a = CaseOperation(
-            id="vi::500", name="Case", kind="caseStruct",
+            id="vi::500",
+            name="Case",
+            kind="caseStruct",
             node_type="caseStructure",
             frames=[CaseFrame(selector_value="1", operations=[node])],
         )
         case_b = CaseOperation(
-            id="vi::500", name="Case", kind="caseStruct",
+            id="vi::500",
+            name="Case",
+            kind="caseStruct",
             node_type="caseStructure",
             frames=[CaseFrame(selector_value="0", operations=[node])],
         )
         cmap = diff_uid(
             _StubGraph([], operations=[case_a]),
-            _StubGraph([], operations=[case_b]), "vi", "vi",
+            _StubGraph([], operations=[case_b]),
+            "vi",
+            "vi",
         )
         fc = [c for c in cmap.changes if c.kind in ("frame", "value")]
         assert len(fc) == 1, [(c.kind, c.change, c.label) for c in fc]
@@ -801,7 +821,9 @@ class TestFrameSetChanges:
         # it in a togglable lv-frame group), so its frame changes extend the
         # frame_path with their own segment.
         seq_a = SequenceOperation(
-            id="vi::700", name="Sequence", kind="flatSequence",
+            id="vi::700",
+            name="Sequence",
+            kind="flatSequence",
             node_type="stackedSequence",
             frames=[
                 SequenceFrame(uid="10", index=0),
@@ -809,7 +831,9 @@ class TestFrameSetChanges:
             ],
         )
         seq_b = SequenceOperation(
-            id="vi::700", name="Sequence", kind="flatSequence",
+            id="vi::700",
+            name="Sequence",
+            kind="flatSequence",
             node_type="stackedSequence",
             frames=[
                 SequenceFrame(uid="11", index=0),
@@ -820,9 +844,7 @@ class TestFrameSetChanges:
         gb = _StubGraph([], operations=[seq_b])
         cmap = diff_uid(ga, gb, "vi", "vi")
 
-        frame_changes = {
-            c.uid: c for c in cmap.changes if c.kind in ("frame", "value")
-        }
+        frame_changes = {c.uid: c for c in cmap.changes if c.kind in ("frame", "value")}
         assert set(frame_changes) == {"10", "11", "12"}
         assert frame_changes["10"].kind == "frame"
         assert frame_changes["10"].change == "removed"
@@ -843,12 +865,16 @@ class TestFrameSetChanges:
         # changes still get a real container_uid (the structure exists) but
         # must NOT gain a frame_path segment nothing in the SVG would match.
         seq_a = SequenceOperation(
-            id="vi::800", name="Flat Sequence", kind="flatSequence",
+            id="vi::800",
+            name="Flat Sequence",
+            kind="flatSequence",
             node_type="flatSequence",
             frames=[SequenceFrame(uid="20", index=0)],
         )
         seq_b = SequenceOperation(
-            id="vi::800", name="Flat Sequence", kind="flatSequence",
+            id="vi::800",
+            name="Flat Sequence",
+            kind="flatSequence",
             node_type="flatSequence",
             frames=[
                 SequenceFrame(uid="20", index=0),
@@ -949,17 +975,19 @@ class TestWireChanges:
         # (only "modified" wires carry an old-routing polyline).
         ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
         gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
-        change = [c for c in diff_uid(ga, gb, na, nb).changes
-                  if c.kind == "wire"][0]
+        change = [c for c in diff_uid(ga, gb, na, nb).changes if c.kind == "wire"][0]
 
         assert change.path is not None
         assert len(change.path) >= 2
         # exact faithful routing for sink 1820 (verified via wire_by_uid):
         # source center -> two bends -> sink center.
         assert change.path == [
-            (1430.0, 507.5), (1414.0, 507.5), (1414.0, 707.0), (1906.5, 707.0),
+            (1430.0, 507.5),
+            (1414.0, 507.5),
+            (1414.0, 707.0),
+            (1906.5, 707.0),
         ]
-        assert change.path[0] == (1430.0, 507.5)   # source-terminal center
+        assert change.path[0] == (1430.0, 507.5)  # source-terminal center
         assert change.path[-1] == (1906.5, 707.0)  # sink-terminal center
         assert change.path_before is None
 
@@ -967,7 +995,10 @@ class TestWireChanges:
         d = diff_uid(ga, gb, na, nb).to_dict()
         wire_dict = next(c for c in d["changes"] if c["uid"] == "1820")
         assert wire_dict["path"] == [
-            [1430.0, 507.5], [1414.0, 507.5], [1414.0, 707.0], [1906.5, 707.0],
+            [1430.0, 507.5],
+            [1414.0, 507.5],
+            [1414.0, 707.0],
+            [1906.5, 707.0],
         ]
         assert wire_dict["path_before"] is None
 
@@ -978,8 +1009,9 @@ class TestWireChanges:
         gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
         cmap = diff_uid(ga, gb, na, nb)
 
-        added_nodes = [c for c in cmap.changes
-                       if c.kind == "node" and c.change == "added"]
+        added_nodes = [
+            c for c in cmap.changes if c.kind == "node" and c.change == "added"
+        ]
         assert added_nodes, "expected added nodes on the run.vi pair"
         with_chains = [c for c in added_nodes if c.chain_paths]
         assert with_chains, "at least one added node must carry chain_paths"
@@ -1030,7 +1062,8 @@ class TestConnectorPaneRequalification:
     def _extract(self, tmp_path: Path, ref: str, out_name: str) -> Path:
         result = subprocess.run(
             ["git", "-C", self.REPO, "show", f"{ref}:{self.FILE_PATH}"],
-            capture_output=True, check=True,
+            capture_output=True,
+            check=True,
         )
         out = tmp_path / out_name
         out.write_bytes(result.stdout)
@@ -1086,8 +1119,11 @@ class TestDisableStructureInnerChange:
 </SL__rootObject>
 """
 
-    def _load_xml(self, tmp_path: Path, text: str, name: str) -> tuple[
-        InMemoryVIGraph, str,
+    def _load_xml(
+        self, tmp_path: Path, text: str, name: str
+    ) -> tuple[
+        InMemoryVIGraph,
+        str,
     ]:
         p = tmp_path / f"{name}_BDHb.xml"
         p.write_text(text)
@@ -1141,10 +1177,8 @@ class TestFPTerminalChanges:
         return p
 
     def test_add_remove_rename_are_terminal_changes(self, tmp_path: Path):
-        ga, na = _load(self._checkout(tmp_path, _ADD_LIB_BEFORE, "before"),
-                        layout=True)
-        gb, nb = _load(self._checkout(tmp_path, _ADD_LIB_AFTER, "after"),
-                       layout=True)
+        ga, na = _load(self._checkout(tmp_path, _ADD_LIB_BEFORE, "before"), layout=True)
+        gb, nb = _load(self._checkout(tmp_path, _ADD_LIB_AFTER, "after"), layout=True)
         cmap = diff_uid(ga, gb, na, nb)
         terms = [c for c in cmap.changes if c.kind == "terminal"]
         by = {(c.change, c.label) for c in terms}
@@ -1162,8 +1196,7 @@ class TestFPTerminalChanges:
         # as an added node/constant).
         assert added_ind[0].chain_paths
         assert not any(
-            c.kind == "wire" and c.label == "project ref out"
-            for c in cmap.changes
+            c.kind == "wire" and c.label == "project ref out" for c in cmap.changes
         )
 
         # The removed control (also previously invisible).
@@ -1173,8 +1206,9 @@ class TestFPTerminalChanges:
         # six add/removes — the whole reason for uid-first matching.
         renames = [c for c in terms if c.change == "modified"]
         assert len(renames) == 3
-        assert all(c.element == "control" and " → " in (c.detail or "")
-                   for c in renames)
+        assert all(
+            c.element == "control" and " → " in (c.detail or "") for c in renames
+        )
         assert {"project ref", "library path", "new library name"} == {
             c.label for c in renames
         }
@@ -1210,10 +1244,8 @@ class TestWireEndpointStability:
         return p
 
     def test_tunnel_fed_wires_not_reported(self, tmp_path: Path):
-        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "in_a.vi"),
-                       layout=True)
-        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "in_b.vi"),
-                       layout=True)
+        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "in_a.vi"), layout=True)
+        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "in_b.vi"), layout=True)
         cmap = diff_uid(ga, gb, na, nb)
         wires = [c for c in cmap.changes if c.kind == "wire"]
         # The ONLY genuine wire change is the removed "In Place Element"; the
@@ -1249,13 +1281,12 @@ class TestNodeTerminalSetChanges:
         return p
 
     def test_variadic_node_terminal_delta(self, tmp_path: Path):
-        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "cts_a.vi"),
-                       layout=True)
-        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "cts_b.vi"),
-                       layout=True)
+        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "cts_a.vi"), layout=True)
+        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "cts_b.vi"), layout=True)
         cmap = diff_uid(ga, gb, na, nb)
-        node_mods = [c for c in cmap.changes
-                     if c.kind == "node" and c.change == "modified"]
+        node_mods = [
+            c for c in cmap.changes if c.kind == "node" and c.change == "modified"
+        ]
         by_label = {c.label: c for c in node_mods}
         # The Unbundle-By-Name (nMux) that dropped a field is a node 'modified'
         # with a "-<terminal>" delta — previously invisible except via wires.
@@ -1308,10 +1339,12 @@ class TestSelectContractionPhantom:
         return p
 
     def test_no_phantom_wire_through_select(self, tmp_path: Path):
-        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "build_a.vi"),
-                       layout=True)
-        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "build_b.vi"),
-                       layout=True)
+        ga, na = _load(
+            self._extract(tmp_path, self.BASE_REF, "build_a.vi"), layout=True
+        )
+        gb, nb = _load(
+            self._extract(tmp_path, self.HEAD_REF, "build_b.vi"), layout=True
+        )
         cmap = diff_uid(ga, gb, na, nb)
         wires = [c for c in cmap.changes if c.kind == "wire"]
         assert wires == [], (
@@ -1334,7 +1367,9 @@ def test_operation_display_name_qualifies_by_ownership_chain():
     from lvkit.models import Operation
 
     qualified = Operation(
-        id="V::1", name="run.vi", kind="vi",
+        id="V::1",
+        name="run.vi",
+        kind="vi",
         owning_libraries=["Foo.lvlib", "Bar.lvclass"],
     )
     assert qualified.display_name == "Foo.lvlib:Bar.lvclass:run.vi"
@@ -1358,16 +1393,16 @@ class TestQualifiedSubVINames:
         if not self.SAMPLE.exists():
             pytest.skip("measurement sample not present")
         g = InMemoryVIGraph()
-        g.load_vi(str(self.SAMPLE), mode=LoadMode.MINIMAL,
-                  search_paths=[self.SEARCH])
+        g.load_vi(str(self.SAMPLE), mode=LoadMode.MINIMAL, search_paths=[self.SEARCH])
         vn = g.resolve_vi_name(self.SAMPLE.name)
         calls = [
-            op for op in g.get_operations(vn)
-            if op.node_type and ("iUse" in op.node_type
-                                 or op.node_type in ("dynIUse", "polyIUse"))
+            op
+            for op in g.get_operations(vn)
+            if op.node_type
+            and ("iUse" in op.node_type or op.node_type in ("dynIUse", "polyIUse"))
         ]
         qualified = [op for op in calls if ".lvclass:" in op.display_name]
         assert qualified, "expected a class-qualified subVI call display_name"
         for op in qualified:
-            assert op.display_name.endswith(op.name)     # display ends in the leaf
-            assert ".lvclass" not in (op.name or "")     # bare name unqualified
+            assert op.display_name.endswith(op.name)  # display ends in the leaf
+            assert ".lvclass" not in (op.name or "")  # bare name unqualified

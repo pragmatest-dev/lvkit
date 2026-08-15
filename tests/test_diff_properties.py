@@ -87,10 +87,7 @@ def _mod_row(result: str, content: str) -> bool:
     """True iff some '~' (modified) netlist row's text contains ``content``.
     Robust to the group-folder indent property/connector-pane rows now sit
     under: the '~' gutter still leads the line, only the glyph+text indents."""
-    return any(
-        line.startswith("~") and content in line
-        for line in result.splitlines()
-    )
+    return any(line.startswith("~") and content in line for line in result.splitlines())
 
 
 class TestPropertiesTextSection:
@@ -127,7 +124,8 @@ class TestPropertiesTextSection:
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
             execution=ExecutionProps(
-                priority=Priority.SUBROUTINE, run_when_opened=True,
+                priority=Priority.SUBROUTINE,
+                run_when_opened=True,
             )
         )
         result = format_diff(ga, gb, na, nb)
@@ -151,7 +149,8 @@ class TestPropertiesTextSection:
         ga, gb, na, nb = _pair()
         gb._vi_properties[nb] = VIProperties(
             kind=KindProps(
-                dynamic_dispatch=True, source_only=True,
+                dynamic_dispatch=True,
+                source_only=True,
                 has_no_block_diagram=True,
             )
         )
@@ -162,9 +161,7 @@ class TestPropertiesTextSection:
 
     def test_instance_vi_flag_turned_off(self):
         ga, gb, na, nb = _pair()
-        ga._vi_properties[na] = VIProperties(
-            kind=KindProps(is_instance_vi=True)
-        )
+        ga._vi_properties[na] = VIProperties(kind=KindProps(is_instance_vi=True))
         result = format_diff(ga, gb, na, nb)
         assert _mod_row(result, "▤ instance-vi: true -> false")
         assert "+ instance-vi" not in result
@@ -213,12 +210,16 @@ class TestPropertiesTextSection:
         gb._vi_properties[nb] = VIProperties(
             lock_state=LockState.PASSWORD_PROTECTED,
             execution=ExecutionProps(
-                reentrancy=Reentrancy.SHARED_CLONE, priority=Priority.SUBROUTINE,
-                exec_system=ExecSystem.STANDARD, run_when_opened=True,
+                reentrancy=Reentrancy.SHARED_CLONE,
+                priority=Priority.SUBROUTINE,
+                exec_system=ExecSystem.STANDARD,
+                run_when_opened=True,
             ),
             kind=KindProps(
-                typedef_status=TypedefStatus.TYPEDEF, dynamic_dispatch=True,
-                source_only=True, has_no_block_diagram=True,
+                typedef_status=TypedefStatus.TYPEDEF,
+                dynamic_dispatch=True,
+                source_only=True,
+                has_no_block_diagram=True,
                 is_instance_vi=True,
             ),
         )
@@ -257,13 +258,13 @@ class TestHealthNeverDiffed:
 
         rows = netlist_diff_rows(ga, gb, na, nb)
         assert not [r for r in rows if r.kind == "health"]
-        assert not [r for r in rows if r.uid is not None
-                    and str(r.uid).startswith("health")]
+        assert not [
+            r for r in rows if r.uid is not None and str(r.uid).startswith("health")
+        ]
 
         d = diff_to_dict(ga, gb, na, nb)
         assert not [c for c in d["changes"] if c["kind"] == "health"]
-        assert not [c for c in d["changes"]
-                    if str(c["uid"]).startswith("health")]
+        assert not [c for c in d["changes"] if str(c["uid"]).startswith("health")]
         assert d["changes"] == []
 
 
@@ -283,7 +284,7 @@ class TestNetlistDiffRows:
         assert len(prop_rows) == 1
         row = prop_rows[0]
         assert row.change == "modified"
-        assert row.depth == 1   # nested under the Properties: group folder
+        assert row.depth == 1  # nested under the Properties: group folder
         assert row.uid == "property:lock_state"
         assert row.text == "▤ lock: unlocked -> password_protected"
 
@@ -304,7 +305,8 @@ class TestNetlistDiffRows:
             c["uid"]: i for i, c in enumerate(diff_to_dict(ga, gb, na, nb)["changes"])
         }
         tree_indices = [
-            index_of[r.uid] for r in netlist_diff_rows(ga, gb, na, nb)
+            index_of[r.uid]
+            for r in netlist_diff_rows(ga, gb, na, nb)
             if r.uid is not None and r.uid in index_of
         ]
         assert tree_indices == list(range(len(tree_indices)))
@@ -337,17 +339,13 @@ class TestJsonDiff:
 
     def test_diff_to_dict_includes_property_changes(self):
         ga, gb, na, nb = _pair()
-        gb._vi_properties[nb] = VIProperties(
-            lock_state=LockState.PASSWORD_PROTECTED
-        )
+        gb._vi_properties[nb] = VIProperties(lock_state=LockState.PASSWORD_PROTECTED)
         d = diff_to_dict(ga, gb, na, nb)
         # No separate top-level sections any more -- everything lives in
         # "changes" (plus the unrelated "common_nodes" tally).
         assert set(d) == {"changes", "common_nodes"}
 
-        lock_change = next(
-            c for c in d["changes"] if c["uid"] == "property:lock_state"
-        )
+        lock_change = next(c for c in d["changes"] if c["uid"] == "property:lock_state")
         assert lock_change["kind"] == "property"
         assert lock_change["change"] == "modified"
         assert lock_change["label"] == "lock"

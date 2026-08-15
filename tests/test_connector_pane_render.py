@@ -63,10 +63,22 @@ def test_no_pattern_id_falls_back():
 
 def test_pane_terminals_adapter_maps_fields():
     ts = [
-        FPTerminal(id="a", index=0, direction="output", name="error out",
-                   wiring_rule=2, is_indicator=True),
-        FPTerminal(id="b", index=8, direction="input", name="error in",
-                   wiring_rule=3, is_indicator=False),
+        FPTerminal(
+            id="a",
+            index=0,
+            direction="output",
+            name="error out",
+            wiring_rule=2,
+            is_indicator=True,
+        ),
+        FPTerminal(
+            id="b",
+            index=8,
+            direction="input",
+            name="error in",
+            wiring_rule=3,
+            is_indicator=False,
+        ),
     ]
     pts = pane_terminals(ts)
     by_idx = {p.index: p for p in pts}
@@ -76,9 +88,7 @@ def test_pane_terminals_adapter_maps_fields():
 
 
 def test_svg_escapes_special_chars_in_names():
-    svg = render_connector_pane(
-        4801, [PaneTerminal(0, "a<b>&c", None, is_output=True)]
-    )
+    svg = render_connector_pane(4801, [PaneTerminal(0, "a<b>&c", None, is_output=True)])
     assert "<b>" not in svg.replace("<svg", "")  # the name's <b> is escaped
     assert "&amp;c" in svg
 

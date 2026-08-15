@@ -52,7 +52,10 @@ if TYPE_CHECKING:
 
 
 def describe_vi(
-    graph: InMemoryVIGraph, vi_name: str, *, verbose: bool = False,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    *,
+    verbose: bool = False,
 ) -> str:
     """Describe a VI as a documentation page.
 
@@ -162,7 +165,10 @@ def describe_vi(
     # through tunnels the way ``build_netlist`` does).
     if not verbose:
         structures = _collect_structures(
-            graph, ctx, ctx.operations, index_terminal_owners(ctx.operations),
+            graph,
+            ctx,
+            ctx.operations,
+            index_terminal_owners(ctx.operations),
         )
         if structures:
             lines.append("## Control Flow")
@@ -183,7 +189,8 @@ def describe_vi(
 
 
 def describe_operations(
-    graph: InMemoryVIGraph, vi_name: str,
+    graph: InMemoryVIGraph,
+    vi_name: str,
 ) -> str:
     """Describe a VI's operations in execution order."""
     vi_name = graph.resolve_vi_name(vi_name)
@@ -215,9 +222,9 @@ def describe_dataflow(
 
     if operation_id:
         wires = [
-            w for w in wires
-            if w.source.node_id == operation_id
-            or w.dest.node_id == operation_id
+            w
+            for w in wires
+            if w.source.node_id == operation_id or w.dest.node_id == operation_id
         ]
 
     lines: list[str] = []
@@ -271,7 +278,8 @@ def describe_structure(
 
 
 def describe_constants(
-    graph: InMemoryVIGraph, vi_name: str,
+    graph: InMemoryVIGraph,
+    vi_name: str,
 ) -> str:
     """List all constants used in a VI."""
     vi_name = graph.resolve_vi_name(vi_name)
@@ -347,7 +355,9 @@ def _collect_subvi_names(operations: list[Operation]) -> set[str]:
             names.add(op.name)
         match op:
             case (
-                CaseOperation() | SequenceOperation() | EventOperation()
+                CaseOperation()
+                | SequenceOperation()
+                | EventOperation()
                 | DisableStructureOperation()
             ):
                 for frame in op.frames:
@@ -359,7 +369,8 @@ def _collect_subvi_names(operations: list[Operation]) -> set[str]:
 
 
 def _get_subvi_description(
-    graph: InMemoryVIGraph, vi_name: str,
+    graph: InMemoryVIGraph,
+    vi_name: str,
 ) -> str | None:
     """Get a short description for a SubVI."""
     resolver = _get_vilib_resolver()
@@ -386,13 +397,14 @@ def _terminal_type_label(t: Terminal) -> str:
     return t.faithful_type_label()
 
 
-_FlagGroup = (
-    ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
-)
+_FlagGroup = ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
 
 
 def _describe_flag_group(
-    group: _FlagGroup, indent: str = "    ", *, show_all: bool = False,
+    group: _FlagGroup,
+    indent: str = "    ",
+    *,
+    show_all: bool = False,
 ) -> list[str]:
     """Render one VI-Properties sub-struct's fields.
 
@@ -481,7 +493,8 @@ def _describe_health(ctx: VIContext, *, show_all: bool = False) -> list[str]:
 
 
 def _describe_class_context(
-    graph: InMemoryVIGraph, ctx: VIContext,
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
 ) -> list[str]:
     """Describe the owning class when this VI is a .lvclass method.
 
@@ -501,11 +514,13 @@ def _describe_class_context(
         return []
 
     fields = graph.get_class_fields(cc.owning_class) or []
-    siblings = sorted({
-        t.split(":")[-1]
-        for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
-        if e.get("rel") == "owns" and t.endswith(".vi")
-    })
+    siblings = sorted(
+        {
+            t.split(":")[-1]
+            for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
+            if e.get("rel") == "owns" and t.endswith(".vi")
+        }
+    )
 
     lines = ["## Class", f"  {cc.owning_class}"]
     if cc.parent:
@@ -600,7 +615,10 @@ def _collect_structures(
             case CaseOperation():
                 n_frames = len(op.frames)
                 gated = _resolve_selector(
-                    graph, ctx, owner_by_terminal, op.selector_terminal,
+                    graph,
+                    ctx,
+                    owner_by_terminal,
+                    op.selector_terminal,
                 )
                 if gated:
                     sel = f", gated on {gated}"
@@ -611,23 +629,30 @@ def _collect_structures(
                 structures.append(f"Case structure ({n_frames} frames{sel})")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, owner_by_terminal,
+                        graph,
+                        ctx,
+                        frame.operations,
+                        owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case LoopOperation():
                 kind = "While loop" if op.loop_type == "whileLoop" else "For loop"
                 gated = _resolve_selector(
-                    graph, ctx, owner_by_terminal, op.stop_condition_terminal,
+                    graph,
+                    ctx,
+                    owner_by_terminal,
+                    op.stop_condition_terminal,
                 )
-                structures.append(
-                    f"{kind} (stops when {gated})" if gated else kind
-                )
+                structures.append(f"{kind} (stops when {gated})" if gated else kind)
             case SequenceOperation():
                 n_frames = len(op.frames)
                 structures.append(f"Flat sequence ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, owner_by_terminal,
+                        graph,
+                        ctx,
+                        frame.operations,
+                        owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case EventOperation():
@@ -635,7 +660,10 @@ def _collect_structures(
                 structures.append(f"Event structure ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, owner_by_terminal,
+                        graph,
+                        ctx,
+                        frame.operations,
+                        owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case DisableStructureOperation():
@@ -643,7 +671,10 @@ def _collect_structures(
                 structures.append(f"Disable structure ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, owner_by_terminal,
+                        graph,
+                        ctx,
+                        frame.operations,
+                        owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case _:
@@ -682,12 +713,13 @@ def _describe_constant_line(c: Constant) -> str:
 
 
 def _frame_constants(
-    constants: list[Constant], parent_id: str, frame_key: object,
+    constants: list[Constant],
+    parent_id: str,
+    frame_key: object,
 ) -> list[Constant]:
     """Constants attributed to a specific frame of a structure."""
     return [
-        c for c in constants
-        if c.parent == parent_id and str(c.frame) == str(frame_key)
+        c for c in constants if c.parent == parent_id and str(c.frame) == str(frame_key)
     ]
 
 
@@ -731,50 +763,61 @@ def _describe_op_list(
                 passthrough = _has_output_tunnel(op)
                 for frame in op.frames:
                     default = " (default)" if frame.is_default else ""
-                    lines.append(
-                        f'{prefix}  Frame "{frame.selector_value}"{default}:'
-                    )
+                    lines.append(f'{prefix}  Frame "{frame.selector_value}"{default}:')
                     _describe_frame_body(
                         frame.operations,
                         _frame_constants(constants, op.id, frame.selector_value),
-                        constants, lines, prefix, indent,
+                        constants,
+                        lines,
+                        prefix,
+                        indent,
                         passthrough=passthrough,
                     )
             case SequenceOperation():
                 for i, frame in enumerate(op.frames):
-                    lines.append(f'{prefix}  Frame {i}:')
+                    lines.append(f"{prefix}  Frame {i}:")
                     _describe_frame_body(
                         frame.operations,
                         _frame_constants(constants, op.id, i),
-                        constants, lines, prefix, indent,
+                        constants,
+                        lines,
+                        prefix,
+                        indent,
                         passthrough=False,
                     )
             case EventOperation():
                 for frame in op.frames:
-                    lines.append(f'{prefix}  Frame {frame.event_label}:')
+                    lines.append(f"{prefix}  Frame {frame.event_label}:")
                     _describe_frame_body(
                         frame.operations,
                         _frame_constants(constants, op.id, frame.index),
-                        constants, lines, prefix, indent,
+                        constants,
+                        lines,
+                        prefix,
+                        indent,
                         passthrough=False,
                     )
             case DisableStructureOperation():
                 passthrough = _has_output_tunnel(op)
                 for frame in op.frames:
                     default = " (default)" if frame.is_default else ""
-                    lines.append(
-                        f'{prefix}  Frame "{frame.selector_value}"{default}:'
-                    )
+                    lines.append(f'{prefix}  Frame "{frame.selector_value}"{default}:')
                     _describe_frame_body(
                         frame.operations,
                         _frame_constants(constants, op.id, frame.selector_value),
-                        constants, lines, prefix, indent,
+                        constants,
+                        lines,
+                        prefix,
+                        indent,
                         passthrough=passthrough,
                     )
             case _:
                 if op.inner_nodes:
                     _describe_op_list(
-                        op.inner_nodes, constants, lines, indent + 1,
+                        op.inner_nodes,
+                        constants,
+                        lines,
+                        indent + 1,
                     )
                 for c in (c for c in constants if c.parent == op.id):
                     lines.append(f"{prefix}  {_describe_constant_line(c)}")
@@ -786,12 +829,10 @@ def _describe_single_op(op: Operation) -> str:
 
     if op.kind == "vi":
         named_inputs = [
-            t.name for t in op.terminals
-            if t.direction == "input" and t.name
+            t.name for t in op.terminals if t.direction == "input" and t.name
         ]
         named_outputs = [
-            t.name for t in op.terminals
-            if t.direction == "output" and t.name
+            t.name for t in op.terminals if t.direction == "output" and t.name
         ]
         if named_inputs or named_outputs:
             in_str = ", ".join(named_inputs)
@@ -828,7 +869,8 @@ def _describe_single_op(op: Operation) -> str:
 
 
 def _find_operation(
-    operations: list[Operation], op_id: str,
+    operations: list[Operation],
+    op_id: str,
 ) -> Operation | None:
     """Find an operation by ID, searching recursively."""
     for op in operations:
@@ -849,7 +891,9 @@ def _find_operation(
 
 
 def _describe_case_structure(
-    op: CaseOperation, constants: list[Constant], lines: list[str],
+    op: CaseOperation,
+    constants: list[Constant],
+    lines: list[str],
 ) -> None:
     """Describe a case structure in detail."""
     lines.append(f"Case Structure: {op.id}")
@@ -867,7 +911,7 @@ def _describe_case_structure(
         default = " (default)" if frame.is_default else ""
         frame_consts = _frame_constants(constants, op.id, frame.selector_value)
         lines.append(
-            f"  Frame \"{frame.selector_value}\"{default}:"
+            f'  Frame "{frame.selector_value}"{default}:'
             f" {len(frame.operations)} operations,"
             f" {len(frame_consts)} constants"
         )
@@ -896,9 +940,7 @@ def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
     lines.append(f"{loop_kind}{parallel_note}: {op.id}")
 
     if op.stop_condition_terminal:
-        lines.append(
-            f"  Stop condition: {op.stop_condition_terminal}"
-        )
+        lines.append(f"  Stop condition: {op.stop_condition_terminal}")
 
     if op.tunnels:
         lines.append("  Tunnels:")
@@ -929,16 +971,15 @@ def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
 
 
 def _describe_sequence(
-    op: SequenceOperation, lines: list[str],
+    op: SequenceOperation,
+    lines: list[str],
 ) -> None:
     """Describe a flat sequence."""
     lines.append(f"Flat Sequence: {op.id}")
     if op.frames:
         lines.append(f"  Frames: {len(op.frames)}")
         for i, frame in enumerate(op.frames):
-            lines.append(
-                f"  Frame {i}: {len(frame.operations)} operations"
-            )
+            lines.append(f"  Frame {i}: {len(frame.operations)} operations")
             for fop in frame.operations:
                 lines.append(f"    - {_describe_single_op(fop)}")
     elif op.inner_nodes:

@@ -110,7 +110,8 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
 
 
 def _generate_primitive(
-    node: PrimitiveOperation, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Secondary dispatch for PrimitiveOperation by node_type."""
     # Queue Operations (Obtain/Enqueue/Dequeue/Get Queue Status) are
@@ -131,8 +132,7 @@ def _generate_unknown(node: Operation) -> CodeFragment:
     """Emit a warning comment for unsupported node types."""
     node_name = node.name or "unknown"
     warning = (
-        f"# WARNING: Unknown node type {node.kind}"
-        f" (id={node.id}, name={node_name})"
+        f"# WARNING: Unknown node type {node.kind} (id={node.id}, name={node_name})"
     )
     stmt = ast.Expr(value=ast.Constant(value=warning))
     return CodeFragment(statements=[stmt])

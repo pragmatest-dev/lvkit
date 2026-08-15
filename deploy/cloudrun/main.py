@@ -88,7 +88,9 @@ def render() -> Response:
                 # The standalone viewer carries its OWN light/dark toggle, so
                 # its SVG is rendered theme_mode="auto" (no css-var injection).
                 svg = render_vi_file(
-                    vi_path, mode=LoadMode.NONE, theme_mode="auto",
+                    vi_path,
+                    mode=LoadMode.NONE,
+                    theme_mode="auto",
                 )
             else:
                 # theme=css_var_theme(): every hex color becomes
@@ -97,7 +99,9 @@ def render() -> Response:
                 # with no such CSS present the var() falls back to the same
                 # light hex, so this is a no-op for any other caller.
                 svg = render_vi_file(
-                    vi_path, mode=LoadMode.NONE, theme=css_var_theme(),
+                    vi_path,
+                    mode=LoadMode.NONE,
+                    theme=css_var_theme(),
                 )
         except Exception as exc:  # noqa: BLE001 - report, never 500 opaquely
             return _cors(Response(f"render failed: {exc}", 422))

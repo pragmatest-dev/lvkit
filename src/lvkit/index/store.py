@@ -199,8 +199,14 @@ _CHILD_TABLES = ("terminals", "constants", "calls", "type_uses")
 # (``_ensure_facts_version``). ``index_meta`` (the fingerprint itself) is NOT
 # here — it survives the wipe so the new fingerprint can be stamped onto it.
 _ALL_TABLES = (
-    "vis", "terminals", "constants", "calls", "type_uses", "class_facts",
-    "lvproj_members", "meta",
+    "vis",
+    "terminals",
+    "constants",
+    "calls",
+    "type_uses",
+    "class_facts",
+    "lvproj_members",
+    "meta",
 )
 
 # VIProperties + VIHealth flattened columns on ``vis``: (column_name,
@@ -304,6 +310,7 @@ def _facts_fingerprint() -> str:
     a dev editing lvkit restarts it before the next run anyway.
     """
     import lvkit
+
     pkg = Path(lvkit.__file__).resolve().parent
     h = hashlib.sha256()
     for f in sorted(pkg.rglob("*")):
@@ -356,9 +363,7 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
         "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL)"
     )
     current = _facts_fingerprint()
-    row = conn.execute(
-        "SELECT fingerprint FROM index_meta WHERE id = 0"
-    ).fetchone()
+    row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
     if row is not None and row[0] == current:
         return
     for table in _ALL_TABLES:
@@ -372,7 +377,8 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
 
 
 def _prior_container_facts(
-    conn: sqlite3.Connection, path: str,
+    conn: sqlite3.Connection,
+    path: str,
 ) -> tuple[str | None, str | None, ClassFact | None]:
     """Read the prior ``content_sha``, ``library``, and ``class_fact`` for
     ``path`` (all None if the VI has never been saved).
@@ -389,9 +395,7 @@ def _prior_container_facts(
         return None, None, None
     prior_sha = row[0]
 
-    lib_row = conn.execute(
-        "SELECT library FROM vis WHERE path = ?", (path,)
-    ).fetchone()
+    lib_row = conn.execute("SELECT library FROM vis WHERE path = ?", (path,)).fetchone()
     prior_library = lib_row[0] if lib_row is not None else None
 
     cf_row = conn.execute(
@@ -437,8 +441,8 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     try:
         with conn:
             for f in vis:
-                prior_sha, prior_library, prior_class_fact = (
-                    _prior_container_facts(conn, f.path)
+                prior_sha, prior_library, prior_class_fact = _prior_container_facts(
+                    conn, f.path
                 )
                 same_vi = prior_sha is not None and prior_sha == f.content_sha
                 if not same_vi:
@@ -523,15 +527,26 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     for c, is_bool in _FLAT_PROPERTY_COLUMNS
                 )
                 base_cols = (
-                    "path", "name", "qualified_name", "library", "is_stub",
-                    "content_sha", "impact_score", "callers_count",
+                    "path",
+                    "name",
+                    "qualified_name",
+                    "library",
+                    "is_stub",
+                    "content_sha",
+                    "impact_score",
+                    "callers_count",
                 )
                 conn.execute(
                     f"INSERT INTO vis({', '.join(base_cols + tuple(prop_cols))}) "
                     f"VALUES ({', '.join('?' * (len(base_cols) + len(prop_cols)))})",
                     (
-                        f.path, f.name, f.qualified_name, library,
-                        int(f.is_stub), f.content_sha, f.impact_score,
+                        f.path,
+                        f.name,
+                        f.qualified_name,
+                        library,
+                        int(f.is_stub),
+                        f.content_sha,
+                        f.impact_score,
                         f.callers_count,
                         *prop_values,
                     ),
@@ -544,10 +559,19 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     [
                         (
-                            f.path, i, t.name, t.direction, int(t.is_indicator),
-                            int(t.is_public), t.control_type, t.py_type,
-                            int(t.is_error_cluster), json.dumps(t.field_names),
-                            t.fp_dco_uid, t.lv_type, json.dumps(t.enum_values),
+                            f.path,
+                            i,
+                            t.name,
+                            t.direction,
+                            int(t.is_indicator),
+                            int(t.is_public),
+                            t.control_type,
+                            t.py_type,
+                            int(t.is_error_cluster),
+                            json.dumps(t.field_names),
+                            t.fp_dco_uid,
+                            t.lv_type,
+                            json.dumps(t.enum_values),
                         )
                         for i, t in enumerate(f.terminals)
                     ],
@@ -557,7 +581,12 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     "py_type, lv_type, wired_to) VALUES (?,?,?,?,?,?,?)",
                     [
                         (
-                            f.path, i, c.value, c.label, c.py_type, c.lv_type,
+                            f.path,
+                            i,
+                            c.value,
+                            c.label,
+                            c.py_type,
+                            c.lv_type,
                             c.wired_to.value,
                         )
                         for i, c in enumerate(f.constants)
@@ -580,11 +609,17 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                         "class_version, ancestors) "
                         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                         (
-                            f.path, cf.owning_class, cf.parent, cf.scope,
-                            int(cf.is_accessor), cf.accessor_field,
+                            f.path,
+                            cf.owning_class,
+                            cf.parent,
+                            cf.scope,
+                            int(cf.is_accessor),
+                            cf.accessor_field,
                             json.dumps(cf.private_data),
-                            int(cf.is_static), int(cf.must_override),
-                            int(cf.must_call_parent), cf.class_version,
+                            int(cf.is_static),
+                            int(cf.must_override),
+                            int(cf.must_call_parent),
+                            cf.class_version,
                             json.dumps(cf.ancestors),
                         ),
                     )
@@ -611,7 +646,8 @@ def delete(project_root: Path, paths: Iterable[str]) -> None:
 
 
 def save_lvproj_members(
-    project_root: Path, members: Iterable[LVProjMemberFact],
+    project_root: Path,
+    members: Iterable[LVProjMemberFact],
 ) -> None:
     """Replace the project's ``.lvproj`` membership rows wholesale.
 
@@ -631,9 +667,15 @@ def save_lvproj_members(
                 "is_in_repo, target, is_dependency) VALUES (?,?,?,?,?,?,?,?,?)",
                 [
                     (
-                        m.lvproj_path, m.lvproj_name, m.member_name, m.member_url,
-                        m.resolved_path, m.member_type, int(m.is_in_repo),
-                        m.target, int(m.is_dependency),
+                        m.lvproj_path,
+                        m.lvproj_name,
+                        m.member_name,
+                        m.member_url,
+                        m.resolved_path,
+                        m.member_type,
+                        int(m.is_in_repo),
+                        m.target,
+                        int(m.is_dependency),
                     )
                     for m in members
                 ],
@@ -702,9 +744,18 @@ def load(project_root: Path) -> list[VIFacts]:
             "ORDER BY vi_path, ord"
         ):
             (
-                vi_path, name, direction, is_indicator, is_public,
-                control_type, py_type, is_error_cluster, field_names_json,
-                fp_dco_uid, lv_type, enum_values_json,
+                vi_path,
+                name,
+                direction,
+                is_indicator,
+                is_public,
+                control_type,
+                py_type,
+                is_error_cluster,
+                field_names_json,
+                fp_dco_uid,
+                lv_type,
+                enum_values_json,
             ) = row
             terminals_by_vi.setdefault(vi_path, []).append(
                 TerminalFact(
@@ -729,8 +780,11 @@ def load(project_root: Path) -> list[VIFacts]:
         ):
             constants_by_vi.setdefault(vi_path, []).append(
                 ConstantFact(
-                    value=value, label=label, py_type=py_type,
-                    lv_type=lv_type, wired_to=WiredTo(wired_to),
+                    value=value,
+                    label=label,
+                    py_type=py_type,
+                    lv_type=lv_type,
+                    wired_to=WiredTo(wired_to),
                 )
             )
 
@@ -753,9 +807,18 @@ def load(project_root: Path) -> list[VIFacts]:
             "must_call_parent, class_version, ancestors FROM class_facts"
         ):
             (
-                vi_path, owning_class, parent, scope, is_accessor,
-                accessor_field, private_data, is_static, must_override,
-                must_call_parent, class_version, ancestors,
+                vi_path,
+                owning_class,
+                parent,
+                scope,
+                is_accessor,
+                accessor_field,
+                private_data,
+                is_static,
+                must_override,
+                must_call_parent,
+                class_version,
+                ancestors,
             ) = row
             class_fact_by_vi[vi_path] = ClassFact(
                 owning_class=owning_class,
@@ -775,8 +838,14 @@ def load(project_root: Path) -> list[VIFacts]:
         for row in vi_rows:
             base = row[:8]
             (
-                path, name, qualified_name, library, is_stub, content_sha,
-                impact_score, callers_count,
+                path,
+                name,
+                qualified_name,
+                library,
+                is_stub,
+                content_sha,
+                impact_score,
+                callers_count,
             ) = base
             prop_kwargs = cast(
                 "dict[str, Any]",

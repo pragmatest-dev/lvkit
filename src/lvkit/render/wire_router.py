@@ -93,19 +93,19 @@ class WireRouter:
         tol = self._cfg.align_tol
         cands: list[list[Point]] = []
         if abs(y1 - y2) <= tol or abs(x1 - x2) <= tol:
-            cands.append([p1, p2])                      # straight (0 bends)
+            cands.append([p1, p2])  # straight (0 bends)
         if x2 < x1 - tol:
             cands.append([p1, (x1, y2), p2])
             cands.append([p1, (x2, y1), p2])
         else:
-            cands.append([p1, (x2, y1), p2])            # horizontal-first L
-            cands.append([p1, (x1, y2), p2])            # vertical-first L
+            cands.append([p1, (x2, y1), p2])  # horizontal-first L
+            cands.append([p1, (x1, y2), p2])  # vertical-first L
         jog = 9.0
         if x2 >= x1:
             jx = min(x1 + jog, (x1 + x2) / 2)
         else:
             jx = max(x1 - jog, (x1 + x2) / 2)
-        cands.append([p1, (jx, y1), (jx, y2), p2])       # Z (2 bends)
+        cands.append([p1, (jx, y1), (jx, y2), p2])  # Z (2 bends)
         return cands
 
     def _crosses(
@@ -179,9 +179,7 @@ class WireRouter:
             return o == p1_owner or o == p2_owner
 
         interiors = [o for o in self._obstacles if not is_owner(o)]
-        inflated = [
-            (o[0] - c, o[1] - c, o[2] + c, o[3] + c) for o in interiors
-        ]
+        inflated = [(o[0] - c, o[1] - c, o[2] + c, o[3] + c) for o in interiors]
 
         # Spatial buckets over the (small) per-route obstacle lists so the
         # point-in-rect and segment-vs-rect tests below scan only nearby rects
@@ -206,7 +204,7 @@ class WireRouter:
 
         xs: set[float] = {p1[0], p2[0]}
         ys: set[float] = {p1[1], p2[1]}
-        for (ix1, iy1, ix2, iy2) in inflated:
+        for ix1, iy1, ix2, iy2 in inflated:
             for x in (ix1, ix2):
                 if bx1 <= x <= bx2:
                     xs.add(x)
@@ -218,7 +216,7 @@ class WireRouter:
 
         def strictly_inside_inflated(x: float, y: float) -> bool:
             cell_key = (int(x // cell), int(y // cell))
-            for (ix1, iy1, ix2, iy2) in inflated_grid.get(cell_key, ()):
+            for ix1, iy1, ix2, iy2 in inflated_grid.get(cell_key, ()):
                 if ix1 < x < ix2 and iy1 < y < iy2:
                     return True
             return False
@@ -226,10 +224,7 @@ class WireRouter:
         # Grid nodes that sit in free space (outside every inflated rect), plus
         # the two endpoints (which may legitimately be inside a clearance band).
         nodes: list[Point] = [
-            (x, y)
-            for x in xs_l
-            for y in ys_l
-            if not strictly_inside_inflated(x, y)
+            (x, y) for x in xs_l for y in ys_l if not strictly_inside_inflated(x, y)
         ]
         node_set = set(nodes)
         node_set.add(p1)
@@ -249,8 +244,12 @@ class WireRouter:
                         ox1, oy1, ox2, oy2 = obstacle
                         # axis-aligned segment vs rect interior (1px inset so
                         # touching an edge is allowed)
-                        if hi_x > ox1 + 1 and lo_x < ox2 - 1 and \
-                                hi_y > oy1 + 1 and lo_y < oy2 - 1:
+                        if (
+                            hi_x > ox1 + 1
+                            and lo_x < ox2 - 1
+                            and hi_y > oy1 + 1
+                            and lo_y < oy2 - 1
+                        ):
                             return True
             return False
 
@@ -259,7 +258,7 @@ class WireRouter:
         # segment is interior-free.
         by_col: dict[float, list[float]] = {}
         by_row: dict[float, list[float]] = {}
-        for (x, y) in node_set:
+        for x, y in node_set:
             by_col.setdefault(x, []).append(y)
             by_row.setdefault(y, []).append(x)
         for x in by_col:
@@ -324,7 +323,9 @@ class WireRouter:
 
     @staticmethod
     def _dijkstra(
-        start: Point, goal: Point, adj: dict[Point, list[Point]],
+        start: Point,
+        goal: Point,
+        adj: dict[Point, list[Point]],
         bend_penalty: float,
     ) -> list[Point] | None:
         """Shortest orthogonal path start→goal with a bend penalty. State carries

@@ -14,6 +14,7 @@ from .dataflow import DataFlowTracer
 @dataclass
 class Expression:
     """A generated expression."""
+
     code: str
     output_vars: list[str]
     needs_import: list[str] | None = None  # Additional imports needed
@@ -142,12 +143,12 @@ class ExpressionBuilder:
         code = hint
         if "=" in code and not any(op in code for op in ["==", "!=", "<=", ">="]):
             eq_pos = code.find("=")
-            if eq_pos > 0 and code[eq_pos-1] not in "!<>" and code[eq_pos+1] != "=":
-                code = code[eq_pos + 1:].strip()
+            if eq_pos > 0 and code[eq_pos - 1] not in "!<>" and code[eq_pos + 1] != "=":
+                code = code[eq_pos + 1 :].strip()
 
         # Strip trailing comment
         if "#" in code:
-            code = code[:code.find("#")].strip()
+            code = code[: code.find("#")].strip()
 
         # Substitute inputs
         code = self._substitute(code, input_map)
@@ -187,7 +188,7 @@ class ExpressionBuilder:
         # Sort by length (longest first) to avoid partial replacements
         for name, value in sorted(input_map.items(), key=lambda x: -len(x[0])):
             if name:
-                pattern = r'\b' + re.escape(name) + r'\b'
+                pattern = r"\b" + re.escape(name) + r"\b"
                 result = re.sub(pattern, value, result, flags=re.IGNORECASE)
         return result
 

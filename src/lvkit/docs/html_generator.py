@@ -149,9 +149,7 @@ class HTMLDocGenerator:
             # If same library, use just the filename
             if target_lib == current_lib:
                 return (
-                    target_path.split("/", 1)[1]
-                    if "/" in target_path
-                    else target_path
+                    target_path.split("/", 1)[1] if "/" in target_path else target_path
                 )
             # Otherwise use relative path from subdirectory
             return "../" + target_path
@@ -202,9 +200,7 @@ class HTMLDocGenerator:
             f"{'Polymorphic ' if is_poly else ''}{self.doc_type.capitalize()}"
         )
         if is_poly:
-            summary_text = (
-                f"Polymorphic VI with {len(variant_params)} variant(s)"
-            )
+            summary_text = f"Polymorphic VI with {len(variant_params)} variant(s)"
         else:
             summary_text = (
                 f"Takes {len(controls)} input(s), returns {len(indicators)} output(s)"
@@ -293,8 +289,8 @@ class HTMLDocGenerator:
             rows.append(
                 f"""
             <tr>
-                <td>{ctrl['name']}</td>
-                <td><code>{ctrl['type']}</code></td>
+                <td>{ctrl["name"]}</td>
+                <td><code>{ctrl["type"]}</code></td>
                 <td>{default_val}</td>
             </tr>
             """
@@ -310,7 +306,7 @@ class HTMLDocGenerator:
                 </tr>
             </thead>
             <tbody>
-                {''.join(rows)}
+                {"".join(rows)}
             </tbody>
         </table>
         """
@@ -325,8 +321,8 @@ class HTMLDocGenerator:
             rows.append(
                 f"""
             <tr>
-                <td>{ind['name']}</td>
-                <td><code>{ind['type']}</code></td>
+                <td>{ind["name"]}</td>
+                <td><code>{ind["type"]}</code></td>
             </tr>
             """
             )
@@ -340,7 +336,7 @@ class HTMLDocGenerator:
                 </tr>
             </thead>
             <tbody>
-                {''.join(rows)}
+                {"".join(rows)}
             </tbody>
         </table>
         """
@@ -388,7 +384,7 @@ class HTMLDocGenerator:
 
         return f"""
         <ul class="dependency-list">
-            {''.join(items)}
+            {"".join(items)}
         </ul>
         """
 
@@ -421,7 +417,7 @@ class HTMLDocGenerator:
 
         return f"""
         <ul class="caller-list">
-            {''.join(items)}
+            {"".join(items)}
         </ul>
         """
 
@@ -519,7 +515,7 @@ class HTMLDocGenerator:
             <h2>⚡ Polymorphic Variants</h2>
             <p>This VI has {len(variant_params)} implementation variant(s):</p>
             <ul class="variant-list">
-                {''.join(variant_links)}
+                {"".join(variant_links)}
             </ul>
 
             <h3>Parameter Comparison</h3>
@@ -532,7 +528,7 @@ class HTMLDocGenerator:
                     </tr>
                 </thead>
                 <tbody>
-                    {''.join(param_rows)}
+                    {"".join(param_rows)}
                 </tbody>
             </table>
         </section>
@@ -544,9 +540,7 @@ class HTMLDocGenerator:
             return ""
         html = f' <span class="scope-badge scope-{access.scope}">{access.scope}</span>'
         if access.is_accessor and access.accessor_type:
-            html += (
-                f' <span class="accessor-badge">{access.accessor_type}</span>'
-            )
+            html += f' <span class="accessor-badge">{access.accessor_type}</span>'
         return html
 
     def _render_method_overrides_section(
@@ -564,9 +558,9 @@ class HTMLDocGenerator:
         parts: list[str] = []
         if overrides.overrides:
             parts.append(
-                f'<p><strong>Overrides:</strong> '
+                f"<p><strong>Overrides:</strong> "
                 f'<a href="{link_fn(overrides.overrides)}">'
-                f'<code>{overrides.overrides}</code></a></p>'
+                f"<code>{overrides.overrides}</code></a></p>"
             )
         if overrides.overridden_by:
             items = "".join(
@@ -574,7 +568,7 @@ class HTMLDocGenerator:
                 for v in overrides.overridden_by
             )
             parts.append(
-                f'<p><strong>Overridden by:</strong></p>'
+                f"<p><strong>Overridden by:</strong></p>"
                 f'<ul class="override-list">{items}</ul>'
             )
 
@@ -584,7 +578,7 @@ class HTMLDocGenerator:
         return f"""
         <section id="hierarchy">
             <h2>Class Hierarchy</h2>
-            {''.join(parts)}
+            {"".join(parts)}
         </section>
         """
 
@@ -599,9 +593,7 @@ class HTMLDocGenerator:
         basename, since those always carry a ":<method>.vi" suffix baked in
         before sanitizing.
         """
-        safe_lib = (
-            classname.replace(".", "_").replace(":", "_").replace("/", "_")
-        )
+        safe_lib = classname.replace(".", "_").replace(":", "_").replace("/", "_")
         return f"{safe_lib}/{classname}.html"
 
     def _render_class_hierarchy_section(
@@ -613,9 +605,9 @@ class HTMLDocGenerator:
         parts: list[str] = []
         if hierarchy.parent_class:
             parts.append(
-                f'<p><strong>Inherits from:</strong> '
+                f"<p><strong>Inherits from:</strong> "
                 f'<a href="{class_link(hierarchy.parent_class)}">'
-                f'<code>{hierarchy.parent_class}</code></a></p>'
+                f"<code>{hierarchy.parent_class}</code></a></p>"
             )
         if hierarchy.child_classes:
             items = "".join(
@@ -623,13 +615,12 @@ class HTMLDocGenerator:
                 for c in hierarchy.child_classes
             )
             parts.append(
-                f'<p><strong>Subclasses:</strong></p>'
+                f"<p><strong>Subclasses:</strong></p>"
                 f'<ul class="subclass-list">{items}</ul>'
             )
         if not parts:
             return (
-                "<p>Root class — no parent or subclasses in this "
-                "documentation set.</p>"
+                "<p>Root class — no parent or subclasses in this documentation set.</p>"
             )
         return "".join(parts)
 
@@ -666,7 +657,7 @@ class HTMLDocGenerator:
                 </tr>
             </thead>
             <tbody>
-                {''.join(rows)}
+                {"".join(rows)}
             </tbody>
         </table>
         """
@@ -687,7 +678,7 @@ class HTMLDocGenerator:
             badge_html = self._render_access_badge(method_access.get(vi_name))
             items.append(
                 f'<li><a href="{method_link(vi_name)}">'
-                f'<code>{display_name}</code></a>{badge_html}</li>'
+                f"<code>{display_name}</code></a>{badge_html}</li>"
             )
 
         return f'<ul class="method-list">{"".join(items)}</ul>'
@@ -830,9 +821,7 @@ class HTMLDocGenerator:
                 if vi_name in self.icon_map:
                     # icon_map has "../icons/..." for VI pages; index needs "icons/..."
                     icon_path = self.icon_map[vi_name].replace("../", "")
-                    icon_html = (
-                        f'<img src="{icon_path}" alt="" class="vi-icon-small">'
-                    )
+                    icon_html = f'<img src="{icon_path}" alt="" class="vi-icon-small">'
                 vi_links.append(
                     f'<li>{icon_html}<a href="{link}">{display_name}</a></li>'
                 )
@@ -855,7 +844,7 @@ class HTMLDocGenerator:
                     </div>
                 </summary>
                 <ul class="vi-list">
-                    {''.join(vi_links)}
+                    {"".join(vi_links)}
                 </ul>
             </details>
             """)
@@ -882,7 +871,7 @@ class HTMLDocGenerator:
         <section id="toc">
             <h2>Table of Contents</h2>
             <p>{toc_summary}</p>
-            {''.join(library_sections)}
+            {"".join(library_sections)}
         </section>
     </main>
 
@@ -915,8 +904,10 @@ class HTMLDocGenerator:
         # Replace spaces and other unsafe characters with underscores
         safe_name = safe_name.replace(" ", "_").replace("(", "_").replace(")", "_")
         safe_name = (
-            safe_name.replace("[", "_").replace("]", "_")
-            .replace("{", "_").replace("}", "_")
+            safe_name.replace("[", "_")
+            .replace("]", "_")
+            .replace("{", "_")
+            .replace("}", "_")
         )
         safe_name = safe_name.replace("<", "_").replace(">", "_").replace("|", "_")
         safe_name = safe_name.replace("?", "_").replace("*", "_").replace('"', "_")

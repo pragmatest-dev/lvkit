@@ -285,7 +285,9 @@ def test_context_resolution():
     # Build a graph with terminals for bind/resolve to work
     graph = InMemoryVIGraph()
     node = PrimitiveNode(
-        id="n1", vi="test.vi", name="n1",
+        id="n1",
+        vi="test.vi",
+        name="n1",
         terminals=[
             Terminal(id="term:1", index=0, direction="output"),
             Terminal(id="term:2", index=1, direction="output"),
@@ -649,12 +651,18 @@ def test_context_cycle_detection():
     graph = InMemoryVIGraph()
     graph._graph.add_node("p1", node=None)
     graph._graph.add_node("p2", node=None)
-    graph._graph.add_edge("p1", "p2",
+    graph._graph.add_edge(
+        "p1",
+        "p2",
         source=WireEnd(terminal_id="a", node_id="p1"),
-        dest=WireEnd(terminal_id="b", node_id="p2"))
-    graph._graph.add_edge("p2", "p1",
+        dest=WireEnd(terminal_id="b", node_id="p2"),
+    )
+    graph._graph.add_edge(
+        "p2",
+        "p1",
         source=WireEnd(terminal_id="b", node_id="p2"),
-        dest=WireEnd(terminal_id="a", node_id="p1"))
+        dest=WireEnd(terminal_id="a", node_id="p1"),
+    )
     graph._term_to_node["a"] = "p1"
     graph._term_to_node["b"] = "p2"
 
@@ -1044,17 +1052,20 @@ def test_build_module_with_enum_input():
 
     vi_context = VIContext(
         name="Enum Input.vi",
-        inputs=cast(list[Terminal], [
-            FPTerminal(
-                id="inp:1",
-                index=0,
-                direction="input",
-                name="Mode",
-                is_indicator=False,
-                is_public=True,
-                enum_values=["Read", "Write", "Append"],
-            ),
-        ]),
+        inputs=cast(
+            list[Terminal],
+            [
+                FPTerminal(
+                    id="inp:1",
+                    index=0,
+                    direction="input",
+                    name="Mode",
+                    is_indicator=False,
+                    is_public=True,
+                    enum_values=["Read", "Write", "Append"],
+                ),
+            ],
+        ),
     )
 
     result = build_module(vi_context, "Enum Input.vi")
@@ -1137,8 +1148,16 @@ class TestLVTypeToPython:
         """Test primitive integer types map to int."""
         from lvkit.models import LVType
 
-        for int_type in ["NumInt8", "NumInt16", "NumInt32", "NumInt64",
-                         "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"]:
+        for int_type in [
+            "NumInt8",
+            "NumInt16",
+            "NumInt32",
+            "NumInt64",
+            "NumUInt8",
+            "NumUInt16",
+            "NumUInt32",
+            "NumUInt64",
+        ]:
             lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=int_type)
             assert lv_type.to_python() == "int"
 
@@ -1220,8 +1239,7 @@ class TestLVTypeToPython:
         from lvkit.models import LVType
 
         cluster = LVType(
-            kind=LVTypeKind.CLUSTER,
-            typedef_name="error.ctl:Error Cluster.ctl"
+            kind=LVTypeKind.CLUSTER, typedef_name="error.ctl:Error Cluster.ctl"
         )
         assert cluster.to_python() == "ErrorCluster"
 
@@ -1236,10 +1254,7 @@ class TestLVTypeToPython:
         """Test enum with typedef name uses class name."""
         from lvkit.models import LVType
 
-        enum = LVType(
-            kind=LVTypeKind.ENUM,
-            typedef_name="lib:FileMode.ctl"
-        )
+        enum = LVType(kind=LVTypeKind.ENUM, typedef_name="lib:FileMode.ctl")
         assert enum.to_python() == "FileMode"
 
     def test_enum_without_typedef_name(self):
@@ -1253,10 +1268,7 @@ class TestLVTypeToPython:
         """Test ring with typedef name uses class name."""
         from lvkit.models import LVType
 
-        ring = LVType(
-            kind=LVTypeKind.RING,
-            typedef_name="option.ctl:OptionRing.ctl"
-        )
+        ring = LVType(kind=LVTypeKind.RING, typedef_name="option.ctl:OptionRing.ctl")
         assert ring.to_python() == "OptionRing"
 
     def test_ring_without_typedef_name(self):
@@ -1272,8 +1284,7 @@ class TestLVTypeToPython:
 
         # typedef_name uses ":" format like other typedef names
         ref = LVType(
-            kind=LVTypeKind.TYPEDEF_REF,
-            typedef_name="vi.lib/Utility:TypeDef.ctl"
+            kind=LVTypeKind.TYPEDEF_REF, typedef_name="vi.lib/Utility:TypeDef.ctl"
         )
         assert ref.to_python() == "TypeDef"
 
@@ -1383,14 +1394,18 @@ class TestLVTypeLvLabel:
         from lvkit.models import LVType
 
         ref = LVType(
-            kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", classname="TestCase.lvclass",
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Refnum",
+            classname="TestCase.lvclass",
         )
         assert ref.lv_label() == "TestCase.lvclass"
 
     def test_refnum_with_ref_type_no_class(self):
         from lvkit.models import LVType
 
-        ref = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue")
+        ref = LVType(
+            kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue"
+        )
         assert ref.lv_label() == "Queue refnum"
 
     def test_generic_refnum_no_class_no_ref_type(self):
@@ -1539,32 +1554,35 @@ class TestErrorClusterFiltering:
         from lvkit.codegen.builder import build_args
         from lvkit.models import FPTerminal, Terminal
 
-        inputs = cast(list[Terminal], [
-            FPTerminal(
-                id="1",
-                index=0,
-                direction="input",
-                name="error in (no error)",
-                is_indicator=False,
-                is_public=True,
-            ),
-            FPTerminal(
-                id="2",
-                index=0,
-                direction="input",
-                name="value",
-                is_indicator=False,
-                is_public=True,
-            ),
-            FPTerminal(
-                id="3",
-                index=0,
-                direction="input",
-                name="error out",
-                is_indicator=False,
-                is_public=True,
-            ),
-        ])
+        inputs = cast(
+            list[Terminal],
+            [
+                FPTerminal(
+                    id="1",
+                    index=0,
+                    direction="input",
+                    name="error in (no error)",
+                    is_indicator=False,
+                    is_public=True,
+                ),
+                FPTerminal(
+                    id="2",
+                    index=0,
+                    direction="input",
+                    name="value",
+                    is_indicator=False,
+                    is_public=True,
+                ),
+                FPTerminal(
+                    id="3",
+                    index=0,
+                    direction="input",
+                    name="error out",
+                    is_indicator=False,
+                    is_public=True,
+                ),
+            ],
+        )
 
         args = build_args(inputs)
 

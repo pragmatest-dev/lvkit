@@ -40,9 +40,7 @@ _SCALAR_CLASSES = {
 _RING_CLASSES = {"stdRing", "stdEnum"}
 _ARRAY_CLASSES = {"indArr", "stdArray"}
 # Control classes this reconstructor understands (a typedef wraps one of these).
-_KNOWN_CLASSES = (
-    _SCALAR_CLASSES.keys() | _RING_CLASSES | _ARRAY_CLASSES | {"stdClust"}
-)
+_KNOWN_CLASSES = _SCALAR_CLASSES.keys() | _RING_CLASSES | _ARRAY_CLASSES | {"stdClust"}
 
 
 def _multilabel_items(ctrl: ET.Element) -> list[str]:
@@ -111,7 +109,8 @@ def _array_element(arr: ET.Element) -> ET.Element | None:
 
 
 def reconstruct_control_lvtype(
-    ctrl: ET.Element, depth: int = 0,
+    ctrl: ET.Element,
+    depth: int = 0,
 ) -> LVType | None:
     """Reconstruct the ``LVType`` of one FP control DDO from its heap subtree.
 
@@ -134,7 +133,8 @@ def reconstruct_control_lvtype(
         if not items:
             return None
         return LVType(
-            kind=LVTypeKind.ENUM, underlying_type="Ring",
+            kind=LVTypeKind.ENUM,
+            underlying_type="Ring",
             values=enum_values_from_labels(items),
         )
 
@@ -162,7 +162,8 @@ def reconstruct_control_lvtype(
             underlying_type="Array",
             element_type=(
                 reconstruct_control_lvtype(elem, depth + 1)
-                if elem is not None else None
+                if elem is not None
+                else None
             ),
             dimensions=1,
         )

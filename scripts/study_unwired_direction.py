@@ -308,9 +308,7 @@ def main() -> None:
             inconsistent_slots[slot] = truths
 
     # --- Test set: UNWIRED terminals whose slot has clean ground truth ---
-    test_set = [
-        o for o in all_observations if not o.wired and o.slot in clean_truth
-    ]
+    test_set = [o for o in all_observations if not o.wired and o.slot in clean_truth]
     wired_obs = [o for o in all_observations if o.wired]
 
     print(f"clean ground-truth slots: {len(clean_truth)}")
@@ -408,8 +406,7 @@ def write_report(
     lines.append(f"- per-primResID instance cap: {CAP}")
     lines.append(f"- primitive node instances harvested: {node_instances}")
     lines.append(
-        f"- (primResID, index) slots with clean wired ground truth: "
-        f"{len(clean_truth)}"
+        f"- (primResID, index) slots with clean wired ground truth: {len(clean_truth)}"
     )
     lines.append(
         f"- (primResID, index) slots EXCLUDED as inconsistent "
@@ -466,9 +463,7 @@ def write_report(
         lines.append(sep)
         for d in sorted(disagreements, key=lambda d: (d.prim_res_id, d.index)):
             name = entries[d.prim_res_id].name if d.prim_res_id in entries else "?"
-            preds = " | ".join(
-                _direction(d.predictions[h]) for h in HYPOTHESES
-            )
+            preds = " | ".join(_direction(d.predictions[h]) for h in HYPOTHESES)
             lines.append(
                 f"| {d.prim_res_id} | {name} | {d.index} | "
                 f"0x{d.term_flags:x} | 0x{d.dco_flags:x} | "

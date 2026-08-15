@@ -13,6 +13,7 @@ from .context import VISignature
 @dataclass
 class Import:
     """A single import."""
+
     module: str
     names: set[str] = field(default_factory=set)
     is_from: bool = True  # from X import Y vs import X

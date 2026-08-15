@@ -54,9 +54,7 @@ _vilib_root: Path | None = None
 _userlib_root: Path | None = None
 
 
-def set_extraction_roots(
-    *, vilib_root: Path | None, userlib_root: Path | None
-) -> None:
+def set_extraction_roots(*, vilib_root: Path | None, userlib_root: Path | None) -> None:
     """Record the run's resolved library roots for cache classification.
 
     Roots are resolved to absolute paths so prefix-matching in :func:`classify`

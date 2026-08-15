@@ -79,13 +79,14 @@ def test_paren_if_compound_preserves_operand_precedence():
     """An inlined compound operand must be parenthesized so its precedence
     survives string substitution into an operator template (task #86)."""
     from lvkit.codegen.nodes.primitive import _paren_if_compound
-    assert _paren_if_compound("z | x") == "(z | x)"   # BinOp -> wrapped
-    assert _paren_if_compound("~x") == "(~x)"         # UnaryOp -> wrapped
+
+    assert _paren_if_compound("z | x") == "(z | x)"  # BinOp -> wrapped
+    assert _paren_if_compound("~x") == "(~x)"  # UnaryOp -> wrapped
     assert _paren_if_compound("a and b") == "(a and b)"  # BoolOp -> wrapped
-    assert _paren_if_compound("a < b") == "(a < b)"   # Compare -> wrapped
-    assert _paren_if_compound("x") == "x"             # Name -> unchanged
-    assert _paren_if_compound("f(a)") == "f(a)"       # Call -> unchanged
-    assert _paren_if_compound("a.b[0]") == "a.b[0]"   # Subscript -> unchanged
+    assert _paren_if_compound("a < b") == "(a < b)"  # Compare -> wrapped
+    assert _paren_if_compound("x") == "x"  # Name -> unchanged
+    assert _paren_if_compound("f(a)") == "f(a)"  # Call -> unchanged
+    assert _paren_if_compound("a.b[0]") == "a.b[0]"  # Subscript -> unchanged
 
 
 def test_boolean_logic_prims_have_integer_bitwise_variant():
@@ -121,8 +122,7 @@ def test_comparison_to_zero_block_verified_members():
     assert "in_1 >= 0" in str(res.resolve(prim_id=1114).python_code)
     assert "in_1 < 0" in str(res.resolve(prim_id=1118).python_code)
     # 1114 is the UNARY to-0 form (one data input), not the binary comparison.
-    in_terms = [t for t in res.resolve(prim_id=1114).terminals
-                if t.direction == "in"]
+    in_terms = [t for t in res.resolve(prim_id=1114).terminals if t.direction == "in"]
     assert len(in_terms) == 1
 
 
@@ -163,8 +163,7 @@ def test_1142_is_to_long_integer():
     assert [t.type for t in r.terminals if t.direction == "out"] == ["NumInt32"]
     code = str(r.python_code)
     # ties-to-even rounding + saturation to the signed 32-bit range
-    for value, expected in [(2.5, 2), (3.5, 4), (3e9, 2147483647),
-                            (-3e9, -2147483648)]:
+    for value, expected in [(2.5, 2), (3.5, 4), (3e9, 2147483647), (-3e9, -2147483648)]:
         assert eval(code, {"in_1": value}) == expected
 
 
@@ -176,6 +175,7 @@ def test_specialized_node_types_carry_no_counter_indicated_primresid():
     These resolve fully via the node_types section, so their primResID must be None.
     """
     from lvkit.parser.node_types import NODE_HANDLERS
+
     res = get_resolver()
     for xml_class, expected in (
         ("aDelete", "Delete From Array"),

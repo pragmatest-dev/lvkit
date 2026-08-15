@@ -34,12 +34,11 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
     type_names: dict[int, str] = {}
 
     # First pass: parse comments to get heap->consolidated mapping and basic types
-    with open(xml_path, encoding='utf-8', errors='replace') as f:
+    with open(xml_path, encoding="utf-8", errors="replace") as f:
         for line in f:
             # Match <!-- Heap TypeID N = Consolidated TypeID M: TypeName -->
             match = re.search(
-                r'Heap TypeID\s+(\d+)\s*=\s*Consolidated TypeID\s+(\d+):\s*(\w+)',
-                line
+                r"Heap TypeID\s+(\d+)\s*=\s*Consolidated TypeID\s+(\d+):\s*(\w+)", line
             )
             if match:
                 heap_id = int(match.group(1))
@@ -51,7 +50,7 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
                 continue
 
             # Match <!-- TypeID N: TypeName -->
-            match = re.search(r'<!--\s*TypeID\s+(\d+):\s*(\w+)', line)
+            match = re.search(r"<!--\s*TypeID\s+(\d+):\s*(\w+)", line)
             if match:
                 type_id = int(match.group(1))
                 type_name = match.group(2)
@@ -113,11 +112,11 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
 
             # Check if this is a .ctl file
             filename = path_parts[-1]
-            if not filename.endswith('.ctl'):
+            if not filename.endswith(".ctl"):
                 continue
 
             # Remove special markers like <vilib>, <userlib>
-            clean_parts = [p for p in path_parts if not p.startswith('<')]
+            clean_parts = [p for p in path_parts if not p.startswith("<")]
             if clean_parts:
                 vicc_paths[filename] = clean_parts
 
@@ -139,19 +138,19 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
                     # Build qualified name from VICC path info
                     if ctl_filename in vicc_paths:
                         path_tokens = vicc_paths[ctl_filename]
-                        type_map[heap_id].typedef_path = (
-                            build_relative_path(path_tokens)
+                        type_map[heap_id].typedef_path = build_relative_path(
+                            path_tokens
                         )
                         owner_chain = [
-                            t for t in path_tokens[:-1]
+                            t
+                            for t in path_tokens[:-1]
                             if t.endswith(
-                                ('.llb', '.lvlib', '.lvclass'),
+                                (".llb", ".lvlib", ".lvclass"),
                             )
                         ]
-                        type_map[heap_id].typedef_name = (
-                            build_qualified_name(
-                                owner_chain, ctl_filename,
-                            )
+                        type_map[heap_id].typedef_name = build_qualified_name(
+                            owner_chain,
+                            ctl_filename,
                         )
                     else:
                         type_map[heap_id].typedef_name = ctl_filename

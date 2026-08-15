@@ -144,13 +144,13 @@ def diff_slot(before_path: Path, after_path: Path, fmt: str) -> Path:
     return _diff_paths(before_path, after_path, fmt)[0]
 
 
-def lookup_render(
-    input_path: Path, fmt: str, options: str, version: str
-) -> str | None:
+def lookup_render(input_path: Path, fmt: str, options: str, version: str) -> str | None:
     """Return cached render output for ``input_path`` if fresh, else ``None``."""
     body_path, meta_path, _adhoc = _render_paths(input_path, fmt)
     return _read_if_fresh(
-        input_path, body_path, meta_path,
+        input_path,
+        body_path,
+        meta_path,
         {
             "lvkit_version": version,
             "options": options,
@@ -165,7 +165,10 @@ def store_render(
     """Cache ``body`` as the render of ``input_path``; return the slot path."""
     body_path, meta_path, _adhoc = _render_paths(input_path, fmt)
     _write(
-        body_path, meta_path, input_path, body,
+        body_path,
+        meta_path,
+        input_path,
+        body,
         {
             "lvkit_version": version,
             "options": options,
@@ -180,11 +183,11 @@ def lookup_diff(
     before_path: Path, after_path: Path, fmt: str, options: str, version: str
 ) -> str | None:
     """Return cached diff output for the ``(before, after)`` pair if fresh."""
-    body_path, meta_path, before_sha, _adhoc = _diff_paths(
-        before_path, after_path, fmt
-    )
+    body_path, meta_path, before_sha, _adhoc = _diff_paths(before_path, after_path, fmt)
     return _read_if_fresh(
-        after_path, body_path, meta_path,
+        after_path,
+        body_path,
+        meta_path,
         {
             "lvkit_version": version,
             "options": options,
@@ -195,18 +198,25 @@ def lookup_diff(
 
 
 def store_diff(
-    before_path: Path, after_path: Path, fmt: str,
-    options: str, version: str, body: str,
+    before_path: Path,
+    after_path: Path,
+    fmt: str,
+    options: str,
+    version: str,
+    body: str,
 ) -> Path:
     """Cache ``body`` as the diff of ``(before, after)``; return the slot path."""
-    body_path, meta_path, before_sha, _adhoc = _diff_paths(
-        before_path, after_path, fmt
-    )
+    body_path, meta_path, before_sha, _adhoc = _diff_paths(before_path, after_path, fmt)
     _write(
-        body_path, meta_path, after_path, body,
+        body_path,
+        meta_path,
+        after_path,
+        body,
         {
-            "lvkit_version": version, "options": options,
-            "before_sha": before_sha, "kind": "diff",
+            "lvkit_version": version,
+            "options": options,
+            "before_sha": before_sha,
+            "kind": "diff",
             "text_encoding": labview_text_encoding(),
         },
     )

@@ -72,8 +72,7 @@ def _annotate_sr_tunnels(
     elif dco_class == TUNNEL_CLASS_RIGHT_SR:
         lsr_list = dco.find("lsrDCOList")
         depth = (
-            len(lsr_list.findall("SL__arrayElement"))
-            if lsr_list is not None else None
+            len(lsr_list.findall("SL__arrayElement")) if lsr_list is not None else None
         )
         for t in tunnels:
             t.sr_stack_depth = depth
@@ -218,18 +217,20 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                 safe_text(loop_elem.find("ParForNumStaticWorkers"))
             )
 
-            loops.append(ParsedLoopStructure(
-                uid=loop_uid,
-                loop_type=loop_class,
-                boundary_terminal_uids=boundary_terminals,
-                tunnels=tunnels,
-                inner_diagram_uid=inner_diagram_uid,
-                inner_node_uids=inner_node_uids,
-                stop_condition_terminal_uid=stop_condition_uid,
-                stop_condition_inverted=stop_condition_inverted,
-                parallel=parallel,
-                parallel_static_workers=parallel_static_workers,
-            ))
+            loops.append(
+                ParsedLoopStructure(
+                    uid=loop_uid,
+                    loop_type=loop_class,
+                    boundary_terminal_uids=boundary_terminals,
+                    tunnels=tunnels,
+                    inner_diagram_uid=inner_diagram_uid,
+                    inner_node_uids=inner_node_uids,
+                    stop_condition_terminal_uid=stop_condition_uid,
+                    stop_condition_inverted=stop_condition_inverted,
+                    parallel=parallel,
+                    parallel_static_workers=parallel_static_workers,
+                )
+            )
 
     return loops
 

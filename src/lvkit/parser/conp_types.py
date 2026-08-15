@@ -45,11 +45,23 @@ from ..models import (
 # TD_FULL_TYPE code -> the ``underlying_type`` string ``LVType.lv_label`` expects
 # (so a CONP-decoded scalar renders identically to a VCTP-decoded one).
 _SCALAR_CODE: dict[int, str] = {
-    0x01: "NumInt8", 0x02: "NumInt16", 0x03: "NumInt32", 0x04: "NumInt64",
-    0x05: "NumUInt8", 0x06: "NumUInt16", 0x07: "NumUInt32", 0x08: "NumUInt64",
-    0x09: "NumFloat32", 0x0A: "NumFloat64", 0x0B: "NumFloatExt",
-    0x20: "Boolean", 0x21: "Boolean",
-    0x30: "String", 0x31: "String", 0x34: "String", 0x35: "String",
+    0x01: "NumInt8",
+    0x02: "NumInt16",
+    0x03: "NumInt32",
+    0x04: "NumInt64",
+    0x05: "NumUInt8",
+    0x06: "NumUInt16",
+    0x07: "NumUInt32",
+    0x08: "NumUInt64",
+    0x09: "NumFloat32",
+    0x0A: "NumFloat64",
+    0x0B: "NumFloatExt",
+    0x20: "Boolean",
+    0x21: "Boolean",
+    0x30: "String",
+    0x31: "String",
+    0x34: "String",
+    0x35: "String",
     0x32: "Path",
 }
 _ENUM_CODES = frozenset({0x15, 0x16, 0x17})  # UnitUInt8 / 16 / 32
@@ -59,13 +71,35 @@ _ENUM_CODES = frozenset({0x15, 0x16, 0x17})  # UnitUInt8 / 16 / 32
 # ``LVType.ref_type``), so a CONP-decoded refnum renders identically — e.g.
 # ``Queue refnum``, ``LVObjCtl refnum`` — to a VCTP-decoded one.
 _REFNUM_KIND: dict[int, str] = {
-    0: "Generic", 1: "DataLog", 2: "ByteStream", 3: "Device", 4: "Occurrence",
-    5: "TCPNetConn", 7: "AutoRef", 8: "LVObjCtl", 9: "Menu", 11: "Imaq",
-    13: "DataSocket", 14: "VisaRef", 15: "IVIRef", 16: "UDPNetConn",
-    17: "NotifierRef", 18: "Queue", 19: "IrdaNetConn", 20: "UsrDefined",
-    21: "UsrDefndTag", 23: "EventReg", 24: "DotNet", 25: "UserEvent",
-    27: "Callback", 29: "UsrDefTagFlt", 30: "UDClassInst", 31: "BluetoothCon",
-    32: "DataValueRef", 33: "FIFORef", 34: "TDMSFile",
+    0: "Generic",
+    1: "DataLog",
+    2: "ByteStream",
+    3: "Device",
+    4: "Occurrence",
+    5: "TCPNetConn",
+    7: "AutoRef",
+    8: "LVObjCtl",
+    9: "Menu",
+    11: "Imaq",
+    13: "DataSocket",
+    14: "VisaRef",
+    15: "IVIRef",
+    16: "UDPNetConn",
+    17: "NotifierRef",
+    18: "Queue",
+    19: "IrdaNetConn",
+    20: "UsrDefined",
+    21: "UsrDefndTag",
+    23: "EventReg",
+    24: "DotNet",
+    25: "UserEvent",
+    27: "Callback",
+    29: "UsrDefTagFlt",
+    30: "UDClassInst",
+    31: "BluetoothCon",
+    32: "DataValueRef",
+    33: "FIFORef",
+    34: "TDMSFile",
 }
 _STRINGISH = frozenset({0x30, 0x31, 0x34, 0x35})
 _CLUSTER, _ARRAY, _REFNUM = 0x50, 0x40, 0x70
@@ -86,7 +120,7 @@ def _pstr(data: bytes, off: int) -> tuple[str, int]:
     """Read a length-prefixed (1-byte) latin-1 string at ``off``; return it and
     the offset past it."""
     n = data[off]
-    return data[off + 1:off + 1 + n].decode("latin1"), off + 1 + n
+    return data[off + 1 : off + 1 + n].decode("latin1"), off + 1 + n
 
 
 def _is_type_identity(s: str | None) -> bool:
@@ -100,7 +134,9 @@ def _is_type_identity(s: str | None) -> bool:
 
 
 def _typedef_term_name(
-    strs: list[str], typedef_name: str | None, values: dict[str, EnumValue],
+    strs: list[str],
+    typedef_name: str | None,
+    values: dict[str, EnumValue],
 ) -> str | None:
     """The terminal label of a typedef TD: its trailing pstr — but None when that
     string is a type identity (``.ctl``/``.lvclass``), the typedef's own name, or
@@ -128,7 +164,7 @@ def _all_pstrs(body: bytes) -> list[str]:
         if n == 0 or off + 1 + n > len(body):
             off += 1
             continue
-        chunk = body[off + 1:off + 1 + n]
+        chunk = body[off + 1 : off + 1 + n]
         if all(32 <= c < 127 for c in chunk):
             out.append(chunk.decode("latin1"))
             off += 1 + n
@@ -152,7 +188,7 @@ def _decode_enum(body: bytes, start: int) -> tuple[dict[str, EnumValue], int]:
 class _ConpDecoder:
     def __init__(self, data: bytes):
         self.data = data
-        self.tds: list[tuple[int, bytes]] = []   # (type_code, body)
+        self.tds: list[tuple[int, bytes]] = []  # (type_code, body)
         self.lvtypes: list[LVType | None] = []
         self.names: list[str | None] = []
         self.slot_map: list[int] = []
@@ -170,7 +206,7 @@ class _ConpDecoder:
             if tlen < 4 or off + tlen > len(data):
                 break
             type_code = data[off + 3]
-            body = data[off + 4:off + tlen]
+            body = data[off + 4 : off + tlen]
             self.tds.append((type_code, body))
             off += tlen
 
@@ -201,27 +237,30 @@ class _ConpDecoder:
         return slots
 
     def _decode_td(
-        self, type_code: int, body: bytes,
+        self,
+        type_code: int,
+        body: bytes,
     ) -> tuple[LVType | None, str | None]:
         try:
             if type_code in _SCALAR_CODE:
                 name_off = 4 if type_code in _STRINGISH else 0
                 name = self._name_at(body, name_off)
                 return LVType(
-                    kind=LVTypeKind.PRIMITIVE, underlying_type=_SCALAR_CODE[type_code],
+                    kind=LVTypeKind.PRIMITIVE,
+                    underlying_type=_SCALAR_CODE[type_code],
                 ), name
 
             if type_code in _ENUM_CODES:
                 values, off = _decode_enum(body, 0)
                 name = self._name_at(body, off)
-                return LVType(kind=LVTypeKind.ENUM, underlying_type="Enum",
-                              values=values), name
+                return LVType(
+                    kind=LVTypeKind.ENUM, underlying_type="Enum", values=values
+                ), name
 
             if type_code == _CLUSTER:
                 (fcount,) = struct.unpack_from(">H", body, 0)
                 refs = [
-                    struct.unpack_from(">H", body, 2 + k * 2)[0]
-                    for k in range(fcount)
+                    struct.unpack_from(">H", body, 2 + k * 2)[0] for k in range(fcount)
                 ]
                 name = self._name_at(body, 2 + fcount * 2)
                 # Filter out-of-range refs FIRST so the positional ``field_{i}``
@@ -234,20 +273,24 @@ class _ConpDecoder:
                     )
                     for i, r in enumerate(valid)
                 ]
-                return LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster",
-                              fields=fields or None), name
+                return LVType(
+                    kind=LVTypeKind.CLUSTER,
+                    underlying_type="Cluster",
+                    fields=fields or None,
+                ), name
 
             if type_code == _ARRAY:
                 # u16 ndims, then u16 element-TD ref; label trails.
                 (ndims,) = struct.unpack_from(">H", body, 0)
                 (elem_ref,) = struct.unpack_from(">H", body, 2)
-                elem = (
-                    self.lvtypes[elem_ref]
-                    if elem_ref < len(self.lvtypes) else None
-                )
+                elem = self.lvtypes[elem_ref] if elem_ref < len(self.lvtypes) else None
                 name = self._trailing_name(body)
-                return LVType(kind=LVTypeKind.ARRAY, underlying_type="Array",
-                              element_type=elem, dimensions=ndims or 1), name
+                return LVType(
+                    kind=LVTypeKind.ARRAY,
+                    underlying_type="Array",
+                    element_type=elem,
+                    dimensions=ndims or 1,
+                ), name
 
             if type_code == _REFNUM:
                 # u16 sub-kind, then for a class refnum: [class name][label].
@@ -258,22 +301,19 @@ class _ConpDecoder:
                 # real labels (a developer rename, e.g. ``reference in``, sits in
                 # the same slot).
                 refkind = (
-                    struct.unpack_from(">H", body, 0)[0] if len(body) >= 2
-                    else None
+                    struct.unpack_from(">H", body, 0)[0] if len(body) >= 2 else None
                 )
                 strs = _all_pstrs(body)
-                classname = next(
-                    (s for s in strs if s.endswith(".lvclass")), None
-                )
+                classname = next((s for s in strs if s.endswith(".lvclass")), None)
                 if classname is not None:
                     ci = strs.index(classname)
                     name = strs[ci + 1] if ci + 1 < len(strs) else None
                 else:
                     name = strs[-1] if strs else None
                 return LVType(
-                    kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum",
-                    ref_type=_REFNUM_KIND.get(refkind) if refkind is not None
-                    else None,
+                    kind=LVTypeKind.PRIMITIVE,
+                    underlying_type="Refnum",
+                    ref_type=_REFNUM_KIND.get(refkind) if refkind is not None else None,
                     classname=classname,
                 ), name
 
@@ -285,7 +325,8 @@ class _ConpDecoder:
         return None, None
 
     def _decode_typedef(
-        self, body: bytes,
+        self,
+        body: bytes,
     ) -> tuple[LVType | None, str | None]:
         """A ``0xf1`` typedef wraps an inner type and names the ``.ctl``. The
         pstrs are, in order: the typedef ``.ctl`` name, the inner enum's item
@@ -306,12 +347,12 @@ class _ConpDecoder:
                 # (``enum_values_from_labels`` always assigns ``i`` in order, so
                 # it fails ONLY when two labels collide) — a cheap guard that
                 # this offset is a real enum, not coincidental bytes.
-                if values and all(
-                    v.value == i for i, v in enumerate(values.values())
-                ):
+                if values and all(v.value == i for i, v in enumerate(values.values())):
                     return LVType(
-                        kind=LVTypeKind.ENUM, underlying_type="Enum",
-                        values=values, typedef_name=typedef_name,
+                        kind=LVTypeKind.ENUM,
+                        underlying_type="Enum",
+                        values=values,
+                        typedef_name=typedef_name,
                     ), _typedef_term_name(strs, typedef_name, values)
                 idx = body.find(bytes([code]), idx + 1)
         return None, _typedef_term_name(strs, typedef_name, {})
@@ -337,9 +378,13 @@ class _ConpDecoder:
                 continue
             if self.tds[tdi][0] == _VOID:
                 continue  # empty connector-pane slot
-            out.append(ConpTerminal(
-                slot=slot, name=self.names[tdi], lv_type=self.lvtypes[tdi],
-            ))
+            out.append(
+                ConpTerminal(
+                    slot=slot,
+                    name=self.names[tdi],
+                    lv_type=self.lvtypes[tdi],
+                )
+            )
         return out
 
 

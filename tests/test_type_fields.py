@@ -28,7 +28,9 @@ class TestGetTypeFields:
         ]
         graph._dep_graph.add_node("Foo.lvclass", node_type="class", fields=fields)
 
-        result = graph.get_type_fields(LVType(kind=LVTypeKind.CLASS, classname="Foo.lvclass"))
+        result = graph.get_type_fields(
+            LVType(kind=LVTypeKind.CLASS, classname="Foo.lvclass")
+        )
         assert result == fields
 
     def test_typedef_fields_from_dep_graph(self):
@@ -41,7 +43,9 @@ class TestGetTypeFields:
         ]
         graph._dep_graph.add_node("Bar.ctl", node_type="typedef", fields=fields)
 
-        result = graph.get_type_fields(LVType(kind=LVTypeKind.CLUSTER, typedef_name="Bar.ctl"))
+        result = graph.get_type_fields(
+            LVType(kind=LVTypeKind.CLUSTER, typedef_name="Bar.ctl")
+        )
         assert result == fields
 
     def test_inline_cluster_fields(self):
@@ -76,8 +80,7 @@ class TestGetClassFieldsFromRealFile:
 
         # TestCase.lvclass should be in dep_graph
         class_nodes = [
-            n for n in graph._dep_graph.nodes
-            if n.endswith("TestCase.lvclass")
+            n for n in graph._dep_graph.nodes if n.endswith("TestCase.lvclass")
         ]
         assert len(class_nodes) >= 1
 

@@ -25,14 +25,21 @@ from lvkit.tools.connector_geometry_profile import (
 
 
 def _term(
-    uid: str, index: int, is_output: bool, type_name: str | None,
+    uid: str,
+    index: int,
+    is_output: bool,
+    type_name: str | None,
 ) -> ParsedTerminalInfo:
     parsed_type = (
         ParsedType(kind="primitive", type_name=type_name) if type_name else None
     )
     return ParsedTerminalInfo(
-        uid=uid, parent_uid="node0", index=index, is_output=is_output,
-        parsed_type=parsed_type, name=uid,
+        uid=uid,
+        parent_uid="node0",
+        index=index,
+        is_output=is_output,
+        parsed_type=parsed_type,
+        name=uid,
     )
 
 
@@ -44,7 +51,7 @@ def test_extract_slots_sorted_by_index_with_direction_and_type():
     # inputs on the left (idx 2/3), outputs on the right (idx 0/1). Rect is
     # (x1, y1, x2, y2); y grows DOWNWARD (top row has the smaller y).
     terms = [
-        _term("tA", index=3, is_output=False, type_name=None),       # top-left, unwired
+        _term("tA", index=3, is_output=False, type_name=None),  # top-left, unwired
         _term("tB", index=2, is_output=False, type_name="Boolean"),  # bottom-left
         _term("tC", index=1, is_output=True, type_name="NumInt32"),  # top-right
         _term("tD", index=0, is_output=True, type_name="NumInt32"),  # bottom-right
@@ -77,10 +84,10 @@ def test_rank_slots_by_geometry_right_to_left_bottom_to_top():
         _term("tD", index=0, is_output=True, type_name="NumInt32"),
     ]
     bounds = {
-        "tA": (0.0, 0.0, 10.0, 10.0),     # top-left
-        "tB": (0.0, 20.0, 10.0, 30.0),    # bottom-left
-        "tC": (50.0, 0.0, 60.0, 10.0),    # top-right
-        "tD": (50.0, 20.0, 60.0, 30.0),   # bottom-right
+        "tA": (0.0, 0.0, 10.0, 10.0),  # top-left
+        "tB": (0.0, 20.0, 10.0, 30.0),  # bottom-left
+        "tC": (50.0, 0.0, 60.0, 10.0),  # top-right
+        "tD": (50.0, 20.0, 60.0, 30.0),  # bottom-right
     }
     slots = extract_slots(terms, bounds)
     ranked = rank_slots_by_geometry(slots)
@@ -109,10 +116,15 @@ def _clear_errors_shaped_entry() -> PrimEntry:
         name="Fake Clear Errors",
         terminals=(
             PrimTerminalEntry(
-                index=0, direction="out", name="error_out", type="Cluster",
+                index=0,
+                direction="out",
+                name="error_out",
+                type="Cluster",
             ),
             PrimTerminalEntry(
-                index=3, direction="in", name="specific error code to clear",
+                index=3,
+                direction="in",
+                name="specific error code to clear",
                 type="NumInt32",
             ),
             PrimTerminalEntry(index=4, direction="in", name="error_in", type="Cluster"),
@@ -124,18 +136,34 @@ def _clear_errors_shaped_profile() -> PrimProfile:
     """Corpus geometry: idx3 is consistently observed as a Boolean OUTPUT
     across every gathered instance -- contradicting the JSON above on BOTH
     direction and type."""
-    common = {"instance_count": 3, "wired_instance_count": 3,
-              "direction_disagreement": False, "type_disagreement": False,
-              "sources": ("a.xml", "b.xml", "c.xml")}
+    common = {
+        "instance_count": 3,
+        "wired_instance_count": 3,
+        "direction_disagreement": False,
+        "type_disagreement": False,
+        "sources": ("a.xml", "b.xml", "c.xml"),
+    }
     return PrimProfile(
         prim_res_id=9999,
         slots={
-            0: SlotProfile(index=0, directions=frozenset({"out"}),
-                            observed_types=frozenset({"Cluster"}), **common),
-            3: SlotProfile(index=3, directions=frozenset({"out"}),
-                            observed_types=frozenset({"Boolean"}), **common),
-            4: SlotProfile(index=4, directions=frozenset({"in"}),
-                            observed_types=frozenset({"Cluster"}), **common),
+            0: SlotProfile(
+                index=0,
+                directions=frozenset({"out"}),
+                observed_types=frozenset({"Cluster"}),
+                **common,
+            ),
+            3: SlotProfile(
+                index=3,
+                directions=frozenset({"out"}),
+                observed_types=frozenset({"Boolean"}),
+                **common,
+            ),
+            4: SlotProfile(
+                index=4,
+                directions=frozenset({"in"}),
+                observed_types=frozenset({"Cluster"}),
+                **common,
+            ),
         },
         instances_found=3,
         files_considered=("a.xml", "b.xml", "c.xml"),
@@ -174,7 +202,8 @@ def test_auditor_direction_disagreement_flagged_not_silently_pooled():
     signal (direction is structurally fixed) -- must be flagged as
     DISAGREEMENT, never averaged away."""
     entry = PrimEntry(
-        prim_res_id=8888, name="Fake Ambiguous Prim",
+        prim_res_id=8888,
+        name="Fake Ambiguous Prim",
         terminals=(
             PrimTerminalEntry(index=1, direction="in", name="x", type="NumInt32"),
         ),
@@ -183,14 +212,20 @@ def test_auditor_direction_disagreement_flagged_not_silently_pooled():
         prim_res_id=8888,
         slots={
             1: SlotProfile(
-                index=1, directions=frozenset({"in", "out"}),
-                observed_types=frozenset({"NumInt32"}), instance_count=2,
-                wired_instance_count=2, direction_disagreement=True,
-                type_disagreement=False, sources=("a.xml", "b.xml"),
+                index=1,
+                directions=frozenset({"in", "out"}),
+                observed_types=frozenset({"NumInt32"}),
+                instance_count=2,
+                wired_instance_count=2,
+                direction_disagreement=True,
+                type_disagreement=False,
+                sources=("a.xml", "b.xml"),
             ),
         },
-        instances_found=2, files_considered=("a.xml", "b.xml"),
-        files_parsed_ok=2, instance_count=2,
+        instances_found=2,
+        files_considered=("a.xml", "b.xml"),
+        files_parsed_ok=2,
+        instance_count=2,
     )
 
     findings = audit_primitive(entry, profile)
@@ -199,10 +234,14 @@ def test_auditor_direction_disagreement_flagged_not_silently_pooled():
 
 def test_auditor_unobserved_and_missing_from_entry_are_notes_not_flags():
     entry = PrimEntry(
-        prim_res_id=7777, name="Fake Sparse Prim",
+        prim_res_id=7777,
+        name="Fake Sparse Prim",
         terminals=(
             PrimTerminalEntry(
-                index=5, direction="in", name="never_wired", type="String",
+                index=5,
+                direction="in",
+                name="never_wired",
+                type="String",
             ),
         ),
     )
@@ -211,14 +250,20 @@ def test_auditor_unobserved_and_missing_from_entry_are_notes_not_flags():
         slots={
             # index 5 (declared in JSON) never appears -- UNOBSERVED.
             2: SlotProfile(
-                index=2, directions=frozenset({"out"}),
-                observed_types=frozenset({"Boolean"}), instance_count=1,
-                wired_instance_count=1, direction_disagreement=False,
-                type_disagreement=False, sources=("a.xml",),
+                index=2,
+                directions=frozenset({"out"}),
+                observed_types=frozenset({"Boolean"}),
+                instance_count=1,
+                wired_instance_count=1,
+                direction_disagreement=False,
+                type_disagreement=False,
+                sources=("a.xml",),
             ),
         },
-        instances_found=1, files_considered=("a.xml",),
-        files_parsed_ok=1, instance_count=1,
+        instances_found=1,
+        files_considered=("a.xml",),
+        files_parsed_ok=1,
+        instance_count=1,
     )
 
     findings = audit_primitive(entry, profile)

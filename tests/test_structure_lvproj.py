@@ -71,9 +71,7 @@ class TestSyntheticLvproj:
         sub.mkdir()
         (sub / "Inner.vi").write_bytes(b"")
         proj = tmp_path / "P.lvproj"
-        _write_lvproj(
-            proj, '<Item Name="Inner.vi" Type="VI" URL="Sub/Inner.vi"/>'
-        )
+        _write_lvproj(proj, '<Item Name="Inner.vi" Type="VI" URL="Sub/Inner.vi"/>')
 
         structure = discover_structure_from_lvproj(proj)
 

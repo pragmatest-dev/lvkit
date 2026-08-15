@@ -334,12 +334,15 @@ class TestFullCorpusDemo:
 # not just read top-level <Item>s. These three cover the shapes seen in the
 # corpus: fully nested (WaveGen, MeasurementServerTests) and flat/unaffected
 # (VITesterUtilities, used again below by TestLibraryMembership).
-_WAVEGEN_LVLIB = (
-    SAMPLES / "lv-flex-channel-examples" / "WaveGen" / "WaveGen.lvlib"
-)
+_WAVEGEN_LVLIB = SAMPLES / "lv-flex-channel-examples" / "WaveGen" / "WaveGen.lvlib"
 _MEASUREMENT_SERVER_TESTS_LVLIB = (
-    SAMPLES / "measurement-plugin-labview" / "Source" / "Tests" / "Tests.Runtime"
-    / "Measurement Server" / "MeasurementServerTests.lvlib"
+    SAMPLES
+    / "measurement-plugin-labview"
+    / "Source"
+    / "Tests"
+    / "Tests.Runtime"
+    / "Measurement Server"
+    / "MeasurementServerTests.lvlib"
 )
 _VITESTER_UTILITIES_LVLIB = (
     JKI_ROOT / "source" / "Libraries" / "VITesterUtilities.lvlib"
@@ -361,14 +364,15 @@ _VITESTER_UTILITIES_MEMBER_COUNT = 46  # <Item Type="VI" .../> count in the file
 _MYPARENTLIBRARY_LVLIB = (
     JKI_ROOT / "source" / "Tests" / "Library Test" / "MyParentLibrary.lvlib"
 )
-_MYLIBRARY_LVLIB = (
-    JKI_ROOT / "source" / "Tests" / "Library Test" / "MyLibrary.lvlib"
-)
+_MYLIBRARY_LVLIB = JKI_ROOT / "source" / "Tests" / "Library Test" / "MyLibrary.lvlib"
 _MYLIBRARY_CLASS_NAME = (
     "MyParentLibrary.lvlib:MyLibrary.lvlib:ABC - Parentheses (Valid).lvclass"
 )
 _MYLIBRARY_CLASS_METHODS = {
-    "setUp.vi", "testExample.vi", "tearDown.vi", "test (Example).vi",
+    "setUp.vi",
+    "testExample.vi",
+    "tearDown.vi",
+    "test (Example).vi",
 }
 
 
@@ -416,7 +420,8 @@ class TestStructureCommandLvlibMembers:
     """
 
     def test_json_reports_all_nested_members(
-        self, capsys: pytest.CaptureFixture[str],
+        self,
+        capsys: pytest.CaptureFixture[str],
     ):
         if not _WAVEGEN_LVLIB.is_file():
             pytest.skip(f"Sample not available: {_WAVEGEN_LVLIB}")
@@ -434,7 +439,8 @@ class TestStructureCommandLvlibMembers:
         assert "Generate.vi" in names
 
     def test_text_output_reports_member_count(
-        self, capsys: pytest.CaptureFixture[str],
+        self,
+        capsys: pytest.CaptureFixture[str],
     ):
         if not _WAVEGEN_LVLIB.is_file():
             pytest.skip(f"Sample not available: {_WAVEGEN_LVLIB}")
@@ -470,7 +476,9 @@ class TestLoadLvlibClassMember:
         # the real index build.
         graph = InMemoryVIGraph()
         graph.load_lvlib(
-            _MYPARENTLIBRARY_LVLIB, LoadMode.FULL, search_paths=[JKI_ROOT],
+            _MYPARENTLIBRARY_LVLIB,
+            LoadMode.FULL,
+            search_paths=[JKI_ROOT],
         )
 
         assert _MYLIBRARY_CLASS_NAME in graph.list_classes()
@@ -478,9 +486,12 @@ class TestLoadLvlibClassMember:
         # The class's methods loaded as real VI nodes, owned by the class
         # (not left as a dead/unreachable member).
         owned = {
-            succ for succ in graph._dep_graph.successors(_MYLIBRARY_CLASS_NAME)
-            if (graph._dep_graph.get_edge_data(_MYLIBRARY_CLASS_NAME, succ) or {})
-            .get("rel") == "owns"
+            succ
+            for succ in graph._dep_graph.successors(_MYLIBRARY_CLASS_NAME)
+            if (graph._dep_graph.get_edge_data(_MYLIBRARY_CLASS_NAME, succ) or {}).get(
+                "rel"
+            )
+            == "owns"
         }
         # Qualified qnames ("Lib:Lib:Class.lvclass:Method.vi") aren't
         # filesystem paths — split on ":" rather than Path(...).name.
@@ -505,9 +516,7 @@ class TestLibraryMembership:
     def test_lvlib_members_get_library_fact(self, jki_index: BuildResult):
         assert _VITESTER_UTILITIES_LVLIB.is_file()  # sanity: fixture VI exists
 
-        members = [
-            f for f in jki_index.facts if f.library == "VITesterUtilities.lvlib"
-        ]
+        members = [f for f in jki_index.facts if f.library == "VITesterUtilities.lvlib"]
         assert len(members) == _VITESTER_UTILITIES_MEMBER_COUNT
 
         # Spot-check one specific, known member VI.
@@ -519,7 +528,8 @@ class TestLibraryMembership:
         assert sample.class_fact is None
 
     def test_library_membership_does_not_perturb_class_ownership(
-        self, jki_index: BuildResult,
+        self,
+        jki_index: BuildResult,
     ):
         """Regression guard: adding the ``.lvlib`` ownership pass alongside
         the existing ``.lvclass`` ownership pass must not change ANY class
@@ -541,14 +551,14 @@ class TestLibraryMembership:
         # method (confirmed against the real corpus -- these are disjoint
         # VI sets).
         lib_members = {
-            f.path for f in jki_index.facts
-            if f.library == "VITesterUtilities.lvlib"
+            f.path for f in jki_index.facts if f.library == "VITesterUtilities.lvlib"
         }
         class_method_paths = {f.path for f in class_methods}
         assert not (lib_members & class_method_paths)
 
     def test_lvclass_library_member_gets_qualified_ownership(
-        self, jki_index: BuildResult,
+        self,
+        jki_index: BuildResult,
     ):
         """Empirical check for the Bug-B interaction: MyLibrary.lvlib's one
         member is ``ABC - Parentheses (Valid).lvclass`` (a ``Type="LVClass"``
@@ -582,7 +592,8 @@ class TestLibraryMembership:
         assert _MYLIBRARY_LVLIB.is_file()  # sanity: fixture lvlib exists
 
         method_facts = [
-            f for f in jki_index.facts
+            f
+            for f in jki_index.facts
             if f.class_fact is not None
             and f.class_fact.owning_class == _MYLIBRARY_CLASS_NAME
         ]
@@ -686,7 +697,8 @@ class TestLvprojMembership:
 
         # VI Tester Example's 9 own VIs all live in-repo (sibling files).
         example_own = [
-            m for m in members
+            m
+            for m in members
             if m.lvproj_name == "VI Tester Example"
             and m.member_type == "VI"
             and not m.is_dependency

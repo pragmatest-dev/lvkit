@@ -13,15 +13,44 @@ from . import FormulaTranspileError
 
 # Multi-character operators, longest first so the scanner is greedy.
 _OPERATORS = (
-    "**", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||", "++", "--",
-    "+", "-", "*", "/", "%", "<", ">", "=", "&", "|", "^", "~", "!",
-    "(", ")", "[", "]", "{", "}", ",", ";",
+    "**",
+    "<<",
+    ">>",
+    "<=",
+    ">=",
+    "==",
+    "!=",
+    "&&",
+    "||",
+    "++",
+    "--",
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "<",
+    ">",
+    "=",
+    "&",
+    "|",
+    "^",
+    "~",
+    "!",
+    "(",
+    ")",
+    "[",
+    "]",
+    "{",
+    "}",
+    ",",
+    ";",
 )
 
 
 @dataclass(frozen=True)
 class Token:
-    kind: str   # "num" | "ident" | "op"
+    kind: str  # "num" | "ident" | "op"
     value: str
     line: int
     col: int

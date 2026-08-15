@@ -149,7 +149,8 @@ class TestQ1ClassHierarchy:
         of the class must now resolve a single ``TestCase.lvclass`` parent,
         no NULL."""
         methods = [
-            f for f in jki_index.facts
+            f
+            for f in jki_index.facts
             if f.class_fact
             and f.class_fact.owning_class == "WaitOnTestComplete.lvclass"
         ]
@@ -168,7 +169,11 @@ class TestQ2VilibVsInRepoParent:
 
     def test_junitxml_runner_points_at_vilib(self):
         path = (
-            JKI_ROOT / "source" / "Ant Plugin" / "Source" / "TextTestRunner.Ant"
+            JKI_ROOT
+            / "source"
+            / "Ant Plugin"
+            / "Source"
+            / "TextTestRunner.Ant"
             / "TextTestRunner.JUnitXML.lvclass"
         )
         lv = parse_lvclass(path)
@@ -177,7 +182,10 @@ class TestQ2VilibVsInRepoParent:
 
     def test_texttestrunner_points_in_repo(self):
         path = (
-            JKI_ROOT / "source" / "Classes" / "TextTestRunner"
+            JKI_ROOT
+            / "source"
+            / "Classes"
+            / "TextTestRunner"
             / "TextTestRunner.lvclass"
         )
         lv = parse_lvclass(path)
@@ -253,9 +261,7 @@ def test_q18_dead_code_uncalled(jki_index: BuildResult):
     total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
     assert total.rows == [[284]]
 
-    called = _query(
-        "SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'"
-    )
+    called = _query("SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'")
     assert called.rows == [[12]]
     uncalled = _query(
         "SELECT callers_count FROM vi WHERE name = 'VI Tester JUnitXML Example.vi'"
@@ -384,9 +390,7 @@ def test_q21_gap19_zero_method_class_resolves(jki_index: BuildResult):
     """Q21/#19: UserInterfaceTestCase (zero methods) should still surface as
     a known class once #19 lands."""
     resolved = {
-        f.class_fact.owning_class
-        for f in jki_index.facts
-        if f.class_fact is not None
+        f.class_fact.owning_class for f in jki_index.facts if f.class_fact is not None
     }
     assert "UserInterfaceTestCase.lvclass" in resolved
 
@@ -410,10 +414,7 @@ def test_q20_19_lvproj_view_returns_six_projects(jki_index: BuildResult):
     path-keyed index exists to disentangle."""
     res = _query("SELECT COUNT(DISTINCT lvproj_path) FROM lvproj")
     assert res.rows == [[6]]
-    names = {
-        row[0]
-        for row in _query("SELECT DISTINCT lvproj_name FROM lvproj").rows
-    }
+    names = {row[0] for row in _query("SELECT DISTINCT lvproj_name FROM lvproj").rows}
     assert len(names) == 5  # 'Test Project' stem occurs twice
     assert "VIUnit" in names
 

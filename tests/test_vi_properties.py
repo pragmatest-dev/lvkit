@@ -351,7 +351,9 @@ class TestParseLvsrProperties:
         # Only the 3 named attrs -- ViBhBit1 (an unnamed heap bit) and the
         # other ViBhBitN's are deliberately never captured.
         assert set(toolbar) == {
-            "hide_run_button", "hide_abort_button", "hide_free_run_button",
+            "hide_run_button",
+            "hide_abort_button",
+            "hide_free_run_button",
         }
 
     def test_window_defaults_when_front_panel_absent(self) -> None:
@@ -399,7 +401,8 @@ class TestParseLvsrProperties:
             )
             result = _parse_lvsr_properties(root)
             assert result["kind"]["typedef_status"] == status.value, (
-                is_typedef, is_strict,
+                is_typedef,
+                is_strict,
             )
 
     def test_kind_and_health_defaults_when_execution_absent(self) -> None:
@@ -415,8 +418,7 @@ class TestParseLvsrProperties:
         against the parser's plain dict, built the same way graph.loading
         does -- see _build_vi_health."""
         root = self._root(
-            '<RSRC><LVSR><Section><Execution BadCompile="1"/>'
-            "</Section></LVSR></RSRC>"
+            '<RSRC><LVSR><Section><Execution BadCompile="1"/></Section></LVSR></RSRC>'
         )
         result = _parse_lvsr_properties(root)
         health = VIHealth(**dict(result["health"]))
@@ -424,9 +426,7 @@ class TestParseLvsrProperties:
         assert health.is_broken is True
 
         clean_root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
-        clean_health = VIHealth(
-            **dict(_parse_lvsr_properties(clean_root)["health"])
-        )
+        clean_health = VIHealth(**dict(_parse_lvsr_properties(clean_root)["health"]))
         assert clean_health.is_broken is False
 
 
@@ -584,21 +584,16 @@ LOCKED_VI = Path(
     ".lvkit/cache/samples/LabVIEW-OOP-Classes/Utility/Database/"
     "Database_UUT_class/utils/Database_UUT_New.vi"
 )
-UNLOCKED_VI = Path(
-    ".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
-)
+UNLOCKED_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 SUBROUTINE_VI = Path(
     ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/Get Children.vi"
 )
 HIDDEN_TOOLBAR_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/Project API/Launch VI Tester.vi"
 )
-SHARED_CLONE_VI = Path(
-    ".lvkit/cache/samples/JKI-EasyXML/Source/Easy Write XML File.vi"
-)
+SHARED_CLONE_VI = Path(".lvkit/cache/samples/JKI-EasyXML/Source/Easy Write XML File.vi")
 DATA_ACQUISITION_VI = Path(
-    ".lvkit/cache/samples/LabVIEW-OOP-Classes/DAQ/Digital Input/DI_class/"
-    "Update All.vi"
+    ".lvkit/cache/samples/LabVIEW-OOP-Classes/DAQ/Digital Input/DI_class/Update All.vi"
 )
 
 

@@ -65,17 +65,17 @@ def decode_xml_entities_to_bytes(data: str) -> bytes:
     result = bytearray()
     i = 0
     while i < len(data):
-        if data[i:i + 3] == "&#x":
+        if data[i : i + 3] == "&#x":
             end = data.find(";", i)
             if end != -1:
-                hex_val = data[i + 3:end]
+                hex_val = data[i + 3 : end]
                 result.append(int(hex_val, 16))
                 i = end + 1
                 continue
-        elif data[i:i + 2] == "&#":
+        elif data[i : i + 2] == "&#":
             end = data.find(";", i)
             if end != -1:
-                dec_val = data[i + 2:end]
+                dec_val = data[i + 2 : end]
                 result.append(int(dec_val))
                 i = end + 1
                 continue

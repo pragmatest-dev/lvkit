@@ -43,14 +43,14 @@ class TestParseTypeMapRich:
 
         # Find a cluster type with error cluster fields
         cluster_types = [
-            lt for lt in type_map.values()
-            if lt.kind == "cluster" and lt.fields
+            lt for lt in type_map.values() if lt.kind == "cluster" and lt.fields
         ]
         assert len(cluster_types) > 0
 
         # At least one cluster should have the standard error fields
         error_clusters = [
-            lt for lt in cluster_types
+            lt
+            for lt in cluster_types
             if lt.fields is not None
             and len(lt.fields) == 3
             and {f.name for f in lt.fields} == {"status", "code", "source"}
@@ -63,8 +63,7 @@ class TestParseTypeMapRich:
         type_map = parse_type_map_rich(main_xml)
 
         enum_types = [
-            lt for lt in type_map.values()
-            if lt.values and "testPass" in lt.values
+            lt for lt in type_map.values() if lt.values and "testPass" in lt.values
         ]
         assert len(enum_types) > 0
 
@@ -82,10 +81,7 @@ class TestParseTypeMapRich:
         main_xml = _get_main_xml(ADDERROR_VI)
         type_map = parse_type_map_rich(main_xml)
 
-        array_types = [
-            lt for lt in type_map.values()
-            if lt.kind == "array"
-        ]
+        array_types = [lt for lt in type_map.values() if lt.kind == "array"]
         assert len(array_types) > 0
 
     def test_typedef_name_populated(self):
@@ -94,7 +90,8 @@ class TestParseTypeMapRich:
         type_map = parse_type_map_rich(main_xml)
 
         named_typedefs = [
-            lt for lt in type_map.values()
+            lt
+            for lt in type_map.values()
             if lt.typedef_name and lt.typedef_name.endswith(".ctl")
         ]
         assert len(named_typedefs) > 0
@@ -105,10 +102,9 @@ class TestParseTypeMapRich:
         type_map = parse_type_map_rich(main_xml)
 
         cluster_typedefs = [
-            lt for lt in type_map.values()
-            if lt.typedef_name
-            and "Cluster" in (lt.typedef_name or "")
-            and lt.fields
+            lt
+            for lt in type_map.values()
+            if lt.typedef_name and "Cluster" in (lt.typedef_name or "") and lt.fields
         ]
         assert len(cluster_typedefs) > 0
         # Should have parseable field names
@@ -129,7 +125,8 @@ class TestEnumTypedefFromRun:
         type_map = parse_type_map_rich(main_xml)
 
         method_enums = [
-            lt for lt in type_map.values()
+            lt
+            for lt in type_map.values()
             if lt.typedef_name and "method" in lt.typedef_name.lower()
         ]
         assert len(method_enums) > 0
@@ -187,11 +184,14 @@ class TestRefnumElementType:
 
     def test_queue_of_dbl_carries_element_and_renders_in_braces(self, tmp_path):
         # FlatTypeID 0 = element (DBL); FlatTypeID 1 = Queue refnum of it.
-        result = self._vctp(tmp_path, """\
+        result = self._vctp(
+            tmp_path,
+            """\
             <TypeDesc Type="NumFloat64" />
             <TypeDesc Type="Refnum" RefType="Queue">
                 <TypeDesc TypeID="0" />
-            </TypeDesc>""")
+            </TypeDesc>""",
+        )
         q = result[1]
         assert q.underlying_type == "Refnum"
         assert q.ref_type == "Queue"
@@ -200,23 +200,29 @@ class TestRefnumElementType:
         assert q.lv_label() == "Queue refnum{DBL}"
 
     def test_eventreg_with_multiple_nested_has_no_single_element(self, tmp_path):
-        result = self._vctp(tmp_path, """\
+        result = self._vctp(
+            tmp_path,
+            """\
             <TypeDesc Type="NumFloat64" />
             <TypeDesc Type="Boolean" />
             <TypeDesc Type="Refnum" RefType="EventReg">
                 <TypeDesc TypeID="0" />
                 <TypeDesc TypeID="1" />
-            </TypeDesc>""")
+            </TypeDesc>""",
+        )
         ev = result[2]
         assert ev.ref_type == "EventReg"
         assert ev.element_type is None
         assert ev.lv_label() == "EventReg refnum"
 
     def test_class_refnum_keeps_class_name_not_element(self, tmp_path):
-        result = self._vctp(tmp_path, """\
+        result = self._vctp(
+            tmp_path,
+            """\
             <TypeDesc Type="Refnum" RefType="UDClassInst">
                 <Item Text="TestCase.lvclass" />
-            </TypeDesc>""")
+            </TypeDesc>""",
+        )
         c = result[0]
         assert c.classname == "TestCase.lvclass"
         assert c.element_type is None

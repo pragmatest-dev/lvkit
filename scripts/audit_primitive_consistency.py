@@ -23,6 +23,7 @@ Usage:
     uv run python scripts/audit_primitive_consistency.py
     uv run python scripts/audit_primitive_consistency.py --batch 25 --only 1163
 """
+
 from __future__ import annotations
 
 import argparse
@@ -77,12 +78,17 @@ def _worker(paths: list[str]) -> int:
             if not isinstance(node, PrimitiveNode) or not pid:
                 continue
             terms = [
-                [ti.index, "out" if ti.is_output else "in",
-                 ti.parsed_type.type_name if ti.parsed_type else None]
+                [
+                    ti.index,
+                    "out" if ti.is_output else "in",
+                    ti.parsed_type.type_name if ti.parsed_type else None,
+                ]
                 for ti in by_parent.get(node.uid, [])
             ]
-            print(json.dumps({"pid": pid, "vi": Path(bd).name, "terms": terms}),
-                  flush=True)
+            print(
+                json.dumps({"pid": pid, "vi": Path(bd).name, "terms": terms}),
+                flush=True,
+            )
         del diagram
     return 0
 
@@ -105,12 +111,15 @@ def main() -> None:
     # observed[pid][index] = {"dirs": set, "types": set, "vis": set}
     observed: dict[int, dict[int, dict]] = collections.defaultdict(
         lambda: collections.defaultdict(
-            lambda: {"dirs": set(), "types": set(), "vis": set()}))
+            lambda: {"dirs": set(), "types": set(), "vis": set()}
+        )
+    )
     me = str(Path(__file__).resolve())
     for start in range(0, len(bds), args.batch):
         batch = bds[start : start + args.batch]
-        proc = subprocess.run([sys.executable, me, WORKER_FLAG, *batch],
-                              capture_output=True, text=True)
+        proc = subprocess.run(
+            [sys.executable, me, WORKER_FLAG, *batch], capture_output=True, text=True
+        )
         for line in proc.stdout.splitlines():
             try:
                 rec = json.loads(line)
@@ -137,29 +146,56 @@ def main() -> None:
         for idx, t in decl.items():
             o = obs.get(idx)
             if o is None:
-                findings.append(("PHANTOM", pid, name,
-                                 f"declares idx{idx} ({t.get('name')}) — never observed"))  # noqa: E501
+                findings.append(
+                    (
+                        "PHANTOM",
+                        pid,
+                        name,
+                        f"declares idx{idx} ({t.get('name')}) — never observed",
+                    )
+                )  # noqa: E501
                 continue
             if o["dirs"] and t.get("direction") not in o["dirs"]:
-                findings.append(("DIRECTION", pid, name,
-                                 f"idx{idx} declared {t.get('direction')} but observed "
-                                 f"{'/'.join(sorted(o['dirs']))}"))
+                findings.append(
+                    (
+                        "DIRECTION",
+                        pid,
+                        name,
+                        f"idx{idx} declared {t.get('direction')} but observed "
+                        f"{'/'.join(sorted(o['dirs']))}",
+                    )
+                )
             dfam = _family(t.get("type"))
             ofams = {_family(x) for x in o["types"]}
             if dfam and ofams and dfam not in ofams and None not in ofams:
-                findings.append(("TYPE", pid, name,
-                                 f"idx{idx} declared {t.get('type')} ({dfam}) but observed "  # noqa: E501
-                                 f"{'/'.join(sorted(str(f) for f in ofams))}"))
+                findings.append(
+                    (
+                        "TYPE",
+                        pid,
+                        name,
+                        f"idx{idx} declared {t.get('type')} ({dfam}) but observed "  # noqa: E501
+                        f"{'/'.join(sorted(str(f) for f in ofams))}",
+                    )
+                )
         for idx in sorted(set(obs) - set(decl)):
             n_vis = len(obs[idx]["vis"])
-            findings.append(("UNDECLARED", pid, name,
-                             f"idx{idx} wired in {n_vis} VI(s) but not declared"))
+            findings.append(
+                (
+                    "UNDECLARED",
+                    pid,
+                    name,
+                    f"idx{idx} wired in {n_vis} VI(s) but not declared",
+                )
+            )
 
     order = {"DIRECTION": 0, "TYPE": 1, "UNDECLARED": 2, "PHANTOM": 3}
     findings.sort(key=lambda f: (order.get(f[0], 9), -f[1]))
     counts = collections.Counter(f[0] for f in findings)
-    print(f"\n=== {len(findings)} findings: "
-          + "  ".join(f"{k}={v}" for k, v in counts.most_common()) + " ===\n")
+    print(
+        f"\n=== {len(findings)} findings: "
+        + "  ".join(f"{k}={v}" for k, v in counts.most_common())
+        + " ===\n"
+    )
     for kind, pid, name, detail in findings:
         print(f"{kind:11s} {pid:5d} {name[:34]:36s} {detail}")
 

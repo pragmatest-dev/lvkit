@@ -102,15 +102,11 @@ class TestClassify:
         substring `_OpenG.lib` marker got wrong."""
         proj = tmp_path / "work"
         _mark_project(proj)
-        vi = _touch_vi(
-            proj / "user.lib" / "_OpenG.lib" / "array" / "Sort.vi"
-        )
+        vi = _touch_vi(proj / "user.lib" / "_OpenG.lib" / "array" / "Sort.vi")
         # A real, unrelated install userlib elsewhere — the VI is NOT under it.
         other_userlib = tmp_path / "LVinstall" / "user.lib"
         other_userlib.mkdir(parents=True, exist_ok=True)
-        cache_paths.set_extraction_roots(
-            vilib_root=None, userlib_root=other_userlib
-        )
+        cache_paths.set_extraction_roots(vilib_root=None, userlib_root=other_userlib)
 
         target, _, _ = cache_paths.classify(vi, "extract")
         root = _extract_root()
@@ -227,9 +223,7 @@ class TestCacheFreshness:
             extra={"text_encoding": "cp1252"},
         )
 
-    def test_touch_hits_fastpath_content_edit_invalidates(
-        self, tmp_path: Path
-    ) -> None:
+    def test_touch_hits_fastpath_content_edit_invalidates(self, tmp_path: Path) -> None:
         f = tmp_path / "x.vi"
         f.write_bytes(b"hello world")
         meta = tmp_path / "x.meta.json"
@@ -276,8 +270,7 @@ class TestCacheFreshness:
 @pytest.mark.needs_samples
 class TestRealExtraction:
     SAMPLE = Path(
-        ".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/"
-        "TrackDroppedFrames_FP.vi"
+        ".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi"
     )
 
     def test_cold_extracts_warm_hits_edit_reextracts(
@@ -335,9 +328,7 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess:
 
 @pytest.mark.needs_samples
 class TestRepoCleanliness:
-    def test_describe_never_writes_lvkit_cache_into_repo(
-        self, tmp_path: Path
-    ) -> None:
+    def test_describe_never_writes_lvkit_cache_into_repo(self, tmp_path: Path) -> None:
         if not _SAMPLE_VI.exists():
             pytest.skip(f"sample VI not available: {_SAMPLE_VI}")
         # A throwaway git repo with the VI copied inside it.
@@ -384,7 +375,7 @@ class TestGlobalHomeGuard:
     ) -> None:
         from lvkit import project_store
 
-        home_store = tmp_path / ".lvkit"          # stands in for ~/.lvkit
+        home_store = tmp_path / ".lvkit"  # stands in for ~/.lvkit
         home_store.mkdir()
         monkeypatch.setattr(project_store, "global_home", lambda: home_store)
 
@@ -398,9 +389,7 @@ class TestGlobalHomeGuard:
     ) -> None:
         from lvkit import project_store
 
-        monkeypatch.setattr(
-            project_store, "global_home", lambda: tmp_path / ".lvkit"
-        )
+        monkeypatch.setattr(project_store, "global_home", lambda: tmp_path / ".lvkit")
         proj = tmp_path / "proj"
         (proj / ".lvkit").mkdir(parents=True)
         assert project_store.find_project_store(proj) == proj / ".lvkit"

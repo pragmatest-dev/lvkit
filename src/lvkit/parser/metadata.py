@@ -110,13 +110,16 @@ def _typedef_status(is_typedef: bool, is_strict: bool) -> str:
         return TYPEDEF_STATUS_TYPEDEF
     return TYPEDEF_STATUS_NOT_A_TYPEDEF
 
+
 # A BD ``<Password Hash>`` this shallow (empty-string, all-zero, or the MD5 of
 # the empty string) is a stubbed/no-password placeholder, not a real password.
-_EMPTY_PASSWORD_HASHES = frozenset({
-    "",
-    "0" * 32,
-    "d41d8cd98f00b204e9800998ecf8427e",
-})
+_EMPTY_PASSWORD_HASHES = frozenset(
+    {
+        "",
+        "0" * 32,
+        "d41d8cd98f00b204e9800998ecf8427e",
+    }
+)
 
 
 def get_qualified_name(xml_path: Path | str) -> str | None:
@@ -489,8 +492,7 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
 
         # Preserve empty strings — they are the '..' navigation markers.
         path_tokens = [
-            s.text if s.text is not None else ""
-            for s in path_ref.findall("String")
+            s.text if s.text is not None else "" for s in path_ref.findall("String")
         ]
         if not path_tokens:
             continue
@@ -500,11 +502,13 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
             continue
         seen.add(key)
 
-        refs.append(ParsedDependencyRef(
-            name=name,
-            path_tokens=path_tokens,
-            qualified_name=qualified_name,
-        ))
+        refs.append(
+            ParsedDependencyRef(
+                name=name,
+                path_tokens=path_tokens,
+                qualified_name=qualified_name,
+            )
+        )
 
     return refs
 

@@ -125,9 +125,7 @@ def _extract_one_case_structure(
     diag_list = case_elem.find("diagramList")
     num_frames = 0
     if diag_list is not None:
-        num_frames = len(
-            diag_list.findall("SL__arrayElement[@class='diag']")
-        )
+        num_frames = len(diag_list.findall("SL__arrayElement[@class='diag']"))
 
     # Find selector terminal and tunnels
     term_list_elem = case_elem.find("termList")
@@ -155,7 +153,10 @@ def _extract_one_case_structure(
                 dco_class = dco.get("class", "")
                 if dco_class in ALL_TUNNEL_CLASSES:
                     new_tunnels = _extract_case_tunnels(
-                        dco, dco_class, term_uid, num_frames,
+                        dco,
+                        dco_class,
+                        term_uid,
+                        num_frames,
                     )
                     tunnels.extend(new_tunnels)
 
@@ -168,18 +169,18 @@ def _extract_one_case_structure(
         cs_tl = case_sel.find("termList")
         if cs_tl is not None:
             term_refs: list[str] = [
-                uid
-                for e in cs_tl.findall("SL__arrayElement")
-                if (uid := e.get("uid"))
+                uid for e in cs_tl.findall("SL__arrayElement") if (uid := e.get("uid"))
             ]
             if len(term_refs) >= 2:
                 outer_uid = term_refs[-1]
                 for inner_uid in term_refs[:-1]:
-                    tunnels.append(Tunnel(
-                        outer_terminal_uid=outer_uid,
-                        inner_terminal_uid=inner_uid,
-                        tunnel_type="caseSel",
-                    ))
+                    tunnels.append(
+                        Tunnel(
+                            outer_terminal_uid=outer_uid,
+                            inner_terminal_uid=inner_uid,
+                            tunnel_type="caseSel",
+                        )
+                    )
 
     # Extract commentTun tunnels from comment nodes (annotations).
     # commentTun passes data through transparently — same layout as selTun.
@@ -187,18 +188,18 @@ def _extract_one_case_structure(
         ct_tl = comment_tun.find("termList")
         if ct_tl is not None:
             term_refs: list[str] = [
-                uid
-                for e in ct_tl.findall("SL__arrayElement")
-                if (uid := e.get("uid"))
+                uid for e in ct_tl.findall("SL__arrayElement") if (uid := e.get("uid"))
             ]
             if len(term_refs) >= 2:
                 outer_uid = term_refs[-1]
                 for inner_uid in term_refs[:-1]:
-                    tunnels.append(Tunnel(
-                        outer_terminal_uid=outer_uid,
-                        inner_terminal_uid=inner_uid,
-                        tunnel_type="commentTun",
-                    ))
+                    tunnels.append(
+                        Tunnel(
+                            outer_terminal_uid=outer_uid,
+                            inner_terminal_uid=inner_uid,
+                            tunnel_type="commentTun",
+                        )
+                    )
 
     # Resolve selector type from the terminal's actual wire type.
     # This is the source of truth — overrides the DCO-based guess.
@@ -226,9 +227,7 @@ def _extract_one_case_structure(
     raw_ranges_by_diag: dict[int, list[tuple[int, int, int, int]]] = {}
     select_range = case_elem.find("SelectRangeArray32")
     if select_range is not None:
-        for sr_elem in select_range.findall(
-            "SL__arrayElement[@class='SelectorRange']"
-        ):
+        for sr_elem in select_range.findall("SL__arrayElement[@class='SelectorRange']"):
             start = sr_elem.findtext("start")
             end = sr_elem.findtext("end")
             diag_idx = sr_elem.findtext("diagramIdx")
@@ -236,12 +235,14 @@ def _extract_one_case_structure(
                 continue
             start_type = sr_elem.findtext("startRangeType")
             end_type = sr_elem.findtext("endRangeType")
-            raw_ranges_by_diag.setdefault(int(diag_idx), []).append((
-                int(start),
-                int(end) if end is not None else int(start),
-                int(start_type) if start_type is not None else 0,
-                int(end_type) if end_type is not None else 0,
-            ))
+            raw_ranges_by_diag.setdefault(int(diag_idx), []).append(
+                (
+                    int(start),
+                    int(end) if end is not None else int(start),
+                    int(start_type) if start_type is not None else 0,
+                    int(end_type) if end_type is not None else 0,
+                )
+            )
 
     for diag_idx, entries in raw_ranges_by_diag.items():
         if all(st == 0 and et == 0 for _, _, st, et in entries):
@@ -269,7 +270,10 @@ def _extract_one_case_structure(
                 # filler and must never be surfaced.
                 ranges_by_diag[diag_idx] = [
                     SelectorRange(
-                        start=s, end=e, open_start=st != 0, open_end=et != 0,
+                        start=s,
+                        end=e,
+                        open_start=st != 0,
+                        open_end=et != 0,
                     )
                 ]
                 continue
@@ -289,9 +293,7 @@ def _extract_one_case_structure(
             for item in ssa.findall("SL__arrayElement"):
                 hex_text = item.text or ""
                 try:
-                    string_labels.append(
-                        decode_labview_text(bytes.fromhex(hex_text))
-                    )
+                    string_labels.append(decode_labview_text(bytes.fromhex(hex_text)))
                 except ValueError:
                     string_labels.append(hex_text)
 
@@ -346,7 +348,10 @@ def _extract_one_case_structure(
                     resolved_selector = str(sv)
 
             frame = _extract_frame(
-                diag_elem, idx, resolved_selector, is_default,
+                diag_elem,
+                idx,
+                resolved_selector,
+                is_default,
                 selector_type,
             )
             if frame:
@@ -390,9 +395,7 @@ def _extract_case_tunnels(
         return []
 
     term_refs: list[str] = [
-        uid
-        for e in dco_term_list.findall("SL__arrayElement")
-        if (uid := e.get("uid"))
+        uid for e in dco_term_list.findall("SL__arrayElement") if (uid := e.get("uid"))
     ]
 
     # Layout: [frame0_inner, frame1_inner, ..., outer_self]
@@ -405,11 +408,13 @@ def _extract_case_tunnels(
 
     tunnels = []
     for inner_uid in inner_refs:
-        tunnels.append(Tunnel(
-            outer_terminal_uid=outer_uid,
-            inner_terminal_uid=inner_uid,
-            tunnel_type=dco_class,
-        ))
+        tunnels.append(
+            Tunnel(
+                outer_terminal_uid=outer_uid,
+                inner_terminal_uid=inner_uid,
+                tunnel_type=dco_class,
+            )
+        )
 
     return tunnels
 
@@ -537,7 +542,8 @@ def parse_selector_tables(main_root: ET.Element) -> list[SelectorTable]:
 
 
 def _decode_selector_table(
-    type_id: int, cluster: ET.Element,
+    type_id: int,
+    cluster: ET.Element,
 ) -> SelectorTable | None:
     """Decode one ``DataFill`` cluster into a SelectorTable, or None if it does
     not have the selector-table shape."""
@@ -591,7 +597,8 @@ def _apply_selector_tables(
     application (leaving fallback values) rather than risk a wrong label.
     """
     corr_cases = [
-        c for c in cases
+        c
+        for c in cases
         if c.selector_type != "boolean" and c.selector_vctp_index is not None
     ]
     if len(corr_cases) != len(tables):
@@ -644,8 +651,7 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
             frame.selector_strings = []
             first = my_ranges[0]
             frame.selector_value = (
-                str(first[0]) if first[0] == first[1]
-                else f"{first[0]}..{first[1]}"
+                str(first[0]) if first[0] == first[1] else f"{first[0]}..{first[1]}"
             )
 
 

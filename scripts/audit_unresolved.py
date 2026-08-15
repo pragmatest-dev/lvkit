@@ -136,12 +136,14 @@ def main() -> None:
         entry = prim_resolver.get_by_id(prim_id)
         status = classify_primitive(entry)
         name = (entry or {}).get("name") or info["name"] or "Unknown"
-        prim_buckets[status].append({
-            "id": prim_id,
-            "name": name,
-            "count": info["count"],
-            "vis": sorted(info["vis"]),
-        })
+        prim_buckets[status].append(
+            {
+                "id": prim_id,
+                "name": name,
+                "count": info["count"],
+                "vis": sorted(info["vis"]),
+            }
+        )
 
     # Classify vilib
     vilib_buckets: dict[str, list] = {CAPTURED: [], PARTIAL: [], MISSING: []}
@@ -151,13 +153,15 @@ def main() -> None:
             entry = vilib_resolver.resolve_by_name(info["name"])
         status = classify_vilib(entry)
         name = (entry.name if entry else info["name"]) or "Unknown"
-        vilib_buckets[status].append({
-            "path": path,
-            "name": name,
-            "count": info["count"],
-            "vis": sorted(info["vis"]),
-            "status": entry.status if entry else None,
-        })
+        vilib_buckets[status].append(
+            {
+                "path": path,
+                "name": name,
+                "count": info["count"],
+                "vis": sorted(info["vis"]),
+                "status": entry.status if entry else None,
+            }
+        )
 
     # Sort by count desc
     for bucket in prim_buckets.values():
@@ -186,7 +190,8 @@ def main() -> None:
 
     json_prim_total = len(prim_resolver.get_all_ids())
     json_prim_captured = sum(
-        1 for pid in prim_resolver.get_all_ids()
+        1
+        for pid in prim_resolver.get_all_ids()
         if classify_primitive(prim_resolver.get_by_id(pid)) == CAPTURED
     )
     json_prim_partial = json_prim_total - json_prim_captured
@@ -195,7 +200,9 @@ def main() -> None:
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     lines.append(f"# Unresolved Audit — {date.today().isoformat()}\n")
-    lines.append(f"Scanned {len(pairs)} VI block diagrams from `.lvkit/cache/samples/`.\n")  # noqa: E501
+    lines.append(
+        f"Scanned {len(pairs)} VI block diagrams from `.lvkit/cache/samples/`.\n"
+    )  # noqa: E501
 
     lines.append("## Summary (sample usage)\n")
     lines.append(
@@ -262,9 +269,7 @@ def main() -> None:
     lines.append("| Path | Count | Sample VIs |")
     lines.append("|------|-------|------------|")
     for v in vilib_buckets[MISSING]:
-        lines.append(
-            f"| `{v['path']}` | {v['count']} | {_sample_vis(v['vis'])} |"
-        )
+        lines.append(f"| `{v['path']}` | {v['count']} | {_sample_vis(v['vis'])} |")
     if not vilib_buckets[MISSING]:
         lines.append("| _(none)_ |  |  |")
     lines.append("")

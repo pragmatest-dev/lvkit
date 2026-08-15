@@ -64,8 +64,7 @@ def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
             func=ast.Name(id=func_name, ctx=ast.Load()),
             args=[],
             keywords=[
-                ast.keyword(arg=k, value=_to_ast_value(v))
-                for k, v in keywords.items()
+                ast.keyword(arg=k, value=_to_ast_value(v)) for k, v in keywords.items()
             ],
         )
     else:
@@ -97,6 +96,7 @@ def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
         bindings=bindings,
         imports=imports,
     )
+
 
 def _generate_inline(
     node: Operation, ctx: CodeGenContext, vilib_vi: VIEntry
@@ -159,7 +159,8 @@ def _generate_inline(
 
     # Check for unresolved input placeholders — same as vilib resolution
     unresolved_inputs = {
-        m for m in re.findall(r'\{(\w+)\}', template)
+        m
+        for m in re.findall(r"\{(\w+)\}", template)
         if m not in set(vilib_outputs.values())
     }
     if unresolved_inputs:
@@ -170,7 +171,7 @@ def _generate_inline(
     if vilib_vi.ref_terminals:
         for out_param, passthrough_spec in vilib_vi.ref_terminals.items():
             if passthrough_spec.startswith("passthrough_from:"):
-                in_param = passthrough_spec[len("passthrough_from:"):]
+                in_param = passthrough_spec[len("passthrough_from:") :]
                 # Find the input variable that was substituted
                 for term in node.terminals:
                     if term.direction != "input":
@@ -240,9 +241,8 @@ def _generate_inline(
         imports=imports,
     )
 
-def _resolve_poly_variant(
-    base_name: str, node: Operation
-) -> VIEntry | None:
+
+def _resolve_poly_variant(base_name: str, node: Operation) -> VIEntry | None:
     """Resolve a polymorphic VI to its specific variant.
 
     Uses poly_variant_name (edit-time selection extracted from the VI's
@@ -254,9 +254,9 @@ def _resolve_poly_variant(
         return None
     return get_resolver().resolve_poly_variant(base_name, variant)
 
+
 def _get_vilib_vi(
-    subvi_name: str, node: Operation | None = None,
-    ctx: CodeGenContext | None = None
+    subvi_name: str, node: Operation | None = None, ctx: CodeGenContext | None = None
 ) -> VIEntry | None:
     """Look up SubVI in vilib resolver.
 
@@ -300,10 +300,11 @@ def _get_vilib_vi(
         if missing_indices:
             # Auto-update vilib JSON with observed terminals
             # Filter to only wired terminals
-            wired_node_terminals = [
-                term for term in node.terminals
-                if ctx and ctx.is_wired(term.id)
-            ] if node else []
+            wired_node_terminals = (
+                [term for term in node.terminals if ctx and ctx.is_wired(term.id)]
+                if node
+                else []
+            )
 
             if wired_node_terminals:
                 # Auto-update terminals (raises VILibConflict on conflict)
@@ -318,6 +319,7 @@ def _get_vilib_vi(
     except ImportError:
         return None
 
+
 def _raise_terminal_resolution(
     subvi_name: str,
     direction: str,
@@ -330,9 +332,7 @@ def _raise_terminal_resolution(
         prim_id=subvi_name or "unknown",
         prim_name=subvi_name or "unknown",
         terminal_direction=direction,
-        terminal_type=(
-            term.lv_type.underlying_type if term.lv_type else None
-        ),
+        terminal_type=(term.lv_type.underlying_type if term.lv_type else None),
         available=[],
         vi_name=ctx.vi_name if ctx else None,
         kind="vilib" if vilib_vi is not None else "subvi",
@@ -348,7 +348,8 @@ def _build_arguments(
     subvi_name = node.name or ""
 
     vilib_inputs = _build_vilib_terminal_map(
-        vilib_vi, "input",
+        vilib_vi,
+        "input",
     )
 
     args = []
@@ -384,13 +385,14 @@ def _build_arguments(
             _raise_terminal_resolution(subvi_name, "input", term, ctx, vilib_vi)
 
         # Check if this parameter is an enum typedef - generate enum reference
-        final_value = _resolve_enum_value(
-            value, term, vilib_vi, ctx
-        ) if vilib_vi else value
+        final_value = (
+            _resolve_enum_value(value, term, vilib_vi, ctx) if vilib_vi else value
+        )
 
         keywords[param_name] = final_value
 
     return args, keywords
+
 
 def _resolve_enum_value(
     value: str,
@@ -410,9 +412,9 @@ def _resolve_enum_value(
         Either the original value or an enum reference like "EnumName.MEMBER"
     """
     # Check if value is already an enum reference (pre-resolved in graph)
-    if '.' in value and not value.replace('.', '').replace('-', '').isdigit():
+    if "." in value and not value.replace(".", "").replace("-", "").isdigit():
         # Extract enum class name and add import
-        enum_class_name = value.split('.')[0]
+        enum_class_name = value.split(".")[0]
         if ctx.import_resolver:
             import_stmt = ctx.import_resolver(vilib_vi.name)
             import_stmt = (
@@ -425,7 +427,7 @@ def _resolve_enum_value(
         return value
 
     # Only process constant integers
-    if not value.isdigit() and not (value.startswith('-') and value[1:].isdigit()):
+    if not value.isdigit() and not (value.startswith("-") and value[1:].isdigit()):
         return value
 
     int_value = int(value)
@@ -442,14 +444,14 @@ def _resolve_enum_value(
         return value
 
     # Check if this terminal references an enum typedef
-    if not vilib_term.type.endswith('.ctl'):
+    if not vilib_term.type.endswith(".ctl"):
         return value
 
     # Get the LVType from vilib resolver
     resolver = get_resolver()
     lv_type = resolver.resolve_type(vilib_term.type)
 
-    if not lv_type or lv_type.kind != 'enum' or not lv_type.values:
+    if not lv_type or lv_type.kind != "enum" or not lv_type.values:
         return value
 
     # Reverse lookup: find enum member with this value
@@ -465,8 +467,7 @@ def _resolve_enum_value(
                     import_stmt = ctx.import_resolver(vilib_vi.name)
                     # Replace the function import with enum class import
                     import_stmt = (
-                        import_stmt.rsplit(" import ", 1)[0]
-                        + f" import {class_name}"
+                        import_stmt.rsplit(" import ", 1)[0] + f" import {class_name}"
                     )
                     ctx.add_import(import_stmt)
                 else:
@@ -477,8 +478,10 @@ def _resolve_enum_value(
     # Value not in enum - return as-is
     return value
 
+
 def _build_vilib_terminal_map(
-    vilib_vi: VIEntry | None, direction: str,
+    vilib_vi: VIEntry | None,
+    direction: str,
 ) -> dict[int, str]:
     """Build index → terminal name mapping from vilib VI.
 
@@ -491,6 +494,7 @@ def _build_vilib_terminal_map(
                 result[vt.index] = vt.python_param or vt.name
     return result
 
+
 def _build_output_bindings(
     node: Operation,
     result_var: str,
@@ -501,7 +505,8 @@ def _build_output_bindings(
     subvi_name = node.name or ""
 
     vilib_outputs = _build_vilib_terminal_map(
-        vilib_vi, "output",
+        vilib_vi,
+        "output",
     )
 
     bindings = {}
@@ -529,6 +534,7 @@ def _build_output_bindings(
 
     return bindings
 
+
 def _to_ast_value(value: str) -> ast.expr:
     """Convert a value string to AST expression."""
     if value == "None":
@@ -547,9 +553,8 @@ def _to_ast_value(value: str) -> ast.expr:
     # It's a variable reference
     return ast.Name(id=value, ctx=ast.Load())
 
-def _generate_dynamic_dispatch(
-    node: Operation, ctx: CodeGenContext
-) -> CodeFragment:
+
+def _generate_dynamic_dispatch(node: Operation, ctx: CodeGenContext) -> CodeFragment:
     """Generate obj.method(args) for dynamic dispatch calls."""
     subvi_name = node.name or ""
     method_name = to_function_name(subvi_name)
@@ -594,9 +599,7 @@ def _generate_dynamic_dispatch(
     receiver_var = ctx.resolve(receiver_term.id) or "self"
     # Call Parent: method is dispatched via super(), but the class-output
     # passthrough still references the original receiver object.
-    call_receiver = (
-        "super()" if node.node_type == "callParentDynIUse" else receiver_var
-    )
+    call_receiver = "super()" if node.node_type == "callParentDynIUse" else receiver_var
 
     # Sort other inputs by index for positional args
     other_inputs.sort(key=lambda x: x[0])
@@ -628,9 +631,7 @@ def _generate_dynamic_dispatch(
             # Class-typed output → passthrough to receiver variable
             bindings[term.id] = receiver_var
         else:
-            field = to_var_name(
-                term.name or f"out_{term.index}"
-            )
+            field = to_var_name(term.name or f"out_{term.index}")
             has_non_class_output = True
             bindings[term.id] = f"{result_var}.{field}"
 
@@ -649,8 +650,10 @@ def _generate_dynamic_dispatch(
         imports=set(),
     )
 
+
 def _generate_call_by_ref(
-    node: Operation, ctx: CodeGenContext,
+    node: Operation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate vi_ref(args...) for Call By Reference nodes.
 
@@ -666,7 +669,8 @@ def _generate_call_by_ref(
     for term in node.terminals:
         if (
             term.direction == "input"
-            and term.index is not None and term.index < 0
+            and term.index is not None
+            and term.index < 0
             and not term.is_error_cluster
         ):
             vi_ref_var = ctx.resolve(term.id)
@@ -751,9 +755,7 @@ def _generate_static_fallback(
         if term.direction == "output":
             if term.is_error_cluster:
                 continue
-            field = to_var_name(
-                term.name or f"out_{term.index}"
-            )
+            field = to_var_name(term.name or f"out_{term.index}")
             bindings[term.id] = f"{result_var}.{field}"
 
     if ctx.import_resolver:
@@ -767,9 +769,11 @@ def _generate_static_fallback(
         imports={import_stmt},
     )
 
+
 def _is_class_terminal(term: Terminal) -> bool:
     """Check if a terminal carries a class instance (UDClassInst)."""
     return bool(term.lv_type and term.lv_type.ref_type == "UDClassInst")
+
 
 def _emit_vilib_resolution(
     node: Operation,
@@ -803,7 +807,8 @@ def _emit_vilib_resolution(
     # dataclass call — not a literal — so it goes through source_kwargs
     # as a pre-formatted Python expression.
     ctx_kwarg_src = ", ".join(
-        f"{k}={v!r}" for k, v in {
+        f"{k}={v!r}"
+        for k, v in {
             "caller_vi": context.caller_vi,
             "caller_qualified_name": context.caller_qualified_name,
             "poly_selector": context.poly_selector,
@@ -820,9 +825,7 @@ def _emit_vilib_resolution(
         exception_class="VILibResolutionNeeded",
         positional_args=[vi_name],
         source_kwargs={"context": f"ResolutionContext({ctx_kwarg_src})"},
-        extra_imports={
-            "from lvkit.vilib_resolver import ResolutionContext"
-        },
+        extra_imports={"from lvkit.vilib_resolver import ResolutionContext"},
     )
 
 
@@ -859,16 +862,13 @@ def _build_resolution_context(
         is_wired = ctx.is_wired(term_id) if term_id else False
         wired_str = "wired" if is_wired else "unwired"
 
-        wire_types.append(
-            f"idx_{term_index} ({direction}, {type_info}, {wired_str})"
-        )
+        wire_types.append(f"idx_{term_index} ({direction}, {type_info}, {wired_str})")
 
     # Collect terminal names from vilib if available
     terminal_names: list[str] = []
     if vilib_vi and vilib_vi.terminals:
         terminal_names = [
-            f"{t.name} (idx={t.index}, {t.direction})"
-            for t in vilib_vi.terminals
+            f"{t.name} (idx={t.index}, {t.direction})" for t in vilib_vi.terminals
         ]
 
     return ResolutionContext(

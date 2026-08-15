@@ -21,6 +21,7 @@ column-major pass within each disposition group, then the next group:
 Direction is NEVER inferred from geometry; callers pass it. The order is total
 and deterministic (fallback: slot index).
 """
+
 from __future__ import annotations
 
 from ..connector_pane_geometry import get_pattern
@@ -88,9 +89,9 @@ def ordered_interface(
 
     def sort_key(t: Terminal) -> tuple:
         return (
-            1 if t.is_error_cluster else 0,       # error cluster last
-            requirement_rank(t, direction),        # Required -> Recommended -> Optional
-            geometry_key(t),                       # then reading order within level
+            1 if t.is_error_cluster else 0,  # error cluster last
+            requirement_rank(t, direction),  # Required -> Recommended -> Optional
+            geometry_key(t),  # then reading order within level
         )
 
     return sorted(terminals, key=sort_key)

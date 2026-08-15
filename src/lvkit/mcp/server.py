@@ -267,6 +267,7 @@ def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
 
 # ===== Index (project-scoped) =====
 
+
 def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFacts]]:
     """Resolve ``project`` to its root and return ``(root, facts)``.
 
@@ -307,7 +308,9 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
 
 @mcp.tool()
 async def index(
-    project: str | None = None, refresh: bool = False, ctx: Context | None = None,
+    project: str | None = None,
+    refresh: bool = False,
+    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Build or refresh the code-understanding index for a whole VI repo.
 
@@ -360,7 +363,9 @@ async def index(
 
 @mcp.tool()
 async def query(
-    sql: str, project: str | None = None, ctx: Context | None = None,
+    sql: str,
+    project: str | None = None,
+    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Read a LabVIEW project's structure — classes & inheritance, terminals,
     constants, calls, type usage — by running one read-only SQL
@@ -406,7 +411,9 @@ async def query_schema() -> list[dict[str, Any]]:
 
 @mcp.tool()
 async def get_callers(
-    vi: str, project: str | None = None, ctx: Context | None = None,
+    vi: str,
+    project: str | None = None,
+    ctx: Context | None = None,
 ) -> list[str]:
     """Paths of VIs that call ``vi`` — pure call edges (a method's owning class
     is never counted as a caller). ``vi`` may be a path, a qualified name, or an
@@ -422,7 +429,9 @@ async def get_callers(
 
 @mcp.tool()
 async def get_callees(
-    vi: str, project: str | None = None, ctx: Context | None = None,
+    vi: str,
+    project: str | None = None,
+    ctx: Context | None = None,
 ) -> list[str]:
     """Paths of VIs that ``vi`` calls — pure call edges. ``vi`` may be a path, a
     qualified name, or an unambiguous bare name. ``project`` defaults to the
@@ -438,10 +447,12 @@ async def get_callees(
 
 @mcp.tool()
 async def blast_radius(
-    vi: str, project: str | None = None, depth: int | None = None,
+    vi: str,
+    project: str | None = None,
+    depth: int | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """"What breaks if I change ``vi``?" — its transitive dependents over the
+    """ "What breaks if I change ``vi``?" — its transitive dependents over the
     pure call graph, optionally bounded to ``depth`` hops. Returns the resolved
     key, the dependent VI paths, and ``impact_score`` (their count). ``project``
     defaults to the client's workspace root."""
@@ -456,8 +467,10 @@ async def blast_radius(
 
 @mcp.tool()
 async def visualize_project(
-    project: str | None = None, scope: str = "calls",
-    highlight: str | None = None, ctx: Context | None = None,
+    project: str | None = None,
+    scope: str = "calls",
+    highlight: str | None = None,
+    ctx: Context | None = None,
 ) -> str:
     """A self-contained **Mermaid** map of the project (paste into any Mermaid
     renderer). ``scope="calls"`` draws the pure call graph; ``scope="classes"``
@@ -475,6 +488,7 @@ async def visualize_project(
 
 
 # ===== Deep single-VI (load on demand) =====
+
 
 def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
     """Load ONE VI (MINIMAL) into a fresh graph and return ``(graph, vi_name)``.
@@ -536,7 +550,9 @@ async def get_operations(vi_path: str, ctx: Context | None = None) -> str:
 
 @mcp.tool()
 async def get_dataflow(
-    vi_path: str, operation_id: str | None = None, ctx: Context | None = None,
+    vi_path: str,
+    operation_id: str | None = None,
+    ctx: Context | None = None,
 ) -> str:
     """Wire connections between one VI's operations, optionally filtered to a
     single operation. Loaded on demand. ``vi_path`` may be relative to the
@@ -552,7 +568,9 @@ async def get_dataflow(
 
 @mcp.tool()
 async def get_structure(
-    vi_path: str, operation_id: str, ctx: Context | None = None,
+    vi_path: str,
+    operation_id: str,
+    ctx: Context | None = None,
 ) -> str:
     """Detail on one case/loop/sequence structure — selector and values,
     tunnels, frame contents. Loaded on demand. ``vi_path`` may be relative to
@@ -626,8 +644,10 @@ async def unresolved(
 
     def _work() -> list[dict[str, Any]]:
         from ..unresolved import collect_unresolved
+
         items = collect_unresolved(
-            target, search_paths=[Path(p) for p in (search_paths or [])],
+            target,
+            search_paths=[Path(p) for p in (search_paths or [])],
         )
         return [
             {
@@ -660,6 +680,7 @@ async def generate_ast_code(vi_path: str, ctx: Context | None = None) -> str:
 
 # ===== Stateless generators =====
 
+
 @mcp.tool()
 async def generate_documents(
     library_path: str,
@@ -678,8 +699,14 @@ async def generate_documents(
     library_path = await _resolve_target(library_path, ctx)
     _configure_resolvers_for_vi(library_path)
     return await asyncio.to_thread(
-        _gen_documents, library_path, output_dir, search_paths or [], load_mode,
-        vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
+        _gen_documents,
+        library_path,
+        output_dir,
+        search_paths or [],
+        load_mode,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        auto_vilib=auto_vilib,
     )
 
 
@@ -701,14 +728,21 @@ async def generate_python(
     vi_path = await _resolve_target(vi_path, ctx)
     _configure_resolvers_for_vi(vi_path)
     result = await asyncio.to_thread(
-        _gen_python, vi_path, output_dir, search_paths or [],
-        include_code=False, soft_unresolved=soft_unresolved,
-        vilib_root=vilib_root, userlib_root=userlib_root, auto_vilib=auto_vilib,
+        _gen_python,
+        vi_path,
+        output_dir,
+        search_paths or [],
+        include_code=False,
+        soft_unresolved=soft_unresolved,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        auto_vilib=auto_vilib,
     )
     return result.model_dump_json(indent=2)
 
 
 # ===== Mermaid rendering (project visualization) =====
+
 
 def _mermaid_id(path: str, ids: dict[str, str]) -> str:
     """Stable, Mermaid-safe node id for a path (n0, n1, …)."""
@@ -764,6 +798,7 @@ def _mermaid(vis: list[VIFacts], *, scope: str, highlight: str | None) -> str:
 
 
 # ===== Entry points =====
+
 
 def selftest() -> int:
     """Initialize the server, list its tools, and return the count.

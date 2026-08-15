@@ -47,11 +47,17 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
         selector=_ref("Sel", "0", "sel"),
         frames=[
             NetlistFrame(
-                label="True", value="1", is_default=False, body=[inner],
+                label="True",
+                value="1",
+                is_default=False,
+                body=[inner],
                 passthrough=False,
             ),
             NetlistFrame(
-                label="Default", value="0", is_default=True, body=[],
+                label="Default",
+                value="0",
+                is_default=True,
+                body=[],
                 passthrough=True,
             ),
         ],
@@ -61,7 +67,8 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
         inputs=[("x", "I32"), ("err in", "error cluster")],
         outputs=[
             BoundaryOutput(
-                name="y", lv_label="DBL",
+                name="y",
+                lv_label="DBL",
                 source=_ref("Increment", "out", "n2"),
             )
         ],
@@ -87,8 +94,10 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
             "name": "y",
             "type": "DBL",
             "source": {
-                "node": "Increment", "port": "out",
-                "occurrence": None, "bare": "n2",
+                "node": "Increment",
+                "port": "out",
+                "occurrence": None,
+                "bare": "n2",
             },
         }
     ]
@@ -145,7 +154,11 @@ def test_feedback_item_is_kind_tagged_with_mu_shape():
 
     # recur=None (never-written Feedback Node) serializes as null, not omitted.
     fb2 = NetlistFeedback(
-        uid="9", net="fb1", init=_ref(None, "seed", "seed"), recur=None, delay=None,
+        uid="9",
+        net="fb1",
+        init=_ref(None, "seed", "seed"),
+        recur=None,
+        delay=None,
     )
     d2 = netlist_to_dict(
         NetlistModule(vi_name="m.vi", inputs=[], outputs=[], body=[fb2])
@@ -168,11 +181,17 @@ def test_case_scope_outputs_carries_gamma_merge_union_shape():
         selector=_ref("Sel2", "0", "sel2"),
         frames=[
             NetlistFrame(
-                label="True", value="1", is_default=False, body=[],
+                label="True",
+                value="1",
+                is_default=False,
+                body=[],
                 passthrough=True,
             ),
             NetlistFrame(
-                label="Default", value="Default", is_default=True, body=[],
+                label="Default",
+                value="Default",
+                is_default=True,
+                body=[],
                 passthrough=True,
             ),
         ],
@@ -318,10 +337,12 @@ def test_input_binding_carries_inverted_flag():
         occurrence=2,
         inputs=[
             NetlistPortBinding(
-                port="1", net=_ref("Less?", "result", "result"),
+                port="1",
+                net=_ref("Less?", "result", "result"),
             ),
             NetlistPortBinding(
-                port="2", net=_ref("Equal?", "equal", "equal", occ=2),
+                port="2",
+                net=_ref("Equal?", "equal", "equal", occ=2),
                 inverted=True,
             ),
         ],
@@ -338,7 +359,10 @@ def test_input_binding_carries_inverted_flag():
     assert inputs[1]["inverted"] is True
     # Net identity is untouched by the flag.
     assert inputs[1]["net"] == {
-        "node": "Equal?", "port": "equal", "occurrence": 2, "bare": "equal",
+        "node": "Equal?",
+        "port": "equal",
+        "occurrence": 2,
+        "bare": "equal",
     }
 
 
@@ -360,7 +384,8 @@ def test_property_node_instance_carries_structured_properties_and_object():
         occurrence=1,
         inputs=[
             NetlistPortBinding(
-                port="0", net=_ref("Bundle/Unbundle By Name", "ref", "ref"),
+                port="0",
+                net=_ref("Bundle/Unbundle By Name", "ref", "ref"),
             ),
             NetlistPortBinding(port="Disabled", net=_ref(None, "True", "True")),
         ],
@@ -371,10 +396,13 @@ def test_property_node_instance_carries_structured_properties_and_object():
         object_name="Bool",
         properties=[
             NetlistPropertyAccess(
-                name="Disabled", direction="write", net=_ref(None, "True", "True"),
+                name="Disabled",
+                direction="write",
+                net=_ref(None, "True", "True"),
             ),
             NetlistPropertyAccess(
-                name="Enabled", direction="read",
+                name="Enabled",
+                direction="read",
                 net=_ref("Property Node", "Enabled", "Enabled", occ=1),
             ),
         ],
@@ -386,14 +414,18 @@ def test_property_node_instance_carries_structured_properties_and_object():
     assert body_inst["object"] == "Bool"
     assert body_inst["properties"] == [
         {
-            "name": "Disabled", "direction": "write",
+            "name": "Disabled",
+            "direction": "write",
             "net": {"node": None, "port": "True", "occurrence": None, "bare": "True"},
         },
         {
-            "name": "Enabled", "direction": "read",
+            "name": "Enabled",
+            "direction": "read",
             "net": {
-                "node": "Property Node", "port": "Enabled",
-                "occurrence": 1, "bare": "Enabled",
+                "node": "Property Node",
+                "port": "Enabled",
+                "occurrence": 1,
+                "bare": "Enabled",
             },
         },
     ]
@@ -484,8 +516,12 @@ def test_invoke_node_without_object_name_has_null_object_but_keeps_method():
     JSON must keep ``object`` null while ``method`` is still populated --
     never fabricate an object class that wasn't in the file."""
     inst = NetlistInstance(
-        uid="1", name="Invoke Node", occurrence=None,
-        inputs=[], outputs=[], method_name="Some Method",
+        uid="1",
+        name="Invoke Node",
+        occurrence=None,
+        inputs=[],
+        outputs=[],
+        method_name="Some Method",
     )
     module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
 
@@ -516,7 +552,9 @@ def test_non_case_scope_outputs_is_empty_list():
     non-case scope kind -- loops/sequences/disabled/event structures don't
     have gamma merges."""
     scope = NetlistScope(
-        uid="2", kind="sequence", selector=None,
+        uid="2",
+        kind="sequence",
+        selector=None,
         frames=[NetlistFrame(label="0", value="0", is_default=False, body=[])],
     )
     module = NetlistModule(vi_name="s2.vi", inputs=[], outputs=[], body=[scope])
@@ -531,10 +569,17 @@ def test_scope_without_selector_serializes_null():
         outputs=[],
         body=[
             NetlistScope(
-                uid="1", kind="sequence", selector=None,
-                frames=[NetlistFrame(
-                    label="0", value="0", is_default=False, body=[],
-                )],
+                uid="1",
+                kind="sequence",
+                selector=None,
+                frames=[
+                    NetlistFrame(
+                        label="0",
+                        value="0",
+                        is_default=False,
+                        body=[],
+                    )
+                ],
             )
         ],
     )

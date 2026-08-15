@@ -33,24 +33,30 @@ def _case_node(
 
     if input_tunnel_outer and input_tunnel_inner:
         terminals.append(Terminal(id=input_tunnel_outer, index=0, direction="input"))
-        tunnels.append(Tunnel(
-            outer_terminal_uid=input_tunnel_outer,
-            inner_terminal_uid=input_tunnel_inner,
-            tunnel_type="lpTun",
-        ))
+        tunnels.append(
+            Tunnel(
+                outer_terminal_uid=input_tunnel_outer,
+                inner_terminal_uid=input_tunnel_inner,
+                tunnel_type="lpTun",
+            )
+        )
 
     if output_tunnel_outer and output_tunnel_inner:
         terminals.append(Terminal(id=output_tunnel_outer, index=1, direction="output"))
-        tunnels.append(Tunnel(
-            outer_terminal_uid=output_tunnel_outer,
-            inner_terminal_uid=output_tunnel_inner,
-            tunnel_type="lpTun",
-        ))
+        tunnels.append(
+            Tunnel(
+                outer_terminal_uid=output_tunnel_outer,
+                inner_terminal_uid=output_tunnel_inner,
+                tunnel_type="lpTun",
+            )
+        )
 
     terminals.extend(extra_terminals or [])
 
     return CaseOperation(
-        id="case1", name="Case", kind="caseStruct",
+        id="case1",
+        name="Case",
+        kind="caseStruct",
         terminals=terminals,
         tunnels=tunnels,
         selector_terminal=None,
@@ -82,7 +88,8 @@ class TestPreDeclareOutputs:
         """Basic case: output binding becomes a pre-declaration."""
         ctx = make_ctx("out_outer")
         node = _case_node(
-            output_tunnel_outer="out_outer", output_tunnel_inner="out_inner",
+            output_tunnel_outer="out_outer",
+            output_tunnel_inner="out_inner",
         )
         output_bindings = {"out_outer": "result_var"}
 
@@ -107,7 +114,8 @@ class TestPreDeclareOutputs:
         ctx.bind("out_inner", "frame_var")
 
         node = _case_node(
-            output_tunnel_outer="out_outer", output_tunnel_inner="out_inner",
+            output_tunnel_outer="out_outer",
+            output_tunnel_inner="out_inner",
         )
         output_bindings = {"out_outer": "frame_var"}
 
@@ -137,7 +145,8 @@ class TestPreDeclareOutputs:
             Terminal(id="param_t", index=0, direction="input", name="myParam"),
         ]
         node = _case_node(
-            output_tunnel_outer="out_outer", output_tunnel_inner="out_inner",
+            output_tunnel_outer="out_outer",
+            output_tunnel_inner="out_inner",
         )
         output_bindings = {"out_outer": "myparam"}  # to_var_name("myParam") = "myparam"
 
@@ -148,10 +157,12 @@ class TestPreDeclareOutputs:
     def test_each_var_predeclared_once(self):
         """Duplicate var_names in output_bindings produce only one pre-declaration."""
         ctx = make_ctx("t1", "t2")
-        node = _case_node(extra_terminals=[
-            Terminal(id="t1", index=0, direction="output"),
-            Terminal(id="t2", index=1, direction="output"),
-        ])
+        node = _case_node(
+            extra_terminals=[
+                Terminal(id="t1", index=0, direction="output"),
+                Terminal(id="t2", index=1, direction="output"),
+            ]
+        )
         output_bindings = {"t1": "shared_var", "t2": "shared_var"}
 
         stmts = _pre_declare_outputs(node, output_bindings, ctx)
@@ -220,9 +231,11 @@ class TestPreDeclareSkipsInvalidTargets:
     def test_valid_identifier_is_predeclared(self):
         """Control: a normal identifier IS pre-declared."""
         ctx = make_ctx("out_t")
-        node = _case_node(extra_terminals=[
-            Terminal(id="out_t", index=0, direction="output"),
-        ])
+        node = _case_node(
+            extra_terminals=[
+                Terminal(id="out_t", index=0, direction="output"),
+            ]
+        )
         output_bindings = {"out_t": "my_result"}
 
         stmts = _pre_declare_outputs(node, output_bindings, ctx)
@@ -243,8 +256,9 @@ def _pattern_src(frame: CaseFrame, selector_var: str = "sel") -> str:
     pattern, guard = _build_frame_pattern(frame, selector_var)
     case = ast.match_case(pattern=pattern, guard=guard, body=[ast.Pass()])
     mod = ast.Match(subject=ast.Name(id=selector_var, ctx=ast.Load()), cases=[case])
-    return ast.unparse(ast.fix_missing_locations(
-        ast.Module(body=[mod], type_ignores=[])))
+    return ast.unparse(
+        ast.fix_missing_locations(ast.Module(body=[mod], type_ignores=[]))
+    )
 
 
 class TestBuildFramePattern:
@@ -253,25 +267,35 @@ class TestBuildFramePattern:
         assert "case 'bmp':" in _pattern_src(f)
 
     def test_multi_string_or_pattern(self):
-        f = CaseFrame(
-            selector_value="jpe", selector_strings=["jpe", "jpeg", "jpg"])
+        f = CaseFrame(selector_value="jpe", selector_strings=["jpe", "jpeg", "jpg"])
         assert "case 'jpe' | 'jpeg' | 'jpg':" in _pattern_src(f)
 
     def test_multi_singleton_int_or_pattern(self):
-        f = CaseFrame(selector_value="1", selector_ranges=[
-            SelectorRange(start=1, end=1), SelectorRange(start=4, end=4),
-            SelectorRange(start=8, end=8)])
+        f = CaseFrame(
+            selector_value="1",
+            selector_ranges=[
+                SelectorRange(start=1, end=1),
+                SelectorRange(start=4, end=4),
+                SelectorRange(start=8, end=8),
+            ],
+        )
         assert "case 1 | 4 | 8:" in _pattern_src(f)
 
     def test_true_range_uses_guard(self):
-        f = CaseFrame(selector_value="2..3", selector_ranges=[
-            SelectorRange(start=2, end=3)])
+        f = CaseFrame(
+            selector_value="2..3", selector_ranges=[SelectorRange(start=2, end=3)]
+        )
         src = _pattern_src(f)
         assert "case _ if 2 <= sel <= 3:" in src
 
     def test_mixed_singletons_and_range_guard(self):
-        f = CaseFrame(selector_value="1", selector_ranges=[
-            SelectorRange(start=1, end=1), SelectorRange(start=5, end=7)])
+        f = CaseFrame(
+            selector_value="1",
+            selector_ranges=[
+                SelectorRange(start=1, end=1),
+                SelectorRange(start=5, end=7),
+            ],
+        )
         src = _pattern_src(f)
         assert "case _ if sel == 1 or 5 <= sel <= 7:" in src
 
@@ -307,14 +331,24 @@ class TestDefaultValueExpr:
 class TestPreDeclareOutputsTypeDefault:
     def _pre(self, underlying):
         outer = TunnelTerminal(
-            id="o", index=0, direction="output", boundary="outer",
-            tunnel_type="csTun", lv_type=_lv(underlying),
+            id="o",
+            index=0,
+            direction="output",
+            boundary="outer",
+            tunnel_type="csTun",
+            lv_type=_lv(underlying),
         )
         node = CaseOperation(
-            id="c", name="Case", kind="caseStruct", selector_terminal=None,
+            id="c",
+            name="Case",
+            kind="caseStruct",
+            selector_terminal=None,
             terminals=[outer],
-            tunnels=[Tunnel(outer_terminal_uid="o", inner_terminal_uid="i",
-                            tunnel_type="csTun")],
+            tunnels=[
+                Tunnel(
+                    outer_terminal_uid="o", inner_terminal_uid="i", tunnel_type="csTun"
+                )
+            ],
         )
         ctx = make_ctx()
         stmts = _pre_declare_outputs(node, {"o": "result"}, ctx)

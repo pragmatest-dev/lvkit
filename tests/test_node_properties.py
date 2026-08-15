@@ -39,12 +39,9 @@ RUN_DIFF_VI = Path(
     ".lvkit/cache/samples/measurement-plugin-labview/Source/Tools/run_diff.vi"
 )
 CREATE_TEST_CONFIG_VI = Path(
-    ".lvkit/cache/samples/DCAF-DAQModule/source/testing/"
-    "Create Test Configuration.vi"
+    ".lvkit/cache/samples/DCAF-DAQModule/source/testing/Create Test Configuration.vi"
 )
-CONFIG_VI = Path(
-    ".lvkit/cache/samples/DCAF-DAQModule/source/testing/Config.vi"
-)
+CONFIG_VI = Path(".lvkit/cache/samples/DCAF-DAQModule/source/testing/Config.vi")
 FILTER_MPA_VI = Path(
     ".lvkit/cache/samples/LabVIEW-OOP-Classes/DAQ/Analog Input/AI_class/"
     "utils/Filter - Moving Point Average.vi"
@@ -211,13 +208,20 @@ class TestLpTunModeSynthetic:
         assert tunnels[0].mode == TunnelMode.PASSTHROUGH
 
     @staticmethod
-    def _lp_tun(inner_objflags: str | None, *, tunnel_type: str | None = None,
-                conditional: bool = False) -> ET.Element:
+    def _lp_tun(
+        inner_objflags: str | None,
+        *,
+        tunnel_type: str | None = None,
+        conditional: bool = False,
+    ) -> ET.Element:
         """A lpTun dco with an innerLpTunDCO carrying the given objFlags (the
         auto-index flag lives in bit 0x400000 there). Optional <TunnelType>
         (older explicit index encoding) and <IsConditional>."""
-        of = (f"<objFlags>{inner_objflags}</objFlags>"
-              if inner_objflags is not None else "")
+        of = (
+            f"<objFlags>{inner_objflags}</objFlags>"
+            if inner_objflags is not None
+            else ""
+        )
         tt = f"<TunnelType>{tunnel_type}</TunnelType>" if tunnel_type else ""
         cond = "<IsConditional>True</IsConditional>" if conditional else ""
         return ET.fromstring(
@@ -254,9 +258,9 @@ class TestLpTunModeSynthetic:
     def test_indexing_from_tunnel_type(self) -> None:
         """The older explicit encoding (<TunnelType>, flag bit clear) also
         decodes to INDEXING."""
-        t = extract_tunnel_mapping(
-            self._lp_tun("16777216", tunnel_type="01"), "lpTun"
-        )[0]
+        t = extract_tunnel_mapping(self._lp_tun("16777216", tunnel_type="01"), "lpTun")[
+            0
+        ]
         assert t.mode == TunnelMode.INDEXING
 
     def test_last_value_flag_clear(self) -> None:
@@ -270,9 +274,9 @@ class TestLpTunModeSynthetic:
     def test_conditional_is_orthogonal_to_base_mode(self) -> None:
         """<IsConditional>True with the index flag set -> base INDEXING +
         conditional=True (the modifier layers on, never replaces the mode)."""
-        t = extract_tunnel_mapping(
-            self._lp_tun("4194304", conditional=True), "lpTun"
-        )[0]
+        t = extract_tunnel_mapping(self._lp_tun("4194304", conditional=True), "lpTun")[
+            0
+        ]
         assert t.mode == TunnelMode.INDEXING
         assert t.conditional is True
 
@@ -329,7 +333,9 @@ class TestShiftRegister:
         loops: list[LoopOperation] = []
         _collect_loops(ops, loops)
         rsr_tunnels = [
-            t for lo in loops for t in lo.tunnels
+            t
+            for lo in loops
+            for t in lo.tunnels
             if t.tunnel_type == "rSR" and t.outer_terminal_uid.endswith("::550")
         ]
         assert len(rsr_tunnels) == 1
@@ -345,16 +351,16 @@ class TestShiftRegister:
         loops: list[LoopOperation] = []
         _collect_loops(ops, loops)
         lsr_tunnels = [
-            t for lo in loops for t in lo.tunnels
+            t
+            for lo in loops
+            for t in lo.tunnels
             if t.tunnel_type == "lSR" and t.outer_terminal_uid.endswith("::553")
         ]
         assert len(lsr_tunnels) == 1
         assert lsr_tunnels[0].sr_initialized is False
         # Every lSR feeding this rSR's stack is uninitialized (not just the
         # one spot-checked above).
-        all_lsr = [
-            t for lo in loops for t in lo.tunnels if t.tunnel_type == "lSR"
-        ]
+        all_lsr = [t for lo in loops for t in lo.tunnels if t.tunnel_type == "lSR"]
         assert len(all_lsr) == 20
         assert all(t.sr_initialized is False for t in all_lsr)
 

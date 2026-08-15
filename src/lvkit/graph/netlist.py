@@ -600,7 +600,9 @@ def _walk_flat(operations: list[Operation]) -> list[Operation]:
         flat.append(op)
         match op:
             case (
-                CaseOperation() | SequenceOperation() | DisableStructureOperation()
+                CaseOperation()
+                | SequenceOperation()
+                | DisableStructureOperation()
                 | EventOperation()
             ):
                 for frame in op.frames:
@@ -628,15 +630,22 @@ def _assign_occurrences(flat: list[Operation]) -> dict[str, int]:
     ``_build_components``), so they must not get an occurrence tag either.
     """
     insts = [
-        op for op in flat
+        op
+        for op in flat
         if not isinstance(
             op,
-            (CaseOperation, LoopOperation, SequenceOperation,
-             DisableStructureOperation, InPlaceOperation, EventOperation,
-             # Feedback Nodes render as a mu net (``fb{k}``), never as a named
-             # instance -- counting them would tag a spurious "Feedback
-             # Node#n" occurrence, same reason structures are excluded.
-             FeedbackOperation),
+            (
+                CaseOperation,
+                LoopOperation,
+                SequenceOperation,
+                DisableStructureOperation,
+                InPlaceOperation,
+                EventOperation,
+                # Feedback Nodes render as a mu net (``fb{k}``), never as a named
+                # instance -- counting them would tag a spurious "Feedback
+                # Node#n" occurrence, same reason structures are excluded.
+                FeedbackOperation,
+            ),
         )
     ]
     names = [_display_name(op) for op in insts]
@@ -652,7 +661,8 @@ def _assign_occurrences(flat: list[Operation]) -> dict[str, int]:
 
 
 def _assign_sequential_ids(
-    flat: list[Operation], predicate: Callable[[Operation], bool],
+    flat: list[Operation],
+    predicate: Callable[[Operation], bool],
 ) -> dict[str, int]:
     """Deterministic 0-based id per operation matching ``predicate``, keyed
     by trailing node UID, in ``flat``'s given order (the deterministic
@@ -723,7 +733,11 @@ def _gamma_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
     """The gamma-merge net name for a case's output tunnel OUTER terminal --
     ``case{id}.out{k}`` -- see ``_tunnel_net_name``."""
     return _tunnel_net_name(
-        op, term, build_ctx.case_id_by_uid, _case_output_tunnel_outers, "case",
+        op,
+        term,
+        build_ctx.case_id_by_uid,
+        _case_output_tunnel_outers,
+        "case",
     )
 
 
@@ -740,7 +754,8 @@ def _mu_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
     loop_id = build_ctx.loop_id_by_uid[_uid_of(op.id)]
     pairs = _loop_shift_register_pairs(op)
     k = next(
-        i for i, (lsr, rsr) in enumerate(pairs)
+        i
+        for i, (lsr, rsr) in enumerate(pairs)
         if lsr.inner_terminal_uid == term.id
         or (rsr is not None and rsr.outer_terminal_uid == term.id)
     )
@@ -751,7 +766,11 @@ def _eta_net_name(op: Operation, term: Terminal, build_ctx: _BuildCtx) -> str:
     """The eta-merge net name for a loop's output tunnel OUTER terminal --
     ``loop{id}.out{k}`` -- see ``_tunnel_net_name``."""
     return _tunnel_net_name(
-        op, term, build_ctx.loop_id_by_uid, _loop_output_tunnel_outers, "loop",
+        op,
+        term,
+        build_ctx.loop_id_by_uid,
+        _loop_output_tunnel_outers,
+        "loop",
     )
 
 
@@ -776,10 +795,18 @@ def _eta_index_mode(mode: TunnelMode | None) -> str:
     return _ETA_INDEX_MODE_BY_TUNNEL_MODE.get(mode, "?")
 
 
-_INT_UNDERLYING_TYPES = frozenset({
-    "NumInt8", "NumInt16", "NumInt32", "NumInt64",
-    "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64",
-})
+_INT_UNDERLYING_TYPES = frozenset(
+    {
+        "NumInt8",
+        "NumInt16",
+        "NumInt32",
+        "NumInt64",
+        "NumUInt8",
+        "NumUInt16",
+        "NumUInt32",
+        "NumUInt64",
+    }
+)
 _FLOAT_UNDERLYING_TYPES = frozenset({"NumFloat32", "NumFloat64", "NumFloatExt"})
 _COMPLEX_UNDERLYING_TYPES = frozenset(
     {"NumComplex64", "NumComplex128", "NumComplexExt"}
@@ -955,7 +982,10 @@ def _resolve_source(
         if const is not None:
             value_str = _const_value_str(const)
             return NetRef(
-                node=None, port=value_str, occurrence=None, bare=value_str,
+                node=None,
+                port=value_str,
+                occurrence=None,
+                bare=value_str,
             )
 
         # Structural fallback: identify by the wire source's own carried
@@ -963,7 +993,10 @@ def _resolve_source(
         node_name = src.name or _uid_of(src.node_id)
         port = str(src.index) if src.index is not None else src.terminal_id
         return NetRef(
-            node=node_name, port=port, occurrence=None, bare=f"{node_name}.{port}",
+            node=node_name,
+            port=port,
+            occurrence=None,
+            bare=f"{node_name}.{port}",
         )
 
 
@@ -998,7 +1031,8 @@ def _resolve_or_default(
         return source
     lv_type = next(
         (
-            t.lv_type for t in fallback_terminals
+            t.lv_type
+            for t in fallback_terminals
             if t is not None and t.lv_type is not None
         ),
         None,
@@ -1054,7 +1088,9 @@ def _build_property_accesses(
     """
     accesses: list[NetlistPropertyAccess] = []
     correlated = correlate_property_terminals(
-        op.properties, op.terminals, op.value_terminal_ids,
+        op.properties,
+        op.terminals,
+        op.value_terminal_ids,
     )
     for prop, term in correlated:
         if term is None:
@@ -1088,13 +1124,10 @@ def _build_instance(
         NetlistPortBinding(port=_component_port_name(t), net=ref, inverted=t.inverted)
         for t in op.terminals
         if t.direction == "input"
-        if (ref := _input_ref(graph, ctx, build_ctx, t))
-        is not None
+        if (ref := _input_ref(graph, ctx, build_ctx, t)) is not None
     ]
     outputs = [
-        _term_ref(name, occurrence, t)
-        for t in op.terminals
-        if t.direction == "output"
+        _term_ref(name, occurrence, t) for t in op.terminals if t.direction == "output"
     ]
     operation = op.operation if isinstance(op, PrimitiveOperation) else None
     object_name: str | None = None
@@ -1103,14 +1136,25 @@ def _build_instance(
     if isinstance(op, PropertyOperation):
         object_name = (op.object_name or "").strip() or None
         properties = _build_property_accesses(
-            graph, ctx, build_ctx, op, name, occurrence,
+            graph,
+            ctx,
+            build_ctx,
+            op,
+            name,
+            occurrence,
         )
     elif isinstance(op, InvokeOperation):
         object_name = (op.object_name or "").strip() or None
         method_name = (op.method_name or "").strip() or None
     return NetlistInstance(
-        uid=uid, name=name, occurrence=occurrence, inputs=inputs, outputs=outputs,
-        operation=operation, object_name=object_name, method_name=method_name,
+        uid=uid,
+        name=name,
+        occurrence=occurrence,
+        inputs=inputs,
+        outputs=outputs,
+        operation=operation,
+        object_name=object_name,
+        method_name=method_name,
         properties=properties,
     )
 
@@ -1136,23 +1180,28 @@ def _build_feedback(
     init_term = next((t for t in op.terminals if t.direction == "input"), None)
     out_term = next((t for t in op.terminals if t.direction == "output"), None)
     init = _resolve_or_default(
-        graph, ctx, build_ctx,
+        graph,
+        ctx,
+        build_ctx,
         init_term.id if init_term is not None else None,
-        init_term, out_term,
+        init_term,
+        out_term,
     )
 
     # recur: the written value on the linked write side's rightFeedback input.
     recur: NetRef | None = None
     slave = build_ctx.op_by_uid.get(op.partner_uid or "")
     if slave is not None:
-        recur_term = next(
-            (t for t in slave.terminals if t.direction == "input"), None
-        )
+        recur_term = next((t for t in slave.terminals if t.direction == "input"), None)
         if recur_term is not None:
             recur = _resolve_source(graph, ctx, recur_term.id, build_ctx)
 
     return NetlistFeedback(
-        uid=_uid_of(op.id), net=f"fb{k}", init=init, recur=recur, delay=op.delay,
+        uid=_uid_of(op.id),
+        net=f"fb{k}",
+        init=init,
+        recur=recur,
+        delay=op.delay,
     )
 
 
@@ -1188,9 +1237,7 @@ def _build_items(
             case _:
                 items.append(_build_instance(graph, ctx, op, build_ctx))
                 if op.inner_nodes:
-                    items.extend(
-                        _build_items(graph, ctx, op.inner_nodes, build_ctx)
-                    )
+                    items.extend(_build_items(graph, ctx, op.inner_nodes, build_ctx))
     return items
 
 
@@ -1234,7 +1281,10 @@ def _build_case_scope(
         *_build_case_outputs(graph, ctx, op, build_ctx, case_id, selector, frames),
     ]
     return NetlistScope(
-        uid=_uid_of(op.id), kind="case", selector=selector, frames=frames,
+        uid=_uid_of(op.id),
+        kind="case",
+        selector=selector,
+        frames=frames,
         outputs=outputs,
     )
 
@@ -1264,7 +1314,8 @@ def _build_case_outputs(
         for raw_frame, nl_frame in zip(op.frames, frames, strict=True):
             inner = next(
                 (
-                    t for t in op.terminals
+                    t
+                    for t in op.terminals
                     if isinstance(t, TunnelTerminal)
                     and t.boundary == "inner"
                     and t.paired_id == outer.id
@@ -1276,15 +1327,20 @@ def _build_case_outputs(
             # at all) -- LabVIEW's "use default if unwired" routes the
             # tunnel's own TYPE default through; never omit the frame.
             source = _resolve_or_default(
-                graph, ctx, build_ctx,
+                graph,
+                ctx,
+                build_ctx,
                 inner.id if inner is not None else None,
-                inner, outer,
+                inner,
+                outer,
             )
             frame_key = "default" if nl_frame.is_default else nl_frame.label
             cases.append(GammaCase(frame_key=frame_key, source=source))
         gammas.append(
             GammaMerge(
-                net=f"case{case_id}.out{k}", selector=selector, cases=cases,
+                net=f"case{case_id}.out{k}",
+                selector=selector,
+                cases=cases,
             )
         )
     return gammas
@@ -1320,7 +1376,10 @@ def _build_disabled_scope(
         for frame in op.frames
     ]
     return NetlistScope(
-        uid=_uid_of(op.id), kind="disabled", selector=None, frames=frames,
+        uid=_uid_of(op.id),
+        kind="disabled",
+        selector=None,
+        frames=frames,
     )
 
 
@@ -1352,7 +1411,10 @@ def _build_event_scope(
         for frame in op.frames
     ]
     return NetlistScope(
-        uid=_uid_of(op.id), kind="event", selector=None, frames=frames,
+        uid=_uid_of(op.id),
+        kind="event",
+        selector=None,
+        frames=frames,
     )
 
 
@@ -1377,7 +1439,10 @@ def _build_sequence_scope(
         for frame in op.frames
     ]
     return NetlistScope(
-        uid=_uid_of(op.id), kind="sequence", selector=None, frames=frames,
+        uid=_uid_of(op.id),
+        kind="sequence",
+        selector=None,
+        frames=frames,
     )
 
 
@@ -1406,17 +1471,19 @@ def _build_loop_shift_registers(
         outer_t = term_by_id.get(lsr.outer_terminal_uid)
         inner_t = term_by_id.get(lsr.inner_terminal_uid)
         init = _resolve_or_default(
-            graph, ctx, build_ctx,
+            graph,
+            ctx,
+            build_ctx,
             lsr.outer_terminal_uid if lsr.sr_initialized else None,
-            outer_t, inner_t,
+            outer_t,
+            inner_t,
         )
         recur = (
             _resolve_source(graph, ctx, rsr.inner_terminal_uid, build_ctx)
-            if rsr is not None else None
+            if rsr is not None
+            else None
         )
-        merges.append(
-            MuMerge(net=f"loop{loop_id}.shift{k}", init=init, recur=recur)
-        )
+        merges.append(MuMerge(net=f"loop{loop_id}.shift{k}", init=init, recur=recur))
     return merges
 
 
@@ -1448,8 +1515,12 @@ def _build_loop_outputs(
         # default like GammaCase's own unwired-tunnel fallback.
         inner_t = term_by_id.get(tunnel.inner_terminal_uid)
         value = _resolve_or_default(
-            graph, ctx, build_ctx,
-            tunnel.inner_terminal_uid, inner_t, outer,
+            graph,
+            ctx,
+            build_ctx,
+            tunnel.inner_terminal_uid,
+            inner_t,
+            outer,
         )
         merges.append(
             EtaMerge(
@@ -1491,12 +1562,20 @@ def _build_loop_scope(
     term_by_id = {t.id: t for t in op.terminals}
     outputs: list[GammaMerge | MuMerge | EtaMerge] = [
         *_build_loop_shift_registers(
-            graph, ctx, op, build_ctx, loop_id, term_by_id,
+            graph,
+            ctx,
+            op,
+            build_ctx,
+            loop_id,
+            term_by_id,
         ),
         *_build_loop_outputs(graph, ctx, op, build_ctx, loop_id, term_by_id),
     ]
     return NetlistScope(
-        uid=_uid_of(op.id), kind=kind, selector=selector, frames=[frame],
+        uid=_uid_of(op.id),
+        kind=kind,
+        selector=selector,
+        frames=[frame],
         parallel=op.parallel,
         parallel_static_workers=op.parallel_static_workers,
         tunnels=tunnel_info,
@@ -1516,8 +1595,12 @@ def _build_loop_scope(
 # ports are synthesized from a representative instance's own terminals.
 
 _STRUCTURE_OPERATION_TYPES = (
-    CaseOperation, LoopOperation, SequenceOperation,
-    DisableStructureOperation, InPlaceOperation, EventOperation,
+    CaseOperation,
+    LoopOperation,
+    SequenceOperation,
+    DisableStructureOperation,
+    InPlaceOperation,
+    EventOperation,
 )
 
 
@@ -1619,7 +1702,8 @@ def _dedupe_primitive_group(
 
 
 def _build_components(
-    graph: InMemoryVIGraph, flat: list[Operation],
+    graph: InMemoryVIGraph,
+    flat: list[Operation],
 ) -> list[NetlistComponent]:
     """Every distinct component (subVI or primitive-like leaf) actually
     used anywhere in the VI, sorted by declared name. Structures
@@ -1698,7 +1782,8 @@ def _disambiguate_cross_group_names(components: list[NetlistComponent]) -> None:
 
 
 def _build_class_context(
-    graph: InMemoryVIGraph, ctx: VIContext,
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
 ) -> ClassContext | None:
     """The JSON IR's class-context shape -- the shared
     ``queries.collect_class_context`` returned DIRECTLY (no netlist-local
@@ -1728,13 +1813,16 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
         occurrence_by_uid=_assign_occurrences(flat),
         const_by_id={c.id: c for c in ctx.constants},
         case_id_by_uid=_assign_sequential_ids(
-            flat, lambda op: isinstance(op, CaseOperation),
+            flat,
+            lambda op: isinstance(op, CaseOperation),
         ),
         loop_id_by_uid=_assign_sequential_ids(
-            flat, lambda op: isinstance(op, LoopOperation),
+            flat,
+            lambda op: isinstance(op, LoopOperation),
         ),
         feedback_id_by_uid=_assign_sequential_ids(
-            flat, lambda op: isinstance(op, FeedbackOperation) and op.is_master,
+            flat,
+            lambda op: isinstance(op, FeedbackOperation) and op.is_master,
         ),
         op_by_uid={op.id: op for op in flat},
         owner_by_terminal=index_terminal_owners(root_ops),
@@ -1768,8 +1856,12 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     components = _build_components(graph, flat)
 
     return NetlistModule(
-        vi_name=vi_name, inputs=inputs, outputs=outputs, body=body,
-        components=components, properties=ctx.properties,
+        vi_name=vi_name,
+        inputs=inputs,
+        outputs=outputs,
+        body=body,
+        components=components,
+        properties=ctx.properties,
         health=ctx.health,
         class_context=_build_class_context(graph, ctx),
         connector_pane=connector_pane,
@@ -1886,8 +1978,11 @@ def _instance_name_display(instance: NetlistInstance) -> str:
     tag = f"#{instance.occurrence}" if instance.occurrence else ""
     op_suffix = f" [{instance.operation}]" if instance.operation else ""
     if instance.method_name:
-        obj = f"{instance.object_name}:{instance.method_name}" \
-            if instance.object_name else instance.method_name
+        obj = (
+            f"{instance.object_name}:{instance.method_name}"
+            if instance.object_name
+            else instance.method_name
+        )
         obj_suffix = f" [{obj}]"
     elif instance.object_name:
         obj_suffix = f" [{instance.object_name}]"
@@ -1933,6 +2028,7 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     (``_instance_name_display``) gains the method it calls.
     """
     name_disp = _instance_name_display(instance)
+
     def _bind(b: NetlistPortBinding) -> str:
         net = b.net.render(qualified=b.net.bare in ambiguous)
         # An inverted input wraps the net in `not(...)` -- a function form that
@@ -1977,14 +2073,20 @@ def scope_header(scope: NetlistScope, ambiguous: set[str]) -> str:
 
 
 def _render_instance(
-    instance: NetlistInstance, indent: int, lines: list[str], ambiguous: set[str],
+    instance: NetlistInstance,
+    indent: int,
+    lines: list[str],
+    ambiguous: set[str],
 ) -> None:
     prefix = "  " * indent
     lines.append(f"{prefix}{instance_line(instance, ambiguous)}")
 
 
 def _render_frame_body(
-    frame: NetlistFrame, indent: int, lines: list[str], ambiguous: set[str],
+    frame: NetlistFrame,
+    indent: int,
+    lines: list[str],
+    ambiguous: set[str],
 ) -> None:
     if frame.body:
         _render_items(frame.body, indent, lines, ambiguous)
@@ -2012,7 +2114,10 @@ def _quoted_frame_label(label: str) -> str:
 
 
 def _render_scope(
-    scope: NetlistScope, indent: int, lines: list[str], ambiguous: set[str],
+    scope: NetlistScope,
+    indent: int,
+    lines: list[str],
+    ambiguous: set[str],
 ) -> None:
     prefix = "  " * indent
     lines.append(f"{prefix}{scope_header(scope, ambiguous)}")
@@ -2073,7 +2178,8 @@ def _gamma_definition_line(gamma: GammaMerge, ambiguous: set[str]) -> str:
     """
     sel_str = (
         gamma.selector.render(qualified=gamma.selector.bare in ambiguous)
-        if gamma.selector is not None else "?"
+        if gamma.selector is not None
+        else "?"
     )
     cases_str = ", ".join(
         f"{c.frame_key} -> {_render_merge_source(c.source, ambiguous)}"
@@ -2135,7 +2241,8 @@ def _feedback_definition_line(fb: NetlistFeedback, ambiguous: set[str]) -> str:
 
 
 def _merge_definition_line(
-    merge: GammaMerge | MuMerge | EtaMerge, ambiguous: set[str],
+    merge: GammaMerge | MuMerge | EtaMerge,
+    ambiguous: set[str],
 ) -> str:
     if isinstance(merge, GammaMerge):
         return _gamma_definition_line(merge, ambiguous)
@@ -2145,7 +2252,10 @@ def _merge_definition_line(
 
 
 def _render_items(
-    items: list[NetlistItem], indent: int, lines: list[str], ambiguous: set[str],
+    items: list[NetlistItem],
+    indent: int,
+    lines: list[str],
+    ambiguous: set[str],
 ) -> None:
     for item in items:
         match item:
@@ -2154,15 +2264,15 @@ def _render_items(
             case NetlistScope():
                 _render_scope(item, indent, lines, ambiguous)
             case NetlistFeedback():
-                lines.append(
-                    "  " * indent + _feedback_definition_line(item, ambiguous)
-                )
+                lines.append("  " * indent + _feedback_definition_line(item, ambiguous))
 
 
 def _netref_to_dict(ref: NetRef) -> dict[str, Any]:
     return {
-        "node": ref.node, "port": ref.port,
-        "occurrence": ref.occurrence, "bare": ref.bare,
+        "node": ref.node,
+        "port": ref.port,
+        "occurrence": ref.occurrence,
+        "bare": ref.bare,
     }
 
 

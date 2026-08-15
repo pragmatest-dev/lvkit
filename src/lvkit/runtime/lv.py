@@ -34,20 +34,60 @@ def _unop(a, f: Callable):
     return [_unop(x, f) for x in a] if isinstance(a, list) else f(a)
 
 
-def add(a, b):      return _binop(a, b, _op.add)
-def sub(a, b):      return _binop(a, b, _op.sub)
-def mul(a, b):      return _binop(a, b, _op.mul)
-def truediv(a, b):  return _binop(a, b, _op.truediv)
-def floordiv(a, b): return _binop(a, b, _op.floordiv)
-def mod(a, b):      return _binop(a, b, _op.mod)
-def pow_(a, b):     return _binop(a, b, _op.pow)
-def gt(a, b):       return _binop(a, b, _op.gt)
-def lt(a, b):       return _binop(a, b, _op.lt)
-def ge(a, b):       return _binop(a, b, _op.ge)
-def le(a, b):       return _binop(a, b, _op.le)
-def eq(a, b):       return _binop(a, b, _op.eq)
-def ne(a, b):       return _binop(a, b, _op.ne)
-def neg(a):         return _unop(a, _op.neg)
+def add(a, b):
+    return _binop(a, b, _op.add)
+
+
+def sub(a, b):
+    return _binop(a, b, _op.sub)
+
+
+def mul(a, b):
+    return _binop(a, b, _op.mul)
+
+
+def truediv(a, b):
+    return _binop(a, b, _op.truediv)
+
+
+def floordiv(a, b):
+    return _binop(a, b, _op.floordiv)
+
+
+def mod(a, b):
+    return _binop(a, b, _op.mod)
+
+
+def pow_(a, b):
+    return _binop(a, b, _op.pow)
+
+
+def gt(a, b):
+    return _binop(a, b, _op.gt)
+
+
+def lt(a, b):
+    return _binop(a, b, _op.lt)
+
+
+def ge(a, b):
+    return _binop(a, b, _op.ge)
+
+
+def le(a, b):
+    return _binop(a, b, _op.le)
+
+
+def eq(a, b):
+    return _binop(a, b, _op.eq)
+
+
+def ne(a, b):
+    return _binop(a, b, _op.ne)
+
+
+def neg(a):
+    return _unop(a, _op.neg)
 
 
 # --- Formula Node scalar helpers (LabVIEW C-like numeric semantics) ---------
@@ -60,23 +100,46 @@ def neg(a):         return _unop(a, _op.neg)
 
 def _int_store(x, bits: int, signed: bool):
     """Round-to-nearest-even, then wrap to a fixed-width integer."""
-    x = round(x) & ((1 << bits) - 1)          # round() ties-to-even; then mask
+    x = round(x) & ((1 << bits) - 1)  # round() ties-to-even; then mask
     if signed and x >= (1 << (bits - 1)):
         x -= 1 << bits
     return x
 
 
-def i8(x):  return _int_store(x, 8, True)
-def i16(x): return _int_store(x, 16, True)
-def i32(x): return _int_store(x, 32, True)
-def i64(x): return _int_store(x, 64, True)
-def u8(x):  return _int_store(x, 8, False)
-def u16(x): return _int_store(x, 16, False)
-def u32(x): return _int_store(x, 32, False)
-def u64(x): return _int_store(x, 64, False)
+def i8(x):
+    return _int_store(x, 8, True)
 
 
-def sign(x):     return (x > 0) - (x < 0)
+def i16(x):
+    return _int_store(x, 16, True)
+
+
+def i32(x):
+    return _int_store(x, 32, True)
+
+
+def i64(x):
+    return _int_store(x, 64, True)
+
+
+def u8(x):
+    return _int_store(x, 8, False)
+
+
+def u16(x):
+    return _int_store(x, 16, False)
+
+
+def u32(x):
+    return _int_store(x, 32, False)
+
+
+def u64(x):
+    return _int_store(x, 64, False)
+
+
+def sign(x):
+    return (x > 0) - (x < 0)
 
 
 def rem(a, b):
@@ -97,7 +160,7 @@ def lvmod(a, b):
     if b == 0:
         return _math.nan
     if isinstance(a, int) and isinstance(b, int):
-        return a % b                            # Python ``%`` is floored
+        return a % b  # Python ``%`` is floored
     return a - b * _math.floor(a / b)
 
 
@@ -126,7 +189,8 @@ def powf(a, b):
         return _math.nan
 
 
-def sqrt(x):  return _math.sqrt(x) if x >= 0 else _math.nan
+def sqrt(x):
+    return _math.sqrt(x) if x >= 0 else _math.nan
 
 
 def ln(x):
@@ -147,9 +211,16 @@ def log2(x):
     return -_math.inf if x == 0 else _math.nan
 
 
-def asin(x):  return _math.asin(x) if -1 <= x <= 1 else _math.nan
-def acos(x):  return _math.acos(x) if -1 <= x <= 1 else _math.nan
-def acosh(x): return _math.acosh(x) if x >= 1 else _math.nan
+def asin(x):
+    return _math.asin(x) if -1 <= x <= 1 else _math.nan
+
+
+def acos(x):
+    return _math.acos(x) if -1 <= x <= 1 else _math.nan
+
+
+def acosh(x):
+    return _math.acosh(x) if x >= 1 else _math.nan
 
 
 def atanh(x):
@@ -167,7 +238,7 @@ def getexp(x):
     in [1, 2) — LabVIEW ``getexp`` (e.g. ``getexp(12) == 3``)."""
     if x == 0:
         return 0.0
-    _, e = _math.frexp(x)                        # frexp mantissa is in [0.5, 1)
+    _, e = _math.frexp(x)  # frexp mantissa is in [0.5, 1)
     return float(e - 1)
 
 
@@ -197,10 +268,29 @@ def size_of_dim(arr, dim):
     return len(cur) if isinstance(cur, list) else 0
 
 
-def land(a, b):  return 1 if (a and b) else 0       # && yields 1/0, not operand
-def lor(a, b):   return 1 if (a or b) else 0        # || yields 1/0, not operand
-def lnot(a):     return 0 if a else 1
-def cot(x):      return 1.0 / _math.tan(x)
-def csc(x):      return 1.0 / _math.sin(x)
-def sec(x):      return 1.0 / _math.cos(x)
-def sinc(x):     return 1.0 if x == 0 else _math.sin(x) / x
+def land(a, b):
+    return 1 if (a and b) else 0  # && yields 1/0, not operand
+
+
+def lor(a, b):
+    return 1 if (a or b) else 0  # || yields 1/0, not operand
+
+
+def lnot(a):
+    return 0 if a else 1
+
+
+def cot(x):
+    return 1.0 / _math.tan(x)
+
+
+def csc(x):
+    return 1.0 / _math.sin(x)
+
+
+def sec(x):
+    return 1.0 / _math.cos(x)
+
+
+def sinc(x):
+    return 1.0 if x == 0 else _math.sin(x) / x

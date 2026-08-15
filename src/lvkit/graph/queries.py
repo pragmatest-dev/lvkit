@@ -82,7 +82,8 @@ class QueryMixin:
         def _build_operation(self, uid: str, vi_name: str) -> Operation: ...
         def has_parallel_branches(self, vi_name: str) -> bool: ...
         def get_class_fields(
-            self, classname: str,
+            self,
+            classname: str,
         ) -> list[ClusterField] | None: ...
 
     # === Cypher query compat ===
@@ -118,21 +119,22 @@ class QueryMixin:
                 gnode = self._graph.nodes[uid].get("node")
                 if not isinstance(gnode, ConstantNode):
                     continue
-                _const_value: str = (
-                    gnode.raw_value
-                    or (str(gnode.value) if gnode.value is not None else "")
+                _const_value: str = gnode.raw_value or (
+                    str(gnode.value) if gnode.value is not None else ""
                 )
-                results.append(ConstantInfo(
-                    vi_name=vi_name,
-                    value=_const_value,
-                    label=gnode.label,
-                    type=(
-                        (gnode.lv_type.underlying_type or "Any")
-                        if gnode.lv_type
-                        else "Any"
-                    ),
-                    python=gnode.value,
-                ))
+                results.append(
+                    ConstantInfo(
+                        vi_name=vi_name,
+                        value=_const_value,
+                        label=gnode.label,
+                        type=(
+                            (gnode.lv_type.underlying_type or "Any")
+                            if gnode.lv_type
+                            else "Any"
+                        ),
+                        python=gnode.value,
+                    )
+                )
         return results
 
     def get_all_primitives(self) -> list[PrimitiveInfo]:
@@ -155,12 +157,14 @@ class QueryMixin:
                     for t in gnode.terminals
                     if t.direction == "output"
                 ]
-                results.append(PrimitiveInfo(
-                    vi_name=vi_name,
-                    prim_id=gnode.prim_id,
-                    input_types=input_types,
-                    output_types=output_types,
-                ))
+                results.append(
+                    PrimitiveInfo(
+                        vi_name=vi_name,
+                        prim_id=gnode.prim_id,
+                        input_types=input_types,
+                        output_types=output_types,
+                    )
+                )
         return results
 
     def get_all_clusters(self) -> list[ClusterInfo]:
@@ -253,7 +257,7 @@ class QueryMixin:
             ("<userlib>", self._userlib_root),
         ):
             if qualified_path.startswith(token) and root is not None:
-                rel = qualified_path[len(token):].lstrip("/\\")
+                rel = qualified_path[len(token) :].lstrip("/\\")
                 if ".llb/" in rel.replace("\\", "/").lower():
                     return None  # packed member — needs archive extraction
                 candidate = root / rel
@@ -312,9 +316,7 @@ class QueryMixin:
                     and gnode.id != vi_name  # Not the VI definition itself
                 ):
                     for term in gnode.terminals:
-                        term_type = (
-                            term.lv_type.lv_label() if term.lv_type else "Any"
-                        )
+                        term_type = term.lv_type.lv_label() if term.lv_type else "Any"
                         if term_type == "unknown":
                             term_type = "Any"
                         if term.direction == "input":
@@ -372,16 +374,19 @@ class QueryMixin:
         def scc_key(scc_id: int) -> str:
             return min(condensation.nodes[scc_id]["members"])
 
-        scc_order = list(reversed(list(
-            nx.lexicographical_topological_sort(condensation, key=scc_key)
-        )))
+        scc_order = list(
+            reversed(
+                list(nx.lexicographical_topological_sort(condensation, key=scc_key))
+            )
+        )
 
         vilib_resolver = get_vilib_resolver()
 
         for scc_id in scc_order:
             members = condensation.nodes[scc_id]["members"]
             convertible_vis = {
-                m for m in members
+                m
+                for m in members
                 if m not in self._stubs or vilib_resolver.has_implementation(m)
             }
             if convertible_vis:
@@ -463,9 +468,7 @@ class QueryMixin:
             result["operation"] = gnode.operation
             result["object_name"] = gnode.object_name
             result["object_method_id"] = gnode.object_method_id
-            result["properties"] = [
-                {"name": p.name} for p in gnode.properties
-            ]
+            result["properties"] = [{"name": p.name} for p in gnode.properties]
             result["method_name"] = gnode.method_name
             result["method_code"] = gnode.method_code
             result["terminals"] = [
@@ -518,9 +521,7 @@ class QueryMixin:
             return None
         return self._typed_node_to_legacy_dict(gnode)
 
-    def get_inputs(
-        self, vi_name: str, *, public_only: bool = True
-    ) -> list[Terminal]:
+    def get_inputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
         """Get VI input terminals.
 
         Reads from the VINode's terminal list (FPTerminal controls).
@@ -542,9 +543,7 @@ class QueryMixin:
             results.append(t)
         return ordered_interface(results, "input", gnode.connector_pattern_id)
 
-    def get_outputs(
-        self, vi_name: str, *, public_only: bool = True
-    ) -> list[Terminal]:
+    def get_outputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
         """Get VI output terminals, in canonical connector-pane order.
 
         Reads from the VINode's terminal list (FPTerminal indicators).
@@ -579,16 +578,18 @@ class QueryMixin:
             gnode = self._graph.nodes[uid].get("node")
             if not isinstance(gnode, ConstantNode):
                 continue
-            results.append(Constant(
-                id=gnode.id,
-                value=gnode.value,
-                lv_type=gnode.lv_type,
-                display_format=gnode.display_format,
-                raw_value=gnode.raw_value,
-                label=gnode.label,
-                parent=gnode.parent,
-                frame=gnode.frame,
-            ))
+            results.append(
+                Constant(
+                    id=gnode.id,
+                    value=gnode.value,
+                    lv_type=gnode.lv_type,
+                    display_format=gnode.display_format,
+                    raw_value=gnode.raw_value,
+                    label=gnode.label,
+                    parent=gnode.parent,
+                    frame=gnode.frame,
+                )
+            )
         return results
 
     def get_operations(self, vi_name: str) -> list[Operation]:
@@ -618,8 +619,7 @@ class QueryMixin:
 
         # Get operations in dataflow order, keeping only top-level
         ordered_ids = [
-            uid for uid in self.get_operation_order(vi_name)
-            if uid in top_level_op_uids
+            uid for uid in self.get_operation_order(vi_name) if uid in top_level_op_uids
         ]
         op_set = set(ordered_ids)
 
@@ -726,7 +726,9 @@ class QueryMixin:
         return preds[0] if preds else None
 
     def get_wires(
-        self, vi_name: str, include_internal: bool = False,
+        self,
+        vi_name: str,
+        include_internal: bool = False,
     ) -> list[Wire]:
         """Get all wires (edges) in a VI's dataflow graph.
 
@@ -763,8 +765,7 @@ class QueryMixin:
                     continue
 
                 is_internal = (
-                    bool(edata.get("tunnel_type"))
-                    or src_end.node_id == dst_end.node_id
+                    bool(edata.get("tunnel_type")) or src_end.node_id == dst_end.node_id
                 )
                 if is_internal and not include_internal:
                     continue
@@ -874,10 +875,12 @@ class QueryMixin:
                 continue
             gnode = self._graph.nodes[uid].get("node")
             if isinstance(gnode, VINode) and gnode.id != gnode.vi:
-                subvi_calls.append(SubVICall(
-                    call_name=gnode.name,
-                    vi_name=gnode.name,
-                ))
+                subvi_calls.append(
+                    SubVICall(
+                        call_name=gnode.name,
+                        vi_name=gnode.name,
+                    )
+                )
 
         # Build terminals list for skeleton generator
         terminals: list[TerminalRef] = []
@@ -888,14 +891,16 @@ class QueryMixin:
             if gnode is None:
                 continue
             for t in gnode.terminals:
-                terminals.append(TerminalRef(
-                    id=t.id,
-                    parent_id=gnode.id,
-                    index=t.index,
-                    type=t.lv_type.lv_label() if t.lv_type else "Any",
-                    name=t.name,
-                    direction=t.direction,
-                ))
+                terminals.append(
+                    TerminalRef(
+                        id=t.id,
+                        parent_id=gnode.id,
+                        index=t.index,
+                        type=t.lv_type.lv_label() if t.lv_type else "Any",
+                        name=t.name,
+                        direction=t.direction,
+                    )
+                )
 
         inputs = list(self.get_inputs(vi_name))
         outputs = list(self.get_outputs(vi_name))
@@ -975,7 +980,8 @@ class QueryMixin:
     def list_classes(self) -> list[str]:
         """List all loaded (non-stub) class names in the dependency graph."""
         return sorted(
-            n for n, d in self._dep_graph.nodes(data=True)
+            n
+            for n, d in self._dep_graph.nodes(data=True)
             if d.get("node_type") == "class" and n not in self._stubs
         )
 
@@ -1045,7 +1051,8 @@ class QueryMixin:
         leaf = classname.rsplit(":", 1)[-1]
         own_bare = leaf[: -len(".lvclass")] if leaf.endswith(".lvclass") else leaf
         child_classes = sorted(
-            node for node, ndata in self._dep_graph.nodes(data=True)
+            node
+            for node, ndata in self._dep_graph.nodes(data=True)
             if ndata.get("node_type") == "class"
             and node not in self._stubs
             and ndata.get("parent_class") == own_bare
@@ -1055,7 +1062,8 @@ class QueryMixin:
         # (present in list_vis() — excludes stub/unresolved method VIs).
         vis = set(self.list_vis())
         methods = sorted(
-            succ for succ in self._dep_graph.successors(classname)
+            succ
+            for succ in self._dep_graph.successors(classname)
             if succ in vis
             and (self._dep_graph.get_edge_data(classname, succ) or {}).get("rel")
             == "owns"
@@ -1067,9 +1075,7 @@ class QueryMixin:
         )
         fields = [
             ClassFieldEntry(field=f, inherited=True) for f in inherited_fields
-        ] + [
-            ClassFieldEntry(field=f, inherited=False) for f in own_fields
-        ]
+        ] + [ClassFieldEntry(field=f, inherited=False) for f in own_fields]
 
         return ClassHierarchyInfo(
             classname=classname,
@@ -1221,7 +1227,8 @@ class ClassContext:
 
 
 def collect_class_context(
-    graph: InMemoryVIGraph, ctx: VIContext,
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
 ) -> ClassContext | None:
     """The owning class's context when ``ctx`` is a ``.lvclass`` method VI,
     else None -- the single source both ``describe._describe_class_context``

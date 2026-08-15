@@ -50,9 +50,7 @@ def _varspecs(op: FormulaOperation) -> list[VarSpec]:
     for name in order:
         info = by_name[name]
         if info["lv"] is None:
-            raise CodeGenError(
-                f"Formula Node variable {name!r} has no resolved type"
-            )
+            raise CodeGenError(f"Formula Node variable {name!r} has no resolved type")
         direction = (
             "inout" if info["dirs"] == {"in", "out"} else next(iter(info["dirs"]))
         )

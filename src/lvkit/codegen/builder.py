@@ -113,9 +113,7 @@ def build_module(
     return ast.unparse(module)
 
 
-def generate_body(
-    operations: list[Operation], ctx: CodeGenContext
-) -> list[ast.stmt]:
+def generate_body(operations: list[Operation], ctx: CodeGenContext) -> list[ast.stmt]:
     """Generate function body statements from operations.
 
     Uses tiered topological sort to identify parallel groups. Single-op
@@ -145,14 +143,11 @@ def generate_body(
     for tier in tiers:
         # Extract Clear Errors ops from the tier before dispatching
         clear_ops = [
-            op for op in tier
-            if classify_error_node(op) == ErrorHandlingPattern.CLEAR
+            op for op in tier if classify_error_node(op) == ErrorHandlingPattern.CLEAR
         ]
         if clear_ops:
             clear_ids = {op.id for op in clear_ops}
-            remaining = [
-                op for op in tier if op.id not in clear_ids
-            ]
+            remaining = [op for op in tier if op.id not in clear_ids]
         else:
             remaining = tier
 
@@ -174,7 +169,10 @@ def generate_body(
         # Apply Clear Errors wrapping for each extracted clear op
         for clear_op in clear_ops:
             _apply_clear_wrapping(
-                clear_op, operations, ctx, tagged,
+                clear_op,
+                operations,
+                ctx,
+                tagged,
             )
 
     return [stmt for _, stmt in tagged]
@@ -293,8 +291,13 @@ def _generate_parallel_tier(
         func_def = ast.FunctionDef(
             name=func_name,
             args=ast.arguments(
-                posonlyargs=[], args=[], vararg=None,
-                kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[],
+                posonlyargs=[],
+                args=[],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
             ),
             body=body,
             decorator_list=[],
@@ -304,16 +307,20 @@ def _generate_parallel_tier(
 
         if bound_vars:
             # _fN = _executor.submit(_branch_N)
-            inner_stmts.append(ast.Assign(
-                targets=[ast.Name(id=future_var, ctx=ast.Store())],
-                value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
-            ))
+            inner_stmts.append(
+                ast.Assign(
+                    targets=[ast.Name(id=future_var, ctx=ast.Store())],
+                    value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
+                )
+            )
             branch_info.append((future_var, bound_vars))
         else:
             # Fire-and-forget: _executor.submit(_branch_N)
-            inner_stmts.append(ast.Expr(
-                value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
-            ))
+            inner_stmts.append(
+                ast.Expr(
+                    value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
+                )
+            )
 
     # Always merge bindings — even when all ops produce zero statements.
     # Passthrough primitives (e.g., Variant To Data, inlined Subtract)
@@ -359,7 +366,8 @@ def _generate_parallel_tier(
                 attr="result",
                 ctx=ast.Load(),
             ),
-            args=[], keywords=[],
+            args=[],
+            keywords=[],
         )
         if len(bound_vars) == 1:
             target = ast.Name(id=bound_vars[0], ctx=ast.Store())
@@ -497,9 +505,7 @@ def topological_sort_tiered(
 
     # Tiered Kahn's algorithm — drain all ready ops per iteration
     tiers: list[list[Operation]] = []
-    ready: deque[str] = deque(
-        op_id for op_id, deps in dependencies.items() if not deps
-    )
+    ready: deque[str] = deque(op_id for op_id, deps in dependencies.items() if not deps)
     remaining = {op_id: set(deps) for op_id, deps in dependencies.items() if deps}
 
     while ready:
@@ -529,9 +535,7 @@ def topological_sort_tiered(
     return tiers
 
 
-def build_return_stmt(
-    vi_context: VIContext, ctx: CodeGenContext
-) -> ast.Return | None:
+def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return | None:
     """Build return statement for function.
 
     Returns NamedTuple with output values resolved from context.

@@ -57,8 +57,8 @@ class StubGenerator:
         usages = info["usages"]
 
         # Compute union signature
-        union_inputs, union_outputs, usage_summary = (
-            self._compute_union_signature(usages)
+        union_inputs, union_outputs, usage_summary = self._compute_union_signature(
+            usages
         )
 
         lines = []
@@ -153,8 +153,8 @@ class StubGenerator:
         for usage in usages:
             in_names = [i["name"] for i in usage["inputs"]]
             out_names = [o["name"] for o in usage["outputs"]]
-            ins = ', '.join(in_names)
-            outs = ', '.join(out_names)
+            ins = ", ".join(in_names)
+            outs = ", ".join(out_names)
             summary.append(f"{usage['caller']}: ({ins}) -> ({outs})")
 
         return union_inputs, union_outputs, summary

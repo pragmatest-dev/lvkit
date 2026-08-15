@@ -99,7 +99,10 @@ def test_soft_mode_primitive_emits_raise_statement() -> None:
         kind="primitive",
         terminals=[
             Terminal(
-                id="t0", index=0, direction="output", name="result",
+                id="t0",
+                index=0,
+                direction="output",
+                name="result",
             ),
         ],
         primResID=99999,
@@ -114,9 +117,7 @@ def test_soft_mode_primitive_emits_raise_statement() -> None:
     assert isinstance(last, ast.Raise)
 
     # Imports include the exception class
-    assert any(
-        "PrimitiveResolutionNeeded" in imp for imp in fragment.imports
-    )
+    assert any("PrimitiveResolutionNeeded" in imp for imp in fragment.imports)
 
     # Generated AST is parseable as a complete module
     module = ast.Module(body=fragment.statements, type_ignores=[])
@@ -157,10 +158,16 @@ def test_soft_mode_vilib_emits_raise_statement() -> None:
         kind="vi",
         terminals=[
             Terminal(
-                id="t1", index=0, direction="input", name="in1",
+                id="t1",
+                index=0,
+                direction="input",
+                name="in1",
             ),
             Terminal(
-                id="t2", index=1, direction="output", name="out1",
+                id="t2",
+                index=1,
+                direction="output",
+                name="out1",
             ),
         ],
         node_type="iUse",
@@ -217,7 +224,10 @@ def test_soft_mode_generated_code_runs_and_raises() -> None:
         kind="primitive",
         terminals=[
             Terminal(
-                id="t_out", index=0, direction="output", name="result",
+                id="t_out",
+                index=0,
+                direction="output",
+                name="result",
             ),
         ],
         primResID=88888,

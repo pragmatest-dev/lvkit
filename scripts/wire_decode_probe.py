@@ -27,6 +27,7 @@ Findings banked here (2026-07-13, branch wire-decode-fork-rule):
 
 Run:  uv run python scripts/wire_decode_probe.py
 """
+
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
@@ -55,6 +56,7 @@ def _remap(direction: Point, trunk: Point) -> Point:
     """A fork direction that points BACKWARD (opposite the trunk) is drawn as the
     trunk's negative-axis perpendicular instead."""
     return _neg_perp(trunk) if direction == (-trunk[0], -trunk[1]) else direction
+
 
 # The reference VIs the fork rule is validated against (last night's + today's).
 REFS = [
@@ -225,8 +227,10 @@ def measure(faithful_px: float = 20.0) -> None:
         gtot += tot
         gfaith += faith
         print(f"  {100 * faith / max(1, tot):6.2f}%  ({faith}/{tot})  {name}")
-    print(f"\nOVERALL deterministic faithful (<= {faithful_px:.0f}px): "
-          f"{gfaith}/{gtot} = {100 * gfaith / max(1, gtot):.3f}%")
+    print(
+        f"\nOVERALL deterministic faithful (<= {faithful_px:.0f}px): "
+        f"{gfaith}/{gtot} = {100 * gfaith / max(1, gtot):.3f}%"
+    )
 
 
 if __name__ == "__main__":

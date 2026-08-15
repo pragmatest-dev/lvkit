@@ -30,7 +30,8 @@ from ..unresolved import emit_soft_unresolved
 def _has_array_input(node: PrimitiveOperation) -> bool:
     """True if any wired input terminal carries an array type."""
     return any(
-        t.direction == "input" and t.lv_type is not None
+        t.direction == "input"
+        and t.lv_type is not None
         and t.lv_type.kind == LVTypeKind.ARRAY
         for t in node.terminals
     )
@@ -48,10 +49,19 @@ def _paren_if_compound(expr: str) -> str:
         node = ast.parse(expr, mode="eval").body
     except (SyntaxError, ValueError):
         return expr
-    if isinstance(node, (
-        ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare,
-        ast.IfExp, ast.Lambda, ast.NamedExpr, ast.Await,
-    )):
+    if isinstance(
+        node,
+        (
+            ast.BoolOp,
+            ast.BinOp,
+            ast.UnaryOp,
+            ast.Compare,
+            ast.IfExp,
+            ast.Lambda,
+            ast.NamedExpr,
+            ast.Await,
+        ),
+    ):
         return f"({expr})"
     return expr
 
@@ -88,8 +98,8 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     # If node_type resolves but has no usable code, fall through to prim_id.
     resolver = get_resolver()
     resolved = None
-    node_type = getattr(node, 'node_type', None)
-    if node_type and node_type != 'prim':
+    node_type = getattr(node, "node_type", None)
+    if node_type and node_type != "prim":
         resolved = resolver.resolve_by_node_type(node_type)
         # Fall through if node_type resolved but has no code
         if resolved and not resolved.python_code:
@@ -154,12 +164,19 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     passthrough_term_ids: set[str] = set()
     if isinstance(resolved.python_code, dict):
         passthrough_bindings, passthrough_term_ids = _detect_passthroughs(
-            node, resolved.python_code, input_map, ctx, resolved,
+            node,
+            resolved.python_code,
+            input_map,
+            ctx,
+            resolved,
         )
 
     # Get wired output terminals (excluding passthroughs)
     wired_outputs = _get_wired_outputs(
-        node, resolved, ctx, skip_term_ids=passthrough_term_ids,
+        node,
+        resolved,
+        ctx,
+        skip_term_ids=passthrough_term_ids,
     )
 
     # Numeric primitives are element-wise over arrays. When this op is flagged
@@ -169,12 +186,20 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     # Build code based on code type
     if isinstance(resolved.python_code, dict):
         fragment = _build_dict_hint(
-            resolved.python_code, input_map, wired_outputs, ctx, resolved,
+            resolved.python_code,
+            input_map,
+            wired_outputs,
+            ctx,
+            resolved,
             arrayify_ops,
         )
     else:
         fragment = _build_string_hint(
-            resolved.python_code or "", input_map, wired_outputs, ctx, resolved,
+            resolved.python_code or "",
+            input_map,
+            wired_outputs,
+            ctx,
+            resolved,
             arrayify_ops,
         )
 
@@ -184,8 +209,11 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     # Record array-typed output variables so a final pass can broadcast
     # operators over them even after single-use expression inlining.
     for term in node.terminals:
-        if (term.direction == "output" and term.lv_type is not None
-                and term.lv_type.kind == LVTypeKind.ARRAY):
+        if (
+            term.direction == "output"
+            and term.lv_type is not None
+            and term.lv_type.kind == LVTypeKind.ARRAY
+        ):
             bound = fragment.bindings.get(term.id)
             if bound and bound.isidentifier():
                 ctx.array_vars.add(bound)
@@ -199,6 +227,7 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
                 fragment.imports.add(imp)
 
     return fragment
+
 
 def _expandable_base(term_index: int, expandable_indices: set[int]) -> int | None:
     """Return the expandable-group base index ``term_index`` belongs to, else None.
@@ -279,7 +308,10 @@ def _build_input_map(
             # Wired terminal with -1 index: resolution failure
             if term_index == -1:
                 _raise_terminal_resolution(
-                    node, term, resolved, ctx,
+                    node,
+                    term,
+                    resolved,
+                    ctx,
                 )
             resolved_value = value
         elif default_value is not None:
@@ -287,24 +319,16 @@ def _build_input_map(
         else:
             # Unwired terminal — use default from JSON or type-based default
             ut = (term.lv_type.underlying_type or "") if term.lv_type else ""
-            if (
-                ut == "Refnum"
-                and node.primResID in (8010, 8011, 8003, 8005)
-            ):
+            if ut == "Refnum" and node.primResID in (8010, 8011, 8003, 8005):
                 vi_short = (
                     (ctx.vi_name or "output")
                     .replace(".vi", "")
                     .replace(":", "_")
                     .replace(".", "_")
                 )
-                resolved_value = (
-                    f"open(Path(__file__).parent / '{vi_short}.txt', 'a+')"
-                )
+                resolved_value = f"open(Path(__file__).parent / '{vi_short}.txt', 'a+')"
                 ctx.imports.add("from pathlib import Path")
-            elif (
-                ut == "Path"
-                and node.primResID in (9101,)
-            ):
+            elif ut == "Path" and node.primResID in (9101,):
                 resolved_value = "Path(__file__)"
                 ctx.imports.add("from pathlib import Path")
             else:
@@ -357,6 +381,7 @@ def _build_input_map(
 
     return input_map
 
+
 def _detect_passthroughs(
     node: PrimitiveOperation,
     hint: dict[str, str],
@@ -403,12 +428,12 @@ def _detect_passthroughs(
         expr_idx += 1
 
         # Case 1: bare input reference (in_N) — identity passthrough
-        if re.match(r'^in_\d+$', expr_template):
+        if re.match(r"^in_\d+$", expr_template):
             resolved_var = input_map.get(expr_template)
             if (
                 resolved_var
                 and resolved_var.isidentifier()
-                and resolved_var not in ('None', 'True', 'False')
+                and resolved_var not in ("None", "True", "False")
             ):
                 bindings[term.id] = resolved_var
                 skip_ids.add(term.id)
@@ -438,8 +463,11 @@ def _detect_passthroughs(
 
     return bindings, skip_ids
 
+
 def _get_wired_outputs(
-    node: PrimitiveOperation, resolved: ResolvedPrimitive | None, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    resolved: ResolvedPrimitive | None,
+    ctx: CodeGenContext,
     skip_term_ids: set[str] | None = None,
 ) -> list[tuple[str, str, str]]:
     """Get list of (terminal_id, terminal_name, var_name) for wired outputs.
@@ -495,7 +523,10 @@ def _get_wired_outputs(
         # Output with -1 index and no name: resolution failure
         if term_index == -1 and not term_name:
             _raise_terminal_resolution(
-                node, term, resolved, ctx,
+                node,
+                term,
+                resolved,
+                ctx,
             )
 
         var_name = (
@@ -506,6 +537,7 @@ def _get_wired_outputs(
         outputs.append((term_id, term_name, var_name))
 
     return outputs
+
 
 def _build_dict_hint(
     hint: dict[str, str],
@@ -542,9 +574,7 @@ def _build_dict_hint(
     exprs = [v for k, v in hint.items() if k not in ("_body", "_import")]
     for i, (term_id, term_name, var_name) in enumerate(wired_outputs):
         if i < len(exprs):
-            expr_substituted = _substitute_template(
-                exprs[i], input_map, resolved
-            )
+            expr_substituted = _substitute_template(exprs[i], input_map, resolved)
             expr_ast = parse_expr(expr_substituted)
             if arrayify_ops:
                 expr_ast, used = arrayify(expr_ast)
@@ -554,12 +584,11 @@ def _build_dict_hint(
             bindings[term_id] = var_name
         else:
             # More outputs than expressions — placeholder
-            statements.append(
-                build_assign(var_name, ast.Constant(value=None))
-            )
+            statements.append(build_assign(var_name, ast.Constant(value=None)))
             bindings[term_id] = var_name
 
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)
+
 
 def _build_string_hint(
     hint: str,
@@ -621,8 +650,10 @@ def _build_string_hint(
 
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)
 
+
 def _substitute_template(
-    template: str, input_map: dict[str, str],
+    template: str,
+    input_map: dict[str, str],
     resolved: ResolvedPrimitive | None = None,
 ) -> str:
     """Substitute variable names in template string.
@@ -663,9 +694,10 @@ def _substitute_template(
     # Replace any remaining unsubstituted in_N placeholders with
     # type default. This happens for unwired optional inputs — the
     # terminal exists in the primitive definition but has no wire.
-    result = re.sub(r'\bin_(\d+)\b', 'None', result)
+    result = re.sub(r"\bin_(\d+)\b", "None", result)
 
     return result
+
 
 def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
     """Return a Python default value based on the terminal's lv_type."""
@@ -680,15 +712,19 @@ def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
             ctx.imports.add("from pathlib import Path")
             return "Path('.')"
         if ut.startswith("Num") or lv_type.kind in (
-            "int", "float", "numeric",
+            "int",
+            "float",
+            "numeric",
         ):
             return "0"
         if lv_type.kind == LVTypeKind.ARRAY:
             return "[]"
     return "None"
 
+
 def _terminal_signature(
-    node: PrimitiveOperation, ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    ctx: CodeGenContext,
 ) -> list[dict[str, str | int | bool | None]]:
     """The FULL connector pane (every terminal, wired AND unwired) as the
     resolution diagnostics carry it — the identity a resolver matches against."""
@@ -735,10 +771,11 @@ def _emit_placeholder(
         ctx.unresolved_sink.append(exc)
 
     # String literal acts as inline documentation in generated code
-    marker = ast.Expr(value=ast.Constant(
-        value=f"TODO: unresolved primitive {prim_id} ({name})"
-    ))
+    marker = ast.Expr(
+        value=ast.Constant(value=f"TODO: unresolved primitive {prim_id} ({name})")
+    )
     return CodeFragment(statements=[marker, ast.Pass()])
+
 
 def _emit_unknown(
     node: PrimitiveOperation, prim_id: int, ctx: CodeGenContext
@@ -789,6 +826,7 @@ def _emit_unknown(
         literal_kwargs=kwargs,
     )
 
+
 def _raise_terminal_resolution(
     node: PrimitiveOperation,
     term: Terminal,
@@ -802,22 +840,17 @@ def _raise_terminal_resolution(
     """
     # Filter available resolver terminals to same direction, unassigned
     direction = "in" if term.direction == "input" else "out"
-    assigned_indices = {
-        t.index for t in node.terminals if t.index >= 0
-    }
+    assigned_indices = {t.index for t in node.terminals if t.index >= 0}
     avail = [
         {"index": rt.index, "name": rt.name, "type": rt.type}
         for rt in (resolved.terminals if resolved else [])
-        if rt.direction == direction
-        and rt.index not in assigned_indices
+        if rt.direction == direction and rt.index not in assigned_indices
     ]
     raise TerminalResolutionNeeded(
         prim_id=node.primResID or 0,
         prim_name=node.name or "unknown",
         terminal_direction=term.direction,
-        terminal_type=(
-            term.lv_type.underlying_type if term.lv_type else None
-        ),
+        terminal_type=(term.lv_type.underlying_type if term.lv_type else None),
         available=avail,
         vi_name=ctx.vi_name,
     )

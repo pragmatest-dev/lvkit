@@ -75,8 +75,7 @@ class TestMakeVarName:
         var_name = _make_var_name(tunnel, ctx)
         assert var_name == "final_count"
 
-    def test_make_var_name_fallback_for_lsr_shift_register(
-        self    ):
+    def test_make_var_name_fallback_for_lsr_shift_register(self):
         """Test fallback naming for shift register tunnels."""
         ctx = CodeGenContext()
 
@@ -340,8 +339,7 @@ class TestNegateCondition:
 class TestLoopCodeGenGenerate:
     """Integration tests for loop.generate()."""
 
-    def test_generate_for_loop_with_single_array_uses_enumerate(
-        self    ):
+    def test_generate_for_loop_with_single_array_uses_enumerate(self):
         """Test for loop with single array input uses enumerate pattern."""
         data_flow = [
             Wire.from_terminals(
@@ -389,8 +387,7 @@ class TestLoopCodeGenGenerate:
         assert isinstance(for_loop.iter.args[0], ast.Name)
         assert for_loop.iter.args[0].id == "items"
 
-    def test_generate_for_loop_with_n_terminal_uses_range(
-        self    ):
+    def test_generate_for_loop_with_n_terminal_uses_range(self):
         """Test for loop with N terminal (count) uses range pattern."""
         data_flow = [
             Wire.from_terminals(
@@ -433,8 +430,7 @@ class TestLoopCodeGenGenerate:
         assert isinstance(for_loop.iter.func, ast.Name)
         assert for_loop.iter.func.id == "range"
 
-    def test_generate_while_loop_initializes_shift_register(
-        self    ):
+    def test_generate_while_loop_initializes_shift_register(self):
         """Test while loop with shift register initializes variable correctly."""
         data_flow = [
             Wire.from_terminals(
@@ -480,8 +476,7 @@ class TestLoopCodeGenGenerate:
         init_code = ast.unparse(init_assign)
         assert "= 0" in init_code, f"Should initialize to 0, got: {init_code}"
 
-    def test_generate_nested_loop_uses_different_index_vars(
-        self    ):
+    def test_generate_nested_loop_uses_different_index_vars(self):
         """Test that nested loops use i, j, k for index variables."""
         # Outer loop at depth 0
         ctx_outer = CodeGenContext(loop_depth=0)
@@ -599,15 +594,9 @@ class TestLoopCodeGenExecutable:
             Wire.from_terminals(
                 from_terminal_id="seed_src", to_terminal_id="lsr_outer"
             ),
-            Wire.from_terminals(
-                from_terminal_id="lsr_inner", to_terminal_id="add_x"
-            ),
-            Wire.from_terminals(
-                from_terminal_id="add_out", to_terminal_id="rsr_inner"
-            ),
-            Wire.from_terminals(
-                from_terminal_id="one_src", to_terminal_id="add_y"
-            ),
+            Wire.from_terminals(from_terminal_id="lsr_inner", to_terminal_id="add_x"),
+            Wire.from_terminals(from_terminal_id="add_out", to_terminal_id="rsr_inner"),
+            Wire.from_terminals(from_terminal_id="one_src", to_terminal_id="add_y"),
         ]
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("n_src", "5")
@@ -615,7 +604,10 @@ class TestLoopCodeGenExecutable:
         ctx.bind("one_src", "1")
 
         add = PrimitiveOperation(
-            id="add", name="Add", kind="primitive", primResID=1050,
+            id="add",
+            name="Add",
+            kind="primitive",
+            primResID=1050,
             terminals=[
                 Terminal(id="add_x", index=1, direction="input", name="x"),
                 Terminal(id="add_y", index=2, direction="input", name="y"),
@@ -623,14 +615,26 @@ class TestLoopCodeGenExecutable:
             ],
         )
         loop_op = LoopOperation(
-            id="loop1", name="For Loop", kind="loop", loop_type="forLoop",
+            id="loop1",
+            name="For Loop",
+            kind="loop",
+            loop_type="forLoop",
             tunnels=[
-                Tunnel(outer_terminal_uid="n_outer",
-                       inner_terminal_uid="n_inner", tunnel_type="lMax"),
-                Tunnel(outer_terminal_uid="lsr_outer",
-                       inner_terminal_uid="lsr_inner", tunnel_type="lSR"),
-                Tunnel(outer_terminal_uid="rsr_outer",
-                       inner_terminal_uid="rsr_inner", tunnel_type="rSR"),
+                Tunnel(
+                    outer_terminal_uid="n_outer",
+                    inner_terminal_uid="n_inner",
+                    tunnel_type="lMax",
+                ),
+                Tunnel(
+                    outer_terminal_uid="lsr_outer",
+                    inner_terminal_uid="lsr_inner",
+                    tunnel_type="lSR",
+                ),
+                Tunnel(
+                    outer_terminal_uid="rsr_outer",
+                    inner_terminal_uid="rsr_inner",
+                    tunnel_type="rSR",
+                ),
             ],
             inner_nodes=[add],
         )
@@ -772,9 +776,7 @@ class TestWhileLoopDoWhileSemantics:
 
         fragment = loop.generate(loop_op, ctx)
 
-        while_stmt = next(
-            s for s in fragment.statements if isinstance(s, ast.While)
-        )
+        while_stmt = next(s for s in fragment.statements if isinstance(s, ast.While))
         # Top-level test must be `True` (do-while), never a computed
         # pre-test condition.
         assert isinstance(while_stmt.test, ast.Constant)
@@ -808,9 +810,17 @@ class TestForLoopConditionalTerminal:
         if stop is not None:
             ctx.bind("cond_calc", "should_stop")
         loop_op = LoopOperation(
-            id="loop1", name="For Loop", kind="loop", loop_type="forLoop",
-            tunnels=[Tunnel(outer_terminal_uid="lmax_outer",
-                            inner_terminal_uid="lmax_inner", tunnel_type="lMax")],
+            id="loop1",
+            name="For Loop",
+            kind="loop",
+            loop_type="forLoop",
+            tunnels=[
+                Tunnel(
+                    outer_terminal_uid="lmax_outer",
+                    inner_terminal_uid="lmax_inner",
+                    tunnel_type="lMax",
+                )
+            ],
             inner_nodes=[],
             stop_condition_terminal=stop,
             stop_condition_inverted=inverted,
@@ -852,7 +862,9 @@ class TestUninitializedShiftRegister:
         graph = InMemoryVIGraph()
 
         src_node = PrimitiveNode(
-            id="src", vi="test.vi", name="src",
+            id="src",
+            vi="test.vi",
+            name="src",
             terminals=[Terminal(id="new_val_src", index=0, direction="output")],
         )
         graph._graph.add_node("src", node=src_node)
@@ -860,31 +872,51 @@ class TestUninitializedShiftRegister:
 
         loop_terminals = [
             TunnelTerminal(
-                id="lsr_outer", index=1, direction="input",
-                tunnel_type="lSR", boundary="outer", lv_type=lv_type,
+                id="lsr_outer",
+                index=1,
+                direction="input",
+                tunnel_type="lSR",
+                boundary="outer",
+                lv_type=lv_type,
             ),
             TunnelTerminal(
-                id="lsr_inner", index=2, direction="output",
-                tunnel_type="lSR", boundary="inner", lv_type=lv_type,
+                id="lsr_inner",
+                index=2,
+                direction="output",
+                tunnel_type="lSR",
+                boundary="inner",
+                lv_type=lv_type,
             ),
             TunnelTerminal(
-                id="rsr_outer", index=3, direction="output",
-                tunnel_type="rSR", boundary="outer", lv_type=lv_type,
+                id="rsr_outer",
+                index=3,
+                direction="output",
+                tunnel_type="rSR",
+                boundary="outer",
+                lv_type=lv_type,
             ),
             TunnelTerminal(
-                id="rsr_inner", index=4, direction="input",
-                tunnel_type="rSR", boundary="inner", lv_type=lv_type,
+                id="rsr_inner",
+                index=4,
+                direction="input",
+                tunnel_type="rSR",
+                boundary="inner",
+                lv_type=lv_type,
             ),
         ]
         loop_node = PrimitiveNode(
-            id="loop1", vi="test.vi", name="loop1", terminals=loop_terminals,
+            id="loop1",
+            vi="test.vi",
+            name="loop1",
+            terminals=loop_terminals,
         )
         graph._graph.add_node("loop1", node=loop_node)
         for t in loop_terminals:
             graph._term_to_node[t.id] = "loop1"
 
         graph._graph.add_edge(
-            "src", "loop1",
+            "src",
+            "loop1",
             source=WireEnd(terminal_id="new_val_src", node_id="src"),
             dest=WireEnd(terminal_id="rsr_inner", node_id="loop1"),
         )
@@ -937,9 +969,7 @@ class TestUninitializedShiftRegister:
         fragment = loop.generate(loop_op, ctx)
         global_name = next(iter(ctx.module_globals))
 
-        global_stmts = [
-            s for s in fragment.statements if isinstance(s, ast.Global)
-        ]
+        global_stmts = [s for s in fragment.statements if isinstance(s, ast.Global)]
         assert any(global_name in g.names for g in global_stmts)
 
         # First statement after the global decl seeds the local from it:
@@ -988,8 +1018,13 @@ class TestUninitializedShiftRegister:
         func_def = ast.FunctionDef(
             name="run",
             args=ast.arguments(
-                posonlyargs=[], args=[ast.arg(arg="new_value")], vararg=None,
-                kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[],
+                posonlyargs=[],
+                args=[ast.arg(arg="new_value")],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
             ),
             body=[
                 *fragment.statements,
@@ -1006,7 +1041,8 @@ class TestUninitializedShiftRegister:
             decorator_list=[],
         )
         module = ast.Module(
-            body=[ctx.module_globals[global_name], func_def], type_ignores=[],
+            body=[ctx.module_globals[global_name], func_def],
+            type_ignores=[],
         )
         ast.fix_missing_locations(module)
         ns: dict = {}

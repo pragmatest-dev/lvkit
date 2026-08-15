@@ -68,16 +68,24 @@ logger = logging.getLogger(__name__)
 _SUBVI_CALL_NODE_TYPES = SUBVI_CALL_NODE_TYPES
 
 # Subset of _SUBVI_CALL_NODE_TYPES that allow static callee enrichment.
-_STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
-    "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
-})
+_STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset(
+    {
+        "iUse",
+        "polyIUse",
+        "dynIUse",
+        "callParentDynIUse",
+    }
+)
 
 # Dynamic-dispatch calls: the callee is a class method, so the owning class is
 # the dispatch object's type (carried on the call's class-typed terminals)
 # rather than a statically-linked path.
-_DYNAMIC_DISPATCH_NODE_TYPES: frozenset[str] = frozenset({
-    "dynIUse", "callParentDynIUse",
-})
+_DYNAMIC_DISPATCH_NODE_TYPES: frozenset[str] = frozenset(
+    {
+        "dynIUse",
+        "callParentDynIUse",
+    }
+)
 
 
 def _dispatch_class_names(terminals: list) -> list[str]:
@@ -123,40 +131,61 @@ def decode_constant(
 # Type categories for terminal matching
 _TYPE_CATEGORIES = {
     # String types
-    "string": "string", "String": "string",
+    "string": "string",
+    "String": "string",
     "SubString": "string",
     # Path
-    "path": "path", "Path": "path",
+    "path": "path",
+    "Path": "path",
     # Boolean
-    "boolean": "boolean", "Boolean": "boolean",
+    "boolean": "boolean",
+    "Boolean": "boolean",
     # Integer types
-    "numint8": "numeric", "NumInt8": "numeric",
-    "numint16": "numeric", "NumInt16": "numeric",
-    "numint32": "numeric", "NumInt32": "numeric",
-    "numint64": "numeric", "NumInt64": "numeric",
-    "numuint8": "numeric", "NumUInt8": "numeric",
-    "numuint16": "numeric", "NumUInt16": "numeric",
-    "numuint32": "numeric", "NumUInt32": "numeric",
-    "numuint64": "numeric", "NumUInt64": "numeric",
+    "numint8": "numeric",
+    "NumInt8": "numeric",
+    "numint16": "numeric",
+    "NumInt16": "numeric",
+    "numint32": "numeric",
+    "NumInt32": "numeric",
+    "numint64": "numeric",
+    "NumInt64": "numeric",
+    "numuint8": "numeric",
+    "NumUInt8": "numeric",
+    "numuint16": "numeric",
+    "NumUInt16": "numeric",
+    "numuint32": "numeric",
+    "NumUInt32": "numeric",
+    "numuint64": "numeric",
+    "NumUInt64": "numeric",
     # Float types
-    "numfloat32": "numeric", "NumFloat32": "numeric",
-    "numfloat64": "numeric", "NumFloat64": "numeric",
+    "numfloat32": "numeric",
+    "NumFloat32": "numeric",
+    "numfloat64": "numeric",
+    "NumFloat64": "numeric",
     "NumFloatExt": "numeric",
     # Complex types
-    "NumComplex64": "numeric", "NumComplex128": "numeric",
+    "NumComplex64": "numeric",
+    "NumComplex128": "numeric",
     "NumComplexExt": "numeric",
     # Measurement / unit types
     "MeasureData": "numeric",
-    "UnitUInt8": "numeric", "UnitUInt16": "numeric", "UnitUInt32": "numeric",
+    "UnitUInt8": "numeric",
+    "UnitUInt16": "numeric",
+    "UnitUInt32": "numeric",
     # Array subtypes (kind=primitive but semantically array)
-    "SubArray": "array", "Array": "array",
+    "SubArray": "array",
+    "Array": "array",
     # Variant
-    "variant": "variant", "Variant": "variant", "LVVariant": "variant",
+    "variant": "variant",
+    "Variant": "variant",
+    "LVVariant": "variant",
     # Void
-    "void": "void", "Void": "void",
+    "void": "void",
+    "Void": "void",
     # Refnum
     "Refnum": "refnum",
 }
+
 
 def _lv_type_category(underlying: str, kind: str) -> str:
     """Map LV type to a category for matching."""
@@ -190,13 +219,15 @@ class ConstructionMixin:
         @staticmethod
         def _qid(_vi_name: str, _uid: str) -> str: ...
         def _enrich_type(
-            self, _parsed_type: ParsedType | None,
+            self,
+            _parsed_type: ParsedType | None,
         ) -> LVType | None: ...
         def resolve_vi_name(self, _vi_name: str) -> str: ...
 
     @staticmethod
     def _enrich_nmux_terminals(
-        node: SelectNode, graph_node: AnyGraphNode,
+        node: SelectNode,
+        graph_node: AnyGraphNode,
     ) -> None:
         """Mark agg/list roles and field indices on nMux terminals.
 
@@ -297,7 +328,8 @@ class ConstructionMixin:
         # we need to map that back to the fPDCO uid to find the FP terminal.
         ddo_to_fpdco: dict[str, str] = (
             {ctrl.ddo_uid: ctrl.uid for ctrl in fp.controls if ctrl.ddo_uid}
-            if fp else {}
+            if fp
+            else {}
         )
 
         # Build connector pane lookup: fp_dco_uid -> slot index
@@ -443,13 +475,22 @@ class ConstructionMixin:
         # registered per-kind handlers rather than an inlined if/elif — see
         # graph/builders/.
         build_ctx = GraphBuildContext(
-            mixin=self, bd=bd, vi_name=vi_name, term_lookup=term_lookup,
-            loop_by_uid=loop_by_uid, case_by_uid=case_by_uid,
-            flatseq_by_uid=flatseq_by_uid, decompose_by_uid=decompose_by_uid,
-            disable_by_uid=disable_by_uid, event_by_uid=event_by_uid,
-            iuse_to_qname=iuse_to_qname or {}, iuse_to_qpath=iuse_to_qpath,
-            fp=fp, ddo_to_fpdco=ddo_to_fpdco,
-            param_wire_ends=param_wire_ends, vi_node_uids=vi_node_uids,
+            mixin=self,
+            bd=bd,
+            vi_name=vi_name,
+            term_lookup=term_lookup,
+            loop_by_uid=loop_by_uid,
+            case_by_uid=case_by_uid,
+            flatseq_by_uid=flatseq_by_uid,
+            decompose_by_uid=decompose_by_uid,
+            disable_by_uid=disable_by_uid,
+            event_by_uid=event_by_uid,
+            iuse_to_qname=iuse_to_qname or {},
+            iuse_to_qpath=iuse_to_qpath,
+            fp=fp,
+            ddo_to_fpdco=ddo_to_fpdco,
+            param_wire_ends=param_wire_ends,
+            vi_node_uids=vi_node_uids,
         )
 
         for node in bd.nodes:
@@ -461,7 +502,9 @@ class ConstructionMixin:
             # graph/builders/refs.py.
             ref_handler = REF_BUILD_HANDLERS.get(node.node_type)
             if ref_handler is not None and ref_handler.handle(
-                node, q_node_uid, build_ctx,
+                node,
+                q_node_uid,
+                build_ctx,
             ):
                 continue
 
@@ -603,17 +646,25 @@ class ConstructionMixin:
                 # per-kind handler (graph/builders/structures.py). Shared
                 # post-dispatch (nMux enrichment, g.add_node) is below.
                 graph_node = STRUCTURE_BUILD_HANDLERS[node.node_type].build(
-                    node, node_name, q_node_uid, build_ctx,
+                    node,
+                    node_name,
+                    q_node_uid,
+                    build_ctx,
                 )
             else:
                 # Operation node (formula box, primitive, cpdArith, property/
                 # invoke) — built by a registered handler off the ordinary
                 # node_terminals, else the default primitive handler.
                 op_handler = NODE_BUILD_HANDLERS.get(
-                    node.node_type, DEFAULT_NODE_BUILD_HANDLER,
+                    node.node_type,
+                    DEFAULT_NODE_BUILD_HANDLER,
                 )
                 graph_node = op_handler.build(
-                    node, node_name, q_node_uid, node_terminals, description,
+                    node,
+                    node_name,
+                    q_node_uid,
+                    node_terminals,
+                    description,
                     build_ctx,
                 )
 
@@ -622,7 +673,8 @@ class ConstructionMixin:
             # types -- the same single-source rename seam as the cluster border
             # node below, so "In Place Element" only survives as a fallback.
             border_name = inplace_border_name(
-                graph_node.node_type or "", graph_node.terminals,
+                graph_node.node_type or "",
+                graph_node.terminals,
             )
             if border_name is not None:
                 graph_node.name = border_name
@@ -653,7 +705,8 @@ class ConstructionMixin:
                     # header, describe, netlist) reads ``graph_node.name``
                     # from, so "decompose" jargon never leaks to any of them.
                     renamed = bundle_unbundle_name(
-                        graph_node.terminals, by_name=True,
+                        graph_node.terminals,
+                        by_name=True,
                     )
                     if renamed is not None:
                         graph_node.name = renamed
@@ -675,7 +728,8 @@ class ConstructionMixin:
                     feedback_is_master=node.is_master,
                     feedback_partner=(
                         self._qid(vi_name, node.partner_uid)
-                        if node.partner_uid else None
+                        if node.partner_uid
+                        else None
                     ),
                     feedback_delay=node.delay_depth,
                 )
@@ -794,9 +848,7 @@ class ConstructionMixin:
             if term_uid not in term_lookup:
                 q_term_uid = self._qid(vi_name, term_uid)
                 parent_uid = t_info.parent_uid
-                q_parent_uid = (
-                    self._qid(vi_name, parent_uid) if parent_uid else None
-                )
+                q_parent_uid = self._qid(vi_name, parent_uid) if parent_uid else None
                 effective_parent = q_parent_uid
                 # If parent is not a graph node, find the structure
                 # that contains it. Check both terminal lists and
@@ -847,7 +899,8 @@ class ConstructionMixin:
                             for frame in disable.frames:
                                 if parent_uid in frame.inner_node_uids:
                                     effective_parent = self._qid(
-                                        vi_name, disable.uid,
+                                        vi_name,
+                                        disable.uid,
                                     )
                                     break
                             if effective_parent != q_parent_uid:
@@ -1022,7 +1075,8 @@ class ConstructionMixin:
                     # idx=-1: match by elimination — find unmatched callee
                     # terminal with same direction
                     unmatched = [
-                        t for (_, d), t in callee_term_map.items()
+                        t
+                        for (_, d), t in callee_term_map.items()
                         if d == call_term.direction and t.id not in matched_callee
                     ]
                     if len(unmatched) == 1:
@@ -1038,17 +1092,29 @@ class ConstructionMixin:
                     call_term.name = callee_t.name
                 if not call_term.lv_type and callee_t.lv_type:
                     call_term.lv_type = callee_t.lv_type
-                elif (call_term.lv_type and callee_t.lv_type
-                      and not call_term.lv_type.fields and callee_t.lv_type.fields):
+                elif (
+                    call_term.lv_type
+                    and callee_t.lv_type
+                    and not call_term.lv_type.fields
+                    and callee_t.lv_type.fields
+                ):
                     call_term.lv_type.fields = callee_t.lv_type.fields
 
                 # Create dataflow edge
-                src_we = WireEnd(terminal_id=call_term.id, node_id=nid,
-                                 index=call_term.index, name=call_term.name,
-                                 parent_kind=_graph_node_to_op_kind(gnode))
-                dst_we = WireEnd(terminal_id=callee_t.id, node_id=callee_name,
-                                 index=call_term.index, name=callee_t.name,
-                                 parent_kind=_graph_node_to_op_kind(callee_node))
+                src_we = WireEnd(
+                    terminal_id=call_term.id,
+                    node_id=nid,
+                    index=call_term.index,
+                    name=call_term.name,
+                    parent_kind=_graph_node_to_op_kind(gnode),
+                )
+                dst_we = WireEnd(
+                    terminal_id=callee_t.id,
+                    node_id=callee_name,
+                    index=call_term.index,
+                    name=callee_t.name,
+                    parent_kind=_graph_node_to_op_kind(callee_node),
+                )
                 if call_term.direction == "input":
                     g.add_edge(nid, callee_name, source=src_we, dest=dst_we)
                 else:
@@ -1084,7 +1150,8 @@ class ConstructionMixin:
             # Find resolver terminals: same direction, same type, not taken.
             # "polymorphic" matches any parser category.
             matches = [
-                pt for pt in known_terminals
+                pt
+                for pt in known_terminals
                 if pt.direction == prim_dir
                 and pt.index not in assigned_indices
                 and (pt.type == cat or pt.type == "polymorphic")
@@ -1097,7 +1164,8 @@ class ConstructionMixin:
                 # Check for expandable terminal — all unresolved terminals of
                 # matching type map to the expandable slot's index
                 expandable = [
-                    pt for pt in known_terminals
+                    pt
+                    for pt in known_terminals
                     if pt.direction == prim_dir
                     and getattr(pt, "expandable", False)
                     and (pt.type == cat or pt.type == "polymorphic")
@@ -1107,7 +1175,9 @@ class ConstructionMixin:
                     # Don't add to assigned — expandable can be reused
 
     def _propagate_types_and_rematch(
-        self, g: nx.MultiDiGraph, vi_node_uids: set[str],
+        self,
+        g: nx.MultiDiGraph,
+        vi_node_uids: set[str],
     ) -> None:
         """Propagate types through wires, then re-match -1 index terminals.
 
@@ -1161,8 +1231,13 @@ class ConstructionMixin:
                     changed = True
                 # Both have type but one has fields and the other doesn't:
                 # enrich the incomplete side (same wire = same type)
-                elif (src_term.lv_type and dst_term.lv_type
-                      and src_term.lv_type.kind == dst_term.lv_type.kind == LVTypeKind.CLUSTER):
+                elif (
+                    src_term.lv_type
+                    and dst_term.lv_type
+                    and src_term.lv_type.kind
+                    == dst_term.lv_type.kind
+                    == LVTypeKind.CLUSTER
+                ):
                     if src_term.lv_type.fields and not dst_term.lv_type.fields:
                         dst_term.lv_type.fields = src_term.lv_type.fields
                         changed = True
@@ -1180,7 +1255,7 @@ class ConstructionMixin:
                 continue
 
             prim_terminals = None
-            if hasattr(gnode, 'prim_id') and gnode.prim_id:
+            if hasattr(gnode, "prim_id") and gnode.prim_id:
                 prim_resolved = resolve_primitive(prim_id=gnode.prim_id)
                 if prim_resolved and prim_resolved.terminals:
                     prim_terminals = prim_resolved.terminals
@@ -1193,9 +1268,9 @@ class ConstructionMixin:
             for t in gnode.terminals:
                 fake_ti = SimpleNamespace(
                     index=t.index,
-                    is_output=t.direction == 'output',
+                    is_output=t.direction == "output",
                 )
-                fake_terms.append(('', fake_ti, t.lv_type))
+                fake_terms.append(("", fake_ti, t.lv_type))
 
             self._resolve_terminal_indices(fake_terms, prim_terminals)
 
@@ -1204,9 +1279,16 @@ class ConstructionMixin:
                 if t.index == -1 and fake_ti.index >= 0:
                     t.index = fake_ti.index
 
-    _INPUT_TUNNEL_TYPES = frozenset({
-        "lSR", "lMax", "lpTun", "caseSel", "seqTun", "flatSeqTun",
-    })
+    _INPUT_TUNNEL_TYPES = frozenset(
+        {
+            "lSR",
+            "lMax",
+            "lpTun",
+            "caseSel",
+            "seqTun",
+            "flatSeqTun",
+        }
+    )
 
     def _build_structure_terminals(
         self,
@@ -1364,16 +1446,22 @@ class ConstructionMixin:
             if is_input_tunnel:
                 # Data flows in: outer -> inner
                 g.add_edge(
-                    structure_uid, structure_uid,
-                    source=outer_end, dest=inner_end,
-                    tunnel_type=ttype, vi=vi_name,
+                    structure_uid,
+                    structure_uid,
+                    source=outer_end,
+                    dest=inner_end,
+                    tunnel_type=ttype,
+                    vi=vi_name,
                 )
             else:
                 # Data flows out: inner -> outer
                 g.add_edge(
-                    structure_uid, structure_uid,
-                    source=inner_end, dest=outer_end,
-                    tunnel_type=ttype, vi=vi_name,
+                    structure_uid,
+                    structure_uid,
+                    source=inner_end,
+                    dest=outer_end,
+                    tunnel_type=ttype,
+                    vi=vi_name,
                 )
 
         # --- 2. Register sRN-owned terminals on the structure ---
@@ -1389,9 +1477,7 @@ class ConstructionMixin:
 
         # Extract raw UID from qualified UID for srn_to_structure lookup
         raw_structure_uid = (
-            structure_uid.split("::")[-1]
-            if "::" in structure_uid
-            else structure_uid
+            structure_uid.split("::")[-1] if "::" in structure_uid else structure_uid
         )
 
         all_srn_parents: set[str] = set()
@@ -1408,7 +1494,8 @@ class ConstructionMixin:
         for srn_uid in all_srn_parents:
             # Collect all terminals owned by this sRN
             srn_terms = [
-                (uid, ti) for uid, ti in bd.terminal_info.items()
+                (uid, ti)
+                for uid, ti in bd.terminal_info.items()
                 if ti.parent_uid == srn_uid
             ]
 
@@ -1424,13 +1511,15 @@ class ConstructionMixin:
                 if ti.parsed_type:
                     lv_type = self._enrich_type(ti.parsed_type)
 
-                structure_terminals.append(Terminal(
-                    id=q_uid,
-                    index=ti.index,
-                    direction="output" if ti.is_output else "input",
-                    name=ti.name,
-                    lv_type=lv_type,
-                ))
+                structure_terminals.append(
+                    Terminal(
+                        id=q_uid,
+                        index=ti.index,
+                        direction="output" if ti.is_output else "input",
+                        name=ti.name,
+                        lv_type=lv_type,
+                    )
+                )
 
                 term_lookup[uid] = WireEnd(
                     terminal_id=q_uid,

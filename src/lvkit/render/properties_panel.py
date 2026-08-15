@@ -232,13 +232,9 @@ PROPERTIES_PANEL = (
     "    // connector-pane reveal -- a VI-level construct shown over the VI.\n"
     "    var wrap = stageEl.closest('.stage-wrap');\n"
     "    if (wrap && panel) wrap.appendChild(panel);\n"
-    "\n"
-    + _PARSE_DATASET_JS +
-    "    var props = lvkitReadData(svg, 'lvProperties');\n"
+    "\n" + _PARSE_DATASET_JS + "    var props = lvkitReadData(svg, 'lvProperties');\n"
     "    var health = lvkitReadData(svg, 'lvHealth');\n"
-    "    var beforeProps = null, beforeHealth = null;\n"
-    + _PANEL_BODY_JS +
-    "\n"
+    "    var beforeProps = null, beforeHealth = null;\n" + _PANEL_BODY_JS + "\n"
     "    if (btn) btn.addEventListener('click', function () {\n"
     "      if (!panel) return;\n"
     "      // MUTUALLY EXCLUSIVE with the ▦ connector pane (shared view space),\n"
@@ -316,7 +312,8 @@ _DIFF_PANEL_EXTRA_CSS = """
 """
 
 DIFF_PROPERTIES_PANEL = (
-    "<style>" + _PANEL_CSS
+    "<style>"
+    + _PANEL_CSS
     + _DIFF_PANEL_EXTRA_CSS.replace("__DIFF_BTN_ID__", DIFF_PROPERTIES_PANEL_BTN_ID)
     + "</style>\n"
     '<div class="lvkit-props-panel" id="lvkitDiffPropsPanel" hidden></div>\n'
@@ -341,13 +338,13 @@ DIFF_PROPERTIES_PANEL = (
     "    var wrap = afterPane.closest('.stage-wrap');\n"
     "    if (wrap && panel) wrap.appendChild(panel);\n"
     "\n"
-    + _PARSE_DATASET_JS +
-    "    var props = lvkitReadData(afterSvg, 'lvProperties');\n"
+    + _PARSE_DATASET_JS
+    + "    var props = lvkitReadData(afterSvg, 'lvProperties');\n"
     "    var health = lvkitReadData(afterSvg, 'lvHealth');\n"
     "    var beforeProps = lvkitReadData(beforeSvg, 'lvProperties');\n"
     "    var beforeHealth = lvkitReadData(beforeSvg, 'lvHealth');\n"
-    + _PANEL_BODY_JS +
-    "\n"
+    + _PANEL_BODY_JS
+    + "\n"
     "    // Ring the button amber iff >=1 shown value differs from BEFORE.\n"
     "    if (btn) {\n"
     "      if (changedCount > 0) {\n"

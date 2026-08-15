@@ -57,8 +57,7 @@ def generate(node: InvokeOperation, ctx: CodeGenContext) -> CodeFragment:
 
     # Check for wired outputs
     wired_outputs = [
-        t for t in node.terminals
-        if t.direction == "output" and ctx.is_wired(t.id)
+        t for t in node.terminals if t.direction == "output" and ctx.is_wired(t.id)
     ]
 
     statements: list[ast.stmt] = []

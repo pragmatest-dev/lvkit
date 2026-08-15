@@ -53,6 +53,7 @@ from .wire_router import WireRouter, _compress
 
 logger = logging.getLogger(__name__)
 
+
 def _is_boundary_mux(node: AnyGraphNode, graph: InMemoryVIGraph) -> bool:
     """A structure-boundary data multiplexer that LabVIEW never draws as a box.
 
@@ -271,7 +272,7 @@ class Scene:
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
     prefix = f"{vi_name}::"
     if qualified_id.startswith(prefix):
-        return qualified_id[len(prefix):]
+        return qualified_id[len(prefix) :]
     return qualified_id
 
 
@@ -280,7 +281,9 @@ def _is_stacked_sequence(node: AnyGraphNode) -> bool:
 
 
 def _frame_path(
-    node: AnyGraphNode, by_id: dict[str, AnyGraphNode], vi_name: str,
+    node: AnyGraphNode,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
 ) -> FramePath:
     """Root->leaf ``(raw_struct_uid, str(selector_value / frame index))``
     segments for each interactive-structure ancestor of ``node`` — walks the
@@ -298,7 +301,8 @@ def _frame_path(
         if parent is None:
             break
         if isinstance(
-            parent, (CaseStructureNode, DisableStructureNode, EventStructureNode),
+            parent,
+            (CaseStructureNode, DisableStructureNode, EventStructureNode),
         ) or _is_stacked_sequence(parent):
             segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
         cur = parent
@@ -307,7 +311,9 @@ def _frame_path(
 
 
 def _fp_terminal_frame_path(
-    t: FPTerminal, by_id: dict[str, AnyGraphNode], vi_name: str,
+    t: FPTerminal,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
 ) -> FramePath | None:
     """Structural ``FramePath`` for an FP terminal's on-diagram GLYPH, seeded
     from the terminal's own ``parent``/``frame`` stamp (see
@@ -332,7 +338,8 @@ def _fp_terminal_frame_path(
         return None
     segs = list(_frame_path(parent, by_id, vi_name))
     if isinstance(
-        parent, (CaseStructureNode, DisableStructureNode, EventStructureNode),
+        parent,
+        (CaseStructureNode, DisableStructureNode, EventStructureNode),
     ) or _is_stacked_sequence(parent):
         segs.append((_strip_prefix(parent.id, vi_name), str(t.frame)))
     return tuple(segs)
@@ -374,10 +381,14 @@ def _is_default_visible(path: FramePath, default_frame: dict[str, str]) -> bool:
 
 
 def _frame_info(
-    nodes: list[AnyGraphNode], vi_name: str, graph: InMemoryVIGraph,
+    nodes: list[AnyGraphNode],
+    vi_name: str,
+    graph: InMemoryVIGraph,
 ) -> tuple[
-    dict[str, str], dict[str, list[str]],
-    dict[str, dict[str, str]], dict[str, dict[str, bool]],
+    dict[str, str],
+    dict[str, list[str]],
+    dict[str, dict[str, str]],
+    dict[str, dict[str, bool]],
 ]:
     """raw struct uid -> default frame value, -> the ordered list of ALL frame
     values (selector chrome click-to-cycle metadata), -> faithful DISPLAY
@@ -397,8 +408,11 @@ def _frame_info(
         if isinstance(node, CaseStructureNode) and node.frames:
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(f.selector_value) for f in node.frames]
-            sel_t = graph.get_terminal(node.selector_terminal) \
-                if node.selector_terminal else None
+            sel_t = (
+                graph.get_terminal(node.selector_terminal)
+                if node.selector_terminal
+                else None
+            )
             lv_type = sel_t.lv_type if sel_t else None
             is_error = bool(lv_type and _is_error_cluster(lv_type))
             # Open on the frame LabVIEW last displayed (from the dataspace
@@ -407,18 +421,23 @@ def _frame_info(
             # where the logic lives — NOT the Error frame, which is the semantic
             # default. Otherwise fall back to the default frame, else frame 0.
             shown = None
-            if node.displayed_frame is not None \
-                    and 0 <= node.displayed_frame < len(node.frames):
+            if node.displayed_frame is not None and 0 <= node.displayed_frame < len(
+                node.frames
+            ):
                 shown = node.frames[node.displayed_frame]
             if shown is None and is_error:
                 shown = next(
-                    (f for f in node.frames
-                     if is_no_error_selector(str(f.selector_value))),
+                    (
+                        f
+                        for f in node.frames
+                        if is_no_error_selector(str(f.selector_value))
+                    ),
                     None,
                 )
             if shown is None:
                 shown = next(
-                    (f for f in node.frames if f.is_default), node.frames[0],
+                    (f for f in node.frames if f.is_default),
+                    node.frames[0],
                 )
             default_frame[raw] = str(shown.selector_value)
             frame_labels[raw] = {
@@ -453,12 +472,16 @@ def _frame_info(
                 (f for f in node.frames if str(f.selector_value) == "Enabled"),
                 None,
             )
-            if shown is None and node.active_frame is not None \
-                    and 0 <= node.active_frame < len(node.frames):
+            if (
+                shown is None
+                and node.active_frame is not None
+                and 0 <= node.active_frame < len(node.frames)
+            ):
                 shown = node.frames[node.active_frame]
             if shown is None:
                 shown = next(
-                    (f for f in node.frames if f.is_default), node.frames[0],
+                    (f for f in node.frames if f.is_default),
+                    node.frames[0],
                 )
             default_frame[raw] = str(shown.selector_value)
         elif (
@@ -527,7 +550,9 @@ def _string_const_lines(display: str, box_w: float, measure: SvgBackend) -> int:
 
 
 def _trim_string_const_geom(
-    graph: InMemoryVIGraph, vi_name: str, layout: Layout,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    layout: Layout,
 ) -> tuple[dict[str, Rect], dict[str, Point]]:
     """Trimmed geometry for string-constant boxes (task #27). Anchored at the
     heap TOP-LEFT: x1/y1 and width are untouched; ONLY the bottom edge (y2)
@@ -568,7 +593,9 @@ def _trim_string_const_geom(
 
 
 def _compact_cluster_const_geom(
-    graph: InMemoryVIGraph, vi_name: str, layout: Layout,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    layout: Layout,
 ) -> tuple[dict[str, Rect], dict[str, Point]]:
     """Compact geometry for cluster-constant boxes. Same top-left-anchored,
     shrink-only contract as :func:`_trim_string_const_geom`: keep x1/y1 and the
@@ -606,7 +633,9 @@ def _compact_cluster_const_geom(
 
 
 def _formula_border_centers(
-    by_id: dict[str, AnyGraphNode], vi_name: str, layout: Layout,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
+    layout: Layout,
 ) -> dict[str, tuple[float, float]]:
     """New attach points for every Formula Node terminal: its heap Y kept, but X
     snapped to the box's LEFT border (inputs) or RIGHT border (outputs) so the
@@ -631,7 +660,10 @@ def _formula_border_centers(
 
 
 def _render_terminals(
-    node: AnyGraphNode, layout: Layout, vi_name: str, node_bounds: Rect | None = None,
+    node: AnyGraphNode,
+    layout: Layout,
+    vi_name: str,
+    node_bounds: Rect | None = None,
 ) -> list[RenderTerminal]:
     result: list[RenderTerminal] = []
     for t in node.terminals:
@@ -640,16 +672,21 @@ def _render_terminals(
         if center is None:
             logger.debug("no geometry for terminal %s", t.id)
             continue
-        result.append(RenderTerminal(
-            terminal=t, center=center, bounds=layout.node_bounds.get(key),
-        ))
+        result.append(
+            RenderTerminal(
+                terminal=t,
+                center=center,
+                bounds=layout.node_bounds.get(key),
+            )
+        )
     if node.node_type in _CLUSTER_MUX_TYPES and node_bounds is not None:
         result = _reposition_mux_terminals(result, node_bounds)
     return result
 
 
 def _reposition_mux_terminals(
-    terminals: list[RenderTerminal], node_bounds: Rect,
+    terminals: list[RenderTerminal],
+    node_bounds: Rect,
 ) -> list[RenderTerminal]:
     """Snap a Bundle/Unbundle node's terminals to the node edges.
 
@@ -679,9 +716,9 @@ def _reposition_mux_terminals(
         role = rt.terminal.nmux_role
         if role == "agg":
             if rt.terminal.direction == "output":
-                center = (right_x, mid_y)   # assembled cluster exits right-middle
+                center = (right_x, mid_y)  # assembled cluster exits right-middle
             else:
-                center = (mid_x, top_y)     # source cluster enters top-center
+                center = (mid_x, top_y)  # source cluster enters top-center
             out.append(replace(rt, center=center))
         elif role == "list":
             # Field wire attaches at the node edge on its dataflow side —
@@ -706,9 +743,13 @@ def _reposition_mux_terminals(
 # their real heap position — LabVIEW places them top+bottom in some VIs,
 # left+right in others; position is heap geometry, not assumed here).
 _TUNNEL_GLYPH_KIND = {
-    "lMax": "N", "lSR": "sr_down", "rSR": "sr_up",
-    "lpTun": "autoindex", "caseSel": "selector",
-    "eventTimeOut": "eventTimeout", "eventDynDCO": "eventDyn",
+    "lMax": "N",
+    "lSR": "sr_down",
+    "rSR": "sr_up",
+    "lpTun": "autoindex",
+    "caseSel": "selector",
+    "eventTimeOut": "eventTimeout",
+    "eventDynDCO": "eventDyn",
 }
 
 # Border terminals a loop is GUARANTEED to have, purely as a function of
@@ -725,7 +766,9 @@ _LOOP_GUARANTEED_KINDS: dict[str, tuple[str, ...]] = {
 
 
 def _structure_borders(
-    node: StructureNode, layout: Layout, vi_name: str,
+    node: StructureNode,
+    layout: Layout,
+    vi_name: str,
     wired_dest: frozenset[str] = frozenset(),
 ) -> list[RenderBorderTerminal]:
     result: list[RenderBorderTerminal] = []
@@ -738,8 +781,7 @@ def _structure_borders(
     # tunnel, so unwired-in-a-frame is a sound, data-only signal.
     inner_by_outer: dict[str, list[TunnelTerminal]] = {}
     for t in node.terminals:
-        if (isinstance(t, TunnelTerminal) and t.boundary == "inner"
-                and t.paired_id):
+        if isinstance(t, TunnelTerminal) and t.boundary == "inner" and t.paired_id:
             inner_by_outer.setdefault(t.paired_id, []).append(t)
 
     # 1. Border terminals the graph models as real Terminals (N/lMax, shift
@@ -757,8 +799,7 @@ def _structure_borders(
         if t.tunnel_type == "lpTun":
             # Auto-indexing (array in/accumulate out) -> [ ] brackets;
             # last-value passthrough -> a filled block in the wire type color.
-            glyph_kind = ("autoindex" if raw in layout.indexing_tunnels
-                          else "tunnel")
+            glyph_kind = "autoindex" if raw in layout.indexing_tunnels else "tunnel"
         if glyph_kind is None:
             # A plain data tunnel (case/sequence border passthrough): LabVIEW
             # draws it as a solid block in the WIRE TYPE COLOR, never a flat
@@ -767,10 +808,11 @@ def _structure_borders(
             glyph_kind = "tunnel"
         # Tunnels, shift registers, and the selector carry the WIRE TYPE COLOR
         # in LabVIEW (orange DBL, blue I32, mustard error, ...) — not gray/white.
-        color = (wire_style(t.lv_type).color
-                 if glyph_kind in ("autoindex", "tunnel", "sr_down", "sr_up",
-                                   "selector")
-                 else None)
+        color = (
+            wire_style(t.lv_type).color
+            if glyph_kind in ("autoindex", "tunnel", "sr_down", "sr_up", "selector")
+            else None
+        )
         # OUTPUT data tunnel: the frame VALUES whose per-frame inner terminal is
         # not a wire destination → unwired in that frame → hollow there only.
         unwired_frames: frozenset[str] = frozenset()
@@ -793,7 +835,10 @@ def _structure_borders(
                 continue
         result.append(
             RenderBorderTerminal(
-                terminal=t, bounds=rect, glyph_kind=glyph_kind, color=color,
+                terminal=t,
+                bounds=rect,
+                glyph_kind=glyph_kind,
+                color=color,
                 unwired_frames=unwired_frames,
             )
         )
@@ -812,24 +857,32 @@ def _structure_borders(
             if kind in kinds_present:
                 continue  # already rendered via a real graph Terminal (N)
             match = next(
-                (u for u in border_uids
-                 if u not in consumed and layout.border_terminal_kind.get(u) == kind),
+                (
+                    u
+                    for u in border_uids
+                    if u not in consumed and layout.border_terminal_kind.get(u) == kind
+                ),
                 None,
             )
             if match is None:
                 logger.debug(
-                    "no heap geometry for guaranteed %r border terminal on "
-                    "%s (%s)", kind, node.id, node.loop_type,
+                    "no heap geometry for guaranteed %r border terminal on %s (%s)",
+                    kind,
+                    node.id,
+                    node.loop_type,
                 )
                 continue
-            result.append(RenderBorderTerminal(
-                terminal=None, bounds=layout.border_terminals[match],
-                glyph_kind=kind,
-                cond_continue=(
-                    kind == "cond"
-                    and getattr(node, "stop_condition_inverted", False)
-                ),
-            ))
+            result.append(
+                RenderBorderTerminal(
+                    terminal=None,
+                    bounds=layout.border_terminals[match],
+                    glyph_kind=kind,
+                    cond_continue=(
+                        kind == "cond"
+                        and getattr(node, "stop_condition_inverted", False)
+                    ),
+                )
+            )
             consumed.add(match)
             kinds_present.add(kind)
 
@@ -841,16 +894,20 @@ def _structure_borders(
             continue
         rect = layout.border_terminals.get(uid)
         if rect is not None:
-            result.append(RenderBorderTerminal(
-                terminal=None, bounds=rect,
-                glyph_kind=layout.border_terminal_kind.get(uid),
-            ))
+            result.append(
+                RenderBorderTerminal(
+                    terminal=None,
+                    bounds=rect,
+                    glyph_kind=layout.border_terminal_kind.get(uid),
+                )
+            )
             consumed.add(uid)
     return result
 
 
 def _wire_carrier_type(
-    src_type: LVType | None, dest_types: list[LVType | None],
+    src_type: LVType | None,
+    dest_types: list[LVType | None],
 ) -> LVType | None:
     """The type a wire visually carries, reconciled from BOTH endpoints.
 
@@ -860,8 +917,11 @@ def _wire_carrier_type(
     type — carries the element (a THIN wire), not the array. Everywhere else
     the source type already is the carried type.
     """
-    if src_type is not None and src_type.kind == "array" \
-            and src_type.element_type is not None:
+    if (
+        src_type is not None
+        and src_type.kind == "array"
+        and src_type.element_type is not None
+    ):
         if any(dt is not None and dt.kind != "array" for dt in dest_types):
             return src_type.element_type
     return src_type
@@ -908,8 +968,12 @@ def _exit_side(
         return (1.0, 0.0)
     x1, y1, x2, y2 = bounds
     cx, cy = center
-    d = {(1.0, 0.0): x2 - cx, (-1.0, 0.0): cx - x1,
-         (0.0, 1.0): y2 - cy, (0.0, -1.0): cy - y1}
+    d = {
+        (1.0, 0.0): x2 - cx,
+        (-1.0, 0.0): cx - x1,
+        (0.0, 1.0): y2 - cy,
+        (0.0, -1.0): cy - y1,
+    }
     outward = min(d, key=lambda k: d[k])
     if border and toward is not None:
         inside = x1 <= toward[0] <= x2 and y1 <= toward[1] <= y2
@@ -955,7 +1019,9 @@ def _stub(
 
 
 def _point_in_other_obstacle(
-    pt: Point, obstacles: list[Rect], owner: Rect | None,
+    pt: Point,
+    obstacles: list[Rect],
+    owner: Rect | None,
 ) -> bool:
     x, y = pt
     for obstacle in obstacles:
@@ -968,7 +1034,10 @@ def _point_in_other_obstacle(
 
 
 def _wire_edge_point(
-    center: Point, bounds: Rect | None, direction: str | None, border: bool = False,
+    center: Point,
+    bounds: Rect | None,
+    direction: str | None,
+    border: bool = False,
 ) -> Point:
     """The point on a terminal's bounds where its wire attaches — the edge in
     the wire direction (the router's ``_exit_side`` normal), not a hardcoded
@@ -1028,7 +1097,9 @@ def _wire_role(term: Terminal | None, fallback: str) -> str | None:
 
 
 def _term_owner_bounds(
-    graph: InMemoryVIGraph, vi_name: str, layout: Layout,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    layout: Layout,
 ) -> dict[str, Rect]:
     """raw terminal uid -> its owning node's bounds (for exit-side lookup)."""
     owner: dict[str, Rect] = {}
@@ -1049,7 +1120,10 @@ def _term_owner_bounds(
 
 
 def _wire_path(
-    w: Wire, graph: InMemoryVIGraph, by_id: dict[str, AnyGraphNode], vi_name: str,
+    w: Wire,
+    graph: InMemoryVIGraph,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
 ) -> FramePath:
     """The frame path a wire belongs to, from its endpoints' nodes.
 
@@ -1092,8 +1166,10 @@ def _wire_path(
 
 
 def _endpoint_containers(
-    end: WireEnd, graph: InMemoryVIGraph,
-    by_id: dict[str, AnyGraphNode], vi_name: str,
+    end: WireEnd,
+    graph: InMemoryVIGraph,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
 ) -> list[str]:
     """Raw uids of the structures whose frame this endpoint lives IN, ordered
     innermost (leaf) → outermost (root).
@@ -1126,7 +1202,10 @@ def _endpoint_containers(
 
 
 def _wire_exempt_structures(
-    w: Wire, graph: InMemoryVIGraph, by_id: dict[str, AnyGraphNode], vi_name: str,
+    w: Wire,
+    graph: InMemoryVIGraph,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
 ) -> frozenset[str]:
     """Raw uids of the structures a wire may legitimately overlap (NOT treated
     as obstacles for it) — every structure EITHER endpoint lives inside (the
@@ -1138,15 +1217,16 @@ def _wire_exempt_structures(
     wire on the OUTER face, reachable by hugging the exterior) instead of
     cutting across the whole box.
     """
-    return frozenset(
-        _endpoint_containers(w.source, graph, by_id, vi_name)
-    ) | frozenset(
+    return frozenset(_endpoint_containers(w.source, graph, by_id, vi_name)) | frozenset(
         _endpoint_containers(w.dest, graph, by_id, vi_name)
     )
 
 
 def _innermost_common_container(
-    w: Wire, graph: InMemoryVIGraph, by_id: dict[str, AnyGraphNode], vi_name: str,
+    w: Wire,
+    graph: InMemoryVIGraph,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
 ) -> str | None:
     """Raw uid of the INNERMOST structure that contains BOTH endpoints, or
     None if the wire is not fully contained (e.g. external -> outer tunnel).
@@ -1186,7 +1266,8 @@ def _build_wire_nets(
                 paired.add(frozenset((t.id, pid)))
 
     wires = [
-        w for w in graph.get_wires(vi_name, include_internal=True)
+        w
+        for w in graph.get_wires(vi_name, include_internal=True)
         if frozenset((w.source.terminal_id, w.dest.terminal_id)) not in paired
     ]
 
@@ -1241,14 +1322,17 @@ def _build_wire_nets(
     ] = {}
 
     def _router_for(
-        path: FramePath, exempt: frozenset[str], confine: Rect | None,
+        path: FramePath,
+        exempt: frozenset[str],
+        confine: Rect | None,
     ) -> tuple[WireRouter, list[Rect]]:
         cached = routers.get((path, exempt, confine))
         if cached is not None:
             return cached
         if path not in node_bounds_by_path:
             node_bounds_by_path[path] = [
-                rn.bounds for rn in render_nodes
+                rn.bounds
+                for rn in render_nodes
                 if _frame_compatible(rn.frame_path, path)
             ]
             structs_by_path[path] = [
@@ -1275,7 +1359,8 @@ def _build_wire_nets(
         src_center = layout.terminal_centers.get(raw_src)
         if src_center is None:
             logger.debug(
-                "no geometry for source terminal %s; dropping wire(s)", src_key,
+                "no geometry for source terminal %s; dropping wire(s)",
+                src_key,
             )
             continue
 
@@ -1316,13 +1401,23 @@ def _build_wire_nets(
             # (toward=). A plain node's stub is direction-based; toward is
             # ignored, so src_out is identical across branches there.
             src_out = _stub(
-                src_center, src_owner, src_dir, src_border, obstacles, src_owner,
+                src_center,
+                src_owner,
+                src_dir,
+                src_border,
+                obstacles,
+                src_owner,
                 toward=dst_center,
             )
             # enter from the left, unless it's a border terminal (perpendicular
             # to its structure's edge, inner/outer face toward the source)
             dst_in = _stub(
-                dst_center, dst_owner, dst_dir, dst_border, obstacles, dst_owner,
+                dst_center,
+                dst_owner,
+                dst_dir,
+                dst_border,
+                obstacles,
+                dst_owner,
                 toward=src_center,
             )
             # The router's endpoint-owner exemption lets a wire pass through
@@ -1354,7 +1449,11 @@ def _build_wire_nets(
                 mid = faithful
             else:
                 mid = router.route(
-                    src_out, dst_in, all_points, src_route_owner, dst_route_owner,
+                    src_out,
+                    dst_in,
+                    all_points,
+                    src_route_owner,
+                    dst_route_owner,
                 )
             # Drop redundant collinear points (the directional stubs are often
             # collinear with the first/last leg) so we don't add kinks LabVIEW
@@ -1382,24 +1481,28 @@ def _build_wire_nets(
                 # node_bounds keyed by terminal uid — covers a For-Loop's N, a
                 # tunnel, a subVI input, etc.; seat the dot on the entry edge.
                 dst_bounds = layout.node_bounds.get(raw_dst)
-                coercion_dots.append(
-                    _entry_edge_point(dst_center, dst_bounds, dst_in)
-                )
+                coercion_dots.append(_entry_edge_point(dst_center, dst_bounds, dst_in))
 
         if not branches:
             continue
 
         carrier = _wire_carrier_type(
-            source_term.lv_type if source_term else None, dest_types,
+            source_term.lv_type if source_term else None,
+            dest_types,
         )
         style = wire_style(carrier)
         # Junction dots are populated below by the lane-assignment pass,
         # from the REBUILT geometry (a real shared trunk run), not guessed
         # here at the source stub.
-        nets.append(RenderWireNet(
-            source=group[0], style=style, branches=branches,
-            coercion_dots=coercion_dots, frame_path=path,
-        ))
+        nets.append(
+            RenderWireNet(
+                source=group[0],
+                style=style,
+                branches=branches,
+                coercion_dots=coercion_dots,
+                frame_path=path,
+            )
+        )
 
     # Post-routing interval-coloring lane-assignment pass (see lane_pass.py):
     # nudges only the segments that genuinely conflict with a DIFFERENT
@@ -1411,10 +1514,20 @@ def _build_wire_nets(
 
 
 _NUMERIC_RANK = {
-    "NumInt8": 0, "NumUInt8": 1, "NumInt16": 2, "NumUInt16": 3,
-    "NumInt32": 4, "NumUInt32": 5, "NumInt64": 6, "NumUInt64": 7,
-    "NumFloat32": 8, "NumFloat64": 9, "NumFloatExt": 10,
-    "NumComplex64": 11, "NumComplex128": 12, "NumComplexExt": 13,
+    "NumInt8": 0,
+    "NumUInt8": 1,
+    "NumInt16": 2,
+    "NumUInt16": 3,
+    "NumInt32": 4,
+    "NumUInt32": 5,
+    "NumInt64": 6,
+    "NumUInt64": 7,
+    "NumFloat32": 8,
+    "NumFloat64": 9,
+    "NumFloatExt": 10,
+    "NumComplex64": 11,
+    "NumComplex128": 12,
+    "NumComplexExt": 13,
 }
 
 
@@ -1437,9 +1550,7 @@ def _arith_coercion_dots(render_nodes: list[RenderNode]) -> list[RenderCoercionD
         if not isinstance(rn.glyph, (ArithGlyph, CompoundArithGlyph)):
             continue
         ins = [t for t in rn.terminals if t.terminal.direction == "input"]
-        ranks = [
-            _NUMERIC_RANK.get(numeric_repr(t.terminal.lv_type) or "") for t in ins
-        ]
+        ranks = [_NUMERIC_RANK.get(numeric_repr(t.terminal.lv_type) or "") for t in ins]
         present = [r for r in ranks if r is not None]
         if len(present) < 2 or len(set(present)) < 2:
             continue  # need >=2 numeric inputs of DIFFERING width
@@ -1495,7 +1606,9 @@ def _drawn_bounds(
 
 
 def _subvi_rel_path(
-    node: VINode, graph: InMemoryVIGraph, rendered_vi_path: Path,
+    node: VINode,
+    graph: InMemoryVIGraph,
+    rendered_vi_path: Path,
 ) -> str | None:
     """The RELATIVE (POSIX) path from the rendered (top-level) VI's own
     directory to a SubVI node's on-disk source — the click-navigation
@@ -1549,7 +1662,9 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             layout,
             node_bounds={**layout.node_bounds, **trim_bounds, **clust_bounds},
             terminal_centers={
-                **layout.terminal_centers, **trim_centers, **clust_centers,
+                **layout.terminal_centers,
+                **trim_centers,
+                **clust_centers,
             },
         )
     all_nodes = graph.iter_nodes(vi_name)
@@ -1566,14 +1681,15 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             terminal_centers={**layout.terminal_centers, **fbox_centers},
         )
     default_frame, frame_values, frame_labels, error_frame_no_error = _frame_info(
-        all_nodes, vi_name, graph,
+        all_nodes,
+        vi_name,
+        graph,
     )
     # Every terminal that RECEIVES a wire — an output tunnel's per-frame inner
     # terminal absent from this set is unwired in that frame ("Use Default If
     # Unwired"). include_internal so structure outer<->inner edges count.
     wired_dest = frozenset(
-        w.dest.terminal_id
-        for w in graph.get_wires(vi_name, include_internal=True)
+        w.dest.terminal_id for w in graph.get_wires(vi_name, include_internal=True)
     )
     glyph_ctx = GlyphContext(graph=graph, vi_name=vi_name)
 
@@ -1596,20 +1712,26 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                 missing.append(node.id)
             else:
                 logger.debug(
-                    "hidden-frame element %s missing geometry; skipping", node.id,
+                    "hidden-frame element %s missing geometry; skipping",
+                    node.id,
                 )
             continue
         if isinstance(node, StructureNode):
-            structures.append(RenderStructure(
-                node=node,
-                bounds=bounds,
-                border_terminals=_structure_borders(
-                    node, layout, vi_name, wired_dest,
-                ),
-                frame_path=fp_path,
-                raw_uid=raw_uid,
-                dividers=layout.sequence_dividers.get(raw_uid, []),
-            ))
+            structures.append(
+                RenderStructure(
+                    node=node,
+                    bounds=bounds,
+                    border_terminals=_structure_borders(
+                        node,
+                        layout,
+                        vi_name,
+                        wired_dest,
+                    ),
+                    frame_path=fp_path,
+                    raw_uid=raw_uid,
+                    dividers=layout.sequence_dividers.get(raw_uid, []),
+                )
+            )
         else:
             glyph = resolve_glyph(node, glyph_ctx)
             terminals = _render_terminals(node, layout, vi_name, bounds)
@@ -1624,13 +1746,21 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                 owned_label = RenderLabel(text=label_text, bounds=label_rect)
             subvi_rel = (
                 _subvi_rel_path(node, graph, src_path)
-                if isinstance(node, VINode) else None
+                if isinstance(node, VINode)
+                else None
             )
-            render_nodes.append(RenderNode(
-                node=node, bounds=bounds, glyph=glyph, terminals=terminals,
-                label_visible=label_visible, frame_path=fp_path,
-                owned_label=owned_label, subvi_rel=subvi_rel,
-            ))
+            render_nodes.append(
+                RenderNode(
+                    node=node,
+                    bounds=bounds,
+                    glyph=glyph,
+                    terminals=terminals,
+                    label_visible=label_visible,
+                    frame_path=fp_path,
+                    owned_label=owned_label,
+                    subvi_rel=subvi_rel,
+                )
+            )
 
     fp_terminals: list[RenderFPTerminal] = []
     vi_node = graph.get_graph_node(vi_name)
@@ -1666,32 +1796,48 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             if bounds is None:
                 missing.append(t.id)
                 continue
-            center = layout.terminal_centers.get(raw_uid, (
-                (bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2,
-            ))
+            center = layout.terminal_centers.get(
+                raw_uid,
+                (
+                    (bounds[0] + bounds[2]) / 2,
+                    (bounds[1] + bounds[3]) / 2,
+                ),
+            )
             label_visible = raw_uid not in layout.hidden_labels
             struct_path = _fp_terminal_frame_path(t, by_id, vi_name)
             frame_path = (
-                struct_path if struct_path is not None
-                else fp_frame.get(t.id, ())
+                struct_path if struct_path is not None else fp_frame.get(t.id, ())
             )
-            fp_terminals.append(RenderFPTerminal(
-                terminal=t, bounds=bounds, center=center,
-                label_visible=label_visible, frame_path=frame_path,
-                label_bounds=layout.label_bounds.get(raw_uid),
-            ))
+            fp_terminals.append(
+                RenderFPTerminal(
+                    terminal=t,
+                    bounds=bounds,
+                    center=center,
+                    label_visible=label_visible,
+                    frame_path=frame_path,
+                    label_bounds=layout.label_bounds.get(raw_uid),
+                )
+            )
 
     if missing:
         logger.warning(
-            "render_vi(%s): missing geometry for %d id(s), declining to "
-            "render: %s", vi_name, len(missing), missing,
+            "render_vi(%s): missing geometry for %d id(s), declining to render: %s",
+            vi_name,
+            len(missing),
+            missing,
         )
         return None
 
     scene_bounds = layout.scene_bounds()
 
     wire_nets = _build_wire_nets(
-        graph, vi_name, layout, render_nodes, structures, scene_bounds, by_id,
+        graph,
+        vi_name,
+        layout,
+        render_nodes,
+        structures,
+        scene_bounds,
+        by_id,
     )
     coercion_dots = _arith_coercion_dots(render_nodes)
 
@@ -1724,9 +1870,15 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     # canvas with empty margin. This crops the SVG view to the real content.
     # Computed HERE, after routing, so the router still confined wires to the
     # loose ``scene_bounds`` — routes are byte-identical; only the view crops in.
-    view_bounds = _drawn_bounds(
-        render_nodes, structures, fp_terminals, wire_nets,
-    ) or scene_bounds
+    view_bounds = (
+        _drawn_bounds(
+            render_nodes,
+            structures,
+            fp_terminals,
+            wire_nets,
+        )
+        or scene_bounds
+    )
 
     return Scene(
         bounds=view_bounds,

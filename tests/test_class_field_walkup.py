@@ -62,7 +62,8 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     # (processResult.vi is a method) — the field-only load pulled in NONE of the
     # class's OTHER methods.
     class_method_vis = [
-        n for n in g._dep_graph.nodes
+        n
+        for n in g._dep_graph.nodes
         if n.startswith("TextTestRunner.JUnitXML.lvclass:")
     ]
     assert class_method_vis == ["TextTestRunner.JUnitXML.lvclass:processResult.vi"]
@@ -86,16 +87,15 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
 # straight from that control. The .ctl file may differ from the class's recorded
 # logical name (LabVIEW logical "<Class>.ctl" vs on-disk "Data.ctl").
 _MC_REPO = ".lvkit/cache/samples/measurement-plugin-labview"
-_MC_DIR = (
-    "Source/Runtime/MeasurementLink Measurement Server/Classes/MeasurementContext"
-)
+_MC_DIR = "Source/Runtime/MeasurementLink Measurement Server/Classes/MeasurementContext"
 _MC_REF = "0577695d"
-_MC_CLASS = (
-    "MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass"
-)
+_MC_CLASS = "MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass"
 _MC_FIELDS = [
-    "PinMapContext", "gRPCServerId", "IMeasurementService",
-    "MeasurementPluginService", "reserved session infos",
+    "PinMapContext",
+    "gRPCServerId",
+    "IMeasurementService",
+    "MeasurementPluginService",
+    "reserved session infos",
 ]
 
 
@@ -106,7 +106,8 @@ def _extract_class_dir(dest: Path, ref: str = _MC_REF) -> Path | None:
         return None
     listed = subprocess.run(
         ["git", "-C", _MC_REPO, "ls-tree", "--name-only", f"{ref}:{_MC_DIR}"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if listed.returncode != 0 or not listed.stdout.strip():
         return None

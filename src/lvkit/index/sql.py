@@ -96,8 +96,7 @@ VIEWS: dict[str, _View] = {
             "silently misfires).",
             "lv_version": "LabVIEW version the VI was saved with, "
             "'Major.Minor.Bugfix' (e.g. '21.0.0'), or NULL if absent",
-            "vi_type": "VI kind from the Instrument record (e.g. 'Control'), "
-            "or NULL",
+            "vi_type": "VI kind from the Instrument record (e.g. 'Control'), or NULL",
             "lock_state": "VI Properties -> Protection: 'unlocked', 'locked', "
             "or 'password_protected'",
             # -- exec_* : VI Properties -> Execution -------------------------
@@ -127,19 +126,14 @@ VIEWS: dict[str, _View] = {
             "exec_allow_debugging": "1 if 'Allow debugging' is enabled",
             "exec_always_calls_parent": "1 if a dynamic-dispatch override "
             "always calls its parent implementation first",
-            "exec_print_after_exec": "1 if 'Print panel after execution' is "
-            "enabled",
+            "exec_print_after_exec": "1 if 'Print panel after execution' is enabled",
             # -- window_* : VI Properties -> Window Appearance ---------------
-            "window_show_title_bar": "1 if the front panel window shows a "
-            "title bar",
-            "window_show_menu_bar": "1 if the front panel window shows a "
-            "menu bar",
-            "window_show_toolbar": "1 if the front panel window shows a "
-            "toolbar",
+            "window_show_title_bar": "1 if the front panel window shows a title bar",
+            "window_show_menu_bar": "1 if the front panel window shows a menu bar",
+            "window_show_toolbar": "1 if the front panel window shows a toolbar",
             "window_show_scrollbar": "raw ShowScrollBar bitmask, verbatim, "
             "or NULL if unset",
-            "window_auto_center": "1 if the front panel window auto-centers "
-            "on screen",
+            "window_auto_center": "1 if the front panel window auto-centers on screen",
             "window_size_to_screen": "1 if the front panel window auto-sizes "
             "to the screen",
             "window_no_runtime_popup_menu": "1 if the runtime shortcut menu "
@@ -152,8 +146,7 @@ VIEWS: dict[str, _View] = {
             "menu selections",
             "window_can_close": "1 if the window's close button is enabled",
             "window_can_resize": "1 if the window is user-resizable",
-            "window_can_minimize": "1 if the window's minimize button is "
-            "enabled",
+            "window_can_minimize": "1 if the window's minimize button is enabled",
             "window_transparent": "1 if the window is drawn transparent",
             # -- toolbar_* : hidden toolbar buttons ---------------------------
             "toolbar_hide_run_button": "1 if the Run button is hidden",
@@ -166,10 +159,8 @@ VIEWS: dict[str, _View] = {
             "instance selector",
             "instance_hide_instance_caption": "1 if a poly-VI instance hides "
             "its caption",
-            "instance_draw_instance_icon": "1 if a poly-VI instance draws its "
-            "own icon",
-            "instance_remote_panel": "1 if front-panel remote access is "
-            "enabled",
+            "instance_draw_instance_icon": "1 if a poly-VI instance draws its own icon",
+            "instance_remote_panel": "1 if front-panel remote access is enabled",
             # -- kind_* : what ROLE the VI plays (VIProperties.kind -- a
             # sub-struct of VI Properties, like exec_*/window_*/…) ----------
             "kind_typedef_status": "VI type-definition kind "
@@ -187,8 +178,7 @@ VIEWS: dict[str, _View] = {
             # VI Properties above, never nested under it) -------------------
             "health_bad_node": "1 if the VI has a broken node",
             "health_bad_subvi": "1 if the VI calls a broken subVI",
-            "health_bad_subvi_link": "1 if a subVI call link is broken "
-            "(unresolved)",
+            "health_bad_subvi_link": "1 if a subVI call link is broken (unresolved)",
             "health_bad_compile": "1 if the VI failed to compile",
             "health_broken_poly": "1 if a polymorphic VI has a broken variant",
             "health_is_broken": "1 if ANY of health_bad_node/health_bad_subvi/"
@@ -217,7 +207,7 @@ VIEWS: dict[str, _View] = {
             "enum_values": "JSON array of enum/ring member names in ordinal order "
             "(empty for non-enum terminals) — query for terminals whose enum "
             "carries a given member via e.g. "
-            "\"WHERE enum_values LIKE '%\"setUp\"%'\"",
+            '"WHERE enum_values LIKE \'%"setUp"%\'"',
         },
     ),
     "constant": _View(
@@ -259,7 +249,7 @@ VIEWS: dict[str, _View] = {
             "accessor_field": "the class field this accessor reads/writes, or NULL",
             "private_data": "JSON array of the owning class's private-data fields "
             "(incl. inherited), each FAITHFULLY rendered 'name: <lv_type>', e.g. "
-            "'[\"testName: String\", \"result: TestResult.lvclass\"]'",
+            '\'["testName: String", "result: TestResult.lvclass"]\'',
             "is_static": "1 if this method is a static (non-dynamic-dispatch) "
             "class method",
             "must_override": "1 if a child class MUST provide its own "
@@ -417,16 +407,12 @@ def run_query(
         except sqlite3.OperationalError as e:
             # progress-handler abort surfaces as "interrupted"
             if "interrupt" in str(e).lower():
-                raise QueryError(
-                    f"query exceeded the {timeout_s:g}s time limit"
-                ) from e
+                raise QueryError(f"query exceeded the {timeout_s:g}s time limit") from e
             raise QueryError(str(e)) from e
         except sqlite3.Warning as e:
             # stacked statements ("SELECT 1; DROP TABLE vis") — sqlite3.Warning
             # is NOT a subclass of sqlite3.Error, so it needs its own clause.
-            raise QueryError(
-                f"one statement per query only ({e})"
-            ) from e
+            raise QueryError(f"one statement per query only ({e})") from e
         except sqlite3.Error as e:
             # includes "not authorized" from the authorizer (defence in depth)
             raise QueryError(str(e)) from e

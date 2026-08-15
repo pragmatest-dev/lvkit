@@ -135,11 +135,18 @@ def _slice_branch(pts: list[Point], net_id: str) -> list[_Segment]:
         else:
             orient, track = "V", ax
             lo, hi = (ay, by) if ay <= by else (by, ay)
-        if segs and segs[-1].orientation == orient \
-                and abs(segs[-1].track - track) <= _EPS:
+        if (
+            segs
+            and segs[-1].orientation == orient
+            and abs(segs[-1].track - track) <= _EPS
+        ):
             prev = segs[-1]
             segs[-1] = _Segment(
-                net_id, orient, track, min(prev.lo, lo), max(prev.hi, hi),
+                net_id,
+                orient,
+                track,
+                min(prev.lo, lo),
+                max(prev.hi, hi),
             )
         else:
             segs.append(_Segment(net_id, orient, track, lo, hi))
@@ -174,7 +181,8 @@ def _cluster_one_orientation(segs: list[_Segment]) -> dict[int, list[int]]:
     Returns root-local-index -> member local-index list."""
     uf = _UnionFind(len(segs))
     order = sorted(
-        range(len(segs)), key=lambda i: (segs[i].track, segs[i].lo, segs[i].net_id),
+        range(len(segs)),
+        key=lambda i: (segs[i].track, segs[i].lo, segs[i].net_id),
     )
     for a_pos in range(len(order)):
         i = order[a_pos]
@@ -227,7 +235,11 @@ def _color_cluster(member_idxs: list[int], all_segs: list[_Segment]) -> dict[int
 
 
 def _interior_hits(
-    orientation: str, track: float, lo: float, hi: float, ctx: BranchCtx,
+    orientation: str,
+    track: float,
+    lo: float,
+    hi: float,
+    ctx: BranchCtx,
 ) -> set[int]:
     """Indices of ``ctx.obstacles`` whose INTERIOR this axis-aligned segment
     crosses (owners excluded — a terminal legitimately sits on its own node's
@@ -264,7 +276,9 @@ def _offset_blocked(seg: _Segment, target: float, ctx: BranchCtx) -> bool:
 
 
 def _lane_assign(
-    all_segs: list[_Segment], seg_ctx: list[BranchCtx], protected: set[int],
+    all_segs: list[_Segment],
+    seg_ctx: list[BranchCtx],
+    protected: set[int],
 ) -> dict[int, float]:
     """Global seg index -> new track, for every segment whose track
     genuinely changes AND whose move is not obstacle/confinement-blocked
@@ -303,7 +317,9 @@ def _lane_assign(
 
 
 def _rebuild_branch(
-    orig_pts: list[Point], segs: list[_Segment], seg_idxs: list[int],
+    orig_pts: list[Point],
+    segs: list[_Segment],
+    seg_idxs: list[int],
     new_track: dict[int, float],
 ) -> list[Point]:
     """Rebuild one branch's polyline from its (possibly re-tracked)
@@ -333,7 +349,8 @@ def _rebuild_branch(
                 return _compress([src, dst], tol=_EPS)
             midx = (src[0] + dst[0]) / 2
             return _compress(
-                [src, (midx, src[1]), (midx, dst[1]), dst], tol=_EPS,
+                [src, (midx, src[1]), (midx, dst[1]), dst],
+                tol=_EPS,
             )
         if abs(src[0] - dst[0]) <= _EPS:
             return _compress([src, dst], tol=_EPS)
@@ -519,7 +536,11 @@ def apply_lane_pass(
     out: list[RenderWireNet] = []
     for i, net in enumerate(nets):
         branches = [rebuilt[(i, bi)] for bi in range(len(net.branches))]
-        out.append(replace(
-            net, branches=branches, junctions=junctions_by_net.get(i, []),
-        ))
+        out.append(
+            replace(
+                net,
+                branches=branches,
+                junctions=junctions_by_net.get(i, []),
+            )
+        )
     return out

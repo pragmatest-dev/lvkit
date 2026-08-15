@@ -34,66 +34,85 @@ def add(slot, stmt, note, decls=""):
 
 
 # === A. Rounding mode on float -> int store ================================
-for v, lbl in [(0.5, ""), (1.5, ""), (2.5, ""), (3.5, ""),
-               (-0.5, ""), (-1.5, ""), (-2.5, "")]:
+for v, lbl in [
+    (0.5, ""),
+    (1.5, ""),
+    (2.5, ""),
+    (3.5, ""),
+    (-0.5, ""),
+    (-1.5, ""),
+    (-2.5, ""),
+]:
     add("RI", f"TARGET = {v};", "ties-even vs half-up vs half-away vs trunc")
 
 # === B. Fixed-width integer wrap vs saturate ===============================
-add("RI", "u8 = 300; TARGET = u8;",   "44=wrap 255=saturate", "uInt8 u8;")
-add("RI", "u8 = -1; TARGET = u8;",    "255=wrap 0=saturate", "uInt8 u8;")
-add("RI", "i8 = 200; TARGET = i8;",   "-56=wrap 127=saturate", "int8 i8;")
-add("RI", "i8 = -200; TARGET = i8;",  "56=wrap -128=saturate", "int8 i8;")
+add("RI", "u8 = 300; TARGET = u8;", "44=wrap 255=saturate", "uInt8 u8;")
+add("RI", "u8 = -1; TARGET = u8;", "255=wrap 0=saturate", "uInt8 u8;")
+add("RI", "i8 = 200; TARGET = i8;", "-56=wrap 127=saturate", "int8 i8;")
+add("RI", "i8 = -200; TARGET = i8;", "56=wrap -128=saturate", "int8 i8;")
 add("RI", "u16 = 70000; TARGET = u16;", "4464=wrap 65535=saturate", "uInt16 u16;")
 add("RI", "i16 = 40000; TARGET = i16;", "-25536=wrap 32767=saturate", "int16 i16;")
-add("RI", "u32 = 5000000000; TARGET = u32;",
-    "705032704=wrap 4294967295=saturate", "uInt32 u32;")
+add(
+    "RI",
+    "u32 = 5000000000; TARGET = u32;",
+    "705032704=wrap 4294967295=saturate",
+    "uInt32 u32;",
+)
 
 # === C. Integer promotion / intermediate width =============================
-add("RI", "a = 100; b = 100; TARGET = a * b;",
-    "10000=promote 16=narrow-intermediate", "int8 a; int8 b;")
-add("RI", "a = 30000; b = 30000; TARGET = a + b;",
-    "60000=promote -5536=narrow-intermediate", "int16 a; int16 b;")
+add(
+    "RI",
+    "a = 100; b = 100; TARGET = a * b;",
+    "10000=promote 16=narrow-intermediate",
+    "int8 a; int8 b;",
+)
+add(
+    "RI",
+    "a = 30000; b = 30000; TARGET = a + b;",
+    "60000=promote -5536=narrow-intermediate",
+    "int16 a; int16 b;",
+)
 
 # === D. Integer division typing & rounding =================================
-add("RI", "TARGET = 7 / 2;",   "4=round 3=trunc")
-add("RI", "TARGET = -7 / 2;",  "-4=round-even -3=trunc")
-add("RI", "TARGET = 5 / 2;",   "2=round-even 3=half-up")
-add("RF", "TARGET = 7 / 2;",   "3.5=real-div 3.0=trunc")
-add("RF", "TARGET = 1 / 3;",   "0.333..=real-div 0.0=trunc")
+add("RI", "TARGET = 7 / 2;", "4=round 3=trunc")
+add("RI", "TARGET = -7 / 2;", "-4=round-even -3=trunc")
+add("RI", "TARGET = 5 / 2;", "2=round-even 3=half-up")
+add("RF", "TARGET = 7 / 2;", "3.5=real-div 3.0=trunc")
+add("RF", "TARGET = 1 / 3;", "0.333..=real-div 0.0=trunc")
 
 # === E. Modulo: operator (int & float) and mod()/rem() functions ===========
-add("RI", "TARGET = -7 % 3;",  "-1=C-sign-of-dividend 2=floored")
-add("RI", "TARGET = 7 % -3;",  "1=C-sign-of-dividend -2=floored")
+add("RI", "TARGET = -7 % 3;", "-1=C-sign-of-dividend 2=floored")
+add("RI", "TARGET = 7 % -3;", "1=C-sign-of-dividend -2=floored")
 # 7.5 %% 2 moved to the quarantine node (RX): C's %% is integer-only, so a
 # float operand here might be a COMPILE error that would void the main node.
-add("RF", "TARGET = mod(-7, 3);",  "-1=C 2=floored")
+add("RF", "TARGET = mod(-7, 3);", "-1=C 2=floored")
 add("RF", "TARGET = mod(7.5, 2);", "1.5")
-add("RF", "TARGET = rem(7, 3);",   "1=round-remainder")
-add("RF", "TARGET = rem(-7, 3);",  "-1=round-remainder")
+add("RF", "TARGET = rem(7, 3);", "1=round-remainder")
+add("RF", "TARGET = rem(-7, 3);", "-1=round-remainder")
 
 # === F. Bitwise & | ^ ~ (incl. on negatives) ===============================
 add("RI", "TARGET = 12 & 10;", "8")
 add("RI", "TARGET = 12 | 10;", "14")
 add("RI", "TARGET = 12 ^ 10;", "6")
-add("RI", "TARGET = ~0;",      "-1=twos-complement")
-add("RI", "TARGET = ~5;",      "-6")
+add("RI", "TARGET = ~0;", "-1=twos-complement")
+add("RI", "TARGET = ~5;", "-6")
 add("RI", "TARGET = -1 & 255;", "255=signed-and")
 
 # === G. Shifts (arithmetic vs logical, overflow) ===========================
-add("RI", "TARGET = 1 << 4;",   "16")
-add("RI", "TARGET = 1 << 31;",  "-2147483648=wrap 2147483648=widen")
-add("RI", "TARGET = -8 >> 1;",  "-4=arithmetic 2147483644=logical")
+add("RI", "TARGET = 1 << 4;", "16")
+add("RI", "TARGET = 1 << 31;", "-2147483648=wrap 2147483648=widen")
+add("RI", "TARGET = -8 >> 1;", "-4=arithmetic 2147483644=logical")
 add("RI", "TARGET = 256 >> 2;", "64")
 add("RI", "u8 = 200; TARGET = u8 >> 1;", "100=unsigned-logical-shift", "uInt8 u8;")
 
 # === H. Comparisons: result value & type ===================================
-add("RI", "TARGET = (3 > 2);",  "1=int-1/0")
-add("RI", "TARGET = (2 > 3);",  "0")
+add("RI", "TARGET = (3 > 2);", "1=int-1/0")
+add("RI", "TARGET = (2 > 3);", "0")
 add("RI", "TARGET = (5 == 5);", "1")
 add("RI", "TARGET = (5 != 5);", "0")
 add("RI", "TARGET = (3 <= 3);", "1")
 add("RI", "TARGET = (3 >= 4);", "0")
-add("RF", "TARGET = (3 > 2);",  "1.0=comparison stored to double")
+add("RF", "TARGET = (3 > 2);", "1.0=comparison stored to double")
 add("RF", "TARGET = (0.1 + 0.2 == 0.3);", "0=float-eq-is-exact 1=tolerant")
 
 # === I. Logical && || ! ====================================================
@@ -101,108 +120,112 @@ add("RI", "TARGET = (5 && 3);", "1=logical 3=value-of-operand")
 add("RI", "TARGET = (5 && 0);", "0")
 add("RI", "TARGET = (0 || 5);", "1=logical 5=value-of-operand")
 add("RI", "TARGET = (0 || 0);", "0")
-add("RI", "TARGET = !5;",       "0")
-add("RI", "TARGET = !0;",       "1")
-add("RI", "TARGET = !!5;",      "1")
+add("RI", "TARGET = !5;", "0")
+add("RI", "TARGET = !0;", "1")
+add("RI", "TARGET = !!5;", "1")
 
 # === J. Power ==============================================================
-add("RI", "TARGET = 2 ** 3;",   "8")
-add("RI", "TARGET = 2 ** 10;",  "1024")
+add("RI", "TARGET = 2 ** 3;", "8")
+add("RI", "TARGET = 2 ** 10;", "1024")
 add("RI", "TARGET = (-2) ** 2;", "4")
 add("RI", "TARGET = (-2) ** 3;", "-8")
-add("RF", "TARGET = 2 ** -1;",  "0.5")
+add("RF", "TARGET = 2 ** -1;", "0.5")
 add("RF", "TARGET = 2 ** 0.5;", "1.41421..")
-add("RF", "TARGET = 2 ** 0;",   "1")
+add("RF", "TARGET = 2 ** 0;", "1")
 
 # === K. Precedence & associativity (silent-miscompute risk) ================
-add("RI", "TARGET = 1 + 2 * 3;",   "7=mul-first 9=left-to-right")
+add("RI", "TARGET = 1 + 2 * 3;", "7=mul-first 9=left-to-right")
 add("RI", "TARGET = 2 ** 3 ** 2;", "512=right-assoc 64=left-assoc")
-add("RI", "TARGET = -2 ** 2;",     "-4=power>unary 4=unary>power")
-add("RI", "TARGET = 1 << 2 + 1;",  "8=add-first 5=shift-first")
-add("RI", "TARGET = 20 - 5 - 3;",  "12=left-assoc 18=right-assoc")
+add("RI", "TARGET = -2 ** 2;", "-4=power>unary 4=unary>power")
+add("RI", "TARGET = 1 << 2 + 1;", "8=add-first 5=shift-first")
+add("RI", "TARGET = 20 - 5 - 3;", "12=left-assoc 18=right-assoc")
 add("RF", "TARGET = 2 ** -2 ** 2;", "0.0625=right 16=left")
 
 # === L. Functions: identity, units, convention =============================
 # trigonometry — RADIANS vs degrees is the key question
 add("RF", "TARGET = sin(pi / 2);", "1=radians ~0.027=degrees")
-add("RF", "TARGET = acos(0.5);",   "1.047=radians 60=degrees")
-add("RF", "TARGET = atan(1.0);",   "0.785=radians 45=degrees")
-add("RF", "TARGET = cos(0.0);",    "1")
-add("RF", "TARGET = tan(0.0);",    "0")
-add("RF", "TARGET = asin(0.5);",   "0.5236=radians")
+add("RF", "TARGET = acos(0.5);", "1.047=radians 60=degrees")
+add("RF", "TARGET = atan(1.0);", "0.785=radians 45=degrees")
+add("RF", "TARGET = cos(0.0);", "1")
+add("RF", "TARGET = tan(0.0);", "0")
+add("RF", "TARGET = asin(0.5);", "0.5236=radians")
 add("RF", "TARGET = atan2(1.0, 1.0);", "0.785=radians")
-add("RF", "TARGET = sinh(0.0);",   "0")
-add("RF", "TARGET = cosh(0.0);",   "1")
-add("RF", "TARGET = tanh(0.0);",   "0")
-add("RF", "TARGET = asinh(1.0);",  "0.8814")
-add("RF", "TARGET = acosh(2.0);",  "1.3170")
-add("RF", "TARGET = atanh(0.5);",  "0.5493")
-add("RF", "TARGET = cot(1.0);",    "0.6421")
-add("RF", "TARGET = csc(1.0);",    "1.1884")
-add("RF", "TARGET = sec(1.0);",    "1.8508")
-add("RF", "TARGET = sinc(1.0);",   "0.8415=unnormalized 0=normalized(sin(pi x))")
+add("RF", "TARGET = sinh(0.0);", "0")
+add("RF", "TARGET = cosh(0.0);", "1")
+add("RF", "TARGET = tanh(0.0);", "0")
+add("RF", "TARGET = asinh(1.0);", "0.8814")
+add("RF", "TARGET = acosh(2.0);", "1.3170")
+add("RF", "TARGET = atanh(0.5);", "0.5493")
+add("RF", "TARGET = cot(1.0);", "0.6421")
+add("RF", "TARGET = csc(1.0);", "1.1884")
+add("RF", "TARGET = sec(1.0);", "1.8508")
+add("RF", "TARGET = sinc(1.0);", "0.8415=unnormalized 0=normalized(sin(pi x))")
 # logs/exp — log10 vs natural is the key question
-add("RF", "TARGET = log(100.0);",  "2=log10 4.605=natural")
+add("RF", "TARGET = log(100.0);", "2=log10 4.605=natural")
 add("RF", "TARGET = ln(2.718281828);", "1=natural")
-add("RF", "TARGET = log2(8.0);",   "3")
-add("RF", "TARGET = exp(1.0);",    "2.71828")
-add("RF", "TARGET = expm1(0.0);",  "0")
-add("RF", "TARGET = lnp1(0.0);",   "0")
-add("RF", "TARGET = sqrt(2.0);",   "1.41421")
+add("RF", "TARGET = log2(8.0);", "3")
+add("RF", "TARGET = exp(1.0);", "2.71828")
+add("RF", "TARGET = expm1(0.0);", "0")
+add("RF", "TARGET = lnp1(0.0);", "0")
+add("RF", "TARGET = sqrt(2.0);", "1.41421")
 # rounding / sign / misc functions
-add("RF", "TARGET = int(2.5);",    "2=ties-even 3=half-up")
-add("RF", "TARGET = int(-2.5);",   "-2=ties-even")
-add("RF", "TARGET = intrz(2.7);",  "2=toward-zero")
+add("RF", "TARGET = int(2.5);", "2=ties-even 3=half-up")
+add("RF", "TARGET = int(-2.5);", "-2=ties-even")
+add("RF", "TARGET = intrz(2.7);", "2=toward-zero")
 add("RF", "TARGET = intrz(-2.7);", "-2=toward-zero")
-add("RF", "TARGET = ceil(2.1);",   "3")
+add("RF", "TARGET = ceil(2.1);", "3")
 add("RF", "TARGET = floor(-2.1);", "-3")
-add("RF", "TARGET = abs(-2.5);",   "2.5")
-add("RI", "TARGET = abs(-3);",     "3=polymorphic-int")
+add("RF", "TARGET = abs(-2.5);", "2.5")
+add("RI", "TARGET = abs(-3);", "3=polymorphic-int")
 add("RF", "TARGET = max(2.0, 5.0);", "5")
 add("RF", "TARGET = min(2.0, 5.0);", "2")
-add("RI", "TARGET = sign(-3);",    "-1")
-add("RI", "TARGET = sign(0);",     "0")
+add("RI", "TARGET = sign(-3);", "-1")
+add("RI", "TARGET = sign(0);", "0")
 add("RF", "TARGET = pow(2.0, 10.0);", "1024=pow-fn-matches-**")
 # getexp/getman convention (IEEE mantissa in [1,2) vs frexp in [0.5,1))
 add("RF", "TARGET = getexp(12.0);", "3=IEEE 4=frexp")
 add("RF", "TARGET = getman(12.0);", "1.5=IEEE 0.75=frexp")
 add("RF", "TARGET = getexp(0.75);", "-1=IEEE 0=frexp")
 add("RF", "TARGET = getman(0.75);", "1.5=IEEE 0.75=frexp")
-add("RF", "TARGET = rand();",       "uniform [0,1) — report a sample")
+add("RF", "TARGET = rand();", "uniform [0,1) — report a sample")
 
 # === M. Arrays: sizeOfDim + indexing (1D and 2D) ===========================
 # B is a 2-by-3 double array input = [[1,2,3],[4,5,6]].
 add("RI", "TARGET = sizeOfDim(A, 0);", "5=length-of-A")
-add("RF", "TARGET = A[0];",            "10")
-add("RF", "TARGET = A[n - 1];",        "50")
+add("RF", "TARGET = A[0];", "10")
+add("RF", "TARGET = A[n - 1];", "50")
 
 # === N. Constants / literals ===============================================
-add("RF", "TARGET = pi;",          "3.14159265")
+add("RF", "TARGET = pi;", "3.14159265")
 
 # === M(float32). Single precision ==========================================
-add("RF", "s = 1.0 / 3.0; TARGET = s;",
-    "0.3333333432=float32-truncates 0.3333333333=stays-double", "float32 s;")
+add(
+    "RF",
+    "s = 1.0 / 3.0; TARGET = s;",
+    "0.3333333432=float32-truncates 0.3333333333=stays-double",
+    "float32 s;",
+)
 
 # === O. Special / domain values — QUARANTINED in a separate node ===========
-add("RX", "TARGET = 1 / 0;",       "inf=int/int-is-real traps=int-div-by-zero")
-add("RX", "TARGET = 1.0 / 0.0;",   "inf=IEEE traps=node-errors")
-add("RX", "TARGET = -1.0 / 0.0;",  "-inf=IEEE traps")
-add("RX", "TARGET = 0.0 / 0.0;",   "nan=IEEE traps")
-add("RX", "TARGET = sqrt(-1.0);",  "nan traps")
-add("RX", "TARGET = ln(0.0);",     "-inf traps")
-add("RX", "TARGET = ln(-1.0);",    "nan traps")
-add("RX", "TARGET = log(0.0);",    "-inf traps")
-add("RX", "TARGET = acos(2.0);",   "nan=out-of-domain traps")
+add("RX", "TARGET = 1 / 0;", "inf=int/int-is-real traps=int-div-by-zero")
+add("RX", "TARGET = 1.0 / 0.0;", "inf=IEEE traps=node-errors")
+add("RX", "TARGET = -1.0 / 0.0;", "-inf=IEEE traps")
+add("RX", "TARGET = 0.0 / 0.0;", "nan=IEEE traps")
+add("RX", "TARGET = sqrt(-1.0);", "nan traps")
+add("RX", "TARGET = ln(0.0);", "-inf traps")
+add("RX", "TARGET = ln(-1.0);", "nan traps")
+add("RX", "TARGET = log(0.0);", "-inf traps")
+add("RX", "TARGET = acos(2.0);", "nan=out-of-domain traps")
 add("RX", "TARGET = (-8) ** (1.0 / 3.0);", "nan=C-pow -2=real-cube-root")
-add("RX", "TARGET = 0 ** 0;",      "1 nan")
+add("RX", "TARGET = 0 ** 0;", "1 nan")
 add("RX", "TARGET = tan(pi / 2);", "huge-finite inf")
 # Risky SYNTAX (could be a COMPILE error, not a trap) — isolated here so it
 # can't void the main node. B is a 2-by-3 double input = [[1,2,3],[4,5,6]].
-add("RX", "TARGET = 7.5 % 2;",         "1.5=fmod errors=%-is-integer-only")
-add("RX", "TARGET = 1E3;",             "1000=exponent-ok errors=not-accepted")
+add("RX", "TARGET = 7.5 % 2;", "1.5=fmod errors=%-is-integer-only")
+add("RX", "TARGET = 1E3;", "1000=exponent-ok errors=not-accepted")
 add("RX", "TARGET = sizeOfDim(B, 0);", "2=rows-2D")
 add("RX", "TARGET = sizeOfDim(B, 1);", "3=cols-2D")
-add("RX", "TARGET = B[1][2];",         "6=2D-indexing errors=syntax")
+add("RX", "TARGET = B[1][2];", "6=2D-indexing errors=syntax")
 
 PROBES = P
 
@@ -298,7 +321,7 @@ def main() -> None:
         "/* lvkit Formula Node semantics probe — EDGE / RISKY (SEPARATE node).\n"
         " * Kept apart so a divide-by-zero trap OR a syntax error here can't\n"
         " * void the MAIN run. A trap or compile error IS itself a valid result\n"
-        " * (report \"traps\" / \"won't compile, line N\").\n"
+        ' * (report "traps" / "won\'t compile, line N").\n'
         "   *  B  : double 2D array (INPUT)  = [[1,2,3],[4,5,6]]\n"
         f"   *  RX : double array (in+out) >= {sizes['RX']} elements, init 0 */\n"
     )
@@ -317,15 +340,22 @@ def main() -> None:
         "typed integer **local** wraps on assignment (the assumption the whole "
         "integer-width section rests on). Expected back: `SI = [44, 8, 512, 3]`. "
         "If `SI[0]` is `300`, tell us and we'll rework those probes.\n",
-        "```c", smoke_lv.rstrip(), "```\n",
-        "## Script 1 — main probe (required)\n", "```c", main_lv.rstrip(), "```\n",
+        "```c",
+        smoke_lv.rstrip(),
+        "```\n",
+        "## Script 1 — main probe (required)\n",
+        "```c",
+        main_lv.rstrip(),
+        "```\n",
         "## Script 2 — special values (run as a SEPARATE Formula Node)\n",
         "These can trap at the node level (divide-by-zero, sqrt of a negative, "
         "domain errors). A separate node means a trap can't take Script 1 down "
         "with it. If this node errors instead of producing `inf`/`nan`, **that "
-        "is the answer** — report \"traps\" (delete lines one at a time to find "
+        'is the answer** — report "traps" (delete lines one at a time to find '
         "which).\n",
-        "```c", edge_lv.rstrip(), "```\n",
+        "```c",
+        edge_lv.rstrip(),
+        "```\n",
         "## Reading the results back out of LabVIEW\n",
         "Display format must keep the distinguishing bits visible. Wire each "
         "array through **Array To Spreadsheet String** and copy the text:\n"
@@ -349,12 +379,14 @@ def main() -> None:
 
     doc = Path("docs/formula_semantics_probe.md")
     doc.write_text("\n".join(out))
-    bad = [(s, e, o) for s, e, o, _ in rows
-           if o.startswith(("RUNTIME", "UNSUPPORTED"))]
-    print(f"wrote {doc}  "
-          f"({sizes['RI']} int, {sizes['RF']} real, {sizes['RX']} special)")
-    print(f"\n{len(bad)} probes our engine can't handle yet "
-          "(unsupported fn or runtime error):")
+    bad = [(s, e, o) for s, e, o, _ in rows if o.startswith(("RUNTIME", "UNSUPPORTED"))]
+    print(
+        f"wrote {doc}  ({sizes['RI']} int, {sizes['RF']} real, {sizes['RX']} special)"
+    )
+    print(
+        f"\n{len(bad)} probes our engine can't handle yet "
+        "(unsupported fn or runtime error):"
+    )
     for s, e, o in bad:
         print(f"  {s:7s} {e:34.34s} -> {o}")
 

@@ -246,5 +246,6 @@ class TestResilientVCTPExport:
         import pylabview.LVblock as lv_block
 
         from lvkit._pylabview_patches import install_pylabview_patches
+
         install_pylabview_patches()
         assert hasattr(lv_block.VCTP.exportXMLTypeDescList, "__wrapped__")

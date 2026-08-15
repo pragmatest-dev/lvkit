@@ -9,6 +9,7 @@ the whole-repo index with `calls == []` while a single-VI load found its 18
 callees. The fix tracks each VI's dependency-load depth and upgrades instead of
 early-returning.
 """
+
 from pathlib import Path
 
 import pytest
@@ -21,8 +22,13 @@ pytestmark = pytest.mark.needs_samples
 
 _TESTCASE = (
     Path(__file__).resolve().parent.parent
-    / ".lvkit" / "cache" / "samples"
-    / "JKI-VI-Tester" / "source" / "Classes" / "TestCase"
+    / ".lvkit"
+    / "cache"
+    / "samples"
+    / "JKI-VI-Tester"
+    / "source"
+    / "Classes"
+    / "TestCase"
 )
 
 

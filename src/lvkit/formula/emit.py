@@ -63,16 +63,28 @@ from .nodes import (
 # LabVIEW numeric type-name (parser's ParsedType.type_name) -> (kind, _lv int
 # coercion helper). Float types have no coercion helper.
 _LV_INT_HELPER = {
-    "NumInt8": "i8", "NumInt16": "i16", "NumInt32": "i32", "NumInt64": "i64",
-    "NumUInt8": "u8", "NumUInt16": "u16", "NumUInt32": "u32", "NumUInt64": "u64",
+    "NumInt8": "i8",
+    "NumInt16": "i16",
+    "NumInt32": "i32",
+    "NumInt64": "i64",
+    "NumUInt8": "u8",
+    "NumUInt16": "u16",
+    "NumUInt32": "u32",
+    "NumUInt64": "u64",
 }
 _LV_FLOAT = {"NumFloat32", "NumFloat64", "NumFloatExt"}
 
 # Formula-node declaration keyword -> _lv int coercion helper. ``float`` is a
 # LabVIEW alias for float64.
 _KW_INT_HELPER = {
-    "int8": "i8", "int16": "i16", "int32": "i32", "int64": "i64",
-    "uInt8": "u8", "uInt16": "u16", "uInt32": "u32", "uInt64": "u64",
+    "int8": "i8",
+    "int16": "i16",
+    "int32": "i32",
+    "int64": "i64",
+    "uInt8": "u8",
+    "uInt16": "u16",
+    "uInt32": "u32",
+    "uInt64": "u64",
 }
 _KW_FLOAT = {"float32", "float64", "float"}
 
@@ -83,21 +95,45 @@ _KW_FLOAT = {"float32", "float64", "float"}
 # IEEE inf/nan rather than trapping). Functions that never raise on real
 # inputs (sin, cos, atan, exp, …) keep their direct math.* mapping.
 _FUNC_MAP = {
-    "abs": "abs", "sqrt": "_lv.sqrt", "exp": "math.exp", "expm1": "math.expm1",
-    "ln": "_lv.ln", "lnp1": "math.log1p", "log": "_lv.log10",
-    "log2": "_lv.log2", "ceil": "math.ceil", "floor": "math.floor",
-    "sin": "math.sin", "cos": "math.cos", "tan": "math.tan",
-    "asin": "_lv.asin", "acos": "_lv.acos", "atan": "math.atan",
+    "abs": "abs",
+    "sqrt": "_lv.sqrt",
+    "exp": "math.exp",
+    "expm1": "math.expm1",
+    "ln": "_lv.ln",
+    "lnp1": "math.log1p",
+    "log": "_lv.log10",
+    "log2": "_lv.log2",
+    "ceil": "math.ceil",
+    "floor": "math.floor",
+    "sin": "math.sin",
+    "cos": "math.cos",
+    "tan": "math.tan",
+    "asin": "_lv.asin",
+    "acos": "_lv.acos",
+    "atan": "math.atan",
     "atan2": "math.atan2",
-    "sinh": "math.sinh", "cosh": "math.cosh", "tanh": "math.tanh",
-    "asinh": "math.asinh", "acosh": "_lv.acosh", "atanh": "_lv.atanh",
+    "sinh": "math.sinh",
+    "cosh": "math.cosh",
+    "tanh": "math.tanh",
+    "asinh": "math.asinh",
+    "acosh": "_lv.acosh",
+    "atanh": "_lv.atanh",
     "pow": "_lv.powf",
-    "int": "round", "intrz": "math.trunc",
-    "mod": "_lv.lvmod", "rem": "_lv.rem", "sign": "_lv.sign",
-    "getexp": "_lv.getexp", "getman": "_lv.getman",
-    "max": "max", "min": "min",
-    "cot": "_lv.cot", "csc": "_lv.csc", "sec": "_lv.sec", "sinc": "_lv.sinc",
-    "rand": "_lv.rand", "sizeOfDim": "_lv.size_of_dim",
+    "int": "round",
+    "intrz": "math.trunc",
+    "mod": "_lv.lvmod",
+    "rem": "_lv.rem",
+    "sign": "_lv.sign",
+    "getexp": "_lv.getexp",
+    "getman": "_lv.getman",
+    "max": "max",
+    "min": "min",
+    "cot": "_lv.cot",
+    "csc": "_lv.csc",
+    "sec": "_lv.sec",
+    "sinc": "_lv.sinc",
+    "rand": "_lv.rand",
+    "sizeOfDim": "_lv.size_of_dim",
 }
 # Functions whose result is an integer (drives int/float inference).
 _INT_RESULT_FUNCS = {"int", "intrz", "sign", "sizeOfDim"}
@@ -111,21 +147,23 @@ _LOGICAL_OP = {"&&": "_lv.land", "||": "_lv.lor"}
 @dataclass
 class VarSpec:
     """One Formula Node variable (a wired terminal)."""
+
     name: str
-    lv_type: str       # NumInt16/NumFloat64/... (element type for arrays)
-    direction: str     # "in" | "out" | "inout"
+    lv_type: str  # NumInt16/NumFloat64/... (element type for arrays)
+    direction: str  # "in" | "out" | "inout"
     is_array: bool
 
 
 @dataclass
 class TranspileResult:
     """A generated module-level Python function plus its call contract."""
+
     func_def: ast.FunctionDef
     func_name: str
-    input_names: list[str]    # keyword params the function accepts
-    output_names: list[str]   # keys present in the returned dict
+    input_names: list[str]  # keyword params the function accepts
+    output_names: list[str]  # keys present in the returned dict
     imports: set[str] = field(default_factory=set)
-    source: str = ""          # the unparsed function (handy for tests)
+    source: str = ""  # the unparsed function (handy for tests)
 
 
 def _kind_and_helper(lv_type: str) -> tuple[str, str | None]:
@@ -326,15 +364,22 @@ class _Emitter:
         count loop ``for(i=0; i<N; i++)`` whose index isn't reassigned in the
         body; otherwise None (caller falls back to a while loop)."""
         init, cond, post = s.init, s.cond, s.post
-        if not (isinstance(init, Assign) and isinstance(init.target, Var)
-                and isinstance(init.value, Num) and init.value.text == "0"):
+        if not (
+            isinstance(init, Assign)
+            and isinstance(init.target, Var)
+            and isinstance(init.value, Num)
+            and init.value.text == "0"
+        ):
             return None
         i = init.target.name
-        if not (isinstance(cond, Binary) and cond.op == "<"
-                and isinstance(cond.left, Var) and cond.left.name == i):
+        if not (
+            isinstance(cond, Binary)
+            and cond.op == "<"
+            and isinstance(cond.left, Var)
+            and cond.left.name == i
+        ):
             return None
-        post_ok = (isinstance(post, IncDec) and post.name == i
-                   and post.op == "++")
+        post_ok = isinstance(post, IncDec) and post.name == i and post.op == "++"
         if not post_ok:
             return None
         if self._assigns(s.body, i) or _refs(cond.right, i):
@@ -350,14 +395,17 @@ class _Emitter:
         if isinstance(s, Block):
             return any(self._assigns(i, name) for i in s.stmts)
         if isinstance(s, If):
-            return (self._assigns(s.then, name)
-                    or (s.orelse is not None and self._assigns(s.orelse, name)))
+            return self._assigns(s.then, name) or (
+                s.orelse is not None and self._assigns(s.orelse, name)
+            )
         if isinstance(s, (While, DoWhile)):
             return self._assigns(s.body, name)
         if isinstance(s, For):
-            return ((s.init is not None and self._assigns(s.init, name))
-                    or (s.post is not None and self._assigns(s.post, name))
-                    or self._assigns(s.body, name))
+            return (
+                (s.init is not None and self._assigns(s.init, name))
+                or (s.post is not None and self._assigns(s.post, name))
+                or self._assigns(s.body, name)
+            )
         if isinstance(s, Decl):
             return any(n == name for n, _ in s.items)
         return False
@@ -378,8 +426,7 @@ class _Emitter:
             elif s.type_kw in _KW_FLOAT:
                 self.kind[name] = "float"
             else:
-                raise FormulaTranspileError(
-                    f"unsupported type keyword {s.type_kw!r}")
+                raise FormulaTranspileError(f"unsupported type keyword {s.type_kw!r}")
             if init is not None:
                 out.append(f"{pad}{name} = {self._emit_store(name, init)}")
             else:
@@ -413,6 +460,7 @@ class _Emitter:
                 if s.init:
                     walk(s.init)
                 walk(s.body)
+
         for s in block.stmts:
             walk(s)
 
@@ -520,7 +568,9 @@ def _refs(e: Expr, name: str) -> bool:
 
 
 def transpile(
-    script: str, variables: list[VarSpec], func_name: str = "formula",
+    script: str,
+    variables: list[VarSpec],
+    func_name: str = "formula",
 ) -> TranspileResult:
     """Transpile a Formula Node script to a self-contained Python function.
 

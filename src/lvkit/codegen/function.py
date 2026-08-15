@@ -15,6 +15,7 @@ from .imports import ImportBuilder
 @dataclass
 class Parameter:
     """A function parameter."""
+
     name: str
     type_hint: str
     default: str | None = None
@@ -24,6 +25,7 @@ class Parameter:
 @dataclass
 class OutputField:
     """A named output field."""
+
     name: str
     type_hint: str
     source_var: str | None = None  # What variable provides this value
@@ -32,6 +34,7 @@ class OutputField:
 @dataclass
 class FunctionDef:
     """A complete function definition."""
+
     name: str
     params: list[Parameter]
     return_type: str
@@ -175,12 +178,14 @@ class FunctionBuilder:
             if not required and default is None:
                 default = self.DEFAULT_VALUES.get(type_hint, "None")
 
-            params.append(Parameter(
-                name=name,
-                type_hint=type_hint,
-                default=default if not required else None,
-                required=required,
-            ))
+            params.append(
+                Parameter(
+                    name=name,
+                    type_hint=type_hint,
+                    default=default if not required else None,
+                    required=required,
+                )
+            )
 
         # Sort: required first, then optional
         params.sort(key=lambda p: (0 if p.required else 1, p.name))
@@ -222,11 +227,13 @@ class FunctionBuilder:
             if source_var is None and out_id is not None:
                 source_var = self.tracer.resolve_source(out_id)
 
-            fields.append(OutputField(
-                name=name,
-                type_hint=type_hint,
-                source_var=source_var,
-            ))
+            fields.append(
+                OutputField(
+                    name=name,
+                    type_hint=type_hint,
+                    source_var=source_var,
+                )
+            )
 
         return fields
 

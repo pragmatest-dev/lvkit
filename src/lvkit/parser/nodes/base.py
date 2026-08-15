@@ -133,9 +133,7 @@ def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> list[Tunnel]:
         return []
 
     term_refs: list[str] = [
-        uid
-        for e in dco_term_list.findall("SL__arrayElement")
-        if (uid := e.get("uid"))
+        uid for e in dco_term_list.findall("SL__arrayElement") if (uid := e.get("uid"))
     ]
 
     if len(term_refs) < 2:

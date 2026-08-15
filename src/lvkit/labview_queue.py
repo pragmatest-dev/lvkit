@@ -30,6 +30,7 @@ that generated code *branches on* (verified against NI's function docs):
 - **`queue_out` is a passthrough** — the reference never changes across an
   Enqueue/Dequeue/Status call (codegen binds it to the input queue variable).
 """
+
 from __future__ import annotations
 
 import threading
@@ -40,8 +41,8 @@ from dataclasses import dataclass, field
 from .labview_error import LabVIEWError
 
 # NI-confirmed error codes (docs-be.ni.com obtain-queue / release-queue pages).
-_ERR_QUEUE_NOT_FOUND = 1100   # Obtain, create_if_not_found=False, no such queue
-_ERR_QUEUE_DESTROYED = 1122   # any op on a destroyed / invalid queue reference
+_ERR_QUEUE_NOT_FOUND = 1100  # Obtain, create_if_not_found=False, no such queue
+_ERR_QUEUE_DESTROYED = 1122  # any op on a destroyed / invalid queue reference
 
 # Named queues are process-wide; the registry maps name -> the single shared
 # LVQueue. Lock ordering everywhere that takes both is REGISTRY then the queue's
@@ -159,7 +160,9 @@ def _deadline(timeout_ms: int) -> float | None:
 
 
 def _wait(
-    condition: threading.Condition, timeout_ms: int, deadline: float | None,
+    condition: threading.Condition,
+    timeout_ms: int,
+    deadline: float | None,
 ) -> bool:
     """Wait on ``condition`` per LabVIEW timeout semantics.
 
@@ -178,7 +181,9 @@ def _wait(
 
 
 def obtain_queue(
-    name: str, max_size: int, create_if_not_found: bool = True,
+    name: str,
+    max_size: int,
+    create_if_not_found: bool = True,
 ) -> tuple[LVQueue, bool]:
     """Obtain (or create) a queue reference. Returns ``(queue, created)``.
 
@@ -199,8 +204,7 @@ def obtain_queue(
                 code=_ERR_QUEUE_NOT_FOUND,
                 source="Obtain Queue",
                 message=(
-                    f"queue {name!r} does not exist and "
-                    "create-if-not-found is false"
+                    f"queue {name!r} does not exist and create-if-not-found is false"
                 ),
             )
         created = LVQueue(name=name, max_size=max_size)
@@ -214,7 +218,9 @@ def enqueue_element(queue: LVQueue, element: object, timeout_ms: int) -> bool:
 
 
 def enqueue_element_at_opposite_end(
-    queue: LVQueue, element: object, timeout_ms: int,
+    queue: LVQueue,
+    element: object,
+    timeout_ms: int,
 ) -> bool:
     """Add ``element`` to the front of ``queue``. Returns ``timed_out``."""
     return queue.enqueue(element, timeout_ms, front=True)

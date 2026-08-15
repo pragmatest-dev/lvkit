@@ -17,6 +17,7 @@ Usage:
 Then query it, e.g.:
     grep -i "file position" .cache/ni_function_catalog.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,8 +31,12 @@ from pathlib import Path
 API = "https://docs-be.ni.com/api/bundle/labview-api-ref/page/"
 ROOT_MENU = "menus/default/root-mnu.html"
 HREF = re.compile(r'href="([^"]+)"[^>]*>([^<]*)<')
-DEFAULT_OUT = (Path(__file__).resolve().parents[1]
-               / ".lvkit" / "cache" / "ni_function_catalog.json")
+DEFAULT_OUT = (
+    Path(__file__).resolve().parents[1]
+    / ".lvkit"
+    / "cache"
+    / "ni_function_catalog.json"
+)
 
 
 def fetch(path: str) -> dict:
@@ -74,20 +79,28 @@ def crawl() -> dict:
                     menu_titles.setdefault(p, title or p)
                     queue.append(p)
             elif p not in functions:
-                functions[p] = {"title": title, "slug": p.split("/")[-1],
-                                "path": p, "category": cat}
+                functions[p] = {
+                    "title": title,
+                    "slug": p.split("/")[-1],
+                    "path": p,
+                    "category": cat,
+                }
         if n_menu % 20 == 0:
             print(f"  ...{n_menu} menus, {len(functions)} leaves")
         time.sleep(0.05)
-    return {"functions": functions, "menus": sorted(visited),
-            "source": "docs-be.ni.com/api/bundle/labview-api-ref (public)"}
+    return {
+        "functions": functions,
+        "menus": sorted(visited),
+        "source": "docs-be.ni.com/api/bundle/labview-api-ref (public)",
+    }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    ap.add_argument("--force", action="store_true",
-                    help="rebuild even if the file exists")
+    ap.add_argument(
+        "--force", action="store_true", help="rebuild even if the file exists"
+    )
     args = ap.parse_args()
 
     if args.out.exists() and not args.force:
@@ -102,8 +115,10 @@ def main() -> None:
     args.out.write_text(json.dumps(data, indent=1))
     fns = data["functions"]
     prim = sum(1 for p in fns if p.startswith("functions/"))
-    print(f"\nDONE: {len(data['menus'])} menus -> {len(fns)} pages "
-          f"({prim} under functions/). Wrote {args.out}")
+    print(
+        f"\nDONE: {len(data['menus'])} menus -> {len(fns)} pages "
+        f"({prim} under functions/). Wrote {args.out}"
+    )
 
 
 if __name__ == "__main__":

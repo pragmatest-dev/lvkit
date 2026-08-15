@@ -28,6 +28,7 @@ SCOPE -- the SHIPPED catalog only, matching test_primitive_name_uniqueness.py.
 A project-local ``.lvkit/primitives.json`` override is the designed escape
 hatch and must never be scanned here.
 """
+
 from __future__ import annotations
 
 import json
@@ -62,9 +63,7 @@ def _positional_two_input_entries():
 
 def _input_indices(entry: dict) -> dict[str, int]:
     return {
-        t["name"]: t["index"]
-        for t in entry["terminals"]
-        if t.get("direction") == "in"
+        t["name"]: t["index"] for t in entry["terminals"] if t.get("direction") == "in"
     }
 
 

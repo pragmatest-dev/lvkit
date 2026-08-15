@@ -63,10 +63,12 @@ def extract_decompose_structures(
                         if node_uid:
                             inner_node_uids.append(node_uid)
 
-        structures.append(ParsedDecomposeRecomposeStructure(
-            uid=uid,
-            tunnels=tunnels,
-            inner_node_uids=inner_node_uids,
-        ))
+        structures.append(
+            ParsedDecomposeRecomposeStructure(
+                uid=uid,
+                tunnels=tunnels,
+                inner_node_uids=inner_node_uids,
+            )
+        )
 
     return structures

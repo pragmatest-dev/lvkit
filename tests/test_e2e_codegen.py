@@ -34,7 +34,9 @@ GET_SETTINGS_PATH_VI = Path(
     "Get Settings Path.vi"
 )
 TESTCASE_DIR = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase")
-DCAF_CONFIG_DIR = Path(".lvkit/cache/samples/DCAF-DAQModule/source/module/configuration")  # noqa: E501
+DCAF_CONFIG_DIR = Path(
+    ".lvkit/cache/samples/DCAF-DAQModule/source/module/configuration"
+)  # noqa: E501
 DELETE_LINE_VI = DCAF_CONFIG_DIR / "Delete Line.vi"
 TESTRESULT_DIR = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult")
 GET_TESTS_RUN_VI = TESTRESULT_DIR / "GetTestsRun.vi"
@@ -173,16 +175,25 @@ SET_FP_CONTROL_VI = Path(
 def _generate_cli(vi_path: Path, out_dir: Path, hashseed: str) -> None:
     env = {**os.environ, "PYTHONHASHSEED": hashseed}
     subprocess.run(
-        [sys.executable, "scripts/generate_python.py", str(vi_path),
-         "-o", str(out_dir), "--search-path", ".lvkit/cache/samples/OpenG/extracted"],
-        env=env, check=True, capture_output=True, text=True,
+        [
+            sys.executable,
+            "scripts/generate_python.py",
+            str(vi_path),
+            "-o",
+            str(out_dir),
+            "--search-path",
+            ".lvkit/cache/samples/OpenG/extracted",
+        ],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
     )
 
 
 def _tree_bytes(root: Path) -> dict[str, bytes]:
     return {
-        str(p.relative_to(root)): p.read_bytes()
-        for p in sorted(root.rglob("*.py"))
+        str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*.py"))
     }
 
 
@@ -205,9 +216,7 @@ def test_codegen_is_hashseed_deterministic(tmp_path):
         trees.append(_tree_bytes(out))
     base = trees[0]
     for seed, tree in zip(seeds[1:], trees[1:]):
-        assert tree.keys() == base.keys(), (
-            f"seed {seed}: different files than baseline"
-        )
+        assert tree.keys() == base.keys(), f"seed {seed}: different files than baseline"
         diffs = [name for name in base if base[name] != tree[name]]
         assert not diffs, f"seed {seed}: non-deterministic output: {diffs}"
 
@@ -221,8 +230,7 @@ class TestTestCaseLvclass:
     def _testcase_vis(self, testcase_graph):
         """Get TestCase method VIs (not dependencies)."""
         return [
-            vi for vi in testcase_graph.list_vis()
-            if vi.startswith("TestCase.lvclass:")
+            vi for vi in testcase_graph.list_vis() if vi.startswith("TestCase.lvclass:")
         ]
 
     def test_all_methods_generate_valid_python(self, testcase_graph):

@@ -43,7 +43,7 @@ def resolve_type(type_ref: str, type_map: dict[int, str]) -> str:
     Returns:
         Resolved type name or original string if not resolvable
     """
-    match = re.match(r'TypeID\((\d+)\)', type_ref)
+    match = re.match(r"TypeID\((\d+)\)", type_ref)
     if match:
         type_id = int(match.group(1))
         return type_map.get(type_id, type_ref)
@@ -60,10 +60,12 @@ def resolve_type_rich(type_ref: str, type_map: dict[int, LVType]) -> LVType:
     Returns:
         LVType for the resolved type, or primitive LVType with original string
     """
-    match = re.match(r'TypeID\((\d+)\)', type_ref)
+    match = re.match(r"TypeID\((\d+)\)", type_ref)
     if match:
         type_id = int(match.group(1))
-        return type_map.get(type_id, LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_ref))
+        return type_map.get(
+            type_id, LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_ref)
+        )
     return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_ref)
 
 
@@ -86,10 +88,9 @@ def parse_type_chain(xml_path: Path | str) -> dict:
     root = tree.getroot()
 
     # Parse Heap TypeID comments
-    xml_text = Path(xml_path).read_text(encoding='utf-8', errors='replace')
+    xml_text = Path(xml_path).read_text(encoding="utf-8", errors="replace")
     for match in re.finditer(
-        r'Heap TypeID\s+(\d+)\s*=\s*Consolidated TypeID\s+(\d+):\s*(\w+)',
-        xml_text
+        r"Heap TypeID\s+(\d+)\s*=\s*Consolidated TypeID\s+(\d+):\s*(\w+)", xml_text
     ):
         heap_id = int(match.group(1))
         consolidated_id = int(match.group(2))
@@ -104,7 +105,7 @@ def parse_type_chain(xml_path: Path | str) -> dict:
             consolidated_to_flat[int(index)] = int(flat_id)
 
     # Parse FlatTypeID comments
-    for match in re.finditer(r'FlatTypeID (\d+):\s*([^\n<]+)', xml_text):
+    for match in re.finditer(r"FlatTypeID (\d+):\s*([^\n<]+)", xml_text):
         flat_id = int(match.group(1))
         description = match.group(2).strip()
         flat_types[flat_id] = {"description": description}
@@ -139,7 +140,7 @@ def resolve_type_to_typedef(type_ref: str, type_chain: dict) -> str | None:
     Returns:
         TypeDef name like "System Directory Type.ctl" or None
     """
-    match = re.match(r'TypeID\((\d+)\)', type_ref)
+    match = re.match(r"TypeID\((\d+)\)", type_ref)
     if not match:
         return None
 
@@ -170,6 +171,7 @@ def load_enum_reference() -> dict:
         Dict with typedef definitions, or empty dict if not found
     """
     from .._data import data_dir as _bundled_data_dir
+
     enums_path = _bundled_data_dir() / "labview-enums.json"
 
     if not enums_path.exists():
@@ -180,8 +182,7 @@ def load_enum_reference() -> dict:
 
 
 def resolve_typedef_value(
-    typedef_ref: ParsedTypeDefRef,
-    value: int
+    typedef_ref: ParsedTypeDefRef, value: int
 ) -> ParsedResolvedTypeDefValue | None:
     """Resolve a typedef enum value to its description and OS paths.
 

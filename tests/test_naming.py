@@ -16,10 +16,7 @@ class TestBuildQualifiedName:
         assert build_qualified_name([], "Standalone.vi") == "Standalone.vi"
 
     def test_single_container(self):
-        assert (
-            build_qualified_name(["sysdir.llb"], "Type.ctl")
-            == "sysdir.llb:Type.ctl"
-        )
+        assert build_qualified_name(["sysdir.llb"], "Type.ctl") == "sysdir.llb:Type.ctl"
 
     def test_nested_containers(self):
         assert (

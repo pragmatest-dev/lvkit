@@ -273,8 +273,15 @@ class LocalVariableNode(GraphNode):
 
 # Discriminated union of all node types
 AnyGraphNode = (
-    VINode | PrimitiveNode | StructureNode | ConstantNode | InPlaceNode
-    | FormulaNode | LocalVariableNode | DisableStructureNode | EventStructureNode
+    VINode
+    | PrimitiveNode
+    | StructureNode
+    | ConstantNode
+    | InPlaceNode
+    | FormulaNode
+    | LocalVariableNode
+    | DisableStructureNode
+    | EventStructureNode
 )
 
 
@@ -623,10 +630,15 @@ class VIHealth:
 
     @property
     def is_broken(self) -> bool:
-        return any([
-            self.bad_node, self.bad_subvi, self.bad_subvi_link,
-            self.bad_compile, self.broken_poly,
-        ])
+        return any(
+            [
+                self.bad_node,
+                self.bad_subvi,
+                self.bad_subvi_link,
+                self.bad_compile,
+                self.broken_poly,
+            ]
+        )
 
 
 @dataclass

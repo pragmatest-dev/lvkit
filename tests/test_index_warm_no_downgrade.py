@@ -21,7 +21,11 @@ from lvkit.index.store import save as save_index
 
 
 def _facts(
-    path: Path, *, content_sha: str, library: str | None, class_fact: ClassFact | None,
+    path: Path,
+    *,
+    content_sha: str,
+    library: str | None,
+    class_fact: ClassFact | None,
 ) -> VIFacts:
     return VIFacts(
         path=str(path),
@@ -50,7 +54,10 @@ def test_same_sha_partial_resave_preserves_container_facts(tmp_path: Path):
     save_index(tmp_path, [full])
 
     partial = _facts(
-        vi_path, content_sha="abc", library=None, class_fact=None,
+        vi_path,
+        content_sha="abc",
+        library=None,
+        class_fact=None,
     )
     save_index(tmp_path, [partial])
 
@@ -80,7 +87,10 @@ def test_changed_sha_resave_clears_container_facts(tmp_path: Path):
     save_index(tmp_path, [full])
 
     changed = _facts(
-        vi_path, content_sha="def", library=None, class_fact=None,
+        vi_path,
+        content_sha="def",
+        library=None,
+        class_fact=None,
     )
     save_index(tmp_path, [changed])
 

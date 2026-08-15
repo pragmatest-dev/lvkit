@@ -15,18 +15,18 @@ from .context import CodeGenContext
 
 # Mapping of primitive IDs to AST comparison operators
 COMPARISON_PRIMITIVES: dict[int, type[ast.cmpop]] = {
-    1102: ast.Eq,       # Equal?
-    1103: ast.GtE,      # Greater Or Equal?
-    1105: ast.NotEq,    # Not Equal?
-    1107: ast.Lt,       # Less? (inferred)
-    1108: ast.LtE,      # Less Or Equal?
-    1110: ast.Gt,       # Greater?
+    1102: ast.Eq,  # Equal?
+    1103: ast.GtE,  # Greater Or Equal?
+    1105: ast.NotEq,  # Not Equal?
+    1107: ast.Lt,  # Less? (inferred)
+    1108: ast.LtE,  # Less Or Equal?
+    1110: ast.Gt,  # Greater?
 }
 
 # Mapping of primitive IDs to AST boolean operators
 BOOLEAN_PRIMITIVES: dict[int, type[ast.boolop]] = {
-    1100: ast.And,      # And
-    1101: ast.Or,       # Or
+    1100: ast.And,  # And
+    1101: ast.Or,  # Or
 }
 
 # Not primitive for unary negation

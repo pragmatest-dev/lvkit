@@ -67,8 +67,16 @@ def kind_display(kind: str) -> str:
 
 # Graph node kinds that represent executable operations
 _OPERATION_KINDS = (
-    "vi", "primitive", "operation", "caseStruct", "loop", "formula",
-    "disableStruct", "eventStruct", "flatSequence", "inPlaceStruct",
+    "vi",
+    "primitive",
+    "operation",
+    "caseStruct",
+    "loop",
+    "formula",
+    "disableStruct",
+    "eventStruct",
+    "flatSequence",
+    "inPlaceStruct",
 )
 
 
@@ -318,7 +326,8 @@ class InMemoryVIGraph(
         return None
 
     def get_class_fields(
-        self, classname: str,
+        self,
+        classname: str,
     ) -> list[ClusterField] | None:
         """Get complete field list for a class including inherited parent fields.
 
@@ -353,7 +362,8 @@ class InMemoryVIGraph(
         return own_fields
 
     def get_type_fields(
-        self, lv_type: LVType,
+        self,
+        lv_type: LVType,
     ) -> list[ClusterField] | None:
         """Get fields for any type. One API, all cases.
 

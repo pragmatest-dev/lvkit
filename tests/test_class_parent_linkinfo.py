@@ -44,7 +44,10 @@ def test_vilib_parent_flagged() -> None:
     vi.lib-installed copy -- the decoded path contains the literal
     ``<vilib>`` marker, so is_vilib_parent must be True."""
     lvclass_path = (
-        SAMPLE_ROOT / "Ant Plugin" / "Source" / "TextTestRunner.Ant"
+        SAMPLE_ROOT
+        / "Ant Plugin"
+        / "Source"
+        / "TextTestRunner.Ant"
         / "TextTestRunner.JUnitXML.lvclass"
     )
     cls = parse_lvclass(lvclass_path)

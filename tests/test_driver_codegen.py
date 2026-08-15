@@ -32,28 +32,32 @@ class TestBooleanFormatting:
 
     def test_boolean_true_from_hex_01(self):
         const = Constant(
-            id="c1", value="True",
+            id="c1",
+            value="True",
             lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         assert _format_constant(const) == "True"
 
     def test_boolean_false_from_hex_0000(self):
         const = Constant(
-            id="c2", value="0000",
+            id="c2",
+            value="0000",
             lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         assert _format_constant(const) == "False"
 
     def test_boolean_false_from_zero(self):
         const = Constant(
-            id="c3", value="0",
+            id="c3",
+            value="0",
             lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         assert _format_constant(const) == "False"
 
     def test_boolean_true_from_one(self):
         const = Constant(
-            id="c4", value="1",
+            id="c4",
+            value="1",
             lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
         )
         assert _format_constant(const) == "True"
@@ -70,7 +74,8 @@ class TestPathFormatting:
     def test_channel_string_not_wrapped_in_path(self):
         """DAQmx channel strings like 'Dev1/port0/line0' are strings, not paths."""
         const = Constant(
-            id="c1", value='"Dev1/port0/line0"',
+            id="c1",
+            value='"Dev1/port0/line0"',
             lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Tag"),
         )
         result = _format_constant(const)
@@ -80,7 +85,8 @@ class TestPathFormatting:
     def test_actual_path_type_uses_path(self):
         """Constants with underlying_type=Path should use Path()."""
         const = Constant(
-            id="c2", value="some/file.txt",
+            id="c2",
+            value="some/file.txt",
             lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
         )
         result = _format_constant(const)
@@ -89,7 +95,8 @@ class TestPathFormatting:
     def test_plain_string_no_path(self):
         """Plain strings without path-like content stay as strings."""
         const = Constant(
-            id="c3", value='"hello"',
+            id="c3",
+            value='"hello"',
             lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
         )
         result = _format_constant(const)
@@ -161,6 +168,7 @@ class TestWaitMsPrimitive:
 
     def test_1302_resolves_to_wait_ms(self):
         from lvkit.primitive_resolver import get_resolver
+
         resolver = get_resolver()
         resolved = resolver.resolve(prim_id=1302)
 
@@ -176,6 +184,7 @@ class TestWaitMsPrimitive:
 
     def test_1302_has_correct_terminals(self):
         from lvkit.primitive_resolver import get_resolver
+
         resolver = get_resolver()
         resolved = resolver.resolve(prim_id=1302)
         assert resolved is not None
@@ -219,6 +228,7 @@ class TestPolyVariantExtraction:
     def test_poly_variant_parsed_from_vi(self):
         """DAQ AO.vi's Create Virtual Channel should resolve to 'AO Voltage'."""
         from lvkit.graph import connect
+
         mg = connect()
         mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
@@ -235,6 +245,7 @@ class TestPolyVariantExtraction:
     def test_write_variant_parsed(self):
         """DAQ AO.vi's Write should have an Analog variant name."""
         from lvkit.graph import connect
+
         mg = connect()
         mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
@@ -248,6 +259,7 @@ class TestPolyVariantExtraction:
     def test_non_poly_nodes_have_no_variant(self):
         """Non-polymorphic nodes should have poly_variant_name=None."""
         from lvkit.graph import connect
+
         mg = connect()
         mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
@@ -268,6 +280,7 @@ class TestPolyResolverLookup:
 
     def test_digital_output_resolves_to_do_line(self):
         from lvkit.vilib_resolver import get_resolver
+
         resolver = get_resolver()
         entry = resolver.resolve_poly_variant(
             "DAQmx Create Virtual Channel.vi", "Digital Output"
@@ -278,6 +291,7 @@ class TestPolyResolverLookup:
 
     def test_digital_input_resolves_to_di_line(self):
         from lvkit.vilib_resolver import get_resolver
+
         resolver = get_resolver()
         entry = resolver.resolve_poly_variant(
             "DAQmx Create Virtual Channel.vi", "Digital Input"
@@ -288,6 +302,7 @@ class TestPolyResolverLookup:
 
     def test_ai_voltage_resolves(self):
         from lvkit.vilib_resolver import get_resolver
+
         resolver = get_resolver()
         entry = resolver.resolve_poly_variant(
             "DAQmx Create Virtual Channel.vi", "AI Voltage"
@@ -298,6 +313,7 @@ class TestPolyResolverLookup:
 
     def test_unknown_selector_returns_none(self):
         from lvkit.vilib_resolver import get_resolver
+
         resolver = get_resolver()
         entry = resolver.resolve_poly_variant(
             "DAQmx Create Virtual Channel.vi", "Nonexistent Variant"

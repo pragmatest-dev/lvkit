@@ -54,7 +54,9 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     from lvkit.models import LVType, LVTypeKind
 
     cls = LVType(
-        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="UDClassInst",
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
         classname="MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass",
     )
     raw = bytes.fromhex(
@@ -69,7 +71,9 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     assert size == 73
 
     # A generic refnum (no classname) keeps the handle token.
-    gen = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence")
+    gen = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence"
+    )
     val2, _ = _decode_element((5).to_bytes(4, "big"), gen)
     assert val2 == "Refnum(5)"
 
@@ -85,20 +89,21 @@ def test_owning_libraries_from_libn_chain(tmp_path):
 
     xml = tmp_path / "m.xml"
     xml.write_text(
-        '<RSRC>'
+        "<RSRC>"
         '<LVSR><Section Name="Reserve Sessions.vi"/></LVSR>'
-        '<LIBN><Section>'
-        '<Library>NI Measurement Plug-In SDK.lvlib</Library>'
-        '<Library>Measure Call Context.lvclass</Library>'
-        '</Section></LIBN>'
-        '</RSRC>'
+        "<LIBN><Section>"
+        "<Library>NI Measurement Plug-In SDK.lvlib</Library>"
+        "<Library>Measure Call Context.lvclass</Library>"
+        "</Section></LIBN>"
+        "</RSRC>"
     )
     m = parse_vi_metadata(xml)
     assert m["owning_libraries"] == [
-        "NI Measurement Plug-In SDK.lvlib", "Measure Call Context.lvclass",
+        "NI Measurement Plug-In SDK.lvlib",
+        "Measure Call Context.lvclass",
     ]
     assert m["library"] == "NI Measurement Plug-In SDK.lvlib"  # outermost, as before
-    assert m["qualified_name"] == "Reserve Sessions.vi"        # bare resolution key
+    assert m["qualified_name"] == "Reserve Sessions.vi"  # bare resolution key
 
 
 def test_fp_terminal_label_position_captured():
@@ -113,9 +118,9 @@ def test_fp_terminal_label_position_captured():
 
     term = ET.fromstring(
         '<x class="fPTerm" uid="1">'
-        '<bounds>(159, 1816, 175, 1848)</bounds>'
+        "<bounds>(159, 1816, 175, 1848)</bounds>"
         '<label class="label" uid="2"><bounds>(0, -60, 17, 0)</bounds></label>'
-        '</x>'
+        "</x>"
     )
     # (top=0,left=-60,bottom=17,right=0) -> (x1=-60, y1=0, x2=0, y2=17): LEFT.
     assert _fp_label_box(term) == (-60.0, 0.0, 0.0, 17.0)
@@ -133,13 +138,21 @@ def test_fp_default_with_null_bytes_not_corrupted():
     corrupting every non-trivial default."""
     # LabVIEW string "hi": 4-byte big-endian length (2) + the bytes.
     serialized = '"&#x00;&#x00;&#x00;&#x02;hi"'
-    assert _decode_default_data(
-        strip_surrounding_quotes(serialized), "stdString",
-    ) == '"hi"'
+    assert (
+        _decode_default_data(
+            strip_surrounding_quotes(serialized),
+            "stdString",
+        )
+        == '"hi"'
+    )
     # Old path deletes the length prefix -> len < 4 -> value lost.
-    assert _decode_default_data(
-        clean_labview_string(serialized), "stdString",
-    ) != '"hi"'
+    assert (
+        _decode_default_data(
+            clean_labview_string(serialized),
+            "stdString",
+        )
+        != '"hi"'
+    )
 
 
 class TestNode:
@@ -353,8 +366,11 @@ class TestLoopTunnelInnerType:
 
         return {
             1: LVType(
-                kind=LVTypeKind.ARRAY, underlying_type="Array",
-                element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+                kind=LVTypeKind.ARRAY,
+                underlying_type="Array",
+                element_type=LVType(
+                    kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"
+                ),
                 dimensions=1,
             ),
             2: LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
@@ -382,11 +398,21 @@ class TestLoopTunnelInnerType:
         assert loop is not None and node is not None
         # Boundary term (owns the full lpTun dco) -> outer array type.
         _process_element_terminals(
-            loop, set(), set(), type_map, terminal_info, inner_types,
+            loop,
+            set(),
+            set(),
+            type_map,
+            terminal_info,
+            inner_types,
         )
         # Body term (bare dco back-ref) -> inner element type.
         _process_element_terminals(
-            node, set(), set(), type_map, terminal_info, inner_types,
+            node,
+            set(),
+            set(),
+            type_map,
+            terminal_info,
+            inner_types,
         )
 
         outer = terminal_info["outer1"].parsed_type
@@ -459,7 +485,12 @@ class TestCaseTunnelInnerType:
         node = root.find(".//*[@uid='nA']")
         assert node is not None
         _process_element_terminals(
-            node, set(), set(), type_map, terminal_info, inner_types,
+            node,
+            set(),
+            set(),
+            type_map,
+            terminal_info,
+            inner_types,
         )
         inner = terminal_info["innerA"].parsed_type
         assert inner is not None and inner.kind == "cluster"
@@ -476,16 +507,17 @@ class TestCpdArithOperation:
         import xml.etree.ElementTree as ET
 
         from lvkit.parser.node_types import CpdArithHandler
+
         of = "" if objflags is None else f"<objFlags>{objflags}</objFlags>"
         xml = f'<SL__arrayElement class="cpdArith" uid="1">{of}</SL__arrayElement>'
         return CpdArithHandler()._extract_operation(ET.fromstring(xml))
 
     def test_objflags_operation_codes(self):
         # Real objFlags values observed across the OpenG corpus.
-        assert self._op(str(0x80000)) == "add"       # Trim / Reshape / MD5 FGHI
-        assert self._op(str(0xA0000)) == "and"       # every "...Changed" detector
-        assert self._op(str(0xB0000)) == "or"        # Create Dir if Non-Existant
-        assert self._op(str(0xC0000)) == "xor"       # MD5 H function
+        assert self._op(str(0x80000)) == "add"  # Trim / Reshape / MD5 FGHI
+        assert self._op(str(0xA0000)) == "and"  # every "...Changed" detector
+        assert self._op(str(0xB0000)) == "or"  # Create Dir if Non-Existant
+        assert self._op(str(0xC0000)) == "xor"  # MD5 H function
 
     def test_multiply_enum_slot(self):
         # No corpus instance, but it occupies LabVIEW's enum slot (code 1).
@@ -494,12 +526,12 @@ class TestCpdArithOperation:
     def test_dcofiller_does_not_select_op(self):
         # dcoFiller 256 co-occurs with add/and/or/xor -- objFlags is the source
         # of truth. Bit 19 (0x80000) is an always-set marker, masked out by &7.
-        assert self._op(str(0xA0000)) == "and"       # not "add", despite old bug
+        assert self._op(str(0xA0000)) == "and"  # not "add", despite old bug
 
     def test_unknown_or_missing_is_unsupported_sentinel_not_raise(self):
         # The parser must degrade gracefully, never raise; codegen fails loud.
-        assert self._op(str(0xF0000)) == "unsupported"   # code 7
-        assert self._op(None) == "unsupported"           # objFlags absent
+        assert self._op(str(0xF0000)) == "unsupported"  # code 7
+        assert self._op(None) == "unsupported"  # objFlags absent
 
 
 class TestTunnelMapping:
@@ -541,11 +573,13 @@ class TestLoopStructure:
             loop_type="forLoop",
             tunnels=[
                 TunnelMapping(
-                    outer_terminal_uid="o1", inner_terminal_uid="i1",
+                    outer_terminal_uid="o1",
+                    inner_terminal_uid="i1",
                     tunnel_type="lpTun",
                 ),
                 TunnelMapping(
-                    outer_terminal_uid="o2", inner_terminal_uid="i2",
+                    outer_terminal_uid="o2",
+                    inner_terminal_uid="i2",
                     tunnel_type="lMax",
                 ),
             ],
@@ -763,6 +797,7 @@ class TestParseVI:
         bd = vi.block_diagram
         assert len(bd.nodes) == 1
         from lvkit.parser.node_types import PrimitiveNode
+
         node = bd.nodes[0]
         assert node.uid == "prim1"
         assert node.node_type == "prim"

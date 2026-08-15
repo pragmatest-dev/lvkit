@@ -50,7 +50,8 @@ def _project_vi(tmp_path: Path, sample: Path, name: str = "Sample.vi") -> Path:
 def _run(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "lvkit.cli", *args],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
 
 
@@ -125,9 +126,7 @@ class TestRenderCacheCLI:
         _render(str(vi_b), "--format", "html", "-o", str(out_b))
         assert out_b.read_text() != _POISON
 
-    def test_no_output_flag_warms_cache_and_reports_slot(
-        self, tmp_path: Path
-    ) -> None:
+    def test_no_output_flag_warms_cache_and_reports_slot(self, tmp_path: Path) -> None:
         _require(_SAMPLE_A)
         vi = _project_vi(tmp_path, _SAMPLE_A)
         res = _render(str(vi), "--format", "html")  # no -o

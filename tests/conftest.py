@@ -23,9 +23,7 @@ def pytest_collection_modifyitems(config, items):
     .github/workflows/ci.yml), so those tests run there and locally."""
     if _HAVE_SAMPLES:
         return
-    skip = pytest.mark.skip(
-        reason="sample corpus absent — run scripts/pull_samples.sh"
-    )
+    skip = pytest.mark.skip(reason="sample corpus absent — run scripts/pull_samples.sh")
     for item in items:
         if "needs_samples" in item.keywords:
             item.add_marker(skip)

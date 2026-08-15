@@ -96,9 +96,9 @@ class CodeGenContext:
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
-    _body_generator: Callable[
-        [list[Operation], CodeGenContext], list[ast.stmt]
-    ] | None = field(default=None, repr=False)
+    _body_generator: (
+        Callable[[list[Operation], CodeGenContext], list[ast.stmt]] | None
+    ) = field(default=None, repr=False)
 
     def generate_body(self, operations: list[Operation]) -> list[ast.stmt]:
         """Generate code for a list of operations.
@@ -194,7 +194,10 @@ class CodeGenContext:
         return False
 
     def make_output_var(
-        self, base_name: str, node_id: str, terminal_id: str | None = None,
+        self,
+        base_name: str,
+        node_id: str,
+        terminal_id: str | None = None,
     ) -> str:
         """Generate a unique variable name for an operation output.
 
@@ -355,7 +358,8 @@ class CodeGenContext:
         """
         if name not in self.module_globals:
             self.module_globals[name] = ast.Assign(
-                targets=[ast.Name(id=name, ctx=ast.Store())], value=value,
+                targets=[ast.Name(id=name, ctx=ast.Store())],
+                value=value,
             )
 
     @classmethod
@@ -375,7 +379,9 @@ class CodeGenContext:
         )
 
         _bind_inputs_and_constants(
-            ctx, graph.get_inputs(vi_name), graph.get_constants(vi_name),
+            ctx,
+            graph.get_inputs(vi_name),
+            graph.get_constants(vi_name),
         )
         return ctx
 
@@ -393,7 +399,9 @@ class CodeGenContext:
 
         for nid, tids in node_terminals.items():
             node = PrimitiveNode(
-                id=nid, vi="test.vi", name=nid,
+                id=nid,
+                vi="test.vi",
+                name=nid,
                 terminals=[
                     Terminal(id=tid, index=i, direction="output")
                     for i, tid in enumerate(sorted(tids))
@@ -405,8 +413,10 @@ class CodeGenContext:
 
         for w in wires:
             graph._graph.add_edge(
-                w.source.node_id, w.dest.node_id,
-                source=w.source, dest=w.dest,
+                w.source.node_id,
+                w.dest.node_id,
+                source=w.source,
+                dest=w.dest,
             )
 
         # Add nodes for binding terminals not already in the graph
@@ -415,7 +425,9 @@ class CodeGenContext:
                 if tid not in graph._term_to_node:
                     nid = f"_bind_{tid}"
                     node = PrimitiveNode(
-                        id=nid, vi="test.vi", name=nid,
+                        id=nid,
+                        vi="test.vi",
+                        name=nid,
                         terminals=[Terminal(id=tid, index=0, direction="output")],
                     )
                     graph._graph.add_node(nid, node=node)
@@ -452,7 +464,8 @@ class CodeGenContext:
 
     @classmethod
     def _build_graph_from_vi_context(
-        cls, vi_context: VIContext,
+        cls,
+        vi_context: VIContext,
     ) -> InMemoryVIGraph | None:
         """Build a minimal graph for input/constant terminals only.
 
@@ -567,8 +580,10 @@ def _format_constant(const: Constant) -> str:
     adds the correct relative import when generating the function call.
     """
     if (
-        const.lv_type and const.lv_type.values
-        and const.lv_type.typedef_name and const.value is not None
+        const.lv_type
+        and const.lv_type.values
+        and const.lv_type.typedef_name
+        and const.value is not None
     ):
         try:
             int_value = int(const.value)

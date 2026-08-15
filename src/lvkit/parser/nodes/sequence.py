@@ -71,9 +71,9 @@ def _extract_one_sequence(
     # Also extract tunnels from the sequence's own termList
     _extract_tunnels_from_termlist(seq_elem, all_tunnels)
 
-    for i, frame_elem in enumerate(frame_container.findall(
-        f"SL__arrayElement[@class='{frame_class}']"
-    )):
+    for i, frame_elem in enumerate(
+        frame_container.findall(f"SL__arrayElement[@class='{frame_class}']")
+    ):
         frame_uid = frame_elem.get("uid")
         if not frame_uid:
             continue
@@ -84,11 +84,13 @@ def _extract_one_sequence(
         # Find inner nodes from the frame's diagram
         inner_node_uids = _extract_inner_node_uids(frame_elem)
 
-        frames.append(SequenceFrame(
-            index=i,
-            uid=frame_uid,
-            inner_node_uids=inner_node_uids,
-        ))
+        frames.append(
+            SequenceFrame(
+                index=i,
+                uid=frame_uid,
+                inner_node_uids=inner_node_uids,
+            )
+        )
 
     return ParsedFlatSequenceStructure(
         uid=seq_uid,
@@ -129,9 +131,7 @@ def _extract_inner_node_uids(frame_elem: ET.Element) -> list[str]:
     # nodeList + zPlaneList structures (so a nested flat sequence isn't orphaned).
     diag_list = frame_elem.find("diagramList")
     if diag_list is not None:
-        for diag_elem in diag_list.findall(
-            "SL__arrayElement[@class='diag']"
-        ):
+        for diag_elem in diag_list.findall("SL__arrayElement[@class='diag']"):
             inner_node_uids.extend(frame_inner_node_uids(diag_elem))
     else:
         inner_node_uids.extend(frame_inner_node_uids(frame_elem))

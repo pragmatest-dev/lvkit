@@ -23,7 +23,7 @@ def build_relative_path(path_tokens: list[str]) -> str:
         ['Utility', 'sysdir.llb', 'System Directory Type.ctl']
         → 'Utility/sysdir.llb/System Directory Type.ctl'
     """
-    return '/'.join(path_tokens)
+    return "/".join(path_tokens)
 
 
 def build_qualified_name(owner_chain: list[str], item_name: str) -> str:
@@ -53,7 +53,7 @@ def build_qualified_name(owner_chain: list[str], item_name: str) -> str:
     """
     if not owner_chain:
         return item_name
-    return ':'.join(owner_chain) + ':' + item_name
+    return ":".join(owner_chain) + ":" + item_name
 
 
 def parse_qualified_name(qualified_name: str) -> tuple[list[str], str]:
@@ -71,7 +71,7 @@ def parse_qualified_name(qualified_name: str) -> tuple[list[str], str]:
         'Lib.lvlib:Class.lvclass:Method.vi'
             → (['Lib.lvlib', 'Class.lvclass'], 'Method.vi')
     """
-    parts = qualified_name.split(':')
+    parts = qualified_name.split(":")
     if len(parts) == 1:
         return [], parts[0]
     return parts[:-1], parts[-1]

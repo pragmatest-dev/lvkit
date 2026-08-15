@@ -131,10 +131,13 @@ class LVType:
         if self.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
             members = (
                 [
-                    name for name, _ev in
-                    sorted(self.values.items(), key=lambda kv: kv[1].value)
+                    name
+                    for name, _ev in sorted(
+                        self.values.items(), key=lambda kv: kv[1].value
+                    )
                 ]
-                if self.values else []
+                if self.values
+                else []
             )
             body = "{" + ", ".join(members) + "}"
             if self.typedef_name:
@@ -162,8 +165,7 @@ class LVType:
                     # cluster}``, ``Notifier refnum{DBL}``.
                     if self.element_type is not None:
                         return (
-                            f"{self.ref_type} refnum"
-                            f"{{{self.element_type.lv_label()}}}"
+                            f"{self.ref_type} refnum{{{self.element_type.lv_label()}}}"
                         )
                     return f"{self.ref_type} refnum"
                 return "refnum"
@@ -329,13 +331,13 @@ class Terminal(BaseModel):
         name = (self.name or "").lower()
         if "no error" in name:
             return True
-        return bool(
-            re.search(r"\berror\s+(in|out)\b", name)
-        )
+        return bool(re.search(r"\berror\s+(in|out)\b", name))
 
 
 def bundle_unbundle_name(
-    terminals: list[Terminal], *, by_name: bool = False,
+    terminals: list[Terminal],
+    *,
+    by_name: bool = False,
 ) -> str | None:
     """Human Bundle/Unbundle name from FIELD (``nmux_role=="list"``) terminal
     direction -- the ONE rule behind the whole cluster-mux family (nMux/mux/
@@ -356,9 +358,7 @@ def bundle_unbundle_name(
     return "Bundle" if bundling else "Unbundle"
 
 
-def inplace_border_name(
-    node_type: str, terminals: list[Terminal]
-) -> str | None:
+def inplace_border_name(node_type: str, terminals: list[Terminal]) -> str | None:
     """Faithful per-tile name for the two IN-PLACE-ELEMENT-STRUCTURE border
     nodes that carry no field shape (unlike ``decomposeClusterNode``, which
     goes through :func:`bundle_unbundle_name`). Both halves of the pair share a
@@ -384,7 +384,8 @@ def inplace_border_name(
         return None
     if node_type == "decomposeArrayNode":
         has_array_out = any(
-            t.lv_type is not None and t.lv_type.kind == LVTypeKind.ARRAY
+            t.lv_type is not None
+            and t.lv_type.kind == LVTypeKind.ARRAY
             and t.direction == "output"
             for t in terminals
         )
@@ -533,7 +534,7 @@ class SelectorRange(BaseModel):
     start: int
     end: int
     open_start: bool = False  # "..end" — no lower bound
-    open_end: bool = False    # "start.." — no upper bound
+    open_end: bool = False  # "start.." — no upper bound
 
     @property
     def is_single(self) -> bool:
@@ -837,11 +838,22 @@ Frame.model_rebuild()
 # faithful text label reads the full word) and stay defined separately in
 # each consumer — see ``_LV_LABEL_SCALAR`` below and ``render/style.py``.
 _LV_NUMERIC_TYPE_LABEL: dict[str, str] = {
-    "NumFloat64": "DBL", "NumFloat32": "SGL", "NumFloatExt": "EXT",
-    "NumComplex64": "CSG", "NumComplex128": "CDB", "NumComplexExt": "CXT",
-    "NumInt8": "I8", "NumInt16": "I16", "NumInt32": "I32", "NumInt64": "I64",
-    "NumUInt8": "U8", "NumUInt16": "U16", "NumUInt32": "U32", "NumUInt64": "U64",
-    "Boolean": "TF", "Path": "Path",
+    "NumFloat64": "DBL",
+    "NumFloat32": "SGL",
+    "NumFloatExt": "EXT",
+    "NumComplex64": "CSG",
+    "NumComplex128": "CDB",
+    "NumComplexExt": "CXT",
+    "NumInt8": "I8",
+    "NumInt16": "I16",
+    "NumInt32": "I32",
+    "NumInt64": "I64",
+    "NumUInt8": "U8",
+    "NumUInt16": "U16",
+    "NumUInt32": "U32",
+    "NumUInt64": "U64",
+    "Boolean": "TF",
+    "Path": "Path",
 }
 
 # The full faithful-label scalar map used by ``LVType.lv_label()`` — the
@@ -851,7 +863,8 @@ _LV_NUMERIC_TYPE_LABEL: dict[str, str] = {
 _LV_LABEL_SCALAR: dict[str, str] = {
     **_LV_NUMERIC_TYPE_LABEL,
     "String": "String",
-    "Variant": "Variant", "LVVariant": "Variant",
+    "Variant": "Variant",
+    "LVVariant": "Variant",
 }
 
 _LV_TO_PYTHON_TYPE: dict[str, str] = {

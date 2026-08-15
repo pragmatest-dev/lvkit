@@ -38,6 +38,7 @@ from enum import Enum
 INPUT = "input"
 OUTPUT = "output"
 
+
 class WiredTo(str, Enum):
     """What a block-diagram constant's output wire feeds — precomputed on
     ``ConstantFact.wired_to`` so "constants wired to indicators" is a filter, not
@@ -163,15 +164,15 @@ class LVProjMemberFact:
     the ``.lvproj`` tree — see ``structure.LVProjectMember``.
     """
 
-    lvproj_path: str        # abs path to the .lvproj file
-    lvproj_name: str        # .lvproj stem, e.g. 'VIUnit'
-    member_name: str        # member item name as declared in the .lvproj
-    member_url: str         # raw URL string from the .lvproj (pre-resolution)
+    lvproj_path: str  # abs path to the .lvproj file
+    lvproj_name: str  # .lvproj stem, e.g. 'VIUnit'
+    member_name: str  # member item name as declared in the .lvproj
+    member_url: str  # raw URL string from the .lvproj (pre-resolution)
     resolved_path: str | None  # abs on-disk path, or None if it doesn't resolve
-    member_type: str        # VI | Control | LVClass | Library
-    is_in_repo: bool        # resolves to a file under the indexed project root
-    target: str             # target Item it lives under (e.g. 'My Computer')
-    is_dependency: bool      # in the auto-collected Dependencies group
+    member_type: str  # VI | Control | LVClass | Library
+    is_in_repo: bool  # resolves to a file under the indexed project root
+    target: str  # target Item it lives under (e.g. 'My Computer')
+    is_dependency: bool  # in the auto-collected Dependencies group
 
 
 @dataclass

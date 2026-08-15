@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Num:
-    text: str          # original literal text (preserves int vs float form)
+    text: str  # original literal text (preserves int vs float form)
     is_float: bool
 
 
@@ -24,7 +24,7 @@ class Var:
 
 @dataclass
 class Index:
-    base: Expr         # array expression: a Var, or another Index for N-D (a[i][j])
+    base: Expr  # array expression: a Var, or another Index for N-D (a[i][j])
     index: Expr
 
 
@@ -36,13 +36,13 @@ class Call:
 
 @dataclass
 class Unary:
-    op: str            # "-", "!", "~"
+    op: str  # "-", "!", "~"
     operand: Expr
 
 
 @dataclass
 class Binary:
-    op: str            # "+", "-", "*", "/", "%", "**", "<", "&", "<<", ...
+    op: str  # "+", "-", "*", "/", "%", "**", "<", "&", "<<", ...
     left: Expr
     right: Expr
 
@@ -55,7 +55,7 @@ LValue = Var | Index
 
 @dataclass
 class Decl:
-    type_kw: str                       # formula-node type keyword, e.g. "int16"
+    type_kw: str  # formula-node type keyword, e.g. "int16"
     # one entry per declared name; init is None when there is no initializer
     items: list[tuple[str, Expr | None]]
 
@@ -69,7 +69,7 @@ class Assign:
 @dataclass
 class IncDec:
     name: str
-    op: str            # "++" or "--"
+    op: str  # "++" or "--"
 
 
 @dataclass
@@ -114,6 +114,4 @@ class Empty:
     pass
 
 
-Stmt = (
-    Decl | Assign | IncDec | If | For | While | DoWhile | Block | ExprStmt | Empty
-)
+Stmt = Decl | Assign | IncDec | If | For | While | DoWhile | Block | ExprStmt | Empty

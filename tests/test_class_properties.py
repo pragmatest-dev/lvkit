@@ -33,8 +33,13 @@ MEASUREMENT_ROOT = SAMPLES / "measurement-plugin-labview"
 DCAF_ROOT = SAMPLES / "DCAF-DAQModule"
 
 SESSION_RESERVATION = (
-    MEASUREMENT_ROOT / "Source" / "Runtime" / "Clients" / "Session Management V1"
-    / "Session Reservation" / "Session Reservation.lvclass"
+    MEASUREMENT_ROOT
+    / "Source"
+    / "Runtime"
+    / "Clients"
+    / "Session Management V1"
+    / "Session Reservation"
+    / "Session Reservation.lvclass"
 )
 
 
@@ -56,7 +61,8 @@ def test_scope_map_resolves_community() -> None:
     scopes = {m.scope for m in cls.methods}
     assert "community" in scopes
     assert "public" not in {  # a value-4 method must NOT default to "public"
-        m.scope for m in cls.methods
+        m.scope
+        for m in cls.methods
         if m.name in {"Register Sessions Wrapper", "Session Client FGV"}
     }
 
@@ -83,7 +89,10 @@ def test_ancestor_chain_resolves_across_directories() -> None:
     not a sibling of the child) -- the walk-up+rglob resolution must still
     find it and continue to the root (TestResult)."""
     lvclass_path = (
-        JKI_ROOT / "Ant Plugin" / "Source" / "_TextTestResult.Ant"
+        JKI_ROOT
+        / "Ant Plugin"
+        / "Source"
+        / "_TextTestResult.Ant"
         / "_TextTestResult.JUnitXML.lvclass"
     )
     _skip_unless(lvclass_path)
@@ -105,26 +114,31 @@ def test_root_class_has_empty_ancestor_chain() -> None:
 
 def test_must_override_true_and_false() -> None:
     must_override_true = (
-        MEASUREMENT_ROOT / "Source" / "Runtime" / "Measurements"
-        / "Measurement Plugin Service" / "Measurement Plugin Service.lvclass"
+        MEASUREMENT_ROOT
+        / "Source"
+        / "Runtime"
+        / "Measurements"
+        / "Measurement Plugin Service"
+        / "Measurement Plugin Service.lvclass"
     )
     must_override_false = (
-        MEASUREMENT_ROOT / "Source" / "Runtime" / "Sessions" / "Instrument"
-        / "ISession Factory" / "ISession Factory.lvclass"
+        MEASUREMENT_ROOT
+        / "Source"
+        / "Runtime"
+        / "Sessions"
+        / "Instrument"
+        / "ISession Factory"
+        / "ISession Factory.lvclass"
     )
     _skip_unless(must_override_true)
     _skip_unless(must_override_false)
 
     service = parse_lvclass(must_override_true)
-    get_plugin_paths = next(
-        m for m in service.methods if m.name == "Get Plugin Paths"
-    )
+    get_plugin_paths = next(m for m in service.methods if m.name == "Get Plugin Paths")
     assert get_plugin_paths.must_override is True
 
     factory = parse_lvclass(must_override_false)
-    clean_up = next(
-        m for m in factory.methods if m.name == "Clean Up After Init Error"
-    )
+    clean_up = next(m for m in factory.methods if m.name == "Clean Up After Init Error")
     assert clean_up.must_override is False
 
 

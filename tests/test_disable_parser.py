@@ -30,46 +30,86 @@ def _build_disable_xml(
     each with a nodeList) / selString (active frame's label) / activeDiag.
     """
     root = ET.Element("root")
-    comment = ET.SubElement(root, "SL__arrayElement", attrib={
-        "class": "commentNode", "uid": comment_uid,
-    })
+    comment = ET.SubElement(
+        root,
+        "SL__arrayElement",
+        attrib={
+            "class": "commentNode",
+            "uid": comment_uid,
+        },
+    )
 
     term_list = ET.SubElement(comment, "termList")
     if outer_term_uid is not None and inner_term_uids is not None:
-        term = ET.SubElement(term_list, "SL__arrayElement", attrib={
-            "class": "term", "uid": outer_term_uid,
-        })
-        dco = ET.SubElement(term, "dco", attrib={
-            "class": "commentTun", "uid": f"dco_{outer_term_uid}",
-        })
+        term = ET.SubElement(
+            term_list,
+            "SL__arrayElement",
+            attrib={
+                "class": "term",
+                "uid": outer_term_uid,
+            },
+        )
+        dco = ET.SubElement(
+            term,
+            "dco",
+            attrib={
+                "class": "commentTun",
+                "uid": f"dco_{outer_term_uid}",
+            },
+        )
         dco_term_list = ET.SubElement(dco, "termList")
         for inner_uid in inner_term_uids:
-            ET.SubElement(dco_term_list, "SL__arrayElement", attrib={
-                "uid": inner_uid,
-            })
+            ET.SubElement(
+                dco_term_list,
+                "SL__arrayElement",
+                attrib={
+                    "uid": inner_uid,
+                },
+            )
         # Outer terminal is last in its own dco's termList (selTun-style).
-        ET.SubElement(dco_term_list, "SL__arrayElement", attrib={
-            "uid": outer_term_uid,
-        })
+        ET.SubElement(
+            dco_term_list,
+            "SL__arrayElement",
+            attrib={
+                "uid": outer_term_uid,
+            },
+        )
 
     diag_list = ET.SubElement(comment, "diagramList")
     for i, node_uids in enumerate(frame_node_uids):
-        diag = ET.SubElement(diag_list, "SL__arrayElement", attrib={
-            "class": "diag", "uid": f"diag_{i}",
-        })
+        diag = ET.SubElement(
+            diag_list,
+            "SL__arrayElement",
+            attrib={
+                "class": "diag",
+                "uid": f"diag_{i}",
+            },
+        )
         node_list = ET.SubElement(diag, "nodeList")
         for node_uid in node_uids:
-            ET.SubElement(node_list, "SL__arrayElement", attrib={
-                "uid": node_uid,
-            })
+            ET.SubElement(
+                node_list,
+                "SL__arrayElement",
+                attrib={
+                    "uid": node_uid,
+                },
+            )
 
     if active_label is not None:
-        sel_string = ET.SubElement(comment, "selString", attrib={
-            "class": "selLabel",
-        })
-        text_rec = ET.SubElement(sel_string, "textRec", attrib={
-            "class": "textHair",
-        })
+        sel_string = ET.SubElement(
+            comment,
+            "selString",
+            attrib={
+                "class": "selLabel",
+            },
+        )
+        text_rec = ET.SubElement(
+            sel_string,
+            "textRec",
+            attrib={
+                "class": "textHair",
+            },
+        )
         ET.SubElement(text_rec, "text").text = f'"{active_label}"'
 
     if active_diag is not None:
@@ -81,7 +121,9 @@ def _build_disable_xml(
 class TestIsDisableStructure:
     def test_true_for_structure_with_diag_children(self):
         root = _build_disable_xml(
-            "100", active_diag="01", active_label=" Disabled ",
+            "100",
+            active_diag="01",
+            active_label=" Disabled ",
             frame_node_uids=[["200"], []],
         )
         comment = root.find(".//*[@class='commentNode']")
@@ -90,17 +132,27 @@ class TestIsDisableStructure:
 
     def test_false_for_plain_comment_without_diagramlist(self):
         root = ET.Element("root")
-        comment = ET.SubElement(root, "SL__arrayElement", attrib={
-            "class": "commentNode", "uid": "999",
-        })
+        comment = ET.SubElement(
+            root,
+            "SL__arrayElement",
+            attrib={
+                "class": "commentNode",
+                "uid": "999",
+            },
+        )
         ET.SubElement(comment, "label")
         assert is_disable_structure(comment) is False
 
     def test_false_for_diagramlist_with_no_diag_children(self):
         root = ET.Element("root")
-        comment = ET.SubElement(root, "SL__arrayElement", attrib={
-            "class": "commentNode", "uid": "999",
-        })
+        comment = ET.SubElement(
+            root,
+            "SL__arrayElement",
+            attrib={
+                "class": "commentNode",
+                "uid": "999",
+            },
+        )
         ET.SubElement(comment, "diagramList")
         assert is_disable_structure(comment) is False
 
@@ -113,7 +165,9 @@ class TestExtractDisableStructures:
         gets the fixed complementary label ('Enabled'), a LabVIEW product
         invariant for the 2-frame case (not a guess)."""
         root = _build_disable_xml(
-            "1926", active_diag="01", active_label=" Disabled ",
+            "1926",
+            active_diag="01",
+            active_label=" Disabled ",
             frame_node_uids=[["1938", "190"], ["1945"]],
         )
         structures = extract_disable_structures(root)
@@ -139,7 +193,9 @@ class TestExtractDisableStructures:
         active one -- non-active frames get an honest 'Frame N' placeholder
         rather than a guessed symbol name."""
         root = _build_disable_xml(
-            "390", active_diag="02", active_label=" Default ",
+            "390",
+            active_diag="02",
+            active_label=" Default ",
             frame_node_uids=[["401"], ["416"], ["429"]],
         )
         structures = extract_disable_structures(root)
@@ -158,9 +214,12 @@ class TestExtractDisableStructures:
         inner terminal per frame (positionally identical to a case's
         selTun): [frame0_inner, frame1_inner, ..., outer_self]."""
         root = _build_disable_xml(
-            "1926", active_diag="01", active_label=" Disabled ",
+            "1926",
+            active_diag="01",
+            active_label=" Disabled ",
             frame_node_uids=[["1938", "190"], ["1945"]],
-            outer_term_uid="1962", inner_term_uids=["1960", "1961"],
+            outer_term_uid="1962",
+            inner_term_uids=["1960", "1961"],
         )
         structures = extract_disable_structures(root)
 
@@ -173,7 +232,12 @@ class TestExtractDisableStructures:
 
     def test_no_disable_structures_when_none_present(self):
         root = ET.Element("root")
-        ET.SubElement(root, "SL__arrayElement", attrib={
-            "class": "commentNode", "uid": "1",
-        })
+        ET.SubElement(
+            root,
+            "SL__arrayElement",
+            attrib={
+                "class": "commentNode",
+                "uid": "1",
+            },
+        )
         assert extract_disable_structures(root) == []

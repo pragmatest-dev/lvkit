@@ -22,6 +22,7 @@ Usage:
     uv run python scripts/extract_corpus.py --batch 25      # smaller batches
     uv run python scripts/extract_corpus.py --force         # re-extract all
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,16 +57,22 @@ def main() -> None:
 
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", default=".lvkit/cache/samples")
-    ap.add_argument("--batch", type=int, default=50,
-                    help="VIs per worker subprocess (default 50)")
-    ap.add_argument("--force", action="store_true",
-                    help="re-extract even if the cached XML is fresh")
+    ap.add_argument(
+        "--batch", type=int, default=50, help="VIs per worker subprocess (default 50)"
+    )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="re-extract even if the cached XML is fresh",
+    )
     args = ap.parse_args()
 
     vis = sorted(Path(args.root).rglob("*.vi"))
-    print(f"{len(vis)} VIs under {args.root} -> .lvkit/cache/extracted/ "
-          f"(batch={args.batch}, {'force' if args.force else 'resume'})",
-          flush=True)
+    print(
+        f"{len(vis)} VIs under {args.root} -> .lvkit/cache/extracted/ "
+        f"(batch={args.batch}, {'force' if args.force else 'resume'})",
+        flush=True,
+    )
 
     me = str(Path(__file__).resolve())
     ok = fail = 0
@@ -85,10 +92,16 @@ def main() -> None:
         if proc.returncode != 0 and not proc.stdout:
             # worker died outright (e.g. OOM-killed) — report and keep going
             fail += len(batch)
-            print(f"  WORKER DIED on batch at {start} "
-                  f"(rc={proc.returncode}) {proc.stderr[-200:]}", flush=True)
-        print(f"  ...{min(start + args.batch, len(vis))}/{len(vis)} "
-              f"(ok={ok} fail={fail})", flush=True)
+            print(
+                f"  WORKER DIED on batch at {start} "
+                f"(rc={proc.returncode}) {proc.stderr[-200:]}",
+                flush=True,
+            )
+        print(
+            f"  ...{min(start + args.batch, len(vis))}/{len(vis)} "
+            f"(ok={ok} fail={fail})",
+            flush=True,
+        )
 
     print(f"DONE: extracted {ok}, failed {fail}, of {len(vis)}", flush=True)
 

@@ -96,11 +96,14 @@ def class_graph() -> InMemoryVIGraph:
     counter_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32")
     label_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     _add_class(
-        g, "Base.lvclass",
+        g,
+        "Base.lvclass",
         fields=[ClusterField(name="counter", type=counter_type)],
     )
     _add_class(
-        g, "Mid.lvclass", parent_class="Base",
+        g,
+        "Mid.lvclass",
+        parent_class="Base",
         fields=[ClusterField(name="label", type=label_type)],
     )
     _add_class(g, "Leaf.lvclass", parent_class="Mid", fields=[])
@@ -108,8 +111,15 @@ def class_graph() -> InMemoryVIGraph:
     _add_method(g, "Base.lvclass", "run.vi", scope="public")
     _add_method(g, "Mid.lvclass", "run.vi", scope="public")
     # Leaf deliberately has no "run.vi" — overridden_by should skip it.
-    _add_method(g, "Mid.lvclass", "Read label.vi", scope="private",
-                is_accessor=True, accessor_type="getter", accessor_field="label")
+    _add_method(
+        g,
+        "Mid.lvclass",
+        "Read label.vi",
+        scope="private",
+        is_accessor=True,
+        accessor_type="getter",
+        accessor_field="label",
+    )
     _add_method(g, "Leaf.lvclass", "onlyOnLeaf.vi", scope="protected")
     # An undocumented method VI on Base (not in list_vis()) — must not
     # appear in ClassHierarchyInfo.methods.
@@ -121,7 +131,9 @@ def class_graph() -> InMemoryVIGraph:
 class TestListClasses:
     def test_lists_only_class_nodes(self, class_graph: InMemoryVIGraph):
         assert class_graph.list_classes() == [
-            "Base.lvclass", "Leaf.lvclass", "Mid.lvclass",
+            "Base.lvclass",
+            "Leaf.lvclass",
+            "Mid.lvclass",
         ]
 
     def test_excludes_stub_classes(self, class_graph: InMemoryVIGraph):
@@ -247,7 +259,8 @@ class TestOwningLibrary:
         assert g.get_owning_library("SomeOther.vi") is None
 
     def test_get_owning_library_ignores_class_predecessor(
-        self, class_graph: InMemoryVIGraph,
+        self,
+        class_graph: InMemoryVIGraph,
     ):
         """A class-owned method's owner is a ``class`` node, never surfaced by
         ``get_owning_library`` — the two queries are disjoint scans over the
@@ -353,7 +366,8 @@ class TestClassPageGeneration:
             fields=[
                 ClassFieldEntry(
                     field=ClusterField(
-                        name="x", type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32")
+                        name="x",
+                        type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32"),
                     ),
                     inherited=False,
                 ),

@@ -115,16 +115,18 @@ def extract_constants(root: ET.Element) -> list[ParsedConstant]:
         label = _extract_caption(dco)
 
         if value_hex is not None:
-            constants.append(ParsedConstant(
-                uid=uid or "",
-                type_desc=(
-                    (type_desc.text or "unknown")
-                    if type_desc is not None
-                    else "unknown"
-                ),
-                value=value_hex,
-                label=label,
-                display_format=_extract_display_format(dco),
-            ))
+            constants.append(
+                ParsedConstant(
+                    uid=uid or "",
+                    type_desc=(
+                        (type_desc.text or "unknown")
+                        if type_desc is not None
+                        else "unknown"
+                    ),
+                    value=value_hex,
+                    label=label,
+                    display_format=_extract_display_format(dco),
+                )
+            )
 
     return constants

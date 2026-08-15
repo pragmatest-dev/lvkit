@@ -129,9 +129,7 @@ def _patterns() -> dict[int, PanePattern]:
             cols=cols,
             rows=rows,
             cells=tuple(cells),
-            terminal_order=(
-                tuple(int(i) for i in raw_order) if raw_order else None
-            ),
+            terminal_order=(tuple(int(i) for i in raw_order) if raw_order else None),
         )
     return out
 

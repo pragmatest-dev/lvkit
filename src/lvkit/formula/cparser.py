@@ -37,21 +37,43 @@ from .nodes import (
 
 # Numeric type keywords that may open a declaration. ``float`` is a LabVIEW
 # alias for float64. ``int`` is intentionally absent — it is a function.
-TYPE_KEYWORDS: frozenset[str] = frozenset({
-    "int8", "int16", "int32", "int64",
-    "uInt8", "uInt16", "uInt32", "uInt64",
-    "float32", "float64", "float",
-})
+TYPE_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "uInt8",
+        "uInt16",
+        "uInt32",
+        "uInt64",
+        "float32",
+        "float64",
+        "float",
+    }
+)
 
 # Left-associative binary operators by precedence (higher binds tighter).
 # ``**`` is handled separately (right-assoc, above unary).
 _BINARY_PREC: dict[str, int] = {
-    "||": 1, "&&": 2, "|": 3, "^": 4, "&": 5,
-    "==": 6, "!=": 6,
-    "<": 7, "<=": 7, ">": 7, ">=": 7,
-    "<<": 8, ">>": 8,
-    "+": 9, "-": 9,
-    "*": 10, "/": 10, "%": 10,
+    "||": 1,
+    "&&": 2,
+    "|": 3,
+    "^": 4,
+    "&": 5,
+    "==": 6,
+    "!=": 6,
+    "<": 7,
+    "<=": 7,
+    ">": 7,
+    ">=": 7,
+    "<<": 8,
+    ">>": 8,
+    "+": 9,
+    "-": 9,
+    "*": 10,
+    "/": 10,
+    "%": 10,
 }
 
 _UNARY_OPS = frozenset({"-", "+", "!", "~"})
@@ -100,9 +122,7 @@ class Parser:
 
     def _err(self, msg: str, tok: Token | None = None) -> FormulaTranspileError:
         t = tok or self._peek() or (self.toks[-1] if self.toks else None)
-        return FormulaTranspileError(
-            msg, t.line if t else None, t.col if t else None
-        )
+        return FormulaTranspileError(msg, t.line if t else None, t.col if t else None)
 
     # --- entry ---
 
@@ -220,8 +240,12 @@ class Parser:
         """Assignment, increment/decrement, or bare expression statement."""
         # Declarations can appear in a for-init position.
         t = self._peek()
-        if t is not None and t.kind == "ident" and t.value in TYPE_KEYWORDS \
-                and self._is_decl():
+        if (
+            t is not None
+            and t.kind == "ident"
+            and t.value in TYPE_KEYWORDS
+            and self._is_decl()
+        ):
             # _parse_decl consumes its own ';'; only valid when require_semi.
             if not require_semi:
                 raise self._err("declaration not allowed here", t)
@@ -287,8 +311,9 @@ class Parser:
     def _parse_primary(self) -> Expr:
         t = self._next()
         if t.kind == "num":
-            return Num(t.value, is_float=("." in t.value or "e" in t.value
-                                          or "E" in t.value))
+            return Num(
+                t.value, is_float=("." in t.value or "e" in t.value or "E" in t.value)
+            )
         if t.value == "(":
             inner = self.parse_expr()
             self._expect(")")

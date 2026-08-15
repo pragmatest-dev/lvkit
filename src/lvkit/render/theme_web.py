@@ -81,7 +81,8 @@ def _hex_fields(theme: Theme) -> list[str]:
     float) — the same predicate ``css_var_theme()`` uses, so the CSS covers
     exactly the set of vars an inlined var-theme SVG expects."""
     return [
-        f.name for f in dataclasses.fields(theme)
+        f.name
+        for f in dataclasses.fields(theme)
         if isinstance(getattr(theme, f.name), str)
         and getattr(theme, f.name).startswith("#")
     ]

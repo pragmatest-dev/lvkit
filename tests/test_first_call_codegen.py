@@ -88,8 +88,13 @@ class TestExecutesAndPersistsAcrossCalls:
         func_def = ast.FunctionDef(
             name="run",
             args=ast.arguments(
-                posonlyargs=[], args=[], vararg=None, kwonlyargs=[],
-                kw_defaults=[], kwarg=None, defaults=[],
+                posonlyargs=[],
+                args=[],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
             ),
             body=[
                 *fragment.statements,
@@ -98,7 +103,8 @@ class TestExecutesAndPersistsAcrossCalls:
             decorator_list=[],
         )
         module = ast.Module(
-            body=[ctx.module_globals[global_name], func_def], type_ignores=[],
+            body=[ctx.module_globals[global_name], func_def],
+            type_ignores=[],
         )
         ast.fix_missing_locations(module)
         ns: dict = {}

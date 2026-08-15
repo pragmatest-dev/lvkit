@@ -64,7 +64,8 @@ def _make_op(
         )
     if prim_res_id is not None:
         return PrimitiveOperation(
-            **common, primResID=prim_res_id,
+            **common,
+            primResID=prim_res_id,
         )
     return Operation(**common)
 
@@ -77,8 +78,11 @@ def _make_terminal(
     lv_type: LVType | None = None,
 ) -> Terminal:
     return Terminal(
-        id=tid, direction=direction, index=index,
-        name=name, lv_type=lv_type,
+        id=tid,
+        direction=direction,
+        index=index,
+        name=name,
+        lv_type=lv_type,
     )
 
 
@@ -296,27 +300,40 @@ class TestClearErrorsWrapping:
     def test_clear_wraps_preceding_statements(self):
         """A → Clear Errors → B: wraps A, B is outside."""
         a_out = _make_terminal(
-            "a_out", "output", index=0, name="error out",
+            "a_out",
+            "output",
+            index=0,
+            name="error out",
         )
         cl_in = _make_terminal(
-            "cl_in", "input", index=0, name="error in",
+            "cl_in",
+            "input",
+            index=0,
+            name="error in",
         )
         cl_out = _make_terminal(
-            "cl_out", "output", index=1, name="r",
+            "cl_out",
+            "output",
+            index=1,
+            name="r",
         )
         b_in = _make_terminal("b_in", "input", index=0, name="x")
 
         op_a = _make_op("A", name="op_a", terminals=[a_out])
         op_cl = _make_op(
-            "CL", name="Clear Errors.vi",
-            kind="vi", terminals=[cl_in, cl_out],
+            "CL",
+            name="Clear Errors.vi",
+            kind="vi",
+            terminals=[cl_in, cl_out],
         )
         op_b = _make_op("B", name="op_b", terminals=[b_in])
 
-        ctx = _make_chain_ctx({
-            "cl_in": "a_out",  # CL depends on A
-            "b_in": "cl_out",  # B depends on CL
-        })
+        ctx = _make_chain_ctx(
+            {
+                "cl_in": "a_out",  # CL depends on A
+                "b_in": "cl_out",  # B depends on CL
+            }
+        )
 
         stmts = generate_body([op_a, op_cl, op_b], ctx)
         code = _stmts_to_code(stmts)
@@ -326,12 +343,17 @@ class TestClearErrorsWrapping:
     def test_clear_without_preceding_is_noop(self):
         """Clear Errors with nothing before it — no wrapping."""
         cl_in = _make_terminal(
-            "cl_in", "input", index=0, name="error in",
+            "cl_in",
+            "input",
+            index=0,
+            name="error in",
         )
         ops = [
             _make_op(
-                "CL", name="Clear Errors.vi",
-                kind="vi", terminals=[cl_in],
+                "CL",
+                name="Clear Errors.vi",
+                kind="vi",
+                terminals=[cl_in],
             ),
         ]
         vi_ctx = VIContext(name="test_vi", operations=ops)
@@ -349,35 +371,55 @@ class TestClearErrorsWrapping:
         a_out = _make_terminal("a_out", "output", index=0, name="r")
         b_in = _make_terminal("b_in", "input", index=0, name="x")
         b_out = _make_terminal(
-            "b_out", "output", index=1, name="data out",
+            "b_out",
+            "output",
+            index=1,
+            name="data out",
         )
         c_in = _make_terminal(
-            "c_in", "input", index=0, name="data in",
+            "c_in",
+            "input",
+            index=0,
+            name="data in",
         )
         c_out = _make_terminal(
-            "c_out", "output", index=1, name="error out",
+            "c_out",
+            "output",
+            index=1,
+            name="error out",
         )
         cl_in = _make_terminal(
-            "cl_in", "input", index=0, name="error in",
+            "cl_in",
+            "input",
+            index=0,
+            name="error in",
         )
 
         op_a = _make_op("A", name="op_a", terminals=[a_out])
         op_b = _make_op(
-            "B", name="op_b", terminals=[b_in, b_out],
+            "B",
+            name="op_b",
+            terminals=[b_in, b_out],
         )
         op_c = _make_op(
-            "C", name="op_c", terminals=[c_in, c_out],
+            "C",
+            name="op_c",
+            terminals=[c_in, c_out],
         )
         op_cl = _make_op(
-            "CL", name="Clear Errors.vi",
-            kind="vi", terminals=[cl_in],
+            "CL",
+            name="Clear Errors.vi",
+            kind="vi",
+            terminals=[cl_in],
         )
 
-        ctx = _make_chain_ctx({
-            "b_in": "a_out",   # B depends on A (data)
-            "c_in": "b_out",   # C depends on B (data)
-            "cl_in": "c_out",  # CL depends on C (error wire)
-        })
+        ctx = _make_chain_ctx(
+            {
+                "b_in": "a_out",  # B depends on A (data)
+                "c_in": "b_out",  # C depends on B (data)
+                "cl_in": "c_out",  # CL depends on C (error wire)
+            }
+        )
 
         stmts = generate_body([op_a, op_b, op_c, op_cl], ctx)
         code = _stmts_to_code(stmts)
@@ -387,33 +429,37 @@ class TestClearErrorsWrapping:
         # A and B should be OUTSIDE the try/except
         lines = code.split("\n")
         try_idx = next(
-            (i for i, ln in enumerate(lines) if "try:" in ln), -1,
+            (i for i, ln in enumerate(lines) if "try:" in ln),
+            -1,
         )
         a_idx = next(
-            (i for i, ln in enumerate(lines) if "op_a" in ln), -1,
+            (i for i, ln in enumerate(lines) if "op_a" in ln),
+            -1,
         )
         b_idx = next(
-            (i for i, ln in enumerate(lines) if "op_b" in ln), -1,
+            (i for i, ln in enumerate(lines) if "op_b" in ln),
+            -1,
         )
         assert a_idx >= 0 and b_idx >= 0 and try_idx >= 0
-        assert a_idx < try_idx, (
-            f"op_a (line {a_idx}) should be before try ({try_idx})"
-        )
-        assert b_idx < try_idx, (
-            f"op_b (line {b_idx}) should be before try ({try_idx})"
-        )
+        assert a_idx < try_idx, f"op_a (line {a_idx}) should be before try ({try_idx})"
+        assert b_idx < try_idx, f"op_b (line {b_idx}) should be before try ({try_idx})"
 
     def test_clear_fallback_wraps_all_without_graph(self):
         """Without a graph, Clear Errors wraps all statements."""
         a_out = _make_terminal("a_out", "output", index=0, name="r")
         cl_in = _make_terminal(
-            "cl_in", "input", index=0, name="error in",
+            "cl_in",
+            "input",
+            index=0,
+            name="error in",
         )
 
         op_a = _make_op("A", name="op_a", terminals=[a_out])
         op_cl = _make_op(
-            "CL", name="Clear Errors.vi",
-            kind="vi", terminals=[cl_in],
+            "CL",
+            name="Clear Errors.vi",
+            kind="vi",
+            terminals=[cl_in],
         )
 
         # No graph, no mock get_source — default ctx
@@ -443,29 +489,44 @@ class TestErrorBundleRaise:
         )
         # AGG terminal carries the error cluster type
         agg_in = Terminal(
-            id="agg_in", direction="input", index=0,
-            name="error", lv_type=error_type,
+            id="agg_in",
+            direction="input",
+            index=0,
+            name="error",
+            lv_type=error_type,
             nmux_role="agg",
         )
         agg_out = Terminal(
-            id="agg_out", direction="output", index=0,
-            name="error", lv_type=error_type,
+            id="agg_out",
+            direction="output",
+            index=0,
+            name="error",
+            lv_type=error_type,
             nmux_role="agg",
         )
         # LIST inputs: status, code, source
         status_in = Terminal(
-            id="status_in", direction="input", index=1,
-            name="status", nmux_role="list",
+            id="status_in",
+            direction="input",
+            index=1,
+            name="status",
+            nmux_role="list",
             nmux_field_index=0,
         )
         code_in = Terminal(
-            id="code_in", direction="input", index=2,
-            name="code", nmux_role="list",
+            id="code_in",
+            direction="input",
+            index=2,
+            name="code",
+            nmux_role="list",
             nmux_field_index=1,
         )
         source_in = Terminal(
-            id="source_in", direction="input", index=3,
-            name="source", nmux_role="list",
+            id="source_in",
+            direction="input",
+            index=3,
+            name="source",
+            nmux_role="list",
             nmux_field_index=2,
         )
 
@@ -495,6 +556,7 @@ class TestErrorBundleRaise:
                     ClusterField(name="code"),
                     ClusterField(name="source"),
                 ]
+
         ctx.graph = cast(InMemoryVIGraph, FakeGraph())
 
         fragment = nmux.generate(op, ctx)
@@ -515,14 +577,20 @@ class TestErrorBundleRaise:
             typedef_name="Error Cluster",
         )
         agg_in = Terminal(
-            id="agg_in", direction="input", index=0,
-            name="error", lv_type=error_type,
+            id="agg_in",
+            direction="input",
+            index=0,
+            name="error",
+            lv_type=error_type,
             nmux_role="agg",
         )
         # Only bundling code, not status
         code_in = Terminal(
-            id="code_in", direction="input", index=1,
-            name="code", nmux_role="list",
+            id="code_in",
+            direction="input",
+            index=1,
+            name="code",
+            nmux_role="list",
             nmux_field_index=1,
         )
 
@@ -544,6 +612,7 @@ class TestErrorBundleRaise:
                     ClusterField(name="code"),
                     ClusterField(name="source"),
                 ]
+
         ctx.graph = cast(InMemoryVIGraph, FakeGraph())
 
         fragment = nmux.generate(op, ctx)

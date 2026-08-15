@@ -62,8 +62,12 @@ def _project(tmp_path: Path) -> Path:
                 _term("error in", direction="input", error=True),  # input side
             ],
             constants=[
-                ConstantFact(value="42", label="answer", py_type="int",
-                             wired_to=WiredTo.INDICATOR),
+                ConstantFact(
+                    value="42",
+                    label="answer",
+                    py_type="int",
+                    wired_to=WiredTo.INDICATOR,
+                ),
             ],
             calls=["Lib.lvlib:b.vi"],
         ),
@@ -150,7 +154,9 @@ def test_facts_fingerprint_skips_only_non_facts_dirs():
     )
     out = subprocess.run(
         [sys.executable, "-c", probe],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     closure_dirs = set(json.loads(out.stdout.strip().splitlines()[-1]))
     escaped = closure_dirs & store_mod._FINGERPRINT_SKIP_DIRS
@@ -166,7 +172,13 @@ def test_facts_fingerprint_skips_only_non_facts_dirs():
 def test_describe_schema_lists_all_views():
     views = {v.name for v in sql.describe_schema()}
     assert views == {
-        "vi", "terminal", "constant", "call", "type_use", "class_fact", "lvproj",
+        "vi",
+        "terminal",
+        "constant",
+        "call",
+        "type_use",
+        "class_fact",
+        "lvproj",
     }
 
 
@@ -233,7 +245,8 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
             content_sha="sha-m",
             terminals=[
                 _term(
-                    "method", direction="input",
+                    "method",
+                    direction="input",
                     lv_type="MethodEnum{setUp, testMethod, tearDown}",
                     enum_values=["setUp", "testMethod", "tearDown"],
                 ),
@@ -273,7 +286,9 @@ def test_constant_lv_type_is_faithful_not_lossy_py_type(tmp_path: Path):
             content_sha="sha-k",
             constants=[
                 ConstantFact(
-                    value="0", label="err", py_type="dict[str, Any]",
+                    value="0",
+                    label="err",
+                    py_type="dict[str, Any]",
                     lv_type="error cluster",
                 ),
                 ConstantFact(value="3", label=None, py_type="int", lv_type="I32"),
@@ -306,13 +321,13 @@ def test_class_private_data_round_trips(tmp_path: Path):
         ),
     ]
     save_index(tmp_path, facts)
-    res = sql.run_query(
-        tmp_path, "SELECT owning_class, private_data FROM class_fact"
-    )
-    assert res.rows == [[
-        "TestCase.lvclass",
-        '["testMethodName: String", "isSkipped: TF"]',
-    ]]
+    res = sql.run_query(tmp_path, "SELECT owning_class, private_data FROM class_fact")
+    assert res.rows == [
+        [
+            "TestCase.lvclass",
+            '["testMethodName: String", "isSkipped: TF"]',
+        ]
+    ]
 
 
 def test_uncalled_column_flags_dead_code(tmp_path: Path):
@@ -323,12 +338,18 @@ def test_uncalled_column_flags_dead_code(tmp_path: Path):
     when ``qualified_name`` is NULL."""
     facts = [
         VIFacts(
-            path=str(tmp_path / "entry.vi"), name="entry.vi",
-            qualified_name=None, content_sha="s1", callers_count=0,
+            path=str(tmp_path / "entry.vi"),
+            name="entry.vi",
+            qualified_name=None,
+            content_sha="s1",
+            callers_count=0,
         ),
         VIFacts(
-            path=str(tmp_path / "sub.vi"), name="sub.vi",
-            qualified_name=None, content_sha="s2", callers_count=3,
+            path=str(tmp_path / "sub.vi"),
+            name="sub.vi",
+            qualified_name=None,
+            content_sha="s2",
+            callers_count=3,
         ),
     ]
     save_index(tmp_path, facts)
@@ -337,9 +358,7 @@ def test_uncalled_column_flags_dead_code(tmp_path: Path):
     assert dead.rows == [["entry.vi"]]
 
     # The column round-trips (value, not just the DEFAULT).
-    both = sql.run_query(
-        tmp_path, "SELECT name, callers_count FROM vi ORDER BY name"
-    )
+    both = sql.run_query(tmp_path, "SELECT name, callers_count FROM vi ORDER BY name")
     assert both.rows == [["entry.vi", 0], ["sub.vi", 3]]
 
     # The canned helper is the same filter.
@@ -479,12 +498,14 @@ def test_histogram_over_real_facts_matches_independent_count():
     sql_res = sql.error_indicator_histogram(root)
     sql_hist = {name: n for name, n in sql_res.rows}
 
-    expected = dict(Counter(
-        t.name
-        for f in facts
-        for t in f.terminals
-        if t.is_error_cluster and t.direction == "output"
-    ))
+    expected = dict(
+        Counter(
+            t.name
+            for f in facts
+            for t in f.terminals
+            if t.is_error_cluster and t.direction == "output"
+        )
+    )
 
     assert sql_hist == expected
 

@@ -16,8 +16,9 @@ from lvkit.parser.nodes.base import frame_inner_node_uids
 
 
 def _diag(nodelist: str, zplane: str) -> ET.Element:
-    return ET.fromstring(f"<diag><nodeList>{nodelist}</nodeList>"
-                         f"<zPlaneList>{zplane}</zPlaneList></diag>")
+    return ET.fromstring(
+        f"<diag><nodeList>{nodelist}</nodeList><zPlaneList>{zplane}</zPlaneList></diag>"
+    )
 
 
 def test_zplane_only_flat_sequence_is_captured():

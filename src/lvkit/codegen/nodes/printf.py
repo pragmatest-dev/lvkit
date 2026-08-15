@@ -47,11 +47,11 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
                 return replacement
             return m.group()
 
-        result = re.sub(r'%[sdfeEgGoxXcr]', _replace_placeholder, fmt_str)
+        result = re.sub(r"%[sdfeEgGoxXcr]", _replace_placeholder, fmt_str)
         # Unescape LabVIEW backslash-quoted characters that survive strip().
-        result = re.sub(r"""\\(['"])""", r'\1', result)
+        result = re.sub(r"""\\(['"])""", r"\1", result)
         # A trailing bare backslash would break the triple-quote delimiter.
-        if result.endswith('\\'):
+        if result.endswith("\\"):
             result = result[:-1]
         expr_str = f'f"""{result}"""'
     elif len(input_values) == 1:

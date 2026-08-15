@@ -30,6 +30,7 @@ the same name. That override must win and must never fail this gate. Do NOT
 (License boundary: their corrections stay in their project — lvkit never ingests
 ``.lvkit/`` content upstream unless it is independently cleanroom-derived.)
 """
+
 from __future__ import annotations
 
 import collections
@@ -43,8 +44,8 @@ PRIMS = Path(__file__).resolve().parents[1] / "src/lvkit/data/primitives.json"
 # tracked as debt, must not grow.
 REVIEWED_DUPLICATES: dict[str, set[str]] = {
     # --- confirmed twins (observed panes identical) ---
-    "Logical Shift": {"1081", "1082"},          # same (data, shift)->data pane
-    "Split 1D Array": {"1056", "1908"},         # same pane; 1908 yields SubArray
+    "Logical Shift": {"1081", "1082"},  # same (data, shift)->data pane
+    "Split 1D Array": {"1056", "1908"},  # same pane; 1908 yields SubArray
     # --- pre-existing, inherited (predate the audit; not yet pane-compared) ---
     "Absolute Value": {"1054", "1057"},
     "Flatten To String": {"1165", "1189", "1608"},
@@ -89,7 +90,9 @@ def test_no_unreviewed_duplicate_primitive_names() -> None:
                 f"duplicate group {name!r} changed: expected "
                 f"{sorted(reviewed, key=int)}, found {sorted(pids, key=int)}"
             )
-    assert not problems, "Unreviewed primitive name duplication:\n" + "\n".join(problems)  # noqa: E501
+    assert not problems, "Unreviewed primitive name duplication:\n" + "\n".join(
+        problems
+    )  # noqa: E501
 
 
 def test_reviewed_duplicates_still_exist() -> None:

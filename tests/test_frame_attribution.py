@@ -38,12 +38,17 @@ def _error_cluster_type() -> LVType:
 
 
 def _error_const(
-    *, parent: str | None = None, frame: str | None = None,
+    *,
+    parent: str | None = None,
+    frame: str | None = None,
     value: str = "{'status': True, 'code': 17, 'source': 'bad'}",
 ) -> Constant:
     return Constant(
-        id="vi::261", value=value, lv_type=_error_cluster_type(),
-        parent=parent, frame=frame,
+        id="vi::261",
+        value=value,
+        lv_type=_error_cluster_type(),
+        parent=parent,
+        frame=frame,
     )
 
 
@@ -61,9 +66,7 @@ class TestErrorClusterFormatting:
         assert out == 'code 17: "Mean should be positive"'
 
     def test_value_accepts_dict(self):
-        out = _format_error_cluster(
-            {"status": True, "code": 42, "source": "boom"}
-        )
+        out = _format_error_cluster({"status": True, "code": 42, "source": "boom"})
         assert out == 'code 42: "boom"'
 
     def test_no_error_value(self):

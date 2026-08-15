@@ -145,12 +145,12 @@ class TerminalCollector:
         terminals = []
         for term in node_terminals:
             # Support both dict and Terminal dataclass
-            if hasattr(term, 'index'):  # Terminal dataclass
+            if hasattr(term, "index"):  # Terminal dataclass
                 index = term.index
                 direction = term.direction
                 name = term.name
                 wire_type = term.python_type()  # String type name
-                type_info = getattr(term, 'type_info', None)  # LVType if available
+                type_info = getattr(term, "type_info", None)  # LVType if available
             else:  # dict
                 index = term.get("index", -1)
                 direction = term.get("direction", "unknown")
@@ -191,11 +191,13 @@ class TerminalCollector:
                     term_info["observed_type_info"].append(type_dict)
 
         # Record this caller's observation
-        vi_data["callers"].append({
-            "caller_vi": caller_vi,
-            "timestamp": datetime.now().isoformat(),
-            "terminals": terminals,
-        })
+        vi_data["callers"].append(
+            {
+                "caller_vi": caller_vi,
+                "timestamp": datetime.now().isoformat(),
+                "terminals": terminals,
+            }
+        )
 
     def get_inferred_indices(self, vi_name: str) -> dict[str, dict[str, Any]] | None:
         """Get inferred terminal indices for a VI.
@@ -240,7 +242,8 @@ class TerminalCollector:
                     elif not types:
                         # No type info, match by direction only if unambiguous
                         same_dir = [
-                            t for t in unmatched_vilib
+                            t
+                            for t in unmatched_vilib
                             if t.get("direction") == direction
                         ]
                         if len(same_dir) == 1:
@@ -267,7 +270,7 @@ class TerminalCollector:
                     info = term_map[idx]
                     names = ", ".join(info["observed_names"][:3]) or "-"
                     types = ", ".join(info["observed_types"][:3]) or "-"
-                    cnt = info['count']
+                    cnt = info["count"]
                     lines.append(
                         f"| {idx} | {info['direction']} | {names} | {types} | {cnt} |"
                     )

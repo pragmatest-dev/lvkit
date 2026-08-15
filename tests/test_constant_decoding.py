@@ -32,7 +32,8 @@ def _make_type(
 
 def _array_of(underlying: str) -> LVType:
     return _make_type(
-        LVTypeKind.ARRAY, "Array",
+        LVTypeKind.ARRAY,
+        "Array",
         element_type=_make_type(LVTypeKind.PRIMITIVE, underlying),
     )
 
@@ -42,6 +43,7 @@ def _decode(hex_val: str, lv_type: LVType) -> tuple[str, str]:
 
 
 # === Boolean ===
+
 
 class TestBoolean:
     LV = _make_type(LVTypeKind.PRIMITIVE, "Boolean")
@@ -64,6 +66,7 @@ class TestBoolean:
 
 
 # === Integers ===
+
 
 class TestIntegers:
     def test_int8(self):
@@ -99,11 +102,14 @@ class TestIntegers:
         assert v == "0"
 
     def test_uint64(self):
-        _, v = _decode("0000000000000001", _make_type(LVTypeKind.PRIMITIVE, "NumUInt64"))
+        _, v = _decode(
+            "0000000000000001", _make_type(LVTypeKind.PRIMITIVE, "NumUInt64")
+        )
         assert v == "1"
 
 
 # === Floats ===
+
 
 class TestFloats:
     def test_float32(self):
@@ -111,15 +117,20 @@ class TestFloats:
         assert float(v) == 1.0
 
     def test_float64(self):
-        _, v = _decode("3FF0000000000000", _make_type(LVTypeKind.PRIMITIVE, "NumFloat64"))
+        _, v = _decode(
+            "3FF0000000000000", _make_type(LVTypeKind.PRIMITIVE, "NumFloat64")
+        )
         assert float(v) == 1.0
 
     def test_float64_zero(self):
-        _, v = _decode("0000000000000000", _make_type(LVTypeKind.PRIMITIVE, "NumFloat64"))
+        _, v = _decode(
+            "0000000000000000", _make_type(LVTypeKind.PRIMITIVE, "NumFloat64")
+        )
         assert float(v) == 0.0
 
 
 # === String ===
+
 
 class TestString:
     LV = _make_type(LVTypeKind.PRIMITIVE, "String")
@@ -139,6 +150,7 @@ class TestString:
 
 # === Path ===
 
+
 class TestPath:
     def test_not_a_path(self):
         _, v = _decode(
@@ -150,6 +162,7 @@ class TestPath:
 
 
 # === Enum ===
+
 
 class TestEnum:
     def test_enum_uint16(self):
@@ -166,6 +179,7 @@ class TestEnum:
 
 
 # === Complex ===
+
 
 class TestComplex:
     def test_complex64(self):
@@ -185,15 +199,23 @@ class TestComplex:
 
 # === Cluster ===
 
+
 class TestCluster:
     def test_error_cluster(self):
         """Error cluster: {status: Bool, code: I32, source: String}."""
         lv_type = _make_type(
-            LVTypeKind.CLUSTER, "Cluster",
+            LVTypeKind.CLUSTER,
+            "Cluster",
             fields=[
-                ClusterField(name="status", type=_make_type(LVTypeKind.PRIMITIVE, "Boolean")),
-                ClusterField(name="code", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
-                ClusterField(name="source", type=_make_type(LVTypeKind.PRIMITIVE, "String")),
+                ClusterField(
+                    name="status", type=_make_type(LVTypeKind.PRIMITIVE, "Boolean")
+                ),
+                ClusterField(
+                    name="code", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")
+                ),
+                ClusterField(
+                    name="source", type=_make_type(LVTypeKind.PRIMITIVE, "String")
+                ),
             ],
         )
         raw = "00" + "00000000" + "00000000"
@@ -204,17 +226,25 @@ class TestCluster:
 
     def test_nested_cluster(self):
         inner = _make_type(
-            LVTypeKind.CLUSTER, "Cluster",
+            LVTypeKind.CLUSTER,
+            "Cluster",
             fields=[
-                ClusterField(name="x", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
-                ClusterField(name="y", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
+                ClusterField(
+                    name="x", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")
+                ),
+                ClusterField(
+                    name="y", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")
+                ),
             ],
         )
         outer = _make_type(
-            LVTypeKind.CLUSTER, "Cluster",
+            LVTypeKind.CLUSTER,
+            "Cluster",
             fields=[
                 ClusterField(name="point", type=inner),
-                ClusterField(name="label", type=_make_type(LVTypeKind.PRIMITIVE, "String")),
+                ClusterField(
+                    name="label", type=_make_type(LVTypeKind.PRIMITIVE, "String")
+                ),
             ],
         )
         raw = "00000001" + "00000002" + "00000002" + "6869"
@@ -224,6 +254,7 @@ class TestCluster:
 
 
 # === Array ===
+
 
 class TestArray:
     def test_int32_array(self):
@@ -256,13 +287,19 @@ class TestArray:
 
 # === Nested compound types ===
 
+
 class TestCompoundNesting:
     def test_array_of_clusters(self):
         cluster_type = _make_type(
-            LVTypeKind.CLUSTER, "Cluster",
+            LVTypeKind.CLUSTER,
+            "Cluster",
             fields=[
-                ClusterField(name="x", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
-                ClusterField(name="y", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")),
+                ClusterField(
+                    name="x", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")
+                ),
+                ClusterField(
+                    name="y", type=_make_type(LVTypeKind.PRIMITIVE, "NumInt32")
+                ),
             ],
         )
         lv_type = _make_type(LVTypeKind.ARRAY, "Array", element_type=cluster_type)
@@ -275,9 +312,12 @@ class TestCompoundNesting:
 
     def test_cluster_with_array(self):
         lv_type = _make_type(
-            LVTypeKind.CLUSTER, "Cluster",
+            LVTypeKind.CLUSTER,
+            "Cluster",
             fields=[
-                ClusterField(name="name", type=_make_type(LVTypeKind.PRIMITIVE, "String")),
+                ClusterField(
+                    name="name", type=_make_type(LVTypeKind.PRIMITIVE, "String")
+                ),
                 ClusterField(
                     name="values",
                     type=_array_of("NumInt32"),
@@ -294,9 +334,12 @@ class TestCompoundNesting:
 
     def test_cluster_with_bool_and_array(self):
         lv_type = _make_type(
-            LVTypeKind.CLUSTER, "Cluster",
+            LVTypeKind.CLUSTER,
+            "Cluster",
             fields=[
-                ClusterField(name="active", type=_make_type(LVTypeKind.PRIMITIVE, "Boolean")),
+                ClusterField(
+                    name="active", type=_make_type(LVTypeKind.PRIMITIVE, "Boolean")
+                ),
                 ClusterField(
                     name="data",
                     type=_array_of("NumInt16"),
@@ -314,6 +357,7 @@ class TestCompoundNesting:
 
 # === Refnum ===
 
+
 class TestRefnum:
     def test_refnum_decodes(self):
         _, v = _decode("00000000", _make_type(LVTypeKind.PRIMITIVE, "Refnum"))
@@ -322,6 +366,7 @@ class TestRefnum:
 
 # === LVVariant ===
 
+
 class TestVariant:
     def test_variant_decodes(self):
         _, v = _decode("00000000", _make_type(LVTypeKind.PRIMITIVE, "LVVariant"))
@@ -329,6 +374,7 @@ class TestVariant:
 
 
 # === MeasureData (Timestamp) ===
+
 
 class TestTimestamp:
     def test_timestamp_decodes(self):
@@ -340,6 +386,7 @@ class TestTimestamp:
 
 
 # === No type = parser bug ===
+
 
 class TestNoType:
     def test_no_type_returns_raw(self):

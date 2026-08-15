@@ -125,7 +125,8 @@ def test_get_operations_does_not_mutate_persistent_frames(tmp_path: Path) -> Non
     # still leaves gnode.frames untouched.
     ops2 = graph.get_operations(vi_name)
     disable_op2 = cast(
-        DisableStructureOperation, {op.id: op for op in ops2}[q_struct],
+        DisableStructureOperation,
+        {op.id: op for op in ops2}[q_struct],
     )
     assert disable_op2.model_dump() == disable_op.model_dump()
     for frame in struct_gnode.frames:

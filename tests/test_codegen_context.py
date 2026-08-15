@@ -34,12 +34,18 @@ class TestGraphResolution:
         p3 = make_node("p3", ["d"])
         for nid, node in [("p1", p1), ("p2", p2), ("p3", p3)]:
             graph._graph.add_node(nid, node=node)
-        graph._graph.add_edge("p1", "p2",
+        graph._graph.add_edge(
+            "p1",
+            "p2",
             source=WireEnd(terminal_id="a", node_id="p1"),
-            dest=WireEnd(terminal_id="b", node_id="p2"))
-        graph._graph.add_edge("p2", "p3",
+            dest=WireEnd(terminal_id="b", node_id="p2"),
+        )
+        graph._graph.add_edge(
+            "p2",
+            "p3",
             source=WireEnd(terminal_id="c", node_id="p2"),
-            dest=WireEnd(terminal_id="d", node_id="p3"))
+            dest=WireEnd(terminal_id="d", node_id="p3"),
+        )
         graph._term_to_node.update({"a": "p1", "b": "p2", "c": "p2", "d": "p3"})
 
         ctx = CodeGenContext(graph=graph)
@@ -55,12 +61,18 @@ class TestGraphResolution:
         p2 = make_node("p2", ["b"])
         graph._graph.add_node("p1", node=p1)
         graph._graph.add_node("p2", node=p2)
-        graph._graph.add_edge("p1", "p2",
+        graph._graph.add_edge(
+            "p1",
+            "p2",
             source=WireEnd(terminal_id="a", node_id="p1"),
-            dest=WireEnd(terminal_id="b", node_id="p2"))
-        graph._graph.add_edge("p2", "p1",
+            dest=WireEnd(terminal_id="b", node_id="p2"),
+        )
+        graph._graph.add_edge(
+            "p2",
+            "p1",
             source=WireEnd(terminal_id="b", node_id="p2"),
-            dest=WireEnd(terminal_id="a", node_id="p1"))
+            dest=WireEnd(terminal_id="a", node_id="p1"),
+        )
         graph._term_to_node.update({"a": "p1", "b": "p2"})
 
         ctx = CodeGenContext(graph=graph)

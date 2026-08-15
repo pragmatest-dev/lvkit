@@ -49,7 +49,9 @@ def get_callees(vis: Sequence[VIFacts], vi_key: str) -> list[str]:
 
 
 def blast_radius(
-    vis: Sequence[VIFacts], vi_key: str, depth: int | None = None,
+    vis: Sequence[VIFacts],
+    vi_key: str,
+    depth: int | None = None,
 ) -> BlastRadius:
     """Transitive dependents of ``vi_key`` (= "what breaks if I change this?"),
     optionally bounded to ``depth`` hops. ``impact_score`` is always
@@ -67,7 +69,9 @@ def blast_radius(
         dependents = sorted(p for p in lengths if p != target)
 
     return BlastRadius(
-        vi_key=target, dependents=dependents, impact_score=len(dependents),
+        vi_key=target,
+        dependents=dependents,
+        impact_score=len(dependents),
     )
 
 

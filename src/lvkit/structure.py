@@ -17,6 +17,7 @@ from lvkit.models import _LV_TO_PYTHON_TYPE, ClusterField, LVType, LVTypeKind
 @dataclass
 class LVMethod:
     """A method in a LabVIEW class."""
+
     name: str
     vi_path: str
     scope: str  # "public", "private", "protected", "community"
@@ -36,6 +37,7 @@ class LVMethod:
 @dataclass
 class LVPrivateDataField:
     """A private data field in a LabVIEW class."""
+
     name: str
     python_type: str = "Any"  # Inferred Python type
     default_value: str | None = None  # Default value expression
@@ -46,6 +48,7 @@ class LVPrivateDataField:
 @dataclass
 class LVClass:
     """A LabVIEW class."""
+
     name: str
     path: Path
     parent_class: str | None = None
@@ -68,6 +71,7 @@ class LVClass:
 @dataclass
 class LVLibrary:
     """A LabVIEW library."""
+
     name: str
     path: Path
     version: str | None = None
@@ -77,6 +81,7 @@ class LVLibrary:
 @dataclass
 class LVProjectItem:
     """An item in a LabVIEW project."""
+
     name: str
     item_type: str  # "VI", "LVClass", "Library", "Folder", "Document", etc.
     url: str | None  # Relative path to file (None for folders)
@@ -86,6 +91,7 @@ class LVProjectItem:
 @dataclass
 class LVProject:
     """A LabVIEW project."""
+
     name: str
     path: Path
     lv_version: str | None = None
@@ -106,6 +112,7 @@ class LVProjectMember:
     the project tree. ``path`` is ``proj_dir / url`` unresolved — existence /
     in-repo classification is the index layer's job.
     """
+
     member_type: str  # "VI" | "Control" | "LVClass" | "Library"
     name: str
     url: str
@@ -117,6 +124,7 @@ class LVProjectMember:
 @dataclass
 class LVLibraryMember:
     """A member (VI, class, or nested library) in a library."""
+
     name: str
     member_type: str  # "VI", "LVClass", "Library"
     url: str
@@ -142,20 +150,24 @@ SCOPE_MAP = {
 # This avoids false positives like setUp -> "setter for Up"
 GETTER_PATTERNS = [
     re.compile(r"^Read\s+(.+)\.vi$", re.IGNORECASE),  # "Read FieldName.vi"
-    re.compile(r"^Get\s+(.+)\.vi$", re.IGNORECASE),   # "Get FieldName.vi"
-    re.compile(r"^get([A-Z].+)\.vi$"),                # "getFieldName.vi" (camelCase)
+    re.compile(r"^Get\s+(.+)\.vi$", re.IGNORECASE),  # "Get FieldName.vi"
+    re.compile(r"^get([A-Z].+)\.vi$"),  # "getFieldName.vi" (camelCase)
 ]
 
 SETTER_PATTERNS = [
     re.compile(r"^Write\s+(.+)\.vi$", re.IGNORECASE),  # "Write FieldName.vi"
-    re.compile(r"^Set\s+(.+)\.vi$", re.IGNORECASE),    # "Set FieldName.vi"
-    re.compile(r"^set([A-Z].+)\.vi$"),                 # "setFieldName.vi" (camelCase)
+    re.compile(r"^Set\s+(.+)\.vi$", re.IGNORECASE),  # "Set FieldName.vi"
+    re.compile(r"^set([A-Z].+)\.vi$"),  # "setFieldName.vi" (camelCase)
 ]
 
 # Method names that look like accessors but aren't (e.g., test framework methods)
 NON_ACCESSOR_METHODS = {
-    "setUp", "tearDown", "setUpClass", "tearDownClass",
-    "globalSetUp", "globalTearDown",
+    "setUp",
+    "tearDown",
+    "setUpClass",
+    "tearDownClass",
+    "globalSetUp",
+    "globalTearDown",
 }
 
 
@@ -194,6 +206,7 @@ def _same_class(label_text: str, classname: str) -> bool:
     only the last ``:``-qualified component (a library-owned class's
     reference may be library-prefixed).
     """
+
     def norm(s: str) -> str:
         return s.rsplit(":", 1)[-1].strip().lower()
 
@@ -503,12 +516,14 @@ def _resolve_type_ids(
                 )
 
         python_type = _lv_type_to_python(lv_type)
-        fields.append(LVPrivateDataField(
-            name=label,
-            python_type=python_type,
-            lv_type_name=lv_type,
-            sub_fields=sub_fields,
-        ))
+        fields.append(
+            LVPrivateDataField(
+                name=label,
+                python_type=python_type,
+                lv_type_name=lv_type,
+                sub_fields=sub_fields,
+            )
+        )
 
     return fields
 
@@ -645,17 +660,19 @@ def _parse_items(
             accessor_type, accessor_field = _detect_accessor(item_name)
             is_accessor = accessor_type is not None
 
-            methods.append(LVMethod(
-                name=item_name.replace(".vi", ""),
-                vi_path=item_url,
-                scope=SCOPE_MAP.get(scope_val, "public"),
-                is_static=is_static,
-                is_accessor=is_accessor,
-                accessor_type=accessor_type,
-                accessor_field=accessor_field,
-                must_override=must_override,
-                must_call_parent=must_call_parent,
-            ))
+            methods.append(
+                LVMethod(
+                    name=item_name.replace(".vi", ""),
+                    vi_path=item_url,
+                    scope=SCOPE_MAP.get(scope_val, "public"),
+                    is_static=is_static,
+                    is_accessor=is_accessor,
+                    accessor_type=accessor_type,
+                    accessor_field=accessor_field,
+                    must_override=must_override,
+                    must_call_parent=must_call_parent,
+                )
+            )
 
 
 def _lv_base64_decode(text: str) -> bytes:
@@ -761,7 +778,9 @@ def _lvclass_stem_index(root: Path) -> dict[str, Path]:
 
 
 def _resolve_ancestor_lvclass(
-    start_dir: Path, bare_name: str, max_levels: int = 6,
+    start_dir: Path,
+    bare_name: str,
+    max_levels: int = 6,
 ) -> Path | None:
     """Best-effort on-disk resolution of an ancestor class's ``.lvclass`` file.
 
@@ -799,7 +818,8 @@ def _resolve_ancestor_lvclass(
 
 
 def _build_ancestor_chain(
-    lvclass_path: Path, parent_class: str | None,
+    lvclass_path: Path,
+    parent_class: str | None,
 ) -> list[str]:
     """The FULL ancestor chain, nearest-first, by recursively following
     ``NI.LVClass.ParentClassLinkInfo`` (via ``_parent_from_link_info``) up
@@ -860,11 +880,13 @@ def _collect_lvlib_members(items: list[ET.Element]) -> list[LVLibraryMember]:
             continue
         if item_type not in _LVLIB_LOADABLE_TYPES:
             continue
-        members.append(LVLibraryMember(
-            name=item.get("Name", ""),
-            member_type=item_type,
-            url=item.get("URL", ""),
-        ))
+        members.append(
+            LVLibraryMember(
+                name=item.get("Name", ""),
+                member_type=item_type,
+                url=item.get("URL", ""),
+            )
+        )
     return members
 
 
@@ -1090,8 +1112,7 @@ def _library_entry(lib: LVLibrary, rel_path: str) -> dict[str, Any]:
         "path": rel_path,
         "version": lib.version,
         "members": [
-            {"name": m.name, "type": m.member_type, "url": m.url}
-            for m in lib.members
+            {"name": m.name, "type": m.member_type, "url": m.url} for m in lib.members
         ],
     }
 

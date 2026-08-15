@@ -51,7 +51,9 @@ def _collect_library_vis(library_path: Path) -> list[Path]:
             vi_paths.append(candidate.resolve())
         else:
             logger.warning(
-                "lvlib member not found: %r (listed as %r)", name, member.url,
+                "lvlib member not found: %r (listed as %r)",
+                name,
+                member.url,
             )
 
     return vi_paths
@@ -155,18 +157,22 @@ def _prepare_vi_documentation_data(
             except (ValueError, TypeError, AttributeError):
                 pass
 
-        controls.append({
-            "name": inp.name or f"input_{inp.index}",
-            "type": inp.lv_type.lv_label() if inp.lv_type else "Any",
-            "default_value": default_val,
-        })
+        controls.append(
+            {
+                "name": inp.name or f"input_{inp.index}",
+                "type": inp.lv_type.lv_label() if inp.lv_type else "Any",
+                "default_value": default_val,
+            }
+        )
 
     indicators = []
     for out in outputs_dc:
-        indicators.append({
-            "name": out.name or f"output_{out.index}",
-            "type": out.lv_type.lv_label() if out.lv_type else "Any",
-        })
+        indicators.append(
+            {
+                "name": out.name or f"output_{out.index}",
+                "type": out.lv_type.lv_label() if out.lv_type else "Any",
+            }
+        )
 
     graph_data = {
         "inputs": inputs_dc,
@@ -192,8 +198,7 @@ def _prepare_vi_documentation_data(
     op_names = set(_extract_subvi_names(operations_dc))
     for op_name in op_names:
         already_covered = any(
-            dep.endswith(f":{op_name}") or dep == op_name
-            for dep in qualified_deps
+            dep.endswith(f":{op_name}") or dep == op_name for dep in qualified_deps
         )
         if not already_covered:
             qualified_deps.add(op_name)
@@ -215,23 +220,29 @@ def _prepare_vi_documentation_data(
             try:
                 variant_inputs = graph.get_inputs(variant_name)
                 variant_outputs = graph.get_outputs(variant_name)
-                variant_params.append({
-                    "name": variant_name,
-                    "inputs": [
-                        {
-                            "name": inp.name,
-                            "type": inp.lv_type.lv_label() if inp.lv_type else "Any",
-                        }
-                        for inp in variant_inputs
-                    ],
-                    "outputs": [
-                        {
-                            "name": out.name,
-                            "type": out.lv_type.lv_label() if out.lv_type else "Any",
-                        }
-                        for out in variant_outputs
-                    ],
-                })
+                variant_params.append(
+                    {
+                        "name": variant_name,
+                        "inputs": [
+                            {
+                                "name": inp.name,
+                                "type": inp.lv_type.lv_label()
+                                if inp.lv_type
+                                else "Any",
+                            }
+                            for inp in variant_inputs
+                        ],
+                        "outputs": [
+                            {
+                                "name": out.name,
+                                "type": out.lv_type.lv_label()
+                                if out.lv_type
+                                else "Any",
+                            }
+                            for out in variant_outputs
+                        ],
+                    }
+                )
             except Exception:
                 pass
 
@@ -334,8 +345,7 @@ def generate_documents(
 
     for i, vi_path in enumerate(vi_paths, 1):
         print(
-            f"[TIMING]   Starting VI {i}/{len(vi_paths)}: "
-            f"{vi_path.name}...",
+            f"[TIMING]   Starting VI {i}/{len(vi_paths)}: {vi_path.name}...",
             flush=True,
         )
         vi_start = time.time()
@@ -376,6 +386,7 @@ def generate_documents(
     # Every command that parses a VI warms the index — docs parses the whole
     # set into `graph`, so upsert each loaded VI's facts (best-effort).
     from lvkit.index.build import warm_all_loaded
+
     warm_all_loaded(graph)
 
     # Get polymorphic VI info
@@ -407,7 +418,10 @@ def generate_documents(
     for i, vi_name in enumerate(all_vis, 1):
         try:
             vi_data = _prepare_vi_documentation_data(
-                vi_name, graph, poly_groups, icon_map,
+                vi_name,
+                graph,
+                poly_groups,
+                icon_map,
             )
             generator.generate_vi_page(vi_data)
             generated_count += 1

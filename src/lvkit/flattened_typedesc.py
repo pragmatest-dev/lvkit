@@ -357,9 +357,7 @@ def _unwrap_to_top_cluster(td: Any, section: Any) -> Any:
             clients = td.clients
             if len(clients) == 1:
                 member = _resolve_client(clients[0], section)
-                if getattr(member, "reftype", None) == int(
-                    REFNUM_TYPE.DataValueRef
-                ):
+                if getattr(member, "reftype", None) == int(REFNUM_TYPE.DataValueRef):
                     td = _resolve_client(member.clients[0], section)
                     continue
         break

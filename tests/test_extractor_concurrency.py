@@ -6,6 +6,7 @@ dir and interleave into the same file, so a reader could see partial/corrupt
 XML. Extraction now writes into a private temp dir and publishes each artifact
 via atomic os.replace (meta.json last), so every reader sees a complete file.
 """
+
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -18,8 +19,14 @@ pytestmark = pytest.mark.needs_samples
 
 _VI = (
     Path(__file__).resolve().parent.parent
-    / ".lvkit" / "cache" / "samples"
-    / "JKI-VI-Tester" / "source" / "Classes" / "TestCase" / "run.vi"
+    / ".lvkit"
+    / "cache"
+    / "samples"
+    / "JKI-VI-Tester"
+    / "source"
+    / "Classes"
+    / "TestCase"
+    / "run.vi"
 )
 
 

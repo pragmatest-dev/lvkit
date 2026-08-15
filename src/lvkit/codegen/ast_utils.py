@@ -50,8 +50,16 @@ def default_value_expr(lv_type: LVType | None) -> ast.expr:
             return ast.Constant(value="")
         if underlying == "Boolean":
             return ast.Constant(value=False)
-        if underlying in ("NumInt8", "NumInt16", "NumInt32", "NumInt64",
-                          "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"):
+        if underlying in (
+            "NumInt8",
+            "NumInt16",
+            "NumInt32",
+            "NumInt64",
+            "NumUInt8",
+            "NumUInt16",
+            "NumUInt32",
+            "NumUInt64",
+        ):
             return ast.Constant(value=0)
         if underlying in ("NumFloat32", "NumFloat64"):
             return ast.Constant(value=0.0)
@@ -181,6 +189,7 @@ def substitute_names(node: ast.expr, mapping: dict[str, str]) -> ast.expr:
     Returns:
         Transformed AST expression
     """
+
     class NameReplacer(ast.NodeTransformer):
         def visit_Name(self, node: ast.Name) -> ast.AST:
             name_lower = node.id.lower()
