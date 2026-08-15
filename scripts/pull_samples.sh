@@ -37,6 +37,9 @@ GIT_SETS=(
   "lv-flex-channel-examples|https://github.com/illuminated-g/lv-flex-channel-examples.git|MIT|https://github.com/illuminated-g/lv-flex-channel-examples"
   "LabVIEW-OOP-Classes|https://github.com/ismet55555/LabVIEW-OOP-Classes.git|MIT|https://github.com/ismet55555/LabVIEW-OOP-Classes"
   "actor-framework|https://github.com/ni/actor-framework.git|MIT|https://github.com/ni/actor-framework"
+  "Event-Source-Actor|https://github.com/Primary-Key/Event-Source-Actor.git|BSD-3-Clause|https://github.com/Primary-Key/Event-Source-Actor"
+  "configurable-af-example|https://github.com/LabVIEW-Open-Source/configurable-af-example.git|0BSD|https://github.com/LabVIEW-Open-Source/configurable-af-example"
+  "configurable-dqmh-example|https://github.com/LabVIEW-Open-Source/configurable-dqmh-example.git|0BSD|https://github.com/LabVIEW-Open-Source/configurable-dqmh-example"
 )
 
 for entry in "${GIT_SETS[@]}"; do

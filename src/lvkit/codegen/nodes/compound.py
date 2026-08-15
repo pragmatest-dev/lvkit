@@ -12,7 +12,7 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .base import CodeGenError
 
-_MUTABLE_KINDS = ("array", "cluster")
+_MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
 
 # The five Compound Arithmetic modes we generate code for. The parser maps a
 # node's objFlags mode enum (bits 16-18) to one of these, or to "unsupported"

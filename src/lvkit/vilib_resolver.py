@@ -372,7 +372,7 @@ class VILibResolver:
 
             # Create the LVType structure with typedef metadata
             lv_type = LVType(
-                kind=type_data["kind"],
+                kind=LVTypeKind(type_data["kind"]),
                 underlying_type=type_data["underlying_type"],
                 values=values,
                 fields=fields,

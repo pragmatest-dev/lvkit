@@ -33,12 +33,15 @@ not a source of the format/codegen knowledge.
 | ni/measurement-plugin-labview | MIT | **1337 .vi / 34 .lvclass / 55 .lvlib / 423 .ctl** — broadest single source: LVOOP, libraries, typedefs, deep hierarchies |
 | illuminated-g/lv-flex-channel-examples | MIT | `DAQmx AO/DAQ AO.vi` (+ .lvlib/.ctl) — the corpus's real DAQmx caller (poly-variant extraction, LIbd/BDHP vilib qualified-path parsing, frame-attributed constants, diff fixtures) |
 | ismet55555/LabVIEW-OOP-Classes | MIT | 186 .vi / 11 .lvclass / 21 .ctl — compact LVOOP across DAQ/hardware/utility |
+| ni/actor-framework | MIT | **405 .vi** — the AF framework itself (no example app): `Message Priority Queue` class (`Priority Enqueue`/`Priority Dequeue`), `Actor Core` message-handling loop, `Launch Actor Core`. The **queue** producer/consumer *mechanism* — enqueue/dequeue joined only by the Enqueuer refnum, invisible in dataflow. Pair with the two example repos below for concrete send→receive graphs. |
+| Primary-Key/Event-Source-Actor | BSD-3-Clause | **29 .vi** — real AF **pub/sub app**: concrete `Event Source Actor` / `Event Receiver Actor` / `Timed Loop Controller` actors, each Message subclass with its `Send X.vi` (producer) + `Do.vi` (consumer-dispatch) pair. The canonical invisible-producer/consumer-edge fixture. |
+| LabVIEW-Open-Source/configurable-af-example | 0BSD | **21 .vi** — simpler AF example: `ConfigurableActor` / `SuperProjectBaseActor` (configurable class extension) |
+| LabVIEW-Open-Source/configurable-dqmh-example | 0BSD | **60 .vi** — DQMH module. Transport is **User Events, NOT queues** (0 queue prims across all 60): `Main.vi` = 2-loop EHL/MHL + `eventRegNode` dynamic-event registration. The user-event flavour of the invisible producer/consumer edge. |
 
 ### NI, permissively licensed (MIT unless noted) — author is NI, license is real
 | Source | License | Content | Good for |
 | --- | --- | --- | --- |
 | NI-Measurement-Plug-Ins (org, ~20 repos) | MIT | measurement plugins (adc, dac, pmic, dsa, scope/fgen, best-practices-labview, abstraction-layer-labview, …) | instrument/measurement domain, error clusters, driver calls |
-| ni/actor-framework | MIT | actor framework | dynamic dispatch, events, deep OOP |
 | ni/grpc-labview | MIT | gRPC stack | large real codebase |
 | ni/niveristand-* (many) | MIT | VeriStand custom devices | LVOOP, FPGA, message libraries |
 
