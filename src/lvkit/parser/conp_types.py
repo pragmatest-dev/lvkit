@@ -42,7 +42,7 @@ from ..models import (
     enum_values_from_labels,
 )
 
-# TD_FULL_TYPE code -> the ``underlying_type`` string ``LVType.lv_label`` expects
+# TD_FULL_TYPE code -> the ``underlying_type`` string ``LVType.type_descriptor`` expects
 # (so a CONP-decoded scalar renders identically to a VCTP-decoded one).
 _SCALAR_CODE: dict[int, str] = {
     0x01: "NumInt8",

@@ -12,7 +12,7 @@ import dataclasses
 import re
 from dataclasses import dataclass
 
-from ..models import _LV_NUMERIC_TYPE_LABEL, LVType, LVTypeKind, _is_error_cluster
+from ..models import _NUMERIC_TYPE_DESCRIPTOR, LVType, LVTypeKind, _is_error_cluster
 
 # LabVIEW help/description strings carry rich-text tags (<B>..</B>, <BR>, ...).
 _HELP_TAG_RE = re.compile(r"<[^>]+>")
@@ -167,12 +167,12 @@ _COMPLEX_TYPES = {"NumComplex64", "NumComplex128", "NumComplexExt"}
 
 # LabVIEW data-type terminal text, exactly as the reference manual draws it
 # (e.g. an orange `[DBL]` box for a DBL array — verified against the PDF).
-# The numeric/Boolean/Path tokens are shared with ``LVType.lv_label()``'s
-# faithful text label (see ``models._LV_NUMERIC_TYPE_LABEL``); String/Variant
+# The numeric/Boolean/Path tokens are shared with ``LVType.type_descriptor()``'s
+# faithful text label (see ``models._NUMERIC_TYPE_DESCRIPTOR``); String/Variant
 # stay glyph-abbreviated here ("abc"/"Var") since this table drives compact
 # terminal-icon text, not prose.
 _TYPE_REPR = {
-    **_LV_NUMERIC_TYPE_LABEL,
+    **_NUMERIC_TYPE_DESCRIPTOR,
     "String": "abc",
     "Variant": "Var",
     "LVVariant": "Var",

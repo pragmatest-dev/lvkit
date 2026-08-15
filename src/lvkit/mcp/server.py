@@ -382,7 +382,7 @@ async def query(
     rather than 379 raw rows::
 
         SELECT name, COUNT(*) AS n FROM terminal
-        WHERE is_error_cluster = 1 AND direction = 'output'
+        WHERE type_descriptor = 'Error' AND direction = 'output'
         GROUP BY name ORDER BY n DESC
 
     Returns ``{columns, rows, row_count, truncated}`` (columnar). Only a single

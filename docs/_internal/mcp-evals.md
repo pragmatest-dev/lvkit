@@ -61,7 +61,7 @@ Scorecard template at the bottom.
    - *Answered by:* `describe` / `get_context` (single VI, pass the path).
 
 8. **Which VIs take an error cluster as an input?**
-   - *Answered by:* `terminal WHERE is_error_cluster=1 AND direction='input'`.
+   - *Answered by:* `terminal WHERE type_descriptor='Error' AND direction='input'`.
 
 9. **Which VIs have no inputs (entry points / top-level runners)?**
    - *Answered by:* `query` — VIs with no `direction='input'` terminal rows.
@@ -69,8 +69,11 @@ Scorecard template at the bottom.
 ## C. Error handling
 
 10. **What names does this project use for error indicators, and how often?**
-    - *Answered by:* `terminal WHERE is_error_cluster=1 AND direction='output'
+    - *Answered by:* `terminal WHERE type_descriptor='Error' AND direction='output'
       GROUP BY name` — identify the SET by shape, then histogram the name.
+      `type_descriptor='Error'` IS the shape filter: lvkit assigns the
+      built-in-style descriptor `Error` to any terminal whose duck-typed
+      `{status, code, source}` cluster matches, regardless of its label.
     - *Ground truth (shape-based):* **406** error-cluster output terminals, 16
       distinct names. `error out` dominates (**382**); a few case variants
       (`Error out` ×2, `Error Out` ×1), custom names (`Test Method Error`,
@@ -91,7 +94,7 @@ Scorecard template at the bottom.
     - *Watch for:* the agent struggling with an *absence* query.
 
 12. **Are error clusters identified by their structure (status/code/source) or by name?**
-    - *Answered by:* `terminal.field_names` for `is_error_cluster=1` rows (the
+    - *Answered by:* `terminal.field_names` for `type_descriptor='Error'` rows (the
       structural fingerprint) vs. those flagged without that shape.
     - *Purpose:* a *meta* question that dogfoods the surface to audit lvkit's own
       detection ([GAP #16] — a name heuristic still exists as a fallback).
@@ -99,7 +102,7 @@ Scorecard template at the bottom.
 ## D. Magic numbers / hardcoded config
 
 13. **What hardcoded numeric constants (timeouts, counts, rates) are buried in these VIs?**
-    - *Answered by:* `constant` view (value, py_type, label).
+    - *Answered by:* `constant` view (value, type_descriptor, label).
 
 14. **Any hardcoded file paths, IP addresses, or credentials in constants?**
     - *Answered by:* `constant WHERE value LIKE '%\%' OR value LIKE '%.%.%.%' …`.
@@ -119,10 +122,15 @@ Scorecard template at the bottom.
 18. **Is anything dead code — VIs that nothing calls?**
     - *Answered by:* `vi` filtered on `callers_count = 0` (direct in-repo
       callers; `0` == uncalled). NOT a `qualified_name`/`callee_key` anti-join —
-      those never match (`qualified_name` is usually NULL, `callee_key` is a
-      bare filename), which is what returned an implausible 0.
-    - *Ground truth (JKI):* **284** uncalled of 487 (entry-point/example
-      runners + orphans).
+      `qualified_name` is lib-qualified (`Foo.lvlib:Bar.vi`) but `callee_key` is
+      a bare filename (`Bar.vi`), so they never string-match; the naive anti-join
+      reports **198** false-dead against the correct **232**. `callers_count` is
+      the call-graph in-degree, whose edges resolve each callee through
+      path/qualified/leaf-name, so it is format-tolerant.
+    - *Ground truth (JKI):* **232** uncalled of 487 (entry-point/example
+      runners + orphans). *(Was 284 before 516dc9d gave every VINode a
+      `qualified_name`; better call resolution wired up 52 more edges, so 52 VIs
+      no longer look dead.)*
 
 19. **Who calls `<a VI>`, directly or transitively?**
     - *Answered by:* `get_callers`.
@@ -157,28 +165,30 @@ Scorecard template at the bottom.
 ## H. Type faithfulness  [validates the #7 faithful-LVType sweep]
 
 25. **What are the possible values of the `method` enum input to `CallTestMethod.vi`?**
-    - *Answered by:* `terminal.enum_values` (or the faithful `terminal.lv_type`
-      label) — e.g. `SELECT enum_values FROM terminal WHERE vi_path LIKE
+    - *Answered by:* `terminal.enum_values` (or the exact `terminal.type_descriptor`)
+      — e.g. `SELECT enum_values FROM terminal WHERE vi_path LIKE
       '%CallTestMethod.vi' AND name='method'`.
     - *Ground truth (JKI):* `{setUp, testMethod, tearDown}` (ordinal order);
-      `lv_type` = `method--Enum{setUp, testMethod, tearDown}`.
+      `type_descriptor` = `method--Enum{setUp, testMethod, tearDown}`.
     - *Watch for:* the agent reporting the type as `int`, or INFERRING the members
       from the class's `*Refnum` field set instead of reading them — the exact
       pre-#7 failure, when every surface projected the enum through `python_type()`.
 
 26. **Does the interface report LabVIEW types or Python types?**
-    - *Answered by:* `terminal.lv_type` / `describe` — a faithful label
-      (`MethodEnum{...}`, `error cluster`, `DBL`, `TestCase.lvclass`, `[DBL]`),
+    - *Answered by:* `terminal.type_descriptor` / `describe` — the exact type
+      descriptor (`MethodEnum{...}`, `Error`, `DBL`, `TestCase.lvclass`, `[DBL]`),
       never a Python annotation.
     - *Purpose:* a *meta* guard (like #12) — a known enum/cluster interface must
-      NOT render as `int` / `dict[str, Any]` / `float` outside codegen, and an
-      UNRESOLVED type falls back to its control_type family word
-      (`cluster`/`class`/`array`/`ring`/`refnum`) — never the Python token
-      `Any`. The lossy `py_type` column is documented as codegen-only; `lv_type`
-      is the answer column. Regression signal for the [faithful-types LAW].
-    - *Ground truth (JKI):* the 149 terminals whose LVType doesn't resolve are
-      83 cluster / 36 class / 16 array / 9 refnum / 4 ring / 1 color numeric —
-      the deeper "why unresolved?" gap is tracked separately.
+      NOT render as `int` / `dict[str, Any]` / `float` outside codegen. The index
+      has two single-job columns: `type_descriptor` is the exact descriptor (`''`
+      when unresolved, never a Python token), and `type_kind` names the family
+      (`primitive`/`enum`/`cluster`/`array`/`ring`/`typedef_ref`/`class`, `NULL`
+      when genuinely unknown). `describe`/`netlist` render the `type_kind` word
+      when the descriptor is empty. Regression signal for the [faithful-types LAW].
+    - *Ground truth (JKI):* all 2192 connector-pane terminals now carry a
+      non-empty `type_descriptor` (0 unresolved, validating the #11 resolution
+      work); `type_kind` splits primitive 1160 / cluster 890 / array 120 /
+      enum 22.
 
 ---
 
@@ -295,7 +305,7 @@ index. `Fab?` = fabrication (NONE is good).
 | 14 hardcoded paths/creds | — | PASS | — | Query works; corpus has 0 (valid answer). |
 | 15 const→indicator | — | PASS | — | 14. |
 | 16 most-depended-on | — | PASS | — | `impact_score` ranks the error-handling utils (73/65/64…). |
-| 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **284** uncalled of 487. The old `qualified_name`↔`callee_key` anti-join returned an implausible 0 — replaced by a path-keyed direct-caller count. |
+| 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **232** uncalled of 487. The naive `qualified_name`↔`callee_key` string anti-join reports 198 false-dead (qualified vs bare-filename keys never match) — replaced by the format-tolerant call-graph in-degree. |
 | 20 .lvproj scoping | **FAIL** | PASS | NONE | Adoption run: pure shell (custom `.lvproj` parsing) — FORCED, lvkit can't answer membership. Answer was correct + careful (6 projects, no repo-local overlap, shared vi.lib deps). **Fix: task #19.** |
 | 22 unloadable | — | PASS | — | Harness: 0 stubs. |
 | 24 name collisions | — | PASS | — | Harness: CleanUp/setUp/tearDown recur. |

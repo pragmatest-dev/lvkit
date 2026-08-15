@@ -459,9 +459,6 @@ def project_vi_facts(
     for t in all_terminals:
         field_names: list[str] = []
         enum_values: list[str] = []
-        # Faithful label — resolved LVType, else the control_type family word
-        # (cluster/class/array/ring/refnum/…), never the Python token "Any".
-        lv_type_label = t.faithful_type_label()
         if t.lv_type is not None:
             fields = graph.get_type_fields(t.lv_type)
             if fields:
@@ -485,11 +482,10 @@ def project_vi_facts(
                 is_indicator=bool(is_fp and t.is_indicator),
                 is_public=bool(is_fp and t.is_public),
                 control_type=t.control_type if is_fp else None,
-                py_type=t.python_type(),
-                is_error_cluster=t.is_error_cluster,
                 field_names=field_names,
                 fp_dco_uid=t.fp_dco_uid if is_fp else None,
-                lv_type=lv_type_label,
+                type_descriptor=t.type_descriptor(),
+                type_kind=t.type_kind,
                 enum_values=enum_values,
             )
         )
@@ -502,8 +498,8 @@ def project_vi_facts(
                 else (str(c.value) if c.value is not None else "")
             ),
             label=c.label,
-            py_type=c.lv_type.to_python() if c.lv_type else "Any",
-            lv_type=c.lv_type.lv_label() if c.lv_type else "?",
+            type_descriptor=c.lv_type.type_descriptor() if c.lv_type else "",
+            type_kind=c.lv_type.kind if c.lv_type else None,
             wired_to=_constant_wired_to(graph, vi_name, c),
         )
         for c in graph.get_constants(vi_name)
@@ -631,7 +627,8 @@ def _build_class_fact(
     # None when the class/its data isn't resolvable (e.g. an external class).
     fields = graph.get_class_fields(owning_class)
     private_data = [
-        f"{f.name}: {f.type.lv_label()}" if f.type else f.name for f in (fields or [])
+        f"{f.name}: {f.type.type_descriptor()}" if f.type else f.name
+        for f in (fields or [])
     ]
     # Authoritative parent (get_class_parent, NOT the load-gated
     # get_class_hierarchy): a collision-load graph never loads the parent, and

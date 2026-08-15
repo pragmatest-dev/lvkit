@@ -1471,8 +1471,8 @@ def _matched_struct_pairs(
 def _const_type(c: Constant) -> str | None:
     """FAITHFUL type label for a constant, used both for display and for
     change-detection equality (never ``to_python()`` — see LAW in
-    ``models.py``'s ``LVType.lv_label()``)."""
-    return c.lv_type.lv_label() if c.lv_type else None
+    ``models.py``'s ``LVType.type_descriptor()``)."""
+    return c.lv_type.type_descriptor() if c.lv_type else None
 
 
 def _const_consumers(
@@ -1774,8 +1774,8 @@ def _terminal_changes(
 
     def modified(ta: FPTerminal, tb: FPTerminal) -> ElementChange | None:
         """A retype and/or rename, or None when the pair is unchanged."""
-        type_a = ta.lv_type.lv_label() if ta.lv_type else "Any"
-        type_b = tb.lv_type.lv_label() if tb.lv_type else "Any"
+        type_a = ta.lv_type.type_descriptor() if ta.lv_type else "Any"
+        type_b = tb.lv_type.type_descriptor() if tb.lv_type else "Any"
         name_a, name_b = ta.name, tb.name
         if type_a != type_b and name_a != name_b:
             detail = _transition(f"{name_a} : {type_a}", f"{name_b} : {type_b}")
@@ -2945,8 +2945,8 @@ def _pane_terminal_detail(a: Terminal, b: Terminal) -> str | None:
     facets join with ``;`` so one terminal is one change leaf (uid is per-name)."""
     facets: list[str] = []
 
-    type_a = a.faithful_type_label()
-    type_b = b.faithful_type_label()
+    type_a = a.type_descriptor() or (a.type_kind.value if a.type_kind else "unknown")
+    type_b = b.type_descriptor() or (b.type_kind.value if b.type_kind else "unknown")
     if type_a != type_b:
         facets.append(_transition(type_a, type_b))
 
@@ -3113,7 +3113,7 @@ def _value_disp(value: object) -> str:
 
 
 def _const_label(c: Constant) -> str:
-    """Short FAITHFUL label for a constant in a frame diff (``lv_label()``
+    """Short FAITHFUL label for a constant in a frame diff (``type_descriptor()``
     already handles the error-cluster case internally)."""
-    type_str = c.lv_type.lv_label() if c.lv_type else "unknown"
+    type_str = c.lv_type.type_descriptor() if c.lv_type else "unknown"
     return f"{type_str} constant"

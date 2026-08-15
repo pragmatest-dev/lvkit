@@ -49,7 +49,7 @@ def test_error_cluster_fields_and_terminal_recovered():
     assert t.lv_type is not None and t.lv_type.kind == "cluster"
     assert [f.name for f in (t.lv_type.fields or [])] == ["status", "code", "source"]
     # Named status/code/source -> the shared error-cluster detector fires.
-    assert t.lv_type.lv_label() == "error cluster"
+    assert t.lv_type.type_descriptor() == "Error"
 
 
 def test_empty_conp_returns_no_terminals():
@@ -69,7 +69,7 @@ def test_void_slots_are_skipped():
     terms = decode_conp_terminals(_conp(*tds))
     assert [t.slot for t in terms] == [1]
     assert terms[0].lv_type is not None
-    assert terms[0].lv_type.lv_label() == "DBL"
+    assert terms[0].lv_type.type_descriptor() == "DBL"
 
 
 def test_refnum_kind_and_class_name():
@@ -89,9 +89,9 @@ def test_refnum_kind_and_class_name():
     terms = decode_conp_terminals(_conp(*tds))
     by_slot = {t.slot: t for t in terms}
     assert by_slot[0].lv_type is not None
-    assert by_slot[0].lv_type.lv_label() == "Queue refnum"
+    assert by_slot[0].lv_type.type_descriptor() == "Queue refnum"
     assert by_slot[1].lv_type is not None
-    assert by_slot[1].lv_type.lv_label() == "Foo.lvclass"
+    assert by_slot[1].lv_type.type_descriptor() == "Foo.lvclass"
 
 
 def test_class_refnum_label_follows_class_name():
@@ -144,7 +144,7 @@ def _labels(vi_path: Path) -> set[str]:
         *g.get_inputs(name, public_only=False),
         *g.get_outputs(name, public_only=False),
     ]
-    return {t.faithful_type_label() for t in terms}
+    return {t.type_descriptor() for t in terms}
 
 
 _NEW_VI = _SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestSuite" / "New.vi"
@@ -199,7 +199,7 @@ def test_conp_slot_alignment_agrees_with_control_type():
     # control_type -> predicate the faithful label must satisfy if aligned.
     agrees = {
         "stdClust": lambda lbl: (
-            lbl == "error cluster" or lbl.startswith(("cluster", "cluster{"))
+            lbl == "Error" or lbl.startswith(("cluster", "cluster{"))
         ),
         "stdRing": lambda lbl: lbl.startswith("enum{") or lbl == "ring",
         "stdString": lambda lbl: lbl == "String",
@@ -216,8 +216,8 @@ def test_conp_slot_alignment_agrees_with_control_type():
         if pred is None:
             continue
         checked += 1
-        assert pred(t.faithful_type_label()), (
+        assert pred(t.type_descriptor()), (
             f"slot misalignment? {control_type} control resolved to "
-            f"{t.faithful_type_label()!r}"
+            f"{t.type_descriptor()!r}"
         )
     assert checked >= 3  # this VI has clusters, a ring, and strings

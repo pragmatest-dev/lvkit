@@ -265,15 +265,15 @@ class DefaultValue:
     ``type_defaults.py``'s codegen-only forms are the wrong source here).
 
     ``literal`` is the faithful default VALUE token (``"0"``, ``"0.0"``,
-    ``"False"``, ...); ``lv_label`` is the type's own faithful label
-    (``LVType.lv_label()``, e.g. ``"I32"``). Renders ``"0 (I32 default)"``.
+    ``"False"``, ...); ``type_descriptor`` is the type's own faithful label
+    (``LVType.type_descriptor()``, e.g. ``"I32"``). Renders ``"0 (I32 default)"``.
     """
 
     literal: str
-    lv_label: str
+    type_descriptor: str
 
     def render(self) -> str:
-        return f"{self.literal} ({self.lv_label} default)"
+        return f"{self.literal} ({self.type_descriptor} default)"
 
 
 @dataclass(frozen=True)
@@ -490,7 +490,7 @@ class BoundaryOutput:
     """
 
     name: str
-    lv_label: str  # FAITHFUL LabVIEW type label, not a Python annotation
+    type_descriptor: str  # FAITHFUL LabVIEW type label, not a Python annotation
     source: NetRef | None
 
 
@@ -525,7 +525,7 @@ class NetlistModule:
     """The whole VI as a netlist."""
 
     vi_name: str
-    # (name, lv_label) for all boundary controls, error clusters included —
+    # (name, type_descriptor) for all boundary controls, error clusters included —
     # the FAITHFUL LabVIEW type label, not a Python annotation.
     inputs: list[tuple[str, str]]
     # Each boundary indicator plus the net driving it (see BoundaryOutput).
@@ -850,8 +850,8 @@ def _default_literal(lv_type: LVType | None) -> str:
 
 
 def _type_default(lv_type: LVType | None) -> DefaultValue:
-    label = lv_type.lv_label() if lv_type is not None else "?"
-    return DefaultValue(literal=_default_literal(lv_type), lv_label=label)
+    label = lv_type.type_descriptor() if lv_type is not None else "?"
+    return DefaultValue(literal=_default_literal(lv_type), type_descriptor=label)
 
 
 def _term_ref(
@@ -1653,7 +1653,7 @@ def _synthesize_ports(
     for t in sorted(op.terminals, key=lambda t: t.index):
         port = ComponentPort(
             name=_component_port_name(t),
-            type=t.lv_type.lv_label() if t.lv_type else "Any",
+            type=t.lv_type.type_descriptor() if t.lv_type else "Any",
         )
         (ins if t.direction == "input" else outs).append(port)
     return ins, outs
@@ -1829,13 +1829,13 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     )
 
     inputs = [
-        (t.name or "input", t.lv_type.lv_label() if t.lv_type else "Any")
+        (t.name or "input", t.lv_type.type_descriptor() if t.lv_type else "Any")
         for t in ctx.inputs
     ]
     outputs = [
         BoundaryOutput(
             name=t.name or "output",
-            lv_label=t.lv_type.lv_label() if t.lv_type else "Any",
+            type_descriptor=t.lv_type.type_descriptor() if t.lv_type else "Any",
             # An indicator is a sink; its incoming edge traces to the producing
             # net exactly like an input terminal does.
             source=_resolve_source(graph, ctx, t.id, build_ctx),
@@ -1874,7 +1874,7 @@ def _pane_terminal(t: Terminal, direction: str) -> ConnectorPaneTerminal:
         name=t.name or direction,
         # FAITHFUL label (family-word fallback when unresolved) -- same as
         # describe's ## Inputs/## Outputs, never the codegen "Any".
-        type=t.faithful_type_label(),
+        type=t.type_descriptor() or (t.type_kind.value if t.type_kind else "unknown"),
         direction=direction,
         index=t.index,
         is_required=is_required(t, direction),
@@ -2290,7 +2290,11 @@ def _frame_to_dict(frame: NetlistFrame) -> dict[str, Any]:
 
 def _merge_source_to_dict(source: NetRef | DefaultValue) -> dict[str, Any]:
     if isinstance(source, DefaultValue):
-        return {"kind": "default", "type": source.lv_label, "literal": source.literal}
+        return {
+            "kind": "default",
+            "type": source.type_descriptor,
+            "literal": source.literal,
+        }
     return _netref_to_dict(source)
 
 
@@ -2458,7 +2462,7 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
         "outputs": [
             {
                 "name": o.name,
-                "type": o.lv_label,
+                "type": o.type_descriptor,
                 "source": _netref_to_dict(o.source) if o.source else None,
             }
             for o in module.outputs

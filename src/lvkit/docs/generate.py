@@ -160,7 +160,7 @@ def _prepare_vi_documentation_data(
         controls.append(
             {
                 "name": inp.name or f"input_{inp.index}",
-                "type": inp.lv_type.lv_label() if inp.lv_type else "Any",
+                "type": inp.lv_type.type_descriptor() if inp.lv_type else "Any",
                 "default_value": default_val,
             }
         )
@@ -170,7 +170,7 @@ def _prepare_vi_documentation_data(
         indicators.append(
             {
                 "name": out.name or f"output_{out.index}",
-                "type": out.lv_type.lv_label() if out.lv_type else "Any",
+                "type": out.lv_type.type_descriptor() if out.lv_type else "Any",
             }
         )
 
@@ -226,7 +226,7 @@ def _prepare_vi_documentation_data(
                         "inputs": [
                             {
                                 "name": inp.name,
-                                "type": inp.lv_type.lv_label()
+                                "type": inp.lv_type.type_descriptor()
                                 if inp.lv_type
                                 else "Any",
                             }
@@ -235,7 +235,7 @@ def _prepare_vi_documentation_data(
                         "outputs": [
                             {
                                 "name": out.name,
-                                "type": out.lv_type.lv_label()
+                                "type": out.lv_type.type_descriptor()
                                 if out.lv_type
                                 else "Any",
                             }

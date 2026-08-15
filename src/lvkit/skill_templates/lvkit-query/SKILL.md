@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Grep
 
 ```bash
 lvkit index <repo>
-lvkit query <repo> "SELECT name, COUNT(*) AS n FROM terminal WHERE is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC"
+lvkit query <repo> "SELECT name, COUNT(*) AS n FROM terminal WHERE type_descriptor='Error' AND direction='output' GROUP BY name ORDER BY n DESC"
 ```
 
 ```
@@ -61,11 +61,14 @@ The value of this skill is translating a plain-English question into the
 right `SELECT` against those columns. Some worked examples:
 
 **"What names does this project use for error indicators?"** (the driving
-example — returns the small histogram, not the 379 raw terminal rows):
+example — returns the small histogram, not the 379 raw terminal rows). Error
+clusters are duck-typed in LabVIEW (no nominal type), so lvkit gives them the
+built-in-style descriptor `Error` — match on shape via `type_descriptor`, not
+on any assumed name:
 
 ```sql
 SELECT name, COUNT(*) AS n FROM terminal
-WHERE is_error_cluster = 1 AND direction = 'output'
+WHERE type_descriptor = 'Error' AND direction = 'output'
 GROUP BY name ORDER BY n DESC
 ```
 

@@ -98,7 +98,7 @@ def test_index_tools() -> None:
     qres = _run(
         srv.query(
             "SELECT name, COUNT(*) AS n FROM terminal "
-            "WHERE is_error_cluster = 1 AND direction = 'output' "
+            "WHERE type_descriptor = 'Error' AND direction = 'output' "
             "GROUP BY name ORDER BY n DESC",
             project=project,
         )

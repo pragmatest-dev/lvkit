@@ -197,7 +197,7 @@ class TestRefnumElementType:
         assert q.ref_type == "Queue"
         assert q.element_type is not None
         assert q.element_type.underlying_type == "NumFloat64"
-        assert q.lv_label() == "Queue refnum{DBL}"
+        assert q.type_descriptor() == "Queue refnum{DBL}"
 
     def test_eventreg_with_multiple_nested_has_no_single_element(self, tmp_path):
         result = self._vctp(
@@ -213,7 +213,7 @@ class TestRefnumElementType:
         ev = result[2]
         assert ev.ref_type == "EventReg"
         assert ev.element_type is None
-        assert ev.lv_label() == "EventReg refnum"
+        assert ev.type_descriptor() == "EventReg refnum"
 
     def test_class_refnum_keeps_class_name_not_element(self, tmp_path):
         result = self._vctp(
@@ -226,4 +226,4 @@ class TestRefnumElementType:
         c = result[0]
         assert c.classname == "TestCase.lvclass"
         assert c.element_type is None
-        assert c.lv_label() == "TestCase.lvclass"
+        assert c.type_descriptor() == "TestCase.lvclass"

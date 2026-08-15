@@ -1306,7 +1306,7 @@ class TestLVTypeToPython:
 
 
 class TestLVTypeLvLabel:
-    """Tests for LVType.lv_label() — the FAITHFUL counterpart to
+    """Tests for LVType.type_descriptor() — the FAITHFUL counterpart to
     to_python(), used by every non-codegen surface (describe/netlist/diff/
     queries/docs). Unlike to_python(), it must never collapse an enum's
     members, a cluster's fields, or a refnum's kind down to a bare Python
@@ -1324,7 +1324,7 @@ class TestLVTypeLvLabel:
                 "testMethod": EnumValue(value=1),
             },
         )
-        assert enum.lv_label() == "MethodEnum{setUp, testMethod, tearDown}"
+        assert enum.type_descriptor() == "MethodEnum{setUp, testMethod, tearDown}"
 
     def test_ring_without_typedef_uses_base_word(self):
         from lvkit.models import EnumValue, LVType
@@ -1333,13 +1333,13 @@ class TestLVTypeLvLabel:
             kind=LVTypeKind.RING,
             values={"b": EnumValue(value=1), "a": EnumValue(value=0)},
         )
-        assert ring.lv_label() == "ring{a, b}"
+        assert ring.type_descriptor() == "ring{a, b}"
 
     def test_enum_with_no_values_is_empty_braces(self):
         from lvkit.models import LVType
 
         enum = LVType(kind=LVTypeKind.ENUM)
-        assert enum.lv_label() == "enum{}"
+        assert enum.type_descriptor() == "enum{}"
 
     def test_error_cluster_reads_error_cluster(self):
         from lvkit.models import ClusterField, LVType
@@ -1353,7 +1353,7 @@ class TestLVTypeLvLabel:
                 ClusterField(name="source"),
             ],
         )
-        assert err.lv_label() == "error cluster"
+        assert err.type_descriptor() == "Error"
 
     def test_named_cluster_shows_name_and_fields(self):
         from lvkit.models import ClusterField, LVType
@@ -1363,32 +1363,32 @@ class TestLVTypeLvLabel:
             typedef_name="lib:TestResult.ctl",
             fields=[ClusterField(name="passed"), ClusterField(name="message")],
         )
-        assert cluster.lv_label() == "TestResult{passed, message}"
+        assert cluster.type_descriptor() == "TestResult{passed, message}"
 
     def test_anonymous_cluster_with_fields(self):
         from lvkit.models import ClusterField, LVType
 
         cluster = LVType(kind=LVTypeKind.CLUSTER, fields=[ClusterField(name="x")])
-        assert cluster.lv_label() == "cluster{x}"
+        assert cluster.type_descriptor() == "cluster{x}"
 
     def test_anonymous_cluster_without_fields(self):
         from lvkit.models import LVType
 
         cluster = LVType(kind=LVTypeKind.CLUSTER)
-        assert cluster.lv_label() == "cluster"
+        assert cluster.type_descriptor() == "cluster"
 
     def test_nested_array_brackets_per_dimension(self):
         from lvkit.models import LVType
 
         inner = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
         outer = LVType(kind=LVTypeKind.ARRAY, element_type=inner, dimensions=2)
-        assert outer.lv_label() == "[[I32]]"
+        assert outer.type_descriptor() == "[[I32]]"
 
     def test_array_with_unresolved_element(self):
         from lvkit.models import LVType
 
         arr = LVType(kind=LVTypeKind.ARRAY, dimensions=1)
-        assert arr.lv_label() == "[?]"
+        assert arr.type_descriptor() == "[?]"
 
     def test_refnum_with_class_shows_class_verbatim(self):
         from lvkit.models import LVType
@@ -1398,7 +1398,7 @@ class TestLVTypeLvLabel:
             underlying_type="Refnum",
             classname="TestCase.lvclass",
         )
-        assert ref.lv_label() == "TestCase.lvclass"
+        assert ref.type_descriptor() == "TestCase.lvclass"
 
     def test_refnum_with_ref_type_no_class(self):
         from lvkit.models import LVType
@@ -1406,13 +1406,13 @@ class TestLVTypeLvLabel:
         ref = LVType(
             kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue"
         )
-        assert ref.lv_label() == "Queue refnum"
+        assert ref.type_descriptor() == "Queue refnum"
 
     def test_generic_refnum_no_class_no_ref_type(self):
         from lvkit.models import LVType
 
         ref = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
-        assert ref.lv_label() == "refnum"
+        assert ref.type_descriptor() == "refnum"
 
     def test_plain_numeric_scalars(self):
         from lvkit.models import LVType
@@ -1426,13 +1426,13 @@ class TestLVTypeLvLabel:
         }
         for underlying, expected in cases.items():
             lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=underlying)
-            assert lv_type.lv_label() == expected
+            assert lv_type.type_descriptor() == expected
 
     def test_unmapped_underlying_type_falls_back_to_raw_string(self):
         from lvkit.models import LVType
 
         lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="SomeExoticType")
-        assert lv_type.lv_label() == "SomeExoticType"
+        assert lv_type.type_descriptor() == "SomeExoticType"
 
 
 class TestWireSlotIndex:

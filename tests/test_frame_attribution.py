@@ -57,7 +57,7 @@ def _error_const(
 
 class TestErrorClusterFormatting:
     def test_type_label_is_error_cluster(self):
-        assert _const_type_str(_error_const()) == "error cluster"
+        assert _const_type_str(_error_const()) == "Error"
 
     def test_value_renders_code_and_source(self):
         out = _format_error_cluster(
@@ -75,7 +75,7 @@ class TestErrorClusterFormatting:
 
     def test_constant_line_has_no_raw_dict(self):
         line = _describe_constant_line(_error_const())
-        assert "error cluster" in line
+        assert "Error" in line
         assert "code 17" in line
         # The ugly raw dict repr must not leak through.
         assert "{'status'" not in line

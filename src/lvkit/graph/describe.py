@@ -385,16 +385,16 @@ def _get_subvi_description(
 
 def _type_label(t: LVType | None) -> str:
     """Compact, FAITHFUL LVType label for class fields (never a Python
-    annotation — see ``LVType.lv_label()``). ``unknown`` (not ``Any``) when the
+    annotation — see ``LVType.type_descriptor()``). ``unknown`` (not ``Any``) when the
     field's type didn't resolve."""
-    return t.lv_label() if t is not None else "unknown"
+    return t.type_descriptor() if t is not None else "unknown"
 
 
 def _terminal_type_label(t: Terminal) -> str:
-    """FAITHFUL LabVIEW type label for a terminal (never ``python_type()``'s
-    codegen-target Python annotation). Falls back to the control_type family
-    word (``cluster``/``class``/…) when the LVType didn't resolve."""
-    return t.faithful_type_label()
+    """A terminal's type descriptor for display (never ``python_type()``'s
+    codegen-target annotation); the KIND word when the type didn't resolve,
+    ``unknown`` when even that is absent."""
+    return t.type_descriptor() or (t.type_kind.value if t.type_kind else "unknown")
 
 
 _FlagGroup = ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
@@ -701,9 +701,9 @@ def _count_operations(operations: list[Operation]) -> int:
 
 
 def _const_type_str(c: Constant) -> str:
-    """FAITHFUL human-readable type label for a constant (``lv_label()``
+    """FAITHFUL human-readable type label for a constant (``type_descriptor()``
     already handles the error-cluster case internally)."""
-    return c.lv_type.lv_label() if c.lv_type else "unknown"
+    return c.lv_type.type_descriptor() if c.lv_type else "unknown"
 
 
 def _describe_constant_line(c: Constant) -> str:
@@ -902,7 +902,7 @@ def _describe_case_structure(
 
     for t in op.terminals:
         if t.id == op.selector_terminal and t.lv_type:
-            lines.append(f"  Selector type: {t.lv_type.lv_label()}")
+            lines.append(f"  Selector type: {t.lv_type.type_descriptor()}")
             break
 
     passthrough = _has_output_tunnel(op)

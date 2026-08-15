@@ -21,8 +21,8 @@ freshness on the owning ``.lvclass`` hash too is the sound fix (TODO); today the
 staleness window is a class-only edit between member-VI rebuilds.
 
 Sources (see graph/queries.py, models.py):
-- terminals  <- get_inputs/get_outputs (FPTerminal); is_error_cluster is
-               Terminal.is_error_cluster (models.py), precomputed here.
+- terminals  <- get_inputs/get_outputs (FPTerminal); type_descriptor +
+               type_kind from Terminal (models.py).
 - constants  <- get_all_constants + outgoing_edges/is_indicator for ``wired_to``.
 - calls      <- caller's metadata.subvi_qualified_names (caller-intrinsic).
 - type_uses  <- type_map classnames/typedef_names.
@@ -33,6 +33,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+
+from ..models import LVTypeKind
 
 # Terminal direction values (mirror models.Terminal.direction).
 INPUT = "input"
@@ -56,21 +58,15 @@ class WiredTo(str, Enum):
 class TerminalFact:
     """One connector-pane terminal (an FP control or indicator).
 
-    ``field_names`` are the cluster's field names when the terminal carries a
-    cluster/typedef (empty otherwise) — enough to classify a terminal
-    structurally (an error cluster is ``{status, code, source}``) without the
-    full ``LVType`` tree. ``is_error_cluster`` is precomputed from
-    ``Terminal.is_error_cluster`` so the demo query ("count error-indicator
-    names") is a straight filter, not a re-derivation.
-
-    ``py_type`` is the LOSSY codegen-target projection (``Terminal.
-    python_type()`` — enum/ring collapse to ``"int"``, cluster to
-    ``"dict[str, Any]"``, …); kept for existing callers. ``lv_type`` is the
-    FAITHFUL LabVIEW type label (``Terminal.lv_type.lv_label()``) — prefer it
-    for anything that reads the type back. ``enum_values`` are the enum/ring
-    member names in ORDINAL order (empty for non-enum terminals), so "does
-    this project use an enum with member X" is a straight filter over the
-    index, not a full VI reload.
+    ``type_descriptor`` is the EXACT faithful type descriptor
+    (``Terminal.type_descriptor()``), ``""`` when the type didn't resolve.
+    ``type_kind`` is the type's KIND (``LVTypeKind``: primitive/enum/cluster/
+    array/ring/typedef_ref/class), or ``None`` when genuinely unknown — the
+    small, discoverable value set to filter by (error clusters are
+    ``type_descriptor='Error'``). ``field_names`` are the cluster's field names
+    (a cluster/typedef terminal), enough to classify by field set without the
+    full ``LVType`` tree. ``enum_values`` are the enum/ring member names in
+    ORDINAL order (empty for non-enum terminals).
     """
 
     name: str | None
@@ -78,18 +74,17 @@ class TerminalFact:
     is_indicator: bool
     is_public: bool
     control_type: str | None
-    py_type: str  # Terminal.python_type() — LOSSY codegen-target projection
-    is_error_cluster: bool
     field_names: list[str] = field(default_factory=list)
     # The FP DCO uid — the durable BD<->FP bridge, stable across a rename
     # (same uid, changed name). Carried for correlation/diff parity.
     fp_dco_uid: str | None = None
-    # FAITHFUL LabVIEW type label — Terminal.faithful_type_label(): a family word
-    # ("cluster"/"unknown") when unresolved, never a Python annotation. "?" is a
-    # placeholder default the build always overwrites; matches ConstantFact.
-    lv_type: str = "?"
+    # Exact faithful type descriptor (Terminal.type_descriptor()); "" when the
+    # type didn't resolve — type_kind still identifies the family.
+    type_descriptor: str = ""
+    # The type's KIND family (LVTypeKind), or None when genuinely unknown.
+    type_kind: LVTypeKind | None = None
     # Enum/ring member names in ORDINAL order (by EnumValue.value); empty for
-    # non-enum terminals. From Terminal.lv_type.values.
+    # non-enum terminals.
     enum_values: list[str] = field(default_factory=list)
 
 
@@ -103,8 +98,8 @@ class ConstantFact:
 
     value: str  # stringified constant value (raw_value or str(value))
     label: str | None
-    py_type: str  # LOSSY codegen projection; prefer lv_type to read the type
-    lv_type: str = "?"  # FAITHFUL LabVIEW type label (LVType.lv_label)
+    type_descriptor: str = ""  # exact faithful type descriptor; "" if unresolved
+    type_kind: LVTypeKind | None = None  # type KIND (LVTypeKind), or None
     wired_to: WiredTo = WiredTo.UNWIRED
 
 
@@ -126,7 +121,7 @@ class ClassFact:
     is_accessor: bool = False
     accessor_field: str | None = None
     # The owning class's private-data fields (incl. inherited), each rendered
-    # FAITHFULLY as "name: <lv_label>" — e.g. "testName: String". Empty for a
+    # FAITHFULLY as "name: <type_descriptor>" — e.g. "testName: String". Empty for a
     # class with no resolvable private data.
     private_data: list[str] = field(default_factory=list)
     # NI.ClassItem.IsStaticMethod on THIS method's own Item — parsed by

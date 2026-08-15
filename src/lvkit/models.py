@@ -96,7 +96,7 @@ class LVType:
             return "Any"
         return "Any"
 
-    def lv_label(self) -> str:
+    def type_descriptor(self) -> str:
         """Render a LabVIEW-faithful type label from this type's structure.
 
         The FAITHFUL counterpart to :meth:`to_python` — every non-codegen
@@ -126,7 +126,7 @@ class LVType:
         """
         if self.kind == LVTypeKind.ARRAY:
             dims = self.dimensions or 1
-            inner = self.element_type.lv_label() if self.element_type else "?"
+            inner = self.element_type.type_descriptor() if self.element_type else "?"
             return "[" * dims + inner + "]" * dims
         if self.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
             members = (
@@ -145,7 +145,7 @@ class LVType:
             return ("enum" if self.kind == LVTypeKind.ENUM else "ring") + body
         if self.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
             if _is_error_cluster(self):
-                return "error cluster"
+                return "Error"
             fields = ", ".join(f.name for f in (self.fields or []))
             name = _strip_typedef_stem(self.typedef_name) if self.typedef_name else None
             if name and fields:
@@ -161,15 +161,14 @@ class LVType:
                     return self.classname
                 if self.ref_type:
                     # A parametrized refnum shows its element in braces, like a
-                    # cluster/enum shows its members: ``Queue refnum{error
-                    # cluster}``, ``Notifier refnum{DBL}``.
+                    # cluster/enum shows its members: ``Queue refnum{Error}``,
+                    # ``Notifier refnum{DBL}``.
                     if self.element_type is not None:
-                        return (
-                            f"{self.ref_type} refnum{{{self.element_type.lv_label()}}}"
-                        )
+                        inner = self.element_type.type_descriptor()
+                        return f"{self.ref_type} refnum{{{inner}}}"
                     return f"{self.ref_type} refnum"
                 return "refnum"
-            return _LV_LABEL_SCALAR.get(
+            return _SCALAR_TYPE_DESCRIPTOR.get(
                 self.underlying_type or "", self.underlying_type or "?"
             )
         return "?"
@@ -223,36 +222,34 @@ def _is_error_cluster(lv_type: LVType) -> bool:
     return False
 
 
-# control_type -> coarse LabVIEW family word, the FAITHFUL fallback label when a
-# terminal's LVType didn't resolve. Distinct from render/draw.py's glyph-family
-# map (which drives wire color); this yields the type WORD shown by
-# describe/index — so an unresolved cluster reads ``cluster``, a class control
-# ``class``, never the Python token ``Any``. Covers the structured controls
-# that actually show up unresolved (cluster/class/array/ring/refnum) plus the
-# common scalars.
-_CONTROL_FAMILY_LABEL: dict[str, str] = {
-    "stdClust": "cluster",
-    "udClassDDO": "class",
-    "indArr": "array",
-    "stdArray": "array",
-    "stdRefNum": "refnum",
-    "stdRing": "ring",
-    "stdEnum": "enum",
-    "stdColorNum": "color numeric",
-    "stdNum": "numeric",
-    "stdDBL": "DBL",
-    "stdSGL": "SGL",
-    "stdBool": "TF",
-    "stdString": "String",
-    "stdPath": "Path",
+# control_type (FP control class) -> LVTypeKind, for a terminal whose LVType
+# didn't resolve. Composites map to their kind; every scalar/refnum/path control
+# is a PRIMITIVE. An unrecognized control (or None) yields None -- an honest
+# "unknown family", never a guessed default.
+_CONTROL_FAMILY_KIND: dict[str, LVTypeKind] = {
+    "stdClust": LVTypeKind.CLUSTER,
+    "udClassDDO": LVTypeKind.CLASS,
+    "indArr": LVTypeKind.ARRAY,
+    "stdArray": LVTypeKind.ARRAY,
+    "stdRing": LVTypeKind.RING,
+    "stdEnum": LVTypeKind.ENUM,
+    "stdRefNum": LVTypeKind.PRIMITIVE,
+    "stdColorNum": LVTypeKind.PRIMITIVE,
+    "stdNum": LVTypeKind.PRIMITIVE,
+    "stdDBL": LVTypeKind.PRIMITIVE,
+    "stdSGL": LVTypeKind.PRIMITIVE,
+    "stdBool": LVTypeKind.PRIMITIVE,
+    "stdString": LVTypeKind.PRIMITIVE,
+    "stdPath": LVTypeKind.PRIMITIVE,
 }
 
 
-def _control_family_label(control_type: str | None) -> str:
-    """Faithful family word for a control_type, or ``unknown`` — never ``Any``."""
+def _control_kind(control_type: str | None) -> LVTypeKind | None:
+    """The type KIND for an unresolved terminal, from its FP control class, or
+    None when the control is unrecognized/absent (honest unknown)."""
     if not control_type:
-        return "unknown"
-    return _CONTROL_FAMILY_LABEL.get(control_type, "unknown")
+        return None
+    return _CONTROL_FAMILY_KIND.get(control_type)
 
 
 class TypeResolutionNeeded(Exception):
@@ -297,16 +294,19 @@ class Terminal(BaseModel):
         """Python type string derived from lv_type."""
         return self.lv_type.to_python() if self.lv_type else "Any"
 
-    def faithful_type_label(self) -> str:
-        """LabVIEW-faithful type label for describe/index/netlist — NEVER a
-        Python annotation. Prefers the resolved ``LVType`` (``lv_label``); when
-        the type didn't resolve, falls back to the ``control_type`` FAMILY word
-        (``cluster``/``class``/``array``/``ring``/``refnum``/…) so an unresolved
-        cluster reads ``cluster``, not the Python token ``Any``. ``unknown``
-        only when neither a resolved type nor a control family is available."""
+    def type_descriptor(self) -> str:
+        """This terminal's exact type descriptor, or ``""`` when its type didn't
+        resolve (``type_kind`` still identifies the family)."""
+        return self.lv_type.type_descriptor() if self.lv_type else ""
+
+    @property
+    def type_kind(self) -> LVTypeKind | None:
+        """The terminal's type KIND — from the resolved type, or derived from its
+        FP control class when the type didn't resolve; None when genuinely
+        unknown (never a guessed default)."""
         if self.lv_type is not None:
-            return self.lv_type.lv_label()
-        return _control_family_label(getattr(self, "control_type", None))
+            return self.lv_type.kind
+        return _control_kind(getattr(self, "control_type", None))
 
     @property
     def is_error_cluster(self) -> bool:
@@ -833,11 +833,11 @@ Frame.model_rebuild()
 # LabVIEW's conventional short token for the numeric family + Boolean/Path —
 # shared by the renderer's glyph labels (render/style.py's ``_TYPE_REPR``,
 # terminal-icon text like a wire tooltip's "DBL"/"I32" box) AND
-# ``LVType.lv_label()``'s faithful text label. These read identically in
+# ``LVType.type_descriptor()``'s faithful text label. These read identically in
 # both contexts; String/Variant diverge (a glyph reads "abc"/"Var", a
 # faithful text label reads the full word) and stay defined separately in
-# each consumer — see ``_LV_LABEL_SCALAR`` below and ``render/style.py``.
-_LV_NUMERIC_TYPE_LABEL: dict[str, str] = {
+# each consumer — see ``_SCALAR_TYPE_DESCRIPTOR`` below and ``render/style.py``.
+_NUMERIC_TYPE_DESCRIPTOR: dict[str, str] = {
     "NumFloat64": "DBL",
     "NumFloat32": "SGL",
     "NumFloatExt": "EXT",
@@ -856,12 +856,12 @@ _LV_NUMERIC_TYPE_LABEL: dict[str, str] = {
     "Path": "Path",
 }
 
-# The full faithful-label scalar map used by ``LVType.lv_label()`` — the
+# The full faithful-label scalar map used by ``LVType.type_descriptor()`` — the
 # shared numeric/Boolean/Path table plus the non-numeric tokens spelled out
 # in full (a text label reads "String"/"Variant", never the glyph
 # abbreviation "abc"/"Var" — see ``render/style.py::_TYPE_REPR`` for that).
-_LV_LABEL_SCALAR: dict[str, str] = {
-    **_LV_NUMERIC_TYPE_LABEL,
+_SCALAR_TYPE_DESCRIPTOR: dict[str, str] = {
+    **_NUMERIC_TYPE_DESCRIPTOR,
     "String": "String",
     "Variant": "Variant",
     "LVVariant": "Variant",
@@ -916,7 +916,7 @@ def _strip_typedef_stem(typedef_name: str) -> str:
     ``typedef_name``: drop everything before the last ``:`` qualifier and
     strip a ``.ctl`` control-file extension. UNLIKE ``_sanitize_type_name``,
     this is never mangled into a Python identifier — it's a LabVIEW label
-    (``lv_label()``), not a codegen type name, so spaces/punctuation in the
+    (``type_descriptor()``), not a codegen type name, so spaces/punctuation in the
     type's own name are kept verbatim (mirrors the stripping convention in
     ``graph/construction.py``'s ``_format_lv_type_for_display``)."""
     return typedef_name.rsplit(":", 1)[-1].replace(".ctl", "")

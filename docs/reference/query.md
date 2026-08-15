@@ -54,8 +54,8 @@ columns of each):
 | View | One row per | Key columns |
 |------|-------------|-------------|
 | `vi` | indexed VI | `path`, `name`, `qualified_name`, `library`, `is_stub`, `impact_score` |
-| `terminal` | connector-pane terminal | `vi_path`, `name`, `direction`, `is_indicator`, `is_error_cluster`, `py_type`, `field_names` |
-| `constant` | block-diagram constant | `vi_path`, `value`, `label`, `py_type`, `wired_to` |
+| `terminal` | connector-pane terminal | `vi_path`, `name`, `direction`, `is_indicator`, `type_descriptor`, `type_kind`, `field_names` |
+| `constant` | block-diagram constant | `vi_path`, `value`, `label`, `type_descriptor`, `type_kind`, `wired_to` |
 | `call` | call edge | `caller_path`, `callee_key` |
 | `type_use` | type reference | `vi_path`, `type_key` |
 | `class_fact` | class-member VI | `vi_path`, `owning_class`, `parent`, `scope`, `is_accessor`, `accessor_field` |
@@ -75,7 +75,7 @@ histogram:
 ```bash
 lvkit query MyRepo \
   "SELECT name, COUNT(*) AS n FROM terminal
-   WHERE is_error_cluster=1 AND direction='output'
+   WHERE type_descriptor='Error' AND direction='output'
    GROUP BY name ORDER BY n DESC"
 ```
 

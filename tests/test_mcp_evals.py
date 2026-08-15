@@ -208,7 +208,7 @@ def test_q10_error_indicator_histogram_top_row(jki_index: BuildResult):
     often?' — 'error out' dominates; pin its current count as baseline."""
     res = _query(
         "SELECT name, COUNT(*) n FROM terminal "
-        "WHERE is_error_cluster=1 AND direction='output' "
+        "WHERE type_descriptor='Error' AND direction='output' "
         "GROUP BY name ORDER BY n DESC, name"
     )
     # Baseline count, re-pinned when it drifts (the answer -- "error out"
@@ -245,21 +245,31 @@ def test_q18_dead_code_column_is_modeled():
 def test_q18_dead_code_uncalled(jki_index: BuildResult):
     """Q18: 'Is anything dead code — VIs that nothing calls?'
 
-    The fixed answer is ``vi.callers_count = 0`` (#20). The old
-    ``qualified_name``/``callee_key`` anti-join returned an implausible 0
-    (every ``qualified_name`` is NULL and every ``callee_key`` is a bare
-    filename) — pinned below as the regression anchor for WHY the column
-    exists. New count: 284 uncalled of 487, incl. the JUnitXML example runner;
-    a common init subVI (``TestCase_Init.vi``) is NOT uncalled."""
-    # The old broken anti-join still returns the implausible 0.
+    The fixed answer is ``vi.callers_count = 0`` (#20) — the in-degree of the
+    call graph, whose edges resolve each ``callee_key`` through three tiers
+    (``by_path`` → ``by_qualified`` → leaf-name; see ``query._resolve_callee``),
+    so it is tolerant of the qualified-vs-bare-filename key formats. Pinned
+    below as the regression anchor for WHY the column exists: the naive SQL
+    ``qualified_name NOT IN callee_key`` string anti-join skips that resolver,
+    so lib-qualified names (``Foo.lvlib:Bar.vi``) never match the bare
+    ``callee_key`` (``Bar.vi``) and it reports 198 false-dead against the
+    correct 232. (Before 516dc9d gave every VINode a ``qualified_name`` the
+    anti-join returned 0 — the ``IS NOT NULL`` guard zeroed its own input — and
+    ``callers_count`` was 284; better call resolution now wires up 52 more
+    edges, so 52 VIs no longer look dead.) 232 uncalled of 487, incl. the
+    JUnitXML example runner; a common init subVI (``TestCase_Init.vi``) is NOT
+    uncalled."""
+    # The naive string anti-join skips _resolve_callee and misfires: it counts
+    # lib-qualified VIs as dead because their qualified_name never string-equals
+    # a bare-filename callee_key. 198 false-dead vs the correct 232 below.
     broken = _query(
         "SELECT COUNT(*) FROM vi WHERE qualified_name IS NOT NULL "
         "AND qualified_name NOT IN (SELECT callee_key FROM call)"
     )
-    assert broken.rows == [[0]]
+    assert broken.rows == [[198]]
 
     total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
-    assert total.rows == [[284]]
+    assert total.rows == [[232]]
 
     called = _query("SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'")
     assert called.rows == [[12]]
@@ -304,18 +314,18 @@ def test_q25_enum_interface_members_are_queryable(jki_index: BuildResult):
     """Q25: 'What are the possible values of the `method` enum input to
     CallTestMethod.vi?'
 
-    Answerable straight from the index — the faithful ``lv_type`` label carries
+    Answerable straight from the index — the exact ``type_descriptor`` carries
     the members and ``enum_values`` is the ordinal-ordered JSON array. Before
     the #7 faithful-type sweep every surface projected the enum through
     ``python_type()`` to ``int``, so the members were unreadable and an agent
     could only INFER them (the demonstrated MCP miss)."""
     res = _query(
-        "SELECT lv_type, enum_values FROM terminal "
+        "SELECT type_descriptor, enum_values FROM terminal "
         "WHERE vi_path LIKE '%CallTestMethod.vi' AND name='method'"
     )
     assert len(res.rows) == 1
-    lv_type, enum_values = res.rows[0]
-    assert lv_type == "method--Enum{setUp, testMethod, tearDown}"
+    type_descriptor, enum_values = res.rows[0]
+    assert type_descriptor == "method--Enum{setUp, testMethod, tearDown}"
     for member in ("setUp", "testMethod", "tearDown"):
         assert f'"{member}"' in str(enum_values)
 
@@ -323,23 +333,22 @@ def test_q25_enum_interface_members_are_queryable(jki_index: BuildResult):
 @pytest.mark.slow
 def test_q26_interface_types_are_faithful_not_python(jki_index: BuildResult):
     """Q26 (meta guard for the faithful-types LAW): the answer column
-    ``lv_type`` never carries a Python annotation for a known type. The
+    ``type_descriptor`` never carries a Python annotation for a known type. The
     ``method`` enum is not ``int``; and across the whole corpus no terminal's
-    ``lv_type`` is a Python projection token (``int``/``float``/``dict[str,
-    Any]``/…). ``Any`` is exempt — it's the honest "type unresolved" fallback,
-    not a lossy projection of a KNOWN type."""
+    ``type_descriptor`` is a Python projection token (``int``/``float``/
+    ``dict[str, Any]``/…). An unresolved type is the empty string ``''`` (with
+    ``type_kind`` still naming the family), never ``Any`` or a codegen token."""
     enum_type = _query(
-        "SELECT lv_type FROM terminal "
+        "SELECT type_descriptor FROM terminal "
         "WHERE vi_path LIKE '%CallTestMethod.vi' AND name='method'"
     ).rows[0][0]
     assert enum_type != "int"
     assert "{" in str(enum_type)  # carries its members
 
     # No terminal leaks a Python annotation into the faithful column — not the
-    # codegen tokens, and not 'Any' (an unresolved type now falls back to its
-    # control_type family word: cluster/class/array/ring/refnum, never 'Any').
+    # codegen tokens, and not 'Any'. Unresolved types are '' (see type_kind).
     leaked = _query(
-        "SELECT COUNT(*) FROM terminal WHERE lv_type IN "
+        "SELECT COUNT(*) FROM terminal WHERE type_descriptor IN "
         "('int','float','bool','str','dict[str, Any]','list[float]',"
         "'list[int]','Any')"
     )

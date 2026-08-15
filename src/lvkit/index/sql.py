@@ -91,9 +91,11 @@ VIEWS: dict[str, _View] = {
             "impact_score": "count of transitive dependents (0 until a full refresh)",
             "callers_count": "number of in-repo VIs that directly call this VI; "
             "0 == dead code / uncalled. Use this for uncalled-VI detection — it "
-            "is computed on VI path identity, so it is reliable even when "
-            "qualified_name is NULL (a name-matching anti-join over callee_key "
-            "silently misfires).",
+            "is the call-graph in-degree, which resolves each callee through VI "
+            "path / qualified-name / leaf-name, so it is reliable. A name "
+            "anti-join over callee_key silently misfires: qualified_name is "
+            "lib-qualified (Foo.lvlib:Bar.vi) but callee_key is a bare filename, "
+            "so they never string-match.",
             "lv_version": "LabVIEW version the VI was saved with, "
             "'Major.Minor.Bugfix' (e.g. '21.0.0'), or NULL if absent",
             "vi_type": "VI kind from the Instrument record (e.g. 'Control'), or NULL",
@@ -195,15 +197,12 @@ VIEWS: dict[str, _View] = {
             "is_indicator": "1 if an indicator (output side of the connector pane)",
             "is_public": "1 if on the public connector pane",
             "control_type": "front-panel control class, or NULL",
-            "py_type": "generated Python type for this terminal (LOSSY codegen "
-            "target — an enum collapses to 'int', a cluster to "
-            "'dict[str, Any]'); prefer lv_type for anything that reads the "
-            "type back",
-            "is_error_cluster": "1 if this terminal carries a LabVIEW error cluster",
             "field_names": "JSON array of cluster field names (for cluster terminals)",
-            "lv_type": "FAITHFUL LabVIEW type label, e.g. 'DBL', "
-            "'MethodEnum{setUp, testMethod, tearDown}', 'error cluster', "
-            "'TestCase.lvclass' — never a Python annotation",
+            "type_descriptor": "the exact LabVIEW type descriptor, e.g. 'DBL', "
+            "'MethodEnum{setUp, testMethod, tearDown}', 'Error', "
+            "'TestCase.lvclass'; '' when the type is unresolved",
+            "type_kind": "kind of the type: primitive | enum | cluster | array | "
+            "ring | typedef_ref | class; NULL when genuinely unknown",
             "enum_values": "JSON array of enum/ring member names in ordinal order "
             "(empty for non-enum terminals) — query for terminals whose enum "
             "carries a given member via e.g. "
@@ -216,11 +215,10 @@ VIEWS: dict[str, _View] = {
             "vi_path": "path of the VI the constant lives in",
             "value": "the constant's literal value, as text",
             "label": "the constant's label, or NULL",
-            "py_type": "generated Python type for the constant (LOSSY codegen "
-            "target — prefer lv_type to read the type back)",
-            "lv_type": "FAITHFUL LabVIEW type label, e.g. 'DBL', "
-            "'error cluster', 'MethodEnum{setUp, tearDown}' — never a Python "
-            "annotation",
+            "type_descriptor": "the exact LabVIEW type descriptor, e.g. 'DBL', "
+            "'Error', 'MethodEnum{setUp, tearDown}'; '' when unresolved",
+            "type_kind": "kind of the type: primitive | enum | cluster | array | "
+            "ring | typedef_ref | class; NULL when genuinely unknown",
             "wired_to": "what the constant wires into, e.g. 'indicator'",
         },
     ),
@@ -248,7 +246,7 @@ VIEWS: dict[str, _View] = {
             "is_accessor": "1 if a generated property/accessor VI",
             "accessor_field": "the class field this accessor reads/writes, or NULL",
             "private_data": "JSON array of the owning class's private-data fields "
-            "(incl. inherited), each FAITHFULLY rendered 'name: <lv_type>', e.g. "
+            "(incl. inherited), each rendered 'name: <type_descriptor>', e.g. "
             '\'["testName: String", "result: TestResult.lvclass"]\'',
             "is_static": "1 if this method is a static (non-dynamic-dispatch) "
             "class method",
@@ -429,7 +427,7 @@ def run_query(
 
 ERROR_INDICATOR_HISTOGRAM_SQL = (
     "SELECT name, COUNT(*) AS n FROM terminal "
-    "WHERE is_error_cluster = 1 AND direction = 'output' "
+    "WHERE type_descriptor = 'Error' AND direction = 'output' "
     "GROUP BY name ORDER BY n DESC, name"
 )
 
@@ -449,6 +447,7 @@ def uncalled_vis(project_root: Path) -> QueryResult:
     """The project's dead code: VIs that no in-repo VI calls (entry points and
     orphans). A straight ``callers_count = 0`` filter on the ``vi`` view — NOT
     the fragile ``qualified_name`` / ``callee_key`` name anti-join, which
-    misfires because ``qualified_name`` is often NULL and ``callee_key`` holds
-    bare filenames, never qualified names."""
+    misfires because ``qualified_name`` is lib-qualified
+    (``Foo.lvlib:Bar.vi``) while ``callee_key`` holds a bare filename
+    (``Bar.vi``), so they never string-match."""
     return run_query(project_root, UNCALLED_VIS_SQL)

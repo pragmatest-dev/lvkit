@@ -154,7 +154,7 @@ def reconstruct_control_lvtype(
     if cls in _ARRAY_CLASSES:
         # Unlike ring/cluster (which return None when empty), an array stays a
         # faithful ``array`` even when its element type can't be reconstructed —
-        # array-ness itself is real information, and ``lv_label`` renders the
+        # array-ness itself is real information, and ``type_descriptor`` renders the
         # unknown element as ``[?]``.
         elem = _array_element(ctrl)
         return LVType(

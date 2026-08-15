@@ -694,14 +694,14 @@ def _subvi_ports(
         ins = [
             ComponentPort(
                 name=t.name or str(t.index),
-                type=t.lv_type.lv_label() if t.lv_type else "Any",
+                type=t.lv_type.type_descriptor() if t.lv_type else "Any",
             )
             for t in sctx.inputs
         ]
         outs = [
             ComponentPort(
                 name=t.name or str(t.index),
-                type=t.lv_type.lv_label() if t.lv_type else "Any",
+                type=t.lv_type.type_descriptor() if t.lv_type else "Any",
             )
             for t in sctx.outputs
         ]

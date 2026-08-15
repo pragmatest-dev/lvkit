@@ -342,7 +342,7 @@ def test_eta_line_renders_base_mode_and_conditional_modifier() -> None:
     render directly."""
     from lvkit.graph.netlist import _eta_definition_line
 
-    val = DefaultValue(literal="0", lv_label="I32")
+    val = DefaultValue(literal="0", type_descriptor="I32")
     last = _eta_definition_line(
         EtaMerge(net="loop0.out0", index_mode="last", conditional=False, value=val),
         set(),

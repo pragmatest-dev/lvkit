@@ -279,7 +279,7 @@ def main() -> int:
             "A single read-only SELECT/WITH over the curated views "
             "(vi, terminal, constant, call, type_use, class_fact, lvproj). "
             'Omit when using --schema. Example: "SELECT name, COUNT(*) AS n '
-            "FROM terminal WHERE is_error_cluster=1 AND direction='output' "
+            "FROM terminal WHERE type_descriptor='Error' AND direction='output' "
             'GROUP BY name ORDER BY n DESC".'
         ),
     )
@@ -2128,7 +2128,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         lines.append("<b>Inputs:</b>")
         for t in inputs:
             tname = t.name or f"idx{t.index}"
-            ttype = t.lv_type.lv_label() if t.lv_type else "Any"
+            ttype = t.lv_type.type_descriptor() if t.lv_type else "Any"
             lines.append(f"  [{t.index}] {tname}: {ttype}")
 
     if outputs:
@@ -2136,7 +2136,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         lines.append("<b>Outputs:</b>")
         for t in outputs:
             tname = t.name or f"idx{t.index}"
-            ttype = t.lv_type.lv_label() if t.lv_type else "Any"
+            ttype = t.lv_type.type_descriptor() if t.lv_type else "Any"
             lines.append(f"  [{t.index}] {tname}: {ttype}")
 
     if kind == "constant":
@@ -2147,7 +2147,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         if raw:
             lines.append(f"Raw: {raw}")
         if lv_type:
-            lines.append(f"Type: {lv_type.lv_label()}")
+            lines.append(f"Type: {lv_type.type_descriptor()}")
 
     if kind == "structure":
         frames = getattr(gnode, "frames", [])

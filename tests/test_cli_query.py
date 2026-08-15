@@ -17,6 +17,19 @@ import pytest
 from lvkit.cli import cmd_query
 from lvkit.index.model import OUTPUT, TerminalFact, VIFacts
 from lvkit.index.store import save as save_index
+from lvkit.models import LVTypeKind
+
+
+def _err_term(name: str) -> TerminalFact:
+    return TerminalFact(
+        name,
+        OUTPUT,
+        True,
+        True,
+        None,
+        type_descriptor="Error",
+        type_kind=LVTypeKind.CLUSTER,
+    )
 
 
 def _args(
@@ -50,9 +63,9 @@ def _seed(root: Path) -> None:
                 name="a.vi",
                 content_sha="a",
                 terminals=[
-                    TerminalFact("error out", OUTPUT, True, True, None, "obj", True),
-                    TerminalFact("error out", OUTPUT, True, True, None, "obj", True),
-                    TerminalFact("err", OUTPUT, True, True, None, "obj", True),
+                    _err_term("error out"),
+                    _err_term("error out"),
+                    _err_term("err"),
                 ],
             ),
         ],
@@ -64,7 +77,7 @@ def test_table_histogram(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     rc = cmd_query(
         _args(
             tmp_path,
-            "SELECT name, COUNT(*) AS n FROM terminal WHERE is_error_cluster=1 "
+            "SELECT name, COUNT(*) AS n FROM terminal WHERE type_descriptor='Error' "
             "GROUP BY name ORDER BY n DESC, name",
         )
     )

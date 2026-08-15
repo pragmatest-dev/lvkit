@@ -78,8 +78,8 @@ class TestParallelBuildEquivalence:
         by_path_parallel = {f.path: f for f in parallel.facts}
         for path, sf in by_path_serial.items():
             pf = by_path_parallel[path]
-            # Full dataclass equality: terminals (name/direction/is_error_cluster/
-            # py_type/field_names, in order), constants, calls, type_uses,
+            # Full dataclass equality: terminals (name/direction/type_descriptor/
+            # type_kind/field_names, in order), constants, calls, type_uses,
             # class_fact, is_stub, impact_score -- everything VIFacts carries.
             assert pf == sf, f"parallel facts diverged from serial for {path}"
 
@@ -134,8 +134,11 @@ class TestSmallClassBuild:
         orig = by_path_orig[sample_path]
         back = by_path_reloaded[sample_path]
         assert [t.name for t in back.terminals] == [t.name for t in orig.terminals]
-        assert [t.is_error_cluster for t in back.terminals] == [
-            t.is_error_cluster for t in orig.terminals
+        assert [t.type_descriptor for t in back.terminals] == [
+            t.type_descriptor for t in orig.terminals
+        ]
+        assert [t.type_kind for t in back.terminals] == [
+            t.type_kind for t in orig.terminals
         ]
         assert len(back.constants) == len(orig.constants)
         assert back.calls == orig.calls
@@ -221,14 +224,14 @@ class TestFullCorpusDemo:
             t.name
             for f in jki_index.facts
             for t in f.terminals
-            if t.is_error_cluster and t.direction == "output"
+            if t.type_descriptor == "Error" and t.direction == "output"
         ]
-        assert len(names) >= 325
+        assert len(names) == 406
 
         tally = Counter(names)
         top_name, top_count = tally.most_common(1)[0]
         assert top_name == "error out"
-        assert top_count >= 298
+        assert top_count == 382
 
     def test_callers_exclude_ownership_edges(self, jki_index: BuildResult):
         """Demo #3: a class method's calls and callers are pure VI->VI — its

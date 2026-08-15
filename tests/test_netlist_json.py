@@ -64,11 +64,11 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     )
     module = NetlistModule(
         vi_name="m.vi",
-        inputs=[("x", "I32"), ("err in", "error cluster")],
+        inputs=[("x", "I32"), ("err in", "Error")],
         outputs=[
             BoundaryOutput(
                 name="y",
-                lv_label="DBL",
+                type_descriptor="DBL",
                 source=_ref("Increment", "out", "n2"),
             )
         ],
@@ -87,7 +87,7 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     assert d["vi"] == "m.vi"
     assert d["inputs"] == [
         {"name": "x", "type": "I32"},
-        {"name": "err in", "type": "error cluster"},  # faithful type label
+        {"name": "err in", "type": "Error"},  # error-cluster type descriptor
     ]
     assert d["outputs"] == [
         {
@@ -136,7 +136,7 @@ def test_feedback_item_is_kind_tagged_with_mu_shape():
     fb = NetlistFeedback(
         uid="3719",
         net="fb0",
-        init=DefaultValue(literal="0.0", lv_label="DBL"),
+        init=DefaultValue(literal="0.0", type_descriptor="DBL"),
         recur=_ref("now", "0", "now.0"),
         delay=1,
     )
@@ -206,7 +206,7 @@ def test_case_scope_outputs_carries_gamma_merge_union_shape():
                     ),
                     GammaCase(
                         frame_key="default",
-                        source=DefaultValue(literal="0", lv_label="I32"),
+                        source=DefaultValue(literal="0", type_descriptor="I32"),
                     ),
                 ],
             )
@@ -249,7 +249,7 @@ def test_loop_scope_outputs_carries_mu_and_eta_merge_union_shape():
         outputs=[
             MuMerge(
                 net="loop0.shift0",
-                init=DefaultValue(literal="0", lv_label="I32"),
+                init=DefaultValue(literal="0", type_descriptor="I32"),
                 recur=_ref("Increment", "result", "result"),
             ),
             MuMerge(

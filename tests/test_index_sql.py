@@ -23,6 +23,7 @@ from lvkit.index.model import (
 )
 from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
+from lvkit.models import LVTypeKind
 
 
 def _term(
@@ -30,18 +31,23 @@ def _term(
     *,
     direction: str = OUTPUT,
     error: bool = False,
-    lv_type: str = "?",
+    type_descriptor: str = "?",
+    type_kind: LVTypeKind | None = None,
     enum_values: list[str] | None = None,
 ) -> TerminalFact:
+    # An error cluster is duck-typed — it surfaces as the built-in-style
+    # descriptor 'Error' (kind CLUSTER), never a distinct nominal type.
+    if error:
+        type_descriptor = "Error"
+        type_kind = LVTypeKind.CLUSTER
     return TerminalFact(
         name=name,
         direction=direction,
         is_indicator=(direction == OUTPUT),
         is_public=True,
         control_type=None,
-        py_type="object",
-        is_error_cluster=error,
-        lv_type=lv_type,
+        type_descriptor=type_descriptor,
+        type_kind=type_kind,
         enum_values=enum_values or [],
     )
 
@@ -65,7 +71,8 @@ def _project(tmp_path: Path) -> Path:
                 ConstantFact(
                     value="42",
                     label="answer",
-                    py_type="int",
+                    type_descriptor="I32",
+                    type_kind=LVTypeKind.PRIMITIVE,
                     wired_to=WiredTo.INDICATOR,
                 ),
             ],
@@ -220,7 +227,7 @@ def test_group_by_via_arbitrary_sql_matches_canned(tmp_path: Path):
     res = sql.run_query(
         root,
         "SELECT name, COUNT(*) AS n FROM terminal "
-        "WHERE is_error_cluster = 1 AND direction = 'output' "
+        "WHERE type_descriptor = 'Error' AND direction = 'output' "
         "GROUP BY name ORDER BY n DESC, name",
     )
     assert res.rows == [["error out", 2], ["err", 1]]
@@ -234,10 +241,9 @@ def test_constants_wired_to_indicator(tmp_path: Path):
     assert res.rows == [["42", "answer"]]
 
 
-def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
-    """Schema v3 (#22): the faithful ``lv_type`` label and ordinal
-    ``enum_values`` round-trip through save/load and are queryable via SQL —
-    not just ``py_type``'s lossy codegen projection."""
+def test_type_descriptor_and_enum_values_round_trip(tmp_path: Path):
+    """Schema v3 (#22): the exact ``type_descriptor`` and ordinal
+    ``enum_values`` round-trip through save/load and are queryable via SQL."""
     facts = [
         VIFacts(
             path=str(tmp_path / "m.vi"),
@@ -247,7 +253,8 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
                 _term(
                     "method",
                     direction="input",
-                    lv_type="MethodEnum{setUp, testMethod, tearDown}",
+                    type_descriptor="MethodEnum{setUp, testMethod, tearDown}",
+                    type_kind=LVTypeKind.ENUM,
                     enum_values=["setUp", "testMethod", "tearDown"],
                 ),
                 _term("result"),  # non-enum terminal keeps the defaults
@@ -258,15 +265,17 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
 
     res = sql.run_query(
         tmp_path,
-        "SELECT name, lv_type, enum_values FROM terminal ORDER BY name",
+        "SELECT name, type_descriptor, type_kind, enum_values "
+        "FROM terminal ORDER BY name",
     )
-    assert res.columns == ["name", "lv_type", "enum_values"]
-    rows = {r[0]: (r[1], r[2]) for r in res.rows}
+    assert res.columns == ["name", "type_descriptor", "type_kind", "enum_values"]
+    rows = {r[0]: (r[1], r[2], r[3]) for r in res.rows}
     assert rows["method"] == (
         "MethodEnum{setUp, testMethod, tearDown}",
+        "enum",
         '["setUp", "testMethod", "tearDown"]',
     )
-    assert rows["result"] == ("?", "[]")
+    assert rows["result"] == ("?", None, "[]")
 
     # Queryable: find terminals whose enum carries a given member.
     hits = sql.run_query(
@@ -276,9 +285,9 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
     assert hits.rows == [["method"]]
 
 
-def test_constant_lv_type_is_faithful_not_lossy_py_type(tmp_path: Path):
-    """A constant carries a FAITHFUL ``lv_type`` label alongside the lossy
-    ``py_type`` codegen projection (#8), same discipline as terminals."""
+def test_constant_type_descriptor_round_trips(tmp_path: Path):
+    """A constant carries the exact ``type_descriptor`` + ``type_kind``,
+    same discipline as terminals (#8)."""
     facts = [
         VIFacts(
             path=str(tmp_path / "k.vi"),
@@ -288,25 +297,31 @@ def test_constant_lv_type_is_faithful_not_lossy_py_type(tmp_path: Path):
                 ConstantFact(
                     value="0",
                     label="err",
-                    py_type="dict[str, Any]",
-                    lv_type="error cluster",
+                    type_descriptor="Error",
+                    type_kind=LVTypeKind.CLUSTER,
                 ),
-                ConstantFact(value="3", label=None, py_type="int", lv_type="I32"),
+                ConstantFact(
+                    value="3",
+                    label=None,
+                    type_descriptor="I32",
+                    type_kind=LVTypeKind.PRIMITIVE,
+                ),
             ],
         ),
     ]
     save_index(tmp_path, facts)
     res = sql.run_query(
-        tmp_path, "SELECT value, py_type, lv_type FROM constant ORDER BY value"
+        tmp_path,
+        "SELECT value, type_descriptor, type_kind FROM constant ORDER BY value",
     )
     rows = {r[0]: (r[1], r[2]) for r in res.rows}
-    assert rows["0"] == ("dict[str, Any]", "error cluster")
-    assert rows["3"] == ("int", "I32")
+    assert rows["0"] == ("Error", "cluster")
+    assert rows["3"] == ("I32", "primitive")
 
 
 def test_class_private_data_round_trips(tmp_path: Path):
     """A class method VI records its owning class's private-data fields (#8),
-    faithfully rendered 'name: <lv_type>', round-tripped and queryable."""
+    rendered 'name: <type_descriptor>', round-tripped and queryable."""
     from lvkit.index.model import ClassFact
 
     facts = [
@@ -371,11 +386,11 @@ def test_with_cte_is_allowed(tmp_path: Path):
     root = _project(tmp_path)
     res = sql.run_query(
         root,
-        "WITH errs AS (SELECT name FROM terminal WHERE is_error_cluster = 1) "
+        "WITH errs AS (SELECT name FROM terminal WHERE type_descriptor = 'Error') "
         "SELECT COUNT(*) FROM errs",
     )
     # 4 error clusters total: 2 'error out' + 1 input 'error in' (a.vi) + 'err'
-    # (b.vi). This CTE filters on is_error_cluster only, not direction.
+    # (b.vi). This CTE filters on type_descriptor only, not direction.
     assert res.rows == [[4]]
 
 
@@ -503,7 +518,7 @@ def test_histogram_over_real_facts_matches_independent_count():
             t.name
             for f in facts
             for t in f.terminals
-            if t.is_error_cluster and t.direction == "output"
+            if t.type_descriptor == "Error" and t.direction == "output"
         )
     )
 
@@ -538,7 +553,7 @@ def test_jki_error_indicator_histogram_13_rows():
     assert res.rows  # non-empty histogram
     top_name, top_count = res.rows[0]
     assert top_name == "error out"
-    assert top_count >= 298
+    assert top_count == 382
     # It's a small histogram (a handful of distinct names), not a row dump.
     assert len(res.rows) < 30
     assert not res.truncated

@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from .. import cache_paths
+from ..models import LVTypeKind
 from .model import (
     ClassFact,
     ConstantFact,
@@ -118,11 +119,10 @@ CREATE TABLE IF NOT EXISTS terminals (
     is_indicator INTEGER NOT NULL,
     is_public INTEGER NOT NULL,
     control_type TEXT,
-    py_type TEXT NOT NULL,
-    is_error_cluster INTEGER NOT NULL,
     field_names TEXT NOT NULL DEFAULT '[]',
     fp_dco_uid TEXT,
-    lv_type TEXT NOT NULL DEFAULT '?',
+    type_descriptor TEXT NOT NULL DEFAULT '',
+    type_kind TEXT,
     enum_values TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS idx_terminals_vi ON terminals(vi_path);
@@ -134,8 +134,8 @@ CREATE TABLE IF NOT EXISTS constants (
     ord INTEGER NOT NULL,
     value TEXT NOT NULL,
     label TEXT,
-    py_type TEXT NOT NULL,
-    lv_type TEXT NOT NULL DEFAULT '?',
+    type_descriptor TEXT NOT NULL DEFAULT '',
+    type_kind TEXT,
     wired_to TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_constants_vi ON constants(vi_path);
@@ -553,10 +553,10 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                 )
                 conn.executemany(
                     "INSERT INTO terminals(vi_path, ord, name, direction, "
-                    "is_indicator, is_public, control_type, py_type, "
-                    "is_error_cluster, field_names, fp_dco_uid, lv_type, "
+                    "is_indicator, is_public, control_type, "
+                    "field_names, fp_dco_uid, type_descriptor, type_kind, "
                     "enum_values) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                     [
                         (
                             f.path,
@@ -566,11 +566,10 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                             int(t.is_indicator),
                             int(t.is_public),
                             t.control_type,
-                            t.py_type,
-                            int(t.is_error_cluster),
                             json.dumps(t.field_names),
                             t.fp_dco_uid,
-                            t.lv_type,
+                            t.type_descriptor,
+                            t.type_kind.value if t.type_kind else None,
                             json.dumps(t.enum_values),
                         )
                         for i, t in enumerate(f.terminals)
@@ -578,15 +577,15 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                 )
                 conn.executemany(
                     "INSERT INTO constants(vi_path, ord, value, label, "
-                    "py_type, lv_type, wired_to) VALUES (?,?,?,?,?,?,?)",
+                    "type_descriptor, type_kind, wired_to) VALUES (?,?,?,?,?,?,?)",
                     [
                         (
                             f.path,
                             i,
                             c.value,
                             c.label,
-                            c.py_type,
-                            c.lv_type,
+                            c.type_descriptor,
+                            c.type_kind.value if c.type_kind else None,
                             c.wired_to.value,
                         )
                         for i, c in enumerate(f.constants)
@@ -739,8 +738,8 @@ def load(project_root: Path) -> list[VIFacts]:
         terminals_by_vi: dict[str, list[TerminalFact]] = {}
         for row in conn.execute(
             "SELECT vi_path, name, direction, is_indicator, is_public, "
-            "control_type, py_type, is_error_cluster, field_names, "
-            "fp_dco_uid, lv_type, enum_values FROM terminals "
+            "control_type, field_names, "
+            "fp_dco_uid, type_descriptor, type_kind, enum_values FROM terminals "
             "ORDER BY vi_path, ord"
         ):
             (
@@ -750,11 +749,10 @@ def load(project_root: Path) -> list[VIFacts]:
                 is_indicator,
                 is_public,
                 control_type,
-                py_type,
-                is_error_cluster,
                 field_names_json,
                 fp_dco_uid,
-                lv_type,
+                type_descriptor,
+                type_kind,
                 enum_values_json,
             ) = row
             terminals_by_vi.setdefault(vi_path, []).append(
@@ -764,26 +762,25 @@ def load(project_root: Path) -> list[VIFacts]:
                     is_indicator=bool(is_indicator),
                     is_public=bool(is_public),
                     control_type=control_type,
-                    py_type=py_type,
-                    is_error_cluster=bool(is_error_cluster),
                     field_names=json.loads(field_names_json),
                     fp_dco_uid=fp_dco_uid,
-                    lv_type=lv_type,
+                    type_descriptor=type_descriptor,
+                    type_kind=LVTypeKind(type_kind) if type_kind else None,
                     enum_values=json.loads(enum_values_json),
                 )
             )
 
         constants_by_vi: dict[str, list[ConstantFact]] = {}
-        for vi_path, value, label, py_type, lv_type, wired_to in conn.execute(
-            "SELECT vi_path, value, label, py_type, lv_type, wired_to "
+        for vi_path, value, label, type_descriptor, type_kind, wired_to in conn.execute(
+            "SELECT vi_path, value, label, type_descriptor, type_kind, wired_to "
             "FROM constants ORDER BY vi_path, ord"
         ):
             constants_by_vi.setdefault(vi_path, []).append(
                 ConstantFact(
                     value=value,
                     label=label,
-                    py_type=py_type,
-                    lv_type=lv_type,
+                    type_descriptor=type_descriptor,
+                    type_kind=LVTypeKind(type_kind) if type_kind else None,
                     wired_to=WiredTo(wired_to),
                 )
             )
