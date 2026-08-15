@@ -325,6 +325,13 @@ fresh no-hint `general-purpose` subagents (CLI-context proxy — see the caveat 
 the `lvkit-eval` skill); open-ended lane = canonical query run against the JKI
 index. `Fab?` = fabrication (NONE is good).
 
+> **Stale snapshot (historical).** This table is a point-in-time record from an
+> earlier run and predates the type-surface refactor + `516dc9d`. Its figures are
+> NOT live ground truth — the harness and each question's *Ground truth* line
+> are. Where a cell contradicts a current pin it is annotated `(now N)`. The
+> adoption ("Used lvkit?") column is also subject to the corpus-isolation
+> confound documented in the eval skill's Step 2.
+
 | # | Used lvkit? | Correct? | Fab? | Notes |
 |---|:-:|:-:|:-:|---|
 | 1 hierarchy | WARN | PASS | NONE | Adoption run: used `parse_lvclass` via a hand-written script, not the query surface/CLI. Correct tree, incl. classes the index misses. |
@@ -333,12 +340,12 @@ index. `Fab?` = fabrication (NONE is good).
 | 4 accessors | — | PASS | — | Query: 18 accessors, 17 distinct fields. |
 | 6 public API | — | PASS | — | Query: `is_public` populated (2058 public terminals). |
 | 9 zero-input VIs | — | PASS | — | Query: 30. |
-| 10 error names | WARN | PASS | NONE | Adoption run: ran lvkit's `run_query` engine via a script, not CLI/MCP. `error out`=352. Correctly flagged 17 `control_NN` as unresolved. |
-| 11 missing error-out | — | PASS | — | Anti-join works: 114 VIs. |
+| 10 error names | WARN | PASS | NONE | Adoption run: ran lvkit's `run_query` engine via a script, not CLI/MCP. `error out`=352 *(now 382 — see Q10)*. Correctly flagged 17 `control_NN` as unresolved. |
+| 11 missing error-out | — | PASS | — | Anti-join works: 114 VIs *(now 105 — see Q11)*. |
 | 13 magic numbers | — | PASS | — | 1637 constants / 583 distinct captured. |
 | 14 hardcoded paths/creds | — | PASS | — | Query works; corpus has 0 (valid answer). |
 | 15 const→indicator | — | PASS | — | 14. |
-| 16 most-depended-on | — | PASS | — | `impact_score` ranks the error-handling utils (73/65/64…). |
+| 16 most-depended-on | — | PASS | — | `impact_score` ranks the error-handling utils (73/65/64… *now 77/69/68 post-refactor*). |
 | 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **232** uncalled of 487. The naive `qualified_name`↔`callee_key` string anti-join reports 198 false-dead (qualified vs bare-filename keys never match) — replaced by the format-tolerant call-graph in-degree. |
 | 20 .lvproj scoping | **FAIL** | PASS | NONE | Adoption run: pure shell (custom `.lvproj` parsing) — FORCED, lvkit can't answer membership. Answer was correct + careful (6 projects, no repo-local overlap, shared vi.lib deps). **Fix: task #19.** |
 | 22 unloadable | — | PASS | — | Harness: 0 stubs. |
