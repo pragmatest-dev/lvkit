@@ -604,9 +604,9 @@ async def get_context(vi_path: str, ctx: Context | None = None) -> dict[str, Any
     to parse. Loaded on demand; the structured counterpart to ``describe``'s
     prose.
 
-    Boundary ``inputs``/``outputs`` carry the FAITHFUL LabVIEW type label
-    (``error cluster``, ``TestSuite.lvclass``, ``enum{...}``); each ``output``
-    also carries a ``source`` net (which producer drives that indicator, or
+    Boundary ``inputs``/``outputs`` carry the FAITHFUL LabVIEW type descriptor
+    (``Error``, ``TestSuite.lvclass``, ``method--Enum{setUp, tearDown}``); each
+    ``output`` also carries a ``source`` net (which producer drives that indicator, or
     ``null`` if unwired). The ``body`` is a ``kind``-tagged ``instance``/``scope``
     tree (scopes nest their frames' bodies, wiring as ``port -> source.net``
     bindings), and ``components`` are the distinct subVI/primitive typed
