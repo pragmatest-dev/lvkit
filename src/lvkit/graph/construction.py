@@ -414,6 +414,14 @@ class ConstructionMixin:
             id=vi_name,
             vi=vi_name,
             name=vi_name,
+            # A VI's OWN qualified identity: its LIBN/LIBH-derived
+            # ``Lib.lvlib:VI.vi`` (or the bare filename when it's owned by no
+            # library — a loose VI has nothing to qualify with). Read from the
+            # VI's own parsed metadata so EVERY node has one; the later call-node
+            # resolution passes only touch CALL nodes (id != vi_name), not this.
+            qualified_name=(
+                _meta.qualified_name if _meta and _meta.qualified_name else vi_name
+            ),
             terminals=vi_terminals,
             description=_meta.description if _meta else None,
             owning_libraries=list(_meta.owning_libraries) if _meta else [],
