@@ -12,8 +12,10 @@ and grade three things per question:
   it couldn't know from the data? (The failure mode we keep hitting: inventing
   a fact where lvkit lacks one, instead of saying "unknown".)
 
-Ground truth below is from the JKI VI Tester corpus as of this branch. Where a
-question is known to expose a current gap, it's tagged **[GAP #N]** — those are
+Ground truth below is from the JKI VI Tester corpus as of this branch (category
+M draws on the Actor Framework / DQMH / Event-Source-Actor samples instead).
+Where a question is known to expose a current gap, it's tagged **[GAP #N]** —
+those are
 expected-to-be-imperfect today and are the regression targets.
 
 Scorecard template at the bottom.
@@ -222,6 +224,34 @@ undiscoverable.
       resolves one of these, that test fails: update the pin AND this line.
       Distinct from Q26's 149 unresolved-*type* terminals.
     - *Watch for:* claiming zero gaps; conflating an unresolved-type terminal with an unresolved *primitive/VI*.
+
+## M. Message routing — queues & user events  [judge: `eval-judge`] [GAP — no cross-VI producer/consumer trace yet]
+
+LabVIEW hides these edges: an enqueue / actor `Send` / `Generate Event` and its
+matching dequeue / `Actor Core` / event registrant share only a queue-or-user-
+event **refnum**, never a wire — so `grep` AND visual dataflow both miss the
+routing. "What messages go where" is exactly what a graph reader should recover
+and a text search can't. Ground truth from the Actor Framework
+(`configurable-af-example`), DQMH (`configurable-dqmh-example`), and
+Event-Source-Actor samples. These currently EXPOSE the gap — lvkit has no
+cross-VI reference-flow / producer↔consumer trace today; adding them drives that
+feature.
+
+34. **In the Configurable AF example, what messages can `ConfigurableActor` receive, and where is each handled?**
+    - *Answered by:* trace the actor's enqueuer refnum — the `Send *` message-class overrides that enqueue onto it (producers, across caller VIs) → `ConfigurableActor/Actor Core.vi`'s message loop → each message class's `Do.vi` (the handler). The producer→handler link is the shared enqueuer refnum, not a wire.
+    - *Watch for:* reporting "no connections" because nothing is wired between a sender and Actor Core; listing message classes without pairing each to its `Do.vi`; missing that `Send` is a dynamic-dispatch enqueue.
+
+35. **Map the request and broadcast events in the Configurable DQMH module — who fires each, and who consumes it?**
+    - *Answered by:* the public Request VIs fire a request user event (producer) consumed by `Main.vi`'s Event Handling Loop → routed to the Message Handling Loop; the MHL fires Broadcast user events (producer) consumed by any VI registered via `Obtain Broadcast Events for Registration.vi`. The event refnums are minted in `Obtain Request/Broadcast Events.vi`.
+    - *Watch for:* conflating request- vs broadcast-direction; treating the EHL and MHL as unrelated loops; claiming a broadcast has no consumers because its registrants live in other VIs.
+
+36. **In the Event Source Actor template, which VIs generate user events and which register to receive them?**
+    - *Answered by:* `Generate Event.vi` fires the actor's user event (producer); `Register For Event.vi` / `Read Events Registrants.vi` wire in external registrants (consumers). Producer and each consumer share only the user-event refnum.
+    - *Watch for:* listing the event VIs with no producer/consumer *direction*; missing registrants that live in separate VIs.
+
+37. **Pick one named queue in an AF or DQMH project and list every producer (enqueue site) and consumer (dequeue site) across the whole project.**
+    - *Answered by:* find the Obtain Queue site, then every Enqueue (producer) and Dequeue (consumer) referencing the SAME queue refnum across all VIs — a cross-VI reference-flow trace, not a per-VI wire trace.
+    - *Watch for:* a single-VI answer (misses cross-VI ends); pairing by queue-NAME string only (misses unnamed / refnum-passed queues); calling the enqueue and dequeue unrelated because they sit in different VIs with no wire between them.
 
 ---
 
