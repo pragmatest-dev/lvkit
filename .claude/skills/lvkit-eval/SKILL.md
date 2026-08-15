@@ -57,6 +57,17 @@ name. Inspect the agent's transcript/tool calls: did it reach for `lvkit`
 (CLI or MCP tools) or fall back to `grep`/`cat`/`python` on the `.vi`
 binaries? Record used-lvkit yes/no per question.
 
+**CRITICAL — isolate the corpus from the lvkit repo, or the probe is void.**
+The sample corpora live UNDER the lvkit repo (`.lvkit/cache/samples/...`), and
+a fresh agent whose cwd is the lvkit repo will `grep src/lvkit` and answer the
+question by reading lvkit's OWN detection source — never using or discovering
+the tool. That scores nothing (observed 2026-08-14 on Q12: the agent read
+`models._is_error_cluster` and reported how lvkit decides, not what the VIs
+are). Before running probes, copy the target corpus to a neutral directory
+OUTSIDE the repo (forces a fresh XML extraction — the cache is keyed on the
+source root) and point the agent there with no path back to lvkit source.
+Without that isolation, skip Step 2 and rely on the faithful signal below.
+
 **Honest caveat — state this to the user, don't bury it:** a subagent here
 only has shell/Bash access, so at best it exercises the `lvkit` **CLI**. It
 never sees the MCP server's tool descriptions or system instructions the way
