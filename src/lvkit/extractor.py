@@ -36,9 +36,9 @@ install_pylabview_patches()
 from lvkit.cache_paths import (  # noqa: E402
     _slug,
     classify,
+    cleanup_legacy_cache,
     global_cache_root,
     meta_fresh,
-    migrate_legacy_extract,
 )
 from lvkit.text_encoding import (  # noqa: E402
     labview_text_encoding,
@@ -109,9 +109,9 @@ def _windows_long_path_hint(path: Path) -> str:
 def _cache_target(vi_path: Path) -> Path:
     """The per-VI EXTRACTION cache directory for ``vi_path`` (created).
 
-    A one-time rename migrates any pre-``extract/`` layout on first use.
+    A one-time cleanup drops the abandoned kind-first cache trees on first use.
     """
-    migrate_legacy_extract()
+    cleanup_legacy_cache()
     target, _, _ = classify(vi_path, "extract")
     target.mkdir(parents=True, exist_ok=True)
     return target

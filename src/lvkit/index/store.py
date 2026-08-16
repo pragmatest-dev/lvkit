@@ -346,7 +346,7 @@ def _facts_fingerprint() -> str:
 def db_path(project_root: Path) -> Path:
     """The SQLite file for ``project_root``'s index (parent dir created)."""
     slug = cache_paths._slug(project_root.resolve())
-    d = cache_paths.global_cache_root() / "index" / "projects" / slug
+    d = cache_paths.global_cache_root() / "projects" / slug / "index"
     d.mkdir(parents=True, exist_ok=True)
     return d / "index.db"
 

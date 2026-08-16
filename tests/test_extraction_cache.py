@@ -8,13 +8,13 @@ tmp dir, so the global cache root here is always that tmp dir and nothing touche
 the real ``~/.lvkit/cache``.
 
 The location primitives now live in the stdlib-only ``lvkit.cache_paths`` module
-(so the CLI's cache-HIT path can import them without pulling pylabview); each
-artifact KIND gets its own top-level tree, so an extraction lands under
-``<cache>/extract/<ns>/…`` rather than the old ``<cache>/<ns>/…``.
+(so the CLI's cache-HIT path can import them without pulling pylabview); the
+layout is PROJECT-FIRST — a source's identity is named once and the artifact KIND
+hangs off it, so an extraction lands under ``<cache>/<ns>/<slug>/extract/…``.
 
 The crux regression: a vendored OpenG VI that lives *inside* a project tree but
-is NOT under the run's ``userlib_root`` must land under ``extract/projects/…`` —
-the prefix-match answer — not the ``shared/…`` tier the old substring scan gave.
+is NOT under the run's ``userlib_root`` must land under ``projects/…`` — the
+prefix-match answer — not the ``shared/…`` tier the old substring scan gave.
 """
 
 from __future__ import annotations
@@ -47,9 +47,10 @@ def _mark_project(root: Path) -> None:
     (root / ".git").mkdir(parents=True, exist_ok=True)
 
 
-def _extract_root() -> Path:
-    """The extraction kind tree: ``<cache>/extract``."""
-    return cache_paths.global_cache_root() / "extract"
+def _cache() -> Path:
+    """The per-test cache root (``LVKIT_CACHE_DIR``). Project-first, so a slug's
+    artifacts live at ``<cache>/<ns>/<slug>/<kind>/…``."""
+    return cache_paths.global_cache_root()
 
 
 # ── classification matrix ──────────────────────────────────────────────────
@@ -57,11 +58,12 @@ def _extract_root() -> Path:
 
 class TestClassify:
     def test_no_project_is_adhoc(self, tmp_path: Path) -> None:
-        # A bare dir with no .git/.lvkit ancestor -> adhoc/<slug(parent dir)>.
+        # A bare dir with no .git/.lvkit ancestor -> adhoc has NO owner slug, so
+        # the kind sits right under the namespace: adhoc/extract/<slug(parent)>.
         vi = _touch_vi(tmp_path / "loose" / "foo.vi")
         target, source, ns = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(vi.parent.resolve())
-        assert target == _extract_root() / "adhoc" / slug
+        assert target == _cache() / "adhoc" / "extract" / slug
         assert source == "foo.vi"
         assert ns == "adhoc"
 
@@ -71,7 +73,7 @@ class TestClassify:
         vi = _touch_vi(proj / "src" / "bar.vi")
         target, source, ns = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(proj.resolve())
-        assert target == _extract_root() / "projects" / slug / "src"
+        assert target == _cache() / "projects" / slug / "extract" / "src"
         assert source == str(Path("src") / "bar.vi")
         assert ns == "projects"
 
@@ -81,7 +83,7 @@ class TestClassify:
         cache_paths.set_extraction_roots(vilib_root=vilib, userlib_root=None)
         target, source, ns = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(vilib.resolve())
-        assert target == _extract_root() / "shared" / "vilib" / slug / "Utility"
+        assert target == _cache() / "shared" / "vilib" / slug / "extract" / "Utility"
         assert source == str(Path("Utility") / "u.vi")
         assert ns == "shared"
 
@@ -91,7 +93,7 @@ class TestClassify:
         cache_paths.set_extraction_roots(vilib_root=None, userlib_root=userlib)
         target, _, _ = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(userlib.resolve())
-        assert target == _extract_root() / "shared" / "userlib" / slug / "MyAddon"
+        assert target == _cache() / "shared" / "userlib" / slug / "extract" / "MyAddon"
 
     def test_vendored_openg_under_project_is_projects_not_shared(
         self, tmp_path: Path
@@ -109,9 +111,8 @@ class TestClassify:
         cache_paths.set_extraction_roots(vilib_root=None, userlib_root=other_userlib)
 
         target, _, _ = cache_paths.classify(vi, "extract")
-        root = _extract_root()
-        assert (root / "projects") in target.parents
-        assert (root / "shared") not in target.parents
+        assert (_cache() / "projects") in target.parents
+        assert (_cache() / "shared") not in target.parents
 
     def test_two_vilib_roots_distinct_namespaces(self, tmp_path: Path) -> None:
         """LV2025-64 vs -32: two distinct vilib roots -> distinct shared/vilib
@@ -128,11 +129,12 @@ class TestClassify:
         t32, _, _ = cache_paths.classify(vi32, "extract")
 
         assert t64 != t32
-        # target == shared/vilib/<ns>/Utility -> parent.parent is shared/vilib
-        # (shared), parent.name is the <root-slug> namespace.
-        assert t64.parent.parent == t32.parent.parent
-        assert t64.parent.parent.name == "vilib"
-        assert t64.parent.name != t32.parent.name
+        # target == shared/vilib/<slug>/extract/Utility -> the <slug> is
+        # parent.parent, and parent.parent.parent is the shared/vilib tier.
+        shared_vilib = _cache() / "shared" / "vilib"
+        assert shared_vilib in t64.parents and shared_vilib in t32.parents
+        assert t64.parent.parent.parent == t32.parent.parent.parent
+        assert t64.parent.parent.name != t32.parent.parent.name
 
     def test_shared_vilib_reused_across_projects(self, tmp_path: Path) -> None:
         """A vilib VI resolves to the SAME shared entry regardless of which
@@ -145,7 +147,7 @@ class TestClassify:
         # (roots persist for the run; a second project's pass sees the same VI)
         second, _, _ = cache_paths.classify(vi, "extract")
         assert first == second
-        assert (_extract_root() / "shared" / "vilib") in first.parents
+        assert (_cache() / "shared" / "vilib") in first.parents
 
     def test_cache_target_creates_dir(self, tmp_path: Path) -> None:
         proj = tmp_path / "p"
@@ -155,46 +157,33 @@ class TestClassify:
         assert target.is_dir()
 
 
-# ── one-time migration of the pre-`extract/` extraction cache ───────────────
+# ── one-time cleanup of the abandoned kind-first cache ──────────────────────
 
 
-class TestLegacyMigration:
-    def test_legacy_layout_renamed_in_place(self) -> None:
-        """An older cache at ``<root>/{projects,shared,adhoc}/…`` is moved under
-        ``<root>/extract/…`` on migration — an in-place rename, contents intact,
-        the legacy top-level dir gone."""
+class TestLegacyCleanup:
+    def test_kind_first_trees_deleted(self) -> None:
+        """The abandoned kind-first trees (``<root>/{extract,render,diff,index}/
+        …``) are deleted on cleanup; a live PROJECT-FIRST entry at the root is
+        left untouched (slugs live BELOW ``projects``/``shared``/``adhoc``, so the
+        kind names are never top-level under project-first)."""
         root = cache_paths.global_cache_root()
-        legacy = root / "projects" / "myslug" / "sub"
-        legacy.mkdir(parents=True)
-        (legacy / "X_BDHb.xml").write_text("cached-xml", encoding="utf-8")
-        (root / "adhoc" / "z").mkdir(parents=True)
-        (root / "adhoc" / "z" / "Y.meta.json").write_text("{}", encoding="utf-8")
+        for kind in ("extract", "render", "diff", "index"):
+            d = root / kind / "projects" / "myslug"
+            d.mkdir(parents=True)
+            (d / "stale").write_text("old", encoding="utf-8")
+        # A live project-first entry that MUST survive.
+        live = root / "projects" / "myslug" / "extract"
+        live.mkdir(parents=True)
+        (live / "keep").write_text("new", encoding="utf-8")
 
-        cache_paths.migrate_legacy_extract()
+        cache_paths.cleanup_legacy_cache()
 
-        moved = root / "extract" / "projects" / "myslug" / "sub" / "X_BDHb.xml"
-        assert moved.read_text() == "cached-xml"
-        assert (root / "extract" / "adhoc" / "z" / "Y.meta.json").exists()
-        assert not (root / "projects").exists()
-        assert not (root / "adhoc").exists()
+        for kind in ("extract", "render", "diff", "index"):
+            assert not (root / kind).exists()
+        assert (root / "projects" / "myslug" / "extract" / "keep").read_text() == "new"
 
-    def test_migration_is_a_noop_when_already_migrated(self) -> None:
-        """If ``extract/`` already exists, migration leaves any stray legacy dir
-        untouched (never clobbers the new tree)."""
-        root = cache_paths.global_cache_root()
-        (root / "extract" / "projects").mkdir(parents=True)
-        (root / "extract" / "projects" / "already").write_text("new", encoding="utf-8")
-        (root / "projects").mkdir()  # a stray legacy dir alongside
-        (root / "projects" / "stray").write_text("old", encoding="utf-8")
-
-        cache_paths.migrate_legacy_extract()
-
-        assert (root / "extract" / "projects" / "already").read_text() == "new"
-        # 'projects' existed both places -> dest present -> legacy left as-is.
-        assert (root / "projects" / "stray").exists()
-
-    def test_migration_is_safe_with_no_legacy(self) -> None:
-        cache_paths.migrate_legacy_extract()  # nothing to move -> no error
+    def test_cleanup_is_safe_with_nothing_to_delete(self) -> None:
+        cache_paths.cleanup_legacy_cache()  # no legacy trees -> no error
 
 
 # ── cache freshness: mtime fast-path vs content-hash invalidation ───────────
@@ -344,11 +333,13 @@ class TestRepoCleanliness:
         assert not (repo / ".lvkit" / "cache").exists()
         assert not (repo / ".lvkit").exists()
 
-        # And the extraction landed under LVKIT_CACHE_DIR (extract/projects tier).
+        # And the extraction landed under LVKIT_CACHE_DIR (projects/<slug>/extract).
         cache_root = Path(os.environ["LVKIT_CACHE_DIR"])
         bd_files = list(cache_root.rglob("MyVI_BDHb.xml"))
         assert bd_files, f"no extraction found under {cache_root}"
-        assert (cache_root / "extract" / "projects") in bd_files[0].parents
+        parents = bd_files[0].parents
+        assert (cache_root / "projects") in parents
+        assert "extract" in {p.name for p in parents}
 
     def test_cold_and_warm_runs_are_byte_identical(self, tmp_path: Path) -> None:
         if not _SAMPLE_VI.exists():
@@ -416,5 +407,5 @@ class TestGlobalHomeGuard:
         assert cache_paths._project_root_for(vi.resolve()) == repo.resolve()
         target, source, _ = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(repo.resolve())
-        assert target == _extract_root() / "projects" / slug / "source"
+        assert target == _cache() / "projects" / slug / "extract" / "source"
         assert source == str(Path("source") / "x.vi")
