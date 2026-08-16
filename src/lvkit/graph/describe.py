@@ -348,11 +348,15 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
 
 
 def _collect_subvi_names(operations: list[Operation]) -> set[str]:
-    """Collect all SubVI names from operations recursively."""
+    """Collect all SubVI callees' QUALIFIED names recursively — the
+    class/lib-qualified identity (e.g. ``TestResult.lvclass:addError.vi``), so a
+    dynamic-dispatch call reports its declaring parent class rather than a bare
+    ``addError.vi``. resolve_vi_name accepts the qualified form, so the ports /
+    description lookups below still resolve (to the correct copy)."""
     names: set[str] = set()
     for op in operations:
-        if op.kind == "vi" and op.name:
-            names.add(op.name)
+        if op.kind == "vi" and op.qualified_name:
+            names.add(op.qualified_name)
         match op:
             case (
                 CaseOperation()
@@ -828,6 +832,10 @@ def _describe_single_op(op: Operation) -> str:
     name = op.name or "unnamed"
 
     if op.kind == "vi":
+        # Qualified callee identity (``owning_libraries:name`` via display_name,
+        # e.g. ``TestResult.lvclass:addError.vi``) — a dispatch call reads its
+        # declaring parent class here, not a bare method name.
+        label = op.display_name
         named_inputs = [
             t.name for t in op.terminals if t.direction == "input" and t.name
         ]
@@ -837,8 +845,8 @@ def _describe_single_op(op: Operation) -> str:
         if named_inputs or named_outputs:
             in_str = ", ".join(named_inputs)
             out_str = ", ".join(named_outputs)
-            return f"{name}({in_str}) -> {out_str}"
-        return name
+            return f"{label}({in_str}) -> {out_str}"
+        return label
 
     match op:
         case PrimitiveOperation():

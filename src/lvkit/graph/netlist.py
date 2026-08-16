@@ -571,6 +571,10 @@ def _uid_of(op_id: str) -> str:
 
 
 def _display_name(op: Operation) -> str:
+    # Bare name here on purpose: the netlist MODEL uses instance names as lookup
+    # keys (see ``_find_instance``), so a SubVI instance stays its bare name.
+    # The class/lib-qualified identity is available on ``op.qualified_name`` /
+    # ``op.display_name`` for any consumer that wants it (describe uses it).
     node_word = get_display_name(op.node_type) if op.node_type else None
     return op.name or node_word or "Node"
 
