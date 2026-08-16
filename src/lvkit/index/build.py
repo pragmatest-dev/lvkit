@@ -27,18 +27,35 @@ import networkx as nx
 
 from .. import cache_paths
 from ..graph import InMemoryVIGraph, LoadMode
-from ..graph.models import Constant, VINode
+from ..graph.models import (
+    AnyGraphNode,
+    CaseStructureNode,
+    Constant,
+    ConstantNode,
+    DisableStructureNode,
+    EventStructureNode,
+    InPlaceNode,
+    LocalVariableNode,
+    LoopNode,
+    SequenceNode,
+    VINode,
+)
+from ..graph.models import FormulaNode as GraphFormulaNode
+from ..graph.models import PrimitiveNode as GraphPrimitiveNode
 from ..models import FPTerminal
+from ..parser.node_types import get_display_name
 from ..structure import get_project_members, parse_lvproj
 from .model import (
     ClassFact,
     ConstantFact,
     LVProjMemberFact,
+    NodeFact,
+    NodeKind,
     TerminalFact,
     VIFacts,
     WiredTo,
 )
-from .query import build_call_graph
+from .query import build_call_graph, resolve_node_callee_paths
 from .store import delete as store_delete
 from .store import load as store_load
 from .store import save as store_save
@@ -107,6 +124,7 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
     for cp in collision_paths:
         facts[str(cp)] = build_one_vi(project_root, cp)
 
+    resolve_node_callee_paths(facts.values())
     _recompute_impact(facts)
     return BuildResult(
         facts=list(facts.values()),
@@ -333,6 +351,7 @@ def refresh_index(
         facts[path] = build_one_vi(project_root, p)
         rebuilt.append(path)
 
+    resolve_node_callee_paths(facts.values())
     _recompute_impact(facts)
     merged = list(facts.values())
     return RefreshResult(rebuilt=rebuilt, deleted=deleted, total=len(merged)), merged
@@ -509,27 +528,27 @@ def project_vi_facts(
         for c in graph.get_constants(vi_name)
     ]
 
-    calls: list[str] = []
-    if vi_name in graph._dep_graph:
-        for succ in graph._dep_graph.successors(vi_name):
-            edata = graph._dep_graph.get_edge_data(vi_name, succ) or {}
-            if edata.get("rel") == "owns":
-                continue
-            # A call is VI -> VI. A successor that is a class/typedef/library
-            # node is a TYPE or containment reference (already captured in
-            # ``type_uses``), NOT a call — e.g. a method referencing its own
-            # class type for a "self" param yields a method -> class edge that
-            # is not an ``owns`` edge. Keep only VI successors (``node_type``
-            # is None for a loaded VI, "vi" for a stub) so the call graph stays
-            # pure and ``get_callers``/``blast_radius`` never see a class.
-            if graph._dep_graph.nodes[succ].get("node_type") in (
-                "class",
-                "typedef",
-                "library",
-                "unknown",
-            ):
-                continue
-            calls.append(succ)
+    # The grep-not-read node spine: one row per block-diagram node, in
+    # deterministic iter_nodes order (the VI-def node is excluded there, so
+    # every VINode below is a SubVI CALL site). No wires/dataflow — that stays
+    # in the read_vi netlist. ``callee_path`` is resolved later at merge time.
+    nodes: list[NodeFact] = [
+        NodeFact(
+            uid=gn.id,
+            kind=_node_kind(gn),
+            name=(
+                gn.name
+                or (get_display_name(gn.node_type) if gn.node_type else None)
+            ),
+            prim_id=gn.prim_id if isinstance(gn, GraphPrimitiveNode) else None,
+            qualified_name=gn.qualified_name if isinstance(gn, VINode) else None,
+            object_name=gn.object_name if isinstance(gn, GraphPrimitiveNode) else None,
+            method_name=gn.method_name if isinstance(gn, GraphPrimitiveNode) else None,
+            parent_uid=gn.parent,
+            frame=str(gn.frame) if gn.frame is not None else None,
+        )
+        for gn in graph.iter_nodes(vi_name)
+    ]
 
     class_fact = _build_class_fact(graph, vi_name, owning_class)
 
@@ -542,7 +561,7 @@ def project_vi_facts(
         content_sha=cache_paths.sha256_file(vi_path),
         terminals=terminals,
         constants=constants,
-        calls=sorted(calls),
+        nodes=nodes,
         type_uses=sorted(type_use_keys),
         class_fact=class_fact,
         impact_score=0,  # filled at merge time
@@ -617,6 +636,42 @@ def _constant_wired_to(
         if isinstance(term, FPTerminal):
             return WiredTo.INDICATOR if term.is_indicator else WiredTo.CONTROL
     return WiredTo.OTHER
+
+
+def _node_kind(node: AnyGraphNode) -> NodeKind:
+    """Map a concrete graph node to its NodeKind by CLASS (not node_type
+    string).
+
+    Reuses the netlist scope vocabulary (graph/netlist.py ``_build_*_scope``:
+    case/disabled/event/sequence, and while/for split on ``loop_type`` —
+    mirrors ``netlist.py``'s loop rule). Class dispatch, not
+    ``core._graph_node_to_op_kind`` (whose strings differ) and not node_type
+    matching (brittle). The structure subclasses are siblings, so the only
+    ordering constraint is that any unenumerated node falls through to
+    ``OTHER``."""
+    if isinstance(node, VINode):
+        return NodeKind.VI
+    if isinstance(node, GraphPrimitiveNode):
+        return NodeKind.PRIMITIVE
+    if isinstance(node, GraphFormulaNode):
+        return NodeKind.FORMULA
+    if isinstance(node, ConstantNode):
+        return NodeKind.CONSTANT
+    if isinstance(node, LocalVariableNode):
+        return NodeKind.LOCAL_VARIABLE
+    if isinstance(node, DisableStructureNode):
+        return NodeKind.DISABLED
+    if isinstance(node, EventStructureNode):
+        return NodeKind.EVENT
+    if isinstance(node, LoopNode):
+        return NodeKind.WHILE if node.loop_type == "whileLoop" else NodeKind.FOR
+    if isinstance(node, CaseStructureNode):
+        return NodeKind.CASE
+    if isinstance(node, SequenceNode):
+        return NodeKind.SEQUENCE
+    if isinstance(node, InPlaceNode):
+        return NodeKind.INPLACE
+    return NodeKind.OTHER
 
 
 def _build_class_fact(

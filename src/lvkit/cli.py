@@ -277,7 +277,7 @@ def main() -> int:
         nargs="?",
         help=(
             "A single read-only SELECT/WITH over the curated views "
-            "(vi, terminal, constant, call, type_use, class_fact, lvproj). "
+            "(vi, terminal, constant, node, type_use, class_fact, lvproj). "
             'Omit when using --schema. Example: "SELECT name, COUNT(*) AS n '
             "FROM terminal WHERE type_descriptor='Error' AND direction='output' "
             'GROUP BY name ORDER BY n DESC".'
@@ -303,9 +303,12 @@ def main() -> int:
         help="Output format (default: table).",
     )
 
-    # Graph-op commands - call graph & change impact over the index (the CLI
-    # twin of the MCP get_callers/get_callees/blast_radius tools). Reachability
-    # is a graph walk, not SQL, so these are typed ops, not `query`.
+    # Graph-op commands - call graph & change impact over the index. The call
+    # graph is the node spine's kind='vi' slice (each SubVI-call node's resolved
+    # callee_path); these commands compute the transitive closure over it. There
+    # is no MCP twin — an MCP client asks the same questions with `query` over
+    # node.callee_path (direct hops) + a WITH RECURSIVE (transitive), or reads
+    # the precomputed vi.callers_count / vi.impact_score columns.
     _add_graphop_parser(
         subparsers,
         "callers",
@@ -349,6 +352,16 @@ def main() -> int:
         "--verbose",
         action="store_true",
         help="Include a full netlist section (see lvkit.graph.netlist)",
+    )
+    desc_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help=(
+            "'text' (default) prints the human-readable description; 'json' "
+            "emits the canonical netlist IR — the same structured payload the "
+            "MCP read_vi tool returns — for a program to parse."
+        ),
     )
     _add_project_root_arg(desc_parser)
     _add_load_mode_arg(desc_parser)
@@ -947,9 +960,9 @@ def _add_graphop_parser(
     *,
     depth: bool = False,
 ) -> None:
-    """Add one call-graph/impact subcommand (callers/callees/blast-radius) — the
-    CLI twin of an MCP graph-op tool. They share ``vi``/``project`` positionals
-    and the freshness + format flags; blast-radius also takes ``--depth``."""
+    """Add one call-graph/impact subcommand (callers/callees/blast-radius) over
+    the node-spine call graph. They share ``vi``/``project`` positionals and the
+    freshness + format flags; blast-radius also takes ``--depth``."""
     p = subparsers.add_parser(name, help=help_text)
     p.add_argument(
         "vi",
@@ -980,8 +993,10 @@ def _add_graphop_parser(
 
 
 def cmd_graph_op(args: argparse.Namespace) -> int:
-    """Handle callers/callees/blast-radius — typed call-graph ops over the index
-    (the CLI twin of the MCP get_callers/get_callees/blast_radius tools)."""
+    """Handle callers/callees/blast-radius — typed call-graph ops over the
+    node-spine call graph (no MCP twin; an MCP client uses `query` over
+    node.callee_path + a recursive CTE, or the vi.callers_count/impact_score
+    columns)."""
     from dataclasses import asdict
 
     from .index.build import ensure_fresh_index
@@ -1122,7 +1137,18 @@ def cmd_describe(args: argparse.Namespace) -> int:
         # VI (and its SubVIs under MINIMAL), so warm all of them.
         warm_all_loaded(graph)
 
-        print(describe_vi(graph, vi_name, verbose=args.verbose))
+        if getattr(args, "format", "text") == "json":
+            # Same structured netlist IR the MCP read_vi tool returns — parity
+            # so a non-MCP (CLI/CI/skill) consumer gets the structured read too.
+            from .graph.netlist import build_netlist, netlist_to_dict
+
+            print(
+                json.dumps(
+                    netlist_to_dict(build_netlist(graph, vi_name)), indent=2
+                )
+            )
+        else:
+            print(describe_vi(graph, vi_name, verbose=args.verbose))
 
         return 0
     except (ValueError, FileNotFoundError, KeyError) as e:

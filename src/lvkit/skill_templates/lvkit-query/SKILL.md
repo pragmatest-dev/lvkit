@@ -1,6 +1,6 @@
 ---
 name: lvkit-query
-description: Answer project-wide questions about a LabVIEW repo — class hierarchy, terminal/constant facts, dead code, call impact — via SQL over lvkit's facts index. Works via CLI or MCP.
+description: Use when the user asks a project-wide (not single-VI) question about a LabVIEW repo — class hierarchy, who calls what, dead code, terminal/constant facts, `.lvproj` membership, error-handling conventions — "what classes inherit from X", "what VIs does nothing call", "what breaks if I change Y". Answers as SQL over lvkit's facts index, MCP `query` if connected else the `lvkit query` CLI.
 allowed-tools: Bash, Read, Grep
 ---
 
@@ -22,12 +22,12 @@ error o     4
 ## Getting the facts
 
 Prefer the MCP tools when the lvkit MCP server is connected: `index`,
-`query`, `query_schema`, `get_callers`, `get_callees`, `blast_radius` all
-have identical CLI twins (`lvkit index/query/callers/callees/blast-radius`).
-`visualize_project` (MCP, a whole-project Mermaid diagram) has **no CLI
-twin** — `lvkit visualize` is a different tool (a per-VI/per-load pyvis HTML
-graph, see below). `project`/`--project-root` default to the client's
-workspace root over MCP; on the CLI, pass any path inside the repo.
+`query`, and `query_schema` have identical CLI twins (`lvkit
+index`/`lvkit query`). Reachability (callers/callees/blast radius) has **no
+MCP tool of its own** — it's `query` over the `node` view's `callee_path`
+column (see below), or the CLI's typed `callers`/`callees`/`blast-radius`
+commands. `project`/`--project-root` default to the client's workspace root
+over MCP; on the CLI, pass any path inside the repo.
 
 ## Build the index
 
@@ -43,7 +43,7 @@ index as-is, without re-scanning first — faster, may be stale.
 ## Query: the fact vocabulary
 
 `lvkit query <repo> "<SQL>"` runs exactly one read-only `SELECT`/`WITH`
-against seven curated views: `vi`, `terminal`, `constant`, `call`,
+against seven curated views: `vi`, `terminal`, `constant`, `node`,
 `type_use`, `class_fact`, `lvproj`. Writes, `PRAGMA`, `ATTACH`, and stacked
 statements are refused structurally (a read-only DB handle plus a SQLite
 authorizer), not by string-matching the query. Results are capped at 1000
@@ -73,7 +73,7 @@ GROUP BY name ORDER BY n DESC
 ```
 
 **"What VIs does nothing in this repo call?"** (dead code / entry points —
-filter on `vi.callers_count`, not a name join against `call.callee_key`,
+filter on `vi.callers_count`, not a name join against `node.qualified_name`,
 which is often NULL or a bare filename and silently misfires):
 
 ```sql
@@ -108,10 +108,27 @@ match it with `LIKE`):
 SELECT vi_path, name FROM terminal WHERE enum_values LIKE '%"setUp"%'
 ```
 
-## Reachability: typed ops, not SQL
+## Reachability: `node` over MCP, typed commands on the CLI
 
-Transitive call-graph questions ("who calls this, ever, transitively") stay
-out of `query` on purpose — they're graph walks, not `GROUP BY`s:
+Transitive call-graph questions ("who calls this, ever, transitively") have
+no dedicated tool over MCP — they're `query` over the `node` view's
+`callee_path` column. Direct callers of a VI:
+
+```sql
+SELECT DISTINCT vi_path FROM node WHERE callee_path='<abs path>'
+```
+
+Direct callees:
+
+```sql
+SELECT callee_path FROM node WHERE vi_path='<X>' AND kind='vi'
+```
+
+Transitive blast radius is a `WITH RECURSIVE` over `callee_path`;
+`vi.callers_count` / `vi.impact_score` are precomputed columns for the
+counts, so most impact questions don't need the walk at all.
+
+On the CLI, the same questions have typed commands instead of SQL:
 
 ```bash
 lvkit callers <vi> <repo>                    # direct callers
@@ -119,21 +136,19 @@ lvkit callees <vi> <repo>                    # direct callees
 lvkit blast-radius <vi> <repo> [--depth N]   # transitive dependents — "what breaks if I change this?"
 ```
 
-`<vi>` is a path, a qualified name, or an unambiguous bare name. Each has an
-MCP twin (`get_callers`, `get_callees`, `blast_radius`) with the same
-arguments. `blast_radius`/`blast-radius` returns `{vi_key, dependents,
-impact_score}` — `impact_score` is `len(dependents)`.
+`<vi>` is a path, a qualified name, or an unambiguous bare name.
+`blast-radius` returns `{vi_key, dependents, impact_score}` — `impact_score`
+is `len(dependents)`. These CLI commands have no MCP tool twin — over MCP,
+run the SQL above.
 
-For a diagram instead of a list: `visualize_project` (MCP only) renders the
-whole project's pure call graph or class-inheritance tree as Mermaid text,
-optionally highlighting one VI's blast radius (`scope="calls"` /
-`scope="classes"`, `highlight=<vi>`). It has no CLI equivalent — the nearest
-CLI facsimile, `lvkit visualize <path> --mode deps`, draws a pyvis HTML
-graph scoped to whatever one input loads, not the whole indexed repo.
+For a diagram instead of a list: `lvkit visualize <path> --mode deps`
+(CLI-only, no MCP twin) draws a pyvis HTML dependency graph scoped to
+whatever one input loads — not a whole-project view, and not available
+through the MCP server today.
 
 ## Feeds
 
 Cross-VI facts from `query` feed `/lvkit-convert` (what does this VI's
 caller pass it?) and `/lvkit-document` (which VIs does nothing call, so the
-docs site can flag them as entry points). `blast_radius` feeds `/lvkit-review`
-(who's affected by this diff).
+docs site can flag them as entry points). The `node.callee_path` walk (or
+`lvkit blast-radius`) feeds `/lvkit-review` (who's affected by this diff).

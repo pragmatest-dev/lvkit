@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.cli import cmd_graph_op
-from lvkit.index.model import VIFacts
+from lvkit.index.model import NodeFact, NodeKind, VIFacts
 from lvkit.index.store import save as save_index
 
 
@@ -40,7 +40,7 @@ def _args(
 
 
 def _seed(root: Path) -> None:
-    """a.vi calls b.vi (via b's qualified name)."""
+    """a.vi calls b.vi (a kind='vi' node whose callee_path is b's path)."""
     save_index(
         root,
         [
@@ -49,7 +49,15 @@ def _seed(root: Path) -> None:
                 name="a.vi",
                 qualified_name="Lib:a.vi",
                 content_sha="a",
-                calls=["Lib:b.vi"],
+                nodes=[
+                    NodeFact(
+                        uid="call_b",
+                        kind=NodeKind.VI,
+                        name="b.vi",
+                        qualified_name="Lib:b.vi",
+                        callee_path=str(root / "b.vi"),
+                    )
+                ],
             ),
             VIFacts(
                 path=str(root / "b.vi"),

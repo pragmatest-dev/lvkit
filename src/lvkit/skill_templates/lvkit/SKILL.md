@@ -1,6 +1,6 @@
 ---
 name: lvkit
-description: Start here for any task on a LabVIEW VI/lvclass/lvlib/lvproj repo — routes to the right lvkit skill. Works via CLI or MCP.
+description: Use when the user has a task involving a LabVIEW `.vi`/`.lvclass`/`.lvlib`/`.lvproj` file or repo and it's unclear which specific lvkit skill applies — routes to the right one (describe, query, review, convert, resolve, document).
 allowed-tools: Bash, Read, Grep
 ---
 
@@ -25,12 +25,23 @@ Python, or a diff.
 
 ## Getting the facts
 
-Every lvkit skill works two ways: the **MCP tools**, when the lvkit MCP
-server (`lvkit mcp`) is connected — structured output, a session-persistent
-project index, and path-defaulting to the client's workspace root — or the
-identical `lvkit …` CLI otherwise. Capability is the same either way; each
-skill states which mode it's using and flags the handful of commands
-(`lvkit diff`, `lvkit render`, `lvkit structure`) that have no MCP twin.
+lvkit is **understanding-only over MCP** — 6 tools, all read: `index`,
+`query`, `query_schema`, `describe`, `read_vi`, `unresolved`. Each has an
+identical CLI twin (`lvkit index`/`query`/`describe`/`unresolved`; `lvkit
+describe --format json` is the CLI form of `read_vi`'s structured netlist
+IR). Prefer the MCP tool when the lvkit MCP server (`lvkit mcp`) is
+connected — structured output, a session-persistent project index, and
+path-defaulting to the client's workspace root — else the CLI.
+
+Everything that **writes** an artifact — `generate`, `docs`, `visualize`,
+`diff`, `render` — is CLI-only, with no MCP tool at all: an AI converts a VI
+by understanding it (`read_vi`/`describe --format json`/`query`) and writing
+the code itself; `lvkit generate` is a verification oracle to diff against,
+not something callable over MCP. `callers`/`callees`/`blast-radius` and
+`structure`/`setup`/`detect` are also CLI-only — reachability questions run
+as `query` over the `node` view's `callee_path` column instead (no
+`get_callers`/`get_callees`/`blast_radius` MCP tool exists). Each skill
+states which mode it's using.
 
 lvkit is an independent, clean-room project: it reads the `.vi` binary
 format and public NI documentation, never LabVIEW itself. It ships zero

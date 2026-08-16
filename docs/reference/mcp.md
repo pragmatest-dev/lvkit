@@ -35,7 +35,14 @@ Claude Code, VS Code, Codex, Copilot CLI, and Cursor — see
 
 ## Tools
 
-The server exposes tools in three groups.
+The server exposes exactly 6 tools, all **understanding-only** — none of them
+writes a file. Artifact generation (a Python package, an HTML docs site, a
+pyvis dependency graph, a diff, an SVG render) is CLI-only
+([generate](generate.md), [docs](docs.md), [visualize](visualize.md),
+[diff](diff.md), [render](render.md)): an agent converts a VI by understanding
+it with `read_vi`/`query` and writing idiomatic Python itself —
+`lvkit generate`'s deterministic AST pipeline is a reference/oracle to verify
+against, not something the agent calls through MCP.
 
 ### Project index — whole-repo questions in one call
 
@@ -46,16 +53,27 @@ All take a `project` path (any file/dir inside the repo).
 | Tool | Description |
 |------|-------------|
 | `index` | Build/refresh the index for a repo. Returns VI count, collisions handled, and ms. |
-| `query` | Run one read-only SQL `SELECT`/`WITH` over the index and get back just the answer (a `GROUP BY` histogram, not a row dump). Queries the curated views `vi`, `terminal`, `constant`, `call`, `type_use`, `class_fact`. Replaces the older per-question read tools. |
+| `query` | Run one read-only SQL `SELECT`/`WITH` over the index and get back just the answer (a `GROUP BY` histogram, not a row dump). Queries the curated views `vi`, `terminal`, `constant`, `node`, `type_use`, `class_fact`, `lvproj`. |
 | `query_schema` | List the views and their columns, so a query uses real column names. |
-| `get_callers` / `get_callees` | Pure call edges to/from a VI (ownership excluded). |
-| `blast_radius` | Transitive dependents of a VI — "what breaks if I change this?" |
-| `visualize_project` | A self-contained Mermaid call graph or class tree, with optional blast-radius highlight. |
 
-Reads of terminals, constants, symbols, and type-uses go through `query`
-(e.g. `SELECT * FROM terminal WHERE …`); reachability stays as the typed
-`get_callers` / `get_callees` / `blast_radius` ops. The same SQL is available on
-the CLI as [`lvkit query`](query.md).
+Reads of terminals, constants, symbols, and type-uses go through `query` (e.g.
+`SELECT * FROM terminal WHERE …`). `node` is one row per block-diagram node (a
+primitive, SubVI call, structure, constant, …) — it's grep for VI code
+(`kind`, `prim_id`, `qualified_name`, structural `parent_uid`/`frame`), not
+wiring; find a pattern there, then `read_vi` the matching VI for its actual
+dataflow.
+
+**Call graph and change impact are `query` over `node`, not a separate tool.**
+Direct callers of a VI: `SELECT DISTINCT vi_path FROM node WHERE
+callee_path='<abs path>'`. Direct callees: `SELECT callee_path FROM node WHERE
+vi_path='<X>' AND kind='vi'`. Transitive blast radius: a `WITH RECURSIVE` over
+`callee_path`. `vi.callers_count` and `vi.impact_score` are precomputed columns
+for the counts, so most impact questions don't need the CTE at all. The CLI's
+[`callers`/`callees`/`blast-radius`](callers.md) commands answer the same
+questions as one-shot commands instead of SQL — there's no MCP tool twin for
+them; run the SQL above from the agent, or shell out to the CLI command.
+
+The same SQL is available on the CLI as [`lvkit query`](query.md).
 
 ### Deep single-VI — load one VI live, on demand
 
@@ -65,19 +83,13 @@ Each takes a `vi_path` (a real `.vi`) and loads it live (XML already cached) —
 | Tool | Description |
 |------|-------------|
 | `describe` | Human-readable purpose, signature, SubVI calls, control flow. |
-| `get_operations` | Execution-ordered operations with nested structures. |
-| `get_dataflow` | Wire connections, optionally filtered to one operation. |
-| `get_structure` | Detail on one case/loop/sequence structure. |
-| `get_constants` | Every constant's name, type, value. |
-| `get_context` | The VI as the canonical **netlist IR** — `{vi, inputs, outputs, components, body}`, faithful type labels, a `kind`-tagged instance/scope body. The structured counterpart to `describe`'s prose. |
-| `generate_ast_code` | Python for one VI via the deterministic AST pipeline. |
+| `read_vi` | The VI as the canonical **netlist IR** — `{vi, inputs, outputs, components, body}`, faithful type labels, a `kind`-tagged instance/scope body. The structured counterpart to `describe`'s prose. |
 
-### Stateless generators
+### Resolution gaps — triage before converting
 
 | Tool | Description |
 |------|-------------|
-| `generate_documents` | Generate the static HTML documentation site — same as [`docs`](docs.md). |
-| `generate_python` | Generate a Python package — same as [`generate`](generate.md), with a review workflow. |
+| `unresolved` | Every unknown primitive / unmapped vi.lib VI under a target (a VI, library, class, or directory), collected in one pass instead of hitting `PrimitiveResolutionNeeded`/`VILibResolutionNeeded` one at a time. Returns a list of `{kind, identifier, name, count, vi_names}` (`kind` is `unknown_primitive` / `unmapped_vilib` / `terminal_mapping`). See [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example — the project-understanding demo
 
@@ -85,12 +97,15 @@ Against JKI VI Tester (487 VIs):
 
 1. `index(project="…/source")` → `{vis: 487, collisions: 65, ms: …}`.
 2. `query(project, sql="SELECT name, COUNT(*) AS n FROM terminal WHERE
-   is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC")` →
+   type_descriptor='Error' AND direction='output' GROUP BY name ORDER BY n DESC")` →
    *"what does this project call its error indicators?"* as a small histogram, in
    one call. (`query` builds/refreshes the index on first use, so step 1 is
    optional.)
-3. `get_callers(project, vi="…/fail.vi")` → *"does this VI have callers?"*
-4. `blast_radius(project, vi="…/fail.vi")` → *"what breaks if I change it?"*
+3. `query(project, sql="SELECT DISTINCT vi_path FROM node WHERE
+   callee_path='…/fail.vi'")` → *"does this VI have callers?"*
+4. `query(project, sql="SELECT name, impact_score FROM vi WHERE
+   path='…/fail.vi'")` → *"what breaks if I change it?"* — the precomputed
+   transitive-dependent count, no CTE needed.
 
 ## Notes
 

@@ -33,7 +33,7 @@ from lvkit.index.build import (
     build_lvproj_membership,
     refresh_index,
 )
-from lvkit.index.model import WiredTo
+from lvkit.index.model import NodeKind, WiredTo
 from lvkit.index.project import resolve_project
 from lvkit.index.query import blast_radius, get_callers
 from lvkit.index.store import load as load_index
@@ -99,6 +99,33 @@ class TestSmallClassBuild:
         # Every method VI has a real content hash and terminals.
         assert all(f.content_sha for f in result.facts)
         assert any(f.terminals for f in result.facts)
+        # The block-diagram node spine is populated, and every row carries a
+        # kind from the closed NodeKind set (a stringly-typed leak would show
+        # up as an unexpected value here).
+        assert any(f.nodes for f in result.facts)
+        kinds = {n.kind for f in result.facts for n in f.nodes}
+        assert kinds <= set(NodeKind)
+
+    def test_node_callee_paths_resolve(self):
+        # Merge-time backfill: a kind='vi' node whose callee is an in-repo VI
+        # gets callee_path set to that VI's path (the direct call-site edge on
+        # the node spine), and every resolved path points at a real indexed VI.
+        root, vi_paths = resolve_project(TESTCASE_DIR)
+        result = build_index(root, vi_paths)
+        indexed = {f.path for f in result.facts}
+
+        vi_nodes = [
+            n for f in result.facts for n in f.nodes if n.kind is NodeKind.VI
+        ]
+        resolved = [n for n in vi_nodes if n.callee_path is not None]
+        assert resolved, "no SubVI-call node resolved to an in-repo callee path"
+        # Every resolved callee_path is a real indexed VI (never a guess).
+        assert all(n.callee_path in indexed for n in resolved)
+        # A qualified same-class call (run.vi -> CallTestMethod.vi) resolves.
+        assert any(
+            n.callee_path and n.callee_path.endswith("CallTestMethod.vi")
+            for n in vi_nodes
+        )
 
     def test_class_methods_have_owning_class_fact(self):
         root, vi_paths = resolve_project(TESTCASE_DIR)
@@ -141,8 +168,10 @@ class TestSmallClassBuild:
             t.type_kind for t in orig.terminals
         ]
         assert len(back.constants) == len(orig.constants)
-        assert back.calls == orig.calls
         assert back.type_uses == orig.type_uses
+        # The node spine round-trips in order, with kinds preserved.
+        assert [n.uid for n in back.nodes] == [n.uid for n in orig.nodes]
+        assert [n.kind for n in back.nodes] == [n.kind for n in orig.nodes]
 
 
 # === Incremental refresh (content-hash) — fast, on the small class dir =====
@@ -246,11 +275,12 @@ class TestFullCorpusDemo:
         class_methods = [f for f in jki_index.facts if f.class_fact is not None]
         assert class_methods  # JKI-VI-Tester is a class-heavy corpus
 
-        # The owning class is a type reference, never a call — regression guard
-        # for the class/typedef/library filter in build.project_vi_facts.
+        # The call graph is VI->VI only: a node's callee_path is always a VI
+        # path, never the owning class (a type reference is not a call).
         for f in class_methods:
             assert f.class_fact is not None
-            assert f.class_fact.owning_class not in f.calls
+            callee_paths = {n.callee_path for n in f.nodes if n.callee_path}
+            assert f.class_fact.owning_class not in callee_paths
 
         all_paths = {f.path for f in jki_index.facts}
         with_callers = [
@@ -290,34 +320,23 @@ class TestFullCorpusDemo:
         assert shallow.impact_score <= result.impact_score
 
     def test_dead_code_via_callers_count(self, jki_index: BuildResult):
-        """#20: uncalled-VI / dead-code detection reads ``callers_count``
-        (direct in-repo callers, from the path-keyed inverse call graph), NOT
-        a ``qualified_name``/``callee_key`` name anti-join.
-
-        That anti-join returns an implausible 0 over this corpus because EVERY
-        vi row's ``qualified_name`` is NULL (so a ``qualified_name IS NOT NULL``
-        guard drops all 487) and every ``callee_key`` is a bare filename that
-        never matches a qualified name. ``callers_count`` sidesteps both: it is
-        keyed on VI path, so NULL-``qualified_name`` VIs are still classified.
+        """#20: uncalled-VI / dead-code detection reads ``callers_count`` — the
+        in-degree of the path-keyed inverse call graph, which is now derived
+        from the ``kind='vi'`` node spine (each SubVI-call node's resolved
+        ``callee_path``). Keyed on VI path, so NULL-``qualified_name`` VIs are
+        still classified.
         """
-        # The old broken anti-join really does return 0 on this corpus — the
-        # exact #20 symptom the column replaces (computed here from the facts).
-        callee_keys = {c for f in jki_index.facts for c in f.calls}
-        naive_uncalled = sum(
-            1
-            for f in jki_index.facts
-            if f.qualified_name is not None and f.qualified_name not in callee_keys
-        )
-        assert naive_uncalled == 0
-
         by_name: dict[str, list] = {}
         for f in jki_index.facts:
             by_name.setdefault(f.name, []).append(f)
 
         # A common init subVI — definitely called (unique name in the corpus).
+        # 14 (was 12 off the calls table): the node spine counts actual
+        # block-diagram call sites, catching real static calls the VI-dependency
+        # list missed.
         called = by_name["TestCase_Init.vi"]
         assert len(called) == 1
-        assert called[0].callers_count == 12
+        assert called[0].callers_count == 14
 
         # A genuine top-level example runner — nothing calls it (unique name).
         uncalled = by_name["VI Tester JUnitXML Example.vi"]
@@ -327,7 +346,10 @@ class TestFullCorpusDemo:
         total_uncalled = sum(1 for f in jki_index.facts if f.callers_count == 0)
         # Plausible dead-code count: some, but not everything and not nothing.
         assert 0 < total_uncalled < len(jki_index.facts)
-        assert total_uncalled == 284  # pinned baseline (observed)
+        # 229 (no static caller): dead code + top-level entry points + VIs
+        # reached only dynamically (Call-By-Reference / VI Server). Matches the
+        # eval harness; the prior 284 was a stale pre-node-spine pin.
+        assert total_uncalled == 229
 
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====

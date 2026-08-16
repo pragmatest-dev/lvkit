@@ -30,8 +30,8 @@ you), then ask project-wide questions in one call — no per-VI round trips, no
 same-name collision loss.
 
 - [query](query.md) — read-only SQL over the repo's index (views: `vi`,
-  `terminal`, `constant`, `call`, `type_use`, `class_fact`); get back the answer
-  (a `GROUP BY` histogram), not a dump. Also documents `lvkit index`.
+  `terminal`, `constant`, `node`, `type_use`, `class_fact`, `lvproj`); get back
+  the answer (a `GROUP BY` histogram), not a dump. Also documents `lvkit index`.
 - [callers / callees / blast-radius](callers.md) — call graph & change impact:
   who calls a VI, what it calls, and what breaks if you change it.
 

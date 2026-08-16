@@ -8,28 +8,33 @@ supersedes the module-global ``mcp.server.Server`` + ``@app.list_tools()`` build
 this module used to have (that decorator was removed in mcp 2.0, silently
 disabling the server — see ``docs/_internal/design/lvkit-mcp-improvements.md``).
 
-Three tool groups:
+Two tool groups (understanding only — artifact generation lives in the CLI):
 
 1. **Index-backed, project-scoped** (``index``, ``query``, ``query_schema``,
-   ``get_callers``, ``get_callees``, ``blast_radius``, ``visualize_project``) —
-   answer *project-wide* questions in one call from the persisted, path-keyed
-   facts index (``lvkit.index``). The ``query`` tool is read-only SQL over a
-   curated view layer — it returns the *answer* (a ``GROUP BY`` histogram), not
-   the source rows, and REPLACES the old per-question read tools
-   (``find_terminals``/``find_constants``/``find_symbols``/``find_type_usages``/
-   ``get_signatures``, retired 2026-08-08). Reachability stays typed:
-   ``get_callers``/``get_callees``/``blast_radius`` are graph ops, not SQL. No
-   per-VI round trips, no name-collision bug. State is a per-project-root cache,
+   ``visualize_project``) — answer *project-wide* questions in one call from the
+   persisted, path-keyed facts index (``lvkit.index``). The ``query`` tool is
+   read-only SQL over a curated view layer — it returns the *answer* (a
+   ``GROUP BY`` histogram), not the source rows, and REPLACES the old
+   per-question read tools (``find_terminals``/``find_constants``/…, retired
+   2026-08-08) AND the former graph-op tools: the call graph is now the ``node``
+   view's ``kind='vi'`` slice (``callee_path``), so callers/callees are one-hop
+   selects and blast radius a recursive CTE (``vi.callers_count`` /
+   ``vi.impact_score`` give the counts). No per-VI round trips. A per-project
+   cache,
    NOT a single global graph any ``clear`` could nuke — safe for an agent
    working across several repos in one session.
 
-2. **Deep single-VI** (``describe``, ``get_operations``, ``get_dataflow``,
-   ``get_structure``, ``get_constants``, ``get_context``, ``generate_ast_code``)
-   — token-heavy dataflow detail for ONE VI, loaded live on demand (XML already
-   cached). The Serena split: bulk/navigation off the index, depth on demand.
+2. **Deep single-VI** (``describe`` for prose, ``read_vi`` for the structured
+   netlist) — full dataflow detail for ONE VI, loaded live on demand (XML
+   already cached). The Serena split: bulk/navigation off the index, depth on
+   demand. An AI CONVERTS a VI by understanding it here and writing idiomatic
+   Python itself — lvkit's deterministic AST generator is a CLI/oracle tool, not
+   an MCP crutch.
 
-3. **Stateless generators** (``generate_documents``, ``generate_python``) —
-   unchanged, subprocess-free wrappers over the same pipeline as the CLI.
+Artifact generation (Python packages, HTML docs, pyvis graphs, diffs, renders)
+is CLI-only (``lvkit generate``/``docs``/``visualize``/``diff``/``render``): it
+writes files, belongs in scripts/CI, and keeps the MCP a pure, in-process
+understanding surface with no subprocess or non-packaged-``scripts/`` dependency.
 """
 
 from __future__ import annotations
@@ -55,25 +60,11 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore
 
 from .. import primitive_resolver, vilib_resolver
-from ..codegen import build_module
 from ..graph import InMemoryVIGraph
-from ..graph.describe import (
-    describe_constants as describe_constants_text,
-)
-from ..graph.describe import (
-    describe_dataflow as describe_dataflow_text,
-)
-from ..graph.describe import (
-    describe_operations as describe_operations_text,
-)
-from ..graph.describe import (
-    describe_structure as describe_structure_text,
-)
 from ..graph.describe import (
     describe_vi as describe_vi_text,
 )
 from ..graph.netlist import build_netlist, netlist_to_dict
-from ..index import query as iq
 from ..index import sql as isql
 from ..index.build import (
     build_index,
@@ -90,8 +81,6 @@ from ..index.store import save as store_save
 from ..index.store import save_lvproj_members as store_save_lvproj_members
 from ..load_mode import LoadMode
 from ..project_store import find_project_store
-from .tools import generate_documents as _gen_documents
-from .tools import generate_python as _gen_python
 
 _INSTRUCTIONS = """\
 lvkit reads LabVIEW code. A LabVIEW project (`.vi`, `.lvclass`, `.lvlib`,
@@ -111,20 +100,47 @@ For any question about the project, start here:
 
 - Structure, classes & inheritance, terminals, constants, type usage,
   `.lvproj` membership — `query` runs read-only SQL over the project's facts
-  index (views: `vi`, `class_fact`, `terminal`, `constant`, `call`,
+  index (views: `vi`, `class_fact`, `terminal`, `constant`, `node`,
   `type_use`, `lvproj`; call `query_schema` for columns). "What classes exist
   and how do they inherit?" is `SELECT owning_class, parent FROM class_fact`.
   It returns the answer (e.g. a GROUP BY histogram), not a row dump.
-- Who calls what / change impact — `get_callers`, `get_callees`,
-  `blast_radius` (transitive; not expressible in SQL).
-- A whole-project call graph / class tree diagram — `visualize_project`.
-- One VI in depth (pass a path, no load step) — `describe`,
-  `get_operations`, `get_dataflow`, `get_structure`, `get_constants`,
-  `get_context`.
-- Convert a VI to Python — `generate_python` / `generate_ast_code`; docs
-  site — `generate_documents`.
+- Find a block-diagram PATTERN across every VI at once — the `node` view is
+  grep for VI code: one row per node (a primitive, SubVI call, structure,
+  constant, ...) with its `kind`, robust identity (`prim_id` for primitives,
+  `qualified_name` for SubVI calls), and STRUCTURAL containment (`parent_uid`,
+  `frame`) — but NO wiring. This is grep-not-read: `query` the `node` view to
+  find WHICH VIs match a pattern, then read the actual dataflow of a hit with
+  `read_vi`. Robust filters are `prim_id`/`qualified_name`, not `name`.
+  Worked slices:
+    - Callers of a VI: `SELECT DISTINCT vi_path FROM node WHERE
+      callee_path='<abs path of MyVI.vi>'` (or the vi.callers_count column).
+    - A structure containing another (e.g. an event-handler loop): self-join
+      `node c JOIN node p ON c.parent_uid=p.uid AND c.vi_path=p.vi_path
+      WHERE c.kind='event' AND p.kind='while'`; walk full nesting with a
+      `WITH RECURSIVE` over `parent_uid`.
+    - Producer/consumer (queues, user events): filter by the queue/event
+      `prim_id` (enumerate with `SELECT DISTINCT prim_id, name FROM node
+      WHERE name LIKE '%Enqueue%'`) or by `qualified_name` for vi.lib VIs,
+      then `read_vi` each hit to trace the named message/refnum.
+- Who calls what / change impact — the call graph is the `node` view's
+  `kind='vi'` slice via `callee_path`. Direct callers of X:
+  `SELECT DISTINCT vi_path FROM node WHERE callee_path='<abs path of X>'`;
+  direct callees: `SELECT callee_path FROM node WHERE vi_path='<X>' AND
+  kind='vi' AND callee_path IS NOT NULL`. Transitive blast radius: a
+  `WITH RECURSIVE deps(p) AS (SELECT vi_path FROM node WHERE callee_path=:x
+  UNION SELECT n.vi_path FROM node n JOIN deps ON n.callee_path=deps.p) …`.
+  For the COUNTS, `vi.callers_count` (0 == no static caller) and
+  `vi.impact_score` are precomputed columns — no CTE needed.
+- One VI in depth (pass a path, no load step) — `describe` (prose) or
+  `read_vi` (structured netlist: operations, wiring, structures, constants).
+- Convert a VI to Python — UNDERSTAND it with `read_vi`/`query`, then write
+  idiomatic Python yourself. (lvkit's deterministic AST generator lives in the
+  `lvkit generate` CLI — use it as a reference/oracle, not the primary path.)
+- Artifacts (Python packages, HTML docs, graphs, diffs, renders) are the
+  `lvkit` CLI's job (`generate`/`docs`/`visualize`/`diff`/`render`) — they write
+  files; point the user at the command.
 
-`query`, `get_callers` and friends operate on the whole project at once and
+`query` operates on the whole project at once and
 build/refresh the index automatically. Prefer them over per-VI round-trips.
 """
 
@@ -376,8 +392,10 @@ async def query(
     ``SELECT owning_class, parent FROM class_fact``.
 
     Query these curated views (call ``query_schema`` for their columns):
-    ``vi``, ``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``,
-    ``lvproj`` (which VIs/classes belong to which ``.lvproj``).
+    ``vi``, ``terminal``, ``constant``, ``node`` (block-diagram nodes — grep for
+    VI code: primitives/SubVI-calls/structures with kind + identity +
+    containment + resolved ``callee_path``, no wiring), ``type_use``,
+    ``class_fact``, ``lvproj`` (which VIs/classes belong to which ``.lvproj``).
     Example — the names this project uses for error indicators, as a histogram
     rather than 406 raw rows::
 
@@ -388,9 +406,10 @@ async def query(
     Returns ``{columns, rows, row_count, truncated}`` (columnar). Only a single
     SELECT/CTE is allowed — writes, ``PRAGMA``, ``ATTACH`` and stacked statements
     are refused. The index is built/refreshed automatically on first use.
-    ``project`` defaults to the client's workspace root. Transitive questions
-    (callers, blast radius) are the ``get_callers``/``blast_radius`` tools, not
-    SQL.
+    ``project`` defaults to the client's workspace root. The call graph is the
+    ``node`` view: direct callers = ``WHERE callee_path=…``, transitive blast
+    radius = a ``WITH RECURSIVE`` over ``callee_path`` (``vi.callers_count`` /
+    ``vi.impact_score`` are the precomputed counts).
     """
     project = await _resolve_project(project, ctx)
 
@@ -407,84 +426,6 @@ async def query_schema() -> list[dict[str, Any]]:
     first so your SQL uses real column names instead of guessing. Each entry is
     ``{name, columns:[{name, description}]}``."""
     return [asdict(v) for v in isql.describe_schema()]
-
-
-@mcp.tool()
-async def get_callers(
-    vi: str,
-    project: str | None = None,
-    ctx: Context | None = None,
-) -> list[str]:
-    """Paths of VIs that call ``vi`` — pure call edges (a method's owning class
-    is never counted as a caller). ``vi`` may be a path, a qualified name, or an
-    unambiguous bare name. ``project`` defaults to the client's workspace root."""
-    project = await _resolve_project(project, ctx)
-
-    def _work() -> list[str]:
-        _, facts = _get_index(project)
-        return iq.get_callers(facts, vi)
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def get_callees(
-    vi: str,
-    project: str | None = None,
-    ctx: Context | None = None,
-) -> list[str]:
-    """Paths of VIs that ``vi`` calls — pure call edges. ``vi`` may be a path, a
-    qualified name, or an unambiguous bare name. ``project`` defaults to the
-    client's workspace root."""
-    project = await _resolve_project(project, ctx)
-
-    def _work() -> list[str]:
-        _, facts = _get_index(project)
-        return iq.get_callees(facts, vi)
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def blast_radius(
-    vi: str,
-    project: str | None = None,
-    depth: int | None = None,
-    ctx: Context | None = None,
-) -> dict[str, Any]:
-    """ "What breaks if I change ``vi``?" — its transitive dependents over the
-    pure call graph, optionally bounded to ``depth`` hops. Returns the resolved
-    key, the dependent VI paths, and ``impact_score`` (their count). ``project``
-    defaults to the client's workspace root."""
-    project = await _resolve_project(project, ctx)
-
-    def _work() -> dict[str, Any]:
-        _, facts = _get_index(project)
-        return asdict(iq.blast_radius(facts, vi, depth=depth))
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def visualize_project(
-    project: str | None = None,
-    scope: str = "calls",
-    highlight: str | None = None,
-    ctx: Context | None = None,
-) -> str:
-    """A self-contained **Mermaid** map of the project (paste into any Mermaid
-    renderer). ``scope="calls"`` draws the pure call graph; ``scope="classes"``
-    draws the class-inheritance tree. ``highlight`` (a VI path/qualified/bare
-    name) marks that VI and its blast-radius dependents — the visual twin of
-    ``blast_radius``. Clean-room: emits only Mermaid text, no external hosts.
-    ``project`` defaults to the client's workspace root."""
-    project = await _resolve_project(project, ctx)
-
-    def _work() -> str:
-        _, facts = _get_index(project)
-        return _mermaid(facts, scope=scope, highlight=highlight)
-
-    return await asyncio.to_thread(_work)
 
 
 # ===== Deep single-VI (load on demand) =====
@@ -521,9 +462,9 @@ def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
 @mcp.tool()
 async def describe(vi_path: str, ctx: Context | None = None) -> str:
     """Human-readable purpose, signature, SubVI calls, and control flow for one
-    VI (loaded on demand). Start here before ``get_operations``/``get_dataflow``.
-    For the STRUCTURED form (a program parsing the result), use ``get_context``.
-    ``vi_path`` may be relative to the client's workspace root.
+    VI (loaded on demand). The prose read; for the STRUCTURED form (a program
+    parsing the result), use ``read_vi``. ``vi_path`` may be relative to the
+    client's workspace root.
     """
     vi_path = await _resolve_target(vi_path, ctx)
 
@@ -535,74 +476,13 @@ async def describe(vi_path: str, ctx: Context | None = None) -> str:
 
 
 @mcp.tool()
-async def get_operations(vi_path: str, ctx: Context | None = None) -> str:
-    """Execution-ordered operations of one VI, with nested structures (case
-    frames, loop bodies), loaded on demand. ``vi_path`` may be relative to the
-    client's workspace root."""
-    vi_path = await _resolve_target(vi_path, ctx)
-
-    def _work() -> str:
-        graph, vi_name = _load_one(vi_path)
-        return describe_operations_text(graph, vi_name)
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def get_dataflow(
-    vi_path: str,
-    operation_id: str | None = None,
-    ctx: Context | None = None,
-) -> str:
-    """Wire connections between one VI's operations, optionally filtered to a
-    single operation. Loaded on demand. ``vi_path`` may be relative to the
-    client's workspace root."""
-    vi_path = await _resolve_target(vi_path, ctx)
-
-    def _work() -> str:
-        graph, vi_name = _load_one(vi_path)
-        return describe_dataflow_text(graph, vi_name, operation_id)
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def get_structure(
-    vi_path: str,
-    operation_id: str,
-    ctx: Context | None = None,
-) -> str:
-    """Detail on one case/loop/sequence structure — selector and values,
-    tunnels, frame contents. Loaded on demand. ``vi_path`` may be relative to
-    the client's workspace root."""
-    vi_path = await _resolve_target(vi_path, ctx)
-
-    def _work() -> str:
-        graph, vi_name = _load_one(vi_path)
-        return describe_structure_text(graph, vi_name, operation_id)
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def get_constants(vi_path: str, ctx: Context | None = None) -> str:
-    """Every constant's name, type, and value in one VI (loaded on demand).
-    ``vi_path`` may be relative to the client's workspace root."""
-    vi_path = await _resolve_target(vi_path, ctx)
-
-    def _work() -> str:
-        graph, vi_name = _load_one(vi_path)
-        return describe_constants_text(graph, vi_name)
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def get_context(vi_path: str, ctx: Context | None = None) -> dict[str, Any]:
-    """The VI's structure as the canonical **netlist IR** —
+async def read_vi(vi_path: str, ctx: Context | None = None) -> dict[str, Any]:
+    """READ one VI in full — its structure as the canonical **netlist IR**
     ``{vi, inputs, outputs, components, body}`` — for a program (not a person)
-    to parse. Loaded on demand; the structured counterpart to ``describe``'s
-    prose.
+    to parse. This is the "read" to ``query``'s "grep": grep the ``node`` view
+    to find WHICH VIs match a pattern, then ``read_vi`` a hit to see its actual
+    wiring/dataflow. Loaded on demand; the structured counterpart to
+    ``describe``'s prose.
 
     Boundary ``inputs``/``outputs`` carry the FAITHFUL LabVIEW type descriptor
     (``Error``, ``TestSuite.lvclass``, ``method--Enum{setUp, tearDown}``); each
@@ -661,140 +541,6 @@ async def unresolved(
         ]
 
     return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
-async def generate_ast_code(vi_path: str, ctx: Context | None = None) -> str:
-    """Generate Python for one VI via the deterministic AST pipeline (loaded on
-    demand). Always valid syntax; may contain PRIMITIVE_xxx stubs for unknown
-    primitives. ``vi_path`` may be relative to the client's workspace root."""
-    vi_path = await _resolve_target(vi_path, ctx)
-
-    def _work() -> str:
-        graph, vi_name = _load_one(vi_path)
-        context = graph.get_vi_context(vi_name)
-        return build_module(context, vi_name)
-
-    return await asyncio.to_thread(_work)
-
-
-# ===== Stateless generators =====
-
-
-@mcp.tool()
-async def generate_documents(
-    library_path: str,
-    output_dir: str,
-    search_paths: list[str] | None = None,
-    load_mode: str = "full",
-    vilib_root: str | None = None,
-    userlib_root: str | None = None,
-    auto_vilib: bool = True,
-    ctx: Context | None = None,
-) -> str:
-    """Generate a static HTML documentation site for a VI, library, class, or
-    directory (same output as ``lvkit docs``). Writes files and returns a
-    summary; tell the user the path to ``index.html``. ``library_path`` may be
-    relative to the client's workspace root."""
-    library_path = await _resolve_target(library_path, ctx)
-    _configure_resolvers_for_vi(library_path)
-    return await asyncio.to_thread(
-        _gen_documents,
-        library_path,
-        output_dir,
-        search_paths or [],
-        load_mode,
-        vilib_root=vilib_root,
-        userlib_root=userlib_root,
-        auto_vilib=auto_vilib,
-    )
-
-
-@mcp.tool()
-async def generate_python(
-    vi_path: str,
-    output_dir: str,
-    search_paths: list[str] | None = None,
-    soft_unresolved: bool = False,
-    vilib_root: str | None = None,
-    userlib_root: str | None = None,
-    auto_vilib: bool = True,
-    ctx: Context | None = None,
-) -> str:
-    """Generate a Python package from a VI (same conversion as ``lvkit
-    generate``), with a ``needs_review``/``errors`` workflow for the calling
-    agent to read and correct the output. Returns JSON. ``vi_path`` may be
-    relative to the client's workspace root."""
-    vi_path = await _resolve_target(vi_path, ctx)
-    _configure_resolvers_for_vi(vi_path)
-    result = await asyncio.to_thread(
-        _gen_python,
-        vi_path,
-        output_dir,
-        search_paths or [],
-        include_code=False,
-        soft_unresolved=soft_unresolved,
-        vilib_root=vilib_root,
-        userlib_root=userlib_root,
-        auto_vilib=auto_vilib,
-    )
-    return result.model_dump_json(indent=2)
-
-
-# ===== Mermaid rendering (project visualization) =====
-
-
-def _mermaid_id(path: str, ids: dict[str, str]) -> str:
-    """Stable, Mermaid-safe node id for a path (n0, n1, …)."""
-    if path not in ids:
-        ids[path] = f"n{len(ids)}"
-    return ids[path]
-
-
-def _mermaid(vis: list[VIFacts], *, scope: str, highlight: str | None) -> str:
-    """Render the project as a Mermaid ``graph``/``classDiagram`` string."""
-    by_path = {f.path: f for f in vis}
-    label = {f.path: f.name for f in vis}
-
-    if scope == "classes":
-        lines = ["classDiagram"]
-        seen: set[str] = set()
-        for f in vis:
-            cf = f.class_fact
-            if cf is None:
-                continue
-            cls = cf.owning_class
-            if cls not in seen:
-                lines.append(f"    class `{cls}`")
-                seen.add(cls)
-            if cf.parent and cf.parent not in seen:
-                lines.append(f"    class `{cf.parent}`")
-                seen.add(cf.parent)
-            if cf.parent:
-                lines.append(f"    `{cf.parent}` <|-- `{cls}`")
-        if len(lines) == 1:
-            lines.append("    class `(no classes indexed)`")
-        return "\n".join(lines)
-
-    # scope == "calls" (default): the pure call graph.
-    graph = iq.build_call_graph(vis)
-    hot: set[str] = set()
-    if highlight is not None:
-        br = iq.blast_radius(vis, highlight)
-        hot = {br.vi_key, *br.dependents}
-
-    ids: dict[str, str] = {}
-    lines = ["graph LR"]
-    for path in graph.nodes():
-        nid = _mermaid_id(path, ids)
-        name = label.get(path, Path(path).name).replace('"', "'")
-        lines.append(f'    {nid}["{name}"]')
-    for a, b in graph.edges():
-        lines.append(f"    {_mermaid_id(a, ids)} --> {_mermaid_id(b, ids)}")
-    for path in hot:
-        if path in by_path:
-            lines.append(f"    style {_mermaid_id(path, ids)} fill:#f9a,stroke:#c33")
-    return "\n".join(lines)
 
 
 # ===== Entry points =====

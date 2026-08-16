@@ -1,6 +1,6 @@
 ---
 name: lvkit-describe
-description: Describe what a LabVIEW VI does — signature, operations, dataflow, structures, constants. Works via CLI or MCP.
+description: Use when the user asks what a LabVIEW VI does, or wants its signature/inputs/outputs/dataflow/structures/constants explained — "what does this VI do", "describe this VI", "what are the inputs to X.vi". Single-VI, deep inspection; not for whole-repo questions (see lvkit-query).
 allowed-tools: Bash, Read, Grep
 ---
 
@@ -16,14 +16,16 @@ lvkit describe "<vi-path>" --search-path "<library-path>"
 
 Prefer the MCP tools when the lvkit MCP server is connected — they take a VI
 path directly, loaded on demand, no session `load`/`clear` step:
-`describe(vi_path)` → `get_operations(vi_path)` → `get_dataflow(vi_path)` →
-`get_structure(vi_path, operation_id)` → `get_constants(vi_path)`. For a
-program (not a person) to parse the same facts, `get_context(vi_path)`
-returns the structured netlist IR (`{vi, inputs, outputs, components, body,
-properties, health}`) in one call instead of five.
+`describe(vi_path)` returns the prose form; `read_vi(vi_path)` returns the
+structured netlist IR (`{vi, inputs, outputs, components, body, properties,
+health}`) in one call — operations, wiring, structures, and constants
+together, not five separate reads.
 
-Otherwise use the `lvkit describe` CLI above — same facts, prose form.
-`-v/--verbose` adds the full netlist section.
+No MCP server connected? The CLI `lvkit describe` above is the twin of both:
+plain (no `--format`) prints the same prose as MCP `describe`; `-v/--verbose`
+adds the full netlist section inline; `--format json` emits the identical
+structured payload MCP `read_vi` returns, for a program instead of a person
+to parse.
 
 To see the VI's faithful block diagram, render it to SVG (CLI-only, no MCP
 twin):

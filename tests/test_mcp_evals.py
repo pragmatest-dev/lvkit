@@ -361,33 +361,21 @@ def test_q18_dead_code_uncalled(jki_index: BuildResult):
     """Q18: 'Is anything dead code — VIs that nothing calls?'
 
     The fixed answer is ``vi.callers_count = 0`` (#20) — the in-degree of the
-    call graph, whose edges resolve each ``callee_key`` through three tiers
-    (``by_path`` → ``by_qualified`` → leaf-name; see ``query._resolve_callee``),
-    so it is tolerant of the qualified-vs-bare-filename key formats. Pinned
-    below as the regression anchor for WHY the column exists: the naive SQL
-    ``qualified_name NOT IN callee_key`` string anti-join skips that resolver,
-    so lib-qualified names (``Foo.lvlib:Bar.vi``) never match the bare
-    ``callee_key`` (``Bar.vi``) and it reports 198 false-dead against the
-    correct 232. (Before 516dc9d gave every VINode a ``qualified_name`` the
-    anti-join returned 0 — the ``IS NOT NULL`` guard zeroed its own input — and
-    ``callers_count`` was 284; better call resolution now wires up 52 more
-    edges, so 52 VIs no longer look dead.) 232 uncalled of 487, incl. the
+    call graph, whose edges are now the ``kind='vi'`` node spine: each SubVI-call
+    node's ``callee_path``, resolved once at merge time through the same three
+    tiers (``by_path`` → ``by_qualified`` → leaf-name; see
+    ``query._resolve_callee``). Keyed on VI path, so it classifies even the many
+    VIs whose ``qualified_name`` is NULL. 229 uncalled of 487, incl. the
     JUnitXML example runner; a common init subVI (``TestCase_Init.vi``) is NOT
-    uncalled."""
-    # The naive string anti-join skips _resolve_callee and misfires: it counts
-    # lib-qualified VIs as dead because their qualified_name never string-equals
-    # a bare-filename callee_key. 198 false-dead vs the correct 232 below.
-    broken = _query(
-        "SELECT COUNT(*) FROM vi WHERE qualified_name IS NOT NULL "
-        "AND qualified_name NOT IN (SELECT callee_key FROM call)"
-    )
-    assert broken.rows == [[198]]
-
+    uncalled. (Was 232 when the call graph read the ``calls`` table; folding it
+    onto the node spine — whose SubVI-call nodes now carry the fully-qualified
+    callee, fixed in builders/operations.py — resolves 3 more real edges, so 3
+    fewer VIs look dead.)"""
     total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
-    assert total.rows == [[232]]
+    assert total.rows == [[229]]
 
     called = _query("SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'")
-    assert called.rows == [[12]]
+    assert called.rows == [[14]]
     uncalled = _query(
         "SELECT callers_count FROM vi WHERE name = 'VI Tester JUnitXML Example.vi'"
     )

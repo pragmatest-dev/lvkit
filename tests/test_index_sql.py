@@ -17,6 +17,8 @@ from lvkit.index import store as store_mod
 from lvkit.index.model import (
     OUTPUT,
     ConstantFact,
+    NodeFact,
+    NodeKind,
     TerminalFact,
     VIFacts,
     WiredTo,
@@ -76,7 +78,15 @@ def _project(tmp_path: Path) -> Path:
                     wired_to=WiredTo.INDICATOR,
                 ),
             ],
-            calls=["Lib.lvlib:b.vi"],
+            nodes=[
+                NodeFact(
+                    uid="call_b",
+                    kind=NodeKind.VI,
+                    name="b.vi",
+                    qualified_name="Lib.lvlib:b.vi",
+                    callee_path=str(tmp_path / "b.vi"),
+                )
+            ],
         ),
         VIFacts(
             path=str(tmp_path / "b.vi"),
@@ -182,7 +192,7 @@ def test_describe_schema_lists_all_views():
         "vi",
         "terminal",
         "constant",
-        "call",
+        "node",
         "type_use",
         "class_fact",
         "lvproj",
@@ -283,6 +293,92 @@ def test_type_descriptor_and_enum_values_round_trip(tmp_path: Path):
         "SELECT name FROM terminal WHERE enum_values LIKE '%\"testMethod\"%'",
     )
     assert hits.rows == [["method"]]
+
+
+def test_nodes_round_trip(tmp_path: Path):
+    """The block-diagram node spine round-trips through save/load and answers
+    the grep-not-read slices: prim_id / qualified_name filters, the event-in-
+    while containment self-join, frame membership, and a recursive containment
+    walk — all in SQL, no VI read."""
+    facts = [
+        VIFacts(
+            path=str(tmp_path / "producer.vi"),
+            name="producer.vi",
+            content_sha="sha-p",
+            nodes=[
+                # An Event Structure nested inside a While Loop (the classic
+                # event-handler loop). Order below is the iter_nodes order the
+                # ``ord`` column must preserve.
+                NodeFact(uid="loop0", kind=NodeKind.WHILE, name="While Loop"),
+                NodeFact(
+                    uid="ev0",
+                    kind=NodeKind.EVENT,
+                    name="Event Structure",
+                    parent_uid="loop0",
+                ),
+                NodeFact(
+                    uid="enq",
+                    kind=NodeKind.PRIMITIVE,
+                    prim_id=1234,
+                    name="Enqueue Element",
+                    parent_uid="ev0",
+                    frame="1",
+                ),
+                NodeFact(
+                    uid="sub",
+                    kind=NodeKind.VI,
+                    name="Send.vi",
+                    qualified_name="Msg.lvclass:Send.vi",
+                    callee_path=str(tmp_path / "Send.vi"),
+                ),
+            ],
+        ),
+    ]
+    save_index(tmp_path, facts)
+
+    # (1) ord preserves iter_nodes order.
+    ordered = sql.run_query(tmp_path, "SELECT uid FROM node ORDER BY ord")
+    assert ordered.rows == [["loop0"], ["ev0"], ["enq"], ["sub"]]
+
+    # (2) prim_id is the robust primitive filter.
+    prim = sql.run_query(
+        tmp_path, "SELECT kind, name FROM node WHERE prim_id = 1234"
+    )
+    assert prim.rows == [["primitive", "Enqueue Element"]]
+
+    # (3) a SubVI producer via kind='vi' + qualified_name/callee_path.
+    sub = sql.run_query(
+        tmp_path,
+        "SELECT qualified_name, callee_path FROM node WHERE kind = 'vi'",
+    )
+    assert sub.rows == [["Msg.lvclass:Send.vi", str(tmp_path / "Send.vi")]]
+
+    # (4) event-structure-inside-a-while-loop via the parent_uid self-join.
+    handler = sql.run_query(
+        tmp_path,
+        "SELECT c.name FROM node c JOIN node p "
+        "ON c.parent_uid = p.uid AND c.vi_path = p.vi_path "
+        "WHERE c.kind = 'event' AND p.kind = 'while'",
+    )
+    assert handler.rows == [["Event Structure"]]
+
+    # (5) frame membership: what sits in frame 1 of the event structure.
+    in_frame = sql.run_query(
+        tmp_path,
+        "SELECT name FROM node WHERE parent_uid = 'ev0' AND frame = '1'",
+    )
+    assert in_frame.rows == [["Enqueue Element"]]
+
+    # (6) recursive containment walk: every node transitively inside loop0.
+    inside = sql.run_query(
+        tmp_path,
+        "WITH RECURSIVE contained(uid) AS ("
+        "  SELECT uid FROM node WHERE parent_uid = 'loop0'"
+        "  UNION"
+        "  SELECT n.uid FROM node n JOIN contained c ON n.parent_uid = c.uid"
+        ") SELECT uid FROM contained ORDER BY uid",
+    )
+    assert inside.rows == [["enq"], ["ev0"]]
 
 
 def test_constant_type_descriptor_round_trips(tmp_path: Path):

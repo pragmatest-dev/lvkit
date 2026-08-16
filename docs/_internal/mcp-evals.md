@@ -58,7 +58,8 @@ Scorecard template at the bottom.
      `PublicEvents`}. Full map pinned in `test_q4_accessor_field_map`.
 
 5. **If I change `TestCase.lvclass`, what inherits from it?**
-   - *Answered by:* children of `TestCase` in `class_fact` (+ `blast_radius` for VIs).
+   - *Answered by:* children of `TestCase` in `class_fact` (+ `query` over
+     `node.callee_path`, or the CLI `blast-radius` command, for VIs).
    - *Ground truth:* **14** subclasses — `COUNT(DISTINCT owning_class) WHERE
      parent='TestCase.lvclass'`. All direct; none have children of their own, so
      the transitive answer is also 14.
@@ -69,7 +70,7 @@ Scorecard template at the bottom.
    - *Answered by:* `query` `terminal WHERE is_public=1` grouped by `vi_path`; or `describe` per VI.
 
 7. **What inputs and outputs does `<pick a VI>` take?**
-   - *Answered by:* `describe` / `get_context` (single VI, pass the path).
+   - *Answered by:* `describe` / `read_vi` (single VI, pass the path).
 
 8. **Which VIs take an error cluster as an input?**
    - *Answered by:* `terminal WHERE type_descriptor='Error' AND direction='input'`.
@@ -129,11 +130,16 @@ Scorecard template at the bottom.
 ## E. Change impact / refactoring
 
 16. **What are the most-depended-on VIs — the ones scary to change?**
-    - *Answered by:* `vi` ordered by `impact_score`, or `call` GROUP BY callee.
+    - *Answered by:* `vi` ordered by `impact_score`, or the `node` view's
+      `kind='vi'` slice GROUP BY `callee_path`.
 
 17. **If I change `<a core VI>`, what's the full blast radius?**
-    - *Answered by:* `blast_radius` (transitive — NOT SQL).
-    - *Watch for:* the agent writing a recursive CTE instead of using the tool.
+    - *Answered by:* a `WITH RECURSIVE` over `node.callee_path` (or the CLI
+      `blast-radius` command); `vi.impact_score` gives the count without the
+      walk.
+    - *Watch for:* the agent hand-rolling a one-hop callee union and calling
+      it "blast radius" instead of a real transitive walk, or missing that
+      `vi.impact_score` already has the count precomputed.
 
 18. **Is anything dead code — VIs that nothing calls?**
     - *Answered by:* `vi` filtered on `callers_count = 0` (direct in-repo
@@ -149,7 +155,9 @@ Scorecard template at the bottom.
       no longer look dead.)*
 
 19. **Who calls `<a VI>`, directly or transitively?**
-    - *Answered by:* `get_callers`.
+    - *Answered by:* `query` over `node.callee_path` — direct callers are one
+      `SELECT`, transitive callers a `WITH RECURSIVE` over the same column
+      (or the CLI `callers`/`blast-radius` commands).
 
 ## F. Project scoping  [GAP #19 — the big modeling gap]
 
@@ -224,7 +232,7 @@ undiscoverable.
 ## I. Conversion faithfulness  [judge: `judge-output` + execute-both]
 
 27. **Convert `<pick a VI with a For loop + an auto-indexing tunnel>` to Python — is it behaviorally faithful?**
-    - *Answered by:* `/lvkit-convert` — understand via `get_context`, write Python, verify vs the `lvkit generate` oracle (execute both, diff outputs).
+    - *Answered by:* `/lvkit-convert` — understand via `read_vi`, write Python, verify vs the `lvkit generate` oracle (execute both, diff outputs).
     - *Watch for:* a manual list-append where the tunnel auto-indexes (should be `enumerate`/indexed); serializing independent branches; ignoring the `N`-terminal iteration cap.
 
 28. **Convert a VI that has error clusters AND parallel branches — is the held-error model preserved?**
@@ -238,7 +246,7 @@ undiscoverable.
 ## J. Change review  [judge: `eval-judge`]
 
 30. **What changed between the two `WaitOnTestComplete.vi` copies in this repo, and who's affected?**  (the corpus has two same-named copies — a real diff)
-    - *Answered by:* `/lvkit-review` — `lvkit diff <a> <b>` + `blast_radius` for ripple.
+    - *Answered by:* `/lvkit-review` — `lvkit diff <a> <b>` + `lvkit blast-radius` for ripple.
     - *Watch for:* a raw wire/terminal delta with no narrative; omitting the affected-callers (blast-radius) half.
 
 31. **Summarize what a specific commit changed to `<a VI under git>`.**  (commit vs parent)

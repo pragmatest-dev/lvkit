@@ -129,7 +129,7 @@ follow-up (#21).
 The exhaustive set — every flag, window cosmetics, numeric execution
 priority — lives in `describe`'s `## Properties` section (kind included) and
 its `## Health` section (broken causes, shown only when broken), and the
-JSON `get_context`; every rendering of this curated subset (here, `diff`,
+JSON `read_vi`; every rendering of this curated subset (here, `diff`,
 the viewer) is a high-signal SUMMARY only.
 
 ### Instance (node) line — node-first, named-port

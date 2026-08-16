@@ -8,8 +8,9 @@ as a single ``GROUP BY`` that returns the 16-row histogram, not the 406 terminal
 rows the old tool dumped.
 
 Callers get **read-only SQL over a small, curated VIEW layer** (``vi``,
-``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``). The physical
-tables (``store.py``) can churn underneath; the views are the public contract.
+``terminal``, ``constant``, ``node``, ``call``, ``type_use``, ``class_fact``,
+``lvproj``). The physical tables (``store.py``) can churn underneath; the views
+are the public contract.
 
 Security is enforced **structurally**, not by string-matching the SQL (design
 §3a — Anthropic's own Postgres MCP shipped a read-only-bypass injection because
@@ -89,13 +90,13 @@ VIEWS: dict[str, _View] = {
             "library": "owning .lvclass/.lvlib, or NULL",
             "is_stub": "1 if the VI could not be fully loaded (placeholder facts)",
             "impact_score": "count of transitive dependents (0 until a full refresh)",
-            "callers_count": "number of in-repo VIs that directly call this VI; "
-            "0 == dead code / uncalled. Use this for uncalled-VI detection — it "
-            "is the call-graph in-degree, which resolves each callee through VI "
-            "path / qualified-name / leaf-name, so it is reliable. A name "
-            "anti-join over callee_key silently misfires: qualified_name is "
-            "lib-qualified (Foo.lvlib:Bar.vi) but callee_key is a bare filename, "
-            "so they never string-match.",
+            "callers_count": "number of in-repo VIs that STATICALLY call this VI "
+            "(the in-degree of the node-spine call graph: distinct callers via "
+            "node.callee_path). 0 == no static caller — dead code OR a top-level "
+            "entry point OR a VI reached only dynamically (Call-By-Reference / VI "
+            "Server / async launch), which no static graph can link. Reliable for "
+            "uncalled-VI detection; keyed on VI path, so it classifies even VIs "
+            "whose qualified_name is NULL.",
             "lv_version": "LabVIEW version the VI was saved with, "
             "'Major.Minor.Bugfix' (e.g. '21.0.0'), or NULL if absent",
             "vi_type": "VI kind from the Instrument record (e.g. 'Control'), or NULL",
@@ -229,11 +230,46 @@ VIEWS: dict[str, _View] = {
             "wired_to": "what the constant wires into, e.g. 'indicator'",
         },
     ),
-    "call": _View(
-        body="FROM calls",
+    "node": _View(
+        body="FROM nodes",
         columns={
-            "caller_path": "path of the calling VI",
-            "callee_key": "qualified name of the callee (join vi.qualified_name)",
+            "vi_path": "path of the VI this block-diagram node lives in",
+            "ord": "the node's position in deterministic block-diagram order "
+            "within its VI (ORDER BY ord to preserve that order)",
+            "uid": "the node's stable graph uid within its VI (the join target "
+            "for parent_uid containment walks)",
+            "kind": "the specific node kind, a CLOSED set: vi (a SubVI call site) "
+            "| primitive | constant | local_variable | formula | case | while | "
+            "for | sequence | event | disabled | inplace | other",
+            "name": "resolved node label (primitive / SubVI / structure name). "
+            "HUMAN-CONVENIENCE ONLY — localized and variant-dependent; for "
+            "primitives filter on prim_id and for SubVI calls on qualified_name "
+            "(the ROBUST identifiers). Use name only to eyeball results.",
+            "prim_id": "the LabVIEW primitive id (stable integer) for "
+            "kind='primitive'; NULL otherwise. THE robust primitive filter — "
+            "prefer it over name.",
+            "qualified_name": "for kind='vi', the callee SubVI's qualified name "
+            "(the unresolved call key); NULL otherwise. The robust filter for "
+            "SubVI-based operations (e.g. vi.lib queue/event VIs).",
+            "callee_path": "for kind='vi', the callee SubVI resolved to an "
+            "in-repo VI path (NULL when the callee is external, or an ambiguous "
+            "bare leaf the resolver refuses to guess). THIS IS the call graph: "
+            "direct callers of X = SELECT DISTINCT vi_path FROM node WHERE "
+            "callee_path=X; transitive blast radius = a WITH RECURSIVE over "
+            "callee_path; and vi.callers_count / vi.impact_score are the "
+            "precomputed counts (in-degree / transitive-dependent count) built "
+            "from this same edge. Dynamic-dispatch calls resolve to the runtime "
+            "class method.",
+            "object_name": "property/invoke target class (e.g. 'Bool'), or NULL",
+            "method_name": "invoke-node method name, or NULL",
+            "parent_uid": "uid of the CONTAINING structure node (STRUCTURAL "
+            "nesting only, NOT a wire), or NULL at top level. Self-join child.node "
+            "to parent.node ON child.parent_uid=parent.uid AND "
+            "child.vi_path=parent.vi_path to find 'X inside structure Y'; walk it "
+            "with WITH RECURSIVE for full containment.",
+            "frame": "the selector value of the containing frame (which case/event "
+            "frame this node sits in), or NULL. Filter with parent_uid to get a "
+            "structure's per-frame contents.",
         },
     ),
     "type_use": _View(
@@ -451,10 +487,9 @@ UNCALLED_VIS_SQL = (
 
 
 def uncalled_vis(project_root: Path) -> QueryResult:
-    """The project's dead code: VIs that no in-repo VI calls (entry points and
-    orphans). A straight ``callers_count = 0`` filter on the ``vi`` view — NOT
-    the fragile ``qualified_name`` / ``callee_key`` name anti-join, which
-    misfires because ``qualified_name`` is lib-qualified
-    (``Foo.lvlib:Bar.vi``) while ``callee_key`` holds a bare filename
-    (``Bar.vi``), so they never string-match."""
+    """The project's dead code: VIs that no in-repo VI STATICALLY calls (also
+    top-level entry points and VIs reached only dynamically). A straight
+    ``callers_count = 0`` filter on the ``vi`` view — the precomputed in-degree
+    of the node-spine call graph, keyed on VI path so it classifies even VIs
+    whose ``qualified_name`` is NULL."""
     return run_query(project_root, UNCALLED_VIS_SQL)

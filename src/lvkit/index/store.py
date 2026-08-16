@@ -13,8 +13,9 @@ dirs. The index is different — a caller who runs ``lvkit index
 <path-to-that-corpus>`` is deliberately scoping the index to that corpus, and
 expects its own DB, not to be silently folded into the outer project's.
 
-WAL mode. Tables: ``vis``, ``terminals``, ``constants``,
-``calls(caller_path, callee_key)``, ``type_uses``, ``class_facts``, and a
+WAL mode. Tables: ``vis``, ``terminals``, ``constants``, ``nodes`` (the
+block-diagram node spine; its ``kind='vi'`` rows carry the call graph via
+``callee_path``), ``type_uses``, ``class_facts``, and a
 ``meta(vi_path, content_sha)`` freshness row per VI. Upsert by path: ``save()``
 deletes then reinserts every row belonging to each given ``VIFacts.path`` (safe
 for both a full rebuild and a partial refresh).
@@ -42,6 +43,8 @@ from .model import (
     ClassFact,
     ConstantFact,
     LVProjMemberFact,
+    NodeFact,
+    NodeKind,
     TerminalFact,
     VIFacts,
     WiredTo,
@@ -141,12 +144,26 @@ CREATE TABLE IF NOT EXISTS constants (
 CREATE INDEX IF NOT EXISTS idx_constants_vi ON constants(vi_path);
 CREATE INDEX IF NOT EXISTS idx_constants_wired ON constants(wired_to);
 
-CREATE TABLE IF NOT EXISTS calls (
-    caller_path TEXT NOT NULL,
-    callee_key TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS nodes (
+    vi_path TEXT NOT NULL,
+    ord INTEGER NOT NULL,
+    uid TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    name TEXT,
+    prim_id INTEGER,
+    qualified_name TEXT,
+    callee_path TEXT,
+    object_name TEXT,
+    method_name TEXT,
+    parent_uid TEXT,
+    frame TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_calls_caller ON calls(caller_path);
-CREATE INDEX IF NOT EXISTS idx_calls_callee ON calls(callee_key);
+CREATE INDEX IF NOT EXISTS idx_nodes_vi ON nodes(vi_path);
+CREATE INDEX IF NOT EXISTS idx_nodes_kind ON nodes(kind);
+CREATE INDEX IF NOT EXISTS idx_nodes_prim_id ON nodes(prim_id);
+CREATE INDEX IF NOT EXISTS idx_nodes_qualified_name ON nodes(qualified_name);
+CREATE INDEX IF NOT EXISTS idx_nodes_callee_path ON nodes(callee_path);
+CREATE INDEX IF NOT EXISTS idx_nodes_parent_uid ON nodes(parent_uid);
 
 CREATE TABLE IF NOT EXISTS type_uses (
     vi_path TEXT NOT NULL,
@@ -192,7 +209,7 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 """
 
-_CHILD_TABLES = ("terminals", "constants", "calls", "type_uses")
+_CHILD_TABLES = ("terminals", "constants", "nodes", "type_uses")
 
 # Every table that holds DERIVED facts — a pure cache of what lvkit's parser
 # produces from the VIs. Dropped wholesale when the facts fingerprint changes
@@ -202,7 +219,7 @@ _ALL_TABLES = (
     "vis",
     "terminals",
     "constants",
-    "calls",
+    "nodes",
     "type_uses",
     "class_facts",
     "lvproj_members",
@@ -434,8 +451,9 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     container fields (``library`` and the whole ``class_fact`` row) fall back
     to the prior value instead of being clobbered. A changed sha (or no prior
     row) means today's behavior: trust the incoming facts fully. The
-    terminals/constants/calls/type_uses child tables are intrinsic to a
-    single-VI load and are never coalesced — always overwritten.
+    terminals/constants/nodes/type_uses child tables are intrinsic to a
+    single-VI load and are never coalesced — always overwritten. (``callee_path``
+    on the node rows is the one exception filled at merge, like impact_score.)
     """
     conn = _connect(project_root)
     try:
@@ -592,8 +610,26 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     ],
                 )
                 conn.executemany(
-                    "INSERT INTO calls(caller_path, callee_key) VALUES (?,?)",
-                    [(f.path, callee) for callee in f.calls],
+                    "INSERT INTO nodes(vi_path, ord, uid, kind, name, prim_id, "
+                    "qualified_name, callee_path, object_name, method_name, "
+                    "parent_uid, frame) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    [
+                        (
+                            f.path,
+                            i,
+                            n.uid,
+                            n.kind.value,
+                            n.name,
+                            n.prim_id,
+                            n.qualified_name,
+                            n.callee_path,
+                            n.object_name,
+                            n.method_name,
+                            n.parent_uid,
+                            n.frame,
+                        )
+                        for i, n in enumerate(f.nodes)
+                    ],
                 )
                 conn.executemany(
                     "INSERT INTO type_uses(vi_path, type_key) VALUES (?,?)",
@@ -714,8 +750,7 @@ def load_lvproj_members(project_root: Path) -> list[LVProjMemberFact]:
 def _delete_vi(conn: sqlite3.Connection, path: str) -> None:
     conn.execute("DELETE FROM vis WHERE path = ?", (path,))
     for table in _CHILD_TABLES:
-        col = "caller_path" if table == "calls" else "vi_path"
-        conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (path,))
+        conn.execute(f"DELETE FROM {table} WHERE vi_path = ?", (path,))
     conn.execute("DELETE FROM class_facts WHERE vi_path = ?", (path,))
     conn.execute("DELETE FROM meta WHERE vi_path = ?", (path,))
 
@@ -785,11 +820,39 @@ def load(project_root: Path) -> list[VIFacts]:
                 )
             )
 
-        calls_by_vi: dict[str, list[str]] = {}
-        for caller_path, callee_key in conn.execute(
-            "SELECT caller_path, callee_key FROM calls ORDER BY caller_path"
+        nodes_by_vi: dict[str, list[NodeFact]] = {}
+        for row in conn.execute(
+            "SELECT vi_path, uid, kind, name, prim_id, qualified_name, "
+            "callee_path, object_name, method_name, parent_uid, frame "
+            "FROM nodes ORDER BY vi_path, ord"
         ):
-            calls_by_vi.setdefault(caller_path, []).append(callee_key)
+            (
+                vi_path,
+                uid,
+                kind,
+                name,
+                prim_id,
+                qualified_name,
+                callee_path,
+                object_name,
+                method_name,
+                parent_uid,
+                frame,
+            ) = row
+            nodes_by_vi.setdefault(vi_path, []).append(
+                NodeFact(
+                    uid=uid,
+                    kind=NodeKind(kind),
+                    name=name,
+                    prim_id=prim_id,
+                    qualified_name=qualified_name,
+                    callee_path=callee_path,
+                    object_name=object_name,
+                    method_name=method_name,
+                    parent_uid=parent_uid,
+                    frame=frame,
+                )
+            )
 
         type_uses_by_vi: dict[str, list[str]] = {}
         for vi_path, type_key in conn.execute(
@@ -863,7 +926,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     content_sha=content_sha,
                     terminals=terminals_by_vi.get(path, []),
                     constants=constants_by_vi.get(path, []),
-                    calls=calls_by_vi.get(path, []),
+                    nodes=nodes_by_vi.get(path, []),
                     type_uses=type_uses_by_vi.get(path, []),
                     class_fact=class_fact_by_vi.get(path),
                     impact_score=impact_score,

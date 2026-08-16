@@ -1,4 +1,17 @@
-"""JSON schemas for MCP tool outputs and tool definitions."""
+"""JSON schemas for MCP tool outputs and tool definitions.
+
+DEAD CODE: nothing in ``src/lvkit`` or ``tests`` imports ``TOOL_DEFINITIONS``,
+``get_tool_schema``, ``get_all_tool_schemas``, ``GeneratedFileSchema``, or
+``CodeGenResult`` (verified 2026-08-15). They predate the current MCP tool
+surface, which is defined by the ``@mcp.tool()``-decorated functions in
+``server.py`` (``index``, ``query``, ``query_schema``, ``describe``,
+``read_vi``, ``unresolved``) — that module, not this dict, is the source of
+truth for what the server exposes. ``TOOL_DEFINITIONS`` below still lists
+retired tools (``load``, ``list_loaded``, ``analyze``, ``generate_python``,
+``generate_documents``, ``generate_ast_code``) under a stale MCP-1.x-style
+schema shape and even a stale ``read_vi`` signature (``vi_name`` — the real
+tool takes ``vi_path``). Do not read this file to learn the tool surface.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +19,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# ===== Tool Definitions (shared by MCP server and Claude agent) =====
+# ===== Tool Definitions (UNUSED — see module docstring) =====
 
 TOOL_DEFINITIONS = {
     "analyze": {
@@ -118,10 +131,9 @@ TOOL_DEFINITIONS = {
         "description": "List all VIs currently loaded in the graph.",
         "input_schema": {"type": "object", "properties": {}},
     },
-    "get_context": {
+    "read_vi": {
         "description": (
-            "Get the full context for a loaded VI including"
-            " resolved primitives, terminals, and dataflow."
+            "Read a VI in full: resolved primitives, terminals, and dataflow."
         ),
         "input_schema": {
             "type": "object",
