@@ -228,9 +228,17 @@ class TestTestCaseLvclass:
     """E2E: TestCase.lvclass — 74 methods, all must produce valid Python."""
 
     def _testcase_vis(self, testcase_graph):
-        """Get TestCase method VIs (not dependencies)."""
+        """Get TestCase method VIs (not dependencies).
+
+        VIs are keyed by path (identity) now, so select them via the qname
+        reverse index — every loaded VI whose qualified name is a TestCase
+        method — and return their vi_keys for get_vi_context/build_module.
+        """
         return [
-            vi for vi in testcase_graph.list_vis() if vi.startswith("TestCase.lvclass:")
+            key
+            for qname, keys in testcase_graph._qname_to_keys.items()
+            if qname.startswith("TestCase.lvclass:")
+            for key in keys
         ]
 
     def test_all_methods_generate_valid_python(self, testcase_graph):

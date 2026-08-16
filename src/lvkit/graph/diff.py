@@ -359,17 +359,29 @@ def _collect_elements(
 _FUZZY_MIN = 0.5  # min Jaccard of dataflow edges for a fuzzy (modified) match
 
 
-def _incident(wires: list[Wire]) -> dict[str, list[tuple[str, str, str]]]:
+def _incident(
+    wires: list[Wire], vi_self: str
+) -> dict[str, list[tuple[str, str, str]]]:
     """UID -> list of (role, neighbour-UID, neighbour-TERMINAL) over every wire it
     touches. Routes are irrelevant — only who-connects-to-which-terminal — so wire
     straightening is invisible. The neighbour terminal (a stable UID on the
     neighbour) distinguishes two unbundles that feed, say, different selectors of
-    look-alike cases."""
+    look-alike cases.
+
+    Both the neighbour node and its terminal are reduced to their STABLE uid
+    (the ``::``-trailing part), and the VI's own connector-pane/self node folds
+    to the fixed ``__self__`` token — otherwise the self node's (now path-based)
+    ``vi_key`` and every terminal's ``vi_key::`` prefix would vary across
+    versions, breaking cross-version dataflow matching."""
+
+    def nid(node_id: str) -> str:
+        return "__self__" if node_id == vi_self else _uid_of(node_id)
+
     inc: dict[str, list[tuple[str, str, str]]] = {}
     for w in wires:
-        su, du = _uid_of(w.source.node_id), _uid_of(w.dest.node_id)
-        inc.setdefault(su, []).append(("out", du, w.dest.terminal_id))
-        inc.setdefault(du, []).append(("in", su, w.source.terminal_id))
+        su, du = nid(w.source.node_id), nid(w.dest.node_id)
+        inc.setdefault(su, []).append(("out", du, _uid_of(w.dest.terminal_id)))
+        inc.setdefault(du, []).append(("in", su, _uid_of(w.source.terminal_id)))
     return inc
 
 
@@ -692,6 +704,7 @@ _PROPERTY_GROUP_RANK: dict[str, int] = {
 
 def _unstable_endpoint(
     entry: _SinkEntry | None,
+    dest_node_key: str,
     stable_nodes: set[str],
     changed_terms: set[str],
 ) -> bool:
@@ -714,9 +727,14 @@ def _unstable_endpoint(
     if entry is None:
         return False
     src, sink = entry[2], entry[3]
+    # Use the CANON'd node keys (base-space; the VI self-node folded to the
+    # ``__self__`` sentinel) — ``entry[0]`` is the canon'd source key and
+    # ``dest_node_key`` the canon'd sink key. Raw ``_uid_of(node_id)`` would read
+    # the self-node as its (now path-based, version-varying) vi_key and never
+    # match ``stable_nodes``'s ``__self__``, suppressing every connector-pane wire.
     return (
-        _uid_of(src.node_id) not in stable_nodes
-        or _uid_of(sink.node_id) not in stable_nodes
+        entry[0] not in stable_nodes
+        or dest_node_key not in stable_nodes
         or _uid_of(src.terminal_id) in changed_terms
         or _uid_of(sink.terminal_id) in changed_terms
     )
@@ -961,8 +979,8 @@ def _wire_changes(
         # OTHER endpoint. ONE check unifies the three parallel suppression paths
         # this used to carry (sink-not-unchanged skip, source-not-unchanged
         # downgrade, terminal-owned). See ``_unstable_endpoint``.
-        nulled_a = _unstable_endpoint(entry_a, unchanged, cterms)
-        nulled_b = _unstable_endpoint(entry_b, unchanged, cterms)
+        nulled_a = _unstable_endpoint(entry_a, key[0], unchanged, cterms)
+        nulled_b = _unstable_endpoint(entry_b, key[0], unchanged, cterms)
         if nulled_a:
             entry_a = None
         if nulled_b:
@@ -1949,7 +1967,9 @@ def diff_uid(
     # (task #10); we do not fake it as a node modification here.
     wires_a = graph_a.get_wires(va)
     wires_b = graph_b.get_wires(vb)
-    exact, fuzzy = _match_elements(a, b, _incident(wires_a), _incident(wires_b))
+    exact, fuzzy = _match_elements(
+        a, b, _incident(wires_a, va), _incident(wires_b, vb)
+    )
     matched_a = exact.keys() | fuzzy.keys()
     matched_b = set(exact.values()) | set(fuzzy.values())
 

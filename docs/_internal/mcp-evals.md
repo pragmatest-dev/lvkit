@@ -132,6 +132,12 @@ Scorecard template at the bottom.
 16. **What are the most-depended-on VIs — the ones scary to change?**
     - *Answered by:* `vi` ordered by `impact_score`, or the `node` view's
       `kind='vi'` slice GROUP BY `callee_path`.
+    - *Ground truth (JKI):* top-3 by `impact_score` are the JKI error-handling
+      utils — Clear All Errors (**76**), Filter Error Codes (Array) (**68**),
+      Filter Error Codes (Scalar) (**66**); platform-consistent. The ranking is
+      the stable signal — exact counts drifted from a stale 77/69/68 when the
+      call graph moved onto the node spine.
+    - *Watch for:* grading on the exact integer instead of the ranking.
 
 17. **If I change `<a core VI>`, what's the full blast radius?**
     - *Answered by:* a `WITH RECURSIVE` over `node.callee_path` (or the CLI
@@ -142,17 +148,27 @@ Scorecard template at the bottom.
       `vi.impact_score` already has the count precomputed.
 
 18. **Is anything dead code — VIs that nothing calls?**
-    - *Answered by:* `vi` filtered on `callers_count = 0` (direct in-repo
-      callers; `0` == uncalled). NOT a `qualified_name`/`callee_key` anti-join —
-      `qualified_name` is lib-qualified (`Foo.lvlib:Bar.vi`) but `callee_key` is
-      a bare filename (`Bar.vi`), so they never string-match; the naive anti-join
-      reports **198** false-dead against the correct **232**. `callers_count` is
-      the call-graph in-degree, whose edges resolve each callee through
-      path/qualified/leaf-name, so it is format-tolerant.
-    - *Ground truth (JKI):* **232** uncalled of 487 (entry-point/example
-      runners + orphans). *(Was 284 before 516dc9d gave every VINode a
-      `qualified_name`; better call resolution wired up 52 more edges, so 52 VIs
-      no longer look dead.)*
+    - *Answered by:* `vi` filtered on `callers_count = 0` (no static caller;
+      `0` == uncalled). It's the in-degree of the node-spine call graph (each
+      `kind='vi'` node's resolved `callee_path`), keyed on VI path so it
+      classifies even VIs whose `qualified_name` is NULL.
+    - *Ground truth (JKI):* **202** uncalled of 487 (entry-point/example
+      runners + orphans + VIs reached only dynamically — Call-By-Reference / VI
+      Server, which no static graph links). *(History: 284 before every VINode
+      got a `qualified_name`; 232 off the old `calls` table; then 229/230 once
+      the call graph folded onto the node spine — but that count was
+      PLATFORM-SENSITIVE (229 Linux / 230 Windows). Root cause: the graph loader
+      keyed VI identity by qualified name, which is NOT unique on disk (a source
+      VI + its stripped built copy, or parallel plugin trees, share a qname at
+      different paths), so dependency loading was first-visit-wins over
+      filesystem enumeration order — a stripped copy could win the race, and a
+      same-name base/override pair's caller edges clobbered each other so only
+      one survived (which one flipped by OS). Fixed by making the file PATH the
+      VI identity — loading is now confluent: both copies load, both caller edges
+      resolve to their distinct targets, so the count is order-invariant at 202
+      on any platform. The 229→202 drop is ~27 falsely-dead VIs recovering real
+      caller edges the clobber had dropped. See memory
+      `project_path_is_vi_identity`.)*
 
 19. **Who calls `<a VI>`, directly or transitively?**
     - *Answered by:* `query` over `node.callee_path` — direct callers are one
@@ -354,7 +370,7 @@ index. `Fab?` = fabrication (NONE is good).
 | 14 hardcoded paths/creds | — | PASS | — | Query works; corpus has 0 (valid answer). |
 | 15 const→indicator | — | PASS | — | 14. |
 | 16 most-depended-on | — | PASS | — | `impact_score` ranks the error-handling utils (73/65/64… *now 77/69/68 post-refactor*). |
-| 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **232** uncalled of 487. The naive `qualified_name`↔`callee_key` string anti-join reports 198 false-dead (qualified vs bare-filename keys never match) — replaced by the format-tolerant call-graph in-degree. |
+| 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **202** uncalled of 487 (order-invariant since VI identity became the file path — see Q18). The naive `qualified_name`↔`callee_key` string anti-join reports 198 false-dead (qualified vs bare-filename keys never match) — replaced by the format-tolerant call-graph in-degree. |
 | 20 .lvproj scoping | **FAIL** | PASS | NONE | Adoption run: pure shell (custom `.lvproj` parsing) — FORCED, lvkit can't answer membership. Answer was correct + careful (6 projects, no repo-local overlap, shared vi.lib deps). **Fix: task #19.** |
 | 22 unloadable | — | PASS | — | Harness: 0 stubs. |
 

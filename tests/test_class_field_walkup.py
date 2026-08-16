@@ -61,10 +61,13 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     # The ONLY method VI of that class in the graph is the target VI itself
     # (processResult.vi is a method) — the field-only load pulled in NONE of the
     # class's OTHER methods.
+    # VIs are keyed by path (identity) now; find loaded methods of this class
+    # via the qname reverse index (loaded-VI qnames) — same intent as the old
+    # dep_graph qname-prefix scan.
     class_method_vis = [
-        n
-        for n in g._dep_graph.nodes
-        if n.startswith("TextTestRunner.JUnitXML.lvclass:")
+        q
+        for q in g._qname_to_keys
+        if q.startswith("TextTestRunner.JUnitXML.lvclass:")
     ]
     assert class_method_vis == ["TextTestRunner.JUnitXML.lvclass:processResult.vi"]
 

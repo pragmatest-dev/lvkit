@@ -518,9 +518,9 @@ class TestLoadLvlibClassMember:
             )
             == "owns"
         }
-        # Qualified qnames ("Lib:Lib:Class.lvclass:Method.vi") aren't
-        # filesystem paths — split on ":" rather than Path(...).name.
-        assert {n.rsplit(":", 1)[-1] for n in owned} == _MYLIBRARY_CLASS_METHODS
+        # Method VIs are keyed by their file path (identity) now, so the owns
+        # edges point at those paths — take the filename for the method name.
+        assert {Path(n).name for n in owned} == _MYLIBRARY_CLASS_METHODS
 
 
 # === .lvlib membership -> "library" column (real corpus) ===================

@@ -169,6 +169,14 @@ class InMemoryVIGraph(
         self._poly_info: dict[str, PolyInfo] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
         self._qualified_aliases: dict[str, str] = {}
+        # Reverse indexes for resolve_vi_name: display-name / qualified-name ->
+        # [vi_key]. A vi_key is the canonical source-path string (the VI's
+        # identity; see _load_vi_recursive). List-valued because genuine on-disk
+        # duplicates -- the same VI copied into a build-output tree, or parallel
+        # plugin trees -- share a name/qname but have DISTINCT path keys. Path is
+        # the identity; name/qname are non-unique attributes we index for lookup.
+        self._name_to_keys: dict[str, list[str]] = {}
+        self._qname_to_keys: dict[str, list[str]] = {}
         # Track loaded VIs across multiple load_vi() calls to prevent re-parsing
         self._loaded_vis: set[str] = set()
         # Depth a VI's DEPENDENCIES were loaded at (NONE/MINIMAL/FULL). A VI
@@ -247,6 +255,8 @@ class InMemoryVIGraph(
         self._stubs.clear()
         self._poly_info.clear()
         self._qualified_aliases.clear()
+        self._name_to_keys.clear()
+        self._qname_to_keys.clear()
         self._loaded_vis.clear()
         self._dep_load_mode.clear()
         self._source_paths.clear()

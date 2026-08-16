@@ -185,6 +185,8 @@ class LoadingMixin:
     _stubs: set[str]
     _poly_info: dict[str, PolyInfo]
     _qualified_aliases: dict[str, str]
+    _name_to_keys: dict[str, list[str]]
+    _qname_to_keys: dict[str, list[str]]
     _loaded_vis: set[str]
     _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
@@ -206,7 +208,8 @@ class LoadingMixin:
             fp: ParsedFrontPanel | None,
             conpane: ParsedConnectorPane | None,
             wiring_rules: dict[int, int],
-            vi_name: str,
+            vi_key: str,
+            display_name: str,
             type_map: dict[int, LVType] | None = None,
             iuse_to_qname: dict[str, str] | None = None,
             iuse_to_qpath: dict[str, str] | None = None,
@@ -220,7 +223,7 @@ class LoadingMixin:
         search_paths: list[Path] | None = None,
         clear_first: bool = False,
         layout: bool = False,
-    ) -> None:
+    ) -> str | None:
         """Load a VI hierarchy into memory.
 
         Args:
@@ -265,14 +268,16 @@ class LoadingMixin:
         # Early return only if already loaded AT >= the requested depth. A VI
         # first seen as a leaf (child NONE) must still UPGRADE when loaded in its
         # own right, or it never gets its own SubVIs/call edges (see
-        # _dep_load_mode). ``vi_name`` here is unqualified; library/class VIs are
-        # keyed qualified in _loaded_vis, so they fall through to
-        # _load_vi_recursive, which repeats this check under the qualified name.
-        vi_name = bd_xml.name.replace("_BDHb.xml", ".vi")
-        if vi_name in self._loaded_vis and _mode_covers(
-            self._dep_load_mode.get(vi_name), mode
-        ):
-            return
+        # _dep_load_mode). Identity is the file path: a ``.vi``'s key is its
+        # resolved path, so probe _loaded_vis with that. A raw ``*_BDHb.xml`` has
+        # no source path here, so it falls through to _load_vi_recursive, which
+        # computes and dedups on the real vi_key.
+        if vi_path.suffix.lower() == ".vi":
+            probe_key = str(vi_path.resolve())
+            if probe_key in self._loaded_vis and _mode_covers(
+                self._dep_load_mode.get(probe_key), mode
+            ):
+                return probe_key
 
         # Build search paths
         if search_paths is None:
@@ -287,7 +292,7 @@ class LoadingMixin:
         # BD XML (which may be in a temp cache dir). SubVI and type-dependency
         # resolution uses this to find siblings of the original source file.
         source_dir = vi_path.parent if vi_path.suffix.lower() == ".vi" else None
-        self._load_vi_recursive(
+        loaded_key = self._load_vi_recursive(
             bd_xml,
             fp_xml,
             main_xml,
@@ -317,6 +322,8 @@ class LoadingMixin:
         # same idempotency/cheapness rationale as the nMux stamp just above
         # (see op_walk.stamp_property_value_names).
         stamp_property_value_names(cast("InMemoryVIGraph", self))
+
+        return loaded_key
 
     def load_lvlib(
         self,
@@ -526,40 +533,16 @@ class LoadingMixin:
         for method in cls.methods:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
             if vi_path and vi_path.exists():
-                self.load_vi(vi_path, mode, search_paths)
-                # Ownership edge — carries scope/accessor info for docs
-                # (class landing pages, access-level badges).
-                vi_name = cls_qname + ":" + Path(method.vi_path).name
-                if vi_name not in self._dep_graph:
-                    # Fast path missed: the method VI's own embedded
-                    # metadata never reports a qualified_name (#18 — e.g.
-                    # Class1, MySecondTestCase, "Merge Errors TestCase",
-                    # "Queue TestCase"), so ``_load_vi_recursive`` registered
-                    # it under its BARE filename instead of the qualified
-                    # key computed above. Fall back to SOURCE-PATH identity:
-                    # the file is unique, so if the bare-name node's
-                    # recorded source path IS this method's own file, that
-                    # node is our VI — attach the edge there instead of
-                    # silently dropping it. If the bare node belongs to a
-                    # DIFFERENT same-named VI (another VI won the bare-name
-                    # race first in a whole-repo load), leave it alone: this
-                    # instance isn't reachable in THIS graph and must be
-                    # resolved via the per-VI collision path
-                    # (index/build.py::build_one_vi), which re-invokes this
-                    # same method against a fresh single-VI graph that has
-                    # no collision to lose.
-                    bare_name = Path(method.vi_path).name
-                    bare_source = self._source_paths.get(bare_name)
-                    if (
-                        bare_name in self._dep_graph
-                        and bare_source is not None
-                        and bare_source.resolve() == vi_path.resolve()
-                    ):
-                        vi_name = bare_name
-                if vi_name in self._dep_graph:
+                method_key = self.load_vi(vi_path, mode, search_paths)
+                # Ownership edge — carries scope/accessor info for docs (class
+                # landing pages, access-level badges). A method VI's identity is
+                # its file path (the vi_key it loaded under), which is unique, so
+                # attach the edge straight to it — no bare-name collision to lose
+                # (path identity subsumes the old #18 source-path fallback).
+                if method_key and method_key in self._dep_graph:
                     self._dep_graph.add_edge(
                         cls_qname,
-                        vi_name,
+                        method_key,
                         rel="owns",
                         scope=method.scope,
                         is_accessor=method.is_accessor,
@@ -775,24 +758,11 @@ class LoadingMixin:
         conpane = vi.connector_pane
 
         unqualified_name = bd_xml.name.replace("_BDHb.xml", ".vi")
-        vi_name = metadata.qualified_name or unqualified_name
-
-        if vi_name in visited:
-            return None
-
-        # Already loaded at a >= depth → done. Otherwise fall through to UPGRADE:
-        # re-walk this VI's dependencies at the deeper mode (adds the missing
-        # SubVI loads + call edges). The graph-node build below is guarded so it
-        # runs once; the node/metadata adds are idempotent.
-        if vi_name in self._loaded_vis and _mode_covers(
-            self._dep_load_mode.get(vi_name), mode
-        ):
-            return vi_name
-
-        if metadata.qualified_name and metadata.qualified_name != unqualified_name:
-            self._qualified_aliases[unqualified_name] = metadata.qualified_name
-
-        visited.add(vi_name)
+        # own_qname is this VI's (possibly NON-unique) qualified name — kept only
+        # for the self-dependency compare below and the qname reverse index. It
+        # is NOT the identity: two on-disk copies (a source VI + its stripped
+        # built copy) can share a qname while being distinct files.
+        own_qname = metadata.qualified_name or unqualified_name
 
         # caller_file is the VI file itself (not its directory): each
         # leading empty in a LinkSavePathRef pops one level from it. It also
@@ -807,14 +777,44 @@ class LoadingMixin:
             else bd_xml.parent / unqualified_name
         )
 
+        # vi_key is the VI's IDENTITY: its canonical source-path string. Path is
+        # unique on disk where a qname may not be, so keying every per-VI store
+        # by vi_key makes loading CONFLUENT — two copies get DISTINCT keys and
+        # both load fully, instead of the first-seen one clobbering the other
+        # (the bug where FS enumeration order changed the loaded VI set).
         if metadata.source_path:
-            self._source_paths[vi_name] = Path(metadata.source_path)
+            source_file = Path(metadata.source_path)
         elif caller_file.exists():
-            self._source_paths[vi_name] = caller_file
+            source_file = caller_file
+        else:
+            source_file = bd_xml
+        vi_key = str(source_file.resolve())
+
+        if vi_key in visited:
+            return None
+
+        # Already loaded at a >= depth → done. Otherwise fall through to UPGRADE:
+        # re-walk this VI's dependencies at the deeper mode (adds the missing
+        # SubVI loads + call edges). The graph-node build below is guarded so it
+        # runs once; the node/metadata adds are idempotent.
+        if vi_key in self._loaded_vis and _mode_covers(
+            self._dep_load_mode.get(vi_key), mode
+        ):
+            return vi_key
+
+        visited.add(vi_key)
+
+        self._source_paths[vi_key] = source_file
+        # Reverse indexes: display-name / qname -> [vi_key], for resolve_vi_name.
+        # List-valued: on-disk duplicates share a name/qname across distinct keys.
+        if vi_key not in self._name_to_keys.setdefault(unqualified_name, []):
+            self._name_to_keys[unqualified_name].append(vi_key)
+        if vi_key not in self._qname_to_keys.setdefault(own_qname, []):
+            self._qname_to_keys[own_qname].append(vi_key)
 
         # Retain geometry decoded during this parse (layout=True loads only).
         if vi.layout is not None:
-            self._layouts[vi_name] = vi.layout
+            self._layouts[vi_key] = vi.layout
 
         # Parse wiring rules from main XML
         wiring_rules: dict[int, int] = {}
@@ -827,29 +827,29 @@ class LoadingMixin:
         if main_xml and main_xml.exists():
             poly_metadata = parse_vi_metadata(main_xml)
             if poly_metadata.get("is_polymorphic"):
-                self._poly_info[vi_name] = PolyInfo(
+                self._poly_info[vi_key] = PolyInfo(
                     variants=poly_metadata.get("poly_variants", []),
                     selectors=poly_metadata.get("poly_selectors", []),
                 )
-            self._vi_metadata[vi_name] = VIMetadata(
+            self._vi_metadata[vi_key] = VIMetadata(
                 library=poly_metadata.get("library"),
                 qualified_name=poly_metadata.get("qualified_name"),
                 owning_libraries=poly_metadata.get("owning_libraries", []),
                 description=poly_metadata.get("description"),
             )
-            self._vi_properties[vi_name] = _build_vi_properties(poly_metadata)
-            self._vi_health[vi_name] = _build_vi_health(poly_metadata)
+            self._vi_properties[vi_key] = _build_vi_properties(poly_metadata)
+            self._vi_health[vi_key] = _build_vi_health(poly_metadata)
 
         # Add to dependency graph
-        self._dep_graph.add_node(vi_name)
+        self._dep_graph.add_node(vi_key)
 
         # Mark as loaded, and record the depth we're loading its deps at — BEFORE
         # the dependency walk below, so a cyclic callee that re-enters this VI at
         # the same (or lower) depth is covered and short-circuits instead of
         # recursing forever. Recording it after the walk would reintroduce the
         # infinite recursion the old unconditional _loaded_vis check prevented.
-        self._loaded_vis.add(vi_name)
-        self._dep_load_mode[vi_name] = mode
+        self._loaded_vis.add(vi_key)
+        self._dep_load_mode[vi_key] = mode
 
         # Build dep_ref_map from recorded LinkSavePathRef data.
         # Used for both dependency loading and iUse path diagnostics.
@@ -873,7 +873,7 @@ class LoadingMixin:
             # each class (no methods); FULL loads the whole transitive tree.
             all_dep_qnames: set[str] = set()
             for qname in metadata.subvi_qualified_names:
-                if qname and qname != vi_name:
+                if qname and qname != own_qname:
                     all_dep_qnames.add(qname)
             for lv_type in type_map.values():
                 if lv_type.classname and lv_type.classname != "LabVIEW Object":
@@ -891,7 +891,7 @@ class LoadingMixin:
                     dep_ref_map.get(qname),
                     caller_file,
                     search_paths,
-                    caller_qname=vi_name,
+                    caller_qname=vi_key,
                     mode=mode,
                 )
 
@@ -907,19 +907,20 @@ class LoadingMixin:
         # Guarded: on an UPGRADE re-run the VI's nodes already exist (they're
         # built for every depth, even a leaf/NONE load), so only the dependency
         # walk above needed to re-run — re-adding would duplicate nodes.
-        if vi_name not in self._vi_nodes:
+        if vi_key not in self._vi_nodes:
             self._add_vi_to_graph(
                 bd,
                 fp,
                 conpane,
                 wiring_rules,
-                vi_name,
+                vi_key,
+                unqualified_name,
                 type_map,
                 iuse_to_qname=metadata.iuse_to_qualified_name,
                 iuse_to_qpath=iuse_to_qpath,
             )
 
-        return vi_name
+        return vi_key
 
     def _ctl_root_fields(
         self,
