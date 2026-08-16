@@ -210,6 +210,14 @@ class NetlistInstance:
     # CAN say faithfully about an invoke call. Annotation ONLY, same
     # rendering/JSON treatment as ``operation``/``object_name`` above.
     method_name: str | None = None
+    # The callee's class/lib-qualified identity (``op.qualified_name``, e.g.
+    # "TestResult.lvclass:addError.vi"; a dynamic-dispatch call = its declaring
+    # parent class). Pass-THROUGH for consumers (render/diff/JSON) that want the
+    # qualified label -- ``name`` stays BARE because it is this instance's lookup
+    # convenience (``_find_instance``) and ``uid`` is the real identity key.
+    # Annotation ONLY, same treatment as ``operation``/``object_name`` above;
+    # never folds into ``name`` or net identities.
+    qualified_name: str | None = None
     # Accessed properties (Property Node only) -- empty for every other
     # instance. See ``NetlistPropertyAccess``.
     properties: list[NetlistPropertyAccess] = field(default_factory=list)
@@ -1159,6 +1167,7 @@ def _build_instance(
         operation=operation,
         object_name=object_name,
         method_name=method_name,
+        qualified_name=op.qualified_name,
         properties=properties,
     )
 
@@ -2385,6 +2394,9 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any]:
             "kind": "instance",
             "uid": item.uid,
             "name": item.name,
+            # The callee's class/lib-qualified identity (bare ``name`` stays the
+            # lookup key); a dynamic-dispatch call reports its declaring parent.
+            "qualified_name": item.qualified_name,
             "occurrence": item.occurrence,
             "operation": item.operation,
             # Property Node / Invoke Node only (see NetlistInstance
