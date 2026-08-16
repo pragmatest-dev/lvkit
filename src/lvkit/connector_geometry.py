@@ -67,9 +67,7 @@ class Slot:
     row_rank: int | None = None
 
 
-def slot_from_terminal(
-    terminal: ParsedTerminalInfo, position: Rect | None
-) -> Slot:
+def slot_from_terminal(terminal: ParsedTerminalInfo, position: Rect | None) -> Slot:
     """Build one ``Slot`` from a parsed terminal + its (optional) geometry."""
     observed_type = (
         terminal.parsed_type.type_name if terminal.parsed_type is not None else None
@@ -95,9 +93,7 @@ def extract_slots(
     uid). ``node_bounds`` is ``ParsedVI.layout.node_bounds`` (or ``{}`` if
     layout wasn't decoded) — a terminal absent from it gets ``position=None``.
     """
-    slots = [
-        slot_from_terminal(t, node_bounds.get(t.uid)) for t in terminals
-    ]
+    slots = [slot_from_terminal(t, node_bounds.get(t.uid)) for t in terminals]
     slots.sort(key=lambda s: s.index)
     return slots
 

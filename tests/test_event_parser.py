@@ -57,25 +57,39 @@ def _build_event_xml(
             frame's label (``ddoUID="0"`` means no source control).
     """
     root = ET.Element("root")
-    es = ET.SubElement(root, "SL__arrayElement", attrib={
-        "class": "eventStruct", "uid": struct_uid,
-    })
+    es = ET.SubElement(
+        root,
+        "SL__arrayElement",
+        attrib={
+            "class": "eventStruct",
+            "uid": struct_uid,
+        },
+    )
 
     if event_specs is not None:
         events_list = ET.SubElement(es, "EventNodeEvents")
         for diagram_idx, ddo_uid, type_code in event_specs:
-            spec = ET.SubElement(events_list, "SL__arrayElement", attrib={
-                "class": "EventSpec",
-            })
+            spec = ET.SubElement(
+                events_list,
+                "SL__arrayElement",
+                attrib={
+                    "class": "EventSpec",
+                },
+            )
             ET.SubElement(spec, "diagramIdx").text = str(diagram_idx)
             ET.SubElement(spec, "ddoUID").text = ddo_uid
             ET.SubElement(spec, "type").text = str(type_code)
 
     term_list = ET.SubElement(es, "termList")
-    for outer_uid, dco_class, inner_uids in (tunnel_specs or []):
-        term = ET.SubElement(term_list, "SL__arrayElement", attrib={
-            "class": "term", "uid": outer_uid,
-        })
+    for outer_uid, dco_class, inner_uids in tunnel_specs or []:
+        term = ET.SubElement(
+            term_list,
+            "SL__arrayElement",
+            attrib={
+                "class": "term",
+                "uid": outer_uid,
+            },
+        )
         dco = ET.SubElement(term, "dco", attrib={"class": dco_class})
         dco_tl = ET.SubElement(dco, "termList")
         for iu in inner_uids:
@@ -85,9 +99,14 @@ def _build_event_xml(
 
     diag_list = ET.SubElement(es, "diagramList")
     for i in range(num_frames):
-        ET.SubElement(diag_list, "SL__arrayElement", attrib={
-            "class": "diag", "uid": f"diag_{i}",
-        })
+        ET.SubElement(
+            diag_list,
+            "SL__arrayElement",
+            attrib={
+                "class": "diag",
+                "uid": f"diag_{i}",
+            },
+        )
 
     if d_idx is not None:
         ET.SubElement(es, "dIdx").text = str(d_idx)
@@ -123,7 +142,9 @@ class TestFrameLabels:
         is used verbatim for the displayed frame; every other frame keeps
         its placeholder."""
         root = _build_event_xml(
-            "es1", num_frames=3, d_idx=1,
+            "es1",
+            num_frames=3,
+            d_idx=1,
             sel_string='" [1] Timeout "',
         )
         es = extract_event_structures(root)[0]
@@ -137,7 +158,9 @@ class TestFrameLabels:
         AND the bracketed index, e.g. LabVIEW's own
         ``[3] "copyrights": Value Change`` (VI Tester About.vi, task #75)."""
         root = _build_event_xml(
-            "es1", num_frames=4, d_idx=3,
+            "es1",
+            num_frames=4,
+            d_idx=3,
             sel_string='" [3] "copyrights": Value Change "',
         )
         es = extract_event_structures(root)[0]
@@ -149,7 +172,9 @@ class TestFrameLabels:
         never a guessed name, never a silently blank frame. (VI Tester About's
         frame 2 is a VI-level filter event, code 0x80000003.)"""
         root = _build_event_xml(
-            "es1", num_frames=3, event_specs=[(2, "0", -2147483645)],
+            "es1",
+            num_frames=3,
+            event_specs=[(2, "0", -2147483645)],
         )
         es = extract_event_structures(root)[0]
         assert es.frames[2].event_label == "[2] <unknown event 0x80000003>"
@@ -161,7 +186,9 @@ class TestFrameLabels:
         """Heap omits dIdx when it's 0 (same convention as parmIndex/
         paramIdx elsewhere in this parser)."""
         root = _build_event_xml(
-            "es1", num_frames=2, sel_string='" [0] Timeout "',
+            "es1",
+            num_frames=2,
+            sel_string='" [0] Timeout "',
         )
         es = extract_event_structures(root)[0]
         assert es.displayed_frame == 0
@@ -173,7 +200,10 @@ class TestFrameLabels:
         mislabels — displayed_frame is None, every frame keeps its
         placeholder."""
         root = _build_event_xml(
-            "es1", num_frames=2, d_idx=5, sel_string='" [5] Bogus "',
+            "es1",
+            num_frames=2,
+            d_idx=5,
+            sel_string='" [5] Bogus "',
         )
         es = extract_event_structures(root)[0]
         assert es.displayed_frame is None
@@ -186,14 +216,23 @@ def _build_fp_xml(tmp_path, ddo_captions: dict[str, str]) -> Path:
     real control's ddo (see ``_resolve_control_caption``)."""
     fp_root = ET.Element("root")
     for uid, caption in ddo_captions.items():
-        fpdco = ET.SubElement(fp_root, "SL__arrayElement", attrib={
-            "class": "fPDCO", "uid": f"dco_{uid}",
-        })
+        fpdco = ET.SubElement(
+            fp_root,
+            "SL__arrayElement",
+            attrib={
+                "class": "fPDCO",
+                "uid": f"dco_{uid}",
+            },
+        )
         ddo = ET.SubElement(fpdco, "ddo", attrib={"class": "stdBool", "uid": uid})
         parts_list = ET.SubElement(ddo, "partsList")
-        label = ET.SubElement(parts_list, "SL__arrayElement", attrib={
-            "class": "label",
-        })
+        label = ET.SubElement(
+            parts_list,
+            "SL__arrayElement",
+            attrib={
+                "class": "label",
+            },
+        )
         text_rec = ET.SubElement(label, "textRec")
         ET.SubElement(text_rec, "text").text = f'"{caption}"'
     fp_path = tmp_path / "fp.xml"
@@ -212,7 +251,8 @@ class TestEventSpecReconstruction:
         a confirmed event type still isn't withheld — same "omit what can't
         be known" degrade as an unresolvable ddoUID (test below)."""
         root = _build_event_xml(
-            "es1", num_frames=1,
+            "es1",
+            num_frames=1,
             event_specs=[(0, "55", 1073741826)],
         )
         es = extract_event_structures(root)[0]
@@ -221,7 +261,8 @@ class TestEventSpecReconstruction:
     def test_control_and_confirmed_type_with_fp_heap(self, tmp_path):
         fp_path = _build_fp_xml(tmp_path, {"55": "Cancel"})
         root = _build_event_xml(
-            "es1", num_frames=1,
+            "es1",
+            num_frames=1,
             event_specs=[(0, "55", 1073741826)],
         )
         es = extract_event_structures(root, fp_path)[0]
@@ -232,7 +273,8 @@ class TestEventSpecReconstruction:
         control name is omitted, never fabricated."""
         fp_path = _build_fp_xml(tmp_path, {})
         root = _build_event_xml(
-            "es1", num_frames=1,
+            "es1",
+            num_frames=1,
             event_specs=[(0, "0", 1073741825)],
         )
         es = extract_event_structures(root, fp_path)[0]
@@ -244,13 +286,12 @@ class TestEventSpecReconstruction:
         resolved control caption."""
         fp_path = _build_fp_xml(tmp_path, {"55": "Cancel"})
         root = _build_event_xml(
-            "es1", num_frames=1,
+            "es1",
+            num_frames=1,
             event_specs=[(0, "55", -2147483645)],
         )
         es = extract_event_structures(root, fp_path)[0]
-        assert es.frames[0].event_label == (
-            '[0] "Cancel": <unknown event 0x80000003>'
-        )
+        assert es.frames[0].event_label == ('[0] "Cancel": <unknown event 0x80000003>')
 
     def test_no_control_and_unconfirmed_type_shows_sentinel(self, tmp_path):
         """No control and an unconfirmed type: the frame still names the
@@ -258,7 +299,8 @@ class TestEventSpecReconstruction:
         fabricated name."""
         fp_path = _build_fp_xml(tmp_path, {})
         root = _build_event_xml(
-            "es1", num_frames=1,
+            "es1",
+            num_frames=1,
             event_specs=[(0, "0", -2147483645)],
         )
         es = extract_event_structures(root, fp_path)[0]
@@ -269,21 +311,25 @@ class TestEventSpecReconstruction:
         the control, rather than crashing or fabricating a name."""
         fp_path = _build_fp_xml(tmp_path, {"55": "Cancel"})
         root = _build_event_xml(
-            "es1", num_frames=1,
+            "es1",
+            num_frames=1,
             event_specs=[(0, "9999", 1073741826)],
         )
         es = extract_event_structures(root, fp_path)[0]
         assert es.frames[0].event_label == "[0] Value Change"
 
     def test_displayed_frame_faithful_text_wins_over_reconstruction(
-        self, tmp_path,
+        self,
+        tmp_path,
     ):
         """The displayed frame's own heap selString always wins, even if its
         EventSpec would reconstruct to the same thing (cross-check, not a
         source of truth)."""
         fp_path = _build_fp_xml(tmp_path, {"775": "copyrights"})
         root = _build_event_xml(
-            "es1", num_frames=1, d_idx=0,
+            "es1",
+            num_frames=1,
+            d_idx=0,
             sel_string='" [0] "copyrights": Value Change "',
             event_specs=[(0, "775", 1073741826)],
         )
@@ -294,7 +340,8 @@ class TestEventSpecReconstruction:
         """A frame index missing from EventNodeEvents (malformed heap) keeps
         the honest [N] placeholder instead of crashing."""
         root = _build_event_xml(
-            "es1", num_frames=2,
+            "es1",
+            num_frames=2,
             event_specs=[(0, "55", 1073741826)],
         )
         es = extract_event_structures(root)[0]
@@ -307,7 +354,8 @@ class TestBorderTunnels:
         eventTimeOut all share the same per-frame-array shape -- N inner
         tunnels per outer, for N frames."""
         root = _build_event_xml(
-            "es1", num_frames=3,
+            "es1",
+            num_frames=3,
             tunnel_specs=[
                 ("dyn_in", "eventDynDCO", ["dyn_in_f0", "dyn_in_f1", "dyn_in_f2"]),
                 ("dyn_out", "eventDynDCO", ["dyn_out_f0", "dyn_out_f1", "dyn_out_f2"]),
@@ -321,19 +369,27 @@ class TestBorderTunnels:
         for t in es.tunnels:
             by_type.setdefault(t.tunnel_type, []).append(t.inner_terminal_uid)
         assert by_type["eventDynDCO"] == [
-            "dyn_in_f0", "dyn_in_f1", "dyn_in_f2",
-            "dyn_out_f0", "dyn_out_f1", "dyn_out_f2",
+            "dyn_in_f0",
+            "dyn_in_f1",
+            "dyn_in_f2",
+            "dyn_out_f0",
+            "dyn_out_f1",
+            "dyn_out_f2",
         ]
         assert by_type["eventTimeOut"] == ["to_f0", "to_f1", "to_f2"]
         assert by_type["selTun"] == ["stop_f0", "stop_f1", "stop_f2"]
-        assert all(t.outer_terminal_uid == "timeout"
-                   for t in es.tunnels if t.tunnel_type == "eventTimeOut")
+        assert all(
+            t.outer_terminal_uid == "timeout"
+            for t in es.tunnels
+            if t.tunnel_type == "eventTimeOut"
+        )
 
     def test_non_event_tunnel_dco_class_ignored(self):
         """A dco class this structure doesn't recognize as a boundary tunnel
         (e.g. a plain constant DCO) produces no tunnel."""
         root = _build_event_xml(
-            "es1", num_frames=2,
+            "es1",
+            num_frames=2,
             tunnel_specs=[("x", "bDConstDCO", ["x_f0", "x_f1"])],
         )
         es = extract_event_structures(root)[0]
@@ -348,7 +404,8 @@ class TestBorderTunnels:
 class TestDataAndFilterNodeUids:
     def test_data_node_uid_folded_into_frame_inner_node_uids(self):
         root = _build_event_xml(
-            "es1", num_frames=2,
+            "es1",
+            num_frames=2,
             data_node_uids=["dn0", "dn1"],
         )
         es = extract_event_structures(root)[0]
@@ -359,7 +416,8 @@ class TestDataAndFilterNodeUids:
         """Heap uid="0" marks "no data/filter node for this frame" -- must
         not be folded in as a real node reference."""
         root = _build_event_xml(
-            "es1", num_frames=2,
+            "es1",
+            num_frames=2,
             data_node_uids=["0", "dn1"],
             filter_node_uids=["fn0", "0"],
         )
@@ -369,7 +427,8 @@ class TestDataAndFilterNodeUids:
 
     def test_both_data_and_filter_node_on_same_frame(self):
         root = _build_event_xml(
-            "es1", num_frames=1,
+            "es1",
+            num_frames=1,
             data_node_uids=["dn0"],
             filter_node_uids=["fn0"],
         )
@@ -386,9 +445,14 @@ class TestNoEventStructures:
         """An eventStruct with no diagramList/diag children is malformed --
         skip it rather than emit a frameless structure."""
         root = ET.Element("root")
-        ET.SubElement(root, "SL__arrayElement", attrib={
-            "class": "eventStruct", "uid": "es1",
-        })
+        ET.SubElement(
+            root,
+            "SL__arrayElement",
+            attrib={
+                "class": "eventStruct",
+                "uid": "es1",
+            },
+        )
         assert extract_event_structures(root) == []
 
 
@@ -397,7 +461,8 @@ def _has_vi_tester_about() -> bool:
 
 
 @pytest.mark.skipif(
-    not _has_vi_tester_about(), reason="JKI-VI-Tester sample not present",
+    not _has_vi_tester_about(),
+    reason="JKI-VI-Tester sample not present",
 )
 class TestViTesterAboutFixture:
     """End-to-end reconstruction against the real VI Tester About.vi heap

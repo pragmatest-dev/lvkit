@@ -69,7 +69,7 @@ class VINode(GraphNode):
     library: str | None = None
     qualified_name: str | None = None
     # The connector-pane PATTERN number (FPHb ``<conPane><conId>``) — the key
-    # into ``render/connector_pane_geometry`` for the cell grid. None when the
+    # into ``connector_pane_geometry`` for the cell grid. None when the
     # VI has no connector pane parsed. LabVIEW stores only this id, not the grid.
     connector_pattern_id: int | None = None
     # The VI's ownership chain from its own ``<LIBN>`` (owning .lvlib/.lvclass,
@@ -273,8 +273,15 @@ class LocalVariableNode(GraphNode):
 
 # Discriminated union of all node types
 AnyGraphNode = (
-    VINode | PrimitiveNode | StructureNode | ConstantNode | InPlaceNode
-    | FormulaNode | LocalVariableNode | DisableStructureNode | EventStructureNode
+    VINode
+    | PrimitiveNode
+    | StructureNode
+    | ConstantNode
+    | InPlaceNode
+    | FormulaNode
+    | LocalVariableNode
+    | DisableStructureNode
+    | EventStructureNode
 )
 
 
@@ -623,10 +630,15 @@ class VIHealth:
 
     @property
     def is_broken(self) -> bool:
-        return any([
-            self.bad_node, self.bad_subvi, self.bad_subvi_link,
-            self.bad_compile, self.broken_poly,
-        ])
+        return any(
+            [
+                self.bad_node,
+                self.bad_subvi,
+                self.bad_subvi_link,
+                self.bad_compile,
+                self.broken_poly,
+            ]
+        )
 
 
 @dataclass
@@ -827,36 +839,6 @@ class DestinationInfo:
 # ============================================================
 # Query result types (returned by graph queries)
 # ============================================================
-
-
-@dataclass
-class ConstantInfo:
-    """A constant value discovered across VIs."""
-
-    vi_name: str
-    value: str
-    label: str | None
-    type: str
-    python: ScalarValue
-
-
-@dataclass
-class PrimitiveInfo:
-    """A primitive node discovered across VIs."""
-
-    vi_name: str
-    prim_id: int | None
-    input_types: list[str]
-    output_types: list[str]
-
-
-@dataclass
-class ClusterInfo:
-    """A cluster type discovered across VIs."""
-
-    name: str
-    id: str
-    vis: list[str]
 
 
 @dataclass

@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from lvkit.extractor import extract_vi_xml
-from lvkit.models import LVType
+from lvkit.models import LVType, LVTypeKind
 from lvkit.text_encoding import decode_labview_text
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
@@ -98,6 +98,7 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
     Returns: {node_class: {dco_ref_tag: terminal_index}}
     """
     from .._data import data_dir as _bundled_data_dir
+
     primitives_path = _bundled_data_dir() / "primitives.json"
     if not primitives_path.exists():
         return {}
@@ -189,7 +190,10 @@ def parse_vi(
 
     # Parse block diagram (+ optional geometry from the SAME parsed heap)
     block_diagram, bd_layout = _parse_block_diagram(
-        bd_xml, fp_xml, metadata.type_map, selector_tables,
+        bd_xml,
+        fp_xml,
+        metadata.type_map,
+        selector_tables,
         want_layout=layout,
     )
 
@@ -203,7 +207,10 @@ def parse_vi(
         vi_label = bd_xml.name.replace("_BDHb.xml", ".vi")
     unresolved_uids: set[str] = set()
     front_panel = _parse_front_panel(
-        fp_xml, block_diagram, metadata.type_map, unresolved_uids=unresolved_uids,
+        fp_xml,
+        block_diagram,
+        metadata.type_map,
+        unresolved_uids=unresolved_uids,
     )
 
     # Parse connector pane
@@ -221,7 +228,11 @@ def parse_vi(
     # comes up empty.
     if unresolved_uids:
         _recover_or_warn_unresolved_labels(
-            front_panel, connector_pane, main_xml, vi_label, unresolved_uids,
+            front_panel,
+            connector_pane,
+            main_xml,
+            vi_label,
+            unresolved_uids,
         )
 
     return ParsedVI(
@@ -332,12 +343,18 @@ def _parse_block_diagram(
     enum_labels = _extract_enum_labels(root)
     srn_to_structure: dict[str, str] = {}
     terminal_info = _extract_terminal_info(
-        root, constants, fp_terminals, wires, type_map,
+        root,
+        constants,
+        fp_terminals,
+        wires,
+        type_map,
         srn_to_structure=srn_to_structure,
     )
     loops = extract_loops(root)
     case_structures = extract_case_structures(
-        root, terminal_info, selector_tables,
+        root,
+        terminal_info,
+        selector_tables,
     )
     flat_sequences = extract_flat_sequences(root)
     decompose_structures = extract_decompose_structures(root)
@@ -444,7 +461,10 @@ def _parse_front_panel(
             default_value = _decode_default_data(raw_data, control_type, lv_type)
 
         control = _parse_ddo(
-            ddo, uid, indicator_dco_uids, default_value,
+            ddo,
+            uid,
+            indicator_dco_uids,
+            default_value,
             unresolved_uids=unresolved_uids,
         )
         if control:
@@ -464,9 +484,13 @@ def _parse_front_panel(
 # NOT dataflow operation nodes, so the generic "unknown node" capture below must
 # skip them: shift-register nodes (handled via their structure), sequence frames
 # (structure frames, not nodes), and free-label comment nodes.
-_NON_OPERATION_NODE_CLASSES = frozenset({
-    NODE_CLASS_SHIFT_REG, "sequenceFrame", "commentNode",
-})
+_NON_OPERATION_NODE_CLASSES = frozenset(
+    {
+        NODE_CLASS_SHIFT_REG,
+        "sequenceFrame",
+        "commentNode",
+    }
+)
 
 
 def _is_generic_operation_node(elem: ET.Element) -> bool:
@@ -558,11 +582,13 @@ def _extract_wires(root: ET.Element) -> list[ParsedWire]:
         if len(terms) >= 2:
             source = terms[0]
             for i, dest in enumerate(terms[1:]):
-                wires.append(ParsedWire(
-                    uid=f"{uid}_{i}" if i > 0 else uid,
-                    from_term=source,
-                    to_term=dest,
-                ))
+                wires.append(
+                    ParsedWire(
+                        uid=f"{uid}_{i}" if i > 0 else uid,
+                        from_term=source,
+                        to_term=dest,
+                    )
+                )
 
     return wires
 
@@ -586,12 +612,57 @@ def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
     return enums
 
 
+# Case/select tunnel dco classes: pass-through (no array<->element transform),
+# so every face shares the dco's own <typeDesc> -- unlike an lpTun, whose inner
+# face has a DISTINCT type in <innerLpTunDCO>.
+_CASE_TUNNEL_DCO_CLASSES = frozenset({"selTun", "csTun", "caseSel"})
+
+
+def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:
+    """Map each tunnel dco uid -> the typeDesc text for its INNER face(s).
+
+    A tunnel dco is defined ONCE, on the boundary ``<term>`` (its direct
+    ``<typeDesc>`` is that boundary face's type). Its INNER face(s) are separate
+    ``<term>`` elements -- on the loop body, or one per case/select frame --
+    that carry only a BARE ``<dco uid=.../>`` back-reference with NO type of
+    their own. Left unresolved, the graph fills them by racing wire propagation
+    (nondeterministic across processes; for a case tunnel it can flip a
+    cluster's typedef identity, for an lpTun it flipped element<->array). Read
+    the inner type straight from the file instead, keyed by the shared dco uid
+    (see the fallback in ``_process_element_terminals``):
+
+    - ``lpTun``: the inner face is the loop-body per-iteration value, whose type
+      DIFFERS from the outer for an auto-index tunnel (element vs array). It
+      lives in the dco's nested ``<innerLpTunDCO>``'s ``<typeDesc>``.
+    - case/select tunnels (``selTun``/``csTun``/``caseSel``): pass-through --
+      no nested inner dco; every face (outer + each frame's inner) shares the
+      dco's own ``<typeDesc>``.
+    """
+    inner_types: dict[str, str] = {}
+    for dco in root.iter("dco"):
+        cls = dco.get("class")
+        uid = dco.get("uid")
+        if not uid:
+            continue
+        if cls == "lpTun":
+            inner_dco = dco.find("innerLpTunDCO")
+            type_desc = inner_dco.find("typeDesc") if inner_dco is not None else None
+        elif cls in _CASE_TUNNEL_DCO_CLASSES:
+            type_desc = dco.find("typeDesc")
+        else:
+            continue
+        if type_desc is not None and type_desc.text:
+            inner_types[uid] = type_desc.text
+    return inner_types
+
+
 def _process_element_terminals(
     elem: ET.Element,
     wire_sources: set[str],
     wire_sinks: set[str],
     type_map: dict[int, LVType] | None,
     terminal_info: dict[str, ParsedTerminalInfo],
+    tunnel_inner_types: dict[str, str],
     fp_term_parent: dict[str, str] | None = None,
 ) -> None:
     """Extract terminals from a single TERMINAL_CONTAINER_CLASSES element.
@@ -648,8 +719,12 @@ def _process_element_terminals(
                 # No index field found. XML omits parmIndex when it's 0.
                 # Applies to SubVI calls AND primitives.
                 if elem_class in (
-                    "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
-                    "callByRefNode", "prim",
+                    "iUse",
+                    "polyIUse",
+                    "dynIUse",
+                    "callParentDynIUse",
+                    "callByRefNode",
+                    "prim",
                 ):
                     parm_index = 0
 
@@ -678,7 +753,8 @@ def _process_element_terminals(
                             # Count how many list-type refs exist
                             # to determine stride for interleaving
                             n_lists = sum(
-                                1 for rt in dco_map
+                                1
+                                for rt in dco_map
                                 if (rt_elem := elem.find(rt)) is not None
                                 and len(rt_elem) > 0
                             )
@@ -717,10 +793,7 @@ def _process_element_terminals(
 
         # Resolve TypeID to ParsedType
         type_desc_elem = term.find(".//typeDesc")
-        type_desc_str = (
-            type_desc_elem.text if type_desc_elem is not None
-            else None
-        )
+        type_desc_str = type_desc_elem.text if type_desc_elem is not None else None
         if not type_desc_str and dco_uid:
             # Some node classes (e.g. aReshape) declare the terminal's real
             # dco definition (with its own typeDesc) at the *node* level
@@ -735,6 +808,16 @@ def _process_element_terminals(
                 if candidate_type_desc is not None and candidate_type_desc.text:
                     type_desc_str = candidate_type_desc.text
                     break
+        if not type_desc_str and dco_uid and dco_uid in tunnel_inner_types:
+            # Loop-tunnel INNER face: its <term> (on the loop-body diagram)
+            # holds only a bare <dco uid=.../> back-ref to the lpTun dco defined
+            # on the OUTER boundary term — so the search above (scoped to this
+            # element's own subtree) can't find it. The inner face's real type
+            # lives in that dco's <innerLpTunDCO><typeDesc>, indexed by dco uid.
+            # This types the inner face directly from the file (the ELEMENT type
+            # for an indexing tunnel), so the graph never guesses it by racing
+            # wire propagation. See _build_tunnel_inner_type_map.
+            type_desc_str = tunnel_inner_types[dco_uid]
         parsed_type = None
         if type_desc_str and type_map:
             lv_type = resolve_type_rich(type_desc_str, type_map)
@@ -776,6 +859,7 @@ def _walk_and_extract_terminals(
     terminal_info: dict[str, ParsedTerminalInfo],
     srn_to_structure: dict[str, str],
     current_structure_uid: str | None,
+    tunnel_inner_types: dict[str, str],
     fp_term_parent: dict[str, str] | None = None,
 ) -> None:
     """Walk XML tree, extracting terminals and tracking sRN containment."""
@@ -793,11 +877,18 @@ def _walk_and_extract_terminals(
     # operation nodes, a Disable structure's own boundary terminals, or a
     # generically-captured unknown node (so its wires still connect through
     # the placeholder box).
-    if elem_uid and (elem_class in TERMINAL_CONTAINER_CLASSES
-                     or is_disable_elem
-                     or _is_generic_operation_node(elem)):
+    if elem_uid and (
+        elem_class in TERMINAL_CONTAINER_CLASSES
+        or is_disable_elem
+        or _is_generic_operation_node(elem)
+    ):
         _process_element_terminals(
-            elem, wire_sources, wire_sinks, type_map, terminal_info,
+            elem,
+            wire_sources,
+            wire_sinks,
+            type_map,
+            terminal_info,
+            tunnel_inner_types,
             fp_term_parent,
         )
 
@@ -814,8 +905,14 @@ def _walk_and_extract_terminals(
     # Recurse into children
     for child in elem:
         _walk_and_extract_terminals(
-            child, wire_sources, wire_sinks, type_map,
-            terminal_info, srn_to_structure, next_structure_uid,
+            child,
+            wire_sources,
+            wire_sinks,
+            type_map,
+            terminal_info,
+            srn_to_structure,
+            next_structure_uid,
+            tunnel_inner_types,
             fp_term_parent,
         )
 
@@ -848,10 +945,21 @@ def _extract_terminal_info(
     wire_sources: set[str] = {w.from_term for w in wires}
     wire_sinks: set[str] = {w.to_term for w in wires}
 
+    # Loop-tunnel dco uid -> inner-face typeDesc, so a tunnel's inner <term>
+    # (a bare dco back-ref, typeless on its own) can resolve its real type.
+    tunnel_inner_types = _build_tunnel_inner_type_map(root)
+
     # Walk XML hierarchically — preserves structure containment for sRN nodes
     _walk_and_extract_terminals(
-        root, wire_sources, wire_sinks, type_map,
-        terminal_info, srn_to_structure, None, fp_term_parent,
+        root,
+        wire_sources,
+        wire_sinks,
+        type_map,
+        terminal_info,
+        srn_to_structure,
+        None,
+        tunnel_inner_types,
+        fp_term_parent,
     )
 
     # Constants have a single output terminal
@@ -943,9 +1051,18 @@ def _extract_subvi_info(
     # Some VIs only emit one or the other (e.g., DAQmx callers carry path
     # refs under LIbd/BDHP/IUVI with nothing in LIvi). Walk both.
     _LIVI_LINK_TAGS = (
-        "VIVI", "VIPI", "VIPV", "VILB", "FPPI", "DDPI",
-        "VICC", "DDPC", "FPPC", "IUVI",
-        "BSVR", "SVVI",  # statVIRef link types
+        "VIVI",
+        "VIPI",
+        "VIPV",
+        "VILB",
+        "FPPI",
+        "DDPI",
+        "VICC",
+        "DDPC",
+        "FPPC",
+        "IUVI",
+        "BSVR",
+        "SVVI",  # statVIRef link types
     )
     _BDHP_LINK_TAGS = ("IUVI", "PUPV")  # block-diagram iUse path refs
     scopes: list[tuple[str, tuple[str, ...]]] = [
@@ -975,11 +1092,13 @@ def _extract_subvi_info(
                     continue
                 seen_deps.add(key)
                 name = qname.rsplit(":", 1)[-1]
-                dependency_refs.append(ParsedDependencyRef(
-                    name=name,
-                    path_tokens=path_tokens,
-                    qualified_name=qname,
-                ))
+                dependency_refs.append(
+                    ParsedDependencyRef(
+                        name=name,
+                        path_tokens=path_tokens,
+                        qualified_name=qname,
+                    )
+                )
 
     # --- SubVI qualified names (for the dep loading loop in graph/loading.py) ---
     # VIVI/VIPI/DyOM/VIPV: SubVI calls. BSVR: statVIRef targets.
@@ -1059,9 +1178,7 @@ def _conp_names_by_slot(main_xml: Path | str | None) -> dict[int, str]:
     if not conp_bin.exists():
         return {}
     return {
-        t.slot: t.name
-        for t in decode_conp_terminals(conp_bin.read_bytes())
-        if t.name
+        t.slot: t.name for t in decode_conp_terminals(conp_bin.read_bytes()) if t.name
     }
 
 
@@ -1109,9 +1226,10 @@ def _recover_or_warn_unresolved_labels(
 
         slot_index = slot_by_uid.get(uid)
         recovered = (
-            labels_by_slot.get(slot_index)
-            or conp_names_by_slot.get(slot_index)
-        ) if slot_index is not None else None
+            (labels_by_slot.get(slot_index) or conp_names_by_slot.get(slot_index))
+            if slot_index is not None
+            else None
+        )
         if recovered:
             control.name = recovered
             continue
@@ -1120,7 +1238,9 @@ def _recover_or_warn_unresolved_labels(
             "%s: control uid=%s has no resolvable label (own partID=16/82 "
             "text empty or absent, and no VCTP flat-type Label either) — "
             "falling back to 'control_%s'",
-            vi_label, uid, uid,
+            vi_label,
+            uid,
+            uid,
         )
 
 
@@ -1146,10 +1266,14 @@ def _parse_ddo(
                 break
         if inner_ddo is not None:
             name = extract_label(ddo) or _placeholder_control_name(
-                uid, unresolved_uids,
+                uid,
+                unresolved_uids,
             )
             inner_control = _parse_ddo(
-                inner_ddo, uid, indicator_dco_uids, default_data,
+                inner_ddo,
+                uid,
+                indicator_dco_uids,
+                default_data,
                 unresolved_uids=unresolved_uids,
             )
             if inner_control:
@@ -1183,7 +1307,10 @@ def _parse_ddo(
                 child_uid = child_elem.get("uid", "")
                 if child_uid:
                     child_control = _parse_ddo(
-                        child_elem, child_uid, set(), None,
+                        child_elem,
+                        child_uid,
+                        set(),
+                        None,
                         unresolved_uids=unresolved_uids,
                     )
                     if child_control:
@@ -1226,7 +1353,7 @@ def _decode_default_data(
             return decoded
 
     # Fallback: dispatch by control_type string (no type info)
-    if raw_bytes.startswith(b'PTH0'):
+    if raw_bytes.startswith(b"PTH0"):
         return _decode_path_default(raw_bytes)
     if control_type == "stdString" and len(raw_bytes) >= 4:
         return _decode_string_default(raw_bytes)
@@ -1246,7 +1373,7 @@ def _walk_path(data: bytes) -> tuple[str | None, int]:
     value and the consumed count were walked by two divergent loops). Returns
     ``(None, 0)`` when ``data`` is not a ``PTH0`` blob.
     """
-    if not data.startswith(b'PTH0'):
+    if not data.startswith(b"PTH0"):
         return None, 0
     idx = 12  # PTH0 header
     parts: list[str] = []
@@ -1273,10 +1400,10 @@ def _decode_string_default(data: bytes) -> str | None:
     try:
         if len(data) < 4:
             return None
-        length = int.from_bytes(data[:4], 'big')
+        length = int.from_bytes(data[:4], "big")
         if len(data) >= 4 + length:
             string_val = decode_labview_text(data[4 : 4 + length])
-            escaped = string_val.replace('\\', '\\\\').replace('"', '\\"')
+            escaped = string_val.replace("\\", "\\\\").replace('"', '\\"')
             return f'"{escaped}"'
     except ValueError:
         pass
@@ -1288,15 +1415,15 @@ def _decode_numeric_default(data: bytes) -> str | None:
     inferred from the byte count: 1/2/4 -> integer, 8 -> float-or-integer)."""
     try:
         if len(data) in (1, 2, 4):
-            return str(int.from_bytes(data, 'big', signed=True))
+            return str(int.from_bytes(data, "big", signed=True))
         elif len(data) == 8:
             try:
-                float_val = struct.unpack('>d', data)[0]
+                float_val = struct.unpack(">d", data)[0]
                 if float_val == int(float_val):
                     return str(int(float_val))
                 return str(float_val)
             except struct.error:
-                return str(int.from_bytes(data, 'big', signed=True))
+                return str(int.from_bytes(data, "big", signed=True))
     except ValueError:
         pass
     return None
@@ -1325,11 +1452,11 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
     if underlying in ("String", "Tag"):
         if len(data) < 4:
             return None, 0
-        str_len = int.from_bytes(data[:4], 'big')
+        str_len = int.from_bytes(data[:4], "big")
         if len(data) < 4 + str_len:
             return None, 0
         string_val = decode_labview_text(data[4 : 4 + str_len])
-        escaped = string_val.replace('\\', '\\\\').replace("'", "\\'")
+        escaped = string_val.replace("\\", "\\\\").replace("'", "\\'")
         return f"'{escaped}'", 4 + str_len
 
     # Boolean: 1 byte in binary data
@@ -1337,11 +1464,11 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         return ("True" if data[0] else "False"), 1
 
     # Enum: decode as its underlying integer type
-    if kind == "enum":
+    if kind == LVTypeKind.ENUM:
         size = _get_numeric_size(underlying)
         if len(data) < size:
             return None, 0
-        val = int.from_bytes(data[:size], 'big')
+        val = int.from_bytes(data[:size], "big")
         return str(val), size
 
     # Numeric integer types
@@ -1350,7 +1477,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         if len(data) < size:
             return None, 0
         signed = underlying.startswith("NumInt")
-        val = int.from_bytes(data[:size], 'big', signed=signed)
+        val = int.from_bytes(data[:size], "big", signed=signed)
         return str(val), size
 
     # Float and complex types. Widths are load-bearing: a complex is TWO
@@ -1359,21 +1486,25 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
     # non-f32 as 8) desyncs the following cluster field.
     if underlying.startswith(("NumFloat", "NumComplex")):
         width = {
-            "NumFloat32": 4, "NumFloat64": 8, "NumFloatExt": 16,
-            "NumComplex64": 8, "NumComplex128": 16, "NumComplexExt": 32,
+            "NumFloat32": 4,
+            "NumFloat64": 8,
+            "NumFloatExt": 16,
+            "NumComplex64": 8,
+            "NumComplex128": 16,
+            "NumComplexExt": 32,
         }.get(underlying)
         if width is None or len(data) < width:
             return None, 0
         try:
             if underlying == "NumFloat32":
-                val = str(struct.unpack('>f', data[:4])[0])
+                val = str(struct.unpack(">f", data[:4])[0])
             elif underlying == "NumFloat64":
-                val = str(struct.unpack('>d', data[:8])[0])
+                val = str(struct.unpack(">d", data[:8])[0])
             elif underlying == "NumComplex64":
-                re, im = struct.unpack('>ff', data[:8])
+                re, im = struct.unpack(">ff", data[:8])
                 val = str(complex(re, im))
             elif underlying == "NumComplex128":
-                re, im = struct.unpack('>dd', data[:16])
+                re, im = struct.unpack(">dd", data[:16])
                 val = str(complex(re, im))
             else:  # extended-precision (80/128-bit) — width known, no struct fmt
                 val = f"<{underlying}>"
@@ -1387,17 +1518,18 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         return value or 'Path("")', consumed
 
     # Array: 4-byte length + elements
-    if kind == "array" and elem_type.element_type:
+    if kind == LVTypeKind.ARRAY and elem_type.element_type:
         if len(data) < 4:
             return None, 0
-        array_len = int.from_bytes(data[:4], 'big')
+        array_len = int.from_bytes(data[:4], "big")
         idx = 4
         elements = []
         for _ in range(array_len):
             if idx >= len(data):
                 break
             elem_val, consumed = _decode_element(
-                data[idx:], elem_type.element_type,
+                data[idx:],
+                elem_type.element_type,
             )
             if elem_val is None:
                 break
@@ -1414,7 +1546,8 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
                     "elements decoded before an element (type %r) consumed 0 "
                     "bytes at offset %d — likely a misparsed array length or "
                     "element type; the root parse cause is worth fixing.",
-                    len(elements), array_len,
+                    len(elements),
+                    array_len,
                     getattr(elem_type.element_type, "underlying_type", None)
                     or getattr(elem_type.element_type, "kind", "?"),
                     idx,
@@ -1425,14 +1558,15 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         return "[" + ", ".join(elements) + "]", idx
 
     # Cluster: sequential fields
-    if kind == "cluster" and elem_type.fields:
+    if kind == LVTypeKind.CLUSTER and elem_type.fields:
         idx = 0
         field_values = {}
         for field in elem_type.fields:
             if idx >= len(data):
                 break
             field_val, consumed = _decode_element(
-                data[idx:], field.type,
+                data[idx:],
+                field.type,
             )
             if field_val is None:
                 field_values[field.name] = "None"
@@ -1464,7 +1598,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
             # Verified across TestCase/TestResult/TestSuite/JUnitXML/LVObject.
             name = elem_type.classname.rsplit(":", 1)[-1]
             if len(data) >= 4:
-                n = int.from_bytes(data[:4], 'big')
+                n = int.from_bytes(data[:4], "big")
                 idx = 4
                 if 0 <= n <= 16:  # a real class chain is short; guards garbage
                     for _ in range(n):
@@ -1478,7 +1612,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
                     return name, idx
             return name, min(4, len(data))
         size = min(4, len(data))
-        val = int.from_bytes(data[:size], 'big')
+        val = int.from_bytes(data[:size], "big")
         return f"Refnum({val})" if val else "None", size
 
     # LVVariant: opaque — just report the byte count
@@ -1488,7 +1622,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
     # MeasureData (timestamp): 16 bytes (8 int + 8 frac)
     if underlying == "MeasureData":
         if len(data) >= 16:
-            secs = int.from_bytes(data[:8], 'big', signed=True)
+            secs = int.from_bytes(data[:8], "big", signed=True)
             return f"Timestamp({secs})", 16
         return "Timestamp(0)", len(data)
 
@@ -1511,7 +1645,7 @@ def _get_numeric_size(type_name: str) -> int:
     # for the newer convention, not a path hit today).
     logger.warning(
         "no width digit in numeric/enum type name %r — assuming 4 bytes; a "
-        "default-data decode of this type may misalign", type_name,
+        "default-data decode of this type may misalign",
+        type_name,
     )
     return 4
-

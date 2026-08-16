@@ -12,7 +12,7 @@ import dataclasses
 import re
 from dataclasses import dataclass
 
-from ..models import _LV_NUMERIC_TYPE_LABEL, LVType, _is_error_cluster
+from ..models import _NUMERIC_TYPE_DESCRIPTOR, LVType, LVTypeKind, _is_error_cluster
 
 # LabVIEW help/description strings carry rich-text tags (<B>..</B>, <BR>, ...).
 _HELP_TAG_RE = re.compile(r"<[^>]+>")
@@ -35,25 +35,25 @@ class Theme:
     """The renderer's full color palette."""
 
     canvas: str = "#fbfbf5"
-    struct_border: str = "#1e1e1e"       # loop/structure border (near-black, per GT)
+    struct_border: str = "#1e1e1e"  # loop/structure border (near-black, per GT)
     prim_fill: str = "#fff6d8"
     prim_stroke: str = "#b07d10"
-    prim_text: str = "#1a1a1a"       # label text on prim_fill (Arith/Bundle/…)
+    prim_text: str = "#1a1a1a"  # label text on prim_fill (Arith/Bundle/…)
     term_fill: str = "#fff3e2"
-    const_fill: str = "#ffffff"       # numeric/string constant box background
-    const_text: str = "#1a1a1a"      # label text on const_fill
-    loop_term: str = "#1f3fbf"           # N / i border terminal
-    loop_term_fill: str = "#ffffcc"      # pale-yellow fill of the N/i box (per GT)
-    loop_term_text: str = "#1a1a1a"      # "N"/"i" glyph text on loop_term_fill
-    cond_stop: str = "#c62828"           # while-loop cond terminal: Stop-if-True
-    cond_continue: str = "#2e7d32"       # while-loop cond terminal: Continue-if-True
+    const_fill: str = "#ffffff"  # numeric/string constant box background
+    const_text: str = "#1a1a1a"  # label text on const_fill
+    loop_term: str = "#1f3fbf"  # N / i border terminal
+    loop_term_fill: str = "#ffffcc"  # pale-yellow fill of the N/i box (per GT)
+    loop_term_text: str = "#1a1a1a"  # "N"/"i" glyph text on loop_term_fill
+    cond_stop: str = "#c62828"  # while-loop cond terminal: Stop-if-True
+    cond_continue: str = "#2e7d32"  # while-loop cond terminal: Continue-if-True
     subvi_fill: str = "#eef0e6"
     subvi_stroke: str = "#7a7d63"
-    subvi_text: str = "#1a1a1a"      # wrapped subVI name text on subvi_fill
+    subvi_text: str = "#1a1a1a"  # wrapped subVI name text on subvi_fill
     case_bar_fill: str = "#e9e6d2"
     case_bar_text: str = "#4a4636"
     case_no_error_border: str = "#2e9e3f"  # green — error-cluster "No Error" frame
-    case_error_border: str = "#d32f2f"     # red — error-cluster "Error" frame
+    case_error_border: str = "#d32f2f"  # red — error-cluster "Error" frame
     # Event Structure border — a distinct warm amber/gold (LabVIEW's own
     # diagonal-hatch border uses a similar tan hue): a WIDE filled BAND (not
     # a thin dashed line) between the structure's outer heap bounds and its
@@ -71,32 +71,32 @@ class Theme:
     selector_stroke: str = "#5a8f3a"
     selector_text: str = "#3f6b28"
     sr_stroke: str = "#555555"
-    tunnel_border: str = "#4a4a3a"       # dark-olive border of tunnel/index boxes
-    coercion_dot: str = "#e01f1f"         # red coercion-dot fill (per LabVIEW)
-    fp_panel: str = "#e2e2e2"       # grey inner panel of an FP control/indicator
+    tunnel_border: str = "#4a4a3a"  # dark-olive border of tunnel/index boxes
+    coercion_dot: str = "#e01f1f"  # red coercion-dot fill (per LabVIEW)
+    fp_panel: str = "#e2e2e2"  # grey inner panel of an FP control/indicator
     fp_value_fill: str = "#ffffff"  # recessed numeric value cell
     fp_value_text: str = "#333333"
     fp_index_fill: str = "#c8c8c8"  # array index-display cell
-    localvar_fill: str = "#ffffff"       # local-variable box background
-    localvar_stroke: str = "#4a4a3a"     # local-variable box border
-    localvar_text: str = "#1a1a1a"       # wrapped local-var name text on localvar_fill
-    text: str = "#1a1a1a"     # default/canvas label text (node names, FP names, …)
+    localvar_fill: str = "#ffffff"  # local-variable box background
+    localvar_stroke: str = "#4a4a3a"  # local-variable box border
+    localvar_text: str = "#1a1a1a"  # wrapped local-var name text on localvar_fill
+    text: str = "#1a1a1a"  # default/canvas label text (node names, FP names, …)
     # Secondary/muted text on the connector-help panel (panel bg = ``canvas``) —
     # paired with the panel's type-annotation text specifically (smaller,
     # lighter than the terminal name beside it).
     pane_type_text: str = "#777777"
 
     # Wire colors by LabVIEW type family.
-    wire_float: str = "#e8821e"    # orange — DBL/float (also the P0 default)
-    wire_int: str = "#1f3fbf"      # blue — integers, enums, rings
-    wire_bool: str = "#4a9c3e"     # green — boolean
-    wire_string: str = "#e05fa0"   # pink — string
-    wire_path: str = "#1f8a8a"     # teal — path
+    wire_float: str = "#e8821e"  # orange — DBL/float (also the P0 default)
+    wire_int: str = "#1f3fbf"  # blue — integers, enums, rings
+    wire_bool: str = "#4a9c3e"  # green — boolean
+    wire_string: str = "#e05fa0"  # pink — string
+    wire_path: str = "#1f8a8a"  # teal — path
     wire_cluster: str = "#8a5a2b"  # brown — clusters / typedefs
-    wire_refnum: str = "#1f6b2e"   # dark green — refnums (VI refs, driver/DAQ/
+    wire_refnum: str = "#1f6b2e"  # dark green — refnums (VI refs, driver/DAQ/
     #                                VISA sessions, queues, notifiers, controls);
     #                                LabVIEW's generic reference wire color
-    wire_error: str = "#a88d1e"    # mustard/dark-yellow — error clusters (LV 8.2+)
+    wire_error: str = "#a88d1e"  # mustard/dark-yellow — error clusters (LV 8.2+)
     wire_variant: str = "#840984"  # purple — Variant (NI rgb(132,9,132))
     # Unresolved / unknown-type wires — a DISTINCT dark grey, NOT the float
     # orange. A wire with no resolved type is a type-propagation BUG; colouring
@@ -136,6 +136,7 @@ def css_var_theme(base: Theme = DEFAULT_THEME) -> Theme:
             overrides[f.name] = f"var({var_name}, {value})"
     return dataclasses.replace(base, **overrides)
 
+
 # Unified diagram line width (wires + structure borders), matched to the
 # ground truth's ~1px scalar wire / structure-border weight.
 _LINE_W = 1.2
@@ -151,8 +152,14 @@ class WireStyle:
 
 
 _INT_TYPES = {
-    "NumInt8", "NumInt16", "NumInt32", "NumInt64",
-    "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64",
+    "NumInt8",
+    "NumInt16",
+    "NumInt32",
+    "NumInt64",
+    "NumUInt8",
+    "NumUInt16",
+    "NumUInt32",
+    "NumUInt64",
 }
 _FLOAT_TYPES = {"NumFloat32", "NumFloat64", "NumFloatExt"}
 # Complex is orange like floats in LabVIEW (was falling through to "unknown").
@@ -160,14 +167,15 @@ _COMPLEX_TYPES = {"NumComplex64", "NumComplex128", "NumComplexExt"}
 
 # LabVIEW data-type terminal text, exactly as the reference manual draws it
 # (e.g. an orange `[DBL]` box for a DBL array — verified against the PDF).
-# The numeric/Boolean/Path tokens are shared with ``LVType.lv_label()``'s
-# faithful text label (see ``models._LV_NUMERIC_TYPE_LABEL``); String/Variant
+# The numeric/Boolean/Path tokens are shared with ``LVType.type_descriptor()``'s
+# faithful text label (see ``models._NUMERIC_TYPE_DESCRIPTOR``); String/Variant
 # stay glyph-abbreviated here ("abc"/"Var") since this table drives compact
 # terminal-icon text, not prose.
 _TYPE_REPR = {
-    **_LV_NUMERIC_TYPE_LABEL,
+    **_NUMERIC_TYPE_DESCRIPTOR,
     "String": "abc",
-    "Variant": "Var", "LVVariant": "Var",
+    "Variant": "Var",
+    "LVVariant": "Var",
 }
 
 
@@ -181,9 +189,12 @@ def numeric_repr(lv_type: LVType | None) -> str | None:
     structural differences like array↔element at an auto-indexing tunnel."""
     if lv_type is None:
         return None
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         return numeric_repr(lv_type.element_type)
-    if lv_type.kind == "primitive" and lv_type.underlying_type in _NUMERIC_TYPES:
+    if (
+        lv_type.kind == LVTypeKind.PRIMITIVE
+        and lv_type.underlying_type in _NUMERIC_TYPES
+    ):
         return lv_type.underlying_type
     return None
 
@@ -196,15 +207,15 @@ def type_repr(lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return ""
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         dims = lv_type.dimensions or 1
         inner = type_repr(lv_type.element_type) or "?"
         return "[" * dims + inner + "]" * dims
-    if lv_type.kind in ("enum", "ring"):
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "Enum"
-    if lv_type.kind in ("cluster", "typedef_ref"):
+    if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return ""  # clusters have no single-token repr
-    if lv_type.kind == "primitive":
+    if lv_type.kind == LVTypeKind.PRIMITIVE:
         # A class/DVR object refnum draws "Class"; a plain refnum (queue, event,
         # control ref, …) draws "Ref". (The full class name is the LARGE-form
         # label — see ``lv_type_label`` in this module.)
@@ -212,6 +223,7 @@ def type_repr(lv_type: LVType | None) -> str:
             return "Class" if lv_type.classname else "Ref"
         return _TYPE_REPR.get(lv_type.underlying_type or "", "")
     return ""
+
 
 def numeric_sample(lv_type: LVType | None) -> str | None:
     """LabVIEW's type-representative glyph shown inside a front-panel numeric/
@@ -221,7 +233,7 @@ def numeric_sample(lv_type: LVType | None) -> str | None:
     types with no text glyph (e.g. Boolean, which LabVIEW draws as a button)."""
     if lv_type is None:
         return None
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         return numeric_sample(lv_type.element_type)
     ut = lv_type.underlying_type or ""
     if "Float" in ut or "Ext" in ut or "Complex" in ut:
@@ -257,13 +269,13 @@ def type_family(lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return "unknown"
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         return "array"
-    if lv_type.kind in ("enum", "ring"):
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "enum"
-    if lv_type.kind in ("cluster", "typedef_ref"):
+    if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return "error_cluster" if _is_error_cluster(lv_type) else "cluster"
-    if lv_type.kind == "primitive":
+    if lv_type.kind == LVTypeKind.PRIMITIVE:
         ut = lv_type.underlying_type or ""
         if ut in _FLOAT_TYPES or ut in _COMPLEX_TYPES:
             return "float"
@@ -328,7 +340,8 @@ def lv_type_label(lv_type: LVType | None) -> str:
 
 
 def wire_style(
-    lv_type: LVType | None, theme: Theme = DEFAULT_THEME,
+    lv_type: LVType | None,
+    theme: Theme = DEFAULT_THEME,
 ) -> WireStyle:
     """Color/width for a wire, from the SOURCE terminal's LVType.
 
@@ -340,10 +353,11 @@ def wire_style(
     if lv_type is None:
         return WireStyle(theme.wire_default, _LINE_W)
 
-    if lv_type.kind == "array":
+    if lv_type.kind == LVTypeKind.ARRAY:
         inner = wire_style(lv_type.element_type, theme)
         return WireStyle(
-            inner.color, inner.width + _ARRAY_W_PER_DIM * (lv_type.dimensions or 1),
+            inner.color,
+            inner.width + _ARRAY_W_PER_DIM * (lv_type.dimensions or 1),
         )
 
     family = type_family(lv_type)

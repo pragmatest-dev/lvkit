@@ -19,12 +19,14 @@ from ..models import (
     LVType,
     Operation,
     PrimitiveOperation,
+    ScalarValue,
     SequenceOperation,
     Terminal,
 )
 from ..parser.node_types import get_display_name
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .core import kind_display
+from .interface_order import is_required
 from .models import (
     Constant,
     ExecutionProps,
@@ -50,7 +52,10 @@ if TYPE_CHECKING:
 
 
 def describe_vi(
-    graph: InMemoryVIGraph, vi_name: str, *, verbose: bool = False,
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    *,
+    verbose: bool = False,
 ) -> str:
     """Describe a VI as a documentation page.
 
@@ -89,28 +94,30 @@ def describe_vi(
     # verbose (-v): every field shown, healthy or not.
     lines.extend(_describe_health(ctx, show_all=verbose))
 
-    # Interface: Inputs
+    # Connector pane, in canonical order (errors last, Required first, then pane
+    # geometry). Terse: unmarked is the baseline; only the exceptions annotate --
+    # ``(required)`` (a caller MUST wire it) and ``= default``. Verbose adds each
+    # terminal's ``[idx N]`` pane slot and the VI's connector pattern.
+    pattern_note = (
+        f" (pattern {ctx.connector_pattern_id})"
+        if verbose and ctx.connector_pattern_id is not None
+        else ""
+    )
+    lines.append("## Inputs" + pattern_note)
     if ctx.inputs:
-        lines.append("## Inputs")
         for inp in ctx.inputs:
-            wiring = _wiring_label(inp.wiring_rule)
-            lines.append(f"  {inp.name}: {_terminal_type_label(inp)} ({wiring})")
-        lines.append("")
+            lines.append("  " + _pane_terminal_line(inp, "input", verbose))
     else:
-        lines.append("## Inputs")
         lines.append("  (none)")
-        lines.append("")
+    lines.append("")
 
-    # Interface: Outputs
+    lines.append("## Outputs")
     if ctx.outputs:
-        lines.append("## Outputs")
         for out in ctx.outputs:
-            lines.append(f"  {out.name}: {_terminal_type_label(out)}")
-        lines.append("")
+            lines.append("  " + _pane_terminal_line(out, "output", verbose))
     else:
-        lines.append("## Outputs")
         lines.append("  (none)")
-        lines.append("")
+    lines.append("")
 
     # Class context: when this VI is a .lvclass method
     lines.extend(_describe_class_context(graph, ctx))
@@ -158,7 +165,10 @@ def describe_vi(
     # through tunnels the way ``build_netlist`` does).
     if not verbose:
         structures = _collect_structures(
-            graph, ctx, ctx.operations, index_terminal_owners(ctx.operations),
+            graph,
+            ctx,
+            ctx.operations,
+            index_terminal_owners(ctx.operations),
         )
         if structures:
             lines.append("## Control Flow")
@@ -179,7 +189,8 @@ def describe_vi(
 
 
 def describe_operations(
-    graph: InMemoryVIGraph, vi_name: str,
+    graph: InMemoryVIGraph,
+    vi_name: str,
 ) -> str:
     """Describe a VI's operations in execution order."""
     vi_name = graph.resolve_vi_name(vi_name)
@@ -211,9 +222,9 @@ def describe_dataflow(
 
     if operation_id:
         wires = [
-            w for w in wires
-            if w.source.node_id == operation_id
-            or w.dest.node_id == operation_id
+            w
+            for w in wires
+            if w.source.node_id == operation_id or w.dest.node_id == operation_id
         ]
 
     lines: list[str] = []
@@ -267,7 +278,8 @@ def describe_structure(
 
 
 def describe_constants(
-    graph: InMemoryVIGraph, vi_name: str,
+    graph: InMemoryVIGraph,
+    vi_name: str,
 ) -> str:
     """List all constants used in a VI."""
     vi_name = graph.resolve_vi_name(vi_name)
@@ -308,25 +320,48 @@ def _format_signature(ctx: VIContext) -> str:
     return f"{func_name}({params}) -> {ret}"
 
 
-def _wiring_label(rule: int) -> str:
-    """Convert wiring rule to human label."""
-    return {
-        0: "unknown",
-        1: "required",
-        2: "recommended",
-        3: "optional",
-    }.get(rule, "unknown")
+def _default_suffix(default: ScalarValue) -> str:
+    """`` = <value>`` for a terminal's default, or ``''`` when it has none.
+
+    Only a genuinely-set default annotates (``default`` is ``None`` when the
+    terminal carries no default). Strings render quoted so ``""`` reads as an
+    intentional empty-string default, not a missing one.
+    """
+    if default is None:
+        return ""
+    return f' = "{default}"' if isinstance(default, str) else f" = {default}"
+
+
+def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
+    """One connector-pane terminal as ``name: type [(required)] [= default]``.
+
+    Only the exceptions annotate -- ``(required)`` (Required, inputs only) and a
+    set default. Verbose appends the ``[idx N]`` connector-pane slot.
+    """
+    line = f"{t.name}: {_terminal_type_label(t)}"
+    if is_required(t, direction):
+        line += " (required)"
+    line += _default_suffix(t.default_value)
+    if verbose and t.index is not None and t.index >= 0:
+        line += f" [idx {t.index}]"
+    return line
 
 
 def _collect_subvi_names(operations: list[Operation]) -> set[str]:
-    """Collect all SubVI names from operations recursively."""
+    """Collect all SubVI callees' QUALIFIED names recursively — the
+    class/lib-qualified identity (e.g. ``TestResult.lvclass:addError.vi``), so a
+    dynamic-dispatch call reports its declaring parent class rather than a bare
+    ``addError.vi``. resolve_vi_name accepts the qualified form, so the ports /
+    description lookups below still resolve (to the correct copy)."""
     names: set[str] = set()
     for op in operations:
-        if op.kind == "vi" and op.name:
-            names.add(op.name)
+        if op.kind == "vi" and op.qualified_name:
+            names.add(op.qualified_name)
         match op:
             case (
-                CaseOperation() | SequenceOperation() | EventOperation()
+                CaseOperation()
+                | SequenceOperation()
+                | EventOperation()
                 | DisableStructureOperation()
             ):
                 for frame in op.frames:
@@ -338,7 +373,8 @@ def _collect_subvi_names(operations: list[Operation]) -> set[str]:
 
 
 def _get_subvi_description(
-    graph: InMemoryVIGraph, vi_name: str,
+    graph: InMemoryVIGraph,
+    vi_name: str,
 ) -> str | None:
     """Get a short description for a SubVI."""
     resolver = _get_vilib_resolver()
@@ -353,25 +389,26 @@ def _get_subvi_description(
 
 def _type_label(t: LVType | None) -> str:
     """Compact, FAITHFUL LVType label for class fields (never a Python
-    annotation — see ``LVType.lv_label()``). ``unknown`` (not ``Any``) when the
+    annotation — see ``LVType.type_descriptor()``). ``unknown`` (not ``Any``) when the
     field's type didn't resolve."""
-    return t.lv_label() if t is not None else "unknown"
+    return t.type_descriptor() if t is not None else "unknown"
 
 
 def _terminal_type_label(t: Terminal) -> str:
-    """FAITHFUL LabVIEW type label for a terminal (never ``python_type()``'s
-    codegen-target Python annotation). Falls back to the control_type family
-    word (``cluster``/``class``/…) when the LVType didn't resolve."""
-    return t.faithful_type_label()
+    """A terminal's type descriptor for display (never ``python_type()``'s
+    codegen-target annotation); the KIND word when the type didn't resolve,
+    ``unknown`` when even that is absent."""
+    return t.type_label()
 
 
-_FlagGroup = (
-    ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
-)
+_FlagGroup = ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
 
 
 def _describe_flag_group(
-    group: _FlagGroup, indent: str = "    ", *, show_all: bool = False,
+    group: _FlagGroup,
+    indent: str = "    ",
+    *,
+    show_all: bool = False,
 ) -> list[str]:
     """Render one VI-Properties sub-struct's fields.
 
@@ -460,7 +497,8 @@ def _describe_health(ctx: VIContext, *, show_all: bool = False) -> list[str]:
 
 
 def _describe_class_context(
-    graph: InMemoryVIGraph, ctx: VIContext,
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
 ) -> list[str]:
     """Describe the owning class when this VI is a .lvclass method.
 
@@ -480,11 +518,13 @@ def _describe_class_context(
         return []
 
     fields = graph.get_class_fields(cc.owning_class) or []
-    siblings = sorted({
-        t.split(":")[-1]
-        for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
-        if e.get("rel") == "owns" and t.endswith(".vi")
-    })
+    siblings = sorted(
+        {
+            t.split(":")[-1]
+            for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
+            if e.get("rel") == "owns" and t.endswith(".vi")
+        }
+    )
 
     lines = ["## Class", f"  {cc.owning_class}"]
     if cc.parent:
@@ -579,7 +619,10 @@ def _collect_structures(
             case CaseOperation():
                 n_frames = len(op.frames)
                 gated = _resolve_selector(
-                    graph, ctx, owner_by_terminal, op.selector_terminal,
+                    graph,
+                    ctx,
+                    owner_by_terminal,
+                    op.selector_terminal,
                 )
                 if gated:
                     sel = f", gated on {gated}"
@@ -590,23 +633,30 @@ def _collect_structures(
                 structures.append(f"Case structure ({n_frames} frames{sel})")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, owner_by_terminal,
+                        graph,
+                        ctx,
+                        frame.operations,
+                        owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case LoopOperation():
                 kind = "While loop" if op.loop_type == "whileLoop" else "For loop"
                 gated = _resolve_selector(
-                    graph, ctx, owner_by_terminal, op.stop_condition_terminal,
+                    graph,
+                    ctx,
+                    owner_by_terminal,
+                    op.stop_condition_terminal,
                 )
-                structures.append(
-                    f"{kind} (stops when {gated})" if gated else kind
-                )
+                structures.append(f"{kind} (stops when {gated})" if gated else kind)
             case SequenceOperation():
                 n_frames = len(op.frames)
                 structures.append(f"Flat sequence ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, owner_by_terminal,
+                        graph,
+                        ctx,
+                        frame.operations,
+                        owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case EventOperation():
@@ -614,7 +664,10 @@ def _collect_structures(
                 structures.append(f"Event structure ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, owner_by_terminal,
+                        graph,
+                        ctx,
+                        frame.operations,
+                        owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case DisableStructureOperation():
@@ -622,7 +675,10 @@ def _collect_structures(
                 structures.append(f"Disable structure ({n_frames} frames)")
                 for frame in op.frames:
                     for s in _collect_structures(
-                        graph, ctx, frame.operations, owner_by_terminal,
+                        graph,
+                        ctx,
+                        frame.operations,
+                        owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
             case _:
@@ -634,24 +690,10 @@ def _collect_structures(
     return structures
 
 
-def _count_operations(operations: list[Operation]) -> int:
-    """Count total operations including nested."""
-    count = len(operations)
-    for op in operations:
-        match op:
-            case CaseOperation() | SequenceOperation():
-                for frame in op.frames:
-                    count += _count_operations(frame.operations)
-            case _:
-                pass
-        count += _count_operations(op.inner_nodes)
-    return count
-
-
 def _const_type_str(c: Constant) -> str:
-    """FAITHFUL human-readable type label for a constant (``lv_label()``
+    """FAITHFUL human-readable type label for a constant (``type_descriptor()``
     already handles the error-cluster case internally)."""
-    return c.lv_type.lv_label() if c.lv_type else "unknown"
+    return c.lv_type.type_descriptor() if c.lv_type else "unknown"
 
 
 def _describe_constant_line(c: Constant) -> str:
@@ -661,12 +703,13 @@ def _describe_constant_line(c: Constant) -> str:
 
 
 def _frame_constants(
-    constants: list[Constant], parent_id: str, frame_key: object,
+    constants: list[Constant],
+    parent_id: str,
+    frame_key: object,
 ) -> list[Constant]:
     """Constants attributed to a specific frame of a structure."""
     return [
-        c for c in constants
-        if c.parent == parent_id and str(c.frame) == str(frame_key)
+        c for c in constants if c.parent == parent_id and str(c.frame) == str(frame_key)
     ]
 
 
@@ -710,50 +753,61 @@ def _describe_op_list(
                 passthrough = _has_output_tunnel(op)
                 for frame in op.frames:
                     default = " (default)" if frame.is_default else ""
-                    lines.append(
-                        f'{prefix}  Frame "{frame.selector_value}"{default}:'
-                    )
+                    lines.append(f'{prefix}  Frame "{frame.selector_value}"{default}:')
                     _describe_frame_body(
                         frame.operations,
                         _frame_constants(constants, op.id, frame.selector_value),
-                        constants, lines, prefix, indent,
+                        constants,
+                        lines,
+                        prefix,
+                        indent,
                         passthrough=passthrough,
                     )
             case SequenceOperation():
                 for i, frame in enumerate(op.frames):
-                    lines.append(f'{prefix}  Frame {i}:')
+                    lines.append(f"{prefix}  Frame {i}:")
                     _describe_frame_body(
                         frame.operations,
                         _frame_constants(constants, op.id, i),
-                        constants, lines, prefix, indent,
+                        constants,
+                        lines,
+                        prefix,
+                        indent,
                         passthrough=False,
                     )
             case EventOperation():
                 for frame in op.frames:
-                    lines.append(f'{prefix}  Frame {frame.event_label}:')
+                    lines.append(f"{prefix}  Frame {frame.event_label}:")
                     _describe_frame_body(
                         frame.operations,
                         _frame_constants(constants, op.id, frame.index),
-                        constants, lines, prefix, indent,
+                        constants,
+                        lines,
+                        prefix,
+                        indent,
                         passthrough=False,
                     )
             case DisableStructureOperation():
                 passthrough = _has_output_tunnel(op)
                 for frame in op.frames:
                     default = " (default)" if frame.is_default else ""
-                    lines.append(
-                        f'{prefix}  Frame "{frame.selector_value}"{default}:'
-                    )
+                    lines.append(f'{prefix}  Frame "{frame.selector_value}"{default}:')
                     _describe_frame_body(
                         frame.operations,
                         _frame_constants(constants, op.id, frame.selector_value),
-                        constants, lines, prefix, indent,
+                        constants,
+                        lines,
+                        prefix,
+                        indent,
                         passthrough=passthrough,
                     )
             case _:
                 if op.inner_nodes:
                     _describe_op_list(
-                        op.inner_nodes, constants, lines, indent + 1,
+                        op.inner_nodes,
+                        constants,
+                        lines,
+                        indent + 1,
                     )
                 for c in (c for c in constants if c.parent == op.id):
                     lines.append(f"{prefix}  {_describe_constant_line(c)}")
@@ -764,19 +818,22 @@ def _describe_single_op(op: Operation) -> str:
     name = op.name or "unnamed"
 
     if op.kind == "vi":
+        # Qualified callee identity (``op.qualified_name`` — the resolution
+        # identity, e.g. ``TestResult.lvclass:addError.vi``; a dispatch call reads
+        # its declaring parent class). The SAME field the ## Dependencies section
+        # uses (_collect_subvi_names), so a subVI is labeled identically on both.
+        label = op.qualified_name or name
         named_inputs = [
-            t.name for t in op.terminals
-            if t.direction == "input" and t.name
+            t.name for t in op.terminals if t.direction == "input" and t.name
         ]
         named_outputs = [
-            t.name for t in op.terminals
-            if t.direction == "output" and t.name
+            t.name for t in op.terminals if t.direction == "output" and t.name
         ]
         if named_inputs or named_outputs:
             in_str = ", ".join(named_inputs)
             out_str = ", ".join(named_outputs)
-            return f"{name}({in_str}) -> {out_str}"
-        return name
+            return f"{label}({in_str}) -> {out_str}"
+        return label
 
     match op:
         case PrimitiveOperation():
@@ -807,7 +864,8 @@ def _describe_single_op(op: Operation) -> str:
 
 
 def _find_operation(
-    operations: list[Operation], op_id: str,
+    operations: list[Operation],
+    op_id: str,
 ) -> Operation | None:
     """Find an operation by ID, searching recursively."""
     for op in operations:
@@ -828,7 +886,9 @@ def _find_operation(
 
 
 def _describe_case_structure(
-    op: CaseOperation, constants: list[Constant], lines: list[str],
+    op: CaseOperation,
+    constants: list[Constant],
+    lines: list[str],
 ) -> None:
     """Describe a case structure in detail."""
     lines.append(f"Case Structure: {op.id}")
@@ -837,7 +897,7 @@ def _describe_case_structure(
 
     for t in op.terminals:
         if t.id == op.selector_terminal and t.lv_type:
-            lines.append(f"  Selector type: {t.lv_type.lv_label()}")
+            lines.append(f"  Selector type: {t.lv_type.type_descriptor()}")
             break
 
     passthrough = _has_output_tunnel(op)
@@ -846,7 +906,7 @@ def _describe_case_structure(
         default = " (default)" if frame.is_default else ""
         frame_consts = _frame_constants(constants, op.id, frame.selector_value)
         lines.append(
-            f"  Frame \"{frame.selector_value}\"{default}:"
+            f'  Frame "{frame.selector_value}"{default}:'
             f" {len(frame.operations)} operations,"
             f" {len(frame_consts)} constants"
         )
@@ -875,9 +935,7 @@ def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
     lines.append(f"{loop_kind}{parallel_note}: {op.id}")
 
     if op.stop_condition_terminal:
-        lines.append(
-            f"  Stop condition: {op.stop_condition_terminal}"
-        )
+        lines.append(f"  Stop condition: {op.stop_condition_terminal}")
 
     if op.tunnels:
         lines.append("  Tunnels:")
@@ -885,6 +943,10 @@ def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
             detail = ""
             if tunnel.mode is not None:
                 detail += f" mode={tunnel.mode.value}"
+            # The orthogonal Conditional modifier (output tunnels) -- only
+            # surfaced when set, since most tunnels are unconditional.
+            if tunnel.conditional:
+                detail += " conditional=True"
             if tunnel.sr_initialized is not None:
                 detail += f" initialized={tunnel.sr_initialized}"
             # 1 is a normal (unstacked) shift register -- the ubiquitous
@@ -904,16 +966,15 @@ def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
 
 
 def _describe_sequence(
-    op: SequenceOperation, lines: list[str],
+    op: SequenceOperation,
+    lines: list[str],
 ) -> None:
     """Describe a flat sequence."""
     lines.append(f"Flat Sequence: {op.id}")
     if op.frames:
         lines.append(f"  Frames: {len(op.frames)}")
         for i, frame in enumerate(op.frames):
-            lines.append(
-                f"  Frame {i}: {len(frame.operations)} operations"
-            )
+            lines.append(f"  Frame {i}: {len(frame.operations)} operations")
             for fop in frame.operations:
                 lines.append(f"    - {_describe_single_op(fop)}")
     elif op.inner_nodes:

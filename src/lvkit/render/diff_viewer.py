@@ -83,9 +83,9 @@ def build_diff_viewer(
     removed = sum(1 for c in changes if c["change"] == "removed")
     modified = sum(1 for c in changes if c["change"] == "modified")
 
-    template = (
-        files("lvkit.render") / "templates" / "diff_viewer.html"
-    ).read_text(encoding="utf-8")
+    template = (files("lvkit.render") / "templates" / "diff_viewer.html").read_text(
+        encoding="utf-8"
+    )
 
     html = (
         template.replace("__TITLE__", title)

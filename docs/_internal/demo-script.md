@@ -122,15 +122,18 @@ lvkit mcp
 ```
 
 Show the tool list. Explain:
-- `load` → `describe` → `get_operations` → `generate_ast_code`
-- An LLM can explore the graph, ask questions, then generate code
-- Stateful session: load once, query many times
+- `describe` (prose) / `read_vi` (structured netlist IR) — pass a VI path
+  directly, loaded live on demand, no `load`/`clear` session step
+- `query` answers whole-repo questions over a persisted index; `describe`/
+  `read_vi` go deep on one VI
+- Understanding-only: the LLM explores the graph, then writes the Python
+  itself — `lvkit generate`'s deterministic pipeline is a CLI oracle to
+  verify against, not something the agent calls through MCP
 
 **If Claude Code is available**, demonstrate live:
 ```
-/lvkit load samples/DAQmx-Digital-IO/In.vi
-/lvkit describe In.vi
-/lvkit operations In.vi
+/lvkit describe samples/DAQmx-Digital-IO/In.vi
+/lvkit read_vi samples/DAQmx-Digital-IO/In.vi
 ```
 
 ## 9. AI integration — MCP + Skills (5 min)
@@ -142,14 +145,13 @@ lvkit exposes the graph as MCP tools for any AI editor:
 lvkit mcp
 ```
 
-12 tools available: `load`, `describe`, `get_operations`, `get_dataflow`, `get_structure`, `get_constants`, `generate_ast_code`, `analyze`, `generate_documents`, `generate_python`, `list_loaded`, `get_context`.
+6 tools available, all understanding-only: `index`, `query`, `query_schema`, `describe`, `read_vi`, `unresolved`.
 
 **If Claude Code is available**, demonstrate live:
 ```
 # Use the MCP tools directly
-> load samples/DAQmx-Digital-IO/In.vi
-> describe In.vi
-> get operations for In.vi
+> describe samples/DAQmx-Digital-IO/In.vi
+> read_vi samples/DAQmx-Digital-IO/In.vi
 ```
 
 **Skills for Claude Code** (5 user-facing skills, installable into a downstream project via `lvkit init --skills claude`; 2 more `/judge-output` and `/trace-bug` stay lvkit-maintainer-only):

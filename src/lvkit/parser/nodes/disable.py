@@ -126,12 +126,14 @@ def _active_label(elem: ET.Element) -> str | None:
 
 
 def _extract_one_disable_structure(
-    elem: ET.Element, uid: str,
+    elem: ET.Element,
+    uid: str,
 ) -> ParsedDisableStructure | None:
     diag_list = elem.find("diagramList")
     diag_elems = (
         diag_list.findall("SL__arrayElement[@class='diag']")
-        if diag_list is not None else []
+        if diag_list is not None
+        else []
     )
     if not diag_elems:
         return None
@@ -161,11 +163,13 @@ def _extract_one_disable_structure(
                 if node_uid:
                     inner_node_uids.append(node_uid)
 
-        frames.append(CaseFrame(
-            selector_value=label,
-            inner_node_uids=inner_node_uids,
-            is_default=is_active,
-        ))
+        frames.append(
+            CaseFrame(
+                selector_value=label,
+                inner_node_uids=inner_node_uids,
+                is_default=is_active,
+            )
+        )
 
     return ParsedDisableStructure(
         uid=uid,
@@ -210,9 +214,11 @@ def _extract_disable_tunnels(elem: ET.Element) -> list[Tunnel]:
             continue
         outer_uid = term_refs[-1]
         for inner_uid in term_refs[:-1]:
-            tunnels.append(Tunnel(
-                outer_terminal_uid=outer_uid,
-                inner_terminal_uid=inner_uid,
-                tunnel_type=COMMENT_TUNNEL_CLASS,
-            ))
+            tunnels.append(
+                Tunnel(
+                    outer_terminal_uid=outer_uid,
+                    inner_terminal_uid=inner_uid,
+                    tunnel_type=COMMENT_TUNNEL_CLASS,
+                )
+            )
     return tunnels

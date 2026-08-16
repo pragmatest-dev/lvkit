@@ -34,9 +34,9 @@ def build_render_viewer(svg: str, *, title: str) -> str:
     AND so an extension's charset-anchored CSP injection matches (same prefix
     contract as :func:`lvkit.render.diff_viewer.build_diff_viewer`).
     """
-    template = (
-        files("lvkit.render") / "templates" / "render_viewer.html"
-    ).read_text(encoding="utf-8")
+    template = (files("lvkit.render") / "templates" / "render_viewer.html").read_text(
+        encoding="utf-8"
+    )
 
     html = (
         template.replace("__TITLE__", title)

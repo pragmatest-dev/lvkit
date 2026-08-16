@@ -53,19 +53,23 @@ columns of each):
 
 | View | One row per | Key columns |
 |------|-------------|-------------|
-| `vi` | indexed VI | `path`, `name`, `qualified_name`, `library`, `is_stub`, `impact_score` |
-| `terminal` | connector-pane terminal | `vi_path`, `name`, `direction`, `is_indicator`, `is_error_cluster`, `py_type`, `field_names` |
-| `constant` | block-diagram constant | `vi_path`, `value`, `label`, `py_type`, `wired_to` |
-| `call` | call edge | `caller_path`, `callee_key` |
+| `vi` | indexed VI | `path`, `name`, `qualified_name`, `library`, `is_stub`, `impact_score`, `callers_count` |
+| `terminal` | connector-pane terminal | `vi_path`, `name`, `direction`, `is_indicator`, `type_descriptor`, `type_kind`, `field_names` |
+| `constant` | block-diagram constant | `vi_path`, `value`, `label`, `type_descriptor`, `type_kind`, `wired_to` |
+| `node` | block-diagram node | `vi_path`, `kind`, `name`, `prim_id`, `qualified_name`, `callee_path`, `parent_uid`, `frame` |
 | `type_use` | type reference | `vi_path`, `type_key` |
 | `class_fact` | class-member VI | `vi_path`, `owning_class`, `parent`, `scope`, `is_accessor`, `accessor_field` |
+| `lvproj` | `.lvproj` member | `lvproj_name`, `member_name`, `member_type`, `resolved_path`, `is_in_repo` |
 
 Reachability questions ("what calls this?", "what breaks if I change it?") are
-**not** SQL — they're a graph walk, so they're separate commands, not views:
-[`lvkit callers`](callers.md) / `lvkit callees` / `lvkit blast-radius` (or the
-matching MCP `get_callers` / `get_callees` / `blast_radius` tools). For a quick
-count without the full list, `impact_score` on the `vi` view is a precomputed
-transitive-dependent count.
+answerable two ways: as SQL over `node`'s `callee_path` column (direct callers
+are `SELECT DISTINCT vi_path FROM node WHERE callee_path='<path>'`, direct
+callees are `SELECT callee_path FROM node WHERE vi_path='<X>' AND kind='vi'`,
+transitive blast radius a `WITH RECURSIVE` over `callee_path`), or as the
+typed [`lvkit callers`](callers.md) / `lvkit callees` / `lvkit blast-radius`
+CLI commands — graph walks, not SQL, with no MCP tool twin of their own. For a
+quick count without the full list, `impact_score` (transitive) and
+`callers_count` (direct, in-degree) on the `vi` view are precomputed.
 
 ## Example
 
@@ -75,16 +79,18 @@ histogram:
 ```bash
 lvkit query MyRepo \
   "SELECT name, COUNT(*) AS n FROM terminal
-   WHERE is_error_cluster=1 AND direction='output'
+   WHERE type_descriptor='Error' AND direction='output'
    GROUP BY name ORDER BY n DESC"
 ```
 
 ```text
 name                    n
 ----------------------  ---
-error out               352
+error out               382
+control_100             3
+control_101             3
 Error out               2
-vi error out            1
+Test Method Error       2
 …
 ```
 

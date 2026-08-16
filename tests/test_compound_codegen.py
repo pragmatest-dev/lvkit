@@ -6,7 +6,7 @@ import ast
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import compound
-from lvkit.models import LVType, PrimitiveOperation, Terminal
+from lvkit.models import LVType, LVTypeKind, PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
 
 
@@ -108,16 +108,29 @@ class TestCompoundArithGenerate:
         ctx = make_ctx("t1", "t2", "tout")
         ctx.bind("t1", "a")
         ctx.bind("t2", "b")
-        u32 = LVType(kind="primitive", underlying_type="NumUInt32")
+        u32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
         op = PrimitiveOperation(
-            id="cpd", name="Compound", kind="primitive",
-            node_type="cpdArith", operation=operation,
+            id="cpd",
+            name="Compound",
+            kind="primitive",
+            node_type="cpdArith",
+            operation=operation,
             terminals=[
-                Terminal(id="t1", index=1, direction="input", lv_type=u32,
-                         inverted=inverted_in),
+                Terminal(
+                    id="t1",
+                    index=1,
+                    direction="input",
+                    lv_type=u32,
+                    inverted=inverted_in,
+                ),
                 Terminal(id="t2", index=2, direction="input", lv_type=u32),
-                Terminal(id="tout", index=0, direction="output", lv_type=u32,
-                         inverted=inverted_out),
+                Terminal(
+                    id="tout",
+                    index=0,
+                    direction="output",
+                    lv_type=u32,
+                    inverted=inverted_out,
+                ),
             ],
         )
         frag = compound.generate_compound_arith(op, ctx)
@@ -379,9 +392,7 @@ class TestCompoundArithExecutable:
         fragment = compound.generate_compound_arith(op, ctx)
 
         # Test: 1 + 2 + 3 = 6
-        result = self._compile_and_run(
-            fragment.statements, {"a": 1, "b": 2, "c": 3}
-        )
+        result = self._compile_and_run(fragment.statements, {"a": 1, "b": 2, "c": 3})
         output_var = fragment.bindings["term_out"]
         assert result[output_var] == 6
 
@@ -391,7 +402,7 @@ class TestCompoundArithInvert:
 
     def test_boolean_add_with_inverted_input_becomes_or_not(self):
         """add on Boolean terminals is OR; an inverted input gets `not (...)`."""
-        boolean = LVType(kind="primitive", underlying_type="Boolean")
+        boolean = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "hasTensPlace")
         ctx.bind("term2", "isTeen")
@@ -404,14 +415,23 @@ class TestCompoundArithInvert:
             operation="add",
             terminals=[
                 Terminal(
-                    id="term1", index=1, direction="input", lv_type=boolean,
+                    id="term1",
+                    index=1,
+                    direction="input",
+                    lv_type=boolean,
                 ),
                 Terminal(
-                    id="term2", index=2, direction="input", lv_type=boolean,
+                    id="term2",
+                    index=2,
+                    direction="input",
+                    lv_type=boolean,
                     inverted=True,
                 ),
                 Terminal(
-                    id="term_out", index=0, direction="output", lv_type=boolean,
+                    id="term_out",
+                    index=0,
+                    direction="output",
+                    lv_type=boolean,
                 ),
             ],
         )
@@ -471,7 +491,7 @@ class TestCompoundArithInvert:
 
     def test_inverted_output_boolean(self):
         """An inverted output terminal wraps the whole combined expr in `not`."""
-        boolean = LVType(kind="primitive", underlying_type="Boolean")
+        boolean = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "flag_a")
         ctx.bind("term2", "flag_b")
@@ -486,7 +506,10 @@ class TestCompoundArithInvert:
                 Terminal(id="term1", index=1, direction="input", lv_type=boolean),
                 Terminal(id="term2", index=2, direction="input", lv_type=boolean),
                 Terminal(
-                    id="term_out", index=0, direction="output", lv_type=boolean,
+                    id="term_out",
+                    index=0,
+                    direction="output",
+                    lv_type=boolean,
                     inverted=True,
                 ),
             ],
@@ -551,12 +574,16 @@ class TestCompoundArithInvert:
         import pytest
 
         from lvkit.codegen.nodes.base import CodeGenError
+
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
         op = PrimitiveOperation(
-            id="cpd1", name="Compound ?", kind="primitive",
-            node_type="cpdArith", operation="unsupported",
+            id="cpd1",
+            name="Compound ?",
+            kind="primitive",
+            node_type="cpdArith",
+            operation="unsupported",
             terminals=[
                 Terminal(id="term1", index=1, direction="input"),
                 Terminal(id="term2", index=2, direction="input"),
@@ -568,7 +595,7 @@ class TestCompoundArithInvert:
 
     def test_multiply_boolean_translates_to_and(self):
         """multiply on Boolean terminals combines via `and`."""
-        boolean = LVType(kind="primitive", underlying_type="Boolean")
+        boolean = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
@@ -619,7 +646,7 @@ class TestCompoundArithInvert:
 
     def test_xor_boolean_uses_not_equal(self):
         """xor on Boolean terminals combines via `!=`."""
-        boolean = LVType(kind="primitive", underlying_type="Boolean")
+        boolean = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
@@ -906,7 +933,7 @@ class TestArrayBuildWithArrayInputs:
         """Array input terminals must be concatenated with +, not wrapped in []."""
         from lvkit.models import LVType
 
-        array_type = LVType(kind="array")
+        array_type = LVType(kind=LVTypeKind.ARRAY)
         ctx = make_ctx("term_arr", "term_out")
         ctx.bind("term_arr", "existing_list")
 
@@ -958,9 +985,7 @@ class TestArrayBuildWithArrayInputs:
         code = ast.unparse(fragment.statements[0])
         assert "[my_val]" in code
 
-        result = self._compile_and_run(
-            fragment.statements, {"my_val": 42}
-        )
+        result = self._compile_and_run(fragment.statements, {"my_val": 42})
         output_var = fragment.bindings["term_out"]
         assert result[output_var] == [42]
 
@@ -968,7 +993,7 @@ class TestArrayBuildWithArrayInputs:
         """Mixed array + scalar inputs: array concatenated, scalar wrapped."""
         from lvkit.models import LVType
 
-        array_type = LVType(kind="array")
+        array_type = LVType(kind=LVTypeKind.ARRAY)
         ctx = make_ctx("term_arr", "term_scalar", "term_out")
         ctx.bind("term_arr", "head_list")
         ctx.bind("term_scalar", "new_item")
@@ -996,7 +1021,7 @@ class TestArrayBuildWithArrayInputs:
         """Two array inputs are concatenated directly."""
         from lvkit.models import LVType
 
-        array_type = LVType(kind="array")
+        array_type = LVType(kind=LVTypeKind.ARRAY)
         ctx = make_ctx("term_a", "term_b", "term_out")
         ctx.bind("term_a", "list_a")
         ctx.bind("term_b", "list_b")

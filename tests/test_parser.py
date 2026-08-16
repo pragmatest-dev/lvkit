@@ -51,10 +51,12 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     NOTE: the class's default-OBJECT data (its member instance) can follow the
     descriptor and is class-dependent; that trailing region is not yet consumed
     (see TASKS: class-refnum value under-consumed)."""
-    from lvkit.models import LVType
+    from lvkit.models import LVType, LVTypeKind
 
     cls = LVType(
-        kind="primitive", underlying_type="Refnum", ref_type="UDClassInst",
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
         classname="MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass",
     )
     raw = bytes.fromhex(
@@ -69,7 +71,9 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     assert size == 73
 
     # A generic refnum (no classname) keeps the handle token.
-    gen = LVType(kind="primitive", underlying_type="Refnum", ref_type="Occurrence")
+    gen = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence"
+    )
     val2, _ = _decode_element((5).to_bytes(4, "big"), gen)
     assert val2 == "Refnum(5)"
 
@@ -85,20 +89,21 @@ def test_owning_libraries_from_libn_chain(tmp_path):
 
     xml = tmp_path / "m.xml"
     xml.write_text(
-        '<RSRC>'
+        "<RSRC>"
         '<LVSR><Section Name="Reserve Sessions.vi"/></LVSR>'
-        '<LIBN><Section>'
-        '<Library>NI Measurement Plug-In SDK.lvlib</Library>'
-        '<Library>Measure Call Context.lvclass</Library>'
-        '</Section></LIBN>'
-        '</RSRC>'
+        "<LIBN><Section>"
+        "<Library>NI Measurement Plug-In SDK.lvlib</Library>"
+        "<Library>Measure Call Context.lvclass</Library>"
+        "</Section></LIBN>"
+        "</RSRC>"
     )
     m = parse_vi_metadata(xml)
     assert m["owning_libraries"] == [
-        "NI Measurement Plug-In SDK.lvlib", "Measure Call Context.lvclass",
+        "NI Measurement Plug-In SDK.lvlib",
+        "Measure Call Context.lvclass",
     ]
     assert m["library"] == "NI Measurement Plug-In SDK.lvlib"  # outermost, as before
-    assert m["qualified_name"] == "Reserve Sessions.vi"        # bare resolution key
+    assert m["qualified_name"] == "Reserve Sessions.vi"  # bare resolution key
 
 
 def test_fp_terminal_label_position_captured():
@@ -113,9 +118,9 @@ def test_fp_terminal_label_position_captured():
 
     term = ET.fromstring(
         '<x class="fPTerm" uid="1">'
-        '<bounds>(159, 1816, 175, 1848)</bounds>'
+        "<bounds>(159, 1816, 175, 1848)</bounds>"
         '<label class="label" uid="2"><bounds>(0, -60, 17, 0)</bounds></label>'
-        '</x>'
+        "</x>"
     )
     # (top=0,left=-60,bottom=17,right=0) -> (x1=-60, y1=0, x2=0, y2=17): LEFT.
     assert _fp_label_box(term) == (-60.0, 0.0, 0.0, 17.0)
@@ -133,13 +138,21 @@ def test_fp_default_with_null_bytes_not_corrupted():
     corrupting every non-trivial default."""
     # LabVIEW string "hi": 4-byte big-endian length (2) + the bytes.
     serialized = '"&#x00;&#x00;&#x00;&#x02;hi"'
-    assert _decode_default_data(
-        strip_surrounding_quotes(serialized), "stdString",
-    ) == '"hi"'
+    assert (
+        _decode_default_data(
+            strip_surrounding_quotes(serialized),
+            "stdString",
+        )
+        == '"hi"'
+    )
     # Old path deletes the length prefix -> len < 4 -> value lost.
-    assert _decode_default_data(
-        clean_labview_string(serialized), "stdString",
-    ) != '"hi"'
+    assert (
+        _decode_default_data(
+            clean_labview_string(serialized),
+            "stdString",
+        )
+        != '"hi"'
+    )
 
 
 class TestNode:
@@ -285,7 +298,7 @@ class TestTerminalInvertGating:
         """A cpdArith element's terminal with the bit set is inverted."""
         elem = self._make_elem("cpdArith", "e1", "t1")
         terminal_info: dict[str, ParsedTerminalInfo] = {}
-        _process_element_terminals(elem, set(), set(), None, terminal_info)
+        _process_element_terminals(elem, set(), set(), None, terminal_info, {})
         assert terminal_info["t1"].inverted is True
 
     def test_non_cpd_arith_terminal_is_not_inverted(self):
@@ -294,8 +307,193 @@ class TestTerminalInvertGating:
         means "Not" on Compound Arithmetic."""
         elem = self._make_elem("prim", "e2", "t2")
         terminal_info: dict[str, ParsedTerminalInfo] = {}
-        _process_element_terminals(elem, set(), set(), None, terminal_info)
+        _process_element_terminals(elem, set(), set(), None, terminal_info, {})
         assert terminal_info["t2"].inverted is False
+
+
+class TestLoopTunnelInnerType:
+    """A loop tunnel's two faces carry DIFFERENT types when it auto-indexes:
+    the OUTER face is the array, the INNER face is the element. Both are
+    explicit in the file — the OUTER type sits in the ``lpTun`` dco's own
+    ``<typeDesc>`` (on the boundary ``<term>``), and the INNER type in that
+    dco's nested ``<innerLpTunDCO>``'s ``<typeDesc>``. The inner face's own
+    ``<term>`` (on the loop body) carries only a bare ``<dco uid=.../>``
+    back-ref, so its type must be resolved by following that ref to the
+    lpTun dco — NOT left None for the graph to guess by racing wires
+    (nondeterministic under PYTHONHASHSEED; see _build_tunnel_inner_type_map)."""
+
+    # An auto-indexing for-loop output tunnel: outer = [Boolean] (array),
+    # inner = Boolean (element). The lpTun dco (uid d1) lives on the boundary
+    # term; the inner term (on the body diagram, under a prim node) is a bare
+    # <dco uid="d1"/> back-ref with no type of its own.
+    _XML = """
+<root>
+  <SL__arrayElement class="forLoop" uid="loop1">
+    <termList>
+      <SL__arrayElement class="term" uid="outer1">
+        <dco class="lpTun" uid="d1">
+          <typeDesc>TypeID(1)</typeDesc>
+          <innerLpTunDCO class="innerLpTun" uid="i1">
+            <termList>
+              <SL__arrayElement uid="inner1" />
+              <SL__arrayElement uid="outer1" />
+            </termList>
+            <typeDesc>TypeID(2)</typeDesc>
+          </innerLpTunDCO>
+        </dco>
+      </SL__arrayElement>
+    </termList>
+    <diagramList>
+      <SL__arrayElement class="diag" uid="body1">
+        <nodeList>
+          <SL__arrayElement class="prim" uid="node1">
+            <termList>
+              <SL__arrayElement class="term" uid="inner1">
+                <dco uid="d1" />
+              </SL__arrayElement>
+            </termList>
+          </SL__arrayElement>
+        </nodeList>
+      </SL__arrayElement>
+    </diagramList>
+  </SL__arrayElement>
+</root>
+"""
+
+    @staticmethod
+    def _type_map():
+        from lvkit.models import LVType, LVTypeKind
+
+        return {
+            1: LVType(
+                kind=LVTypeKind.ARRAY,
+                underlying_type="Array",
+                element_type=LVType(
+                    kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"
+                ),
+                dimensions=1,
+            ),
+            2: LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+        }
+
+    def test_inner_type_map_keys_by_dco_uid(self):
+        """The map indexes each lpTun dco uid -> its inner-face typeDesc text."""
+        from lvkit.parser.vi import _build_tunnel_inner_type_map
+
+        root = ET.fromstring(self._XML)
+        assert _build_tunnel_inner_type_map(root) == {"d1": "TypeID(2)"}
+
+    def test_inner_face_resolves_to_element_outer_to_array(self):
+        """Outer face -> array; inner face (bare dco ref) -> element, resolved
+        via the map — never None."""
+        from lvkit.parser.vi import _build_tunnel_inner_type_map
+
+        root = ET.fromstring(self._XML)
+        inner_types = _build_tunnel_inner_type_map(root)
+        type_map = self._type_map()
+        terminal_info: dict[str, ParsedTerminalInfo] = {}
+
+        loop = root.find(".//*[@uid='loop1']")
+        node = root.find(".//*[@uid='node1']")
+        assert loop is not None and node is not None
+        # Boundary term (owns the full lpTun dco) -> outer array type.
+        _process_element_terminals(
+            loop,
+            set(),
+            set(),
+            type_map,
+            terminal_info,
+            inner_types,
+        )
+        # Body term (bare dco back-ref) -> inner element type.
+        _process_element_terminals(
+            node,
+            set(),
+            set(),
+            type_map,
+            terminal_info,
+            inner_types,
+        )
+
+        outer = terminal_info["outer1"].parsed_type
+        inner = terminal_info["inner1"].parsed_type
+        assert outer is not None and outer.kind == "array"
+        assert inner is not None and inner.kind == "primitive"
+        assert inner.type_name == "Boolean"
+
+
+class TestCaseTunnelInnerType:
+    """A case/select tunnel is PASS-THROUGH: unlike an lpTun it has no nested
+    inner dco, so every face -- the boundary <term> that owns the dco, plus one
+    bare-dco-ref <term> per frame -- shares the dco's own <typeDesc>. Reading it
+    for the bare-ref inner faces stops the graph filling them by racing wires
+    (which flipped a cluster's typedef identity across PYTHONHASHSEED)."""
+
+    # A selTun with one outer boundary term (owns the dco, TypeID(7)) and two
+    # per-frame inner faces (bare <dco uid="s1"/> refs, one per case frame).
+    _XML = """
+<root>
+  <SL__arrayElement class="caseStruct" uid="case1">
+    <termList>
+      <SL__arrayElement class="term" uid="outerC">
+        <dco class="selTun" uid="s1">
+          <typeDesc>TypeID(7)</typeDesc>
+          <termList elements="3">
+            <SL__arrayElement uid="innerA" />
+            <SL__arrayElement uid="innerB" />
+            <SL__arrayElement uid="outerC" />
+            </termList>
+        </dco>
+      </SL__arrayElement>
+    </termList>
+    <diagramList>
+      <SL__arrayElement class="diag" uid="frameA">
+        <nodeList>
+          <SL__arrayElement class="prim" uid="nA">
+            <termList>
+              <SL__arrayElement class="term" uid="innerA">
+                <dco uid="s1" />
+                </SL__arrayElement>
+              </termList>
+          </SL__arrayElement>
+        </nodeList>
+      </SL__arrayElement>
+    </diagramList>
+  </SL__arrayElement>
+</root>
+"""
+
+    def test_map_uses_dco_own_typedesc(self):
+        """For a case tunnel the map value is the dco's OWN typeDesc (shared),
+        not a nested inner dco's."""
+        from lvkit.parser.vi import _build_tunnel_inner_type_map
+
+        assert _build_tunnel_inner_type_map(ET.fromstring(self._XML)) == {
+            "s1": "TypeID(7)"
+        }
+
+    def test_inner_face_resolves_to_shared_type(self):
+        """The bare-ref inner face resolves to the tunnel's shared type -- never
+        None (which would force the graph to race wires)."""
+        from lvkit.models import LVType, LVTypeKind
+        from lvkit.parser.vi import _build_tunnel_inner_type_map
+
+        root = ET.fromstring(self._XML)
+        inner_types = _build_tunnel_inner_type_map(root)
+        type_map = {7: LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster")}
+        terminal_info: dict[str, ParsedTerminalInfo] = {}
+        node = root.find(".//*[@uid='nA']")
+        assert node is not None
+        _process_element_terminals(
+            node,
+            set(),
+            set(),
+            type_map,
+            terminal_info,
+            inner_types,
+        )
+        inner = terminal_info["innerA"].parsed_type
+        assert inner is not None and inner.kind == "cluster"
 
 
 class TestCpdArithOperation:
@@ -309,16 +507,17 @@ class TestCpdArithOperation:
         import xml.etree.ElementTree as ET
 
         from lvkit.parser.node_types import CpdArithHandler
+
         of = "" if objflags is None else f"<objFlags>{objflags}</objFlags>"
         xml = f'<SL__arrayElement class="cpdArith" uid="1">{of}</SL__arrayElement>'
         return CpdArithHandler()._extract_operation(ET.fromstring(xml))
 
     def test_objflags_operation_codes(self):
         # Real objFlags values observed across the OpenG corpus.
-        assert self._op(str(0x80000)) == "add"       # Trim / Reshape / MD5 FGHI
-        assert self._op(str(0xA0000)) == "and"       # every "...Changed" detector
-        assert self._op(str(0xB0000)) == "or"        # Create Dir if Non-Existant
-        assert self._op(str(0xC0000)) == "xor"       # MD5 H function
+        assert self._op(str(0x80000)) == "add"  # Trim / Reshape / MD5 FGHI
+        assert self._op(str(0xA0000)) == "and"  # every "...Changed" detector
+        assert self._op(str(0xB0000)) == "or"  # Create Dir if Non-Existant
+        assert self._op(str(0xC0000)) == "xor"  # MD5 H function
 
     def test_multiply_enum_slot(self):
         # No corpus instance, but it occupies LabVIEW's enum slot (code 1).
@@ -327,12 +526,12 @@ class TestCpdArithOperation:
     def test_dcofiller_does_not_select_op(self):
         # dcoFiller 256 co-occurs with add/and/or/xor -- objFlags is the source
         # of truth. Bit 19 (0x80000) is an always-set marker, masked out by &7.
-        assert self._op(str(0xA0000)) == "and"       # not "add", despite old bug
+        assert self._op(str(0xA0000)) == "and"  # not "add", despite old bug
 
     def test_unknown_or_missing_is_unsupported_sentinel_not_raise(self):
         # The parser must degrade gracefully, never raise; codegen fails loud.
-        assert self._op(str(0xF0000)) == "unsupported"   # code 7
-        assert self._op(None) == "unsupported"           # objFlags absent
+        assert self._op(str(0xF0000)) == "unsupported"  # code 7
+        assert self._op(None) == "unsupported"  # objFlags absent
 
 
 class TestTunnelMapping:
@@ -374,11 +573,13 @@ class TestLoopStructure:
             loop_type="forLoop",
             tunnels=[
                 TunnelMapping(
-                    outer_terminal_uid="o1", inner_terminal_uid="i1",
+                    outer_terminal_uid="o1",
+                    inner_terminal_uid="i1",
                     tunnel_type="lpTun",
                 ),
                 TunnelMapping(
-                    outer_terminal_uid="o2", inner_terminal_uid="i2",
+                    outer_terminal_uid="o2",
+                    inner_terminal_uid="i2",
                     tunnel_type="lMax",
                 ),
             ],
@@ -395,21 +596,12 @@ class TestConnectorPaneSlot:
         slot = ParsedConnectorPaneSlot(index=0)
         assert slot.index == 0
         assert slot.fp_dco_uid is None
-        assert slot.is_output is False
-        assert slot.wiring_rule == 0
 
     def test_slot_connected(self):
         """Test creating a connected slot."""
-        slot = ParsedConnectorPaneSlot(
-            index=3,
-            fp_dco_uid="dco123",
-            is_output=True,
-            wiring_rule=ParsedWiringRule.REQUIRED,
-            type_id="TypeID(10)",
-        )
+        slot = ParsedConnectorPaneSlot(index=3, fp_dco_uid="dco123")
+        assert slot.index == 3
         assert slot.fp_dco_uid == "dco123"
-        assert slot.is_output is True
-        assert slot.wiring_rule == 1
 
 
 class TestConnectorPane:
@@ -596,6 +788,7 @@ class TestParseVI:
         bd = vi.block_diagram
         assert len(bd.nodes) == 1
         from lvkit.parser.node_types import PrimitiveNode
+
         node = bd.nodes[0]
         assert node.uid == "prim1"
         assert node.node_type == "prim"

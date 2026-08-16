@@ -6,6 +6,7 @@ test copies sample VIs into an isolated project dir (no `.lvkit`/`.git` ancestor
 so the store is keyed to the temp dir, never the repo's real index) and checks
 the store accumulates one row per warmed VI.
 """
+
 import shutil
 from pathlib import Path
 
@@ -19,8 +20,13 @@ pytestmark = pytest.mark.needs_samples
 
 _TESTCASE = (
     Path(__file__).resolve().parent.parent
-    / ".lvkit" / "cache" / "samples"
-    / "JKI-VI-Tester" / "source" / "Classes" / "TestCase"
+    / ".lvkit"
+    / "cache"
+    / "samples"
+    / "JKI-VI-Tester"
+    / "source"
+    / "Classes"
+    / "TestCase"
 )
 
 

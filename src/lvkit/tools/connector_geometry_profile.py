@@ -322,7 +322,10 @@ def rank_findings(findings: Sequence[Finding]) -> list[Finding]:
     return sorted(
         findings,
         key=lambda f: (
-            _KIND_RANK.get(f.kind, 9), -f.instance_count, f.prim_res_id, f.index,
+            _KIND_RANK.get(f.kind, 9),
+            -f.instance_count,
+            f.prim_res_id,
+            f.index,
         ),
     )
 
@@ -364,8 +367,7 @@ def audit_primitive(entry: PrimEntry, profile: PrimProfile) -> list[Finding]:
                     index=index,
                     json_says=f"{decl.direction} ({decl.name})",
                     corpus_shows=(
-                        f"direction varies across instances: "
-                        f"{sorted(slot.directions)}"
+                        f"direction varies across instances: {sorted(slot.directions)}"
                     ),
                     instance_count=slot.instance_count,
                     confidence=_confidence(slot.instance_count),

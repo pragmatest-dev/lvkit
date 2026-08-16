@@ -1,6 +1,6 @@
 ---
 name: lvkit-document
-description: Generate a browsable HTML documentation site for a LabVIEW library/class/directory, then augment each page with a "what it does" interpretation. Works via CLI or MCP.
+description: Use when the user wants a documentation site, README, or browsable reference generated for a LabVIEW VI/library/class/directory — "document this library", "generate docs for X.lvclass". Builds the static HTML site (`lvkit docs`, CLI-only) then augments each page with a "what it does" interpretation via `describe`.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
@@ -19,8 +19,11 @@ augmenting anything.
 
 ## Getting the facts
 
-`lvkit docs` and the `generate_documents` MCP tool are true twins — same
-arguments, same output. Prefer the MCP tool when connected.
+`lvkit docs` is CLI-only — the MCP server has no doc-generation tool (it's
+understanding-only: `index`, `query`, `query_schema`, `describe`, `read_vi`,
+`unresolved`). Run `lvkit docs` as a shell command even with the MCP server
+connected, then use the MCP `describe` tool (or `/lvkit-describe`) for the
+per-VI interpretation in the Augment step below.
 
 ## Augment: add the semantic layer
 

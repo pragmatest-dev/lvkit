@@ -50,9 +50,7 @@ from lvkit.render.render_viewer import build_render_viewer
 # The content-rich VI the vi-node-properties diff sample uses (a real class
 # method, NOT the gutted VITester built project) — same VI loaded twice with
 # flipped property/health facets, mirroring outputs/diff_properties_sample.
-_RUN_VI = Path(
-    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase/run.vi"
-)
+_RUN_VI = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase/run.vi")
 
 
 def _require_run_vi() -> Path:
@@ -68,7 +66,10 @@ def _load_run_vi() -> tuple[InMemoryVIGraph, str]:
 
 
 def _flipped_run_vi_graphs() -> tuple[
-    InMemoryVIGraph, str, InMemoryVIGraph, str,
+    InMemoryVIGraph,
+    str,
+    InMemoryVIGraph,
+    str,
 ]:
     """Two loads of ``run.vi``, facets reset to clean defaults then the AFTER
     side flipped to notable values — the exact scenario
@@ -80,7 +81,8 @@ def _flipped_run_vi_graphs() -> tuple[
     graph_b._vi_properties[vi_b] = VIProperties(
         lock_state=LockState.PASSWORD_PROTECTED,
         execution=ExecutionProps(
-            reentrancy=Reentrancy.SHARED_CLONE, priority=Priority.SUBROUTINE,
+            reentrancy=Reentrancy.SHARED_CLONE,
+            priority=Priority.SUBROUTINE,
         ),
         kind=KindProps(typedef_status=TypedefStatus.TYPEDEF),
     )
@@ -181,7 +183,7 @@ class TestBuildRenderViewerPropertiesChrome:
     def _html(self) -> str:
         svg = (
             "<svg id='lv-stub' data-lv-properties='{\"lock_state\":"
-            "\"password_protected\"}' data-lv-health='{\"is_broken\":"
+            '"password_protected"}\' data-lv-health=\'{"is_broken":'
             "false}'>DIAGRAM-MARKER</svg>"
         )
         return build_render_viewer(svg, title="Stub VI")
@@ -203,11 +205,11 @@ class TestBuildRenderViewerPropertiesChrome:
         name), NOT in the zoom/theme .controls group."""
         html = self._html()
         title_start = html.index('<div class="titlerow">')
-        title_row = html[title_start:html.index("</div>", title_start)]
+        title_row = html[title_start : html.index("</div>", title_start)]
         assert 'id="lvkitPropsBtn"' in title_row
         assert "Stub VI" in title_row  # __TITLE__ landed in the SAME row
         controls_start = html.index('<div class="controls">')
-        controls = html[controls_start:html.index("</div>", controls_start)]
+        controls = html[controls_start : html.index("</div>", controls_start)]
         assert 'id="lvkitPropsBtn"' not in controls
 
     def test_script_reads_dataset_not_re_deriving_state(self):
@@ -281,8 +283,11 @@ class TestBuildDiffViewerPropertiesChrome:
     above), proving the button, the shared value-popover, and the
     dual-dataset JS get wired into build_diff_viewer's output."""
 
-    def _html(self, before_props: str = '{"lock_state":"unlocked"}',
-               after_props: str = '{"lock_state":"password_protected"}') -> str:
+    def _html(
+        self,
+        before_props: str = '{"lock_state":"unlocked"}',
+        after_props: str = '{"lock_state":"password_protected"}',
+    ) -> str:
         before_svg = (
             f"<svg id='lv-before' data-lv-properties='{before_props}' "
             "data-lv-health='{}'>BEFORE-MARKER</svg>"
@@ -293,8 +298,12 @@ class TestBuildDiffViewerPropertiesChrome:
         )
         cmap = ChangeMap(changes=[], common_node_uids=[])
         return build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title="Stub diff", before_label="before", after_label="after",
+            cmap,
+            before_svg,
+            after_svg,
+            title="Stub diff",
+            before_label="before",
+            after_label="after",
         )
 
     def test_properties_button_present(self):
@@ -329,8 +338,8 @@ class TestBuildDiffViewerPropertiesChrome:
         changes-only list. Both panels must therefore share the SAME group
         titles/markup vocabulary in their emitted script."""
         single_html = build_render_viewer(
-            "<svg id='lv-stub' data-lv-properties='{}' "
-            "data-lv-health='{}'>M</svg>", title="Stub VI",
+            "<svg id='lv-stub' data-lv-properties='{}' data-lv-health='{}'>M</svg>",
+            title="Stub VI",
         )
         diff_html = self._html()
         markers = ('"Version"', '"Execution"', '"Health"', "function group(")
@@ -390,8 +399,12 @@ class TestBuildDiffViewerPropertiesEndToEnd:
 
         cmap = diff_uid(graph_a, graph_b, vi_a, vi_b)
         html = build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title="run.vi", before_label="before", after_label="after",
+            cmap,
+            before_svg,
+            after_svg,
+            title="run.vi",
+            before_label="before",
+            after_label="after",
         )
         assert 'id="lvkitDiffPropsBtn"' in html
         assert before_svg in html and after_svg in html
@@ -417,8 +430,12 @@ class TestBuildDiffViewerPropertiesEndToEnd:
 
         cmap = diff_uid(graph_a, graph_b, vi_a, vi_b)
         html = build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title="run.vi", before_label="before", after_label="after",
+            cmap,
+            before_svg,
+            after_svg,
+            title="run.vi",
+            before_label="before",
+            after_label="after",
         )
 
         # Four property changes: lock, priority, reentrancy, typedef_status
@@ -465,8 +482,12 @@ class TestClickToRevealPropertyRow:
             "\"password_protected\"}' data-lv-health='{}'>A</svg>"
         )
         return build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title="Stub diff", before_label="before", after_label="after",
+            cmap,
+            before_svg,
+            after_svg,
+            title="Stub diff",
+            before_label="before",
+            after_label="after",
         )
 
     def test_metadata_change_has_no_raw_field_key(self):
@@ -481,10 +502,16 @@ class TestClickToRevealPropertyRow:
         separate key was ever needed."""
         uid = "property:lock_state"
         cmap = ChangeMap(
-            changes=[ElementChange(
-                uid, uid, "property", "modified", "lock",
-                detail="unlocked → password_protected",
-            )],
+            changes=[
+                ElementChange(
+                    uid,
+                    uid,
+                    "property",
+                    "modified",
+                    "lock",
+                    detail="unlocked → password_protected",
+                )
+            ],
             common_node_uids=[],
         )
         before_svg = (
@@ -496,8 +523,12 @@ class TestClickToRevealPropertyRow:
             "\"password_protected\"}' data-lv-health='{}'>A</svg>"
         )
         html = build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title="Stub diff", before_label="before", after_label="after",
+            cmap,
+            before_svg,
+            after_svg,
+            title="Stub diff",
+            before_label="before",
+            after_label="after",
         )
         assert '"uid": "property:lock_state"' in html
         assert '"label": "lock"' in html
@@ -511,7 +542,7 @@ class TestClickToRevealPropertyRow:
         html = self._diff_html()
         assert 'r.className = "prop-row"' in html
         assert "r.dataset.key = key" in html
-        assert '.prop-row[data-key="' in html   # revealed/numbered by whole row
+        assert '.prop-row[data-key="' in html  # revealed/numbered by whole row
 
     def test_reveal_function_present_and_wired_into_jump(self):
         html = self._diff_html()
@@ -523,7 +554,7 @@ class TestClickToRevealPropertyRow:
         # (which no longer exists on ElementChange) -- matching the popover
         # row's own data-key (properties_panel.py's row()).
         assert "const key=(c.uid||'').split(':').slice(1).join(':');" in html
-        assert 'data-key="\'+key+\'"' in html
+        assert "data-key=\"'+key+'\"" in html
         assert "c.field" not in html
         # jump() routes ONLY "property" kind to the popover -- NOT "health" (VI
         # health is never diffed) and NOT "structure": a structure change is a
@@ -544,7 +575,7 @@ class TestClickToRevealPropertyRow:
 
         def _rule(sel: str) -> str:
             start = html.index(sel)
-            return html[start:html.index("}", start)]
+            return html[start : html.index("}", start)]
 
         passive = _rule(".prop-row.lvkit-prop-changed{")
         selected = _rule(".prop-row.lvkit-prop-selected{")

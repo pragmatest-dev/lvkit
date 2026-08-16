@@ -36,8 +36,12 @@ pytestmark = pytest.mark.needs_samples
 
 _ROOT = (
     Path(__file__).resolve().parent.parent
-    / ".lvkit" / "cache" / "samples" / "JKI-VI-Tester"
-    / "source" / "Built Project Integration"
+    / ".lvkit"
+    / "cache"
+    / "samples"
+    / "JKI-VI-Tester"
+    / "source"
+    / "Built Project Integration"
 )
 
 # All VITester_*.vi in this build-output directory; 14 of these carry a
@@ -81,7 +85,8 @@ def _error_terminal_names(graph: InMemoryVIGraph, vi_name: str) -> list[str]:
 
 @pytest.mark.parametrize("vi_filename", _VI_NAMES)
 def test_error_terminal_never_leaks_a_cluster_field_name(
-    vi_filename: str, caplog: pytest.LogCaptureFixture,
+    vi_filename: str,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     vi_path = _ROOT / vi_filename
     if not vi_path.exists():

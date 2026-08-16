@@ -41,43 +41,82 @@ class Backend(Protocol):
     """Backend-agnostic drawing surface for block-diagram rendering."""
 
     def rect(
-        self, x1: float, y1: float, x2: float, y2: float, *,
-        fill: str | None = None, stroke: str | None = None,
-        stroke_width: float | None = None, rx: float | None = None,
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        *,
+        fill: str | None = None,
+        stroke: str | None = None,
+        stroke_width: float | None = None,
+        rx: float | None = None,
         stroke_dasharray: str | None = None,
     ) -> None: ...
 
     def path(
-        self, points: list[Point], *,
-        stroke: str, stroke_width: float, fill: str = "none",
+        self,
+        points: list[Point],
+        *,
+        stroke: str,
+        stroke_width: float,
+        fill: str = "none",
     ) -> None: ...
 
     def text(
-        self, x: float, y: float, s: str, size: float, *,
-        fill: str | None = None, italic: bool = False, bold: bool = False,
-        anchor: str = "middle", mono: bool = False,
+        self,
+        x: float,
+        y: float,
+        s: str,
+        size: float,
+        *,
+        fill: str | None = None,
+        italic: bool = False,
+        bold: bool = False,
+        anchor: str = "middle",
+        mono: bool = False,
     ) -> None: ...
 
     def image(
-        self, href: str, x: float, y: float, w: float, h: float, *,
+        self,
+        href: str,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        *,
         opacity: float | None = None,
     ) -> None: ...
 
     def polygon(
-        self, points: list[Point], *,
-        fill: str | None = None, stroke: str | None = None,
+        self,
+        points: list[Point],
+        *,
+        fill: str | None = None,
+        stroke: str | None = None,
         stroke_width: float | None = None,
     ) -> None: ...
 
     def circle(
-        self, cx: float, cy: float, r: float, *,
-        fill: str | None = None, stroke: str | None = None,
+        self,
+        cx: float,
+        cy: float,
+        r: float,
+        *,
+        fill: str | None = None,
+        stroke: str | None = None,
         stroke_width: float | None = None,
     ) -> None: ...
 
     def line(
-        self, x1: float, y1: float, x2: float, y2: float, *,
-        stroke: str, stroke_width: float = 1.0,
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        *,
+        stroke: str,
+        stroke_width: float = 1.0,
     ) -> None: ...
 
     def measure_text(self, text: str, size: float) -> float:
@@ -85,7 +124,13 @@ class Backend(Protocol):
         ...
 
     def raw_svg(
-        self, fragment: str, x: float, y: float, w: float, h: float, *,
+        self,
+        fragment: str,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        *,
         viewbox: tuple[float, float],
     ) -> None:
         """Embed a hand-authored SVG fragment (JSON-declared node icons).
@@ -100,8 +145,12 @@ class Backend(Protocol):
         ...
 
     def begin_group(
-        self, *, cls: str | None = None, data: dict[str, str] | None = None,
-        style: str | None = None, title: str | None = None,
+        self,
+        *,
+        cls: str | None = None,
+        data: dict[str, str] | None = None,
+        style: str | None = None,
+        title: str | None = None,
         href: str | None = None,
     ) -> None:
         """Open a grouping container (``<g>``) — used for the interactive
@@ -137,13 +186,23 @@ class SvgBackend:
         return " ".join(parts)
 
     def rect(
-        self, x1: float, y1: float, x2: float, y2: float, *,
-        fill: str | None = None, stroke: str | None = None,
-        stroke_width: float | None = None, rx: float | None = None,
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        *,
+        fill: str | None = None,
+        stroke: str | None = None,
+        stroke_width: float | None = None,
+        rx: float | None = None,
         stroke_dasharray: str | None = None,
     ) -> None:
         a = self._attrs(
-            fill=fill, stroke=stroke, stroke_width=stroke_width, rx=rx,
+            fill=fill,
+            stroke=stroke,
+            stroke_width=stroke_width,
+            rx=rx,
             stroke_dasharray=stroke_dasharray,
         )
         self._elements.append(
@@ -152,8 +211,12 @@ class SvgBackend:
         )
 
     def path(
-        self, points: list[Point], *,
-        stroke: str, stroke_width: float, fill: str = "none",
+        self,
+        points: list[Point],
+        *,
+        stroke: str,
+        stroke_width: float,
+        fill: str = "none",
     ) -> None:
         d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in points)
         self._elements.append(
@@ -162,12 +225,21 @@ class SvgBackend:
         )
 
     def text(
-        self, x: float, y: float, s: str, size: float, *,
-        fill: str | None = None, italic: bool = False, bold: bool = False,
-        anchor: str = "middle", mono: bool = False,
+        self,
+        x: float,
+        y: float,
+        s: str,
+        size: float,
+        *,
+        fill: str | None = None,
+        italic: bool = False,
+        bold: bool = False,
+        anchor: str = "middle",
+        mono: bool = False,
     ) -> None:
         a = self._attrs(
-            fill=fill, font_style="italic" if italic else None,
+            fill=fill,
+            font_style="italic" if italic else None,
             font_weight="bold" if bold else None,
             font_family="monospace" if mono else None,
         )
@@ -177,7 +249,13 @@ class SvgBackend:
         )
 
     def image(
-        self, href: str, x: float, y: float, w: float, h: float, *,
+        self,
+        href: str,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        *,
         opacity: float | None = None,
     ) -> None:
         a = self._attrs(opacity=opacity)
@@ -191,8 +269,11 @@ class SvgBackend:
         )
 
     def polygon(
-        self, points: list[Point], *,
-        fill: str | None = None, stroke: str | None = None,
+        self,
+        points: list[Point],
+        *,
+        fill: str | None = None,
+        stroke: str | None = None,
         stroke_width: float | None = None,
     ) -> None:
         pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
@@ -200,18 +281,27 @@ class SvgBackend:
         self._elements.append(f'<polygon points="{pts}" {a}/>')
 
     def circle(
-        self, cx: float, cy: float, r: float, *,
-        fill: str | None = None, stroke: str | None = None,
+        self,
+        cx: float,
+        cy: float,
+        r: float,
+        *,
+        fill: str | None = None,
+        stroke: str | None = None,
         stroke_width: float | None = None,
     ) -> None:
         a = self._attrs(fill=fill, stroke=stroke, stroke_width=stroke_width)
-        self._elements.append(
-            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" {a}/>'
-        )
+        self._elements.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" {a}/>')
 
     def line(
-        self, x1: float, y1: float, x2: float, y2: float, *,
-        stroke: str, stroke_width: float = 1.0,
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        *,
+        stroke: str,
+        stroke_width: float = 1.0,
     ) -> None:
         self._elements.append(
             f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
@@ -222,7 +312,13 @@ class SvgBackend:
         return _text_width_em(text) * size
 
     def raw_svg(
-        self, fragment: str, x: float, y: float, w: float, h: float, *,
+        self,
+        fragment: str,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        *,
         viewbox: tuple[float, float],
     ) -> None:
         vw, vh = viewbox
@@ -233,14 +329,17 @@ class SvgBackend:
         )
 
     def begin_group(
-        self, *, cls: str | None = None, data: dict[str, str] | None = None,
-        style: str | None = None, title: str | None = None,
+        self,
+        *,
+        cls: str | None = None,
+        data: dict[str, str] | None = None,
+        style: str | None = None,
+        title: str | None = None,
         href: str | None = None,
     ) -> None:
         if href is not None:
             self._elements.append(
-                f"<a href={quoteattr(href)} target=\"_blank\" "
-                f"rel=\"noopener\">"
+                f'<a href={quoteattr(href)} target="_blank" rel="noopener">'
             )
         self._anchor_stack.append(href is not None)
         attrs = []
@@ -262,9 +361,14 @@ class SvgBackend:
             self._elements.append("</a>")
 
     def render(
-        self, bounds: tuple[float, float, float, float], *, title: str | None = None,
-        script: str | None = None, root_id: str | None = None,
-        style: str | None = None, extra_attrs: dict[str, str] | None = None,
+        self,
+        bounds: tuple[float, float, float, float],
+        *,
+        title: str | None = None,
+        script: str | None = None,
+        root_id: str | None = None,
+        style: str | None = None,
+        extra_attrs: dict[str, str] | None = None,
     ) -> str:
         """Wrap accumulated ops into a complete SVG document.
 
@@ -302,9 +406,7 @@ class SvgBackend:
         # emitted by start_group, are unaffected — they're intentional node hovers.)
         aria_attr = f' role="img" aria-label={quoteattr(title)}' if title else ""
         attrs = extra_attrs or {}
-        data_attr = "".join(
-            f" data-{k}={quoteattr(attrs[k])}" for k in sorted(attrs)
-        )
+        data_attr = "".join(f" data-{k}={quoteattr(attrs[k])}" for k in sorted(attrs))
         head = (
             f'<svg xmlns="http://www.w3.org/2000/svg"{id_attr}{aria_attr}{data_attr} '
             f'viewBox="{x1:.0f} {y1:.0f} {w:.0f} {h:.0f}" font-family="sans-serif">'
@@ -314,9 +416,7 @@ class SvgBackend:
         script_el = None
         if script is not None:
             if "</script>" in script or "]]>" in script:
-                raise ValueError(
-                    "script must not contain a literal </script> or ]]>"
-                )
+                raise ValueError("script must not contain a literal </script> or ]]>")
             script_el = f"<script>/*<![CDATA[*/\n{script}\n/*]]>*/</script>"
         parts = [head, title_el, style_el, *self._elements, script_el, "</svg>"]
         return "\n".join(p for p in parts if p is not None)

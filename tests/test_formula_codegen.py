@@ -13,19 +13,20 @@ import pytest
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import formula
-from lvkit.models import FormulaOperation, LVType, Terminal
+from lvkit.models import FormulaOperation, LVType, LVTypeKind, Terminal
 
 
 def _dbl() -> LVType:
-    return LVType(kind="primitive", underlying_type="NumFloat64")
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 
 
 def _i16() -> LVType:
-    return LVType(kind="primitive", underlying_type="NumInt16")
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16")
 
 
 def _op(
-    script: str = "y = a + 2**3;", y_type: LVType | None = None,
+    script: str = "y = a + 2**3;",
+    y_type: LVType | None = None,
 ) -> FormulaOperation:
     return FormulaOperation(
         id="my_vi.vi::42",
@@ -35,8 +36,13 @@ def _op(
         script=script,
         terminals=[
             Terminal(id="t_a", index=0, direction="input", name="a", lv_type=_dbl()),
-            Terminal(id="t_y", index=1, direction="output", name="y",
-                     lv_type=y_type or _dbl()),
+            Terminal(
+                id="t_y",
+                index=1,
+                direction="output",
+                name="y",
+                lv_type=y_type or _dbl(),
+            ),
         ],
     )
 
@@ -53,7 +59,7 @@ def test_generate_injects_helper_and_binds_output():
     assert helper.name == "_formula_42"
 
     src = "\n".join(ast.unparse(s) for s in frag.statements)
-    assert "_formula_42(a=" in src                # call with resolved input
+    assert "_formula_42(a=" in src  # call with resolved input
     # output terminal bound to a fresh variable read out of the result dict
     assert frag.bindings.get("t_y")
     assert f"{frag.bindings['t_y']} = " in src
@@ -89,32 +95,40 @@ def test_formula_does_not_mutate_callers_array():
     ANY future copy mechanism (formula-call copy OR value-copy-at-branch): if a
     branching change re-introduces aliasing, the caller's list gets mutated and
     this fails. This is the exact failure mode that corrupted Himmelt's VI."""
-    arr = LVType(kind="array", underlying_type="Array", element_type=_dbl())
+    arr = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=_dbl())
     op = FormulaOperation(
-        id="vi::9", name="Formula Node", kind="formula", node_type="fBox",
+        id="vi::9",
+        name="Formula Node",
+        kind="formula",
+        node_type="fBox",
         script="int32 i=0;\nfor (i=0; i<n; i++) buf[i] = buf[i] + 1;",
         terminals=[
             Terminal(id="t_in", index=0, direction="input", name="buf", lv_type=arr),
             Terminal(id="t_out", index=1, direction="output", name="buf", lv_type=arr),
-            Terminal(id="t_n", index=2, direction="input", name="n",
-                     lv_type=LVType(kind="primitive", underlying_type="NumInt32")),
+            Terminal(
+                id="t_n",
+                index=2,
+                direction="input",
+                name="n",
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+            ),
         ],
     )
     from tests.helpers import make_ctx
+
     ctx = make_ctx("t_in", "t_out", "t_n")
-    ctx.bind("t_in", "data")   # the input array wire...
+    ctx.bind("t_in", "data")  # the input array wire...
     ctx.bind("t_n", "count")
     frag = formula.generate(op, ctx)
 
-    mod = ast.Module(body=[ctx.formula_helpers[0], *frag.statements],
-                     type_ignores=[])
+    mod = ast.Module(body=[ctx.formula_helpers[0], *frag.statements], type_ignores=[])
     ast.fix_missing_locations(mod)
     ns: dict = {"data": [1.0, 2.0, 3.0], "count": 3}
     exec("import math\nfrom lvkit.runtime import lv as _lv\n" + ast.unparse(mod), ns)
 
     assert ns["data"] == [1.0, 2.0, 3.0], "caller's array was mutated (aliased!)"
     out_var = frag.bindings["t_out"]
-    assert ns[out_var] == [2.0, 3.0, 4.0]          # the node's own (copied) buffer
+    assert ns[out_var] == [2.0, 3.0, 4.0]  # the node's own (copied) buffer
 
 
 def test_unknown_function_in_script_fails_loud():

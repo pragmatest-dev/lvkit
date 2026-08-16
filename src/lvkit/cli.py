@@ -48,7 +48,8 @@ def _add_load_mode_arg(parser: argparse.ArgumentParser) -> None:
 
 
 def _resolve_load_mode(
-    args: argparse.Namespace, default: LoadMode,
+    args: argparse.Namespace,
+    default: LoadMode,
 ) -> LoadMode:
     """Resolve the effective LoadMode for a command: an explicit ``--load-mode``
     wins, else the command's default."""
@@ -150,9 +151,7 @@ def _parse_library_roots(
     return vilib_root, userlib_root
 
 
-def _configure_library_roots(
-    graph: InMemoryVIGraph, args: argparse.Namespace
-) -> None:
+def _configure_library_roots(graph: InMemoryVIGraph, args: argparse.Namespace) -> None:
     """Apply --vilib / --userlib from parsed args to the graph."""
     vilib_root, userlib_root = _parse_library_roots(args)
     if vilib_root or userlib_root:
@@ -234,6 +233,17 @@ def main() -> int:
             "Use in CI to catch it."
         ),
     )
+    mcp_parser.add_argument(
+        "dirs",
+        nargs="*",
+        metavar="DIR",
+        help=(
+            "Default search root(s) for clients that send no workspace root "
+            "(notably Claude Desktop). One or more source-root folders to search "
+            "for VIs. Omit when the client provides a workspace root, or to fall "
+            "back to the cwd."
+        ),
+    )
 
     # Index command - build/refresh the code-understanding facts index
     index_parser = subparsers.add_parser(
@@ -278,10 +288,10 @@ def main() -> int:
         nargs="?",
         help=(
             "A single read-only SELECT/WITH over the curated views "
-            "(vi, terminal, constant, call, type_use, class_fact, lvproj). "
-            "Omit when using --schema. Example: \"SELECT name, COUNT(*) AS n "
-            "FROM terminal WHERE is_error_cluster=1 AND direction='output' "
-            "GROUP BY name ORDER BY n DESC\"."
+            "(vi, terminal, constant, node, type_use, class_fact, lvproj). "
+            'Omit when using --schema. Example: "SELECT name, COUNT(*) AS n '
+            "FROM terminal WHERE type_descriptor='Error' AND direction='output' "
+            'GROUP BY name ORDER BY n DESC".'
         ),
     )
     query_parser.add_argument(
@@ -304,19 +314,25 @@ def main() -> int:
         help="Output format (default: table).",
     )
 
-    # Graph-op commands - call graph & change impact over the index (the CLI
-    # twin of the MCP get_callers/get_callees/blast_radius tools). Reachability
-    # is a graph walk, not SQL, so these are typed ops, not `query`.
+    # Graph-op commands - call graph & change impact over the index. The call
+    # graph is the node spine's kind='vi' slice (each SubVI-call node's resolved
+    # callee_path); these commands compute the transitive closure over it. There
+    # is no MCP twin — an MCP client asks the same questions with `query` over
+    # node.callee_path (direct hops) + a WITH RECURSIVE (transitive), or reads
+    # the precomputed vi.callers_count / vi.impact_score columns.
     _add_graphop_parser(
-        subparsers, "callers",
+        subparsers,
+        "callers",
         "VIs that call the given VI (who depends on it directly)",
     )
     _add_graphop_parser(
-        subparsers, "callees",
+        subparsers,
+        "callees",
         "VIs the given VI calls (its direct dependencies)",
     )
     _add_graphop_parser(
-        subparsers, "blast-radius",
+        subparsers,
+        "blast-radius",
         "Transitive dependents of the given VI — what breaks if you change it",
         depth=True,
     )
@@ -343,9 +359,20 @@ def main() -> int:
         ),
     )
     desc_parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Include a full netlist section (see lvkit.graph.netlist)",
+    )
+    desc_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help=(
+            "'text' (default) prints the human-readable description; 'json' "
+            "emits the canonical netlist IR — the same structured payload the "
+            "MCP read_vi tool returns — for a program to parse."
+        ),
     )
     _add_project_root_arg(desc_parser)
     _add_load_mode_arg(desc_parser)
@@ -361,7 +388,9 @@ def main() -> int:
         help="Path to .vi, .lvlib, .lvclass, or directory",
     )
     gen_parser.add_argument(
-        "-o", "--output", default="outputs",
+        "-o",
+        "--output",
+        default="outputs",
         help="Output directory",
     )
     gen_parser.add_argument(
@@ -403,7 +432,8 @@ def main() -> int:
         help="Path to .vi, .lvlib, .lvclass, or directory",
     )
     docs_parser.add_argument(
-        "output_dir", help="Output directory for HTML files",
+        "output_dir",
+        help="Output directory for HTML files",
     )
     docs_parser.add_argument(
         "--search-path",
@@ -431,7 +461,8 @@ def main() -> int:
         help="Path to .vi, .lvlib, .lvclass, or directory",
     )
     viz_parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         default="outputs/graph.html",
         help="Output HTML file (default: outputs/graph.html)",
     )
@@ -448,7 +479,8 @@ def main() -> int:
         ),
     )
     viz_parser.add_argument(
-        "--open", action="store_true",
+        "--open",
+        action="store_true",
         help="Open in browser after generating",
     )
     viz_parser.add_argument(
@@ -486,7 +518,9 @@ def main() -> int:
         ),
     )
     diff_parser.add_argument(
-        "-v", "--verbose", action="store_true",
+        "-v",
+        "--verbose",
+        action="store_true",
         help=(
             "Show the change summary in full depth (VI-interface Signature, "
             "containment expanded into a tree, old->new detail, an "
@@ -495,11 +529,15 @@ def main() -> int:
         ),
     )
     diff_parser.add_argument(
-        "--long", action="store_true",
+        "--long",
+        action="store_true",
         help="Back-compat alias for --verbose.",
     )
     diff_parser.add_argument(
-        "-o", "--output", default=None, metavar="FILE",
+        "-o",
+        "--output",
+        default=None,
+        metavar="FILE",
         help=(
             "Output file path (used by --format html; default "
             "outputs/vi-diff/<stemA>__<stemB>.html). "
@@ -507,11 +545,14 @@ def main() -> int:
         ),
     )
     diff_parser.add_argument(
-        "--open", action="store_true",
+        "--open",
+        action="store_true",
         help="Render --format html and open it in a browser.",
     )
     diff_parser.add_argument(
-        "--before-ref", default=None, metavar="REV",
+        "--before-ref",
+        default=None,
+        metavar="REV",
         help=(
             "Git revision (or any short tag) for the BEFORE side, appended to "
             "the VI's resolved qualified name — e.g. --before-ref a1b2c3d gives "
@@ -521,9 +562,11 @@ def main() -> int:
         ),
     )
     diff_parser.add_argument(
-        "--after-ref", default=None, metavar="REV",
+        "--after-ref",
+        default=None,
+        metavar="REV",
         help="Git revision for the AFTER side (e.g. 'working tree'), appended "
-             "to its qualified name.",
+        "to its qualified name.",
     )
     diff_parser.add_argument(
         "--search-path",
@@ -537,7 +580,8 @@ def main() -> int:
         ),
     )
     diff_parser.add_argument(
-        "--no-cache", action="store_true",
+        "--no-cache",
+        action="store_true",
         help="Bypass the output cache: rebuild the diff and refresh the slot.",
     )
     _add_theme_arg(diff_parser)
@@ -633,7 +677,10 @@ def main() -> int:
         ),
     )
     render_parser.add_argument(
-        "-o", "--output", default=None, metavar="PATH",
+        "-o",
+        "--output",
+        default=None,
+        metavar="PATH",
         help=(
             "Write the output to PATH. Without -o, the render still goes to the "
             "per-user cache (reported by path) — every render warms the cache; "
@@ -642,14 +689,17 @@ def main() -> int:
         ),
     )
     render_parser.add_argument(
-        "--no-cache", action="store_true",
+        "--no-cache",
+        action="store_true",
         help=(
             "Bypass the output cache: rebuild from scratch and refresh the slot "
             "(use after editing lvkit's renderer without a version bump)."
         ),
     )
     render_parser.add_argument(
-        "--format", choices=["svg", "html"], default="svg",
+        "--format",
+        choices=["svg", "html"],
+        default="svg",
         help=(
             "Output format: 'svg' (default, the self-contained diagram) or "
             "'html' (an interactive single-VI viewer page with zoom/pan and a "
@@ -657,7 +707,9 @@ def main() -> int:
         ),
     )
     render_parser.add_argument(
-        "--ref", default=None, metavar="REV",
+        "--ref",
+        default=None,
+        metavar="REV",
         help=(
             "Git revision (or short tag) appended to the VI's qualified name in "
             "the --format html title — e.g. --ref a1b2c3d gives "
@@ -667,7 +719,10 @@ def main() -> int:
         ),
     )
     render_parser.add_argument(
-        "--search-path", action="append", dest="search_paths", default=[],
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
         help=(
             "Extra SubVI search path (repeatable). The VI's project "
             "root (nearest enclosing .lvkit/) is auto-detected and "
@@ -806,10 +861,10 @@ def cmd_structure(args: argparse.Namespace) -> int:
                 print(f"  Classes: {len(structure['classes'])}")
                 print(f"  Standalone VIs: {len(structure['standalone_vis'])}")
                 print()
-                if structure['classes']:
+                if structure["classes"]:
                     print("Classes:")
-                    for cls in structure['classes']:
-                        methods = len(cls['methods'])
+                    for cls in structure["classes"]:
+                        methods = len(cls["methods"])
                         print(f"  - {cls['name']} ({methods} methods)")
 
         else:
@@ -840,7 +895,7 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 
     try:
         print("Starting MCP server...", file=sys.stderr)
-        mcp_main()
+        mcp_main(getattr(args, "dirs", None) or None)
         return 0
     except KeyboardInterrupt:
         print("\nShutting down MCP server...", file=sys.stderr)
@@ -869,22 +924,30 @@ def cmd_index(args: argparse.Namespace) -> int:
         delete_index(project_root, rr.deleted)
         save(project_root, merged)
         save_lvproj_members(project_root, build_lvproj_membership(project_root))
-        print(json.dumps({
-            "rebuilt": len(rr.rebuilt),
-            "deleted": len(rr.deleted),
-            "total": rr.total,
-            "ms": round((time.monotonic() - start) * 1000),
-        }))
+        print(
+            json.dumps(
+                {
+                    "rebuilt": len(rr.rebuilt),
+                    "deleted": len(rr.deleted),
+                    "total": rr.total,
+                    "ms": round((time.monotonic() - start) * 1000),
+                }
+            )
+        )
         return 0
 
     result = build_index(project_root, vi_paths)
     save(project_root, result.facts)
     save_lvproj_members(project_root, result.lvproj_members)
-    print(json.dumps({
-        "vis": len(result.facts),
-        "collisions": result.collisions,
-        "ms": round((time.monotonic() - start) * 1000),
-    }))
+    print(
+        json.dumps(
+            {
+                "vis": len(result.facts),
+                "collisions": result.collisions,
+                "ms": round((time.monotonic() - start) * 1000),
+            }
+        )
+    )
     return 0
 
 
@@ -908,9 +971,9 @@ def _add_graphop_parser(
     *,
     depth: bool = False,
 ) -> None:
-    """Add one call-graph/impact subcommand (callers/callees/blast-radius) — the
-    CLI twin of an MCP graph-op tool. They share ``vi``/``project`` positionals
-    and the freshness + format flags; blast-radius also takes ``--depth``."""
+    """Add one call-graph/impact subcommand (callers/callees/blast-radius) over
+    the node-spine call graph. They share ``vi``/``project`` positionals and the
+    freshness + format flags; blast-radius also takes ``--depth``."""
     p = subparsers.add_parser(name, help=help_text)
     p.add_argument(
         "vi",
@@ -922,22 +985,29 @@ def _add_graphop_parser(
     )
     if depth:
         p.add_argument(
-            "--depth", type=int, default=None,
+            "--depth",
+            type=int,
+            default=None,
             help="Bound the search to N hops (default: unbounded).",
         )
     p.add_argument(
-        "--format", choices=["table", "json"], default="table",
+        "--format",
+        choices=["table", "json"],
+        default="table",
         help="Output format (default: table).",
     )
     p.add_argument(
-        "--no-refresh", action="store_true",
+        "--no-refresh",
+        action="store_true",
         help="Use the stored index as-is without refreshing first (may be stale).",
     )
 
 
 def cmd_graph_op(args: argparse.Namespace) -> int:
-    """Handle callers/callees/blast-radius — typed call-graph ops over the index
-    (the CLI twin of the MCP get_callers/get_callees/blast_radius tools)."""
+    """Handle callers/callees/blast-radius — typed call-graph ops over the
+    node-spine call graph (no MCP twin; an MCP client uses `query` over
+    node.callee_path + a recursive CTE, or the vi.callers_count/impact_score
+    columns)."""
     from dataclasses import asdict
 
     from .index.build import ensure_fresh_index
@@ -1007,6 +1077,7 @@ def cmd_query(args: argparse.Namespace) -> int:
     # be stale if a VI changed since the last build).
     if not args.no_refresh:
         from .index.build import ensure_fresh_index
+
         ensure_fresh_index(project_root, vi_paths)
 
     try:
@@ -1016,18 +1087,20 @@ def cmd_query(args: argparse.Namespace) -> int:
         return 2
 
     if args.format == "json":
-        print(json.dumps({
-            "columns": res.columns,
-            "rows": res.rows,
-            "row_count": res.row_count,
-            "truncated": res.truncated,
-        }))
+        print(
+            json.dumps(
+                {
+                    "columns": res.columns,
+                    "rows": res.rows,
+                    "row_count": res.row_count,
+                    "truncated": res.truncated,
+                }
+            )
+        )
     else:
         _print_table(res.columns, res.rows)
         if res.truncated:
-            print(
-                f"... (truncated at {res.row_count} rows)", file=sys.stderr
-            )
+            print(f"... (truncated at {res.row_count} rows)", file=sys.stderr)
     return 0
 
 
@@ -1050,7 +1123,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
         _configure_library_roots(graph, args)
         search_paths = _auto_search_paths(args.search_paths, input_path)
         graph.load_vi(
-            str(input_path), _resolve_load_mode(args, LoadMode.MINIMAL),
+            str(input_path),
+            _resolve_load_mode(args, LoadMode.MINIMAL),
             search_paths=search_paths,
         )
 
@@ -1062,7 +1136,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
         if len(candidates) > 1:
             parent_dir = input_path.parent.name
             preferred = [
-                c for c in candidates
+                c
+                for c in candidates
                 if c.startswith(f"{parent_dir}.lvclass:")
                 or c.startswith(f"{parent_dir}.lvlib:")
             ]
@@ -1073,7 +1148,18 @@ def cmd_describe(args: argparse.Namespace) -> int:
         # VI (and its SubVIs under MINIMAL), so warm all of them.
         warm_all_loaded(graph)
 
-        print(describe_vi(graph, vi_name, verbose=args.verbose))
+        if getattr(args, "format", "text") == "json":
+            # Same structured netlist IR the MCP read_vi tool returns — parity
+            # so a non-MCP (CLI/CI/skill) consumer gets the structured read too.
+            from .graph.netlist import build_netlist, netlist_to_dict
+
+            print(
+                json.dumps(
+                    netlist_to_dict(build_netlist(graph, vi_name)), indent=2
+                )
+            )
+        else:
+            print(describe_vi(graph, vi_name, verbose=args.verbose))
 
         return 0
     except (ValueError, FileNotFoundError, KeyError) as e:
@@ -1247,7 +1333,9 @@ def _theme_mode(args: argparse.Namespace) -> ThemeMode:
 
 
 def _build_render_body(
-    args: argparse.Namespace, input_path: Path, theme_mode: ThemeMode,
+    args: argparse.Namespace,
+    input_path: Path,
+    theme_mode: ThemeMode,
     ref: str | None,
 ) -> str | int:
     """Build the render output (svg string or html viewer). Returns the body, or
@@ -1289,9 +1377,7 @@ def _build_render_body(
     return build_render_viewer(svg, title=title)
 
 
-def _emit_render(
-    args: argparse.Namespace, input_path: Path, body: str
-) -> int:
+def _emit_render(args: argparse.Namespace, input_path: Path, body: str) -> int:
     """Deliver a render body: to ``-o`` if given; otherwise the render lives in
     the cache slot (always written by the caller) and we report its path — every
     render warms the cache, ``-o`` is the switch that also writes a file."""
@@ -1328,6 +1414,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     # render/graph/pylabview stack.
     if not args.no_cache:
         from .output_cache import lookup_render
+
         cached = lookup_render(input_path, args.format, options, __version__)
         if cached is not None:
             return _emit_render(args, input_path, cached)
@@ -1339,6 +1426,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     # job is to ignore a (possibly stale) hit and rebuild, not to leave the stale
     # entry behind for the next run.
     from .output_cache import store_render
+
     store_render(input_path, args.format, options, __version__, body)
     return _emit_render(args, input_path, body)
 
@@ -1414,7 +1502,11 @@ def _auto_search_paths(explicit: list[str], *inputs: Path) -> list[Path]:
 
 
 def _load_diff_graphs(
-    args: argparse.Namespace, path_a: Path, path_b: Path, *, layout: bool,
+    args: argparse.Namespace,
+    path_a: Path,
+    path_b: Path,
+    *,
+    layout: bool,
 ) -> tuple[InMemoryVIGraph, str, InMemoryVIGraph, str]:
     """Load both sides of a diff pair with a shared load mode/search paths."""
     from .graph import InMemoryVIGraph
@@ -1425,19 +1517,26 @@ def _load_diff_graphs(
     graph_a = InMemoryVIGraph()
     _configure_library_roots(graph_a, args)
     graph_a.load_vi(
-        str(path_a), diff_mode, search_paths=search_paths, layout=layout,
+        str(path_a),
+        diff_mode,
+        search_paths=search_paths,
+        layout=layout,
     )
     vi_name_a = graph_a.resolve_vi_name(path_a.name)
 
     graph_b = InMemoryVIGraph()
     _configure_library_roots(graph_b, args)
     graph_b.load_vi(
-        str(path_b), diff_mode, search_paths=search_paths, layout=layout,
+        str(path_b),
+        diff_mode,
+        search_paths=search_paths,
+        layout=layout,
     )
     vi_name_b = graph_b.resolve_vi_name(path_b.name)
 
     # Progressive index: a diff warms both VIs' facts into their project store.
     from .index.build import warm_index_for_vi
+
     warm_index_for_vi(graph_a, vi_name_a, path_a)
     warm_index_for_vi(graph_b, vi_name_b, path_b)
 
@@ -1468,15 +1567,28 @@ def _build_diff_body(
 
     if fmt == "text":
         graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
-            args, path_a, path_b, layout=False,
+            args,
+            path_a,
+            path_b,
+            layout=False,
         )
         # "" (no changes) is a real cacheable body; _emit_diff renders the notice.
-        return format_diff(
-            graph_a, graph_b, vi_name_a, vi_name_b, verbose=verbose,
-        ) or ""
+        return (
+            format_diff(
+                graph_a,
+                graph_b,
+                vi_name_a,
+                vi_name_b,
+                verbose=verbose,
+            )
+            or ""
+        )
 
     graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
-        args, path_a, path_b, layout=True,
+        args,
+        path_a,
+        path_b,
+        layout=True,
     )
     if fmt == "json":
         return json.dumps(
@@ -1509,12 +1621,17 @@ def _build_diff_body(
     before_label = _annotate(vi_name_a, args.before_ref)
     after_label = _annotate(vi_name_b, args.after_ref)
     title = (
-        before_label if before_label == after_label
+        before_label
+        if before_label == after_label
         else f'{before_label} <span class="t-arr">→ {after_label}</span>'
     )
     return build_diff_viewer(
-        cmap, before_svg, after_svg,
-        title=title, before_label=before_label, after_label=after_label,
+        cmap,
+        before_svg,
+        after_svg,
+        title=title,
+        before_label=before_label,
+        after_label=after_label,
         netlist_rows=rows_to_json(rows),
     )
 
@@ -1540,7 +1657,8 @@ def _emit_diff(
         return 0
     # html
     out = (
-        Path(args.output) if args.output
+        Path(args.output)
+        if args.output
         else Path("outputs/vi-diff") / f"{path_a.stem}__{path_b.stem}.html"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1581,6 +1699,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
     # WITHOUT importing the graph/render stack. path_a is BEFORE, path_b AFTER.
     if not args.no_cache:
         from .output_cache import lookup_diff
+
         cached = lookup_diff(path_a, path_b, fmt, options, __version__)
         if cached is not None:
             return _emit_diff(args, path_a, path_b, fmt, cached)
@@ -1593,6 +1712,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
         # A fresh build always refreshes the slot (see cmd_render) — --no-cache
         # forces the rebuild but still updates the cache.
         from .output_cache import store_diff
+
         store_diff(path_a, path_b, fmt, options, __version__, body)
         return _emit_diff(args, path_a, path_b, fmt, body)
     except (ValueError, FileNotFoundError, KeyError) as e:
@@ -1660,16 +1780,21 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
         return 1
 
     if args.json:
-        print(json.dumps([
-            {
-                "kind": it.kind,
-                "identifier": it.identifier,
-                "name": it.name,
-                "count": it.count,
-                "vi_names": it.vi_names,
-            }
-            for it in items
-        ], indent=2))
+        print(
+            json.dumps(
+                [
+                    {
+                        "kind": it.kind,
+                        "identifier": it.identifier,
+                        "name": it.name,
+                        "count": it.count,
+                        "vi_names": it.vi_names,
+                    }
+                    for it in items
+                ],
+                indent=2,
+            )
+        )
     else:
         print(format_unresolved_report(items, input_path.name))
     return 0
@@ -1692,8 +1817,10 @@ def cmd_docs(args: argparse.Namespace) -> int:
         result = generate_documents(
             library_path=str(input_path),
             output_dir=args.output_dir,
-            search_paths=[str(p) for p in _auto_search_paths(
-                args.search_paths, input_path)] or None,
+            search_paths=[
+                str(p) for p in _auto_search_paths(args.search_paths, input_path)
+            ]
+            or None,
             mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
@@ -1735,6 +1862,7 @@ def cmd_visualize(args: argparse.Namespace) -> int:
 
     # Every command that parses warms the index (best-effort).
     from .index.build import warm_all_loaded
+
     warm_all_loaded(graph)
 
     output = Path(args.output)
@@ -1862,7 +1990,8 @@ def _inject_extras(output: Path, mode: str) -> None:
 
 
 def _visualize_dataflow(
-    graph: InMemoryVIGraph, output: Path,
+    graph: InMemoryVIGraph,
+    output: Path,
 ) -> None:
     """Visualize the dataflow graph for a single VI."""
     from pyvis.network import Network  # type: ignore[import-untyped]
@@ -1874,7 +2003,10 @@ def _visualize_dataflow(
     primary_vi = vis[0]
 
     net = Network(
-        height="800px", width="100%", directed=True, notebook=False,
+        height="800px",
+        width="100%",
+        directed=True,
+        notebook=False,
     )
     net.set_options(_GRAPH_OPTIONS)
 
@@ -1903,7 +2035,8 @@ def _visualize_dataflow(
             group = gnode.parent
 
         net.add_node(
-            nid, label=label,
+            nid,
+            label=label,
             color=style["color"],
             shape=style.get("shape", "box"),
             title=tooltip,
@@ -1913,7 +2046,9 @@ def _visualize_dataflow(
     added = {n["id"] for n in net.nodes}
     for nid in added:
         for _, dest, _, data in graph._graph.out_edges(
-            nid, data=True, keys=True,
+            nid,
+            data=True,
+            keys=True,
         ):
             if dest not in added:
                 continue
@@ -1933,13 +2068,17 @@ def _visualize_dataflow(
 
 
 def _visualize_deps(
-    graph: InMemoryVIGraph, output: Path,
+    graph: InMemoryVIGraph,
+    output: Path,
 ) -> None:
     """Visualize the dependency graph across VIs."""
     from pyvis.network import Network  # type: ignore[import-untyped]
 
     net = Network(
-        height="800px", width="100%", directed=True, notebook=False,
+        height="800px",
+        width="100%",
+        directed=True,
+        notebook=False,
     )
     net.set_options(_GRAPH_OPTIONS)
 
@@ -1970,7 +2109,9 @@ def _visualize_deps(
                 tooltip += f"\n  [{i}] {f.name}"
 
         net.add_node(
-            node_id, label=label, color=color,
+            node_id,
+            label=label,
+            color=color,
             shape="box",
             title=tooltip,
             borderWidth=1 if is_stub else 2,
@@ -2024,7 +2165,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         lines.append("<b>Inputs:</b>")
         for t in inputs:
             tname = t.name or f"idx{t.index}"
-            ttype = t.lv_type.lv_label() if t.lv_type else "Any"
+            ttype = t.lv_type.type_descriptor() if t.lv_type else "Any"
             lines.append(f"  [{t.index}] {tname}: {ttype}")
 
     if outputs:
@@ -2032,7 +2173,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         lines.append("<b>Outputs:</b>")
         for t in outputs:
             tname = t.name or f"idx{t.index}"
-            ttype = t.lv_type.lv_label() if t.lv_type else "Any"
+            ttype = t.lv_type.type_descriptor() if t.lv_type else "Any"
             lines.append(f"  [{t.index}] {tname}: {ttype}")
 
     if kind == "constant":
@@ -2043,7 +2184,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
         if raw:
             lines.append(f"Raw: {raw}")
         if lv_type:
-            lines.append(f"Type: {lv_type.lv_label()}")
+            lines.append(f"Type: {lv_type.type_descriptor()}")
 
     if kind == "structure":
         frames = getattr(gnode, "frames", [])
@@ -2052,9 +2193,7 @@ def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:
             lines.append("<b>Frames:</b>")
             for f in frames:
                 default = " (default)" if f.is_default else ""
-                lines.append(
-                    f"  {f.selector_value}{default}"
-                )
+                lines.append(f"  {f.selector_value}{default}")
 
     return "\\n".join(lines)
 

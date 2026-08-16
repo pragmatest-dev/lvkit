@@ -1,18 +1,28 @@
 ---
 name: lvkit-convert
-description: Hand-write an idiomatic Python (or other language) port of a LabVIEW VI from its lvkit facts, then verify it against the deterministic `lvkit generate` oracle. Teaches the LabVIEW-to-code gotchas an AI gets wrong by default. Works via CLI or MCP.
+description: Use when the user wants to convert, port, or translate a LabVIEW VI (or a whole .lvclass/.lvlib) to Python or another language. Hand-writes an idiomatic port by understanding the VI's dataflow, then verifies it against lvkit's deterministic `lvkit generate` oracle. Teaches the LabVIEW-to-code gotchas an AI gets wrong by default (parallelism, held errors, value-copy semantics, loop/case defaults).
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
 # Convert a VI
 
+**Understand the VI first, then write the port yourself — don't reach for
+`lvkit generate` as the primary path.** Prefer MCP `read_vi(vi_path)` when
+the lvkit MCP server is connected; otherwise its CLI twin:
+
 ```bash
-lvkit describe "<vi-path>" --search-path "<library-path>" -v
+lvkit describe "<vi-path>" --search-path "<library-path>" --format json
 ```
 
-Read the netlist section this prints (inputs, outputs, wiring, structures).
-Write `<vi-path>.py` by hand from those facts, applying the guardrails
-below. Then verify it against the mechanical oracle:
+Both return the identical structured netlist IR (see "Getting the facts"
+below). Write `<vi-path>.py` by hand from those facts, applying the
+guardrails below.
+
+`lvkit generate` — CLI-only, no MCP tool — runs lvkit's own deterministic
+AST pipeline. Use it as a **verification oracle**, not the primary
+conversion path: an AI that just calls it and stops hasn't converted
+anything, it's re-run a tool. Run it to get a second implementation to diff
+your hand-written port against:
 
 ```bash
 lvkit generate "<vi-path>" -o outputs --search-path "<library-path>"
@@ -32,8 +42,9 @@ example below because it's the only language `lvkit generate` emits today.
 
 ## Getting the facts
 
-Prefer `get_context(vi_path)` over MCP — it returns the netlist IR in one
-call: `{vi, inputs, outputs, components, body, properties, health}`.
+**MCP `read_vi(vi_path)`, else CLI `lvkit describe <vi-path> --format
+json`** — both return the identical netlist IR in one call:
+`{vi, inputs, outputs, components, body, properties, health}`.
 Boundary `inputs`/`outputs` carry the FAITHFUL LabVIEW type (`"error
 cluster"`, `"TestCase.lvclass"`, `"MethodEnum{setUp, tearDown}"`), never a
 Python annotation. Each `output` also carries a `source` — the net that
@@ -43,18 +54,35 @@ output by type or position. `body` is a `kind`-tagged tree of `instance`/`scope`
 nodes — scopes (loops, cases, sequences) nest their frames' bodies, and
 wiring is expressed as `port -> source.net` bindings, not source order.
 `components` lists each distinct subVI/primitive's typed port interface
-once. This one call subsumes `get_operations`/`get_dataflow`/
-`get_structure`/`get_constants` — reach for those individually only when you
-need one slice in isolation.
+once. This one call gives you everything — operations, wiring, structures,
+and constants — in one structured tree instead of five separate reads.
+`lvkit describe <vi-path> --search-path <library-path> -v` (no `--format`)
+prints the same facts as prose for a human instead of JSON for a program.
 
-No MCP server connected: `lvkit describe <vi-path> -v` prints the same
-netlist IR as text (the `## Netlist` section). `lvkit render <vi-path> -o
-<vi>.svg` (CLI-only, no MCP twin) gives the faithful block-diagram picture
-when the text form is ambiguous.
+**A structure's output is a named MERGE net, not a plain wire.** A value
+leaving a case/loop/feedback node is selector- or iteration-dependent, so the
+facts give it a name and a consumer just references that name (`element =
+case2.out1` means "fed by case #2's 2nd output" — there is no node called
+`case2`). Four kinds (Gated-SSA), each with its own port:
+- `case{id}.out{k}` = `gamma(selector; key -> val, …, default -> val)` — a
+  **case/switch output**: port the `if/elif/else` (or `match`) on the selector;
+  an unwired frame's `default` is the type default (`0`/`False`/`""`), never `None`.
+- `loop{id}.shift{k}` = `mu(init -> seed, recur -> next)` — a **shift register**:
+  an accumulator carried across iterations (initial `seed`, each iteration
+  writes `next`).
+- `loop{id}.out{k}` = `eta(index_mode, value)` — a **loop output tunnel**:
+  `array` builds a list one element per iteration (auto-indexing → a
+  comprehension), `last` passes only the final iteration's value.
+- `fb{k}` = `mu[z^-N](init, recur)` — a **Feedback Node**: loop-carried state
+  like a shift register, delayed N iterations.
+
+`lvkit render <vi-path> -o <vi>.svg` (CLI-only, no MCP twin) gives the
+faithful block-diagram picture when the netlist IR alone is ambiguous.
 
 For facts about how OTHER VIs call this one, or what a typedef's fields are
-project-wide, use `/lvkit-query` (`query`/`get_callers` — cross-VI facts
-`get_context` doesn't carry, since it's scoped to one VI).
+project-wide, use `/lvkit-query` (`query` over the `node` view's
+`callee_path` — cross-VI facts `read_vi` doesn't carry, since it's scoped to
+one VI).
 
 ## The guardrails
 
@@ -113,13 +141,12 @@ args), not generally. Don't trust the oracle blindly on a VI with array/
 cluster branches feeding an in-place-mutating operation; verify by
 executing both and asserting the source isn't mutated.
 
-**Loops.** A shift register (`lSR`/`rSR` tunnel) is an accumulator carried
-across iterations — its initial value comes from the outer wire if present
-(`sr_initialized`), else the type default. An auto-indexing tunnel
-(`TunnelMode.INDEXING`) builds/consumes one array element per iteration —
-port to `enumerate()`/indexed iteration, not a manual list-append you
-invented. A `LAST_VALUE` tunnel passes only the final iteration through, not
-every value. For-loop iteration count is `min(len(array), ..., N)` across
+**Loops.** A shift register (the `mu` net above) is an accumulator carried
+across iterations — its initial value comes from the outer wire if present,
+else the type default. An auto-indexing output (an `eta` with `index_mode:
+array`) builds one array element per iteration — port to a comprehension /
+indexed iteration, not a manual list-append you invented. A `last`-mode `eta`
+passes only the final iteration through, not every value. For-loop iteration count is `min(len(array), ..., N)` across
 every auto-indexed input plus the `N` terminal if wired; a while loop's stop
 terminal has a polarity (stop-if-true vs. continue-if-true) — read it, don't
 assume. A For Loop's optional conditional terminal (LabVIEW 2012+) is
@@ -134,7 +161,7 @@ fallback branch, not a placeholder to drop.
 
 **Coercion → explicit casts.** LabVIEW silently coerces numeric types at a
 wire junction (marked with a coercion dot on the receiving terminal in the
-diagram). Python has no implicit numeric coercion — where `get_context`
+diagram). Python has no implicit numeric coercion — where `read_vi`
 shows a wire's producer and consumer typed differently (e.g. `I32` into a
 `DBL` terminal), insert the explicit cast LabVIEW performed silently.
 
@@ -148,7 +175,7 @@ field list, inherited fields included).
 
 A query-driven port never throws `PrimitiveResolutionNeeded`/
 `VILibResolutionNeeded` — those are `lvkit generate`'s exceptions, raised
-only by the deterministic oracle. In the facts (`get_context`/`describe`),
+only by the deterministic oracle. In the facts (`read_vi`/`describe`),
 an unresolved primitive shows as `[prim N]` and an unmapped vi.lib VI shows
 as its bare filename. Identify it inline the same way `/lvkit-resolve` does
 — the primitive's full terminal signature (every terminal, wired or not,

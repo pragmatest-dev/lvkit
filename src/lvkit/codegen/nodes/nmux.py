@@ -29,9 +29,11 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     - agg: the aggregate cluster/class wire (passthrough)
     - list: individual field values (each has nmux_field_index from <i> in XML)
     """
+
     def _by_role(direction: str, role: str) -> list[Terminal]:
         return [
-            t for t in node.terminals
+            t
+            for t in node.terminals
             if t.direction == direction and t.nmux_role == role
         ]
 
@@ -98,11 +100,13 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
                 fname = _field_name(t, class_fields)
                 if fname:
                     stmt = ast.Assign(
-                        targets=[ast.Attribute(
-                            value=parse_expr(agg_var),
-                            attr=fname,
-                            ctx=ast.Store(),
-                        )],
+                        targets=[
+                            ast.Attribute(
+                                value=parse_expr(agg_var),
+                                attr=fname,
+                                ctx=ast.Store(),
+                            )
+                        ],
                         value=parse_expr(val),
                     )
                     statements.append(stmt)
@@ -125,9 +129,12 @@ def _bundles_status(
     for t in list_in:
         if t.nmux_field_index is not None:
             if t.nmux_field_index < len(class_fields):
-                if to_var_name(
-                    class_fields[t.nmux_field_index].name,
-                ) == "status":
+                if (
+                    to_var_name(
+                        class_fields[t.nmux_field_index].name,
+                    )
+                    == "status"
+                ):
                     return True
     return False
 
@@ -173,7 +180,8 @@ def _generate_error_bundle(
 
 
 def _field_name(
-    term: Terminal, class_fields: list[ClusterField] | None,
+    term: Terminal,
+    class_fields: list[ClusterField] | None,
 ) -> str | None:
     """Get Python field name for a LIST terminal using nmux_field_index."""
     if term.nmux_field_index is None or not class_fields:
@@ -188,7 +196,8 @@ def _field_name(
 
 
 def _field_expr(
-    term: Terminal, agg_var: str,
+    term: Terminal,
+    agg_var: str,
     class_fields: list[ClusterField] | None,
 ) -> str:
     """Resolve field expression for a LIST output terminal (unbundle)."""

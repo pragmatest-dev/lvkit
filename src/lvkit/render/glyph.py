@@ -89,7 +89,11 @@ def fit_value(text: str, width: float, backend: Backend, size: float) -> str:
 
 
 def wrap_label(
-    text: str, width: float, backend: Backend, size: float, max_lines: int,
+    text: str,
+    width: float,
+    backend: Backend,
+    size: float,
+    max_lines: int,
 ) -> list[str]:
     """Greedy word-wrap ``text`` into at most ``max_lines`` lines that each fit
     ``width`` px at ``size`` (measured via the backend, not a px/char guess).
@@ -132,8 +136,13 @@ _FIT_GAP = 1.3  # extra px between baselines beyond the font size
 
 
 def fit_wrapped(
-    label: str, avail_w: float, avail_h: float, backend: Backend,
-    max_size: float, max_lines: int, min_size: float = 5.0,
+    label: str,
+    avail_w: float,
+    avail_h: float,
+    backend: Backend,
+    max_size: float,
+    max_lines: int,
+    min_size: float = 5.0,
 ) -> tuple[float, float, list[str]]:
     """Largest font (down to ``min_size``) at which the FULL ``label`` wraps into
     at most ``max_lines`` lines that fit ``avail_w`` x ``avail_h`` — so a short
@@ -172,7 +181,10 @@ class WrappedBoxGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2,
+            x1,
+            y1,
+            x2,
+            y2,
             fill=getattr(theme, self.fill_attr),
             stroke=getattr(theme, self.stroke_attr),
             stroke_width=self.stroke_width,
@@ -204,15 +216,26 @@ class WrappedBoxGlyph:
             backend.text(cx, first + i * line_h, line, size, fill=text_fill)
 
     def _best_fit(
-        self, avail_w: float, avail_h: float, backend: Backend,
+        self,
+        avail_w: float,
+        avail_h: float,
+        backend: Backend,
     ) -> tuple[float, float, list[str]]:
         return fit_wrapped(
-            self.label, avail_w, avail_h, backend, self.text_size, self.max_lines,
+            self.label,
+            avail_w,
+            avail_h,
+            backend,
+            self.text_size,
+            self.max_lines,
         )
 
 
 def _truncate_to_width(
-    backend: Backend, s: str, size: float, max_w: float,
+    backend: Backend,
+    s: str,
+    size: float,
+    max_w: float,
 ) -> str:
     """``s`` shortened with a trailing ellipsis until it fits ``max_w`` px at
     ``size`` (via the backend's own text metrics), or ``s`` unchanged if it
@@ -260,15 +283,22 @@ class FormulaNodeGlyph:
     def draw_box(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2,
+            x1,
+            y1,
+            x2,
+            y2,
             fill=getattr(theme, self.fill_attr),
             stroke=getattr(theme, self.stroke_attr),
             stroke_width=self.stroke_width,
         )
 
     def draw_script(
-        self, backend: Backend, bounds: Rect, theme: Theme,
-        left_inset: float, right_inset: float,
+        self,
+        backend: Backend,
+        bounds: Rect,
+        theme: Theme,
+        left_inset: float,
+        right_inset: float,
     ) -> None:
         """Draw the C source as monospace text, inset from the box's LEFT and
         RIGHT edges by the given amounts so it clears the input-tunnel column on
@@ -296,7 +326,12 @@ class FormulaNodeGlyph:
             s = _truncate_to_width(backend, line, self.text_size, max_w)
             if s:
                 backend.text(
-                    tx, ty, s, self.text_size, anchor="start", fill=text_fill,
+                    tx,
+                    ty,
+                    s,
+                    self.text_size,
+                    anchor="start",
+                    fill=text_fill,
                     mono=True,
                 )
             ty += line_h
@@ -331,14 +366,18 @@ class LocalVariableGlyph:
     max_lines: int = 2
     text_size: float = 7.0
 
-    _STROKE_W = 2.5   # bold border for both read and write
+    _STROKE_W = 2.5  # bold border for both read and write
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         stroke = self.border_color or getattr(theme, self.stroke_attr)
         backend.rect(
-            x1, y1, x2, y2,
-            fill=getattr(theme, self.fill_attr), stroke=stroke,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=getattr(theme, self.fill_attr),
+            stroke=stroke,
             stroke_width=self._STROKE_W,
         )
         # A small filled right-pointing triangle on the dataflow side: right
@@ -351,23 +390,29 @@ class LocalVariableGlyph:
             tw = tri_h * 0.72
             fill = getattr(theme, self.text_attr)
             if self.is_write:
-                tx = x1 + pad + 1.0        # left input edge
+                tx = x1 + pad + 1.0  # left input edge
                 left_pad = pad + 1.0 + tw
             else:
-                tx = x2 - pad - 1.0 - tw   # right output edge
+                tx = x2 - pad - 1.0 - tw  # right output edge
                 right_pad = pad + 1.0 + tw
             backend.polygon(
                 [(tx, cy - tri_h / 2), (tx + tw, cy), (tx, cy + tri_h / 2)],
-                fill=fill, stroke=None,
+                fill=fill,
+                stroke=None,
             )
         # Name fills the width remaining beside the badge.
         text_glyph = WrappedBoxGlyph(
-            self.label, self.fill_attr, self.stroke_attr,
-            max_lines=self.max_lines, text_size=self.text_size,
+            self.label,
+            self.fill_attr,
+            self.stroke_attr,
+            max_lines=self.max_lines,
+            text_size=self.text_size,
             text_attr=self.text_attr,
         )
         text_glyph.draw_wrapped_text(
-            backend, (x1 + left_pad, y1, x2 - right_pad, y2), theme,
+            backend,
+            (x1 + left_pad, y1, x2 - right_pad, y2),
+            theme,
         )
 
 
@@ -398,14 +443,18 @@ class ControlRefConstGlyph:
     text_size: float = 7.0
 
     _STROKE_W = 1.6
-    _ARROW_COLOR = "#111111"   # black shortcut/link-overlay arrow
+    _ARROW_COLOR = "#111111"  # black shortcut/link-overlay arrow
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         color = self.type_color or getattr(theme, self.stroke_attr)
         backend.rect(
-            x1, y1, x2, y2,
-            fill=getattr(theme, self.fill_attr), stroke=color,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=getattr(theme, self.fill_attr),
+            stroke=color,
             stroke_width=self._STROKE_W,
         )
         h = y2 - y1
@@ -420,26 +469,38 @@ class ControlRefConstGlyph:
         # IS what LabVIEW draws inside a control-reference constant.
         if self.type_text:
             backend.text(
-                (text_left + x2 - pad) / 2, cy + self.text_size * 0.34,
-                self.type_text, self.text_size, fill=color, anchor="middle",
+                (text_left + x2 - pad) / 2,
+                cy + self.text_size * 0.34,
+                self.type_text,
+                self.text_size,
+                fill=color,
+                anchor="middle",
             )
         # The control NAME is a label ABOVE the box (LabVIEW's own placement),
         # in the neutral label color.
         if self.name:
             backend.text(
-                (x1 + x2) / 2, y1 - 2.0, self.name, self.text_size,
-                fill=getattr(theme, self.text_attr), anchor="middle",
+                (x1 + x2) / 2,
+                y1 - 2.0,
+                self.name,
+                self.text_size,
+                fill=getattr(theme, self.text_attr),
+                anchor="middle",
             )
 
     def _shortcut_arrow(
-        self, backend: Backend, ix: float, iy: float, s: float,
+        self,
+        backend: Backend,
+        ix: float,
+        iy: float,
+        s: float,
     ) -> None:
         """A black Windows-style shortcut/link overlay: a curved arrow rising
         from the lower-left and hooking to point up-right (the reference mark)."""
         c = self._ARROW_COLOR
-        p0 = (ix + 0.18 * s, iy + 0.86 * s)   # tail, lower-left
-        cp = (ix + 0.18 * s, iy + 0.30 * s)   # control -> hook up the left side
-        p1 = (ix + 0.86 * s, iy + 0.20 * s)   # tip, upper-right
+        p0 = (ix + 0.18 * s, iy + 0.86 * s)  # tail, lower-left
+        cp = (ix + 0.18 * s, iy + 0.30 * s)  # control -> hook up the left side
+        p1 = (ix + 0.86 * s, iy + 0.20 * s)  # tip, upper-right
         n = 8
         pts = [
             (
@@ -458,7 +519,8 @@ class ControlRefConstGlyph:
                 (p1[0] - ah * math.cos(ang - 0.5), p1[1] - ah * math.sin(ang - 0.5)),
                 (p1[0] - ah * math.cos(ang + 0.5), p1[1] - ah * math.sin(ang + 0.5)),
             ],
-            fill=c, stroke=None,
+            fill=c,
+            stroke=None,
         )
 
 
@@ -486,19 +548,27 @@ class ArithGlyph:
         backend.polygon(
             [(x1, y1), (x2, (y1 + y2) / 2), (x1, y2)],
             fill=getattr(theme, self.fill_attr),
-            stroke=getattr(theme, self.stroke_attr), stroke_width=1.2,
+            stroke=getattr(theme, self.stroke_attr),
+            stroke_width=1.2,
         )
         size = _OPERATOR_SYMBOL_SIZE
         cy = (y1 + y2) / 2
-        backend.text(x1 + (x2 - x1) * 0.36, cy + size * 0.34, self.symbol, size,
-                     fill=getattr(theme, self.text_attr))
+        backend.text(
+            x1 + (x2 - x1) * 0.36,
+            cy + size * 0.34,
+            self.symbol,
+            size,
+            fill=getattr(theme, self.text_attr),
+        )
 
 
 _GATE_ARC_SEGMENTS = 14
 
 
 def _quad_bezier_points(
-    p0: tuple[float, float], p1: tuple[float, float], p2: tuple[float, float],
+    p0: tuple[float, float],
+    p1: tuple[float, float],
+    p2: tuple[float, float],
     n: int = _GATE_ARC_SEGMENTS,
 ) -> list[tuple[float, float]]:
     """Sample a quadratic Bezier curve (``p0`` -> control ``p1`` -> ``p2``)
@@ -560,7 +630,9 @@ class BooleanGateGlyph:
         if self.kind == "not":
             backend.polygon(
                 [(x1, y1), (x2, cy), (x1, y2)],
-                fill=fill, stroke=stroke, stroke_width=self.stroke_width,
+                fill=fill,
+                stroke=stroke,
+                stroke_width=self.stroke_width,
             )
             in_x, out_x = x1, x2
             sym_x = x1 + (x2 - x1) * 0.36
@@ -577,11 +649,21 @@ class BooleanGateGlyph:
         bubble_fill = getattr(theme, self.bubble_fill_attr)
         if self.input_bubble:
             backend.circle(
-                in_x - r, cy, r, fill=bubble_fill, stroke=stroke, stroke_width=1.0,
+                in_x - r,
+                cy,
+                r,
+                fill=bubble_fill,
+                stroke=stroke,
+                stroke_width=1.0,
             )
         if self.negated:
             backend.circle(
-                out_x + r, cy, r, fill=bubble_fill, stroke=stroke, stroke_width=1.0,
+                out_x + r,
+                cy,
+                r,
+                fill=bubble_fill,
+                stroke=stroke,
+                stroke_width=1.0,
             )
 
         size = _OPERATOR_SYMBOL_SIZE
@@ -589,7 +671,10 @@ class BooleanGateGlyph:
 
     @staticmethod
     def _draw_and(
-        backend: Backend, bounds: Rect, fill: str, stroke: str,
+        backend: Backend,
+        bounds: Rect,
+        fill: str,
+        stroke: str,
     ) -> float:
         """Flat-left / semicircle-right "D" outline. Returns the output
         (bulge) tip's x — the right-most point, for bubble placement."""
@@ -616,7 +701,12 @@ class BooleanGateGlyph:
 
     @staticmethod
     def _draw_or(
-        backend: Backend, bounds: Rect, fill: str, stroke: str, *, extra_arc: bool,
+        backend: Backend,
+        bounds: Rect,
+        fill: str,
+        stroke: str,
+        *,
+        extra_arc: bool,
     ) -> None:
         """Pointed "shield" outline: convex top/bottom curves meeting at a
         right-hand tip, concave scoop on the left. ``extra_arc`` (Exclusive
@@ -649,11 +739,19 @@ class BooleanGateGlyph:
 
 
 def draw_split_box(
-    backend: Backend, bounds: Rect, theme: Theme, *,
-    symbol: str, num_cells: int, symbol_side: str,
-    fill_attr: str = "prim_fill", stroke_attr: str = "prim_stroke",
-    text_attr: str = "prim_text", stroke_width: float = 1.2,
-    cell_labels: tuple[str, ...] | None = None, sym_w: float | None = None,
+    backend: Backend,
+    bounds: Rect,
+    theme: Theme,
+    *,
+    symbol: str,
+    num_cells: int,
+    symbol_side: str,
+    fill_attr: str = "prim_fill",
+    stroke_attr: str = "prim_stroke",
+    text_attr: str = "prim_text",
+    stroke_width: float = 1.2,
+    cell_labels: tuple[str, ...] | None = None,
+    sym_w: float | None = None,
 ) -> None:
     """Reusable clean-room glyph body: a bordered rectangle split by a vertical
     divider into a narrow SYMBOL cell (spanning the full height, holding one
@@ -707,13 +805,20 @@ def draw_split_box(
             raw = cell_labels[i] if i < len(cell_labels) else ""
             label = fit_label(raw, (cell_x2 - cell_x1) - 2 * lpad, backend, lsize)
             backend.text(
-                cell_x1 + lpad, (ry1 + ry2) / 2 + lsize * 0.34, label, lsize,
-                anchor="start", fill=getattr(theme, text_attr),
+                cell_x1 + lpad,
+                (ry1 + ry2) / 2 + lsize * 0.34,
+                label,
+                lsize,
+                anchor="start",
+                fill=getattr(theme, text_attr),
             )
 
     size = max(6.0, min(15.0, height * 0.62, sym_w * 0.85))
     backend.text(
-        (sym_x1 + sym_x2) / 2, (y1 + y2) / 2 + size * 0.34, symbol, size,
+        (sym_x1 + sym_x2) / 2,
+        (y1 + y2) / 2 + size * 0.34,
+        symbol,
+        size,
         fill=getattr(theme, text_attr),
     )
 
@@ -724,7 +829,11 @@ def draw_split_box(
 # "unsupported" sentinel for a dcoFiller code we haven't verified) degrades
 # to "?" so the node still renders (see CompoundArithGlyph.draw).
 _CPD_ARITH_SYMBOL = {
-    "or": "∨", "and": "∧", "xor": "⊕", "add": "+", "multiply": "×",
+    "or": "∨",
+    "and": "∧",
+    "xor": "⊕",
+    "add": "+",
+    "multiply": "×",
 }
 
 
@@ -751,10 +860,14 @@ class CompoundArithGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         draw_split_box(
-            backend, bounds, theme,
+            backend,
+            bounds,
+            theme,
             symbol=_CPD_ARITH_SYMBOL.get(self.operation, "?"),
-            num_cells=self.num_inputs, symbol_side="right",
-            fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+            num_cells=self.num_inputs,
+            symbol_side="right",
+            fill_attr=self.fill_attr,
+            stroke_attr=self.stroke_attr,
             text_attr=self.text_attr,
         )
 
@@ -781,9 +894,14 @@ class BundleGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         draw_split_box(
-            backend, bounds, theme,
-            symbol=_CLUSTER_ARROW, num_cells=self.num_fields, symbol_side="right",
-            fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+            backend,
+            bounds,
+            theme,
+            symbol=_CLUSTER_ARROW,
+            num_cells=self.num_fields,
+            symbol_side="right",
+            fill_attr=self.fill_attr,
+            stroke_attr=self.stroke_attr,
             text_attr=self.text_attr,
         )
 
@@ -802,9 +920,14 @@ class UnbundleGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         draw_split_box(
-            backend, bounds, theme,
-            symbol=_CLUSTER_ARROW, num_cells=self.num_fields, symbol_side="left",
-            fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
+            backend,
+            bounds,
+            theme,
+            symbol=_CLUSTER_ARROW,
+            num_cells=self.num_fields,
+            symbol_side="left",
+            fill_attr=self.fill_attr,
+            stroke_attr=self.stroke_attr,
             text_attr=self.text_attr,
         )
 
@@ -836,11 +959,17 @@ class BundleByNameGlyph:
         n = len(rows)
         arrow_w = min((x2 - x1) * 0.33, max(10.0, (y2 - y1) / n))
         draw_split_box(
-            backend, bounds, theme,
-            symbol=_CLUSTER_ARROW, num_cells=n,
+            backend,
+            bounds,
+            theme,
+            symbol=_CLUSTER_ARROW,
+            num_cells=n,
             symbol_side="right" if self.bundling else "left",
-            fill_attr=self.fill_attr, stroke_attr=self.stroke_attr,
-            text_attr=self.text_attr, cell_labels=rows, sym_w=arrow_w,
+            fill_attr=self.fill_attr,
+            stroke_attr=self.stroke_attr,
+            text_attr=self.text_attr,
+            cell_labels=rows,
+            sym_w=arrow_w,
         )
 
 
@@ -864,7 +993,7 @@ class EventDataGlyph:
 
     rows: tuple[tuple[str, LVType | None], ...]
     is_filter: bool = False
-    fill_attr: str = "const_fill"     # white
+    fill_attr: str = "const_fill"  # white
     stroke_attr: str = "tunnel_border"
     band_attr: str = "tunnel_border"
     text_size: float = 7.5
@@ -873,8 +1002,13 @@ class EventDataGlyph:
         x1, y1, x2, y2 = bounds
         stroke = getattr(theme, self.stroke_attr)
         backend.rect(
-            x1, y1, x2, y2, fill=getattr(theme, self.fill_attr),
-            stroke=stroke, stroke_width=1.2,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=getattr(theme, self.fill_attr),
+            stroke=stroke,
+            stroke_width=1.2,
         )
         rows = self.rows or (("", None),)
         n = len(rows)
@@ -899,8 +1033,12 @@ class EventDataGlyph:
             color = wire_style(lv_type, theme).color
             label = fit_label(name, avail, backend, lsize)
             backend.text(
-                text_x1, (ry1 + ry2) / 2 + lsize * 0.34, label, lsize,
-                anchor="start", fill=color,
+                text_x1,
+                (ry1 + ry2) / 2 + lsize * 0.34,
+                label,
+                lsize,
+                anchor="start",
+                fill=color,
             )
 
 
@@ -913,8 +1051,14 @@ _ARRAY_ELEMENTS_N = 3
 
 
 def _draw_element_boxes(
-    backend: Backend, x1: float, y1: float, x2: float, y2: float, n: int,
-    stroke: str, stroke_width: float,
+    backend: Backend,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    n: int,
+    stroke: str,
+    stroke_width: float,
 ) -> None:
     """A row of ``n`` small square outline boxes evenly spaced across
     ``(x1, y1, x2, y2)`` — the ARRAY family's shared "little element boxes"
@@ -927,14 +1071,26 @@ def _draw_element_boxes(
     for i in range(n):
         ccx = x1 + cell_w * (i + 0.5)
         backend.rect(
-            ccx - side / 2, cy - side / 2, ccx + side / 2, cy + side / 2,
-            fill="none", stroke=stroke, stroke_width=stroke_width,
+            ccx - side / 2,
+            cy - side / 2,
+            ccx + side / 2,
+            cy + side / 2,
+            fill="none",
+            stroke=stroke,
+            stroke_width=stroke_width,
         )
 
 
 def _draw_arrow(
-    backend: Backend, x_from: float, x_to: float, y: float, *,
-    stroke: str, stroke_width: float, head_len: float, head_half_h: float,
+    backend: Backend,
+    x_from: float,
+    x_to: float,
+    y: float,
+    *,
+    stroke: str,
+    stroke_width: float,
+    head_len: float,
+    head_half_h: float,
 ) -> None:
     """A straight horizontal arrow: a shaft (``path``) from ``x_from`` to
     ``x_to`` plus a small filled triangular head at ``x_to`` pointing in the
@@ -945,16 +1101,23 @@ def _draw_arrow(
     direction = 1.0 if x_to >= x_from else -1.0
     shaft_end = x_to - direction * head_len
     backend.path(
-        [(x_from, y), (shaft_end, y)], stroke=stroke, stroke_width=stroke_width,
+        [(x_from, y), (shaft_end, y)],
+        stroke=stroke,
+        stroke_width=stroke_width,
     )
     backend.polygon(
         [(x_to, y), (shaft_end, y - head_half_h), (shaft_end, y + head_half_h)],
-        fill=stroke, stroke=None,
+        fill=stroke,
+        stroke=None,
     )
 
 
 def _draw_node_tile(
-    backend: Backend, bounds: Rect, theme: Theme, fill_attr: str, stroke_attr: str,
+    backend: Backend,
+    bounds: Rect,
+    theme: Theme,
+    fill_attr: str,
+    stroke_attr: str,
 ) -> None:
     """The filled node tile every primitive sits on (same as WrappedBoxGlyph's
     box / ArithGlyph's filled triangle). A motif glyph draws this FIRST, then its
@@ -962,8 +1125,12 @@ def _draw_node_tile(
     diagram."""
     x1, y1, x2, y2 = bounds
     backend.rect(
-        x1, y1, x2, y2,
-        fill=getattr(theme, fill_attr), stroke=getattr(theme, stroke_attr),
+        x1,
+        y1,
+        x2,
+        y2,
+        fill=getattr(theme, fill_attr),
+        stroke=getattr(theme, stroke_attr),
         stroke_width=max(1.0, min(x2 - x1, y2 - y1) * 0.05),
     )
 
@@ -988,17 +1155,29 @@ class ArraySizeGlyph:
         row_x1, row_x2 = x1 + w * 0.04, x1 + w * 0.66
         row_y1, row_y2 = y1 + h * 0.10, y1 + h * 0.52
         _draw_element_boxes(
-            backend, row_x1, row_y1, row_x2, row_y2, _ARRAY_ELEMENTS_N, stroke, sw,
+            backend,
+            row_x1,
+            row_y1,
+            row_x2,
+            row_y2,
+            _ARRAY_ELEMENTS_N,
+            stroke,
+            sw,
         )
         by1, by2 = y1 + h * 0.66, y1 + h * 0.80
         backend.path(
             [(row_x1, by1), (row_x1, by2), (row_x2, by2), (row_x2, by1)],
-            stroke=stroke, stroke_width=sw,
+            stroke=stroke,
+            stroke_width=sw,
         )
         size = max(6.0, min(12.0, h * 0.42))
         backend.text(
-            x1 + w * 0.85, by2 + size * 0.28, "n", size,
-            fill=text_fill, bold=True,
+            x1 + w * 0.85,
+            by2 + size * 0.28,
+            "n",
+            size,
+            fill=text_fill,
+            bold=True,
         )
 
 
@@ -1021,13 +1200,25 @@ class ArrayReverseGlyph:
         row_x1, row_x2 = x1 + w * 0.17, x1 + w * 0.65
         row_y1, row_y2 = y1 + h * 0.47, y1 + h * 0.82
         _draw_element_boxes(
-            backend, row_x1, row_y1, row_x2, row_y2, _ARRAY_ELEMENTS_N, stroke, sw,
+            backend,
+            row_x1,
+            row_y1,
+            row_x2,
+            row_y2,
+            _ARRAY_ELEMENTS_N,
+            stroke,
+            sw,
         )
         arrow_y = y1 + h * 0.24
         _draw_arrow(
-            backend, row_x2, row_x1, arrow_y,
-            stroke=stroke, stroke_width=sw,
-            head_len=max(3.0, w * 0.07), head_half_h=max(2.0, h * 0.09),
+            backend,
+            row_x2,
+            row_x1,
+            arrow_y,
+            stroke=stroke,
+            stroke_width=sw,
+            head_len=max(3.0, w * 0.07),
+            head_half_h=max(2.0, h * 0.09),
         )
 
 
@@ -1050,7 +1241,14 @@ class ArraySearchGlyph:
         row_x1, row_x2 = x1 + w * 0.04, x1 + w * 0.60
         row_y1, row_y2 = y1 + h * 0.38, y1 + h * 0.74
         _draw_element_boxes(
-            backend, row_x1, row_y1, row_x2, row_y2, _ARRAY_ELEMENTS_N, stroke, sw,
+            backend,
+            row_x1,
+            row_y1,
+            row_x2,
+            row_y2,
+            _ARRAY_ELEMENTS_N,
+            stroke,
+            sw,
         )
         r = max(2.0, min(w, h) * 0.18)
         cx, cy = x1 + w * 0.74, y1 + h * 0.30
@@ -1058,7 +1256,8 @@ class ArraySearchGlyph:
         hx, hy = r * 0.78, r * 0.78
         backend.path(
             [(cx + hx * 0.65, cy + hy * 0.65), (cx + hx * 1.55, cy + hy * 1.55)],
-            stroke=stroke, stroke_width=sw,
+            stroke=stroke,
+            stroke_width=sw,
         )
 
 
@@ -1081,7 +1280,14 @@ class ArraySortGlyph:
         row_x1, row_x2 = x1 + w * 0.06, x1 + w * 0.62
         row_y1, row_y2 = y1 + h * 0.38, y1 + h * 0.74
         _draw_element_boxes(
-            backend, row_x1, row_y1, row_x2, row_y2, _ARRAY_ELEMENTS_N, stroke, sw,
+            backend,
+            row_x1,
+            row_y1,
+            row_x2,
+            row_y2,
+            _ARRAY_ELEMENTS_N,
+            stroke,
+            sw,
         )
         n_bars = 3
         bars_x1, bars_x2 = x1 + w * 0.68, x2 - w * 0.04
@@ -1117,19 +1323,34 @@ class ArraySplitGlyph:
         arrow_y = (row_y1 + row_y2) / 2
         arrow_x2 = x1 + w * 0.55
         _draw_arrow(
-            backend, row_x2, arrow_x2, arrow_y,
-            stroke=stroke, stroke_width=sw,
-            head_len=max(3.0, w * 0.06), head_half_h=max(2.0, h * 0.08),
+            backend,
+            row_x2,
+            arrow_x2,
+            arrow_y,
+            stroke=stroke,
+            stroke_width=sw,
+            head_len=max(3.0, w * 0.06),
+            head_half_h=max(2.0, h * 0.08),
         )
         side = min(w, h) * 0.22
         box_x1 = x1 + w * 0.60
         backend.rect(
-            box_x1, y1 + h * 0.10, box_x1 + side, y1 + h * 0.10 + side,
-            fill="none", stroke=stroke, stroke_width=sw,
+            box_x1,
+            y1 + h * 0.10,
+            box_x1 + side,
+            y1 + h * 0.10 + side,
+            fill="none",
+            stroke=stroke,
+            stroke_width=sw,
         )
         backend.rect(
-            box_x1, y1 + h * 0.58, box_x1 + side, y1 + h * 0.58 + side,
-            fill="none", stroke=stroke, stroke_width=sw,
+            box_x1,
+            y1 + h * 0.58,
+            box_x1 + side,
+            y1 + h * 0.58 + side,
+            fill="none",
+            stroke=stroke,
+            stroke_width=sw,
         )
 
 
@@ -1160,11 +1381,13 @@ class ArrayBuildGlyph:
         foot = (bx2 - bx1) * 0.28
         backend.path(
             [(bx1 + foot, by1), (bx1, by1), (bx1, by2), (bx1 + foot, by2)],
-            stroke=stroke, stroke_width=sw,
+            stroke=stroke,
+            stroke_width=sw,
         )
         backend.path(
             [(bx2 - foot, by1), (bx2, by1), (bx2, by2), (bx2 - foot, by2)],
-            stroke=stroke, stroke_width=sw,
+            stroke=stroke,
+            stroke_width=sw,
         )
         cx1, cx2 = bx1 + foot * 1.15, bx2 - foot * 1.15
         n_cells = max(2, min(5, int((by2 - by1) / max(1.0, w * 0.24))))
@@ -1173,8 +1396,13 @@ class ArrayBuildGlyph:
         for i in range(n_cells):
             cyy = by1 + i * gap + (gap - cell_h) / 2
             backend.rect(
-                cx1, cyy, cx2, cyy + cell_h,
-                fill="none", stroke=stroke, stroke_width=sw * 0.8,
+                cx1,
+                cyy,
+                cx2,
+                cyy + cell_h,
+                fill="none",
+                stroke=stroke,
+                stroke_width=sw * 0.8,
             )
 
 
@@ -1201,9 +1429,14 @@ class ConvertGlyph:
         sw = max(1.0, min(w, h) * 0.07)
         arrow_x1, arrow_x2 = x1 + w * 0.06, x1 + w * 0.30
         _draw_arrow(
-            backend, arrow_x1, arrow_x2, cy,
-            stroke=stroke, stroke_width=sw,
-            head_len=max(3.0, w * 0.08), head_half_h=max(2.0, h * 0.14),
+            backend,
+            arrow_x1,
+            arrow_x2,
+            cy,
+            stroke=stroke,
+            stroke_width=sw,
+            head_len=max(3.0, w * 0.08),
+            head_half_h=max(2.0, h * 0.14),
         )
         text_x = x1 + w * 0.34
         avail_w = max(2.0, (x2 - w * 0.04) - text_x)
@@ -1211,8 +1444,14 @@ class ConvertGlyph:
         while size > 6.0 and backend.measure_text(self.abbr, size) > avail_w:
             size -= 0.5
         backend.text(
-            text_x, cy + size * 0.34, self.abbr, size,
-            fill=text_fill, bold=True, mono=True, anchor="start",
+            text_x,
+            cy + size * 0.34,
+            self.abbr,
+            size,
+            fill=text_fill,
+            bold=True,
+            mono=True,
+            anchor="start",
         )
 
 
@@ -1240,9 +1479,14 @@ class InPlaceElementGlyph:
         sw = max(1.0, min(w, h) * 0.09)
         arrow_x1, arrow_x2 = x1 + w * 0.22, x1 + w * 0.78
         _draw_arrow(
-            backend, arrow_x1, arrow_x2, cy,
-            stroke=stroke, stroke_width=sw,
-            head_len=max(3.0, w * 0.18), head_half_h=max(2.0, h * 0.24),
+            backend,
+            arrow_x1,
+            arrow_x2,
+            cy,
+            stroke=stroke,
+            stroke_width=sw,
+            head_len=max(3.0, w * 0.18),
+            head_half_h=max(2.0, h * 0.24),
         )
 
 
@@ -1255,9 +1499,17 @@ _ROW_GUTTER = _ROW_ARROW_W + _ROW_LPAD
 
 
 def _draw_drawer_row(
-    backend: Backend, x1: float, x2: float, ry1: float, ry2: float,
-    label: str, *, show_left: bool, show_right: bool,
-    text_fill: str, lsize: float,
+    backend: Backend,
+    x1: float,
+    x2: float,
+    ry1: float,
+    ry2: float,
+    label: str,
+    *,
+    show_left: bool,
+    show_right: bool,
+    text_fill: str,
+    lsize: float,
 ) -> None:
     """Draw one property/invoke drawer row: the label plus the shared arrow
     rule -- the glyph is always the rightward ``▸``; an INPUT terminal draws
@@ -1268,18 +1520,27 @@ def _draw_drawer_row(
     cy = (ry1 + ry2) / 2
     if show_left:
         backend.text(
-            x1 + _ROW_ARROW_W * 0.45, cy + lsize * 0.34, "▸", lsize,
+            x1 + _ROW_ARROW_W * 0.45,
+            cy + lsize * 0.34,
+            "▸",
+            lsize,
             fill=text_fill,
         )
     avail = (x2 - x1) - _ROW_GUTTER - _ROW_LPAD - (_ROW_ARROW_W if show_right else 0.0)
     backend.text(
-        x1 + _ROW_GUTTER, cy + lsize * 0.34,
-        fit_label(label, avail, backend, lsize), lsize,
-        anchor="start", fill=text_fill,
+        x1 + _ROW_GUTTER,
+        cy + lsize * 0.34,
+        fit_label(label, avail, backend, lsize),
+        lsize,
+        anchor="start",
+        fill=text_fill,
     )
     if show_right:
         backend.text(
-            x2 - _ROW_ARROW_W * 0.55, cy + lsize * 0.34, "▸", lsize,
+            x2 - _ROW_ARROW_W * 0.55,
+            cy + lsize * 0.34,
+            "▸",
+            lsize,
             fill=text_fill,
         )
 
@@ -1311,8 +1572,13 @@ class PropertyNodeGlyph:
         stroke = getattr(theme, self.stroke_attr)
         text_fill = getattr(theme, self.text_attr)
         backend.rect(
-            x1, y1, x2, y2, fill=getattr(theme, self.fill_attr),
-            stroke=stroke, stroke_width=1.2,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=getattr(theme, self.fill_attr),
+            stroke=stroke,
+            stroke_width=1.2,
         )
         rows = self.rows or (("", True),)
         # One header cell (the class/reference row) + one cell per property.
@@ -1326,8 +1592,10 @@ class PropertyNodeGlyph:
         hy2 = y1 + cell_h
         header = f"⚙ {self.class_name}".strip() if self.class_name else "⚙ class"
         backend.text(
-            (x1 + x2) / 2, y1 + cell_h / 2 + lsize * 0.34,
-            fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize), lsize,
+            (x1 + x2) / 2,
+            y1 + cell_h / 2 + lsize * 0.34,
+            fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize),
+            lsize,
             fill=text_fill,
         )
         backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
@@ -1339,9 +1607,16 @@ class PropertyNodeGlyph:
             if i > 0:
                 backend.line(x1, ry1, x2, ry1, stroke=stroke, stroke_width=1.0)
             _draw_drawer_row(
-                backend, x1, x2, ry1, ry2, name,
-                show_left=not is_read, show_right=is_read,
-                text_fill=text_fill, lsize=lsize,
+                backend,
+                x1,
+                x2,
+                ry1,
+                ry2,
+                name,
+                show_left=not is_read,
+                show_right=is_read,
+                text_fill=text_fill,
+                lsize=lsize,
             )
 
 
@@ -1377,8 +1652,13 @@ class InvokeNodeGlyph:
         stroke = getattr(theme, self.stroke_attr)
         text_fill = getattr(theme, self.text_attr)
         backend.rect(
-            x1, y1, x2, y2, fill=getattr(theme, self.fill_attr),
-            stroke=stroke, stroke_width=1.2,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=getattr(theme, self.fill_attr),
+            stroke=stroke,
+            stroke_width=1.2,
         )
         rows = self.rows
         # header (class) + method row + one cell per parameter row.
@@ -1390,8 +1670,10 @@ class InvokeNodeGlyph:
         hy2 = y1 + cell_h
         header = f"⚙ {self.class_name}".strip() if self.class_name else "⚙ class"
         backend.text(
-            (x1 + x2) / 2, y1 + cell_h / 2 + lsize * 0.34,
-            fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize), lsize,
+            (x1 + x2) / 2,
+            y1 + cell_h / 2 + lsize * 0.34,
+            fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize),
+            lsize,
             fill=text_fill,
         )
         backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
@@ -1401,9 +1683,16 @@ class InvokeNodeGlyph:
         my2 = hy2 + cell_h
         method = self.method or "method"
         _draw_drawer_row(
-            backend, x1, x2, hy2, my2, method,
-            show_left=False, show_right=self.return_present,
-            text_fill=text_fill, lsize=lsize,
+            backend,
+            x1,
+            x2,
+            hy2,
+            my2,
+            method,
+            show_left=False,
+            show_right=self.return_present,
+            text_fill=text_fill,
+            lsize=lsize,
         )
         backend.line(x1, my2, x2, my2, stroke=stroke, stroke_width=1.0)
 
@@ -1414,9 +1703,16 @@ class InvokeNodeGlyph:
             if i > 0:
                 backend.line(x1, ry1, x2, ry1, stroke=stroke, stroke_width=1.0)
             _draw_drawer_row(
-                backend, x1, x2, ry1, ry2, name,
-                show_left=show_left, show_right=show_right,
-                text_fill=text_fill, lsize=lsize,
+                backend,
+                x1,
+                x2,
+                ry1,
+                ry2,
+                name,
+                show_left=show_left,
+                show_right=show_right,
+                text_fill=text_fill,
+                lsize=lsize,
             )
 
 
@@ -1454,7 +1750,11 @@ class ConstantGlyph:
         x1, y1, x2, y2 = bounds
         if self.fit:
             _, _, lines = fit_wrapped(
-                self.value, x2 - x1 - 5, y2 - y1 - 5, backend, self.text_size,
+                self.value,
+                x2 - x1 - 5,
+                y2 - y1 - 5,
+                backend,
+                self.text_size,
                 max_lines=4,
             )
             return self.value if (not lines or lines[-1].endswith("…")) else None
@@ -1481,8 +1781,13 @@ class ConstantGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill=theme.const_fill,
-            stroke=self.color, stroke_width=1.2,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.const_fill,
+            stroke=self.color,
+            stroke_width=1.2,
         )
         if not self.value:
             return
@@ -1492,21 +1797,31 @@ class ConstantGlyph:
             self._draw_wrapped(backend, x1, y1, x2, y2, theme)
         else:
             backend.text(
-                (x1 + x2) / 2, (y1 + y2) / 2 + 3,
+                (x1 + x2) / 2,
+                (y1 + y2) / 2 + 3,
                 fit_value(self.value, x2 - x1, backend, self.text_size),
                 self.text_size,
                 fill=getattr(theme, self.text_attr),
             )
 
     def _draw_fit(
-        self, backend: Backend, x1: float, y1: float, x2: float, y2: float,
+        self,
+        backend: Backend,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
         theme: Theme,
     ) -> None:
         """Wrapped + shrunk-to-fit, centered (see ``fit``)."""
         pad = 2.5
         size, line_h, lines = fit_wrapped(
-            self.value, x2 - x1 - 2 * pad, y2 - y1 - 2 * pad, backend,
-            self.text_size, max_lines=4,
+            self.value,
+            x2 - x1 - 2 * pad,
+            y2 - y1 - 2 * pad,
+            backend,
+            self.text_size,
+            max_lines=4,
         )
         if not lines:
             return
@@ -1517,7 +1832,12 @@ class ConstantGlyph:
             backend.text(cx, first + i * line_h, line, size, fill=text_fill)
 
     def _draw_wrapped(
-        self, backend: Backend, x1: float, y1: float, x2: float, y2: float,
+        self,
+        backend: Backend,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
         theme: Theme,
     ) -> None:
         pad = 2.5
@@ -1543,7 +1863,12 @@ class ConstantGlyph:
         text_fill = getattr(theme, self.text_attr)
         for line in lines:
             backend.text(
-                x1 + pad, ty, line, self.text_size, anchor="start", fill=text_fill,
+                x1 + pad,
+                ty,
+                line,
+                self.text_size,
+                anchor="start",
+                fill=text_fill,
             )
             ty += line_h
 
@@ -1575,20 +1900,29 @@ class BooleanConstantGlyph:
             # Green outer outline + green fill, then a white inner outline
             # (the bezel) inset within it, still green-filled — a white T.
             # Sharp corners: LabVIEW block-diagram objects aren't rounded.
-            backend.rect(x1, y1, x2, y2, fill=green, stroke=green,
-                         stroke_width=1.0)
+            backend.rect(x1, y1, x2, y2, fill=green, stroke=green, stroke_width=1.0)
             inset = min(2.0, (x2 - x1) * 0.16, (y2 - y1) * 0.16)
-            backend.rect(x1 + inset, y1 + inset, x2 - inset, y2 - inset,
-                         fill=green, stroke="#ffffff", stroke_width=1.0)
+            backend.rect(
+                x1 + inset,
+                y1 + inset,
+                x2 - inset,
+                y2 - inset,
+                fill=green,
+                stroke="#ffffff",
+                stroke_width=1.0,
+            )
             text_fill, letter = "#ffffff", "T"
         else:
-            backend.rect(x1, y1, x2, y2, fill="#ffffff", stroke=green,
-                         stroke_width=1.2)
+            backend.rect(x1, y1, x2, y2, fill="#ffffff", stroke=green, stroke_width=1.2)
             text_fill, letter = green, "F"
         size = max(6.0, min(11.0, (y2 - y1) * 0.72, (x2 - x1) * 0.9))
         backend.text(
-            (x1 + x2) / 2, (y1 + y2) / 2 + size * 0.34, letter, size,
-            fill=text_fill, bold=True,
+            (x1 + x2) / 2,
+            (y1 + y2) / 2 + size * 0.34,
+            letter,
+            size,
+            fill=text_fill,
+            bold=True,
         )
 
 
@@ -1646,7 +1980,10 @@ class VariantGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2,
+            x1,
+            y1,
+            x2,
+            y2,
             fill=getattr(theme, self.fill_attr),
             stroke=getattr(theme, self.stroke_attr),
             stroke_width=1.0,
@@ -1667,7 +2004,10 @@ class ErrorClusterGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2,
+            x1,
+            y1,
+            x2,
+            y2,
             fill=getattr(theme, self.fill_attr),
             stroke=getattr(theme, self.stroke_attr),
             stroke_width=1.2,
@@ -1678,9 +2018,12 @@ class ErrorClusterGlyph:
         r = max(1.0, min(w, h) * 0.16)
         cx, cy = x1 + pad + r, y1 + pad + r
         backend.circle(
-            cx, cy, r,
+            cx,
+            cy,
+            r,
             fill=getattr(theme, self.led_attr),
-            stroke=getattr(theme, self.stroke_attr), stroke_width=0.6,
+            stroke=getattr(theme, self.stroke_attr),
+            stroke_width=0.6,
         )
         # Code/source fields: two short horizontal bars below the LED.
         bar_color = getattr(theme, self.bar_attr)
@@ -1733,8 +2076,13 @@ class ClusterConstantGlyph:
         x1, y1, x2, y2 = bounds
         border = theme.wire_error if self.is_error else theme.wire_cluster
         backend.rect(
-            x1, y1, x2, y2,
-            fill=getattr(theme, self.fill_attr), stroke=border, stroke_width=1.5,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=getattr(theme, self.fill_attr),
+            stroke=border,
+            stroke_width=1.5,
         )
         if not self.fields:
             return  # a genuinely empty cluster (no elements) — box only
@@ -1751,7 +2099,9 @@ class ClusterConstantGlyph:
                 ry2 = ry1 + vrow
                 if x2 - vpad > x1 + vpad and ry2 - 0.5 > ry1 + 0.5:
                     field_glyph.draw(
-                        backend, (x1 + vpad, ry1 + 0.5, x2 - vpad, ry2 - 0.5), theme,
+                        backend,
+                        (x1 + vpad, ry1 + 0.5, x2 - vpad, ry2 - 0.5),
+                        theme,
                     )
             return
         label_w = min(
@@ -1762,8 +2112,12 @@ class ClusterConstantGlyph:
             ry1 = y1 + pad + i * row_h
             ry2 = ry1 + row_h
             backend.text(
-                x1 + pad, (ry1 + ry2) / 2 + label_size * 0.34, name,
-                label_size, anchor="start", fill=border,
+                x1 + pad,
+                (ry1 + ry2) / 2 + label_size * 0.34,
+                name,
+                label_size,
+                anchor="start",
+                fill=border,
             )
             cx1 = x1 + pad + label_w
             if x2 - pad > cx1 and ry2 - 1.0 > ry1 + 1.0:

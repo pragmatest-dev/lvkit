@@ -51,6 +51,7 @@ CONNECTOR_PANE_BUTTON = (
     f'aria-expanded="false">{CONNECTOR_PANE_GLYPH}</button>'
 )
 
+
 def _reveal_toggle_script(
     btn_id: str,
     *,
@@ -76,22 +77,20 @@ def _reveal_toggle_script(
         "(function(){\n"
         "  try {\n"
         f'    var btn = document.getElementById("{btn_id}");\n'
-        "    if (!btn) return;\n"
-        + collect_js +
-        "    var boxes = [];\n"
+        "    if (!btn) return;\n" + collect_js + "    var boxes = [];\n"
         "    function hide() {\n"
-        + hide_body +
-        "      btn.setAttribute('aria-expanded', 'false');\n"
+        + hide_body
+        + "      btn.setAttribute('aria-expanded', 'false');\n"
         "    }\n"
         "    function show() {\n"
-        + show_body +
-        "      btn.setAttribute('aria-expanded', 'true');\n"
+        + show_body
+        + "      btn.setAttribute('aria-expanded', 'true');\n"
         "    }\n"
         "    btn.addEventListener('click', function () {\n"
         "      if (boxes.length) { hide(); } else { show(); }\n"
         "    });\n"
-        + extra_js +
-        "  } catch (e) { /* aside chrome is optional -- never break the viewer */ }\n"
+        + extra_js
+        + "  } catch (e) { /* aside chrome is optional -- never break the viewer */ }\n"
         "})();\n"
         "</script>"
     )
@@ -105,7 +104,7 @@ def _reveal_toggle_script(
 CONNECTOR_PANE_SCRIPT = _reveal_toggle_script(
     CONNECTOR_PANE_PANEL_BTN_ID,
     collect_js=(
-        '    var sources = Array.prototype.slice.call(\n'
+        "    var sources = Array.prototype.slice.call(\n"
         '      document.querySelectorAll("svg defs > .lv-vi-aside")\n'
         '    ).filter(function (d) { return !d.closest(".mm-mirror"); });\n'
         "    if (!sources.length) { btn.disabled = true; return; }\n"
@@ -123,8 +122,7 @@ CONNECTOR_PANE_SCRIPT = _reveal_toggle_script(
         "      });\n"
     ),
     hide_body=(
-        "      boxes.forEach(function (c) { c.remove(); });\n"
-        "      boxes = [];\n"
+        "      boxes.forEach(function (c) { c.remove(); });\n      boxes = [];\n"
     ),
     extra_js=(
         "    // Let the properties popover close us (its open is our close).\n"
@@ -195,8 +193,7 @@ DIFF_CONNECTOR_PANE_SCRIPT = _reveal_toggle_script(
         "        window.lvkitBlendConnectorPanes();\n"
     ),
     hide_body=(
-        "      boxes.forEach(function (b) { b.remove(); });\n"
-        "      boxes = [];\n"
+        "      boxes.forEach(function (b) { b.remove(); });\n      boxes = [];\n"
     ),
     extra_js=(
         "    // For the change list's click-to-view.\n"

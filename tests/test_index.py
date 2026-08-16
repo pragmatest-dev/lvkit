@@ -33,7 +33,7 @@ from lvkit.index.build import (
     build_lvproj_membership,
     refresh_index,
 )
-from lvkit.index.model import WIRED_INDICATOR
+from lvkit.index.model import NodeKind, WiredTo
 from lvkit.index.project import resolve_project
 from lvkit.index.query import blast_radius, get_callers
 from lvkit.index.store import load as load_index
@@ -78,8 +78,8 @@ class TestParallelBuildEquivalence:
         by_path_parallel = {f.path: f for f in parallel.facts}
         for path, sf in by_path_serial.items():
             pf = by_path_parallel[path]
-            # Full dataclass equality: terminals (name/direction/is_error_cluster/
-            # py_type/field_names, in order), constants, calls, type_uses,
+            # Full dataclass equality: terminals (name/direction/type_descriptor/
+            # type_kind/field_names, in order), constants, calls, type_uses,
             # class_fact, is_stub, impact_score -- everything VIFacts carries.
             assert pf == sf, f"parallel facts diverged from serial for {path}"
 
@@ -99,6 +99,33 @@ class TestSmallClassBuild:
         # Every method VI has a real content hash and terminals.
         assert all(f.content_sha for f in result.facts)
         assert any(f.terminals for f in result.facts)
+        # The block-diagram node spine is populated, and every row carries a
+        # kind from the closed NodeKind set (a stringly-typed leak would show
+        # up as an unexpected value here).
+        assert any(f.nodes for f in result.facts)
+        kinds = {n.kind for f in result.facts for n in f.nodes}
+        assert kinds <= set(NodeKind)
+
+    def test_node_callee_paths_resolve(self):
+        # Merge-time backfill: a kind='vi' node whose callee is an in-repo VI
+        # gets callee_path set to that VI's path (the direct call-site edge on
+        # the node spine), and every resolved path points at a real indexed VI.
+        root, vi_paths = resolve_project(TESTCASE_DIR)
+        result = build_index(root, vi_paths)
+        indexed = {f.path for f in result.facts}
+
+        vi_nodes = [
+            n for f in result.facts for n in f.nodes if n.kind is NodeKind.VI
+        ]
+        resolved = [n for n in vi_nodes if n.callee_path is not None]
+        assert resolved, "no SubVI-call node resolved to an in-repo callee path"
+        # Every resolved callee_path is a real indexed VI (never a guess).
+        assert all(n.callee_path in indexed for n in resolved)
+        # A qualified same-class call (run.vi -> CallTestMethod.vi) resolves.
+        assert any(
+            n.callee_path and n.callee_path.endswith("CallTestMethod.vi")
+            for n in vi_nodes
+        )
 
     def test_class_methods_have_owning_class_fact(self):
         root, vi_paths = resolve_project(TESTCASE_DIR)
@@ -134,12 +161,17 @@ class TestSmallClassBuild:
         orig = by_path_orig[sample_path]
         back = by_path_reloaded[sample_path]
         assert [t.name for t in back.terminals] == [t.name for t in orig.terminals]
-        assert [t.is_error_cluster for t in back.terminals] == [
-            t.is_error_cluster for t in orig.terminals
+        assert [t.type_descriptor for t in back.terminals] == [
+            t.type_descriptor for t in orig.terminals
+        ]
+        assert [t.type_kind for t in back.terminals] == [
+            t.type_kind for t in orig.terminals
         ]
         assert len(back.constants) == len(orig.constants)
-        assert back.calls == orig.calls
         assert back.type_uses == orig.type_uses
+        # The node spine round-trips in order, with kinds preserved.
+        assert [n.uid for n in back.nodes] == [n.uid for n in orig.nodes]
+        assert [n.kind for n in back.nodes] == [n.kind for n in orig.nodes]
 
 
 # === Incremental refresh (content-hash) — fast, on the small class dir =====
@@ -221,14 +253,14 @@ class TestFullCorpusDemo:
             t.name
             for f in jki_index.facts
             for t in f.terminals
-            if t.is_error_cluster and t.direction == "output"
+            if t.type_descriptor == "Error" and t.direction == "output"
         ]
-        assert len(names) >= 325
+        assert len(names) == 406
 
         tally = Counter(names)
         top_name, top_count = tally.most_common(1)[0]
         assert top_name == "error out"
-        assert top_count >= 298
+        assert top_count == 382
 
     def test_callers_exclude_ownership_edges(self, jki_index: BuildResult):
         """Demo #3: a class method's calls and callers are pure VI->VI — its
@@ -243,11 +275,12 @@ class TestFullCorpusDemo:
         class_methods = [f for f in jki_index.facts if f.class_fact is not None]
         assert class_methods  # JKI-VI-Tester is a class-heavy corpus
 
-        # The owning class is a type reference, never a call — regression guard
-        # for the class/typedef/library filter in build.project_vi_facts.
+        # The call graph is VI->VI only: a node's callee_path is always a VI
+        # path, never the owning class (a type reference is not a call).
         for f in class_methods:
             assert f.class_fact is not None
-            assert f.class_fact.owning_class not in f.calls
+            callee_paths = {n.callee_path for n in f.nodes if n.callee_path}
+            assert f.class_fact.owning_class not in callee_paths
 
         all_paths = {f.path for f in jki_index.facts}
         with_callers = [
@@ -267,7 +300,7 @@ class TestFullCorpusDemo:
             c
             for f in jki_index.facts
             for c in f.constants
-            if c.wired_to == WIRED_INDICATOR
+            if c.wired_to == WiredTo.INDICATOR
         ]
         assert wired
 
@@ -287,34 +320,23 @@ class TestFullCorpusDemo:
         assert shallow.impact_score <= result.impact_score
 
     def test_dead_code_via_callers_count(self, jki_index: BuildResult):
-        """#20: uncalled-VI / dead-code detection reads ``callers_count``
-        (direct in-repo callers, from the path-keyed inverse call graph), NOT
-        a ``qualified_name``/``callee_key`` name anti-join.
-
-        That anti-join returns an implausible 0 over this corpus because EVERY
-        vi row's ``qualified_name`` is NULL (so a ``qualified_name IS NOT NULL``
-        guard drops all 487) and every ``callee_key`` is a bare filename that
-        never matches a qualified name. ``callers_count`` sidesteps both: it is
-        keyed on VI path, so NULL-``qualified_name`` VIs are still classified.
+        """#20: uncalled-VI / dead-code detection reads ``callers_count`` — the
+        in-degree of the path-keyed inverse call graph, which is now derived
+        from the ``kind='vi'`` node spine (each SubVI-call node's resolved
+        ``callee_path``). Keyed on VI path, so NULL-``qualified_name`` VIs are
+        still classified.
         """
-        # The old broken anti-join really does return 0 on this corpus — the
-        # exact #20 symptom the column replaces (computed here from the facts).
-        callee_keys = {c for f in jki_index.facts for c in f.calls}
-        naive_uncalled = sum(
-            1
-            for f in jki_index.facts
-            if f.qualified_name is not None and f.qualified_name not in callee_keys
-        )
-        assert naive_uncalled == 0
-
         by_name: dict[str, list] = {}
         for f in jki_index.facts:
             by_name.setdefault(f.name, []).append(f)
 
         # A common init subVI — definitely called (unique name in the corpus).
+        # 14 (was 12 off the calls table): the node spine counts actual
+        # block-diagram call sites, catching real static calls the VI-dependency
+        # list missed.
         called = by_name["TestCase_Init.vi"]
         assert len(called) == 1
-        assert called[0].callers_count == 12
+        assert called[0].callers_count == 14
 
         # A genuine top-level example runner — nothing calls it (unique name).
         uncalled = by_name["VI Tester JUnitXML Example.vi"]
@@ -324,7 +346,10 @@ class TestFullCorpusDemo:
         total_uncalled = sum(1 for f in jki_index.facts if f.callers_count == 0)
         # Plausible dead-code count: some, but not everything and not nothing.
         assert 0 < total_uncalled < len(jki_index.facts)
-        assert total_uncalled == 284  # pinned baseline (observed)
+        # 229 (no static caller): dead code + top-level entry points + VIs
+        # reached only dynamically (Call-By-Reference / VI Server). Matches the
+        # eval harness; the prior 284 was a stale pre-node-spine pin.
+        assert total_uncalled == 229
 
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====
@@ -334,12 +359,15 @@ class TestFullCorpusDemo:
 # not just read top-level <Item>s. These three cover the shapes seen in the
 # corpus: fully nested (WaveGen, MeasurementServerTests) and flat/unaffected
 # (VITesterUtilities, used again below by TestLibraryMembership).
-_WAVEGEN_LVLIB = (
-    SAMPLES / "lv-flex-channel-examples" / "WaveGen" / "WaveGen.lvlib"
-)
+_WAVEGEN_LVLIB = SAMPLES / "lv-flex-channel-examples" / "WaveGen" / "WaveGen.lvlib"
 _MEASUREMENT_SERVER_TESTS_LVLIB = (
-    SAMPLES / "measurement-plugin-labview" / "Source" / "Tests" / "Tests.Runtime"
-    / "Measurement Server" / "MeasurementServerTests.lvlib"
+    SAMPLES
+    / "measurement-plugin-labview"
+    / "Source"
+    / "Tests"
+    / "Tests.Runtime"
+    / "Measurement Server"
+    / "MeasurementServerTests.lvlib"
 )
 _VITESTER_UTILITIES_LVLIB = (
     JKI_ROOT / "source" / "Libraries" / "VITesterUtilities.lvlib"
@@ -361,14 +389,15 @@ _VITESTER_UTILITIES_MEMBER_COUNT = 46  # <Item Type="VI" .../> count in the file
 _MYPARENTLIBRARY_LVLIB = (
     JKI_ROOT / "source" / "Tests" / "Library Test" / "MyParentLibrary.lvlib"
 )
-_MYLIBRARY_LVLIB = (
-    JKI_ROOT / "source" / "Tests" / "Library Test" / "MyLibrary.lvlib"
-)
+_MYLIBRARY_LVLIB = JKI_ROOT / "source" / "Tests" / "Library Test" / "MyLibrary.lvlib"
 _MYLIBRARY_CLASS_NAME = (
     "MyParentLibrary.lvlib:MyLibrary.lvlib:ABC - Parentheses (Valid).lvclass"
 )
 _MYLIBRARY_CLASS_METHODS = {
-    "setUp.vi", "testExample.vi", "tearDown.vi", "test (Example).vi",
+    "setUp.vi",
+    "testExample.vi",
+    "tearDown.vi",
+    "test (Example).vi",
 }
 
 
@@ -416,7 +445,8 @@ class TestStructureCommandLvlibMembers:
     """
 
     def test_json_reports_all_nested_members(
-        self, capsys: pytest.CaptureFixture[str],
+        self,
+        capsys: pytest.CaptureFixture[str],
     ):
         if not _WAVEGEN_LVLIB.is_file():
             pytest.skip(f"Sample not available: {_WAVEGEN_LVLIB}")
@@ -434,7 +464,8 @@ class TestStructureCommandLvlibMembers:
         assert "Generate.vi" in names
 
     def test_text_output_reports_member_count(
-        self, capsys: pytest.CaptureFixture[str],
+        self,
+        capsys: pytest.CaptureFixture[str],
     ):
         if not _WAVEGEN_LVLIB.is_file():
             pytest.skip(f"Sample not available: {_WAVEGEN_LVLIB}")
@@ -470,7 +501,9 @@ class TestLoadLvlibClassMember:
         # the real index build.
         graph = InMemoryVIGraph()
         graph.load_lvlib(
-            _MYPARENTLIBRARY_LVLIB, LoadMode.FULL, search_paths=[JKI_ROOT],
+            _MYPARENTLIBRARY_LVLIB,
+            LoadMode.FULL,
+            search_paths=[JKI_ROOT],
         )
 
         assert _MYLIBRARY_CLASS_NAME in graph.list_classes()
@@ -478,13 +511,16 @@ class TestLoadLvlibClassMember:
         # The class's methods loaded as real VI nodes, owned by the class
         # (not left as a dead/unreachable member).
         owned = {
-            succ for succ in graph._dep_graph.successors(_MYLIBRARY_CLASS_NAME)
-            if (graph._dep_graph.get_edge_data(_MYLIBRARY_CLASS_NAME, succ) or {})
-            .get("rel") == "owns"
+            succ
+            for succ in graph._dep_graph.successors(_MYLIBRARY_CLASS_NAME)
+            if (graph._dep_graph.get_edge_data(_MYLIBRARY_CLASS_NAME, succ) or {}).get(
+                "rel"
+            )
+            == "owns"
         }
-        # Qualified qnames ("Lib:Lib:Class.lvclass:Method.vi") aren't
-        # filesystem paths — split on ":" rather than Path(...).name.
-        assert {n.rsplit(":", 1)[-1] for n in owned} == _MYLIBRARY_CLASS_METHODS
+        # Method VIs are keyed by their file path (identity) now, so the owns
+        # edges point at those paths — take the filename for the method name.
+        assert {Path(n).name for n in owned} == _MYLIBRARY_CLASS_METHODS
 
 
 # === .lvlib membership -> "library" column (real corpus) ===================
@@ -505,9 +541,7 @@ class TestLibraryMembership:
     def test_lvlib_members_get_library_fact(self, jki_index: BuildResult):
         assert _VITESTER_UTILITIES_LVLIB.is_file()  # sanity: fixture VI exists
 
-        members = [
-            f for f in jki_index.facts if f.library == "VITesterUtilities.lvlib"
-        ]
+        members = [f for f in jki_index.facts if f.library == "VITesterUtilities.lvlib"]
         assert len(members) == _VITESTER_UTILITIES_MEMBER_COUNT
 
         # Spot-check one specific, known member VI.
@@ -519,7 +553,8 @@ class TestLibraryMembership:
         assert sample.class_fact is None
 
     def test_library_membership_does_not_perturb_class_ownership(
-        self, jki_index: BuildResult,
+        self,
+        jki_index: BuildResult,
     ):
         """Regression guard: adding the ``.lvlib`` ownership pass alongside
         the existing ``.lvclass`` ownership pass must not change ANY class
@@ -541,14 +576,14 @@ class TestLibraryMembership:
         # method (confirmed against the real corpus -- these are disjoint
         # VI sets).
         lib_members = {
-            f.path for f in jki_index.facts
-            if f.library == "VITesterUtilities.lvlib"
+            f.path for f in jki_index.facts if f.library == "VITesterUtilities.lvlib"
         }
         class_method_paths = {f.path for f in class_methods}
         assert not (lib_members & class_method_paths)
 
     def test_lvclass_library_member_gets_qualified_ownership(
-        self, jki_index: BuildResult,
+        self,
+        jki_index: BuildResult,
     ):
         """Empirical check for the Bug-B interaction: MyLibrary.lvlib's one
         member is ``ABC - Parentheses (Valid).lvclass`` (a ``Type="LVClass"``
@@ -582,7 +617,8 @@ class TestLibraryMembership:
         assert _MYLIBRARY_LVLIB.is_file()  # sanity: fixture lvlib exists
 
         method_facts = [
-            f for f in jki_index.facts
+            f
+            for f in jki_index.facts
             if f.class_fact is not None
             and f.class_fact.owning_class == _MYLIBRARY_CLASS_NAME
         ]
@@ -686,7 +722,8 @@ class TestLvprojMembership:
 
         # VI Tester Example's 9 own VIs all live in-repo (sibling files).
         example_own = [
-            m for m in members
+            m
+            for m in members
             if m.lvproj_name == "VI Tester Example"
             and m.member_type == "VI"
             and not m.is_dependency

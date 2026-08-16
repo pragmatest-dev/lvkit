@@ -63,5 +63,3 @@ def make_ctx(*terminal_ids: str) -> CodeGenContext:
     """Create a CodeGenContext with a graph that has the given terminals."""
     graph = make_graph_with_terminals(*terminal_ids)
     return CodeGenContext(graph=graph)
-
-

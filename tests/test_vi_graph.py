@@ -106,24 +106,43 @@ class TestTypedGraphNodes:
             vi=vi_name,
             name="Test.vi",
             terminals=[
-                FPTerminal(id="fp_in", index=0, direction="input", name="X",
-                           wiring_rule=1, is_public=True),
-                FPTerminal(id="fp_out", index=1, direction="output", name="Sum",
-                           wiring_rule=0, is_indicator=True, is_public=True),
+                FPTerminal(
+                    id="fp_in",
+                    index=0,
+                    direction="input",
+                    name="X",
+                    wiring_rule=1,
+                    is_public=True,
+                ),
+                FPTerminal(
+                    id="fp_out",
+                    index=1,
+                    direction="output",
+                    name="Sum",
+                    wiring_rule=0,
+                    is_indicator=True,
+                    is_public=True,
+                ),
             ],
         )
         graph._graph.add_node(vi_name, node=vi_node)
 
         # Constant
         const_node = ConstantNode(
-            id="const1", vi=vi_name, value=42, label="MyConst",
+            id="const1",
+            vi=vi_name,
+            value=42,
+            label="MyConst",
             terminals=[Terminal(id="const1", index=0, direction="output")],
         )
         graph._graph.add_node("const1", node=const_node)
 
         # Primitive
         prim_node = PrimitiveNode(
-            id="add1", vi=vi_name, name="Add", node_type="prim",
+            id="add1",
+            vi=vi_name,
+            name="Add",
+            node_type="prim",
             prim_id=1,
             terminals=[
                 Terminal(id="t1", index=0, direction="input"),
@@ -135,7 +154,10 @@ class TestTypedGraphNodes:
 
         # Edges with typed WireEnd
         src_fp = WireEnd(
-            terminal_id="fp_in", node_id=vi_name, index=0, name="X",
+            terminal_id="fp_in",
+            node_id=vi_name,
+            index=0,
+            name="X",
             parent_kind="vi",
         )
         dst_t1 = WireEnd(
@@ -157,7 +179,10 @@ class TestTypedGraphNodes:
             terminal_id="t3", node_id="add1", index=2, parent_kind="primitive"
         )
         dst_fp_out = WireEnd(
-            terminal_id="fp_out", node_id=vi_name, index=1, name="Sum",
+            terminal_id="fp_out",
+            node_id=vi_name,
+            index=1,
+            name="Sum",
             parent_kind="vi",
         )
         graph._graph.add_edge(
@@ -190,11 +215,6 @@ class TestTypedGraphNodes:
         for wire in wires:
             assert wire.source.terminal_id
             assert wire.dest.terminal_id
-
-    def test_resolve_name(self, graph_with_nodes: InMemoryVIGraph):
-        # Primitive terminal name
-        name = graph_with_nodes.resolve_name("add1", 0)
-        assert name is None  # unnamed terminal
 
     def test_vi_context(self, graph_with_nodes: InMemoryVIGraph):
         ctx = graph_with_nodes.get_vi_context("Test.vi")
@@ -248,7 +268,8 @@ _SAMPLES_ROOT = Path(__file__).parent.parent / ".lvkit" / "cache" / "samples"
 _VI_TESTER_ABOUT = (
     _SAMPLES_ROOT
     / "JKI-VI-Tester/source/User Interfaces/Graphical Test Runner"
-    / "Graphical Test Runner Support" / "VI Tester About.vi"
+    / "Graphical Test Runner Support"
+    / "VI Tester About.vi"
 )
 
 
@@ -274,7 +295,8 @@ class TestSrnClumpNoFabricatedEdges:
     def test_copyrights_indicator_is_unwired(self):
         graph, vi = self._graph()
         touching = [
-            w for w in graph.get_wires(vi, include_internal=True)
+            w
+            for w in graph.get_wires(vi, include_internal=True)
             if w.source.terminal_id.endswith("::1516")
             or w.dest.terminal_id.endswith("::1516")
         ]
@@ -283,7 +305,8 @@ class TestSrnClumpNoFabricatedEdges:
     def test_no_srn_pairing_edges(self):
         graph, vi = self._graph()
         srn = [
-            e for _, _, e in graph._graph.edges(data=True)
+            e
+            for _, _, e in graph._graph.edges(data=True)
             if e.get("vi") == vi and e.get("tunnel_type") == "sRN"
         ]
         assert srn == [], "sRN index-pairing must not fabricate tunnel edges"

@@ -25,6 +25,7 @@ from ..models import (
     EventOperation,
     LoopOperation,
     LVType,
+    LVTypeKind,
     Operation,
     PropertyDef,
     SelectorRange,
@@ -47,7 +48,8 @@ logger = logging.getLogger(__name__)
 
 
 def _find_op_owning_terminal(
-    operations: list[Operation], terminal_id: str | None,
+    operations: list[Operation],
+    terminal_id: str | None,
 ) -> tuple[Operation, Terminal] | None:
     """Recursively find the operation that owns the given terminal."""
     if terminal_id is None:
@@ -61,8 +63,12 @@ def _find_op_owning_terminal(
             return hit
         if isinstance(
             op,
-            (CaseOperation, SequenceOperation, DisableStructureOperation,
-             EventOperation),
+            (
+                CaseOperation,
+                SequenceOperation,
+                DisableStructureOperation,
+                EventOperation,
+            ),
         ):
             for frame in op.frames:
                 hit = _find_op_owning_terminal(frame.operations, terminal_id)
@@ -101,8 +107,12 @@ def index_terminal_owners(
         index_terminal_owners(op.inner_nodes, out)
         if isinstance(
             op,
-            (CaseOperation, SequenceOperation, DisableStructureOperation,
-             EventOperation),
+            (
+                CaseOperation,
+                SequenceOperation,
+                DisableStructureOperation,
+                EventOperation,
+            ),
         ):
             for frame in op.frames:
                 index_terminal_owners(frame.operations, out)
@@ -143,7 +153,8 @@ def _case_output_tunnel_outers(op: Operation) -> list[Terminal]:
     own shape) -- callers only call this for a ``CaseOperation``.
     """
     return [
-        t for t in op.terminals
+        t
+        for t in op.terminals
         if isinstance(t, TunnelTerminal)
         and t.boundary == "outer"
         and t.direction == "output"
@@ -181,15 +192,16 @@ def _loop_output_tunnel_outers(op: Operation) -> list[Terminal]:
     value OUT of the loop (``direction == "output"``), in ``op.terminals``
     order -- the canonical 0-based numbering ``netlist.py`` uses to name a
     loop's eta-merge output nets (``loop{id}.out{k}``). Direction is the
-    authoritative signal here, NOT ``mode``: corpus-verified (a real VI's
-    ``lpTun`` can carry ``TunnelMode.LAST_VALUE``/``CONDITIONAL``/etc. on an
-    INPUT-direction tunnel too -- the mode simply reflects how the dco's own
-    ``TunnelType`` child is configured, independent of which way data
-    actually flows through THIS instance) -- mirrors
-    ``_case_output_tunnel_outers``'s same ``direction == "output"`` filter.
+    authoritative signal here, NOT ``mode``: a real VI's ``lpTun`` carries a
+    base ``TunnelMode`` (``INDEXING``/``LAST_VALUE``/``PASSTHROUGH``/...) on
+    INPUT-direction tunnels too, so filtering by ``direction == "output"`` --
+    mirroring ``_case_output_tunnel_outers`` -- is what isolates the genuine
+    loop outputs. (construction.py already re-labels an input tunnel's
+    "indexing off" as ``PASSTHROUGH`` rather than ``LAST_VALUE``.)
     """
     return [
-        t for t in op.terminals
+        t
+        for t in op.terminals
         if isinstance(t, TunnelTerminal)
         and t.tunnel_type == "lpTun"
         and t.boundary == "outer"
@@ -237,9 +249,7 @@ def _loop_shift_register_pairs(
     """
     lsrs = [t for t in op.tunnels if t.tunnel_type == "lSR"]
     rsrs = [t for t in op.tunnels if t.tunnel_type == "rSR"]
-    return [
-        (lsr, rsrs[i] if i < len(rsrs) else None) for i, lsr in enumerate(lsrs)
-    ]
+    return [(lsr, rsrs[i] if i < len(rsrs) else None) for i, lsr in enumerate(lsrs)]
 
 
 def _is_mu_shift_register_read(op: Operation, term: Terminal) -> bool:
@@ -296,13 +306,16 @@ def _flatten_leaf_fields(
     DI Index/AO Task/PWM Freq Index/DO Task).
     """
     return [
-        (path, f) for path, f in _flatten_fields(fields)
+        (path, f)
+        for path, f in _flatten_fields(fields)
         if not (f.type and f.type.fields)
     ]
 
 
 def _own_class_private_data_fields(
-    vi_name: str, classname: str, graph: InMemoryVIGraph,
+    vi_name: str,
+    classname: str,
+    graph: InMemoryVIGraph,
 ) -> list[ClusterField]:
     """This VI's OWN inline "Cluster of class private data" typedef — a
     snapshot embedded in the VI's own VCTP, resolvable WITHOUT loading the
@@ -322,7 +335,9 @@ def _own_class_private_data_fields(
     except Exception:
         logger.debug(
             "own private-data XML extraction failed for %r (%s)",
-            vi_name, vi_path, exc_info=True,
+            vi_name,
+            vi_path,
+            exc_info=True,
         )
         return []
     if main_xml is None:
@@ -334,16 +349,15 @@ def _own_class_private_data_fields(
     # resolve from the VI alone instead of falling back to raw [index]. The
     # dep_graph/.ctl path (authoritative, and it dereferences by-reference data)
     # is unaffected — it never sets this flag.
-    fields = _fields_from_xml(
-        main_xml, classname, allow_display_label_fallback=True
-    )
+    fields = _fields_from_xml(main_xml, classname, allow_display_label_fallback=True)
     if not fields:
         return []
     return [private_data_field_to_cluster_field(f) for f in fields]
 
 
 def _resolve_nmux_field_name(
-    field_index: int | None, *field_sources: list[ClusterField],
+    field_index: int | None,
+    *field_sources: list[ClusterField],
 ) -> str | None:
     """Resolve a field-index's LabVIEW field name, trying each of
     ``field_sources`` (in priority order) in turn — each row resolved
@@ -369,7 +383,9 @@ def _resolve_nmux_field_name(
 
 
 def _nmux_field_sources(
-    vi_name: str, agg: Terminal | None, graph: InMemoryVIGraph,
+    vi_name: str,
+    agg: Terminal | None,
+    graph: InMemoryVIGraph,
 ) -> tuple[list[ClusterField], list[ClusterField]]:
     """``(own_fields, dep_fields)`` field sources for an nMux/decompose
     aggregate terminal, in fall-through priority order: (1) for a
@@ -384,14 +400,19 @@ def _nmux_field_sources(
     if agg is not None and agg.lv_type is not None:
         if agg.lv_type.classname:
             own_fields = _own_class_private_data_fields(
-                vi_name, agg.lv_type.classname, graph,
+                vi_name,
+                agg.lv_type.classname,
+                graph,
             )
         dep_fields = graph.get_type_fields(agg.lv_type) or []
     return own_fields, dep_fields
 
 
 def _nmux_lane_name(
-    term: Terminal, agg: Terminal | None, vi_name: str, graph: InMemoryVIGraph,
+    term: Terminal,
+    agg: Terminal | None,
+    vi_name: str,
+    graph: InMemoryVIGraph,
 ) -> str | None:
     """THE canonical field-name resolution for an nMux/decompose LIST
     terminal, via ``term.nmux_field_index`` into the aggregate's field list
@@ -508,7 +529,9 @@ def stamp_property_value_names(graph: InMemoryVIGraph) -> None:
                 continue
             value_ids = getattr(node, "property_value_terminal_ids", None) or []
             for prop, term in correlate_property_terminals(
-                props, node.terminals, value_ids,
+                props,
+                node.terminals,
+                value_ids,
             ):
                 if term is None or term.display_name is not None:
                     continue
@@ -605,11 +628,16 @@ def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) ->
         return "Error"
     if frame.is_default or sv == "Default":
         return "Default"
-    if lv_type and lv_type.kind in ("enum", "ring") and lv_type.values \
-            and frame.selector_ranges:
+    if (
+        lv_type
+        and lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
+        and lv_type.values
+        and frame.selector_ranges
+    ):
         int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
         return _format_ranges(
-            frame.selector_ranges, lambda i: int_to_name.get(i, str(i)),
+            frame.selector_ranges,
+            lambda i: int_to_name.get(i, str(i)),
         )
     if frame.selector_ranges:  # integer selector
         return _format_ranges(frame.selector_ranges, str)
@@ -641,7 +669,8 @@ class ComponentPort:
 
 
 def _subvi_ports(
-    graph: InMemoryVIGraph, name: str,
+    graph: InMemoryVIGraph,
+    name: str,
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
     """Typed (inputs, outputs) port list for a called SubVI.
 
@@ -665,14 +694,14 @@ def _subvi_ports(
         ins = [
             ComponentPort(
                 name=t.name or str(t.index),
-                type=t.lv_type.lv_label() if t.lv_type else "Any",
+                type=t.lv_type.type_descriptor() if t.lv_type else "Any",
             )
             for t in sctx.inputs
         ]
         outs = [
             ComponentPort(
                 name=t.name or str(t.index),
-                type=t.lv_type.lv_label() if t.lv_type else "Any",
+                type=t.lv_type.type_descriptor() if t.lv_type else "Any",
             )
             for t in sctx.outputs
         ]
@@ -688,11 +717,13 @@ def _subvi_ports(
         # module existed.
         ins = [
             ComponentPort(name=t.name, type=str(t.type))
-            for t in entry.terminals if t.direction == "input"
+            for t in entry.terminals
+            if t.direction == "input"
         ]
         outs = [
             ComponentPort(name=t.name, type=str(t.type))
-            for t in entry.terminals if t.direction == "output"
+            for t in entry.terminals
+            if t.direction == "output"
         ]
         return ins, outs
     return None

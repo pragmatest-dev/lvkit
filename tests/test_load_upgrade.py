@@ -9,20 +9,27 @@ the whole-repo index with `calls == []` while a single-VI load found its 18
 callees. The fix tracks each VI's dependency-load depth and upgrades instead of
 early-returning.
 """
+
 from pathlib import Path
 
 import pytest
 
 from lvkit.graph import InMemoryVIGraph, LoadMode
 from lvkit.index.build import build_index
+from lvkit.index.model import NodeKind
 from lvkit.index.project import resolve_project
 
 pytestmark = pytest.mark.needs_samples
 
 _TESTCASE = (
     Path(__file__).resolve().parent.parent
-    / ".lvkit" / "cache" / "samples"
-    / "JKI-VI-Tester" / "source" / "Classes" / "TestCase"
+    / ".lvkit"
+    / "cache"
+    / "samples"
+    / "JKI-VI-Tester"
+    / "source"
+    / "Classes"
+    / "TestCase"
 )
 
 
@@ -40,9 +47,14 @@ def test_whole_repo_index_keeps_run_callees():
         pytest.skip("sample class absent")
     root, vi_paths = resolve_project(_TESTCASE)
     facts = {f.name: f for f in build_index(root, vi_paths).facts}
-    assert facts["run.vi"].calls, "run.vi lost its callees in the whole-repo build"
+    # The call graph is the kind='vi' node spine: run.vi's SubVI-call nodes
+    # carry the (now fully-qualified) callee names that survive the whole-repo
+    # build, and resolve to in-repo callee_paths.
+    call_nodes = [n for n in facts["run.vi"].nodes if n.kind is NodeKind.VI]
+    assert call_nodes, "run.vi lost its callees in the whole-repo build"
     # sanity: it calls its own class's methods
-    assert any("TestCase.lvclass:" in c for c in facts["run.vi"].calls)
+    assert any("TestCase.lvclass:" in (n.qualified_name or "") for n in call_nodes)
+    assert any(n.callee_path for n in call_nodes)
 
 
 def test_call_edges_are_load_order_independent():

@@ -65,7 +65,7 @@ def test_float_to_int_assignment_rounds_ties_to_even():
         VarSpec("k", "NumInt16", "out", False),
     ]
     out = _src("k = a / b;", variables)
-    assert "_lv.i16(" in out                      # int target -> width coercion
+    assert "_lv.i16(" in out  # int target -> width coercion
     # 7/2 = 3.5 -> round-half-to-even -> 4 (not C's truncate-to-3)
     assert _run("k = a / b;", variables, a=7.0, b=2.0)["k"] == 4
 
@@ -76,7 +76,7 @@ def test_fixed_width_integer_wraps():
         VarSpec("a", "NumInt32", "in", False),
         VarSpec("k", "NumUInt8", "out", False),
     ]
-    assert _run("k = a;", variables, a=300)["k"] == 44     # 300 % 256
+    assert _run("k = a;", variables, a=300)["k"] == 44  # 300 % 256
 
 
 def test_modulo_is_truncated_remainder():
@@ -93,23 +93,34 @@ def test_modulo_is_truncated_remainder():
 
 def test_abs_is_polymorphic():
     # Python abs handles both int and float — no fabs/abs dispatch needed.
-    fout = _run("y = abs(x);", [
-        VarSpec("y", "NumFloat64", "out", False),
-        VarSpec("x", "NumFloat64", "in", False),
-    ], x=-2.5)
+    fout = _run(
+        "y = abs(x);",
+        [
+            VarSpec("y", "NumFloat64", "out", False),
+            VarSpec("x", "NumFloat64", "in", False),
+        ],
+        x=-2.5,
+    )
     assert fout["y"] == 2.5
-    iout = _run("y = abs(x);", [
-        VarSpec("y", "NumInt32", "out", False),
-        VarSpec("x", "NumInt32", "in", False),
-    ], x=-7)
+    iout = _run(
+        "y = abs(x);",
+        [
+            VarSpec("y", "NumInt32", "out", False),
+            VarSpec("x", "NumInt32", "in", False),
+        ],
+        x=-7,
+    )
     assert iout["y"] == 7
 
 
 def test_int_function_rounds():
-    out = _src("y = int(x);", [
-        VarSpec("y", "NumFloat64", "out", False),
-        VarSpec("x", "NumFloat64", "in", False),
-    ])
+    out = _src(
+        "y = int(x);",
+        [
+            VarSpec("y", "NumFloat64", "out", False),
+            VarSpec("x", "NumFloat64", "in", False),
+        ],
+    )
     assert "round(x)" in out
 
 
@@ -121,18 +132,21 @@ def test_terminal_redeclaration_becomes_assignment():
         VarSpec("a", "NumInt32", "in", False),
     ]
     out = _src("int32 r=0;\nr = a;", variables)
-    assert "int32" not in out                     # no C-style declaration
+    assert "int32" not in out  # no C-style declaration
     assert _run("int32 r=0;\nr = a;", variables, a=5)["r"] == 5
 
 
 def test_signature_inputs_and_outputs():
-    res = transpile("a[0] = x;", [
-        VarSpec("a", "NumFloat64", "inout", True),
-        VarSpec("x", "NumFloat64", "in", False),
-        VarSpec("r", "NumInt32", "out", False),
-    ])
-    assert res.input_names == ["a", "x"]          # in + inout
-    assert res.output_names == ["a", "r"]         # inout + out
+    res = transpile(
+        "a[0] = x;",
+        [
+            VarSpec("a", "NumFloat64", "inout", True),
+            VarSpec("x", "NumFloat64", "in", False),
+            VarSpec("r", "NumInt32", "out", False),
+        ],
+    )
+    assert res.input_names == ["a", "x"]  # in + inout
+    assert res.output_names == ["a", "r"]  # inout + out
 
 
 # --- loops ----------------------------------------------------------------
@@ -159,7 +173,7 @@ def test_while_loop_runs():
         ],
         n=4,
     )
-    assert r["acc"] == 6.0          # 0+1+2+3
+    assert r["acc"] == 6.0  # 0+1+2+3
 
 
 def test_do_while_runs_body_once():
@@ -222,4 +236,4 @@ def test_emitted_function_is_valid_python_and_self_consistent():
     ]
     r = _run(script, variables, data=[10.0, 20.0, 30.0], n=3, out=[0.0])
     assert isinstance(r["gain"], int)
-    assert r["out"][0] == 120.0     # (10+20+30)*2, none exceed 32767
+    assert r["out"][0] == 120.0  # (10+20+30)*2, none exceed 32767

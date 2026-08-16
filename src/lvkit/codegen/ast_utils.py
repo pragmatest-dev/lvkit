@@ -7,7 +7,7 @@ import builtins
 import keyword
 import logging
 
-from lvkit.models import LVType, ScalarValue
+from lvkit.models import LVType, LVTypeKind, ScalarValue
 
 logger = logging.getLogger(__name__)
 
@@ -43,19 +43,27 @@ def default_value_expr(lv_type: LVType | None) -> ast.expr:
         return ast.Constant(value=None)
     kind = lv_type.kind
     underlying = lv_type.underlying_type
-    if kind == "array":
+    if kind == LVTypeKind.ARRAY:
         return ast.Constant(value=None)
-    if kind == "primitive":
+    if kind == LVTypeKind.PRIMITIVE:
         if underlying == "String":
             return ast.Constant(value="")
         if underlying == "Boolean":
             return ast.Constant(value=False)
-        if underlying in ("NumInt8", "NumInt16", "NumInt32", "NumInt64",
-                          "NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"):
+        if underlying in (
+            "NumInt8",
+            "NumInt16",
+            "NumInt32",
+            "NumInt64",
+            "NumUInt8",
+            "NumUInt16",
+            "NumUInt32",
+            "NumUInt64",
+        ):
             return ast.Constant(value=0)
         if underlying in ("NumFloat32", "NumFloat64"):
             return ast.Constant(value=0.0)
-    elif kind in ("enum", "ring"):
+    elif kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
     return ast.Constant(value=None)
 
@@ -181,6 +189,7 @@ def substitute_names(node: ast.expr, mapping: dict[str, str]) -> ast.expr:
     Returns:
         Transformed AST expression
     """
+
     class NameReplacer(ast.NodeTransformer):
         def visit_Name(self, node: ast.Name) -> ast.AST:
             name_lower = node.id.lower()

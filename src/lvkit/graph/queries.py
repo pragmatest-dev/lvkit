@@ -1,17 +1,15 @@
 """Query mixin for InMemoryVIGraph.
 
 Methods: get_inputs, get_outputs, get_constants, get_operations, get_wires,
-get_operation_order, get_node, get_dataflow_graph, get_predecessors,
-get_successors, get_source_of_output, get_vi_context, get_subvi_calls,
-resolve_vi_name, list_vis, get_vi_source_path, is_stub_vi, get_stub_vi_info,
-dependency graph queries, polymorphic VI methods,
-query/query_single, get_all_constants/primitives/clusters.
+get_operation_order, get_dataflow_graph (test-only), get_vi_context,
+get_subvi_calls, resolve_vi_name, list_vis, get_vi_source_path, is_stub_vi,
+get_stub_vi_info, dependency graph queries, polymorphic VI methods.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -20,18 +18,16 @@ import networkx as nx
 from ..models import ClusterField, FPTerminal, Operation, Terminal
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
+from .interface_order import ordered_interface
 from .models import (
     AnyGraphNode,
     ClassFieldEntry,
     ClassHierarchyInfo,
-    ClusterInfo,
     Constant,
-    ConstantInfo,
     ConstantNode,
     MethodAccessInfo,
     MethodOverrideInfo,
     PolyInfo,
-    PrimitiveInfo,
     StructureNode,
     StubTerminalInfo,
     StubVIInfo,
@@ -65,6 +61,8 @@ class QueryMixin:
     _stubs: set[str]
     _poly_info: dict[str, PolyInfo]
     _qualified_aliases: dict[str, str]
+    _name_to_keys: dict[str, list[str]]
+    _qname_to_keys: dict[str, list[str]]
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
     _vi_metadata: dict[str, VIMetadata]
@@ -81,137 +79,80 @@ class QueryMixin:
         def _build_operation(self, uid: str, vi_name: str) -> Operation: ...
         def has_parallel_branches(self, vi_name: str) -> bool: ...
         def get_class_fields(
-            self, classname: str,
+            self,
+            classname: str,
         ) -> list[ClusterField] | None: ...
-
-    # === Cypher query compat ===
-
-    def query(self, cypher: str, params: dict | None = None) -> list[dict]:
-        """Cypher query compatibility - routes to native methods.
-
-        Returns dicts for backward compatibility with legacy consumers.
-        """
-        cypher_lower = cypher.lower()
-
-        if "constant" in cypher_lower:
-            return [asdict(c) for c in self.get_all_constants()]
-        elif "primitive" in cypher_lower:
-            return [asdict(p) for p in self.get_all_primitives()]
-        elif "cluster" in cypher_lower:
-            return [asdict(c) for c in self.get_all_clusters()]
-
-        return []
-
-    def query_single(self, cypher: str, params: dict | None = None) -> dict | None:
-        """Single-result Cypher query compatibility."""
-        results = self.query(cypher, params)
-        return results[0] if results else None
-
-    def get_all_constants(self) -> list[ConstantInfo]:
-        """Get all constants across all VIs for enum discovery."""
-        results: list[ConstantInfo] = []
-        for vi_name, node_uids in self._vi_nodes.items():
-            for uid in node_uids:
-                if uid not in self._graph:
-                    continue
-                gnode = self._graph.nodes[uid].get("node")
-                if not isinstance(gnode, ConstantNode):
-                    continue
-                _const_value: str = (
-                    gnode.raw_value
-                    or (str(gnode.value) if gnode.value is not None else "")
-                )
-                results.append(ConstantInfo(
-                    vi_name=vi_name,
-                    value=_const_value,
-                    label=gnode.label,
-                    type=(
-                        (gnode.lv_type.underlying_type or "Any")
-                        if gnode.lv_type
-                        else "Any"
-                    ),
-                    python=gnode.value,
-                ))
-        return results
-
-    def get_all_primitives(self) -> list[PrimitiveInfo]:
-        """Get all primitives across all VIs for primitive discovery."""
-        results: list[PrimitiveInfo] = []
-        for vi_name, node_uids in self._vi_nodes.items():
-            for uid in node_uids:
-                if uid not in self._graph:
-                    continue
-                gnode = self._graph.nodes[uid].get("node")
-                if not isinstance(gnode, GraphPrimitiveNode):
-                    continue
-                input_types = [
-                    t.lv_type.lv_label() if t.lv_type else "Any"
-                    for t in gnode.terminals
-                    if t.direction == "input"
-                ]
-                output_types = [
-                    t.lv_type.lv_label() if t.lv_type else "Any"
-                    for t in gnode.terminals
-                    if t.direction == "output"
-                ]
-                results.append(PrimitiveInfo(
-                    vi_name=vi_name,
-                    prim_id=gnode.prim_id,
-                    input_types=input_types,
-                    output_types=output_types,
-                ))
-        return results
-
-    def get_all_clusters(self) -> list[ClusterInfo]:
-        """Get all cluster types across all VIs for shared type discovery."""
-        clusters: dict[str, set[str]] = {}
-
-        for vi_name, node_uids in self._vi_nodes.items():
-            for uid in node_uids:
-                if uid not in self._graph:
-                    continue
-                gnode = self._graph.nodes[uid].get("node")
-                if not isinstance(gnode, VINode):
-                    continue
-                # Check FP terminals on VINodes for cluster types
-                if gnode.vi != vi_name:
-                    continue
-                for term in gnode.terminals:
-                    if isinstance(term, FPTerminal) and term.control_type == "stdClust":
-                        name = term.name or "UnnamedCluster"
-                        if name not in clusters:
-                            clusters[name] = set()
-                        clusters[name].add(vi_name)
-
-        return [
-            ClusterInfo(name=name, id=name, vis=list(vis))
-            for name, vis in clusters.items()
-        ]
 
     # === Dependency Graph Queries ===
 
     def resolve_vi_name(self, vi_name: str) -> str:
-        """Resolve a VI name to its canonical form.
+        """Resolve any VI reference to its canonical ``vi_key`` (source path).
 
-        Handles both qualified names (MyLib.lvlib:VI.vi) and simple filenames.
+        A ``vi_key`` is a VI's identity: the canonical source-path string it was
+        loaded under (see ``_load_vi_recursive``). This accepts a ``vi_key``
+        (returned as-is), a qualified name (``Lib.lvclass:VI.vi``), a
+        differently-cased alias, or a bare filename, and maps it through the
+        name/qname reverse indexes. When a name/qname maps to MORE THAN ONE key
+        -- genuine on-disk duplicates (a VI copied into a build-output tree, or
+        parallel plugin trees) -- the pick is DETERMINISTIC (see
+        ``_pick_vi_key``), never first-filesystem-order (that was the confluence
+        bug). Returns the input unchanged when nothing matches.
         """
+        # Already a canonical key.
         if vi_name in self._vi_nodes:
             return vi_name
+        # A differently-cased / library reference aliased to a real key.
         if vi_name in self._qualified_aliases:
             return self._qualified_aliases[vi_name]
+        # Qualified name -> key(s).
+        keys = self._qname_to_keys.get(vi_name)
+        if keys:
+            return self._pick_vi_key(keys)
+        # Bare filename -> key(s).
+        keys = self._name_to_keys.get(vi_name)
+        if keys:
+            return self._pick_vi_key(keys)
+        # A qualified ref we didn't index under that exact qname: try its leaf.
         if ":" in vi_name:
-            simple_name = vi_name.split(":")[-1]
-            if simple_name in self._vi_nodes:
-                return simple_name
+            keys = self._name_to_keys.get(vi_name.rsplit(":", 1)[-1])
+            if keys:
+                return self._pick_vi_key(keys)
         return vi_name
+
+    def _pick_vi_key(self, keys: list[str]) -> str:
+        """Deterministically choose among duplicate ``vi_key``s that share a
+        name/qname. Prefer the richest copy -- a stripped built copy loses
+        control labels, so it carries fewer labelled terminals than its source
+        twin, and fewer graph nodes -- then the lexically-smallest key. Path is
+        the identity; this only fires for genuine on-disk duplicates, and the
+        final key tie-break makes it filesystem-order-independent."""
+        if len(keys) == 1:
+            return keys[0]
+
+        def rank(key: str) -> tuple[int, int, str]:
+            uids = self._vi_nodes.get(key) or set()
+            labelled = 0
+            if key in self._graph:
+                node = self._graph.nodes[key].get("node")
+                if node is not None:
+                    labelled = sum(
+                        1
+                        for t in getattr(node, "terminals", ())
+                        if getattr(t, "name", None)
+                    )
+            # Richest first (more labelled terminals, then more nodes); the key
+            # itself is the final, deterministic tie-break.
+            return (-labelled, -len(uids), key)
+
+        return min(keys, key=rank)
 
     def list_vis(self) -> list[str]:
         """List all VIs in the graph (excluding stubs)."""
         return list(self._vi_nodes.keys())
 
     def get_vi_source_path(self, vi_name: str) -> Path | None:
-        """Get the source file path for a VI."""
-        return self._source_paths.get(vi_name)
+        """Get the source file path for a VI (accepts a vi_key, qname, or name)."""
+        return self._source_paths.get(self.resolve_vi_name(vi_name))
 
     def locate_vi_file(self, vi_name: str) -> Path | None:
         """Best-effort on-disk ``.vi`` for a SubVI by name: an already-loaded
@@ -220,7 +161,7 @@ class QueryMixin:
         MINIMAL load the SubVIs aren't in ``_source_paths``, so this filename
         search is what lets a project-local SubVI's own ``_ICON.png`` resolve.
         The search-path index is built once, lazily, and cached."""
-        loaded = self._source_paths.get(vi_name)
+        loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
         if loaded is not None:
             return loaded
         if self._vi_file_index is None:
@@ -252,7 +193,7 @@ class QueryMixin:
             ("<userlib>", self._userlib_root),
         ):
             if qualified_path.startswith(token) and root is not None:
-                rel = qualified_path[len(token):].lstrip("/\\")
+                rel = qualified_path[len(token) :].lstrip("/\\")
                 if ".llb/" in rel.replace("\\", "/").lower():
                     return None  # packed member — needs archive extraction
                 candidate = root / rel
@@ -312,7 +253,7 @@ class QueryMixin:
                 ):
                     for term in gnode.terminals:
                         term_type = (
-                            term.lv_type.lv_label() if term.lv_type else "Any"
+                            term.lv_type.type_descriptor() if term.lv_type else "Any"
                         )
                         if term_type == "unknown":
                             term_type = "Any"
@@ -332,12 +273,14 @@ class QueryMixin:
 
     def get_vi_dependencies(self, vi_name: str) -> list[str]:
         """Get VIs that this VI depends on (SubVIs it calls)."""
+        vi_name = self.resolve_vi_name(vi_name)
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.successors(vi_name))
 
     def get_vi_dependents(self, vi_name: str) -> list[str]:
         """Get VIs that depend on this VI (VIs that call it)."""
+        vi_name = self.resolve_vi_name(vi_name)
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.predecessors(vi_name))
@@ -371,16 +314,19 @@ class QueryMixin:
         def scc_key(scc_id: int) -> str:
             return min(condensation.nodes[scc_id]["members"])
 
-        scc_order = list(reversed(list(
-            nx.lexicographical_topological_sort(condensation, key=scc_key)
-        )))
+        scc_order = list(
+            reversed(
+                list(nx.lexicographical_topological_sort(condensation, key=scc_key))
+            )
+        )
 
         vilib_resolver = get_vilib_resolver()
 
         for scc_id in scc_order:
             members = condensation.nodes[scc_id]["members"]
             convertible_vis = {
-                m for m in members
+                m
+                for m in members
                 if m not in self._stubs or vilib_resolver.has_implementation(m)
             }
             if convertible_vis:
@@ -397,7 +343,7 @@ class QueryMixin:
 
     def _get_vi_nodes(self, vi_name: str) -> set[str]:
         """Get the set of node UIDs belonging to a VI."""
-        return self._vi_nodes.get(vi_name, set())
+        return self._vi_nodes.get(self.resolve_vi_name(vi_name), set())
 
     def _get_typed_node(self, uid: str) -> AnyGraphNode | None:
         """Get the typed Pydantic node model for a graph node."""
@@ -406,11 +352,13 @@ class QueryMixin:
         return self._graph.nodes[uid].get("node")
 
     def get_dataflow_graph(self, vi_name: str) -> nx.DiGraph | None:
-        """Get a subgraph view for a VI (backward compat).
+        """Get a subgraph view for a VI (TEST-ONLY — no production callers;
+        retained for test_parser_regression's dataflow assertion).
 
         Returns a new DiGraph containing only nodes belonging to this VI,
         with edges between them. Used for backward compatibility.
         """
+        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return None
@@ -462,9 +410,7 @@ class QueryMixin:
             result["operation"] = gnode.operation
             result["object_name"] = gnode.object_name
             result["object_method_id"] = gnode.object_method_id
-            result["properties"] = [
-                {"name": p.name} for p in gnode.properties
-            ]
+            result["properties"] = [{"name": p.name} for p in gnode.properties]
             result["method_name"] = gnode.method_name
             result["method_code"] = gnode.method_code
             result["terminals"] = [
@@ -494,7 +440,7 @@ class QueryMixin:
             "id": t.id,
             "index": t.index,
             "direction": t.direction,
-            "type": t.lv_type.lv_label() if t.lv_type else "Any",
+            "type": t.lv_type.type_descriptor() if t.lv_type else "Any",
             "name": t.name,
         }
         if t.lv_type:
@@ -505,21 +451,7 @@ class QueryMixin:
                 d["typedef_name"] = t.lv_type.typedef_name
         return d
 
-    def get_node(self, vi_name: str, node_id: str) -> dict[str, Any] | None:
-        """Get a node's attributes from a VI's dataflow graph."""
-        node_uids = self._vi_nodes.get(vi_name)
-        if node_uids is None or node_id not in node_uids:
-            return None
-        if node_id not in self._graph:
-            return None
-        gnode = self._graph.nodes[node_id].get("node")
-        if gnode is None:
-            return None
-        return self._typed_node_to_legacy_dict(gnode)
-
-    def get_inputs(
-        self, vi_name: str, *, public_only: bool = True
-    ) -> list[Terminal]:
+    def get_inputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
         """Get VI input terminals.
 
         Reads from the VINode's terminal list (FPTerminal controls).
@@ -539,12 +471,10 @@ class QueryMixin:
             if public_only and isinstance(t, FPTerminal) and not t.is_public:
                 continue
             results.append(t)
-        return results
+        return ordered_interface(results, "input", gnode.connector_pattern_id)
 
-    def get_outputs(
-        self, vi_name: str, *, public_only: bool = True
-    ) -> list[Terminal]:
-        """Get VI output terminals.
+    def get_outputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
+        """Get VI output terminals, in canonical connector-pane order.
 
         Reads from the VINode's terminal list (FPTerminal indicators).
         """
@@ -563,10 +493,11 @@ class QueryMixin:
             if public_only and isinstance(t, FPTerminal) and not t.is_public:
                 continue
             results.append(t)
-        return results
+        return ordered_interface(results, "output", gnode.connector_pattern_id)
 
     def get_constants(self, vi_name: str) -> list[Constant]:
         """Get all constants in a VI."""
+        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
@@ -578,16 +509,18 @@ class QueryMixin:
             gnode = self._graph.nodes[uid].get("node")
             if not isinstance(gnode, ConstantNode):
                 continue
-            results.append(Constant(
-                id=gnode.id,
-                value=gnode.value,
-                lv_type=gnode.lv_type,
-                display_format=gnode.display_format,
-                raw_value=gnode.raw_value,
-                label=gnode.label,
-                parent=gnode.parent,
-                frame=gnode.frame,
-            ))
+            results.append(
+                Constant(
+                    id=gnode.id,
+                    value=gnode.value,
+                    lv_type=gnode.lv_type,
+                    display_format=gnode.display_format,
+                    raw_value=gnode.raw_value,
+                    label=gnode.label,
+                    parent=gnode.parent,
+                    frame=gnode.frame,
+                )
+            )
         return results
 
     def get_operations(self, vi_name: str) -> list[Operation]:
@@ -597,6 +530,7 @@ class QueryMixin:
         Only returns top-level operations -- inner operations (parent != None)
         are nested inside their structure's inner_nodes/frames lists.
         """
+        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
@@ -617,8 +551,7 @@ class QueryMixin:
 
         # Get operations in dataflow order, keeping only top-level
         ordered_ids = [
-            uid for uid in self.get_operation_order(vi_name)
-            if uid in top_level_op_uids
+            uid for uid in self.get_operation_order(vi_name) if uid in top_level_op_uids
         ]
         op_set = set(ordered_ids)
 
@@ -645,6 +578,7 @@ class QueryMixin:
         handled by their parent structure's codegen — including them here
         creates cycles (structure ↔ child edges) that break topological sort.
         """
+        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
@@ -688,44 +622,10 @@ class QueryMixin:
         except nx.NetworkXUnfeasible:
             return ordered_ids
 
-    def get_predecessors(self, vi_name: str, node_id: str) -> list[str]:
-        """Get nodes that feed into this node (direct predecessors)."""
-        if node_id not in self._graph:
-            return []
-        return list(self._graph.predecessors(node_id))
-
-    def get_successors(self, vi_name: str, node_id: str) -> list[str]:
-        """Get nodes that this node feeds into (direct successors)."""
-        if node_id not in self._graph:
-            return []
-        return list(self._graph.successors(node_id))
-
-    def get_source_of_output(self, vi_name: str, output_id: str) -> str | None:
-        """Trace an output terminal back to its source node.
-
-        Returns the ID of the node that produces the value for this output.
-        """
-        # In the unified graph, output_id is a terminal on the VINode.
-        # Find direct predecessors.
-        if vi_name not in self._graph:
-            return None
-
-        preds = list(self._graph.predecessors(vi_name))
-        if not preds:
-            return None
-
-        # Check if any predecessor has an edge whose dest terminal matches
-        for pred in preds:
-            for _, _, edata in self._graph.edges(pred, data=True):
-                dest_end = edata.get("dest")
-                if dest_end and dest_end.terminal_id == output_id:
-                    return pred
-
-        # Fall back to first predecessor
-        return preds[0] if preds else None
-
     def get_wires(
-        self, vi_name: str, include_internal: bool = False,
+        self,
+        vi_name: str,
+        include_internal: bool = False,
     ) -> list[Wire]:
         """Get all wires (edges) in a VI's dataflow graph.
 
@@ -738,6 +638,7 @@ class QueryMixin:
         want external wires only); pass ``include_internal=True`` to get
         the full set, with internal edges first (legacy behavior).
         """
+        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
@@ -762,8 +663,7 @@ class QueryMixin:
                     continue
 
                 is_internal = (
-                    bool(edata.get("tunnel_type"))
-                    or src_end.node_id == dst_end.node_id
+                    bool(edata.get("tunnel_type")) or src_end.node_id == dst_end.node_id
                 )
                 if is_internal and not include_internal:
                     continue
@@ -873,10 +773,12 @@ class QueryMixin:
                 continue
             gnode = self._graph.nodes[uid].get("node")
             if isinstance(gnode, VINode) and gnode.id != gnode.vi:
-                subvi_calls.append(SubVICall(
-                    call_name=gnode.name,
-                    vi_name=gnode.name,
-                ))
+                subvi_calls.append(
+                    SubVICall(
+                        call_name=gnode.name,
+                        vi_name=gnode.name,
+                    )
+                )
 
         # Build terminals list for skeleton generator
         terminals: list[TerminalRef] = []
@@ -887,14 +789,16 @@ class QueryMixin:
             if gnode is None:
                 continue
             for t in gnode.terminals:
-                terminals.append(TerminalRef(
-                    id=t.id,
-                    parent_id=gnode.id,
-                    index=t.index,
-                    type=t.lv_type.lv_label() if t.lv_type else "Any",
-                    name=t.name,
-                    direction=t.direction,
-                ))
+                terminals.append(
+                    TerminalRef(
+                        id=t.id,
+                        parent_id=gnode.id,
+                        index=t.index,
+                        type=t.lv_type.type_descriptor() if t.lv_type else "Any",
+                        name=t.name,
+                        direction=t.direction,
+                    )
+                )
 
         inputs = list(self.get_inputs(vi_name))
         outputs = list(self.get_outputs(vi_name))
@@ -913,7 +817,9 @@ class QueryMixin:
         description = vi_gnode.description if is_vinode else None
 
         return VIContext(
-            name=vi_name,
+            # Display name (bare filename), not the vi_key path; vi_key is the
+            # identity, qualified_name carries the library-qualified form.
+            name=vi_gnode.name if is_vinode and vi_gnode.name else vi_name,
             library=vi_meta.library,
             qualified_name=vi_meta.qualified_name,
             inputs=inputs,
@@ -974,7 +880,8 @@ class QueryMixin:
     def list_classes(self) -> list[str]:
         """List all loaded (non-stub) class names in the dependency graph."""
         return sorted(
-            n for n, d in self._dep_graph.nodes(data=True)
+            n
+            for n, d in self._dep_graph.nodes(data=True)
             if d.get("node_type") == "class" and n not in self._stubs
         )
 
@@ -983,6 +890,7 @@ class QueryMixin:
 
         Returns None if ``vi_name`` isn't a class method VI.
         """
+        vi_name = self.resolve_vi_name(vi_name)
         if vi_name not in self._dep_graph:
             return None
         for pred in self._dep_graph.predecessors(vi_name):
@@ -1002,6 +910,7 @@ class QueryMixin:
         methods (see ``loading.py``). Returns None if ``vi_name`` isn't a
         library member VI (or the library was never loaded).
         """
+        vi_name = self.resolve_vi_name(vi_name)
         if vi_name not in self._dep_graph:
             return None
         for pred in self._dep_graph.predecessors(vi_name):
@@ -1044,7 +953,8 @@ class QueryMixin:
         leaf = classname.rsplit(":", 1)[-1]
         own_bare = leaf[: -len(".lvclass")] if leaf.endswith(".lvclass") else leaf
         child_classes = sorted(
-            node for node, ndata in self._dep_graph.nodes(data=True)
+            node
+            for node, ndata in self._dep_graph.nodes(data=True)
             if ndata.get("node_type") == "class"
             and node not in self._stubs
             and ndata.get("parent_class") == own_bare
@@ -1054,7 +964,8 @@ class QueryMixin:
         # (present in list_vis() — excludes stub/unresolved method VIs).
         vis = set(self.list_vis())
         methods = sorted(
-            succ for succ in self._dep_graph.successors(classname)
+            succ
+            for succ in self._dep_graph.successors(classname)
             if succ in vis
             and (self._dep_graph.get_edge_data(classname, succ) or {}).get("rel")
             == "owns"
@@ -1066,9 +977,7 @@ class QueryMixin:
         )
         fields = [
             ClassFieldEntry(field=f, inherited=True) for f in inherited_fields
-        ] + [
-            ClassFieldEntry(field=f, inherited=False) for f in own_fields
-        ]
+        ] + [ClassFieldEntry(field=f, inherited=False) for f in own_fields]
 
         return ClassHierarchyInfo(
             classname=classname,
@@ -1174,19 +1083,32 @@ class QueryMixin:
         if hierarchy is None:
             return None
 
-        bare_method = vi_name.rsplit(":", 1)[-1]
-        vis = set(self.list_vis())
+        # Bare method name from the VI's own display name (path-key-safe;
+        # rsplit(":") would mangle a filesystem path key).
+        key = self.resolve_vi_name(vi_name)
+        node = self._graph.nodes[key].get("node") if key in self._graph else None
+        bare_method = (
+            node.name
+            if isinstance(node, VINode) and node.name
+            else vi_name.rsplit(":", 1)[-1]
+        )
+        # A parent/child class's version of this method is "documented" when its
+        # class-qualified name resolves to a loaded VI. VIs are path-keyed now,
+        # so resolve the qname to its vi_key and test membership (works whether
+        # the VI was loaded from disk or registered by qname in a test).
+        def _loaded(qname: str) -> bool:
+            return self.resolve_vi_name(qname) in self._vi_nodes
 
         overrides: str | None = None
         if hierarchy.parent_class:
             candidate = f"{hierarchy.parent_class}:{bare_method}"
-            if candidate in vis:
+            if _loaded(candidate):
                 overrides = candidate
 
         overridden_by: list[str] = []
         for child in hierarchy.child_classes:
             candidate = f"{child}:{bare_method}"
-            if candidate in vis:
+            if _loaded(candidate):
                 overridden_by.append(candidate)
         overridden_by.sort()
 
@@ -1220,7 +1142,8 @@ class ClassContext:
 
 
 def collect_class_context(
-    graph: InMemoryVIGraph, ctx: VIContext,
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
 ) -> ClassContext | None:
     """The owning class's context when ``ctx`` is a ``.lvclass`` method VI,
     else None -- the single source both ``describe._describe_class_context``

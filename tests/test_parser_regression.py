@@ -123,7 +123,8 @@ class TestSubVIPaths:
 class TestMemoryGraph:
     def test_vi_loaded(self, graph):
         vi_name = "GraphicalTestRunner.lvlib:Get Settings Path.vi"
-        assert vi_name in graph._loaded_vis
+        # VIs are keyed by path (identity) now; the qname resolves to that key.
+        assert graph.resolve_vi_name(vi_name) in graph._loaded_vis
 
     def test_multiple_vis_loaded(self, graph):
         assert len(graph._loaded_vis) > 1
@@ -246,5 +247,6 @@ class TestResilientVCTPExport:
         import pylabview.LVblock as lv_block
 
         from lvkit._pylabview_patches import install_pylabview_patches
+
         install_pylabview_patches()
         assert hasattr(lv_block.VCTP.exportXMLTypeDescList, "__wrapped__")

@@ -21,10 +21,11 @@ freshness on the owning ``.lvclass`` hash too is the sound fix (TODO); today the
 staleness window is a class-only edit between member-VI rebuilds.
 
 Sources (see graph/queries.py, models.py):
-- terminals  <- get_inputs/get_outputs (FPTerminal); is_error_cluster is
-               Terminal.is_error_cluster (models.py), precomputed here.
+- terminals  <- get_inputs/get_outputs (FPTerminal); type_descriptor +
+               type_kind from Terminal (models.py).
 - constants  <- get_all_constants + outgoing_edges/is_indicator for ``wired_to``.
-- calls      <- caller's metadata.subvi_qualified_names (caller-intrinsic).
+- nodes      <- graph.iter_nodes (block-diagram node spine; the call graph is
+               its ``kind='vi'`` slice via ``NodeFact.callee_path``).
 - type_uses  <- type_map classnames/typedef_names.
 - class_fact <- dep_graph class node (parent_class) + owns-edge (scope/accessor).
 """
@@ -32,37 +33,68 @@ Sources (see graph/queries.py, models.py):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
+
+from ..models import LVTypeKind
 
 # Terminal direction values (mirror models.Terminal.direction).
 INPUT = "input"
 OUTPUT = "output"
 
-# ConstantFact.wired_to values.
-WIRED_INDICATOR = "indicator"
-WIRED_CONTROL = "control"
-WIRED_OTHER = "other"
-WIRED_NONE = "unwired"
+
+class WiredTo(str, Enum):
+    """What a block-diagram constant's output wire feeds — precomputed on
+    ``ConstantFact.wired_to`` so "constants wired to indicators" is a filter, not
+    a per-query wire trace. ``(str, Enum)`` (not ``StrEnum`` — 3.11+) so a member
+    IS its string: it lands verbatim in a SQLite ``TEXT`` column and compares
+    equal to the plain string read back out."""
+
+    INDICATOR = "indicator"
+    CONTROL = "control"
+    OTHER = "other"
+    UNWIRED = "unwired"
+
+
+class NodeKind(str, Enum):
+    """The specific kind of one block-diagram node — the discriminator on
+    ``NodeFact``. ``(str, Enum)`` (not ``StrEnum``, 3.10 target) so a member IS
+    its string in a SQLite ``TEXT`` column and compares equal to the value read
+    back, exactly like ``WiredTo`` above.
+
+    Structure members reuse the netlist scope vocabulary verbatim
+    (graph/netlist.py ``_build_*_scope``: case/disabled/event/sequence, and
+    while/for from ``loop_type``), plus ``inplace`` for the In Place Element
+    Structure. ``other`` is the honest catch-all for any ``AnyGraphNode`` subtype
+    not enumerated here — never guessed."""
+
+    VI = "vi"  # a SubVI call site (VINode; iter_nodes excludes the VI-def node)
+    PRIMITIVE = "primitive"  # any primitive, incl. property/invoke nodes
+    CONSTANT = "constant"
+    LOCAL_VARIABLE = "local_variable"
+    FORMULA = "formula"
+    CASE = "case"
+    WHILE = "while"
+    FOR = "for"
+    SEQUENCE = "sequence"
+    EVENT = "event"
+    DISABLED = "disabled"
+    INPLACE = "inplace"
+    OTHER = "other"
 
 
 @dataclass
 class TerminalFact:
     """One connector-pane terminal (an FP control or indicator).
 
-    ``field_names`` are the cluster's field names when the terminal carries a
-    cluster/typedef (empty otherwise) — enough to classify a terminal
-    structurally (an error cluster is ``{status, code, source}``) without the
-    full ``LVType`` tree. ``is_error_cluster`` is precomputed from
-    ``Terminal.is_error_cluster`` so the demo query ("count error-indicator
-    names") is a straight filter, not a re-derivation.
-
-    ``py_type`` is the LOSSY codegen-target projection (``Terminal.
-    python_type()`` — enum/ring collapse to ``"int"``, cluster to
-    ``"dict[str, Any]"``, …); kept for existing callers. ``lv_type`` is the
-    FAITHFUL LabVIEW type label (``Terminal.lv_type.lv_label()``) — prefer it
-    for anything that reads the type back. ``enum_values`` are the enum/ring
-    member names in ORDINAL order (empty for non-enum terminals), so "does
-    this project use an enum with member X" is a straight filter over the
-    index, not a full VI reload.
+    ``type_descriptor`` is the EXACT faithful type descriptor
+    (``Terminal.type_descriptor()``), ``""`` when the type didn't resolve.
+    ``type_kind`` is the type's KIND (``LVTypeKind``: primitive/enum/cluster/
+    array/ring/typedef_ref/class), or ``None`` when genuinely unknown — the
+    small, discoverable value set to filter by (error clusters are
+    ``type_descriptor='Error'``). ``field_names`` are the cluster's field names
+    (a cluster/typedef terminal), enough to classify by field set without the
+    full ``LVType`` tree. ``enum_values`` are the enum/ring member names in
+    ORDINAL order (empty for non-enum terminals).
     """
 
     name: str | None
@@ -70,18 +102,17 @@ class TerminalFact:
     is_indicator: bool
     is_public: bool
     control_type: str | None
-    py_type: str  # Terminal.python_type() — LOSSY codegen-target projection
-    is_error_cluster: bool
     field_names: list[str] = field(default_factory=list)
     # The FP DCO uid — the durable BD<->FP bridge, stable across a rename
     # (same uid, changed name). Carried for correlation/diff parity.
     fp_dco_uid: str | None = None
-    # FAITHFUL LabVIEW type label — Terminal.faithful_type_label(): a family word
-    # ("cluster"/"unknown") when unresolved, never a Python annotation. "?" is a
-    # placeholder default the build always overwrites; matches ConstantFact.
-    lv_type: str = "?"
+    # Exact faithful type descriptor (Terminal.type_descriptor()); "" when the
+    # type didn't resolve — type_kind still identifies the family.
+    type_descriptor: str = ""
+    # The type's KIND family (LVTypeKind), or None when genuinely unknown.
+    type_kind: LVTypeKind | None = None
     # Enum/ring member names in ORDINAL order (by EnumValue.value); empty for
-    # non-enum terminals. From Terminal.lv_type.values.
+    # non-enum terminals.
     enum_values: list[str] = field(default_factory=list)
 
 
@@ -89,15 +120,49 @@ class TerminalFact:
 class ConstantFact:
     """A block-diagram constant, plus what its output wire feeds.
 
-    ``wired_to`` is precomputed (WIRED_INDICATOR/CONTROL/OTHER/NONE) so
+    ``wired_to`` is precomputed (WiredTo.INDICATOR/CONTROL/OTHER/UNWIRED) so
     "constants wired to indicators" is a filter, not a per-query wire trace.
     """
 
     value: str  # stringified constant value (raw_value or str(value))
     label: str | None
-    py_type: str  # LOSSY codegen projection; prefer lv_type to read the type
-    lv_type: str = "?"  # FAITHFUL LabVIEW type label (LVType.lv_label)
-    wired_to: str = WIRED_NONE
+    type_descriptor: str = ""  # exact faithful type descriptor; "" if unresolved
+    type_kind: LVTypeKind | None = None  # type KIND (LVTypeKind), or None
+    wired_to: WiredTo = WiredTo.UNWIRED
+
+
+@dataclass
+class NodeFact:
+    """One block-diagram node — the grep-not-read discovery spine.
+
+    Stores per-node FACTS to FIND cross-VI patterns in SQL (producer/consumer
+    discovery, per-call-site context, structure containment), NOT wire/dataflow
+    topology — that stays in the ``read_vi`` netlist read. Emitted in
+    ``graph.iter_nodes`` order and carried via the ``ord`` column, same
+    determinism contract as terminals/constants.
+
+    ``prim_id`` is the ROBUST filter for primitives (a stable numeric id);
+    ``name`` is human-convenience only (localized/variant strings). For a SubVI
+    call ``qualified_name`` is the callee's qualified name and ``callee_path`` is
+    its merge-resolved on-disk path (``None`` at projection time, backfilled at
+    merge via ``_resolve_callee``; ``None`` when the callee is external or an
+    ambiguous bare name that the resolver refuses to guess). ``object_name`` /
+    ``method_name`` are the property/invoke target class + invoke method.
+    ``parent_uid`` is the containing structure's uid — STRUCTURAL containment
+    only (``graph.models.GraphNode.parent``), never a wire/net — and ``frame`` is
+    the containing frame's selector value, so a structure's frame-contents are a
+    filter, not a wire trace."""
+
+    uid: str
+    kind: NodeKind
+    name: str | None = None
+    prim_id: int | None = None
+    qualified_name: str | None = None  # SubVI callee (unresolved key)
+    callee_path: str | None = None  # SubVI callee resolved path (merge-time)
+    object_name: str | None = None  # property/invoke target class
+    method_name: str | None = None  # invoke method
+    parent_uid: str | None = None  # containing structure uid, or None
+    frame: str | None = None  # containing frame selector value, or None
 
 
 @dataclass
@@ -118,7 +183,7 @@ class ClassFact:
     is_accessor: bool = False
     accessor_field: str | None = None
     # The owning class's private-data fields (incl. inherited), each rendered
-    # FAITHFULLY as "name: <lv_label>" — e.g. "testName: String". Empty for a
+    # FAITHFULLY as "name: <type_descriptor>" — e.g. "testName: String". Empty for a
     # class with no resolvable private data.
     private_data: list[str] = field(default_factory=list)
     # NI.ClassItem.IsStaticMethod on THIS method's own Item — parsed by
@@ -156,15 +221,15 @@ class LVProjMemberFact:
     the ``.lvproj`` tree — see ``structure.LVProjectMember``.
     """
 
-    lvproj_path: str        # abs path to the .lvproj file
-    lvproj_name: str        # .lvproj stem, e.g. 'VIUnit'
-    member_name: str        # member item name as declared in the .lvproj
-    member_url: str         # raw URL string from the .lvproj (pre-resolution)
+    lvproj_path: str  # abs path to the .lvproj file
+    lvproj_name: str  # .lvproj stem, e.g. 'VIUnit'
+    member_name: str  # member item name as declared in the .lvproj
+    member_url: str  # raw URL string from the .lvproj (pre-resolution)
     resolved_path: str | None  # abs on-disk path, or None if it doesn't resolve
-    member_type: str        # VI | Control | LVClass | Library
-    is_in_repo: bool        # resolves to a file under the indexed project root
-    target: str             # target Item it lives under (e.g. 'My Computer')
-    is_dependency: bool      # in the auto-collected Dependencies group
+    member_type: str  # VI | Control | LVClass | Library
+    is_in_repo: bool  # resolves to a file under the indexed project root
+    target: str  # target Item it lives under (e.g. 'My Computer')
+    is_dependency: bool  # in the auto-collected Dependencies group
 
 
 @dataclass
@@ -175,9 +240,10 @@ class VIFacts:
     an index row is reused when the stored sha still matches the on-disk VI
     (plus a schema/version guard) — see ``cache_paths.meta_fresh``.
 
-    ``calls`` / ``type_uses`` hold callee/type **keys** (LabVIEW qualified names,
-    e.g. ``TestCase.lvclass:run.vi``); the store/query layer resolves those to
-    ``path`` keys where the target is in the repo. ``impact_score`` (transitive
+    ``type_uses`` holds type **keys** (LabVIEW qualified names, e.g.
+    ``TestCase.lvclass``). The call graph lives on ``nodes`` — each ``kind='vi'``
+    node's ``callee_path`` resolves the callee to an in-repo path at merge time.
+    ``impact_score`` (transitive
     dependent count) is filled at merge time from the inverted call graph.
     """
 
@@ -265,15 +331,18 @@ class VIFacts:
     health_is_broken: bool = False  # VIHealth.is_broken, precomputed
     terminals: list[TerminalFact] = field(default_factory=list)
     constants: list[ConstantFact] = field(default_factory=list)
-    calls: list[str] = field(default_factory=list)  # callee qualified-name keys
+    # The block-diagram node spine (grep-not-read); see NodeFact. Intrinsic to
+    # this VI's own bytes, in iter_nodes order — except each NodeFact.callee_path
+    # is backfilled at merge (needs the whole-repo resolver), like impact_score.
+    nodes: list[NodeFact] = field(default_factory=list)
     type_uses: list[str] = field(default_factory=list)  # class/typedef keys
     class_fact: ClassFact | None = None
     impact_score: int = 0  # transitive dependents (filled at merge)
     # Direct in-repo callers of this VI (filled at merge from the inverted call
     # graph, same machinery as ``impact_score``). ``callers_count == 0`` is the
-    # reliable dead-code / uncalled-VI signal: it is computed on PATH identity
-    # (via ``build_call_graph``'s callee-key -> path resolution), so it is
-    # correct even for the many VIs whose ``qualified_name`` is None and whose
-    # ``calls`` rows hold bare filenames rather than qualified names — a
-    # name-matching anti-join over those columns silently misfires.
+    # reliable no-static-caller signal (dead code / entry point / dynamic
+    # launch): it is the in-degree of the node-spine call graph
+    # (``build_call_graph`` over each ``kind='vi'`` node's ``callee_path``),
+    # computed on PATH identity, so it is correct even for the many VIs whose
+    # ``qualified_name`` is None.
     callers_count: int = 0

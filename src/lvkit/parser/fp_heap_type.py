@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 
-from ..models import ClusterField, LVType, enum_values_from_labels
+from ..models import ClusterField, LVType, LVTypeKind, enum_values_from_labels
 
 # Leaf FP control classes → their faithful scalar type token. (Numeric
 # representation — I32 vs U16 vs DBL — is a further refinement; a bare
@@ -40,9 +40,7 @@ _SCALAR_CLASSES = {
 _RING_CLASSES = {"stdRing", "stdEnum"}
 _ARRAY_CLASSES = {"indArr", "stdArray"}
 # Control classes this reconstructor understands (a typedef wraps one of these).
-_KNOWN_CLASSES = (
-    _SCALAR_CLASSES.keys() | _RING_CLASSES | _ARRAY_CLASSES | {"stdClust"}
-)
+_KNOWN_CLASSES = _SCALAR_CLASSES.keys() | _RING_CLASSES | _ARRAY_CLASSES | {"stdClust"}
 
 
 def _multilabel_items(ctrl: ET.Element) -> list[str]:
@@ -111,7 +109,8 @@ def _array_element(arr: ET.Element) -> ET.Element | None:
 
 
 def reconstruct_control_lvtype(
-    ctrl: ET.Element, depth: int = 0,
+    ctrl: ET.Element,
+    depth: int = 0,
 ) -> LVType | None:
     """Reconstruct the ``LVType`` of one FP control DDO from its heap subtree.
 
@@ -134,7 +133,8 @@ def reconstruct_control_lvtype(
         if not items:
             return None
         return LVType(
-            kind="enum", underlying_type="Ring",
+            kind=LVTypeKind.ENUM,
+            underlying_type="Ring",
             values=enum_values_from_labels(items),
         )
 
@@ -149,26 +149,27 @@ def reconstruct_control_lvtype(
             )
         if not fields:
             return None
-        return LVType(kind="cluster", underlying_type="Cluster", fields=fields)
+        return LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster", fields=fields)
 
     if cls in _ARRAY_CLASSES:
         # Unlike ring/cluster (which return None when empty), an array stays a
         # faithful ``array`` even when its element type can't be reconstructed —
-        # array-ness itself is real information, and ``lv_label`` renders the
+        # array-ness itself is real information, and ``type_descriptor`` renders the
         # unknown element as ``[?]``.
         elem = _array_element(ctrl)
         return LVType(
-            kind="array",
+            kind=LVTypeKind.ARRAY,
             underlying_type="Array",
             element_type=(
                 reconstruct_control_lvtype(elem, depth + 1)
-                if elem is not None else None
+                if elem is not None
+                else None
             ),
             dimensions=1,
         )
 
     if cls in _SCALAR_CLASSES:
-        return LVType(kind="primitive", underlying_type=_SCALAR_CLASSES[cls])
+        return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=_SCALAR_CLASSES[cls])
 
     return None
 

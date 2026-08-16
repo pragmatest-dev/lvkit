@@ -50,7 +50,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "class=prim primResID 1907 = Array Max & Min (NI docs functions/array-max-min.html, Programming>Array): returns max value, its first index, min value, its first index. Connector pane confirmed from OpenG samples (limitDecendantsTo1Level, Fit VI window to Largest Dec): idx0 array in; idx1 max value; idx2 max index -- feeds Index Array / Delete From Array index ports, confirming it is the index, not the value; idx3 min value; idx4 min index. 1-D scalar-index form only; multidimensional index(es) outputs (which are arrays) are not modeled. Empty array -> index -1 per NI docs, value defaults to 0."
+      "note": "Array Max & Min -- returns max value & its first index, min value & its first index (NI array-max-min doc); terminals from OpenG samples 'limitDecendantsTo1Level', 'Fit VI window to Largest Dec'."
     },
     "1083": {
       "name": "First Call?",
@@ -68,7 +68,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "Synchronization palette. 0 inputs, 1 Boolean output. Returns TRUE only the first time the section runs after the VI is run, FALSE thereafter -- stateful per instance, NOT a constant (real boolean constants are bDConstDCO nodes and store their value; this is a class='prim' function with no stored value). Identity confirmed by the NI Synchronization doc + the functional-global 'Changed?' idiom (uninitialized shift register in a run-once loop, OR'd with a comparison). Handled by codegen/nodes/first_call.py (dispatched by primResID, not this template) -- emits a module-level flag seeded True, read then flipped False at each call site."
+      "note": "First Call? -- 0 inputs, 1 Boolean out; returns TRUE only on the first execution after the VI runs, FALSE thereafter (stateful, not a constant); matches NI Synchronization doc."
     },
     "1104": {
       "name": "Greater?",
@@ -101,7 +101,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater.html",
-      "note": "Same as 1102 but for arrays/clusters. Same semantics. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Greater? for arrays/clusters (same semantics as scalar 1102). Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1054": {
       "name": "Absolute Value",
@@ -158,7 +158,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1062": {
       "name": "Or",
@@ -192,7 +192,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1063": {
       "name": "Exclusive Or",
@@ -226,7 +226,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "Polymorphic over Boolean AND integers (bitwise). Corpus only ever shows numeric use; python_code=boolean, python_code_int=bitwise. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Polymorphic over Boolean and integers (bitwise); python_code=boolean, python_code_int=bitwise. Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1051": {
       "name": "Subtract",
@@ -257,7 +257,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/subtract.html",
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1141": {
       "name": "To Word Integer",
@@ -369,7 +369,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add.html",
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1052": {
       "name": "Multiply",
@@ -400,7 +400,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply.html",
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1057": {
       "name": "Absolute Value",
@@ -495,7 +495,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal.html",
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1112": {
       "name": "Empty String/Path?",
@@ -661,7 +661,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/select.html",
-      "note": "Select function: result = t_value if selector else f_value. primResID=1516 primIndex=136. All 334 class='prim' instances are Select; real Array Subset uses class='subset' (node_type resolution)."
+      "note": "Select -- result = t_value if selector else f_value (class='prim' primResID 1516; real Array Subset uses class='subset', resolved by node_type)."
     },
     "1608": {
       "name": "Flatten To String",
@@ -731,7 +731,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "REPLACES the prior generic placeholder ('Unknown Event/Notification Primitive 2076'). Confirmed via NI doc exact match: 'event registration refnum' (EventReg, from Register For Events / the eventRegNode), error in ('This node runs normally even if an error occurred before this node runs' -- same special wording as Destroy User Event) -> error out ONLY, no refnum passthrough (unregistering invalidates the registration). In 'DAQmx AO.vi' (lv-flex-channel-examples) the single observed instance's idx0 input comes directly from the eventRegNode-fed while-loop shift register carrying the accumulated EventReg -- exactly where an 'unregister everything on exit' call belongs (called once, outside/after the event loop). Only 1 real call site in the corpus (verified stays false). Identity is solid; CODEGEN is not. No lvkit user-event/event-registration runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py; notifiers got the same 'identity solid, placeholder codegen' treatment at 9101/9104/9102). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code."
+      "note": "Unregister For Events -- event registration refnum + error in -> error out only; matches NI Unregister For Events doc. Terminals from 'DAQmx AO.vi' (lv-flex-channel-examples). Placeholder codegen (no lvkit event-registration runtime yet)."
     },
     "2074": {
       "name": "Register Event Source (internal)",
@@ -776,7 +776,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "Renamed from the generic 'Unknown Event/Notification Primitive' placeholder with much more specific (but still not fully confident) evidence; kept as placeholder because no NI-documented function matches this exact shape. Found in 'DAQmx AO.vi' (lv-flex-channel-examples), appearing 6 times, always alongside prim 2135 (5 instances in the same VI): in EVERY 2074 instance where idx3 (error_in) is wired, its source is the error_out of a 2135 node -- i.e. 2074 is chained immediately AFTER 2135 per registered event source. 2135 is independently confirmed (see that entry) to register ONE event source of one selected event-type (its idx2 enum literally enumerates LabVIEW's built-in Event Type list: Value Change, Mouse Down, Panel Close, User Event, etc.). Given that pairing, 2074 most likely folds the freshly-registered single-source EventReg (idx0) plus its associated data/config (idx1 Cluster, idx4 UInt32) into the running accumulated EventReg (idx8 out), i.e. a per-source companion step to the pure 2-refnum merge done by 2402. This is a plausible, evidence-backed ROLE, not a confirmed NI verb -- no public doc page exists for anything at this exact shape, so identity is left as an internal/placeholder entry rather than asserting a name NI never published. verified stays false."
+      "note": "Register Event Source (internal) -- no matching NI doc; deduced compiler-internal fold of a freshly-registered EventReg into the running accumulated EventReg. Terminals from 'DAQmx AO.vi'. Placeholder codegen; verified false."
     },
     "2401": {
       "name": "Merge Errors",
@@ -801,7 +801,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "Merge Errors is EXPANDABLE: the corpus wires it up to idx14 (idx3 in 34 VIs) but the entry declared only in#1/in#2. in#1 is now the expandable base, absorbing all further error inputs into {expandable_inputs}. SCOPE: this mainly corrects the DECLARATION, so describe/netlist/render report every wired error terminal instead of two. It is NOT a generated-code data-loss fix as first assumed - codegen transforms error clusters into the held-error/exception model (_held_error = _held_error or e), which already merges N-way across branches, so the template is usually not emitted at all. Semantics simplified to first-error-wins; NI also falls back to the first WARNING when no error is present, which this does not model."
+      "note": "Merge Errors (NI Merge Errors doc) -- EXPANDABLE: in#1 is the expandable base absorbing all further error inputs; corpus wires up to idx14. Semantics simplified to first-error-wins (NI also falls back to first warning; not modeled)."
     },
     "1809": {
       "name": "Array Size",
@@ -1132,7 +1132,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html",
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1108": {
       "name": "Quotient & Remainder",
@@ -1169,7 +1169,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/quotient-remainder.html",
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1105": {
       "name": "Not Equal?",
@@ -1202,7 +1202,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html",
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1114": {
       "name": "Greater Or Equal To 0?",
@@ -1227,7 +1227,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal-to-0.html",
-      "note": "Unary comparison-to-0 (task #107). Verified >=0: fed by search-result offsets (Search 1D Array, Match Pattern offset-past-match = -1 if not found) across the corpus, testing 'found' -> feeds failUnless/Select. Must be >=0 (a hit at index 0 is valid), the complement of 1118 (<0 = not found). Was mislabeled binary 'Greater Or Equal?'."
+      "note": "Greater Or Equal To 0? (>=0) -- unary comparison-to-0, complement of 1118 (<0); pinned >=0 by search-result-offset feeders (Search 1D Array, Match Pattern offset-past-match) across the corpus. Was mislabeled 'Greater Or Equal?'."
     },
     "1167": {
       "name": "Boolean To (0,1)",
@@ -1281,7 +1281,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/logical-shift.html",
-      "note": "primIndex=101. Polymorphic on x (any int type). y = shift count: positive=left, negative=right (LabVIEW semantics; Python `<<` only does left). | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Logical Shift -- polymorphic on x (any int); y = shift count, positive=left, negative=right (LabVIEW). Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1053": {
       "name": "Divide",
@@ -1312,7 +1312,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",
-      "note": "primIndex=106. Polymorphic. Per docs: int/int produces Float64 (matches our 22+ observed instances of NumInt32/NumInt32 -> NumFloat64). Python `/` operator has same semantics. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Divide -- polymorphic; per NI docs int/int -> Float64 (Python `/` matches). Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1111": {
       "name": "Less Or Equal?",
@@ -1343,7 +1343,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal.html",
-      "note": "primIndex=114. Polymorphic numeric comparison. 7 observed signatures across all integer/float type pairs. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Less Or Equal? -- polymorphic numeric comparison. Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "8056": {
       "name": "Delete",
@@ -1403,7 +1403,7 @@
         "cancelled": "False",
         "error_out": "in_8"
       },
-      "note": "Renamed from a mislabelled \"File Dialog\". The two Boolean options at in#9/in#10 are entire-hierarchy and confirm; their ORDER was not disambiguated (pane indices run right-to-left/bottom-to-top), so do not trust those two names without a further check. python_code is a no-op placeholder: deletion is a side effect and is NOT execution-verified.",
+      "note": "Delete (NI Delete doc; renamed from a mislabelled 'File Dialog'). in#9/in#10 Boolean order (entire-hierarchy vs confirm) not disambiguated. python_code is a no-op placeholder, not execution-verified.",
       "verified": false
     },
     "1113": {
@@ -1428,7 +1428,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal-to-0.html",
-      "note": "Comparison-to-0 block (task #107). =0, the dominant to-0 form (77+ corpus files). NOTE on the block: on non-negative feeders (counts, sizes) ==0 and <=0 are behaviorally identical, so 1113(=0) vs 1115(<=0) can't be separated from usage alone; 1113 is pinned to =0 by history + doc slug. See 1115."
+      "note": "Equal To 0? (=0), the dominant to-0 form (NI equal-to-0 doc). On non-negative feeders ==0 and <=0 are behaviorally identical, so 1113(=0) vs 1115(<=0) is not corpus-separable; pinned by doc slug. See 1115."
     },
     "1115": {
       "name": "Less Or Equal To 0?",
@@ -1452,7 +1452,7 @@
       "inline": true,
       "verified": false,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal-to-0.html",
-      "note": "Unary comparison-to-0 (task #107). Best-supported as <=0: in 'test Queue Size is Zero' it checks a queue-status count (>=0) for 'is zero' -> the <=0 form (==0 is 1113). UNVERIFIED: on non-negative feeders <=0 and ==0 are behaviorally identical, so <=0 vs ==0 isn't corpus-separable. Was a duplicate 'Equal To 0?'."
+      "note": "Less Or Equal To 0? (<=0) (NI less-or-equal-to-0 doc) -- best-supported <=0 in 'test Queue Size is Zero' (checks a queue count >=0). UNVERIFIED: <=0 vs ==0 not corpus-separable. Was a duplicate 'Equal To 0?'."
     },
     "1117": {
       "name": "Greater Than 0?",
@@ -1476,7 +1476,7 @@
       "inline": true,
       "verified": false,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-than-0.html",
-      "note": "Unary comparison-to-0 (task #107). Best-supported as >0: fed by Array Size -> Select ('non-empty') and Match Pattern offset. UNVERIFIED: on non-negative feeders >0 and !=0 are behaviorally identical, so >0 vs !=0 isn't corpus-separable. !=0 (Not Equal To 0?) has NO located primResID in this corpus. Was mislabeled 'Not Equal To 0?'."
+      "note": "Greater Than 0? (>0) (NI greater-than-0 doc) -- fed by Array Size -> Select ('non-empty') and Match Pattern offset. UNVERIFIED: >0 vs !=0 not corpus-separable. Was mislabeled 'Not Equal To 0?'."
     },
     "1143": {
       "name": "To Unsigned Byte Integer",
@@ -1819,7 +1819,7 @@
         "cancelled": "False",
         "error_out": "in_8"
       },
-      "note": "Renamed from a mislabelled \"List Folder\". file (in#11) accepts a refnum or a path; text (out#2) is a string, or an array of strings when count is wired. Side-effecting IO, NOT execution-verified.",
+      "note": "Read from Text File (renamed from a mislabelled 'List Folder') -- file (in#11) accepts a refnum or path; text (out#2) is a string, or array of strings when count is wired. Side-effecting IO, not execution-verified.",
       "verified": false
     },
     "1537": {
@@ -1925,7 +1925,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal.html",
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1116": {
       "name": "Unresolved primitive 1116",
@@ -1949,7 +1949,7 @@
       "inline": true,
       "verified": false,
       "placeholder": true,
-      "note": "NOT a comparison-to-0 and NOT Call Chain (task #107). Corpus feeders are boolean/cluster (And -> 1116 -> error out; Bundle/Unbundle By Name -> 1116 -> Bundle/Unbundle By Name), which a numeric to-0 compare can't take. Unary 1in/1out, likely a boolean/error op. Used by TestCase.lvclass, so kept as a passthrough placeholder (removing it hard-fails that VI's codegen) until identified."
+      "note": "Unresolved primitive 1116 -- unary 1in/1out, likely a boolean/error op (corpus feeders are boolean/cluster, not numeric). Kept as a passthrough placeholder; used by TestCase.lvclass. Unidentified."
     },
     "1170": {
       "name": "Split Number",
@@ -2142,7 +2142,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sort-1d-array.html",
-      "note": "primIndex=206. In OpenG Sort wrappers, sorts ascending; the separately-located 1900 primitive applies Reverse 1D Array to flip to descending. Semantics confirmed: Frame 0 (ascending) passes through 1120 output; Frame 1 (descending) applies 1900 Reverse after 1120 Sort."
+      "note": "Sort 1D Array (sorts ascending) -- in OpenG Sort wrappers, the separate 1900 (Reverse 1D Array) flips to descending (case frame 1)."
     },
     "1900": {
       "name": "Reverse 1D Array",
@@ -2203,7 +2203,7 @@
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-1d-array.html",
-      "note": "primResID 1901 in class='prim' (166 corpus nodes) = Search 1D Array: returns the index of element in array searching from start_index, or -1 if not found. Terminal indices are REVERSED vs the doc order (idx3=array, idx2=element, idx1=start index) -- confirmed from wired types. Delete From Array (which also carries 1901 in the expandable class='aDelete') is a SEPARATE entry in the node_types section, resolved by node_type first. Was mislabeled 'Delete From Array' here, breaking all prim-class Search nodes (task #108)."
+      "note": "Search 1D Array -- returns the index of element (searching from start_index) or -1 if not found. Delete From Array (class='aDelete') is a separate node_type entry. Was mislabeled 'Delete From Array'."
     },
     "1902": {
       "name": "Reverse 1D Array",
@@ -2460,7 +2460,7 @@
       "placeholder": true,
       "python_code": "pass",
       "verified": false,
-      "note": "Was mislabelled Open/Create/Replace File - it is NOT file I/O; every call-site is VI-server (Open Untitled VI, Current VIs Reference). Its previous template called open(str(in_10)) - literally opening a file on disk for a VI-server call. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
+      "note": "Open VI Reference (renamed from a mislabelled 'Open/Create/Replace File') -- VI-server call, not file I/O; every call site is Open Untitled VI / Current VIs Reference. Placeholder codegen (no lvkit VI-server runtime yet)."
     },
     "8011": {
       "name": "Close Reference",
@@ -2488,7 +2488,7 @@
       "placeholder": true,
       "python_code": "pass",
       "verified": false,
-      "note": "Was mislabelled Close File (which documents a path output this pane lacks). in#11 accepts Array|Refnum, matching the documented \"also accepts 1D arrays of references\". All 253 call-sites are VI-server/appcontrol. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
+      "note": "Close Reference (renamed from a mislabelled 'Close File') -- in#11 accepts Array|Refnum; all call sites are VI-server/appcontrol. Placeholder codegen (no lvkit VI-server runtime yet)."
     },
     "9111": {
       "name": "Enqueue Element",
@@ -2647,7 +2647,7 @@
       "python_code": {
         "_body": "raise RuntimeError('Enqueue Element At Opposite End (9129) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op (LIFO push for the parser stack). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.enqueue_element_at_opposite_end()."
+      "note": "Queue op (LIFO push for the parser stack). Handled by codegen/nodes/queue_ops.py -> lvkit.labview_queue.enqueue_element_at_opposite_end()."
     },
     "9108": {
       "name": "Obtain Queue",
@@ -2752,9 +2752,7 @@
       ],
       "placeholder": true,
       "python_code": "pass",
-      "note": [
-        "CORRECTED (was mislabeled 'Get Queue Status'). Full-pane comparison against 9110 (below) proves the two are DIFFERENT functions, not twins: this pane has NO queue_out refnum output at all (releasing the reference invalidates it), while 9110's pane has a queue_out refnum at idx8. Real 'Get Queue Status' also has 5 more outputs (max_queue_size, #pending_remove, #pending_insert, #elements_in_queue) that this pane never carries in any observed instance. This 6-terminal shape (queue, force_destroy?, error_in -> queue_name, remaining_elements, error_out) is an EXACT type+count match for NI's Release Queue doc, including the 'error in ... runs normally even if an error occurred before this node runs' exception noted for error_in. FOLLOW-UP NEEDED (out of scope for this pass -- primitives.json only): codegen/nodes/queue_ops.py currently maps primResID 9109 to GET_QUEUE_STATUS/_generate_status() and calls lvkit.labview_queue.get_queue_status(queue, return_elements); that must be changed to a RELEASE_QUEUE=9109 case calling a new release_queue(queue, force_destroy) in lvkit/labview_queue.py, and QUEUE_PRIM_IDS/GET_QUEUE_STATUS must be repointed at 9110 (see that entry)."
-      ]
+      "note": "Release Queue (NI Release Queue doc; corrected from a mislabeled 'Get Queue Status') -- 6-terminal pane with no queue_out output (releasing invalidates the ref), distinct from Get Queue Status/9110."
     },
     "9101": {
       "name": "Obtain Notifier",
@@ -2806,7 +2804,7 @@
       "placeholder": true,
       "python_code": "pass",
       "verified": false,
-      "note": "Notifier family: EVERY refnum terminal here carries ref_type=NotifierRef - that field is the identity. Lifecycle confirmed in VI-Tester: 9101 obtain -> 9104 send -> 9105 wait -> 9102 release. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
+      "note": "Obtain Notifier -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
     },
     "9102": {
       "name": "Release Notifier",
@@ -2852,7 +2850,7 @@
       "placeholder": true,
       "python_code": "pass",
       "verified": false,
-      "note": "Notifier family: EVERY refnum terminal here carries ref_type=NotifierRef - that field is the identity. Lifecycle confirmed in VI-Tester: 9101 obtain -> 9104 send -> 9105 wait -> 9102 release. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
+      "note": "Release Notifier -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
     },
     "9105": {
       "name": "Wait on Notification",
@@ -2910,7 +2908,7 @@
       "placeholder": true,
       "python_code": "pass",
       "verified": false,
-      "note": "Notifier family: EVERY refnum terminal here carries ref_type=NotifierRef - that field is the identity. Lifecycle confirmed in VI-Tester: 9101 obtain -> 9104 send -> 9105 wait -> 9102 release. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
+      "note": "Wait on Notification -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
     },
     "9104": {
       "name": "Send Notification",
@@ -2950,7 +2948,7 @@
       "placeholder": true,
       "python_code": "pass",
       "verified": false,
-      "note": "Notifier family: EVERY refnum terminal here carries ref_type=NotifierRef - that field is the identity. Lifecycle confirmed in VI-Tester: 9101 obtain -> 9104 send -> 9105 wait -> 9102 release. Identity is solid; CODEGEN is not. No lvkit notifier/VI-server runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code. Needs the same runtime treatment queues got."
+      "note": "Send Notification -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
     },
     "8017": {
       "name": "Preserve Run-Time Class",
@@ -3382,7 +3380,7 @@
       "inline": true,
       "verified": false,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-type-information-vi.html",
-      "note": "Indices corrected from an invalid idx -1 (which generated the syntactically broken reference in_-1). Pane observed identical across all call-sites. python_code is best-effort for variant type info and is NOT execution-verified."
+      "note": "Get Type Information -- pane observed identical across all call-sites; indices corrected from an invalid idx -1. python_code is best-effort for variant type info, not execution-verified."
     },
     "23063": {
       "name": "Empty Array?",
@@ -3666,7 +3664,7 @@
       "python_code": {
         "swapped": "[((v & 0x00FF00FF) << 8) | ((v >> 8) & 0x00FF00FF) for v in in_1]"
       },
-      "note": "Data-manipulation endianness pair; always chained 1162->1163 = full 32-bit byte-reversal (MD5 little-endian words / file fields). Assignment (Bytes=1162, Words=1163) follows palette order: Swap Bytes precedes Swap Words in the NI docs, matching the resolved 1814<1815 (Number->Bool before Bool->Number) local-ordering precedent. Net result identical either way. Polymorphic: Array[U32] + cluster.",
+      "note": "Swap Bytes -- endianness op; chained 1162->1163 gives a full 32-bit byte-reversal (MD5 little-endian words). Bytes=1162/Words=1163 follows NI palette order. Polymorphic: Array[U32] + cluster.",
       "verified": false
     },
     "1163": {
@@ -3689,7 +3687,7 @@
       "python_code": {
         "swapped": "[((v & 0xFFFF) << 16) | ((v >> 16) & 0xFFFF) for v in in_1]"
       },
-      "note": "Data-manipulation endianness pair; always chained 1162->1163 = full 32-bit byte-reversal (MD5 little-endian words / file fields). Assignment (Bytes=1162, Words=1163) follows palette order: Swap Bytes precedes Swap Words in the NI docs, matching the resolved 1814<1815 (Number->Bool before Bool->Number) local-ordering precedent. Net result identical either way. Polymorphic: Array[U32] + cluster.",
+      "note": "Swap Words -- endianness op; chained 1162->1163 gives a full 32-bit byte-reversal (MD5 little-endian words). Bytes=1162/Words=1163 follows NI palette order. Polymorphic: Array[U32] + cluster.",
       "verified": false
     },
     "8050": {
@@ -4716,7 +4714,7 @@
         "result": "in_2 * (2.0 ** in_1)"
       },
       "verified": true,
-      "note": "Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1181": {
       "name": "Number To Hexadecimal String",
@@ -4847,7 +4845,7 @@
         "exists": "__import__('os').path.exists(in_11)",
         "error_out": "in_8"
       },
-      "note": "identified by pane: file-pattern (e.g. *.gif) + start path -> path + cancelled?/exists? booleans = File Dialog signature. Express-VI page has no backend connector pane; verify names if refining.",
+      "note": "File Dialog -- identified by pane signature (file-pattern + start path -> path + cancelled?/exists?). Express-VI doc page has no backend connector pane, so verify names if refining.",
       "verified": false
     },
     "1082": {
@@ -4876,7 +4874,7 @@
       "python_code": {
         "x_shifted": "((in_2 << in_1) if in_1 >= 0 else (in_2 >> -in_1)) & 0xFFFFFFFF"
       },
-      "note": "positive n = shift left, negative = right, zero-fill; masked to source width (U32 here). MD5 builds its circular rotate from this. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index.",
+      "note": "Logical Shift -- positive n = shift left, negative = right, zero-fill; masked to source width (U32 here; MD5 builds its circular rotate from this). Input slots run Bottom->Top, so the upper input `x` takes the higher index.",
       "verified": false
     },
     "1188": {
@@ -4931,7 +4929,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "Valid Path: inputs are Empty String/Path? (1112) and Not A Number/Path/Refnum? (1128) - both badness predicates - and the output is validity, so valid = NOT(empty OR not-a-path) = NOR. And/Or/Xor/Not (1061-1064) are already claimed, and only NOR satisfies that truth table. Commutative, so operand order is irrelevant. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Not Or (NOR) -- deduced from a Valid Path idiom: NOT(empty OR not-a-path); only NOR fits that truth table (And/Or/Xor/Not already claimed at 1061-1064). Commutative. Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1425": {
       "name": "VI Library",
@@ -4949,7 +4947,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "Directory is NOT node-selectable: the node XML is byte-identical in VI Library / User Library / Instrument Library (same objFlags, primIndex 194); those VIs differ only downstream, appending user.lib / instr.lib via Build Path. Identified WITHOUT using the calling VI name: in Is VI-LIB the output feeds Path To Array Of Strings and an Equal? against the leading components of the input path - a literal is-this-under-<vi.lib> test. python_code has no faithful Python equivalent and is a placeholder."
+      "note": "VI Library constant (vi.lib path) -- node XML is byte-identical to the User/Instrument Library variants; identified in 'Is VI-LIB' (output feeds Path To Array Of Strings + Equal? on the path). python_code is a placeholder."
     },
     "1539": {
       "name": "Spreadsheet String To Array",
@@ -4991,7 +4989,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "Indices deduced, not guessed: in_3 is the only DATA-fed input across all call-sites (Read Lines From File / Trim Whitespace / Scan From String); in_2 is the only Array input and matches the Array output element type. termBounds then fix the rest - the left column reads top-to-bottom as format string (idx4), spreadsheet string (idx3), array type (idx2), matching NI pane order, leaving idx1 = delimiter. python_code covers ONLY the 2-D string case; real dimensionality/element type come from array_type + format_string and need an lvkit runtime helper."
+      "note": "Spreadsheet String To Array -- splits a delimited string into a typed array. python_code covers only the 2-D string case; real dimensionality/element type come from array_type + format_string and need an lvkit runtime helper."
     },
     "1075": {
       "name": "Round Toward -Infinity",
@@ -5015,7 +5013,7 @@
       },
       "inline": true,
       "verified": true,
-      "note": "1076 is already Round Toward +Infinity, excluding +Inf. Round To Nearest is excluded because in Random Number Within Range 1075 feeds To Long Integer (1142), which NI documents as already rounding to nearest - that would make it a no-op. Forcing case: MasterAquisitionFile_2P wires Multiply -> 1075 -> Index Array.index, where a scaled fraction MUST floor or it overruns the array. 1075 and 1076 co-occur in GenerateStimulusOutputs_FP, so they are distinct modes. NOTE NI slugs are counterintuitive: unsuffixed round-toward-infinity.html is -Inf."
+      "note": "Round Toward -Infinity (floor) -- forced in 'MasterAquisitionFile_2P' (a scaled index must floor); distinct from 1076 (+Inf), co-occurring in 'GenerateStimulusOutputs_FP'. NB NI slug misleads: unsuffixed round-toward-infinity.html is -Inf."
     },
     "1180": {
       "name": "Number To Decimal String",
@@ -5045,7 +5043,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "Pane is index-for-index identical to the shipped 1181 Number To Hexadecimal String (idx1 width, idx2 number, idx0 string) and primIdx is consecutive (1180->14, 1181->15) - adjacent palette slots where Decimal precedes Hexadecimal. Exactly 2 inputs excludes Engineering/Fractional/Exponential (which add precision). python_code not execution-verified for the width/pad semantics."
+      "note": "Number To Decimal String -- pane identical to sibling 1181 (Number To Hexadecimal String), adjacent palette slot (Decimal precedes Hex); 2 inputs excludes Engineering/Fractional/Exponential. python_code not execution-verified for width/pad."
     },
     "1213": {
       "name": "Power Of X",
@@ -5075,7 +5073,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "Algorithm-forced: every call-site is 1213 -> Multiply -> Less? -> Select against a PCO_GetCameraDescription field (clamping a time to a camera limit). idx1 is fed by a constant decoding to 1000 whose DDO label is literally \"x\"; idx2 by a Subtract of timebase indices. PCO timebases are ns/us/ms, so value * 1000^dTB is the SDK unit conversion. Logarithm Base X excluded: log1000(dTB) is -inf at 0. Operand order follows the SHIPPED convention - see task #115, unresolved. | Input names moved onto the slots their names imply: the index space is Bottom->Top, so the documented upper input `x` takes the HIGHER index. Was entered in doc-listing order against ascending index."
+      "note": "Power Of X -- algorithm-forced in the PCO camera examples: value * 1000^dTB is the SDK timebase (ns/us/ms) unit conversion; Logarithm Base X excluded (log1000(0) = -inf). Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1340": {
       "name": "One Button Dialog",
@@ -5105,7 +5103,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "Stable 3-terminal pane across 19 instances. Wiring tally pins the inputs: idx2 wired 19/19, idx1 wired 0/19 - matching NI's documented default button name (\"OK\"), which is why it is never wired while message is required. Two Button Dialog excluded (three strings). Side-effecting dialog; python_code does not emit the dialog."
+      "note": "One Button Dialog -- 3-terminal pane; message (idx2) wired 19/19, button name (idx1) never wired (defaults 'OK'). Two Button Dialog excluded (three strings). Side-effecting dialog; python_code does not emit it."
     },
     "2408": {
       "name": "New Data Value Reference",
@@ -5142,7 +5140,7 @@
       },
       "inline": true,
       "verified": false,
-      "note": "Identity from ref_type=DataValueRef on the out#3 refnum (per the skill, ref_type IS the identity); every call-site is a *_New.vi LVOOP constructor. Cluster directions pinned because idx7 is sometimes a Refnum (a DVR wrapping a refnum), which an error-in never is. python_code models the DVR as a 1-element list and is PROVISIONAL - belongs with the lvkit runtime decision, not inlined."
+      "note": "New Data Value Reference -- identity from ref_type=DataValueRef on the out#3 refnum; every call site is a *_New.vi LVOOP constructor. python_code models the DVR as a 1-element list and is PROVISIONAL (belongs with the lvkit runtime decision)."
     },
     "9110": {
       "name": "Get Queue Status",
@@ -5218,9 +5216,7 @@
       ],
       "placeholder": true,
       "python_code": "pass",
-      "note": [
-        "This is the FULL, 11-terminal Get Queue Status pane -- an exact type+count match to the NI doc (queue, return_elements?, error_in -> max_queue_size, queue_name, queue_out, #pending_remove, #pending_insert, error_out, #elements_in_queue, elements), cross-checked identical across 2 independent VIs ('Graphical Test Runner - Main UI - .vi' and 'test Queue Size is Zero.vi', JKI VI-Tester). idx7 (elements_in_queue) is confirmed by DIRECT dataflow: in 'test Queue Size is Zero.vi' idx7's output feeds prim 1115 ('Less Or Equal To 0?', in_1<=0) -- i.e. the VI literally computes 'is queue size <= 0', which only makes sense if idx7 is the element count. idx8/idx11/idx5/idx6 are unambiguous by unique type (Refnum/Cluster/Array/String). idx4 (max_queue_size), idx9 (pending_remove), idx10 (pending_insert) are the 3 remaining same-typed (NumInt32) slots, assigned by connector-pane column position: idx8-9-10-11 form one single-height output column running top-to-bottom in the SAME order as the NI doc list (queue_out, pending_remove, pending_insert, error_out) -- idx4 is what's left by elimination. 9109 was previously (and wrongly) labeled 'Get Queue Status' with only a 6-terminal subset pane; see the corrected 9109 entry (Release Queue) for the full comparison. FOLLOW-UP NEEDED (out of scope for this pass): queue_ops.py's GET_QUEUE_STATUS constant and QUEUE_PRIM_IDS must be repointed from 9109 to 9110, _generate_status() must be extended to unpack all 8 outputs, and lvkit.labview_queue.get_queue_status() must be extended to return (max_queue_size, queue_name, queue_out, pending_remove, pending_insert, elements_in_queue, elements) instead of just (name, elements)."
-      ]
+      "note": "Get Queue Status -- full 11-terminal pane, exact type+count match to the NI Get Queue Status doc; terminals pinned from 'Graphical Test Runner - Main UI - .vi' and 'test Queue Size is Zero.vi' (JKI VI-Tester). 9109 is the corrected Release Queue."
     },
     "9114": {
       "name": "Flush Queue",
@@ -5261,9 +5257,7 @@
       "python_code": {
         "_body": "raise RuntimeError('Flush Queue (9114) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": [
-        "Exact type+count match to NI's Flush Queue doc (queue, error_in -> queue_out, remaining_elements, error_out; NO extra terminals -- distinguishes it from Release Queue/9109, which lacks queue_out, and from Get Queue Status/9110, which has far more outputs). Index pattern (idx0 queue in, idx3 error_in, idx8 queue_out, idx9 element(s) out, idx11 error_out) matches the sibling Dequeue Element (9113) pane exactly, minus the timeout/timed_out pair Flush Queue doesn't have. Cross-checked identical across 2 independent VIs ('Graphical Test Runner - Main UI - .vi' and 'Measurement UI.vi' / Game Of Life, measurement-plugin-labview). FOLLOW-UP NEEDED (out of scope for this pass): codegen/nodes/queue_ops.py needs a FLUSH_QUEUE=9114 case added to QUEUE_PRIM_IDS/generate(), and lvkit/labview_queue.py needs a flush_queue(queue) function (pop all pending elements front-to-back into a list and return it, mirroring LVQueue.status() but draining instead of peeking)."
-      ]
+      "note": "Flush Queue -- empties a queue, returns the drained elements (NI Flush Queue doc); terminals pinned from 'Graphical Test Runner - Main UI - .vi', 'Measurement UI.vi'. Distinct from Release Queue/9109 and Get Queue Status/9110."
     },
     "2073": {
       "name": "Create User Event",
@@ -5297,7 +5291,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "Confirmed via NI doc exact match: 'user event data type' (a cluster of elements or an individual element whose labels/types define the event's name+data), error in -> user event out (strictly-typed UserEvent refnum), error out. ref_type=UserEvent on the output is the clean-room identity signal. Cross-checked identical across 2 independent VIs (JKI VI-Tester 'Graphical Test Runner - Main UI - .vi': idx0 resolved Boolean; lv-flex-channel-examples 'WaveGen.vi': idx0 resolved Cluster) -- the varying idx0 type across instances is exactly the documented polymorphism ('cluster of elements OR an individual element'). Identity is solid; CODEGEN is not. No lvkit user-event/event-registration runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py; notifiers got the same 'identity solid, placeholder codegen' treatment at 9101/9104/9102). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code."
+      "note": "Create User Event (NI Create User Event doc) -- user event data-type -> UserEvent refnum out (ref_type=UserEvent is the identity). Terminals from 'Graphical Test Runner - Main UI - .vi', 'WaveGen.vi'. Placeholder codegen."
     },
     "2075": {
       "name": "Destroy User Event",
@@ -5325,7 +5319,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "Confirmed via NI doc exact match: 'user event' (UserEvent refnum from Create User Event), error in ('This node runs normally even if an error occurred before this node runs' -- matches this primitive's special error-in semantics) -> error out ONLY (no refnum passthrough -- destroying invalidates the reference, which is why this pane has no 'user event out'). Cross-checked identical across 2 independent VIs (JKI VI-Tester Graphical Test Runner; measurement-plugin-labview 'Run Client.vi'). NOTE FOR MAINTAINER (not touched, out of scope): src/lvkit/codegen/class_builder.py line ~385 has a stale/incorrect comment listing prim 2075 as 'Merge Errors' in _is_simple_accessor()'s simple_prim_ids set (2076 is listed there too, as 'Clear Error'). Per this resolution and the adjacent 2076 entry (Unregister For Events), NEITHER of those identifications is correct -- flagging for a follow-up fix, not changed here since it's outside primitives.json/tests scope. Identity is solid; CODEGEN is not. No lvkit user-event/event-registration runtime exists yet (queues have lvkit.labview_queue + codegen/nodes/queue_ops.py; notifiers got the same 'identity solid, placeholder codegen' treatment at 9101/9104/9102). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong code."
+      "note": "Destroy User Event (NI Destroy User Event doc) -- UserEvent refnum + error in -> error out only (destroying invalidates the ref). Terminals from 'Graphical Test Runner - Main UI - .vi', 'Run Client.vi'. Placeholder codegen."
     },
     "2402": {
       "name": "Merge Event Registrations",
@@ -5352,7 +5346,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "No public NI doc page found for this exact 2-EventReg-refnum-in / 1-EventReg-refnum-out shape with NO error cluster at all -- searched the full NI function catalog under 'event'/'regist'/'refnum' keywords; nothing matches. Deduced as a COMPILER-INTERNAL glue primitive (name is a clean-room descriptive label, not an NI-documented title), analogous in role to prim 2401 Merge Errors at the immediately adjacent resID (also a pure-refnum-combine op with no error terminal of its own). Evidence: NI's Register For Events doc explicitly documents refnum-chaining ('wire the top left input of the Register For Events function to... modify the existing registration instead of registering again'), i.e. LabVIEW natively combines multiple dynamic event-source registrations into one EventReg. In 'DAQmx AO.vi' (lv-flex-channel-examples), 2402 appears 3 times: one instance's idx0 comes directly from the diagram's eventRegNode, and its output feeds both a Bundle node and the enclosing while loop's shift register (the master EventReg the Event structure reads each iteration); the other two instances chain off a 'Read Event.vi' SubVI call (which itself likely performs an internal dynamic registration and returns a fresh EventReg to fold in). This reads as the compiler's automatic merge step whenever a static eventRegNode registration is combined with additional dynamically-obtained registrations, mirroring how 2401 merges multiple error-cluster branches. Cross-checked structurally identical (3 same-shaped instances in 'DAQmx AO.vi' plus matching instances in 'WaveGen.vi' and 'Control.vi', same library). No runtime exists for event registration in lvkit, and the exact merge semantics (which refnum 'wins', or whether both remain independently live) cannot be confirmed without a public spec, so left as placeholder pass."
+      "note": "Merge Event Registrations (internal) -- no matching NI doc; deduced compiler-internal glue combining two EventReg refnums into one (like 2401 Merge Errors). Terminals from 'DAQmx AO.vi', 'WaveGen.vi', 'Control.vi'. Placeholder codegen."
     },
     "2135": {
       "name": "Register Event Source For Event Type (internal)",
@@ -5415,7 +5409,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "No public NI function page matches this shape -- deduced as a compiler-internal primitive that the eventRegNode / Register For Events construct expands into once per configured (event source, event type) pair; users never place this node directly (per NI docs, they configure it via the Register For Events icon's right-click menu or the eventRegNode UI). STRONG evidence for the domain: idx2's enum type (UnitUInt32) carries LabVIEW's actual built-in Event Type enumeration as its values -- 'Timeout', 'Value Change', 'Mouse Down', 'Mouse Down?', 'Panel Close', 'Panel Close?', 'Key Down', 'User Event', 'Cell Edit', 'Tree Item Open', etc. (67 values, read directly from the VI's own type map in 'DAQmx AO.vi') -- this is exactly the closed set of events NI's Register For Events doc describes selecting via 'right-click the data item for the event source and select the event to detect'. Cross-checked structurally identical across 5 instances within 'DAQmx AO.vi' and confirmed in the sibling 'WaveGen.vi' (same lv-flex-channel-examples library). Exact field semantics for idx1 (dynamic/static?), idx4/idx5 (a source identifier and some config value) are a reasonable but unconfirmed reading -- no doc page exists to pin them precisely, hence placeholder + verified:false despite the strong enum evidence for the overall identity/domain."
+      "note": "Register Event Source For Event Type (internal) -- no matching NI doc; compiler-internal expansion of Register For Events; idx2 enum carries LabVIEW's built-in Event Type list. Terminals from 'DAQmx AO.vi', 'WaveGen.vi'. Placeholder, verified false."
     },
     "9000": {
       "name": "Current VI's Menubar",
@@ -5431,7 +5425,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "Confirmed via NI doc exact match: the ONLY function in the Menu category with a single terminal (menu reference output, no inputs, no error terminals at all -- 'Returns the menu reference refnum of the current VI'). ref_type=Menu on the sole output is the clean-room identity signal. Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false."
+      "note": "Current VI's Menubar (NI Menu-category doc) -- single output, no inputs; returns the current VI's menu reference (ref_type=Menu). Terminals from 'Graphical Test Runner - Main UI - .vi'. Placeholder codegen (no lvkit Menu runtime)."
     },
     "9003": {
       "name": "Insert Menu Items",
@@ -5495,7 +5489,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "Confirmed via NI doc exact match: 6 inputs (menu tag, menu reference, item names, item tags, error in, after item) + 3 outputs (menu reference out, item tags out, error out) = 9 named terminals, exactly matching the observed 9-terminal pane. Types pin most slots unambiguously: idx9=Refnum=menu reference, idx6=Cluster=error in, idx7/idx8=Array[String]=item names/item tags (this instance wired arrays; the doc also allows a single string per slot), idx3=Refnum=menu reference out, idx1=Array[String]=item tags out, idx0=Cluster=error out -- all confirmed unambiguous by output-column termBounds order, which matches the NI doc's output listing order exactly (top-to-bottom: menu reference out, item tags out, error out). The remaining ambiguity is idx4 vs idx5 (both scalar String): termBounds geometry places them in their own double-height connector-pane column, separate from the single-height 4-slot column holding menu_reference/item_names/item_tags/error_in (which independently matches doc order top-to-bottom). menu_tag is the FIRST-listed doc input and after_item is the LAST-listed; assigning top-of-column=idx5=menu_tag, bottom-of-column=idx4=after_item is a deduction (not a doc-confirmed index), supported by dataflow: idx5 (hypothesized menu_tag) IS wired in the sole corpus instance, idx4 (hypothesized after_item, a rarely-customized insertion-position parameter) is UNWIRED -- consistent with menu_tag being commonly specified and after_item commonly left at its default. Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false. CORRECTION (2026-08-02, termBounds + NI doc connector-pane diagram): BOTH same-type input pairs were registered BACKWARDS and are fixed here. Parsed termBounds for this instance (uid 18661): inner single-height column top->bottom = idx9,idx8,idx7,idx6; double-height String column top->bottom = idx5,idx4. The doc diagram draws the input labels in that same geometric order (validated at both inner-column endpoints: idx9=menu_reference top, idx6=error_in bottom), so idx8=item_names/idx7=item_tags (was idx7=item_names) and idx5=menu_tag/idx4=after_item (was idx4=menu_tag -- which also CONTRADICTED this note's own deduction that idx5=menu_tag). Resolved by geometry, no guess."
+      "note": "Insert Menu Items (NI Insert Menu Items doc) -- 9-terminal pane exact match; terminals pinned by type + termBounds from 'Graphical Test Runner - Main UI - .vi' (JKI VI-Tester). Placeholder codegen (no lvkit Menu runtime)."
     },
     "9004": {
       "name": "Delete Menu Items",
@@ -5541,7 +5535,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "Confirmed via NI doc exact match, and cleanly unambiguous: NI lists exactly 4 inputs (menu reference, menu tag, items, error in) and 2 outputs (menu reference out, error out), matching the observed 6-terminal pane count. Every input has a UNIQUE type in this pane (idx9=Refnum, idx8=String, idx7=Array[String], idx6=Cluster), so no shape-guessing was needed -- 'items' (doc: 'a tag, an array of tags, a position index, or an array of position indexes') was wired here as Array[String], the only array-typed input. Column top-to-bottom order (idx9,idx8,idx7,idx6) independently matches the doc's listed order (menu reference, menu tag, items, error in), and the output column (idx3 top, idx0 bottom) matches (menu reference out, error out). Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false."
+      "note": "Delete Menu Items (NI Delete Menu Items doc) -- 6-terminal pane exact match (every input unique-typed); terminals from 'Graphical Test Runner - Main UI - .vi' (JKI VI-Tester). Placeholder codegen (no lvkit Menu runtime)."
     },
     "9005": {
       "name": "Get Menu Item Info",
@@ -5611,7 +5605,7 @@
         }
       ],
       "python_code": "pass",
-      "note": "Confirmed via NI doc exact match: 3 inputs (item tag, menu reference, error in) confirmed unambiguous by unique type. NI's doc lists 10 named outputs, but 3 of them (short cut, include Shift key?, include Ctrl key?, shortcut key) collapse into ONE cluster terminal on the actual icon -- confirmed by resolving this VI's own type map for the cluster at idx6, whose fields are literally {'include Shift key?': Boolean, 'include Ctrl key?': Boolean, 'shortcut key': String}, an exact field-name match to those 3 doc entries. That collapses the doc's 10 outputs to 7 real terminals: submenu_tags (Array), menu_reference_out (Refnum), item_name (String), enabled? (Boolean), error_out (Cluster, confirmed by its OWN type-map fields status/code/source), checked? (Boolean), shortcut_info (Cluster) -- an exact type-multiset match to the observed 7-output pane. idx2/idx3/idx5/idx0/idx6 are unambiguous by unique type. The remaining ambiguity is idx1 vs idx4 (both Boolean = enabled?/checked?, both UNWIRED in the sole corpus instance so no dataflow tiebreak was available): idx1 sits in the single-height output column whose OTHER 3 slots (menu_reference_out, item_name, error_out) independently match doc order top-to-bottom, and 'enabled' is the doc item immediately between item_name and error_out in that same run -- so idx1 is assigned enabled? by the same column-preserves-doc-order pattern verified elsewhere in this pane, leaving idx4 (in the separate double-height column with submenu_tags) as checked? by elimination. This idx1/idx4 assignment is the one part of this entry NOT independently confirmed by type or wiring -- flagging for scrutiny. Identity is solid; CODEGEN is not. No lvkit Menu/VI-Server runtime exists (there is no live front-panel/menu model to manipulate in generated Python -- same 'identity solid, no runtime' situation as the Notifier family at 9101/9102/9104 and Close Reference at 8011). Marked placeholder so it renders/describes under the correct name but cannot emit silently-wrong or fabricated UI-manipulation code. Single call site in the corpus (JKI VI-Tester's 'Graphical Test Runner - Main UI - .vi'), so verified stays false."
+      "note": "Get Menu Item Info (NI Get Menu Item Info doc) -- 3 inputs + 7 real outputs (doc's shortcut fields collapse into one cluster); terminals from 'Graphical Test Runner - Main UI - .vi'. idx1/idx4 (enabled?/checked?) unconfirmed. Placeholder codegen."
     },
     "1156": {
       "name": "To Unsigned Quad Integer",
@@ -5635,9 +5629,7 @@
         "result": "int(in_1) & 0xFFFFFFFFFFFFFFFF"
       },
       "inline": true,
-      "note": [
-        "Confirmed via NI doc match and completes the existing sibling family (1140 To Byte Integer, 1141 To Word Integer, 1142 To Long Integer, 1143 To Unsigned Byte Integer, 1144 To Unsigned Word Integer -- all already share the idx0=out/idx1=in convention this entry follows). Cross-checked across 2 independent VIs: 'pco.camera_FloatingMean_Example_IMAQ.vi' (idx1=NumUInt8 in, idx0=NumUInt64 out -- a widening conversion) and 'testNumericU64.vi' (JKI-EasyXML, name is itself confirmatory: idx1=NumUInt64 in, idx0=NumUInt64 out -- an identity-shaped polymorphic instantiation). Masking with 0xFFFFFFFFFFFFFFFF mirrors the & 0xFF / & 0xFFFF pattern already used by the unsigned siblings."
-      ]
+      "note": "To Unsigned Quad Integer (NI doc) -- completes the To-<T> conversion family (1140-1144), idx0=out/idx1=in. Terminals from 'pco.camera_FloatingMean_Example_IMAQ.vi', 'testNumericU64.vi' (JKI-EasyXML)."
     },
     "1341": {
       "name": "Two Button Dialog",
@@ -5671,10 +5663,7 @@
       ],
       "placeholder": true,
       "python_code": "pass",
-      "note": [
-        "Codegen deferred (placeholder): unlike sibling 1340 One Button Dialog (a single button -> deterministic outcome), Two Button Dialog's T-vs-F result is a real branch, so hard-coding a winner would be a silent guess -- render/describe still use the confirmed identity below.",
-        "Confirmed via NI doc exact match: message, T button name (default 'OK'), F button name (default 'Cancel') -> T button? (True if the T-named button was clicked). 4-terminal count (3 string in, 1 bool out) is exactly one more input than the already-resolved sibling 1340 One Button Dialog, whose own note explicitly flagged 'Two Button Dialog excluded (three strings)' as the distinguishing shape -- confirming this entry closes that gap correctly. Index-to-field mapping is evidence-based, not assumed: across 5 observed instances (3 in 'Graphical Test Runner - Main UI - .vi', 1 in 'Dictionary Example.vi', 1 in 'Folder Reuse Warning.vi'), idx3 is WIRED in 5/5 (matches 'message', which the doc marks required, no default), idx1 is UNWIRED in 3/5 (matches 'T button name', which defaults to \"OK\"), idx2 is wired in 3/5 (matches 'F button name', default \"Cancel\", occasionally customized). In 'Folder Reuse Warning.vi', idx3 is fed by a 'Concatenate Strings' primitive -- a dynamically-built message, never plausible for a short button-name string, corroborating idx3=message. python_code hard-codes True (the affirmative/T-button path) since generated code runs headlessly with no real dialog to click through -- same non-interactive-substitute approach sibling 1340 uses."
-      ]
+      "note": "Two Button Dialog (NI Two Button Dialog doc) -> T button?. Terminals from 'Graphical Test Runner - Main UI - .vi', 'Dictionary Example.vi', 'Folder Reuse Warning.vi'. Placeholder: T-vs-F is a real branch, python_code hard-codes True."
     },
     "1184": {
       "name": "Decimal String To Number",
@@ -5714,10 +5703,7 @@
       ],
       "placeholder": true,
       "python_code": "pass",
-      "note": [
-        "Codegen deferred (placeholder): the identity is confirmed (below), but a faithful template needs `re` (inline __import__ is disallowed by the project style rule) plus polymorphic float/exponent handling not exercised by the corpus -- render/describe use the confirmed identity.",
-        "Confirmed via NI doc exact match: string, offset, default (numeric representation for the polymorphic output) -> offset past number, number. 3-input/2-output count and type-multiset (String + 2x numeric in, 2x numeric out) is an exact match. idx4 (String) is unambiguous by unique type. idx3/idx2 (both numeric in) assigned by connector-pane column position: the left-hand input column runs top-to-bottom idx4, idx3, idx2, matching the doc's listed order (string, offset, default) exactly. idx1/idx0 (both numeric out) assigned the same way (top=idx1=offset_past_number, bottom=idx0=number, matching doc order top-to-bottom). Cross-checked polymorphism across 2 independent VIs: 'Results Status Update Process__core.vi' (JKI VI-Tester, 2 call sites, Int32-shaped) and 'Get LV Mem Usage.vi' (idx0 resolves NumFloat64) -- exactly the documented polymorphic behavior where 'number'/idx0's type tracks whatever is wired to 'default'/idx2. python_code regex-scans a leading [sign]digits run after skipping whitespace, matching all 3 of NI's own worked examples exactly: '13ax' offset0 -> number=13, offset_past=2; '-4.8bcde' offset0 -> number=-4, offset_past=2 (stops at the decimal point since the target is integer); 'a49b' offset0 default=-9 -> no digits found, number=-9 (default), offset_past=0 (unchanged). Only handles integer scanning (matches the corpus instances observed, both integer-typed defaults); float/exponent variants of this polymorphic function are not exercised by any call site found."
-      ]
+      "note": "Decimal String To Number (NI doc) -- string, offset, default -> offset past number, number. Terminals from 'Results Status Update Process__core.vi', 'Get LV Mem Usage.vi'. Placeholder codegen: integer-only scan, needs float/exponent handling."
     },
     "1350": {
       "name": "Unknown Boolean-Sink Primitive 1350",
@@ -5732,9 +5718,7 @@
         }
       ],
       "python_code": "pass",
-      "note": [
-        "Exhausted investigation without a confident identification. Single Boolean input, NO outputs at all (not even an error cluster) -- an unusual shape with no obvious NI Dialog/Boolean/Comparison-category match of this exact count. Context (Step 3): in every traced instance the input comes from either 'Simple Error Handler.vi' (a common error-display subVI) or directly from prim 1340 (One Button Dialog's boolean 'true?' output, itself always True and rarely consumed downstream) -- i.e. this primitive always sits at the very end of a diagram branch consuming a boolean nobody else uses, which reads like a deliberate 'discard/terminate this branch' sink, but no NI function of that description was found in the catalog. 6 distinct top-level example VIs contain it (PCO camera examples, Moog SmartMotor examples) always as a lone terminal node with no further dataflow. Left as a placeholder per the skill's last-resort rule; asked no further since this is a shape/behavior question the corpus can answer, not a LabVIEW-inspection question."
-      ]
+      "note": "Unknown Boolean-Sink Primitive 1350 -- single Boolean input, no outputs; a terminal branch-sink fed by 'Simple Error Handler.vi' or 1340. Seen in 6 VIs (PCO camera, Moog SmartMotor examples). No NI match; placeholder."
     }
   },
   "node_types": {

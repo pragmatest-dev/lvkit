@@ -10,7 +10,9 @@ into normalized ``PaneCell`` rectangles the renderer/diff can draw directly.
 
 Pure geometry: a cell knows its ``index`` and its rect, nothing about whether
 the terminal is an input or an output (that comes from the VI's own
-``ParsedConnectorPaneSlot.is_output``, not the pattern).
+``ParsedConnectorPaneSlot.is_output``, not the pattern). Lives at the package
+top level (not under ``render/``) so both ``render`` and ``graph`` can import it
+without a cycle — ``render/__init__`` eagerly imports ``graph.core``.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import json
 from dataclasses import dataclass
 from functools import lru_cache
 
-from .._data import data_dir
+from ._data import data_dir
 
 
 @dataclass(frozen=True)
@@ -47,7 +49,11 @@ class PanePattern:
     #: grid track counts, for proportional sizing (cols wide, rows tall)
     cols: int
     rows: int
-    #: cells sorted by terminal index (0 .. terminal_count-1)
+    #: cells sorted by terminal index (0 .. terminal_count-1). The per-index
+    #: placement here IS each pattern's canonical order encoding (image-
+    #: transcribed): ``interface_order`` and the renderer both sort by a cell's
+    #: position, never by assuming index==reading-order, so a pattern whose
+    #: NUMBERING zig-zags (4816-4825, 4833-4835) still reads correctly.
     cells: tuple[PaneCell, ...]
 
     def cell_by_index(self) -> dict[int, PaneCell]:

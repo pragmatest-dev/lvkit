@@ -22,14 +22,16 @@ arch), we ship one `.mcpb` per (OS, arch); the user downloads the one for their 
 ## How it runs
 
 `server.type: "binary"` → Claude Desktop launches `${__dirname}/server/lvkit mcp` (auto-`.exe`
-on Windows via `platform_overrides`). No Python/uv/pip. The `user_config.vi_folder` the user
-picks in Desktop's settings UI is injected as `env.LVKIT_PROJECT_ROOT`, which the server reads
-as the default project root (see `mcp/server.py::_default_root`) — since Claude Desktop sends
-no workspace root, this is how the tools know where the user's VIs live.
+on Windows via `platform_overrides`). No Python/uv/pip. **No install-time configuration.** The
+project a tool answers for is: `project=<path>` when given, else the client's open workspace
+(Claude Code / VS Code launch the server IN the repo, so cwd IS the project), else — on Claude
+Desktop, where cwd isn't your VIs — the tool asks once (`_require_vis`: "point me at your VI
+folder") and Claude's cross-conversation memory retains the answer. Every tool also takes an
+explicit `project` path, and the `list_projects` tool reports what's active.
 
 ## Install (end user)
 
 Download `lvkit-<target>.mcpb` from the release / pragmatest.com → **double-click** (or drag
-into Claude Desktop, or Settings → Extensions → Install Extension…) → pick the VI folder →
-done. macOS binary is unsigned in v1: if Gatekeeper blocks it, `xattr -dr com.apple.quarantine`
-the downloaded file.
+into Claude Desktop, or Settings → Extensions → Install Extension…) — nothing to configure.
+The first time you ask about VIs, tell it your project folder; it remembers. macOS binary is
+unsigned in v1: if Gatekeeper blocks it, `xattr -dr com.apple.quarantine` the downloaded file.

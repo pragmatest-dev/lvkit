@@ -37,31 +37,25 @@ def test_deep_and_stateless_tools(tmp_path: Path) -> None:
         pytest.skip(f"sample VI not available: {SAMPLE}")
     vi = str(SAMPLE)
 
-    # Deep single-VI tools all take a vi_path and load on demand.
+    # Deep single-VI: describe (prose) + read_vi (structured). The AI converts
+    # by UNDERSTANDING these, not via a deterministic-generate MCP tool.
     assert _run(srv.describe(vi))
-    assert _run(srv.get_operations(vi))
-    assert _run(srv.get_dataflow(vi))
-    assert _run(srv.get_constants(vi))
-    assert _run(srv.generate_ast_code(vi))
 
-    # get_context now returns the canonical netlist IR dict (not a JSON string).
-    ctx = _run(srv.get_context(vi))
+    # read_vi returns the canonical netlist IR dict — the single structured read
+    # (operations, wiring, structures, constants) that subsumes the old
+    # get_operations/get_dataflow/get_structure/get_constants facet tools.
+    ctx = _run(srv.read_vi(vi))
     assert isinstance(ctx, dict)
     assert ctx["inputs"] or ctx["outputs"] or ctx["body"]
-    scope_uids = [b["uid"] for b in ctx["body"] if b["kind"] == "scope"]
-    if scope_uids:
-        # Returns text even when the op isn't found; just must not raise.
-        assert isinstance(_run(srv.get_structure(vi, scope_uids[0])), str)
 
-    # Stateless generators write into tmp, never the repo.
-    py_result = _run(
-        srv.generate_python(vi, str(tmp_path / "py"), soft_unresolved=True)
-    )
-    assert py_result
-    docs_result = _run(srv.generate_documents(vi, str(tmp_path / "docs")))
-    assert docs_result
+    # The resolution axis: an extra `search_paths` root (an out-of-tree library
+    # the VI might call into) is accepted by the reading tools, same as
+    # `unresolved`. A harmless extra root leaves the base result intact.
+    assert _run(srv.describe(vi, search_paths=[str(tmp_path)]))
+    assert _run(srv.read_vi(vi, search_paths=[str(tmp_path)])) == ctx
 
-    # Nothing leaked into the source tree.
+    # Nothing leaked into the source tree (the understanding tools are pure
+    # in-process reads — no artifact generation, no scripts/ subprocess).
     assert not (SAMPLE.parent / ".lvkit" / "cache").exists()
 
 
@@ -84,21 +78,32 @@ def test_index_tools() -> None:
     vis = _run(srv.query("SELECT path FROM vi ORDER BY path", project=project))
     assert vis["row_count"] == built["vis"]
 
-    # A class method exists; get_callers/blast_radius resolve a bare name.
-    # (vi is the first, required arg; project is the optional workspace-root
-    # default — call by keyword, exactly as an MCP client does.)
+    # The call graph is the node spine: direct callers of a VI are a query over
+    # node.callee_path, and the precomputed vi.callers_count/impact_score columns
+    # give the dead-code and change-impact signals (replacing the retired
+    # get_callers/get_callees/blast_radius tools).
     a_method = vis["rows"][0][0]
-    assert isinstance(_run(srv.get_callers(a_method, project=project)), list)
-    assert isinstance(_run(srv.get_callees(a_method, project=project)), list)
-    br = _run(srv.blast_radius(a_method, project=project))
-    assert "impact_score" in br
+    callers = _run(
+        srv.query(
+            f"SELECT DISTINCT vi_path FROM node WHERE callee_path='{a_method}'",
+            project=project,
+        )
+    )
+    assert "rows" in callers
+    impact = _run(
+        srv.query(
+            "SELECT callers_count, impact_score FROM vi ORDER BY impact_score DESC",
+            project=project,
+        )
+    )
+    assert impact["row_count"] > 0
 
     # The error-indicator histogram: a GROUP BY returns the answer (columnar),
     # not the raw terminal rows the retired find_terminals dumped.
     qres = _run(
         srv.query(
             "SELECT name, COUNT(*) AS n FROM terminal "
-            "WHERE is_error_cluster = 1 AND direction = 'output' "
+            "WHERE type_descriptor = 'Error' AND direction = 'output' "
             "GROUP BY name ORDER BY n DESC",
             project=project,
         )
@@ -108,10 +113,3 @@ def test_index_tools() -> None:
     # A bad (non-SELECT) statement is refused loudly.
     with pytest.raises(srv.isql.QueryError):
         _run(srv.query("DELETE FROM vis", project=project))
-
-    # Mermaid visualization is self-contained text.
-    mm = _run(srv.visualize_project(project, scope="calls"))
-    assert mm.splitlines()[0] == "graph LR"
-    assert _run(srv.visualize_project(project, scope="classes")).startswith(
-        "classDiagram"
-    )

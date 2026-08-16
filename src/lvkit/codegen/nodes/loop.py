@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import LoopOperation, LVType, Operation, Tunnel
+from lvkit.models import LoopOperation, LVType, LVTypeKind, Operation, Tunnel
 
 from ..ast_utils import (
     build_assign,
@@ -58,9 +58,7 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
             outer_var = ctx.resolve(outer_term)
             if outer_var:
                 shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
-                pre_loop_stmts.append(
-                    build_assign(shift_var, parse_expr(outer_var))
-                )
+                pre_loop_stmts.append(build_assign(shift_var, parse_expr(outer_var)))
                 inner_ctx.bind(inner_term, shift_var)
                 shift_reg_vars[outer_term] = shift_var
             else:
@@ -70,9 +68,7 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
                 # ACROSS CALLS to the VI. Lower to a module-level global,
                 # seeded to the SR's type default, that this call site
                 # reads at loop entry and writes back after the loop.
-                global_name = (
-                    f"_lv_state_{sanitize_state_var_suffix(outer_term)}"
-                )
+                global_name = f"_lv_state_{sanitize_state_var_suffix(outer_term)}"
                 sr_lv_type = None
                 outer_sr_term = term_by_id.get(outer_term)
                 inner_sr_term = term_by_id.get(inner_term)
@@ -130,7 +126,7 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
             if outer_var:
                 # Check if array type - use len(), otherwise direct
                 lv_type = _get_terminal_type(outer_term, ctx)
-                if lv_type and lv_type.kind == "array":
+                if lv_type and lv_type.kind == LVTypeKind.ARRAY:
                     n_terminal_var = f"len({outer_var})"
                 else:
                     # Integer or unknown - use directly
@@ -176,11 +172,9 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
                     lv_type = _get_terminal_type(outer_term, ctx)
                     # Treat as array if type is array OR unknown (backward compat)
                     # Only treat as scalar if type is known and NOT an array
-                    is_array = lv_type is None or lv_type.kind == "array"
+                    is_array = lv_type is None or lv_type.kind == LVTypeKind.ARRAY
                     if is_array:
-                        lpTun_array_inputs.append(
-                            (outer_var, inner_term, outer_term)
-                        )
+                        lpTun_array_inputs.append((outer_var, inner_term, outer_term))
                     else:
                         # Known scalar type: pass through directly (no indexing)
                         lpTun_scalar_inputs.append((outer_var, inner_term))
@@ -273,7 +267,9 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
                 # Write the new value into a DISTINCT variable rather than
                 # mutating rsr_shift_var (the lSR-bound local) in place.
                 updated_var = ctx.make_output_var(
-                    f"{rsr_shift_var}_updated", node.id, terminal_id=outer_term,
+                    f"{rsr_shift_var}_updated",
+                    node.id,
+                    terminal_id=outer_term,
                 )
                 inner_stmts.append(build_assign(updated_var, parse_expr(inner_val)))
                 bindings[outer_term] = updated_var
@@ -317,9 +313,7 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
     stop_condition_var: str | None = None
     loop_ast: ast.While | ast.For
     if loop_type == "whileLoop":
-        loop_ast, stop_condition_var = _build_while_loop(
-            node, inner_stmts, inner_ctx
-        )
+        loop_ast, stop_condition_var = _build_while_loop(node, inner_stmts, inner_ctx)
     else:
         loop_ast = _build_for_loop(
             node, inner_stmts, inner_ctx, tunnels, n_terminal_var
@@ -366,6 +360,7 @@ def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
         imports=inner_ctx.imports,
     )
 
+
 def _expr_references(expr_str: str, var: str) -> bool:
     """True if the Python expression ``expr_str`` reads the name ``var``.
 
@@ -378,9 +373,7 @@ def _expr_references(expr_str: str, var: str) -> bool:
         tree = ast.parse(expr_str, mode="eval")
     except SyntaxError:
         return False
-    return any(
-        isinstance(n, ast.Name) and n.id == var for n in ast.walk(tree)
-    )
+    return any(isinstance(n, ast.Name) and n.id == var for n in ast.walk(tree))
 
 
 def _make_var_name(tunnel: Tunnel, ctx: CodeGenContext | None = None) -> str:
@@ -410,18 +403,17 @@ def _make_var_name(tunnel: Tunnel, ctx: CodeGenContext | None = None) -> str:
         # Shift registers: use semantic names based on common patterns
         # Try to infer from the data type or use generic names
         lv_type = _get_terminal_type(outer, ctx) if ctx else None
-        if lv_type:
-            if lv_type.kind == "string":
-                return "accumulated_str"
-            elif lv_type.kind == "array":
-                return "collected"
-            elif lv_type.kind in ("int", "float", "numeric"):
-                return "counter"
-        # Generic fallback for shift registers
+        if lv_type and lv_type.kind == LVTypeKind.ARRAY:
+            return "collected"
+        # A string- or numeric-specific name ("accumulated_str"/"counter") would
+        # key on underlying_type, not kind -- kind is only ever an LVTypeKind
+        # family value (never "string"/"int"/"float"), so those checks were dead.
+        # That refinement isn't wired up; fall through to the generic name.
         return "state"
 
     # Fall back to generic tunnel name
     return "value"
+
 
 def _unique_shift_var_name(base_name: str, ctx: CodeGenContext) -> str:
     """Disambiguate a shift-register variable name against ones already
@@ -442,6 +434,7 @@ def _unique_shift_var_name(base_name: str, ctx: CodeGenContext) -> str:
         suffix += 1
         candidate = f"{base_name}_{suffix}"
     return candidate
+
 
 def _pluralize(var_name: str) -> str:
     """Convert a variable name to plural form for accumulator naming.
@@ -467,6 +460,7 @@ def _pluralize(var_name: str) -> str:
     if base.endswith(("s", "x", "ch", "sh")):
         return base + "es"  # box -> boxes
     return base + "s"  # name -> names
+
 
 def _singularize(array_var: str, ctx: CodeGenContext) -> str:
     """Derive singular item name from array variable name.
@@ -505,9 +499,8 @@ def _singularize(array_var: str, ctx: CodeGenContext) -> str:
 
     return candidate
 
-def _get_source_terminal_name(
-    terminal_uid: str, ctx: CodeGenContext
-) -> str | None:
+
+def _get_source_terminal_name(terminal_uid: str, ctx: CodeGenContext) -> str | None:
     """Get the name of the source feeding a terminal.
 
     Traces back through data flow to find a named source (FP control, constant).
@@ -524,6 +517,7 @@ def _get_source_terminal_name(
         return _get_source_terminal_name(flow_info.src_terminal, ctx)
 
     return None
+
 
 def _get_dest_terminal_name(
     terminal_uid: str, ctx: CodeGenContext, visited: set[str] | None = None
@@ -548,17 +542,12 @@ def _get_dest_terminal_name(
     dest_list = ctx.get_destinations(terminal_uid)
     for dest_info in dest_list:
         # Check if it flows to a SubVI input - use SubVI name as hint
-        if (
-            dest_info.dest_parent_kind == "vi"
-            and dest_info.dest_parent_name
-        ):
+        if dest_info.dest_parent_kind == "vi" and dest_info.dest_parent_name:
             return dest_info.dest_parent_name
 
         # Recurse through tunnels/connections
         if dest_info.dest_terminal:
-            found = _get_dest_terminal_name(
-                dest_info.dest_terminal, ctx, visited
-            )
+            found = _get_dest_terminal_name(dest_info.dest_terminal, ctx, visited)
             if found:
                 return found
 
@@ -571,6 +560,7 @@ def _get_dest_terminal_name(
                 return found
 
     return None
+
 
 def _get_terminal_type(
     terminal_uid: str,
@@ -615,11 +605,13 @@ def _get_terminal_type(
 
     return None
 
+
 def _generate_inner(
     inner_nodes: list[Operation], ctx: CodeGenContext
 ) -> list[ast.stmt]:
     """Generate code for inner loop nodes."""
     return ctx.generate_body(inner_nodes)
+
 
 def _build_while_loop(
     node: LoopOperation, body: list[ast.stmt], ctx: CodeGenContext
@@ -679,6 +671,7 @@ def _build_while_loop(
         body=body,
         orelse=[],
     ), None
+
 
 def _build_for_loop(
     node: LoopOperation,
@@ -803,6 +796,7 @@ def _build_for_loop(
         orelse=[],
     )
 
+
 def _find_all_autoindex_arrays(
     tunnels: list[Tunnel], ctx: CodeGenContext
 ) -> list[tuple[str, str]]:
@@ -831,7 +825,7 @@ def _find_all_autoindex_arrays(
             if outer_var:
                 lv_type = _get_terminal_type(outer_term, ctx)
                 # Treat as array if type is array OR unknown (backward compat)
-                if lv_type is None or lv_type.kind == "array":
+                if lv_type is None or lv_type.kind == LVTypeKind.ARRAY:
                     results.append((outer_var, inner_term))
 
     return results

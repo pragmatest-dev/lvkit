@@ -169,6 +169,7 @@ def create_import_resolver(
     Returns:
         Callable that takes a SubVI name and returns the correct import statement
     """
+
     def resolver(subvi_name: str) -> str:
         func_name = to_function_name(subvi_name)
 
@@ -186,13 +187,18 @@ def create_import_resolver(
             dep_path = vi_paths[subvi_name]
         else:
             dep_path, _ = get_output_path(
-                output_dir, qualified, create_dirs=False,
-                graph=graph, vilib_resolver=vilib_resolver,
+                output_dir,
+                qualified,
+                create_dirs=False,
+                graph=graph,
+                vilib_resolver=vilib_resolver,
             )
 
         dep_module = dep_path.stem
         dep_library = to_library_name(
-            qualified, graph=graph, vilib_resolver=vilib_resolver,
+            qualified,
+            graph=graph,
+            vilib_resolver=vilib_resolver,
         )
 
         # Build relative import: go up from caller, down to dependency
@@ -240,16 +246,23 @@ def _generate_polymorphic_module(
 
         try:
             variant_lib = to_library_name(
-                variant_name, graph=graph, vilib_resolver=vilib_resolver,
+                variant_name,
+                graph=graph,
+                vilib_resolver=vilib_resolver,
             )
             import_resolver = create_import_resolver(
-                    package_name, output_dir, vi_paths,
-                    graph=graph, vilib_resolver=vilib_resolver,
-                    caller_library=variant_lib,
-                )
+                package_name,
+                output_dir,
+                vi_paths,
+                graph=graph,
+                vilib_resolver=vilib_resolver,
+                caller_library=variant_lib,
+            )
             code = build_module(
-                vi_context, vi_name=variant_name,
-                import_resolver=import_resolver, graph=graph,
+                vi_context,
+                vi_name=variant_name,
+                import_resolver=import_resolver,
+                graph=graph,
                 soft_unresolved=soft_unresolved,
             )
             # Extract just the function and result class (skip imports)
@@ -270,7 +283,8 @@ def _generate_polymorphic_module(
                     all_inputs[idx] = inp
             for out in vi_context.outputs:
                 idx = getattr(
-                    out, "slot_index",
+                    out,
+                    "slot_index",
                     getattr(out, "index", len(all_outputs)),
                 )
                 if idx not in all_outputs:
@@ -320,7 +334,8 @@ def _generate_polymorphic_module(
         array_variants = [f for f in variant_funcs if "array" in f.lower()]
         traditional_variants = [f for f in variant_funcs if "traditional" in f.lower()]
         other_variants = [
-            f for f in variant_funcs
+            f
+            for f in variant_funcs
             if f not in array_variants and f not in traditional_variants
         ]
 
@@ -405,28 +420,39 @@ def generate_python(
     # Detect input type and load appropriately
     if input_path.suffix.lower() == ".lvclass":
         graph.load_lvclass(
-            str(input_path), mode, search_paths=search_path_list,
+            str(input_path),
+            mode,
+            search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".lvlib":
         graph.load_lvlib(
-            str(input_path), mode, search_paths=search_path_list,
+            str(input_path),
+            mode,
+            search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".llb":
         graph.load_llb(
-            str(input_path), mode, search_paths=search_path_list,
+            str(input_path),
+            mode,
+            search_paths=search_path_list,
         )
     elif input_path.is_dir():
         graph.load_directory(
-            str(input_path), mode, search_paths=search_path_list,
+            str(input_path),
+            mode,
+            search_paths=search_path_list,
         )
     else:
         graph.load_vi(
-            str(input_path), mode, search_paths=search_path_list,
+            str(input_path),
+            mode,
+            search_paths=search_path_list,
         )
 
     # Every command that parses a VI warms the index — generate parses the whole
     # hierarchy into `graph`, so upsert each loaded VI's facts (best-effort).
     from lvkit.index.build import warm_all_loaded
+
     warm_all_loaded(graph)
 
     order = graph.get_conversion_order()
@@ -450,7 +476,7 @@ def generate_python(
             paren_start = name_no_ext.index("(")
             paren_end = name_no_ext.rindex(")")
             base_part = name_no_ext[:paren_start].rstrip()
-            suffix_part = name_no_ext[paren_end + 1:]
+            suffix_part = name_no_ext[paren_end + 1 :]
             wrapper_name = base_part + suffix_part + ".vi"
             _variant_candidates[wrapper_name].append(vi_name)
     for wrapper_name, variants in _variant_candidates.items():
@@ -465,8 +491,11 @@ def generate_python(
     vi_paths: dict[str, Path] = {}
     for vi_name in order:
         path, _ = get_output_path(
-            output_dir_resolved, vi_name, create_dirs=False,
-            graph=graph, vilib_resolver=vilib_resolver,
+            output_dir_resolved,
+            vi_name,
+            create_dirs=False,
+            graph=graph,
+            vilib_resolver=vilib_resolver,
         )
         vi_paths[vi_name] = path
 
@@ -507,7 +536,10 @@ def generate_python(
 
         # Only create directory structure when we're actually going to write a file
         output_path, library_name = get_output_path(
-            output_dir_resolved, vi_name, graph=graph, vilib_resolver=vilib_resolver,
+            output_dir_resolved,
+            vi_name,
+            graph=graph,
+            vilib_resolver=vilib_resolver,
         )
         module_name = to_module_name(vi_name)
 
@@ -539,8 +571,13 @@ def {func_name}(*args, **kwargs) -> Any:
             code = ""
             try:
                 code = _generate_polymorphic_module(
-                    vi_name, variants, graph, vilib_resolver,
-                    vi_folder_name, output_dir_resolved, vi_paths,
+                    vi_name,
+                    variants,
+                    graph,
+                    vilib_resolver,
+                    vi_folder_name,
+                    output_dir_resolved,
+                    vi_paths,
                     soft_unresolved=soft_unresolved,
                 )
                 ast.parse(code)  # Validate syntax
@@ -552,8 +589,12 @@ def {func_name}(*args, **kwargs) -> Any:
                 generated.append((vi_name, output_path, "ast"))
             except SyntaxError as e:
                 _write_syntax_error(
-                    module_name, code, e,
-                    output_dir_resolved, vi_name, generated,
+                    module_name,
+                    code,
+                    e,
+                    output_dir_resolved,
+                    vi_name,
+                    generated,
                 )
             except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
                 print(f"         -> FAILED: {e}")
@@ -567,16 +608,23 @@ def {func_name}(*args, **kwargs) -> Any:
 
             try:
                 caller_lib = to_library_name(
-                    vi_name, graph=graph, vilib_resolver=vilib_resolver,
+                    vi_name,
+                    graph=graph,
+                    vilib_resolver=vilib_resolver,
                 )
                 import_resolver = create_import_resolver(
-                    vi_folder_name, output_dir_resolved, vi_paths,
-                    graph=graph, vilib_resolver=vilib_resolver,
+                    vi_folder_name,
+                    output_dir_resolved,
+                    vi_paths,
+                    graph=graph,
+                    vilib_resolver=vilib_resolver,
                     caller_library=caller_lib,
                 )
                 code = build_module(
-                    vi_context, vi_name,
-                    import_resolver=import_resolver, graph=graph,
+                    vi_context,
+                    vi_name,
+                    import_resolver=import_resolver,
+                    graph=graph,
                     soft_unresolved=soft_unresolved,
                 )
 
@@ -588,8 +636,12 @@ def {func_name}(*args, **kwargs) -> Any:
 
             except SyntaxError as e:
                 _write_syntax_error(
-                    module_name, code, e,
-                    output_dir_resolved, vi_name, generated,
+                    module_name,
+                    code,
+                    e,
+                    output_dir_resolved,
+                    vi_name,
+                    generated,
                 )
 
             except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
@@ -604,7 +656,9 @@ def {func_name}(*args, **kwargs) -> Any:
         wrapper_path = vi_paths.get(wrapper_name)
         if not wrapper_path:
             wrapper_path, _ = get_output_path(
-                output_dir_resolved, wrapper_name, graph=graph,
+                output_dir_resolved,
+                wrapper_name,
+                graph=graph,
                 vilib_resolver=vilib_resolver,
             )
             vi_paths[wrapper_name] = wrapper_path
@@ -612,8 +666,13 @@ def {func_name}(*args, **kwargs) -> Any:
             try:
                 wrapper_path.parent.mkdir(parents=True, exist_ok=True)
                 code = _generate_polymorphic_module(
-                    wrapper_name, variants, graph, vilib_resolver,
-                    vi_folder_name, output_dir_resolved, vi_paths,
+                    wrapper_name,
+                    variants,
+                    graph,
+                    vilib_resolver,
+                    vi_folder_name,
+                    output_dir_resolved,
+                    vi_paths,
                     soft_unresolved=soft_unresolved,
                 )
                 ast.parse(code)
@@ -643,13 +702,17 @@ def {func_name}(*args, **kwargs) -> Any:
         # Build class wrapper with context lookup for SubVI resolution
         class_lib = to_library_name(
             lvclass.name,
-            graph=graph, vilib_resolver=vilib_resolver,
+            graph=graph,
+            vilib_resolver=vilib_resolver,
         )
         import_resolver = create_import_resolver(
-                vi_folder_name, output_dir_resolved, vi_paths,
-                graph=graph, vilib_resolver=vilib_resolver,
-                caller_library=class_lib,
-            )
+            vi_folder_name,
+            output_dir_resolved,
+            vi_paths,
+            graph=graph,
+            vilib_resolver=vilib_resolver,
+            caller_library=class_lib,
+        )
         builder = ClassBuilder(config=ClassConfig())
         module = builder.build_class_module(
             lvclass,

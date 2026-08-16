@@ -5,6 +5,7 @@ returns the typed graph StructureNode — the body is lifted verbatim from the
 old _add_vi_to_graph if/elif chain (so output is byte-identical). The shared
 post-dispatch in construction.py (nMux enrichment, g.add_node) is unchanged.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,10 +36,12 @@ class StructureBuildHandler(ABC):
 
     @abstractmethod
     def build(
-        self, node: ParsedNode, node_name: str | None, q_node_uid: str,
+        self,
+        node: ParsedNode,
+        node_name: str | None,
+        q_node_uid: str,
         ctx: GraphBuildContext,
-    ) -> StructureNode:
-        ...
+    ) -> StructureNode: ...
 
 
 class LoopBuildHandler(StructureBuildHandler):
@@ -61,7 +64,8 @@ class LoopBuildHandler(StructureBuildHandler):
             parallel_static_workers = loop_struct.parallel_static_workers
 
         structure_terminals = ctx.build_structure_terminals(
-            parser_tunnels, q_node_uid,
+            parser_tunnels,
+            q_node_uid,
         )
         return LoopNode(
             id=q_node_uid,
@@ -95,7 +99,9 @@ class CaseBuildHandler(StructureBuildHandler):
             case_frames = list(case_struct.frames)
 
         structure_terminals = ctx.build_structure_terminals(
-            parser_tunnels, q_node_uid, case_frames=case_frames,
+            parser_tunnels,
+            q_node_uid,
+            case_frames=case_frames,
         )
 
         # Mark the selector terminal (see _add_vi_to_graph history).
@@ -111,14 +117,20 @@ class CaseBuildHandler(StructureBuildHandler):
             else:
                 sel_ti = ctx.bd.terminal_info.get(sel_uid)
                 sel_index = sel_ti.index if sel_ti else 0
-                structure_terminals.append(Terminal(
-                    id=selector_term, index=sel_index,
-                    direction="input", name="selector",
-                ))
+                structure_terminals.append(
+                    Terminal(
+                        id=selector_term,
+                        index=sel_index,
+                        direction="input",
+                        name="selector",
+                    )
+                )
             if sel_uid not in ctx.term_lookup:
                 ctx.term_lookup[sel_uid] = WireEnd(
-                    terminal_id=selector_term, node_id=q_node_uid,
-                    index=sel_index, name="selector",
+                    terminal_id=selector_term,
+                    node_id=q_node_uid,
+                    index=sel_index,
+                    name="selector",
                 )
 
         return CaseStructureNode(
@@ -131,12 +143,8 @@ class CaseBuildHandler(StructureBuildHandler):
             terminals=structure_terminals,
             frames=case_frames,
             selector_terminal=selector_term,
-            displayed_frame=(
-                case_struct.displayed_frame if case_struct else None
-            ),
-            case_insensitive=(
-                case_struct.case_insensitive if case_struct else False
-            ),
+            displayed_frame=(case_struct.displayed_frame if case_struct else None),
+            case_insensitive=(case_struct.case_insensitive if case_struct else False),
         )
 
 
@@ -161,7 +169,8 @@ class EventBuildHandler(StructureBuildHandler):
             displayed_frame = event_struct.displayed_frame
 
         structure_terminals = ctx.build_structure_terminals(
-            parser_tunnels, q_node_uid,
+            parser_tunnels,
+            q_node_uid,
         )
 
         filter_node_uids = frozenset(
@@ -195,7 +204,8 @@ class SequenceBuildHandler(StructureBuildHandler):
             seq_frames = list(flat_seq.frames)
 
         structure_terminals = ctx.build_structure_terminals(
-            parser_tunnels, q_node_uid,
+            parser_tunnels,
+            q_node_uid,
         )
         return SequenceNode(
             id=q_node_uid,
@@ -216,13 +226,14 @@ class InPlaceBuildHandler(StructureBuildHandler):
         decompose_struct = ctx.decompose_by_uid.get(node.uid)
         if not decompose_struct:
             logger.warning(
-                "VI %s: IPES %s not in parser structures"
-                " — no tunnels extracted",
-                ctx.vi_name, node.uid,
+                "VI %s: IPES %s not in parser structures — no tunnels extracted",
+                ctx.vi_name,
+                node.uid,
             )
         parser_tunnels = decompose_struct.tunnels if decompose_struct else []
         structure_terminals = ctx.build_structure_terminals(
-            parser_tunnels, q_node_uid,
+            parser_tunnels,
+            q_node_uid,
         )
         # Non-tunnel IPES data I/O terminals (decomposeClusterDCO) — not in
         # parser_tunnels but needed so codegen resolves the data variable.
@@ -236,17 +247,21 @@ class InPlaceBuildHandler(StructureBuildHandler):
             extra_lv_type = None
             if t_info.parsed_type:
                 extra_lv_type = ctx.enrich_type(t_info.parsed_type)
-            structure_terminals.append(Terminal(
-                id=q_t_uid,
-                direction="output" if t_info.is_output else "input",
-                index=t_info.index,
-                lv_type=extra_lv_type,
-                name=t_info.name,
-            ))
+            structure_terminals.append(
+                Terminal(
+                    id=q_t_uid,
+                    direction="output" if t_info.is_output else "input",
+                    index=t_info.index,
+                    lv_type=extra_lv_type,
+                    name=t_info.name,
+                )
+            )
             if t_uid not in ctx.term_lookup:
                 ctx.term_lookup[t_uid] = WireEnd(
-                    terminal_id=q_t_uid, node_id=q_node_uid,
-                    index=t_info.index, name=t_info.name,
+                    terminal_id=q_t_uid,
+                    node_id=q_node_uid,
+                    index=t_info.index,
+                    name=t_info.name,
                 )
         return InPlaceNode(
             id=q_node_uid,
@@ -283,7 +298,9 @@ class DisableBuildHandler(StructureBuildHandler):
             active_frame = disable_struct.active_frame
 
         structure_terminals = ctx.build_structure_terminals(
-            parser_tunnels, q_node_uid, case_frames=disable_frames,
+            parser_tunnels,
+            q_node_uid,
+            case_frames=disable_frames,
         )
 
         return DisableStructureNode(

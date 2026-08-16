@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from lvkit._data import data_dir as _bundled_data_dir
-from lvkit.models import ClusterField, EnumValue, LVType
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from lvkit.primitive_resolver import NodeIcon
 
 
@@ -113,9 +113,7 @@ class VILibResolutionNeeded(Exception):
             msg += f"\nPolymorphic selector: {self.context.poly_selector}"
             msg += "\n  (Add this to poly_selector_names in the variant's JSON entry)"
 
-        caller_label = (
-            self.context.caller_qualified_name or self.context.caller_vi
-        )
+        caller_label = self.context.caller_qualified_name or self.context.caller_vi
         if caller_label:
             msg += f"\nCaller VI: {caller_label}"
 
@@ -139,6 +137,7 @@ class VILibResolutionNeeded(Exception):
 
 class VITerminal(BaseModel):
     """A terminal on a vilib VI."""
+
     name: str = ""
     index: int | None = None
     direction: str | None = None  # None = unknown, must come from observation
@@ -151,6 +150,7 @@ class VITerminal(BaseModel):
 
 class VIEntry(BaseModel):
     """A vilib/openg VI entry from JSON."""
+
     name: str = ""
     vi_path: str | None = None
     category: str | None = None
@@ -361,10 +361,7 @@ class VILibResolver:
             fields: list[ClusterField] | None = None
             if "fields" in type_data:
                 fields = [
-                    ClusterField(
-                        name=f["name"],
-                        type=self._parse_field_type(f["type"])
-                    )
+                    ClusterField(name=f["name"], type=self._parse_field_type(f["type"]))
                     for f in type_data["fields"]
                 ]
 
@@ -375,7 +372,7 @@ class VILibResolver:
 
             # Create the LVType structure with typedef metadata
             lv_type = LVType(
-                kind=type_data["kind"],
+                kind=LVTypeKind(type_data["kind"]),
                 underlying_type=type_data["underlying_type"],
                 values=values,
                 fields=fields,
@@ -401,10 +398,10 @@ class VILibResolver:
         """
         if type_spec.endswith(".ctl"):
             # It's a typedef reference - lazy resolution
-            return LVType(kind="typedef_ref", typedef_path=type_spec)
+            return LVType(kind=LVTypeKind.TYPEDEF_REF, typedef_path=type_spec)
         else:
             # It's a primitive type
-            return LVType(kind="primitive", underlying_type=type_spec)
+            return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_spec)
 
     def resolve_type(self, typedef_path: str) -> LVType | None:
         """Resolve a typedef path to its LVType.
@@ -465,7 +462,9 @@ class VILibResolver:
         return self._by_poly_selector.get((base_name, selector_name))
 
     def _resolve_poly_by_index(
-        self, base_name: str, menu_index: int,
+        self,
+        base_name: str,
+        menu_index: int,
     ) -> VIEntry | None:
         """Resolve polymorphic variant by menuInstanceUsed index.
 
@@ -496,10 +495,7 @@ class VILibResolver:
 
         Uses the explicit base_vi field on each entry.
         """
-        return [
-            entry for entry in self._by_name.values()
-            if entry.base_vi == base_name
-        ]
+        return [entry for entry in self._by_name.values() if entry.base_vi == base_name]
 
     def has_implementation(self, vi_name: str) -> bool:
         """Check if we have a full Python implementation (module) for a VI."""
@@ -535,9 +531,9 @@ class VILibResolver:
         enum_typedefs: set[str] = set()
         needs_intenum = False
         for terminal in vi.terminals:
-            if terminal.type and terminal.type.endswith('.ctl'):
+            if terminal.type and terminal.type.endswith(".ctl"):
                 lv_type = self.resolve_type(terminal.type)
-                if lv_type and lv_type.kind == 'enum':
+                if lv_type and lv_type.kind == LVTypeKind.ENUM:
                     enum_typedefs.add(terminal.type)
                     needs_intenum = True
 
@@ -565,8 +561,7 @@ class VILibResolver:
                 for name, enum_val in lv_type.values.items():
                     if enum_val.description:
                         lines.append(
-                            f"    {name} = {enum_val.value}"
-                            f"  # {enum_val.description}"
+                            f"    {name} = {enum_val.value}  # {enum_val.description}"
                         )
                     else:
                         lines.append(f"    {name} = {enum_val.value}")
@@ -607,21 +602,22 @@ class VILibResolver:
                     # Get enum values if not already set and lv_type has them
                     if enum_values is None and lv_type.values:
                         enum_values = [
-                            (ev.value, name)
-                            for name, ev in lv_type.values.items()
+                            (ev.value, name) for name, ev in lv_type.values.items()
                         ]
 
-            terminals.append({
-                "index": t.index,
-                "direction": t.direction,
-                "name": t.name,
-                "type": t.type,  # Typedef path
-                "underlying_type": underlying_type,  # Base type (UInt16, etc.)
-                "type_name": type_name,  # Python type name
-                "enum_values": enum_values,
-                "python_param": t.python_param,
-                "lv_type": lv_type,  # Full LVType if resolved
-            })
+            terminals.append(
+                {
+                    "index": t.index,
+                    "direction": t.direction,
+                    "name": t.name,
+                    "type": t.type,  # Typedef path
+                    "underlying_type": underlying_type,  # Base type (UInt16, etc.)
+                    "type_name": type_name,  # Python type name
+                    "enum_values": enum_values,
+                    "python_param": t.python_param,
+                    "lv_type": lv_type,  # Full LVType if resolved
+                }
+            )
 
         return {
             "name": vi.name,
@@ -678,12 +674,18 @@ class VILibResolver:
             for idx, obs in observed_terminals.items():
                 if idx in base_map:
                     existing = base_map[idx]
-                    if (existing.name and obs.get("name") and
-                            existing.name != obs.get("name")):
+                    if (
+                        existing.name
+                        and obs.get("name")
+                        and existing.name != obs.get("name")
+                    ):
                         all_match = False
                         break
-                    if (existing.direction and obs.get("direction") and
-                            existing.direction != obs.get("direction")):
+                    if (
+                        existing.direction
+                        and obs.get("direction")
+                        and existing.direction != obs.get("direction")
+                    ):
                         all_match = False
                         break
             if all_match:
@@ -705,12 +707,18 @@ class VILibResolver:
                 if idx in variant_map:
                     existing = variant_map[idx]
                     # Check for conflicts
-                    if (existing.name and obs.get("name") and
-                            existing.name != obs.get("name")):
+                    if (
+                        existing.name
+                        and obs.get("name")
+                        and existing.name != obs.get("name")
+                    ):
                         mismatch = True
                         break
-                    if (existing.direction and obs.get("direction") and
-                            existing.direction != obs.get("direction")):
+                    if (
+                        existing.direction
+                        and obs.get("direction")
+                        and existing.direction != obs.get("direction")
+                    ):
                         mismatch = True
                         break
                     # Matching terminal adds to score
@@ -761,12 +769,14 @@ class VILibResolver:
 
         # Copy terminals from observed data
         for idx, obs in observed_terminals.items():
-            variant.terminals.append(VITerminal(
-                name=obs.get("name", ""),
-                index=idx,
-                direction=obs.get("direction"),
-                type=obs.get("type"),
-            ))
+            variant.terminals.append(
+                VITerminal(
+                    name=obs.get("name", ""),
+                    index=idx,
+                    direction=obs.get("direction"),
+                    type=obs.get("type"),
+                )
+            )
 
         # Store variant
         if vi_name not in self._variants:
@@ -803,8 +813,12 @@ class VILibResolver:
             "signature": variant.variant_signature,
             "caller_vi": caller_vi,
             "terminals": [
-                {"index": t.index, "name": t.name, "direction": t.direction,
-                 "type": t.type}
+                {
+                    "index": t.index,
+                    "name": t.name,
+                    "direction": t.direction,
+                    "type": t.type,
+                }
                 for t in variant.terminals
             ],
         }
@@ -843,17 +857,17 @@ class VILibResolver:
             if wired_term.index < 0:
                 continue  # Unresolved — should be resolved during graph construction
 
-            lv_type = getattr(wired_term, 'lv_type', None)
+            lv_type = getattr(wired_term, "lv_type", None)
             type_str = None
 
             if lv_type:
-                if lv_type.kind == "typedef_ref" and lv_type.typedef_path:
+                if lv_type.kind == LVTypeKind.TYPEDEF_REF and lv_type.typedef_path:
                     type_str = lv_type.typedef_path
                     # Auto-create typedef if needed
                     self._ensure_typedef(lv_type)
                 elif lv_type.underlying_type:
                     type_str = lv_type.underlying_type
-            elif hasattr(wired_term, 'type'):
+            elif hasattr(wired_term, "type"):
                 type_str = wired_term.type
 
             observed_map[wired_term.index] = {
@@ -867,12 +881,18 @@ class VILibResolver:
         for idx, obs_data in observed_map.items():
             if idx in existing_map:
                 existing = existing_map[idx]
-                if (existing.name and obs_data["name"] and
-                        existing.name != obs_data["name"]):
+                if (
+                    existing.name
+                    and obs_data["name"]
+                    and existing.name != obs_data["name"]
+                ):
                     has_conflict = True
                     break
-                if (existing.direction and obs_data["direction"] and
-                        existing.direction != obs_data["direction"]):
+                if (
+                    existing.direction
+                    and obs_data["direction"]
+                    and existing.direction != obs_data["direction"]
+                ):
                     has_conflict = True
                     break
 
@@ -924,10 +944,15 @@ class VILibResolver:
                 obs_dir = obs_data["direction"]
                 obs_type = obs_data["type"]
                 # Try type + direction match
-                candidates = [
-                    t for t in null_terms
-                    if t.direction == obs_dir and t.type == obs_type
-                ] if obs_type else []
+                candidates = (
+                    [
+                        t
+                        for t in null_terms
+                        if t.direction == obs_dir and t.type == obs_type
+                    ]
+                    if obs_type
+                    else []
+                )
                 if len(candidates) == 1:
                     t = candidates[0]
                     t.index = idx
@@ -944,10 +969,7 @@ class VILibResolver:
             # null-index terminal shares the direction.
             for idx, obs_data in still_unmatched:
                 obs_dir = obs_data["direction"]
-                candidates = [
-                    t for t in null_terms
-                    if t.direction == obs_dir
-                ]
+                candidates = [t for t in null_terms if t.direction == obs_dir]
                 if len(candidates) == 1:
                     t = candidates[0]
                     t.index = idx
@@ -975,19 +997,23 @@ class VILibResolver:
         for idx, obs in observed_map.items():
             if idx not in existing_indices:
                 # New terminal observation
-                variant.terminals.append(VITerminal(
-                    name=obs.get("name", ""),
-                    index=idx,
-                    direction=obs.get("direction"),
-                    type=obs.get("type"),
-                ))
+                variant.terminals.append(
+                    VITerminal(
+                        name=obs.get("name", ""),
+                        index=idx,
+                        direction=obs.get("direction"),
+                        type=obs.get("type"),
+                    )
+                )
                 updated = True
 
         if updated:
             # Update signature
-            new_map = {t.index: {"name": t.name, "direction": t.direction,
-                                 "type": t.type}
-                       for t in variant.terminals if t.index is not None}
+            new_map = {
+                t.index: {"name": t.name, "direction": t.direction, "type": t.type}
+                for t in variant.terminals
+                if t.index is not None
+            }
             variant.variant_signature = self._compute_signature(new_map)
 
     def _ensure_typedef(self, lv_type: LVType) -> None:
@@ -1047,9 +1073,7 @@ class VILibResolver:
             type_data["fields"] = [
                 {
                     "name": f.name,
-                    "type": (f.type.underlying_type or "Any")
-                    if f.type
-                    else "Any",
+                    "type": (f.type.underlying_type or "Any") if f.type else "Any",
                 }
                 for f in lv_type.fields
             ]
@@ -1076,9 +1100,7 @@ class VILibResolver:
             else:
                 entry_vi_name = entry_name
             if entry_vi_name == vi_name:
-                data["entries"][i] = json.loads(
-                    vi.model_dump_json(exclude_none=True)
-                )
+                data["entries"][i] = json.loads(vi.model_dump_json(exclude_none=True))
                 break
 
         with open(category_file, "w", encoding="utf-8") as f:

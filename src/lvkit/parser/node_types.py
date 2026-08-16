@@ -891,8 +891,7 @@ class NMuxHandler(NodeTypeHandler):
                             i_elem = dco_elem.find("i")
                             idx = (
                                 int(i_elem.text)
-                                if i_elem is not None
-                                and i_elem.text
+                                if i_elem is not None and i_elem.text
                                 else dco_list_uids.index(d_uid)
                             )
                             dco_field_index[d_uid] = idx
@@ -1180,6 +1179,7 @@ class GenericHandler(NodeTypeHandler):
 # =============================================================================
 # Registry and Factory
 # =============================================================================
+
 
 # Built-in array/string operations with specialized XML classes.
 # These are block diagram primitives but use different XML class names

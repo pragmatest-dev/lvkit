@@ -16,14 +16,14 @@ from lvkit.runtime import lv
 
 
 def test_signed_width_wrap():
-    assert lv.i16(40000) == -25536        # 40000 - 65536
+    assert lv.i16(40000) == -25536  # 40000 - 65536
     assert lv.i16(-1) == -1
     assert lv.i8(127) == 127
-    assert lv.i8(128) == -128             # wraps past the signed max
+    assert lv.i8(128) == -128  # wraps past the signed max
 
 
 def test_unsigned_width_wrap():
-    assert lv.u8(300) == 44               # 300 % 256
+    assert lv.u8(300) == 44  # 300 % 256
     assert lv.u8(-1) == 255
     assert lv.u16(65536) == 0
 
@@ -60,11 +60,7 @@ def test_sign_rem_mod_logical():
 
 
 def test_scalar_and_array_round_trip():
-    script = (
-        "int32 i=0;\n"
-        "y = a + 2**3;\n"
-        "for (i=0; i<n; i++) out[i] = data[i]*2;\n"
-    )
+    script = "int32 i=0;\ny = a + 2**3;\nfor (i=0; i<n; i++) out[i] = data[i]*2;\n"
     variables = [
         VarSpec("a", "NumFloat64", "in", False),
         VarSpec("n", "NumInt32", "in", False),
@@ -77,8 +73,8 @@ def test_scalar_and_array_round_trip():
     exec("import math\nfrom lvkit.runtime import lv as _lv\n" + res.source, ns)
     result = ns["formula_t"](a=5.0, n=3, data=[1.0, 2.0, 3.0], out=[0.0, 0.0, 0.0])
 
-    assert result["y"] == 13.0                 # 5 + 2**3
-    assert result["out"] == [2.0, 4.0, 6.0]    # data*2, written in place
+    assert result["y"] == 13.0  # 5 + 2**3
+    assert result["out"] == [2.0, 4.0, 6.0]  # data*2, written in place
 
 
 def test_empty_array_input():

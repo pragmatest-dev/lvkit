@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import IntEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -23,6 +24,7 @@ class ParsedType:
     The graph layer enriches this to LVType by adding:
     - values (enum members from vilib_resolver)
     """
+
     kind: str  # "primitive", "cluster", "array", "typedef_ref"
     type_name: str  # "Path", "Cluster", "NumInt32"
     typedef_path: str | None = None
@@ -41,6 +43,7 @@ class ParsedNode:
 
     This is the base class. Subclasses in node_types.py add type-specific fields.
     """
+
     uid: str
     node_type: str  # XML class: "iUse", "prim", "cpdArith", "aBuild", etc.
     name: str | None = None
@@ -51,6 +54,7 @@ class ParsedNode:
 @dataclass
 class ParsedConstant:
     """A constant value on the block diagram."""
+
     uid: str
     type_desc: str
     value: str
@@ -68,6 +72,7 @@ class ParsedConstant:
 @dataclass
 class ParsedWire:
     """A wire connecting terminals."""
+
     uid: str
     from_term: str
     to_term: str
@@ -76,6 +81,7 @@ class ParsedWire:
 @dataclass
 class ParsedFPTerminal:
     """A front panel terminal (VI input or output)."""
+
     uid: str
     fp_dco_uid: str  # Links to front panel control/indicator
     name: str | None = None
@@ -86,6 +92,7 @@ class ParsedFPTerminal:
 @dataclass
 class ParsedTerminalInfo:
     """Detailed info about a terminal for graph-native representation."""
+
     uid: str
     parent_uid: str
     index: int  # Position in parent's termList
@@ -95,8 +102,14 @@ class ParsedTerminalInfo:
     inverted: bool = False  # DCO objFlags bit 16: "Not" applied to this terminal
 
 
-class ParsedWiringRule:
-    """Terminal wiring rule - controls required/recommended/optional status."""
+class ParsedWiringRule(IntEnum):
+    """Terminal wiring rule - controls required/recommended/optional status.
+
+    ``IntEnum`` so a member IS its LabVIEW wiring-rule int (0-4): it compares
+    equal to the raw ``Terminal.wiring_rule`` value and serializes as that int,
+    while giving the value set a name, iteration, and value->name lookup.
+    """
+
     INVALID = 0
     REQUIRED = 1
     RECOMMENDED = 2
@@ -118,6 +131,7 @@ class ParsedLoopStructure:
     - Stop condition terminal (for while loops)
     - Stop condition polarity (for while loops)
     """
+
     uid: str
     loop_type: str  # "whileLoop" or "forLoop"
     boundary_terminal_uids: list[str] = field(default_factory=list)
@@ -154,6 +168,7 @@ class ParsedDecomposeRecomposeStructure:
     In Python codegen, this is transparent (no control flow) — just field
     access and in-place write-back.
     """
+
     uid: str
     tunnels: list[Tunnel] = field(default_factory=list)
     inner_node_uids: list[str] = field(default_factory=list)
@@ -277,16 +292,18 @@ class ParsedEventStructure:
 @dataclass
 class ParsedConnectorPaneSlot:
     """A slot on the connector pane."""
+
     index: int  # Slot position (0-based)
     fp_dco_uid: str | None = None  # UID of the connected fPDCO
-    is_output: bool = False  # True if output terminal
-    wiring_rule: int = 0  # ParsedWiringRule value (0-4)
-    type_id: str | None = None  # TypeID reference
+    # NB: a slot carries only its position + the fPDCO it connects. Direction,
+    # wiring rule, and type are NOT stored here -- they are read per FP terminal
+    # (is_indicator) and via the separate parse_connector_pane_types path.
 
 
 @dataclass
 class ParsedConnectorPane:
     """The VI's connector pane - defines its external interface."""
+
     pattern_id: int  # conId - identifies the connector pane pattern
     slots: list[ParsedConnectorPaneSlot] = field(default_factory=list)
 
@@ -298,6 +315,7 @@ class ParsedConnectorPane:
 @dataclass
 class ParsedTypeDefRef:
     """A reference to a vilib TypeDef/custom control."""
+
     type_id: int
     name: str  # e.g., "System Directory Type.ctl"
     vilib_path: str  # e.g., "Utility/sysdir.llb"
@@ -306,6 +324,7 @@ class ParsedTypeDefRef:
 @dataclass
 class ParsedResolvedTypeDefValue:
     """A resolved typedef enum value with OS paths."""
+
     name: str
     description: str
     windows_path: str | None = None
@@ -315,6 +334,7 @@ class ParsedResolvedTypeDefValue:
 @dataclass
 class ParsedDefaultValue:
     """A default value from the DFDS section."""
+
     type_id: int
     values: list[Any]  # Parsed values (bool, int, float, str, etc.)
     structure: str  # "Cluster", "Array", "scalar", etc.
@@ -326,6 +346,7 @@ class ParsedDependencyRef:
 
     Spans every file type LabVIEW tracks: .vi, .lvclass, .ctl, .lvlib.
     """
+
     name: str  # Leaf filename, e.g., "TestCase.lvclass" or "listTestMethods.vi"
     path_tokens: list[str]  # Raw path tokens from LinkSavePathRef/String
     qualified_name: str | None = None  # e.g., "TestCase.lvclass:TestCase_Init.vi"
@@ -396,6 +417,7 @@ ParsedSubVIPathRef = ParsedDependencyRef
 @dataclass
 class ParsedFPDCOType:
     """Type info for a front panel DCO (data container object)."""
+
     uid: str
     type_desc: str  # e.g., "TypeID(1)"
 
@@ -403,18 +425,21 @@ class ParsedFPDCOType:
 @dataclass
 class ParsedFPDCOTypeMap:
     """Collection of FP DCO types from an FP XML file."""
+
     types: list[ParsedFPDCOType] = field(default_factory=list)
 
     def get_type(self, dco_uid: str) -> str | None:
         """Get typeDesc for a DCO by UID."""
         return next(
-            (t.type_desc for t in self.types if t.uid == dco_uid), None,
+            (t.type_desc for t in self.types if t.uid == dco_uid),
+            None,
         )
 
 
 @dataclass
 class ParsedFPControl:
     """A control or indicator on the front panel."""
+
     uid: str
     name: str
     control_type: str  # stdString, stdNumeric, stdBool, stdPath, stdEnum, etc.
@@ -433,6 +458,7 @@ class ParsedFrontPanel:
 
     Contains rich control details for UI generation.
     """
+
     controls: list[ParsedFPControl]
     panel_bounds: tuple[int, int, int, int]
     title: str | None = None
@@ -445,6 +471,7 @@ class ParsedVIMetadata:
     Contains identity and reference information about the VI.
     Does NOT contain block diagram content.
     """
+
     qualified_name: str | None = None  # e.g., "Library.lvlib:VI.vi"
     # The VI's OWNERSHIP CHAIN from its own ``<LIBN>`` block (owning .lvlib /
     # .lvclass, outermost first) — e.g. ``["NI …SDK.lvlib", "Foo.lvclass"]``. The
@@ -469,6 +496,7 @@ class ParsedBlockDiagram:
 
     Contains only block diagram content - metadata is in VIMetadata.
     """
+
     nodes: list[ParsedNode]
     constants: list[ParsedConstant]
     wires: list[ParsedWire]
@@ -557,6 +585,7 @@ class ParsedVI:
 
     Single return type from parse_vi() containing all VI components.
     """
+
     metadata: ParsedVIMetadata
     block_diagram: ParsedBlockDiagram
     front_panel: ParsedFrontPanel

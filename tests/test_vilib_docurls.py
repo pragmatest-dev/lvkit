@@ -10,6 +10,7 @@ the primitives.json pdf_page->doc_url swap. These tests pin:
   - coverage stays high (guards an accidental mass-drop),
   - no vilib doc_url contradicts primitives.json for the same function.
 """
+
 from __future__ import annotations
 
 import json
@@ -61,9 +62,7 @@ def test_known_boolean_docurls():
         "Exclusive Or Function": DOC_PREFIX + "functions/exclusive-or.html",
     }
     got = {
-        e["name"]: e.get("doc_url")
-        for _f, e in _all_entries()
-        if e.get("name") in want
+        e["name"]: e.get("doc_url") for _f, e in _all_entries() if e.get("name") in want
     }
     for name, url in want.items():
         assert got.get(name) == url, f"{name}: {got.get(name)!r} != {url!r}"
@@ -97,10 +96,12 @@ def test_enriched_terminals_are_well_formed():
         if e.get("status") != "docs_enriched":
             continue
         for t in e.get("terminals", []):
-            if (not t.get("name")
-                    or t.get("direction") not in ("in", "out")
-                    or not t.get("python_param")
-                    or t.get("index") is not None):
+            if (
+                not t.get("name")
+                or t.get("direction") not in ("in", "out")
+                or not t.get("python_param")
+                or t.get("index") is not None
+            ):
                 bad.append((e.get("name"), t))
     assert bad == [], f"malformed enriched terminals: {bad[:10]}"
 

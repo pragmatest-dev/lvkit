@@ -143,6 +143,7 @@ def _bool_value(raw: object) -> bool:
         return raw
     return str(raw).strip().lower() in _BOOL_TRUE_TOKENS
 
+
 # Arithmetic-primitive name/operation -> triangle symbol (moved here from
 # the old draw.py dispatch dict — this IS "add a code-drawn built-in").
 #
@@ -155,10 +156,16 @@ def _bool_value(raw: object) -> bool:
 # ``node_type=="select"`` used internally for In-Place-Element decompose/
 # recompose (unrelated construct — see ``graph/builders/structures.py``).
 _ARITH_SYMBOL = {
-    "Add": "+", "Subtract": "−", "Multiply": "×", "Divide": "÷",
-    "Increment": "+1", "Decrement": "-1",
-    "And Array Elements": "∧", "Or Array Elements": "∨",
-    "Add Array Elements": "+", "Multiply Array Elements": "×",
+    "Add": "+",
+    "Subtract": "−",
+    "Multiply": "×",
+    "Divide": "÷",
+    "Increment": "+1",
+    "Decrement": "-1",
+    "And Array Elements": "∧",
+    "Or Array Elements": "∨",
+    "Add Array Elements": "+",
+    "Multiply Array Elements": "×",
     "Select": "?",
 }
 
@@ -168,12 +175,19 @@ _ARITH_SYMBOL = {
 # resolved primitive NAME (primitives.json), the same way _ARITH_SYMBOL keys
 # arithmetic — several type-variant prim_ids share one comparison name.
 _COMPARE_SYMBOL = {
-    "Equal?": "=", "Not Equal?": "≠", "Greater?": ">", "Less?": "<",
-    "Greater Or Equal?": "≥", "Less Or Equal?": "≤",
+    "Equal?": "=",
+    "Not Equal?": "≠",
+    "Greater?": ">",
+    "Less?": "<",
+    "Greater Or Equal?": "≥",
+    "Less Or Equal?": "≤",
     # Comparison-to-0 variants (LabVIEW draws the same triangle with a "0").
-    "Equal To 0?": "=0", "Not Equal To 0?": "≠0",
-    "Greater Than 0?": ">0", "Less Than 0?": "<0",
-    "Greater Or Equal To 0?": "≥0", "Less Or Equal To 0?": "≤0",
+    "Equal To 0?": "=0",
+    "Not Equal To 0?": "≠0",
+    "Greater Than 0?": ">0",
+    "Less Than 0?": "<0",
+    "Greater Or Equal To 0?": "≥0",
+    "Less Or Equal To 0?": "≤0",
 }
 
 # Boolean logic-GATE primitives (goal #99) -> (BooleanGateGlyph kind, interior
@@ -283,7 +297,8 @@ def mux_display_name(node: AnyGraphNode) -> str:
     if node_type == "eventDataNode":
         return "Event Data"
     name = bundle_unbundle_name(
-        node.terminals, by_name=node_type in _BY_NAME_MUX_TYPES,
+        node.terminals,
+        by_name=node_type in _BY_NAME_MUX_TYPES,
     )
     if name is not None:
         return name
@@ -296,9 +311,7 @@ def mux_display_name(node: AnyGraphNode) -> str:
 # (the node-type primitive flavor) AND are direction-polymorphic — one node_type
 # resolves to Bundle vs Unbundle by field direction — so a single node_type->url
 # entry can't express them. Their doc link keys off the resolved DISPLAY name.
-_MUX_DOC_BASE = (
-    "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/"
-)
+_MUX_DOC_BASE = "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/"
 _MUX_DOC_URL = {
     "Bundle By Name": _MUX_DOC_BASE + "bundle-by-name.html",
     "Unbundle By Name": _MUX_DOC_BASE + "unbundle-by-name.html",
@@ -371,7 +384,8 @@ class SubVISource:
 
 
 def resolve_subvi_source(
-    node: VINode, graph: InMemoryVIGraph,
+    node: VINode,
+    graph: InMemoryVIGraph,
 ) -> SubVISource | None:
     """Resolve a SubVI VINode's own on-disk ``.vi`` file — the ONE lookup
     chain shared by both SubVI icon resolution (``ExtractedIconResolver``)
@@ -447,7 +461,9 @@ class ExtractedIconResolver:
             bd_xml, _, _ = extract_vi_xml(src_path)
         except Exception:
             logger.debug(
-                "subVI icon extraction failed for %r (%s)", node.name, src_path,
+                "subVI icon extraction failed for %r (%s)",
+                node.name,
+                src_path,
                 exc_info=True,
             )
             return None
@@ -519,7 +535,8 @@ class JsonGlyphResolver:
 
 
 def _resolve_bundle_by_name_labels(
-    field_terms: list[Terminal], *field_sources: list[ClusterField],
+    field_terms: list[Terminal],
+    *field_sources: list[ClusterField],
 ) -> tuple[str, ...]:
     """Resolve each By-Name field terminal's label via the fall-through
     chain (``_resolve_nmux_field_name`` over ``field_sources``, then the
@@ -561,7 +578,8 @@ def _resolve_bundle_by_name_labels(
 
 
 def _bundle_by_name_glyph(
-    node: PrimitiveNode, graph: InMemoryVIGraph,
+    node: PrimitiveNode,
+    graph: InMemoryVIGraph,
 ) -> BundleByNameGlyph | None:
     """A Bundle/Unbundle-By-Name glyph for an ``nMux`` (or ``decomposeClusterNode``
     IPES cluster border) node, with each accessed field's NAME resolved from
@@ -581,7 +599,8 @@ def _bundle_by_name_glyph(
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
     own_fields, dep_fields = _nmux_field_sources(node.vi, agg, graph)
     field_terms = sorted(
-        (t for t in node.terminals if t.nmux_role == "list"), key=lambda t: t.index,
+        (t for t in node.terminals if t.nmux_role == "list"),
+        key=lambda t: t.index,
     )
     if not field_terms:
         return None
@@ -604,7 +623,8 @@ def _bundle_by_name_glyph(
 
 
 def _event_data_glyph(
-    node: PrimitiveNode, graph: InMemoryVIGraph,
+    node: PrimitiveNode,
+    graph: InMemoryVIGraph,
 ) -> EventDataGlyph | None:
     """The Event Data Node / Event Filter Node glyph (see ``EventDataGlyph``).
     Same ``dcoAgg``/``dcoList`` field shape as ``_bundle_by_name_glyph`` (the
@@ -634,7 +654,8 @@ def _event_data_glyph(
         else []
     )
     field_terms = sorted(
-        (t for t in node.terminals if t.nmux_role == "list"), key=lambda t: t.index,
+        (t for t in node.terminals if t.nmux_role == "list"),
+        key=lambda t: t.index,
     )
     if not field_terms:
         return None
@@ -651,8 +672,10 @@ def _event_data_glyph(
         else:
             name = "[?]"
         field = fields[fi] if fi is not None and 0 <= fi < len(fields) else None
-        lv_type = t.lv_type if t.lv_type is not None else (
-            field.type if field is not None else None
+        lv_type = (
+            t.lv_type
+            if t.lv_type is not None
+            else (field.type if field is not None else None)
         )
         rows.append((name, lv_type))
 
@@ -752,9 +775,13 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
     for i in range(n_params):
         left = term_at(2 + 2 * i)
         right = term_at(2 + 2 * i + 1)
-        rows.append((
-            f"[{i}]", _row_terminal_present(left), _row_terminal_present(right),
-        ))
+        rows.append(
+            (
+                f"[{i}]",
+                _row_terminal_present(left),
+                _row_terminal_present(right),
+            )
+        )
 
     return InvokeNodeGlyph(
         method=(getattr(node, "method_name", None) or "").strip(),
@@ -819,7 +846,10 @@ class OriginalGlyphResolver:
         if gate is not None:
             kind, gate_symbol, negated, input_bubble = gate
             return BooleanGateGlyph(
-                gate_symbol, kind=kind, negated=negated, input_bubble=input_bubble,
+                gate_symbol,
+                kind=kind,
+                negated=negated,
+                input_bubble=input_bubble,
             )
         if _ARRAY_GLYPHS_ENABLED:
             array_glyph = _ARRAY_GLYPH.get(node.name or "")
@@ -913,7 +943,9 @@ def _enum_const_name(lv_type: LVType | None, raw: object) -> str:
 
 
 def _leaf_const_glyph(
-    lv_type: LVType | None, raw: object, display_format: str | None = None,
+    lv_type: LVType | None,
+    raw: object,
+    display_format: str | None = None,
 ) -> Glyph:
     """One non-cluster constant's glyph, from its type + raw value. Shared by
     top-level constants and by each field of a composed cluster constant.
@@ -938,10 +970,9 @@ def _leaf_const_glyph(
     if numeric_repr(lv_type) is not None:
         # An unset numeric cluster field shows its default 0, never "None".
         value_raw = 0 if raw is None else raw
-        value = (
-            _format_numeric_const(lv_type, value_raw, display_format)
-            or _format_const(value_raw)
-        )
+        value = _format_numeric_const(
+            lv_type, value_raw, display_format
+        ) or _format_const(value_raw)
     elif fam == "string":
         # Show the bare text (quotes/escapes are a codegen artifact); empty
         # for an unset field.
@@ -993,8 +1024,7 @@ def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
         (f.name, _leaf_const_glyph(f.type, values.get(f.name))) for f in fields
     )
     summary = "\n".join(
-        f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}"
-        for f in fields
+        f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}" for f in fields
     )
     return ClusterConstantGlyph(composed, is_error=is_error, value_summary=summary)
 
@@ -1062,7 +1092,8 @@ class GeneratedGlyphResolver:
             if node.node_type == "ctlRefConst":
                 ref_term = (
                     ctx.graph.get_terminal(node.control_terminal_id)
-                    if node.control_terminal_id else None
+                    if node.control_terminal_id
+                    else None
                 )
                 ref_type = ref_term.lv_type if ref_term is not None else None
                 type_color = (
@@ -1085,7 +1116,8 @@ class GeneratedGlyphResolver:
         if node.node_type == "cpdArith":
             num_inputs = sum(1 for t in node.terminals if t.direction == "input")
             return CompoundArithGlyph(
-                _cpd_arith_operation(node), num_inputs=max(1, num_inputs),
+                _cpd_arith_operation(node),
+                num_inputs=max(1, num_inputs),
             )
         sym = _ARITH_SYMBOL.get(node.operation or node.name or "")
         if sym:
@@ -1097,13 +1129,20 @@ class GeneratedGlyphResolver:
             node.name == f"unknown_primitive_{node.prim_id}"
         ):
             return WrappedBoxGlyph(
-                f"#{node.prim_id}", "prim_fill", "prim_stroke", 1.0,
+                f"#{node.prim_id}",
+                "prim_fill",
+                "prim_stroke",
+                1.0,
                 text_attr="prim_text",
             )
         # No icon yet: wrap the primitive's name inside the box (up to 4 lines,
         # adaptive font) — same treatment as an icon-less subVI.
         return WrappedBoxGlyph(
-            node.name or "?", "prim_fill", "prim_stroke", 1.0, text_attr="prim_text",
+            node.name or "?",
+            "prim_fill",
+            "prim_stroke",
+            1.0,
+            text_attr="prim_text",
         )
 
 
@@ -1111,11 +1150,17 @@ class FallbackBoxResolver:
     """The labeled box. ALWAYS returns a ``Glyph`` — resolution can't fail."""
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph:
-        label = node.name or (
-            get_display_name(node.node_type) if node.node_type else None
-        ) or "?"
+        label = (
+            node.name
+            or (get_display_name(node.node_type) if node.node_type else None)
+            or "?"
+        )
         return WrappedBoxGlyph(
-            label, "prim_fill", "prim_stroke", 1.0, text_attr="prim_text",
+            label,
+            "prim_fill",
+            "prim_stroke",
+            1.0,
+            text_attr="prim_text",
         )
 
 

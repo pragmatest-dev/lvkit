@@ -36,9 +36,9 @@ install_pylabview_patches()
 from lvkit.cache_paths import (  # noqa: E402
     _slug,
     classify,
+    cleanup_legacy_cache,
     global_cache_root,
     meta_fresh,
-    migrate_legacy_extract,
 )
 from lvkit.text_encoding import (  # noqa: E402
     labview_text_encoding,
@@ -87,7 +87,9 @@ def _warn_if_near_windows_limit(path: Path) -> None:
             "deeper project will start failing extraction. Mitigate by setting "
             "LVKIT_CACHE_DIR to a short root, enabling LongPathsEnabled, or "
             "moving the project higher in the tree. Path: %s",
-            len(str(path)), _WIN_MAX_PATH, path,
+            len(str(path)),
+            _WIN_MAX_PATH,
+            path,
         )
 
 
@@ -107,9 +109,9 @@ def _windows_long_path_hint(path: Path) -> str:
 def _cache_target(vi_path: Path) -> Path:
     """The per-VI EXTRACTION cache directory for ``vi_path`` (created).
 
-    A one-time rename migrates any pre-``extract/`` layout on first use.
+    A one-time cleanup drops the abandoned kind-first cache trees on first use.
     """
-    migrate_legacy_extract()
+    cleanup_legacy_cache()
     target, _, _ = classify(vi_path, "extract")
     target.mkdir(parents=True, exist_ok=True)
     return target
@@ -130,8 +132,11 @@ def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
     os.close(fd)
     tmp = Path(tmp_name)
     write_meta(
-        vi_path, tmp,
-        source=source, tool="pylabview", extracted_at=time.time(),
+        vi_path,
+        tmp,
+        source=source,
+        tool="pylabview",
+        extracted_at=time.time(),
         text_encoding=labview_text_encoding(),
     )
     os.replace(tmp, meta_path)
@@ -209,9 +214,8 @@ def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
     with open(xml_path, "wb") as xml_fh:
         tree.write(xml_fh, encoding="utf-8", xml_declaration=True)
     for path in output_dir.iterdir():
-        belongs_to_vi = (
-            path.name == f"{vi_stem}.xml"
-            or path.name.startswith(f"{vi_stem}_")
+        belongs_to_vi = path.name == f"{vi_stem}.xml" or path.name.startswith(
+            f"{vi_stem}_"
         )
         if path.suffix == ".xml" and belongs_to_vi:
             normalize_extracted_xml(path)
@@ -461,9 +465,7 @@ def extract_llb(llb_path: Path) -> Path:
                 with zipfile.ZipFile(io.BytesIO(bldata.read())) as zf:
                     for member in zf.namelist():
                         if member.lower().endswith(".vi"):
-                            member_name = _UNSAFE_CHARS.sub(
-                                "-", Path(member).name
-                            )
+                            member_name = _UNSAFE_CHARS.sub("-", Path(member).name)
                             _atomic_write_bytes(
                                 cache_dir / member_name, zf.read(member)
                             )
@@ -483,4 +485,3 @@ def extract_llb(llb_path: Path) -> Path:
         pass
 
     return cache_dir
-

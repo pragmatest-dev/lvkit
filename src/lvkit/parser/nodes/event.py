@@ -132,12 +132,15 @@ def _parse_fp_root(fp_xml_path: Path | str | None) -> ET.Element | None:
 
 
 def _extract_one_event_structure(
-    elem: ET.Element, uid: str, fp_root: ET.Element | None,
+    elem: ET.Element,
+    uid: str,
+    fp_root: ET.Element | None,
 ) -> ParsedEventStructure | None:
     diag_list = elem.find("diagramList")
     diag_elems = (
         diag_list.findall("SL__arrayElement[@class='diag']")
-        if diag_list is not None else []
+        if diag_list is not None
+        else []
     )
     if not diag_elems:
         return None
@@ -153,13 +156,18 @@ def _extract_one_event_structure(
     for idx, diag_elem in enumerate(diag_elems):
         inner_node_uids = frame_inner_node_uids(diag_elem)
         inner_node_uids += _frame_extra_node_uids(
-            inner_node_uids, data_node_uids, filter_node_uids, idx,
+            inner_node_uids,
+            data_node_uids,
+            filter_node_uids,
+            idx,
         )
-        frames.append(EventFrame(
-            index=idx,
-            event_label=labels[idx],
-            inner_node_uids=inner_node_uids,
-        ))
+        frames.append(
+            EventFrame(
+                index=idx,
+                event_label=labels[idx],
+                inner_node_uids=inner_node_uids,
+            )
+        )
 
     return ParsedEventStructure(
         uid=uid,
@@ -255,7 +263,8 @@ def _extract_event_specs(elem: ET.Element) -> dict[int, _EventSpec]:
 
 
 def _resolve_control_caption(
-    fp_root: ET.Element | None, ddo_uid: str,
+    fp_root: ET.Element | None,
+    ddo_uid: str,
 ) -> str | None:
     """The source control's caption, read from the FRONT-PANEL heap's own
     ``ddo`` element (keyed by ``EventSpec.ddoUID``) — the same
@@ -272,7 +281,9 @@ def _resolve_control_caption(
 
 
 def _format_event_label(
-    idx: int, spec: _EventSpec | None, fp_root: ET.Element | None,
+    idx: int,
+    spec: _EventSpec | None,
+    fp_root: ET.Element | None,
 ) -> str:
     """Reconstruct frame ``idx``'s display label from its ``EventSpec``,
     matching LabVIEW's own displayed-frame format
@@ -285,9 +296,7 @@ def _format_event_label(
     base = f"[{idx}]"
     if spec is None:
         return base
-    caption = (
-        _resolve_control_caption(fp_root, spec.ddo_uid) if spec.ddo_uid else None
-    )
+    caption = _resolve_control_caption(fp_root, spec.ddo_uid) if spec.ddo_uid else None
     type_name = (
         _CONFIRMED_EVENT_TYPES.get(spec.type_code)
         if spec.type_code is not None
@@ -323,8 +332,7 @@ def _resolve_frame_labels(
     it always wins over the reconstruction for its own frame.
     """
     labels = [
-        _format_event_label(i, event_specs.get(i), fp_root)
-        for i in range(num_frames)
+        _format_event_label(i, event_specs.get(i), fp_root) for i in range(num_frames)
     ]
     d_idx_text = elem.findtext("dIdx")
     displayed = (

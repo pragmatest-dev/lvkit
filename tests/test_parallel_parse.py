@@ -41,9 +41,7 @@ def _patch(monkeypatch):
     monkeypatch.setattr(parallel_parse, "ProcessPoolExecutor", _FakePool)
     # A non-empty resolved list is what would trigger the pool on the main
     # thread — stub extraction so we never touch a real .vi.
-    monkeypatch.setattr(
-        parallel_parse, "extract_vi_xml", lambda p: (p, None, None)
-    )
+    monkeypatch.setattr(parallel_parse, "extract_vi_xml", lambda p: (p, None, None))
 
 
 def test_main_thread_constructs_the_pool(monkeypatch):

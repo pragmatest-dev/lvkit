@@ -14,7 +14,7 @@ import json
 import pytest
 
 from lvkit._data import data_dir
-from lvkit.render.connector_pane_geometry import (
+from lvkit.connector_pane_geometry import (
     _patterns,
     get_pattern,
     known_con_ids,

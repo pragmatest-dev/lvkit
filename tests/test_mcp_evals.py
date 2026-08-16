@@ -12,6 +12,13 @@ Pattern follows ``tests/test_index.py``'s ``TestFullCorpusDemo``: ``JKI_ROOT``
 / ``_HAVE_JKI`` guard, module-scoped ``jki_index`` fixture (build once,
 reusing the developer's warm extraction cache), ``@pytest.mark.slow``.
 
+RUN SERIALLY: ``uv run pytest tests/test_mcp_evals.py -m slow -n0``.
+The whole module shares ONE on-disk index (the fixture ``save``s to the real
+cache so ``_query`` has a real DB to hit), so the default ``-n auto`` xdist
+workers race the same SQLite file -> ``OperationalError`` + partial-read
+assertion flakes. ``-n0`` overrides ``-n auto`` to run serially (``-p no:xdist``
+does NOT work -- it drops the plugin, leaving ``-n auto`` unrecognized).
+
 Every assertion below pins the value actually OBSERVED against the corpus
 (computed and printed while developing this file, then hardcoded) — not a
 hoped-for value. A baseline going RED is a real regression. The two
@@ -105,6 +112,27 @@ class TestQ1ClassHierarchy:
         # (zero methods) stays unresolved — #19, out of scope here.
         assert len(owning) == 31
 
+    def test_testcase_direct_subclass_count(self, jki_index: BuildResult):
+        """Q1/Q5: 'How many classes inherit from TestCase?' A definitive
+        structural answer — pin it EXACT, no range. Direct subclasses are the
+        distinct owning_classes whose parent is ``TestCase.lvclass``; none of
+        the 14 have children of their own, so the transitive answer is also 14.
+        """
+        subclasses = {
+            f.class_fact.owning_class
+            for f in jki_index.facts
+            if f.class_fact is not None
+            and f.class_fact.parent == "TestCase.lvclass"
+        }
+        assert len(subclasses) == 14
+        # No grandchildren: nothing lists one of the 14 as its parent.
+        grandchildren = {
+            f.class_fact.owning_class
+            for f in jki_index.facts
+            if f.class_fact is not None and f.class_fact.parent in subclasses
+        }
+        assert grandchildren == set()
+
     def test_no_owning_class_has_two_distinct_parents(self, jki_index: BuildResult):
         """The de-duplication invariant: every class_fact row resolved for
         the same owning_class must agree on its parent — a class can't
@@ -142,13 +170,68 @@ class TestQ1ClassHierarchy:
         of the class must now resolve a single ``TestCase.lvclass`` parent,
         no NULL."""
         methods = [
-            f for f in jki_index.facts
+            f
+            for f in jki_index.facts
             if f.class_fact
             and f.class_fact.owning_class == "WaitOnTestComplete.lvclass"
         ]
         assert methods  # the class resolves at all
         parents = {f.class_fact.parent for f in methods if f.class_fact}
         assert parents == {"TestCase.lvclass"}  # single value, no None
+
+
+@pytest.mark.slow
+def test_q3_testcase_private_methods(jki_index: BuildResult):
+    """Q3: 'What are the private methods of TestCase.lvclass?' A definitive
+    enumerable set — pin it EXACT. scope='private' catches all four regardless
+    of folder (two sit directly under the class dir, one under private/, and
+    testMethod.vi at the class root)."""
+    res = _query(
+        "SELECT vi_path FROM class_fact "
+        "WHERE owning_class='TestCase.lvclass' AND scope='private'"
+    )
+    methods = {str(row[0]).rsplit("/", 1)[-1] for row in res.rows}
+    assert methods == {
+        "closeMethodViReference.vi",
+        "openMethodViReference.vi",
+        "CallTestMethod.vi",
+        "testMethod.vi",
+    }
+
+
+@pytest.mark.slow
+def test_q4_accessor_field_map(jki_index: BuildResult):
+    """Q4: 'Which class fields have accessors, and which field does each
+    read/write?' A definitive enumerable map — pin the EXACT set of
+    (owning_class, field) pairs. 18 accessors across 9 classes; every field has
+    exactly one accessor VI (no read/write pair splits the field into two rows).
+    """
+    res = _query(
+        "SELECT owning_class, accessor_field FROM class_fact WHERE is_accessor=1"
+    )
+    pairs = {(row[0], row[1]) for row in res.rows}
+    assert pairs == {
+        ("Class1.lvclass", "Queue"),
+        ("FrameworkSubTestSuite.lvclass", "Special"),
+        ("TestCase.lvclass", "CustomReportText"),
+        ("TestCase.lvclass", "SkipMessage"),
+        ("TestLoader.lvclass", "TestsFromTestCase"),
+        ("TestLoader.lvclass", "TestsFromTestCaseByClassPath"),
+        ("TestLoader.lvclass", "TestsFromTestCaseObject"),
+        ("TestResult.lvclass", "ShouldStop"),
+        ("TestResult.lvclass", "Test Skipped Message"),
+        ("TestRunner.lvclass", "PublicEvents"),
+        ("TestRunner.lvclass", "StartTime"),
+        ("TestRunner.lvclass", "StopTime"),
+        ("TestRunner.lvclass", "TestTimingInfo"),
+        ("TestSuite.lvclass", "SkipMessage"),
+        ("TextTestRunner.lvclass", "descriptions"),
+        ("TextTestRunner.lvclass", "stream"),
+        ("TextTestRunner.lvclass", "verbosity"),
+        ("_TextTestResult.lvclass", "Description"),
+    }
+    # Each (class, field) pair is unique — no field double-counted.
+    assert len(res.rows) == 18
 
 
 @pytest.mark.skipif(not _HAVE_JKI, reason="JKI-VI-Tester sample not present")
@@ -161,7 +244,11 @@ class TestQ2VilibVsInRepoParent:
 
     def test_junitxml_runner_points_at_vilib(self):
         path = (
-            JKI_ROOT / "source" / "Ant Plugin" / "Source" / "TextTestRunner.Ant"
+            JKI_ROOT
+            / "source"
+            / "Ant Plugin"
+            / "Source"
+            / "TextTestRunner.Ant"
             / "TextTestRunner.JUnitXML.lvclass"
         )
         lv = parse_lvclass(path)
@@ -170,7 +257,10 @@ class TestQ2VilibVsInRepoParent:
 
     def test_texttestrunner_points_in_repo(self):
         path = (
-            JKI_ROOT / "source" / "Classes" / "TextTestRunner"
+            JKI_ROOT
+            / "source"
+            / "Classes"
+            / "TextTestRunner"
             / "TextTestRunner.lvclass"
         )
         lv = parse_lvclass(path)
@@ -193,10 +283,55 @@ def test_q10_error_indicator_histogram_top_row(jki_index: BuildResult):
     often?' — 'error out' dominates; pin its current count as baseline."""
     res = _query(
         "SELECT name, COUNT(*) n FROM terminal "
-        "WHERE is_error_cluster=1 AND direction='output' "
+        "WHERE type_descriptor='Error' AND direction='output' "
         "GROUP BY name ORDER BY n DESC, name"
     )
-    assert res.rows[0] == ["error out", 352]
+    # Baseline count, re-pinned when it drifts (the answer -- "error out"
+    # dominates -- is the eval; the number is a regression tripwire). Was 352;
+    # 382 as of this branch (cumulative parser terminal-extraction improvements,
+    # not a projection change). Distinct from a doubling bug -- other count
+    # pins (q22/q26 + the path-keyed collision counts) held, so the index
+    # isn't double-counting.
+    assert res.rows[0] == ["error out", 382]
+
+
+@pytest.mark.slow
+def test_q8_error_cluster_input_vis(jki_index: BuildResult):
+    """Q8: 'Which VIs take an error cluster as an input?' A definitive
+    structural count — pin it EXACT. Error clusters are identified by their
+    type (``type_descriptor='Error'``), NOT by terminal name, so this catches
+    the ``error in``/fallback-labelled inputs a name-grep would miss."""
+    res = _query(
+        "SELECT COUNT(DISTINCT vi_path) FROM terminal "
+        "WHERE type_descriptor='Error' AND direction='input'"
+    )
+    assert res.rows == [[395]]
+
+
+@pytest.mark.slow
+def test_q9_no_input_vis(jki_index: BuildResult):
+    """Q9: 'Which VIs have no inputs (entry points / top-level runners)?'
+    Definitive — a VI whose path never appears as an input-terminal owner."""
+    res = _query(
+        "SELECT COUNT(*) FROM vi WHERE path NOT IN "
+        "(SELECT DISTINCT vi_path FROM terminal WHERE direction='input')"
+    )
+    assert res.rows == [[30]]
+
+
+@pytest.mark.slow
+def test_q11_no_error_out_vis(jki_index: BuildResult):
+    """Q11: 'Which VIs have NO error out terminal?' Definitive — the
+    complement of the 382 VIs that carry exactly one ``error out`` output
+    (see :func:`test_q10_error_indicator_histogram_top_row`): 487 - 382 = 105.
+    """
+    res = _query(
+        "SELECT COUNT(*) FROM vi WHERE path NOT IN "
+        "(SELECT DISTINCT vi_path FROM terminal "
+        "WHERE type_descriptor='Error' AND direction='output' "
+        "AND name='error out')"
+    )
+    assert res.rows == [[105]]
 
 
 # === F. Project scoping =======================================================
@@ -225,26 +360,22 @@ def test_q18_dead_code_column_is_modeled():
 def test_q18_dead_code_uncalled(jki_index: BuildResult):
     """Q18: 'Is anything dead code — VIs that nothing calls?'
 
-    The fixed answer is ``vi.callers_count = 0`` (#20). The old
-    ``qualified_name``/``callee_key`` anti-join returned an implausible 0
-    (every ``qualified_name`` is NULL and every ``callee_key`` is a bare
-    filename) — pinned below as the regression anchor for WHY the column
-    exists. New count: 284 uncalled of 487, incl. the JUnitXML example runner;
-    a common init subVI (``TestCase_Init.vi``) is NOT uncalled."""
-    # The old broken anti-join still returns the implausible 0.
-    broken = _query(
-        "SELECT COUNT(*) FROM vi WHERE qualified_name IS NOT NULL "
-        "AND qualified_name NOT IN (SELECT callee_key FROM call)"
-    )
-    assert broken.rows == [[0]]
-
+    The fixed answer is ``vi.callers_count = 0`` (#20) — the in-degree of the
+    call graph, whose edges are now the ``kind='vi'`` node spine: each SubVI-call
+    node's ``callee_path``, resolved once at merge time through the same three
+    tiers (``by_path`` → ``by_qualified`` → leaf-name; see
+    ``query._resolve_callee``). Keyed on VI path, so it classifies even the many
+    VIs whose ``qualified_name`` is NULL. 229 uncalled of 487, incl. the
+    JUnitXML example runner; a common init subVI (``TestCase_Init.vi``) is NOT
+    uncalled. (Was 232 when the call graph read the ``calls`` table; folding it
+    onto the node spine — whose SubVI-call nodes now carry the fully-qualified
+    callee, fixed in builders/operations.py — resolves 3 more real edges, so 3
+    fewer VIs look dead.)"""
     total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
-    assert total.rows == [[284]]
+    assert total.rows == [[229]]
 
-    called = _query(
-        "SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'"
-    )
-    assert called.rows == [[12]]
+    called = _query("SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'")
+    assert called.rows == [[14]]
     uncalled = _query(
         "SELECT callers_count FROM vi WHERE name = 'VI Tester JUnitXML Example.vi'"
     )
@@ -264,10 +395,15 @@ def test_q22_stub_count(jki_index: BuildResult):
 
 
 @pytest.mark.slow
-def test_q24_name_collisions_include_testcase_methods(jki_index: BuildResult):
-    """Q24: 'Are there same-named VIs in different libraries that could be
-    confused?' — CleanUp/setUp/tearDown recur across TestCase subclasses;
-    pin their current counts as baseline."""
+def test_pathkeyed_name_collisions_not_double_counted(jki_index: BuildResult):
+    """Path-keyed indexing must count same-named VIs correctly — neither
+    collapsing distinct files that share a filename nor double-counting them.
+    CleanUp/setUp/tearDown recur across the TestCase subclasses; these exact
+    counts are the anti-double-count tripwire (cited by
+    :func:`test_q10_error_indicator_histogram_top_row`). (The old 'same-named
+    VIs that could be confused?' eval question was cut — LabVIEW namespaces by
+    library, so the copies are distinct files, not a confusion risk — but this
+    structural invariant is worth keeping.)"""
     res = _query(
         "SELECT name, COUNT(*) n FROM vi GROUP BY name HAVING COUNT(*)>1 "
         "ORDER BY n DESC, name"
@@ -286,18 +422,18 @@ def test_q25_enum_interface_members_are_queryable(jki_index: BuildResult):
     """Q25: 'What are the possible values of the `method` enum input to
     CallTestMethod.vi?'
 
-    Answerable straight from the index — the faithful ``lv_type`` label carries
+    Answerable straight from the index — the exact ``type_descriptor`` carries
     the members and ``enum_values`` is the ordinal-ordered JSON array. Before
     the #7 faithful-type sweep every surface projected the enum through
     ``python_type()`` to ``int``, so the members were unreadable and an agent
     could only INFER them (the demonstrated MCP miss)."""
     res = _query(
-        "SELECT lv_type, enum_values FROM terminal "
+        "SELECT type_descriptor, enum_values FROM terminal "
         "WHERE vi_path LIKE '%CallTestMethod.vi' AND name='method'"
     )
     assert len(res.rows) == 1
-    lv_type, enum_values = res.rows[0]
-    assert lv_type == "method--Enum{setUp, testMethod, tearDown}"
+    type_descriptor, enum_values = res.rows[0]
+    assert type_descriptor == "method--Enum{setUp, testMethod, tearDown}"
     for member in ("setUp", "testMethod", "tearDown"):
         assert f'"{member}"' in str(enum_values)
 
@@ -305,23 +441,22 @@ def test_q25_enum_interface_members_are_queryable(jki_index: BuildResult):
 @pytest.mark.slow
 def test_q26_interface_types_are_faithful_not_python(jki_index: BuildResult):
     """Q26 (meta guard for the faithful-types LAW): the answer column
-    ``lv_type`` never carries a Python annotation for a known type. The
+    ``type_descriptor`` never carries a Python annotation for a known type. The
     ``method`` enum is not ``int``; and across the whole corpus no terminal's
-    ``lv_type`` is a Python projection token (``int``/``float``/``dict[str,
-    Any]``/…). ``Any`` is exempt — it's the honest "type unresolved" fallback,
-    not a lossy projection of a KNOWN type."""
+    ``type_descriptor`` is a Python projection token (``int``/``float``/
+    ``dict[str, Any]``/…). An unresolved type is the empty string ``''`` (with
+    ``type_kind`` still naming the family), never ``Any`` or a codegen token."""
     enum_type = _query(
-        "SELECT lv_type FROM terminal "
+        "SELECT type_descriptor FROM terminal "
         "WHERE vi_path LIKE '%CallTestMethod.vi' AND name='method'"
     ).rows[0][0]
     assert enum_type != "int"
     assert "{" in str(enum_type)  # carries its members
 
     # No terminal leaks a Python annotation into the faithful column — not the
-    # codegen tokens, and not 'Any' (an unresolved type now falls back to its
-    # control_type family word: cluster/class/array/ring/refnum, never 'Any').
+    # codegen tokens, and not 'Any'. Unresolved types are '' (see type_kind).
     leaked = _query(
-        "SELECT COUNT(*) FROM terminal WHERE lv_type IN "
+        "SELECT COUNT(*) FROM terminal WHERE type_descriptor IN "
         "('int','float','bool','str','dict[str, Any]','list[float]',"
         "'list[int]','Any')"
     )
@@ -372,9 +507,7 @@ def test_q21_gap19_zero_method_class_resolves(jki_index: BuildResult):
     """Q21/#19: UserInterfaceTestCase (zero methods) should still surface as
     a known class once #19 lands."""
     resolved = {
-        f.class_fact.owning_class
-        for f in jki_index.facts
-        if f.class_fact is not None
+        f.class_fact.owning_class for f in jki_index.facts if f.class_fact is not None
     }
     assert "UserInterfaceTestCase.lvclass" in resolved
 
@@ -398,10 +531,7 @@ def test_q20_19_lvproj_view_returns_six_projects(jki_index: BuildResult):
     path-keyed index exists to disentangle."""
     res = _query("SELECT COUNT(DISTINCT lvproj_path) FROM lvproj")
     assert res.rows == [[6]]
-    names = {
-        row[0]
-        for row in _query("SELECT DISTINCT lvproj_name FROM lvproj").rows
-    }
+    names = {row[0] for row in _query("SELECT DISTINCT lvproj_name FROM lvproj").rows}
     assert len(names) == 5  # 'Test Project' stem occurs twice
     assert "VIUnit" in names
 

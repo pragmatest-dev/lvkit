@@ -129,10 +129,12 @@ After configuring your client, restart it to pick up the new server, then ask it
 You don't script these calls yourself — you ask your agent the question in plain language and it picks the right tool. The calls shown below are what it invokes under the hood. Point it at a real VI or repo:
 
 - **Inspect one VI**, deep and on demand — *"what does this VI do?"* → the agent calls `describe(vi_path="…/Some VI.vi")` for the signature, SubVI calls, and control flow. No indexing needed; it loads the one VI live.
-- **Ask a project-wide question** — *"what does this project call its error indicators?"* → `query(sql="SELECT name, COUNT(*) AS n FROM terminal WHERE is_error_cluster=1 AND direction='output' GROUP BY name ORDER BY n DESC", project="…")` answers as a small histogram, in one call. (`query` builds/refreshes the project index on first use.)
-- **Assess a change** — *"what breaks if I change fail.vi?"* → `blast_radius(vi="…/fail.vi", project="…")`.
+- **Ask a project-wide question** — *"what does this project call its error indicators?"* → `query(sql="SELECT name, COUNT(*) AS n FROM terminal WHERE type_descriptor='Error' AND direction='output' GROUP BY name ORDER BY n DESC", project="…")` answers as a small histogram, in one call. (`query` builds/refreshes the project index on first use.)
+- **Assess a change** — *"what breaks if I change fail.vi?"* → `query(sql="WITH RECURSIVE deps(p) AS (SELECT vi_path FROM node WHERE callee_path='…/fail.vi' UNION SELECT n.vi_path FROM node n JOIN deps ON n.callee_path=deps.p) SELECT * FROM deps", project="…")`, or `vi.impact_score` for just the count. There's no dedicated MCP tool for this — the CLI's `lvkit blast-radius` command answers the same question directly.
 
-The full 16-tool surface — project index, deep single-VI inspection, and stateless generators — plus the worked JKI VI Tester (487 VIs) walkthrough, is in [reference/mcp](../reference/mcp.md).
+The full 6-tool surface — project index and deep single-VI inspection, all
+understanding-only — plus the worked JKI VI Tester (487 VIs) walkthrough, is
+in [reference/mcp](../reference/mcp.md).
 
 ## Troubleshooting
 
@@ -144,7 +146,7 @@ The full 16-tool surface — project index, deep single-VI inspection, and state
 
 ## See also
 
-- [reference/mcp](../reference/mcp.md) — the server's full tool list (project index, deep single-VI inspection, stateless generators) and notes on how the index is stored and refreshed.
+- [reference/mcp](../reference/mcp.md) — the server's full tool list (project index, deep single-VI inspection, resolution-gap triage) and notes on how the index is stored and refreshed.
 - [reference/install](../reference/install.md) — every install path, one-click bundles first, then this same config-file content as a reference page.
 - [reference/vscode-extension](../reference/vscode-extension.md) — the VS Code extension's view/diff/MCP surface and its `lvkit.path` setting.
 - [reference/setup](../reference/setup.md) — install AI-agent editor skills (separate from the MCP server) and create the project-local `.lvkit/` resolution store.

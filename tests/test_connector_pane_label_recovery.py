@@ -33,13 +33,21 @@ pytestmark = pytest.mark.needs_samples
 
 _CLEAN_ROOT = (
     Path(__file__).resolve().parent.parent
-    / ".lvkit" / "cache" / "samples" / "JKI-VI-Tester"
-    / "source" / "LabVIEW Project Plugin"
+    / ".lvkit"
+    / "cache"
+    / "samples"
+    / "JKI-VI-Tester"
+    / "source"
+    / "LabVIEW Project Plugin"
 )
 _BUILT_ROOT = (
     Path(__file__).resolve().parent.parent
-    / ".lvkit" / "cache" / "samples" / "JKI-VI-Tester"
-    / "source" / "Built Project Integration"
+    / ".lvkit"
+    / "cache"
+    / "samples"
+    / "JKI-VI-Tester"
+    / "source"
+    / "Built Project Integration"
 )
 
 # VI name -> (output slot index, output label, input slot index, input label)

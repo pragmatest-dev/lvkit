@@ -54,8 +54,13 @@ DESC LIMIT 10"`) is a precomputed transitive-dependent count.
 ## Notes
 
 - An unindexed project prints an error to stderr and exits `2`.
-- These are the CLI twins of the MCP `get_callers` / `get_callees` /
-  `blast_radius` tools — same answers, either surface. See [mcp](mcp.md).
+- These CLI commands have **no MCP tool twin** — the MCP server answers the
+  same questions as SQL over the `node` view's `callee_path` column: direct
+  callers are `SELECT DISTINCT vi_path FROM node WHERE callee_path='<path>'`,
+  direct callees are `SELECT callee_path FROM node WHERE vi_path='<X>' AND
+  kind='vi'`, and transitive blast radius is a `WITH RECURSIVE` over
+  `callee_path` (`vi.callers_count`/`vi.impact_score` give the counts without
+  the walk). See [mcp](mcp.md).
 
 ## See also
 

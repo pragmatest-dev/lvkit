@@ -17,6 +17,7 @@ from lvkit.models import (
     ClusterField,
     InvokeOperation,
     LVType,
+    LVTypeKind,
     Operation,
     PrimitiveOperation,
     PropertyDef,
@@ -31,7 +32,7 @@ from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_
 def _error_cluster_type() -> LVType:
     """LVType representing a LabVIEW error cluster."""
     return LVType(
-        kind="cluster",
+        kind=LVTypeKind.CLUSTER,
         underlying_type="Cluster",
         fields=[
             ClusterField(name="status"),
@@ -63,7 +64,8 @@ def _make_case_op(
         node_type="caseStruct",
         terminals=terminals,
         selector_terminal=selector_id,
-        frames=frames or [
+        frames=frames
+        or [
             CaseFrame(selector_value="True", operations=[]),
             CaseFrame(selector_value="False", operations=[]),
         ],
@@ -89,7 +91,7 @@ class TestErrorSelectorByType:
         assert case._is_error_selector_by_type(op, ctx) is True
 
     def test_rejects_boolean(self):
-        bool_type = LVType(kind="primitive", underlying_type="Boolean")
+        bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
         op = _make_case_op("sel_1", bool_type)
         ctx = _make_ctx_with_binding("sel_1", "flag")
         assert case._is_error_selector_by_type(op, ctx) is False
@@ -101,7 +103,7 @@ class TestErrorSelectorByType:
 
     def test_rejects_cluster_without_error_fields(self):
         cluster_type = LVType(
-            kind="cluster",
+            kind=LVTypeKind.CLUSTER,
             underlying_type="Cluster",
             fields=[ClusterField(name="x"), ClusterField(name="y")],
         )
@@ -117,10 +119,14 @@ class TestErrorCaseUnwrap:
     """Error-cluster case structures emit only the no-error frame body."""
 
     def test_empty_error_frame_emits_no_error_body(self):
-        op = _make_case_op("sel_1", _error_cluster_type(), frames=[
-            CaseFrame(selector_value="False", operations=[]),
-            CaseFrame(selector_value="True", operations=[]),
-        ])
+        op = _make_case_op(
+            "sel_1",
+            _error_cluster_type(),
+            frames=[
+                CaseFrame(selector_value="False", operations=[]),
+                CaseFrame(selector_value="True", operations=[]),
+            ],
+        )
         ctx = _make_ctx_with_binding("sel_1", "err")
         fragment = case.generate(op, ctx)
         # No statements for empty frames
@@ -128,13 +134,20 @@ class TestErrorCaseUnwrap:
 
     def test_nonempty_error_frame_logs(self, caplog):
         inner_op = Operation(
-            id="cleanup", name="cleanup.vi", kind="vi",
-            node_type="iUse", terminals=[],
+            id="cleanup",
+            name="cleanup.vi",
+            kind="vi",
+            node_type="iUse",
+            terminals=[],
         )
-        op = _make_case_op("sel_1", _error_cluster_type(), frames=[
-            CaseFrame(selector_value="False", operations=[]),
-            CaseFrame(selector_value="True", operations=[inner_op]),
-        ])
+        op = _make_case_op(
+            "sel_1",
+            _error_cluster_type(),
+            frames=[
+                CaseFrame(selector_value="False", operations=[]),
+                CaseFrame(selector_value="True", operations=[inner_op]),
+            ],
+        )
         ctx = _make_ctx_with_binding("sel_1", "err")
         with caplog.at_level(logging.INFO):
             case.generate(op, ctx)
@@ -151,14 +164,18 @@ class TestErrorInputNotBound:
         from lvkit.graph.models import VIContext
 
         error_term = Terminal(
-            id="err_in", index=0, direction="input",
+            id="err_in",
+            index=0,
+            direction="input",
             name="error in (no error)",
             lv_type=_error_cluster_type(),
         )
         normal_term = Terminal(
-            id="data_in", index=1, direction="input",
+            id="data_in",
+            index=1,
+            direction="input",
             name="data",
-            lv_type=LVType(kind="primitive", underlying_type="String"),
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
         )
         vi_ctx = VIContext(
             name="test.vi",
@@ -180,22 +197,27 @@ class TestNMuxRoles:
 
     def _make_nmux_op(self, terminals: list[Terminal]) -> PrimitiveOperation:
         return PrimitiveOperation(
-            id="nmux_1", name="Node Multiplexer",
-            kind="primitive", node_type="nMux",
+            id="nmux_1",
+            name="Node Multiplexer",
+            kind="primitive",
+            node_type="nMux",
             terminals=terminals,
         )
 
     def test_agg_passthrough(self):
         """AGG in + AGG out = pure passthrough."""
-        op = self._make_nmux_op([
-            Terminal(id="agg_in", index=0, direction="input", nmux_role="agg"),
-            Terminal(id="agg_out", index=1, direction="output", nmux_role="agg"),
-        ])
+        op = self._make_nmux_op(
+            [
+                Terminal(id="agg_in", index=0, direction="input", nmux_role="agg"),
+                Terminal(id="agg_out", index=1, direction="output", nmux_role="agg"),
+            ]
+        )
         ctx = _make_ctx_with_binding("agg_in", "my_cluster")
         # Wire agg_in → agg_out
         assert ctx.graph is not None
         ctx.graph._graph.add_edge(
-            ctx.graph._term_to_node["agg_in"], "nmux_node",
+            ctx.graph._term_to_node["agg_in"],
+            "nmux_node",
             source=WireEnd(
                 terminal_id="agg_in", node_id=ctx.graph._term_to_node["agg_in"]
             ),
@@ -207,11 +229,13 @@ class TestNMuxRoles:
 
     def test_list_passthrough(self):
         """LIST in + LIST out = field value passthrough."""
-        op = self._make_nmux_op([
-            Terminal(id="agg_in", index=0, direction="input", nmux_role="agg"),
-            Terminal(id="list_in", index=1, direction="input", nmux_role="list"),
-            Terminal(id="list_out", index=2, direction="output", nmux_role="list"),
-        ])
+        op = self._make_nmux_op(
+            [
+                Terminal(id="agg_in", index=0, direction="input", nmux_role="agg"),
+                Terminal(id="list_in", index=1, direction="input", nmux_role="list"),
+                Terminal(id="list_out", index=2, direction="output", nmux_role="list"),
+            ]
+        )
         graph = make_graph_with_terminals("agg_in", "list_in", "list_out")
         ctx = CodeGenContext(graph=graph)
         ctx.bind("agg_in", "cluster")
@@ -221,10 +245,12 @@ class TestNMuxRoles:
 
     def test_no_roles_produces_no_bindings(self):
         """Without roles, nMux produces no bindings (roles set by construction)."""
-        op = self._make_nmux_op([
-            Terminal(id="in_0", index=0, direction="input"),
-            Terminal(id="out_0", index=1, direction="output"),
-        ])
+        op = self._make_nmux_op(
+            [
+                Terminal(id="in_0", index=0, direction="input"),
+                Terminal(id="out_0", index=1, direction="output"),
+            ]
+        )
         ctx = _make_ctx_with_binding("in_0", "value")
         fragment = nmux.generate(op, ctx)
         assert fragment.bindings == {}
@@ -247,14 +273,17 @@ class TestPropertyDedup:
         nid_ref = ctx.graph._term_to_node["ref_in"]
         nid_out = ctx.graph._term_to_node["out_1"]
         ctx.graph._graph.add_edge(
-            nid_ref, nid_out,
+            nid_ref,
+            nid_out,
             source=WireEnd(terminal_id="ref_in", node_id=nid_ref),
             dest=WireEnd(terminal_id="out_1", node_id=nid_out),
         )
 
         op = PropertyOperation(
-            id="prop_1", name="Property Node",
-            kind="primitive", node_type="propNode",
+            id="prop_1",
+            name="Property Node",
+            kind="primitive",
+            node_type="propNode",
             terminals=[
                 Terminal(id="ref_in", index=0, direction="input"),
                 Terminal(id="out_1", index=1, direction="output"),
@@ -287,7 +316,8 @@ class TestPassthroughElimination:
         graph._graph.add_node("out_node", node=out_node)
         graph._term_to_node["out_t"] = "out_node"
         graph._graph.add_edge(
-            "p2", "out_node",
+            "p2",
+            "out_node",
             source=WireEnd(terminal_id="in_t", node_id="p2"),
             dest=WireEnd(terminal_id="out_t", node_id="out_node"),
         )
@@ -299,8 +329,10 @@ class TestPassthroughElimination:
         input_map = {"in_0": "my_input"}
 
         op = PrimitiveOperation(
-            id="prim_1", name="Passthrough",
-            kind="primitive", node_type="prim",
+            id="prim_1",
+            name="Passthrough",
+            kind="primitive",
+            node_type="prim",
             primResID=9999,
             terminals=[
                 Terminal(id="in_t", index=0, direction="input"),
@@ -309,7 +341,11 @@ class TestPassthroughElimination:
         )
 
         bindings, skip_ids = primitive._detect_passthroughs(
-            op, hint, input_map, ctx, None,
+            op,
+            hint,
+            input_map,
+            ctx,
+            None,
         )
         assert "out_t" in bindings
         assert bindings["out_t"] == "my_input"
@@ -355,7 +391,9 @@ class TestSelectorTopoSort:
 
         # Producer: Equal? primitive with output terminal
         producer = PrimitiveNode(
-            id="equal_1", vi="test.vi", name="Equal?",
+            id="equal_1",
+            vi="test.vi",
+            name="Equal?",
             terminals=[
                 Terminal(id="eq_in", index=0, direction="input"),
                 Terminal(id="eq_out", index=0, direction="output"),
@@ -367,7 +405,9 @@ class TestSelectorTopoSort:
 
         # Consumer: case structure with selector wired from Equal? output
         case = CaseStructureNode(
-            id="case_1", vi="test.vi", name="Case",
+            id="case_1",
+            vi="test.vi",
+            name="Case",
             node_type="caseStruct",
             terminals=[
                 Terminal(id="sel_in", index=0, direction="input", name="selector"),
@@ -379,22 +419,28 @@ class TestSelectorTopoSort:
 
         # Wire: eq_out → sel_in
         graph._graph.add_edge(
-            "equal_1", "case_1",
+            "equal_1",
+            "case_1",
             source=WireEnd(terminal_id="eq_out", node_id="equal_1"),
             dest=WireEnd(terminal_id="sel_in", node_id="case_1"),
         )
 
         # Build operations
         producer_op = PrimitiveOperation(
-            id="equal_1", name="Equal?", kind="primitive",
-            node_type="prim", primResID=1091,
+            id="equal_1",
+            name="Equal?",
+            kind="primitive",
+            node_type="prim",
+            primResID=1091,
             terminals=[
                 Terminal(id="eq_in", index=0, direction="input"),
                 Terminal(id="eq_out", index=0, direction="output"),
             ],
         )
         case_op = CaseOperation(
-            id="case_1", name="Case", kind="caseStruct",
+            id="case_1",
+            name="Case",
+            kind="caseStruct",
             node_type="caseStruct",
             terminals=[
                 Terminal(id="sel_in", index=0, direction="input", name="selector"),
@@ -411,12 +457,10 @@ class TestSelectorTopoSort:
 
         # Producer should be in an earlier tier than the case
         producer_tier = next(
-            i for i, tier in enumerate(tiers)
-            if any(op.id == "equal_1" for op in tier)
+            i for i, tier in enumerate(tiers) if any(op.id == "equal_1" for op in tier)
         )
         case_tier = next(
-            i for i, tier in enumerate(tiers)
-            if any(op.id == "case_1" for op in tier)
+            i for i, tier in enumerate(tiers) if any(op.id == "case_1" for op in tier)
         )
         assert producer_tier < case_tier
 
@@ -428,12 +472,13 @@ class TestInvokeErrorSkip:
     """Invoke node codegen skips error cluster terminal arguments."""
 
     def test_error_arg_not_in_call(self):
-        
 
         graph = InMemoryVIGraph()
         # Create source nodes that wire into the invoke terminals
         for tid, nid in [
-            ("ref_t", "src_ref"), ("err_t", "src_err"), ("data_t", "src_data")
+            ("ref_t", "src_ref"),
+            ("err_t", "src_err"),
+            ("data_t", "src_data"),
         ]:
             node = make_node(nid, [tid])
             graph._graph.add_node(nid, node=node)
@@ -450,7 +495,8 @@ class TestInvokeErrorSkip:
             ("data_t", "data_t_in", "src_data"),
         ]:
             graph._graph.add_edge(
-                src_nid, "invoke_1",
+                src_nid,
+                "invoke_1",
                 source=WireEnd(terminal_id=src, node_id=src_nid),
                 dest=WireEnd(terminal_id=dst, node_id="invoke_1"),
             )
@@ -461,17 +507,23 @@ class TestInvokeErrorSkip:
         ctx.bind("data_t", "my_data")
 
         op = InvokeOperation(
-            id="invoke_1", name="Invoke",
-            kind="primitive", node_type="invokeNode",
+            id="invoke_1",
+            name="Invoke",
+            kind="primitive",
+            node_type="invokeNode",
             terminals=[
                 Terminal(id="ref_t_in", index=0, direction="input"),
                 Terminal(
-                    id="err_t_in", index=2, direction="input",
+                    id="err_t_in",
+                    index=2,
+                    direction="input",
                     lv_type=_error_cluster_type(),
                 ),
                 Terminal(
-                    id="data_t_in", index=4, direction="input",
-                    lv_type=LVType(kind="primitive", underlying_type="String"),
+                    id="data_t_in",
+                    index=4,
+                    direction="input",
+                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
                 ),
             ],
             method_name="Ctrl Val.Set",
@@ -480,8 +532,10 @@ class TestInvokeErrorSkip:
         fragment = invoke_node.generate(op, ctx)
 
         # Unparse the generated call
-        code = ast.unparse(ast.fix_missing_locations(
-            ast.Module(body=fragment.statements, type_ignores=[])
-        ))
+        code = ast.unparse(
+            ast.fix_missing_locations(
+                ast.Module(body=fragment.statements, type_ignores=[])
+            )
+        )
         assert "error_in" not in code
         assert "my_data" in code

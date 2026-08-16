@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..load_mode import LoadMode
-from ..models import ClusterField, LVType
+from ..models import ClusterField, LVType, LVTypeKind
 from ..parser.models import ParsedType, ParsedVI
 
 if TYPE_CHECKING:
@@ -67,8 +67,16 @@ def kind_display(kind: str) -> str:
 
 # Graph node kinds that represent executable operations
 _OPERATION_KINDS = (
-    "vi", "primitive", "operation", "caseStruct", "loop", "formula",
-    "disableStruct", "eventStruct", "flatSequence", "inPlaceStruct",
+    "vi",
+    "primitive",
+    "operation",
+    "caseStruct",
+    "loop",
+    "formula",
+    "disableStruct",
+    "eventStruct",
+    "flatSequence",
+    "inPlaceStruct",
 )
 
 
@@ -84,6 +92,12 @@ def _node_order_key(uid: str) -> tuple[str, int, str]:
     """
     base, _, tail = uid.rpartition("::")
     return (base, int(tail), "") if tail.isdigit() else (uid, -1, uid)
+
+
+def _uid_of(op_id: str) -> str:
+    """Trailing UID from an op.id ('...run.vi::1065' -> '1065') — the stable,
+    path-prefix-independent node identity shared by the netlist + diff layers."""
+    return op_id.rsplit("::", 1)[-1]
 
 
 def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
@@ -139,9 +153,8 @@ class InMemoryVIGraph(
         # Process VIs in dependency order (handles recursive VIs)
         for vi_group in graph.get_generation_order():
             for vi_name in vi_group:
-                # Get operation execution order
-                for op_id in graph.get_operation_order(vi_name):
-                    op = graph.get_node(vi_name, op_id)
+                # Get operations (topologically ordered)
+                for op in graph.get_operations(vi_name):
                     # ... generate code ...
     """
 
@@ -161,6 +174,14 @@ class InMemoryVIGraph(
         self._poly_info: dict[str, PolyInfo] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
         self._qualified_aliases: dict[str, str] = {}
+        # Reverse indexes for resolve_vi_name: display-name / qualified-name ->
+        # [vi_key]. A vi_key is the canonical source-path string (the VI's
+        # identity; see _load_vi_recursive). List-valued because genuine on-disk
+        # duplicates -- the same VI copied into a build-output tree, or parallel
+        # plugin trees -- share a name/qname but have DISTINCT path keys. Path is
+        # the identity; name/qname are non-unique attributes we index for lookup.
+        self._name_to_keys: dict[str, list[str]] = {}
+        self._qname_to_keys: dict[str, list[str]] = {}
         # Track loaded VIs across multiple load_vi() calls to prevent re-parsing
         self._loaded_vis: set[str] = set()
         # Depth a VI's DEPENDENCIES were loaded at (NONE/MINIMAL/FULL). A VI
@@ -239,6 +260,8 @@ class InMemoryVIGraph(
         self._stubs.clear()
         self._poly_info.clear()
         self._qualified_aliases.clear()
+        self._name_to_keys.clear()
+        self._qname_to_keys.clear()
         self._loaded_vis.clear()
         self._dep_load_mode.clear()
         self._source_paths.clear()
@@ -266,7 +289,7 @@ class InMemoryVIGraph(
             return None
 
         lv_type = LVType(
-            kind=parsed_type.kind,
+            kind=LVTypeKind(parsed_type.kind),
             underlying_type=parsed_type.type_name,
             ref_type=parsed_type.ref_type,
             classname=parsed_type.classname,
@@ -318,7 +341,8 @@ class InMemoryVIGraph(
         return None
 
     def get_class_fields(
-        self, classname: str,
+        self,
+        classname: str,
     ) -> list[ClusterField] | None:
         """Get complete field list for a class including inherited parent fields.
 
@@ -353,7 +377,8 @@ class InMemoryVIGraph(
         return own_fields
 
     def get_type_fields(
-        self, lv_type: LVType,
+        self,
+        lv_type: LVType,
     ) -> list[ClusterField] | None:
         """Get fields for any type. One API, all cases.
 

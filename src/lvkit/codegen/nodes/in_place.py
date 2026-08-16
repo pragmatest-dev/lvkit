@@ -58,9 +58,7 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
 
     # --- Output boundary ---
     # Recompose (special output boundary): emit data.field = modified_value.
-    all_stmts.extend(
-        _emit_recompose_writebacks(node.recompose_ops, data_var, ctx)
-    )
+    all_stmts.extend(_emit_recompose_writebacks(node.recompose_ops, data_var, ctx))
 
     # Regular field-value tunnels: inner → outer (output direction only).
     _bind_output_tunnels(node, ctx, all_bindings)
@@ -145,9 +143,7 @@ def _emit_recompose_writebacks(
     stmts: list[ast.stmt] = []
     for op in recompose_ops:
         agg_out = _agg_terminal(op, "output")
-        class_fields = (
-            _get_class_fields(agg_out, ctx) if agg_out else None
-        )
+        class_fields = _get_class_fields(agg_out, ctx) if agg_out else None
         for t in _field_terminals(op, "input"):
             val = ctx.resolve(t.id)
             if val is None:

@@ -42,9 +42,12 @@ class TestRenderCache:
         assert output_cache.lookup_render(vi, "html", OPT, V) is None
         slot = output_cache.store_render(vi, "html", OPT, V, "<html>BODY</html>")
         assert output_cache.lookup_render(vi, "html", OPT, V) == "<html>BODY</html>"
-        # Path-addressed under render/projects, named by the VI stem.
+        # Path-addressed under projects/<slug>/render (project-first), named by
+        # the VI stem.
         assert slot.name == "Foo.html"
-        assert (cache_paths.global_cache_root() / "render" / "projects") in slot.parents
+        parents = slot.parents
+        assert (cache_paths.global_cache_root() / "projects") in parents
+        assert "render" in {p.name for p in parents}
 
     def test_content_edit_invalidates(self, tmp_path: Path) -> None:
         vi = _project_vi(tmp_path, b"original")
@@ -100,10 +103,10 @@ class TestAdhocContentAddressed:
         # A different temp dir, same bytes (a fresh mkdtemp of the same commit).
         b = _vi(tmp_path / "tmpB" / "blob.vi", b"identical blob")
         assert output_cache.lookup_render(b, "html", OPT, V) == "RENDERED"
-        # It lives in the flat render/adhoc store, named by content hash.
+        # It lives in the flat adhoc/render pool, named by content hash.
         slot, _meta, is_adhoc = output_cache._render_paths(b, "html")
         assert is_adhoc
-        assert slot.parent == cache_paths.global_cache_root() / "render" / "adhoc"
+        assert slot.parent == cache_paths.global_cache_root() / "adhoc" / "render"
 
 
 # ── diff: keyed by after-path + before-content ──────────────────────────────

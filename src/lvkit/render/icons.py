@@ -40,8 +40,12 @@ def _knockout_white_border(png_bytes: bytes) -> bytes:
 
         def is_bg(x: int, y: int) -> bool:
             r, g, b, a = px[x, y]  # type: ignore[misc]
-            return (a > 0 and r >= _WHITE_CUTOFF and g >= _WHITE_CUTOFF
-                    and b >= _WHITE_CUTOFF)
+            return (
+                a > 0
+                and r >= _WHITE_CUTOFF
+                and g >= _WHITE_CUTOFF
+                and b >= _WHITE_CUTOFF
+            )
 
         stack = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
         seen: set[tuple[int, int]] = set()

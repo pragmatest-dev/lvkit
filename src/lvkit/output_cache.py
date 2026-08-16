@@ -9,11 +9,12 @@ the CLI can check for a hit BEFORE importing the graph/parser/pylabview stack
 Addressing mirrors extraction (see :mod:`lvkit.cache_paths`):
 
 * A VI with a stable project/library path is **path-addressed** — one slot per
-  VI, mirrored under ``<cache>/render/<ns>/<rel>/<stem>.<ext>``, overwritten in
-  place when the VI changes. Bounded by the number of VIs; it plateaus.
+  VI, mirrored under ``<cache>/<ns>/<slug>/render/<rel>/<stem>.<ext>`` (project-
+  first), overwritten in place when the VI changes. Bounded by the number of VIs;
+  it plateaus.
 * An ``adhoc`` input (a throwaway ``mkdtemp`` git-blob, or a standalone VI
-  outside any repo) has no reusable path, so it is **content-addressed** in a
-  flat ``<cache>/render/adhoc/<sha>.<ext>`` and swept by TTL.
+  outside any repo) has no owner and no reusable path, so it is **content-
+  addressed** in a flat ``<cache>/adhoc/render/<sha>.<ext>`` and swept by TTL.
 
 Freshness = the VI-content signal ``cache_paths.meta_fresh`` already uses PLUS
 the lvkit ``version``, text encoding, and an ``options`` tag — so a VI edit, an
@@ -30,7 +31,7 @@ from pathlib import Path
 from lvkit import cache_paths
 from lvkit.text_encoding import labview_text_encoding
 
-# The genuinely-growing surfaces get an access-time TTL (a diff/adhoc entry is
+# The genuinely-growing surfaces get an access-time TTL (a diff or adhoc entry is
 # worthless once its inputs move on — regenerate on demand). Path-addressed
 # render/extract project slots are NOT swept: they overwrite in place and
 # plateau at ~one-per-VI. Override the clock with LVKIT_CACHE_TTL_DAYS.
@@ -59,7 +60,7 @@ def _render_paths(input_path: Path, fmt: str) -> tuple[Path, Path, bool]:
     ext = _ext_for(fmt)
     d, _label, ns = cache_paths.classify(input_path, "render")
     if ns == "adhoc":
-        d = cache_paths.global_cache_root() / "render" / "adhoc"
+        d = cache_paths.global_cache_root() / "adhoc" / "render"
         base = f"{cache_paths.sha256_file(input_path)}.{ext}"
     else:
         base = f"{input_path.stem}.{ext}"
@@ -85,7 +86,7 @@ def _diff_paths(
     d, _label, ns = cache_paths.classify(after_path, "diff")
     if ns == "adhoc":
         after_sha = cache_paths.sha256_file(after_path)
-        d = cache_paths.global_cache_root() / "diff" / "adhoc"
+        d = cache_paths.global_cache_root() / "adhoc" / "diff"
         base = f"{before_sha[:16]}_{after_sha[:16]}.{ext}"
     else:
         base = f"{after_path.stem}.{before_sha[:16]}.{ext}"
@@ -144,13 +145,13 @@ def diff_slot(before_path: Path, after_path: Path, fmt: str) -> Path:
     return _diff_paths(before_path, after_path, fmt)[0]
 
 
-def lookup_render(
-    input_path: Path, fmt: str, options: str, version: str
-) -> str | None:
+def lookup_render(input_path: Path, fmt: str, options: str, version: str) -> str | None:
     """Return cached render output for ``input_path`` if fresh, else ``None``."""
     body_path, meta_path, _adhoc = _render_paths(input_path, fmt)
     return _read_if_fresh(
-        input_path, body_path, meta_path,
+        input_path,
+        body_path,
+        meta_path,
         {
             "lvkit_version": version,
             "options": options,
@@ -165,7 +166,10 @@ def store_render(
     """Cache ``body`` as the render of ``input_path``; return the slot path."""
     body_path, meta_path, _adhoc = _render_paths(input_path, fmt)
     _write(
-        body_path, meta_path, input_path, body,
+        body_path,
+        meta_path,
+        input_path,
+        body,
         {
             "lvkit_version": version,
             "options": options,
@@ -180,11 +184,11 @@ def lookup_diff(
     before_path: Path, after_path: Path, fmt: str, options: str, version: str
 ) -> str | None:
     """Return cached diff output for the ``(before, after)`` pair if fresh."""
-    body_path, meta_path, before_sha, _adhoc = _diff_paths(
-        before_path, after_path, fmt
-    )
+    body_path, meta_path, before_sha, _adhoc = _diff_paths(before_path, after_path, fmt)
     return _read_if_fresh(
-        after_path, body_path, meta_path,
+        after_path,
+        body_path,
+        meta_path,
         {
             "lvkit_version": version,
             "options": options,
@@ -195,18 +199,25 @@ def lookup_diff(
 
 
 def store_diff(
-    before_path: Path, after_path: Path, fmt: str,
-    options: str, version: str, body: str,
+    before_path: Path,
+    after_path: Path,
+    fmt: str,
+    options: str,
+    version: str,
+    body: str,
 ) -> Path:
     """Cache ``body`` as the diff of ``(before, after)``; return the slot path."""
-    body_path, meta_path, before_sha, _adhoc = _diff_paths(
-        before_path, after_path, fmt
-    )
+    body_path, meta_path, before_sha, _adhoc = _diff_paths(before_path, after_path, fmt)
     _write(
-        body_path, meta_path, after_path, body,
+        body_path,
+        meta_path,
+        after_path,
+        body,
         {
-            "lvkit_version": version, "options": options,
-            "before_sha": before_sha, "kind": "diff",
+            "lvkit_version": version,
+            "options": options,
+            "before_sha": before_sha,
+            "kind": "diff",
             "text_encoding": labview_text_encoding(),
         },
     )
@@ -231,13 +242,12 @@ def _sweep_once() -> None:
     try:
         cutoff = time.time() - _ttl_seconds()
         root = cache_paths.global_cache_root()
-        # Everything under diff/ (before-versions accumulate as history moves) +
-        # the adhoc subtree of every kind (ephemeral temp/blob inputs).
-        targets = [
-            root / "diff",
-            root / "render" / "adhoc",
-            root / "extract" / "adhoc",
-        ]
+        # The growing surfaces, project-first: the whole adhoc namespace (every
+        # kind of ephemeral temp/blob input), plus each owned project's/library's
+        # diff subtree (a before-version file accumulates there as history moves).
+        targets = [root / "adhoc"]
+        targets.extend((root / "projects").glob("*/diff"))
+        targets.extend((root / "shared").glob("*/*/diff"))
         for base in targets:
             if not base.is_dir():
                 continue

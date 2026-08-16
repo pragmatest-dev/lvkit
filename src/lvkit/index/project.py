@@ -21,9 +21,9 @@ def resolve_project(target: Path | str) -> tuple[Path, list[Path]]:
       every ``.vi`` under it is enumerated, exactly like ``load_directory``.
     - A single file (``.lvproj``/``.lvlib``/``.lvclass``/``.vi``) resolves to
       its enclosing project root via ``cache_paths._project_root_for`` (the
-      nearest ancestor holding a ``.lvkit/`` store or a ``.git`` root — same
-      rule the extraction cache uses), falling back to the file's own parent
-      directory when no such ancestor exists.
+      nearest ancestor holding a ``.lvkit/`` store, a ``.git`` root, or a
+      ``*.lvproj`` — same rule the extraction cache uses), falling back to the
+      file's own parent directory when no such ancestor exists.
     """
     resolved = Path(target).resolve()
 

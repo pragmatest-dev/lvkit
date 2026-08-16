@@ -1,6 +1,6 @@
 ---
 name: lvkit-review
-description: Turn a `lvkit diff` between two VI versions into a PR-ready "what changed, why it matters, who's affected" narrative. Works via CLI or MCP (blast-radius only — diff itself is CLI-only).
+description: Use when the user wants to review, summarize, or assess a LabVIEW VI change — "what changed in this VI", "review this diff", "what breaks if I change X.vi". Turns `lvkit diff` (CLI-only) between two VI versions into a PR-ready "what changed, why it matters, who's affected" narrative, using `callers`/`blast-radius` (CLI) or `query` over `node` (MCP) for the affected-callers half.
 allowed-tools: Bash, Read, Grep
 ---
 
@@ -34,8 +34,10 @@ turn it into a change narrative, not to paste it verbatim.
 ## Getting the facts
 
 **`lvkit diff` has no MCP twin — always run it as a CLI command, even with
-the MCP server connected.** `blast_radius`/`lvkit blast-radius` (a true
-MCP/CLI twin) is what supplies the "who's affected" half.
+the MCP server connected.** The "who's affected" half comes from the CLI's
+`lvkit blast-radius`, or — over MCP, which has no blast-radius tool of its
+own — `query` over the `node` view's `callee_path` column (a `WITH
+RECURSIVE` walk, or `vi.impact_score` for just the count).
 
 `lvkit diff <before> <after>` diffs two `.vi` files directly — typically two
 git revisions of the same VI, checked out to two paths (or use
@@ -58,10 +60,12 @@ For each PR/commit range touching VIs:
    an unchanged structure, VI-property changes (execution/window/protection
    — the `▤` lines), and connector-pane/signature changes (only visible
    with `-v`, or always in `--format json`'s `signature`-kind entries).
-3. **`lvkit blast-radius <vi> <repo>`** (or `get_callers` for just the
-   direct callers) for each changed VI — who calls it, so a connector-pane
-   or behavior change is flagged with its blast radius, not just described
-   in isolation.
+3. **`lvkit blast-radius <vi> <repo>`** (or `lvkit callers <vi> <repo>` for
+   just the direct callers; over MCP, `query` a `SELECT DISTINCT vi_path
+   FROM node WHERE callee_path='<vi>'` for direct callers or a `WITH
+   RECURSIVE` over `callee_path` for the full radius) for each changed VI —
+   who calls it, so a connector-pane or behavior change is flagged with its
+   blast radius, not just described in isolation.
 4. Write the summary: **what changed** (plain language, not a wire dump),
    **why it matters** (behavior change vs. cosmetic — a rewired constant
    value is not the same risk as a removed error check), **who's affected**

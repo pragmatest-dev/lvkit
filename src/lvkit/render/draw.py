@@ -23,7 +23,7 @@ from ..graph.models import (
     VINode,
 )
 from ..graph.op_walk import _terminal_display_name
-from ..models import FPTerminal, LVType, Terminal
+from ..models import FPTerminal, LVType, LVTypeKind, Terminal
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend, Point
@@ -102,7 +102,8 @@ def _is_interactive_structure(node: object) -> bool:
     groups; flat sequences (film-strip, every frame always visible) and
     loops do not."""
     return isinstance(
-        node, (CaseStructureNode, DisableStructureNode, EventStructureNode),
+        node,
+        (CaseStructureNode, DisableStructureNode, EventStructureNode),
     ) or (isinstance(node, SequenceNode) and node.node_type != "flatSequence")
 
 
@@ -126,8 +127,12 @@ def _draw_invert_bubbles(node: RenderNode, backend: Backend, theme: Theme) -> No
         cx = edge[0] + nx * _INVERT_BUBBLE_R
         cy = edge[1] + ny * _INVERT_BUBBLE_R
         backend.circle(
-            cx, cy, _INVERT_BUBBLE_R,
-            fill=theme.canvas, stroke=theme.prim_stroke, stroke_width=1.0,
+            cx,
+            cy,
+            _INVERT_BUBBLE_R,
+            fill=theme.canvas,
+            stroke=theme.prim_stroke,
+            stroke_width=1.0,
         )
 
 
@@ -143,16 +148,18 @@ def _draw_invert_bubbles(node: RenderNode, backend: Backend, theme: Theme) -> No
 # tunnels never overlap. Each box is canvas-filled with a wire-type-colored
 # outline + name (a Formula Node's ``vblName`` fontcolor IS its type color, the
 # same table ``wire_style`` encodes; cf. ``draw_fp_terminal``).
-_FORMULA_TUNNEL_MIN = 12.0        # min box width (short names / no name)
-_FORMULA_TUNNEL_PAD_X = 3.0       # horizontal padding around the name
-_FORMULA_TUNNEL_PAD_Y = 1.5       # vertical padding around the name
-_FORMULA_TUNNEL_GAP = 3.0         # gap between a tunnel column and the script
+_FORMULA_TUNNEL_MIN = 12.0  # min box width (short names / no name)
+_FORMULA_TUNNEL_PAD_X = 3.0  # horizontal padding around the name
+_FORMULA_TUNNEL_PAD_Y = 1.5  # vertical padding around the name
+_FORMULA_TUNNEL_GAP = 3.0  # gap between a tunnel column and the script
 _FORMULA_TUNNEL_TEXT_SIZE = 7.0
 
 
 def _draw_formula_node(
-    node: RenderNode, bounds: tuple[float, float, float, float],
-    backend: Backend, theme: Theme,
+    node: RenderNode,
+    bounds: tuple[float, float, float, float],
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """Draw a Formula Node: the box, its C source (inset past the tunnel
     columns), then the named input/output tunnels justified to the borders."""
@@ -186,21 +193,37 @@ def _draw_formula_node(
 
 
 def _draw_formula_tunnel(
-    backend: Backend, theme: Theme, rt: RenderTerminal,
-    bx1: float, bx2: float, box_h: float, size: float, y1: float, y2: float,
+    backend: Backend,
+    theme: Theme,
+    rt: RenderTerminal,
+    bx1: float,
+    bx2: float,
+    box_h: float,
+    size: float,
+    y1: float,
+    y2: float,
 ) -> None:
     """One tunnel box (edges ``bx1``/``bx2`` already justified to a border) at
     the terminal's heap height, clamped inside the box."""
     color = wire_style(rt.terminal.lv_type, theme).color
     cy = min(max(rt.center[1], y1 + box_h / 2), y2 - box_h / 2)
     backend.rect(
-        bx1, cy - box_h / 2, bx2, cy + box_h / 2,
-        fill=theme.canvas, stroke=color, stroke_width=1.0,
+        bx1,
+        cy - box_h / 2,
+        bx2,
+        cy + box_h / 2,
+        fill=theme.canvas,
+        stroke=color,
+        stroke_width=1.0,
     )
     name = rt.terminal.name or ""
     if name:
         backend.text(
-            (bx1 + bx2) / 2, cy + size * 0.34, name, size, anchor="middle",
+            (bx1 + bx2) / 2,
+            cy + size * 0.34,
+            name,
+            size,
+            anchor="middle",
             fill=color,
         )
 
@@ -212,6 +235,7 @@ def _inset(bounds, frac: float = 0.075):
     x1, y1, x2, y2 = bounds
     dx, dy = (x2 - x1) * frac, (y2 - y1) * frac
     return x1 + dx, y1 + dy, x2 - dx, y2 - dy
+
 
 # A primitive whose glyph is drawn as one of these keeps its own aspect ratio
 # (a real extracted raster icon or a declared/procedural SVG designed for a
@@ -230,8 +254,13 @@ def _inset(bounds, frac: float = 0.075):
 # Node's own white named-rows glyph, replacing the tan ``BundleByNameGlyph``
 # it used to borrow) inherits the exact same exemption for the same reason.
 _OWN_ASPECT_GLYPHS = (
-    IconImageGlyph, InlineSvgGlyph, CenteredSvgGlyph,
-    BundleByNameGlyph, BundleGlyph, UnbundleGlyph, EventDataGlyph,
+    IconImageGlyph,
+    InlineSvgGlyph,
+    CenteredSvgGlyph,
+    BundleByNameGlyph,
+    BundleGlyph,
+    UnbundleGlyph,
+    EventDataGlyph,
 )
 
 # Floor for the recovered icon footprint: a unary primitive (one input, one
@@ -274,7 +303,11 @@ def _glyph_bounds(node: RenderNode) -> tuple[float, float, float, float]:
 
 
 def _expand_axis(
-    lo: float, hi: float, target: float, cap_lo: float, cap_hi: float,
+    lo: float,
+    hi: float,
+    target: float,
+    cap_lo: float,
+    cap_hi: float,
 ) -> tuple[float, float]:
     """Grow ``[lo, hi]`` symmetrically to length ``target`` about its center,
     clamped inside ``[cap_lo, cap_hi]``. Returns the (possibly shifted) span."""
@@ -337,7 +370,9 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         # reachable, not just displayed (task #67). Non-resolvable nodes get a
         # plain group.
         backend.begin_group(
-            cls="lv-node", data=data, title=tooltip,
+            cls="lv-node",
+            data=data,
+            title=tooltip,
             href=_node_doc_url(node.node),
         )
 
@@ -378,7 +413,9 @@ _LABEL_LINE_H = _LABEL_TEXT_SIZE + 2.0
 
 
 def _draw_owned_label(
-    label: RenderLabel, backend: Backend, theme: Theme,
+    label: RenderLabel,
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """Draw a constant's developer-authored owned label (free text) at its heap
     position — left-aligned, one line per embedded newline (LabVIEW owned labels
@@ -386,8 +423,12 @@ def _draw_owned_label(
     x1, y1, _, _ = label.bounds
     for i, line in enumerate(label.text.split("\n")):
         backend.text(
-            x1, y1 + _LABEL_TEXT_SIZE + i * _LABEL_LINE_H, line,
-            _LABEL_TEXT_SIZE, fill=theme.text, anchor="start",
+            x1,
+            y1 + _LABEL_TEXT_SIZE + i * _LABEL_LINE_H,
+            line,
+            _LABEL_TEXT_SIZE,
+            fill=theme.text,
+            anchor="start",
         )
 
 
@@ -405,8 +446,7 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
     if isinstance(node, LocalVariableNode):
         name = node.control_name or node.name
         kind = (
-            "Control Reference" if node.node_type == "ctlRefConst"
-            else "Local Variable"
+            "Control Reference" if node.node_type == "ctlRefConst" else "Local Variable"
         )
         header = f"{kind}: {name}" if name else kind
     elif isinstance(node, VINode | PrimitiveNode):
@@ -416,8 +456,11 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
         # Unresolved primitive: the hover header matches the box — "#<prim_id>"
         # instead of the verbose "unknown_primitive_N" placeholder. The
         # connector-pane panel below still lists every terminal we know.
-        if (isinstance(node, PrimitiveNode) and node.prim_id is not None
-                and node.name == f"unknown_primitive_{node.prim_id}"):
+        if (
+            isinstance(node, PrimitiveNode)
+            and node.prim_id is not None
+            and node.name == f"unknown_primitive_{node.prim_id}"
+        ):
             header = f"#{node.prim_id}"
         # Bundle/Unbundle (By Name): the parser's XML-class jargon ("Node
         # Multiplexer"/"Multiplexer"/"Demultiplexer") never belongs in
@@ -503,7 +546,8 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
     prefer the resolved def name, then a caller-side name, then ``terminal N``.
     """
     terms = [
-        t for t in (getattr(node, "terminals", None) or [])
+        t
+        for t in (getattr(node, "terminals", None) or [])
         if _terminal_is_informative(t)
     ]
 
@@ -545,24 +589,24 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
 # ``<title>`` tooltip (``_node_tooltip``) stays as a text-only fallback.
 # --------------------------------------------------------------------- #
 
-_PANE_PAD = 6.0            # panel inner padding
+_PANE_PAD = 6.0  # panel inner padding
 _PANE_TITLE_SIZE = 9.0
 _PANE_DESC_SIZE = 7.5
-_PANE_DESC_LH = 9.5          # line height for a wrapped description line
-_PANE_DESC_MAX_LINES = 6     # cap so a long description can't grow a huge panel
-_PANE_LABEL_SIZE = 7.5      # terminal name
-_PANE_TYPE_SIZE = 6.5       # terminal type — smaller/lighter, secondary info
-_PANE_MAX_LABEL_W = 130.0   # per-terminal name+type truncation width
+_PANE_DESC_LH = 9.5  # line height for a wrapped description line
+_PANE_DESC_MAX_LINES = 6  # cap so a long description can't grow a huge panel
+_PANE_LABEL_SIZE = 7.5  # terminal name
+_PANE_TYPE_SIZE = 6.5  # terminal type — smaller/lighter, secondary info
+_PANE_MAX_LABEL_W = 130.0  # per-terminal name+type truncation width
 _PANE_MAX_HEADER_W = 220.0  # title/description truncation width
 
-_PANE_STUB_OUT = 12.0       # straight run out of the icon edge, before a jog
-_PANE_STUB_FULL = 20.0      # full stub length, icon edge -> label anchor
-_PANE_TEXT_GAP = 3.0        # label anchor -> first glyph of text
-_PANE_NT_GAP = 5.0          # gap between a terminal's name and its grey type
+_PANE_STUB_OUT = 12.0  # straight run out of the icon edge, before a jog
+_PANE_STUB_FULL = 20.0  # full stub length, icon edge -> label anchor
+_PANE_TEXT_GAP = 3.0  # label anchor -> first glyph of text
+_PANE_NT_GAP = 5.0  # gap between a terminal's name and its grey type
 _PANE_STUB_MARGIN = _PANE_STUB_FULL + _PANE_TEXT_GAP  # edge -> text start
-_PANE_CARD_RX = 3.0         # corner radius of the hover help-panel card
+_PANE_CARD_RX = 3.0  # corner radius of the hover help-panel card
 
-_PANE_ROW_MIN_GAP = 11.0    # min vertical spacing between left/right labels
+_PANE_ROW_MIN_GAP = 11.0  # min vertical spacing between left/right labels
 _PANE_ROW_HALF = _PANE_LABEL_SIZE / 2 + 2.0  # vertical pad around a label row
 
 # The glyph footprint is measured against the 32-unit LabVIEW icon cell: a full
@@ -571,12 +615,14 @@ _PANE_ROW_HALF = _PANE_LABEL_SIZE / 2 + 2.0  # vertical pad around a label row
 # a readable thumbnail rather than a blown-up copy.
 _PANE_ICON_CELL = 32.0
 _PANE_ICON_TARGET = 48.0
-_PANE_ICON_MAX = 72.0       # cap so an oversized icon can't dominate the panel
+_PANE_ICON_MAX = 72.0  # cap so an oversized icon can't dominate the panel
 
 # fx/fy classification -> the outward unit normal a terminal's stub exits on.
 _SIDE_NORMAL: dict[str, Point] = {
-    "left": (-1.0, 0.0), "right": (1.0, 0.0),
-    "top": (0.0, -1.0), "bottom": (0.0, 1.0),
+    "left": (-1.0, 0.0),
+    "right": (1.0, 0.0),
+    "top": (0.0, -1.0),
+    "bottom": (0.0, 1.0),
 }
 
 
@@ -611,15 +657,16 @@ class _PaneTerm:
     (``ly``)."""
 
     lb: _PaneLabel
-    side: str   # "left" | "right"
-    fold: str   # "none" | "top" | "bottom"
+    side: str  # "left" | "right"
+    fold: str  # "none" | "top" | "bottom"
     ax: float
     ay: float
     ly: float
 
 
 def _term_side_and_frac(
-    rt: RenderTerminal, bounds: tuple[float, float, float, float],
+    rt: RenderTerminal,
+    bounds: tuple[float, float, float, float],
 ) -> tuple[str, float]:
     """A terminal's TRUE side + normalized position along that side, from
     which EDGE of the node's drawn ``bounds`` its own heap ``termBounds`` rect
@@ -656,8 +703,9 @@ def _term_side_and_frac(
     return side, 0.5
 
 
-def _pane_label(rt: RenderTerminal, side: str, frac: float,
-                 backend: Backend, theme: Theme) -> _PaneLabel:
+def _pane_label(
+    rt: RenderTerminal, side: str, frac: float, backend: Backend, theme: Theme
+) -> _PaneLabel:
     t = rt.terminal
     name = _terminal_label(t)
     # Grey type appended after the name (no parens) — the connector-pane help
@@ -672,7 +720,14 @@ def _pane_label(rt: RenderTerminal, side: str, frac: float,
         name_w = backend.measure_text(name, _PANE_LABEL_SIZE)
     style = wire_style(t.lv_type, theme)
     return _PaneLabel(
-        side, frac, name, name_w, type_str, type_w, style.color, style.width,
+        side,
+        frac,
+        name,
+        name_w,
+        type_str,
+        type_w,
+        style.color,
+        style.width,
     )
 
 
@@ -798,10 +853,11 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
         # Folded rows sit just ONE gap beyond that block (top-folds above the icon
         # top, bottom-folds below the icon bottom) — close in, never sticking far
         # out, yet clear of the icon so their up-over / down-under wire can't cross.
-        straight = sorted((t for t in terms if t.fold == "none"),
-                          key=lambda t: t.ay)
-        for t, y in zip(straight, _spread_1d(
-                [t.ay for t in straight], [_PANE_ROW_MIN_GAP] * len(straight))):
+        straight = sorted((t for t in terms if t.fold == "none"), key=lambda t: t.ay)
+        for t, y in zip(
+            straight,
+            _spread_1d([t.ay for t in straight], [_PANE_ROW_MIN_GAP] * len(straight)),
+        ):
             t.ly = y
         # FOLD_STACK_RULE (see connector_pane.py::_classify for the canonical
         # statement): stack folded leaders by REACH (horizontal distance to this
@@ -845,23 +901,24 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     if desc:
         inner_w = max(inner_w, min(full_desc_w, _PANE_MAX_HEADER_W))
     title_line = (
-        header if full_title_w <= inner_w
+        header
+        if full_title_w <= inner_w
         else fit_label(header, inner_w, backend, _PANE_TITLE_SIZE)
     )
     # Wrap the VI description across as many lines as it needs (capped), so the
     # help box reads like LabVIEW context help instead of one truncated line.
     desc_lines: list[str] = (
-        [desc] if desc and full_desc_w <= inner_w
-        else wrap_label(desc, inner_w, backend, _PANE_DESC_SIZE,
-                        _PANE_DESC_MAX_LINES) if desc
+        [desc]
+        if desc and full_desc_w <= inner_w
+        else wrap_label(desc, inner_w, backend, _PANE_DESC_SIZE, _PANE_DESC_MAX_LINES)
+        if desc
         else []
     )
 
     # With a description, reserve an extra gap below it (holding a divider that
     # separates the prose from the icon/terminals diagram below).
     header_h = (
-        11.0 + len(desc_lines) * _PANE_DESC_LH
-        + (_PANE_PAD if desc_lines else 0.0)
+        11.0 + len(desc_lines) * _PANE_DESC_LH + (_PANE_PAD if desc_lines else 0.0)
     )
     panel_w = inner_w + 2 * _PANE_PAD
     panel_h = header_h + _PANE_PAD + diagram_h + _PANE_PAD
@@ -881,37 +938,57 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     # source both the in-place reveal and a host's cloned overlay inherit.
     backend.begin_group(cls="lv-help", data={"node": node.node.id})
     backend.rect(
-        0.0, 0.0, panel_w, panel_h,
-        fill=theme.canvas, stroke=theme.struct_border, stroke_width=1.0,
+        0.0,
+        0.0,
+        panel_w,
+        panel_h,
+        fill=theme.canvas,
+        stroke=theme.struct_border,
+        stroke_width=1.0,
         rx=_PANE_CARD_RX,
     )
     cx = panel_w / 2
     # Panel background is theme.canvas — pair with the canvas/default text role.
-    backend.text(cx, _PANE_PAD + 7.0, title_line, _PANE_TITLE_SIZE, bold=True,
-                 fill=theme.text)
+    backend.text(
+        cx, _PANE_PAD + 7.0, title_line, _PANE_TITLE_SIZE, bold=True, fill=theme.text
+    )
     for i, desc_line in enumerate(desc_lines):
-        backend.text(cx, _PANE_PAD + 18.0 + i * _PANE_DESC_LH, desc_line,
-                     _PANE_DESC_SIZE, fill=theme.text)
+        backend.text(
+            cx,
+            _PANE_PAD + 18.0 + i * _PANE_DESC_LH,
+            desc_line,
+            _PANE_DESC_SIZE,
+            fill=theme.text,
+        )
     # Divider between the description prose and the icon/terminals diagram.
     if desc_lines:
         sep_y = header_h + _PANE_PAD / 2.0
-        backend.line(_PANE_PAD, sep_y, panel_w - _PANE_PAD, sep_y,
-                     stroke=theme.struct_border, stroke_width=0.5)
+        backend.line(
+            _PANE_PAD,
+            sep_y,
+            panel_w - _PANE_PAD,
+            sep_y,
+            stroke=theme.struct_border,
+            stroke_width=0.5,
+        )
 
     node.glyph.draw(backend, (icon_x1, icon_y1, icon_x2, icon_y2), theme)
 
     def _draw_term(t: _PaneTerm) -> None:
         lb = t.lb
-        ly = icon_y1 + t.ly                        # label row (panel space)
-        ex, ey = icon_x1 + t.ax, icon_y1 + t.ay    # true attach point
+        ly = icon_y1 + t.ly  # label row (panel space)
+        ex, ey = icon_x1 + t.ax, icon_y1 + t.ay  # true attach point
         if t.fold == "none":
             # Straight left/right leader (an elbow only if its row was spread).
             pts = _pane_stub_points((ex, ey), t.side, ly)
         else:
             # Fold: run vertically off the top/bottom edge to the label row, then
             # horizontally out to the side's label hub — one clean orthogonal jog.
-            hub = (icon_x1 - _PANE_STUB_FULL if t.side == "left"
-                   else icon_x2 + _PANE_STUB_FULL)
+            hub = (
+                icon_x1 - _PANE_STUB_FULL
+                if t.side == "left"
+                else icon_x2 + _PANE_STUB_FULL
+            )
             pts = [(ex, ey), (ex, ly), (hub, ly)]
         backend.path(pts, stroke=lb.color, stroke_width=lb.width)
         end_x, end_y = pts[-1]
@@ -919,16 +996,39 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
         # them — identical to the connector-pane help panel.
         ty = end_y + _PANE_LABEL_SIZE * 0.35
         if t.side == "left":
-            backend.text(end_x - _PANE_TEXT_GAP, ty, lb.type_str, _PANE_TYPE_SIZE,
-                         fill=theme.pane_type_text, anchor="end")
-            backend.text(end_x - _PANE_TEXT_GAP - lb.type_w - _PANE_NT_GAP, ty,
-                         lb.name, _PANE_LABEL_SIZE, anchor="end", fill=theme.text)
+            backend.text(
+                end_x - _PANE_TEXT_GAP,
+                ty,
+                lb.type_str,
+                _PANE_TYPE_SIZE,
+                fill=theme.pane_type_text,
+                anchor="end",
+            )
+            backend.text(
+                end_x - _PANE_TEXT_GAP - lb.type_w - _PANE_NT_GAP,
+                ty,
+                lb.name,
+                _PANE_LABEL_SIZE,
+                anchor="end",
+                fill=theme.text,
+            )
         else:
-            backend.text(end_x + _PANE_TEXT_GAP, ty, lb.name, _PANE_LABEL_SIZE,
-                         anchor="start", fill=theme.text)
-            backend.text(end_x + _PANE_TEXT_GAP + lb.name_w + _PANE_NT_GAP, ty,
-                         lb.type_str, _PANE_TYPE_SIZE, fill=theme.pane_type_text,
-                         anchor="start")
+            backend.text(
+                end_x + _PANE_TEXT_GAP,
+                ty,
+                lb.name,
+                _PANE_LABEL_SIZE,
+                anchor="start",
+                fill=theme.text,
+            )
+            backend.text(
+                end_x + _PANE_TEXT_GAP + lb.name_w + _PANE_NT_GAP,
+                ty,
+                lb.type_str,
+                _PANE_TYPE_SIZE,
+                fill=theme.pane_type_text,
+                anchor="start",
+            )
 
     for t in all_terms:
         _draw_term(t)
@@ -937,7 +1037,9 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
 
 
 def draw_help_overlay(
-    nodes: list[RenderNode], backend: Backend, theme: Theme = DEFAULT_THEME,
+    nodes: list[RenderNode],
+    backend: Backend,
+    theme: Theme = DEFAULT_THEME,
 ) -> None:
     """Draw every node's connector-help panel into ONE top-level overlay
     group, emitted LAST (see ``scene.py``'s ``draw_scene``) so panels always
@@ -954,7 +1056,9 @@ def draw_help_overlay(
 
 
 def _draw_border_terminal(
-    bt: RenderBorderTerminal, backend: Backend, theme: Theme,
+    bt: RenderBorderTerminal,
+    backend: Backend,
+    theme: Theme,
     frame_value: str | None = None,
 ) -> None:
     """Draw a structure border glyph from its fixed ``glyph_kind`` — a
@@ -970,8 +1074,15 @@ def _draw_border_terminal(
     kind = bt.glyph_kind
 
     if kind in ("N", "i"):
-        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
-                     stroke=theme.loop_term, stroke_width=1.5)
+        backend.rect(
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.loop_term_fill,
+            stroke=theme.loop_term,
+            stroke_width=1.5,
+        )
         backend.text(cx, cy + 4, kind, 11, fill=theme.loop_term_text, italic=True)
         return
     if kind == "eventTimeout":
@@ -982,17 +1093,26 @@ def _draw_border_terminal(
         # wireable INPUT (the timeout value), so it gets the same pale
         # loop-term fill as N/i, just with its own bespoke symbol instead of
         # falling through to a generic filled tunnel block.
-        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
-                     stroke=theme.wire_int, stroke_width=1.2)
+        backend.rect(
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.loop_term_fill,
+            stroke=theme.wire_int,
+            stroke_width=1.2,
+        )
         hw = (x2 - x1) * 0.30
         hh = (y2 - y1) * 0.34
         backend.polygon(
             [(cx - hw, cy - hh), (cx + hw, cy - hh), (cx, cy)],
-            fill=theme.wire_int, stroke=None,
+            fill=theme.wire_int,
+            stroke=None,
         )
         backend.polygon(
             [(cx - hw, cy + hh), (cx + hw, cy + hh), (cx, cy)],
-            fill=theme.wire_int, stroke=None,
+            fill=theme.wire_int,
+            stroke=None,
         )
         return
     if kind == "eventDyn":
@@ -1005,13 +1125,15 @@ def _draw_border_terminal(
         # the left, back out on the right), so the glyph follows that flow
         # direction on both sides rather than mirroring by in/out.
         col = theme.wire_refnum
-        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col,
-                     stroke_width=1.2)
+        backend.rect(
+            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col, stroke_width=1.2
+        )
         aw = (x2 - x1) * 0.22
         ah = (y2 - y1) * 0.26
         backend.polygon(
             [(cx - aw, cy - ah), (cx - aw, cy + ah), (cx + aw, cy)],
-            fill=col, stroke=None,
+            fill=col,
+            stroke=None,
         )
         return
     if kind == "cond":
@@ -1026,14 +1148,23 @@ def _draw_border_terminal(
             # a white looping arrow arc (↻) — the "keep going" cue
             a = r * 0.55
             backend.path(
-                [(cx - a, cy + a * 0.2), (cx - a, cy - a), (cx + a, cy - a),
-                 (cx + a, cy + a)],
-                stroke="#ffffff", stroke_width=1.2,
+                [
+                    (cx - a, cy + a * 0.2),
+                    (cx - a, cy - a),
+                    (cx + a, cy - a),
+                    (cx + a, cy + a),
+                ],
+                stroke="#ffffff",
+                stroke_width=1.2,
             )
             backend.polygon(
-                [(cx + a - 1.6, cy + a - 1.8), (cx + a + 1.6, cy + a - 1.8),
-                 (cx + a, cy + a + 1.4)],
-                fill="#ffffff", stroke=None,
+                [
+                    (cx + a - 1.6, cy + a - 1.8),
+                    (cx + a + 1.6, cy + a - 1.8),
+                    (cx + a, cy + a + 1.4),
+                ],
+                fill="#ffffff",
+                stroke=None,
             )
         else:
             backend.circle(cx, cy, r, fill=theme.cond_stop)
@@ -1043,8 +1174,9 @@ def _draw_border_terminal(
         # (bool -> green, enum -> blue, error cluster -> mustard, ...), not a
         # flat hardcoded green. Neutral pale fill so the "?" stays legible.
         col = bt.color or theme.selector_stroke
-        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
-                     stroke=col, stroke_width=1.2)
+        backend.rect(
+            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col, stroke_width=1.2
+        )
         # The "?" itself keeps the same semantic wire-type color as the border
         # when one is known (bt.color); only the NEUTRAL fallback (no wire
         # feeding it yet) uses the dedicated selector_text role rather than
@@ -1054,8 +1186,9 @@ def _draw_border_terminal(
     if kind in ("sr_down", "sr_up"):
         # Shift register: a type-colored box with a filled triangle glyph.
         col = bt.color or theme.sr_stroke
-        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col,
-                     stroke_width=1.2)
+        backend.rect(
+            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col, stroke_width=1.2
+        )
         if kind == "sr_up":
             tri = [(x1 + 2, y2 - 2), (cx, y1 + 2), (x2 - 2, y2 - 2)]
         else:
@@ -1068,37 +1201,51 @@ def _draw_border_terminal(
         # The brackets sit padded inside the box with LONG serifs so [ and ]
         # nearly meet top and bottom — reading as a square inside the square.
         col = bt.color or "#333333"
-        backend.rect(x1, y1, x2, y2, fill=theme.loop_term_fill,
-                     stroke=theme.tunnel_border, stroke_width=1.2)
+        backend.rect(
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.loop_term_fill,
+            stroke=theme.tunnel_border,
+            stroke_width=1.2,
+        )
         # A centered SQUARE inner region (side = min box dimension), padded.
         side = min(x2 - x1, y2 - y1) * (1 - 2 * 0.26)
         mx, my = (x1 + x2) / 2, (y1 + y2) / 2
         lx, rx = mx - side / 2, mx + side / 2
         ty, by2 = my - side / 2, my + side / 2
-        sr = side * 0.40   # long serifs: [ and ] nearly close at top/bottom
-        backend.path([(lx + sr, ty), (lx, ty), (lx, by2), (lx + sr, by2)],
-                     stroke=col, stroke_width=1.3)
-        backend.path([(rx - sr, ty), (rx, ty), (rx, by2), (rx - sr, by2)],
-                     stroke=col, stroke_width=1.3)
+        sr = side * 0.40  # long serifs: [ and ] nearly close at top/bottom
+        backend.path(
+            [(lx + sr, ty), (lx, ty), (lx, by2), (lx + sr, by2)],
+            stroke=col,
+            stroke_width=1.3,
+        )
+        backend.path(
+            [(rx - sr, ty), (rx, ty), (rx, by2), (rx - sr, by2)],
+            stroke=col,
+            stroke_width=1.3,
+        )
         return
     if kind == "tunnel":
         # Normal data tunnel: a solid block filled in the wire type color.
         col = bt.color or theme.wire_default
-        backend.rect(x1, y1, x2, y2, fill=col, stroke="#333333",
-                     stroke_width=0.75)
+        backend.rect(x1, y1, x2, y2, fill=col, stroke="#333333", stroke_width=0.75)
         # "Use Default If Unwired": in a frame that leaves this output tunnel
         # unwired, LabVIEW punches a small canvas HOLE in the block (the frame
         # emits the type default). Per-frame — solid in the frames that wire it.
         if frame_value is not None and frame_value in bt.unwired_frames:
             hw = (x2 - x1) * 0.17
             hh = (y2 - y1) * 0.17
-            backend.rect(cx - hw, cy - hh, cx + hw, cy + hh,
-                         fill=theme.canvas, stroke="none")
+            backend.rect(
+                cx - hw, cy - hh, cx + hw, cy + hh, fill=theme.canvas, stroke="none"
+            )
         return
     # A border DCO the fixed glyph table doesn't cover — undecorated box
     # rather than a guessed glyph.
-    backend.rect(x1, y1, x2, y2, fill="#ffffff", stroke=theme.struct_border,
-                 stroke_width=1.0)
+    backend.rect(
+        x1, y1, x2, y2, fill="#ffffff", stroke=theme.struct_border, stroke_width=1.0
+    )
 
 
 def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
@@ -1118,32 +1265,42 @@ def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> Non
     fx2, fy2 = x1 + w2, y1 + h2  # front card bottom-right
     for k in (2, 1):  # back + mid cards, offset +k*o down-right of the front card
         backend.path(
-            [(fx2, y1 + k * o), (fx2 + k * o, y1 + k * o),
-             (fx2 + k * o, fy2 + k * o), (x1 + k * o, fy2 + k * o),
-             (x1 + k * o, fy2)],
-            fill="none", stroke=s, stroke_width=1.2,
+            [
+                (fx2, y1 + k * o),
+                (fx2 + k * o, y1 + k * o),
+                (fx2 + k * o, fy2 + k * o),
+                (x1 + k * o, fy2 + k * o),
+                (x1 + k * o, fy2),
+            ],
+            fill="none",
+            stroke=s,
+            stroke_width=1.2,
         )
     # Front card (loop boundary), top-left-aligned, dog-eared bottom-right.
     f = 6.0
     backend.path(
         [(x1, y1), (fx2, y1), (fx2, fy2 - f), (fx2 - f, fy2), (x1, fy2), (x1, y1)],
-        fill="none", stroke=s, stroke_width=1.2,
+        fill="none",
+        stroke=s,
+        stroke_width=1.2,
     )
-    backend.path([(fx2, fy2 - f), (fx2 - f, fy2 - f), (fx2 - f, fy2)],
-                 stroke=s, stroke_width=1.2)
+    backend.path(
+        [(fx2, fy2 - f), (fx2 - f, fy2 - f), (fx2 - f, fy2)], stroke=s, stroke_width=1.2
+    )
 
 
 def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
-    backend.rect(x1, y1, x2, y2, rx=7, fill="none", stroke=theme.struct_border,
-                 stroke_width=1.2)
+    backend.rect(
+        x1, y1, x2, y2, rx=7, fill="none", stroke=theme.struct_border, stroke_width=1.2
+    )
 
 
 # Height of a case/stacked-sequence selector bar, drawn INSIDE the top of the
 # structure's heap bounds (the selector sits within the frame, per LabVIEW — its
 # heap termBounds are inside the bounds; there is no band above the top edge).
 _CASE_BAR_H = 14.0
-_SELECTOR_SIZE = 9.0        # font size of the value + arrows
-_SELECTOR_TRI_W = 11.0      # width of the dropdown-triangle zone (case only)
+_SELECTOR_SIZE = 9.0  # font size of the value + arrows
+_SELECTOR_TRI_W = 11.0  # width of the dropdown-triangle zone (case only)
 _SELECTOR_ARROW_GAP = 15.0  # horizontal room reserved for each flanking arrow
 
 
@@ -1157,10 +1314,10 @@ class _SelectorGeom:
     outer: tuple[float, float, float, float]  # the single enclosing box
     box: tuple[float, float, float, float]  # the central value cell (inside outer)
     tri: tuple[float, float, float, float] | None  # dropdown ▼ zone (case only)
-    text_cx: float   # center-x of the value text (its own zone, left of ▼)
+    text_cx: float  # center-x of the value text (its own zone, left of ▼)
     baseline: float  # shared baseline y for value + arrows
-    left_x: float    # ◄ center-x (in the left arrow cell)
-    right_x: float   # ► center-x (in the right arrow cell)
+    left_x: float  # ◄ center-x (in the left arrow cell)
+    right_x: float  # ► center-x (in the right arrow cell)
 
 
 def _frame_display(structure: RenderStructure, scene: Scene, value: str) -> str:
@@ -1178,14 +1335,19 @@ def _frame_display(structure: RenderStructure, scene: Scene, value: str) -> str:
 
 
 def _selector_geom(
-    structure: RenderStructure, scene: Scene, *, has_dropdown: bool,
+    structure: RenderStructure,
+    scene: Scene,
+    *,
+    has_dropdown: bool,
     backend: Backend,
 ) -> _SelectorGeom:
     x1, y1, x2, _ = structure.bounds
     values = scene.frame_values.get(structure.raw_uid, [])
     max_val_w = max(
-        (backend.measure_text(_frame_display(structure, scene, v), _SELECTOR_SIZE)
-         for v in values),
+        (
+            backend.measure_text(_frame_display(structure, scene, v), _SELECTOR_SIZE)
+            for v in values
+        ),
         default=10.0,
     )
     pad = 4.0
@@ -1205,14 +1367,21 @@ def _selector_geom(
     text_right = vc2 - tri_w
     baseline = (oy1 + oy2) / 2 + _SELECTOR_SIZE * 0.34
     return _SelectorGeom(
-        outer=(ox1, oy1, ox2, oy2), box=box, tri=tri,
-        text_cx=(vc1 + text_right) / 2, baseline=baseline,
-        left_x=(ox1 + vc1) / 2, right_x=(vc2 + ox2) / 2,
+        outer=(ox1, oy1, ox2, oy2),
+        box=box,
+        tri=tri,
+        text_cx=(vc1 + text_right) / 2,
+        baseline=baseline,
+        left_x=(ox1 + vc1) / 2,
+        right_x=(vc2 + ox2) / 2,
     )
 
 
 def _error_border_color(
-    scene: Scene, raw_uid: str, value: str, theme: Theme,
+    scene: Scene,
+    raw_uid: str,
+    value: str,
+    theme: Theme,
 ) -> str | None:
     """Green (No Error) / red (Error) border color for an error-cluster case's
     frame, or ``None`` if this structure isn't an error case. LabVIEW colors the
@@ -1222,8 +1391,7 @@ def _error_border_color(
     if err is None:
         return None
     return (
-        theme.case_no_error_border if err.get(value, False)
-        else theme.case_error_border
+        theme.case_no_error_border if err.get(value, False) else theme.case_error_border
     )
 
 
@@ -1240,7 +1408,10 @@ _IPES_BAND_W = 3.0
 
 
 def _draw_event_border_band(
-    structure: RenderStructure, backend: Backend, theme: Theme, width: float,
+    structure: RenderStructure,
+    backend: Backend,
+    theme: Theme,
+    width: float,
 ) -> None:
     """A filled BAND border (Event Structure and In Place Element Structure):
     a pale ``theme.event_band`` margin of ``width`` LV units between the outer
@@ -1258,18 +1429,29 @@ def _draw_event_border_band(
     x1, y1, x2, y2 = structure.bounds
     w = max(2.0, min(width, (x2 - x1) / 2 - 1.0, (y2 - y1) / 2 - 1.0))
     fill = theme.event_band
-    backend.rect(x1, y1, x2, y1 + w, fill=fill, stroke="none")          # top
-    backend.rect(x1, y2 - w, x2, y2, fill=fill, stroke="none")          # bottom
+    backend.rect(x1, y1, x2, y1 + w, fill=fill, stroke="none")  # top
+    backend.rect(x1, y2 - w, x2, y2, fill=fill, stroke="none")  # bottom
     backend.rect(x1, y1 + w, x1 + w, y2 - w, fill=fill, stroke="none")  # left
     backend.rect(x2 - w, y1 + w, x2, y2 - w, fill=fill, stroke="none")  # right
-    backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.event_border,
-                 stroke_width=1.2)
-    backend.rect(x1 + w, y1 + w, x2 - w, y2 - w, fill="none",
-                 stroke=theme.event_border, stroke_width=1.0)
+    backend.rect(
+        x1, y1, x2, y2, fill="none", stroke=theme.event_border, stroke_width=1.2
+    )
+    backend.rect(
+        x1 + w,
+        y1 + w,
+        x2 - w,
+        y2 - w,
+        fill="none",
+        stroke=theme.event_border,
+        stroke_width=1.0,
+    )
 
 
 def _draw_frame_border(
-    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
+    structure: RenderStructure,
+    scene: Scene,
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """The interactive structure's outer box only. LabVIEW draws NO header
     band — the selector is a compact ``◄ value ▼ ►`` widget that sits inside
@@ -1291,21 +1473,35 @@ def _draw_frame_border(
         # distinguishing it from the solid case/sequence box.
         dash: str | None = "1.5,2.5" if isinstance(node, DisableStructureNode) else None
         if color is not None:
-            backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.6,
-                         stroke_dasharray=dash)
+            backend.rect(
+                x1,
+                y1,
+                x2,
+                y2,
+                fill="none",
+                stroke=color,
+                stroke_width=1.6,
+                stroke_dasharray=dash,
+            )
         else:
-            backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                         stroke_width=1.2, stroke_dasharray=dash)
+            backend.rect(
+                x1,
+                y1,
+                x2,
+                y2,
+                fill="none",
+                stroke=theme.struct_border,
+                stroke_width=1.2,
+                stroke_dasharray=dash,
+            )
 
     # A STACKED sequence shares the flat sequence's top/bottom rails (the
     # film-strip "3D frame" look) — the selector + single-frame layout is all
     # that distinguishes stacked from flat. (Flat sequences never reach here;
     # they draw in _draw_sequence_border.)
     if isinstance(node, SequenceNode):
-        backend.line(x1, y1 + 4, x2, y1 + 4, stroke=theme.struct_border,
-                     stroke_width=1)
-        backend.line(x1, y2 - 4, x2, y2 - 4, stroke=theme.struct_border,
-                     stroke_width=1)
+        backend.line(x1, y1 + 4, x2, y1 + 4, stroke=theme.struct_border, stroke_width=1)
+        backend.line(x1, y2 - 4, x2, y2 - 4, stroke=theme.struct_border, stroke_width=1)
 
     # "Case Insensitive Match" badge — LabVIEW 2015+ draws "A=a" at the
     # bottom-left corner of a string case structure when the match is
@@ -1314,13 +1510,20 @@ def _draw_frame_border(
         # "A=a" is drawn in the string wire color (pink) — it is an attribute
         # of the string selector, matching LabVIEW's own coloring.
         backend.text(
-            x1 + 4.0, y2 - 3.5, "A=a", 8.5,
-            fill=theme.wire_string, anchor="start",
+            x1 + 4.0,
+            y2 - 3.5,
+            "A=a",
+            8.5,
+            fill=theme.wire_string,
+            anchor="start",
         )
 
 
 def _draw_frame_selector(
-    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
+    structure: RenderStructure,
+    scene: Scene,
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """The selector chrome as separate CLICK TARGETS: a ◄ prev arrow, the value
     box (a ▼ dropdown toggle carrying the frame list — both cases and stacked
@@ -1341,8 +1544,15 @@ def _draw_frame_selector(
     # One enclosing box, filled with the case-bar role (paired with
     # case_bar_text below), with vertical dividers between the flanking arrow
     # cells and the central value cell — the LabVIEW selector-label look.
-    backend.rect(ox1, oy1, ox2, oy2, fill=theme.case_bar_fill,
-                 stroke=theme.struct_border, stroke_width=0.75)
+    backend.rect(
+        ox1,
+        oy1,
+        ox2,
+        oy2,
+        fill=theme.case_bar_fill,
+        stroke=theme.struct_border,
+        stroke_width=0.75,
+    )
     backend.line(vc1, oy1, vc1, oy2, stroke=theme.struct_border, stroke_width=0.5)
     backend.line(vc2, oy1, vc2, oy2, stroke=theme.struct_border, stroke_width=0.5)
 
@@ -1362,7 +1572,9 @@ def _draw_frame_selector(
     # case) draws the ▼ dropdown toggle. The value TEXT is drawn per-frame by
     # _draw_frame_value_label.
     box_data = {
-        "lv-struct": struct, "lv-frames": ";".join(values), "lv-default": default,
+        "lv-struct": struct,
+        "lv-frames": ";".join(values),
+        "lv-default": default,
     }
     if has_dropdown:
         box_data["lv-action"] = "toggle"
@@ -1388,7 +1600,10 @@ _MENU_ROW_H = 13.0
 
 
 def _draw_frame_menu(
-    structure: RenderStructure, scene: Scene, backend: Backend, theme: Theme,
+    structure: RenderStructure,
+    scene: Scene,
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """An interactive structure's dropdown MENU: one clickable row per frame
     value, stacked below the value box, hidden until the ▼ toggle opens it.
@@ -1408,29 +1623,46 @@ def _draw_frame_menu(
         ry1 = by2 + i * _MENU_ROW_H
         ry2 = ry1 + _MENU_ROW_H
         backend.begin_group(
-            cls="lv-option lv-clickable", data={"lv-struct": struct, "lv-value": v},
+            cls="lv-option lv-clickable",
+            data={"lv-struct": struct, "lv-value": v},
         )
         # Same case-bar fill as the selector box above, so the row's
         # case_bar_text label pairs with a themed background here too.
-        backend.rect(bx1, ry1, bx2, ry2, fill=theme.case_bar_fill,
-                     stroke="#999999", stroke_width=0.5)
+        backend.rect(
+            bx1,
+            ry1,
+            bx2,
+            ry2,
+            fill=theme.case_bar_fill,
+            stroke="#999999",
+            stroke_width=0.5,
+        )
         # The row's DISPLAY is the faithful typed label (enum name, No Error /
         # Error, quoted string, ...); the raw value stays the click identity in
         # ``lv-value`` above so the JS controller still matches frame paths.
         label = _frame_display(structure, scene, v)
         text = (
-            label if backend.measure_text(label, _SELECTOR_SIZE) <= zone_w
+            label
+            if backend.measure_text(label, _SELECTOR_SIZE) <= zone_w
             else fit_label(label, zone_w, backend, _SELECTOR_SIZE)
         )
-        backend.text((bx1 + bx2) / 2, ry1 + _MENU_ROW_H / 2 + _SELECTOR_SIZE * 0.34,
-                     text, _SELECTOR_SIZE, fill=theme.case_bar_text)
+        backend.text(
+            (bx1 + bx2) / 2,
+            ry1 + _MENU_ROW_H / 2 + _SELECTOR_SIZE * 0.34,
+            text,
+            _SELECTOR_SIZE,
+            fill=theme.case_bar_text,
+        )
         backend.end_group()
     backend.end_group()
 
 
 def _draw_frame_value_label(
-    structure: RenderStructure, scene: Scene, value: str,
-    backend: Backend, theme: Theme,
+    structure: RenderStructure,
+    scene: Scene,
+    value: str,
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """The selected frame's label, centered in the selector's text zone (to the
     LEFT of a case's ▼ dropdown, never under it or the arrows). A case shows its
@@ -1441,20 +1673,24 @@ def _draw_frame_value_label(
     tri_w = (g.tri[2] - g.tri[0]) if g.tri is not None else 0.0
     zone_w = (g.box[2] - g.box[0]) - tri_w - 4.0
     text = (
-        label if backend.measure_text(label, _SELECTOR_SIZE) <= zone_w
+        label
+        if backend.measure_text(label, _SELECTOR_SIZE) <= zone_w
         else fit_label(label, zone_w, backend, _SELECTOR_SIZE)
     )
     backend.text(g.text_cx, g.baseline, text, _SELECTOR_SIZE, fill=theme.case_bar_text)
 
 
 def _draw_sequence_border(
-    structure: RenderStructure, backend: Backend, theme: Theme,
+    structure: RenderStructure,
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """Flat sequence: outer box + top/bottom rails, plus a vertical divider
     line at each inter-frame boundary (the film-strip look)."""
     x1, y1, x2, y2 = structure.bounds
-    backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                 stroke_width=1.2)
+    backend.rect(
+        x1, y1, x2, y2, fill="none", stroke=theme.struct_border, stroke_width=1.2
+    )
     backend.line(x1, y1 + 4, x2, y1 + 4, stroke=theme.struct_border, stroke_width=1)
     backend.line(x1, y2 - 4, x2, y2 - 4, stroke=theme.struct_border, stroke_width=1)
     for dx in structure.dividers:
@@ -1462,7 +1698,9 @@ def _draw_sequence_border(
 
 
 def draw_structure(
-    structure: RenderStructure, scene: Scene, backend: Backend,
+    structure: RenderStructure,
+    scene: Scene,
+    backend: Backend,
     theme: Theme = DEFAULT_THEME,
 ) -> None:
     """A structure's border (and film-strip/selector chrome), drawn AFTER wires
@@ -1489,8 +1727,9 @@ def draw_structure(
         _draw_event_border_band(structure, backend, theme, _IPES_BAND_W)
     else:
         # Anything else — a plain border (matches the prior renderer).
-        backend.rect(x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
-                     stroke_width=1.2)
+        backend.rect(
+            x1, y1, x2, y2, fill="none", stroke=theme.struct_border, stroke_width=1.2
+        )
     # Border terminals (N/i/cond, tunnels, shift registers, selector) are NOT
     # drawn here — draw_scene paints them AFTER wires so a wire is never drawn
     # on top of a boundary terminal (it butts against it, like a VI's terminal).
@@ -1500,24 +1739,40 @@ def draw_structure(
 # ddo "class" string (FPTerminal.control_type) is a mechanical lookup, not
 # a guess, matching the dispatch tables already used by type_defaults.py.
 _CONTROL_TYPE_FAMILY = {
-    "stdNum": "float", "stdNumeric": "float", "stdDBL": "float",
-    "stdSGL": "float", "stdEXT": "float",
-    "stdI8": "int", "stdI16": "int", "stdI32": "int", "stdI64": "int",
-    "stdU8": "int", "stdU16": "int", "stdU32": "int", "stdU64": "int",
+    "stdNum": "float",
+    "stdNumeric": "float",
+    "stdDBL": "float",
+    "stdSGL": "float",
+    "stdEXT": "float",
+    "stdI8": "int",
+    "stdI16": "int",
+    "stdI32": "int",
+    "stdI64": "int",
+    "stdU8": "int",
+    "stdU16": "int",
+    "stdU32": "int",
+    "stdU64": "int",
     "stdBool": "bool",
     "stdString": "string",
     "stdPath": "path",
     "stdClust": "cluster",
     "stdArray": "array",
-    "stdRing": "enum", "stdEnum": "enum",
+    "stdRing": "enum",
+    "stdEnum": "enum",
 }
 
 
 # Fallback terminal text when the LVType didn't resolve (control_type only).
 _FAMILY_REPR = {
-    "float": "DBL", "int": "I32", "bool": "TF", "string": "abc",
-    "path": "Path", "enum": "Enum",
-    "error_cluster": "err", "variant": "Var", "refnum": "Ref",
+    "float": "DBL",
+    "int": "I32",
+    "bool": "TF",
+    "string": "abc",
+    "path": "Path",
+    "enum": "Enum",
+    "error_cluster": "err",
+    "variant": "Var",
+    "refnum": "Ref",
 }
 
 
@@ -1552,8 +1807,10 @@ def _fp_type_label(terminal: FPTerminal, scalar_type: LVType | None) -> str:
 
 
 def _draw_fp_value_cell(
-    bounds: tuple[float, float, float, float], sample: str | None,
-    backend: Backend, theme: Theme,
+    bounds: tuple[float, float, float, float],
+    sample: str | None,
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """The recessed numeric/string value-display cell — skipped entirely
     (drawn nothing) when the type has no representative glyph (Boolean is
@@ -1563,21 +1820,30 @@ def _draw_fp_value_cell(
     x1, y1, x2, y2 = bounds
     if x2 - x1 < 4 or y2 - y1 < 4:
         return
-    backend.rect(x1, y1, x2, y2, fill=theme.fp_value_fill,
-                 stroke="#999999", stroke_width=0.75)
+    backend.rect(
+        x1, y1, x2, y2, fill=theme.fp_value_fill, stroke="#999999", stroke_width=0.75
+    )
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
     avail = (x2 - x1) - 3
     fsize = 9.0
     while fsize > 6.0 and backend.measure_text(sample, fsize) > avail:
         fsize -= 0.5
-    text = sample if backend.measure_text(sample, fsize) <= avail \
+    text = (
+        sample
+        if backend.measure_text(sample, fsize) <= avail
         else fit_label(sample, avail, backend, fsize)
+    )
     backend.text(cx, cy + fsize / 3, text, fsize, fill=theme.fp_value_text)
 
 
 def _draw_array_index_column(
-    x1: float, y1: float, x2: float, y2: float, dims: int,
-    backend: Backend, theme: Theme,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    dims: int,
+    backend: Backend,
+    theme: Theme,
 ) -> float:
     """The array index-display column, one small cell per dimension on the
     LEFT of the panel, labelled with successive index letters (i, j, k, ...)
@@ -1588,19 +1854,33 @@ def _draw_array_index_column(
     for i in range(dims):
         cy1 = y1 + i * height
         cy2 = cy1 + height
-        backend.rect(x1, cy1, x1 + width, cy2, fill=theme.fp_index_fill,
-                     stroke="#333333", stroke_width=0.5)
+        backend.rect(
+            x1,
+            cy1,
+            x1 + width,
+            cy2,
+            fill=theme.fp_index_fill,
+            stroke="#333333",
+            stroke_width=0.5,
+        )
         if height >= 5.0:
             letter = _INDEX_LETTERS[i % len(_INDEX_LETTERS)]
             fsize = min(7.0, height - 1.0)
-            backend.text(x1 + width / 2, (cy1 + cy2) / 2 + fsize / 3, letter, fsize,
-                         fill=theme.fp_value_text)
+            backend.text(
+                x1 + width / 2,
+                (cy1 + cy2) / 2 + fsize / 3,
+                letter,
+                fsize,
+                fill=theme.fp_value_text,
+            )
     return x1 + width
 
 
 def draw_fp_terminal(
-    terminal: FPTerminal, bounds: tuple[float, float, float, float],
-    backend: Backend, theme: Theme = DEFAULT_THEME,
+    terminal: FPTerminal,
+    bounds: tuple[float, float, float, float],
+    backend: Backend,
+    theme: Theme = DEFAULT_THEME,
     label_visible: bool = True,
     label_bounds: tuple[float, float, float, float] | None = None,
 ) -> None:
@@ -1612,13 +1892,14 @@ def draw_fp_terminal(
     on the left. The name label stays ABOVE the box, as before."""
     x1, y1, x2, y2 = bounds
     lv_type = terminal.lv_type
-    is_array = lv_type is not None and lv_type.kind == "array"
+    is_array = lv_type is not None and lv_type.kind == LVTypeKind.ARRAY
     scalar_type = lv_type.element_type if lv_type is not None and is_array else lv_type
     color = wire_style(scalar_type, theme).color
     stroke_width = 1.5 if terminal.is_indicator else 3.0
 
-    backend.rect(x1, y1, x2, y2, fill=theme.fp_panel,
-                 stroke=color, stroke_width=stroke_width)
+    backend.rect(
+        x1, y1, x2, y2, fill=theme.fp_panel, stroke=color, stroke_width=stroke_width
+    )
 
     label = terminal.name or ""
     if label and label_visible:
@@ -1641,19 +1922,21 @@ def draw_fp_terminal(
             # in every label position (left/right of a terminal, above/below).
             m = _FP_LABEL_MARGIN
             size, _, lines = fit_wrapped(
-                label, (lx2 - lx1) - 2 * m, (ly2 - ly1) - 2 * m, backend,
-                max_size=(ly2 - ly1) - 2 * m, max_lines=1,
+                label,
+                (lx2 - lx1) - 2 * m,
+                (ly2 - ly1) - 2 * m,
+                backend,
+                max_size=(ly2 - ly1) - 2 * m,
+                max_lines=1,
             )
             shown = lines[0] if lines else label
             ty = (ly1 + ly2) / 2 + size * 0.35
             lcx, tcx = (lx1 + lx2) / 2, (x1 + x2) / 2
-            if lcx < tcx - 1:      # label sits LEFT of the terminal
-                backend.text(lx2 - m, ty, shown, size, anchor="end",
-                             fill=theme.text)
-            elif lcx > tcx + 1:    # label sits RIGHT of the terminal
-                backend.text(lx1 + m, ty, shown, size, anchor="start",
-                             fill=theme.text)
-            else:                  # centered above/below
+            if lcx < tcx - 1:  # label sits LEFT of the terminal
+                backend.text(lx2 - m, ty, shown, size, anchor="end", fill=theme.text)
+            elif lcx > tcx + 1:  # label sits RIGHT of the terminal
+                backend.text(lx1 + m, ty, shown, size, anchor="start", fill=theme.text)
+            else:  # centered above/below
                 backend.text(lcx, ty, shown, size, fill=theme.text)
         else:
             # No saved rect: the default full name, centered just above the box,
@@ -1680,27 +1963,37 @@ def draw_fp_terminal(
     # dataflow direction: an indicator's arrow is tucked against the left inner
     # edge (data enters), a control's against the right inner edge (data exits).
     if terminal.is_indicator:
-        port = [(x1, cy_mid - tri * 0.6), (x1, cy_mid + tri * 0.6),
-                (x1 + tri, cy_mid)]
+        port = [(x1, cy_mid - tri * 0.6), (x1, cy_mid + tri * 0.6), (x1 + tri, cy_mid)]
     else:
-        port = [(x2 - tri, cy_mid - tri * 0.6), (x2 - tri, cy_mid + tri * 0.6),
-                (x2, cy_mid)]
+        port = [
+            (x2 - tri, cy_mid - tri * 0.6),
+            (x2 - tri, cy_mid + tri * 0.6),
+            (x2, cy_mid),
+        ]
     backend.polygon(port, fill="#ffffff", stroke=color, stroke_width=1.0)
 
-    margin = 5.0       # padding from the box border to the inner cells (per GT)
-    value_h = 10.0     # display cells occupy only the upper strip (GT ~10px)
-    idx_w = 8.0        # index-column width
-    idx_cell_h = 7.0   # per index row
+    margin = 5.0  # padding from the box border to the inner cells (per GT)
+    value_h = 10.0  # display cells occupy only the upper strip (GT ~10px)
+    idx_w = 8.0  # index-column width
+    idx_cell_h = 7.0  # per index row
     value_x1, value_y1 = x1 + margin, y1 + margin
     value_x2 = x2 - margin
     value_y2 = value_y1 + value_h
 
     if is_array:
         idx_bottom = value_y1 + idx_cell_h * _ARRAY_INDEX_ROWS
-        value_x1 = _draw_array_index_column(
-            value_x1, value_y1, value_x1 + idx_w, idx_bottom,
-            _ARRAY_INDEX_ROWS, backend, theme,
-        ) + 2.0
+        value_x1 = (
+            _draw_array_index_column(
+                value_x1,
+                value_y1,
+                value_x1 + idx_w,
+                idx_bottom,
+                _ARRAY_INDEX_ROWS,
+                backend,
+                theme,
+            )
+            + 2.0
+        )
 
     value_bounds = (value_x1, value_y1, value_x2, value_y2)
     fam = type_family(scalar_type)
@@ -1714,8 +2007,12 @@ def draw_fp_terminal(
 
 
 def _draw_layer_content(
-    structures: list[RenderStructure], nets: list[RenderWireNet],
-    nodes: list[RenderNode], scene: Scene, backend: Backend, theme: Theme,
+    structures: list[RenderStructure],
+    nets: list[RenderWireNet],
+    nodes: list[RenderNode],
+    scene: Scene,
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     """One layer, in three stacked passes: wires -> structure OUTLINES +
     boundary terminals -> nodes. Reused for the base layer and each frame group.
@@ -1732,8 +2029,11 @@ def _draw_layer_content(
     for net in nets:
         if casing > 0:
             for branch in net.branches:
-                backend.path(branch, stroke=theme.canvas,
-                             stroke_width=net.style.width + 2 * casing)
+                backend.path(
+                    branch,
+                    stroke=theme.canvas,
+                    stroke_width=net.style.width + 2 * casing,
+                )
         for branch in net.branches:
             backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
         for jx, jy in net.junctions:
@@ -1759,15 +2059,20 @@ def _draw_layer_content(
 
 
 def _draw_layer_coercion_dots(
-    nets: list[RenderWireNet], dots: list[Point], backend: Backend, theme: Theme,
+    nets: list[RenderWireNet],
+    dots: list[Point],
+    backend: Backend,
+    theme: Theme,
 ) -> None:
     for net in nets:
         for dx, dy in net.coercion_dots:
-            backend.circle(dx, dy, 2.0, fill=theme.coercion_dot,
-                            stroke="#ffffff", stroke_width=0.5)
+            backend.circle(
+                dx, dy, 2.0, fill=theme.coercion_dot, stroke="#ffffff", stroke_width=0.5
+            )
     for dx, dy in dots:
-        backend.circle(dx, dy, 2.0, fill=theme.coercion_dot,
-                        stroke="#ffffff", stroke_width=0.5)
+        backend.circle(
+            dx, dy, 2.0, fill=theme.coercion_dot, stroke="#ffffff", stroke_width=0.5
+        )
 
 
 def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
@@ -1798,8 +2103,12 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
 
     for fp in base_fps:
         draw_fp_terminal(
-            fp.terminal, fp.bounds, backend, theme,
-            fp.label_visible, fp.label_bounds,
+            fp.terminal,
+            fp.bounds,
+            backend,
+            theme,
+            fp.label_visible,
+            fp.label_bounds,
         )
 
     _draw_layer_coercion_dots(base_nets, base_dots, backend, theme)
@@ -1847,8 +2156,12 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
                 _draw_border_terminal(bt, backend, theme, frame_value)
         for fp in fps:
             draw_fp_terminal(
-                fp.terminal, fp.bounds, backend, theme,
-                fp.label_visible, fp.label_bounds,
+                fp.terminal,
+                fp.bounds,
+                backend,
+                theme,
+                fp.label_visible,
+                fp.label_bounds,
             )
         _draw_layer_coercion_dots(nets, dots, backend, theme)
         # Disable structure: every frame EXCEPT the enabled/default one is a
@@ -1885,11 +2198,10 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             # box is hidden), not just when its own selector differs — a
             # bare single-segment path would leak a floating label. The JS
             # controller ANDs every segment, so ancestors gate it correctly.
-            label_path: FramePath = structure.frame_path + (
-                (structure.raw_uid, value),
-            )
+            label_path: FramePath = structure.frame_path + ((structure.raw_uid, value),)
             visible = value == default and _is_default_visible(
-                structure.frame_path, scene.default_frame,
+                structure.frame_path,
+                scene.default_frame,
             )
             # .lv-label => pointer-events:none so a click on the value text
             # falls through to the .lv-selector overlay beneath (drawn earlier),
@@ -1897,7 +2209,8 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             # off-frame state (same class the controllers toggle — no inline
             # display that the class toggle couldn't later clear).
             backend.begin_group(
-                cls="lv-frame lv-label" if visible
+                cls="lv-frame lv-label"
+                if visible
                 else "lv-frame lv-label lv-frame-hidden",
                 data={"path": encode_frame_path(label_path)},
             )
@@ -1907,12 +2220,16 @@ def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> 
             # group so it flips with the selector; overlays the static default
             # border painted by draw_structure.
             err_color = _error_border_color(
-                scene, structure.raw_uid, value, theme,
+                scene,
+                structure.raw_uid,
+                value,
+                theme,
             )
             if err_color is not None:
                 bx1, by1, bx2, by2 = structure.bounds
-                backend.rect(bx1, by1, bx2, by2, fill="none", stroke=err_color,
-                             stroke_width=1.6)
+                backend.rect(
+                    bx1, by1, bx2, by2, fill="none", stroke=err_color, stroke_width=1.6
+                )
             backend.end_group()
 
     # Dropdown menus LAST so they overlay the whole diagram when opened (they

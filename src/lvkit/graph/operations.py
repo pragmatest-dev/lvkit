@@ -1,7 +1,7 @@
 """Operations mixin for InMemoryVIGraph.
 
 Methods: _build_operation, _tunnels_from_terminals, _enrich_subvi_terminals_typed,
-_get_slot_to_name, resolve_name, _sort_inner_uids, _build_inner_nodes,
+_get_slot_to_name, _sort_inner_uids, _build_inner_nodes,
 _get_children_of, _build_frames_from_parent, _build_sequence_frames_from_parent.
 """
 
@@ -71,7 +71,9 @@ class OperationsMixin:
         def get_poly_variants(self, vi_name: str) -> list[str]: ...
 
     def _build_operation(
-        self, uid: str, vi_name: str,
+        self,
+        uid: str,
+        vi_name: str,
     ) -> Operation:
         """Build a single Operation dataclass from a typed graph node.
 
@@ -87,7 +89,8 @@ class OperationsMixin:
         # Build terminals, enriching SubVI terminals with callee param names
         terminals = list(gnode.terminals)
         if isinstance(gnode, VINode) and gnode.id != gnode.vi:
-            # SubVI call — enrich with callee param names via resolve_name
+            # SubVI call — enrich with callee param names via
+            # _enrich_subvi_terminals_typed
             terminals = self._enrich_subvi_terminals_typed(
                 terminals, gnode.name, vi_name
             )
@@ -122,7 +125,8 @@ class OperationsMixin:
             if isinstance(gnode, LoopNode):
                 loop_type = gnode.loop_type
                 inner_nodes = self._build_inner_nodes(
-                    child_uids, vi_name,
+                    child_uids,
+                    vi_name,
                 )
                 stop_cond = gnode.stop_condition_terminal
                 stop_cond_inverted = gnode.stop_condition_inverted
@@ -131,18 +135,24 @@ class OperationsMixin:
 
             elif isinstance(gnode, DisableStructureNode):
                 case_frames = self._populate_frame_operations(  # type: ignore[assignment]
-                    gnode.frames, vi_name, child_uids,
+                    gnode.frames,
+                    vi_name,
+                    child_uids,
                 )
 
             elif isinstance(gnode, CaseStructureNode):
                 selector_terminal = gnode.selector_terminal
                 case_frames = self._populate_frame_operations(  # type: ignore[assignment]
-                    gnode.frames, vi_name, child_uids,
+                    gnode.frames,
+                    vi_name,
+                    child_uids,
                 )
 
             elif isinstance(gnode, SequenceNode):
                 seq_frames = self._populate_frame_operations(  # type: ignore[assignment]
-                    gnode.frames, vi_name, child_uids,
+                    gnode.frames,
+                    vi_name,
+                    child_uids,
                 )
 
             elif isinstance(gnode, InPlaceNode):
@@ -151,7 +161,9 @@ class OperationsMixin:
 
             elif isinstance(gnode, EventStructureNode):
                 event_frames = self._populate_frame_operations(  # type: ignore[assignment]
-                    gnode.frames, vi_name, child_uids,
+                    gnode.frames,
+                    vi_name,
+                    child_uids,
                 )
 
         # Structures have no codegen identity; name stays None (see
@@ -173,6 +185,9 @@ class OperationsMixin:
             "description": gnode.description,
             "qualified_path": getattr(gnode, "qualified_path", None),
             "owning_libraries": list(getattr(gnode, "owning_libraries", []) or []),
+            # Every named node carries its resolution identity; a node with no
+            # library to qualify with falls back to its own name (never absent).
+            "qualified_name": getattr(gnode, "qualified_name", None) or node_name,
         }
 
         # Build the right operation subtype
@@ -292,18 +307,21 @@ class OperationsMixin:
                 continue
             seen_pairs.add(pair_key)
 
-            tunnels.append(Tunnel(
-                outer_terminal_uid=outer_uid,
-                inner_terminal_uid=inner_uid,
-                tunnel_type=term.tunnel_type,
-                # term is either boundary side of THIS tunnel -- construction.py
-                # stamps the same mode/sr_initialized/sr_stack_depth on both
-                # the outer and inner TunnelTerminal, so either one carries
-                # the value faithfully.
-                mode=term.mode,
-                sr_initialized=term.sr_initialized,
-                sr_stack_depth=term.sr_stack_depth,
-            ))
+            tunnels.append(
+                Tunnel(
+                    outer_terminal_uid=outer_uid,
+                    inner_terminal_uid=inner_uid,
+                    tunnel_type=term.tunnel_type,
+                    # term is either boundary side of THIS tunnel -- construction.py
+                    # stamps the same mode/conditional/sr_initialized/sr_stack_depth
+                    # on both the outer and inner TunnelTerminal, so either one
+                    # carries the value faithfully.
+                    mode=term.mode,
+                    conditional=term.conditional,
+                    sr_initialized=term.sr_initialized,
+                    sr_stack_depth=term.sr_stack_depth,
+                )
+            )
 
         return tunnels
 
@@ -313,7 +331,7 @@ class OperationsMixin:
         subvi_name: str | None,
         caller_vi: str,
     ) -> list[Terminal]:
-        """Add callee parameter names to SubVI terminals via resolve_name."""
+        """Add callee parameter names to SubVI terminals via _get_slot_to_name."""
         if not subvi_name:
             return terminals
         resolved_name = self.resolve_vi_name(subvi_name)
@@ -339,27 +357,31 @@ class OperationsMixin:
             if t.index is not None and t.index in slot_to_name:
                 name = slot_to_name[t.index]
             if isinstance(t, FPTerminal):
-                enriched.append(FPTerminal(
-                    id=t.id,
-                    index=t.index,
-                    direction=t.direction,
-                    name=name,
-                    lv_type=t.lv_type,
-                    wiring_rule=t.wiring_rule,
-                    is_indicator=t.is_indicator,
-                    is_public=t.is_public,
-                    control_type=t.control_type,
-                    default_value=t.default_value,
-                    enum_values=t.enum_values,
-                ))
+                enriched.append(
+                    FPTerminal(
+                        id=t.id,
+                        index=t.index,
+                        direction=t.direction,
+                        name=name,
+                        lv_type=t.lv_type,
+                        wiring_rule=t.wiring_rule,
+                        is_indicator=t.is_indicator,
+                        is_public=t.is_public,
+                        control_type=t.control_type,
+                        default_value=t.default_value,
+                        enum_values=t.enum_values,
+                    )
+                )
             else:
-                enriched.append(Terminal(
-                    id=t.id,
-                    index=t.index,
-                    direction=t.direction,
-                    name=name,
-                    lv_type=t.lv_type,
-                ))
+                enriched.append(
+                    Terminal(
+                        id=t.id,
+                        index=t.index,
+                        direction=t.direction,
+                        name=name,
+                        lv_type=t.lv_type,
+                    )
+                )
         return enriched
 
     def _get_slot_to_name(self, vi_name: str) -> dict[int, str]:
@@ -375,38 +397,10 @@ class OperationsMixin:
                 result[t.index] = t.name
         return result
 
-    def resolve_name(self, node_id: str, terminal_index: int) -> str | None:
-        """Resolve the name of a terminal on a node.
-
-        For SubVI calls, follows the graph to the callee VI and reads
-        the terminal name from its FP terminal list.
-        """
-        if node_id not in self._graph:
-            return None
-        gnode = self._graph.nodes[node_id].get("node")
-        if gnode is None:
-            return None
-
-        # Direct: read from node's terminal list
-        for term in gnode.terminals:
-            if term.index == terminal_index and term.name:
-                return term.name
-
-        # SubVI: follow graph to callee VI, read its terminal name
-        if isinstance(gnode, VINode) and gnode.id != gnode.vi:
-            callee_name = self.resolve_vi_name(gnode.name or "")
-            if callee_name in self._graph:
-                callee_node = self._graph.nodes[callee_name].get("node")
-                if isinstance(callee_node, VINode):
-                    for term in callee_node.terminals:
-                        if term.index == terminal_index and term.name:
-                            return term.name
-
-        return None
-
-
     def _sort_inner_uids(
-        self, uids: list[str], vi_name: str,
+        self,
+        uids: list[str],
+        vi_name: str,
     ) -> list[str]:
         """Topologically sort inner node UIDs by their wire dependencies.
 
@@ -463,7 +457,9 @@ class OperationsMixin:
         return result
 
     def _build_inner_nodes(
-        self, uids: list[str], vi_name: str,
+        self,
+        uids: list[str],
+        vi_name: str,
     ) -> list[Operation]:
         """Build Operation dataclasses for nodes inside a structure."""
         sorted_uids = self._sort_inner_uids(uids, vi_name)
@@ -480,7 +476,9 @@ class OperationsMixin:
         return results
 
     def _get_children_of(
-        self, parent_uid: str, vi_name: str,
+        self,
+        parent_uid: str,
+        vi_name: str,
     ) -> list[str]:
         """Get UIDs of all graph nodes whose parent == parent_uid."""
         node_uids = self._vi_nodes.get(vi_name, set())
@@ -525,17 +523,23 @@ class OperationsMixin:
                 result.append(frame)
                 continue
             uids = frame_to_uids.get(key, [])
-            result.append(frame.model_copy(update={
-                "inner_node_uids": uids,
-                "operations": self._build_inner_nodes(uids, vi_name),
-            }))
+            result.append(
+                frame.model_copy(
+                    update={
+                        "inner_node_uids": uids,
+                        "operations": self._build_inner_nodes(uids, vi_name),
+                    }
+                )
+            )
 
         return cast(
-            "list[CaseFrame] | list[SequenceFrame] | list[EventFrame]", result,
+            "list[CaseFrame] | list[SequenceFrame] | list[EventFrame]",
+            result,
         )
 
     def _group_children_by_frame(
-        self, child_uids: list[str],
+        self,
+        child_uids: list[str],
     ) -> dict[str | int | None, list[str]]:
         """Group child UIDs by their frame attribute."""
         frame_to_uids: dict[str | int | None, list[str]] = {}

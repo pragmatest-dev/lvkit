@@ -110,7 +110,8 @@ class Layout:
         xs: list[float] = []
         ys: list[float] = []
         for x1, y1, x2, y2 in (
-            *self.node_bounds.values(), *self.border_terminals.values(),
+            *self.node_bounds.values(),
+            *self.border_terminals.values(),
             *self.label_bounds.values(),
         ):
             xs += [x1, x2]
@@ -155,7 +156,8 @@ def _const_value_box(ddo: ET.Element) -> Rect | None:
         return box
     ox, oy = box[0], box[1]  # DDO origin; part bounds are relative to it
     rects = [
-        r for p in parts.findall("SL__arrayElement")
+        r
+        for p in parts.findall("SL__arrayElement")
         if p.get("class") != "label" and (r := _rect(p)) is not None
     ]
     if not rects:
@@ -248,8 +250,10 @@ class _LayoutBuilder:
             return
         for term in tl.findall("SL__arrayElement"):
             dco = term.find("dco")
-            src = dco if dco is not None and dco.get("class") == "lpTun" else (
-                term if term.get("class") == "lpTun" else None
+            src = (
+                dco
+                if dco is not None and dco.get("class") == "lpTun"
+                else (term if term.get("class") == "lpTun" else None)
             )
             if src is None:
                 continue
@@ -282,8 +286,13 @@ class _LayoutBuilder:
 
     # -- shift-register pairs ---------------------------------------------
     def _map_shift_register(
-        self, lsr: ET.Element, term_uid: str | None,
-        ox: float, oy: float, off_x: float, off_y: float,
+        self,
+        lsr: ET.Element,
+        term_uid: str | None,
+        ox: float,
+        oy: float,
+        off_x: float,
+        off_y: float,
     ) -> None:
         """Map both halves of a loop shift-register pair to their own borders.
 
@@ -306,13 +315,16 @@ class _LayoutBuilder:
             if tb is None:
                 continue
             abs_tb = (
-                ox + tb[0] + off_x, oy + tb[1] + off_y,
-                ox + tb[2] + off_x, oy + tb[3] + off_y,
+                ox + tb[0] + off_x,
+                oy + tb[1] + off_y,
+                ox + tb[2] + off_x,
+                oy + tb[3] + off_y,
             )
             center = ((abs_tb[0] + abs_tb[2]) / 2, (abs_tb[1] + abs_tb[3]) / 2)
             uids = {u for u in (reg.get("uid"), extra) if u}
             uids.update(
-                s.get("uid", "") for s in reg.findall("termList/SL__arrayElement")
+                s.get("uid", "")
+                for s in reg.findall("termList/SL__arrayElement")
                 if s.get("uid")
             )
             for u in uids:
@@ -336,11 +348,13 @@ class _LayoutBuilder:
         if elem.get("class") == "prim":
             nb = _rect(elem)
             trects = [
-                r for r in (
+                r
+                for r in (
                     _rect(t, ".//termBounds")
                     for t in tl.findall("SL__arrayElement")
                     if t.get("class") == "term"
-                ) if r is not None
+                )
+                if r is not None
             ]
             if nb is not None and trects:
                 emin_x = min(r[0] for r in trects)
@@ -362,18 +376,26 @@ class _LayoutBuilder:
                 if uid:
                     self.node_bounds.setdefault(uid, abs_rect)
                     self.terminal_centers.setdefault(
-                        uid, ((abs_rect[0] + abs_rect[2]) / 2,
-                              (abs_rect[1] + abs_rect[3]) / 2),
+                        uid,
+                        (
+                            (abs_rect[0] + abs_rect[2]) / 2,
+                            (abs_rect[1] + abs_rect[3]) / 2,
+                        ),
                     )
                     # The label's saved position (relative to the terminal's
                     # origin b[0]/b[1]) lifted into the same absolute frame as
                     # abs_rect — so the renderer can honor above/below placement.
                     lab = _fp_label_box(term)
                     if lab is not None:
-                        self.label_bounds.setdefault(uid, (
-                            ox + b[0] + lab[0], oy + b[1] + lab[1],
-                            ox + b[0] + lab[2], oy + b[1] + lab[3],
-                        ))
+                        self.label_bounds.setdefault(
+                            uid,
+                            (
+                                ox + b[0] + lab[0],
+                                oy + b[1] + lab[1],
+                                ox + b[0] + lab[2],
+                                oy + b[1] + lab[3],
+                            ),
+                        )
                 continue
             if cls != "term":
                 continue
@@ -403,8 +425,10 @@ class _LayoutBuilder:
 
             if tb is not None:
                 abs_tb = (
-                    ox + tb[0] + off_x, oy + tb[1] + off_y,
-                    ox + tb[2] + off_x, oy + tb[3] + off_y,
+                    ox + tb[0] + off_x,
+                    oy + tb[1] + off_y,
+                    ox + tb[2] + off_x,
+                    oy + tb[3] + off_y,
                 )
                 cx, cy = (abs_tb[0] + abs_tb[2]) / 2, (abs_tb[1] + abs_tb[3]) / 2
                 if term_uid:
@@ -425,8 +449,10 @@ class _LayoutBuilder:
                             self.node_bounds.setdefault(u, abs_tb)
             if cb is not None:
                 abs_cb = (
-                    ox + cb[0] + off_x, oy + cb[1] + off_y,
-                    ox + cb[2] + off_x, oy + cb[3] + off_y,
+                    ox + cb[0] + off_x,
+                    oy + cb[1] + off_y,
+                    ox + cb[2] + off_x,
+                    oy + cb[3] + off_y,
                 )
                 if term_uid:
                     self.node_bounds[term_uid] = abs_cb
@@ -436,8 +462,10 @@ class _LayoutBuilder:
                     capb = _const_label_box(ddo) if ddo is not None else None
                     if capb is not None:
                         self.label_bounds[term_uid] = (
-                            ox + capb[0] + off_x, oy + capb[1] + off_y,
-                            ox + capb[2] + off_x, oy + capb[3] + off_y,
+                            ox + capb[0] + off_x,
+                            oy + capb[1] + off_y,
+                            ox + capb[2] + off_x,
+                            oy + capb[3] + off_y,
                         )
                 cx = (abs_cb[0] + abs_cb[2]) / 2
                 cy = (abs_cb[1] + abs_cb[3]) / 2
@@ -446,7 +474,11 @@ class _LayoutBuilder:
 
     # -- structure border DCOs (loop N/i/cond, case selector) --------------
     def _border_dcos(
-        self, struct: ET.Element, ox: float, oy: float, structure_uid: str,
+        self,
+        struct: ET.Element,
+        ox: float,
+        oy: float,
+        structure_uid: str,
     ) -> None:
         for tag in _BORDER_DCO_TAGS:
             dco = struct.find(tag)
@@ -466,8 +498,7 @@ class _LayoutBuilder:
             # so a wire to e.g. the While-loop conditional (stop) or the case
             # selector anchors to the glyph instead of being dropped for want
             # of geometry.
-            center = ((abs_rect[0] + abs_rect[2]) / 2,
-                      (abs_rect[1] + abs_rect[3]) / 2)
+            center = ((abs_rect[0] + abs_rect[2]) / 2, (abs_rect[1] + abs_rect[3]) / 2)
             for u in self._collect_uids(dco):
                 self.terminal_centers.setdefault(u, center)
 
@@ -566,8 +597,7 @@ class _LayoutBuilder:
 
         dlist = elem.find("diagramList")
         inner = (
-            [d for d in dlist.findall("SL__arrayElement")
-             if d.get("class") == "diag"]
+            [d for d in dlist.findall("SL__arrayElement") if d.get("class") == "diag"]
             if dlist is not None
             else []
         )
@@ -622,7 +652,9 @@ class _LayoutBuilder:
 
 
 def build_layout_from_root(
-    root_elem: ET.Element, *, icon_png: Path | None = None,
+    root_elem: ET.Element,
+    *,
+    icon_png: Path | None = None,
 ) -> Layout:
     """Build a ``Layout`` from an ALREADY-PARSED heap root element.
 

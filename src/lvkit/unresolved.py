@@ -116,8 +116,11 @@ def collect_unresolved(
         try:
             vi_context = graph.get_vi_context(vi_name)
             build_module(
-                vi_context, vi_name, graph=graph,
-                soft_unresolved=True, unresolved_sink=sink,
+                vi_context,
+                vi_name,
+                graph=graph,
+                soft_unresolved=True,
+                unresolved_sink=sink,
             )
         except (
             PrimitiveResolutionNeeded,
@@ -138,7 +141,9 @@ def collect_unresolved(
         item = items.get(key)
         if item is None:
             item = UnresolvedItem(
-                kind=key[0], identifier=key[1], name=key[2],
+                kind=key[0],
+                identifier=key[1],
+                name=key[2],
                 detail=str(exc),
             )
             items[key] = item

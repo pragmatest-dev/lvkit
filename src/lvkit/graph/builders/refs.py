@@ -9,13 +9,14 @@ taken the node (the caller ``continue``s), ``False`` to fall through.
 Bodies lifted verbatim from _add_vi_to_graph's ctlRefConst/gRef/statVIRef blocks
 (byte-identical output).
 """
+
 from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from lvkit.models import LVType, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.node_types import CtlRefConstNode, GRefNode, StatVIRefNode
 
 from ..models import ConstantNode, LocalVariableNode, WireEnd
@@ -30,9 +31,11 @@ class RefBuildHandler(ABC):
 
     @abstractmethod
     def handle(
-        self, node: Any, q_node_uid: str, ctx: GraphBuildContext,
-    ) -> bool:
-        ...
+        self,
+        node: Any,
+        q_node_uid: str,
+        ctx: GraphBuildContext,
+    ) -> bool: ...
 
 
 class CtlRefConstHandler(RefBuildHandler):
@@ -88,8 +91,11 @@ class CtlRefConstHandler(RefBuildHandler):
 
         q_own_term_uid = ctx.qid(own_term_uid) if own_term_uid else q_node_uid
         own_terminal = Terminal(
-            id=q_own_term_uid, index=0, direction=direction,
-            name=control_name, lv_type=lv_type,
+            id=q_own_term_uid,
+            index=0,
+            direction=direction,
+            name=control_name,
+            lv_type=lv_type,
         )
         local_var_node = LocalVariableNode(
             id=q_node_uid,
@@ -100,9 +106,7 @@ class CtlRefConstHandler(RefBuildHandler):
             node_type=node.node_type,
             terminals=[own_terminal],
             control_name=control_name,
-            control_terminal_id=(
-                fp_wire_end.terminal_id if fp_wire_end else None
-            ),
+            control_terminal_id=(fp_wire_end.terminal_id if fp_wire_end else None),
             is_write=is_write,
         )
         ctx.graph.add_node(q_node_uid, node=local_var_node)
@@ -110,8 +114,10 @@ class CtlRefConstHandler(RefBuildHandler):
 
         if own_term_uid:
             my_wire_end = WireEnd(
-                terminal_id=q_own_term_uid, node_id=q_node_uid,
-                index=0, name=control_name,
+                terminal_id=q_own_term_uid,
+                node_id=q_node_uid,
+                index=0,
+                name=control_name,
             )
             ctx.term_lookup[own_term_uid] = my_wire_end
             # Synthetic (non-drawn) dataflow edge to the referenced control,
@@ -120,13 +126,17 @@ class CtlRefConstHandler(RefBuildHandler):
             if fp_wire_end is not None:
                 if is_write:
                     ctx.graph.add_edge(
-                        q_node_uid, ctx.vi_name,
-                        source=my_wire_end, dest=fp_wire_end,
+                        q_node_uid,
+                        ctx.vi_name,
+                        source=my_wire_end,
+                        dest=fp_wire_end,
                     )
                 else:
                     ctx.graph.add_edge(
-                        ctx.vi_name, q_node_uid,
-                        source=fp_wire_end, dest=my_wire_end,
+                        ctx.vi_name,
+                        q_node_uid,
+                        source=fp_wire_end,
+                        dest=my_wire_end,
                     )
         return True
 
@@ -153,7 +163,9 @@ class GRefHandler(RefBuildHandler):
             logger.debug(
                 "VI %s: gRef %s param_idx=%s did not resolve to a "
                 "front-panel control — creating with fallback name",
-                ctx.vi_name, node.uid, node.param_idx,
+                ctx.vi_name,
+                node.uid,
+                node.param_idx,
             )
 
         gref_term_uid: str | None = None
@@ -172,8 +184,11 @@ class GRefHandler(RefBuildHandler):
 
         q_gref_term_uid = ctx.qid(gref_term_uid) if gref_term_uid else q_node_uid
         gref_terminal = Terminal(
-            id=q_gref_term_uid, index=0, direction=direction,
-            name=control_name, lv_type=lv_type,
+            id=q_gref_term_uid,
+            index=0,
+            direction=direction,
+            name=control_name,
+            lv_type=lv_type,
         )
         local_var_node = LocalVariableNode(
             id=q_node_uid,
@@ -184,9 +199,7 @@ class GRefHandler(RefBuildHandler):
             node_type=node.node_type,
             terminals=[gref_terminal],
             control_name=control_name,
-            control_terminal_id=(
-                fp_wire_end.terminal_id if fp_wire_end else None
-            ),
+            control_terminal_id=(fp_wire_end.terminal_id if fp_wire_end else None),
             is_write=is_write,
         )
         ctx.graph.add_node(q_node_uid, node=local_var_node)
@@ -194,8 +207,10 @@ class GRefHandler(RefBuildHandler):
 
         if gref_term_uid:
             my_wire_end = WireEnd(
-                terminal_id=q_gref_term_uid, node_id=q_node_uid,
-                index=0, name=control_name,
+                terminal_id=q_gref_term_uid,
+                node_id=q_node_uid,
+                index=0,
+                name=control_name,
             )
             ctx.term_lookup[gref_term_uid] = my_wire_end
             # Synthetic (non-drawn) dataflow edge to the referenced control,
@@ -204,13 +219,17 @@ class GRefHandler(RefBuildHandler):
             if fp_wire_end is not None:
                 if is_write:
                     ctx.graph.add_edge(
-                        q_node_uid, ctx.vi_name,
-                        source=my_wire_end, dest=fp_wire_end,
+                        q_node_uid,
+                        ctx.vi_name,
+                        source=my_wire_end,
+                        dest=fp_wire_end,
                     )
                 else:
                     ctx.graph.add_edge(
-                        ctx.vi_name, q_node_uid,
-                        source=fp_wire_end, dest=my_wire_end,
+                        ctx.vi_name,
+                        q_node_uid,
+                        source=fp_wire_end,
+                        dest=my_wire_end,
                     )
         return True
 
@@ -223,10 +242,11 @@ class StatVIRefHandler(RefBuildHandler):
         if not vi_ref_name or vi_ref_name == "Static VI Reference":
             logger.warning(
                 "VI %s: statVIRef %s has no label — skipping",
-                ctx.vi_name, node.uid,
+                ctx.vi_name,
+                node.uid,
             )
             return True
-        vi_ref_type = LVType(kind="primitive", underlying_type="VIRefnum")
+        vi_ref_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="VIRefnum")
         const_node = ConstantNode(
             id=q_node_uid,
             vi=ctx.vi_name,
@@ -234,18 +254,24 @@ class StatVIRefHandler(RefBuildHandler):
             lv_type=vi_ref_type,
             raw_value=vi_ref_name,
             label=vi_ref_name,
-            terminals=[Terminal(
-                id=q_node_uid, index=0,
-                direction="output", lv_type=vi_ref_type,
-            )],
+            terminals=[
+                Terminal(
+                    id=q_node_uid,
+                    index=0,
+                    direction="output",
+                    lv_type=vi_ref_type,
+                )
+            ],
         )
         ctx.graph.add_node(q_node_uid, node=const_node)
         ctx.vi_node_uids.add(q_node_uid)
         for term_uid, t_info in ctx.bd.terminal_info.items():
             if t_info.parent_uid == node.uid:
                 ctx.term_lookup[term_uid] = WireEnd(
-                    terminal_id=q_node_uid, node_id=q_node_uid,
-                    index=0, name=vi_ref_name,
+                    terminal_id=q_node_uid,
+                    node_id=q_node_uid,
+                    index=0,
+                    name=vi_ref_name,
                 )
                 break
         return True

@@ -83,8 +83,7 @@ def _render_report(
 
     L.append("## Summary\n")
     L.append(
-        f"- primitives.json entries with >=1 corpus instance: "
-        f"**{entries_with_corpus}**"
+        f"- primitives.json entries with >=1 corpus instance: **{entries_with_corpus}**"
     )
     L.append(
         f"- primitives.json entries with NO corpus instance (skipped): "
@@ -95,15 +94,17 @@ def _render_report(
         f"informational notes: **{len(notes)}**)"
     )
     for kind in (
-        "DIRECTION_MISMATCH", "TYPE_MISMATCH", "DISAGREEMENT",
-        "MISSING_FROM_ENTRY", "UNOBSERVED",
+        "DIRECTION_MISMATCH",
+        "TYPE_MISMATCH",
+        "DISAGREEMENT",
+        "MISSING_FROM_ENTRY",
+        "UNOBSERVED",
     ):
         L.append(f"  - {kind}: {by_kind.get(kind, 0)}")
     L.append("")
 
     L.append(
-        "## Flagged findings (ranked: hard mismatches first, "
-        "then by instance_count)\n"
+        "## Flagged findings (ranked: hard mismatches first, then by instance_count)\n"
     )
     if not flags:
         L.append("*(none)*\n")
@@ -157,15 +158,21 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument(
-        "--cap", type=int, default=5,
+        "--cap",
+        type=int,
+        default=5,
         help="max corpus FILES parsed per primResID (default: 5)",
     )
     ap.add_argument(
-        "--only", type=int, default=None,
+        "--only",
+        type=int,
+        default=None,
         help="audit a single primResID (for iterating on the tool itself)",
     )
     ap.add_argument(
-        "-o", "--output", default=str(REPO / "outputs" / "connector_geometry_audit.md"),
+        "-o",
+        "--output",
+        default=str(REPO / "outputs" / "connector_geometry_audit.md"),
         help="markdown report path (default: outputs/connector_geometry_audit.md)",
     )
     args = ap.parse_args()
@@ -173,8 +180,7 @@ def main() -> int:
     entries = load_primitive_entries(data_dir() / "primitives.json")
     target_ids = {args.only} if args.only is not None else set(entries)
     print(
-        f"Loaded {len(entries)} primitives.json entries; "
-        f"auditing {len(target_ids)}.",
+        f"Loaded {len(entries)} primitives.json entries; auditing {len(target_ids)}.",
         file=sys.stderr,
     )
 

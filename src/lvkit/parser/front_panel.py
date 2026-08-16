@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.models import LVType
+from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.utils import clean_labview_string
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
@@ -38,8 +38,7 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         fields=lv_type.fields,
         enum_values=lv_type.values,
         element_type=(
-            _lvtype_to_parsed(lv_type.element_type)
-            if lv_type.element_type else None
+            _lvtype_to_parsed(lv_type.element_type) if lv_type.element_type else None
         ),
         dimensions=lv_type.dimensions,
     )
@@ -99,7 +98,9 @@ def extract_fp_dco_info(fp_xml_path: Path | str) -> dict[str, FpDcoInfo]:
         # more specific I32/U16/… on the floor.
         heap_type = reconstruct_dco_lvtype(dco)
         if heap_type is not None and heap_type.kind not in (
-            "cluster", "enum", "array"
+            LVTypeKind.CLUSTER,
+            LVTypeKind.ENUM,
+            LVTypeKind.ARRAY,
         ):
             heap_type = None
         info[uid] = FpDcoInfo(
@@ -204,13 +205,15 @@ def extract_fp_terminals(
         # None here means no stored flag AND no incoming wire => a control.
         is_indicator = bool(data["is_indicator"])
 
-        terminals.append(ParsedFPTerminal(
-            uid=uid,
-            fp_dco_uid=data["fp_dco_uid"],
-            name=data["name"],
-            is_indicator=is_indicator,
-            parsed_type=parsed_type,
-        ))
+        terminals.append(
+            ParsedFPTerminal(
+                uid=uid,
+                fp_dco_uid=data["fp_dco_uid"],
+                name=data["name"],
+                is_indicator=is_indicator,
+                parsed_type=parsed_type,
+            )
+        )
 
     if fp_xml_path:
         _apply_conp_types(terminals, fp_xml_path)
@@ -218,7 +221,8 @@ def extract_fp_terminals(
 
 
 def _apply_conp_types(
-    terminals: list[ParsedFPTerminal], fp_xml_path: Path | str,
+    terminals: list[ParsedFPTerminal],
+    fp_xml_path: Path | str,
 ) -> None:
     """Overlay pre-LV9 CONP types onto the connector-pane terminals.
 
@@ -241,9 +245,7 @@ def _apply_conp_types(
     cpane = parse_connector_pane(fp_path)
     if cpane is None:
         return
-    slot_to_dco = {
-        s.index: s.fp_dco_uid for s in cpane.slots if s.fp_dco_uid
-    }
+    slot_to_dco = {s.index: s.fp_dco_uid for s in cpane.slots if s.fp_dco_uid}
     by_dco = {t.fp_dco_uid: t for t in terminals}
     for ct in conp_terms:
         if ct.lv_type is None:
@@ -291,10 +293,12 @@ def parse_connector_pane(fp_xml_path: Path | str) -> ParsedConnectorPane | None:
             conn_dco = elem.find("ConnectionDCO")
             fp_dco_uid = conn_dco.get("uid") if conn_dco is not None else None
 
-            slots.append(ParsedConnectorPaneSlot(
-                index=current_index,
-                fp_dco_uid=fp_dco_uid,
-            ))
+            slots.append(
+                ParsedConnectorPaneSlot(
+                    index=current_index,
+                    fp_dco_uid=fp_dco_uid,
+                )
+            )
 
             current_index += 1
 
@@ -339,8 +343,7 @@ def parse_connector_pane_types(
             continue
 
         matches = all(
-            children[i].get("Flags", "0x0000") != "0x0000"
-            for i in connected_indices
+            children[i].get("Flags", "0x0000") != "0x0000" for i in connected_indices
         )
         if not matches:
             continue

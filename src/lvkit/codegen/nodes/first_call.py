@@ -36,11 +36,14 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     bindings: dict[str, str] = {}
 
     out_term = next(
-        (t for t in node.terminals if t.direction == "output"), None,
+        (t for t in node.terminals if t.direction == "output"),
+        None,
     )
     if out_term is not None:
         var_name = ctx.make_output_var(
-            "first_call", node.id, terminal_id=out_term.id,
+            "first_call",
+            node.id,
+            terminal_id=out_term.id,
         )
         statements.append(
             ast.Assign(

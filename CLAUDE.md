@@ -19,6 +19,19 @@ So: **NEVER tell the maintainer to "open it in LabVIEW", "click the node", "chec
 
 When stuck: do MORE of 1–4, or write a `"placeholder": true` primitive entry. Ask the maintainer to describe the *algorithm/domain* if needed — **never to inspect LabVIEW.** Also: ship ZERO NI-derived artwork (clean-room glyphs only).
 
+## ⛔ VERIFY BEFORE CLAIMING — NEVER OFFLOAD THE CHECK TO THE MAINTAINER (READ THIS FIRST)
+
+**Every factual statement about this codebase — architecture, behavior, an API, a line, a count, a timing, "X is faster/bigger than Y", "the code does Z" — MUST be backed by a receipt from THIS session: a `file:line` you read, or command/test output you ran, cited inline.** No exceptions.
+
+- **Verify BEFORE you state it, not when challenged.** A claim reaches the maintainer only after you've already checked it. The maintainer must NEVER be the one who catches a wrong claim — if they have to adversarially re-check you, you have already failed.
+- **Never infer-then-assert.** Reasoning from memory, from a partial read, or from "this is probably how it works" is the exact failure mode. Grepping one thing and inferring a conclusion is NOT verification — read the whole relevant path end to end.
+- **If you have not verified it, do not say it.** Say "I haven't checked — checking now" and go check, or say "I don't know." A plausible guess stated as fact is worse than "I don't know."
+- **Memory NEVER holds code facts** (mechanisms, line numbers, counts, timings) — they go stale and become confabulation. Memory holds only how-we-work, hard constraints, LabVIEW-format facts, and pointers. Re-read code facts from the source every time.
+- **Plans are claims too.** Every premise in a plan is cited (`file:line`) or measured before it's written — do not build on an unverified premise.
+- **NEVER answer a behavioral failure with a verbal promise alone.** "I'll do better" / "I'll hold to that" evaporates on the next compaction or clear. Any behavioral correction MUST be written to disk **in the same turn** — the durable instruction surfaces (this `CLAUDE.md` and the memory files, belt-and-suspenders) — or it does not count. A commitment that isn't written did not happen.
+
+This is not "try harder." It is a hard gate: unverified → unsaid; unwritten commitment → didn't happen.
+
 ## Commands
 
 Always use `uv run` — it automatically activates the project venv without a separate activation step.
@@ -218,6 +231,10 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 - mypy with strict mode for type checking
 - Line length: 88 characters
 - **Prefer dataclasses over dicts** - Use typed dataclasses from `models.py` or `graph/models.py` instead of raw dictionaries. Use attribute access (`obj.field`) not `.get("field")`
+- **Enums, and how to pick a base** - A closed, named value set is an `Enum` — never a bare-constants namespace class (`class X: A = 0; B = 1`) or a loose module-level group. Choose the base by how the value lives **at rest** and whether raw scalars still flow through the code:
+  - Raw `int`/`str` values are compared with `==`/`in` or built positionally at many sites (a discriminator read from the VI binary, a value stored in a SQLite `TEXT` column) → **mix in that type** so the member equals the raw value drop-in: `IntEnum` (e.g. `ParsedWiringRule` — a `0–4` from the binary) or `class X(str, Enum)` (e.g. `TunnelMode`, `LVTypeKind`). Do **not** use `StrEnum` — it's 3.11+ and we target 3.10; `(str, Enum)` is the house idiom.
+  - The value space is fully owned — members are passed around as typed objects and `.value` is read only for display/serialization, never compared to a raw literal → **bare `Enum`** (e.g. `Priority`, `LockState`). If you ever write `member == "literal"` against one of these, it's a bug (always `False`); fix the call site or change the base.
+  - Never a **plain `Enum`** over values that are compared with `== <raw>` elsewhere — that silently breaks every such site.
 
 ## Output Directory
 

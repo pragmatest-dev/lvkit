@@ -13,8 +13,9 @@ dirs. The index is different — a caller who runs ``lvkit index
 <path-to-that-corpus>`` is deliberately scoping the index to that corpus, and
 expects its own DB, not to be silently folded into the outer project's.
 
-WAL mode. Tables: ``vis``, ``terminals``, ``constants``,
-``calls(caller_path, callee_key)``, ``type_uses``, ``class_facts``, and a
+WAL mode. Tables: ``vis``, ``terminals``, ``constants``, ``nodes`` (the
+block-diagram node spine; its ``kind='vi'`` rows carry the call graph via
+``callee_path``), ``type_uses``, ``class_facts``, and a
 ``meta(vi_path, content_sha)`` freshness row per VI. Upsert by path: ``save()``
 deletes then reinserts every row belonging to each given ``VIFacts.path`` (safe
 for both a full rebuild and a partial refresh).
@@ -37,12 +38,16 @@ from pathlib import Path
 from typing import Any, cast
 
 from .. import cache_paths
+from ..models import LVTypeKind
 from .model import (
     ClassFact,
     ConstantFact,
     LVProjMemberFact,
+    NodeFact,
+    NodeKind,
     TerminalFact,
     VIFacts,
+    WiredTo,
 )
 
 _SCHEMA = """
@@ -117,11 +122,10 @@ CREATE TABLE IF NOT EXISTS terminals (
     is_indicator INTEGER NOT NULL,
     is_public INTEGER NOT NULL,
     control_type TEXT,
-    py_type TEXT NOT NULL,
-    is_error_cluster INTEGER NOT NULL,
     field_names TEXT NOT NULL DEFAULT '[]',
     fp_dco_uid TEXT,
-    lv_type TEXT NOT NULL DEFAULT '?',
+    type_descriptor TEXT NOT NULL DEFAULT '',
+    type_kind TEXT,
     enum_values TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS idx_terminals_vi ON terminals(vi_path);
@@ -133,19 +137,33 @@ CREATE TABLE IF NOT EXISTS constants (
     ord INTEGER NOT NULL,
     value TEXT NOT NULL,
     label TEXT,
-    py_type TEXT NOT NULL,
-    lv_type TEXT NOT NULL DEFAULT '?',
+    type_descriptor TEXT NOT NULL DEFAULT '',
+    type_kind TEXT,
     wired_to TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_constants_vi ON constants(vi_path);
 CREATE INDEX IF NOT EXISTS idx_constants_wired ON constants(wired_to);
 
-CREATE TABLE IF NOT EXISTS calls (
-    caller_path TEXT NOT NULL,
-    callee_key TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS nodes (
+    vi_path TEXT NOT NULL,
+    ord INTEGER NOT NULL,
+    uid TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    name TEXT,
+    prim_id INTEGER,
+    qualified_name TEXT,
+    callee_path TEXT,
+    object_name TEXT,
+    method_name TEXT,
+    parent_uid TEXT,
+    frame TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_calls_caller ON calls(caller_path);
-CREATE INDEX IF NOT EXISTS idx_calls_callee ON calls(callee_key);
+CREATE INDEX IF NOT EXISTS idx_nodes_vi ON nodes(vi_path);
+CREATE INDEX IF NOT EXISTS idx_nodes_kind ON nodes(kind);
+CREATE INDEX IF NOT EXISTS idx_nodes_prim_id ON nodes(prim_id);
+CREATE INDEX IF NOT EXISTS idx_nodes_qualified_name ON nodes(qualified_name);
+CREATE INDEX IF NOT EXISTS idx_nodes_callee_path ON nodes(callee_path);
+CREATE INDEX IF NOT EXISTS idx_nodes_parent_uid ON nodes(parent_uid);
 
 CREATE TABLE IF NOT EXISTS type_uses (
     vi_path TEXT NOT NULL,
@@ -191,15 +209,21 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 """
 
-_CHILD_TABLES = ("terminals", "constants", "calls", "type_uses")
+_CHILD_TABLES = ("terminals", "constants", "nodes", "type_uses")
 
 # Every table that holds DERIVED facts — a pure cache of what lvkit's parser
 # produces from the VIs. Dropped wholesale when the facts fingerprint changes
 # (``_ensure_facts_version``). ``index_meta`` (the fingerprint itself) is NOT
 # here — it survives the wipe so the new fingerprint can be stamped onto it.
 _ALL_TABLES = (
-    "vis", "terminals", "constants", "calls", "type_uses", "class_facts",
-    "lvproj_members", "meta",
+    "vis",
+    "terminals",
+    "constants",
+    "nodes",
+    "type_uses",
+    "class_facts",
+    "lvproj_members",
+    "meta",
 )
 
 # VIProperties + VIHealth flattened columns on ``vis``: (column_name,
@@ -303,6 +327,7 @@ def _facts_fingerprint() -> str:
     a dev editing lvkit restarts it before the next run anyway.
     """
     import lvkit
+
     pkg = Path(lvkit.__file__).resolve().parent
     h = hashlib.sha256()
     for f in sorted(pkg.rglob("*")):
@@ -321,7 +346,7 @@ def _facts_fingerprint() -> str:
 def db_path(project_root: Path) -> Path:
     """The SQLite file for ``project_root``'s index (parent dir created)."""
     slug = cache_paths._slug(project_root.resolve())
-    d = cache_paths.global_cache_root() / "index" / "projects" / slug
+    d = cache_paths.global_cache_root() / "projects" / slug / "index"
     d.mkdir(parents=True, exist_ok=True)
     return d / "index.db"
 
@@ -355,9 +380,7 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
         "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL)"
     )
     current = _facts_fingerprint()
-    row = conn.execute(
-        "SELECT fingerprint FROM index_meta WHERE id = 0"
-    ).fetchone()
+    row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
     if row is not None and row[0] == current:
         return
     for table in _ALL_TABLES:
@@ -371,7 +394,8 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
 
 
 def _prior_container_facts(
-    conn: sqlite3.Connection, path: str,
+    conn: sqlite3.Connection,
+    path: str,
 ) -> tuple[str | None, str | None, ClassFact | None]:
     """Read the prior ``content_sha``, ``library``, and ``class_fact`` for
     ``path`` (all None if the VI has never been saved).
@@ -388,9 +412,7 @@ def _prior_container_facts(
         return None, None, None
     prior_sha = row[0]
 
-    lib_row = conn.execute(
-        "SELECT library FROM vis WHERE path = ?", (path,)
-    ).fetchone()
+    lib_row = conn.execute("SELECT library FROM vis WHERE path = ?", (path,)).fetchone()
     prior_library = lib_row[0] if lib_row is not None else None
 
     cf_row = conn.execute(
@@ -429,15 +451,16 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     container fields (``library`` and the whole ``class_fact`` row) fall back
     to the prior value instead of being clobbered. A changed sha (or no prior
     row) means today's behavior: trust the incoming facts fully. The
-    terminals/constants/calls/type_uses child tables are intrinsic to a
-    single-VI load and are never coalesced — always overwritten.
+    terminals/constants/nodes/type_uses child tables are intrinsic to a
+    single-VI load and are never coalesced — always overwritten. (``callee_path``
+    on the node rows is the one exception filled at merge, like impact_score.)
     """
     conn = _connect(project_root)
     try:
         with conn:
             for f in vis:
-                prior_sha, prior_library, prior_class_fact = (
-                    _prior_container_facts(conn, f.path)
+                prior_sha, prior_library, prior_class_fact = _prior_container_facts(
+                    conn, f.path
                 )
                 same_vi = prior_sha is not None and prior_sha == f.content_sha
                 if not same_vi:
@@ -522,49 +545,91 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     for c, is_bool in _FLAT_PROPERTY_COLUMNS
                 )
                 base_cols = (
-                    "path", "name", "qualified_name", "library", "is_stub",
-                    "content_sha", "impact_score", "callers_count",
+                    "path",
+                    "name",
+                    "qualified_name",
+                    "library",
+                    "is_stub",
+                    "content_sha",
+                    "impact_score",
+                    "callers_count",
                 )
                 conn.execute(
                     f"INSERT INTO vis({', '.join(base_cols + tuple(prop_cols))}) "
                     f"VALUES ({', '.join('?' * (len(base_cols) + len(prop_cols)))})",
                     (
-                        f.path, f.name, f.qualified_name, library,
-                        int(f.is_stub), f.content_sha, f.impact_score,
+                        f.path,
+                        f.name,
+                        f.qualified_name,
+                        library,
+                        int(f.is_stub),
+                        f.content_sha,
+                        f.impact_score,
                         f.callers_count,
                         *prop_values,
                     ),
                 )
                 conn.executemany(
                     "INSERT INTO terminals(vi_path, ord, name, direction, "
-                    "is_indicator, is_public, control_type, py_type, "
-                    "is_error_cluster, field_names, fp_dco_uid, lv_type, "
+                    "is_indicator, is_public, control_type, "
+                    "field_names, fp_dco_uid, type_descriptor, type_kind, "
                     "enum_values) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                     [
                         (
-                            f.path, i, t.name, t.direction, int(t.is_indicator),
-                            int(t.is_public), t.control_type, t.py_type,
-                            int(t.is_error_cluster), json.dumps(t.field_names),
-                            t.fp_dco_uid, t.lv_type, json.dumps(t.enum_values),
+                            f.path,
+                            i,
+                            t.name,
+                            t.direction,
+                            int(t.is_indicator),
+                            int(t.is_public),
+                            t.control_type,
+                            json.dumps(t.field_names),
+                            t.fp_dco_uid,
+                            t.type_descriptor,
+                            t.type_kind.value if t.type_kind else None,
+                            json.dumps(t.enum_values),
                         )
                         for i, t in enumerate(f.terminals)
                     ],
                 )
                 conn.executemany(
                     "INSERT INTO constants(vi_path, ord, value, label, "
-                    "py_type, lv_type, wired_to) VALUES (?,?,?,?,?,?,?)",
+                    "type_descriptor, type_kind, wired_to) VALUES (?,?,?,?,?,?,?)",
                     [
                         (
-                            f.path, i, c.value, c.label, c.py_type, c.lv_type,
-                            c.wired_to,
+                            f.path,
+                            i,
+                            c.value,
+                            c.label,
+                            c.type_descriptor,
+                            c.type_kind.value if c.type_kind else None,
+                            c.wired_to.value,
                         )
                         for i, c in enumerate(f.constants)
                     ],
                 )
                 conn.executemany(
-                    "INSERT INTO calls(caller_path, callee_key) VALUES (?,?)",
-                    [(f.path, callee) for callee in f.calls],
+                    "INSERT INTO nodes(vi_path, ord, uid, kind, name, prim_id, "
+                    "qualified_name, callee_path, object_name, method_name, "
+                    "parent_uid, frame) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    [
+                        (
+                            f.path,
+                            i,
+                            n.uid,
+                            n.kind.value,
+                            n.name,
+                            n.prim_id,
+                            n.qualified_name,
+                            n.callee_path,
+                            n.object_name,
+                            n.method_name,
+                            n.parent_uid,
+                            n.frame,
+                        )
+                        for i, n in enumerate(f.nodes)
+                    ],
                 )
                 conn.executemany(
                     "INSERT INTO type_uses(vi_path, type_key) VALUES (?,?)",
@@ -579,11 +644,17 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                         "class_version, ancestors) "
                         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                         (
-                            f.path, cf.owning_class, cf.parent, cf.scope,
-                            int(cf.is_accessor), cf.accessor_field,
+                            f.path,
+                            cf.owning_class,
+                            cf.parent,
+                            cf.scope,
+                            int(cf.is_accessor),
+                            cf.accessor_field,
                             json.dumps(cf.private_data),
-                            int(cf.is_static), int(cf.must_override),
-                            int(cf.must_call_parent), cf.class_version,
+                            int(cf.is_static),
+                            int(cf.must_override),
+                            int(cf.must_call_parent),
+                            cf.class_version,
                             json.dumps(cf.ancestors),
                         ),
                     )
@@ -610,7 +681,8 @@ def delete(project_root: Path, paths: Iterable[str]) -> None:
 
 
 def save_lvproj_members(
-    project_root: Path, members: Iterable[LVProjMemberFact],
+    project_root: Path,
+    members: Iterable[LVProjMemberFact],
 ) -> None:
     """Replace the project's ``.lvproj`` membership rows wholesale.
 
@@ -630,9 +702,15 @@ def save_lvproj_members(
                 "is_in_repo, target, is_dependency) VALUES (?,?,?,?,?,?,?,?,?)",
                 [
                     (
-                        m.lvproj_path, m.lvproj_name, m.member_name, m.member_url,
-                        m.resolved_path, m.member_type, int(m.is_in_repo),
-                        m.target, int(m.is_dependency),
+                        m.lvproj_path,
+                        m.lvproj_name,
+                        m.member_name,
+                        m.member_url,
+                        m.resolved_path,
+                        m.member_type,
+                        int(m.is_in_repo),
+                        m.target,
+                        int(m.is_dependency),
                     )
                     for m in members
                 ],
@@ -672,8 +750,7 @@ def load_lvproj_members(project_root: Path) -> list[LVProjMemberFact]:
 def _delete_vi(conn: sqlite3.Connection, path: str) -> None:
     conn.execute("DELETE FROM vis WHERE path = ?", (path,))
     for table in _CHILD_TABLES:
-        col = "caller_path" if table == "calls" else "vi_path"
-        conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (path,))
+        conn.execute(f"DELETE FROM {table} WHERE vi_path = ?", (path,))
     conn.execute("DELETE FROM class_facts WHERE vi_path = ?", (path,))
     conn.execute("DELETE FROM meta WHERE vi_path = ?", (path,))
 
@@ -696,14 +773,22 @@ def load(project_root: Path) -> list[VIFacts]:
         terminals_by_vi: dict[str, list[TerminalFact]] = {}
         for row in conn.execute(
             "SELECT vi_path, name, direction, is_indicator, is_public, "
-            "control_type, py_type, is_error_cluster, field_names, "
-            "fp_dco_uid, lv_type, enum_values FROM terminals "
+            "control_type, field_names, "
+            "fp_dco_uid, type_descriptor, type_kind, enum_values FROM terminals "
             "ORDER BY vi_path, ord"
         ):
             (
-                vi_path, name, direction, is_indicator, is_public,
-                control_type, py_type, is_error_cluster, field_names_json,
-                fp_dco_uid, lv_type, enum_values_json,
+                vi_path,
+                name,
+                direction,
+                is_indicator,
+                is_public,
+                control_type,
+                field_names_json,
+                fp_dco_uid,
+                type_descriptor,
+                type_kind,
+                enum_values_json,
             ) = row
             terminals_by_vi.setdefault(vi_path, []).append(
                 TerminalFact(
@@ -712,32 +797,62 @@ def load(project_root: Path) -> list[VIFacts]:
                     is_indicator=bool(is_indicator),
                     is_public=bool(is_public),
                     control_type=control_type,
-                    py_type=py_type,
-                    is_error_cluster=bool(is_error_cluster),
                     field_names=json.loads(field_names_json),
                     fp_dco_uid=fp_dco_uid,
-                    lv_type=lv_type,
+                    type_descriptor=type_descriptor,
+                    type_kind=LVTypeKind(type_kind) if type_kind else None,
                     enum_values=json.loads(enum_values_json),
                 )
             )
 
         constants_by_vi: dict[str, list[ConstantFact]] = {}
-        for vi_path, value, label, py_type, lv_type, wired_to in conn.execute(
-            "SELECT vi_path, value, label, py_type, lv_type, wired_to "
+        for vi_path, value, label, type_descriptor, type_kind, wired_to in conn.execute(
+            "SELECT vi_path, value, label, type_descriptor, type_kind, wired_to "
             "FROM constants ORDER BY vi_path, ord"
         ):
             constants_by_vi.setdefault(vi_path, []).append(
                 ConstantFact(
-                    value=value, label=label, py_type=py_type,
-                    lv_type=lv_type, wired_to=wired_to,
+                    value=value,
+                    label=label,
+                    type_descriptor=type_descriptor,
+                    type_kind=LVTypeKind(type_kind) if type_kind else None,
+                    wired_to=WiredTo(wired_to),
                 )
             )
 
-        calls_by_vi: dict[str, list[str]] = {}
-        for caller_path, callee_key in conn.execute(
-            "SELECT caller_path, callee_key FROM calls ORDER BY caller_path"
+        nodes_by_vi: dict[str, list[NodeFact]] = {}
+        for row in conn.execute(
+            "SELECT vi_path, uid, kind, name, prim_id, qualified_name, "
+            "callee_path, object_name, method_name, parent_uid, frame "
+            "FROM nodes ORDER BY vi_path, ord"
         ):
-            calls_by_vi.setdefault(caller_path, []).append(callee_key)
+            (
+                vi_path,
+                uid,
+                kind,
+                name,
+                prim_id,
+                qualified_name,
+                callee_path,
+                object_name,
+                method_name,
+                parent_uid,
+                frame,
+            ) = row
+            nodes_by_vi.setdefault(vi_path, []).append(
+                NodeFact(
+                    uid=uid,
+                    kind=NodeKind(kind),
+                    name=name,
+                    prim_id=prim_id,
+                    qualified_name=qualified_name,
+                    callee_path=callee_path,
+                    object_name=object_name,
+                    method_name=method_name,
+                    parent_uid=parent_uid,
+                    frame=frame,
+                )
+            )
 
         type_uses_by_vi: dict[str, list[str]] = {}
         for vi_path, type_key in conn.execute(
@@ -752,9 +867,18 @@ def load(project_root: Path) -> list[VIFacts]:
             "must_call_parent, class_version, ancestors FROM class_facts"
         ):
             (
-                vi_path, owning_class, parent, scope, is_accessor,
-                accessor_field, private_data, is_static, must_override,
-                must_call_parent, class_version, ancestors,
+                vi_path,
+                owning_class,
+                parent,
+                scope,
+                is_accessor,
+                accessor_field,
+                private_data,
+                is_static,
+                must_override,
+                must_call_parent,
+                class_version,
+                ancestors,
             ) = row
             class_fact_by_vi[vi_path] = ClassFact(
                 owning_class=owning_class,
@@ -774,8 +898,14 @@ def load(project_root: Path) -> list[VIFacts]:
         for row in vi_rows:
             base = row[:8]
             (
-                path, name, qualified_name, library, is_stub, content_sha,
-                impact_score, callers_count,
+                path,
+                name,
+                qualified_name,
+                library,
+                is_stub,
+                content_sha,
+                impact_score,
+                callers_count,
             ) = base
             prop_kwargs = cast(
                 "dict[str, Any]",
@@ -796,7 +926,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     content_sha=content_sha,
                     terminals=terminals_by_vi.get(path, []),
                     constants=constants_by_vi.get(path, []),
-                    calls=calls_by_vi.get(path, []),
+                    nodes=nodes_by_vi.get(path, []),
                     type_uses=type_uses_by_vi.get(path, []),
                     class_fact=class_fact_by_vi.get(path),
                     impact_score=impact_score,

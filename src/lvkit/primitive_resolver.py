@@ -44,10 +44,7 @@ class PrimitiveResolutionNeeded(Exception):
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
-        msg = (
-            f"Primitive resolution needed for {self.prim_id}"
-            f" ({self.prim_name}).\n"
-        )
+        msg = f"Primitive resolution needed for {self.prim_id} ({self.prim_name}).\n"
         if self.qualified_vi_name:
             msg += f"  In VI: {self.qualified_vi_name}\n"
         elif self.vi_name:
@@ -124,10 +121,7 @@ class TerminalResolutionNeeded(Exception):
         )
         msg += "  Available resolver terminals (same direction, unassigned):\n"
         for t in self.available:
-            msg += (
-                f"    - index={t['index']}"
-                f" name={t['name']} type={t['type']}\n"
-            )
+            msg += f"    - index={t['index']} name={t['name']} type={t['type']}\n"
         if not self.available:
             msg += "    (none available)\n"
         if self.kind == "vilib":
@@ -157,6 +151,7 @@ class PrimitiveTerminal(BaseModel):
     Note: direction uses "in"/"out" (from JSON data), while
     graph_types.Terminal uses "input"/"output" (from parser).
     """
+
     index: int
     direction: str  # "in" or "out"
     name: str | None = ""
@@ -188,6 +183,7 @@ class NodeIcon(BaseModel):
 
 class PrimitiveEntry(BaseModel):
     """A primitive entry from JSON."""
+
     name: str = ""
     python_code: str | dict[str, str] | None = None
     inline: bool = True
@@ -199,6 +195,7 @@ class PrimitiveEntry(BaseModel):
 
 class ResolvedPrimitive(BaseModel):
     """Resolved primitive with full info."""
+
     prim_id: str | None = None
     name: str = ""
     python_code: str | dict[str, str] | None = None
@@ -276,15 +273,26 @@ class PrimitiveResolver:
             "path": "Path",
             "boolean": "Boolean",
             "bool": "Boolean",
-            "i16": "I16", "int16": "I16",
-            "i32": "I32", "int32": "I32",
-            "i64": "I64", "int64": "I64",
-            "u16": "U16", "uint16": "U16",
-            "u32": "U32", "uint32": "U32",
-            "u64": "U64", "uint64": "U64",
-            "dbl": "DBL", "float64": "DBL", "double": "DBL",
-            "sgl": "SGL", "float32": "SGL", "single": "SGL",
-            "ext": "EXT", "extended": "EXT",
+            "i16": "I16",
+            "int16": "I16",
+            "i32": "I32",
+            "int32": "I32",
+            "i64": "I64",
+            "int64": "I64",
+            "u16": "U16",
+            "uint16": "U16",
+            "u32": "U32",
+            "uint32": "U32",
+            "u64": "U64",
+            "uint64": "U64",
+            "dbl": "DBL",
+            "float64": "DBL",
+            "double": "DBL",
+            "sgl": "SGL",
+            "float32": "SGL",
+            "single": "SGL",
+            "ext": "EXT",
+            "extended": "EXT",
             "variant": "Variant",
             "array": "Array",
             "cluster": "Cluster",
@@ -333,7 +341,7 @@ class PrimitiveResolver:
         n = name.lower().strip()
         for suffix in (" function", " vi", " primitive"):
             if n.endswith(suffix):
-                n = n[:-len(suffix)]
+                n = n[: -len(suffix)]
         return n.replace(" ", "_").replace("-", "_")
 
     def _load_codegen(self, path: Path) -> None:
@@ -368,14 +376,20 @@ class PrimitiveResolver:
             # Index by type signature if we have terminal info
             terminals = prim_data.get("terminals", [])
             if terminals:
-                inputs = tuple(sorted(
-                    self._normalize_type(t.get("name", ""))
-                    for t in terminals if t.get("direction") == "in"
-                ))
-                outputs = tuple(sorted(
-                    self._normalize_type(t.get("name", ""))
-                    for t in terminals if t.get("direction") == "out"
-                ))
+                inputs = tuple(
+                    sorted(
+                        self._normalize_type(t.get("name", ""))
+                        for t in terminals
+                        if t.get("direction") == "in"
+                    )
+                )
+                outputs = tuple(
+                    sorted(
+                        self._normalize_type(t.get("name", ""))
+                        for t in terminals
+                        if t.get("direction") == "out"
+                    )
+                )
                 sig = (inputs, outputs)
                 if sig not in self._by_signature:
                     self._by_signature[sig] = []
@@ -421,11 +435,7 @@ class PrimitiveResolver:
             prim_id_str = str(prim_id)
             if prim_id_str in self._by_id:
                 prim = self._by_id[prim_id_str]
-                confidence = (
-                    "placeholder"
-                    if prim.get("placeholder")
-                    else "exact_id"
-                )
+                confidence = "placeholder" if prim.get("placeholder") else "exact_id"
                 return ResolvedPrimitive(
                     prim_id=prim_id_str,
                     name=prim.get("name", f"primitive_{prim_id}"),
@@ -618,7 +628,8 @@ class PrimitiveResolver:
             1 for p in self._by_name.values() if p.get("id") or p.get("prim_id")
         )
         from_pdf = sum(
-            1 for p in self._by_name.values()
+            1
+            for p in self._by_name.values()
             if p.get("source") == "NI PDF Documentation"
         )
         return {
@@ -647,10 +658,16 @@ class PrimitiveResolver:
             return [], []
 
         terminals = prim.get("terminals", [])
-        inputs = [t.get("name", f"in_{t['index']}")
-                  for t in terminals if t.get("direction") == "in"]
-        outputs = [t.get("name", f"out_{t['index']}")
-                   for t in terminals if t.get("direction") == "out"]
+        inputs = [
+            t.get("name", f"in_{t['index']}")
+            for t in terminals
+            if t.get("direction") == "in"
+        ]
+        outputs = [
+            t.get("name", f"out_{t['index']}")
+            for t in terminals
+            if t.get("direction") == "out"
+        ]
         return inputs, outputs
 
 

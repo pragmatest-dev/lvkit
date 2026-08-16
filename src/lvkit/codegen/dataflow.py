@@ -11,6 +11,7 @@ from dataclasses import dataclass
 @dataclass
 class TerminalInfo:
     """Information about a terminal with parent context."""
+
     id: str
     index: int
     direction: str  # "input" or "output"
@@ -23,6 +24,7 @@ class TerminalInfo:
 @dataclass
 class WireInfo:
     """Information about a wire connection."""
+
     from_terminal: str
     to_terminal: str
     from_parent_id: str
@@ -59,12 +61,12 @@ class DataFlowTracer:
         # Index terminals from all sources (list of Terminal dataclasses)
         for term in self._context.get("terminals", []):
             # Check if term is a Terminal dataclass or a dict
-            if hasattr(term, 'id'):
+            if hasattr(term, "id"):
                 term_id = term.id
                 term_index = term.index
                 term_dir = term.direction
                 term_name = term.name
-                has_pt = hasattr(term, 'python_type')
+                has_pt = hasattr(term, "python_type")
                 term_type = term.python_type() if has_pt else term.get("type")
             else:
                 term_id = term.get("id")
@@ -90,7 +92,7 @@ class DataFlowTracer:
             # directly as plain dicts — the typed VIContext always passes
             # real Operation/Terminal objects, so hasattr(op, 'terminals')
             # is true in production.
-            if hasattr(op, 'terminals'):
+            if hasattr(op, "terminals"):
                 op_id = op.id
                 op_kind = op.kind
                 terminals = op.terminals
@@ -100,13 +102,13 @@ class DataFlowTracer:
                 terminals = op.get("terminals", [])
 
             for term in terminals:
-                if hasattr(term, 'id'):
+                if hasattr(term, "id"):
                     term_id = term.id
                     term_index = term.index
                     term_dir = term.direction
                     term_name = term.name
                     term_type = (
-                        term.python_type() if hasattr(term, 'python_type') else None
+                        term.python_type() if hasattr(term, "python_type") else None
                     )
                 else:
                     term_id = term.get("id")
@@ -136,7 +138,7 @@ class DataFlowTracer:
         """Build mapping from destination terminals to their sources."""
         for wire in self._context.get("data_flow", []):
             # Check if wire is a Wire dataclass or a dict
-            if hasattr(wire, 'from_terminal_id'):
+            if hasattr(wire, "from_terminal_id"):
                 from_term = wire.from_terminal_id
                 to_term = wire.to_terminal_id
                 from_parent_id = wire.from_parent_id or ""

@@ -40,7 +40,10 @@ def _load(vi_path: Path, *, layout: bool) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     search_paths = _auto_search_paths([], vi_path, vi_path)
     graph.load_vi(
-        str(vi_path), LoadMode.MINIMAL, search_paths=search_paths, layout=layout,
+        str(vi_path),
+        LoadMode.MINIMAL,
+        search_paths=search_paths,
+        layout=layout,
     )
     vi_name = graph.resolve_vi_name(vi_path.name)
     return graph, vi_name
@@ -58,7 +61,9 @@ def _run_diff(*args: str) -> subprocess.CompletedProcess:
     env = {**os.environ, "BROWSER": "true"}
     return subprocess.run(
         [sys.executable, "-m", "lvkit.cli", "diff", str(BASE_VI), str(HEAD_VI), *args],
-        capture_output=True, text=True, env=env,
+        capture_output=True,
+        text=True,
+        env=env,
     )
 
 
@@ -123,7 +128,8 @@ class TestFormatHtml:
             break
 
     def test_open_with_default_format_resolves_to_html(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         _require_pair()
         out = tmp_path / "opened.html"

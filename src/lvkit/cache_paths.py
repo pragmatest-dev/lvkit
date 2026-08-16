@@ -6,18 +6,29 @@ render/diff *cache-hit* path can locate and validate a cached artifact WITHOUT
 importing the graph/parser/pylabview stack (~250 ms). Nothing here imports
 anything heavier than the stdlib and :mod:`lvkit.project_store`.
 
-Cache layout (three artifact KINDS, each its own tree, each mirroring the
-source location so a printed path is readable)::
+Cache layout (PROJECT-FIRST — each source's identity is named ONCE and every
+artifact KIND hangs off it, so one project's whole cache is a single subtree you
+can browse / move / drop as a unit; each path mirrors the source location so it's
+readable)::
 
-    <cache>/extract/<ns>/<rel>/<stem>_BDHb.xml   + <stem>.meta.json
-    <cache>/render/ <ns>/<rel>/<stem>.<ext>      + <stem>.<ext>.meta.json
-    <cache>/diff/   <ns>/<rel>/<stem>.<b8>.html  + …
+    <cache>/<ns>/<slug>/extract/<rel>/<stem>_BDHb.xml   + <stem>.meta.json
+    <cache>/<ns>/<slug>/render/ <rel>/<stem>.<ext>      + <stem>.<ext>.meta.json
+    <cache>/<ns>/<slug>/diff/   <rel>/<stem>.<b8>.html  + …
+    <cache>/projects/<slug>/index/index.db
+    <cache>/adhoc/<kind>/…                              (see below)
 
-``<ns>`` is one of ``projects/<slug>`` (a VI inside a repo / .lvkit project),
-``shared/vilib/<slug>`` or ``shared/userlib/<slug>`` (a VI under a resolved
-library root), or ``adhoc`` (a VI outside any of those — a standalone file or a
-throwaway temp). :func:`classify` returns which, so callers can path-address the
-stable namespaces and content-address ``adhoc`` (whose paths never repeat).
+``<ns>`` answers "who OWNS this VI?": ``projects/<slug>`` (owned by a repo /
+.lvkit project — ``<slug>`` = the project root), ``shared/vilib/<slug>`` or
+``shared/userlib/<slug>`` (owned by a library install — ``<slug>`` = the vi.lib /
+user.lib root), or ``adhoc`` (owned by NOBODY — a standalone file or throwaway
+temp). :func:`classify` returns which. The owned namespaces name the ``<slug>``
+identity ONCE and hang every ``<kind>`` off it, so a project/library reads as a
+single browsable subtree. ``adhoc`` has no identity to name, so it drops the slug
+level and is a flat per-kind pool (``adhoc/<kind>/…``) — path-addressed for
+``extract``, content-addressed for ``render``/``diff`` (see :mod:`output_cache`),
+TTL-swept. ``index`` is projects-only — shared/adhoc VIs are never indexed
+standalone. The ``<slug>`` sits BELOW the namespace so the three namespaces stay
+legibly separated at the top.
 """
 
 from __future__ import annotations
@@ -25,6 +36,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 
 # ── Cache root ──────────────────────────────────────────────────────────────
@@ -54,9 +66,7 @@ _vilib_root: Path | None = None
 _userlib_root: Path | None = None
 
 
-def set_extraction_roots(
-    *, vilib_root: Path | None, userlib_root: Path | None
-) -> None:
+def set_extraction_roots(*, vilib_root: Path | None, userlib_root: Path | None) -> None:
     """Record the run's resolved library roots for cache classification.
 
     Roots are resolved to absolute paths so prefix-matching in :func:`classify`
@@ -102,13 +112,19 @@ def _rel_under(child: Path, parent: Path | None) -> Path | None:
 
 
 def _project_root_for(vi_path: Path) -> Path | None:
-    """Nearest ancestor that is a project root: one holding a ``.lvkit/`` store
-    or a git repo root (``.git``). Returns the root dir, or ``None`` for a VI
-    outside any project.
+    """Nearest ancestor that is a project/source root: one holding a ``.lvkit/``
+    store, a git repo root (``.git``), or a LabVIEW project file (``*.lvproj``).
+    Accepts a FILE or a DIRECTORY (a dir is checked itself, then its ancestors).
+    Returns the root dir, or ``None`` for a path outside any project.
+
+    A ``.lvclass``/``.lvlib`` dir is NOT a root — it's a component; the walk-up
+    passes through it to the enclosing project, so the cache/scope covers the
+    whole project rather than one class.
     """
     from lvkit.project_store import global_home
 
-    ancestors = (vi_path.parent, *vi_path.parent.parents)
+    start = vi_path if vi_path.is_dir() else vi_path.parent
+    ancestors = (start, *start.parents)
     # The user's GLOBAL store (~/.lvkit) is not a project marker — skip it, or
     # every VI under $HOME collapses into one hash($HOME) bucket.
     home = global_home().resolve()
@@ -122,6 +138,11 @@ def _project_root_for(vi_path: Path) -> Path | None:
     for anc in ancestors:
         if (anc / ".git").exists():
             return anc
+    # LabVIEW-native project with no .lvkit/.git — the .lvproj dir is the source
+    # root (a plain LabVIEW project folder still gets a coherent cache bucket).
+    for anc in ancestors:
+        if any(anc.glob("*.lvproj")):
+            return anc
     return None
 
 
@@ -129,35 +150,41 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     """Map ``vi_path`` to ``(cache_dir, source_label, namespace)`` for one
     artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``).
 
-    ``cache_dir`` is ``<cache>/<kind>/<ns>/<rel-parent>`` — the VI's parent dir
-    mirrored under the kind tree, so sibling VIs share a dir. ``namespace`` is
-    ``"projects"``, ``"shared"``, or ``"adhoc"`` — callers path-address the
-    first two and content-address ``adhoc`` (its paths never repeat).
+    ``cache_dir`` is ``<cache>/<ns>/<slug>/<kind>/<rel-parent>`` — project-first:
+    the VI's identity (namespace + slug) is named ONCE and the ``kind`` hangs off
+    it, so one project's whole cache is a single subtree and sibling VIs of the
+    same kind share a dir. ``namespace`` is ``"projects"``, ``"shared"``, or
+    ``"adhoc"`` — callers path-address the first two and content-address
+    ``adhoc`` (its paths never repeat).
     """
     resolved = vi_path.resolve()
-    root = global_cache_root() / kind
+    cache = global_cache_root()
 
     vilib = _vilib_root
     if vilib is not None:
         rel = _rel_under(resolved, vilib)
         if rel is not None:
-            d = root / "shared" / "vilib" / _slug(vilib) / rel.parent
+            d = cache / "shared" / "vilib" / _slug(vilib) / kind / rel.parent
             return d, str(rel), "shared"
 
     userlib = _userlib_root
     if userlib is not None:
         rel = _rel_under(resolved, userlib)
         if rel is not None:
-            d = root / "shared" / "userlib" / _slug(userlib) / rel.parent
+            d = cache / "shared" / "userlib" / _slug(userlib) / kind / rel.parent
             return d, str(rel), "shared"
 
     project = _project_root_for(resolved)
     if project is not None:
         proj_abs = project.resolve()
         rel = resolved.relative_to(proj_abs)
-        return root / "projects" / _slug(proj_abs) / rel.parent, str(rel), "projects"
+        d = cache / "projects" / _slug(proj_abs) / kind / rel.parent
+        return d, str(rel), "projects"
 
-    return root / "adhoc" / _slug(resolved.parent), resolved.name, "adhoc"
+    # adhoc has NO owner (not a project, not a library) -> no identity slug to
+    # name; kind sits right under the namespace and the parent-dir slug is just
+    # the path-addressing key (render/diff override this to a flat content pool).
+    return cache / "adhoc" / kind / _slug(resolved.parent), resolved.name, "adhoc"
 
 
 def cache_target(vi_path: Path, kind: str) -> Path:
@@ -229,27 +256,25 @@ def write_meta(vi_path: Path, meta_path: Path, **extra: object) -> None:
 # ── One-time migration of the pre-kind extraction cache ─────────────────────
 
 
-def migrate_legacy_extract() -> None:
-    """Move a pre-``extract/`` extraction cache into the new kind tree.
+def cleanup_legacy_cache() -> None:
+    """Delete the abandoned KIND-FIRST cache trees, once, on first use.
 
-    Older lvkit put extractions at ``<cache>/{projects,shared,adhoc}/…``; they
-    now live under ``<cache>/extract/…``. This renames the legacy top-level dirs
-    under ``extract/`` once — an instant same-filesystem move, no re-extraction.
-    Best-effort: any failure just leaves the legacy dir (a later lazy
-    re-extraction repopulates the new location). ``llb/`` staging is unaffected.
+    lvkit's cache was briefly kind-first — ``<cache>/{extract,render,diff,index}/
+    <ns>/<slug>/…`` (shipped v0.5.7–v0.5.8). It is now PROJECT-FIRST
+    (``<cache>/<ns>/<slug>/<kind>/…``), so those four top-level trees are dead
+    weight: never read, and with no cache GC they would linger forever. Drop them
+    — re-extraction/-render repopulates the new project-first locations lazily.
+
+    We DELETE rather than rename because a rebuild is lvkit's model on ANY version
+    change (the index self-invalidates on a code change; render/diff carry the
+    lvkit version in their freshness key), so preserving the old artifacts buys
+    nothing. Safe: ``extract``/``render``/``diff``/``index`` are never top-level
+    dirs under project-first (slugs live below ``projects``/``shared``/``adhoc``),
+    so this can't touch live data. Best-effort — a failure just leaves a tree for
+    a later run to clean.
     """
     root = global_cache_root()
-    extract = root / "extract"
-    for ns in ("projects", "shared", "adhoc"):
-        legacy = root / ns
-        if not legacy.is_dir():
-            continue
-        dest = extract / ns
-        if dest.exists():
-            # already migrated (or a fresh install made it) — leave legacy be
-            continue
-        try:
-            extract.mkdir(parents=True, exist_ok=True)
-            legacy.rename(dest)
-        except OSError:
-            pass
+    for kind in ("extract", "render", "diff", "index"):
+        legacy = root / kind
+        if legacy.is_dir():
+            shutil.rmtree(legacy, ignore_errors=True)

@@ -35,6 +35,7 @@ def _clear_named_queue_registry():
     yield
     labview_queue._QUEUE_REGISTRY.clear()
 
+
 _RUNTIME_GLOBALS = {
     "obtain_queue": obtain_queue,
     "enqueue_element": enqueue_element,
@@ -93,7 +94,10 @@ def _obtain_op(
 
 
 def _enqueue_op(
-    node_id: str, *, opposite_end: bool = False, with_timed_out: bool = True,
+    node_id: str,
+    *,
+    opposite_end: bool = False,
+    with_timed_out: bool = True,
 ) -> PrimitiveOperation:
     terminals = [
         _terminal(f"{node_id}.queue", 0, "input"),
@@ -143,8 +147,12 @@ def _release_op(node_id: str = "release", *, force: bool = False) -> PrimitiveOp
         _terminal(f"{node_id}.remaining", 9, "output"),
     ]
     return PrimitiveOperation(
-        id=node_id, name="Release Queue", kind="primitive",
-        node_type="prim", primResID=9109, terminals=terminals,
+        id=node_id,
+        name="Release Queue",
+        kind="primitive",
+        node_type="prim",
+        primResID=9109,
+        terminals=terminals,
     )
 
 
@@ -385,8 +393,11 @@ def _status_op(node_id: str = "status") -> PrimitiveOperation:
     idx6=name, idx7=# elements, idx8=queue out, idx9=# pending remove,
     idx10=# pending insert (error terminals omitted, as in the other builders)."""
     return PrimitiveOperation(
-        id=node_id, name="Get Queue Status", kind="primitive",
-        node_type="prim", primResID=9110,
+        id=node_id,
+        name="Get Queue Status",
+        kind="primitive",
+        node_type="prim",
+        primResID=9110,
         terminals=[
             _terminal(f"{node_id}.queue", 0, "input"),
             _terminal(f"{node_id}.max_size", 4, "output"),

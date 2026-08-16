@@ -65,7 +65,8 @@ def _parse_batch(items: list[_ParseItem]) -> dict[str, ParsedVI]:
 
 
 def parallel_parse_directory(
-    vi_paths: list[Path], max_workers: int | None = None,
+    vi_paths: list[Path],
+    max_workers: int | None = None,
 ) -> dict[str, ParsedVI]:
     """Pre-parse every ``.vi`` in ``vi_paths`` across a process pool.
 
@@ -123,7 +124,7 @@ def parallel_parse_directory(
         logger.warning(
             "parallel parse of %d VIs failed -- falling back to serial parsing "
             "(if you're calling build_index from a script, guard it with "
-            "`if __name__ == \"__main__\":`)",
+            '`if __name__ == "__main__":`)',
             len(vi_paths),
             exc_info=True,
         )

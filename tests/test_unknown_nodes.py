@@ -45,8 +45,9 @@ class TestGenericNodeCapture:
 
     def test_element_without_bounds_or_termlist_ignored(self):
         root = ET.Element("root")
-        e = ET.SubElement(root, "SL__arrayElement",
-                          attrib={"class": "term", "uid": "3"})
+        e = ET.SubElement(
+            root, "SL__arrayElement", attrib={"class": "term", "uid": "3"}
+        )
         ET.SubElement(e, "objFlags").text = "0"
         assert _is_generic_operation_node(e) is False
 
@@ -62,15 +63,21 @@ class TestGenericNodeCapture:
 class TestUnknownNodeCodegenFailsLoudly:
     def _op(self, node_type):
         from lvkit.models import PrimitiveOperation
+
         return PrimitiveOperation(
-            id="vi::n", node_type=node_type, primResID=None,
-            name=node_type, kind="primitive", terminals=[],
+            id="vi::n",
+            node_type=node_type,
+            primResID=None,
+            name=node_type,
+            kind="primitive",
+            terminals=[],
         )
 
     def test_generic_unknown_raises(self):
         from lvkit.codegen.context import CodeGenContext
         from lvkit.codegen.nodes import primitive
         from lvkit.primitive_resolver import PrimitiveResolutionNeeded
+
         ctx = CodeGenContext(graph=None, vi_name="vi")
         with pytest.raises(PrimitiveResolutionNeeded):
             primitive.generate(self._op("decimate"), ctx)
@@ -80,6 +87,7 @@ class TestUnknownNodeCodegenFailsLoudly:
         must NOT start raising from this change."""
         from lvkit.codegen.context import CodeGenContext
         from lvkit.codegen.nodes import primitive
+
         ctx = CodeGenContext(graph=None, vi_name="vi")
         frag = primitive.generate(self._op("concat"), ctx)
         assert frag.statements == []

@@ -20,8 +20,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from xml.sax.saxutils import escape
 
+from ..connector_pane_geometry import PaneCell, get_pattern
 from ..models import FPTerminal, LVType, Terminal
-from .connector_pane_geometry import PaneCell, get_pattern
 from .style import (
     DEFAULT_THEME,
     Theme,
@@ -44,7 +44,7 @@ _ROW_H = 34
 _PAD = 6  # outer margin around the whole pane (room for direction stubs)
 # SVG-baked corner radii (chrome, not the change-highlight radius -- these live
 # inside standalone SVGs that can't read the viewers' --hl-r CSS var).
-_CELL_RX = 2       # labeled-grid cell corner
+_CELL_RX = 2  # labeled-grid cell corner
 _HELP_CARD_RX = 4  # help-panel card corner
 
 # Wiring-rule -> border stroke width. LabVIEW draws a REQUIRED terminal bold, a
@@ -52,7 +52,10 @@ _HELP_CARD_RX = 4  # help-panel card corner
 # 2 recommended, 3 optional, 4 dynamic-dispatch — see ParsedWiringRule.)
 _RULE_WIDTH = {1: 2.6, 2: 1.5, 3: 0.8, 4: 2.6, 0: 1.2}
 _RULE_TITLE = {
-    1: "required", 2: "recommended", 3: "optional", 4: "dynamic dispatch",
+    1: "required",
+    2: "recommended",
+    3: "optional",
+    4: "dynamic dispatch",
     0: "connected",
 }
 
@@ -102,7 +105,7 @@ def _term_id(term: PaneTerminal) -> str:
     definition shared by the cell rects, the help-panel leader/label group, and
     (via the diff engine's ``connector_pane:{direction}:{name}`` uid + the diff
     viewer's ``ptKey``) the change ring/number matching. Must not diverge."""
-    return f'{"output" if term.is_output else "input"}:{term.name or ""}'
+    return f"{'output' if term.is_output else 'input'}:{term.name or ''}"
 
 
 def _tint(hex_color: str, amount: float) -> str:
@@ -112,7 +115,7 @@ def _tint(hex_color: str, amount: float) -> str:
         return hex_color
     out = []
     for i in (0, 2, 4):
-        c = int(h[i:i + 2], 16)
+        c = int(h[i : i + 2], 16)
         out.append(int(c + (255 - c) * amount))
     return "#" + "".join(f"{c:02x}" for c in out)
 
@@ -124,14 +127,18 @@ def _truncate(text: str, cell_w: float, *, px_per_char: float = 6.4) -> str:
 
 def _tooltip(term: PaneTerminal) -> str:
     return (
-        f'<title>{_esc(term.name or "?")} : {_esc(lv_type_label(term.lv_type))}'
-        f' ({_RULE_TITLE.get(term.wiring_rule, "connected")},'
-        f' {"output" if term.is_output else "input"}, idx {term.index})</title>'
+        f"<title>{_esc(term.name or '?')} : {_esc(lv_type_label(term.lv_type))}"
+        f" ({_RULE_TITLE.get(term.wiring_rule, 'connected')},"
+        f" {'output' if term.is_output else 'input'}, idx {term.index})</title>"
     )
 
 
 def _cell_svg_compact(
-    cell: PaneCell, term: PaneTerminal | None, W: float, H: float, theme: Theme,
+    cell: PaneCell,
+    term: PaneTerminal | None,
+    W: float,
+    H: float,
+    theme: Theme,
 ) -> list[str]:
     """One cell at ICON size — the faithful LabVIEW pane face: solid type color,
     no labels (the terminal name/type is a hover <title>), each cell keeping its
@@ -152,12 +159,16 @@ def _cell_svg_compact(
         f'<rect class="lv-pane-cell" data-pane-term="{_escattr(_term_id(term))}" '
         f'x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
         f'fill="{color}" stroke="{theme.struct_border}" stroke-width="0.4">'
-        f'{_tooltip(term)}</rect>'
+        f"{_tooltip(term)}</rect>"
     ]
 
 
 def _cell_svg(
-    cell: PaneCell, term: PaneTerminal | None, W: float, H: float, theme: Theme,
+    cell: PaneCell,
+    term: PaneTerminal | None,
+    W: float,
+    H: float,
+    theme: Theme,
 ) -> list[str]:
     x, y = _PAD + cell.x * W, _PAD + cell.y * H
     w, h = cell.w * W, cell.h * H
@@ -182,7 +193,7 @@ def _cell_svg(
         f'<rect class="lv-pane-cell" data-pane-term="{_escattr(_term_id(term))}" '
         f'x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="{_CELL_RX}" '
         f'fill="{fill}" stroke="{color}" stroke-width="{width}">'
-        f'{_tooltip(term)}</rect>'
+        f"{_tooltip(term)}</rect>"
     )
     # Full-height accent bar in the true type color on the wire-entry edge
     # (left for an input, right for an output).
@@ -204,7 +215,7 @@ def _cell_svg(
         parts.append(
             f'<text x="{tx:.1f}" y="{y + h / 2 + 11:.1f}" font-size="9" '
             f'fill="{theme.pane_type_text}" font-family="sans-serif">'
-            f'{_esc(type_label)}</text>'
+            f"{_esc(type_label)}</text>"
         )
     else:
         parts.append(
@@ -241,9 +252,7 @@ def render_connector_pane(
         f'font-family="sans-serif">'
         f'<rect x="{_PAD - 2}" y="{_PAD - 2}" width="{W + 4:.0f}" '
         f'height="{H + 4:.0f}" fill="none" stroke="{theme.struct_border}" '
-        f'stroke-width="1.4"/>'
-        + "".join(body)
-        + "</svg>"
+        f'stroke-width="1.4"/>' + "".join(body) + "</svg>"
     )
 
 
@@ -274,10 +283,10 @@ def render_connector_pane_compact(
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{size:.0f}" '
         f'height="{h:.0f}" viewBox="0 0 {size:.0f} {h:.0f}">'
-        f'{inner}'
+        f"{inner}"
         f'<rect x="0" y="0" width="{size:.1f}" height="{h:.1f}" fill="none" '
         f'stroke="{theme.struct_border}" stroke-width="1"/>'
-        f'</svg>'
+        f"</svg>"
     )
 
 
@@ -342,7 +351,8 @@ def render_connector_pane_help(
 
     def _side(is_out: bool) -> list[tuple[PaneCell, PaneTerminal]]:
         rows = [
-            (cx[t.index], t) for t in terminals
+            (cx[t.index], t)
+            for t in terminals
             if t.is_output == is_out and t.index in cx
         ]
         return sorted(rows, key=lambda ct: ct[0].y + ct[0].h / 2)
@@ -368,9 +378,7 @@ def render_connector_pane_help(
         outer_ids = {id(r) for r in outer}
         inner = [r for r in rows if id(r) not in outer_ids]
         outer.sort(key=lambda r: r[0].y + r[0].h / 2)
-        oc = (
-            sum(r[0].y + r[0].h / 2 for r in outer) / len(outer) if outer else 0.5
-        )
+        oc = sum(r[0].y + r[0].h / 2 for r in outer) / len(outer) if outer else 0.5
         cy = lambda r: r[0].y + r[0].h / 2  # noqa: E731
         # ===== FOLD_STACK_RULE (canonical statement) ==========================
         # Split folded leaders by height (route each to the nearer margin), but
@@ -397,28 +405,35 @@ def render_connector_pane_help(
         # one line: name + a grey type appended — width is name + gap + type.
         w = 0.0
         for _, t in rows:
-            w = max(w, _tw((t.name or f"idx {t.index}").strip(), _HELP_LABEL)
-                    + _HELP_TEXTGAP + _tw(lv_type_label(t.lv_type).strip(),
-                                          _HELP_TYPE))
+            w = max(
+                w,
+                _tw((t.name or f"idx {t.index}").strip(), _HELP_LABEL)
+                + _HELP_TEXTGAP
+                + _tw(lv_type_label(t.lv_type).strip(), _HELP_TYPE),
+            )
         return w
 
     left_w, right_w = _label_w(ins), _label_w(outs)
     diagram_w = (
-        (left_w + _HELP_LEADER if ins else 0) + _HELP_PANE
+        (left_w + _HELP_LEADER if ins else 0)
+        + _HELP_PANE
         + (_HELP_LEADER + right_w if outs else 0)
     )
     inner_w = max(diagram_w, 200.0)
     # Header is CENTERED and STACKED: icon on top, then title, then description.
     wrap_w = inner_w - 8
-    title_line = title if _tw(title, _HELP_TITLE) <= wrap_w else (
-        title[: max(1, int(wrap_w / (_HELP_TITLE * 0.6)) - 1)] + "…"
+    title_line = (
+        title
+        if _tw(title, _HELP_TITLE) <= wrap_w
+        else (title[: max(1, int(wrap_w / (_HELP_TITLE * 0.6)) - 1)] + "…")
     )
     desc_lines = _wrap(description, wrap_w, _HELP_DESC, 4) if description else []
     icon_bottom = _HELP_PAD + (_HELP_ICON if icon_uri else 0.0)
     title_y = icon_bottom + _HELP_TITLE + (6 if icon_uri else 0.0)
     desc_y0 = title_y + _HELP_DESC + 6
     header_h = (
-        desc_y0 + (len(desc_lines) - 1) * _HELP_DESC_LH + 6 if desc_lines
+        desc_y0 + (len(desc_lines) - 1) * _HELP_DESC_LH + 6
+        if desc_lines
         else title_y + 6
     )
     left = _classify(ins, False)
@@ -441,8 +456,8 @@ def render_connector_pane_help(
     panel_h = header_h + diagram_h + 2 * _HELP_PAD
 
     diagram_top = header_h + _HELP_PAD
-    pane_x = _HELP_PAD + (inner_w - diagram_w) / 2 + (
-        left_w + _HELP_LEADER if ins else 0
+    pane_x = (
+        _HELP_PAD + (inner_w - diagram_w) / 2 + (left_w + _HELP_LEADER if ins else 0)
     )
     pane_y = diagram_top + top_margin
 
@@ -468,15 +483,13 @@ def render_connector_pane_help(
             f'<text x="{hcx:.1f}" y="{desc_y0 + i * _HELP_DESC_LH:.1f}" '
             f'text-anchor="middle" font-size="{_HELP_DESC}" '
             f'font-family="sans-serif" fill="{theme.pane_type_text}">'
-            f'{_esc(dl)}</text>'
+            f"{_esc(dl)}</text>"
         )
     # The pane grid, nested at (pane_x, pane_y).
     grid = render_connector_pane_compact(
         pattern_id, terminals, theme=theme, size=pane_w, height=pane_h
     )
-    parts.append(
-        f'<g transform="translate({pane_x:.1f},{pane_y:.1f})">{grid}</g>'
-    )
+    parts.append(f'<g transform="translate({pane_x:.1f},{pane_y:.1f})">{grid}</g>')
 
     def _wire_label(
         cell: PaneCell, t: PaneTerminal, label_y: float, is_out: bool, over: bool
@@ -497,22 +510,22 @@ def render_connector_pane_help(
         # wire-adjacent end exact. (cairosvg mis-anchors tspans; browsers don't.)
         anchor = "start" if is_out else "end"
         ax = (
-            pane_x + pane_w + _HELP_LEADER + _HELP_TEXTGAP if is_out
+            pane_x + pane_w + _HELP_LEADER + _HELP_TEXTGAP
+            if is_out
             else pane_x - _HELP_LEADER - _HELP_TEXTGAP
         )
         hub = pane_x + pane_w + _HELP_LEADER if is_out else pane_x - _HELP_LEADER
         tspan = (
             f'<tspan dx="{_HELP_TEXTGAP:.0f}" font-size="{_HELP_TYPE}" '
             f'fill="{theme.pane_type_text}">{_esc(type_str)}</tspan>'
-            if type_str else ""
+            if type_str
+            else ""
         )
         # Identity handle: one <g> per terminal (leader + label). Same _term_id
         # the cell rects use, matching the diff engine's connector-pane change uid
         # so the diff viewer can ring/number the changed terminal (JS-side).
         term_id = _term_id(t)
-        parts.append(
-            f'<g class="lv-pane-term" data-pane-term="{_escattr(term_id)}">'
-        )
+        parts.append(f'<g class="lv-pane-term" data-pane-term="{_escattr(term_id)}">')
         parts.append(
             f'<text x="{ax:.1f}" y="{ty:.1f}" text-anchor="{anchor}" '
             f'font-size="{_HELP_LABEL}" font-family="sans-serif" '
@@ -523,14 +536,11 @@ def render_connector_pane_help(
         # then out over/under the outer block — leaders never cross.
         if over:
             path = (
-                f'M{cxm:.1f},{ccy:.1f} L{cxm:.1f},{label_y:.1f} '
-                f'L{hub:.1f},{label_y:.1f}'
+                f"M{cxm:.1f},{ccy:.1f} L{cxm:.1f},{label_y:.1f} "
+                f"L{hub:.1f},{label_y:.1f}"
             )
         else:
-            path = (
-                f'M{cxm:.1f},{ccy:.1f} L{hub:.1f},{ccy:.1f} '
-                f'L{hub:.1f},{label_y:.1f}'
-            )
+            path = f"M{cxm:.1f},{ccy:.1f} L{hub:.1f},{ccy:.1f} L{hub:.1f},{label_y:.1f}"
         parts.append(
             f'<path d="{path}" fill="none" stroke="{color}" stroke-width="1.4"/>'
         )
@@ -548,11 +558,17 @@ def render_connector_pane_help(
         # routed over/under so nothing crosses.
         n_top = len(inner_top)
         for k, (cell, t) in enumerate(inner_top):
-            _wire_label(cell, t, pane_y + row_h / 2 - (n_top - k) * row_h,
-                        is_out, over=True)
+            _wire_label(
+                cell, t, pane_y + row_h / 2 - (n_top - k) * row_h, is_out, over=True
+            )
         for k, (cell, t) in enumerate(inner_bot):
-            _wire_label(cell, t, pane_y + pane_h - row_h / 2 + (k + 1) * row_h,
-                        is_out, over=True)
+            _wire_label(
+                cell,
+                t,
+                pane_y + pane_h - row_h / 2 + (k + 1) * row_h,
+                is_out,
+                over=True,
+            )
 
     _place(left, False)
     _place(right, True)
@@ -561,7 +577,7 @@ def render_connector_pane_help(
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.0f}" '
         f'height="{panel_h:.0f}" viewBox="0 0 {panel_w:.0f} {panel_h:.0f}">'
-        f'{inner}</svg>'
+        f"{inner}</svg>"
     )
 
 
@@ -592,7 +608,8 @@ def _fallback_svg(
         col(outputs, 1.0 - 1.0 / cols)
     svg_w, svg_h = W + 2 * _PAD, H + 2 * _PAD
     note = (
-        f"conId {pattern_id} — no pattern geometry" if pattern_id
+        f"conId {pattern_id} — no pattern geometry"
+        if pattern_id
         else "no connector pane"
     )
     return (

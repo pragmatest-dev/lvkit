@@ -78,8 +78,12 @@ class TestBuildDiffViewerEndToEnd:
 
         cmap = diff_uid(ga, gb, na, nb)
         html = build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title="run.vi", before_label="before", after_label="after",
+            cmap,
+            before_svg,
+            after_svg,
+            title="run.vi",
+            before_label="before",
+            after_label="after",
         )
 
         assert html.startswith("<!doctype html>")
@@ -115,16 +119,28 @@ class TestBuildDiffViewerEndToEnd:
         cmap = diff_uid(ga, gb, na, nb)
 
         html = build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title="run.vi diff", before_label="v1", after_label="v2",
+            cmap,
+            before_svg,
+            after_svg,
+            title="run.vi diff",
+            before_label="v1",
+            after_label="v2",
         )
         assert "run.vi diff" in html
         assert "v1" in html and "v2" in html
         # placeholders fully substituted -- no leftover markers.
         for marker in (
-            "__TITLE__", "__BEFORE_LABEL__", "__AFTER_LABEL__", "__BEFORE_SVG__",
-            "__AFTER_SVG__", "__CHANGES__", "__NETLIST_TREE__", "__ADD__",
-            "__DEL__", "__MOD__", "__COMMON__",
+            "__TITLE__",
+            "__BEFORE_LABEL__",
+            "__AFTER_LABEL__",
+            "__BEFORE_SVG__",
+            "__AFTER_SVG__",
+            "__CHANGES__",
+            "__NETLIST_TREE__",
+            "__ADD__",
+            "__DEL__",
+            "__MOD__",
+            "__COMMON__",
         ):
             assert marker not in html
 
@@ -137,16 +153,28 @@ class TestBuildDiffViewerPureUnit:
         cmap = ChangeMap(
             changes=[
                 ElementChange(
-                    uid="42", full_id="vi::42", kind="node", change="added",
-                    label="Added Node", bounds=(1.0, 2.0, 3.0, 4.0),
+                    uid="42",
+                    full_id="vi::42",
+                    kind="node",
+                    change="added",
+                    label="Added Node",
+                    bounds=(1.0, 2.0, 3.0, 4.0),
                 ),
                 ElementChange(
-                    uid="7", full_id="vi::7", kind="node", change="removed",
-                    label="Removed Node", bounds=(5.0, 6.0, 7.0, 8.0),
+                    uid="7",
+                    full_id="vi::7",
+                    kind="node",
+                    change="removed",
+                    label="Removed Node",
+                    bounds=(5.0, 6.0, 7.0, 8.0),
                 ),
                 ElementChange(
-                    uid="9", full_id="vi::9", kind="node", change="modified",
-                    label="Modified Node", detail="1 → 2",
+                    uid="9",
+                    full_id="vi::9",
+                    kind="node",
+                    change="modified",
+                    label="Modified Node",
+                    detail="1 → 2",
                     bounds=(0.0, 0.0, 1.0, 1.0),
                 ),
             ],
@@ -156,8 +184,12 @@ class TestBuildDiffViewerPureUnit:
         after_svg = "<svg id='h'>AFTER-MARKER</svg>"
 
         html = build_diff_viewer(
-            cmap, before_svg, after_svg,
-            title="Stub VI", before_label="rev-a", after_label="rev-b",
+            cmap,
+            before_svg,
+            after_svg,
+            title="Stub VI",
+            before_label="rev-a",
+            after_label="rev-b",
         )
 
         assert html.startswith("<!doctype html>")
@@ -190,14 +222,20 @@ class TestConnectorPaneDiffWiring:
                 ElementChange(
                     uid="connector_pane:input:msg",
                     full_id="connector_pane:input:msg",
-                    kind="connector_pane", change="added", label="input msg",
+                    kind="connector_pane",
+                    change="added",
+                    label="input msg",
                 ),
             ],
             common_node_uids=[],
         )
         return build_diff_viewer(
-            cmap, "<svg id='b'>B</svg>", "<svg id='h'>A</svg>",
-            title="Stub VI", before_label="a", after_label="b",
+            cmap,
+            "<svg id='b'>B</svg>",
+            "<svg id='h'>A</svg>",
+            title="Stub VI",
+            before_label="a",
+            after_label="b",
         )
 
     def test_button_and_reveal_wired(self):
@@ -212,14 +250,14 @@ class TestConnectorPaneDiffWiring:
         # The connector highlight carries the diagram's OWN classes -- NOT a
         # bespoke copy -- so it inherits every .hl / .hl-num / selpulse /
         # .stage.has-sel rule. No parallel .pt-hl-shape/.pt-num CSS remains.
-        assert "'hl node '+c.change" in html      # shape = the diagram highlight
-        assert "'hl-num '+c.change" in html        # number = the diagram badge
+        assert "'hl node '+c.change" in html  # shape = the diagram highlight
+        assert "'hl-num '+c.change" in html  # number = the diagram badge
         assert ".pt-hl-shape" not in html
         assert ".pt-num" not in html
         # rounding + selection come from the shared source (--hl-r, selpulse).
         assert "getPropertyValue('--hl-r')" in html
         assert "roundPath(ptUnionPts(pieces), PT_R)" in html
-        assert "stage.classList.add('has-sel')" in html   # shared spotlight
+        assert "stage.classList.add('has-sel')" in html  # shared spotlight
         # the ▦ button advertises the hidden change mix (green/red/amber ring)
         for cls in ("pt-btn-added", "pt-btn-removed", "pt-btn-mixed"):
             assert f"#lvkitDiffPaneBtn.{cls}" in html
@@ -242,15 +280,23 @@ class TestThemeAdaptiveChrome:
         cmap = ChangeMap(
             changes=[
                 ElementChange(
-                    uid="42", full_id="vi::42", kind="node", change="added",
-                    label="Added Node", bounds=(1.0, 2.0, 3.0, 4.0),
+                    uid="42",
+                    full_id="vi::42",
+                    kind="node",
+                    change="added",
+                    label="Added Node",
+                    bounds=(1.0, 2.0, 3.0, 4.0),
                 ),
             ],
             common_node_uids=["1"],
         )
         return build_diff_viewer(
-            cmap, "<svg id='b'>B</svg>", "<svg id='h'>A</svg>",
-            title="Stub VI", before_label="a", after_label="b",
+            cmap,
+            "<svg id='b'>B</svg>",
+            "<svg id='h'>A</svg>",
+            title="Stub VI",
+            before_label="a",
+            after_label="b",
         )
 
     def test_dark_is_media_queried_not_the_root_default(self):
@@ -259,7 +305,7 @@ class TestThemeAdaptiveChrome:
         # Light GitHub-ish defaults live at :root; the dark #0d1117 bg is now
         # only inside the media query, not the unconditional default.
         assert "--bg:#ffffff" in html
-        assert "--bg:#0d1117" in html            # still present (dark override)
+        assert "--bg:#0d1117" in html  # still present (dark override)
         # The SVG canvas is themed, not a hardcoded white.
         assert "background:var(--canvas)" in html
         assert "--canvas:#ffffff" in html and "--canvas:#1b1c1e" in html
@@ -278,7 +324,7 @@ class TestThemeAdaptiveChrome:
         # …and the in-view panel tokens (dark + light both keyed on the toggle;
         # values are the diagram theme's own canvas role, so the panel is the
         # same material as the drawn-in-SVG VI dialogs).
-        assert '--dpanel:#1b1c1e' in html and '--dpanel:#fbfbf5' in html
+        assert "--dpanel:#1b1c1e" in html and "--dpanel:#fbfbf5" in html
         # auto mode: the diagram surface follows the system scheme unless pinned…
         assert ":not([data-theme]){--canvas:#1b1c1e}" in html
         # …while the window-chrome palette is NEVER guarded on / overridden by it.
@@ -295,8 +341,12 @@ class TestPaneRegistrationAndBlendReveal:
     def _html(self) -> str:
         cmap = ChangeMap(changes=[], common_node_uids=[])
         return build_diff_viewer(
-            cmap, "<svg id='b'>B</svg>", "<svg id='h'>A</svg>",
-            title="Stub VI", before_label="a", after_label="b",
+            cmap,
+            "<svg id='b'>B</svg>",
+            "<svg id='h'>A</svg>",
+            title="Stub VI",
+            before_label="a",
+            after_label="b",
         )
 
     def test_pane_svg_is_block_and_union_registered(self):
@@ -315,7 +365,7 @@ class TestPaneRegistrationAndBlendReveal:
     def test_blend_auto_reveal_is_eased_and_respects_user(self):
         html = self._html()
         assert "function revealBlend(" in html
-        assert "revealBlend(c);" in html            # wired into jump()
+        assert "revealBlend(c);" in html  # wired into jump()
         # Eased (shared easeInOutCubic) + reduced-motion instant path.
         assert html.count("easeInOutCubic") >= 2
         assert "if(!ANIMATE){ op.value=target; applyBlend(); return; }" in html
@@ -346,12 +396,13 @@ class TestPaneRegistrationAndBlendReveal:
         visibility (not display) so focus()/navigation geometry survives and
         the display-based .sel wire reveals can't leak through."""
         html = self._html()
-        assert '<input id="hlToggle"' not in html      # no checkbox anymore
+        assert '<input id="hlToggle"' not in html  # no checkbox anymore
         assert '<button id="hlToggle"' in html
         assert "◉" in html
         # The toggle hides the change highlights AND the frame aggregate dots.
-        assert (".hide-hl .hl,.hide-hl .hl-num,.hide-hl .frame-opt-dot"
-                "{visibility:hidden}") in html
+        assert (
+            ".hide-hl .hl,.hide-hl .hl-num,.hide-hl .frame-opt-dot{visibility:hidden}"
+        ) in html
         assert "display:none" not in html.split(".hide-hl .hl,")[1].split("}")[0]
 
     def test_split_is_the_default_mode(self):
@@ -419,8 +470,12 @@ class TestNetlistTreeInViewer:
         assert all(r.text.isascii() for r in rows)
 
         html = build_diff_viewer(
-            cmap, "<svg id='b'>BEFORE-MARKER</svg>", "<svg id='h'>AFTER-MARKER</svg>",
-            title="run.vi", before_label="before", after_label="after",
+            cmap,
+            "<svg id='b'>BEFORE-MARKER</svg>",
+            "<svg id='h'>AFTER-MARKER</svg>",
+            title="run.vi",
+            before_label="before",
+            after_label="after",
             netlist_rows=rows_to_json(rows),
         )
 
@@ -430,9 +485,7 @@ class TestNetlistTreeInViewer:
         # Phase 2's TEXT-report test (test_diff.py::TestNetlistFormDiffOnJKIPair)
         # asserts on -- proves Tree gets the identical content, not a
         # different (client-rebuilt) rendering of it.
-        assert any(
-            r.kind == "node" and "addSkipped" in r.text for r in rows
-        )
+        assert any(r.kind == "node" and "addSkipped" in r.text for r in rows)
         assert "addSkipped" in html
 
     def test_omitted_netlist_rows_render_empty_tree(self):
@@ -440,8 +493,12 @@ class TestNetlistTreeInViewer:
         valid tree, never a leftover placeholder."""
         cmap = ChangeMap(changes=[], common_node_uids=[])
         html = build_diff_viewer(
-            cmap, "<svg></svg>", "<svg></svg>",
-            title="t", before_label="a", after_label="b",
+            cmap,
+            "<svg></svg>",
+            "<svg></svg>",
+            title="t",
+            before_label="a",
+            after_label="b",
         )
         assert "const NETLIST_TREE = [];" in html
         assert "__NETLIST_TREE__" not in html
@@ -479,7 +536,9 @@ class TestNetlistTreeInViewer:
                 [sys.executable, "-c", script],
                 cwd=Path(__file__).resolve().parent.parent,
                 env={**os.environ, "PYTHONHASHSEED": seed},
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             assert result.returncode == 0, result.stderr
             digests.append(result.stdout.strip())

@@ -28,7 +28,7 @@ from lvkit.graph.models import (
     StructureNode,
 )
 from lvkit.graph.op_walk import _format_ranges, _selector_label
-from lvkit.models import FPTerminal, LVType
+from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.parser.layout import Layout, Point, Rect, build_layout
 from lvkit.parser.wire_table import FAITHFUL_WIRE_TABLE, decode_signal
 from lvkit.render import render_vi, render_vi_file
@@ -68,7 +68,7 @@ def _enum_type(names):
     from lvkit.models import EnumValue, LVType
 
     return LVType(
-        kind="enum",
+        kind=LVTypeKind.ENUM,
         underlying_type="UnitUInt16",
         values={n: EnumValue(value=i) for i, n in enumerate(names)},
     )
@@ -79,8 +79,11 @@ def test_format_ranges_single_range_and_list():
 
     single = [SelectorRange(start=3, end=3)]
     rng = [SelectorRange(start=3, end=10)]
-    lst = [SelectorRange(start=1, end=1), SelectorRange(start=3, end=3),
-           SelectorRange(start=5, end=8)]
+    lst = [
+        SelectorRange(start=1, end=1),
+        SelectorRange(start=3, end=3),
+        SelectorRange(start=5, end=8),
+    ]
     assert _format_ranges(single, str) == "3"
     assert _format_ranges(rng, str) == "3..10"
     assert _format_ranges(lst, str) == "1, 3, 5..8"
@@ -89,34 +92,39 @@ def test_format_ranges_single_range_and_list():
 def test_selector_label_boolean_and_default():
     from lvkit.models import LVType
 
-    bool_t = LVType(kind="primitive", underlying_type="Boolean")
+    bool_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
     assert _selector_label(_frame("True"), bool_t, False) == "True"
     assert _selector_label(_frame("False"), bool_t, False) == "False"
-    assert _selector_label(_frame("Default", is_default=True), bool_t, False) \
-        == "Default"
+    assert (
+        _selector_label(_frame("Default", is_default=True), bool_t, False) == "Default"
+    )
 
 
 def test_selector_label_enum_names_ranges_and_list():
     names = ["Digital Input", "Digital Output", "Voltage Input", "PWM"]
     t = _enum_type(names)
     assert _selector_label(_frame("3", [(3, 3)]), t, False) == "PWM"
-    assert _selector_label(_frame("0", [(0, 1)]), t, False) \
+    assert (
+        _selector_label(_frame("0", [(0, 1)]), t, False)
         == "Digital Input..Digital Output"
-    assert _selector_label(_frame("0", [(0, 0), (2, 2)]), t, False) \
+    )
+    assert (
+        _selector_label(_frame("0", [(0, 0), (2, 2)]), t, False)
         == "Digital Input, Voltage Input"
+    )
 
 
 def test_selector_label_string_quoted():
     from lvkit.models import LVType
 
-    t = LVType(kind="primitive", underlying_type="String")
+    t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     assert _selector_label(_frame("Stop"), t, False) == '"Stop"'
 
 
 def test_selector_label_error_no_error_and_error():
     from lvkit.models import LVType
 
-    t = LVType(kind="cluster")
+    t = LVType(kind=LVTypeKind.CLUSTER)
     assert _selector_label(_frame("0", [(0, 0)]), t, True) == "No Error"
     assert _selector_label(_frame("1", [(1, 1)]), t, True) == "Error"
     # Error frame that is the structure's default is still "Error", not "Default"
@@ -134,11 +142,16 @@ def _num_input(index, repr_name):
     from lvkit.render.scene import RenderTerminal
 
     t = Terminal(
-        id=f"t{index}", index=index, direction="input",
-        lv_type=LVType(kind="primitive", underlying_type=repr_name),
+        id=f"t{index}",
+        index=index,
+        direction="input",
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=repr_name),
     )
-    return RenderTerminal(terminal=t, center=(10.0, 10.0 * index),
-                          bounds=(5.0, 10.0 * index - 4, 15.0, 10.0 * index + 4))
+    return RenderTerminal(
+        terminal=t,
+        center=(10.0, 10.0 * index),
+        bounds=(5.0, 10.0 * index - 4, 15.0, 10.0 * index + 4),
+    )
 
 
 def _arith_node(glyph, input_reprs):
@@ -159,8 +172,7 @@ def test_coercion_dot_on_compound_arith_mixed_widths():
     from lvkit.render.glyph import ArithGlyph, CompoundArithGlyph
     from lvkit.render.scene import _arith_coercion_dots
 
-    cpd = _arith_node(CompoundArithGlyph("+", num_inputs=2),
-                      ["NumInt32", "NumFloat64"])
+    cpd = _arith_node(CompoundArithGlyph("+", num_inputs=2), ["NumInt32", "NumFloat64"])
     assert len(_arith_coercion_dots([cpd])) == 1
 
     arith = _arith_node(ArithGlyph("+"), ["NumInt32", "NumFloat64"])
@@ -171,8 +183,9 @@ def test_no_coercion_dot_when_widths_match():
     from lvkit.render.glyph import CompoundArithGlyph
     from lvkit.render.scene import _arith_coercion_dots
 
-    cpd = _arith_node(CompoundArithGlyph("+", num_inputs=2),
-                      ["NumFloat64", "NumFloat64"])
+    cpd = _arith_node(
+        CompoundArithGlyph("+", num_inputs=2), ["NumFloat64", "NumFloat64"]
+    )
     assert _arith_coercion_dots([cpd]) == []
 
 
@@ -183,8 +196,9 @@ def test_no_coercion_dot_on_boxed_primitive():
     from lvkit.render.glyph import WrappedBoxGlyph
     from lvkit.render.scene import _arith_coercion_dots
 
-    boxed = _arith_node(WrappedBoxGlyph("Scale By Power Of 2"),
-                        ["NumFloat64", "NumInt32"])
+    boxed = _arith_node(
+        WrappedBoxGlyph("Scale By Power Of 2"), ["NumFloat64", "NumInt32"]
+    )
     assert _arith_coercion_dots([boxed]) == []
 
 
@@ -211,7 +225,9 @@ def _prim_render_node(glyph, terminals, node_bounds=(0.0, 0.0, 32.0, 32.0)):
 
     return RenderNode(
         node=PrimitiveNode(id="p1", name="String Length", vi="v"),
-        bounds=node_bounds, glyph=glyph, terminals=terminals,
+        bounds=node_bounds,
+        glyph=glyph,
+        terminals=terminals,
     )
 
 
@@ -223,8 +239,10 @@ def test_primitive_glyph_sized_to_termbounds_union():
 
     node = _prim_render_node(
         WrappedBoxGlyph("String Length"),
-        [_term(0, "input", (0.0, 8.0, 4.0, 12.0)),
-         _term(1, "output", (28.0, 20.0, 32.0, 24.0))],
+        [
+            _term(0, "input", (0.0, 8.0, 4.0, 12.0)),
+            _term(1, "output", (28.0, 20.0, 32.0, 24.0)),
+        ],
     )
     assert _glyph_bounds(node) == (0.0, 8.0, 32.0, 24.0)  # 32x16, not 32x32
 
@@ -238,13 +256,15 @@ def test_primitive_glyph_floor_prevents_sliver():
 
     node = _prim_render_node(
         WrappedBoxGlyph("Not"),
-        [_term(0, "input", (0.0, 14.0, 4.0, 18.0)),
-         _term(1, "output", (28.0, 14.0, 32.0, 18.0))],
+        [
+            _term(0, "input", (0.0, 14.0, 4.0, 18.0)),
+            _term(1, "output", (28.0, 14.0, 32.0, 18.0)),
+        ],
     )
     x1, y1, x2, y2 = _glyph_bounds(node)
     assert (x1, x2) == (0.0, 32.0)
-    assert y2 - y1 == _MIN_GLYPH_EXTENT   # floored, not 4px
-    assert (y1 + y2) / 2 == 16.0          # centered on the terminal span
+    assert y2 - y1 == _MIN_GLYPH_EXTENT  # floored, not 4px
+    assert (y1 + y2) / 2 == 16.0  # centered on the terminal span
 
 
 def test_primitive_with_own_aspect_icon_keeps_node_bounds():
@@ -255,8 +275,10 @@ def test_primitive_with_own_aspect_icon_keeps_node_bounds():
 
     node = _prim_render_node(
         InlineSvgGlyph("<g/>"),
-        [_term(0, "input", (0.0, 8.0, 4.0, 12.0)),
-         _term(1, "output", (28.0, 20.0, 32.0, 24.0))],
+        [
+            _term(0, "input", (0.0, 8.0, 4.0, 12.0)),
+            _term(1, "output", (28.0, 20.0, 32.0, 24.0)),
+        ],
     )
     assert _glyph_bounds(node) == (0.0, 0.0, 32.0, 32.0)
 
@@ -268,8 +290,8 @@ def test_substring_type_colors_as_string_not_unknown():
     from lvkit.models import LVType
     from lvkit.render.style import DEFAULT_THEME, type_family, wire_style
 
-    sub = LVType(kind="primitive", underlying_type="SubString")
-    string = LVType(kind="primitive", underlying_type="String")
+    sub = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="SubString")
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     assert type_family(sub) == "string"
     assert wire_style(sub).color == wire_style(string).color
     assert wire_style(sub).color != DEFAULT_THEME.wire_default
@@ -285,8 +307,10 @@ def test_while_loop_conditional_terminal_color_by_polarity():
 
     def _svg(cond_continue):
         bt = RenderBorderTerminal(
-            terminal=None, bounds=(0.0, 0.0, 14.0, 14.0),
-            glyph_kind="cond", cond_continue=cond_continue,
+            terminal=None,
+            bounds=(0.0, 0.0, 14.0, 14.0),
+            glyph_kind="cond",
+            cond_continue=cond_continue,
         )
         b = SvgBackend()
         _draw_border_terminal(bt, b, DEFAULT_THEME)
@@ -346,8 +370,7 @@ def test_elbow_route_when_offset_and_clear():
 
 def test_router_avoids_obstacle():
     obstacle = (40.0, 40.0, 70.0, 60.0)
-    r = WireRouter([obstacle], bounds=(0.0, 0.0, 200.0, 120.0),
-                   config=RouterConfig())
+    r = WireRouter([obstacle], bounds=(0.0, 0.0, 200.0, 120.0), config=RouterConfig())
     p1, p2 = (10.0, 50.0), (120.0, 50.0)
     route = r.route(p1, p2, endpoints=[p1, p2])
 
@@ -381,7 +404,9 @@ def test_router_routes_around_third_node_directly_between_endpoints():
     dst_node = (120.0, 40.0, 140.0, 60.0)
     obstacles = [src_node, blocker_node, dst_node]
     r = WireRouter(
-        obstacles, bounds=(0.0, 0.0, 200.0, 120.0), config=RouterConfig(),
+        obstacles,
+        bounds=(0.0, 0.0, 200.0, 120.0),
+        config=RouterConfig(),
     )
     p1, p2 = (20.0, 50.0), (120.0, 50.0)  # straight line runs through blocker_node
     route = r.route(p1, p2, endpoints=[p1, p2], p1_owner=src_node, p2_owner=dst_node)
@@ -509,12 +534,14 @@ def test_local_variable_glyph_badge_and_read_write_border_weight():
     # Badge is on the dataflow side: read's ▶ is right of write's ▶.
     def _badge_x(svg):
         return float(re.search(r'points="([\d.]+),', svg).group(1))
+
     assert _badge_x(read_svg) > _badge_x(write_svg)
 
     # A plain constant/subVI box has NO badge — that's the whole distinction.
     plain = SvgBackend()
     WrappedBoxGlyph("Boolean", "const_fill", "localvar_stroke", 1.0).draw(
-        plain, (0, 0, 90, 25), DEFAULT_THEME)
+        plain, (0, 0, 90, 25), DEFAULT_THEME
+    )
     assert "<polygon" not in plain.render((0, 0, 90, 25))
 
 
@@ -563,7 +590,9 @@ OPENG_SEARCH = [Path(".lvkit/cache/samples/OpenG/extracted")]
 
 # Small, pre-verified samples covering: plain leaf VI, SubVI calls, a Case
 # structure, and a Case structure NESTED inside another structure.
-CASE_VI = Path(".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi")  # noqa: E501
+CASE_VI = Path(
+    ".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi"
+)  # noqa: E501
 NESTED_CASE_VI = Path(
     ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/variantconfig/"  # noqa: E501
     "variantconfig.llb/Write Panel to INI__ogtk.vi"
@@ -596,7 +625,9 @@ BUILTIN_REF_VI = Path(
     "Graphical Test Runner/Graphical Test Runner - Main UI - .vi"
 )
 CORPUS_VIS = [
-    Path(".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"),  # noqa: E501
+    Path(
+        ".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/Get LV Class Members from Path.vi"  # noqa: E501
+    ),
     Path(
         ".lvkit/cache/samples/JKI-EasyXML/Source/JKI Reuse Candidates/"
         "Is an Error__JKI Error Handling.vi"
@@ -704,21 +735,26 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     from lvkit.render.nodes import _leaf_const_glyph
     from lvkit.render.style import lv_type_label, type_family
 
-    cls = LVType(kind="primitive", underlying_type="Refnum",
-                 ref_type="UDClassInst",
-                 classname="NI DAQmx.lvlib:DAQmx Module Configuration.lvclass")
-    assert type_family(cls) == "unknown"          # NOT the "refnum" family
+    cls = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname="NI DAQmx.lvlib:DAQmx Module Configuration.lvclass",
+    )
+    assert type_family(cls) == "unknown"  # NOT the "refnum" family
     assert lv_type_label(cls) == "DAQmx Module Configuration.lvclass"
 
     glyph = _leaf_const_glyph(cls, raw="Refnum(1)")
     assert isinstance(glyph, ConstantGlyph)
     assert glyph.value == "DAQmx Module Configuration.lvclass"
     assert glyph.value != "Refnum(1)"
-    assert glyph.fit is True                       # wrap + shrink, no truncation
+    assert glyph.fit is True  # wrap + shrink, no truncation
 
     # A GENERIC refnum constant (no classname) keeps the "<ref_type> Refnum"
     # label — still never the placeholder raw value.
-    gen = LVType(kind="primitive", underlying_type="Refnum", ref_type="Occurrence")
+    gen = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence"
+    )
     assert type_family(gen) == "refnum"
     assert lv_type_label(gen) == "Occurrence Refnum"
     assert _leaf_const_glyph(gen, raw="Refnum(1)").value == "Occurrence Refnum"
@@ -741,7 +777,8 @@ def test_builtin_reference_constants_render():
     # Built-in refs are ctlRefConst graph nodes with no resolved FP control
     # (control_terminal_id is None) — the exact nodes once dropped.
     builtin_refs = [
-        n for n in graph.iter_nodes(vi)
+        n
+        for n in graph.iter_nodes(vi)
         if getattr(n, "node_type", None) == "ctlRefConst"
         and getattr(n, "control_terminal_id", None) is None
     ]
@@ -824,7 +861,9 @@ def test_project_local_subvi_hover_shows_real_terminal_names():
 
     for caller in callers:
         svg = render_vi_file(
-            caller, mode=LoadMode.MINIMAL, search_paths=[root],
+            caller,
+            mode=LoadMode.MINIMAL,
+            search_paths=[root],
         )
         assert svg is not None
         # The fail.vi SubVI hover <title> block. The title line is the callee's
@@ -859,9 +898,7 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     scene = build_scene(graph, name)
 
     by_val = {
-        rn.node.value: rn
-        for rn in scene.nodes
-        if isinstance(rn.node, ConstantNode)
+        rn.node.value: rn for rn in scene.nodes if isinstance(rn.node, ConstantNode)
     }
     assert {"1", "2"} <= by_val.keys()
     hexc = by_val["2"]
@@ -876,11 +913,13 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     assert by_val["1"].owned_label is None
 
     svg = render_vi_file(
-        CONST_LABEL_VI, mode=LoadMode.NONE, search_paths=OPENG_SEARCH,
+        CONST_LABEL_VI,
+        mode=LoadMode.NONE,
+        search_paths=OPENG_SEARCH,
     )
     assert svg is not None
-    assert ">x2<" in svg              # #59 hex radix value survives re-extraction
-    assert "Open Templates" in svg   # visible owned label rendered
+    assert ">x2<" in svg  # #59 hex radix value survives re-extraction
+    assert "Open Templates" in svg  # visible owned label rendered
     # The hidden auto-label "Index" (0x8 on the "1" constant) must NOT surface.
     # A legit "Index Array" node name now exists and wraps to two <text> lines
     # "Index"/"Array" in its box — so a leaked caption is a LONE "Index" text
@@ -917,7 +956,9 @@ def test_render_vi_file_determinism_across_hash_seeds():
             [sys.executable, "-c", script],
             cwd=Path(__file__).resolve().parent.parent,
             env={**os.environ, "PYTHONHASHSEED": seed},
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
@@ -964,7 +1005,8 @@ def test_case_structures_render_all_frames_not_just_shown():
             for uid in frame.inner_node_uids:
                 qid = f"{vi}::{uid}"
                 render_node = next(
-                    (n for n in scene.nodes if n.node.id == qid), None,
+                    (n for n in scene.nodes if n.node.id == qid),
+                    None,
                 )
                 if render_node is not None:
                     assert render_node.frame_path
@@ -986,7 +1028,7 @@ def test_case_svg_has_lv_frame_groups_one_visible_per_struct():
     svg = render_vi(graph, vi)
     assert svg is not None
     assert '<g class="lv-frame" data-path="' in svg
-    assert '<g class="lv-selector' in svg   # may carry lv-clickable too
+    assert '<g class="lv-selector' in svg  # may carry lv-clickable too
     assert "data-lv-frames=" in svg and "data-lv-default=" in svg
     # a case has a real dropdown: a hidden menu with clickable options/values
     assert 'class="lv-menu"' in svg
@@ -998,10 +1040,9 @@ def test_case_svg_has_lv_frame_groups_one_visible_per_struct():
     for raw, values in scene.frame_values.items():
         visible = hidden = 0
         for value in values:
-            path_attr = f'{raw}={value}'
+            path_attr = f"{raw}={value}"
             pattern = (
-                r'<g class="(lv-frame[^"]*)" data-path="'
-                + re.escape(path_attr) + r'">'
+                r'<g class="(lv-frame[^"]*)" data-path="' + re.escape(path_attr) + r'">'
             )
             matches = re.findall(pattern, svg)
             assert matches, f"no lv-frame group for {path_attr}"
@@ -1027,8 +1068,8 @@ def test_nested_case_svg_has_compound_data_path():
         pytest.skip("sample lacks required diagram geometry")
 
     compound = [
-        p for p in
-        {n.frame_path for n in scene.nodes if len(n.frame_path) >= 2}
+        p
+        for p in {n.frame_path for n in scene.nodes if len(n.frame_path) >= 2}
         | {s.frame_path for s in scene.structures if len(s.frame_path) >= 2}
     ]
     if not compound:
@@ -1072,7 +1113,8 @@ def test_flat_sequence_frames_tile_and_have_dividers():
         pytest.skip("sample lacks required diagram geometry")
 
     flat = [
-        s for s in scene.structures
+        s
+        for s in scene.structures
         if isinstance(s.node, SequenceNode) and s.node.node_type == "flatSequence"
     ]
     if not flat:
@@ -1149,8 +1191,10 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
         pytest.skip("sample lacks required diagram geometry")
 
     stacked = [
-        s for s in scene.structures
-        if isinstance(s.node, SequenceNode) and s.node.node_type != "flatSequence"
+        s
+        for s in scene.structures
+        if isinstance(s.node, SequenceNode)
+        and s.node.node_type != "flatSequence"
         and scene.frame_values.get(s.raw_uid)
     ]
     if not stacked:
@@ -1159,7 +1203,7 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
     svg = render_vi(graph, vi)
     assert svg is not None
     assert 'class="lv-frame"' in svg
-    assert 'class="lv-selector' in svg   # may carry lv-clickable too
+    assert 'class="lv-selector' in svg  # may carry lv-clickable too
     assert "◄ ►" in svg or "►" in svg  # no ▼ (that's the case affordance)
 
     for structure in stacked:
@@ -1169,8 +1213,7 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
         for value in values:
             path_attr = f"{structure.raw_uid}={value}"
             pattern = (
-                r'<g class="(lv-frame[^"]*)" data-path="'
-                + re.escape(path_attr) + r'">'
+                r'<g class="(lv-frame[^"]*)" data-path="' + re.escape(path_attr) + r'">'
             )
             matches = re.findall(pattern, svg)
             assert matches, f"no lv-frame group for {path_attr}"
@@ -1206,7 +1249,9 @@ def test_render_vi_file_determinism_across_hash_seeds_stacked_seq():
             [sys.executable, "-c", script],
             cwd=Path(__file__).resolve().parent.parent,
             env={**os.environ, "PYTHONHASHSEED": seed},
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
@@ -1235,7 +1280,9 @@ def test_render_vi_file_determinism_across_hash_seeds_case_vi():
             [sys.executable, "-c", script],
             cwd=Path(__file__).resolve().parent.parent,
             env={**os.environ, "PYTHONHASHSEED": seed},
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
@@ -1268,7 +1315,8 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     graph, vi = loaded
 
     cpd_nodes = [
-        n for n in graph.iter_nodes(vi)
+        n
+        for n in graph.iter_nodes(vi)
         if isinstance(n, PrimitiveNode) and n.node_type == "cpdArith"
     ]
     if not cpd_nodes:
@@ -1316,7 +1364,7 @@ def test_compound_arithmetic_renders_box_with_invert_bubble():
     stroke = f'stroke="{DEFAULT_THEME.prim_stroke}"'
     fill = f'fill="{DEFAULT_THEME.canvas}"'
     bubbles = re.findall(
-        r'<circle[^>]*' + re.escape(fill) + r'[^>]*' + re.escape(stroke) + r'[^>]*/>',
+        r"<circle[^>]*" + re.escape(fill) + r"[^>]*" + re.escape(stroke) + r"[^>]*/>",
         node_svg,
     )
     assert len(bubbles) == len(inverted_terminals)
@@ -1345,7 +1393,9 @@ def test_render_vi_file_determinism_cpdarith_invert_bubble():
             [sys.executable, "-c", script],
             cwd=Path(__file__).resolve().parent.parent,
             env={**os.environ, "PYTHONHASHSEED": seed},
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
@@ -1398,7 +1448,8 @@ def _count_non_endpoint_crossings(scene: Scene) -> int:
     crossings = 0
     for net in scene.wire_nets:
         obstacles = [
-            n.bounds for n in scene.nodes
+            n.bounds
+            for n in scene.nodes
             if _frame_compatible(n.frame_path, net.frame_path)
         ]
         for branch in net.branches:
@@ -1456,13 +1507,15 @@ def _count_structure_crossings(scene: Scene) -> int:
     crossings = 0
     for net in scene.wire_nets:
         structs = [
-            s for s in scene.structures
+            s
+            for s in scene.structures
             if _frame_compatible(s.frame_path, net.frame_path)
         ]
         for branch in net.branches:
             a, b = branch[0], branch[-1]
             blockers = [
-                s for s in structs
+                s
+                for s in structs
                 if not (_inside(a, s.bounds) and _inside(b, s.bounds))
             ]
             for i in range(len(branch) - 1):
@@ -1474,8 +1527,11 @@ def _count_structure_crossings(scene: Scene) -> int:
                     y = y1 + (y2 - y1) * st / steps
                     for s in blockers:
                         bx1, by1, bx2, by2 = s.bounds
-                        if (bx1 + 1 < x < bx2 - 1 and by1 + 1 < y < by2 - 1
-                                and not _on_border((x, y), s)):
+                        if (
+                            bx1 + 1 < x < bx2 - 1
+                            and by1 + 1 < y < by2 - 1
+                            and not _on_border((x, y), s)
+                        ):
                             hit = True
                             break
                     if hit:
@@ -1579,6 +1635,7 @@ def _count_contained_wire_escapes(graph, vi: str, scene: Scene) -> int:
         _strip_prefix,
         _wire_path,
     )
+
     src = graph.get_vi_source_path(vi)
     layout = build_layout(src)
     by_id = {n.id: n for n in graph.iter_nodes(vi)}
@@ -1659,11 +1716,11 @@ def test_format_numeric_const_hex_octal_binary_decimal():
     # letter (x/o/b), uppercase hex digits, no zero-padding at precision 0 —
     # verified against the "Current VIs Reference.vi" corpus VI's own label
     # ("0x02 => ...") documenting its own constant's value (task #59).
-    u8 = LVType(kind="primitive", underlying_type="NumUInt8")
+    u8 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt8")
     assert _format_numeric_const(u8, "31", "%.0x") == "x1F"
-    u16 = LVType(kind="primitive", underlying_type="NumUInt16")
+    u16 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
     assert _format_numeric_const(u16, "237", "%.0b") == "b11101101"
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
     assert _format_numeric_const(i32, "2", "%.0x") == "x2"
     # No format string (LabVIEW default decimal) -> caller falls back.
     assert _format_numeric_const(i32, "31", None) is None
@@ -1672,9 +1729,9 @@ def test_format_numeric_const_hex_octal_binary_decimal():
 def test_format_numeric_const_negative_twos_complement_by_bit_width():
     # A negative value hex-displayed shows the type's own two's-complement
     # bit pattern (I16 -1 -> xFFFF), not a Python-style "-x1".
-    i16 = LVType(kind="primitive", underlying_type="NumInt16")
+    i16 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16")
     assert _format_numeric_const(i16, "-1", "%.0x") == "xFFFF"
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
     assert _format_numeric_const(i32, "-1", "%.0x") == "xFFFFFFFF"
     # Unknown/unresolved type: can't determine the bit width to
     # two's-complement against — don't guess, fall back instead.
@@ -1682,7 +1739,7 @@ def test_format_numeric_const_negative_twos_complement_by_bit_width():
 
 
 def test_format_numeric_const_float_precision():
-    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
+    dbl = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
     assert _format_numeric_const(dbl, "1.9375", "%.2f") == "1.94"
     assert _format_numeric_const(dbl, "3.0", "%.1f") == "3.0"
     assert _format_numeric_const(dbl, "31", "%.0f") == "31"
@@ -1691,7 +1748,7 @@ def test_format_numeric_const_float_precision():
 def test_format_numeric_const_unrecognized_format_falls_back():
     # LabVIEW's timestamp format ('%<...>T') and other specs this function
     # doesn't understand return None rather than a guessed rendering.
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
     assert _format_numeric_const(i32, "5", "%<%.3X\n%x>T") is None
     assert _format_numeric_const(i32, "5", "%#_13g") is None
     assert _format_numeric_const(i32, "5", None) is None
@@ -1722,11 +1779,11 @@ def test_string_constant_boxes_trimmed_top_left_anchored():
     for raw, (nx1, ny1, nx2, ny2) in trim_bounds.items():
         ox1, oy1, ox2, oy2 = layout.node_bounds[raw]
         assert (nx1, ny1, nx2) == (ox1, oy1, ox2)  # top-left + width unchanged
-        assert oy1 < ny2 <= oy2                     # bottom moved up, not past heap
+        assert oy1 < ny2 <= oy2  # bottom moved up, not past heap
         cx, cy = trim_centers[raw]
-        assert cx == nx2                            # terminal on the right edge
-        assert ny1 <= cy <= ny2                     # ... within the shrunk box
-        assert abs(cy - (ny1 + ny2) / 2) < 0.51     # ... at its vertical middle
+        assert cx == nx2  # terminal on the right edge
+        assert ny1 <= cy <= ny2  # ... within the shrunk box
+        assert abs(cy - (ny1 + ny2) / 2) < 0.51  # ... at its vertical middle
 
 
 # --------------------------------------------------------------------------- #
@@ -1735,13 +1792,15 @@ def test_string_constant_boxes_trimmed_top_left_anchored():
 
 
 def test_wire_style_covers_full_type_table():
-    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
-    boolean = LVType(kind="primitive", underlying_type="Boolean")
-    string = LVType(kind="primitive", underlying_type="String")
-    path = LVType(kind="primitive", underlying_type="Path")
-    cluster = LVType(kind="cluster", fields=[])
-    error_cluster = LVType(kind="cluster", typedef_name="Error Cluster", fields=[])
+    dbl = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    boolean = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    path = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+    cluster = LVType(kind=LVTypeKind.CLUSTER, fields=[])
+    error_cluster = LVType(
+        kind=LVTypeKind.CLUSTER, typedef_name="Error Cluster", fields=[]
+    )
 
     assert wire_style(dbl).color == DEFAULT_THEME.wire_float
     assert wire_style(i32).color == DEFAULT_THEME.wire_int
@@ -1752,16 +1811,16 @@ def test_wire_style_covers_full_type_table():
     assert wire_style(error_cluster).color == DEFAULT_THEME.wire_error
     # Distinct colors, not a table that collapsed onto one fallback.
     colors = {
-        wire_style(t).color for t in
-        (dbl, i32, boolean, string, path, cluster, error_cluster)
+        wire_style(t).color
+        for t in (dbl, i32, boolean, string, path, cluster, error_cluster)
     }
     assert len(colors) == 7
 
 
 def test_wire_style_array_width_scales_with_dimensions():
-    scalar = LVType(kind="primitive", underlying_type="NumFloat64")
-    arr_1d = LVType(kind="array", dimensions=1, element_type=scalar)
-    arr_2d = LVType(kind="array", dimensions=2, element_type=scalar)
+    scalar = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    arr_1d = LVType(kind=LVTypeKind.ARRAY, dimensions=1, element_type=scalar)
+    arr_2d = LVType(kind=LVTypeKind.ARRAY, dimensions=2, element_type=scalar)
 
     base = wire_style(scalar).width
     # Array wires are drawn markedly bolder than the scalar element, thicker
@@ -1773,16 +1832,20 @@ def test_wire_style_array_width_scales_with_dimensions():
 
 
 def test_coercion_key_ignores_provenance_but_catches_type_mismatch():
-    a = LVType(kind="primitive", underlying_type="NumFloat64", description="foo")
-    b = LVType(kind="primitive", underlying_type="NumFloat64", description="bar")
-    c = LVType(kind="primitive", underlying_type="NumInt32")
+    a = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64", description="foo"
+    )
+    b = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64", description="bar"
+    )
+    c = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
     assert coercion_key(a) == coercion_key(b)
     assert coercion_key(a) != coercion_key(c)
     assert coercion_key(None) is None
 
-    arr_a = LVType(kind="array", dimensions=1, element_type=a)
-    arr_c = LVType(kind="array", dimensions=1, element_type=c)
+    arr_a = LVType(kind=LVTypeKind.ARRAY, dimensions=1, element_type=a)
+    arr_c = LVType(kind=LVTypeKind.ARRAY, dimensions=1, element_type=c)
     assert coercion_key(arr_a) != coercion_key(arr_c)
 
 
@@ -1794,8 +1857,12 @@ def test_coercion_key_ignores_provenance_but_catches_type_mismatch():
 def _render_fp_terminal(lv_type: LVType | None, is_indicator: bool = False) -> str:
     backend = SvgBackend()
     terminal = FPTerminal(
-        id="vi::1", index=0, direction="input", name="X",
-        lv_type=lv_type, is_indicator=is_indicator,
+        id="vi::1",
+        index=0,
+        direction="input",
+        name="X",
+        lv_type=lv_type,
+        is_indicator=is_indicator,
     )
     draw_fp_terminal(terminal, (0.0, 0.0, 40.0, 40.0), backend)
     return backend.render((0.0, 0.0, 40.0, 40.0))
@@ -1803,9 +1870,13 @@ def _render_fp_terminal(lv_type: LVType | None, is_indicator: bool = False) -> s
 
 def test_numeric_control_glyph_is_type_repr():
     # Real LabVIEW data-type terminals show the type name, e.g. DBL / I32.
-    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumFloat64"))
+    svg = _render_fp_terminal(
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    )
     assert ">DBL<" in svg
-    svg_int = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumInt32"))
+    svg_int = _render_fp_terminal(
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    )
     assert ">I32<" in svg_int
 
 
@@ -1818,8 +1889,11 @@ def test_array_control_glyph_is_icon_view():
     # shows its letter — matching the ground truth's small grey index
     # block with a readable letter — so this checks for both the cell
     # itself (its fill color) and the rendered "i" glyph.
-    arr = LVType(kind="array", dimensions=1,
-                 element_type=LVType(kind="primitive", underlying_type="NumFloat64"))
+    arr = LVType(
+        kind=LVTypeKind.ARRAY,
+        dimensions=1,
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+    )
     svg = _render_fp_terminal(arr)
     assert "[DBL]" not in svg
     assert ">DBL<" in svg
@@ -1828,26 +1902,34 @@ def test_array_control_glyph_is_icon_view():
 
 
 def test_numeric_control_shows_value_sample():
-    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="NumFloat64"))
+    svg = _render_fp_terminal(
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    )
     assert "1.23" in svg
 
 
 def test_boolean_control_glyph_is_tf():
-    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="Boolean"))
+    svg = _render_fp_terminal(
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    )
     assert ">TF<" in svg
 
 
 def test_string_control_glyph_present():
-    svg = _render_fp_terminal(LVType(kind="primitive", underlying_type="String"))
+    svg = _render_fp_terminal(
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    )
     assert "abc" in svg
 
 
 def test_control_border_thicker_than_indicator_border():
     control_svg = _render_fp_terminal(
-        LVType(kind="primitive", underlying_type="NumFloat64"), is_indicator=False,
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+        is_indicator=False,
     )
     indicator_svg = _render_fp_terminal(
-        LVType(kind="primitive", underlying_type="NumFloat64"), is_indicator=True,
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+        is_indicator=True,
     )
     assert 'stroke-width="3.0"' in control_svg
     assert 'stroke-width="1.5"' in indicator_svg
@@ -1927,7 +2009,11 @@ def test_border_terminal_top_edge_inner_face_points_down_into_frame():
     assert normal == (0.0, 1.0)
     outside_pt = (100.0, -30.0)
     normal_out = _exit_side(
-        None, center, structure_bounds, border=True, toward=outside_pt,
+        None,
+        center,
+        structure_bounds,
+        border=True,
+        toward=outside_pt,
     )
     assert normal_out == (0.0, -1.0)
 
@@ -1939,7 +2025,11 @@ def test_border_terminal_top_edge_inner_face_points_down_into_frame():
 
 def test_for_loop_guarantees_N_and_i_glyphs_from_layout_geometry():
     node = LoopNode(
-        id="vi::43", vi="vi", node_type="forLoop", loop_type="forLoop", terminals=[],
+        id="vi::43",
+        vi="vi",
+        node_type="forLoop",
+        loop_type="forLoop",
+        terminals=[],
     )
     layout = Layout(
         border_terminals={"i_uid": (0.0, 0.0, 10.0, 10.0)},
@@ -1956,12 +2046,16 @@ def test_for_loop_guarantees_N_and_i_glyphs_from_layout_geometry():
 
 def test_while_loop_guarantees_i_and_cond_glyphs():
     node = LoopNode(
-        id="vi::7", vi="vi", node_type="whileLoop", loop_type="whileLoop",
+        id="vi::7",
+        vi="vi",
+        node_type="whileLoop",
+        loop_type="whileLoop",
         terminals=[],
     )
     layout = Layout(
         border_terminals={
-            "i_uid": (0.0, 0.0, 10.0, 10.0), "cond_uid": (20.0, 0.0, 30.0, 10.0),
+            "i_uid": (0.0, 0.0, 10.0, 10.0),
+            "cond_uid": (20.0, 0.0, 30.0, 10.0),
         },
         border_terminal_kind={"i_uid": "i", "cond_uid": "cond"},
         structure_border_uids={"7": ["i_uid", "cond_uid"]},
@@ -1977,7 +2071,8 @@ def test_for_loop_border_glyphs_on_ground_truth_vi():
     scene = build_scene(graph, vi)
     assert scene is not None
     loop = next(
-        s for s in scene.structures
+        s
+        for s in scene.structures
         if isinstance(s.node, StructureNode) and s.node.node_type == "forLoop"
     )
     kinds = {bt.glyph_kind for bt in loop.border_terminals}
@@ -1995,27 +2090,29 @@ def test_coercion_is_numeric_representation_only():
     # NOT a structural change (array -> element at an auto-index tunnel).
     from lvkit.render.style import numeric_repr
 
-    i32 = LVType(kind="primitive", underlying_type="NumInt32")
-    dbl = LVType(kind="primitive", underlying_type="NumFloat64")
-    arr_dbl = LVType(kind="array", dimensions=1, element_type=dbl)
-    string = LVType(kind="primitive", underlying_type="String")
+    i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    dbl = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    arr_dbl = LVType(kind=LVTypeKind.ARRAY, dimensions=1, element_type=dbl)
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
 
     def coerces(a, b):
         ra, rb = numeric_repr(a), numeric_repr(b)
         return ra is not None and rb is not None and ra != rb
 
-    assert coerces(i32, dbl)          # real coercion
-    assert not coerces(dbl, dbl)      # same type
+    assert coerces(i32, dbl)  # real coercion
+    assert not coerces(dbl, dbl)  # same type
     assert not coerces(arr_dbl, dbl)  # auto-index (array->element) is NOT coercion
-    assert not coerces(string, dbl)   # non-numeric, no dot
+    assert not coerces(string, dbl)  # non-numeric, no dot
 
 
 # --------------------------------------------------------------------------- #
 # SubVI-without-icon: name wrapped inside the box + hover tooltip
 # --------------------------------------------------------------------------- #
 
+
 def test_wrap_label_greedy_and_hard_break():
     from lvkit.render.glyph import wrap_label
+
     b = SvgBackend()
     # multi-word wraps to several lines, none over the width
     lines = wrap_label("DAQmx Create Virtual Channel.vi", 34, b, 6.0, 4)
@@ -2029,14 +2126,17 @@ def test_wrap_label_greedy_and_hard_break():
 
 def test_wrapped_box_glyph_fits_full_name_by_shrinking():
     from lvkit.render.glyph import WrappedBoxGlyph
+
     b = SvgBackend()
     WrappedBoxGlyph("DAQmx Create Virtual Channel.vi").draw(
-        b, (0.0, 0.0, 32.0, 32.0), DEFAULT_THEME,
+        b,
+        (0.0, 0.0, 32.0, 32.0),
+        DEFAULT_THEME,
     )
     svg = b.render((0.0, 0.0, 32.0, 32.0))
     texts = re.findall(r"<text[^>]*>([^<]*)</text>", svg)
-    assert len([t for t in texts if t]) >= 3          # wrapped to multiple lines
-    assert "…" not in "".join(texts)             # full name, no truncation
+    assert len([t for t in texts if t]) >= 3  # wrapped to multiple lines
+    assert "…" not in "".join(texts)  # full name, no truncation
     joined = "".join(texts)
     for word in ("DAQmx", "Create", "Virtual", "Channel"):
         assert word in joined
@@ -2047,6 +2147,7 @@ def test_wrapped_box_glyph_fits_full_name_by_shrinking():
 
 def test_wrapped_box_glyph_ellipsizes_when_truly_impossible():
     from lvkit.render.glyph import WrappedBoxGlyph
+
     b = SvgBackend()
     WrappedBoxGlyph("x" * 200).draw(b, (0.0, 0.0, 18.0, 18.0), DEFAULT_THEME)
     assert "…" in b.render((0.0, 0.0, 18.0, 18.0))
@@ -2085,6 +2186,7 @@ def test_node_tooltip_includes_doc_url_for_resolved_primitive():
     """A primitive that resolves to an NI docs page surfaces that URL as the
     last line of its hover <title> (task #67). Add (1050) has a doc_url."""
     from lvkit.render.draw import _node_doc_url, _node_tooltip
+
     add = PrimitiveNode(id="a", vi="V", name="Add", prim_id=1050, terminals=[])
     url = _node_doc_url(add)
     assert url is not None and url.endswith("/functions/add.html")
@@ -2095,8 +2197,10 @@ def test_node_tooltip_includes_doc_url_for_resolved_primitive():
 def test_node_tooltip_has_no_doc_url_when_unresolved():
     """An unknown primitive (no catalog page) adds no URL line."""
     from lvkit.render.draw import _node_doc_url
-    unknown = PrimitiveNode(id="u", vi="V", name="mystery", prim_id=999999,
-                            terminals=[])
+
+    unknown = PrimitiveNode(
+        id="u", vi="V", name="mystery", prim_id=999999, terminals=[]
+    )
     assert _node_doc_url(unknown) is None
 
 
@@ -2201,25 +2305,34 @@ def test_scanf_nodes_parsed_and_wired():
 # so they run even where the local-only sample corpus is absent.
 # --------------------------------------------------------------------------- #
 
+
 def _prim(node_type, name=None, dirs=(), roles=()):
     """A synthetic PrimitiveNode with one terminal per direction in ``dirs``.
     ``roles``, if given, is a parallel sequence of ``nmux_role`` values
     ("agg"/"list"/None) for a Bundle/Unbundle-family node."""
     from lvkit.models import Terminal
+
     terms = [
         Terminal(
-            id=f"t{i}", index=i, direction=d,
+            id=f"t{i}",
+            index=i,
+            direction=d,
             nmux_role=roles[i] if i < len(roles) else None,
         )
         for i, d in enumerate(dirs)
     ]
     return PrimitiveNode(
-        id="n0", vi="V", name=name, node_type=node_type, terminals=terms,
+        id="n0",
+        vi="V",
+        name=name,
+        node_type=node_type,
+        terminals=terms,
     )
 
 
 def _ctx():
     from lvkit.render.nodes import GlyphContext
+
     return GlyphContext(graph=InMemoryVIGraph(), vi_name="V")
 
 
@@ -2229,8 +2342,10 @@ def test_bundle_glyph_for_many_in_one_out_mux():
     a raw input/output count (the aggregate terminal is never a field)."""
     from lvkit.render.glyph import BundleGlyph
     from lvkit.render.nodes import resolve_glyph
+
     node = _prim(
-        "mux", "Bundle",
+        "mux",
+        "Bundle",
         dirs=("input", "input", "input", "output"),
         roles=("list", "list", "list", "agg"),
     )
@@ -2244,8 +2359,10 @@ def test_unbundle_glyph_for_one_in_many_out_mux():
     Bundle)."""
     from lvkit.render.glyph import UnbundleGlyph
     from lvkit.render.nodes import resolve_glyph
+
     node = _prim(
-        "demux", "Unbundle",
+        "demux",
+        "Unbundle",
         dirs=("input", "output", "output", "output", "output"),
         roles=("agg", "list", "list", "list", "list"),
     )
@@ -2260,8 +2377,12 @@ def test_single_field_bundle_is_not_dropped():
     Unbundle used to fall through to a labeled 'Node Multiplexer' box)."""
     from lvkit.render.glyph import UnbundleGlyph
     from lvkit.render.nodes import resolve_glyph
+
     node = _prim(
-        "demux", "Unbundle", dirs=("input", "output"), roles=("agg", "list"),
+        "demux",
+        "Unbundle",
+        dirs=("input", "output"),
+        roles=("agg", "list"),
     )
     glyph = resolve_glyph(node, _ctx())
     assert isinstance(glyph, UnbundleGlyph)
@@ -2283,24 +2404,26 @@ def test_mux_field_terminals_snap_to_node_edge():
 
     def rt(direction, role, cx, cy):
         return RenderTerminal(
-            terminal=Terminal(id="t", index=0, direction=direction,
-                              nmux_role=role),
-            center=(cx, cy), bounds=None,
+            terminal=Terminal(id="t", index=0, direction=direction, nmux_role=role),
+            center=(cx, cy),
+            bounds=None,
         )
 
     # A Bundle: two field INPUTS whose heap centers sit near the right/divider
     # (the WRONG side), plus the assembled aggregate OUTPUT.
     out = _reposition_mux_terminals(
-        [rt("input", "list", 190.0, 415.0),
-         rt("input", "list", 188.0, 445.0),
-         rt("output", "agg", 150.0, 430.0)],
+        [
+            rt("input", "list", 190.0, 415.0),
+            rt("input", "list", 188.0, 445.0),
+            rt("output", "agg", 150.0, 430.0),
+        ],
         bounds,
     )
     fins = [t for t in out if t.terminal.nmux_role == "list"]
-    assert [t.center[0] for t in fins] == [100.0, 100.0]   # snapped to LEFT edge
-    assert [t.center[1] for t in fins] == [415.0, 445.0]   # row Y preserved
+    assert [t.center[0] for t in fins] == [100.0, 100.0]  # snapped to LEFT edge
+    assert [t.center[1] for t in fins] == [415.0, 445.0]  # row Y preserved
     agg = next(t for t in out if t.terminal.nmux_role == "agg")
-    assert agg.center == (200.0, 430.0)                    # cluster exits right-mid
+    assert agg.center == (200.0, 430.0)  # cluster exits right-mid
 
     # An Unbundle field OUTPUT snaps to the RIGHT edge (mirror).
     ub = _reposition_mux_terminals([rt("output", "list", 140.0, 430.0)], bounds)
@@ -2324,9 +2447,11 @@ def test_cluster_constant_compacted_to_natural_rows():
 
     def cluster_const(n_fields):
         return ConstantNode(
-            id="V::5", vi="V", name="c",
+            id="V::5",
+            vi="V",
+            name="c",
             lv_type=LVType(
-                kind="cluster",
+                kind=LVTypeKind.CLUSTER,
                 fields=[ClusterField(name=f"f{i}") for i in range(n_fields)],
             ),
         )
@@ -2334,17 +2459,20 @@ def test_cluster_constant_compacted_to_natural_rows():
     class _Graph:
         def __init__(self, nodes):
             self._nodes = nodes
+
         def iter_nodes(self, vi_name):
             return self._nodes
 
     # Oversized heap box (300px tall for 3 fields) → compacted to 3 rows.
     layout = Layout(node_bounds={"5": (0.0, 0.0, 100.0, 300.0)})
     bounds, centers = _compact_cluster_const_geom(
-        _Graph([cluster_const(3)]), "V", layout,
+        _Graph([cluster_const(3)]),
+        "V",
+        layout,
     )
     expected_h = 2 * _CLUSTER_GLYPH_PAD + 3 * _CLUSTER_ROW_H
-    assert bounds["5"] == (0.0, 0.0, 100.0, expected_h)   # top-left kept, width kept
-    assert centers["5"] == (100.0, expected_h / 2)        # output re-anchored right-mid
+    assert bounds["5"] == (0.0, 0.0, 100.0, expected_h)  # top-left kept, width kept
+    assert centers["5"] == (100.0, expected_h / 2)  # output re-anchored right-mid
 
     # Shrink-only: a box already shorter than its natural height is untouched.
     small = Layout(node_bounds={"5": (0.0, 0.0, 100.0, 10.0)})
@@ -2352,8 +2480,9 @@ def test_cluster_constant_compacted_to_natural_rows():
     assert "5" not in b2
 
     # A non-cluster constant (no fields) is ignored.
-    scalar = ConstantNode(id="V::5", vi="V", name="c",
-                          lv_type=LVType(kind="primitive"))
+    scalar = ConstantNode(
+        id="V::5", vi="V", name="c", lv_type=LVType(kind=LVTypeKind.PRIMITIVE)
+    )
     b3, _ = _compact_cluster_const_geom(_Graph([scalar]), "V", layout)
     assert b3 == {}
 
@@ -2364,9 +2493,12 @@ def test_pass_through_mux_is_not_a_bundle_glyph():
     assemble/disassemble; it must NOT get a Bundle/Unbundle glyph."""
     from lvkit.render.glyph import BundleGlyph, UnbundleGlyph
     from lvkit.render.nodes import resolve_glyph
+
     node = _prim(
-        "nMux", "Bundle/Unbundle By Name",
-        dirs=("input", "output"), roles=("agg", "agg"),
+        "nMux",
+        "Bundle/Unbundle By Name",
+        dirs=("input", "output"),
+        roles=("agg", "agg"),
     )
     glyph = resolve_glyph(node, _ctx())
     assert not isinstance(glyph, (BundleGlyph, UnbundleGlyph))
@@ -2380,15 +2512,20 @@ def test_bundle_by_name_never_dropped_without_field_names():
     would become a blank hole (the MasterAcquisition regression). The
     discriminator is the presence of ``list`` terminals, NOT field resolution."""
     from lvkit.render.scene import _is_boundary_mux
+
     g = InMemoryVIGraph()
     real = _prim(
-        "nMux", "Bundle/Unbundle By Name",
-        dirs=("input", "output"), roles=("agg", "list"),
+        "nMux",
+        "Bundle/Unbundle By Name",
+        dirs=("input", "output"),
+        roles=("agg", "list"),
     )
     assert _is_boundary_mux(real, g) is False
     compiler = _prim(
-        "nMux", "Bundle/Unbundle By Name",
-        dirs=("input", "output"), roles=("agg", "agg"),
+        "nMux",
+        "Bundle/Unbundle By Name",
+        dirs=("input", "output"),
+        roles=("agg", "agg"),
     )
     assert _is_boundary_mux(compiler, g) is True
 
@@ -2400,20 +2537,30 @@ def test_bundle_by_name_falls_back_to_bracketed_index_labels():
     from lvkit.models import Terminal
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.nodes import _bundle_by_name_glyph
+
     terms = [
         Terminal(id="agg", index=0, direction="output", nmux_role="agg"),
         Terminal(
-            id="f0", index=1, direction="input",
-            nmux_role="list", nmux_field_index=0,
+            id="f0",
+            index=1,
+            direction="input",
+            nmux_role="list",
+            nmux_field_index=0,
         ),
         Terminal(
-            id="f1", index=2, direction="input",
-            nmux_role="list", nmux_field_index=3,
+            id="f1",
+            index=2,
+            direction="input",
+            nmux_role="list",
+            nmux_field_index=3,
         ),
     ]
     node = PrimitiveNode(
-        id="n0", vi="V", name="Bundle/Unbundle By Name",
-        node_type="nMux", terminals=terms,
+        id="n0",
+        vi="V",
+        name="Bundle/Unbundle By Name",
+        node_type="nMux",
+        terminals=terms,
     )
     glyph = _bundle_by_name_glyph(node, InMemoryVIGraph())
     assert isinstance(glyph, BundleByNameGlyph)
@@ -2430,12 +2577,14 @@ def test_bundle_by_name_falls_back_to_bracketed_index_labels():
 # may ever show the internal "decompose" heap jargon in a user-facing name.
 # --------------------------------------------------------------------------- #
 
+
 def test_bundle_unbundle_name_shared_helper():
     """``lvkit.models.bundle_unbundle_name`` is the ONE field-direction rule
     both ``render.nodes.mux_display_name`` (render header) and
     ``graph.construction`` (the ``decomposeClusterNode`` rename that feeds
     describe/netlist) call — verify it directly at the source."""
     from lvkit.models import Terminal, bundle_unbundle_name
+
     agg = Terminal(id="agg", index=0, direction="input", nmux_role="agg")
     fields_out = [
         Terminal(id="f0", index=1, direction="output", nmux_role="list"),
@@ -2448,9 +2597,7 @@ def test_bundle_unbundle_name_shared_helper():
     assert bundle_unbundle_name([agg, *fields_out], by_name=True) == (
         "Unbundle By Name"
     )
-    assert bundle_unbundle_name([agg, *fields_in], by_name=True) == (
-        "Bundle By Name"
-    )
+    assert bundle_unbundle_name([agg, *fields_in], by_name=True) == ("Bundle By Name")
     # No field (``list``-role) terminals at all — nothing to key direction
     # off; the caller decides the fallback.
     assert bundle_unbundle_name([agg]) is None
@@ -2466,7 +2613,9 @@ def test_decompose_cluster_node_graph_name_is_direction_aware():
     from lvkit.models import Terminal, bundle_unbundle_name
 
     decompose_half = PrimitiveNode(
-        id="n0", vi="V", name="Bundle/Unbundle By Name",
+        id="n0",
+        vi="V",
+        name="Bundle/Unbundle By Name",
         node_type="decomposeClusterNode",
         terminals=[
             Terminal(id="agg", index=0, direction="input", nmux_role="agg"),
@@ -2474,7 +2623,9 @@ def test_decompose_cluster_node_graph_name_is_direction_aware():
         ],
     )
     recompose_half = PrimitiveNode(
-        id="n1", vi="V", name="Bundle/Unbundle By Name",
+        id="n1",
+        vi="V",
+        name="Bundle/Unbundle By Name",
         node_type="decomposeClusterNode",
         terminals=[
             Terminal(id="f0", index=0, direction="input", nmux_role="list"),
@@ -2500,8 +2651,10 @@ def test_decompose_cluster_node_resolves_to_unbundle_by_name():
     Unbundle By Name — same field-direction rule as a real nMux."""
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.nodes import mux_display_name, resolve_glyph
+
     node = _prim(
-        "decomposeClusterNode", "Bundle/Unbundle By Name",
+        "decomposeClusterNode",
+        "Bundle/Unbundle By Name",
         dirs=("input", "output", "output"),
         roles=("agg", "list", "list"),
     )
@@ -2515,8 +2668,10 @@ def test_decompose_cluster_node_resolves_to_bundle_by_name():
     Bundle By Name."""
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.nodes import mux_display_name, resolve_glyph
+
     node = _prim(
-        "decomposeClusterNode", "Bundle/Unbundle By Name",
+        "decomposeClusterNode",
+        "Bundle/Unbundle By Name",
         dirs=("input", "input", "output"),
         roles=("list", "list", "agg"),
     )
@@ -2532,12 +2687,15 @@ def test_decompose_match_node_resolves_to_in_place_element_glyph():
     input-side and output-side border node."""
     from lvkit.render.glyph import InPlaceElementGlyph
     from lvkit.render.nodes import resolve_glyph
+
     in_side = _prim(
-        "decomposeMatchNode", "In Place Element",
+        "decomposeMatchNode",
+        "In Place Element",
         dirs=("input", "output"),
     )
     out_side = _prim(
-        "decomposeMatchNode", "In Place Element",
+        "decomposeMatchNode",
+        "In Place Element",
         dirs=("input", "output"),
     )
     assert isinstance(resolve_glyph(in_side, _ctx()), InPlaceElementGlyph)
@@ -2545,8 +2703,13 @@ def test_decompose_match_node_resolves_to_in_place_element_glyph():
 
 
 @pytest.mark.parametrize(
-    "node_type", ["decomposeClusterNode", "decomposeArrayNode",
-                  "decomposeDataValRefNode", "decomposeMatchNode"],
+    "node_type",
+    [
+        "decomposeClusterNode",
+        "decomposeArrayNode",
+        "decomposeDataValRefNode",
+        "decomposeMatchNode",
+    ],
 )
 def test_no_decompose_jargon_in_parser_display_name(node_type):
     """No IPES border-node handler's ``display_name`` (the parser-level
@@ -2555,6 +2718,7 @@ def test_no_decompose_jargon_in_parser_display_name(node_type):
     word. This is the single static source ``node.name`` starts from before
     any direction-aware graph-layer rename."""
     from lvkit.parser.node_types import _HANDLERS
+
     handler = next(h for h in _HANDLERS if h.xml_class == node_type)
     assert "decompose" not in handler.display_name.lower()
 
@@ -2568,8 +2732,10 @@ def test_no_decompose_jargon_in_resolved_render_names():
     from lvkit.render.nodes import mux_display_name, resolve_glyph
 
     cluster_decompose = _prim(
-        "decomposeClusterNode", "Bundle/Unbundle By Name",
-        dirs=("input", "output"), roles=("agg", "list"),
+        "decomposeClusterNode",
+        "Bundle/Unbundle By Name",
+        dirs=("input", "output"),
+        roles=("agg", "list"),
     )
     assert "decompose" not in mux_display_name(cluster_decompose).lower()
 
@@ -2583,8 +2749,8 @@ def test_no_decompose_jargon_in_resolved_render_names():
 
 def _typed_term(index, direction, lv_type):
     from lvkit.models import Terminal
-    return Terminal(id=f"t{index}", index=index, direction=direction,
-                    lv_type=lv_type)
+
+    return Terminal(id=f"t{index}", index=index, direction=direction, lv_type=lv_type)
 
 
 def test_inplace_border_name_dvr_read_vs_write():
@@ -2592,9 +2758,11 @@ def test_inplace_border_name_dvr_read_vs_write():
     ``DataValueRef`` refnum sits on: input -> the read (deref) tile, output ->
     the write (store-back) tile. No name jargon, no guessing."""
     from lvkit.models import LVType, inplace_border_name
-    dvr = LVType(kind="primitive", underlying_type="Refnum",
-                 ref_type="DataValueRef")
-    cluster = LVType(kind="cluster", underlying_type="Cluster")
+
+    dvr = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="DataValueRef"
+    )
+    cluster = LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster")
     read = [_typed_term(0, "input", dvr), _typed_term(1, "output", cluster)]
     write = [_typed_term(0, "input", cluster), _typed_term(1, "output", dvr)]
     assert inplace_border_name("decomposeDataValRefNode", read) == "DVR Read"
@@ -2606,9 +2774,13 @@ def test_inplace_border_name_array_index_vs_replace():
     back OUT (array-kind output); the index (read) tile only indexes an element
     out. Keyed on the presence of an array-typed OUTPUT terminal."""
     from lvkit.models import LVType, inplace_border_name
-    arr = LVType(kind="array", underlying_type="Array",
-                 element_type=LVType(kind="primitive", underlying_type="NumInt32"))
-    elem = LVType(kind="primitive", underlying_type="NumInt32")
+
+    arr = LVType(
+        kind=LVTypeKind.ARRAY,
+        underlying_type="Array",
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+    )
+    elem = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
     index = [_typed_term(0, "input", arr), _typed_term(1, "output", elem)]
     replace = [_typed_term(0, "input", arr), _typed_term(1, "output", arr)]
     assert inplace_border_name("decomposeArrayNode", index) == "Array Index"
@@ -2618,6 +2790,7 @@ def test_inplace_border_name_array_index_vs_replace():
 def test_inplace_border_name_other_types_untouched():
     """A node type the helper doesn't own returns None (leave its name alone)."""
     from lvkit.models import inplace_border_name
+
     assert inplace_border_name("decomposeMatchNode", []) is None
     assert inplace_border_name("mux", []) is None
 
@@ -2633,14 +2806,18 @@ def test_describe_in_place_operation_never_shows_raw_node_type():
     from lvkit.models import InPlaceOperation
 
     unlabeled = InPlaceOperation(
-        id="V::1", name="In Place Element", node_type="decomposeRecomposeStructure",
+        id="V::1",
+        name="In Place Element",
+        node_type="decomposeRecomposeStructure",
         kind="inPlaceStruct",
     )
     assert _describe_single_op(unlabeled) == "In Place Element"
 
     labeled = InPlaceOperation(
-        id="V::2", name="write multiple elements.vi",
-        node_type="decomposeRecomposeStructure", kind="inPlaceStruct",
+        id="V::2",
+        name="write multiple elements.vi",
+        node_type="decomposeRecomposeStructure",
+        kind="inPlaceStruct",
     )
     result = _describe_single_op(labeled)
     assert result == "write multiple elements.vi"
@@ -2652,9 +2829,14 @@ def test_comparison_primitives_use_the_arith_triangle():
     their own symbol (same shape LabVIEW draws them with)."""
     from lvkit.render.glyph import ArithGlyph
     from lvkit.render.nodes import resolve_glyph
+
     expected = {
-        "Equal?": "=", "Not Equal?": "≠", "Greater?": ">", "Less?": "<",
-        "Greater Or Equal?": "≥", "Less Or Equal?": "≤",
+        "Equal?": "=",
+        "Not Equal?": "≠",
+        "Greater?": ">",
+        "Less?": "<",
+        "Greater Or Equal?": "≥",
+        "Less Or Equal?": "≤",
     }
     for name, symbol in expected.items():
         node = _prim("prim", name, dirs=("input", "input", "output"))
@@ -2680,6 +2862,7 @@ def test_bundle_and_unbundle_draw_mirrored_split_boxes():
     split-box skeleton: a rect, one vertical divider, num_fields-1 row
     dividers, and the direction arrow — at the node's own bounds."""
     from lvkit.render.glyph import BundleGlyph, UnbundleGlyph
+
     bounds = (0.0, 0.0, 60.0, 40.0)
     for glyph in (BundleGlyph(num_fields=3), UnbundleGlyph(num_fields=3)):
         b = SvgBackend()
@@ -2698,6 +2881,7 @@ def test_bundle_and_unbundle_draw_mirrored_split_boxes():
     def arrow_x(svg):
         m = re.search(r'<text x="([\d.]+)"[^>]*>▶<', svg)
         return float(m.group(1))
+
     assert arrow_x(bb.render(bounds)) > 30.0  # right half
     assert arrow_x(ub.render(bounds)) < 30.0  # left half
 
@@ -2706,6 +2890,7 @@ def test_entry_edge_point_seats_dot_on_wire_side():
     """A coercion dot on a border terminal sits on the edge the wire ENTERS
     (toward the source), never the terminal's center."""
     from lvkit.render.scene import _entry_edge_point
+
     center = (100.0, 100.0)
     bounds = (90.0, 92.0, 110.0, 108.0)  # 20x16 box around the center
     # wire coming from the left -> left edge (x1), same y as center
@@ -2729,11 +2914,16 @@ def test_string_constant_has_full_text_tooltip():
 
     full = "a very long string constant that will not fit in this little box"
     node = ConstantNode(
-        id="c1", vi="v", value=full,
-        lv_type=LVType(kind="primitive", underlying_type="String"),
+        id="c1",
+        vi="v",
+        value=full,
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
     )
-    rn = RenderNode(node=node, bounds=(0.0, 0.0, 40.0, 16.0),
-                    glyph=ConstantGlyph(full, "#000000", multiline=True))
+    rn = RenderNode(
+        node=node,
+        bounds=(0.0, 0.0, 40.0, 16.0),
+        glyph=ConstantGlyph(full, "#000000", multiline=True),
+    )
     b = SvgBackend()
     draw_node(rn, b)
     svg = b.render((0.0, 0.0, 40.0, 16.0))
@@ -2745,10 +2935,13 @@ def test_bundle_by_name_glyph_draws_field_names():
     field name, AND the cluster-direction arrow cell (task #89) — matching
     LabVIEW's real Bundle/Unbundle By Name glyph."""
     from lvkit.render.glyph import BundleByNameGlyph
+
     bounds = (0.0, 0.0, 90.0, 60.0)
     b = SvgBackend()
     BundleByNameGlyph(names=("level", "parent name", "xml index")).draw(
-        b, bounds, DEFAULT_THEME,
+        b,
+        bounds,
+        DEFAULT_THEME,
     )
     svg = b.render(bounds)
     for name in ("level", "parent name", "xml index"):
@@ -2760,18 +2953,20 @@ def test_bundle_by_name_arrow_side_follows_direction():
     """The arrow cell sits on the cluster side: RIGHT for Bundle By Name
     (fields in -> cluster out), LEFT for Unbundle By Name (task #89)."""
     from lvkit.render.glyph import BundleByNameGlyph
+
     bounds = (0.0, 0.0, 100.0, 40.0)
 
     def arrow_x(bundling: bool) -> float:
         b = SvgBackend()
         BundleByNameGlyph(names=("a", "b"), bundling=bundling).draw(
-            b, bounds, DEFAULT_THEME)
+            b, bounds, DEFAULT_THEME
+        )
         m = re.search(r'<text x="([\d.]+)"[^>]*>▶</text>', b.render(bounds))
         assert m is not None
         return float(m.group(1))
 
-    assert arrow_x(True) > 50.0    # Bundle By Name -> arrow on the RIGHT half
-    assert arrow_x(False) < 50.0   # Unbundle By Name -> arrow on the LEFT half
+    assert arrow_x(True) > 50.0  # Bundle By Name -> arrow on the RIGHT half
+    assert arrow_x(False) < 50.0  # Unbundle By Name -> arrow on the LEFT half
 
 
 def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
@@ -2781,13 +2976,20 @@ def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.scene import _is_boundary_mux
 
-    loaded = _load_graph(Path(".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"
-                              "XML Loop Stack Recursion.vi"))
+    loaded = _load_graph(
+        Path(
+            ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"
+            "XML Loop Stack Recursion.vi"
+        )
+    )
     if loaded is None:
         pytest.skip("sample VI not available")
     graph, vi = loaded
-    nmux = {n.id.split("::")[-1]: n for n in graph.iter_nodes(vi)
-            if getattr(n, "node_type", None) == "nMux"}
+    nmux = {
+        n.id.split("::")[-1]: n
+        for n in graph.iter_nodes(vi)
+        if getattr(n, "node_type", None) == "nMux"
+    }
     scene = build_scene(graph, vi)
     assert scene is not None
     rn = {r.node.id.split("::")[-1]: r for r in scene.nodes}
@@ -2822,7 +3024,9 @@ def test_nmux_on_class_private_data_draws_field_name():
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.scene import _is_boundary_mux
 
-    testresult_dir = Path(".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult")  # noqa: E501
+    testresult_dir = Path(
+        ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult"
+    )  # noqa: E501
     vi_path = testresult_dir / "GetTestsRun.vi"
     if not vi_path.exists():
         pytest.skip("sample VI not available")
@@ -2831,8 +3035,9 @@ def test_nmux_on_class_private_data_draws_field_name():
     graph.load_vi(str(vi_path), search_paths=[testresult_dir.parent])
     vi_name = "TestResult.lvclass:GetTestsRun.vi"
 
-    nmux = [n for n in graph.iter_nodes(vi_name)
-            if getattr(n, "node_type", None) == "nMux"]
+    nmux = [
+        n for n in graph.iter_nodes(vi_name) if getattr(n, "node_type", None) == "nMux"
+    ]
     assert nmux, "expected an nMux node on the class private-data unbundle"
     agg = next((t for t in nmux[0].terminals if t.nmux_role == "agg"), None)
     assert agg is not None and agg.lv_type is not None
@@ -2904,7 +3109,11 @@ def test_parse_private_data_fields_is_authoritative_to_the_class():
     assert names == ["DAQ Tasks", "Channel Indeces"]
     assert names != ["instance ID", "key-value pairs"]  # the wrong-class bug
     assert [sf.name for sf in fields[0].sub_fields] == [
-        "AI Task", "AO Task", "DI Task", "DO Task", "PWM Task",
+        "AI Task",
+        "AO Task",
+        "DI Task",
+        "DO Task",
+        "PWM Task",
     ]
     index_group = [sf.name for sf in fields[1].sub_fields]
     assert index_group[:4] == ["AI Index", "AO Index", "DI Index", "DO Index"]
@@ -2926,20 +3135,34 @@ def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
     daq_tasks = ClusterField(
         name="DAQ Tasks",
         type=LVType(
-            kind="cluster",
-            fields=[sub(n) for n in (
-                "AI Task", "AO Task", "DI Task", "DO Task", "PWM Task",
-            )],
+            kind=LVTypeKind.CLUSTER,
+            fields=[
+                sub(n)
+                for n in (
+                    "AI Task",
+                    "AO Task",
+                    "DI Task",
+                    "DO Task",
+                    "PWM Task",
+                )
+            ],
         ),
     )
     channel_indeces = ClusterField(
         name="Channel Indeces",
         type=LVType(
-            kind="cluster",
-            fields=[sub(n) for n in (
-                "AI Index", "AO Index", "DI Index", "DO Index",
-                "PWM Freq Index", "PWM DC Index",
-            )],
+            kind=LVTypeKind.CLUSTER,
+            fields=[
+                sub(n)
+                for n in (
+                    "AI Index",
+                    "AO Index",
+                    "DI Index",
+                    "DO Index",
+                    "PWM Freq Index",
+                    "PWM DC Index",
+                )
+            ],
         ),
     )
     fields = [daq_tasks, channel_indeces]
@@ -2995,7 +3218,8 @@ def test_bundle_by_name_resolves_nested_class_private_data_field_names():
     vi_name = graph.resolve_vi_name(vi_path.name)
 
     decompose_nodes = [
-        n for n in graph.iter_nodes(vi_name)
+        n
+        for n in graph.iter_nodes(vi_name)
         if getattr(n, "node_type", None) == "decomposeClusterNode"
     ]
     assert decompose_nodes, "expected decomposeClusterNode border nodes"
@@ -3037,7 +3261,8 @@ def test_bundle_by_name_resolves_class_private_data_with_no_class_on_disk():
         )
 
         decompose_nodes = [
-            n for n in graph.iter_nodes(vi_name)
+            n
+            for n in graph.iter_nodes(vi_name)
             if getattr(n, "node_type", None) == "decomposeClusterNode"
         ]
         assert decompose_nodes
@@ -3045,7 +3270,10 @@ def test_bundle_by_name_resolves_class_private_data_with_no_class_on_disk():
             glyph = _bundle_by_name_glyph(node, graph)
             assert isinstance(glyph, BundleByNameGlyph)
             assert glyph.names == (
-                "DI Index", "AO Task", "PWM Freq Index", "DO Task",
+                "DI Index",
+                "AO Task",
+                "PWM Freq Index",
+                "DO Task",
             )
 
 
@@ -3081,7 +3309,8 @@ def test_bundle_by_name_prefers_own_vi_copy_over_stale_dep_graph_snapshot():
     )
 
     decompose_nodes = [
-        n for n in graph.iter_nodes(vi_name)
+        n
+        for n in graph.iter_nodes(vi_name)
         if getattr(n, "node_type", None) == "decomposeClusterNode"
     ]
     assert decompose_nodes
@@ -3113,7 +3342,8 @@ def test_bundle_by_name_attaches_resolved_names_to_terminals_for_the_panel():
     vi_name = graph.resolve_vi_name(vi_path.name)
 
     decompose_nodes = [
-        n for n in graph.iter_nodes(vi_name)
+        n
+        for n in graph.iter_nodes(vi_name)
         if getattr(n, "node_type", None) == "decomposeClusterNode"
     ]
     assert decompose_nodes
@@ -3127,14 +3357,15 @@ def test_bundle_by_name_attaches_resolved_names_to_terminals_for_the_panel():
             key=lambda t: t.index,
         )
         assert [_terminal_label(t) for t in field_terms] == [
-            "DI Index", "AO Task", "PWM Freq Index", "DO Task",
+            "DI Index",
+            "AO Task",
+            "PWM Freq Index",
+            "DO Task",
         ]
         # The panel label is the FULL name, never the glyph's ellipsis-cut
         # form, and never the generic index-based fallback.
         assert all("…" not in _terminal_label(t) for t in field_terms)
-        assert all(
-            not _terminal_label(t).startswith("terminal ") for t in field_terms
-        )
+        assert all(not _terminal_label(t).startswith("terminal ") for t in field_terms)
 
 
 def test_resolve_bundle_by_name_labels_only_attaches_real_names():
@@ -3149,16 +3380,26 @@ def test_resolve_bundle_by_name_labels_only_attaches_real_names():
 
     fields = [ClusterField(name="widgetCount", type=None)]
     resolved = Terminal(
-        id="f0", index=0, direction="output",
-        nmux_role="list", nmux_field_index=0,
+        id="f0",
+        index=0,
+        direction="output",
+        nmux_role="list",
+        nmux_field_index=0,
     )
     named_by_terminal = Terminal(
-        id="f1", index=1, direction="output",
-        nmux_role="list", nmux_field_index=None, name="caller side name",
+        id="f1",
+        index=1,
+        direction="output",
+        nmux_role="list",
+        nmux_field_index=None,
+        name="caller side name",
     )
     unresolved = Terminal(
-        id="f2", index=2, direction="output",
-        nmux_role="list", nmux_field_index=5,
+        id="f2",
+        index=2,
+        direction="output",
+        nmux_role="list",
+        nmux_field_index=5,
     )
     field_terms = [resolved, named_by_terminal, unresolved]
 
@@ -3191,17 +3432,26 @@ def test_bundle_by_name_falls_back_to_dep_graph_when_vi_source_unknown():
 
     terms = [
         Terminal(
-            id="agg", index=0, direction="input", nmux_role="agg",
-            lv_type=LVType(kind="primitive", classname="Synthetic.lvclass"),
+            id="agg",
+            index=0,
+            direction="input",
+            nmux_role="agg",
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, classname="Synthetic.lvclass"),
         ),
         Terminal(
-            id="f0", index=1, direction="output",
-            nmux_role="list", nmux_field_index=0,
+            id="f0",
+            index=1,
+            direction="output",
+            nmux_role="list",
+            nmux_field_index=0,
         ),
     ]
     node = PrimitiveNode(
-        id="n0", vi="V", name="Bundle/Unbundle By Name",
-        node_type="nMux", terminals=terms,
+        id="n0",
+        vi="V",
+        name="Bundle/Unbundle By Name",
+        node_type="nMux",
+        terminals=terms,
     )
     glyph = _bundle_by_name_glyph(node, graph)
     assert isinstance(glyph, BundleByNameGlyph)
@@ -3213,16 +3463,22 @@ def test_bundle_by_name_falls_back_to_dep_graph_when_vi_source_unknown():
 # last displayed (dataspace), not just the default/frame-0 fallback (#81).
 # ---------------------------------------------------------------------------
 
+
 def _case_node_with_frames(displayed_frame):
     from lvkit.models import CaseFrame
+
     frames = [
         CaseFrame(selector_value="a"),
         CaseFrame(selector_value="b"),
         CaseFrame(selector_value="c", is_default=True),
     ]
     return CaseStructureNode(
-        id="vi::case1", vi="vi", name="Case", node_type="select",
-        frames=frames, selector_terminal=None,
+        id="vi::case1",
+        vi="vi",
+        name="Case",
+        node_type="select",
+        frames=frames,
+        selector_terminal=None,
         displayed_frame=displayed_frame,
     )
 
@@ -3248,15 +3504,20 @@ class TestCaseDisplayedFrame:
 # "A=a" Case Insensitive Match badge (#58) — bottom-left of a string case.
 # ---------------------------------------------------------------------------
 
+
 def _draw_case_border_svg(case_insensitive: bool) -> str:
     from lvkit.render.draw import draw_structure
     from lvkit.render.scene import RenderStructure
+
     node = CaseStructureNode(
-        id="vi::c", vi="vi", name="Case", node_type="select",
-        frames=[], case_insensitive=case_insensitive,
+        id="vi::c",
+        vi="vi",
+        name="Case",
+        node_type="select",
+        frames=[],
+        case_insensitive=case_insensitive,
     )
-    struct = RenderStructure(node=node, bounds=(0.0, 0.0, 120.0, 90.0),
-                             raw_uid="c")
+    struct = RenderStructure(node=node, bounds=(0.0, 0.0, 120.0, 90.0), raw_uid="c")
     scene = Scene(bounds=(0.0, 0.0, 120.0, 90.0), structures=[struct])
     backend = SvgBackend()
     draw_structure(struct, scene, backend)
@@ -3276,20 +3537,30 @@ class TestCaseInsensitiveBadge:
 # leaves it unwired (per-frame inner-tunnel wiredness).
 # ---------------------------------------------------------------------------
 
+
 def _case_with_output_tunnel(frames: list[str], wired: list[str]):
     """A case output tunnel with one inner per frame; ``wired`` names the frames
     whose inner IS a wire destination."""
     from lvkit.models import TunnelTerminal
-    outer = TunnelTerminal(id="vi::out", index=0, direction="output",
-                           tunnel_type="csTun", boundary="outer")
+
+    outer = TunnelTerminal(
+        id="vi::out", index=0, direction="output", tunnel_type="csTun", boundary="outer"
+    )
     inners = [
-        TunnelTerminal(id=f"vi::in_{f}", index=0, direction="input",
-                       tunnel_type="csTun", boundary="inner",
-                       paired_id="vi::out", frame=f)
+        TunnelTerminal(
+            id=f"vi::in_{f}",
+            index=0,
+            direction="input",
+            tunnel_type="csTun",
+            boundary="inner",
+            paired_id="vi::out",
+            frame=f,
+        )
         for f in frames
     ]
-    node = CaseStructureNode(id="vi::c", vi="vi", name="Case", node_type="select",
-                             terminals=[outer, *inners])
+    node = CaseStructureNode(
+        id="vi::c", vi="vi", name="Case", node_type="select", terminals=[outer, *inners]
+    )
     wired_dest = frozenset(f"vi::in_{f}" for f in wired)
     return node, wired_dest
 
@@ -3297,6 +3568,7 @@ def _case_with_output_tunnel(frames: list[str], wired: list[str]):
 class TestDefaultIfUnwired:
     def _bt(self, frames, wired):
         from lvkit.render.scene import _structure_borders
+
         node, wired_dest = _case_with_output_tunnel(frames, wired)
         layout = Layout(node_bounds={"out": (10.0, 10.0, 19.0, 19.0)})
         bts = _structure_borders(node, layout, "vi", wired_dest)
@@ -3314,9 +3586,13 @@ class TestDefaultIfUnwired:
         from lvkit.render.draw import _draw_border_terminal
         from lvkit.render.scene import RenderBorderTerminal
         from lvkit.render.style import DEFAULT_THEME
+
         bt = RenderBorderTerminal(
-            terminal=None, bounds=(0.0, 0.0, 12.0, 12.0), glyph_kind="tunnel",
-            color="#e05fa0", unwired_frames=frozenset(unwired_frames),
+            terminal=None,
+            bounds=(0.0, 0.0, 12.0, 12.0),
+            glyph_kind="tunnel",
+            color="#e05fa0",
+            unwired_frames=frozenset(unwired_frames),
         )
         backend = SvgBackend()
         _draw_border_terminal(bt, backend, DEFAULT_THEME, frame_value)
@@ -3324,6 +3600,7 @@ class TestDefaultIfUnwired:
 
     def test_hole_only_in_unwired_frame(self):
         from lvkit.render.style import DEFAULT_THEME
+
         # In the unwired frame -> canvas hole punched.
         assert DEFAULT_THEME.canvas in self._draw({"b"}, frame_value="b")
         # In a wired frame -> solid, no hole.
@@ -3437,9 +3714,17 @@ def test_decode_signal_comb_fanout_early_prune():
     )
     src = (-2610.5, -413.5)
     sinks = [
-        (-2294.5, 2156.5), (-2272.0, 2325.0), (-2273.0, 2428.0), (-2322.0, 2661.0),
-        (-2231.5, 916.5), (-2274.0, 2742.0), (-2147.5, 2930.5), (-2351.5, -389.5),
-        (-2267.0, 1848.0), (-2384.0, 1114.0), (-1740.5, -570.5),
+        (-2294.5, 2156.5),
+        (-2272.0, 2325.0),
+        (-2273.0, 2428.0),
+        (-2322.0, 2661.0),
+        (-2231.5, 916.5),
+        (-2274.0, 2742.0),
+        (-2147.5, 2930.5),
+        (-2351.5, -389.5),
+        (-2267.0, 1848.0),
+        (-2384.0, 1114.0),
+        (-1740.5, -570.5),
     ]
     mids = decode_signal(blob, src, sinks)
     assert mids is not None
@@ -3461,8 +3746,12 @@ def test_decode_signal_turned_trunk_comb_backward_neg_perp():
     )
     src = (605.0, 1765.0)
     sinks = [
-        (-59.5, 1368.5), (648.0, 1933.0), (196.0, 2315.0),
-        (203.0, 2597.0), (648.0, 1986.0), (194.0, 1833.0),
+        (-59.5, 1368.5),
+        (648.0, 1933.0),
+        (196.0, 2315.0),
+        (203.0, 2597.0),
+        (648.0, 1986.0),
+        (194.0, 1833.0),
     ]
     from lvkit.parser.wire_table import _decode_tree_deterministic
 
@@ -3534,13 +3823,20 @@ def test_mux_doc_url_resolves_by_field_direction():
     name, not its ambiguous raw name: fields-out -> Unbundle By Name,
     fields-in -> Bundle By Name (task #67)."""
     from lvkit.render.draw import _node_doc_url
-    unbundle = _prim("nMux", "Bundle/Unbundle By Name",
-                     dirs=("input", "output", "output"),
-                     roles=("agg", "list", "list"))
+
+    unbundle = _prim(
+        "nMux",
+        "Bundle/Unbundle By Name",
+        dirs=("input", "output", "output"),
+        roles=("agg", "list", "list"),
+    )
     assert _node_doc_url(unbundle).endswith("/functions/unbundle-by-name.html")
-    bundle = _prim("nMux", "Bundle/Unbundle By Name",
-                   dirs=("output", "input", "input"),
-                   roles=("agg", "list", "list"))
+    bundle = _prim(
+        "nMux",
+        "Bundle/Unbundle By Name",
+        dirs=("output", "input", "input"),
+        roles=("agg", "list", "list"),
+    )
     assert _node_doc_url(bundle).endswith("/functions/bundle-by-name.html")
 
 
@@ -3548,11 +3844,14 @@ def test_node_type_flavor_carries_doc_url():
     """resolve_by_node_type surfaces doc_url so node-type primitives (no
     primResID: Build Array, Compound Arithmetic, ...) link to NI docs (#67)."""
     from lvkit.primitive_resolver import get_resolver
+
     r = get_resolver()
     assert r.resolve_by_node_type("aBuild").doc_url.endswith(
-        "/functions/build-array.html")
+        "/functions/build-array.html"
+    )
     assert r.resolve_by_node_type("cpdArith").doc_url.endswith(
-        "/functions/compound-arithmetic.html")
+        "/functions/compound-arithmetic.html"
+    )
 
 
 def test_refnum_wire_is_dark_green_not_grey():
@@ -3562,14 +3861,19 @@ def test_refnum_wire_is_dark_green_not_grey():
     take the generic green (its wire is the class's own colour)."""
     from lvkit.render.style import type_family
 
-    generic_ref = LVType(kind="primitive", underlying_type="Refnum",
-                         ref_type="DataLogRefnum")
+    generic_ref = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="DataLogRefnum"
+    )
     assert type_family(generic_ref) == "refnum"
     assert wire_style(generic_ref).color == DEFAULT_THEME.wire_refnum
     assert wire_style(generic_ref).color != DEFAULT_THEME.wire_default
 
-    lvoop = LVType(kind="primitive", underlying_type="Refnum",
-                   ref_type="UDClassInst", classname="Camera.lvclass")
+    lvoop = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname="Camera.lvclass",
+    )
     assert type_family(lvoop) != "refnum"
 
 
@@ -3589,18 +3893,24 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
 
     def term(idx, direction, ut):
         return Terminal(
-            id=f"VI::{idx}", index=idx, direction=direction,
-            lv_type=LVType(kind="primitive", underlying_type=ut),
+            id=f"VI::{idx}",
+            index=idx,
+            direction=direction,
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=ut),
         )
+
     node = PrimitiveNode(
-        id="VI::9", vi="VI", node_type="propNode", name="Property Node",
+        id="VI::9",
+        vi="VI",
+        node_type="propNode",
+        name="Property Node",
         object_name="VI",
         properties=[PropertyDef(name="Value"), PropertyDef(name="Visible")],
         terminals=[
-            term(0, "input", "Refnum"),   # reference in  (excluded)
+            term(0, "input", "Refnum"),  # reference in  (excluded)
             term(1, "output", "Refnum"),  # reference out (excluded)
-            term(2, "input", "NumFloat64"),   # Value  -> write
-            term(3, "output", "Boolean"),     # Visible -> read
+            term(2, "input", "NumFloat64"),  # Value  -> write
+            term(3, "output", "Boolean"),  # Visible -> read
         ],
         property_value_terminal_ids=["VI::2", "VI::3"],
     )
@@ -3612,9 +3922,9 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     # The resolved property NAME is pinned onto its VALUE terminal's
     # display_name, so the hover connector-panel shows it (not "terminal N") —
     # same single-source pattern as Bundle-By-Name.
-    assert node.terminals[2].display_name == "Value"    # idx 2 value term
+    assert node.terminals[2].display_name == "Value"  # idx 2 value term
     assert node.terminals[3].display_name == "Visible"  # idx 3 value term
-    assert node.terminals[0].display_name is None       # reference term untouched
+    assert node.terminals[0].display_name is None  # reference term untouched
 
     # No properties -> None, so the caller falls back to the plain box.
     empty = PrimitiveNode(
@@ -3631,12 +3941,20 @@ def test_compact_array_terminal_brackets_element_type():
     from lvkit.render.draw import draw_fp_terminal
 
     arr = LVType(
-        kind="array", underlying_type="Array",
-        element_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+        kind=LVTypeKind.ARRAY,
+        underlying_type="Array",
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
         dimensions=1,
     )
-    t = FPTerminal(id="x", index=0, direction="output", name="data",
-                   lv_type=arr, is_indicator=False, control_type="stdNum")
+    t = FPTerminal(
+        id="x",
+        index=0,
+        direction="output",
+        name="data",
+        lv_type=arr,
+        is_indicator=False,
+        control_type="stdNum",
+    )
 
     b = SvgBackend()
     draw_fp_terminal(t, (0, 0, 16, 16), b)
@@ -3713,9 +4031,9 @@ def test_theme_mode_light_is_byte_identical_and_var_free():
     default_svg = render_vi(graph, vi)
     light_svg = render_vi(graph, vi, theme_mode="light")
     assert default_svg is not None
-    assert default_svg == light_svg           # explicit light == default
-    assert "var(--lv-" not in light_svg       # no css-var recoloring
-    assert "@media" not in light_svg          # no injected palette block
+    assert default_svg == light_svg  # explicit light == default
+    assert "var(--lv-" not in light_svg  # no css-var recoloring
+    assert "@media" not in light_svg  # no injected palette block
     assert ":root{" not in light_svg
 
 
@@ -3729,7 +4047,7 @@ def test_theme_mode_dark_embeds_css_var_theme_and_dark_palette():
     graph, vi = _theme_mode_graph()
     dark_svg = render_vi(graph, vi, theme_mode="dark")
     assert dark_svg is not None
-    assert "var(--lv-" in dark_svg                         # css-var theme in use
+    assert "var(--lv-" in dark_svg  # css-var theme in use
     assert ":root{" in dark_svg
     assert f"--lv-prim-fill: {DARK_PALETTE['prim_fill']};" in dark_svg
     # dark = unconditional, so NO prefers-color-scheme wrapper.

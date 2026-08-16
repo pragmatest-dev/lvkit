@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.models import LVType
+from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.metadata import parse_iuse_from_libd
 from lvkit.parser.vi import _decode_default_data, _decode_element
 from lvkit.text_encoding import (
@@ -88,7 +88,7 @@ def test_string_defaults_and_constants_use_labview_encoding(
     )
     assert _decode_element(
         data,
-        LVType(kind="primitive", underlying_type="String"),
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
     ) == ("'打开连接'", len(data))
 
 

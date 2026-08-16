@@ -35,12 +35,14 @@ class AnalysisMixin:
                 gnode = self._graph.nodes[uid].get("node")
                 source_op = uid if gnode else None
 
-                branch_points.append(BranchPoint(
-                    source_terminal=uid,
-                    source_operation=source_op,
-                    destinations=successors,
-                    vi_name=vi_name,
-                ))
+                branch_points.append(
+                    BranchPoint(
+                        source_terminal=uid,
+                        source_operation=source_op,
+                        destinations=successors,
+                        vi_name=vi_name,
+                    )
+                )
 
         return branch_points
 
@@ -93,8 +95,7 @@ class AnalysisMixin:
             for succ in successors:
                 predecessors = list(self._graph.predecessors(succ))
                 other_inputs = [
-                    p for p in predecessors
-                    if p != node_id and p in all_branch_starts
+                    p for p in predecessors if p != node_id and p in all_branch_starts
                 ]
                 if other_inputs:
                     merge_terminal = succ

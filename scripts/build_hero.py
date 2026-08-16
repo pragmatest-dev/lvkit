@@ -18,6 +18,7 @@ Usage:
 
 Tweak the TAGLINES via flags; tweak the LOOK via the TOKENS block below.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,8 +30,8 @@ import tempfile
 from pathlib import Path
 
 # ── TOKENS (brand — edit here to restyle) ─────────────────────────────────────
-CREAM = "#faf7f2"   # light ground / dark-mode ink
-SLATE = "#2b3038"   # dark ground / light-mode ink
+CREAM = "#faf7f2"  # light ground / dark-mode ink
+SLATE = "#2b3038"  # dark ground / light-mode ink
 ORANGE = "#e8821e"  # LVKit accent — the LabVIEW DBL wire colour (locked)
 
 
@@ -39,9 +40,22 @@ def render_svg(vi: str, search_path: str) -> str:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "vi.svg"
         subprocess.run(
-            [sys.executable, "-m", "lvkit.cli", "render", vi, "-o", str(out),
-             "--search-path", search_path, "--theme", "auto"],
-            check=True, capture_output=True, text=True,
+            [
+                sys.executable,
+                "-m",
+                "lvkit.cli",
+                "render",
+                vi,
+                "-o",
+                str(out),
+                "--search-path",
+                search_path,
+                "--theme",
+                "auto",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
         )
         svg = out.read_text()
     # Drop the XML prolog so it inlines as an HTML element.
@@ -112,8 +126,9 @@ def build_html(svg: str, top: str, bottom: str, vi_name: str) -> str:
 {svg}
 </div>
 
-<p class="tagline bottom">— {bottom_e.replace(
-    "LabVIEW", '<span class="accent">LabVIEW</span>')}</p>
+<p class="tagline bottom">— {
+        bottom_e.replace("LabVIEW", '<span class="accent">LabVIEW</span>')
+    }</p>
 
 <div class="meta">
   <code>lvkit render "{name_e}"</code>

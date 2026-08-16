@@ -32,23 +32,24 @@ def test_error_cluster_fields_and_terminal_recovered():
     """A cluster names its fields by index into earlier TDs; the connector-pane
     map (0xf0) names the terminal slots."""
     tds = [
-        _td(0x21, _pstr("status")),                       # [0] Boolean
-        _td(0x03, _pstr("code")),                         # [1] I32
+        _td(0x21, _pstr("status")),  # [0] Boolean
+        _td(0x03, _pstr("code")),  # [1] I32
         _td(0x30, b"\xff\xff\xff\xff" + _pstr("source")),  # [2] String
-        _td(0x50, struct.pack(">HHHH", 3, 0, 1, 2)         # [3] Cluster refs 0,1,2
-              + _pstr("error out")),
-        _td(0xF0, struct.pack(">HH", 1, 3)),               # [4] conpane: slot0->TD3
+        _td(
+            0x50,
+            struct.pack(">HHHH", 3, 0, 1, 2)  # [3] Cluster refs 0,1,2
+            + _pstr("error out"),
+        ),
+        _td(0xF0, struct.pack(">HH", 1, 3)),  # [4] conpane: slot0->TD3
     ]
     terms = decode_conp_terminals(_conp(*tds))
     assert len(terms) == 1
     t = terms[0]
     assert t.slot == 0 and t.name == "error out"
     assert t.lv_type is not None and t.lv_type.kind == "cluster"
-    assert [f.name for f in (t.lv_type.fields or [])] == [
-        "status", "code", "source"
-    ]
+    assert [f.name for f in (t.lv_type.fields or [])] == ["status", "code", "source"]
     # Named status/code/source -> the shared error-cluster detector fires.
-    assert t.lv_type.lv_label() == "error cluster"
+    assert t.lv_type.type_descriptor() == "Error"
 
 
 def test_empty_conp_returns_no_terminals():
@@ -61,14 +62,14 @@ def test_void_slots_are_skipped():
     """Empty connector-pane slots point at a Void (0x00) TD and yield no
     terminal."""
     tds = [
-        _td(0x00, b""),                        # [0] Void
-        _td(0x0A, _pstr("x")),                 # [1] DBL
+        _td(0x00, b""),  # [0] Void
+        _td(0x0A, _pstr("x")),  # [1] DBL
         _td(0xF0, struct.pack(">HHH", 2, 0, 1)),  # slots: void, TD1
     ]
     terms = decode_conp_terminals(_conp(*tds))
     assert [t.slot for t in terms] == [1]
     assert terms[0].lv_type is not None
-    assert terms[0].lv_type.lv_label() == "DBL"
+    assert terms[0].lv_type.type_descriptor() == "DBL"
 
 
 def test_refnum_kind_and_class_name():
@@ -77,16 +78,20 @@ def test_refnum_kind_and_class_name():
     queue = _td(0x70, struct.pack(">HHH", 18, 1, 1) + _pstr("queue"))
     cls = _td(
         0x70,
-        struct.pack(">H", 30) + b"\x00" * 6 + b"\x13" + _pstr("Foo.lvclass")
-        + b"\x00" + _pstr("obj in"),
+        struct.pack(">H", 30)
+        + b"\x00" * 6
+        + b"\x13"
+        + _pstr("Foo.lvclass")
+        + b"\x00"
+        + _pstr("obj in"),
     )
     tds = [queue, cls, _td(0xF0, struct.pack(">HHH", 2, 0, 1))]
     terms = decode_conp_terminals(_conp(*tds))
     by_slot = {t.slot: t for t in terms}
     assert by_slot[0].lv_type is not None
-    assert by_slot[0].lv_type.lv_label() == "Queue refnum"
+    assert by_slot[0].lv_type.type_descriptor() == "Queue refnum"
     assert by_slot[1].lv_type is not None
-    assert by_slot[1].lv_type.lv_label() == "Foo.lvclass"
+    assert by_slot[1].lv_type.type_descriptor() == "Foo.lvclass"
 
 
 def test_class_refnum_label_follows_class_name():
@@ -96,24 +101,28 @@ def test_class_refnum_label_follows_class_name():
     same-class terminal — that IS the label, not garbled."""
     cls = _td(
         0x70,
-        struct.pack(">H", 30) + b"\x00" * 6
-        + _pstr("Class1.lvclass") + b"\x00\x00" + _pstr("Class1.lvclass 2"),
+        struct.pack(">H", 30)
+        + b"\x00" * 6
+        + _pstr("Class1.lvclass")
+        + b"\x00\x00"
+        + _pstr("Class1.lvclass 2"),
     )
     terms = decode_conp_terminals(_conp(cls, _td(0xF0, struct.pack(">HH", 1, 0))))
     assert len(terms) == 1
     assert terms[0].lv_type is not None
     assert terms[0].lv_type.classname == "Class1.lvclass"  # the TYPE
-    assert terms[0].name == "Class1.lvclass 2"             # the LABEL
+    assert terms[0].name == "Class1.lvclass 2"  # the LABEL
 
     # A developer-renamed terminal sits in the same slot.
     renamed = _td(
         0x70,
-        struct.pack(">H", 30) + b"\x00" * 6
-        + _pstr("Class1.lvclass") + b"\x00\x00" + _pstr("reference in"),
+        struct.pack(">H", 30)
+        + b"\x00" * 6
+        + _pstr("Class1.lvclass")
+        + b"\x00\x00"
+        + _pstr("reference in"),
     )
-    t = decode_conp_terminals(
-        _conp(renamed, _td(0xF0, struct.pack(">HH", 1, 0)))
-    )[0]
+    t = decode_conp_terminals(_conp(renamed, _td(0xF0, struct.pack(">HH", 1, 0))))[0]
     assert t.name == "reference in"
 
 
@@ -135,12 +144,10 @@ def _labels(vi_path: Path) -> set[str]:
         *g.get_inputs(name, public_only=False),
         *g.get_outputs(name, public_only=False),
     ]
-    return {t.faithful_type_label() for t in terms}
+    return {t.type_descriptor() for t in terms}
 
 
-_NEW_VI = (
-    _SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestSuite" / "New.vi"
-)
+_NEW_VI = _SAMPLES / "JKI-VI-Tester" / "source" / "Classes" / "TestSuite" / "New.vi"
 
 
 @pytest.mark.needs_samples
@@ -154,7 +161,10 @@ def test_lv82_class_refnum_resolves_to_class_name():
 
 
 _LV82_VI = (
-    _SAMPLES / "JKI-VI-Tester" / "source" / "Build Support"
+    _SAMPLES
+    / "JKI-VI-Tester"
+    / "source"
+    / "Build Support"
     / "Package Builder Utilities"
     / "Auto Increment Package Version__JKI_RIGHT_CLICK_BUILD_SUPPORT.vi"
 )
@@ -188,8 +198,8 @@ def test_conp_slot_alignment_agrees_with_control_type():
 
     # control_type -> predicate the faithful label must satisfy if aligned.
     agrees = {
-        "stdClust": lambda lbl: lbl == "error cluster" or lbl.startswith(
-            ("cluster", "cluster{")
+        "stdClust": lambda lbl: (
+            lbl == "Error" or lbl.startswith(("cluster", "cluster{"))
         ),
         "stdRing": lambda lbl: lbl.startswith("enum{") or lbl == "ring",
         "stdString": lambda lbl: lbl == "String",
@@ -206,8 +216,8 @@ def test_conp_slot_alignment_agrees_with_control_type():
         if pred is None:
             continue
         checked += 1
-        assert pred(t.faithful_type_label()), (
+        assert pred(t.type_descriptor()), (
             f"slot misalignment? {control_type} control resolved to "
-            f"{t.faithful_type_label()!r}"
+            f"{t.type_descriptor()!r}"
         )
     assert checked >= 3  # this VI has clusters, a ring, and strings

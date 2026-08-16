@@ -11,15 +11,13 @@ from __future__ import annotations
 
 import re
 
-from .models import LVType
+from .models import LVType, LVTypeKind
 
 # A numeric constant's DCO display-format is a printf-ish spec. We only handle
 # the plain forms (a precision and a conversion letter); anything more exotic
 # (e.g. ``%#_13g`` seen once in the corpus with a non-numeric width token) is
 # left for the caller to fall back on default formatting rather than guess at.
-_NUMERIC_FORMAT_RE = re.compile(
-    r"^%[#0\- +]*\d*\.(?P<prec>\d+)(?P<conv>[fFeEgGxXob])$"
-)
+_NUMERIC_FORMAT_RE = re.compile(r"^%[#0\- +]*\d*\.(?P<prec>\d+)(?P<conv>[fFeEgGxXob])$")
 # LabVIEW prefixes a non-decimal numeric constant with a lowercase letter —
 # "x" for hex, "o" for octal, "b" for binary — never a "0x"/"0o"/"0b" style
 # prefix (verified against the task's own example: U8 31 -> "x1F").
@@ -27,10 +25,14 @@ _RADIX_PREFIX = {"x": "x", "X": "x", "o": "o", "b": "b"}
 _RADIX_FORMAT_SPEC = {"x": "X", "X": "X", "o": "o", "b": "b"}
 
 _INT_BYTE_WIDTH = {
-    "NumInt8": 1, "NumUInt8": 1,
-    "NumInt16": 2, "NumUInt16": 2,
-    "NumInt32": 4, "NumUInt32": 4,
-    "NumInt64": 8, "NumUInt64": 8,
+    "NumInt8": 1,
+    "NumUInt8": 1,
+    "NumInt16": 2,
+    "NumUInt16": 2,
+    "NumInt32": 4,
+    "NumUInt32": 4,
+    "NumInt64": 8,
+    "NumUInt64": 8,
 }
 
 
@@ -40,13 +42,15 @@ def int_byte_width(lv_type: LVType | None) -> int | None:
     Used to two's-complement a negative value to its type's bit width
     before hex/octal/binary display — LabVIEW shows e.g. I16 -1 as
     ``xFFFF``, not a Python-style ``-x1``."""
-    if lv_type is None or lv_type.kind != "primitive":
+    if lv_type is None or lv_type.kind != LVTypeKind.PRIMITIVE:
         return None
     return _INT_BYTE_WIDTH.get(lv_type.underlying_type or "")
 
 
 def format_numeric_const(
-    lv_type: LVType | None, value: object, display_format: str | None,
+    lv_type: LVType | None,
+    value: object,
+    display_format: str | None,
 ) -> str | None:
     """Apply a numeric constant's DCO-provided display-format string to its
     decoded value: hex/octal/binary radix (with LabVIEW's lowercase x/o/b

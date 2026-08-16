@@ -7,6 +7,7 @@ _add_vi_to_graph fBox / else branches (byte-identical output).
 Dispatch: NODE_BUILD_HANDLERS keyed by node_type, else DEFAULT_NODE_BUILD_HANDLER
 (the generic primitive/operation handler — the "GenericHandler" of this stage).
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -34,9 +35,15 @@ from .context import GraphBuildContext
 # Node types that represent a SubVI call (dynamic or static). Single source of
 # truth — construction.py imports this (it also drives name/description
 # resolution and _connect_subvi_calls).
-SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
-    "iUse", "polyIUse", "dynIUse", "callParentDynIUse", "callByRefNode",
-})
+SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset(
+    {
+        "iUse",
+        "polyIUse",
+        "dynIUse",
+        "callParentDynIUse",
+        "callByRefNode",
+    }
+)
 
 
 class NodeBuildHandler(ABC):
@@ -45,11 +52,14 @@ class NodeBuildHandler(ABC):
 
     @abstractmethod
     def build(
-        self, node: Any, node_name: str | None, q_node_uid: str,
-        node_terminals: list[Terminal], description: str | None,
+        self,
+        node: Any,
+        node_name: str | None,
+        q_node_uid: str,
+        node_terminals: list[Terminal],
+        description: str | None,
         ctx: GraphBuildContext,
-    ) -> AnyGraphNode:
-        ...
+    ) -> AnyGraphNode: ...
 
 
 class FormulaBuildHandler(NodeBuildHandler):
@@ -90,8 +100,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
             prim_kwargs["object_method_id"] = node.object_method_id
             if isinstance(node, PropertyNode):
                 prim_kwargs["properties"] = [
-                    PropertyDef(name=p.get("name", ""))
-                    if isinstance(p, dict) else p
+                    PropertyDef(name=p.get("name", "")) if isinstance(p, dict) else p
                     for p in node.properties
                 ]
                 prim_kwargs["property_value_terminal_ids"] = [
@@ -124,19 +133,23 @@ class SubVIBuildHandler(NodeBuildHandler):
         poly_variant = None
         if isinstance(node, SubVINode) and node.poly_variant_name:
             poly_variant = node.poly_variant_name
-        # Persist the FULLY QUALIFIED callee name (e.g.
-        # "TestCase.lvclass:CallTestMethod.vi"): prefer the iUse->qname map,
-        # then the graph's own resolution (mirroring _connect_subvi_calls);
-        # falls back to the bare name — never None.
-        callee_q = ctx.iuse_to_qname.get(node.uid) or node_name
-        resolved_q = ctx.resolve_vi_name(callee_q) if callee_q else None
-        qualified_name = (
-            resolved_q
-            if resolved_q and resolved_q in ctx.graph
-            else node_name
-        )
-        # Dynamic-dispatch calls get their class-qualified target after type
-        # propagation — see _resolve_dispatch_qnames.
+        # Persist the callee's FULLY QUALIFIED NAME (e.g.
+        # "TestCase.lvclass:CallTestMethod.vi"). ``iuse_to_qname`` is parsed from
+        # the caller's OWN LIbd/BDHP (same source as ``subvi_qualified_names``),
+        # so it is already class-qualified, load-mode-independent, and
+        # deterministic. For a DYNAMIC-DISPATCH call it is the DECLARING PARENT
+        # class's method (e.g. "TestResult.lvclass:addError.vi") — the honest
+        # static edge, since the runtime override isn't statically knowable.
+        #
+        # KEEP IT AS THE QNAME — do NOT resolve it to the callee's vi_key here.
+        # VI identity is now the file PATH, so resolve_vi_name returns a PATH;
+        # stamping that made qualified_name a path AND, when a name/qname mapped
+        # to several on-disk copies (source-vs-built, base-vs-override), picked
+        # one copy load-order-dependently — a count that flipped by filesystem.
+        # The index resolves this qname to a concrete callee_path on its own
+        # (deterministically, keyed on path). Falls back to the bare node_name
+        # only when the iUse map has no entry.
+        qualified_name = ctx.iuse_to_qname.get(node.uid) or node_name
         return VINode(
             id=q_node_uid,
             vi=ctx.vi_name,

@@ -96,9 +96,7 @@ def __getattr__(name: str) -> object:
     try:
         module, attr = _LAZY[name]
     except KeyError:
-        raise AttributeError(
-            f"module {__name__!r} has no attribute {name!r}"
-        ) from None
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
     import importlib
 
     value = getattr(importlib.import_module(module, __name__), attr)

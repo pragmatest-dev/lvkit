@@ -134,9 +134,7 @@ def _decode_chain(blob: str, start: Point, end: Point) -> list[Point] | None:
     for i in range(nseg - 1):  # intermediate vertices v1..v_{nseg-1}
         horiz = horiz0 == (i % 2 == 0)
         sign = (
-            (dx0 if horiz else dy0)
-            if i == 0
-            else (-1 if signs[i - 1] == 0x01 else 1)
+            (dx0 if horiz else dy0) if i == 0 else (-1 if signs[i - 1] == 0x01 else 1)
         )
         if horiz:
             cx += sign * lengths[i]
@@ -335,8 +333,10 @@ def _finish_leaf(
         full[-2] = (sink_rel[0], py) if px == full[-1][0] else (px, sink_rel[1])
     mid_rel = full[1:-1]
     pts = [(0.0, 0.0), *mid_rel, sink_rel]
-    if any(abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5
-           for (x0, y0), (x1, y1) in zip(pts, pts[1:])):
+    if any(
+        abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:])
+    ):
         return None
     return [(source[0] + mx, source[1] + my) for mx, my in mid_rel]
 
@@ -393,8 +393,10 @@ def _decode_tree_deterministic(
         if len(cands) != len(sinks_rel):
             return None
         cost = [
-            [max(abs(cands[i][0][0] - sr[0]), abs(cands[i][0][1] - sr[1]))
-             for i in range(len(cands))]
+            [
+                max(abs(cands[i][0][0] - sr[0]), abs(cands[i][0][1] - sr[1]))
+                for i in range(len(cands))
+            ]
             for sr in sinks_rel
         ]
         assign = _hungarian(cost)
@@ -497,16 +499,20 @@ def _decode_tree_search(
     jog = [False]  # second pass: allow a short final jog instead of rejecting
 
     def _diagonal(pts: list[Point]) -> bool:
-        return any(abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5
-                   for (x0, y0), (x1, y1) in zip(pts, pts[1:]))
+        return any(
+            abs(x1 - x0) > 0.5 and abs(y1 - y0) > 0.5
+            for (x0, y0), (x1, y1) in zip(pts, pts[1:])
+        )
 
     def _on_a_sink(pt: Point) -> bool:
         """True if a just-closed leaf endpoint lands near some sink — the
         necessary condition that prunes the fork search (a leaf that ends nowhere
         near a terminal is dead immediately, not only after the whole tree). The
         exact endpoint is snapped by ``finish``; this only bounds the search."""
-        return any(abs(pt[0] - sx) < _ASSIGN_TOL and abs(pt[1] - sy) < _ASSIGN_TOL
-                   for sx, sy in sinks_rel)
+        return any(
+            abs(pt[0] - sx) < _ASSIGN_TOL and abs(pt[1] - sy) < _ASSIGN_TOL
+            for sx, sy in sinks_rel
+        )
 
     def finish(path_rel: list[Point], sx: float, sy: float) -> list[Point] | None:
         """Turn a source-relative vertex path (ending near the sink) into the
@@ -559,8 +565,11 @@ def _decode_tree_search(
         out: list[list[Point]] = []
         for sx, sy in sinks_rel:
             for ci, (vp, pref) in enumerate(cands):
-                if used[ci] or abs(vp[0] - sx) >= _ASSIGN_TOL or \
-                        abs(vp[1] - sy) >= _ASSIGN_TOL:
+                if (
+                    used[ci]
+                    or abs(vp[0] - sx) >= _ASSIGN_TOL
+                    or abs(vp[1] - sy) >= _ASSIGN_TOL
+                ):
                     continue
                 mid = finish(pref, sx, sy)
                 if mid is None:
@@ -599,16 +608,23 @@ def _decode_tree_search(
                 newstack = stack if keep else stack[:-1]
                 for nd in _perp3(jdir):
                     npos = (jpos[0] + nd[0] * L, jpos[1] + nd[1] * L)
-                    rec(ti + 1, npos, nd, newstack,
-                        leaves + [(path, d)], jpath + [npos])
+                    rec(
+                        ti + 1, npos, nd, newstack, leaves + [(path, d)], jpath + [npos]
+                    )
                     if result:
                         return
         elif tok & 0x04:  # BRANCH (0x04 => multi-way junction)
             mw = tok == 0x04
             for nd in _perp3(d):
                 npos = (pos[0] + nd[0] * L, pos[1] + nd[1] * L)
-                rec(ti + 1, npos, nd, stack + [(pos, d, mw, path)],
-                    leaves, path + [npos])
+                rec(
+                    ti + 1,
+                    npos,
+                    nd,
+                    stack + [(pos, d, mw, path)],
+                    leaves,
+                    path + [npos],
+                )
                 if result:
                     return
         elif tok == 0x02:  # STRAIGHT: continue through a terminal tap (no kink)

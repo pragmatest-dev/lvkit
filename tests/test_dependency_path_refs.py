@@ -22,7 +22,9 @@ from lvkit.models import (
 )
 
 SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
-DAQMX_CALLER_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")  # noqa: E501
+DAQMX_CALLER_VI = Path(
+    ".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
+)  # noqa: E501
 TESTCASE_CLASS = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass"
 )
@@ -67,16 +69,17 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
     """Unresolved deps carry path_tokens threaded from the parser's link refs."""
     g = testcase_graph
     stubs_with_tokens = [
-        n for n in g._stubs
-        if g._dep_graph.has_node(n)
-        and g._dep_graph.nodes[n].get("path_tokens")
+        n
+        for n in g._stubs
+        if g._dep_graph.has_node(n) and g._dep_graph.nodes[n].get("path_tokens")
     ]
     assert stubs_with_tokens, "expected at least one stub with path_tokens"
     # At least one stub should carry a vendor-library root token. Class-member
     # stubs use caller-relative tokens (also valid) — this assertion protects
     # the <vilib>/<userlib> path specifically.
     rooted = [
-        n for n in stubs_with_tokens
+        n
+        for n in stubs_with_tokens
         if g._dep_graph.nodes[n]["path_tokens"][0] in ("<vilib>", "<userlib>")
     ]
     assert rooted, "expected at least one stub with a <vilib>/<userlib> path"
@@ -86,14 +89,7 @@ def test_vilib_iuses_carry_qualified_path(daqmx_graph):
     """DAQmx (vilib) iuses carry qualified_path via the LIbd/BDHP parser fix."""
     g = daqmx_graph
     ctx = g.get_vi_context(g.resolve_vi_name("DAQ AO.vi"))
-    paths = [
-        op.qualified_path
-        for op in _walk_ops(ctx.operations)
-        if op.qualified_path
-    ]
+    paths = [op.qualified_path for op in _walk_ops(ctx.operations) if op.qualified_path]
     assert paths, "expected at least one operation with a qualified_path"
-    rooted = [
-        p for p in paths
-        if p.startswith("<vilib>") or p.startswith("<userlib>")
-    ]
+    rooted = [p for p in paths if p.startswith("<vilib>") or p.startswith("<userlib>")]
     assert rooted, f"expected a <vilib>/<userlib> qualified_path, got {paths}"

@@ -37,15 +37,25 @@ def _build_case_xml(
             the fields entirely.
     """
     root = ET.Element("root")
-    case = ET.SubElement(root, "SL__arrayElement", attrib={
-        "class": "select", "uid": case_uid,
-    })
+    case = ET.SubElement(
+        root,
+        "SL__arrayElement",
+        attrib={
+            "class": "select",
+            "uid": case_uid,
+        },
+    )
 
     # Selector terminal
     term_list = ET.SubElement(case, "termList")
-    term = ET.SubElement(term_list, "SL__arrayElement", attrib={
-        "class": "term", "uid": selector_uid,
-    })
+    term = ET.SubElement(
+        term_list,
+        "SL__arrayElement",
+        attrib={
+            "class": "term",
+            "uid": selector_uid,
+        },
+    )
     sel_dco = ET.SubElement(term, "dco", attrib={"class": "cSelDCO"})
     if sel_type_id is not None:
         ET.SubElement(sel_dco, "typeDesc").text = f"TypeID({sel_type_id})"
@@ -59,9 +69,13 @@ def _build_case_xml(
         else:
             start, diag_idx = entry
             end = start
-        sr = ET.SubElement(sra, "SL__arrayElement", attrib={
-            "class": "SelectorRange",
-        })
+        sr = ET.SubElement(
+            sra,
+            "SL__arrayElement",
+            attrib={
+                "class": "SelectorRange",
+            },
+        )
         ET.SubElement(sr, "start").text = str(start)
         ET.SubElement(sr, "end").text = str(end)
         ET.SubElement(sr, "diagramIdx").text = str(diag_idx)
@@ -84,15 +98,21 @@ def _build_case_xml(
     # Diagram frames
     diag_list = ET.SubElement(case, "diagramList")
     for i in range(num_diags):
-        ET.SubElement(diag_list, "SL__arrayElement", attrib={
-            "class": "diag", "uid": f"diag_{i}",
-        })
+        ET.SubElement(
+            diag_list,
+            "SL__arrayElement",
+            attrib={
+                "class": "diag",
+                "uid": f"diag_{i}",
+            },
+        )
 
     return root
 
 
 def _make_terminal_info(
-    uid: str, type_name: str,
+    uid: str,
+    type_name: str,
 ) -> dict[str, ParsedTerminalInfo]:
     return {
         uid: ParsedTerminalInfo(
@@ -108,7 +128,8 @@ def _make_terminal_info(
 class TestBooleanSelector:
     def test_boolean_maps_0_false_1_true(self):
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(0, 0), (1, 1)],
         )
         ti = _make_terminal_info("sel1", "Boolean")
@@ -123,7 +144,8 @@ class TestBooleanSelector:
     def test_boolean_reversed_diag_order(self):
         """diagramIdx 0 = True (start=1), diagramIdx 1 = False (start=0)."""
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(1, 0), (0, 1)],
         )
         ti = _make_terminal_info("sel1", "Boolean")
@@ -138,7 +160,8 @@ class TestStringSelector:
     def test_string_uses_select_string_array(self):
         """String case should decode hex values from SelectStringArray."""
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(0, 0)],
             string_array=["54657374436173652E6C76636C617373"],  # TestCase.lvclass
             default_diag=1,
@@ -155,12 +178,13 @@ class TestStringSelector:
     def test_string_multiple_values(self):
         """String case with multiple string labels."""
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(0, 0), (1, 1), (2, 2)],
             string_array=[
-                "616C706861",   # alpha
-                "62657461",     # beta
-                "67616D6D61",   # gamma
+                "616C706861",  # alpha
+                "62657461",  # beta
+                "67616D6D61",  # gamma
             ],
             num_diags=3,
         )
@@ -193,7 +217,8 @@ class TestStringSelector:
     def test_string_without_terminal_info_falls_back(self):
         """Without terminal_info, string cases get raw integer values."""
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(0, 0)],
             string_array=["54657374436173652E6C76636C617373"],
             default_diag=1,
@@ -209,7 +234,8 @@ class TestStringSelector:
 class TestIntegerSelector:
     def test_integer_uses_raw_values(self):
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(0, 0), (1, 1), (2, 2)],
             num_diags=3,
         )
@@ -226,7 +252,8 @@ class TestIntegerSelector:
 class TestDefaultCase:
     def test_default_frame_marked(self):
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(0, 0)],
             default_diag=1,
         )
@@ -241,7 +268,8 @@ class TestDefaultCase:
     def test_no_default_when_ff(self):
         """SelectDefaultCase=FF means no default frame."""
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(0, 0), (1, 1)],
         )
         # Manually set FF
@@ -261,7 +289,8 @@ class TestDefaultCase:
         the boolean-fallback bug on enum/integer selectors."""
         # Two diagrams, but only diag 1 has an explicit range (value 9).
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(9, 1)],
             num_diags=2,
         )
@@ -279,7 +308,8 @@ class TestSelectorRanges:
         """selector_ranges carries start/end faithfully, including several
         ranges on one frame (e.g. ``1, 3, 5..8``)."""
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             # diag 0: 0..1 ; diag 1: 9 ; diag 2: 2..8
             select_ranges=[(0, 1, 0), (9, 9, 1), (2, 8, 2)],
             num_diags=3,
@@ -315,7 +345,8 @@ class TestSymbolicRangeTypes:
         # frame 0: No-Error — symbolic degenerate point (start == end).
         # frame 1: Error/default — symbolic full-domain span (start != end).
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[
                 (-2147483648, -2147483648, 0),
                 (-2147483648, 2147483647, 1),
@@ -341,7 +372,8 @@ class TestSymbolicRangeTypes:
         """Fully-literal ranges (type 0/0) — the common enum/int/bool/string
         case — must resolve exactly as before the range-type fix."""
         root = _build_case_xml(
-            "cs1", "sel1",
+            "cs1",
+            "sel1",
             select_ranges=[(0, 0), (1, 1)],
             range_types=[(0, 0), (0, 0)],
         )
@@ -358,6 +390,7 @@ class TestSymbolicRangeTypes:
 # Dataspace selector-value tables (#82): the real per-frame selector values
 # live in the main *.xml DFDS, not the block-diagram heap.
 # ---------------------------------------------------------------------------
+
 
 def _ds_selector_table(
     type_id: int,
@@ -401,8 +434,12 @@ def _ds_root(*datafills: ET.Element) -> ET.Element:
 class TestParseSelectorTables:
     def test_decode_string_and_numeric_tables(self):
         root = _ds_root(
-            _ds_selector_table(33, 4, [(0, 0, 0), (2, 4, 1)],
-                               strings=["bmp", "jpe", "jpeg", "jpg", "png"]),
+            _ds_selector_table(
+                33,
+                4,
+                [(0, 0, 0), (2, 4, 1)],
+                strings=["bmp", "jpe", "jpeg", "jpg", "png"],
+            ),
             _ds_selector_table(35, 2, [(2, 3, 0), (5, 7, 1)]),
         )
         tables = parse_selector_tables(root)
@@ -413,16 +450,19 @@ class TestParseSelectorTables:
 
     def test_dedupe_identical_pairs_keeps_lowest_type_id(self):
         """pylabview emits each default twice (edit + run copy)."""
+
         def t(tid: int) -> ET.Element:
             return _ds_selector_table(tid, 0, [(0, 0, 0), (1, 1, 1)])
+
         tables = parse_selector_tables(_ds_root(t(31), t(70)))
         assert [t.type_id for t in tables] == [31]
 
     def test_ignores_non_selector_datafills(self):
         other = ET.Element("DataFill", attrib={"TypeID": "9"})
         ET.SubElement(other, "I32").text = "42"
-        tables = parse_selector_tables(_ds_root(
-            other, _ds_selector_table(33, 0, [(0, 0, 0), (1, 1, 1)])))
+        tables = parse_selector_tables(
+            _ds_root(other, _ds_selector_table(33, 0, [(0, 0, 0), (1, 1, 1)]))
+        )
         assert [t.type_id for t in tables] == [33]
 
 
@@ -430,12 +470,20 @@ class TestApplySelectorTables:
     def test_string_multi_value_frame_and_displayed(self):
         # Extension case: bmp -> f0 ; jpe/jpeg/jpg -> f1 ; gif -> f2 ; default f3
         root = _build_case_xml(
-            "cs1", "sel1", select_ranges=[], num_diags=4, sel_type_id=42,
+            "cs1",
+            "sel1",
+            select_ranges=[],
+            num_diags=4,
+            sel_type_id=42,
         )
-        tables = [_ds_selector_table_obj(
-            33, 3,
-            [(0, 0, 0), (2, 2, 1), (3, 3, 1), (4, 4, 1), (1, 1, 2)],
-            ["bmp", "gif", "jpe", "jpeg", "jpg"])]
+        tables = [
+            _ds_selector_table_obj(
+                33,
+                3,
+                [(0, 0, 0), (2, 2, 1), (3, 3, 1), (4, 4, 1), (1, 1, 2)],
+                ["bmp", "gif", "jpe", "jpeg", "jpg"],
+            )
+        ]
         ti = _make_terminal_info("sel1", "String")
         cs = extract_case_structures(root, ti, tables)[0]
         assert cs.displayed_frame == 3
@@ -447,7 +495,11 @@ class TestApplySelectorTables:
 
     def test_integer_ranges_applied(self):
         root = _build_case_xml(
-            "cs1", "sel1", select_ranges=[], num_diags=3, sel_type_id=50,
+            "cs1",
+            "sel1",
+            select_ranges=[],
+            num_diags=3,
+            sel_type_id=50,
         )
         tables = [_ds_selector_table_obj(35, 2, [(2, 3, 0), (5, 7, 1)])]
         ti = _make_terminal_info("sel1", "NumInt32")
@@ -460,10 +512,13 @@ class TestApplySelectorTables:
     def test_kind_mismatch_aborts_application(self):
         """A string table must not be applied to an integer case."""
         root = _build_case_xml(
-            "cs1", "sel1", select_ranges=[], num_diags=2, sel_type_id=42,
+            "cs1",
+            "sel1",
+            select_ranges=[],
+            num_diags=2,
+            sel_type_id=42,
         )
-        tables = [_ds_selector_table_obj(33, 0, [(0, 0, 0), (1, 1, 1)],
-                                         ["a", "b"])]
+        tables = [_ds_selector_table_obj(33, 0, [(0, 0, 0), (1, 1, 1)], ["a", "b"])]
         ti = _make_terminal_info("sel1", "NumInt32")
         cs = extract_case_structures(root, ti, tables)[0]
         # No string values applied; falls back to frame-index placeholders.
@@ -474,7 +529,10 @@ class TestApplySelectorTables:
         """A boolean case stores no table; adding one (count mismatch) must not
         touch its True/False frames."""
         root = _build_case_xml(
-            "cs1", "sel1", select_ranges=[(0, 0), (1, 1)], sel_type_id=42,
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0), (1, 1)],
+            sel_type_id=42,
         )
         tables = [_ds_selector_table_obj(33, 0, [(0, 0, 0), (1, 1, 1)])]
         ti = _make_terminal_info("sel1", "Boolean")
@@ -489,14 +547,23 @@ def _ds_selector_table_obj(
     ranges: list[tuple[int, int, int]],
     strings: list[str] | None = None,
 ) -> SelectorTable:
-    return SelectorTable(type_id=type_id, displayed_frame=displayed,
-                         ranges=list(ranges), strings=list(strings or []))
+    return SelectorTable(
+        type_id=type_id,
+        displayed_frame=displayed,
+        ranges=list(ranges),
+        strings=list(strings or []),
+    )
 
 
 class TestCaseInsensitiveFlag:
     def _case_with_objflags(self, objflags, type_name="String"):
-        root = _build_case_xml("cs1", "sel1", select_ranges=[(0, 0)],
-                               string_array=["616263"], default_diag=1)
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0)],
+            string_array=["616263"],
+            default_diag=1,
+        )
         case = root.find(".//*[@class='select']")
         assert case is not None
         ET.SubElement(case, "objFlags").text = str(objflags)

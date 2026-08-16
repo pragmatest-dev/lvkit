@@ -32,7 +32,9 @@ class TestSequenceFrameModel:
 
     def test_sequence_frame_creation(self):
         frame = SequenceFrame(
-            index=0, uid="f1", inner_node_uids=["n1", "n2"],
+            index=0,
+            uid="f1",
+            inner_node_uids=["n1", "n2"],
         )
         assert frame.uid == "f1"
         assert frame.index == 0
@@ -56,10 +58,14 @@ class TestSequenceFrameModel:
             tunnels=[t],
             frames=[
                 SequenceFrame(
-                    index=0, uid="f0", inner_node_uids=["a"],
+                    index=0,
+                    uid="f0",
+                    inner_node_uids=["a"],
                 ),
                 SequenceFrame(
-                    index=1, uid="f1", inner_node_uids=["b"],
+                    index=1,
+                    uid="f1",
+                    inner_node_uids=["b"],
                 ),
             ],
         )
@@ -83,7 +89,9 @@ class TestSequenceFrameModel:
         )
         fs = ParsedFlatSequenceStructure(uid="seq1", tunnels=[t])
         bd = ParsedBlockDiagram(
-            nodes=[], constants=[], wires=[],
+            nodes=[],
+            constants=[],
+            wires=[],
             flat_sequences=[fs],
         )
         found = bd.get_tunnel_mapping("outer1")
@@ -100,9 +108,7 @@ class TestExtractFlatSequences:
     """Tests for extract_flat_sequences() XML parsing."""
 
     def _make_xml(self, xml_str: str) -> ET.Element:
-        return ET.fromstring(
-            f'<?xml version="1.0"?><root>{xml_str}</root>'
-        )
+        return ET.fromstring(f'<?xml version="1.0"?><root>{xml_str}</root>')
 
     def test_empty_document(self):
         root = self._make_xml("")
@@ -231,7 +237,9 @@ class TestExtractFlatSequences:
 
         assert len(result) == 1
         assert result[0].frames[0].inner_node_uids == [
-            "301", "302", "303",
+            "301",
+            "302",
+            "303",
         ]
 
     def test_no_uid_skipped(self):
@@ -274,7 +282,9 @@ class TestSequenceInMemoryGraph:
 
         # VINode for the VI itself (FP terminals)
         vi_node = VINode(
-            id=vi_name, vi=vi_name, name=vi_name,
+            id=vi_name,
+            vi=vi_name,
+            name=vi_name,
             terminals=[],
         )
         g.add_node(vi_name, node=vi_node)
@@ -282,7 +292,8 @@ class TestSequenceInMemoryGraph:
         # Flat sequence structure node — tunnels, frames, inner_node_uids
         # all stored ON the StructureNode
         seq_node = SequenceNode(
-            id="seq1", vi=vi_name,
+            id="seq1",
+            vi=vi_name,
             name="Flat Sequence",
             node_type="flatSequence",
             frames=[
@@ -291,13 +302,19 @@ class TestSequenceInMemoryGraph:
             ],
             terminals=[
                 TunnelTerminal(
-                    id="tun_outer", index=0, direction="input",
-                    tunnel_type="seqTun", boundary="outer",
+                    id="tun_outer",
+                    index=0,
+                    direction="input",
+                    tunnel_type="seqTun",
+                    boundary="outer",
                     paired_id="tun_inner",
                 ),
                 TunnelTerminal(
-                    id="tun_inner", index=0, direction="input",
-                    tunnel_type="seqTun", boundary="inner",
+                    id="tun_inner",
+                    index=0,
+                    direction="input",
+                    tunnel_type="seqTun",
+                    boundary="inner",
                     paired_id="tun_outer",
                 ),
             ],
@@ -306,9 +323,12 @@ class TestSequenceInMemoryGraph:
 
         # Inner VINodes in two frames
         write1_node = VINode(
-            id="write1", vi=vi_name, name="Write.vi",
+            id="write1",
+            vi=vi_name,
+            name="Write.vi",
             node_type="iUse",
-            parent="seq1", frame="0",
+            parent="seq1",
+            frame="0",
             terminals=[
                 Terminal(id="w1_in", index=0, direction="input"),
             ],
@@ -316,16 +336,21 @@ class TestSequenceInMemoryGraph:
         g.add_node("write1", node=write1_node)
 
         write2_node = VINode(
-            id="write2", vi=vi_name, name="Write.vi",
+            id="write2",
+            vi=vi_name,
+            name="Write.vi",
             node_type="iUse",
-            parent="seq1", frame="1",
+            parent="seq1",
+            frame="1",
             terminals=[],
         )
         g.add_node("write2", node=write2_node)
 
         # Upstream VINode
         start_node = VINode(
-            id="start", vi=vi_name, name="Start.vi",
+            id="start",
+            vi=vi_name,
+            name="Start.vi",
             node_type="iUse",
             terminals=[
                 Terminal(id="start_out", index=0, direction="output"),
@@ -335,36 +360,44 @@ class TestSequenceInMemoryGraph:
 
         # Wire: start -> seq1 (typed WireEnd edges on MultiDiGraph)
         src = WireEnd(
-            terminal_id="start_out", node_id="start",
-            index=0, parent_kind="vi",
+            terminal_id="start_out",
+            node_id="start",
+            index=0,
+            parent_kind="vi",
         )
         dst = WireEnd(
-            terminal_id="tun_outer", node_id="seq1",
-            index=0, parent_kind="operation",
+            terminal_id="tun_outer",
+            node_id="seq1",
+            index=0,
+            parent_kind="operation",
         )
         g.add_edge("start", "seq1", source=src, dest=dst, vi=vi_name)
 
         # Register all node UIDs for this VI
         graph._vi_nodes[vi_name] = {
-            vi_name, "seq1", "write1", "write2", "start",
+            vi_name,
+            "seq1",
+            "write1",
+            "write2",
+            "start",
         }
         graph._dep_graph.add_node(vi_name)
 
         return graph
 
     def test_sequence_in_operations(
-        self, graph_with_sequence: InMemoryVIGraph,
+        self,
+        graph_with_sequence: InMemoryVIGraph,
     ):
         """Flat sequence appears as an operation."""
         ops = graph_with_sequence.get_operations("Seq.vi")
-        seq_ops = [
-            op for op in ops if op.node_type == "flatSequence"
-        ]
+        seq_ops = [op for op in ops if op.node_type == "flatSequence"]
         assert len(seq_ops) == 1
         assert seq_ops[0].kind == "flatSequence"
 
     def test_inner_nodes_excluded_from_top_level(
-        self, graph_with_sequence: InMemoryVIGraph,
+        self,
+        graph_with_sequence: InMemoryVIGraph,
     ):
         """Inner nodes of sequence frames don't appear at top level."""
         ops = graph_with_sequence.get_operations("Seq.vi")
@@ -373,31 +406,30 @@ class TestSequenceInMemoryGraph:
         assert "write2" not in op_ids
 
     def test_sequence_has_tunnels(
-        self, graph_with_sequence: InMemoryVIGraph,
+        self,
+        graph_with_sequence: InMemoryVIGraph,
     ):
         """Sequence operation has tunnel info."""
         ops = graph_with_sequence.get_operations("Seq.vi")
-        seq_op = [
-            op for op in ops if op.node_type == "flatSequence"
-        ][0]
+        seq_op = [op for op in ops if op.node_type == "flatSequence"][0]
         assert len(seq_op.tunnels) == 1
         assert seq_op.tunnels[0].tunnel_type == "seqTun"
 
     def test_sequence_has_frames(
-        self, graph_with_sequence: InMemoryVIGraph,
+        self,
+        graph_with_sequence: InMemoryVIGraph,
     ):
         """Sequence frames are stored as frames."""
         ops = graph_with_sequence.get_operations("Seq.vi")
-        seq_op = [
-            op for op in ops if op.node_type == "flatSequence"
-        ][0]
+        seq_op = [op for op in ops if op.node_type == "flatSequence"][0]
         assert isinstance(seq_op, SequenceOperation)
         assert len(seq_op.frames) == 2
         assert seq_op.frames[0].index == 0
         assert seq_op.frames[1].index == 1
 
     def test_sequence_after_upstream_dependency(
-        self, graph_with_sequence: InMemoryVIGraph,
+        self,
+        graph_with_sequence: InMemoryVIGraph,
     ):
         """Sequence appears after nodes that feed into it."""
         ops = graph_with_sequence.get_operations("Seq.vi")
@@ -544,7 +576,8 @@ class TestCodeGenRegistry:
         from lvkit.codegen.nodes import generate as generate_node
 
         op = SequenceOperation(
-            id="1", name="Flat Sequence",
+            id="1",
+            name="Flat Sequence",
             kind="flatSequence",
             node_type="flatSequence",
         )
@@ -558,7 +591,8 @@ class TestCodeGenRegistry:
         from lvkit.codegen.nodes import generate as generate_node
 
         op = SequenceOperation(
-            id="1", name="Stacked Sequence",
+            id="1",
+            name="Stacked Sequence",
             kind="flatSequence",
             node_type="seq",
         )

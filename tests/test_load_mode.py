@@ -32,7 +32,8 @@ def _render(vi: Path, mode: LoadMode) -> tuple[str, int]:
     g = InMemoryVIGraph()
     g.load_vi(vi, search_paths=None, layout=True, mode=mode)
     n_vis = sum(
-        1 for _, d in g._dep_graph.nodes(data=True)
+        1
+        for _, d in g._dep_graph.nodes(data=True)
         if d.get("node_type") not in ("class", "typedef", "library")
     )
     return render_vi(g, g.resolve_vi_name(vi.name)) or "", n_vis
@@ -54,4 +55,4 @@ def test_minimal_truncates_the_transitive_tree() -> None:
     _, full_vis = _render(DEEP_VI, LoadMode.FULL)
     _, min_vis = _render(DEEP_VI, LoadMode.MINIMAL)
     assert full_vis > 20  # the transitive tree is deep
-    assert min_vis <= 5   # MINIMAL collapses to the shallow direct fan-out
+    assert min_vis <= 5  # MINIMAL collapses to the shallow direct fan-out

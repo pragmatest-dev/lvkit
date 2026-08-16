@@ -15,12 +15,21 @@ import ast
 LV_IMPORT = "from lvkit.runtime import lv as _lv"
 
 _BINOP = {
-    ast.Add: "add", ast.Sub: "sub", ast.Mult: "mul", ast.Div: "truediv",
-    ast.FloorDiv: "floordiv", ast.Mod: "mod", ast.Pow: "pow_",
+    ast.Add: "add",
+    ast.Sub: "sub",
+    ast.Mult: "mul",
+    ast.Div: "truediv",
+    ast.FloorDiv: "floordiv",
+    ast.Mod: "mod",
+    ast.Pow: "pow_",
 }
 _CMP = {
-    ast.Gt: "gt", ast.Lt: "lt", ast.GtE: "ge", ast.LtE: "le",
-    ast.Eq: "eq", ast.NotEq: "ne",
+    ast.Gt: "gt",
+    ast.Lt: "lt",
+    ast.GtE: "ge",
+    ast.LtE: "le",
+    ast.Eq: "eq",
+    ast.NotEq: "ne",
 }
 
 
@@ -42,9 +51,12 @@ def _is_array_valued(node: ast.expr, array_vars: frozenset[str]) -> bool:
     (``a[i]``) is a scalar element."""
     if isinstance(node, ast.Name):
         return node.id in array_vars
-    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "_lv"):
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "_lv"
+    ):
         return True
     if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Slice):
         return _is_array_valued(node.value, array_vars)

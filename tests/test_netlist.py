@@ -30,6 +30,7 @@ from lvkit.graph.netlist import (
     NetRef,
     build_netlist,
     index_module,
+    netlist_to_dict,
     render_netlist,
 )
 from lvkit.load_mode import LoadMode
@@ -68,8 +69,7 @@ _COVERAGE_VI = Path(
 # `Equal?#2.equal`. Ground truth located by grepping the JKI-VI-Tester
 # corpus's extracted `*_BDHb.xml` for `cpdArith` and parsing each candidate.
 _INVERTED_INPUT_VI = Path(
-    ".lvkit/cache/samples/JKI-VI-Tester/source/Menu Launch/"
-    "VI Tester Menu Launch.vi"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Menu Launch/VI Tester Menu Launch.vi"
 )
 
 # The audit's Property Node black-box finding: this VI's Property Nodes
@@ -110,10 +110,11 @@ _SHIFT_REGISTER_VI = Path(
 # tunnel, consumed immediately after the loop (Array Size / Sort Array__
 # ogtk.vi / Conditional Auto-Indexing Tunnel__ogtk.vi). Ground truth located
 # the same way as _SHIFT_REGISTER_VI.
-_LAST_VALUE_LOOP_VI = Path(
+# A VI with a genuine CONDITIONAL output tunnel (the orthogonal modifier).
+_CONDITIONAL_LOOP_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
     "Graphical Test Runner/Graphical Test Runner Support/"
-    "Calculate Test Coverage.vi"
+    "Prepend Test Project Path If New.vi"
 )
 
 # Real corpus VI with a genuinely UNINITIALIZED shift register (an array
@@ -136,12 +137,8 @@ _UNINITIALIZED_SR_VI = Path(
 # feedbackNodeDelay are both explicit in the block-diagram heap. Ground truth
 # located by grepping the extracted ``*_BDHb.xml`` for the feedback DCO
 # classes (leftFeedback/rightFeedback/initFeedback + SlaveFBInputNode).
-_FEEDBACK_VI = Path(
-    ".lvkit/cache/samples/lv-flex-channel-examples/WaveGen/WaveGen.vi"
-)
-_FEEDBACK_SEARCH_ROOT = Path(
-    ".lvkit/cache/samples/lv-flex-channel-examples/WaveGen"
-)
+_FEEDBACK_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/WaveGen/WaveGen.vi")
+_FEEDBACK_SEARCH_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples/WaveGen")
 
 
 def _load_vi(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str]:
@@ -251,9 +248,7 @@ def test_feedback_output_consumer_resolves_to_named_fb_net() -> None:
     assert fb_bindings[0].net.node is None
 
 
-def test_shift_register_renders_mu_and_inner_reader_resolves_to_shift_net() -> (
-    None
-):
+def test_shift_register_renders_mu_and_inner_reader_resolves_to_shift_net() -> None:
     """Loop analogue of the case gamma-merge fix: a shift register is a
     genuine Gated-SSA mu recurrence, not a single hop-through to its init
     value. Before this fix, a reader inside the loop resolved straight
@@ -295,9 +290,7 @@ def test_shift_register_renders_mu_and_inner_reader_resolves_to_shift_net() -> (
         assert "init ->" in stripped
 
 
-def test_auto_indexed_output_renders_eta_array_and_outside_consumer_resolves() -> (
-    None
-):
+def test_auto_indexed_output_renders_eta_array_and_outside_consumer_resolves() -> None:
     """The loop analogue of the Build-Array gamma regression: an
     auto-indexed loop output tunnel is a genuine array merge across every
     iteration, not the inner per-iteration scalar producer. Before this
@@ -323,12 +316,11 @@ def test_auto_indexed_output_renders_eta_array_and_outside_consumer_resolves() -
     )
     no_error_frame = next(f for f in case_scope.frames if not f.is_default)
     suite_init = next(
-        item for item in no_error_frame.body
+        item
+        for item in no_error_frame.body
         if isinstance(item, NetlistInstance) and item.name == "TestSuite_Init.vi"
     )
-    tests_binding = next(
-        b for b in suite_init.inputs if b.port.startswith("tests")
-    )
+    tests_binding = next(b for b in suite_init.inputs if b.port.startswith("tests"))
     assert tests_binding.net.node is None
     assert tests_binding.net.bare == eta.net
 
@@ -341,27 +333,54 @@ def test_auto_indexed_output_renders_eta_array_and_outside_consumer_resolves() -
         assert stripped.startswith("out")
 
 
-def test_last_value_output_renders_eta_last() -> None:
-    """A LAST_VALUE loop output tunnel renders ``eta(last, ...)`` -- the
-    other half of the eta-merge's index_mode (mirrors the auto-indexed
-    "array" case above)."""
-    if not _LAST_VALUE_LOOP_VI.exists():
+def test_eta_line_renders_base_mode_and_conditional_modifier() -> None:
+    """The eta line renders the BASE mode token (``array``/``last``/...) and
+    appends ``+cond`` for the orthogonal Conditional modifier -- never a
+    separate ``conditional`` mode. Hermetic: no VI in the sample corpus has a
+    genuine last-value OUTPUT tunnel (the old ``eta(last)`` cases were
+    mislabeled indexing -- inner element vs outer array), so exercise the
+    render directly."""
+    from lvkit.graph.netlist import _eta_definition_line
+
+    val = DefaultValue(literal="0", type_descriptor="I32")
+    last = _eta_definition_line(
+        EtaMerge(net="loop0.out0", index_mode="last", conditional=False, value=val),
+        set(),
+    )
+    assert "eta(last," in last
+    cond_index = _eta_definition_line(
+        EtaMerge(net="loop0.out0", index_mode="array", conditional=True, value=val),
+        set(),
+    )
+    assert "eta(array+cond," in cond_index
+    cond_last = _eta_definition_line(
+        EtaMerge(net="loop0.out0", index_mode="last", conditional=True, value=val),
+        set(),
+    )
+    assert "eta(last+cond," in cond_last
+
+
+def test_conditional_output_tunnel_carries_conditional_modifier() -> None:
+    """A real VI with a Conditional output tunnel yields an EtaMerge whose
+    base ``index_mode`` is unchanged and ``conditional`` is True (the modifier
+    is orthogonal, never a mode)."""
+    if not _CONDITIONAL_LOOP_VI.exists():
         pytest.skip("JKI-VI-Tester sample corpus not present")
-    graph, vi_name = _load_vi(_LAST_VALUE_LOOP_VI, _JKI_SOURCE_ROOT)
+    graph, vi_name = _load_vi(_CONDITIONAL_LOOP_VI, _JKI_SOURCE_ROOT)
     module = build_netlist(graph, vi_name)
 
-    last_etas = [
+    cond_etas = [
         m
         for scope in _all_scopes(module.body)
         for m in scope.outputs
-        if isinstance(m, EtaMerge) and m.index_mode == "last"
+        if isinstance(m, EtaMerge) and m.conditional
     ]
-    assert last_etas, "expected at least one last-value EtaMerge"
-
+    assert cond_etas, "expected at least one conditional EtaMerge"
+    assert all(e.index_mode in ("array", "last", "concat") for e in cond_etas)
     out = render_netlist(module)
-    eta_last_lines = [ln for ln in out.splitlines() if ":= eta(last," in ln]
-    assert eta_last_lines
-    for line in eta_last_lines:
+    eta_lines = [ln for ln in out.splitlines() if ":= eta(" in ln]
+    assert any("+cond," in ln for ln in eta_lines)
+    for line in eta_lines:
         assert "<-" not in line
         assert line.strip().startswith("out")
 
@@ -392,7 +411,8 @@ def test_boundary_outputs_carry_their_source_net() -> None:
         pytest.skip("JKI-VI-Tester sample corpus not present")
     graph = InMemoryVIGraph()
     graph.load_vi(
-        str(_COVERAGE_VI), LoadMode.MINIMAL,
+        str(_COVERAGE_VI),
+        LoadMode.MINIMAL,
         search_paths=[_COVERAGE_VI.parents[3]],
     )
     vi_name = graph.resolve_vi_name(_COVERAGE_VI.name)
@@ -410,7 +430,8 @@ def test_boundary_outputs_carry_their_source_net() -> None:
 def _load_coverage_vi() -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(
-        str(_COVERAGE_VI), LoadMode.MINIMAL,
+        str(_COVERAGE_VI),
+        LoadMode.MINIMAL,
         search_paths=[_COVERAGE_VI.parents[3]],
     )
     vi_name = graph.resolve_vi_name(_COVERAGE_VI.name)
@@ -419,7 +440,8 @@ def _load_coverage_vi() -> tuple[InMemoryVIGraph, str]:
 
 def _case_scopes(module) -> list[NetlistScope]:
     return [
-        item for item in module.body
+        item
+        for item in module.body
         if isinstance(item, NetlistScope) and item.kind == "case"
     ]
 
@@ -439,7 +461,8 @@ def test_case_output_gamma_merges_feed_build_array() -> None:
     module = build_netlist(graph, vi_name)
 
     build_array = next(
-        item for item in module.body
+        item
+        for item in module.body
         if isinstance(item, NetlistInstance) and item.name == "Build Array"
     )
     assert len(build_array.inputs) == 3
@@ -485,9 +508,7 @@ def test_case_scopes_carry_gamma_merge_with_selector_and_type_default() -> None:
             frame_keys = {c.frame_key for c in gamma.cases}
             assert "default" in frame_keys
             assert len(gamma.cases) == len(scope.frames)
-            default_case = next(
-                c for c in gamma.cases if c.frame_key == "default"
-            )
+            default_case = next(c for c in gamma.cases if c.frame_key == "default")
             # At least one of this case's output tunnels leaves the Default
             # frame genuinely unwired (a type default), the other is fed by
             # the Default-frame pass-through of the filtered array -- assert
@@ -500,6 +521,7 @@ def test_case_scopes_carry_gamma_merge_with_selector_and_type_default() -> None:
         c.source
         for scope in case_scopes
         for gamma in scope.outputs
+        if isinstance(gamma, GammaMerge)  # a case scope's outputs are all gammas
         for c in gamma.cases
         if isinstance(c.source, DefaultValue)
     ]
@@ -580,7 +602,7 @@ class TestBuildNetlist:
             found_case = True
             indent = len(ln) - len(ln.lstrip(" "))
             frame_lines = 0
-            for nxt in lines[i + 1:]:
+            for nxt in lines[i + 1 :]:
                 nxt_indent = len(nxt) - len(nxt.lstrip(" "))
                 if nxt.strip() and nxt_indent <= indent:
                     break
@@ -632,7 +654,9 @@ def test_netlist_deterministic_across_hash_seeds():
             [sys.executable, "-c", script],
             cwd=Path(__file__).resolve().parent.parent,
             env={**os.environ, "PYTHONHASHSEED": seed},
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
@@ -707,7 +731,8 @@ def test_compound_arithmetic_renders_its_operator() -> None:
 
     out = render_netlist(module)
     lines = [
-        line for line in out.splitlines()
+        line
+        for line in out.splitlines()
         if "Compound Arithmetic#" in line and "(1=" in line
     ]
     assert len(lines) == 2
@@ -770,7 +795,8 @@ def test_non_cpdarith_instance_has_no_operation_suffix() -> None:
 def _load_inverted_input_vi() -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(
-        str(_INVERTED_INPUT_VI), LoadMode.MINIMAL,
+        str(_INVERTED_INPUT_VI),
+        LoadMode.MINIMAL,
         search_paths=[_INVERTED_INPUT_VI.parents[1]],
     )
     vi_name = graph.resolve_vi_name(_INVERTED_INPUT_VI.name)
@@ -810,9 +836,7 @@ def test_compound_arithmetic_inverted_input_renders_negation_prefix() -> None:
     )
     # The sibling (non-inverted) Compound Arithmetic node's inputs are
     # unaffected -- no negation wrapper appears anywhere on its line.
-    line1 = next(
-        line for line in out.splitlines() if "Compound Arithmetic#1 [" in line
-    )
+    line1 = next(line for line in out.splitlines() if "Compound Arithmetic#1 [" in line)
     assert "not(" not in line1
 
 
@@ -837,7 +861,8 @@ def test_compound_arithmetic_non_inverted_inputs_unchanged() -> None:
 def _load_property_node_vi() -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(
-        str(_PROPERTY_NODE_VI), LoadMode.MINIMAL,
+        str(_PROPERTY_NODE_VI),
+        LoadMode.MINIMAL,
         search_paths=[_PROPERTY_NODE_VI.parents[3]],
     )
     vi_name = graph.resolve_vi_name(_PROPERTY_NODE_VI.name)
@@ -967,8 +992,7 @@ def test_invoke_node_renders_method_and_object_and_keeps_numeric_params() -> Non
         "Invoke Node#1 [Tree (strict):Point To Row Column]"
         "(0=Event Data Node#12.3, 6=Event Data Node#12.4) -> "
         "Invoke Node#1.1, Invoke Node#1.3, Invoke Node#1.5, Invoke Node#1.7, "
-        "Invoke Node#1.9, Invoke Node#1.11, Invoke Node#1.13, Invoke Node#1.15"
-        in out
+        "Invoke Node#1.9, Invoke Node#1.11, Invoke Node#1.13, Invoke Node#1.15" in out
     )
 
 
@@ -997,8 +1021,12 @@ def test_invoke_node_without_object_name_shows_method_only() -> None:
     ``[None:method]`` or a dropped bracket) -- never fabricate an object
     class that wasn't in the file."""
     inst = NetlistInstance(
-        uid="1", name="Invoke Node", occurrence=None,
-        inputs=[], outputs=[], method_name="Some Method",
+        uid="1",
+        name="Invoke Node",
+        occurrence=None,
+        inputs=[],
+        outputs=[],
+        method_name="Some Method",
     )
     module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
 
@@ -1023,3 +1051,42 @@ def test_nmux_class_private_data_dep_graph_case_unchanged():
     out = render_netlist(build_netlist(graph, vi_name))
     assert "testsRun" in out
     assert "Bundle/Unbundle By Name.1" not in out
+
+
+def test_get_context_dict_carries_representation_audit_fields() -> None:
+    """The MCP get_context surface (netlist_to_dict on a real VI, end-to-end)
+    carries the representation-audit additions -- not just the IR dataclasses:
+    case gamma merges, loop eta merges, and the Compound Arithmetic operator.
+    Calculate Test Coverage has all three (3 filter cases, 3 for-loops with
+    auto-indexed outputs, and cpdArith ANDs). Guards against a projection
+    regression that would leave get_context silently lossy again."""
+    if not _COVERAGE_VI.exists():
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = _load_coverage_vi()
+    d = netlist_to_dict(build_netlist(graph, vi_name))
+
+    def _walk(items):
+        for it in items:
+            yield it
+            if it.get("kind") == "scope":
+                for fr in it["frames"]:
+                    yield from _walk(fr["body"])
+
+    body_items = list(_walk(d["body"]))
+    scopes = [i for i in body_items if i.get("kind") == "scope"]
+    # case gamma merges present in a case scope's outputs
+    case_outs = [
+        o for sc in scopes if sc["scope_kind"] == "case" for o in sc["outputs"]
+    ]
+    assert any(o["kind"] == "gamma" and o["selector"] for o in case_outs)
+    # loop eta merges present in a loop scope's outputs
+    loop_outs = [
+        o
+        for sc in scopes
+        if sc["scope_kind"] in ("for", "while")
+        for o in sc["outputs"]
+    ]
+    assert any(o["kind"] == "eta" for o in loop_outs)
+    # Compound Arithmetic operator carried on an instance
+    insts = [i for i in body_items if i.get("kind") == "instance"]
+    assert any(i.get("operation") == "and" for i in insts)

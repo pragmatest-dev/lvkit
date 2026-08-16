@@ -122,9 +122,7 @@ def _detect_windows() -> DetectedLabVIEW | None:
 
     for access, _view in views:
         try:
-            root = winreg.OpenKey(
-                winreg.HKEY_LOCAL_MACHINE, _LV_REG_SUBKEY, 0, access
-            )
+            root = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _LV_REG_SUBKEY, 0, access)
         except OSError:
             continue
 
@@ -155,9 +153,7 @@ def _detect_windows() -> DetectedLabVIEW | None:
                     install_dir, version or name, "windows-registry:highest"
                 )
                 if cand is not None:
-                    fallback_candidates.append(
-                        (_version_sort_key(cand.version), cand)
-                    )
+                    fallback_candidates.append((_version_sort_key(cand.version), cand))
 
     if fallback_candidates:
         fallback_candidates.sort(key=lambda item: item[0])

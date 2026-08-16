@@ -14,6 +14,7 @@ The structure IS rendered / described / diffed faithfully; only codegen cannot
 execute it. See ``project_nicegui_ui_target`` for the planned UI-generation path
 where these same event frames compile to async event handlers.
 """
+
 from __future__ import annotations
 
 import ast

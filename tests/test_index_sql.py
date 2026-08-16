@@ -16,13 +16,16 @@ from lvkit.index import sql
 from lvkit.index import store as store_mod
 from lvkit.index.model import (
     OUTPUT,
-    WIRED_INDICATOR,
     ConstantFact,
+    NodeFact,
+    NodeKind,
     TerminalFact,
     VIFacts,
+    WiredTo,
 )
 from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
+from lvkit.models import LVTypeKind
 
 
 def _term(
@@ -30,18 +33,23 @@ def _term(
     *,
     direction: str = OUTPUT,
     error: bool = False,
-    lv_type: str = "?",
+    type_descriptor: str = "?",
+    type_kind: LVTypeKind | None = None,
     enum_values: list[str] | None = None,
 ) -> TerminalFact:
+    # An error cluster is duck-typed — it surfaces as the built-in-style
+    # descriptor 'Error' (kind CLUSTER), never a distinct nominal type.
+    if error:
+        type_descriptor = "Error"
+        type_kind = LVTypeKind.CLUSTER
     return TerminalFact(
         name=name,
         direction=direction,
         is_indicator=(direction == OUTPUT),
         is_public=True,
         control_type=None,
-        py_type="object",
-        is_error_cluster=error,
-        lv_type=lv_type,
+        type_descriptor=type_descriptor,
+        type_kind=type_kind,
         enum_values=enum_values or [],
     )
 
@@ -62,10 +70,23 @@ def _project(tmp_path: Path) -> Path:
                 _term("error in", direction="input", error=True),  # input side
             ],
             constants=[
-                ConstantFact(value="42", label="answer", py_type="int",
-                             wired_to=WIRED_INDICATOR),
+                ConstantFact(
+                    value="42",
+                    label="answer",
+                    type_descriptor="I32",
+                    type_kind=LVTypeKind.PRIMITIVE,
+                    wired_to=WiredTo.INDICATOR,
+                ),
             ],
-            calls=["Lib.lvlib:b.vi"],
+            nodes=[
+                NodeFact(
+                    uid="call_b",
+                    kind=NodeKind.VI,
+                    name="b.vi",
+                    qualified_name="Lib.lvlib:b.vi",
+                    callee_path=str(tmp_path / "b.vi"),
+                )
+            ],
         ),
         VIFacts(
             path=str(tmp_path / "b.vi"),
@@ -150,7 +171,9 @@ def test_facts_fingerprint_skips_only_non_facts_dirs():
     )
     out = subprocess.run(
         [sys.executable, "-c", probe],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     closure_dirs = set(json.loads(out.stdout.strip().splitlines()[-1]))
     escaped = closure_dirs & store_mod._FINGERPRINT_SKIP_DIRS
@@ -166,7 +189,13 @@ def test_facts_fingerprint_skips_only_non_facts_dirs():
 def test_describe_schema_lists_all_views():
     views = {v.name for v in sql.describe_schema()}
     assert views == {
-        "vi", "terminal", "constant", "call", "type_use", "class_fact", "lvproj",
+        "vi",
+        "terminal",
+        "constant",
+        "node",
+        "type_use",
+        "class_fact",
+        "lvproj",
     }
 
 
@@ -208,7 +237,7 @@ def test_group_by_via_arbitrary_sql_matches_canned(tmp_path: Path):
     res = sql.run_query(
         root,
         "SELECT name, COUNT(*) AS n FROM terminal "
-        "WHERE is_error_cluster = 1 AND direction = 'output' "
+        "WHERE type_descriptor = 'Error' AND direction = 'output' "
         "GROUP BY name ORDER BY n DESC, name",
     )
     assert res.rows == [["error out", 2], ["err", 1]]
@@ -222,10 +251,9 @@ def test_constants_wired_to_indicator(tmp_path: Path):
     assert res.rows == [["42", "answer"]]
 
 
-def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
-    """Schema v3 (#22): the faithful ``lv_type`` label and ordinal
-    ``enum_values`` round-trip through save/load and are queryable via SQL —
-    not just ``py_type``'s lossy codegen projection."""
+def test_type_descriptor_and_enum_values_round_trip(tmp_path: Path):
+    """Schema v3 (#22): the exact ``type_descriptor`` and ordinal
+    ``enum_values`` round-trip through save/load and are queryable via SQL."""
     facts = [
         VIFacts(
             path=str(tmp_path / "m.vi"),
@@ -233,8 +261,10 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
             content_sha="sha-m",
             terminals=[
                 _term(
-                    "method", direction="input",
-                    lv_type="MethodEnum{setUp, testMethod, tearDown}",
+                    "method",
+                    direction="input",
+                    type_descriptor="MethodEnum{setUp, testMethod, tearDown}",
+                    type_kind=LVTypeKind.ENUM,
                     enum_values=["setUp", "testMethod", "tearDown"],
                 ),
                 _term("result"),  # non-enum terminal keeps the defaults
@@ -245,15 +275,17 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
 
     res = sql.run_query(
         tmp_path,
-        "SELECT name, lv_type, enum_values FROM terminal ORDER BY name",
+        "SELECT name, type_descriptor, type_kind, enum_values "
+        "FROM terminal ORDER BY name",
     )
-    assert res.columns == ["name", "lv_type", "enum_values"]
-    rows = {r[0]: (r[1], r[2]) for r in res.rows}
+    assert res.columns == ["name", "type_descriptor", "type_kind", "enum_values"]
+    rows = {r[0]: (r[1], r[2], r[3]) for r in res.rows}
     assert rows["method"] == (
         "MethodEnum{setUp, testMethod, tearDown}",
+        "enum",
         '["setUp", "testMethod", "tearDown"]',
     )
-    assert rows["result"] == ("?", "[]")
+    assert rows["result"] == ("?", None, "[]")
 
     # Queryable: find terminals whose enum carries a given member.
     hits = sql.run_query(
@@ -263,9 +295,95 @@ def test_lv_type_and_enum_values_round_trip(tmp_path: Path):
     assert hits.rows == [["method"]]
 
 
-def test_constant_lv_type_is_faithful_not_lossy_py_type(tmp_path: Path):
-    """A constant carries a FAITHFUL ``lv_type`` label alongside the lossy
-    ``py_type`` codegen projection (#8), same discipline as terminals."""
+def test_nodes_round_trip(tmp_path: Path):
+    """The block-diagram node spine round-trips through save/load and answers
+    the grep-not-read slices: prim_id / qualified_name filters, the event-in-
+    while containment self-join, frame membership, and a recursive containment
+    walk — all in SQL, no VI read."""
+    facts = [
+        VIFacts(
+            path=str(tmp_path / "producer.vi"),
+            name="producer.vi",
+            content_sha="sha-p",
+            nodes=[
+                # An Event Structure nested inside a While Loop (the classic
+                # event-handler loop). Order below is the iter_nodes order the
+                # ``ord`` column must preserve.
+                NodeFact(uid="loop0", kind=NodeKind.WHILE, name="While Loop"),
+                NodeFact(
+                    uid="ev0",
+                    kind=NodeKind.EVENT,
+                    name="Event Structure",
+                    parent_uid="loop0",
+                ),
+                NodeFact(
+                    uid="enq",
+                    kind=NodeKind.PRIMITIVE,
+                    prim_id=1234,
+                    name="Enqueue Element",
+                    parent_uid="ev0",
+                    frame="1",
+                ),
+                NodeFact(
+                    uid="sub",
+                    kind=NodeKind.VI,
+                    name="Send.vi",
+                    qualified_name="Msg.lvclass:Send.vi",
+                    callee_path=str(tmp_path / "Send.vi"),
+                ),
+            ],
+        ),
+    ]
+    save_index(tmp_path, facts)
+
+    # (1) ord preserves iter_nodes order.
+    ordered = sql.run_query(tmp_path, "SELECT uid FROM node ORDER BY ord")
+    assert ordered.rows == [["loop0"], ["ev0"], ["enq"], ["sub"]]
+
+    # (2) prim_id is the robust primitive filter.
+    prim = sql.run_query(
+        tmp_path, "SELECT kind, name FROM node WHERE prim_id = 1234"
+    )
+    assert prim.rows == [["primitive", "Enqueue Element"]]
+
+    # (3) a SubVI producer via kind='vi' + qualified_name/callee_path.
+    sub = sql.run_query(
+        tmp_path,
+        "SELECT qualified_name, callee_path FROM node WHERE kind = 'vi'",
+    )
+    assert sub.rows == [["Msg.lvclass:Send.vi", str(tmp_path / "Send.vi")]]
+
+    # (4) event-structure-inside-a-while-loop via the parent_uid self-join.
+    handler = sql.run_query(
+        tmp_path,
+        "SELECT c.name FROM node c JOIN node p "
+        "ON c.parent_uid = p.uid AND c.vi_path = p.vi_path "
+        "WHERE c.kind = 'event' AND p.kind = 'while'",
+    )
+    assert handler.rows == [["Event Structure"]]
+
+    # (5) frame membership: what sits in frame 1 of the event structure.
+    in_frame = sql.run_query(
+        tmp_path,
+        "SELECT name FROM node WHERE parent_uid = 'ev0' AND frame = '1'",
+    )
+    assert in_frame.rows == [["Enqueue Element"]]
+
+    # (6) recursive containment walk: every node transitively inside loop0.
+    inside = sql.run_query(
+        tmp_path,
+        "WITH RECURSIVE contained(uid) AS ("
+        "  SELECT uid FROM node WHERE parent_uid = 'loop0'"
+        "  UNION"
+        "  SELECT n.uid FROM node n JOIN contained c ON n.parent_uid = c.uid"
+        ") SELECT uid FROM contained ORDER BY uid",
+    )
+    assert inside.rows == [["enq"], ["ev0"]]
+
+
+def test_constant_type_descriptor_round_trips(tmp_path: Path):
+    """A constant carries the exact ``type_descriptor`` + ``type_kind``,
+    same discipline as terminals (#8)."""
     facts = [
         VIFacts(
             path=str(tmp_path / "k.vi"),
@@ -273,25 +391,33 @@ def test_constant_lv_type_is_faithful_not_lossy_py_type(tmp_path: Path):
             content_sha="sha-k",
             constants=[
                 ConstantFact(
-                    value="0", label="err", py_type="dict[str, Any]",
-                    lv_type="error cluster",
+                    value="0",
+                    label="err",
+                    type_descriptor="Error",
+                    type_kind=LVTypeKind.CLUSTER,
                 ),
-                ConstantFact(value="3", label=None, py_type="int", lv_type="I32"),
+                ConstantFact(
+                    value="3",
+                    label=None,
+                    type_descriptor="I32",
+                    type_kind=LVTypeKind.PRIMITIVE,
+                ),
             ],
         ),
     ]
     save_index(tmp_path, facts)
     res = sql.run_query(
-        tmp_path, "SELECT value, py_type, lv_type FROM constant ORDER BY value"
+        tmp_path,
+        "SELECT value, type_descriptor, type_kind FROM constant ORDER BY value",
     )
     rows = {r[0]: (r[1], r[2]) for r in res.rows}
-    assert rows["0"] == ("dict[str, Any]", "error cluster")
-    assert rows["3"] == ("int", "I32")
+    assert rows["0"] == ("Error", "cluster")
+    assert rows["3"] == ("I32", "primitive")
 
 
 def test_class_private_data_round_trips(tmp_path: Path):
     """A class method VI records its owning class's private-data fields (#8),
-    faithfully rendered 'name: <lv_type>', round-tripped and queryable."""
+    rendered 'name: <type_descriptor>', round-tripped and queryable."""
     from lvkit.index.model import ClassFact
 
     facts = [
@@ -306,13 +432,13 @@ def test_class_private_data_round_trips(tmp_path: Path):
         ),
     ]
     save_index(tmp_path, facts)
-    res = sql.run_query(
-        tmp_path, "SELECT owning_class, private_data FROM class_fact"
-    )
-    assert res.rows == [[
-        "TestCase.lvclass",
-        '["testMethodName: String", "isSkipped: TF"]',
-    ]]
+    res = sql.run_query(tmp_path, "SELECT owning_class, private_data FROM class_fact")
+    assert res.rows == [
+        [
+            "TestCase.lvclass",
+            '["testMethodName: String", "isSkipped: TF"]',
+        ]
+    ]
 
 
 def test_uncalled_column_flags_dead_code(tmp_path: Path):
@@ -323,12 +449,18 @@ def test_uncalled_column_flags_dead_code(tmp_path: Path):
     when ``qualified_name`` is NULL."""
     facts = [
         VIFacts(
-            path=str(tmp_path / "entry.vi"), name="entry.vi",
-            qualified_name=None, content_sha="s1", callers_count=0,
+            path=str(tmp_path / "entry.vi"),
+            name="entry.vi",
+            qualified_name=None,
+            content_sha="s1",
+            callers_count=0,
         ),
         VIFacts(
-            path=str(tmp_path / "sub.vi"), name="sub.vi",
-            qualified_name=None, content_sha="s2", callers_count=3,
+            path=str(tmp_path / "sub.vi"),
+            name="sub.vi",
+            qualified_name=None,
+            content_sha="s2",
+            callers_count=3,
         ),
     ]
     save_index(tmp_path, facts)
@@ -337,9 +469,7 @@ def test_uncalled_column_flags_dead_code(tmp_path: Path):
     assert dead.rows == [["entry.vi"]]
 
     # The column round-trips (value, not just the DEFAULT).
-    both = sql.run_query(
-        tmp_path, "SELECT name, callers_count FROM vi ORDER BY name"
-    )
+    both = sql.run_query(tmp_path, "SELECT name, callers_count FROM vi ORDER BY name")
     assert both.rows == [["entry.vi", 0], ["sub.vi", 3]]
 
     # The canned helper is the same filter.
@@ -352,11 +482,11 @@ def test_with_cte_is_allowed(tmp_path: Path):
     root = _project(tmp_path)
     res = sql.run_query(
         root,
-        "WITH errs AS (SELECT name FROM terminal WHERE is_error_cluster = 1) "
+        "WITH errs AS (SELECT name FROM terminal WHERE type_descriptor = 'Error') "
         "SELECT COUNT(*) FROM errs",
     )
     # 4 error clusters total: 2 'error out' + 1 input 'error in' (a.vi) + 'err'
-    # (b.vi). This CTE filters on is_error_cluster only, not direction.
+    # (b.vi). This CTE filters on type_descriptor only, not direction.
     assert res.rows == [[4]]
 
 
@@ -479,21 +609,23 @@ def test_histogram_over_real_facts_matches_independent_count():
     sql_res = sql.error_indicator_histogram(root)
     sql_hist = {name: n for name, n in sql_res.rows}
 
-    expected = dict(Counter(
-        t.name
-        for f in facts
-        for t in f.terminals
-        if t.is_error_cluster and t.direction == "output"
-    ))
+    expected = dict(
+        Counter(
+            t.name
+            for f in facts
+            for t in f.terminals
+            if t.type_descriptor == "Error" and t.direction == "output"
+        )
+    )
 
     assert sql_hist == expected
 
 
 @pytest.mark.needs_samples
 @pytest.mark.slow
-def test_jki_error_indicator_histogram_13_rows():
+def test_jki_error_indicator_histogram_16_rows():
     """The full design-doc acceptance: over JKI VI Tester the histogram is a
-    small table dominated by 'error out' — the answer, not the 379 raw rows."""
+    small table dominated by 'error out' — the answer, not the 406 raw rows."""
     if not (_JKI_ROOT.is_dir() and any(_JKI_ROOT.rglob("*.vi"))):
         pytest.skip("JKI-VI-Tester sample not present")
 
@@ -517,7 +649,7 @@ def test_jki_error_indicator_histogram_13_rows():
     assert res.rows  # non-empty histogram
     top_name, top_count = res.rows[0]
     assert top_name == "error out"
-    assert top_count >= 298
-    # It's a small histogram (a handful of distinct names), not a row dump.
-    assert len(res.rows) < 30
+    assert top_count == 382
+    # It's a small histogram, not a row dump — exactly 16 distinct names.
+    assert len(res.rows) == 16
     assert not res.truncated

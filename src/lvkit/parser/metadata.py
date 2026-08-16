@@ -110,42 +110,16 @@ def _typedef_status(is_typedef: bool, is_strict: bool) -> str:
         return TYPEDEF_STATUS_TYPEDEF
     return TYPEDEF_STATUS_NOT_A_TYPEDEF
 
+
 # A BD ``<Password Hash>`` this shallow (empty-string, all-zero, or the MD5 of
 # the empty string) is a stubbed/no-password placeholder, not a real password.
-_EMPTY_PASSWORD_HASHES = frozenset({
-    "",
-    "0" * 32,
-    "d41d8cd98f00b204e9800998ecf8427e",
-})
-
-
-def get_qualified_name(xml_path: Path | str) -> str | None:
-    """Fast extraction of just the qualified name from main XML.
-
-    Use this for checking visited set before full parsing.
-
-    Args:
-        xml_path: Path to the main .xml file (not BDHb)
-
-    Returns:
-        Qualified name like "Library.lvlib:VI.vi" or None if not found
-    """
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    # Try LIvi section first (most reliable for library VIs)
-    lvin = root.find(".//LIvi/Section/LVIN")
-    if lvin is not None:
-        qualified = lvin.get("Unk1")
-        if qualified:
-            return qualified
-
-    # Fall back to LVSR name
-    lvsr = root.find(".//LVSR/Section")
-    if lvsr is not None:
-        return lvsr.get("Name")
-
-    return None
+_EMPTY_PASSWORD_HASHES = frozenset(
+    {
+        "",
+        "0" * 32,
+        "d41d8cd98f00b204e9800998ecf8427e",
+    }
+)
 
 
 def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
@@ -162,10 +136,14 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
 
     metadata: dict[str, Any] = {}
 
-    # Get VI name from LVSR section
+    # The VI's filename is its identity fallback — a VI outside any library IS
+    # just its filename, and the binary may carry no explicit LVSR name. NEVER
+    # the literal "unknown" (which collapsed distinct VIs onto one key).
+    filename = Path(xml_path).stem + ".vi"
+
+    # Get VI name from LVSR section (its own filename when absent).
     lvsr = root.find(".//LVSR/Section")
-    if lvsr is not None:
-        metadata["name"] = lvsr.get("Name", "unknown")
+    metadata["name"] = (lvsr.get("Name") if lvsr is not None else None) or filename
 
     # Get library name(s) from LIBN section. ``library`` stays the OUTERMOST
     # (the owning .lvlib) as before; ``owning_libraries`` is the full ownership
@@ -191,8 +169,12 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
             subvi_refs.append(vivi.text)
     metadata["subvi_refs"] = subvi_refs
 
-    # Fall back to name if no qualified_name found
-    if "qualified_name" not in metadata and "name" in metadata:
+    # No explicit qualified name in the binary: fall back to the (now always
+    # populated) bare name. qualified_name stays the BARE resolution key BY
+    # DESIGN — the DISPLAY layer composes the class-qualified form from
+    # owning_libraries (see VINode). Never the "unknown" placeholder (which
+    # collapsed distinct VIs onto one key).
+    if "qualified_name" not in metadata:
         metadata["qualified_name"] = metadata["name"]
 
     # Get help/documentation data
@@ -489,8 +471,7 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
 
         # Preserve empty strings — they are the '..' navigation markers.
         path_tokens = [
-            s.text if s.text is not None else ""
-            for s in path_ref.findall("String")
+            s.text if s.text is not None else "" for s in path_ref.findall("String")
         ]
         if not path_tokens:
             continue
@@ -500,11 +481,13 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
             continue
         seen.add(key)
 
-        refs.append(ParsedDependencyRef(
-            name=name,
-            path_tokens=path_tokens,
-            qualified_name=qualified_name,
-        ))
+        refs.append(
+            ParsedDependencyRef(
+                name=name,
+                path_tokens=path_tokens,
+                qualified_name=qualified_name,
+            )
+        )
 
     return refs
 

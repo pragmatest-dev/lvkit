@@ -39,7 +39,7 @@ def test_hover_panel_clamps_to_the_diagram_view_area_not_the_window():
     clips/scrolls the SVG), so in the diff viewer it stays over the diagram and
     never drifts onto the changes list — not to the raw window viewport."""
     assert "viewRect" in HELP_TIP
-    assert '.stage-wrap' in HELP_TIP
+    assert ".stage-wrap" in HELP_TIP
     # position() clamps against the view rect's edges, not bare innerWidth/Height
     assert "vr.right" in HELP_TIP and "vr.left" in HELP_TIP
     assert "vr.bottom" in HELP_TIP and "vr.top" in HELP_TIP

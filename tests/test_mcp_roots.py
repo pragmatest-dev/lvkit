@@ -7,6 +7,7 @@ driving the helpers with a fake context whose `session.list_roots()` returns a
 canned `ListRootsResult` (or raises, standing in for a client with no roots
 capability).
 """
+
 import asyncio
 from pathlib import Path
 from typing import Any, cast
@@ -50,6 +51,7 @@ def _ctx_for(*paths: Path, unsupported: bool = False) -> Any:
 
 
 # ---- _uri_to_path -----------------------------------------------------------
+
 
 def test_uri_to_path_posix():
     assert _uri_to_path("file:///home/ryanf/repo") == Path("/home/ryanf/repo")
@@ -98,6 +100,7 @@ def test_uri_to_path_percent_encoded():
 
 # ---- _resolve_project -------------------------------------------------------
 
+
 def test_resolve_project_explicit_wins(tmp_path):
     other = tmp_path / "other"
     ctx = _ctx_for(tmp_path / "root")
@@ -119,7 +122,45 @@ def test_resolve_project_falls_back_to_cwd_when_roots_unsupported(tmp_path):
     assert asyncio.run(_resolve_project(None, ctx)) == str(Path.cwd())
 
 
+def test_resolve_project_autodetects_source_root_from_cwd_subdir(tmp_path, monkeypatch):
+    """No CLI roots, no client ctx: the pure-cwd fallback walks UP to the enclosing
+    source root (here a ``*.lvproj`` marker) rather than scoping to the subdir the
+    client happened to launch in."""
+    root = tmp_path / "proj"
+    (root / "Classes" / "Foo.lvclass").mkdir(parents=True)
+    (root / "proj.lvproj").write_text("<Project/>")
+    monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [])
+    monkeypatch.delenv("LVKIT_PROJECT_ROOT", raising=False)
+    monkeypatch.chdir(root / "Classes" / "Foo.lvclass")
+    assert asyncio.run(_resolve_project(None, None)) == str(root)
+
+
+def test_resolve_project_single_configured_root(tmp_path, monkeypatch):
+    """One configured default root (no client ctx) is used automatically."""
+    root = tmp_path / "only"
+    monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [str(root)])
+    assert asyncio.run(_resolve_project(None, None)) == str(root)
+
+
+def test_resolve_project_multiple_configured_roots_disambiguate(tmp_path, monkeypatch):
+    """Several configured default roots + no explicit project -> raise (approach a),
+    never a silent pick of one."""
+    a, b = tmp_path / "a", tmp_path / "b"
+    monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [str(a), str(b)])
+    with pytest.raises(ValueError, match="pass project="):
+        asyncio.run(_resolve_project(None, None))
+
+
+def test_list_projects_reports_configured_roots(tmp_path, monkeypatch):
+    a, b = tmp_path / "a", tmp_path / "b"
+    monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [str(a), str(b)])
+    out = asyncio.run(mcp_server.list_projects(None))
+    assert out["configured_roots"] == [str(a), str(b)]
+    assert out["client_roots"] == []
+
+
 # ---- _resolve_target --------------------------------------------------------
+
 
 def test_resolve_target_absolute_passthrough(tmp_path):
     ctx = _ctx_for(tmp_path)
@@ -154,15 +195,14 @@ def test_resolve_target_unmatched_relative_unchanged(tmp_path):
 
 # ---- end-to-end: a real tool honors the client root when project is omitted --
 
+
 @pytest.mark.needs_samples
 def test_project_tool_defaults_to_client_root():
     """`query` with no `project` indexes the folder the client opened."""
     if not _TESTCASE_DIR.exists():
         pytest.skip("sample corpus absent")
     ctx = _ctx_for(_TESTCASE_DIR)
-    res = asyncio.run(
-        mcp_server.query("SELECT path FROM vi", project=None, ctx=ctx)
-    )
+    res = asyncio.run(mcp_server.query("SELECT path FROM vi", project=None, ctx=ctx))
     assert res["rows"], "expected VIs to be indexed from the client-root default"
     root = str(_TESTCASE_DIR.resolve())
     assert all(row[0].startswith(root) for row in res["rows"])

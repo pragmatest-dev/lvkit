@@ -264,8 +264,10 @@ def main() -> None:
     print(f"  dropped (out of range): {dropped_out_of_range}")
     print(f"  residual 'Other':       {residual}")
     print(f"kept:              {len(kept)}")
-    print(f"conservation:      {total_in} - {dropped_no_page + dropped_out_of_range}"
-          f" = {total_in - dropped_no_page - dropped_out_of_range} (== kept)")
+    print(
+        f"conservation:      {total_in} - {dropped_no_page + dropped_out_of_range}"
+        f" = {total_in - dropped_no_page - dropped_out_of_range} (== kept)"
+    )
     print()
     print(f"{'category':32} {'before':>8} {'after':>8}")
     print("-" * 52)
@@ -275,8 +277,9 @@ def main() -> None:
         a = after_counts.get(cat, 0)
         print(f"{cat:32} {b:>8} {a:>8}")
     print("-" * 52)
-    print(f"{'TOTAL':32} {sum(before_counts.values()):>8}"
-          f" {sum(after_counts.values()):>8}")
+    print(
+        f"{'TOTAL':32} {sum(before_counts.values()):>8} {sum(after_counts.values()):>8}"
+    )
 
 
 if __name__ == "__main__":

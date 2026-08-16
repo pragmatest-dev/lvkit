@@ -22,12 +22,12 @@ def test_ring_items_reconstructed_from_multilabel():
     """A ring/enum's item labels live inline in its ``multiLabel`` ``<buf>``."""
     ring = ET.fromstring(
         '<ddo class="stdRing" uid="1">'
-        '  <partsList>'
+        "  <partsList>"
         '    <SL__arrayElement class="multiLabel" uid="2">'
         '      <buf>(3)"No Op""Increment""Reset"</buf>'
-        '    </SL__arrayElement>'
-        '  </partsList>'
-        '</ddo>'
+        "    </SL__arrayElement>"
+        "  </partsList>"
+        "</ddo>"
     )
     t = reconstruct_control_lvtype(ring)
     assert t is not None
@@ -42,19 +42,19 @@ def test_cluster_fields_in_ddolist_order():
     with each field's type reconstructed from its control."""
     clust = ET.fromstring(
         '<ddo class="stdClust" uid="1">'
-        '  <ddoList elements="3">'          # cluster order: bool, num, string
+        '  <ddoList elements="3">'  # cluster order: bool, num, string
         '    <SL__arrayElement uid="30" />'
         '    <SL__arrayElement uid="20" />'
         '    <SL__arrayElement uid="10" />'
-        '  </ddoList>'
+        "  </ddoList>"
         '  <paneHierarchy class="pane">'
-        '    <zPlaneList>'                    # z-order differs from cluster order
+        "    <zPlaneList>"  # z-order differs from cluster order
         '      <SL__arrayElement class="stdString" uid="10" index="0" />'
         '      <SL__arrayElement class="stdNum" uid="20" index="1" />'
         '      <SL__arrayElement class="stdBool" uid="30" index="2" />'
-        '    </zPlaneList>'
-        '  </paneHierarchy>'
-        '</ddo>'
+        "    </zPlaneList>"
+        "  </paneHierarchy>"
+        "</ddo>"
     )
     t = reconstruct_control_lvtype(clust)
     assert t is not None
@@ -72,22 +72,22 @@ def test_nested_cluster_does_not_leak_parent_fields():
         '<ddo class="stdClust" uid="1">'
         '  <ddoList elements="1">'
         '    <SL__arrayElement uid="100" />'
-        '  </ddoList>'
+        "  </ddoList>"
         '  <paneHierarchy class="pane">'
-        '    <zPlaneList>'
+        "    <zPlaneList>"
         '      <SL__arrayElement class="stdClust" uid="100">'
         '        <ddoList elements="1">'
         '          <SL__arrayElement uid="200" />'
-        '        </ddoList>'
+        "        </ddoList>"
         '        <paneHierarchy class="pane">'
-        '          <zPlaneList>'
+        "          <zPlaneList>"
         '            <SL__arrayElement class="stdBool" uid="200" />'
-        '          </zPlaneList>'
-        '        </paneHierarchy>'
-        '      </SL__arrayElement>'
-        '    </zPlaneList>'
-        '  </paneHierarchy>'
-        '</ddo>'
+        "          </zPlaneList>"
+        "        </paneHierarchy>"
+        "      </SL__arrayElement>"
+        "    </zPlaneList>"
+        "  </paneHierarchy>"
+        "</ddo>"
     )
     t = reconstruct_control_lvtype(clust)
     assert t is not None and t.fields is not None
@@ -101,15 +101,15 @@ def test_typedef_wrapper_is_unwrapped():
     """A ``typeDef`` DDO wraps one control; reconstruction sees through it."""
     td = ET.fromstring(
         '<ddo class="typeDef" uid="1">'
-        '  <typeDesc>TypeID(27)</typeDesc>'
+        "  <typeDesc>TypeID(27)</typeDesc>"
         '  <paneHierarchy class="pane"><zPlaneList>'
         '    <SL__arrayElement class="stdRing" uid="5">'
         '      <SL__arrayElement class="multiLabel" uid="6">'
         '        <buf>(2)"A""B"</buf>'
-        '      </SL__arrayElement>'
-        '    </SL__arrayElement>'
-        '  </zPlaneList></paneHierarchy>'
-        '</ddo>'
+        "      </SL__arrayElement>"
+        "    </SL__arrayElement>"
+        "  </zPlaneList></paneHierarchy>"
+        "</ddo>"
     )
     t = reconstruct_control_lvtype(td)
     assert t is not None and t.kind == "enum"
@@ -119,9 +119,10 @@ def test_typedef_wrapper_is_unwrapped():
 def test_unmodelled_control_returns_none():
     """A class refnum (name isn't in the FP heap) returns None so the caller can
     fall through rather than mislabel it."""
-    assert reconstruct_control_lvtype(
-        ET.fromstring('<ddo class="udClassDDO" uid="1"/>')
-    ) is None
+    assert (
+        reconstruct_control_lvtype(ET.fromstring('<ddo class="udClassDDO" uid="1"/>'))
+        is None
+    )
 
 
 # --- end-to-end on a real LabVIEW 8.2 VI (no VCTP) --------------------------
@@ -129,7 +130,10 @@ def test_unmodelled_control_returns_none():
 pytestmark_samples = pytest.mark.needs_samples
 _SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
 _LV82_VI = (
-    _SAMPLES / "JKI-VI-Tester" / "source" / "Build Support"
+    _SAMPLES
+    / "JKI-VI-Tester"
+    / "source"
+    / "Build Support"
     / "Package Builder Utilities"
     / "Auto Increment Package Version__JKI_RIGHT_CLICK_BUILD_SUPPORT.vi"
 )
@@ -150,13 +154,13 @@ def test_lv82_ring_and_clusters_resolve_end_to_end():
         *g.get_inputs(name, public_only=False),
         *g.get_outputs(name, public_only=False),
     ]
-    labels = {t.faithful_type_label() for t in terms}
+    labels = {t.type_descriptor() for t in terms}
 
     # The ring is fully recovered WITH its item labels.
     assert any(
         lbl.startswith("enum{") and "Major Increment" in lbl for lbl in labels
     ), labels
     # CONP recovers the cluster field names, so the error clusters are detected.
-    assert "error cluster" in labels, labels
+    assert "Error" in labels, labels
     # No structured terminal is left as the bare family word.
     assert "ring" not in labels and "cluster" not in labels, labels

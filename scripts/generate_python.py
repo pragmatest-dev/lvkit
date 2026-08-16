@@ -23,14 +23,21 @@ def main():
     )
     parser.add_argument("input", help="VI file to convert")
     parser.add_argument(
-        "-o", "--output", required=True, help="Output directory",
+        "-o",
+        "--output",
+        required=True,
+        help="Output directory",
     )
     parser.add_argument(
-        "--search-path", action="append", dest="search_paths",
-        default=[], help="Additional search paths",
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        default=[],
+        help="Additional search paths",
     )
     parser.add_argument(
-        "--placeholder-on-unresolved", action="store_true",
+        "--placeholder-on-unresolved",
+        action="store_true",
         help=(
             "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
             "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
@@ -38,11 +45,15 @@ def main():
         ),
     )
     parser.add_argument(
-        "--vilib", default=None, metavar="DIR",
+        "--vilib",
+        default=None,
+        metavar="DIR",
         help="Path to LabVIEW vi.lib on disk for <vilib> resolution.",
     )
     parser.add_argument(
-        "--userlib", default=None, metavar="DIR",
+        "--userlib",
+        default=None,
+        metavar="DIR",
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
     args = parser.parse_args()

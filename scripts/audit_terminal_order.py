@@ -604,9 +604,7 @@ def render_report(
         "| verified |"
     )
     L.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
-    for f in sorted(
-        a1, key=lambda x: (_status_rank.get(x.status, 9), x.spec.name)
-    ):
+    for f in sorted(a1, key=lambda x: (_status_rank.get(x.status, 9), x.spec.name)):
         si = (
             "; ".join(f"{p}->{f.sample_inputs[p]}" for p in sorted(f.sample_inputs))
             if f.sample_inputs
@@ -715,18 +713,19 @@ def main() -> int:
     a2, a2_counts = audit2()
 
     if args.skip_conpane:
-        a3, a3_counts = [], {
-            "fp_heaps_scanned": 0,
-            "empty_conpane": 0,
-            "partial_conpane": 0,
-        }
+        a3, a3_counts = (
+            [],
+            {
+                "fp_heaps_scanned": 0,
+                "empty_conpane": 0,
+                "partial_conpane": 0,
+            },
+        )
     else:
         print("[audit3] scanning FP heaps...", file=sys.stderr)
         a3, a3_counts = audit3(args.conpane_limit)
 
-    report = render_report(
-        a1, a2, a2_counts, a3, a3_counts, len(order_sensitive)
-    )
+    report = render_report(a1, a2, a2_counts, a3, a3_counts, len(order_sensitive))
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report)

@@ -9,7 +9,7 @@ import os
 NODE_CLASS_PRIM = "prim"
 NODE_CLASS_SUBVI = "iUse"
 NODE_CLASS_POLY_SUBVI = "polyIUse"  # Polymorphic SubVI call
-NODE_CLASS_DYN_SUBVI = "dynIUse"    # Dynamic dispatch VI call (class method)
+NODE_CLASS_DYN_SUBVI = "dynIUse"  # Dynamic dispatch VI call (class method)
 NODE_CLASS_CALL_PARENT = "callParentDynIUse"  # Call Parent Method (super() call)
 NODE_CLASS_CALL_BY_REF = "callByRefNode"  # Call By Reference node
 NODE_CLASS_WHILE_LOOP = "whileLoop"
@@ -49,7 +49,7 @@ NODE_CLASS_CONCAT = "concat"  # Concatenate (strings/arrays)
 NODE_CLASS_SUBSET = "subset"  # Array/String Subset
 NODE_CLASS_MERGE_ERRORS = "mergeErrors"  # Merge Errors
 NODE_CLASS_OH_EXT = "oHExt"  # Obtain/Release Semaphore
-NODE_CLASS_MUX = "mux"      # Multiplexer (bundle at structure boundary)
+NODE_CLASS_MUX = "mux"  # Multiplexer (bundle at structure boundary)
 NODE_CLASS_DEMUX = "demux"  # Demultiplexer (unbundle at structure boundary)
 NODE_CLASS_CTL_REF_CONST = "ctlRefConst"  # Control reference constant
 NODE_CLASS_GREF = "gRef"  # Local Variable reference
@@ -137,13 +137,19 @@ OPERATION_NODE_CLASSES = (
 LOOP_NODE_CLASSES = (NODE_CLASS_WHILE_LOOP, NODE_CLASS_FOR_LOOP)
 
 # All structure classes that contain inner diagrams
-STRUCTURE_NODE_CLASSES = frozenset({
-    NODE_CLASS_WHILE_LOOP, NODE_CLASS_FOR_LOOP,
-    NODE_CLASS_SELECT, NODE_CLASS_CASE_STRUCT,
-    NODE_CLASS_FLAT_SEQ, NODE_CLASS_SEQ, NODE_CLASS_SEQUENCE,
-    NODE_CLASS_EVENT_STRUCT,
-    NODE_CLASS_DECOMPOSE_RECOMPOSE,
-})
+STRUCTURE_NODE_CLASSES = frozenset(
+    {
+        NODE_CLASS_WHILE_LOOP,
+        NODE_CLASS_FOR_LOOP,
+        NODE_CLASS_SELECT,
+        NODE_CLASS_CASE_STRUCT,
+        NODE_CLASS_FLAT_SEQ,
+        NODE_CLASS_SEQ,
+        NODE_CLASS_SEQUENCE,
+        NODE_CLASS_EVENT_STRUCT,
+        NODE_CLASS_DECOMPOSE_RECOMPOSE,
+    }
+)
 
 # Conditional/case node classes
 CONDITIONAL_NODE_CLASSES = (NODE_CLASS_SELECT, NODE_CLASS_CASE_STRUCT)
@@ -221,6 +227,7 @@ SYSTEM_DIR_TYPES: dict[int, tuple[str, str, str]] = {
 
 
 # === Helper Functions ===
+
 
 def derive_fp_xml_path(bd_xml_path: str) -> str:
     """Derive front panel XML path from block diagram XML path."""

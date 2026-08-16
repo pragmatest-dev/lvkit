@@ -12,11 +12,11 @@ import ast
 import copy
 
 from lvkit.codegen.nodes import compound
-from lvkit.models import LVType, PrimitiveOperation, Terminal
+from lvkit.models import LVType, LVTypeKind, PrimitiveOperation, Terminal
 from tests.helpers import make_ctx
 
-ARRAY_TYPE = LVType(kind="array")
-CLUSTER_TYPE = LVType(kind="cluster")
+ARRAY_TYPE = LVType(kind=LVTypeKind.ARRAY)
+CLUSTER_TYPE = LVType(kind=LVTypeKind.CLUSTER)
 
 
 def _compile_and_run(statements: list, local_vars: dict) -> dict:
@@ -66,7 +66,8 @@ class TestArrayInit1D:
         fragment = compound.generate_array_init(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"fill_value": 7, "n": 4},
+            fragment.statements,
+            {"fill_value": 7, "n": 4},
         )
         output_var = fragment.bindings["out"]
         assert result[output_var] == [7, 7, 7, 7]
@@ -115,7 +116,8 @@ class TestArrayInit2D:
         fragment = compound.generate_array_init(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"fill_value": 0, "rows": 2, "cols": 3},
+            fragment.statements,
+            {"fill_value": 0, "rows": 2, "cols": 3},
         )
         arr = result[fragment.bindings["out"]]
         assert arr == [[0, 0, 0], [0, 0, 0]]
@@ -133,7 +135,8 @@ class TestArrayInit2D:
         fragment = compound.generate_array_init(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"fill_value": 0, "rows": 2, "cols": 3},
+            fragment.statements,
+            {"fill_value": 0, "rows": 2, "cols": 3},
         )
         arr = result[fragment.bindings["out"]]
         arr[0][0] = 99
@@ -165,7 +168,8 @@ class TestArrayInitMutableElement:
         assert "import copy" in fragment.imports
 
         result = _compile_and_run(
-            fragment.statements, {"fill_value": {"a": 1}, "n": 3},
+            fragment.statements,
+            {"fill_value": {"a": 1}, "n": 3},
         )
         arr = result[fragment.bindings["out"]]
         arr[0]["a"] = 99
@@ -185,7 +189,10 @@ def _replace_op(new_elem_type: LVType | None = None) -> PrimitiveOperation:
             Terminal(id="arr", index=0, direction="input"),
             Terminal(id="out", index=1, direction="output"),
             Terminal(
-                id="newel", index=2, direction="input", lv_type=new_elem_type,
+                id="newel",
+                index=2,
+                direction="input",
+                lv_type=new_elem_type,
             ),
             Terminal(id="idx", index=3, direction="input"),
         ],
@@ -208,7 +215,8 @@ class TestArrayReplaceScalar:
         fragment = compound.generate_array_replace(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3, 4], "val": 99, "i": 1},
+            fragment.statements,
+            {"data": [1, 2, 3, 4], "val": 99, "i": 1},
         )
         assert result[fragment.bindings["out"]] == [1, 99, 3, 4]
 
@@ -222,12 +230,14 @@ class TestArrayReplaceScalar:
         fragment = compound.generate_array_replace(op, ctx)
 
         first = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3], "val": 9, "i": 0},
+            fragment.statements,
+            {"data": [1, 2, 3], "val": 9, "i": 0},
         )
         assert first[fragment.bindings["out"]] == [9, 2, 3]
 
         last = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3], "val": 9, "i": 2},
+            fragment.statements,
+            {"data": [1, 2, 3], "val": 9, "i": 2},
         )
         assert last[fragment.bindings["out"]] == [1, 2, 9]
 
@@ -241,7 +251,8 @@ class TestArrayReplaceScalar:
         fragment = compound.generate_array_replace(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3, 4, 5], "val": 0, "i": 2},
+            fragment.statements,
+            {"data": [1, 2, 3, 4, 5], "val": 0, "i": 2},
         )
         assert len(result[fragment.bindings["out"]]) == 5
 
@@ -258,12 +269,14 @@ class TestArrayReplaceScalar:
         fragment = compound.generate_array_replace(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3, 4], "val": 99, "i": 10},
+            fragment.statements,
+            {"data": [1, 2, 3, 4], "val": 99, "i": 10},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3, 4]
 
         result_at_len = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3, 4], "val": 99, "i": 4},
+            fragment.statements,
+            {"data": [1, 2, 3, 4], "val": 99, "i": 4},
         )
         assert result_at_len[fragment.bindings["out"]] == [1, 2, 3, 4]
 
@@ -320,7 +333,8 @@ class TestArrayReplaceSubset:
         fragment = compound.generate_array_replace(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3], "sub": [], "i": 1},
+            fragment.statements,
+            {"data": [1, 2, 3], "sub": [], "i": 1},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3]
 
@@ -363,7 +377,8 @@ class TestArrayInsertScalar:
         fragment = compound.generate_array_insert(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3], "i": 1, "val": 99},
+            fragment.statements,
+            {"data": [1, 2, 3], "i": 1, "val": 99},
         )
         out = result[fragment.bindings["out"]]
         assert out == [1, 99, 2, 3]
@@ -381,7 +396,8 @@ class TestArrayInsertScalar:
         fragment = compound.generate_array_insert(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3], "val": 99},
+            fragment.statements,
+            {"data": [1, 2, 3], "val": 99},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3, 99]
 
@@ -399,7 +415,8 @@ class TestArrayInsertScalar:
         fragment = compound.generate_array_insert(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3], "i": 10, "val": 99},
+            fragment.statements,
+            {"data": [1, 2, 3], "i": 10, "val": 99},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3]
 
@@ -417,7 +434,8 @@ class TestArrayInsertSubarray:
         fragment = compound.generate_array_insert(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3], "i": 1, "sub": [8, 9]},
+            fragment.statements,
+            {"data": [1, 2, 3], "i": 1, "sub": [8, 9]},
         )
         out = result[fragment.bindings["out"]]
         assert out == [1, 8, 9, 2, 3]
@@ -431,11 +449,13 @@ class TestArrayInsertSubarray:
 # terminal, 1-D output -- dimension-terminal count tracks the requested
 # OUTPUT rank, not the source array's own rank.
 
-INT_TYPE = LVType(kind="primitive", underlying_type="NumInt32")
+INT_TYPE = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
 
 def _reshape_op(source_ndim: int, *dim_ids: str) -> PrimitiveOperation:
-    array_type = LVType(kind="array", element_type=INT_TYPE, dimensions=source_ndim)
+    array_type = LVType(
+        kind=LVTypeKind.ARRAY, element_type=INT_TYPE, dimensions=source_ndim
+    )
     terminals = [
         Terminal(id="arr", index=0, direction="input", lv_type=array_type),
         Terminal(id="out", index=1, direction="output"),
@@ -466,7 +486,8 @@ class TestArrayReshape1Dto1D:
         fragment = compound.generate_array_reshape(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2, 3, 4, 5], "n": 3},
+            fragment.statements,
+            {"data": [1, 2, 3, 4, 5], "n": 3},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3]
 
@@ -479,7 +500,8 @@ class TestArrayReshape1Dto1D:
         fragment = compound.generate_array_reshape(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [1, 2], "n": 5},
+            fragment.statements,
+            {"data": [1, 2], "n": 5},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 0, 0, 0]
 
@@ -532,6 +554,7 @@ class TestArrayReshape2DSource:
         fragment = compound.generate_array_reshape(op, ctx)
 
         result = _compile_and_run(
-            fragment.statements, {"data": [[1, 2], [3, 4], [5]], "n": 5},
+            fragment.statements,
+            {"data": [[1, 2], [3, 4], [5]], "n": 5},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3, 4, 5]

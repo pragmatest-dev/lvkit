@@ -92,7 +92,7 @@ def parse_terminals_from_text(text: str, vi_name: str) -> list[Terminal]:
 
     # Extract text from Inputs/Outputs to end of section
     # Section ends at: another VI definition (repeated name) or page boundary
-    io_text = text[io_pos + len("Inputs/Outputs"):]
+    io_text = text[io_pos + len("Inputs/Outputs") :]
 
     # Find the next VI/function definition (pattern: "Name\nName\n" at start of line)
     # This indicates a new function started
@@ -286,8 +286,12 @@ def parse_toc_for_vis(doc: fitz.Document) -> list[tuple[str, int, int]]:
 
         # Skip non-function entries
         skip_keywords = [
-            "example", "overview", "constant",
-            "palette", "format code", "considerations",
+            "example",
+            "overview",
+            "constant",
+            "palette",
+            "format code",
+            "considerations",
         ]
         if any(kw in title.lower() for kw in skip_keywords):
             continue
@@ -465,9 +469,7 @@ def main():
     index = {
         "version": "1.0",
         "source": "labview-api-ref.pdf",
-        "categories": {
-            cat: category_to_filename(cat) for cat in by_category.keys()
-        },
+        "categories": {cat: category_to_filename(cat) for cat in by_category.keys()},
         "total_entries": len(vi_entries),
     }
 

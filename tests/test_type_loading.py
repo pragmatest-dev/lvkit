@@ -39,8 +39,7 @@ class TestLoadVIWithTypeDependencies:
         # TestResult.lvclass should be in dep_graph as a class node
         # (not just as part of the VI name "TestResult.lvclass:addError.vi")
         class_nodes = [
-            n for n in graph._dep_graph.nodes
-            if n.endswith("TestResult.lvclass")
+            n for n in graph._dep_graph.nodes if n.endswith("TestResult.lvclass")
         ]
         assert len(class_nodes) >= 1, (
             "TestResult.lvclass not in dep_graph. "

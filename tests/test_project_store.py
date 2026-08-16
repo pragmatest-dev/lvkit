@@ -82,19 +82,38 @@ def test_init_project_store_idempotent(tmp_path: Path) -> None:
 def project_with_prim_override(tmp_path: Path) -> Path:
     """A .lvkit/ with a primitive entry overriding ID 1419 (Build Path)."""
     store = init_project_store(tmp_path)
-    (store / "primitives.json").write_text(json.dumps({
-        "primitives": {
-            "1419": {
-                "name": "PROJECT OVERRIDE Build Path",
-                "terminals": [
-                    {"index": 0, "direction": "in", "name": "base", "type": "Path"},
-                    {"index": 1, "direction": "in", "name": "name", "type": "String"},
-                    {"index": 2, "direction": "out", "name": "result", "type": "Path"},
-                ],
-                "python_code": "PROJECT_PATH",
+    (store / "primitives.json").write_text(
+        json.dumps(
+            {
+                "primitives": {
+                    "1419": {
+                        "name": "PROJECT OVERRIDE Build Path",
+                        "terminals": [
+                            {
+                                "index": 0,
+                                "direction": "in",
+                                "name": "base",
+                                "type": "Path",
+                            },
+                            {
+                                "index": 1,
+                                "direction": "in",
+                                "name": "name",
+                                "type": "String",
+                            },
+                            {
+                                "index": 2,
+                                "direction": "out",
+                                "name": "result",
+                                "type": "Path",
+                            },
+                        ],
+                        "python_code": "PROJECT_PATH",
+                    }
+                }
             }
-        }
-    }))
+        )
+    )
     return store
 
 
@@ -140,31 +159,39 @@ def project_with_vilib_override(tmp_path: Path) -> Path:
     """A .lvkit/ with a vilib entry overriding 'Trim Whitespace.vi'."""
     store = init_project_store(tmp_path)
     vilib_dir = store / "vilib"
-    (vilib_dir / "_index.json").write_text(json.dumps({
-        "categories": {"string": "string.json"}
-    }))
-    (vilib_dir / "string.json").write_text(json.dumps({
-        "entries": [
+    (vilib_dir / "_index.json").write_text(
+        json.dumps({"categories": {"string": "string.json"}})
+    )
+    (vilib_dir / "string.json").write_text(
+        json.dumps(
             {
-                "name": "Trim Whitespace.vi",
-                "vi_path": "<vilib>/Utility/string.llb/Trim Whitespace.vi",
-                "category": "string",
-                "description": "PROJECT OVERRIDE description",
-                "terminals": [
+                "entries": [
                     {
-                        "name": "string", "index": 0, "direction": "in",
-                        "type": "string",
-                    },
-                    {
-                        "name": "trimmed string", "index": 1, "direction": "out",
-                        "type": "string",
-                    },
-                ],
-                "python_code": "PROJECT_TRIM",
-                "inline": True,
+                        "name": "Trim Whitespace.vi",
+                        "vi_path": "<vilib>/Utility/string.llb/Trim Whitespace.vi",
+                        "category": "string",
+                        "description": "PROJECT OVERRIDE description",
+                        "terminals": [
+                            {
+                                "name": "string",
+                                "index": 0,
+                                "direction": "in",
+                                "type": "string",
+                            },
+                            {
+                                "name": "trimmed string",
+                                "index": 1,
+                                "direction": "out",
+                                "type": "string",
+                            },
+                        ],
+                        "python_code": "PROJECT_TRIM",
+                        "inline": True,
+                    }
+                ]
             }
-        ]
-    }))
+        )
+    )
     return store
 
 
@@ -244,12 +271,14 @@ def test_cli_setup_skills_choice_is_not_a_directory(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [sys.executable, "-m", "lvkit.cli", "setup", "copilot"],
-        cwd=tmp_path, capture_output=True, text=True,
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     assert "Not a directory" not in result.stderr
     assert (tmp_path / ".lvkit").is_dir()
-    assert (tmp_path / ".github" / "prompts").is_dir()   # copilot skills, in CWD
+    assert (tmp_path / ".github" / "prompts").is_dir()  # copilot skills, in CWD
 
 
 def test_cli_setup_codex_choice_is_not_a_directory(tmp_path: Path) -> None:
@@ -259,7 +288,9 @@ def test_cli_setup_codex_choice_is_not_a_directory(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [sys.executable, "-m", "lvkit.cli", "setup", "codex"],
-        cwd=tmp_path, capture_output=True, text=True,
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     assert "Not a directory" not in result.stderr
@@ -275,13 +306,13 @@ def test_cli_setup_auto_detects_codex(tmp_path: Path) -> None:
     (tmp_path / "AGENTS.md").write_text("# Project instructions\n")
     result = subprocess.run(
         [sys.executable, "-m", "lvkit.cli", "setup"],
-        cwd=tmp_path, capture_output=True, text=True,
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     assert "Installed 7 Codex skill(s)" in result.stdout
-    assert (
-        tmp_path / ".agents" / "skills" / "lvkit-describe" / "SKILL.md"
-    ).is_file()
+    assert (tmp_path / ".agents" / "skills" / "lvkit-describe" / "SKILL.md").is_file()
 
 
 def test_cli_setup_without_agent_marker_installs_no_skills(tmp_path: Path) -> None:
@@ -291,7 +322,9 @@ def test_cli_setup_without_agent_marker_installs_no_skills(tmp_path: Path) -> No
 
     result = subprocess.run(
         [sys.executable, "-m", "lvkit.cli", "setup"],
-        cwd=tmp_path, capture_output=True, text=True,
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     assert "No AI agent detected" in result.stdout
@@ -493,7 +526,7 @@ def test_install_copilot_skills_prompt_bodies_use_lvkit_prefix(
             if referenced in bare_skill_names:
                 raise AssertionError(
                     f"{skill}.prompt.md references bare skill name "
-                    f"/{referenced} (line: {body[match.start():match.end()+40]!r})"
+                    f"/{referenced} (line: {body[match.start() : match.end() + 40]!r})"
                     f" — should be /lvkit-{referenced.removeprefix('lvkit-')}"
                 )
 
@@ -549,9 +582,7 @@ def test_install_copilot_skills_atomic_on_conflict(tmp_path: Path) -> None:
         if skill == "lvkit-convert":
             continue
         path = prompts_dir / f"{skill}.prompt.md"
-        assert not path.exists(), (
-            f"{skill} prompt was written despite the conflict"
-        )
+        assert not path.exists(), f"{skill} prompt was written despite the conflict"
     router = tmp_path / ".github" / "instructions" / "lvkit.instructions.md"
     assert not router.exists()
 
@@ -654,7 +685,8 @@ def test_install_codex_skills_force_overwrites(tmp_path: Path) -> None:
     ["AGENTS.md", "AGENTS.override.md", ".agents", ".codex"],
 )
 def test_detect_ai_editors_recognizes_codex_markers(
-    tmp_path: Path, marker: str,
+    tmp_path: Path,
+    marker: str,
 ) -> None:
     """Every supported Codex project marker enables Codex auto-detection."""
     from lvkit.cli import _detect_ai_editors
@@ -684,17 +716,19 @@ def test_cli_setup_skills_claude(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [
-            sys.executable, "-m", "lvkit.cli", "setup",
-            str(tmp_path), "claude",
+            sys.executable,
+            "-m",
+            "lvkit.cli",
+            "setup",
+            str(tmp_path),
+            "claude",
         ],
         capture_output=True,
         text=True,
         check=True,
     )
     assert "Installed 7 Claude Code skill(s)" in result.stdout
-    assert (
-        tmp_path / ".claude" / "skills" / "lvkit-convert" / "SKILL.md"
-    ).is_file()
+    assert (tmp_path / ".claude" / "skills" / "lvkit-convert" / "SKILL.md").is_file()
 
 
 def test_cli_setup_skills_codex(tmp_path: Path) -> None:
@@ -704,17 +738,19 @@ def test_cli_setup_skills_codex(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [
-            sys.executable, "-m", "lvkit.cli", "setup",
-            str(tmp_path), "codex",
+            sys.executable,
+            "-m",
+            "lvkit.cli",
+            "setup",
+            str(tmp_path),
+            "codex",
         ],
         capture_output=True,
         text=True,
         check=True,
     )
     assert "Installed 7 Codex skill(s)" in result.stdout
-    assert (
-        tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md"
-    ).is_file()
+    assert (tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md").is_file()
 
 
 def test_cli_setup_skills_all(tmp_path: Path) -> None:
@@ -724,8 +760,12 @@ def test_cli_setup_skills_all(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [
-            sys.executable, "-m", "lvkit.cli", "setup",
-            str(tmp_path), "all",
+            sys.executable,
+            "-m",
+            "lvkit.cli",
+            "setup",
+            str(tmp_path),
+            "all",
         ],
         capture_output=True,
         text=True,
@@ -734,18 +774,10 @@ def test_cli_setup_skills_all(tmp_path: Path) -> None:
     assert "Installed 7 Claude Code skill(s)" in result.stdout
     assert "Installed 8 Copilot file(s)" in result.stdout  # 7 prompts + router
     assert "Installed 7 Codex skill(s)" in result.stdout
-    assert (
-        tmp_path / ".claude" / "skills" / "lvkit-resolve" / "SKILL.md"
-    ).is_file()
-    assert (
-        tmp_path / ".github" / "prompts" / "lvkit-convert.prompt.md"
-    ).is_file()
-    assert (
-        tmp_path / ".github" / "instructions" / "lvkit.instructions.md"
-    ).is_file()
-    assert (
-        tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md"
-    ).is_file()
+    assert (tmp_path / ".claude" / "skills" / "lvkit-resolve" / "SKILL.md").is_file()
+    assert (tmp_path / ".github" / "prompts" / "lvkit-convert.prompt.md").is_file()
+    assert (tmp_path / ".github" / "instructions" / "lvkit.instructions.md").is_file()
+    assert (tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md").is_file()
 
 
 # ============================================================
@@ -761,6 +793,7 @@ def _make_args(**kwargs: object) -> argparse.Namespace:
 def test_cli_project_root_accepts_parent_dir(tmp_path: Path) -> None:
     """`--project-root <root>` works when arg points to parent of .lvkit/."""
     from lvkit.cli import _configure_resolvers
+
     init_project_store(tmp_path)
     try:
         store = _configure_resolvers(_make_args(project_root=str(tmp_path)))
@@ -773,6 +806,7 @@ def test_cli_project_root_accepts_parent_dir(tmp_path: Path) -> None:
 def test_cli_project_root_accepts_dotlvkit_dir(tmp_path: Path) -> None:
     """`--project-root <path>/.lvkit` also works (user passes the store itself)."""
     from lvkit.cli import _configure_resolvers
+
     store_dir = init_project_store(tmp_path)
     try:
         store = _configure_resolvers(_make_args(project_root=str(store_dir)))
@@ -785,6 +819,7 @@ def test_cli_project_root_accepts_dotlvkit_dir(tmp_path: Path) -> None:
 def test_cli_project_root_invalid_returns_none(tmp_path: Path) -> None:
     """When --project-root points nowhere, store is None and resolvers reset."""
     from lvkit.cli import _configure_resolvers
+
     bogus = tmp_path / "does_not_exist"
     try:
         store = _configure_resolvers(_make_args(project_root=str(bogus)))
@@ -814,6 +849,7 @@ def test_mcp_discover_from_vi_file(tmp_path: Path) -> None:
         # If discovery worked, the singleton resolvers were reset with the
         # store. We can't directly inspect, but we can re-discover.
         from lvkit.project_store import find_project_store
+
         assert find_project_store(start=fake_vi.parent) == tmp_path / ".lvkit"
     finally:
         primitive_resolver.reset_resolver(project_data_dir=None)
@@ -845,11 +881,11 @@ def test_mcp_discover_from_directory_path(tmp_path: Path) -> None:
     lvlib_dir.mkdir()
     store = init_project_store(lvlib_dir)
     # Add a primitive override so we can detect that the store was loaded.
-    (store / "primitives.json").write_text(json.dumps({
-        "primitives": {
-            "1419": {"name": "MCP-DIR-TEST OVERRIDE", "terminals": []}
-        }
-    }))
+    (store / "primitives.json").write_text(
+        json.dumps(
+            {"primitives": {"1419": {"name": "MCP-DIR-TEST OVERRIDE", "terminals": []}}}
+        )
+    )
 
     try:
         _configure_resolvers_for_vi(str(lvlib_dir))
@@ -879,6 +915,7 @@ def test_mcp_discover_returns_none_outside_project(tmp_path: Path) -> None:
         _configure_resolvers_for_vi(str(fake_vi))
         # Verify no exception was raised; resolvers should fall back to shipped
         from lvkit.project_store import find_project_store
+
         assert find_project_store(start=fake_vi.parent) is None
     finally:
         primitive_resolver.reset_resolver(project_data_dir=None)

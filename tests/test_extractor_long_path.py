@@ -19,6 +19,7 @@ from lvkit import extractor
 
 # ── shallow staging: temp path is independent of project depth ──────────────
 
+
 def test_staging_root_is_shallow_and_outside_the_project_tree(
     monkeypatch, tmp_path: Path
 ):
@@ -32,6 +33,7 @@ def test_staging_root_is_shallow_and_outside_the_project_tree(
 
 
 # ── near-MAX_PATH sensor ────────────────────────────────────────────────────
+
 
 def _reset_warn(monkeypatch):
     monkeypatch.setattr(extractor, "_warned_near_max_path", False)
@@ -66,6 +68,7 @@ def test_no_warning_on_windows_for_a_short_path(monkeypatch, caplog):
 
 
 # ── failure diagnosis ───────────────────────────────────────────────────────
+
 
 def test_long_path_hint_empty_off_windows(monkeypatch):
     monkeypatch.setattr(extractor.sys, "platform", "linux")

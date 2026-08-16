@@ -11,6 +11,7 @@ Usage:
     uv run python scripts/list_unknown_primitives.py --all      # known + unknown
     uv run python scripts/list_unknown_primitives.py --root DIR  # corpus root
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,18 +28,25 @@ PRIM_RE = re.compile(r"<primResID>(\d+)</primResID>")
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--root", default=str(REPO / ".lvkit" / "cache" / "extracted"),
-                    help="corpus root to scan for *_BDHb.xml "
-                         "(default: .lvkit/cache/extracted/ — run extract_corpus.py first)")  # noqa: E501
-    ap.add_argument("--all", action="store_true",
-                    help="also list the KNOWN primitives found")
-    ap.add_argument("--min", type=int, default=1,
-                    help="only show primResIDs with at least this many instances")
+    ap.add_argument(
+        "--root",
+        default=str(REPO / ".lvkit" / "cache" / "extracted"),
+        help="corpus root to scan for *_BDHb.xml "
+        "(default: .lvkit/cache/extracted/ — run extract_corpus.py first)",
+    )  # noqa: E501
+    ap.add_argument(
+        "--all", action="store_true", help="also list the KNOWN primitives found"
+    )
+    ap.add_argument(
+        "--min",
+        type=int,
+        default=1,
+        help="only show primResIDs with at least this many instances",
+    )
     args = ap.parse_args()
 
     data = json.loads(PRIMS_JSON.read_text())
-    known = {pid: entry.get("name", pid)
-             for pid, entry in data["primitives"].items()}
+    known = {pid: entry.get("name", pid) for pid, entry in data["primitives"].items()}
 
     counts: collections.Counter[str] = collections.Counter()
     vis: dict[str, set[str]] = collections.defaultdict(set)
@@ -61,11 +69,15 @@ def main() -> None:
     known_hit = [(p, c) for p, c in ranked if p in known and c >= args.min]
 
     print(f"scanned {len(files)} block-diagram XMLs under {args.root}")
-    print(f"distinct primResID: {len(counts)}  "
-          f"(known {len(known_hit)} / UNKNOWN {len(unknown)})")
-    print(f"instances: {sum(counts.values())}  "
-          f"(known {sum(c for _, c in known_hit)} / "
-          f"unknown {sum(c for _, c in unknown)})")
+    print(
+        f"distinct primResID: {len(counts)}  "
+        f"(known {len(known_hit)} / UNKNOWN {len(unknown)})"
+    )
+    print(
+        f"instances: {sum(counts.values())}  "
+        f"(known {sum(c for _, c in known_hit)} / "
+        f"unknown {sum(c for _, c in unknown)})"
+    )
 
     print(f"\n=== UNKNOWN primResIDs — resolve these ({len(unknown)}) ===")
     print(f"{'primResID':>9} {'count':>6}  example VIs")

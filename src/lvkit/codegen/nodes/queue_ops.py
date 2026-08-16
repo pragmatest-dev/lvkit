@@ -29,6 +29,7 @@ model (`codegen/error_handler.py`), not per-primitive.
 from __future__ import annotations
 
 import ast
+from enum import IntEnum
 
 from lvkit.models import PrimitiveOperation, Terminal
 
@@ -36,19 +37,23 @@ from ..ast_utils import build_multi_assign, parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
-OBTAIN_QUEUE = 9108
-ENQUEUE_ELEMENT = 9111
-DEQUEUE_ELEMENT = 9113
-ENQUEUE_AT_OPPOSITE_END = 9129
-RELEASE_QUEUE = 9109
-GET_QUEUE_STATUS = 9110
 
-QUEUE_PRIM_IDS = frozenset(
-    {
-        OBTAIN_QUEUE, ENQUEUE_ELEMENT, DEQUEUE_ELEMENT, ENQUEUE_AT_OPPOSITE_END,
-        RELEASE_QUEUE, GET_QUEUE_STATUS,
-    },
-)
+class QueueOp(IntEnum):
+    """LabVIEW queue-operation ``primResID`` codes. ``IntEnum`` because the code
+    IS the raw int carried on ``PrimitiveOperation.primResID`` -- a member
+    compares equal to it and lives in the ``QUEUE_PRIM_IDS`` membership set."""
+
+    OBTAIN = 9108
+    ENQUEUE = 9111
+    DEQUEUE = 9113
+    ENQUEUE_OPPOSITE_END = 9129
+    RELEASE = 9109
+    GET_STATUS = 9110
+
+
+# Membership set for the nodes/__init__ dispatcher; an int primResID matches a
+# member (IntEnum hashes/compares as its int).
+QUEUE_PRIM_IDS = frozenset(QueueOp)
 
 _QUEUE_IMPORT = (
     "from lvkit.labview_queue import ("
@@ -62,19 +67,22 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     by_index: dict[int, Terminal] = {t.index: t for t in node.terminals}
     prim_id = node.primResID
 
-    if prim_id == OBTAIN_QUEUE:
+    if prim_id == QueueOp.OBTAIN:
         return _generate_obtain_queue(node, by_index, ctx)
-    if prim_id == ENQUEUE_ELEMENT:
+    if prim_id == QueueOp.ENQUEUE:
         return _generate_enqueue(node, by_index, ctx, "enqueue_element")
-    if prim_id == ENQUEUE_AT_OPPOSITE_END:
+    if prim_id == QueueOp.ENQUEUE_OPPOSITE_END:
         return _generate_enqueue(
-            node, by_index, ctx, "enqueue_element_at_opposite_end",
+            node,
+            by_index,
+            ctx,
+            "enqueue_element_at_opposite_end",
         )
-    if prim_id == DEQUEUE_ELEMENT:
+    if prim_id == QueueOp.DEQUEUE:
         return _generate_dequeue(node, by_index, ctx)
-    if prim_id == RELEASE_QUEUE:
+    if prim_id == QueueOp.RELEASE:
         return _generate_release_queue(node, by_index, ctx)
-    if prim_id == GET_QUEUE_STATUS:
+    if prim_id == QueueOp.GET_STATUS:
         return _generate_get_queue_status(node, by_index, ctx)
 
     raise ValueError(
@@ -134,7 +142,9 @@ def _emit_call(
 
 
 def _generate_obtain_queue(
-    node: PrimitiveOperation, by_index: dict[int, Terminal], ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    by_index: dict[int, Terminal],
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Obtain Queue(name, element_data_type, max_queue_size) -> handle.
 
@@ -147,7 +157,9 @@ def _generate_obtain_queue(
     max_size_val = _resolve_input(by_index.get(4), ctx, "-1")
 
     stmts, bindings = _emit_call(
-        node, ctx, "obtain_queue",
+        node,
+        ctx,
+        "obtain_queue",
         [name_val, max_size_val, create_val],
         [(by_index.get(8), "queue"), (by_index.get(10), "created")],
     )
@@ -174,7 +186,9 @@ def _generate_enqueue(
         bindings[queue_out_term.id] = queue_val
 
     stmts, call_bindings = _emit_call(
-        node, ctx, func_name,
+        node,
+        ctx,
+        func_name,
         [queue_val, element_val, timeout_val],
         [(by_index.get(10), "timed_out")],
     )
@@ -183,7 +197,9 @@ def _generate_enqueue(
 
 
 def _generate_dequeue(
-    node: PrimitiveOperation, by_index: dict[int, Terminal], ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    by_index: dict[int, Terminal],
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Dequeue Element(queue, timeout_ms) -> (element, timed_out).
     `queue_out` is a passthrough of `queue`.
@@ -197,7 +213,9 @@ def _generate_dequeue(
         bindings[queue_out_term.id] = queue_val
 
     stmts, call_bindings = _emit_call(
-        node, ctx, "dequeue_element",
+        node,
+        ctx,
+        "dequeue_element",
         [queue_val, timeout_val],
         [(by_index.get(9), "element"), (by_index.get(10), "timed_out")],
     )
@@ -206,7 +224,9 @@ def _generate_dequeue(
 
 
 def _generate_release_queue(
-    node: PrimitiveOperation, by_index: dict[int, Terminal], ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    by_index: dict[int, Terminal],
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Release Queue(queue, force destroy?) -> (queue name, remaining elements).
 
@@ -226,7 +246,9 @@ def _generate_release_queue(
         bindings[name_term.id] = f"{queue_val}.name"
 
     stmts, call_bindings = _emit_call(
-        node, ctx, "release_queue",
+        node,
+        ctx,
+        "release_queue",
         [queue_val, force_val],
         [(by_index.get(9), "remaining_elements")],
     )
@@ -235,7 +257,9 @@ def _generate_release_queue(
 
 
 def _generate_get_queue_status(
-    node: PrimitiveOperation, by_index: dict[int, Terminal], ctx: CodeGenContext,
+    node: PrimitiveOperation,
+    by_index: dict[int, Terminal],
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Get Queue Status(queue, return elements?) -> a QueueStatus dataclass.
 
@@ -258,8 +282,12 @@ def _generate_get_queue_status(
         bindings[queue_out.id] = queue_val
 
     field_by_index = {
-        4: "max_size", 5: "elements", 6: "name", 7: "n_elements",
-        9: "pending_remove", 10: "pending_insert",
+        4: "max_size",
+        5: "elements",
+        6: "name",
+        7: "n_elements",
+        9: "pending_remove",
+        10: "pending_insert",
     }
     wanted = {i: by_index[i] for i in field_by_index if i in by_index}
     if not wanted:

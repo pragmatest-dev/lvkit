@@ -15,7 +15,10 @@ from ..models import (
     CaseFrame,
     FPTerminal,
     LVType,
+    LVTypeKind,
     Terminal,
+    Tunnel,
+    TunnelMode,
     TunnelTerminal,
     bundle_unbundle_name,
     control_type_to_lvtype,
@@ -66,23 +69,34 @@ logger = logging.getLogger(__name__)
 _SUBVI_CALL_NODE_TYPES = SUBVI_CALL_NODE_TYPES
 
 # Subset of _SUBVI_CALL_NODE_TYPES that allow static callee enrichment.
-_STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset({
-    "iUse", "polyIUse", "dynIUse", "callParentDynIUse",
-})
+_STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset(
+    {
+        "iUse",
+        "polyIUse",
+        "dynIUse",
+        "callParentDynIUse",
+    }
+)
 
 # Dynamic-dispatch calls: the callee is a class method, so the owning class is
 # the dispatch object's type (carried on the call's class-typed terminals)
 # rather than a statically-linked path.
-_DYNAMIC_DISPATCH_NODE_TYPES: frozenset[str] = frozenset({
-    "dynIUse", "callParentDynIUse",
-})
+_DYNAMIC_DISPATCH_NODE_TYPES: frozenset[str] = frozenset(
+    {
+        "dynIUse",
+        "callParentDynIUse",
+    }
+)
 
 
-def _dispatch_class_names(terminals: list) -> list[str]:
+def _dispatch_class_names(terminals: list[Terminal]) -> list[str]:
     """Distinct owning-class names (``X.lvclass``) carried on a dynamic-dispatch
     call's terminals — the object type wired to the dispatch input/output. The
     generic root ("LabVIEW Object", which has no ``.lvclass`` suffix) is skipped,
-    so only concrete classes are returned, most-specific first as they appear."""
+    so only concrete classes are returned, MOST-SPECIFIC first as they appear.
+    Used only by the best-effort ``resolve_dispatch_qnames`` FALLBACK, which
+    takes the first loaded candidate — i.e. the most-derived wired class, NOT
+    necessarily the declaring parent the primary iUse path records."""
     out: list[str] = []
     for t in terminals:
         lt = getattr(t, "lv_type", None)
@@ -121,48 +135,69 @@ def decode_constant(
 # Type categories for terminal matching
 _TYPE_CATEGORIES = {
     # String types
-    "string": "string", "String": "string",
+    "string": "string",
+    "String": "string",
     "SubString": "string",
     # Path
-    "path": "path", "Path": "path",
+    "path": "path",
+    "Path": "path",
     # Boolean
-    "boolean": "boolean", "Boolean": "boolean",
+    "boolean": "boolean",
+    "Boolean": "boolean",
     # Integer types
-    "numint8": "numeric", "NumInt8": "numeric",
-    "numint16": "numeric", "NumInt16": "numeric",
-    "numint32": "numeric", "NumInt32": "numeric",
-    "numint64": "numeric", "NumInt64": "numeric",
-    "numuint8": "numeric", "NumUInt8": "numeric",
-    "numuint16": "numeric", "NumUInt16": "numeric",
-    "numuint32": "numeric", "NumUInt32": "numeric",
-    "numuint64": "numeric", "NumUInt64": "numeric",
+    "numint8": "numeric",
+    "NumInt8": "numeric",
+    "numint16": "numeric",
+    "NumInt16": "numeric",
+    "numint32": "numeric",
+    "NumInt32": "numeric",
+    "numint64": "numeric",
+    "NumInt64": "numeric",
+    "numuint8": "numeric",
+    "NumUInt8": "numeric",
+    "numuint16": "numeric",
+    "NumUInt16": "numeric",
+    "numuint32": "numeric",
+    "NumUInt32": "numeric",
+    "numuint64": "numeric",
+    "NumUInt64": "numeric",
     # Float types
-    "numfloat32": "numeric", "NumFloat32": "numeric",
-    "numfloat64": "numeric", "NumFloat64": "numeric",
+    "numfloat32": "numeric",
+    "NumFloat32": "numeric",
+    "numfloat64": "numeric",
+    "NumFloat64": "numeric",
     "NumFloatExt": "numeric",
     # Complex types
-    "NumComplex64": "numeric", "NumComplex128": "numeric",
+    "NumComplex64": "numeric",
+    "NumComplex128": "numeric",
     "NumComplexExt": "numeric",
     # Measurement / unit types
     "MeasureData": "numeric",
-    "UnitUInt8": "numeric", "UnitUInt16": "numeric", "UnitUInt32": "numeric",
+    "UnitUInt8": "numeric",
+    "UnitUInt16": "numeric",
+    "UnitUInt32": "numeric",
     # Array subtypes (kind=primitive but semantically array)
-    "SubArray": "array", "Array": "array",
+    "SubArray": "array",
+    "Array": "array",
     # Variant
-    "variant": "variant", "Variant": "variant", "LVVariant": "variant",
+    "variant": "variant",
+    "Variant": "variant",
+    "LVVariant": "variant",
     # Void
-    "void": "void", "Void": "void",
+    "void": "void",
+    "Void": "void",
     # Refnum
     "Refnum": "refnum",
 }
 
-def _lv_type_category(underlying: str, kind: str) -> str:
+
+def _lv_type_category(underlying: str, kind: LVTypeKind) -> str:
     """Map LV type to a category for matching."""
-    if kind == "cluster":
+    if kind == LVTypeKind.CLUSTER:
         return "cluster"
-    if kind == "array":
+    if kind == LVTypeKind.ARRAY:
         return "array"
-    if kind in ("enum", "ring"):
+    if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "numeric"
     cat = _TYPE_CATEGORIES.get(underlying)
     if cat:
@@ -188,13 +223,15 @@ class ConstructionMixin:
         @staticmethod
         def _qid(_vi_name: str, _uid: str) -> str: ...
         def _enrich_type(
-            self, _parsed_type: ParsedType | None,
+            self,
+            _parsed_type: ParsedType | None,
         ) -> LVType | None: ...
         def resolve_vi_name(self, _vi_name: str) -> str: ...
 
     @staticmethod
     def _enrich_nmux_terminals(
-        node: SelectNode, graph_node: AnyGraphNode,
+        node: SelectNode,
+        graph_node: AnyGraphNode,
     ) -> None:
         """Mark agg/list roles and field indices on nMux terminals.
 
@@ -219,28 +256,28 @@ class ConstructionMixin:
     @staticmethod
     def _format_lv_type_for_display(lv_type: LVType) -> str:
         """Format LVType for human-readable display."""
-        if lv_type.kind == "primitive":
+        if lv_type.kind == LVTypeKind.PRIMITIVE:
             return lv_type.underlying_type or "Any"
-        elif lv_type.kind == "enum":
+        elif lv_type.kind == LVTypeKind.ENUM:
             if lv_type.typedef_name:
                 name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
                 return name
             return "Enum"
-        elif lv_type.kind == "cluster":
+        elif lv_type.kind == LVTypeKind.CLUSTER:
             if lv_type.typedef_name:
                 name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
                 return name
             return "Cluster"
-        elif lv_type.kind == "array":
+        elif lv_type.kind == LVTypeKind.ARRAY:
             if lv_type.element_type:
                 elem = ConstructionMixin._format_lv_type_for_display(
                     lv_type.element_type
                 )
                 return f"Array[{elem}]"
             return "Array"
-        elif lv_type.kind == "ring":
+        elif lv_type.kind == LVTypeKind.RING:
             return "Ring"
-        elif lv_type.kind == "typedef_ref":
+        elif lv_type.kind == LVTypeKind.TYPEDEF_REF:
             if lv_type.typedef_name:
                 name = lv_type.typedef_name.split(":")[-1].replace(".ctl", "")
                 return name
@@ -256,7 +293,8 @@ class ConstructionMixin:
         fp: ParsedFrontPanel | None,
         conpane: ParsedConnectorPane | None,
         wiring_rules: dict[int, int],
-        vi_name: str,
+        vi_key: str,
+        display_name: str,
         type_map: dict[int, LVType] | None = None,
         iuse_to_qname: dict[str, str] | None = None,
         iuse_to_qpath: dict[str, str] | None = None,
@@ -295,7 +333,8 @@ class ConstructionMixin:
         # we need to map that back to the fPDCO uid to find the FP terminal.
         ddo_to_fpdco: dict[str, str] = (
             {ctrl.ddo_uid: ctrl.uid for ctrl in fp.controls if ctrl.ddo_uid}
-            if fp else {}
+            if fp
+            else {}
         )
 
         # Build connector pane lookup: fp_dco_uid -> slot index
@@ -332,7 +371,7 @@ class ConstructionMixin:
             if not lv_type and control_type_str:
                 lv_type = control_type_to_lvtype(control_type_str)
 
-            q_term_uid = self._qid(vi_name, fp_term.uid)
+            q_term_uid = self._qid(vi_key, fp_term.uid)
             terminal = FPTerminal(
                 id=q_term_uid,
                 index=slot_index if slot_index is not None else 0,
@@ -356,7 +395,7 @@ class ConstructionMixin:
             # deferring until vi_node exists.
             term_lookup[fp_term.uid] = WireEnd(
                 terminal_id=q_term_uid,
-                node_id=vi_name,
+                node_id=vi_key,
                 index=slot_index,
                 name=ctrl.name if ctrl else fp_term.name,
                 parent_kind="vi",
@@ -375,18 +414,28 @@ class ConstructionMixin:
 
         # Create the VINode, carrying the VI's own documentation text (parsed
         # into _vi_metadata from STRG/DSTM) so its help panel can show it.
-        _meta = getattr(self, "_vi_metadata", {}).get(vi_name)
+        _meta = getattr(self, "_vi_metadata", {}).get(vi_key)
         vi_node = VINode(
-            id=vi_name,
-            vi=vi_name,
-            name=vi_name,
+            id=vi_key,
+            vi=vi_key,
+            name=display_name,
+            # A VI's OWN qualified identity: its LIBN/LIBH-derived
+            # ``Lib.lvlib:VI.vi`` (or the bare filename when it's owned by no
+            # library — a loose VI has nothing to qualify with). Read from the
+            # VI's own parsed metadata so EVERY node has one; the later call-node
+            # resolution passes only touch CALL nodes (id != vi_key), not this.
+            qualified_name=(
+                _meta.qualified_name
+                if _meta and _meta.qualified_name
+                else display_name
+            ),
             terminals=vi_terminals,
             description=_meta.description if _meta else None,
             owning_libraries=list(_meta.owning_libraries) if _meta else [],
             connector_pattern_id=conpane.pattern_id if conpane else None,
         )
-        g.add_node(vi_name, node=vi_node)
-        vi_node_uids.add(vi_name)
+        g.add_node(vi_key, node=vi_node)
+        vi_node_uids.add(vi_key)
 
         # === 2. Add Constants ===
         for const in bd.constants:
@@ -397,7 +446,7 @@ class ConstructionMixin:
 
             _, decoded_value = decode_constant(const, lv_type=lv_type)
 
-            q_const_uid = self._qid(vi_name, const.uid)
+            q_const_uid = self._qid(vi_key, const.uid)
             # Single output terminal
             const_terminal = Terminal(
                 id=q_const_uid,
@@ -408,7 +457,7 @@ class ConstructionMixin:
 
             const_node = ConstantNode(
                 id=q_const_uid,
-                vi=vi_name,
+                vi=vi_key,
                 value=decoded_value,
                 lv_type=lv_type,
                 raw_value=const.value,
@@ -441,17 +490,26 @@ class ConstructionMixin:
         # registered per-kind handlers rather than an inlined if/elif — see
         # graph/builders/.
         build_ctx = GraphBuildContext(
-            mixin=self, bd=bd, vi_name=vi_name, term_lookup=term_lookup,
-            loop_by_uid=loop_by_uid, case_by_uid=case_by_uid,
-            flatseq_by_uid=flatseq_by_uid, decompose_by_uid=decompose_by_uid,
-            disable_by_uid=disable_by_uid, event_by_uid=event_by_uid,
-            iuse_to_qname=iuse_to_qname or {}, iuse_to_qpath=iuse_to_qpath,
-            fp=fp, ddo_to_fpdco=ddo_to_fpdco,
-            param_wire_ends=param_wire_ends, vi_node_uids=vi_node_uids,
+            mixin=self,
+            bd=bd,
+            vi_name=vi_key,
+            term_lookup=term_lookup,
+            loop_by_uid=loop_by_uid,
+            case_by_uid=case_by_uid,
+            flatseq_by_uid=flatseq_by_uid,
+            decompose_by_uid=decompose_by_uid,
+            disable_by_uid=disable_by_uid,
+            event_by_uid=event_by_uid,
+            iuse_to_qname=iuse_to_qname or {},
+            iuse_to_qpath=iuse_to_qpath,
+            fp=fp,
+            ddo_to_fpdco=ddo_to_fpdco,
+            param_wire_ends=param_wire_ends,
+            vi_node_uids=vi_node_uids,
         )
 
         for node in bd.nodes:
-            q_node_uid = self._qid(vi_name, node.uid)
+            q_node_uid = self._qid(vi_key, node.uid)
 
             # Reference-style nodes (ctlRefConst / gRef / statVIRef) fully
             # resolve here — aliasing an FP terminal, adding a LocalVariable/
@@ -459,7 +517,9 @@ class ConstructionMixin:
             # graph/builders/refs.py.
             ref_handler = REF_BUILD_HANDLERS.get(node.node_type)
             if ref_handler is not None and ref_handler.handle(
-                node, q_node_uid, build_ctx,
+                node,
+                q_node_uid,
+                build_ctx,
             ):
                 continue
 
@@ -530,7 +590,7 @@ class ConstructionMixin:
 
             node_terminals: list[Terminal] = []
             for term_uid, t_info, lv_type in raw_terms:
-                q_term_uid = self._qid(vi_name, term_uid)
+                q_term_uid = self._qid(vi_key, term_uid)
                 terminal = Terminal(
                     id=q_term_uid,
                     index=t_info.index,
@@ -601,17 +661,25 @@ class ConstructionMixin:
                 # per-kind handler (graph/builders/structures.py). Shared
                 # post-dispatch (nMux enrichment, g.add_node) is below.
                 graph_node = STRUCTURE_BUILD_HANDLERS[node.node_type].build(
-                    node, node_name, q_node_uid, build_ctx,
+                    node,
+                    node_name,
+                    q_node_uid,
+                    build_ctx,
                 )
             else:
                 # Operation node (formula box, primitive, cpdArith, property/
                 # invoke) — built by a registered handler off the ordinary
                 # node_terminals, else the default primitive handler.
                 op_handler = NODE_BUILD_HANDLERS.get(
-                    node.node_type, DEFAULT_NODE_BUILD_HANDLER,
+                    node.node_type,
+                    DEFAULT_NODE_BUILD_HANDLER,
                 )
                 graph_node = op_handler.build(
-                    node, node_name, q_node_uid, node_terminals, description,
+                    node,
+                    node_name,
+                    q_node_uid,
+                    node_terminals,
+                    description,
                     build_ctx,
                 )
 
@@ -620,7 +688,8 @@ class ConstructionMixin:
             # types -- the same single-source rename seam as the cluster border
             # node below, so "In Place Element" only survives as a fallback.
             border_name = inplace_border_name(
-                graph_node.node_type or "", graph_node.terminals,
+                graph_node.node_type or "",
+                graph_node.terminals,
             )
             if border_name is not None:
                 graph_node.name = border_name
@@ -651,7 +720,8 @@ class ConstructionMixin:
                     # header, describe, netlist) reads ``graph_node.name``
                     # from, so "decompose" jargon never leaks to any of them.
                     renamed = bundle_unbundle_name(
-                        graph_node.terminals, by_name=True,
+                        graph_node.terminals,
+                        by_name=True,
                     )
                     if renamed is not None:
                         graph_node.name = renamed
@@ -672,8 +742,9 @@ class ConstructionMixin:
                     node=graph_node,
                     feedback_is_master=node.is_master,
                     feedback_partner=(
-                        self._qid(vi_name, node.partner_uid)
-                        if node.partner_uid else None
+                        self._qid(vi_key, node.partner_uid)
+                        if node.partner_uid
+                        else None
                     ),
                     feedback_delay=node.delay_depth,
                 )
@@ -696,36 +767,36 @@ class ConstructionMixin:
 
         def _stamp(uid: str, struct_id: str, frame_key: str | int | None) -> None:
             frame_owner[uid] = (struct_id, frame_key)
-            q_uid = self._qid(vi_name, uid)
+            q_uid = self._qid(vi_key, uid)
             if q_uid in g and "node" in g.nodes[q_uid]:
                 inner_node = g.nodes[q_uid]["node"]
                 inner_node.parent = struct_id
                 inner_node.frame = frame_key
 
         for loop in bd.loops:
-            q_loop_uid = self._qid(vi_name, loop.uid)
+            q_loop_uid = self._qid(vi_key, loop.uid)
             for uid in loop.inner_node_uids:
                 _stamp(uid, q_loop_uid, None)
 
         for cs in bd.case_structures:
-            q_cs_uid = self._qid(vi_name, cs.uid)
+            q_cs_uid = self._qid(vi_key, cs.uid)
             for frame in cs.frames:
                 for uid in frame.inner_node_uids:
                     _stamp(uid, q_cs_uid, frame.selector_value)
 
         for fs in bd.flat_sequences:
-            q_fs_uid = self._qid(vi_name, fs.uid)
+            q_fs_uid = self._qid(vi_key, fs.uid)
             for idx, frame in enumerate(fs.frames):
                 for uid in frame.inner_node_uids:
                     _stamp(uid, q_fs_uid, str(idx))
 
         for ds in bd.decompose_structures:
-            q_ds_uid = self._qid(vi_name, ds.uid)
+            q_ds_uid = self._qid(vi_key, ds.uid)
             for uid in ds.inner_node_uids:
                 _stamp(uid, q_ds_uid, None)
 
         for disable in bd.disable_structures:
-            q_disable_uid = self._qid(vi_name, disable.uid)
+            q_disable_uid = self._qid(vi_key, disable.uid)
             for frame in disable.frames:
                 for uid in frame.inner_node_uids:
                     _stamp(uid, q_disable_uid, frame.selector_value)
@@ -734,7 +805,7 @@ class ConstructionMixin:
         # stacked sequence, not a case — since the active frame is chosen at
         # runtime by whichever event fires, not a selector wire/value.
         for es in bd.event_structures:
-            q_es_uid = self._qid(vi_name, es.uid)
+            q_es_uid = self._qid(vi_key, es.uid)
             for idx, frame in enumerate(es.frames):
                 for uid in frame.inner_node_uids:
                     _stamp(uid, q_es_uid, str(idx))
@@ -747,7 +818,7 @@ class ConstructionMixin:
             ct = bd.terminal_info.get(const.uid)
             if ct is None or ct.parent_uid not in frame_owner:
                 continue
-            q_const_uid = self._qid(vi_name, const.uid)
+            q_const_uid = self._qid(vi_key, const.uid)
             if q_const_uid in g and "node" in g.nodes[q_const_uid]:
                 struct_id, frame_key = frame_owner[ct.parent_uid]
                 cnode = g.nodes[q_const_uid]["node"]
@@ -776,7 +847,7 @@ class ConstructionMixin:
             ct = bd.terminal_info.get(fp_term.uid)
             if ct is None or ct.parent_uid not in frame_owner:
                 continue
-            terminal = vi_terminal_by_id.get(self._qid(vi_name, fp_term.uid))
+            terminal = vi_terminal_by_id.get(self._qid(vi_key, fp_term.uid))
             if terminal is None:
                 continue
             struct_id, frame_key = frame_owner[ct.parent_uid]
@@ -790,11 +861,9 @@ class ConstructionMixin:
         # terminals not referenced by any tunnel).
         for term_uid, t_info in bd.terminal_info.items():
             if term_uid not in term_lookup:
-                q_term_uid = self._qid(vi_name, term_uid)
+                q_term_uid = self._qid(vi_key, term_uid)
                 parent_uid = t_info.parent_uid
-                q_parent_uid = (
-                    self._qid(vi_name, parent_uid) if parent_uid else None
-                )
+                q_parent_uid = self._qid(vi_key, parent_uid) if parent_uid else None
                 effective_parent = q_parent_uid
                 # If parent is not a graph node, find the structure
                 # that contains it. Check both terminal lists and
@@ -818,34 +887,35 @@ class ConstructionMixin:
                         for cs in bd.case_structures:
                             for frame in cs.frames:
                                 if parent_uid in frame.inner_node_uids:
-                                    effective_parent = self._qid(vi_name, cs.uid)
+                                    effective_parent = self._qid(vi_key, cs.uid)
                                     break
                             if effective_parent != q_parent_uid:
                                 break
                     if effective_parent == q_parent_uid:
                         for loop in bd.loops:
                             if parent_uid in loop.inner_node_uids:
-                                effective_parent = self._qid(vi_name, loop.uid)
+                                effective_parent = self._qid(vi_key, loop.uid)
                                 break
                     if effective_parent == q_parent_uid:
                         for fs in bd.flat_sequences:
                             for frame in fs.frames:
                                 if parent_uid in frame.inner_node_uids:
-                                    effective_parent = self._qid(vi_name, fs.uid)
+                                    effective_parent = self._qid(vi_key, fs.uid)
                                     break
                             if effective_parent != q_parent_uid:
                                 break
                     if effective_parent == q_parent_uid:
                         for ds in bd.decompose_structures:
                             if parent_uid in ds.inner_node_uids:
-                                effective_parent = self._qid(vi_name, ds.uid)
+                                effective_parent = self._qid(vi_key, ds.uid)
                                 break
                     if effective_parent == q_parent_uid:
                         for disable in bd.disable_structures:
                             for frame in disable.frames:
                                 if parent_uid in frame.inner_node_uids:
                                     effective_parent = self._qid(
-                                        vi_name, disable.uid,
+                                        vi_key,
+                                        disable.uid,
                                     )
                                     break
                             if effective_parent != q_parent_uid:
@@ -854,7 +924,7 @@ class ConstructionMixin:
                         for es in bd.event_structures:
                             for frame in es.frames:
                                 if parent_uid in frame.inner_node_uids:
-                                    effective_parent = self._qid(vi_name, es.uid)
+                                    effective_parent = self._qid(vi_key, es.uid)
                                     break
                             if effective_parent != q_parent_uid:
                                 break
@@ -877,13 +947,13 @@ class ConstructionMixin:
             dst_end = term_lookup.get(wire.to_term)
 
             if src_end is None:
-                q_from = self._qid(vi_name, wire.from_term)
+                q_from = self._qid(vi_key, wire.from_term)
                 src_end = WireEnd(
                     terminal_id=q_from,
                     node_id=q_from,
                 )
             if dst_end is None:
-                q_to = self._qid(vi_name, wire.to_term)
+                q_to = self._qid(vi_key, wire.to_term)
                 dst_end = WireEnd(
                     terminal_id=q_to,
                     node_id=q_to,
@@ -894,7 +964,7 @@ class ConstructionMixin:
                 dst_end.node_id,
                 source=src_end,
                 dest=dst_end,
-                vi=vi_name,
+                vi=vi_key,
             )
 
         # === 7. Connect SubVI call terminals to callee FP terminals ===
@@ -906,29 +976,38 @@ class ConstructionMixin:
         # node's own name (``gnode.name``), using ``iuse_to_qname`` only as a
         # fallback for placeholder-named iUse nodes — so an EMPTY iuse map (e.g. a
         # class method whose LIvi records no iUse→qname entry) must NOT skip it.
-        self._connect_subvi_calls(vi_name, vi_node_uids, iuse_to_qname or {})
+        self._connect_subvi_calls(vi_key, vi_node_uids, iuse_to_qname or {})
 
         # === 8. Propagate types through wires and re-match indices ===
         # Now follows edges ACROSS VI boundaries too.
         self._propagate_types_and_rematch(g, vi_node_uids)
 
         # Store per-VI node index
-        self._vi_nodes[vi_name] = vi_node_uids
+        self._vi_nodes[vi_key] = vi_node_uids
 
         # Populate terminal ownership from term_lookup
         for _raw_tid, wire_end in term_lookup.items():
             self._term_to_node[wire_end.terminal_id] = wire_end.node_id
 
     def resolve_dispatch_qnames(self) -> None:
-        """Class-qualify dynamic-dispatch calls across the whole graph.
+        """FALLBACK class-qualification for dynamic-dispatch calls the caller's
+        binary didn't already name.
 
-        A dispatch call carries only the bare method name; the owning class is
-        the dispatch object's static type, which lands on the call's terminals
-        only after every VI is loaded and types have propagated (the object may
-        itself come from another dispatch call — a cross-VI fixpoint). So this
-        runs ONCE after loading finishes: link an ``addError.vi`` call whose
-        object is typed ``TestResult.lvclass`` to ``TestResult.lvclass:addError.vi``
-        when that method VI is loaded. Idempotent."""
+        The PRIMARY path is ``SubVIBuildHandler``, which stamps
+        ``qualified_name`` from the caller's recorded ``iuse_to_qname`` — for a
+        dispatch call that is the DECLARING PARENT class's method (e.g.
+        ``TestResult.lvclass:addError.vi``), the honest static edge and
+        deterministic across platforms. This pass only touches calls that path
+        left BARE (guard: ``qualified_name == name`` — no iUse entry): it infers
+        the class from the dispatch object's static type on the call's
+        terminals, which lands only after every VI is loaded and types propagate
+        (the object may come from another dispatch — a cross-VI fixpoint), so it
+        runs ONCE after loading.
+
+        NOTE the two paths use DIFFERENT contracts: the primary records the
+        declaring parent; this fallback is best-effort — it stamps the
+        most-specific wired class (``_dispatch_class_names``), which may be a
+        child override. Idempotent."""
         g = self._graph
         for _nid, data in g.nodes(data=True):
             gnode = data.get("node")
@@ -940,14 +1019,18 @@ class ConstructionMixin:
             ):
                 continue
             for cls in _dispatch_class_names(gnode.terminals):
-                cand = self.resolve_vi_name(f"{cls}:{gnode.name}")
-                if cand and cand in g:
-                    gnode.qualified_name = cand
+                candidate_qname = f"{cls}:{gnode.name}"
+                # resolve_vi_name returns the callee's vi_key (path); we only use
+                # it to confirm that class's method VI is actually loaded, then
+                # stamp the class-qualified NAME (not the path) for display.
+                cand_key = self.resolve_vi_name(candidate_qname)
+                if cand_key and cand_key in g:
+                    gnode.qualified_name = candidate_qname
                     break
 
     def _connect_subvi_calls(
         self,
-        vi_name: str,
+        vi_key: str,
         vi_node_uids: set[str],
         iuse_to_qname: dict[str, str],
     ) -> None:
@@ -960,7 +1043,7 @@ class ConstructionMixin:
         g = self._graph
         for nid in vi_node_uids:
             gnode = g.nodes.get(nid, {}).get("node")
-            if not isinstance(gnode, VINode) or gnode.id == vi_name:
+            if not isinstance(gnode, VINode) or gnode.id == vi_key:
                 continue
             # callByRefNode excluded — callee is runtime-determined, no static
             # enrichment possible. Only iUse/polyIUse/dynIUse/callParentDynIUse.
@@ -983,10 +1066,9 @@ class ConstructionMixin:
             # the SubVI does (same enrich-from-callee pattern as terminal names).
             if not gnode.description and callee_node.description:
                 gnode.description = callee_node.description
-            # ...and its fully qualified name (Class.lvclass:vi.vi), so the hover
-            # title disambiguates a bare leaf name.
-            if not gnode.qualified_name and callee_qname:
-                gnode.qualified_name = callee_qname
+            # (No qualified_name back-fill: SubVIBuildHandler always sets it to
+            # ``iuse_to_qname or node_name``, so it is never None here — the old
+            # ``if not gnode.qualified_name`` branch was unreachable.)
             # ...and the callee's OWNERSHIP CHAIN (from the callee's own <LIBN>),
             # so a SubVI-CALL label can show ``Class.lvclass:method`` — the whole
             # point of qualifying two classes' same-named methods.
@@ -1020,7 +1102,8 @@ class ConstructionMixin:
                     # idx=-1: match by elimination — find unmatched callee
                     # terminal with same direction
                     unmatched = [
-                        t for (_, d), t in callee_term_map.items()
+                        t
+                        for (_, d), t in callee_term_map.items()
                         if d == call_term.direction and t.id not in matched_callee
                     ]
                     if len(unmatched) == 1:
@@ -1036,17 +1119,29 @@ class ConstructionMixin:
                     call_term.name = callee_t.name
                 if not call_term.lv_type and callee_t.lv_type:
                     call_term.lv_type = callee_t.lv_type
-                elif (call_term.lv_type and callee_t.lv_type
-                      and not call_term.lv_type.fields and callee_t.lv_type.fields):
+                elif (
+                    call_term.lv_type
+                    and callee_t.lv_type
+                    and not call_term.lv_type.fields
+                    and callee_t.lv_type.fields
+                ):
                     call_term.lv_type.fields = callee_t.lv_type.fields
 
                 # Create dataflow edge
-                src_we = WireEnd(terminal_id=call_term.id, node_id=nid,
-                                 index=call_term.index, name=call_term.name,
-                                 parent_kind=_graph_node_to_op_kind(gnode))
-                dst_we = WireEnd(terminal_id=callee_t.id, node_id=callee_name,
-                                 index=call_term.index, name=callee_t.name,
-                                 parent_kind=_graph_node_to_op_kind(callee_node))
+                src_we = WireEnd(
+                    terminal_id=call_term.id,
+                    node_id=nid,
+                    index=call_term.index,
+                    name=call_term.name,
+                    parent_kind=_graph_node_to_op_kind(gnode),
+                )
+                dst_we = WireEnd(
+                    terminal_id=callee_t.id,
+                    node_id=callee_name,
+                    index=call_term.index,
+                    name=callee_t.name,
+                    parent_kind=_graph_node_to_op_kind(callee_node),
+                )
                 if call_term.direction == "input":
                     g.add_edge(nid, callee_name, source=src_we, dest=dst_we)
                 else:
@@ -1082,7 +1177,8 @@ class ConstructionMixin:
             # Find resolver terminals: same direction, same type, not taken.
             # "polymorphic" matches any parser category.
             matches = [
-                pt for pt in known_terminals
+                pt
+                for pt in known_terminals
                 if pt.direction == prim_dir
                 and pt.index not in assigned_indices
                 and (pt.type == cat or pt.type == "polymorphic")
@@ -1091,11 +1187,12 @@ class ConstructionMixin:
             if len(matches) == 1:
                 t_info.index = matches[0].index
                 assigned_indices.add(matches[0].index)
-            elif len(matches) != 1:
+            else:
                 # Check for expandable terminal — all unresolved terminals of
                 # matching type map to the expandable slot's index
                 expandable = [
-                    pt for pt in known_terminals
+                    pt
+                    for pt in known_terminals
                     if pt.direction == prim_dir
                     and getattr(pt, "expandable", False)
                     and (pt.type == cat or pt.type == "polymorphic")
@@ -1105,7 +1202,9 @@ class ConstructionMixin:
                     # Don't add to assigned — expandable can be reused
 
     def _propagate_types_and_rematch(
-        self, g: nx.MultiDiGraph, vi_node_uids: set[str],
+        self,
+        g: nx.MultiDiGraph,
+        vi_node_uids: set[str],
     ) -> None:
         """Propagate types through wires, then re-match -1 index terminals.
 
@@ -1159,8 +1258,13 @@ class ConstructionMixin:
                     changed = True
                 # Both have type but one has fields and the other doesn't:
                 # enrich the incomplete side (same wire = same type)
-                elif (src_term.lv_type and dst_term.lv_type
-                      and src_term.lv_type.kind == dst_term.lv_type.kind == "cluster"):
+                elif (
+                    src_term.lv_type
+                    and dst_term.lv_type
+                    and src_term.lv_type.kind
+                    == dst_term.lv_type.kind
+                    == LVTypeKind.CLUSTER
+                ):
                     if src_term.lv_type.fields and not dst_term.lv_type.fields:
                         dst_term.lv_type.fields = src_term.lv_type.fields
                         changed = True
@@ -1178,7 +1282,7 @@ class ConstructionMixin:
                 continue
 
             prim_terminals = None
-            if hasattr(gnode, 'prim_id') and gnode.prim_id:
+            if hasattr(gnode, "prim_id") and gnode.prim_id:
                 prim_resolved = resolve_primitive(prim_id=gnode.prim_id)
                 if prim_resolved and prim_resolved.terminals:
                     prim_terminals = prim_resolved.terminals
@@ -1191,9 +1295,9 @@ class ConstructionMixin:
             for t in gnode.terminals:
                 fake_ti = SimpleNamespace(
                     index=t.index,
-                    is_output=t.direction == 'output',
+                    is_output=t.direction == "output",
                 )
-                fake_terms.append(('', fake_ti, t.lv_type))
+                fake_terms.append(("", fake_ti, t.lv_type))
 
             self._resolve_terminal_indices(fake_terms, prim_terminals)
 
@@ -1202,17 +1306,24 @@ class ConstructionMixin:
                 if t.index == -1 and fake_ti.index >= 0:
                     t.index = fake_ti.index
 
-    _INPUT_TUNNEL_TYPES = frozenset({
-        "lSR", "lMax", "lpTun", "caseSel", "seqTun", "flatSeqTun",
-    })
+    _INPUT_TUNNEL_TYPES = frozenset(
+        {
+            "lSR",
+            "lMax",
+            "lpTun",
+            "caseSel",
+            "seqTun",
+            "flatSeqTun",
+        }
+    )
 
     def _build_structure_terminals(
         self,
         bd: ParsedBlockDiagram,
-        parser_tunnels: list,
+        parser_tunnels: list[Tunnel],
         structure_uid: str,
         term_lookup: dict[str, WireEnd],
-        vi_name: str = "",
+        vi_key: str = "",
         case_frames: list[CaseFrame] | None = None,
     ) -> list[Terminal]:
         """Build Terminal list for a StructureNode from its tunnels and sRN nodes.
@@ -1268,8 +1379,21 @@ class ConstructionMixin:
             else:
                 is_input_tunnel = ttype in self._INPUT_TUNNEL_TYPES
 
-            q_outer_uid = self._qid(vi_name, outer_uid)
-            q_inner_uid = self._qid(vi_name, inner_uid)
+            q_outer_uid = self._qid(vi_key, outer_uid)
+            q_inner_uid = self._qid(vi_key, inner_uid)
+
+            # Direction-normalize the loop-tunnel mode now that direction is
+            # known (the parser sees only the file's flags, not which way data
+            # flows). An INPUT tunnel is auto-index (INDEXING) or no-indexing
+            # (PASSTHROUGH) only -- it has no last-value/concatenate/conditional
+            # semantics (those are output-only), so re-label its "indexing off"
+            # LAST_VALUE as PASSTHROUGH and clear conditional.
+            tun_mode = tunnel.mode
+            tun_conditional = tunnel.conditional
+            if is_input_tunnel and ttype == "lpTun":
+                if tun_mode == TunnelMode.LAST_VALUE:
+                    tun_mode = TunnelMode.PASSTHROUGH
+                tun_conditional = False
 
             # Outer terminal
             outer_lv_type = None
@@ -1285,7 +1409,8 @@ class ConstructionMixin:
                 tunnel_type=ttype,
                 boundary="outer",
                 paired_id=q_inner_uid,
-                mode=tunnel.mode,
+                mode=tun_mode,
+                conditional=tun_conditional,
                 sr_initialized=tunnel.sr_initialized,
                 sr_stack_depth=tunnel.sr_stack_depth,
             )
@@ -1319,7 +1444,8 @@ class ConstructionMixin:
                 boundary="inner",
                 paired_id=q_outer_uid,
                 frame=inner_frame,
-                mode=tunnel.mode,
+                mode=tun_mode,
+                conditional=tun_conditional,
                 sr_initialized=tunnel.sr_initialized,
                 sr_stack_depth=tunnel.sr_stack_depth,
             )
@@ -1347,16 +1473,22 @@ class ConstructionMixin:
             if is_input_tunnel:
                 # Data flows in: outer -> inner
                 g.add_edge(
-                    structure_uid, structure_uid,
-                    source=outer_end, dest=inner_end,
-                    tunnel_type=ttype, vi=vi_name,
+                    structure_uid,
+                    structure_uid,
+                    source=outer_end,
+                    dest=inner_end,
+                    tunnel_type=ttype,
+                    vi=vi_key,
                 )
             else:
                 # Data flows out: inner -> outer
                 g.add_edge(
-                    structure_uid, structure_uid,
-                    source=inner_end, dest=outer_end,
-                    tunnel_type=ttype, vi=vi_name,
+                    structure_uid,
+                    structure_uid,
+                    source=inner_end,
+                    dest=outer_end,
+                    tunnel_type=ttype,
+                    vi=vi_key,
                 )
 
         # --- 2. Register sRN-owned terminals on the structure ---
@@ -1372,9 +1504,7 @@ class ConstructionMixin:
 
         # Extract raw UID from qualified UID for srn_to_structure lookup
         raw_structure_uid = (
-            structure_uid.split("::")[-1]
-            if "::" in structure_uid
-            else structure_uid
+            structure_uid.split("::")[-1] if "::" in structure_uid else structure_uid
         )
 
         all_srn_parents: set[str] = set()
@@ -1391,7 +1521,8 @@ class ConstructionMixin:
         for srn_uid in all_srn_parents:
             # Collect all terminals owned by this sRN
             srn_terms = [
-                (uid, ti) for uid, ti in bd.terminal_info.items()
+                (uid, ti)
+                for uid, ti in bd.terminal_info.items()
                 if ti.parent_uid == srn_uid
             ]
 
@@ -1402,18 +1533,20 @@ class ConstructionMixin:
                     continue
                 seen_uids.add(uid)
 
-                q_uid = self._qid(vi_name, uid)
+                q_uid = self._qid(vi_key, uid)
                 lv_type = None
                 if ti.parsed_type:
                     lv_type = self._enrich_type(ti.parsed_type)
 
-                structure_terminals.append(Terminal(
-                    id=q_uid,
-                    index=ti.index,
-                    direction="output" if ti.is_output else "input",
-                    name=ti.name,
-                    lv_type=lv_type,
-                ))
+                structure_terminals.append(
+                    Terminal(
+                        id=q_uid,
+                        index=ti.index,
+                        direction="output" if ti.is_output else "input",
+                        name=ti.name,
+                        lv_type=lv_type,
+                    )
+                )
 
                 term_lookup[uid] = WireEnd(
                     terminal_id=q_uid,

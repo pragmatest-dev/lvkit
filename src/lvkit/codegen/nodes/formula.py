@@ -13,7 +13,7 @@ import re
 from typing import TYPE_CHECKING
 
 from lvkit.formula.emit import VarSpec, transpile
-from lvkit.models import FormulaOperation
+from lvkit.models import FormulaOperation, LVTypeKind
 
 from ..fragment import CodeFragment
 from .base import CodeGenError
@@ -35,7 +35,7 @@ def _varspecs(op: FormulaOperation) -> list[VarSpec]:
         if not t.name:
             continue
         lt = t.lv_type
-        is_array = lt is not None and lt.kind == "array"
+        is_array = lt is not None and lt.kind == LVTypeKind.ARRAY
         if is_array:
             elem = lt.element_type if lt else None
             lv = elem.underlying_type if elem else None
@@ -50,9 +50,7 @@ def _varspecs(op: FormulaOperation) -> list[VarSpec]:
     for name in order:
         info = by_name[name]
         if info["lv"] is None:
-            raise CodeGenError(
-                f"Formula Node variable {name!r} has no resolved type"
-            )
+            raise CodeGenError(f"Formula Node variable {name!r} has no resolved type")
         direction = (
             "inout" if info["dirs"] == {"in", "out"} else next(iter(info["dirs"]))
         )

@@ -4,12 +4,13 @@ This is the relational half of the query architecture (design doc
 ``docs/_internal/design/lvkit-query-surface.md`` §3): the ONE ``query`` entry
 point that replaces the read-half of the hand-shaped MCP tools. It answers the
 driving question — *"count the names this project uses for error indicators"* —
-as a single ``GROUP BY`` that returns the 13-row histogram, not the 379 terminal
+as a single ``GROUP BY`` that returns the 16-row histogram, not the 406 terminal
 rows the old tool dumped.
 
 Callers get **read-only SQL over a small, curated VIEW layer** (``vi``,
-``terminal``, ``constant``, ``call``, ``type_use``, ``class_fact``). The physical
-tables (``store.py``) can churn underneath; the views are the public contract.
+``terminal``, ``constant``, ``node``, ``call``, ``type_use``, ``class_fact``,
+``lvproj``). The physical tables (``store.py``) can churn underneath; the views
+are the public contract.
 
 Security is enforced **structurally**, not by string-matching the SQL (design
 §3a — Anthropic's own Postgres MCP shipped a read-only-bypass injection because
@@ -89,15 +90,16 @@ VIEWS: dict[str, _View] = {
             "library": "owning .lvclass/.lvlib, or NULL",
             "is_stub": "1 if the VI could not be fully loaded (placeholder facts)",
             "impact_score": "count of transitive dependents (0 until a full refresh)",
-            "callers_count": "number of in-repo VIs that directly call this VI; "
-            "0 == dead code / uncalled. Use this for uncalled-VI detection — it "
-            "is computed on VI path identity, so it is reliable even when "
-            "qualified_name is NULL (a name-matching anti-join over callee_key "
-            "silently misfires).",
+            "callers_count": "number of in-repo VIs that STATICALLY call this VI "
+            "(the in-degree of the node-spine call graph: distinct callers via "
+            "node.callee_path). 0 == no static caller — dead code OR a top-level "
+            "entry point OR a VI reached only dynamically (Call-By-Reference / VI "
+            "Server / async launch), which no static graph can link. Reliable for "
+            "uncalled-VI detection; keyed on VI path, so it classifies even VIs "
+            "whose qualified_name is NULL.",
             "lv_version": "LabVIEW version the VI was saved with, "
             "'Major.Minor.Bugfix' (e.g. '21.0.0'), or NULL if absent",
-            "vi_type": "VI kind from the Instrument record (e.g. 'Control'), "
-            "or NULL",
+            "vi_type": "VI kind from the Instrument record (e.g. 'Control'), or NULL",
             "lock_state": "VI Properties -> Protection: 'unlocked', 'locked', "
             "or 'password_protected'",
             # -- exec_* : VI Properties -> Execution -------------------------
@@ -127,19 +129,14 @@ VIEWS: dict[str, _View] = {
             "exec_allow_debugging": "1 if 'Allow debugging' is enabled",
             "exec_always_calls_parent": "1 if a dynamic-dispatch override "
             "always calls its parent implementation first",
-            "exec_print_after_exec": "1 if 'Print panel after execution' is "
-            "enabled",
+            "exec_print_after_exec": "1 if 'Print panel after execution' is enabled",
             # -- window_* : VI Properties -> Window Appearance ---------------
-            "window_show_title_bar": "1 if the front panel window shows a "
-            "title bar",
-            "window_show_menu_bar": "1 if the front panel window shows a "
-            "menu bar",
-            "window_show_toolbar": "1 if the front panel window shows a "
-            "toolbar",
+            "window_show_title_bar": "1 if the front panel window shows a title bar",
+            "window_show_menu_bar": "1 if the front panel window shows a menu bar",
+            "window_show_toolbar": "1 if the front panel window shows a toolbar",
             "window_show_scrollbar": "raw ShowScrollBar bitmask, verbatim, "
             "or NULL if unset",
-            "window_auto_center": "1 if the front panel window auto-centers "
-            "on screen",
+            "window_auto_center": "1 if the front panel window auto-centers on screen",
             "window_size_to_screen": "1 if the front panel window auto-sizes "
             "to the screen",
             "window_no_runtime_popup_menu": "1 if the runtime shortcut menu "
@@ -152,8 +149,7 @@ VIEWS: dict[str, _View] = {
             "menu selections",
             "window_can_close": "1 if the window's close button is enabled",
             "window_can_resize": "1 if the window is user-resizable",
-            "window_can_minimize": "1 if the window's minimize button is "
-            "enabled",
+            "window_can_minimize": "1 if the window's minimize button is enabled",
             "window_transparent": "1 if the window is drawn transparent",
             # -- toolbar_* : hidden toolbar buttons ---------------------------
             "toolbar_hide_run_button": "1 if the Run button is hidden",
@@ -166,10 +162,8 @@ VIEWS: dict[str, _View] = {
             "instance selector",
             "instance_hide_instance_caption": "1 if a poly-VI instance hides "
             "its caption",
-            "instance_draw_instance_icon": "1 if a poly-VI instance draws its "
-            "own icon",
-            "instance_remote_panel": "1 if front-panel remote access is "
-            "enabled",
+            "instance_draw_instance_icon": "1 if a poly-VI instance draws its own icon",
+            "instance_remote_panel": "1 if front-panel remote access is enabled",
             # -- kind_* : what ROLE the VI plays (VIProperties.kind -- a
             # sub-struct of VI Properties, like exec_*/window_*/…) ----------
             "kind_typedef_status": "VI type-definition kind "
@@ -187,8 +181,7 @@ VIEWS: dict[str, _View] = {
             # VI Properties above, never nested under it) -------------------
             "health_bad_node": "1 if the VI has a broken node",
             "health_bad_subvi": "1 if the VI calls a broken subVI",
-            "health_bad_subvi_link": "1 if a subVI call link is broken "
-            "(unresolved)",
+            "health_bad_subvi_link": "1 if a subVI call link is broken (unresolved)",
             "health_bad_compile": "1 if the VI failed to compile",
             "health_broken_poly": "1 if a polymorphic VI has a broken variant",
             "health_is_broken": "1 if ANY of health_bad_node/health_bad_subvi/"
@@ -205,19 +198,20 @@ VIEWS: dict[str, _View] = {
             "is_indicator": "1 if an indicator (output side of the connector pane)",
             "is_public": "1 if on the public connector pane",
             "control_type": "front-panel control class, or NULL",
-            "py_type": "generated Python type for this terminal (LOSSY codegen "
-            "target — an enum collapses to 'int', a cluster to "
-            "'dict[str, Any]'); prefer lv_type for anything that reads the "
-            "type back",
-            "is_error_cluster": "1 if this terminal carries a LabVIEW error cluster",
             "field_names": "JSON array of cluster field names (for cluster terminals)",
-            "lv_type": "FAITHFUL LabVIEW type label, e.g. 'DBL', "
-            "'MethodEnum{setUp, testMethod, tearDown}', 'error cluster', "
-            "'TestCase.lvclass' — never a Python annotation",
+            "type_descriptor": "the exact LabVIEW type descriptor, e.g. 'DBL', "
+            "'MethodEnum{setUp, testMethod, tearDown}', 'Error', "
+            "'TestCase.lvclass'; '' when the type is unresolved. Open-ended (one "
+            "per typedef/cluster shape/class) — enumerate this project's actual "
+            "descriptors with SELECT DISTINCT type_descriptor; for kind-level "
+            "filters (all clusters, all enums) use type_kind, which is a closed "
+            "set",
+            "type_kind": "kind of the type: primitive | enum | cluster | array | "
+            "ring | typedef_ref | class; NULL when genuinely unknown",
             "enum_values": "JSON array of enum/ring member names in ordinal order "
             "(empty for non-enum terminals) — query for terminals whose enum "
             "carries a given member via e.g. "
-            "\"WHERE enum_values LIKE '%\"setUp\"%'\"",
+            '"WHERE enum_values LIKE \'%"setUp"%\'"',
         },
     ),
     "constant": _View(
@@ -226,19 +220,56 @@ VIEWS: dict[str, _View] = {
             "vi_path": "path of the VI the constant lives in",
             "value": "the constant's literal value, as text",
             "label": "the constant's label, or NULL",
-            "py_type": "generated Python type for the constant (LOSSY codegen "
-            "target — prefer lv_type to read the type back)",
-            "lv_type": "FAITHFUL LabVIEW type label, e.g. 'DBL', "
-            "'error cluster', 'MethodEnum{setUp, tearDown}' — never a Python "
-            "annotation",
+            "type_descriptor": "the exact LabVIEW type descriptor, e.g. 'DBL', "
+            "'Error', 'MethodEnum{setUp, tearDown}'; '' when unresolved. "
+            "Open-ended — enumerate this project's actual descriptors with "
+            "SELECT DISTINCT type_descriptor; for kind-level filters use "
+            "type_kind, which is a closed set",
+            "type_kind": "kind of the type: primitive | enum | cluster | array | "
+            "ring | typedef_ref | class; NULL when genuinely unknown",
             "wired_to": "what the constant wires into, e.g. 'indicator'",
         },
     ),
-    "call": _View(
-        body="FROM calls",
+    "node": _View(
+        body="FROM nodes",
         columns={
-            "caller_path": "path of the calling VI",
-            "callee_key": "qualified name of the callee (join vi.qualified_name)",
+            "vi_path": "path of the VI this block-diagram node lives in",
+            "ord": "the node's position in deterministic block-diagram order "
+            "within its VI (ORDER BY ord to preserve that order)",
+            "uid": "the node's stable graph uid within its VI (the join target "
+            "for parent_uid containment walks)",
+            "kind": "the specific node kind, a CLOSED set: vi (a SubVI call site) "
+            "| primitive | constant | local_variable | formula | case | while | "
+            "for | sequence | event | disabled | inplace | other",
+            "name": "resolved node label (primitive / SubVI / structure name). "
+            "HUMAN-CONVENIENCE ONLY — localized and variant-dependent; for "
+            "primitives filter on prim_id and for SubVI calls on qualified_name "
+            "(the ROBUST identifiers). Use name only to eyeball results.",
+            "prim_id": "the LabVIEW primitive id (stable integer) for "
+            "kind='primitive'; NULL otherwise. THE robust primitive filter — "
+            "prefer it over name.",
+            "qualified_name": "for kind='vi', the callee SubVI's qualified name "
+            "(the unresolved call key); NULL otherwise. The robust filter for "
+            "SubVI-based operations (e.g. vi.lib queue/event VIs).",
+            "callee_path": "for kind='vi', the callee SubVI resolved to an "
+            "in-repo VI path (NULL when the callee is external, or an ambiguous "
+            "bare leaf the resolver refuses to guess). THIS IS the call graph: "
+            "direct callers of X = SELECT DISTINCT vi_path FROM node WHERE "
+            "callee_path=X; transitive blast radius = a WITH RECURSIVE over "
+            "callee_path; and vi.callers_count / vi.impact_score are the "
+            "precomputed counts (in-degree / transitive-dependent count) built "
+            "from this same edge. Dynamic-dispatch calls resolve to the runtime "
+            "class method.",
+            "object_name": "property/invoke target class (e.g. 'Bool'), or NULL",
+            "method_name": "invoke-node method name, or NULL",
+            "parent_uid": "uid of the CONTAINING structure node (STRUCTURAL "
+            "nesting only, NOT a wire), or NULL at top level. Self-join child.node "
+            "to parent.node ON child.parent_uid=parent.uid AND "
+            "child.vi_path=parent.vi_path to find 'X inside structure Y'; walk it "
+            "with WITH RECURSIVE for full containment.",
+            "frame": "the selector value of the containing frame (which case/event "
+            "frame this node sits in), or NULL. Filter with parent_uid to get a "
+            "structure's per-frame contents.",
         },
     ),
     "type_use": _View(
@@ -258,8 +289,8 @@ VIEWS: dict[str, _View] = {
             "is_accessor": "1 if a generated property/accessor VI",
             "accessor_field": "the class field this accessor reads/writes, or NULL",
             "private_data": "JSON array of the owning class's private-data fields "
-            "(incl. inherited), each FAITHFULLY rendered 'name: <lv_type>', e.g. "
-            "'[\"testName: String\", \"result: TestResult.lvclass\"]'",
+            "(incl. inherited), each rendered 'name: <type_descriptor>', e.g. "
+            '\'["testName: String", "result: TestResult.lvclass"]\'',
             "is_static": "1 if this method is a static (non-dynamic-dispatch) "
             "class method",
             "must_override": "1 if a child class MUST provide its own "
@@ -417,16 +448,12 @@ def run_query(
         except sqlite3.OperationalError as e:
             # progress-handler abort surfaces as "interrupted"
             if "interrupt" in str(e).lower():
-                raise QueryError(
-                    f"query exceeded the {timeout_s:g}s time limit"
-                ) from e
+                raise QueryError(f"query exceeded the {timeout_s:g}s time limit") from e
             raise QueryError(str(e)) from e
         except sqlite3.Warning as e:
             # stacked statements ("SELECT 1; DROP TABLE vis") — sqlite3.Warning
             # is NOT a subclass of sqlite3.Error, so it needs its own clause.
-            raise QueryError(
-                f"one statement per query only ({e})"
-            ) from e
+            raise QueryError(f"one statement per query only ({e})") from e
         except sqlite3.Error as e:
             # includes "not authorized" from the authorizer (defence in depth)
             raise QueryError(str(e)) from e
@@ -443,7 +470,7 @@ def run_query(
 
 ERROR_INDICATOR_HISTOGRAM_SQL = (
     "SELECT name, COUNT(*) AS n FROM terminal "
-    "WHERE is_error_cluster = 1 AND direction = 'output' "
+    "WHERE type_descriptor = 'Error' AND direction = 'output' "
     "GROUP BY name ORDER BY n DESC, name"
 )
 
@@ -460,9 +487,9 @@ UNCALLED_VIS_SQL = (
 
 
 def uncalled_vis(project_root: Path) -> QueryResult:
-    """The project's dead code: VIs that no in-repo VI calls (entry points and
-    orphans). A straight ``callers_count = 0`` filter on the ``vi`` view — NOT
-    the fragile ``qualified_name`` / ``callee_key`` name anti-join, which
-    misfires because ``qualified_name`` is often NULL and ``callee_key`` holds
-    bare filenames, never qualified names."""
+    """The project's dead code: VIs that no in-repo VI STATICALLY calls (also
+    top-level entry points and VIs reached only dynamically). A straight
+    ``callers_count = 0`` filter on the ``vi`` view — the precomputed in-degree
+    of the node-spine call graph, keyed on VI path so it classifies even VIs
+    whose ``qualified_name`` is NULL."""
     return run_query(project_root, UNCALLED_VIS_SQL)

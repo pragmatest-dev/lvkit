@@ -5,6 +5,7 @@ Error codes and behaviours are verified against NI's Obtain/Release/Get-Status
 function docs: bounded=blocking, refcounted lifecycle, force-destroy invalidates
 all refs (pending ops -> 1122), create-if-not-found FALSE -> 1100.
 """
+
 from __future__ import annotations
 
 import threading
@@ -100,6 +101,6 @@ def test_force_destroy_wakes_a_blocked_dequeue_with_1122():
 
 def test_bounded_queue_is_blocking_not_lossy():
     q, _ = obtain_queue("", 1)  # unnamed, bounded to one element
-    assert enqueue_element(q, "a", 0) is False   # fits
-    assert enqueue_element(q, "b", 0) is True     # full -> timed_out, "a" kept
+    assert enqueue_element(q, "a", 0) is False  # fits
+    assert enqueue_element(q, "b", 0) is True  # full -> timed_out, "a" kept
     assert dequeue_element(q, 0) == ("a", False)

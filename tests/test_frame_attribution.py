@@ -21,14 +21,14 @@ from lvkit.graph.describe import (
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
 from lvkit.graph.op_walk import _format_error_cluster
-from lvkit.models import ClusterField, LVType
+from lvkit.models import ClusterField, LVType, LVTypeKind
 
 IN_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
 
 def _error_cluster_type() -> LVType:
     return LVType(
-        kind="cluster",
+        kind=LVTypeKind.CLUSTER,
         fields=[
             ClusterField(name="status"),
             ClusterField(name="code"),
@@ -38,12 +38,17 @@ def _error_cluster_type() -> LVType:
 
 
 def _error_const(
-    *, parent: str | None = None, frame: str | None = None,
+    *,
+    parent: str | None = None,
+    frame: str | None = None,
     value: str = "{'status': True, 'code': 17, 'source': 'bad'}",
 ) -> Constant:
     return Constant(
-        id="vi::261", value=value, lv_type=_error_cluster_type(),
-        parent=parent, frame=frame,
+        id="vi::261",
+        value=value,
+        lv_type=_error_cluster_type(),
+        parent=parent,
+        frame=frame,
     )
 
 
@@ -52,7 +57,7 @@ def _error_const(
 
 class TestErrorClusterFormatting:
     def test_type_label_is_error_cluster(self):
-        assert _const_type_str(_error_const()) == "error cluster"
+        assert _const_type_str(_error_const()) == "Error"
 
     def test_value_renders_code_and_source(self):
         out = _format_error_cluster(
@@ -61,9 +66,7 @@ class TestErrorClusterFormatting:
         assert out == 'code 17: "Mean should be positive"'
 
     def test_value_accepts_dict(self):
-        out = _format_error_cluster(
-            {"status": True, "code": 42, "source": "boom"}
-        )
+        out = _format_error_cluster({"status": True, "code": 42, "source": "boom"})
         assert out == 'code 42: "boom"'
 
     def test_no_error_value(self):
@@ -72,7 +75,7 @@ class TestErrorClusterFormatting:
 
     def test_constant_line_has_no_raw_dict(self):
         line = _describe_constant_line(_error_const())
-        assert "error cluster" in line
+        assert "Error" in line
         assert "code 17" in line
         # The ugly raw dict repr must not leak through.
         assert "{'status'" not in line

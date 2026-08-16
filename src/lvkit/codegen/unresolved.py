@@ -149,8 +149,5 @@ def _is_json_safe(value: object) -> bool:
     if isinstance(value, list | tuple):
         return all(_is_json_safe(v) for v in value)
     if isinstance(value, dict):
-        return all(
-            isinstance(k, str) and _is_json_safe(v)
-            for k, v in value.items()
-        )
+        return all(isinstance(k, str) and _is_json_safe(v) for k, v in value.items())
     return True

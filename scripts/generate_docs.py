@@ -12,6 +12,7 @@ Usage:
     python scripts/generate_docs.py <vi_or_library_path> <output_dir>
         [--search-path PATH ...]
 """
+
 import argparse
 import sys
 import traceback
@@ -41,15 +42,21 @@ def main() -> int:
         help="Search path for dependencies",
     )
     parser.add_argument(
-        "--load-mode", choices=[m.value for m in LoadMode], default="full",
+        "--load-mode",
+        choices=[m.value for m in LoadMode],
+        default="full",
         help="Dependency depth: none | minimal | full (default full).",
     )
     parser.add_argument(
-        "--vilib", default=None, metavar="DIR",
+        "--vilib",
+        default=None,
+        metavar="DIR",
         help="Path to LabVIEW vi.lib on disk for <vilib> resolution.",
     )
     parser.add_argument(
-        "--userlib", default=None, metavar="DIR",
+        "--userlib",
+        default=None,
+        metavar="DIR",
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
 

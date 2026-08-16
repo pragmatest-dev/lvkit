@@ -10,7 +10,7 @@ import ast
 import xml.etree.ElementTree as ET
 
 from lvkit.codegen.nodes import subvi
-from lvkit.models import LVType, SubVIOperation, Terminal
+from lvkit.models import LVType, LVTypeKind, SubVIOperation, Terminal
 from lvkit.parser.vi import _extract_subvi_info, _resolve_qualified_name
 from tests.helpers import make_ctx
 
@@ -87,7 +87,7 @@ class TestVIPIExtraction:
         s1 = ET.SubElement(lsqn, "String")
         s1.text = "TestResult.lvclass"
         s2 = ET.SubElement(lsqn, "String")
-        s2.text = "\x01\x0DaddSuccess.vi"
+        s2.text = "\x01\x0daddSuccess.vi"
 
         qname = _resolve_qualified_name(vipi, caller_library=None)
         assert qname == "TestResult.lvclass:addSuccess.vi"
@@ -151,19 +151,27 @@ class TestDynamicDispatchCodegen:
         node = _make_dynIUse_node(
             name="addSuccess.vi",
             inputs=[
-                Terminal(id="t_in_0", index=0, direction="input",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                Terminal(
+                    id="t_in_0",
+                    index=0,
+                    direction="input",
+                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
+                ),
                 Terminal(id="t_in_1", index=1, direction="input"),
             ],
             outputs=[
-                Terminal(id="t_out_0", index=2, direction="output",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                Terminal(
+                    id="t_out_0",
+                    index=2,
+                    direction="output",
+                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
+                ),
             ],
         )
         ctx = _make_ctx_with_bindings(
             {"t_in_0": "test_result", "t_in_1": "test_name"}, ["t_out_0"]
         )
-        
+
         frag = subvi.generate(node, ctx)
 
         assert len(frag.statements) >= 1
@@ -178,12 +186,16 @@ class TestDynamicDispatchCodegen:
             name="doWork.vi",
             inputs=[
                 Terminal(id="t_str", index=0, direction="input"),
-                Terminal(id="t_obj", index=1, direction="input",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                Terminal(
+                    id="t_obj",
+                    index=1,
+                    direction="input",
+                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
+                ),
             ],
         )
         ctx = _make_ctx_with_bindings({"t_str": "my_string", "t_obj": "my_object"})
-        
+
         frag = subvi.generate(node, ctx)
 
         code = _unparse(frag.statements[0])
@@ -201,7 +213,7 @@ class TestDynamicDispatchCodegen:
             ],
         )
         ctx = _make_ctx_with_bindings({"t_0": "first_input", "t_1": "second_input"})
-        
+
         frag = subvi.generate(node, ctx)
 
         code = _unparse(frag.statements[0])
@@ -213,18 +225,25 @@ class TestDynamicDispatchCodegen:
         node = _make_dynIUse_node(
             name="addSuccess.vi",
             inputs=[
-                Terminal(id="t_in", index=0, direction="input",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
+                Terminal(
+                    id="t_in",
+                    index=0,
+                    direction="input",
+                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
+                ),
             ],
             outputs=[
-                Terminal(id="t_out", index=1, direction="output",
-                         lv_type=LVType(kind="primitive", ref_type="UDClassInst")),
-                Terminal(id="t_out2", index=2, direction="output",
-                         name="count"),
+                Terminal(
+                    id="t_out",
+                    index=1,
+                    direction="output",
+                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
+                ),
+                Terminal(id="t_out2", index=2, direction="output", name="count"),
             ],
         )
         ctx = _make_ctx_with_bindings({"t_in": "test_result"}, ["t_out", "t_out2"])
-        
+
         frag = subvi.generate(node, ctx)
 
         # Class output should pass through to receiver
@@ -244,7 +263,7 @@ class TestDynamicDispatchCodegen:
             ],
         )
         ctx = _make_ctx_with_bindings({"t_in": "obj"}, ["t_out"])
-        
+
         # Should NOT raise VILibResolutionNeeded
         frag = subvi.generate(node, ctx)
         assert frag.statements
@@ -258,7 +277,7 @@ class TestDynamicDispatchCodegen:
             ],
         )
         ctx = _make_ctx_with_bindings({}, ["t_out"])
-        
+
         frag = subvi.generate(node, ctx)
 
         code = _unparse(frag.statements[0])
@@ -267,14 +286,18 @@ class TestDynamicDispatchCodegen:
 
     def test_is_class_terminal(self):
         """_is_class_terminal correctly identifies UDClassInst."""
-        
+
         class_term = Terminal(
-            id="t1", index=0, direction="input",
-            lv_type=LVType(kind="primitive", ref_type="UDClassInst"),
+            id="t1",
+            index=0,
+            direction="input",
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
         )
         non_class_term = Terminal(
-            id="t2", index=1, direction="input",
-            lv_type=LVType(kind="primitive", underlying_type="NumInt32"),
+            id="t2",
+            index=1,
+            direction="input",
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
         )
         no_type_term = Terminal(id="t3", index=2, direction="input")
 

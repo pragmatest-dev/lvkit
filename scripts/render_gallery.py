@@ -54,19 +54,32 @@ class Sample:
 # "experiments/" examples — and unlicensed sets (DAQmx-Digital-IO had no LICENSE)
 # are excluded: a public gallery can't render what we can't license.
 CORPUS: list[Sample] = [
-    Sample("easyxml_build", ".lvkit/cache/samples/JKI-EasyXML/Build.vi",
-           "Case structures · many SubVIs · build script"),
-    Sample("easy_parse_xml", ".lvkit/cache/samples/JKI-EasyXML/Source/Easy Parse XML.vi",  # noqa: E501
-           "Dense dataflow · nested cases · SubVIs · clusters"),
-    Sample("xml_loop_recursion",
-           ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi",  # noqa: E501
-           "Nested cases · recursion · purple variant + mustard error wires"),
-    Sample("cluster_to_array",
-           ".lvkit/cache/samples/JKI-EasyXML/Source/OpenG Derivative/"
-           "Cluster to Array of VData--EasyXML.vi",
-           "Arrays + clusters · purple Variant terminals + solid-purple constant"),
-    Sample("vitester_build", ".lvkit/cache/samples/JKI-VI-Tester/source/build.vi",
-           "LabVIEW class / project-plugin (OOP) dataflow"),
+    Sample(
+        "easyxml_build",
+        ".lvkit/cache/samples/JKI-EasyXML/Build.vi",
+        "Case structures · many SubVIs · build script",
+    ),
+    Sample(
+        "easy_parse_xml",
+        ".lvkit/cache/samples/JKI-EasyXML/Source/Easy Parse XML.vi",  # noqa: E501
+        "Dense dataflow · nested cases · SubVIs · clusters",
+    ),
+    Sample(
+        "xml_loop_recursion",
+        ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi",  # noqa: E501
+        "Nested cases · recursion · purple variant + mustard error wires",
+    ),
+    Sample(
+        "cluster_to_array",
+        ".lvkit/cache/samples/JKI-EasyXML/Source/OpenG Derivative/"
+        "Cluster to Array of VData--EasyXML.vi",
+        "Arrays + clusters · purple Variant terminals + solid-purple constant",
+    ),
+    Sample(
+        "vitester_build",
+        ".lvkit/cache/samples/JKI-VI-Tester/source/build.vi",
+        "LabVIEW class / project-plugin (OOP) dataflow",
+    ),
     Sample(
         "stacked_sequence",
         ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
@@ -79,10 +92,10 @@ CORPUS: list[Sample] = [
 def _card(sample: Sample, svg: str) -> str:
     return (
         '<figure class="card">'
-        f'<figcaption><b>{html.escape(sample.name)}</b>'
-        f'<span>{html.escape(sample.note)}</span></figcaption>'
+        f"<figcaption><b>{html.escape(sample.name)}</b>"
+        f"<span>{html.escape(sample.note)}</span></figcaption>"
         f'<div class="stage">{svg}</div>'
-        '</figure>'
+        "</figure>"
     )
 
 
@@ -191,8 +204,12 @@ _SCRIPT = """
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--out", type=Path, default=REPO_ROOT / "outputs" / "gallery",
-                    help="output directory (default: outputs/gallery)")
+    ap.add_argument(
+        "--out",
+        type=Path,
+        default=REPO_ROOT / "outputs" / "gallery",
+        help="output directory (default: outputs/gallery)",
+    )
     args = ap.parse_args()
 
     out: Path = args.out
@@ -221,7 +238,8 @@ def main() -> int:
             cards.append(
                 f'<figure class="card"><figcaption><b>{html.escape(s.name)}'
                 f'</b></figcaption><div class="fail">render failed: '
-                f'{html.escape(type(e).__name__)}</div></figure>')
+                f"{html.escape(type(e).__name__)}</div></figure>"
+            )
             failed += 1
             continue
         if not svg:
@@ -235,7 +253,8 @@ def main() -> int:
 
     index = out / "index.html"
     page = _PAGE.format(
-        count=ok, cards="\n".join(cards),
+        count=ok,
+        cards="\n".join(cards),
         theme_toggle_button=THEME_TOGGLE_BUTTON,
         theme_vars_css=theme_style_block(),
     )

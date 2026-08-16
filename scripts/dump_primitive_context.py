@@ -120,22 +120,23 @@ def collect_invocations(
             for _uid, t_info in parsed.block_diagram.terminal_info.items():
                 if t_info.parent_uid != node.uid:
                     continue
-                type_name = (
-                    t_info.parsed_type.type_name
-                    if t_info.parsed_type else "?"
+                type_name = t_info.parsed_type.type_name if t_info.parsed_type else "?"
+                terms.append(
+                    TerminalObservation(
+                        index=t_info.index,
+                        direction="output" if t_info.is_output else "input",
+                        type_name=type_name,
+                        name=t_info.name,
+                    )
                 )
-                terms.append(TerminalObservation(
-                    index=t_info.index,
-                    direction="output" if t_info.is_output else "input",
-                    type_name=type_name,
-                    name=t_info.name,
-                ))
             terms.sort(key=lambda t: (t.index is None, t.index or 0))
-            invocations[node.prim_res_id].append(Invocation(
-                vi_label=vi_label,
-                bd_xml=bd_xml,
-                terminals=terms,
-            ))
+            invocations[node.prim_res_id].append(
+                Invocation(
+                    vi_label=vi_label,
+                    bd_xml=bd_xml,
+                    terminals=terms,
+                )
+            )
 
     return {pid: (counts[pid], invs) for pid, invs in invocations.items()}
 
@@ -143,11 +144,15 @@ def collect_invocations(
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "--limit", type=int, default=25,
+        "--limit",
+        type=int,
+        default=25,
         help="Number of missing primitives to include (top N by usage)",
     )
     ap.add_argument(
-        "--invocations", type=int, default=3,
+        "--invocations",
+        type=int,
+        default=3,
         help="Max sample invocations per primResID",
     )
     args = ap.parse_args()
@@ -186,7 +191,7 @@ def main() -> None:
             missing.append((pid, count))
 
     missing.sort(key=lambda x: -x[1])
-    top = missing[:args.limit]
+    top = missing[: args.limit]
     print(f"Found {len(missing)} missing/partial primitives, taking top {len(top)}")
 
     # Second pass: collect invocation details only for the top N

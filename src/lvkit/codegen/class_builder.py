@@ -199,8 +199,7 @@ class ClassBuilder:
         for method in public_methods + protected_methods + private_methods:
             vi_ctx = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
             has_class_wire = any(
-                self._is_self_input(inp, lvclass.name)
-                for inp in vi_ctx.inputs
+                self._is_self_input(inp, lvclass.name) for inp in vi_ctx.inputs
             )
             if has_class_wire:
                 actual_instance.append(method)
@@ -225,7 +224,9 @@ class ClassBuilder:
                 prefix = self.config.private_prefix
             try:
                 method_def = self._build_instance_method(
-                    method, lvclass.name, prefix=prefix,
+                    method,
+                    lvclass.name,
+                    prefix=prefix,
                 )
                 body.append(method_def)
             except Exception:
@@ -377,7 +378,14 @@ class ClassBuilder:
 
         # Check if all operations are just unbundle/bundle/case/error handling
         simple_node_types = {
-            "select", "case", "unbundle", "bundle", "nMux", "nDmux", "mux", "demux",
+            "select",
+            "case",
+            "unbundle",
+            "bundle",
+            "nMux",
+            "nDmux",
+            "mux",
+            "demux",
         }
         # Error-handling primitives that keep an accessor "simple". Bundle /
         # Unbundle are node-CLASSES, already covered by simple_node_types
@@ -563,7 +571,8 @@ class ClassBuilder:
 
         # Build return annotation - filter error clusters and class output
         filtered_outputs = [
-            out for out in outputs
+            out
+            for out in outputs
             if not self._is_error_output(out)
             and not self._is_self_output(out, class_name)
         ]
@@ -639,7 +648,8 @@ class ClassBuilder:
 
         # Build return annotation - filter error clusters and class output
         filtered_outputs = [
-            out for out in outputs
+            out
+            for out in outputs
             if not self._is_error_output(out)
             and not self._is_self_output(out, class_name)
         ]
@@ -661,6 +671,7 @@ class ClassBuilder:
 
         Walks the AST and replaces Name nodes matching instance_var with 'self'.
         """
+
         class InstanceToSelfTransformer(ast.NodeTransformer):
             def visit_Name(self, node: ast.Name) -> ast.AST:
                 if node.id == instance_var:

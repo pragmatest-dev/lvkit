@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lvkit.models import FPTerminal, LVType
+from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.render.connector_pane import (
     PaneTerminal,
     pane_terminals,
@@ -14,13 +14,13 @@ from lvkit.render.style import DEFAULT_THEME
 
 def _err() -> LVType:
     return LVType(
-        kind="cluster", underlying_type="Cluster", typedef_name="error in.ctl"
+        kind=LVTypeKind.CLUSTER, underlying_type="Cluster", typedef_name="error in.ctl"
     )
 
 
 def _refs_and_errors() -> list[PaneTerminal]:
     # The classic 4-2-2-4 error-cluster VI: error in/out (idx 8/0), refs (11/3).
-    dbl = LVType(kind="primitive", underlying_type="Numeric")
+    dbl = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Numeric")
     return [
         PaneTerminal(0, "error out", _err(), is_output=True, wiring_rule=2),
         PaneTerminal(3, "reference out", dbl, is_output=True, wiring_rule=2),
@@ -63,10 +63,22 @@ def test_no_pattern_id_falls_back():
 
 def test_pane_terminals_adapter_maps_fields():
     ts = [
-        FPTerminal(id="a", index=0, direction="output", name="error out",
-                   wiring_rule=2, is_indicator=True),
-        FPTerminal(id="b", index=8, direction="input", name="error in",
-                   wiring_rule=3, is_indicator=False),
+        FPTerminal(
+            id="a",
+            index=0,
+            direction="output",
+            name="error out",
+            wiring_rule=2,
+            is_indicator=True,
+        ),
+        FPTerminal(
+            id="b",
+            index=8,
+            direction="input",
+            name="error in",
+            wiring_rule=3,
+            is_indicator=False,
+        ),
     ]
     pts = pane_terminals(ts)
     by_idx = {p.index: p for p in pts}
@@ -76,9 +88,7 @@ def test_pane_terminals_adapter_maps_fields():
 
 
 def test_svg_escapes_special_chars_in_names():
-    svg = render_connector_pane(
-        4801, [PaneTerminal(0, "a<b>&c", None, is_output=True)]
-    )
+    svg = render_connector_pane(4801, [PaneTerminal(0, "a<b>&c", None, is_output=True)])
     assert "<b>" not in svg.replace("<svg", "")  # the name's <b> is escaped
     assert "&amp;c" in svg
 
@@ -90,7 +100,7 @@ def test_help_panel_emits_terminal_identity_handles():
     graph/diff.py::_diff_connector_pane) -- the join the diff viewer uses to ring
     + number a changed terminal. A quote in the name (a real default like ("""
     '""' """)) is attribute-escaped so it can't break the handle."""
-    string_t = LVType(kind="primitive", underlying_type="String")
+    string_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     terms = [
         PaneTerminal(8, "error in", _err(), is_output=False),
         PaneTerminal(0, "error out", _err(), is_output=True),

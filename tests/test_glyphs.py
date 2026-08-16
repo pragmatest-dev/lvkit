@@ -17,7 +17,7 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import ConstantNode, InPlaceNode, PrimitiveNode, VINode
-from lvkit.models import LVType, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.primitive_resolver import NodeIcon, PrimitiveEntry, ResolvedPrimitive
 from lvkit.render.backend import SvgBackend
 from lvkit.render.glyph import (
@@ -85,8 +85,12 @@ def test_generated_glyph_wins_for_cpdarith():
     real-bounds rectangle + operator symbol), not a JsonGlyphResolver
     icon (there is none) and not the generic labeled-box fallback."""
     node = PrimitiveNode(
-        id="vi::1", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
-        operation="add", terminals=[],
+        id="vi::1",
+        vi="vi",
+        name="Compound Arithmetic",
+        node_type="cpdArith",
+        operation="add",
+        terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
     assert isinstance(glyph, CompoundArithGlyph)
@@ -100,7 +104,11 @@ def test_generated_glyph_wins_over_fallback_for_known_arithmetic():
     also proves the seeded cpdArith icon does NOT leak onto normal Add
     nodes by prim_id (which would break P1 visual equivalence)."""
     node = PrimitiveNode(
-        id="vi::2", vi="vi", name="Add", node_type="prim", prim_id=1050,
+        id="vi::2",
+        vi="vi",
+        name="Add",
+        node_type="prim",
+        prim_id=1050,
         terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
@@ -120,8 +128,12 @@ def test_array_reduction_primitives_resolve_to_arith_triangle():
     ]
     for name, prim_id, symbol in cases:
         node = PrimitiveNode(
-            id=f"vi::{prim_id}", vi="vi", name=name, node_type="prim",
-            prim_id=prim_id, terminals=[],
+            id=f"vi::{prim_id}",
+            vi="vi",
+            name=name,
+            node_type="prim",
+            prim_id=prim_id,
+            terminals=[],
         )
         glyph = resolve_glyph(node, _ctx())
         assert isinstance(glyph, ArithGlyph), name
@@ -136,7 +148,11 @@ def test_select_resolves_to_arith_triangle_with_question_mark():
     Element decompose/recompose (see ``graph/builders/structures.py``) —
     the real Select primitive's ``node_type`` is ``"prim"``."""
     node = PrimitiveNode(
-        id="vi::1516", vi="vi", name="Select", node_type="prim", prim_id=1516,
+        id="vi::1516",
+        vi="vi",
+        name="Select",
+        node_type="prim",
+        prim_id=1516,
         terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
@@ -156,8 +172,12 @@ def test_boolean_gate_dispatch_for_and_or_not():
     ]
     for name, prim_id, kind, symbol, negated, input_bubble in cases:
         node = PrimitiveNode(
-            id=f"vi::{prim_id}", vi="vi", name=name, node_type="prim",
-            prim_id=prim_id, terminals=[],
+            id=f"vi::{prim_id}",
+            vi="vi",
+            name=name,
+            node_type="prim",
+            prim_id=prim_id,
+            terminals=[],
         )
         glyph = resolve_glyph(node, _ctx())
         assert isinstance(glyph, BooleanGateGlyph), name
@@ -180,7 +200,9 @@ def test_boolean_gate_glyph_draws_expected_backend_ops():
 
     b2 = SvgBackend()
     BooleanGateGlyph("¬", kind="not", input_bubble=True).draw(
-        b2, (0.0, 0.0, 40.0, 30.0), DEFAULT_THEME,
+        b2,
+        (0.0, 0.0, 40.0, 30.0),
+        DEFAULT_THEME,
     )
     not_svg = b2.render((0.0, 0.0, 40.0, 30.0))
     assert "<polygon" in not_svg
@@ -195,7 +217,9 @@ def test_negated_gate_bubble_sits_on_output_side():
     OUTPUT (right) side — the opposite edge from Not's input bubble."""
     b = SvgBackend()
     BooleanGateGlyph("∧", kind="and", negated=True).draw(
-        b, (0.0, 0.0, 40.0, 30.0), DEFAULT_THEME,
+        b,
+        (0.0, 0.0, 40.0, 30.0),
+        DEFAULT_THEME,
     )
     svg = b.render((0.0, 0.0, 40.0, 30.0))
     assert "<circle" in svg
@@ -205,8 +229,10 @@ def test_negated_gate_bubble_sits_on_output_side():
 
 def test_constant_node_resolves_via_generated_glyph():
     node = ConstantNode(
-        id="vi::3", vi="vi", value=0.0,
-        lv_type=LVType(kind="primitive", underlying_type="NumFloat64"),
+        id="vi::3",
+        vi="vi",
+        value=0.0,
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
         terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
@@ -218,11 +244,13 @@ def test_constant_node_resolves_via_generated_glyph():
 def test_boolean_constant_resolves_to_boolean_glyph():
     from lvkit.render.nodes import _bool_value
 
-    bool_t = LVType(kind="primitive", underlying_type="Boolean")
-    true_node = ConstantNode(id="vi::t", vi="vi", value="True", lv_type=bool_t,
-                             terminals=[])
-    false_node = ConstantNode(id="vi::f", vi="vi", value="0000", lv_type=bool_t,
-                              terminals=[])
+    bool_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    true_node = ConstantNode(
+        id="vi::t", vi="vi", value="True", lv_type=bool_t, terminals=[]
+    )
+    false_node = ConstantNode(
+        id="vi::f", vi="vi", value="0000", lv_type=bool_t, terminals=[]
+    )
     gt = resolve_glyph(true_node, _ctx())
     gf = resolve_glyph(false_node, _ctx())
     assert isinstance(gt, BooleanConstantGlyph) and gt.value is True
@@ -257,7 +285,9 @@ def test_string_constant_wraps_full_text_no_ellipsis():
     b = SvgBackend()
     value = "\none\ntwo\nthree\nfour\nfive"
     ConstantGlyph(value, "#e05fa0", multiline=True).draw(
-        b, (0.0, 0.0, 70.0, 120.0), DEFAULT_THEME,
+        b,
+        (0.0, 0.0, 70.0, 120.0),
+        DEFAULT_THEME,
     )
     svg = b.render((0.0, 0.0, 70.0, 120.0))
     # Every word shows as its own line; nothing is truncated with an ellipsis.
@@ -300,7 +330,11 @@ def test_fallback_resolver_never_returns_none_directly():
 
 def test_json_glyph_resolver_falls_through_when_no_icon_declared():
     node = PrimitiveNode(
-        id="vi::6", vi="vi", name="Add", node_type="prim", prim_id=1050,
+        id="vi::6",
+        vi="vi",
+        name="Add",
+        node_type="prim",
+        prim_id=1050,
         terminals=[],
     )
     assert JsonGlyphResolver().resolve(node, _ctx()) is None
@@ -338,7 +372,10 @@ def test_extracted_icon_resolver_ignores_non_vi_nodes():
 
 def test_compound_arith_glyph_renders_at_real_bounds_with_default_operation():
     node = PrimitiveNode(
-        id="vi::11", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
+        id="vi::11",
+        vi="vi",
+        name="Compound Arithmetic",
+        node_type="cpdArith",
         terminals=[],
     )
     glyph = resolve_glyph(node, _ctx())
@@ -361,9 +398,12 @@ def test_cpd_arith_boolean_add_renders_as_logical_or():
     logical OR (see codegen/nodes/compound.py::generate_compound_arith),
     so the glyph must show 'or' (drawn as ``∨``), not the raw '+' — mirrors
     node 802 in the stacked_sequence sample."""
-    bool_t = LVType(kind="primitive", underlying_type="Boolean")
+    bool_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
     node = PrimitiveNode(
-        id="vi::20", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
+        id="vi::20",
+        vi="vi",
+        name="Compound Arithmetic",
+        node_type="cpdArith",
         operation="add",
         terminals=[
             Terminal(id="vi::20::0", index=0, direction="input", lv_type=bool_t),
@@ -388,9 +428,12 @@ def test_cpd_arith_boolean_add_renders_as_logical_or():
 def test_cpd_arith_numeric_add_still_renders_as_plus():
     """A NUMERIC-terminal cpdArith node with operation "add" is ordinary
     arithmetic addition — the glyph must keep the '+' symbol."""
-    num_t = LVType(kind="primitive", underlying_type="NumFloat64")
+    num_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
     node = PrimitiveNode(
-        id="vi::21", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
+        id="vi::21",
+        vi="vi",
+        name="Compound Arithmetic",
+        node_type="cpdArith",
         operation="add",
         terminals=[
             Terminal(id="vi::21::0", index=0, direction="input", lv_type=num_t),
@@ -406,9 +449,12 @@ def test_cpd_arith_numeric_add_still_renders_as_plus():
 def test_cpd_arith_three_inputs_draws_two_horizontal_dividers():
     """A 3-input cpdArith node draws 1 vertical operator-cell divider plus
     2 horizontal row dividers (one per input boundary) = 3 lines total."""
-    num_t = LVType(kind="primitive", underlying_type="NumFloat64")
+    num_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
     node = PrimitiveNode(
-        id="vi::22", vi="vi", name="Compound Arithmetic", node_type="cpdArith",
+        id="vi::22",
+        vi="vi",
+        name="Compound Arithmetic",
+        node_type="cpdArith",
         operation="add",
         terminals=[
             Terminal(id="vi::22::0", index=0, direction="input", lv_type=num_t),
@@ -443,7 +489,8 @@ def test_ground_truth_add_still_resolves_to_arith_glyph():
     scene = build_scene(graph, vi)
     assert scene is not None
     add_nodes = [
-        n for n in scene.nodes
+        n
+        for n in scene.nodes
         if isinstance(n.node, PrimitiveNode) and n.node.name == "Add"
     ]
     assert add_nodes
@@ -478,11 +525,10 @@ def test_backend_group_without_href_has_no_anchor():
 def test_backend_nested_groups_balance_anchors():
     """An inner (anchor-less) group closes its </g> before the outer </a>."""
     b = SvgBackend()
-    b.begin_group(href="u")       # outer: opens <a>
-    b.begin_group(cls="inner")    # inner: no anchor
+    b.begin_group(href="u")  # outer: opens <a>
+    b.begin_group(cls="inner")  # inner: no anchor
     b.end_group()
     b.end_group()
     assert "".join(b._elements) == (
-        '<a href="u" target="_blank" rel="noopener"><g>'
-        '<g class="inner"></g></g></a>'
+        '<a href="u" target="_blank" rel="noopener"><g><g class="inner"></g></g></a>'
     )

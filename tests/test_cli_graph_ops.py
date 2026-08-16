@@ -14,28 +14,59 @@ from pathlib import Path
 import pytest
 
 from lvkit.cli import cmd_graph_op
-from lvkit.index.model import VIFacts
+from lvkit.index.model import NodeFact, NodeKind, VIFacts
 from lvkit.index.store import save as save_index
 
 
-def _args(command: str, vi: Path, project: Path, *, fmt: str = "table",
-          depth: int | None = None, no_refresh: bool = True) -> argparse.Namespace:
+def _args(
+    command: str,
+    vi: Path,
+    project: Path,
+    *,
+    fmt: str = "table",
+    depth: int | None = None,
+    no_refresh: bool = True,
+) -> argparse.Namespace:
     # no_refresh=True: synthetic facts with no real .vi files behind them, so
     # skip the build/refresh (which would rebuild from nothing and wipe the seed).
     return argparse.Namespace(
-        command=command, vi=str(vi), project=str(project),
-        format=fmt, depth=depth, no_refresh=no_refresh,
+        command=command,
+        vi=str(vi),
+        project=str(project),
+        format=fmt,
+        depth=depth,
+        no_refresh=no_refresh,
     )
 
 
 def _seed(root: Path) -> None:
-    """a.vi calls b.vi (via b's qualified name)."""
-    save_index(root, [
-        VIFacts(path=str(root / "a.vi"), name="a.vi",
-                qualified_name="Lib:a.vi", content_sha="a", calls=["Lib:b.vi"]),
-        VIFacts(path=str(root / "b.vi"), name="b.vi",
-                qualified_name="Lib:b.vi", content_sha="b"),
-    ])
+    """a.vi calls b.vi (a kind='vi' node whose callee_path is b's path)."""
+    save_index(
+        root,
+        [
+            VIFacts(
+                path=str(root / "a.vi"),
+                name="a.vi",
+                qualified_name="Lib:a.vi",
+                content_sha="a",
+                nodes=[
+                    NodeFact(
+                        uid="call_b",
+                        kind=NodeKind.VI,
+                        name="b.vi",
+                        qualified_name="Lib:b.vi",
+                        callee_path=str(root / "b.vi"),
+                    )
+                ],
+            ),
+            VIFacts(
+                path=str(root / "b.vi"),
+                name="b.vi",
+                qualified_name="Lib:b.vi",
+                content_sha="b",
+            ),
+        ],
+    )
 
 
 def test_callers(tmp_path: Path, capsys: pytest.CaptureFixture[str]):

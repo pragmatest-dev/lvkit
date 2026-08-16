@@ -49,7 +49,9 @@ def _is_boolean_selector(frames: list[CaseFrame]) -> bool:
 
 
 def _generate_if_else(
-    node: CaseOperation, selector_var: str, ctx: CodeGenContext,
+    node: CaseOperation,
+    selector_var: str,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate if-else statement for boolean selector."""
     statements: list[ast.stmt] = []
@@ -100,9 +102,7 @@ def _generate_if_else(
 
     if if_is_pass and not else_is_pass:
         if_stmt = ast.If(
-            test=ast.UnaryOp(
-                op=ast.Not(), operand=parse_expr(selector_var)
-            ),
+            test=ast.UnaryOp(op=ast.Not(), operand=parse_expr(selector_var)),
             body=else_body,
             orelse=[],
         )
@@ -128,7 +128,9 @@ def _generate_if_else(
 
 
 def _generate_match_case(
-    node: CaseOperation, selector_var: str, ctx: CodeGenContext,
+    node: CaseOperation,
+    selector_var: str,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate match-case statement (Python 3.10+)."""
     bindings: dict[str, str] = {}
@@ -180,7 +182,8 @@ def _build_match_pattern(selector_value: str) -> ast.pattern:
 
 
 def _build_frame_pattern(
-    frame: CaseFrame, selector_var: str,
+    frame: CaseFrame,
+    selector_var: str,
 ) -> tuple[ast.pattern, ast.expr | None]:
     """Build the match pattern (and optional guard) for one non-default frame.
 
@@ -193,8 +196,7 @@ def _build_frame_pattern(
     # String selector: OR of the matched string literals.
     if frame.selector_strings:
         pats: list[ast.pattern] = [
-            ast.MatchValue(value=ast.Constant(value=s))
-            for s in frame.selector_strings
+            ast.MatchValue(value=ast.Constant(value=s)) for s in frame.selector_strings
         ]
         return (pats[0] if len(pats) == 1 else ast.MatchOr(patterns=pats)), None
 
@@ -203,20 +205,11 @@ def _build_frame_pattern(
         singles = [r for r in frame.selector_ranges if r.start == r.end]
         spans = [r for r in frame.selector_ranges if r.start != r.end]
         if not spans:
-            pats = [
-                ast.MatchValue(value=ast.Constant(value=r.start))
-                for r in singles
-            ]
-            return (
-                pats[0] if len(pats) == 1 else ast.MatchOr(patterns=pats)
-            ), None
+            pats = [ast.MatchValue(value=ast.Constant(value=r.start)) for r in singles]
+            return (pats[0] if len(pats) == 1 else ast.MatchOr(patterns=pats)), None
         # At least one true range → wildcard pattern with a boolean guard.
-        clauses: list[str] = [
-            f"{selector_var} == {r.start}" for r in singles
-        ]
-        clauses += [
-            f"{r.start} <= {selector_var} <= {r.end}" for r in spans
-        ]
+        clauses: list[str] = [f"{selector_var} == {r.start}" for r in singles]
+        clauses += [f"{r.start} <= {selector_var} <= {r.end}" for r in spans]
         guard = parse_expr(" or ".join(clauses))
         return ast.MatchAs(pattern=None, name=None), guard
 
@@ -225,7 +218,8 @@ def _build_frame_pattern(
 
 
 def _generate_frame_body(
-    frame: CaseFrame, ctx: CodeGenContext,
+    frame: CaseFrame,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for a single case frame."""
     body = ctx.generate_body(frame.operations)
@@ -246,7 +240,8 @@ def _generate_frame_body(
 
 
 def _fallback_selector(
-    node: CaseOperation, ctx: CodeGenContext,
+    node: CaseOperation,
+    ctx: CodeGenContext,
 ) -> str:
     """Try to derive a meaningful selector name when resolve() fails."""
     sel_term = node.selector_terminal
@@ -261,7 +256,8 @@ def _fallback_selector(
 
 
 def _is_error_selector_by_type(
-    node: CaseOperation, ctx: CodeGenContext,
+    node: CaseOperation,
+    ctx: CodeGenContext,
 ) -> bool:
     """Check if the selector terminal carries an error cluster type."""
     sel_id = node.selector_terminal
@@ -274,7 +270,8 @@ def _is_error_selector_by_type(
 
 
 def _generate_error_case(
-    node: CaseOperation, ctx: CodeGenContext,
+    node: CaseOperation,
+    ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for an error-cluster case structure.
 
@@ -305,9 +302,7 @@ def _generate_error_case(
         and error_frame.operations
         and len(error_frame.operations) > 0
     ):
-        op_names = ", ".join(
-            op.display_name for op in error_frame.operations
-        )
+        op_names = ", ".join(op.display_name for op in error_frame.operations)
         logger.info("LV error frame omitted in %s: %s", node.id, op_names)
 
     no_error_fragment = _generate_frame_body(no_error_frame, ctx)
@@ -374,7 +369,8 @@ def _pre_declare_outputs(
 
 
 def _bind_input_tunnels(
-    node: CaseOperation, ctx: CodeGenContext,
+    node: CaseOperation,
+    ctx: CodeGenContext,
 ) -> None:
     """Bind input tunnel inner terminals to their outer values."""
     for tunnel in node.tunnels:
@@ -388,7 +384,8 @@ def _bind_input_tunnels(
 
 
 def _bind_output_tunnels(
-    node: CaseOperation, ctx: CodeGenContext,
+    node: CaseOperation,
+    ctx: CodeGenContext,
 ) -> dict[str, str]:
     """Bind output tunnel terminals to variable names."""
     bindings: dict[str, str] = {}
