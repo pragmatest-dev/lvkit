@@ -637,6 +637,15 @@ class Operation(BaseModel):
     # label read ``Class.lvclass:method`` to disambiguate same-named methods of
     # different classes; never a resolution key. Empty for primitives/structures.
     owning_libraries: list[str] = []
+    # The callee's RESOLUTION identity: its class/library-qualified name
+    # (e.g. "TestResult.lvclass:addError.vi"; for a dynamic-dispatch call the
+    # DECLARING PARENT class's method). Populated from the graph ``VINode``.
+    # EVERY named node has one — a node with no library to qualify with (a loose
+    # VI, or a primitive) falls back to its own ``name``, so it is the same as
+    # ``name`` there and NEVER absent/erroring; only a nameless structure is
+    # None. Distinct from ``display_name`` (which composes ``owning_libraries``):
+    # this is the key a consumer resolves to a VI.
+    qualified_name: str | None = None
 
     @property
     def display_name(self) -> str:

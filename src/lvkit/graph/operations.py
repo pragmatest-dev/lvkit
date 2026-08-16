@@ -184,6 +184,9 @@ class OperationsMixin:
             "description": gnode.description,
             "qualified_path": getattr(gnode, "qualified_path", None),
             "owning_libraries": list(getattr(gnode, "owning_libraries", []) or []),
+            # Every named node carries its resolution identity; a node with no
+            # library to qualify with falls back to its own name (never absent).
+            "qualified_name": getattr(gnode, "qualified_name", None) or node_name,
         }
 
         # Build the right operation subtype
