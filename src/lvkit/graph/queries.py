@@ -1,17 +1,15 @@
 """Query mixin for InMemoryVIGraph.
 
 Methods: get_inputs, get_outputs, get_constants, get_operations, get_wires,
-get_operation_order, get_node, get_dataflow_graph, get_predecessors,
-get_successors, get_source_of_output, get_vi_context, get_subvi_calls,
-resolve_vi_name, list_vis, get_vi_source_path, is_stub_vi, get_stub_vi_info,
-dependency graph queries, polymorphic VI methods,
-query/query_single, get_all_constants/primitives/clusters.
+get_operation_order, get_dataflow_graph (test-only), get_vi_context,
+get_subvi_calls, resolve_vi_name, list_vis, get_vi_source_path, is_stub_vi,
+get_stub_vi_info, dependency graph queries, polymorphic VI methods.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -25,14 +23,11 @@ from .models import (
     AnyGraphNode,
     ClassFieldEntry,
     ClassHierarchyInfo,
-    ClusterInfo,
     Constant,
-    ConstantInfo,
     ConstantNode,
     MethodAccessInfo,
     MethodOverrideInfo,
     PolyInfo,
-    PrimitiveInfo,
     StructureNode,
     StubTerminalInfo,
     StubVIInfo,
@@ -87,113 +82,6 @@ class QueryMixin:
             self,
             classname: str,
         ) -> list[ClusterField] | None: ...
-
-    # === Cypher query compat ===
-
-    def query(self, cypher: str, params: dict | None = None) -> list[dict]:
-        """Cypher query compatibility - routes to native methods.
-
-        Returns dicts for backward compatibility with legacy consumers.
-        """
-        cypher_lower = cypher.lower()
-
-        if "constant" in cypher_lower:
-            return [asdict(c) for c in self.get_all_constants()]
-        elif "primitive" in cypher_lower:
-            return [asdict(p) for p in self.get_all_primitives()]
-        elif "cluster" in cypher_lower:
-            return [asdict(c) for c in self.get_all_clusters()]
-
-        return []
-
-    def query_single(self, cypher: str, params: dict | None = None) -> dict | None:
-        """Single-result Cypher query compatibility."""
-        results = self.query(cypher, params)
-        return results[0] if results else None
-
-    def get_all_constants(self) -> list[ConstantInfo]:
-        """Get all constants across all VIs for enum discovery."""
-        results: list[ConstantInfo] = []
-        for vi_name, node_uids in self._vi_nodes.items():
-            for uid in node_uids:
-                if uid not in self._graph:
-                    continue
-                gnode = self._graph.nodes[uid].get("node")
-                if not isinstance(gnode, ConstantNode):
-                    continue
-                _const_value: str = gnode.raw_value or (
-                    str(gnode.value) if gnode.value is not None else ""
-                )
-                results.append(
-                    ConstantInfo(
-                        vi_name=vi_name,
-                        value=_const_value,
-                        label=gnode.label,
-                        type=(
-                            (gnode.lv_type.underlying_type or "Any")
-                            if gnode.lv_type
-                            else "Any"
-                        ),
-                        python=gnode.value,
-                    )
-                )
-        return results
-
-    def get_all_primitives(self) -> list[PrimitiveInfo]:
-        """Get all primitives across all VIs for primitive discovery."""
-        results: list[PrimitiveInfo] = []
-        for vi_name, node_uids in self._vi_nodes.items():
-            for uid in node_uids:
-                if uid not in self._graph:
-                    continue
-                gnode = self._graph.nodes[uid].get("node")
-                if not isinstance(gnode, GraphPrimitiveNode):
-                    continue
-                input_types = [
-                    t.lv_type.type_descriptor() if t.lv_type else "Any"
-                    for t in gnode.terminals
-                    if t.direction == "input"
-                ]
-                output_types = [
-                    t.lv_type.type_descriptor() if t.lv_type else "Any"
-                    for t in gnode.terminals
-                    if t.direction == "output"
-                ]
-                results.append(
-                    PrimitiveInfo(
-                        vi_name=vi_name,
-                        prim_id=gnode.prim_id,
-                        input_types=input_types,
-                        output_types=output_types,
-                    )
-                )
-        return results
-
-    def get_all_clusters(self) -> list[ClusterInfo]:
-        """Get all cluster types across all VIs for shared type discovery."""
-        clusters: dict[str, set[str]] = {}
-
-        for vi_name, node_uids in self._vi_nodes.items():
-            for uid in node_uids:
-                if uid not in self._graph:
-                    continue
-                gnode = self._graph.nodes[uid].get("node")
-                if not isinstance(gnode, VINode):
-                    continue
-                # Check FP terminals on VINodes for cluster types
-                if gnode.vi != vi_name:
-                    continue
-                for term in gnode.terminals:
-                    if isinstance(term, FPTerminal) and term.control_type == "stdClust":
-                        name = term.name or "UnnamedCluster"
-                        if name not in clusters:
-                            clusters[name] = set()
-                        clusters[name].add(vi_name)
-
-        return [
-            ClusterInfo(name=name, id=name, vis=list(vis))
-            for name, vis in clusters.items()
-        ]
 
     # === Dependency Graph Queries ===
 
@@ -273,7 +161,7 @@ class QueryMixin:
         MINIMAL load the SubVIs aren't in ``_source_paths``, so this filename
         search is what lets a project-local SubVI's own ``_ICON.png`` resolve.
         The search-path index is built once, lazily, and cached."""
-        loaded = self._source_paths.get(vi_name)
+        loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
         if loaded is not None:
             return loaded
         if self._vi_file_index is None:
@@ -464,7 +352,8 @@ class QueryMixin:
         return self._graph.nodes[uid].get("node")
 
     def get_dataflow_graph(self, vi_name: str) -> nx.DiGraph | None:
-        """Get a subgraph view for a VI (backward compat).
+        """Get a subgraph view for a VI (TEST-ONLY — no production callers;
+        retained for test_parser_regression's dataflow assertion).
 
         Returns a new DiGraph containing only nodes belonging to this VI,
         with edges between them. Used for backward compatibility.
@@ -561,19 +450,6 @@ class QueryMixin:
             if t.lv_type.typedef_name:
                 d["typedef_name"] = t.lv_type.typedef_name
         return d
-
-    def get_node(self, vi_name: str, node_id: str) -> dict[str, Any] | None:
-        """Get a node's attributes from a VI's dataflow graph."""
-        vi_name = self.resolve_vi_name(vi_name)
-        node_uids = self._vi_nodes.get(vi_name)
-        if node_uids is None or node_id not in node_uids:
-            return None
-        if node_id not in self._graph:
-            return None
-        gnode = self._graph.nodes[node_id].get("node")
-        if gnode is None:
-            return None
-        return self._typed_node_to_legacy_dict(gnode)
 
     def get_inputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
         """Get VI input terminals.
@@ -745,43 +621,6 @@ class QueryMixin:
             )
         except nx.NetworkXUnfeasible:
             return ordered_ids
-
-    def get_predecessors(self, vi_name: str, node_id: str) -> list[str]:
-        """Get nodes that feed into this node (direct predecessors)."""
-        if node_id not in self._graph:
-            return []
-        return list(self._graph.predecessors(node_id))
-
-    def get_successors(self, vi_name: str, node_id: str) -> list[str]:
-        """Get nodes that this node feeds into (direct successors)."""
-        if node_id not in self._graph:
-            return []
-        return list(self._graph.successors(node_id))
-
-    def get_source_of_output(self, vi_name: str, output_id: str) -> str | None:
-        """Trace an output terminal back to its source node.
-
-        Returns the ID of the node that produces the value for this output.
-        """
-        # In the unified graph, output_id is a terminal on the VINode.
-        # Find direct predecessors.
-        vi_name = self.resolve_vi_name(vi_name)
-        if vi_name not in self._graph:
-            return None
-
-        preds = list(self._graph.predecessors(vi_name))
-        if not preds:
-            return None
-
-        # Check if any predecessor has an edge whose dest terminal matches
-        for pred in preds:
-            for _, _, edata in self._graph.edges(pred, data=True):
-                dest_end = edata.get("dest")
-                if dest_end and dest_end.terminal_id == output_id:
-                    return pred
-
-        # Fall back to first predecessor
-        return preds[0] if preds else None
 
     def get_wires(
         self,

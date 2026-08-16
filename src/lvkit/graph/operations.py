@@ -1,7 +1,7 @@
 """Operations mixin for InMemoryVIGraph.
 
 Methods: _build_operation, _tunnels_from_terminals, _enrich_subvi_terminals_typed,
-_get_slot_to_name, resolve_name, _sort_inner_uids, _build_inner_nodes,
+_get_slot_to_name, _sort_inner_uids, _build_inner_nodes,
 _get_children_of, _build_frames_from_parent, _build_sequence_frames_from_parent.
 """
 
@@ -89,7 +89,8 @@ class OperationsMixin:
         # Build terminals, enriching SubVI terminals with callee param names
         terminals = list(gnode.terminals)
         if isinstance(gnode, VINode) and gnode.id != gnode.vi:
-            # SubVI call — enrich with callee param names via resolve_name
+            # SubVI call — enrich with callee param names via
+            # _enrich_subvi_terminals_typed
             terminals = self._enrich_subvi_terminals_typed(
                 terminals, gnode.name, vi_name
             )
@@ -330,7 +331,7 @@ class OperationsMixin:
         subvi_name: str | None,
         caller_vi: str,
     ) -> list[Terminal]:
-        """Add callee parameter names to SubVI terminals via resolve_name."""
+        """Add callee parameter names to SubVI terminals via _get_slot_to_name."""
         if not subvi_name:
             return terminals
         resolved_name = self.resolve_vi_name(subvi_name)
@@ -395,35 +396,6 @@ class OperationsMixin:
             if t.index is not None and t.name:
                 result[t.index] = t.name
         return result
-
-    def resolve_name(self, node_id: str, terminal_index: int) -> str | None:
-        """Resolve the name of a terminal on a node.
-
-        For SubVI calls, follows the graph to the callee VI and reads
-        the terminal name from its FP terminal list.
-        """
-        if node_id not in self._graph:
-            return None
-        gnode = self._graph.nodes[node_id].get("node")
-        if gnode is None:
-            return None
-
-        # Direct: read from node's terminal list
-        for term in gnode.terminals:
-            if term.index == terminal_index and term.name:
-                return term.name
-
-        # SubVI: follow graph to callee VI, read its terminal name
-        if isinstance(gnode, VINode) and gnode.id != gnode.vi:
-            callee_name = self.resolve_vi_name(gnode.name or "")
-            if callee_name in self._graph:
-                callee_node = self._graph.nodes[callee_name].get("node")
-                if isinstance(callee_node, VINode):
-                    for term in callee_node.terminals:
-                        if term.index == terminal_index and term.name:
-                            return term.name
-
-        return None
 
     def _sort_inner_uids(
         self,

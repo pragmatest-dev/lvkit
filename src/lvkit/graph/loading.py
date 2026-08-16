@@ -299,6 +299,7 @@ class LoadingMixin:
             search_paths=search_paths,
             visited=set(),
             source_dir=source_dir,
+            source_override=(vi_path if vi_path.suffix.lower() == ".vi" else None),
             mode=mode,
         )
 
@@ -724,11 +725,17 @@ class LoadingMixin:
         search_paths: list[Path],
         visited: set[str],
         source_dir: Path | None = None,
+        source_override: Path | None = None,
         mode: LoadMode = LoadMode.FULL,
     ) -> str | None:
         """Recursively load a VI and its SubVIs.
 
-        Returns the VI name (qualified if available) or None if already visited.
+        ``source_override`` pins the VI's identity path (its ``vi_key``) to the
+        exact file the caller loaded from. The TOP-LEVEL ``load_vi`` passes its
+        ``vi_path`` here so the computed ``vi_key`` matches its early-return
+        probe key exactly, instead of being re-derived from the (possibly
+        different) BD-heap filename. Returns the ``vi_key`` (path), or None if
+        already visited.
         """
         # Parse VI using unified parse_vi(). When rendering (layout=True), the
         # geometry is decoded from this SAME parse and retained — no second read.
@@ -782,7 +789,9 @@ class LoadingMixin:
         # by vi_key makes loading CONFLUENT — two copies get DISTINCT keys and
         # both load fully, instead of the first-seen one clobbering the other
         # (the bug where FS enumeration order changed the loaded VI set).
-        if metadata.source_path:
+        if source_override is not None:
+            source_file = source_override
+        elif metadata.source_path:
             source_file = Path(metadata.source_path)
         elif caller_file.exists():
             source_file = caller_file
@@ -1383,7 +1392,8 @@ class LoadingMixin:
                 return ci_match
             # Sorted: rglob yields filesystem order, so an unsorted first-match
             # picked a different duplicate per run/machine — non-deterministic.
-            for found in sorted(search_path.rglob(filename)):
+            found = next(iter(sorted(search_path.rglob(filename))), None)
+            if found is not None:
                 return found
 
         return None
@@ -1428,10 +1438,12 @@ class LoadingMixin:
 
             # Sorted: deterministic pick among duplicate matches (rglob order
             # is filesystem-dependent — see _find_by_name).
-            for found in sorted(search_path.rglob(vi_name)):
+            found = next(iter(sorted(search_path.rglob(vi_name))), None)
+            if found is not None:
                 return found
 
             if alt_name:
-                for found in sorted(search_path.rglob(alt_name)):
+                found = next(iter(sorted(search_path.rglob(alt_name))), None)
+                if found is not None:
                     return found
         return None

@@ -216,11 +216,6 @@ class TestTypedGraphNodes:
             assert wire.source.terminal_id
             assert wire.dest.terminal_id
 
-    def test_resolve_name(self, graph_with_nodes: InMemoryVIGraph):
-        # Primitive terminal name
-        name = graph_with_nodes.resolve_name("add1", 0)
-        assert name is None  # unnamed terminal
-
     def test_vi_context(self, graph_with_nodes: InMemoryVIGraph):
         ctx = graph_with_nodes.get_vi_context("Test.vi")
         assert ctx.name == "Test.vi"

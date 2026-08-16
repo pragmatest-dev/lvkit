@@ -122,35 +122,6 @@ _EMPTY_PASSWORD_HASHES = frozenset(
 )
 
 
-def get_qualified_name(xml_path: Path | str) -> str | None:
-    """Fast extraction of just the qualified name from main XML.
-
-    Use this for checking visited set before full parsing.
-
-    Args:
-        xml_path: Path to the main .xml file (not BDHb)
-
-    Returns:
-        Qualified name like "Library.lvlib:VI.vi" or None if not found
-    """
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    # Try LIvi section first (most reliable for library VIs)
-    lvin = root.find(".//LIvi/Section/LVIN")
-    if lvin is not None:
-        qualified = lvin.get("Unk1")
-        if qualified:
-            return qualified
-
-    # Fall back to LVSR name
-    lvsr = root.find(".//LVSR/Section")
-    if lvsr is not None:
-        return lvsr.get("Name")
-
-    return None
-
-
 def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     """Parse the main VI XML file for metadata and SubVI references.
 

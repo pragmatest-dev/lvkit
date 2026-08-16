@@ -308,6 +308,14 @@ class Terminal(BaseModel):
             return self.lv_type.kind
         return _control_kind(getattr(self, "control_type", None))
 
+    def type_label(self) -> str:
+        """FAITHFUL human type label: the exact ``type_descriptor()`` when the
+        type resolved, else the type-KIND family word, else ``"unknown"``. The
+        one shared label describe/netlist/diff use so they never diverge."""
+        return self.type_descriptor() or (
+            self.type_kind.value if self.type_kind else "unknown"
+        )
+
     @property
     def is_error_cluster(self) -> bool:
         """Check if this terminal carries a LabVIEW error cluster.
@@ -897,20 +905,24 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
 }
 
 
+# Control-type -> LVType, a module constant (immutable LVType literals) —
+# built once, like ``_CONTROL_FAMILY_KIND`` above, not per call.
+_CONTROL_TYPE_TO_LVTYPE: dict[str, LVType] = {
+    "stdPath": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
+    "stdString": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+    "stdBool": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+    "stdNum": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+    "stdDBL": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+    "stdI32": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+    "stdI16": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16"),
+    "stdU32": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt32"),
+    "stdU16": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16"),
+}
+
+
 def control_type_to_lvtype(control_type: str) -> LVType | None:
     """Map a LabVIEW control type to LVType."""
-    mapping = {
-        "stdPath": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
-        "stdString": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
-        "stdBool": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
-        "stdNum": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
-        "stdDBL": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
-        "stdI32": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
-        "stdI16": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16"),
-        "stdU32": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt32"),
-        "stdU16": LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16"),
-    }
-    return mapping.get(control_type)
+    return _CONTROL_TYPE_TO_LVTYPE.get(control_type)
 
 
 def _sanitize_type_name(typedef_name: str) -> str:

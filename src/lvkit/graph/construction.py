@@ -17,6 +17,7 @@ from ..models import (
     LVType,
     LVTypeKind,
     Terminal,
+    Tunnel,
     TunnelMode,
     TunnelTerminal,
     bundle_unbundle_name,
@@ -88,11 +89,14 @@ _DYNAMIC_DISPATCH_NODE_TYPES: frozenset[str] = frozenset(
 )
 
 
-def _dispatch_class_names(terminals: list) -> list[str]:
+def _dispatch_class_names(terminals: list[Terminal]) -> list[str]:
     """Distinct owning-class names (``X.lvclass``) carried on a dynamic-dispatch
     call's terminals — the object type wired to the dispatch input/output. The
     generic root ("LabVIEW Object", which has no ``.lvclass`` suffix) is skipped,
-    so only concrete classes are returned, most-specific first as they appear."""
+    so only concrete classes are returned, MOST-SPECIFIC first as they appear.
+    Used only by the best-effort ``resolve_dispatch_qnames`` FALLBACK, which
+    takes the first loaded candidate — i.e. the most-derived wired class, NOT
+    necessarily the declaring parent the primary iUse path records."""
     out: list[str] = []
     for t in terminals:
         lt = getattr(t, "lv_type", None)
@@ -986,15 +990,24 @@ class ConstructionMixin:
             self._term_to_node[wire_end.terminal_id] = wire_end.node_id
 
     def resolve_dispatch_qnames(self) -> None:
-        """Class-qualify dynamic-dispatch calls across the whole graph.
+        """FALLBACK class-qualification for dynamic-dispatch calls the caller's
+        binary didn't already name.
 
-        A dispatch call carries only the bare method name; the owning class is
-        the dispatch object's static type, which lands on the call's terminals
-        only after every VI is loaded and types have propagated (the object may
-        itself come from another dispatch call — a cross-VI fixpoint). So this
-        runs ONCE after loading finishes: link an ``addError.vi`` call whose
-        object is typed ``TestResult.lvclass`` to ``TestResult.lvclass:addError.vi``
-        when that method VI is loaded. Idempotent."""
+        The PRIMARY path is ``SubVIBuildHandler``, which stamps
+        ``qualified_name`` from the caller's recorded ``iuse_to_qname`` — for a
+        dispatch call that is the DECLARING PARENT class's method (e.g.
+        ``TestResult.lvclass:addError.vi``), the honest static edge and
+        deterministic across platforms. This pass only touches calls that path
+        left BARE (guard: ``qualified_name == name`` — no iUse entry): it infers
+        the class from the dispatch object's static type on the call's
+        terminals, which lands only after every VI is loaded and types propagate
+        (the object may come from another dispatch — a cross-VI fixpoint), so it
+        runs ONCE after loading.
+
+        NOTE the two paths use DIFFERENT contracts: the primary records the
+        declaring parent; this fallback is best-effort — it stamps the
+        most-specific wired class (``_dispatch_class_names``), which may be a
+        child override. Idempotent."""
         g = self._graph
         for _nid, data in g.nodes(data=True):
             gnode = data.get("node")
@@ -1053,10 +1066,9 @@ class ConstructionMixin:
             # the SubVI does (same enrich-from-callee pattern as terminal names).
             if not gnode.description and callee_node.description:
                 gnode.description = callee_node.description
-            # ...and its fully qualified name (Class.lvclass:vi.vi), so the hover
-            # title disambiguates a bare leaf name.
-            if not gnode.qualified_name and callee_qname:
-                gnode.qualified_name = callee_qname
+            # (No qualified_name back-fill: SubVIBuildHandler always sets it to
+            # ``iuse_to_qname or node_name``, so it is never None here — the old
+            # ``if not gnode.qualified_name`` branch was unreachable.)
             # ...and the callee's OWNERSHIP CHAIN (from the callee's own <LIBN>),
             # so a SubVI-CALL label can show ``Class.lvclass:method`` — the whole
             # point of qualifying two classes' same-named methods.
@@ -1175,7 +1187,7 @@ class ConstructionMixin:
             if len(matches) == 1:
                 t_info.index = matches[0].index
                 assigned_indices.add(matches[0].index)
-            elif len(matches) != 1:
+            else:
                 # Check for expandable terminal — all unresolved terminals of
                 # matching type map to the expandable slot's index
                 expandable = [
@@ -1308,7 +1320,7 @@ class ConstructionMixin:
     def _build_structure_terminals(
         self,
         bd: ParsedBlockDiagram,
-        parser_tunnels: list,
+        parser_tunnels: list[Tunnel],
         structure_uid: str,
         term_lookup: dict[str, WireEnd],
         vi_key: str = "",

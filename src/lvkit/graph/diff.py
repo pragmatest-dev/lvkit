@@ -25,6 +25,7 @@ from ..models import (
 )
 from ..parser.models import ParsedWiringRule
 from ..parser.node_types import get_display_name
+from .core import _uid_of
 from .models import (
     CURATED_KIND_FLAGS,
     CURATED_PROPERTY_FLAGS,
@@ -222,11 +223,6 @@ def _frames_of(op: Operation) -> Sequence[Frame] | None:
     ):
         return op.frames
     return None
-
-
-def _uid_of(op_id: str) -> str:
-    """Trailing UID from an op.id ('...run.vi::1065' -> '1065')."""
-    return op_id.rsplit("::", 1)[-1]
 
 
 def _uid_sort(uid: str) -> tuple[int, object]:
@@ -2965,8 +2961,8 @@ def _pane_terminal_detail(a: Terminal, b: Terminal) -> str | None:
     facets join with ``;`` so one terminal is one change leaf (uid is per-name)."""
     facets: list[str] = []
 
-    type_a = a.type_descriptor() or (a.type_kind.value if a.type_kind else "unknown")
-    type_b = b.type_descriptor() or (b.type_kind.value if b.type_kind else "unknown")
+    type_a = a.type_label()
+    type_b = b.type_label()
     if type_a != type_b:
         facets.append(_transition(type_a, type_b))
 

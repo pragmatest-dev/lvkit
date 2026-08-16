@@ -52,6 +52,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
+from .core import _uid_of
 from .interface_order import is_required
 from .models import (
     Constant,
@@ -571,11 +572,6 @@ class NetlistModule:
 # ============================================================
 # build_netlist
 # ============================================================
-
-
-def _uid_of(op_id: str) -> str:
-    """Trailing UID from an op.id ('...run.vi::1065' -> '1065')."""
-    return op_id.rsplit("::", 1)[-1]
 
 
 def _display_name(op: Operation) -> str:
@@ -1618,8 +1614,9 @@ _STRUCTURE_OPERATION_TYPES = (
 
 
 def _is_subvi_call(op: Operation) -> bool:
-    """Same test ``describe._collect_subvi_names`` uses: a labeled SubVI
-    call with a resolvable callee name."""
+    """A SubVI call: a ``kind='vi'`` op with a name. (``describe.
+    _collect_subvi_names`` applies the analogous filter keyed on the equivalent
+    ``qualified_name`` — which is always set whenever ``name`` is.)"""
     return op.kind == "vi" and bool(op.name)
 
 
@@ -1739,12 +1736,16 @@ def _build_components(
         if isinstance(op, _STRUCTURE_OPERATION_TYPES):
             continue
         if _is_subvi_call(op):
-            name = op.name
-            assert name is not None  # narrowed by _is_subvi_call
-            if name not in seen_subvi:
-                seen_subvi.add(name)
-                subvi_order.append(name)
-                subvi_reps[name] = op
+            # Group by the callee's QUALIFIED identity, not the bare name, so two
+            # classes' same-named methods (A.lvclass:run.vi vs B.lvclass:run.vi)
+            # stay distinct components instead of collapsing into one. resolve_vi_name
+            # (via _subvi_ports below) accepts the qualified form.
+            key = op.qualified_name or op.name
+            assert key is not None  # narrowed by _is_subvi_call
+            if key not in seen_subvi:
+                seen_subvi.add(key)
+                subvi_order.append(key)
+                subvi_reps[key] = op
             continue
         if not isinstance(op, PrimitiveOperation):
             continue
@@ -1753,8 +1754,8 @@ def _build_components(
         groups.setdefault(key, []).append((op, ins, outs))
 
     components: list[NetlistComponent] = []
-    for name in subvi_order:
-        ports = _subvi_ports(graph, name)
+    for key in subvi_order:
+        ports = _subvi_ports(graph, key)
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports
         else:
@@ -1763,8 +1764,8 @@ def _build_components(
             # actual call so ## Components declares exactly what ##
             # Netlist wires: both derive from the same call node's
             # terminals, so they can't disagree.
-            ins, outs = _synthesize_ports(subvi_reps[name])
-        components.append(NetlistComponent(name=name, inputs=ins, outputs=outs))
+            ins, outs = _synthesize_ports(subvi_reps[key])
+        components.append(NetlistComponent(name=key, inputs=ins, outputs=outs))
     for instances in groups.values():
         components.extend(_dedupe_primitive_group(instances))
 
@@ -1887,7 +1888,7 @@ def _pane_terminal(t: Terminal, direction: str) -> ConnectorPaneTerminal:
         name=t.name or direction,
         # FAITHFUL label (family-word fallback when unresolved) -- same as
         # describe's ## Inputs/## Outputs, never the codegen "Any".
-        type=t.type_descriptor() or (t.type_kind.value if t.type_kind else "unknown"),
+        type=t.type_label(),
         direction=direction,
         index=t.index,
         is_required=is_required(t, direction),

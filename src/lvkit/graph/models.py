@@ -842,36 +842,6 @@ class DestinationInfo:
 
 
 @dataclass
-class ConstantInfo:
-    """A constant value discovered across VIs."""
-
-    vi_name: str
-    value: str
-    label: str | None
-    type: str
-    python: ScalarValue
-
-
-@dataclass
-class PrimitiveInfo:
-    """A primitive node discovered across VIs."""
-
-    vi_name: str
-    prim_id: int | None
-    input_types: list[str]
-    output_types: list[str]
-
-
-@dataclass
-class ClusterInfo:
-    """A cluster type discovered across VIs."""
-
-    name: str
-    id: str
-    vis: list[str]
-
-
-@dataclass
 class StubTerminalInfo:
     """Terminal info for a stub VI."""
 

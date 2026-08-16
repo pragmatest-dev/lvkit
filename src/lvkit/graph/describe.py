@@ -398,7 +398,7 @@ def _terminal_type_label(t: Terminal) -> str:
     """A terminal's type descriptor for display (never ``python_type()``'s
     codegen-target annotation); the KIND word when the type didn't resolve,
     ``unknown`` when even that is absent."""
-    return t.type_descriptor() or (t.type_kind.value if t.type_kind else "unknown")
+    return t.type_label()
 
 
 _FlagGroup = ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
@@ -690,20 +690,6 @@ def _collect_structures(
     return structures
 
 
-def _count_operations(operations: list[Operation]) -> int:
-    """Count total operations including nested."""
-    count = len(operations)
-    for op in operations:
-        match op:
-            case CaseOperation() | SequenceOperation():
-                for frame in op.frames:
-                    count += _count_operations(frame.operations)
-            case _:
-                pass
-        count += _count_operations(op.inner_nodes)
-    return count
-
-
 def _const_type_str(c: Constant) -> str:
     """FAITHFUL human-readable type label for a constant (``type_descriptor()``
     already handles the error-cluster case internally)."""
@@ -832,10 +818,11 @@ def _describe_single_op(op: Operation) -> str:
     name = op.name or "unnamed"
 
     if op.kind == "vi":
-        # Qualified callee identity (``owning_libraries:name`` via display_name,
-        # e.g. ``TestResult.lvclass:addError.vi``) — a dispatch call reads its
-        # declaring parent class here, not a bare method name.
-        label = op.display_name
+        # Qualified callee identity (``op.qualified_name`` — the resolution
+        # identity, e.g. ``TestResult.lvclass:addError.vi``; a dispatch call reads
+        # its declaring parent class). The SAME field the ## Dependencies section
+        # uses (_collect_subvi_names), so a subVI is labeled identically on both.
+        label = op.qualified_name or name
         named_inputs = [
             t.name for t in op.terminals if t.direction == "input" and t.name
         ]

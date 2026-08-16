@@ -94,6 +94,12 @@ def _node_order_key(uid: str) -> tuple[str, int, str]:
     return (base, int(tail), "") if tail.isdigit() else (uid, -1, uid)
 
 
+def _uid_of(op_id: str) -> str:
+    """Trailing UID from an op.id ('...run.vi::1065' -> '1065') — the stable,
+    path-prefix-independent node identity shared by the netlist + diff layers."""
+    return op_id.rsplit("::", 1)[-1]
+
+
 def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
     """Map a typed graph node to the operation kind string."""
     if isinstance(node, VINode):
@@ -147,9 +153,8 @@ class InMemoryVIGraph(
         # Process VIs in dependency order (handles recursive VIs)
         for vi_group in graph.get_generation_order():
             for vi_name in vi_group:
-                # Get operation execution order
-                for op_id in graph.get_operation_order(vi_name):
-                    op = graph.get_node(vi_name, op_id)
+                # Get operations (topologically ordered)
+                for op in graph.get_operations(vi_name):
                     # ... generate code ...
     """
 

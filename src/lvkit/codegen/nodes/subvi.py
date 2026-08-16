@@ -374,7 +374,7 @@ def _build_arguments(
 
         # Determine parameter name with priority:
         # 1. vilib python_param name
-        # 2. Terminal name (enriched from callee FP by resolve_name)
+        # 2. Terminal name (enriched from callee FP by _enrich_subvi_terminals_typed)
         if vilib_inputs and term_index in vilib_inputs:
             # vilib knows the correct parameter name
             param_name = to_var_name(vilib_inputs[term_index])
