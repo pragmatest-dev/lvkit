@@ -122,6 +122,30 @@ def test_resolve_project_falls_back_to_cwd_when_roots_unsupported(tmp_path):
     assert asyncio.run(_resolve_project(None, ctx)) == str(Path.cwd())
 
 
+def test_resolve_project_single_configured_root(tmp_path, monkeypatch):
+    """One configured default root (no client ctx) is used automatically."""
+    root = tmp_path / "only"
+    monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [str(root)])
+    assert asyncio.run(_resolve_project(None, None)) == str(root)
+
+
+def test_resolve_project_multiple_configured_roots_disambiguate(tmp_path, monkeypatch):
+    """Several configured default roots + no explicit project -> raise (approach a),
+    never a silent pick of one."""
+    a, b = tmp_path / "a", tmp_path / "b"
+    monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [str(a), str(b)])
+    with pytest.raises(ValueError, match="pass project="):
+        asyncio.run(_resolve_project(None, None))
+
+
+def test_list_projects_reports_configured_roots(tmp_path, monkeypatch):
+    a, b = tmp_path / "a", tmp_path / "b"
+    monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [str(a), str(b)])
+    out = asyncio.run(mcp_server.list_projects(None))
+    assert out["configured_roots"] == [str(a), str(b)]
+    assert out["client_roots"] == []
+
+
 # ---- _resolve_target --------------------------------------------------------
 
 

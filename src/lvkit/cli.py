@@ -233,6 +233,17 @@ def main() -> int:
             "Use in CI to catch it."
         ),
     )
+    mcp_parser.add_argument(
+        "dirs",
+        nargs="*",
+        metavar="DIR",
+        help=(
+            "Default project root folder(s) for clients that send no workspace "
+            "root (notably Claude Desktop). The .mcpb expands the user's picked "
+            "VI folders here (multiple supported). Omit when the client provides "
+            "a workspace root."
+        ),
+    )
 
     # Index command - build/refresh the code-understanding facts index
     index_parser = subparsers.add_parser(
@@ -884,7 +895,7 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 
     try:
         print("Starting MCP server...", file=sys.stderr)
-        mcp_main()
+        mcp_main(getattr(args, "dirs", None) or None)
         return 0
     except KeyboardInterrupt:
         print("\nShutting down MCP server...", file=sys.stderr)

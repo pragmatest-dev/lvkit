@@ -3,7 +3,7 @@
   "name": "lvkit",
   "display_name": "LVKit",
   "version": "0.5.8",
-  "description": "Read and diff LabVIEW VIs from Claude — no LabVIEW, Python, uv, or pip required.",
+  "description": "Read, diff, and query LabVIEW .vi files in Claude — without a LabVIEW license.",
   "long_description": "lvkit turns a .vi binary into something you can read, diff, and query: describe a VI's signature and dataflow, render its block diagram, compare two versions, and answer project-wide questions across a repo. It runs as a self-contained local MCP server that reads .vi files off your disk — nothing leaves your machine.",
   "author": {
     "name": "Pragmatest",
@@ -22,10 +22,7 @@
     "entry_point": "server/lvkit",
     "mcp_config": {
       "command": "${__dirname}/server/lvkit",
-      "args": ["mcp"],
-      "env": {
-        "LVKIT_PROJECT_ROOT": "${user_config.vi_folder}"
-      },
+      "args": ["mcp", "${user_config.vi_folders}"],
       "platform_overrides": {
         "win32": {
           "command": "${__dirname}/server/lvkit.exe"
@@ -34,11 +31,11 @@
     }
   },
   "user_config": {
-    "vi_folder": {
+    "vi_folders": {
       "type": "directory",
-      "title": "VI folder",
-      "description": "The folder containing your LabVIEW .vi files (your project root). lvkit reads VIs from here so you don't have to type full paths.",
-      "multiple": false,
+      "title": "VI folders",
+      "description": "The folder(s) holding your LabVIEW .vi files — one per project. lvkit reads VIs from here so you don't type full paths; add several and ask about any of them.",
+      "multiple": true,
       "required": true
     }
   },

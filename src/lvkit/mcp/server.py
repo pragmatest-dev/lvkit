@@ -220,27 +220,51 @@ async def _client_roots(ctx: Context | None) -> list[Path]:
     return [_uri_to_path(str(r.uri)) for r in result.roots]
 
 
-def _default_root() -> str:
-    """Fallback project root for a client that sends NO roots — notably Claude
-    Desktop, which has no workspace concept. The ``LVKIT_PROJECT_ROOT`` env var
-    if set (the ``.mcpb`` bundle points it at the VI folder the user picks in the
-    Desktop settings UI), else the cwd. An IDE/agent that sends a workspace root
-    takes precedence over this (see ``_resolve_project``/``_resolve_target``)."""
-    return os.environ.get("LVKIT_PROJECT_ROOT") or str(Path.cwd())
+# Default project roots for a client that sends NO roots (notably Claude
+# Desktop). Set from the positional dirs of ``lvkit mcp <dir>...`` — the ``.mcpb``
+# expands the user's picked VI folders here (``multiple`` supported). Empty until
+# ``main`` populates it.
+_DEFAULT_ROOTS: list[str] = []
+
+
+def _default_roots() -> list[str]:
+    """Fallback project roots for a client that sends NO roots — notably Claude
+    Desktop, which has no workspace concept. In order: the folders passed to
+    ``lvkit mcp <dir>...`` (the ``.mcpb`` expands the user's picked VI folders,
+    ``multiple`` supported), else the legacy single ``LVKIT_PROJECT_ROOT`` env,
+    else the cwd. A client that sends workspace roots takes precedence over these
+    (see ``_resolve_project``/``_resolve_target``)."""
+    if _DEFAULT_ROOTS:
+        return list(_DEFAULT_ROOTS)
+    env = os.environ.get("LVKIT_PROJECT_ROOT")
+    if env:
+        return [env]
+    return [str(Path.cwd())]
 
 
 async def _resolve_project(project: str | None, ctx: Context | None) -> str:
-    """Resolve a project path: explicit ``project`` > first client root >
-    ``LVKIT_PROJECT_ROOT`` env > cwd.
+    """Resolve a project path: explicit ``project`` > the client's workspace
+    roots > the configured default roots (``lvkit mcp <dir>...`` / env / cwd).
 
-    An explicit ``project`` may be a Windows path when a Windows editor drives a
-    WSL-hosted server — map it onto the WSL mount so it resolves."""
+    A client's workspace uses its FIRST root (its primary workspace). Among the
+    CONFIGURED default roots (Claude Desktop), a single one is used automatically,
+    but when SEVERAL are configured and no explicit ``project`` was given this
+    raises with the list rather than silently picking one — pass ``project=<path>``
+    (or call ``list_projects``) to choose. An explicit ``project`` may be a Windows
+    path when a Windows editor drives a WSL-hosted server — mapped onto the WSL
+    mount."""
     if project:
         return _win_to_wsl_path(project)
     roots = await _client_roots(ctx)
     if roots:
         return str(roots[0])
-    return _win_to_wsl_path(_default_root())
+    defaults = _default_roots()
+    if len(defaults) == 1:
+        return _win_to_wsl_path(defaults[0])
+    raise ValueError(
+        "Several project roots are configured; pass project=<path> to pick one "
+        "(or call list_projects). Roots: " + ", ".join(defaults)
+    )
 
 
 async def _resolve_target(target: str, ctx: Context | None) -> str:
@@ -259,10 +283,12 @@ async def _resolve_target(target: str, ctx: Context | None) -> str:
     for root in await _client_roots(ctx):
         if (root / target).exists():
             return str(root / target)
-    # No client root matched — try the env/cwd default (Claude Desktop path).
-    default_root = Path(_win_to_wsl_path(_default_root()))
-    if (default_root / target).exists():
-        return str(default_root / target)
+    # No client root matched — try each configured default root (Claude Desktop
+    # path: the .mcpb-picked VI folders / env / cwd).
+    for d in _default_roots():
+        default_root = Path(_win_to_wsl_path(d))
+        if (default_root / target).exists():
+            return str(default_root / target)
     return target
 
 
@@ -320,6 +346,22 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
             store_save_lvproj_members(root, build_lvproj_membership(root))
         _indexes[key] = facts
     return root, _indexes[key]
+
+
+@mcp.tool()
+async def list_projects(ctx: Context | None = None) -> dict[str, Any]:
+    """List the project roots this server can answer for.
+
+    ``client_roots`` are what the client provided (an IDE / Claude Code
+    workspace), if any; ``configured_roots`` are the folders set at install
+    (``lvkit mcp <dir>...`` / the ``.mcpb`` VI folders / env / cwd). Pass one as a
+    tool's ``project=`` to scope a call — when exactly one root is active it is
+    used automatically, so you only need this when several are configured."""
+    client = [str(r) for r in await _client_roots(ctx)]
+    return {
+        "client_roots": client,
+        "configured_roots": _default_roots(),
+    }
 
 
 @mcp.tool()
@@ -558,8 +600,16 @@ def selftest() -> int:
     return len(tools)
 
 
-def main() -> None:
-    """Run the MCP server over stdio (entry point)."""
+def main(roots: list[str] | None = None) -> None:
+    """Run the MCP server over stdio (entry point).
+
+    ``roots`` are default project roots — the positional ``lvkit mcp <dir>...``
+    args, which the ``.mcpb`` expands from the user's picked VI folders — used for
+    clients that send no workspace roots (Claude Desktop). Empty/omitted falls
+    back to the ``LVKIT_PROJECT_ROOT`` env, then cwd (see ``_default_roots``)."""
+    global _DEFAULT_ROOTS
+    if roots:
+        _DEFAULT_ROOTS = [_win_to_wsl_path(r) for r in roots]
     mcp.run("stdio")
 
 
