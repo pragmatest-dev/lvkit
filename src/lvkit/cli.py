@@ -238,10 +238,10 @@ def main() -> int:
         nargs="*",
         metavar="DIR",
         help=(
-            "Default project root folder(s) for clients that send no workspace "
-            "root (notably Claude Desktop). The .mcpb expands the user's picked "
-            "VI folders here (multiple supported). Omit when the client provides "
-            "a workspace root."
+            "Default search root(s) for clients that send no workspace root "
+            "(notably Claude Desktop). One or more source-root folders to search "
+            "for VIs. Omit when the client provides a workspace root, or to fall "
+            "back to the cwd."
         ),
     )
 
