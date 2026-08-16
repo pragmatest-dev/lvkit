@@ -48,6 +48,12 @@ def test_deep_and_stateless_tools(tmp_path: Path) -> None:
     assert isinstance(ctx, dict)
     assert ctx["inputs"] or ctx["outputs"] or ctx["body"]
 
+    # The resolution axis: an extra `search_paths` root (an out-of-tree library
+    # the VI might call into) is accepted by the reading tools, same as
+    # `unresolved`. A harmless extra root leaves the base result intact.
+    assert _run(srv.describe(vi, search_paths=[str(tmp_path)]))
+    assert _run(srv.read_vi(vi, search_paths=[str(tmp_path)])) == ctx
+
     # Nothing leaked into the source tree (the understanding tools are pure
     # in-process reads — no artifact generation, no scripts/ subprocess).
     assert not (SAMPLE.parent / ".lvkit" / "cache").exists()

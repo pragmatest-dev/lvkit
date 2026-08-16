@@ -60,6 +60,7 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore
 
 from .. import primitive_resolver, vilib_resolver
+from ..cache_paths import _project_root_for
 from ..graph import InMemoryVIGraph
 from ..graph.describe import (
     describe_vi as describe_vi_text,
@@ -240,7 +241,12 @@ def _default_roots() -> list[str]:
     env = os.environ.get("LVKIT_PROJECT_ROOT")
     if env:
         return [env]
-    return [str(Path.cwd())]
+    # Pure cwd fallback: autodetect the enclosing source root (walk up for
+    # .lvkit/.git/.lvproj), else cwd itself — so an IDE client whose cwd is a
+    # subdir still scopes to the whole project, and a Desktop cwd with no markers
+    # lands on cwd (where _require_vis then asks).
+    cwd = Path.cwd()
+    return [str(_project_root_for(cwd) or cwd)]
 
 
 async def _resolve_project(project: str | None, ctx: Context | None) -> str:
@@ -490,18 +496,25 @@ async def query_schema() -> list[dict[str, Any]]:
 # ===== Deep single-VI (load on demand) =====
 
 
-def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
+def _load_one(
+    vi_path: str, search_paths: list[str] | None = None
+) -> tuple[InMemoryVIGraph, str]:
     """Load ONE VI (MINIMAL) into a fresh graph and return ``(graph, vi_name)``.
 
     A MINIMAL load also leaf-loads direct SubVIs, so ``list_vis()`` may hold
     several names; we pick the one whose source path IS ``vi_path``.
+
+    ``search_paths`` are extra dependency-resolution roots (an out-of-tree
+    library the VI calls into) — searched IN ADDITION to the VI's own directory,
+    which is always included.
     """
     p = Path(vi_path).resolve()
     if not p.exists():
         raise FileNotFoundError(f"VI not found: {vi_path}")
     _configure_resolvers_for_vi(p)
     graph = InMemoryVIGraph()
-    graph.load_vi(p, LoadMode.MINIMAL, search_paths=[p.parent])
+    roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
+    graph.load_vi(p, LoadMode.MINIMAL, search_paths=roots)
     vi_name: str | None = None
     for name in graph.list_vis():
         src = graph.get_vi_source_path(name)
@@ -519,23 +532,33 @@ def _load_one(vi_path: str) -> tuple[InMemoryVIGraph, str]:
 
 
 @mcp.tool()
-async def describe(vi_path: str, ctx: Context | None = None) -> str:
+async def describe(
+    vi_path: str,
+    search_paths: list[str] | None = None,
+    ctx: Context | None = None,
+) -> str:
     """Human-readable purpose, signature, SubVI calls, and control flow for one
     VI (loaded on demand). The prose read; for the STRUCTURED form (a program
     parsing the result), use ``read_vi``. ``vi_path`` may be relative to the
-    client's workspace root.
+    client's workspace root. ``search_paths`` are extra dependency-resolution
+    roots for an out-of-tree library the VI calls into (its own directory is
+    always searched).
     """
     vi_path = await _resolve_target(vi_path, ctx)
 
     def _work() -> str:
-        graph, vi_name = _load_one(vi_path)
+        graph, vi_name = _load_one(vi_path, search_paths)
         return describe_vi_text(graph, vi_name)
 
     return await asyncio.to_thread(_work)
 
 
 @mcp.tool()
-async def read_vi(vi_path: str, ctx: Context | None = None) -> dict[str, Any]:
+async def read_vi(
+    vi_path: str,
+    search_paths: list[str] | None = None,
+    ctx: Context | None = None,
+) -> dict[str, Any]:
     """READ one VI in full — its structure as the canonical **netlist IR**
     ``{vi, inputs, outputs, components, body}`` — for a program (not a person)
     to parse. This is the "read" to ``query``'s "grep": grep the ``node`` view
@@ -554,11 +577,13 @@ async def read_vi(vi_path: str, ctx: Context | None = None) -> dict[str, Any]:
     ``case{id}.out{k}`` = ``gamma`` (selector-dependent), ``loop{id}.shift{k}``
     = ``mu`` (shift register), ``loop{id}.out{k}`` = ``eta`` (loop output,
     array/last), and a feedback node is ``fb{k}`` = ``mu``. ``vi_path`` may be
-    relative to the client's workspace root."""
+    relative to the client's workspace root. ``search_paths`` are extra
+    dependency-resolution roots for an out-of-tree library the VI calls into
+    (its own directory is always searched)."""
     vi_path = await _resolve_target(vi_path, ctx)
 
     def _work() -> dict[str, Any]:
-        graph, vi_name = _load_one(vi_path)
+        graph, vi_name = _load_one(vi_path, search_paths)
         return netlist_to_dict(build_netlist(graph, vi_name))
 
     return await asyncio.to_thread(_work)

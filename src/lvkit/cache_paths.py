@@ -100,13 +100,19 @@ def _rel_under(child: Path, parent: Path | None) -> Path | None:
 
 
 def _project_root_for(vi_path: Path) -> Path | None:
-    """Nearest ancestor that is a project root: one holding a ``.lvkit/`` store
-    or a git repo root (``.git``). Returns the root dir, or ``None`` for a VI
-    outside any project.
+    """Nearest ancestor that is a project/source root: one holding a ``.lvkit/``
+    store, a git repo root (``.git``), or a LabVIEW project file (``*.lvproj``).
+    Accepts a FILE or a DIRECTORY (a dir is checked itself, then its ancestors).
+    Returns the root dir, or ``None`` for a path outside any project.
+
+    A ``.lvclass``/``.lvlib`` dir is NOT a root — it's a component; the walk-up
+    passes through it to the enclosing project, so the cache/scope covers the
+    whole project rather than one class.
     """
     from lvkit.project_store import global_home
 
-    ancestors = (vi_path.parent, *vi_path.parent.parents)
+    start = vi_path if vi_path.is_dir() else vi_path.parent
+    ancestors = (start, *start.parents)
     # The user's GLOBAL store (~/.lvkit) is not a project marker — skip it, or
     # every VI under $HOME collapses into one hash($HOME) bucket.
     home = global_home().resolve()
@@ -119,6 +125,11 @@ def _project_root_for(vi_path: Path) -> Path | None:
             return anc
     for anc in ancestors:
         if (anc / ".git").exists():
+            return anc
+    # LabVIEW-native project with no .lvkit/.git — the .lvproj dir is the source
+    # root (a plain LabVIEW project folder still gets a coherent cache bucket).
+    for anc in ancestors:
+        if any(anc.glob("*.lvproj")):
             return anc
     return None
 

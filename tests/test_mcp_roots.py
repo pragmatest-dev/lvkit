@@ -122,6 +122,19 @@ def test_resolve_project_falls_back_to_cwd_when_roots_unsupported(tmp_path):
     assert asyncio.run(_resolve_project(None, ctx)) == str(Path.cwd())
 
 
+def test_resolve_project_autodetects_source_root_from_cwd_subdir(tmp_path, monkeypatch):
+    """No CLI roots, no client ctx: the pure-cwd fallback walks UP to the enclosing
+    source root (here a ``*.lvproj`` marker) rather than scoping to the subdir the
+    client happened to launch in."""
+    root = tmp_path / "proj"
+    (root / "Classes" / "Foo.lvclass").mkdir(parents=True)
+    (root / "proj.lvproj").write_text("<Project/>")
+    monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [])
+    monkeypatch.delenv("LVKIT_PROJECT_ROOT", raising=False)
+    monkeypatch.chdir(root / "Classes" / "Foo.lvclass")
+    assert asyncio.run(_resolve_project(None, None)) == str(root)
+
+
 def test_resolve_project_single_configured_root(tmp_path, monkeypatch):
     """One configured default root (no client ctx) is used automatically."""
     root = tmp_path / "only"
