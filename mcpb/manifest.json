@@ -22,21 +22,12 @@
     "entry_point": "server/lvkit",
     "mcp_config": {
       "command": "${__dirname}/server/lvkit",
-      "args": ["mcp", "${user_config.vi_folders}"],
+      "args": ["mcp"],
       "platform_overrides": {
         "win32": {
           "command": "${__dirname}/server/lvkit.exe"
         }
       }
-    }
-  },
-  "user_config": {
-    "vi_folders": {
-      "type": "directory",
-      "title": "VI folders",
-      "description": "The folder(s) holding your LabVIEW .vi files — one per project. lvkit reads VIs from here so you don't type full paths; add several and ask about any of them.",
-      "multiple": true,
-      "required": true
     }
   },
   "compatibility": {

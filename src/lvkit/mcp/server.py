@@ -310,6 +310,20 @@ def _configure_resolvers_for_vi(vi_path: str | Path) -> None:
 # ===== Index (project-scoped) =====
 
 
+def _require_vis(root: Path, vi_paths: list[Path]) -> None:
+    """Raise a caller-actionable message when the resolved root holds no ``.vi``
+    files — the "no project known yet" case (notably Claude Desktop, whose cwd is
+    not your VIs). The model/user then passes ``project=<the VI folder>`` once,
+    which Claude's memory can retain across conversations; an IDE client (Claude
+    Code / VS Code) instead resolves it from the open workspace (cwd) for free."""
+    if not vi_paths:
+        raise ValueError(
+            f"No .vi files found under {root}. Point me at your LabVIEW project: "
+            "pass project=<your VI folder> (an absolute path, or a folder the "
+            "client has open)."
+        )
+
+
 def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFacts]]:
     """Resolve ``project`` to its root and return ``(root, facts)``.
 
@@ -323,6 +337,7 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
     is gone falls through to a rebuild+save.
     """
     root, vi_paths = resolve_project(Path(project))
+    _require_vis(root, vi_paths)
     key = str(root)
     if rebuild or key not in _indexes or not store_db_path(root).exists():
         _configure_resolvers_for_vi(root)
@@ -390,6 +405,7 @@ async def index(
     def _work() -> dict[str, Any]:
         start = time.monotonic()
         root, vi_paths = resolve_project(Path(project))
+        _require_vis(root, vi_paths)
         _configure_resolvers_for_vi(root)
         stored = store_load(root) if refresh else []
         if stored:
