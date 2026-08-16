@@ -165,10 +165,14 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
 
     metadata: dict[str, Any] = {}
 
-    # Get VI name from LVSR section
+    # The VI's filename is its identity fallback — a VI outside any library IS
+    # just its filename, and the binary may carry no explicit LVSR name. NEVER
+    # the literal "unknown" (which collapsed distinct VIs onto one key).
+    filename = Path(xml_path).stem + ".vi"
+
+    # Get VI name from LVSR section (its own filename when absent).
     lvsr = root.find(".//LVSR/Section")
-    if lvsr is not None:
-        metadata["name"] = lvsr.get("Name", "unknown")
+    metadata["name"] = (lvsr.get("Name") if lvsr is not None else None) or filename
 
     # Get library name(s) from LIBN section. ``library`` stays the OUTERMOST
     # (the owning .lvlib) as before; ``owning_libraries`` is the full ownership
@@ -194,8 +198,12 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
             subvi_refs.append(vivi.text)
     metadata["subvi_refs"] = subvi_refs
 
-    # Fall back to name if no qualified_name found
-    if "qualified_name" not in metadata and "name" in metadata:
+    # No explicit qualified name in the binary: fall back to the (now always
+    # populated) bare name. qualified_name stays the BARE resolution key BY
+    # DESIGN — the DISPLAY layer composes the class-qualified form from
+    # owning_libraries (see VINode). Never the "unknown" placeholder (which
+    # collapsed distinct VIs onto one key).
+    if "qualified_name" not in metadata:
         metadata["qualified_name"] = metadata["name"]
 
     # Get help/documentation data
