@@ -133,25 +133,23 @@ class SubVIBuildHandler(NodeBuildHandler):
         poly_variant = None
         if isinstance(node, SubVINode) and node.poly_variant_name:
             poly_variant = node.poly_variant_name
-        # Persist the FULLY QUALIFIED callee name (e.g.
-        # "TestCase.lvclass:CallTestMethod.vi"): prefer the graph-canonical key
-        # when the callee is loaded, otherwise KEEP the qualified iUse name.
-        # ``iuse_to_qname`` is parsed from the caller's OWN LIbd/BDHP (same
-        # source as ``subvi_qualified_names``), so it is already class-qualified
-        # and load-mode-independent. Dropping to the bare ``node_name`` here was
-        # a bug: under a MINIMAL load the callee usually ISN'T in the graph, so
-        # every call node came out bare ("CallTestMethod.vi") instead of
-        # qualified ("TestCase.lvclass:CallTestMethod.vi") — which is exactly the
-        # whole-repo state the facts index builds on. ``callee_q`` falls back to
-        # ``node_name`` only when the iUse map has no entry, so this is never
-        # None and never a downgrade.
-        callee_q = ctx.iuse_to_qname.get(node.uid) or node_name
-        resolved_q = ctx.resolve_vi_name(callee_q) if callee_q else None
-        qualified_name = (
-            resolved_q if resolved_q and resolved_q in ctx.graph else callee_q
-        )
-        # Dynamic-dispatch calls get their class-qualified target after type
-        # propagation — see _resolve_dispatch_qnames.
+        # Persist the callee's FULLY QUALIFIED NAME (e.g.
+        # "TestCase.lvclass:CallTestMethod.vi"). ``iuse_to_qname`` is parsed from
+        # the caller's OWN LIbd/BDHP (same source as ``subvi_qualified_names``),
+        # so it is already class-qualified, load-mode-independent, and
+        # deterministic. For a DYNAMIC-DISPATCH call it is the DECLARING PARENT
+        # class's method (e.g. "TestResult.lvclass:addError.vi") — the honest
+        # static edge, since the runtime override isn't statically knowable.
+        #
+        # KEEP IT AS THE QNAME — do NOT resolve it to the callee's vi_key here.
+        # VI identity is now the file PATH, so resolve_vi_name returns a PATH;
+        # stamping that made qualified_name a path AND, when a name/qname mapped
+        # to several on-disk copies (source-vs-built, base-vs-override), picked
+        # one copy load-order-dependently — a count that flipped by filesystem.
+        # The index resolves this qname to a concrete callee_path on its own
+        # (deterministically, keyed on path). Falls back to the bare node_name
+        # only when the iUse map has no entry.
+        qualified_name = ctx.iuse_to_qname.get(node.uid) or node_name
         return VINode(
             id=q_node_uid,
             vi=ctx.vi_name,

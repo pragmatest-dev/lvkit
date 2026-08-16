@@ -152,23 +152,11 @@ Scorecard template at the bottom.
       `0` == uncalled). It's the in-degree of the node-spine call graph (each
       `kind='vi'` node's resolved `callee_path`), keyed on VI path so it
       classifies even VIs whose `qualified_name` is NULL.
-    - *Ground truth (JKI):* **202** uncalled of 487 (entry-point/example
-      runners + orphans + VIs reached only dynamically — Call-By-Reference / VI
-      Server, which no static graph links). *(History: 284 before every VINode
-      got a `qualified_name`; 232 off the old `calls` table; then 229/230 once
-      the call graph folded onto the node spine — but that count was
-      PLATFORM-SENSITIVE (229 Linux / 230 Windows). Root cause: the graph loader
-      keyed VI identity by qualified name, which is NOT unique on disk (a source
-      VI + its stripped built copy, or parallel plugin trees, share a qname at
-      different paths), so dependency loading was first-visit-wins over
-      filesystem enumeration order — a stripped copy could win the race, and a
-      same-name base/override pair's caller edges clobbered each other so only
-      one survived (which one flipped by OS). Fixed by making the file PATH the
-      VI identity — loading is now confluent: both copies load, both caller edges
-      resolve to their distinct targets, so the count is order-invariant at 202
-      on any platform. The 229→202 drop is ~27 falsely-dead VIs recovering real
-      caller edges the clobber had dropped. See memory
-      `project_path_is_vi_identity`.)*
+    - *Ground truth (JKI):* **234** uncalled of 487 — orphans, entry-point/example
+      runners, and VIs reached only dynamically (dynamic-dispatch overrides,
+      Call-By-Reference, VI Server). Order-invariant: VI identity is the file path
+      and dispatch calls link to the declaring parent, so overrides are
+      statically-uncalled. See memory `project_path_is_vi_identity`.
 
 19. **Who calls `<a VI>`, directly or transitively?**
     - *Answered by:* `query` over `node.callee_path` — direct callers are one
@@ -370,7 +358,7 @@ index. `Fab?` = fabrication (NONE is good).
 | 14 hardcoded paths/creds | — | PASS | — | Query works; corpus has 0 (valid answer). |
 | 15 const→indicator | — | PASS | — | 14. |
 | 16 most-depended-on | — | PASS | — | `impact_score` ranks the error-handling utils (73/65/64… *now 77/69/68 post-refactor*). |
-| 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **202** uncalled of 487 (order-invariant since VI identity became the file path — see Q18). The naive `qualified_name`↔`callee_key` string anti-join reports 198 false-dead (qualified vs bare-filename keys never match) — replaced by the format-tolerant call-graph in-degree. |
+| 18 dead code | — | PASS | — | `vi.callers_count = 0` (#20): **234** uncalled of 487 (order-invariant: VI identity is the file path + dispatch calls link to the declaring parent — see Q18). The naive `qualified_name`↔`callee_key` string anti-join reports 198 false-dead (qualified vs bare-filename keys never match) — replaced by the format-tolerant call-graph in-degree. |
 | 20 .lvproj scoping | **FAIL** | PASS | NONE | Adoption run: pure shell (custom `.lvproj` parsing) — FORCED, lvkit can't answer membership. Answer was correct + careful (6 projects, no repo-local overlap, shared vi.lib deps). **Fix: task #19.** |
 | 22 unloadable | — | PASS | — | Harness: 0 stubs. |
 
