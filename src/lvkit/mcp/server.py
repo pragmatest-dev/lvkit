@@ -31,10 +31,13 @@ Two tool groups (understanding only — artifact generation lives in the CLI):
    Python itself — lvkit's deterministic AST generator is a CLI/oracle tool, not
    an MCP crutch.
 
-Artifact generation (Python packages, HTML docs, pyvis graphs, diffs, renders)
-is CLI-only (``lvkit generate``/``docs``/``visualize``/``diff``/``render``): it
-writes files, belongs in scripts/CI, and keeps the MCP a pure, in-process
-understanding surface with no subprocess or non-packaged-``scripts/`` dependency.
+Artifact generation (Python packages, HTML docs, pyvis graphs, diffs) is
+CLI-only (``lvkit generate``/``docs``/``visualize``/``diff``): it writes files
+and belongs in scripts/CI. The ONE exception is ``render`` — a VI's
+block-diagram SVG, which an AI CANNOT reconstruct from the netlist (only lvkit
+has the geometry from the ``.vi`` binary), so it's an MCP tool that RETURNS the
+SVG (nothing written to disk). Everything stays in-process — no subprocess or
+non-packaged-``scripts/`` dependency.
 """
 
 from __future__ import annotations
@@ -82,6 +85,7 @@ from ..index.store import save as store_save
 from ..index.store import save_lvproj_members as store_save_lvproj_members
 from ..load_mode import LoadMode
 from ..project_store import find_project_store
+from ..render import render_vi_file
 
 _INSTRUCTIONS = """\
 lvkit reads LabVIEW code. A LabVIEW project (`.vi`, `.lvclass`, `.lvlib`,
@@ -132,14 +136,18 @@ For any question about the project, start here:
   UNION SELECT n.vi_path FROM node n JOIN deps ON n.callee_path=deps.p) …`.
   For the COUNTS, `vi.callers_count` (0 == no static caller) and
   `vi.impact_score` are precomputed columns — no CTE needed.
-- One VI in depth (pass a path, no load step) — `describe` (prose) or
-  `read_vi` (structured netlist: operations, wiring, structures, constants).
+- One VI in depth (pass a path, no load step) — `describe` (prose), `read_vi`
+  (structured netlist: operations, wiring, structures, constants), or `render`
+  (the block-diagram **SVG** — the faithful visual for "show me / draw / what
+  does this look like"; display the returned SVG, do NOT hand-draw one from
+  `read_vi`, and NEVER suggest opening/screenshotting LabVIEW — `render` IS how
+  you see it, no license needed).
 - Convert a VI to Python — UNDERSTAND it with `read_vi`/`query`, then write
   idiomatic Python yourself. (lvkit's deterministic AST generator lives in the
   `lvkit generate` CLI — use it as a reference/oracle, not the primary path.)
-- Artifacts (Python packages, HTML docs, graphs, diffs, renders) are the
-  `lvkit` CLI's job (`generate`/`docs`/`visualize`/`diff`/`render`) — they write
-  files; point the user at the command.
+- Other artifacts (Python packages, HTML docs, pyvis graphs, diffs) are the
+  `lvkit` CLI's job (`generate`/`docs`/`visualize`/`diff`) — they write files;
+  point the user at the command.
 
 `query` operates on the whole project at once and
 build/refresh the index automatically. Prefer them over per-VI round-trips.
@@ -585,6 +593,42 @@ async def read_vi(
     def _work() -> dict[str, Any]:
         graph, vi_name = _load_one(vi_path, search_paths)
         return netlist_to_dict(build_netlist(graph, vi_name))
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def render(
+    vi_path: str,
+    search_paths: list[str] | None = None,
+    ctx: Context | None = None,
+) -> str:
+    """Render one VI's **block diagram** as a self-contained **SVG** — the
+    faithful visual (node positions, wires, structures, constants) as it appears
+    in LabVIEW, reconstructed from the ``.vi`` binary. This is the tool for
+    "show me / draw / what does this VI look like": return this SVG (e.g. as an
+    artifact) instead of hand-drawing a picture from ``read_vi``'s netlist — you
+    cannot reconstruct the geometry, only lvkit can.
+
+    lvkit renders and reads ``.vi`` files WITHOUT a LabVIEW license — this tool
+    IS how you see the diagram. NEVER tell the user to open the VI in LabVIEW,
+    click the node in LabVIEW, or take a screenshot from LabVIEW; that is neither
+    necessary nor available. ``vi_path`` may be relative to the client's
+    workspace root; ``search_paths`` are extra dependency-resolution roots for an
+    out-of-tree library the VI calls into (its own directory is always searched).
+    """
+    vi_path = await _resolve_target(vi_path, ctx)
+
+    def _work() -> str:
+        p = Path(vi_path).resolve()
+        if not p.exists():
+            raise FileNotFoundError(f"VI not found: {vi_path}")
+        _configure_resolvers_for_vi(p)
+        roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
+        svg = render_vi_file(p, search_paths=roots)
+        if svg is None:
+            raise RuntimeError(f"Could not render {p.name} (unresolvable diagram).")
+        return svg
 
     return await asyncio.to_thread(_work)
 
