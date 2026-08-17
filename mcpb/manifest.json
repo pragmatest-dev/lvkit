@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "lvkit",
   "display_name": "LVKit",
-  "version": "0.5.8",
+  "version": "0.6.0",
   "description": "Read, diff, and query LabVIEW .vi files in Claude — without a LabVIEW license.",
   "long_description": "lvkit turns a .vi binary into something you can read, diff, and query: describe a VI's signature and dataflow, render its block diagram, compare two versions, and answer project-wide questions across a repo. It runs as a self-contained local MCP server that reads .vi files off your disk — nothing leaves your machine.",
   "author": {

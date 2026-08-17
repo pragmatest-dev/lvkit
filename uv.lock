@@ -552,7 +552,7 @@ wheels = [
 
 [[package]]
 name = "lvkit"
-version = "0.5.8"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
