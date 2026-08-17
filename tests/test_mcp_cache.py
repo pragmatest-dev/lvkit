@@ -54,14 +54,16 @@ def test_deep_and_stateless_tools(tmp_path: Path) -> None:
     assert _run(srv.describe(vi, search_paths=[str(tmp_path)]))
     assert _run(srv.read_vi(vi, search_paths=[str(tmp_path)])) == ctx
 
-    # render: the block-diagram SVG (the visual read — the AI can't reconstruct
-    # LV geometry, so this is a tool, not something composed from read_vi).
-    svg = _run(srv.render(vi))
-    assert isinstance(svg, str)
-    assert "<svg" in svg and "</svg>" in svg
+    # render: writes the block-diagram SVG and returns its PATH (not the markup,
+    # which would flood context). The AI can't reconstruct LV geometry from
+    # read_vi, so this is a tool.
+    r = _run(srv.render(vi))
+    assert isinstance(r, dict) and r["bytes"] > 0
+    svg_file = Path(r["svg_path"])
+    assert svg_file.exists() and "<svg" in svg_file.read_text(encoding="utf-8")
 
-    # Nothing leaked into the source tree (the understanding tools + render are
-    # pure in-process reads — no artifact written, no scripts/ subprocess).
+    # render writes into the HERMETIC cache (LVKIT_CACHE_DIR=tmp), never the
+    # source tree; the understanding tools stay pure in-process reads.
     assert not (SAMPLE.parent / ".lvkit" / "cache").exists()
 
 

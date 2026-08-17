@@ -35,9 +35,10 @@ Artifact generation (Python packages, HTML docs, pyvis graphs, diffs) is
 CLI-only (``lvkit generate``/``docs``/``visualize``/``diff``): it writes files
 and belongs in scripts/CI. The ONE exception is ``render`` — a VI's
 block-diagram SVG, which an AI CANNOT reconstruct from the netlist (only lvkit
-has the geometry from the ``.vi`` binary), so it's an MCP tool that RETURNS the
-SVG (nothing written to disk). Everything stays in-process — no subprocess or
-non-packaged-``scripts/`` dependency.
+has the geometry from the ``.vi`` binary), so it's an MCP tool that writes the
+SVG artifact and returns its **path** (the markup is large — written, not
+inlined into context). Everything else stays a pure in-process read — no
+subprocess or non-packaged-``scripts/`` dependency.
 """
 
 from __future__ import annotations
@@ -62,7 +63,7 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import Context  # type: ignore
     from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore
 
-from .. import primitive_resolver, vilib_resolver
+from .. import __version__, primitive_resolver, vilib_resolver
 from ..cache_paths import _project_root_for
 from ..graph import InMemoryVIGraph
 from ..graph.describe import (
@@ -84,6 +85,7 @@ from ..index.store import load as store_load
 from ..index.store import save as store_save
 from ..index.store import save_lvproj_members as store_save_lvproj_members
 from ..load_mode import LoadMode
+from ..output_cache import lookup_render, render_slot, store_render
 from ..project_store import find_project_store
 from ..render import render_vi_file
 
@@ -139,9 +141,10 @@ For any question about the project, start here:
 - One VI in depth (pass a path, no load step) — `describe` (prose), `read_vi`
   (structured netlist: operations, wiring, structures, constants), or `render`
   (the block-diagram **SVG** — the faithful visual for "show me / draw / what
-  does this look like"; display the returned SVG, do NOT hand-draw one from
-  `read_vi`, and NEVER suggest opening/screenshotting LabVIEW — `render` IS how
-  you see it, no license needed).
+  does this look like"; it writes an `.svg` and returns `{svg_path}` — relay
+  that path / open it in a browser, do NOT read the file into context or
+  hand-draw one from `read_vi`, and NEVER suggest opening/screenshotting
+  LabVIEW — `render` IS how you see it, no license needed).
 - Convert a VI to Python — UNDERSTAND it with `read_vi`/`query`, then write
   idiomatic Python yourself. (lvkit's deterministic AST generator lives in the
   `lvkit generate` CLI — use it as a reference/oracle, not the primary path.)
@@ -602,33 +605,42 @@ async def render(
     vi_path: str,
     search_paths: list[str] | None = None,
     ctx: Context | None = None,
-) -> str:
-    """Render one VI's **block diagram** as a self-contained **SVG** — the
-    faithful visual (node positions, wires, structures, constants) as it appears
-    in LabVIEW, reconstructed from the ``.vi`` binary. This is the tool for
-    "show me / draw / what does this VI look like": return this SVG (e.g. as an
-    artifact) instead of hand-drawing a picture from ``read_vi``'s netlist — you
-    cannot reconstruct the geometry, only lvkit can.
+) -> dict[str, Any]:
+    """Render one VI's **block diagram** to a self-contained **SVG file** and
+    return its path — the faithful visual (node positions, wires, structures,
+    constants) as it appears in LabVIEW, reconstructed from the ``.vi`` binary.
+    This is the tool for "show me / draw / what does this VI look like".
+
+    Returns ``{svg_path, bytes}``: ``svg_path`` is a local ``.svg`` file to open
+    in a browser. The markup is written to disk, NOT inlined — a diagram's SVG is
+    large and would flood the context — so **relay the path; do NOT read the file
+    back**. You cannot reconstruct this geometry from ``read_vi``; only lvkit can.
 
     lvkit renders and reads ``.vi`` files WITHOUT a LabVIEW license — this tool
-    IS how you see the diagram. NEVER tell the user to open the VI in LabVIEW,
-    click the node in LabVIEW, or take a screenshot from LabVIEW; that is neither
-    necessary nor available. ``vi_path`` may be relative to the client's
-    workspace root; ``search_paths`` are extra dependency-resolution roots for an
-    out-of-tree library the VI calls into (its own directory is always searched).
+    IS how the diagram is produced. NEVER tell the user to open the VI in
+    LabVIEW, click a node in LabVIEW, or take a screenshot from LabVIEW; that is
+    neither necessary nor available. ``vi_path`` may be relative to the client's
+    workspace root; ``search_paths`` are extra dependency-resolution roots (the
+    VI's own directory is always searched).
     """
     vi_path = await _resolve_target(vi_path, ctx)
 
-    def _work() -> str:
+    def _work() -> dict[str, Any]:
         p = Path(vi_path).resolve()
         if not p.exists():
             raise FileNotFoundError(f"VI not found: {vi_path}")
         _configure_resolvers_for_vi(p)
+        opts, ver = "svg", __version__
+        # Cache hit — same VI bytes + lvkit version already rendered.
+        cached = lookup_render(p, "svg", opts, ver)
+        if cached is not None:
+            return {"svg_path": str(render_slot(p, "svg")), "bytes": len(cached)}
         roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
         svg = render_vi_file(p, search_paths=roots)
         if svg is None:
             raise RuntimeError(f"Could not render {p.name} (unresolvable diagram).")
-        return svg
+        slot = store_render(p, "svg", opts, ver, svg)
+        return {"svg_path": str(slot), "bytes": len(svg)}
 
     return await asyncio.to_thread(_work)
 
