@@ -85,9 +85,16 @@ from ..index.store import load as store_load
 from ..index.store import save as store_save
 from ..index.store import save_lvproj_members as store_save_lvproj_members
 from ..load_mode import LoadMode
-from ..output_cache import lookup_render, render_slot, store_render
+from ..output_cache import (
+    diff_slot,
+    lookup_diff,
+    lookup_render,
+    render_slot,
+    store_diff,
+    store_render,
+)
 from ..project_store import find_project_store
-from ..render import render_vi_file
+from ..render import diff_vi_files, render_vi_file
 
 _INSTRUCTIONS = """\
 lvkit reads LabVIEW code. A LabVIEW project (`.vi`, `.lvclass`, `.lvlib`,
@@ -641,6 +648,57 @@ async def render(
             raise RuntimeError(f"Could not render {p.name} (unresolvable diagram).")
         slot = store_render(p, "svg", opts, ver, svg)
         return {"svg_path": str(slot), "bytes": len(svg)}
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def diff(
+    before_vi: str,
+    after_vi: str,
+    search_paths: list[str] | None = None,
+    ctx: Context | None = None,
+) -> dict[str, Any]:
+    """Diff two versions of a VI — write a **visual HTML diff** and return its
+    path. Compares BEFORE (``before_vi``) to AFTER (``after_vi``), rendering both
+    block diagrams with the changes highlighted — the faithful "what changed"
+    that you cannot reconstruct from ``read_vi``.
+
+    Returns ``{diff_path, bytes}``: ``diff_path`` is a local ``.html`` file to
+    open in a browser. The markup is written, NOT inlined — it's large — so
+    **relay the path; do NOT read the file back**.
+
+    lvkit diffs ``.vi`` files WITHOUT a LabVIEW license — NEVER suggest opening
+    either version in LabVIEW or comparing them by eye there; this tool IS the
+    compare. Paths may be relative to the client's workspace root;
+    ``search_paths`` are extra dependency-resolution roots (each VI's own
+    directory is always searched).
+    """
+    before_vi = await _resolve_target(before_vi, ctx)
+    after_vi = await _resolve_target(after_vi, ctx)
+
+    def _work() -> dict[str, Any]:
+        pa, pb = Path(before_vi).resolve(), Path(after_vi).resolve()
+        for p in (pa, pb):
+            if not p.exists():
+                raise FileNotFoundError(f"VI not found: {p}")
+        _configure_resolvers_for_vi(pa)
+        opts, ver = "html|verbose=0|before=|after=", __version__
+        cached = lookup_diff(pa, pb, "html", opts, ver)
+        if cached is not None:
+            return {"diff_path": str(diff_slot(pa, pb, "html")), "bytes": len(cached)}
+        roots = [
+            pa.parent,
+            pb.parent,
+            *(Path(s).resolve() for s in (search_paths or [])),
+        ]
+        body = diff_vi_files(pa, pb, fmt="html", search_paths=roots)
+        if body is None:
+            raise RuntimeError(
+                f"Could not render diff for {pa.name} (unresolvable diagram)."
+            )
+        slot = store_diff(pa, pb, "html", opts, ver, body)
+        return {"diff_path": str(slot), "bytes": len(body)}
 
     return await asyncio.to_thread(_work)
 

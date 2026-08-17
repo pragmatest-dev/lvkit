@@ -10,6 +10,7 @@ the repo. Wiring/smoke check: every tool returns without raising, non-empty.
 from __future__ import annotations
 
 import asyncio
+import shutil
 from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any
@@ -62,7 +63,14 @@ def test_deep_and_stateless_tools(tmp_path: Path) -> None:
     svg_file = Path(r["svg_path"])
     assert svg_file.exists() and "<svg" in svg_file.read_text(encoding="utf-8")
 
-    # render writes into the HERMETIC cache (LVKIT_CACHE_DIR=tmp), never the
+    # diff: writes a visual HTML diff of two VI versions, returns its path.
+    after = tmp_path / "after.vi"
+    shutil.copy(SAMPLE, after)
+    d = _run(srv.diff(vi, str(after)))
+    assert isinstance(d, dict) and d["bytes"] > 0
+    assert Path(d["diff_path"]).exists()
+
+    # render + diff write into the HERMETIC cache (LVKIT_CACHE_DIR=tmp), never the
     # source tree; the understanding tools stay pure in-process reads.
     assert not (SAMPLE.parent / ".lvkit" / "cache").exists()
 

@@ -44,6 +44,7 @@ __all__ = [
     "render_vi_file",
     "render_vi_file_titled",
     "render_vi_with_subvis",
+    "diff_vi_files",
 ]
 
 # Deterministic per-VI id for the root <svg> — sanitized from the VI name, no
@@ -587,3 +588,92 @@ def render_vi_file_titled(
     warm_all_loaded(graph)
     svg = render_vi(graph, name, theme=theme, theme_mode=theme_mode)
     return svg, name
+
+
+def diff_vi_files(
+    before_path: Path,
+    after_path: Path,
+    *,
+    fmt: str = "html",
+    verbose: bool = False,
+    search_paths: list[Path] | None = None,
+    before_ref: str | None = None,
+    after_ref: str | None = None,
+    mode: LoadMode = LoadMode.MINIMAL,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
+    warm_index: bool = True,
+) -> str | None:
+    """Diff two VI versions -> a body string in ``fmt`` (``"text"`` | ``"json"``
+    | ``"html"``). The shared core behind ``lvkit diff`` AND the MCP ``diff``
+    tool — build both from here, never duplicate the load+project logic.
+
+    ``before_path`` is the BEFORE side, ``after_path`` the AFTER. Loads both with
+    one ``mode``/``search_paths``, then projects the UID-keyed change set:
+    ``"text"`` (``format_diff``), ``"json"`` (``diff_to_dict``), or ``"html"``
+    (the ``build_diff_viewer`` visual with both sides' faithful, theme-reactive
+    SVGs). ``before_ref``/``after_ref`` are optional labels (e.g. git refs) for
+    the html title. Returns ``None`` ONLY when an ``html`` render declines
+    because required diagram geometry is missing. ``warm_index`` upserts both
+    VIs' facts into their project index (best-effort; set ``False`` to skip)."""
+    from ..graph.diff import (
+        diff_to_dict,
+        diff_uid,
+        format_diff,
+        netlist_diff_rows,
+        rows_to_json,
+    )
+
+    layout = fmt != "text"
+
+    def _load(path: Path) -> tuple[InMemoryVIGraph, str]:
+        g = InMemoryVIGraph()
+        if vilib_root or userlib_root:
+            g.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+        g.load_vi(str(path), mode, search_paths=search_paths, layout=layout)
+        return g, g.resolve_vi_name(path.name)
+
+    graph_a, name_a = _load(before_path)
+    graph_b, name_b = _load(after_path)
+
+    if warm_index:
+        from ..index.build import warm_index_for_vi
+
+        warm_index_for_vi(graph_a, name_a, before_path)
+        warm_index_for_vi(graph_b, name_b, after_path)
+
+    if fmt == "text":
+        return format_diff(graph_a, graph_b, name_a, name_b, verbose=verbose) or ""
+    if fmt == "json":
+        return json.dumps(diff_to_dict(graph_a, graph_b, name_a, name_b), indent=2)
+
+    # html — both diagrams render "auto" so the viewer's light/dark toggle can
+    # re-theme them (a baked palette couldn't respond to the data-theme flip).
+    from .diff_viewer import build_diff_viewer
+
+    before_svg = render_vi(graph_a, name_a, interactive=False, theme_mode="auto")
+    after_svg = render_vi(graph_b, name_b, interactive=False, theme_mode="auto")
+    if before_svg is None or after_svg is None:
+        return None
+    cmap = diff_uid(graph_a, graph_b, name_a, name_b)
+    rows = netlist_diff_rows(graph_a, graph_b, name_a, name_b)
+
+    def _label(name: str, ref: str | None) -> str:
+        return f"{name} ({ref})" if ref else name
+
+    before_label = _label(name_a, before_ref)
+    after_label = _label(name_b, after_ref)
+    title = (
+        before_label
+        if before_label == after_label
+        else f'{before_label} <span class="t-arr">&#8594; {after_label}</span>'
+    )
+    return build_diff_viewer(
+        cmap,
+        before_svg,
+        after_svg,
+        title=title,
+        before_label=before_label,
+        after_label=after_label,
+        netlist_rows=rows_to_json(rows),
+    )
