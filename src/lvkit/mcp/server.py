@@ -31,10 +31,14 @@ Two tool groups (understanding only — artifact generation lives in the CLI):
    Python itself — lvkit's deterministic AST generator is a CLI/oracle tool, not
    an MCP crutch.
 
-Artifact generation (Python packages, HTML docs, pyvis graphs, diffs, renders)
-is CLI-only (``lvkit generate``/``docs``/``visualize``/``diff``/``render``): it
-writes files, belongs in scripts/CI, and keeps the MCP a pure, in-process
-understanding surface with no subprocess or non-packaged-``scripts/`` dependency.
+Artifact generation (Python packages, HTML docs, pyvis graphs, diffs) is
+CLI-only (``lvkit generate``/``docs``/``visualize``/``diff``): it writes files
+and belongs in scripts/CI. The ONE exception is ``render`` — a VI's
+block-diagram SVG, which an AI CANNOT reconstruct from the netlist (only lvkit
+has the geometry from the ``.vi`` binary), so it's an MCP tool that writes the
+SVG artifact and returns its **path** (the markup is large — written, not
+inlined into context). Everything else stays a pure in-process read — no
+subprocess or non-packaged-``scripts/`` dependency.
 """
 
 from __future__ import annotations
@@ -59,12 +63,9 @@ except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import Context  # type: ignore
     from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore
 
-from .. import primitive_resolver, vilib_resolver
+from .. import __version__, primitive_resolver, vilib_resolver
 from ..cache_paths import _project_root_for
 from ..graph import InMemoryVIGraph
-from ..graph.describe import (
-    describe_vi as describe_vi_text,
-)
 from ..graph.netlist import build_netlist, netlist_to_dict
 from ..index import sql as isql
 from ..index.build import (
@@ -81,7 +82,18 @@ from ..index.store import load as store_load
 from ..index.store import save as store_save
 from ..index.store import save_lvproj_members as store_save_lvproj_members
 from ..load_mode import LoadMode
+from ..output_cache import (
+    diff_slot,
+    lookup_diff,
+    lookup_render,
+    render_slot,
+    store_diff,
+    store_render,
+)
 from ..project_store import find_project_store
+from ..render import render_vi_file_titled
+from ..render.render_viewer import build_render_viewer
+from ..vi_diff import diff_vi_files
 
 _INSTRUCTIONS = """\
 lvkit reads LabVIEW code. A LabVIEW project (`.vi`, `.lvclass`, `.lvlib`,
@@ -132,14 +144,23 @@ For any question about the project, start here:
   UNION SELECT n.vi_path FROM node n JOIN deps ON n.callee_path=deps.p) …`.
   For the COUNTS, `vi.callers_count` (0 == no static caller) and
   `vi.impact_score` are precomputed columns — no CTE needed.
-- One VI in depth (pass a path, no load step) — `describe` (prose) or
-  `read_vi` (structured netlist: operations, wiring, structures, constants).
+- One VI in depth (pass a path, no load step) — `read_vi` returns its FAITHFUL
+  structure (the netlist IR: signature, SubVI/primitive calls, wiring, control
+  flow). That IR is raw material, not an answer: INTERPRET it and tell the user
+  what the VI DOES — its purpose — don't just echo operations. `render` draws
+  the block diagram as an interactive **HTML viewer** (the faithful visual for
+  "show me / draw / what does this look like") and `diff` compares two versions
+  the same way; each writes a file and returns its path (`{render_path}` /
+  `{diff_path}`) — relay that path / open it in a browser, do NOT read the file
+  into context or hand-draw one from `read_vi`. NEVER suggest
+  opening/screenshotting LabVIEW — these tools ARE how you see it, no license
+  needed.
 - Convert a VI to Python — UNDERSTAND it with `read_vi`/`query`, then write
   idiomatic Python yourself. (lvkit's deterministic AST generator lives in the
   `lvkit generate` CLI — use it as a reference/oracle, not the primary path.)
-- Artifacts (Python packages, HTML docs, graphs, diffs, renders) are the
-  `lvkit` CLI's job (`generate`/`docs`/`visualize`/`diff`/`render`) — they write
-  files; point the user at the command.
+- Other artifacts (Python packages, HTML docs, pyvis graphs) are the `lvkit`
+  CLI's job (`generate`/`docs`/`visualize`) — they write files; point the user
+  at the command.
 
 `query` operates on the whole project at once and
 build/refresh the index automatically. Prefer them over per-VI round-trips.
@@ -532,39 +553,24 @@ def _load_one(
 
 
 @mcp.tool()
-async def describe(
-    vi_path: str,
-    search_paths: list[str] | None = None,
-    ctx: Context | None = None,
-) -> str:
-    """Human-readable purpose, signature, SubVI calls, and control flow for one
-    VI (loaded on demand). The prose read; for the STRUCTURED form (a program
-    parsing the result), use ``read_vi``. ``vi_path`` may be relative to the
-    client's workspace root. ``search_paths`` are extra dependency-resolution
-    roots for an out-of-tree library the VI calls into (its own directory is
-    always searched).
-    """
-    vi_path = await _resolve_target(vi_path, ctx)
-
-    def _work() -> str:
-        graph, vi_name = _load_one(vi_path, search_paths)
-        return describe_vi_text(graph, vi_name)
-
-    return await asyncio.to_thread(_work)
-
-
-@mcp.tool()
 async def read_vi(
     vi_path: str,
     search_paths: list[str] | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """READ one VI in full — its structure as the canonical **netlist IR**
-    ``{vi, inputs, outputs, components, body}`` — for a program (not a person)
-    to parse. This is the "read" to ``query``'s "grep": grep the ``node`` view
-    to find WHICH VIs match a pattern, then ``read_vi`` a hit to see its actual
-    wiring/dataflow. Loaded on demand; the structured counterpart to
-    ``describe``'s prose.
+    ``{vi, inputs, outputs, components, body}``. This is the "read" to
+    ``query``'s "grep": grep the ``node`` view to find WHICH VIs match a
+    pattern, then ``read_vi`` a hit to see its actual wiring/dataflow. Loaded
+    on demand.
+
+    The IR is FAITHFUL structure, not an explanation — it is the raw material
+    you INTERPRET. When you answer a person about this VI, do not stop at the
+    netlist: state, in a sentence, WHAT THE VI DOES — its purpose — synthesized
+    from the signature, the SubVI/primitive calls, and the control flow. A bare
+    dump of operations is not an answer; the purpose is the answer, backed by
+    the structure. (The ``.vi`` is read WITHOUT a LabVIEW license — never tell
+    the user to open it in LabVIEW to figure out what it does.)
 
     Boundary ``inputs``/``outputs`` carry the FAITHFUL LabVIEW type descriptor
     (``Error``, ``TestSuite.lvclass``, ``method--Enum{setUp, tearDown}``); each
@@ -585,6 +591,106 @@ async def read_vi(
     def _work() -> dict[str, Any]:
         graph, vi_name = _load_one(vi_path, search_paths)
         return netlist_to_dict(build_netlist(graph, vi_name))
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def render(
+    vi_path: str,
+    search_paths: list[str] | None = None,
+    ctx: Context | None = None,
+) -> dict[str, Any]:
+    """Render one VI's **block diagram** to a self-contained interactive
+    **HTML viewer** and return its path — the faithful visual (node positions,
+    wires, structures, constants) as it appears in LabVIEW, reconstructed from
+    the ``.vi`` binary, in a zoom/pan page with a light/dark toggle. This is the
+    tool for "show me / draw / what does this VI look like".
+
+    Returns ``{render_path, bytes}``: ``render_path`` is a local ``.html`` file
+    to open in a browser (same shape as ``diff``'s output). The markup is written
+    to disk, NOT inlined — a diagram is large and would flood the context — so
+    **relay the path; do NOT read the file back**. You cannot reconstruct this
+    geometry from ``read_vi``; only lvkit can.
+
+    lvkit renders and reads ``.vi`` files WITHOUT a LabVIEW license — this tool
+    IS how the diagram is produced. NEVER tell the user to open the VI in
+    LabVIEW, click a node in LabVIEW, or take a screenshot from LabVIEW; that is
+    neither necessary nor available. ``vi_path`` may be relative to the client's
+    workspace root; ``search_paths`` are extra dependency-resolution roots (the
+    VI's own directory is always searched).
+    """
+    vi_path = await _resolve_target(vi_path, ctx)
+
+    def _work() -> dict[str, Any]:
+        p = Path(vi_path).resolve()
+        if not p.exists():
+            raise FileNotFoundError(f"VI not found: {vi_path}")
+        _configure_resolvers_for_vi(p)
+        opts, ver = "html", __version__
+        # Cache hit — same VI bytes + lvkit version already rendered.
+        cached = lookup_render(p, "html", opts, ver)
+        if cached is not None:
+            return {"render_path": str(render_slot(p, "html")), "bytes": len(cached)}
+        roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
+        # "auto" theme so the viewer's live light/dark toggle can re-theme it.
+        svg, title = render_vi_file_titled(p, search_paths=roots, theme_mode="auto")
+        if svg is None:
+            raise RuntimeError(f"Could not render {p.name} (unresolvable diagram).")
+        html = build_render_viewer(svg, title=title or p.stem)
+        slot = store_render(p, "html", opts, ver, html)
+        return {"render_path": str(slot), "bytes": len(html)}
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
+async def diff(
+    before_vi: str,
+    after_vi: str,
+    search_paths: list[str] | None = None,
+    ctx: Context | None = None,
+) -> dict[str, Any]:
+    """Diff two versions of a VI — write a **visual HTML diff** and return its
+    path. Compares BEFORE (``before_vi``) to AFTER (``after_vi``), rendering both
+    block diagrams with the changes highlighted — the faithful "what changed"
+    that you cannot reconstruct from ``read_vi``.
+
+    Returns ``{diff_path, bytes}``: ``diff_path`` is a local ``.html`` file to
+    open in a browser. The markup is written, NOT inlined — it's large — so
+    **relay the path; do NOT read the file back**.
+
+    lvkit diffs ``.vi`` files WITHOUT a LabVIEW license — NEVER suggest opening
+    either version in LabVIEW or comparing them by eye there; this tool IS the
+    compare. Paths may be relative to the client's workspace root;
+    ``search_paths`` are extra dependency-resolution roots (each VI's own
+    directory is always searched).
+    """
+    before_vi = await _resolve_target(before_vi, ctx)
+    after_vi = await _resolve_target(after_vi, ctx)
+
+    def _work() -> dict[str, Any]:
+        pa, pb = Path(before_vi).resolve(), Path(after_vi).resolve()
+        for p in (pa, pb):
+            if not p.exists():
+                raise FileNotFoundError(f"VI not found: {p}")
+        _configure_resolvers_for_vi(pa)
+        opts, ver = "html|verbose=0|before=|after=", __version__
+        cached = lookup_diff(pa, pb, "html", opts, ver)
+        if cached is not None:
+            return {"diff_path": str(diff_slot(pa, pb, "html")), "bytes": len(cached)}
+        roots = [
+            pa.parent,
+            pb.parent,
+            *(Path(s).resolve() for s in (search_paths or [])),
+        ]
+        body = diff_vi_files(pa, pb, fmt="html", search_paths=roots)
+        if body is None:
+            raise RuntimeError(
+                f"Could not render diff for {pa.name} (unresolvable diagram)."
+            )
+        slot = store_diff(pa, pb, "html", opts, ver, body)
+        return {"diff_path": str(slot), "bytes": len(body)}
 
     return await asyncio.to_thread(_work)
 

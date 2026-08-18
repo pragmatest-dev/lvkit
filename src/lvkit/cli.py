@@ -1501,48 +1501,6 @@ def _auto_search_paths(explicit: list[str], *inputs: Path) -> list[Path]:
     return paths
 
 
-def _load_diff_graphs(
-    args: argparse.Namespace,
-    path_a: Path,
-    path_b: Path,
-    *,
-    layout: bool,
-) -> tuple[InMemoryVIGraph, str, InMemoryVIGraph, str]:
-    """Load both sides of a diff pair with a shared load mode/search paths."""
-    from .graph import InMemoryVIGraph
-
-    search_paths = _auto_search_paths(args.search_paths, path_a, path_b)
-    diff_mode = _resolve_load_mode(args, LoadMode.MINIMAL)
-
-    graph_a = InMemoryVIGraph()
-    _configure_library_roots(graph_a, args)
-    graph_a.load_vi(
-        str(path_a),
-        diff_mode,
-        search_paths=search_paths,
-        layout=layout,
-    )
-    vi_name_a = graph_a.resolve_vi_name(path_a.name)
-
-    graph_b = InMemoryVIGraph()
-    _configure_library_roots(graph_b, args)
-    graph_b.load_vi(
-        str(path_b),
-        diff_mode,
-        search_paths=search_paths,
-        layout=layout,
-    )
-    vi_name_b = graph_b.resolve_vi_name(path_b.name)
-
-    # Progressive index: a diff warms both VIs' facts into their project store.
-    from .index.build import warm_index_for_vi
-
-    warm_index_for_vi(graph_a, vi_name_a, path_a)
-    warm_index_for_vi(graph_b, vi_name_b, path_b)
-
-    return graph_a, vi_name_a, graph_b, vi_name_b
-
-
 def _diff_options_tag(args: argparse.Namespace, fmt: str, verbose: bool) -> str:
     """The output-cache options key for a diff: everything besides the two VIs'
     content and the lvkit version that changes the output bytes."""
@@ -1555,85 +1513,32 @@ def _diff_options_tag(args: argparse.Namespace, fmt: str, verbose: bool) -> str:
 def _build_diff_body(
     args: argparse.Namespace, path_a: Path, path_b: Path, fmt: str, verbose: bool
 ) -> str | int:
-    """Build the diff body (text/json/html). Returns the body, or an int exit
-    code. Imports the graph/render stack HERE — a cache hit never reaches it."""
-    from .graph.diff import (
-        diff_to_dict,
-        diff_uid,
-        format_diff,
-        netlist_diff_rows,
-        rows_to_json,
-    )
+    """Build the diff body (text/json/html) via the shared ``diff_vi_files``
+    core. Returns the body, or an int exit code. Imports the render/graph stack
+    HERE (via ``vi_diff``) — a cache hit never reaches it."""
+    from .vi_diff import diff_vi_files
 
-    if fmt == "text":
-        graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
-            args,
-            path_a,
-            path_b,
-            layout=False,
-        )
-        # "" (no changes) is a real cacheable body; _emit_diff renders the notice.
-        return (
-            format_diff(
-                graph_a,
-                graph_b,
-                vi_name_a,
-                vi_name_b,
-                verbose=verbose,
-            )
-            or ""
-        )
-
-    graph_a, vi_name_a, graph_b, vi_name_b = _load_diff_graphs(
-        args,
+    vilib_root, userlib_root = _parse_library_roots(args)
+    body = diff_vi_files(
         path_a,
         path_b,
-        layout=True,
+        fmt=fmt,
+        verbose=verbose,
+        search_paths=_auto_search_paths(args.search_paths, path_a, path_b),
+        before_ref=args.before_ref,
+        after_ref=args.after_ref,
+        mode=_resolve_load_mode(args, LoadMode.MINIMAL),
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
     )
-    if fmt == "json":
-        return json.dumps(
-            diff_to_dict(graph_a, graph_b, vi_name_a, vi_name_b), indent=2
-        )
-
-    # fmt == "html". The viewer chrome is prefers-color-scheme adaptive AND
-    # carries its own light/dark diagram-theme toggle; for that to re-theme the
-    # diagrams their SVGs MUST be theme-reactive, so the HTML diff ALWAYS renders
-    # "auto" (a baked --theme palette couldn't respond to the data-theme flip).
-    from .render import render_vi
-    from .render.diff_viewer import build_diff_viewer
-
-    before_svg = render_vi(graph_a, vi_name_a, interactive=False, theme_mode="auto")
-    after_svg = render_vi(graph_b, vi_name_b, interactive=False, theme_mode="auto")
-    if before_svg is None or after_svg is None:
+    if body is None:
         print(
             "Error: render declined — required diagram geometry is missing "
             "(see logs for the missing ids)",
             file=sys.stderr,
         )
         return 1
-
-    cmap = diff_uid(graph_a, graph_b, vi_name_a, vi_name_b)
-    rows = netlist_diff_rows(graph_a, graph_b, vi_name_a, vi_name_b)
-
-    def _annotate(name: str, ref: str | None) -> str:
-        return f"{name} ({ref})" if ref else name
-
-    before_label = _annotate(vi_name_a, args.before_ref)
-    after_label = _annotate(vi_name_b, args.after_ref)
-    title = (
-        before_label
-        if before_label == after_label
-        else f'{before_label} <span class="t-arr">→ {after_label}</span>'
-    )
-    return build_diff_viewer(
-        cmap,
-        before_svg,
-        after_svg,
-        title=title,
-        before_label=before_label,
-        after_label=after_label,
-        netlist_rows=rows_to_json(rows),
-    )
+    return body
 
 
 def _emit_diff(

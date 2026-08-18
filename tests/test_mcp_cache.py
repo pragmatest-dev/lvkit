@@ -10,6 +10,7 @@ the repo. Wiring/smoke check: every tool returns without raising, non-empty.
 from __future__ import annotations
 
 import asyncio
+import shutil
 from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any
@@ -37,25 +38,37 @@ def test_deep_and_stateless_tools(tmp_path: Path) -> None:
         pytest.skip(f"sample VI not available: {SAMPLE}")
     vi = str(SAMPLE)
 
-    # Deep single-VI: describe (prose) + read_vi (structured). The AI converts
-    # by UNDERSTANDING these, not via a deterministic-generate MCP tool.
-    assert _run(srv.describe(vi))
-
-    # read_vi returns the canonical netlist IR dict — the single structured read
-    # (operations, wiring, structures, constants) that subsumes the old
-    # get_operations/get_dataflow/get_structure/get_constants facet tools.
+    # Deep single-VI: read_vi returns the canonical netlist IR dict — the single
+    # structured read (operations, wiring, structures, constants) the AI
+    # interprets to convert, not via a deterministic-generate MCP tool. There is
+    # no `describe` tool: its prose is a lossy projection of read_vi, so it stays
+    # CLI-only.
     ctx = _run(srv.read_vi(vi))
     assert isinstance(ctx, dict)
     assert ctx["inputs"] or ctx["outputs"] or ctx["body"]
 
     # The resolution axis: an extra `search_paths` root (an out-of-tree library
-    # the VI might call into) is accepted by the reading tools, same as
+    # the VI might call into) is accepted by the reading tool, same as
     # `unresolved`. A harmless extra root leaves the base result intact.
-    assert _run(srv.describe(vi, search_paths=[str(tmp_path)]))
     assert _run(srv.read_vi(vi, search_paths=[str(tmp_path)])) == ctx
 
-    # Nothing leaked into the source tree (the understanding tools are pure
-    # in-process reads — no artifact generation, no scripts/ subprocess).
+    # render: writes the block-diagram HTML viewer and returns its PATH (not the
+    # markup, which would flood context). The AI can't reconstruct LV geometry
+    # from read_vi, so this is a tool; the viewer embeds the faithful SVG.
+    r = _run(srv.render(vi))
+    assert isinstance(r, dict) and r["bytes"] > 0
+    render_file = Path(r["render_path"])
+    assert render_file.exists() and "<svg" in render_file.read_text(encoding="utf-8")
+
+    # diff: writes a visual HTML diff of two VI versions, returns its path.
+    after = tmp_path / "after.vi"
+    shutil.copy(SAMPLE, after)
+    d = _run(srv.diff(vi, str(after)))
+    assert isinstance(d, dict) and d["bytes"] > 0
+    assert Path(d["diff_path"]).exists()
+
+    # render + diff write into the HERMETIC cache (LVKIT_CACHE_DIR=tmp), never the
+    # source tree; the understanding tools stay pure in-process reads.
     assert not (SAMPLE.parent / ".lvkit" / "cache").exists()
 
 
