@@ -57,7 +57,9 @@ Add to the client's MCP config:
 
 ### VS Code
 
-VS Code uses `.vscode/mcp.json` with a `"servers"` key and `"type": "stdio"`:
+Install the [lvkit VS Code extension](../reference/vscode-extension.md) from the Marketplace — it bundles a signed standalone binary and auto-registers the MCP server (VS Code ≥ 1.101), so agent mode gets the lvkit tools with **no `mcp.json`, no Python, no uv**. This is the recommended path.
+
+To wire it by hand instead, VS Code uses `.vscode/mcp.json` with a `"servers"` key and `"type": "stdio"`:
 
 ```json
 {
@@ -70,8 +72,6 @@ VS Code uses `.vscode/mcp.json` with a `"servers"` key and `"type": "stdio"`:
   }
 }
 ```
-
-Or skip the config entirely: the [lvkit VS Code extension](../reference/vscode-extension.md) (from the Marketplace) bundles a signed standalone binary and auto-registers the server (VS Code ≥ 1.101) — no `mcp.json`, no Python, no uv.
 
 ### Codex
 

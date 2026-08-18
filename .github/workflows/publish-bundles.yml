@@ -287,8 +287,8 @@ jobs:
 
             **One-click (recommended)**
             - **Claude Desktop** — download `lvkit-<target>.mcpb`, double-click, pick your VI folder.
-            - **Claude Code** — `claude plugin marketplace add pragmatest-dev/lvkit` then
-              `claude plugin install lvkit-<target>@pragmatest-lvkit`.
+            - **Claude Code** — `claude plugin marketplace add pragmatest-dev/claude-plugins` then
+              `claude plugin install lvkit-<target>@pragmatest`.
             - **VS Code** — install the LVKit extension from the Marketplace.
 
             **Manual (any MCP client)** — download `lvkit-mcp-<version>-<target>.zip`, unzip, and

@@ -37,8 +37,8 @@ and no uv. See [VS Code extension](vscode-extension.md).
 ### Claude Code (plugin)
 
 ```bash
-claude plugin marketplace add pragmatest-dev/lvkit
-claude plugin install lvkit-<os-arch>@pragmatest-lvkit
+claude plugin marketplace add pragmatest-dev/claude-plugins
+claude plugin install lvkit-<os-arch>@pragmatest
 ```
 
 `<os-arch>` is one of `darwin-arm64`, `darwin-x64`, `win32-x64`, `linux-x64` —
