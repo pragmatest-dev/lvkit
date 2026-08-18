@@ -294,6 +294,10 @@ NEVER silently change an approved plan. NEVER say "actually this is simpler" and
 
 **NEVER commit broken, regressed, or non-working code.** Verify generation output is equal or better than the last working state before committing. If changes regress, fix the regression first. "Commit and fix later" is never acceptable.
 
+## Release Rules
+
+**Date the changelog BEFORE tagging — never after.** At the commit you tag, `CHANGELOG.md` must already have a dated `## [X.Y.Z] - <date>` section for the version (with a fresh empty `## [Unreleased]` reopened above it) — never the version's changes stranded under `[Unreleased]`. PyPI/the release consume the changelog and the published version is immutable, so dating it afterward does not fix the shipped release. Release order: (1) merge → (2) **date the changelog** → (3) bump the version sites (`pyproject` + `__init__` + `uv.lock` + `editors/vscode/package.json`) → (4) **then** tag `vX.Y.Z` (PyPI) / `ext-vX.Y.Z` (bundles). Tagging is publishing — treat it as its own confirmed step.
+
 ## Temp Scripts
 
 Never use multi-line inline `python3 -c` calls. Write scripts to `.tmp/` (gitignored) and run them.
