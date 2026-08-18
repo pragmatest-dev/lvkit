@@ -17,6 +17,7 @@ from mcp.types import ListRootsResult, Root
 
 from lvkit.mcp import server as mcp_server
 from lvkit.mcp.server import (
+    _require_vis,
     _resolve_project,
     _resolve_target,
     _uri_to_path,
@@ -206,3 +207,34 @@ def test_project_tool_defaults_to_client_root():
     assert res["rows"], "expected VIs to be indexed from the client-root default"
     root = str(_TESTCASE_DIR.resolve())
     assert all(row[0].startswith(root) for row in res["rows"])
+
+
+# ---- tool surface: exactly the understanding tools, describe dropped ---------
+
+
+def test_mcp_registers_the_expected_tool_set():
+    """The SDK must expose EXACTLY the understanding-surface tools — and NOT
+    `describe` (dropped; CLI-only). Guards the silent-disable regression, where a
+    decorator change in mcp 2.0 once left the server exposing no tools at all."""
+    names = {t.name for t in asyncio.run(mcp_server.mcp.list_tools())}
+    assert names == {
+        "list_projects",
+        "index",
+        "query",
+        "query_schema",
+        "read_vi",
+        "render",
+        "diff",
+        "unresolved",
+    }
+    assert "describe" not in names
+
+
+def test_require_vis_points_at_project_when_root_has_no_vis(tmp_path):
+    """The 'resolved root holds no .vi' case (notably Claude Desktop, whose cwd
+    isn't your files) must raise a caller-actionable message naming `project=` —
+    the difference between a stuck user and a fixed one."""
+    with pytest.raises(ValueError, match="project="):
+        _require_vis(tmp_path, [])
+    # A non-empty list passes silently (no raise).
+    _require_vis(tmp_path, [tmp_path / "x.vi"])
