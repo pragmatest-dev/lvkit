@@ -1515,8 +1515,8 @@ def _build_diff_body(
 ) -> str | int:
     """Build the diff body (text/json/html) via the shared ``diff_vi_files``
     core. Returns the body, or an int exit code. Imports the render/graph stack
-    HERE — a cache hit never reaches it."""
-    from .render import diff_vi_files
+    HERE (via ``vi_diff``) — a cache hit never reaches it."""
+    from .vi_diff import diff_vi_files
 
     vilib_root, userlib_root = _parse_library_roots(args)
     body = diff_vi_files(
