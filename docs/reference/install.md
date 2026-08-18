@@ -38,10 +38,10 @@ and no uv. See [VS Code extension](vscode-extension.md).
 
 ```bash
 claude plugin marketplace add pragmatest-dev/claude-plugins
-claude plugin install lvkit-<os-arch>@pragmatest
+claude plugin install lvkit-<platform>@pragmatest
 ```
 
-`<os-arch>` is one of `darwin-arm64`, `darwin-x64`, `win32-x64`, `linux-x64` —
+`<platform>` is one of `mac-arm64`, `mac-intel`, `windows`, `linux` —
 pick the one matching your machine. The plugin bundles the `lvkit` binary and
 lvkit's five workflow skills (the same ones [`setup`](setup.md) installs), so
 it needs no Python, uv, or pip, and no `lvkit` on `PATH`.
