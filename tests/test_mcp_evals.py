@@ -365,14 +365,13 @@ def test_q18_dead_code_uncalled(jki_index: BuildResult):
     node's ``callee_path``, resolved once at merge time through the same three
     tiers (``by_path`` → ``by_qualified`` → leaf-name; see
     ``query._resolve_callee``). Keyed on VI path, so it classifies even the many
-    VIs whose ``qualified_name`` is NULL. 229 uncalled of 487, incl. the
+    VIs whose ``qualified_name`` is NULL. 234 uncalled of 487, incl. the
     JUnitXML example runner; a common init subVI (``TestCase_Init.vi``) is NOT
-    uncalled. (Was 232 when the call graph read the ``calls`` table; folding it
-    onto the node spine — whose SubVI-call nodes now carry the fully-qualified
-    callee, fixed in builders/operations.py — resolves 3 more real edges, so 3
-    fewer VIs look dead.)"""
+    uncalled. Keyed on VI path, so dynamic-dispatch overrides and
+    Call-By-Reference targets read as statically uncalled — order-invariant.
+    (Ground truth: ``docs/_internal/mcp-evals.md`` Q18, confirmed 2026-08-17.)"""
     total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
-    assert total.rows == [[229]]
+    assert total.rows == [[234]]
 
     called = _query("SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'")
     assert called.rows == [[14]]
