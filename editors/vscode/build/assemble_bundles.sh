@@ -12,6 +12,15 @@
 set -euo pipefail
 TARGET="$1"
 VER="$2"
+# Customer-facing plugin name (must equal the marketplace entry name). TARGET is
+# an internal arch triple; the published plugin uses a friendlier name.
+case "$TARGET" in
+  darwin-arm64) NAME="lvkit-mac-arm64" ;;
+  darwin-x64)   NAME="lvkit-mac-intel" ;;
+  linux-x64)    NAME="lvkit-linux" ;;
+  win32-x64)    NAME="lvkit-windows" ;;
+  *)            NAME="lvkit-$TARGET" ;;
+esac
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../../.." && pwd)"
 cd "$REPO"
@@ -31,7 +40,7 @@ for s in "${SKILLS[@]}"; do
 done
 cp -R "$BIN" "$stage/bin/lvkit"
 # Stamp the manifest: name matches the marketplace entry, version = bundled lvkit.
-node -e "const f='$stage/.claude-plugin/plugin.json',j=require(f);j.name='lvkit-$TARGET';j.version='$VER';require('fs').writeFileSync(f,JSON.stringify(j,null,2)+'\n')"
+node -e "const f='$stage/.claude-plugin/plugin.json',j=require(f);j.name='$NAME';j.version='$VER';require('fs').writeFileSync(f,JSON.stringify(j,null,2)+'\n')"
 ( cd "$stage" && zip -q -r -y "$REPO/lvkit-plugin-$TARGET.zip" . )
 echo "wrote lvkit-plugin-$TARGET.zip"
 

@@ -22,6 +22,16 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $bin = Join-Path $repo 'editors\vscode\bin\lvkit'   # onedir; exe at $bin\lvkit.exe
 $skills = @('lvkit', 'lvkit-describe', 'lvkit-query', 'lvkit-convert', 'lvkit-document', 'lvkit-review', 'lvkit-resolve')
 
+# Customer-facing plugin name (must equal the marketplace entry name). $Target is
+# an internal arch triple; the published plugin uses a friendlier name.
+$name = switch ($Target) {
+  'darwin-arm64' { 'lvkit-mac-arm64' }
+  'darwin-x64'   { 'lvkit-mac-intel' }
+  'linux-x64'    { 'lvkit-linux' }
+  'win32-x64'    { 'lvkit-windows' }
+  default        { "lvkit-$Target" }
+}
+
 # ---- Claude Code plugin archive ----
 $stage = Join-Path ([System.IO.Path]::GetTempPath()) ("plugin-" + [System.Guid]::NewGuid())
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'skills'), (Join-Path $stage 'bin') | Out-Null
@@ -31,7 +41,7 @@ Copy-Item -Force 'plugin\README.md' $stage
 foreach ($s in $skills) { Copy-Item -Recurse -Force "src\lvkit\skill_templates\$s" (Join-Path $stage "skills\$s") }
 Copy-Item -Recurse -Force $bin (Join-Path $stage 'bin\lvkit')
 # Stamp plugin.json (name/version) and rewrite .mcp.json command to the .exe.
-node -e "const f=process.argv[1],j=require(f);j.name='lvkit-$Target';j.version='$Ver';require('fs').writeFileSync(f,JSON.stringify(j,null,2)+'\n')" (Join-Path $stage '.claude-plugin\plugin.json')
+node -e "const f=process.argv[1],j=require(f);j.name='$name';j.version='$Ver';require('fs').writeFileSync(f,JSON.stringify(j,null,2)+'\n')" (Join-Path $stage '.claude-plugin\plugin.json')
 node -e "const f=process.argv[1],j=require(f);j.mcpServers.lvkit.command='`${CLAUDE_PLUGIN_ROOT}/bin/lvkit/lvkit.exe';require('fs').writeFileSync(f,JSON.stringify(j,null,2)+'\n')" (Join-Path $stage '.mcp.json')
 $pluginZip = Join-Path $repo "lvkit-plugin-$Target.zip"
 if (Test-Path $pluginZip) { Remove-Item $pluginZip -Force }
