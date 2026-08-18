@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+
+## [0.6.1] - 2026-08-17
 - **MCP: render and diff a VI as an interactive HTML viewer.** New `render` and
   `diff` MCP tools return a self-contained, theme-aware HTML viewer — the
   faithful block diagram / visual before-after — written to the per-user cache
