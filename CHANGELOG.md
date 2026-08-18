@@ -3,6 +3,21 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **MCP: render and diff a VI as an interactive HTML viewer.** New `render` and
+  `diff` MCP tools return a self-contained, theme-aware HTML viewer — the
+  faithful block diagram / visual before-after — written to the per-user cache
+  and returned as a path (not inlined, so it never floods the model's context).
+  This is the visual you cannot reconstruct from the netlist. The `describe`
+  tool is **removed from the MCP surface** — its prose is a lossy projection of
+  `read_vi`, whose description now instructs the model to interpret the netlist
+  and state what the VI *does*; `describe` remains a CLI command. The shared diff
+  core is factored out of the renderer so the CLI and MCP produce the same body.
+- **Friendlier Claude Code plugin names.** The published plugins are now
+  `lvkit-mac-arm64`, `lvkit-mac-intel`, `lvkit-windows`, and `lvkit-linux`,
+  installable from the `pragmatest` marketplace
+  (`claude plugin marketplace add pragmatest-dev/claude-plugins`).
+
+## [0.6.0] - 2026-08-17
 - **New: ask a whole VI repo questions in SQL.** `lvkit query <path> "<SELECT>"`
   runs read-only SQL over the project's code-understanding index and prints just
   the answer — e.g. the names a project uses for error indicators, as a
