@@ -125,15 +125,15 @@
       "name": "special-7",
       "terminal_count": 7,
       "corpus_files": 2,
-      "grid": {"cols": 3, "rows": 4},
+      "grid": {"cols": 3, "rows": 6},
       "cells": [
-        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 1},
-        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 1},
-        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 2},
-        {"index": 2, "col": 0, "row": 1, "colspan": 2, "rowspan": 2},
-        {"index": 6, "col": 2, "row": 2, "colspan": 1, "rowspan": 2},
-        {"index": 3, "col": 0, "row": 3, "colspan": 1, "rowspan": 1},
-        {"index": 4, "col": 1, "row": 3, "colspan": 1, "rowspan": 1}
+        {"index": 0, "col": 0, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 1, "col": 1, "row": 0, "colspan": 1, "rowspan": 2},
+        {"index": 5, "col": 2, "row": 0, "colspan": 1, "rowspan": 3},
+        {"index": 2, "col": 0, "row": 2, "colspan": 2, "rowspan": 2},
+        {"index": 6, "col": 2, "row": 3, "colspan": 1, "rowspan": 3},
+        {"index": 3, "col": 0, "row": 4, "colspan": 1, "rowspan": 2},
+        {"index": 4, "col": 1, "row": 4, "colspan": 1, "rowspan": 2}
       ]
     },
     "4818": {
