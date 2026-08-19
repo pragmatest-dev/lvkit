@@ -4,6 +4,13 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-08-18
+- **Fix: corrected three mislabeled comparison primitives.** `Greater?` (1104),
+  `Less?` (1110), and `Less Or Equal?` (1111) were each mapped to their logical
+  complement, so generated code inverted `>`/`<`/`<=`/`>=` comparisons. The
+  mapping is now the correct set of complementary pairs (`==`/`!=`, `<=`/`>`,
+  `>=`/`<`).
+
 ## [0.6.1] - 2026-08-17
 - **MCP: render and diff a VI as an interactive HTML viewer.** New `render` and
   `diff` MCP tools return a self-contained, theme-aware HTML viewer — the

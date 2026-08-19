@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 
 # The public API is exposed LAZILY (PEP 562 module ``__getattr__``): the graph /
 # parser / structure stacks (networkx, pydantic, pylabview, PIL — ~230 ms) load
