@@ -50,7 +50,6 @@ REVIEWED_DUPLICATES: dict[str, set[str]] = {
     "Absolute Value": {"1054", "1057"},
     "Flatten To String": {"1165", "1189", "1608"},
     "Get Type Information": {"1164", "8203"},
-    "Reverse 1D Array": {"1900", "1902"},
 }
 # RESOLVED, no longer duplicated (kept as a record of what the gate caught):
 #   Close File / Open/Create/Replace File — 8011/8010 were never file I/O; they are
@@ -61,6 +60,10 @@ REVIEWED_DUPLICATES: dict[str, set[str]] = {
 #     Release Notifier / Send Notification (and 9105 is Wait on Notification, not
 #     Call By Reference). Renaming them dissolved all three collisions at once.
 #   File Dialog / List Folder — 8056 is Delete, 8070 is Read from Text File.
+#   Reverse 1D Array — 1900/1902 were never twins: 1902 is Transpose 2D Array
+#     (2D-in/2D-out across 8 element types in the corpus; 1900 is the real 1D
+#     reverse). Also Format Value (1540) was Array To Spreadsheet String (every
+#     instance takes a 1D array + single %s + delimiter; inverse of 1539).
 
 
 def _duplicate_groups() -> dict[str, set[str]]:
