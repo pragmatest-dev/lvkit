@@ -344,6 +344,7 @@ def render_vi(
         interactive=interactive,
         extra_css=extra_css,
         extra_attrs=extra_attrs,
+        display_name=graph.vi_display_name(vi_name),
     )
     aside = _vi_aside_svg(graph, vi_name, scene, theme)
     if aside:
@@ -377,7 +378,7 @@ def _vi_aside_svg(
     panel = render_connector_pane_help(
         ctx.connector_pattern_id,
         pane_terminals((*ctx.inputs, *ctx.outputs)),
-        title=vi_name.split(":")[-1],
+        title=graph.vi_display_name(vi_name).split(":")[-1],
         description=ctx.description,
         icon_uri=icon_uri,
         theme=theme,
@@ -438,6 +439,7 @@ def _render_scene_svg(
     interactive: bool = True,
     extra_css: str = "",
     extra_attrs: dict[str, str] | None = None,
+    display_name: str | None = None,
 ) -> str:
     """Draw an already-built ``Scene`` to a self-contained interactive SVG.
 
@@ -445,7 +447,11 @@ def _render_scene_svg(
     dark ``--lv-*`` palette block for ``dark``/``auto`` theme modes. Empty keeps
     the ``<style>`` byte-identical to the legacy light output. ``extra_attrs``
     (``None`` by default) becomes root-``<svg>`` ``data-*`` attributes — e.g.
-    ``render_vi``'s ``data-lv-properties``/``data-lv-health`` (task #19)."""
+    ``render_vi``'s ``data-lv-properties``/``data-lv-health`` (task #19).
+    ``display_name`` (defaults to ``vi_name``) is the DISPLAY-only accessible
+    name (aria-label): the qualified name, so the SVG never exposes the abspath
+    ``vi_name`` key. ``vi_name`` still drives the scoping ``root_id``."""
+    title = display_name if display_name is not None else vi_name
     backend = SvgBackend()
     draw_scene(scene, backend, theme)
     style = _BASE_CSS + extra_css
@@ -467,7 +473,7 @@ def _render_scene_svg(
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
             scene.bounds,
-            title=vi_name,
+            title=title,
             script=script,
             root_id=root_id,
             style=style,
@@ -475,7 +481,7 @@ def _render_scene_svg(
         )
     return backend.render(
         scene.bounds,
-        title=vi_name,
+        title=title,
         style=style,
         extra_attrs=extra_attrs,
     )
@@ -505,7 +511,10 @@ def render_vi_with_subvis(
         if isinstance(rn.node, VINode):
             target = rn.node.qualified_name or rn.node.name
             if target:
-                subvis[rn.node.id] = target
+                # Key by the DOCUMENT-LOCAL dom_id — the same value emitted as
+                # ``data-node`` — so the docs NAV map matches the SVG (and neither
+                # carries the abspath vi_key).
+                subvis[rn.dom_id] = target
     return _render_scene_svg(scene, vi_name, theme), subvis
 
 
@@ -586,4 +595,6 @@ def render_vi_file_titled(
 
     warm_all_loaded(graph)
     svg = render_vi(graph, name, theme=theme, theme_mode=theme_mode)
-    return svg, name
+    # `name` is the vi_key (canonical source path) — the render identity. The
+    # TITLE is display-only: the qualified name, never the abspath key.
+    return svg, graph.vi_display_name(name)

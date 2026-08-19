@@ -190,6 +190,7 @@ class LoadingMixin:
     _loaded_vis: set[str]
     _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
+    _vi_display_names: dict[str, str]
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
@@ -814,6 +815,10 @@ class LoadingMixin:
         visited.add(vi_key)
 
         self._source_paths[vi_key] = source_file
+        # vi_key -> its qualified DISPLAY name (qname, else bare filename). Never a
+        # lookup key (vi_key/path is the identity); this is the human-facing title
+        # only, so the render/viewer shows "Class.lvclass:vi.vi" not the abspath.
+        self._vi_display_names[vi_key] = own_qname
         # Reverse indexes: display-name / qname -> [vi_key], for resolve_vi_name.
         # List-valued: on-disk duplicates share a name/qname across distinct keys.
         if vi_key not in self._name_to_keys.setdefault(unqualified_name, []):

@@ -140,6 +140,13 @@ class RenderNode:
     # model" rule. resolve_glyph() never returns None (FallbackBoxResolver
     # always succeeds), so this is required, not optional.
     glyph: Glyph
+    # The node's DOCUMENT-LOCAL id (its uid), i.e. ``node.id`` with the
+    # ``vi_key::`` prefix stripped (same ``_strip_prefix`` the sibling data-* ids
+    # use). This is what ``data-node`` emits — a within-SVG match key for the JS
+    # hover panel and the docs NAV map — so the SVG never carries the absolute
+    # source path (the vi_key). Never a cross-corpus identity; the graph still
+    # keys everything by the full ``node.id``/``vi_key``.
+    dom_id: str = ""
     terminals: list[RenderTerminal] = field(default_factory=list)
     label_visible: bool = True
     frame_path: FramePath = ()
@@ -1755,6 +1762,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                     node=node,
                     bounds=bounds,
                     glyph=glyph,
+                    dom_id=_strip_prefix(node.id, vi_name),
                     terminals=terminals,
                     label_visible=label_visible,
                     frame_path=fp_path,

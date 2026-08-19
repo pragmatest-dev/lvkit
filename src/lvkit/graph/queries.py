@@ -65,6 +65,7 @@ class QueryMixin:
     _qname_to_keys: dict[str, list[str]]
     _loaded_vis: set[str]
     _source_paths: dict[str, Path]
+    _vi_display_names: dict[str, str]
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
@@ -118,6 +119,19 @@ class QueryMixin:
             if keys:
                 return self._pick_vi_key(keys)
         return vi_name
+
+    def vi_display_name(self, vi_name: str) -> str:
+        """The VI's human-facing qualified name (``Class.lvclass:vi.vi``, else the
+        bare filename) for titles/headers. DISPLAY ONLY — never a lookup key. The
+        identity remains the ``vi_key`` (path) from :meth:`resolve_vi_name`; this
+        maps that key to its qname so the viewer shows the qualified name instead
+        of the absolute source path. Falls back to the resolved key's basename,
+        then the input, when no display name was recorded."""
+        key = self.resolve_vi_name(vi_name)
+        display = self._vi_display_names.get(key)
+        if display:
+            return display
+        return Path(key).name or vi_name
 
     def _pick_vi_key(self, keys: list[str]) -> str:
         """Deterministically choose among duplicate ``vi_key``s that share a

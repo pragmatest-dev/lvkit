@@ -362,7 +362,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     # the node's group to open even when it otherwise carries no tooltip.
     group_needed = bool(tooltip) or node.subvi_rel is not None
     if group_needed:
-        data = {"node": node.node.id}
+        data = {"node": node.dom_id}
         if node.subvi_rel is not None:
             data["lv-vi-rel"] = node.subvi_rel
         # A resolvable node (primitive / vi.lib VI) links to its NI docs page
@@ -936,7 +936,7 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     # All panel styling (hidden-until-hover, no pointer capture, drop shadow)
     # lives in the .lv-help CSS rule (render/__init__.py _BASE_CSS) — the single
     # source both the in-place reveal and a host's cloned overlay inherit.
-    backend.begin_group(cls="lv-help", data={"node": node.node.id})
+    backend.begin_group(cls="lv-help", data={"node": node.dom_id})
     backend.rect(
         0.0,
         0.0,
