@@ -52,3 +52,21 @@ for elem in root.iter():
 - `parmIndex` in XML = actual LabVIEW parameter index
 - Bit 0 of `objFlags` = `isIndicator` = OUTPUT terminal
 - Terminal names must match the variables used in `python` hints
+
+## When several terminals share a type (step 3 is ambiguous)
+
+The `<dco>` gives you parmIndex + direction for every terminal, but when two or
+more terminals share a type it cannot say which parmIndex plays which **role** —
+types alone don't order same-typed terminals. (1540 Array To Spreadsheet String
+is the canonical case: `delimiter`, `format string`, and `array` are all
+`String`-ish inputs.) Two clean-room resolvers, in preference order:
+
+1. **Caller wiring** — find a caller that wires each terminal to a *named*
+   control (e.g. OpenG "1D Array to String" wires 1540's terminals to named
+   controls). The signal→terminal-UID references pin role→parmIndex. Preferred
+   when such a caller exists.
+2. **Glyph terminal-role detection** — read NI's public connector-pane doc image:
+   the icon's pixel box maps 1:1 to `termBounds`, so each wire's drop-in point
+   yields its parmIndex and the wire's far label yields its role. Works with no
+   caller, for any primitive whose doc page shows a wired connector pane. See
+   `docs/_internal/design/glyph-terminal-role-detection.md`.
