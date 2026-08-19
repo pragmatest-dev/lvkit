@@ -71,13 +71,13 @@
       "note": "First Call? -- 0 inputs, 1 Boolean out; returns TRUE only on the first execution after the VI runs, FALSE thereafter (stateful, not a constant); matches NI Synchronization doc."
     },
     "1104": {
-      "name": "Greater?",
+      "name": "Less Or Equal?",
       "elementwise": true,
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "x_greater_than_y",
+          "name": "x_less_or_equal_y",
           "type": "boolean"
         },
         {
@@ -96,12 +96,12 @@
         }
       ],
       "python_code": {
-        "x_greater_than_y": "in_2 > in_1"
+        "x_less_or_equal_y": "in_2 <= in_1"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater.html",
-      "note": "Greater? for arrays/clusters (same semantics as scalar 1102). Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1054": {
       "name": "Absolute Value",
@@ -1102,7 +1102,7 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-to-path.html"
     },
     "1110": {
-      "name": "Less?",
+      "name": "Greater?",
       "elementwise": true,
       "terminals": [
         {
@@ -1127,11 +1127,11 @@
         }
       ],
       "python_code": {
-        "result": "in_2 < in_1"
+        "result": "in_2 > in_1"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater.html",
       "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1108": {
@@ -1315,13 +1315,13 @@
       "note": "Divide -- polymorphic; per NI docs int/int -> Float64 (Python `/` matches). Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "1111": {
-      "name": "Less Or Equal?",
+      "name": "Less?",
       "elementwise": true,
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "x_less_or_equal_y",
+          "name": "x_less_than_y",
           "type": "Boolean"
         },
         {
@@ -1338,12 +1338,12 @@
         }
       ],
       "python_code": {
-        "x_less_or_equal_y": "in_2 <= in_1"
+        "x_less_than_y": "in_2 < in_1"
       },
       "inline": true,
       "verified": true,
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal.html",
-      "note": "Less Or Equal? -- polymorphic numeric comparison. Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
     },
     "8056": {
       "name": "Delete",
