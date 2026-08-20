@@ -17,9 +17,12 @@ Addressing mirrors extraction (see :mod:`lvkit.cache_paths`):
   addressed** in a flat ``<cache>/adhoc/render/<sha>.<ext>`` and swept by TTL.
 
 Freshness = the VI-content signal ``cache_paths.meta_fresh`` already uses PLUS
-the lvkit ``version``, text encoding, and an ``options`` tag — so a VI edit, an
-lvkit upgrade, a system-code-page change, or different ``--format``/``--theme``
-is a miss.
+the SHARED ``cache_paths.source_fingerprint()`` (the same hash-of-lvkit-source
+that invalidates the SQLite index — so a renderer/graph/parser/data edit busts
+this cache too, with no version bump), the lvkit ``version`` (kept for readable
+meta), text encoding, and an ``options`` tag — so a VI edit, an lvkit CODE
+change, a system-code-page change, or different ``--format``/``--theme`` is a
+miss.
 """
 
 from __future__ import annotations
@@ -154,6 +157,7 @@ def lookup_render(input_path: Path, fmt: str, options: str, version: str) -> str
         meta_path,
         {
             "lvkit_version": version,
+            "source_fingerprint": cache_paths.source_fingerprint(),
             "options": options,
             "text_encoding": labview_text_encoding(),
         },
@@ -172,6 +176,7 @@ def store_render(
         body,
         {
             "lvkit_version": version,
+            "source_fingerprint": cache_paths.source_fingerprint(),
             "options": options,
             "kind": "render",
             "text_encoding": labview_text_encoding(),
@@ -191,6 +196,7 @@ def lookup_diff(
         meta_path,
         {
             "lvkit_version": version,
+            "source_fingerprint": cache_paths.source_fingerprint(),
             "options": options,
             "before_sha": before_sha,
             "text_encoding": labview_text_encoding(),
@@ -215,6 +221,7 @@ def store_diff(
         body,
         {
             "lvkit_version": version,
+            "source_fingerprint": cache_paths.source_fingerprint(),
             "options": options,
             "before_sha": before_sha,
             "kind": "diff",

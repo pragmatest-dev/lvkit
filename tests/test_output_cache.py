@@ -66,6 +66,22 @@ class TestRenderCache:
         output_cache.store_render(vi, "html", OPT, V, "OUT")
         assert output_cache.lookup_render(vi, "html", "svg|dark", V) is None
 
+    def test_source_fingerprint_change_invalidates(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """An lvkit CODE change (renderer/graph/parser/data) must bust the render
+        cache with no version bump — via the SHARED cache_paths.source_fingerprint
+        (the same hash that invalidates the SQLite index). Stored under one
+        fingerprint, a different fingerprint (= edited source) is a miss."""
+        vi = _project_vi(tmp_path)
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "fp-A")
+        output_cache.store_render(vi, "html", OPT, V, "OUT")
+        assert output_cache.lookup_render(vi, "html", OPT, V) == "OUT"  # same code
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "fp-B")
+        assert output_cache.lookup_render(vi, "html", OPT, V) is None  # edited code
+
     def test_text_encoding_change_invalidates(
         self,
         tmp_path: Path,

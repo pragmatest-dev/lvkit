@@ -29,8 +29,6 @@ version bump to forget. See ``_ensure_facts_version``.
 
 from __future__ import annotations
 
-import functools
-import hashlib
 import json
 import sqlite3
 from collections.abc import Iterable
@@ -289,58 +287,13 @@ _FLAT_PROPERTY_COLUMNS: tuple[tuple[str, bool], ...] = (
 )
 
 
-# Top-level package subdirs that DEMONSTRABLY don't feed the index — verified
-# absent from the import closure of ``index.build``/``index.store`` (the code
-# that actually produces facts), and pinned by
-# ``test_facts_fingerprint_skips_only_non_facts_dirs``. Skipping them means
-# editing codegen / docs / the formula transpiler / the MCP transport layer
-# doesn't force a needless full-corpus rebuild.
-#
-# This is an EXCLUDE list on purpose: the default for any file — including a
-# brand-new module or ``data/`` table — is to be hashed, so a new facts
-# dependency can never silently escape the fingerprint. The only failure mode
-# (a facts dep ADDED under one of these dirs) trips the guard test, which fails
-# loudly rather than letting staleness back in.
-_FINGERPRINT_SKIP_DIRS = frozenset({"codegen", "docs", "formula", "mcp"})
-
-
-@functools.lru_cache(maxsize=1)
-def _facts_fingerprint() -> str:
-    """A hash of lvkit's own facts-producing SOURCE + bundled data, so the index
-    self-invalidates the moment that changes — with no manual version to bump.
-
-    The index is a CACHE of what lvkit derives from each VI. Per-VI freshness is
-    keyed on VI bytes (``meta.content_sha``), but that cannot see a change to
-    lvkit's *extraction logic* (the VI bytes are identical) — so an edit to the
-    parser/graph/index code, or to a ``data/`` primitive/vilib table, would
-    otherwise keep serving facts built by the OLD code. That is silent staleness,
-    and it corrupts everything reading the index: queries, the MCP server, and
-    evals. A hand-bumped ``SCHEMA_VERSION`` can't defend against it because in
-    active development the bump is forgotten far more often than not.
-
-    Hashes every file in the package EXCEPT the ``_FINGERPRINT_SKIP_DIRS`` known
-    not to feed facts. Skipping is done by directory (a coarse, verifiable unit),
-    never by hand-picking the facts modules — an *include* list is a guess that
-    can miss a transitive dep and reintroduce staleness, whereas defaulting to
-    "hash it" over-invalidates at worst (one extra cold rebuild). Memoized: the
-    source cannot change within a live process (Python does not hot-reload), and
-    a dev editing lvkit restarts it before the next run anyway.
-    """
-    import lvkit
-
-    pkg = Path(lvkit.__file__).resolve().parent
-    h = hashlib.sha256()
-    for f in sorted(pkg.rglob("*")):
-        if not f.is_file() or f.suffix == ".pyc" or "__pycache__" in f.parts:
-            continue
-        rel = f.relative_to(pkg)
-        if rel.parts[0] in _FINGERPRINT_SKIP_DIRS:
-            continue
-        h.update(rel.as_posix().encode())
-        h.update(b"\0")
-        h.update(f.read_bytes())
-        h.update(b"\0")
-    return h.hexdigest()
+# The source fingerprint that invalidates the index now lives in ``cache_paths``
+# (the light, dependency-free module) so EVERY cache — this SQLite index and the
+# render/diff output cache — shares the exact SAME invalidation. Re-exported here
+# under the historical names the index code + guard test reference. See
+# ``cache_paths.source_fingerprint`` / ``_FINGERPRINT_SKIP_DIRS``.
+_FINGERPRINT_SKIP_DIRS = cache_paths._FINGERPRINT_SKIP_DIRS
+_facts_fingerprint = cache_paths.source_fingerprint
 
 
 def db_path(project_root: Path) -> Path:

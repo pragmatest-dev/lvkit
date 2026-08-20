@@ -33,6 +33,7 @@ legibly separated at the top.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
@@ -199,6 +200,60 @@ def cache_target(vi_path: Path, kind: str) -> Path:
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+# Top-level package subdirs that DEMONSTRABLY feed NO cached artifact — verified
+# absent from the import closure of the fact/render producers and pinned by
+# ``test_facts_fingerprint_skips_only_non_facts_dirs``. Skipping them means
+# editing codegen / docs / the formula transpiler / the MCP transport layer
+# doesn't force a needless rebuild. (Verified: ``render/`` imports none of these
+# — Formula NODES are drawn from graph models, not the ``formula/`` transpiler.)
+#
+# This is an EXCLUDE list on purpose: the default for any file — including a
+# brand-new module or ``data/`` table — is to be hashed, so a new dependency can
+# never silently escape the fingerprint. The only failure mode (a dep ADDED under
+# one of these dirs) trips the guard test, which fails loudly rather than letting
+# staleness back in.
+_FINGERPRINT_SKIP_DIRS = frozenset({"codegen", "docs", "formula", "mcp"})
+
+
+@functools.lru_cache(maxsize=1)
+def source_fingerprint() -> str:
+    """A hash of lvkit's own SOURCE + bundled data, so EVERY derived cache (the
+    SQLite index AND the render/diff output cache) self-invalidates the moment
+    that code changes — with no manual version to bump. This is the SINGLE shared
+    invalidation used by all caches; do not reintroduce a per-cache version.
+
+    A cache keyed only on input VI bytes cannot see a change to lvkit's own logic
+    (the VI bytes are identical) — so an edit to the parser/graph/render/index
+    code, or to a ``data/`` primitive/vilib table, would otherwise keep serving
+    output built by the OLD code. That is silent staleness. A hand-bumped version
+    can't defend against it because in active development the bump is forgotten
+    far more often than not.
+
+    Hashes every file in the package EXCEPT the ``_FINGERPRINT_SKIP_DIRS`` known
+    to feed no cache. Skipping is done by directory (a coarse, verifiable unit),
+    never by hand-picking modules — an *include* list is a guess that can miss a
+    transitive dep and reintroduce staleness, whereas defaulting to "hash it"
+    over-invalidates at worst (one extra cold rebuild). Memoized: the source
+    cannot change within a live process (Python does not hot-reload), and a dev
+    editing lvkit restarts it before the next run anyway.
+    """
+    import lvkit
+
+    pkg = Path(lvkit.__file__).resolve().parent
+    h = hashlib.sha256()
+    for f in sorted(pkg.rglob("*")):
+        if not f.is_file() or f.suffix == ".pyc" or "__pycache__" in f.parts:
+            continue
+        rel = f.relative_to(pkg)
+        if rel.parts[0] in _FINGERPRINT_SKIP_DIRS:
+            continue
+        h.update(rel.as_posix().encode())
+        h.update(b"\0")
+        h.update(f.read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()
 
 
 def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> bool:
