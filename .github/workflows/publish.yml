@@ -66,3 +66,51 @@ jobs:
           gcloud builds submit --config deploy/cloudrun/cloudbuild.yaml \
             --substitutions=_IMAGE=gcr.io/project-26d492c0-05e8-441b-bd9/lvkit-render,_REGION=us-central1 \
             .
+
+  refresh-pragmatest:
+    # Regenerate the pragmatest.com lvkit example pages against the tagged lvkit
+    # and commit them to that repo (Vercel auto-deploys the push). Inputs are
+    # cloned from PUBLIC sources at build time (JKI-VI-Tester + OpenG) — no
+    # corpus or fixtures committed here. Docs on pragmatest re-sync themselves at
+    # Vercel build; only these STATIC render/diff example HTMLs need pushing.
+    # Auth: a GitHub App (short-lived, scoped to pragmatest.com) — org policy
+    # disallows deploy keys/PATs. Skips cleanly if the app secrets aren't set.
+    name: Refresh pragmatest examples
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4  # lvkit source (the build script + the tool)
+
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+
+      - name: Mint a scoped token for pragmatest.com
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.PRAGMATEST_APP_ID }}
+          private-key: ${{ secrets.PRAGMATEST_APP_PRIVATE_KEY }}
+          repositories: pragmatest.com
+
+      - name: Check out pragmatest.com
+        uses: actions/checkout@v4
+        with:
+          repository: pragmatest-dev/pragmatest.com
+          token: ${{ steps.app-token.outputs.token }}
+          path: pragmatest
+
+      - name: Regenerate example pages
+        run: bash scripts/build_example_pages.sh "$PWD/pragmatest/public/lvkit"
+
+      - name: Commit + push if changed
+        working-directory: pragmatest
+        run: |
+          git config user.name "lvkit-release-bot"
+          git config user.email "lvkit-release-bot@users.noreply.github.com"
+          git add public/lvkit
+          if git diff --cached --quiet; then
+            echo "no example changes — nothing to push"
+          else
+            git commit -m "lvkit: regenerate example pages for ${GITHUB_REF_NAME}"
+            git push
+          fi
