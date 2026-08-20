@@ -34,3 +34,35 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  deploy-render:
+    # Redeploy the Cloud Run render service AFTER PyPI publish. The service
+    # builds lvkit from repo SOURCE (deploy/cloudrun/Dockerfile), not the wheel,
+    # so a release is only fully shipped once the tagged source is redeployed —
+    # this is release step 5 (see CLAUDE.md), previously a manual gcloud run.
+    # Auth is keyless via Workload Identity Federation (no stored SA key); the
+    # OIDC token is accepted only from this repo (the WIF provider's
+    # attribute.repository condition) and impersonates gh-release-deployer.
+    name: Deploy Cloud Run render service
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # mint the OIDC token WIF exchanges for GCP creds
+
+    steps:
+      - uses: actions/checkout@v4  # build context = repo root (lvkit source)
+
+      - uses: google-github-actions/auth@v2
+        with:
+          project_id: project-26d492c0-05e8-441b-bd9
+          workload_identity_provider: projects/1043152135477/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: gh-release-deployer@project-26d492c0-05e8-441b-bd9.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build image + deploy to Cloud Run
+        run: |
+          gcloud builds submit --config deploy/cloudrun/cloudbuild.yaml \
+            --substitutions=_IMAGE=gcr.io/project-26d492c0-05e8-441b-bd9/lvkit-render,_REGION=us-central1 \
+            .
