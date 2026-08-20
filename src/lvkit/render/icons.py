@@ -16,6 +16,24 @@ import base64
 from collections import defaultdict
 from pathlib import Path
 
+# LabVIEW dumps a VI's icon in several depth layers next to its heap XML. The
+# block diagram shows the COLOR icon, so prefer the 256-color layer (icl8), then
+# the 16-color layer (icl4), and only fall back to the 1-bit black-and-white
+# ``_ICON.png`` when no color layer exists — otherwise a class/library banner
+# color is silently dropped (e.g. Lib1/Lib2 members render mono).
+_ICON_LAYER_SUFFIXES = ("_icl8.png", "_icl4.png", "_ICON.png")
+
+
+def resolve_icon_png(directory: Path, stem: str) -> Path | None:
+    """Best available icon PNG for ``<stem>`` under ``directory``: 256-color,
+    else 16-color, else the 1-bit B&W fallback; ``None`` if none exist."""
+    for suffix in _ICON_LAYER_SUFFIXES:
+        candidate = directory / f"{stem}{suffix}"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 _WHITE_CUTOFF = 238  # channel value at/above which a pixel counts as background
 
 

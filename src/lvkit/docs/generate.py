@@ -17,6 +17,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.models import CaseOperation, SequenceOperation
 from lvkit.render import render_vi_with_subvis
+from lvkit.render.icons import resolve_icon_png
 from lvkit.structure import parse_lvclass, parse_lvlib
 
 logger = logging.getLogger(__name__)
@@ -106,11 +107,9 @@ def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
 
         vi_path = Path(vi_path)
 
-        icon_source = vi_path.parent / f"{vi_path.stem}_ICON.png"
-        if not icon_source.exists():
-            icon_source = vi_path.parent / f"{vi_path.stem}_icl8.png"
+        icon_source = resolve_icon_png(vi_path.parent, vi_path.stem)
 
-        if icon_source.exists():
+        if icon_source is not None:
             safe_name = vi_name.replace(":", "_").replace("/", "_").replace("\\", "_")
             safe_name = safe_name.replace(" ", "_").replace(".", "_")
             icon_dest = icons_dir / f"{safe_name}.png"

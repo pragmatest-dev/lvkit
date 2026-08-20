@@ -84,6 +84,7 @@ from .glyph import (
     VariantGlyph,
     WrappedBoxGlyph,
 )
+from .icons import resolve_icon_png
 from .style import lv_type_label, numeric_repr, type_family, type_repr, wire_style
 
 logger = logging.getLogger(__name__)
@@ -471,8 +472,10 @@ class ExtractedIconResolver:
             )
             return None
 
-        icon_path = bd_xml.parent / f"{bd_xml.stem.replace('_BDHb', '')}_ICON.png"
-        if not icon_path.is_file():
+        icon_path = resolve_icon_png(
+            bd_xml.parent, bd_xml.stem.replace("_BDHb", "")
+        )
+        if icon_path is None:
             return None
         glyph = _vectorized_icon(str(icon_path), icon_path.stat().st_mtime)
         if glyph is not None:
