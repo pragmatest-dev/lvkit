@@ -35,10 +35,12 @@ Linux). macOS/Linux binaries ship unsigned (mac notarization is a separate, late
 
 ## Versioning
 
-The extension versions on its **own** track (independent of the LVKit library) —
-`0.1.0` is the first real release. It requires **LVKit ≥ 0.5.0** (constant `MIN_LVKIT`
-in `extension.js`); bump that constant when a feature needs a newer library, and bump
-the extension `version` in `package.json` per its own release cadence.
+Through **0.1.11** the extension versioned on its own track (independent of the
+LVKit library). Since **0.6.0** its `version` is kept **in lockstep with the
+LVKit library** — both are bumped together to the same number each release (a
+`0.6.x` extension bundles `0.6.x` lvkit; see the release runbook / repo `CLAUDE.md`
+"align every version site"). The `MIN_LVKIT` constant in `extension.js` still
+gates the minimum bundled library a build accepts.
 
 ## Building the bundled binary
 
@@ -78,4 +80,3 @@ You need a **publisher** on the VS Code Marketplace and a token:
 
 The bundled binary means end users need nothing installed; developers inside the LVKit
 repo still get their own build via the `.venv`/`uv run` resolution.
-

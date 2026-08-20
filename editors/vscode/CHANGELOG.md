@@ -1,25 +1,48 @@
 # Changelog
 
-The extension versions on its **own** track, independent of the LVKit library.
+**Versioning.** Through **0.1.11** the extension versioned on its **own** track
+and bundled a **separately-numbered** `lvkit` library (the bundled version is
+called out in each entry). Since **0.6.0** the extension version is kept **in
+lockstep with the `lvkit` library it ships** — so a **0.6.2** extension bundles
+`lvkit` **0.6.2**. (0.6.0 is the realignment release; there was no 0.2–0.5
+extension.) Every entry below is **dated** so you can line a release up against
+the [`lvkit` library changelog](../../CHANGELOG.md).
 
-## [0.1.13]
+## [0.6.2] — 2026-08-18
 
-- **Zero-config MCP server for agent mode.** The extension now auto-registers its
-  bundled, signed `lvkit` as an MCP server via VS Code's MCP provider API, so
-  Copilot/agent mode gets the lvkit tools — whole-project code understanding
-  (`index`, `find_terminals`, `get_callers`, `blast_radius`, `visualize_project`,
-  …) plus per-VI inspection — with nothing to install or configure. Detected at
-  runtime, so it simply no-ops if unavailable.
-- **Requires VS Code ≥ 1.101** (`engines.vscode`), the version where the MCP
-  provider API is stable. (Older editors can still install 0.1.11.)
+- **Bundles `lvkit` 0.6.2** — corrects three mislabeled comparison primitives
+  (`Greater?`/`Less?`/`Less Or Equal?` had been mapped to their logical
+  complement), so `>`/`<`/`<=`/`>=` render and generate correctly.
+
+## [0.6.1] — 2026-08-17
+
 - **Visual Diff from a VI's git history now shows that commit's changes.**
   Running "Open Visual Diff" over a commit in the Timeline used to compare HEAD
   against the working-tree file — HEAD-vs-HEAD on a clean tree, so it showed no
   change. It now diffs the commit against its parent (`<commit>~1 → <commit>`),
   the same "changes in this commit" a native diff shows, with each side labeled
   by its short hash. Working-tree right-clicks still diff against HEAD. (#19)
+- **Bundles `lvkit` 0.6.1** — adds the MCP `render`/`diff` interactive-HTML-viewer
+  tools.
 
-## [0.1.11]
+## [0.6.0] — 2026-08-16
+
+- **Version realigned to the `lvkit` library.** From this release the extension
+  and the `lvkit` library share **one version number**, bumped together — a 0.6.x
+  extension bundles the matching 0.6.x `lvkit`. The prior 0.1.x line versioned
+  independently (see the note at the top).
+- **Zero-config MCP server for agent mode.** The extension now auto-registers its
+  bundled, signed `lvkit` as an MCP server via VS Code's MCP provider API, so
+  Copilot/agent mode gets the lvkit tools — whole-project code understanding
+  (`index`, `query`, `get_callers`, `blast_radius`, `visualize_project`, …) plus
+  per-VI inspection — with nothing to install or configure. Detected at runtime,
+  so it simply no-ops if unavailable.
+- **Requires VS Code ≥ 1.101** (`engines.vscode`), the version where the MCP
+  provider API is stable. (Older editors can still install 0.1.11.)
+- **Bundles `lvkit` 0.6.0** — the SQL `query` code-understanding surface and the
+  positional-operand primitive fixes (`Divide`/`Subtract`/ordered comparisons).
+
+## [0.1.11] — 2026-08-04
 
 - **Back to a signed standalone binary — drops the bundled uv/managed-Python
   runtime from 0.1.8/0.1.9.** That runtime existed only to work around Smart App
@@ -30,7 +53,7 @@ The extension versions on its **own** track, independent of the LVKit library.
   control/indicator diffs, In-Place Element borders, class refnum labels, and
   class private-data field names.
 
-## [0.1.9]
+## [0.1.9] — 2026-07-28
 
 - **Self-contained runtime — no first-run download, no setup.** 0.1.8 still
   fetched a managed Python + lvkit from the network the first time it ran. The
@@ -49,7 +72,7 @@ The extension versions on its **own** track, independent of the LVKit library.
   Mode using the bundled runtime; only the `lvkit.path` override (which would run
   a workspace-named executable) is ignored until you trust the workspace.
 
-## [0.1.8]
+## [0.1.8] — 2026-07-28
 
 - **Works on locked-down Windows (Device Guard / Smart App Control).** The old
   bundled `lvkit.exe` was an unsigned PyInstaller build with no reputation, which
@@ -67,7 +90,7 @@ The extension versions on its **own** track, independent of the LVKit library.
 - *Note:* the first render needs network access once (to fetch the runtime); it
   is cached offline thereafter.
 
-## [0.1.6]
+## [0.1.6] — 2026-07-25
 
 - **Previews no longer write into your repo.** Opening a `.vi` used to leave a
   `.lvkit/cache/` in your working tree (lvkit's extraction cache). Bundles
@@ -77,7 +100,7 @@ The extension versions on its **own** track, independent of the LVKit library.
   with backslash separators, which git rejected (`exists on disk, but not in
   'HEAD'`); the committed-version path is now normalized to forward slashes.
 
-## [0.1.5]
+## [0.1.5] — 2026-07-24
 
 - **Click a SubVI to open it.** SubVI nodes in the diagram are now clickable:
   clicking one opens that VI, matching VS Code's native go-to-definition tab
@@ -89,7 +112,7 @@ The extension versions on its **own** track, independent of the LVKit library.
   connector-pane hover tooltip, and real VI raster icons scale to fill their box
   instead of floating in whitespace. Block-diagram geometry is unchanged.
 
-## [0.1.4]
+## [0.1.4] — 2026-07-23
 
 - **macOS ships.** macOS PyInstaller emits a `Python.framework` bundle, and
   Apple's framework layout is built on symlinks (`Versions/Current -> 3.14`,
@@ -104,7 +127,7 @@ The extension versions on its **own** track, independent of the LVKit library.
   separate job that only uploads. All four packages must exist before anything
   is published, so a release can no longer go out half-finished.
 
-## [0.1.3]
+## [0.1.3] — 2026-07-23
 
 - **macOS builds publish.** The release now fans out to per-OS build jobs that
   upload their binary as an artifact, then fans back in to a single Linux job
@@ -116,7 +139,7 @@ The extension versions on its **own** track, independent of the LVKit library.
 - Listing screenshots are no longer shipped inside the package (~380 KB saved);
   they're referenced from the repository.
 
-## [0.1.2]
+## [0.1.2] — 2026-07-23
 
 - **macOS builds publish again.** `vsce` runs a local secret scan before upload,
   and on both macOS targets it aborted with an empty
@@ -125,7 +148,7 @@ The extension versions on its **own** track, independent of the LVKit library.
   source without complaint; only the Mach-O binary triggered it. Publishing now
   passes `--allow-package-all-secrets`.
 
-## [0.1.1]
+## [0.1.1] — 2026-07-23
 
 - **macOS builds restored.** The release workflow targeted `macos-13`, which
   GitHub retired on 2025-12-04 — those jobs queued forever and never ran — and
@@ -137,7 +160,7 @@ The extension versions on its **own** track, independent of the LVKit library.
   executable, setting/command ids, and the PyPI/git names. Marketplace banner
   corrected to the brand slate (`#2b3038`).
 
-## [0.1.0] — first release
+## [0.1.0] — 2026-07-23 — first release
 
 Read LabVIEW `.vi` files directly in VS Code, with **neither LabVIEW nor Python
 installed**.
