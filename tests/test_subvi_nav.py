@@ -100,6 +100,39 @@ def test_locate_vi_file_disambiguates_same_name_across_libraries(tmp_path: Path)
     )
 
 
+def test_caller_relative_subvi_resolves_same_library_local_ref(tmp_path: Path):
+    """A SubVI call to a VI in the CALLER's OWN library/class is stored by
+    LabVIEW as a bare LOCAL ref (``/Do.vi``), not a fully-qualified path. It must
+    resolve to the caller's own sibling — not collide with a same-named VI in
+    another library (#29). Cross-library refs (``///Lib1/Class/Do.vi``, whose
+    leading empties are ``..`` hops from the caller file) still resolve too."""
+    from types import SimpleNamespace
+    from typing import cast
+
+    from lvkit.graph.models import VINode
+    from lvkit.render.nodes import _resolve_caller_relative_vi
+
+    for top in ("Lib1", "Lib2"):
+        (tmp_path / top / "Class").mkdir(parents=True)
+        (tmp_path / top / "Class" / "Do.vi").write_bytes(b"")
+    caller = tmp_path / "Lib2" / "Class" / "Test.vi"
+    caller.write_bytes(b"")
+
+    def node(qp: str) -> VINode:
+        # a SubVI call node: only .qualified_path and .id (vi_key::uid) are read
+        return cast(VINode, SimpleNamespace(qualified_path=qp, id=f"{caller}::42"))
+
+    # same-class local ref -> the caller's OWN sibling (Lib2), NOT Lib1
+    assert _resolve_caller_relative_vi(node("/Do.vi")) == tmp_path / "Lib2/Class/Do.vi"
+    # cross-library ref: 3 '..' from the caller file reach the root, then descend
+    assert (
+        _resolve_caller_relative_vi(node("///Lib1/Class/Do.vi"))
+        == tmp_path / "Lib1/Class/Do.vi"
+    )
+    # a <vilib> token is not caller-relative -> None (resolved elsewhere)
+    assert _resolve_caller_relative_vi(node("<vilib>/Utility/error.llb/Foo.vi")) is None
+
+
 def test_locate_vi_file_resolves_full_path_not_just_tail(tmp_path: Path):
     """Resolution keys on the WHOLE project-relative path, not a parent/name tail:
     two VIs sharing filename AND parent-dir name but different full paths

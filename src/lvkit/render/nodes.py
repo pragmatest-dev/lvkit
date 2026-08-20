@@ -384,6 +384,46 @@ class SubVISource:
     project_local: bool
 
 
+def _resolve_caller_relative_vi(node: VINode) -> Path | None:
+    """Resolve a SubVI's ``qualified_path`` RELATIVE TO THE CALLER, per LabVIEW's
+    LinkSavePathRef convention: each leading empty token (a leading ``/``) is one
+    ``..`` from the caller file, then the remaining tokens are appended. The
+    caller file is the ``vi_key`` prefix of this node's id (``vi_key::uid``).
+
+    This is what correctly places a call to a VI in the caller's OWN library/
+    class, which LabVIEW stores as a bare local ref (``/Do.vi`` -> the caller's
+    sibling) rather than a fully-qualified one — a root-relative or bare-name
+    lookup collides it with a same-named VI in another library (#29). A
+    ``<vilib>``/``<userlib>`` token is skipped here (resolved separately).
+    Returns the on-disk ``.vi`` if it exists, else ``None`` (fall through)."""
+    qp = node.qualified_path
+    if not qp:
+        return None
+    tokens = qp.replace("\\", "/").split("/")
+    if not tokens or tokens[0] in ("<vilib>", "<userlib>"):
+        return None
+    node_id = node.id
+    if "::" not in node_id:
+        return None
+    caller_file = Path(node_id.split("::", 1)[0])
+    if not caller_file.exists():
+        return None
+    empties = 0
+    for tok in tokens:
+        if tok == "":
+            empties += 1
+        else:
+            break
+    base = caller_file
+    for _ in range(empties):
+        base = base.parent
+    rest = [tok for tok in tokens[empties:] if tok]
+    if not rest:
+        return None
+    candidate = base.joinpath(*rest)
+    return candidate if candidate.is_file() else None
+
+
 def resolve_subvi_source(
     node: VINode,
     graph: InMemoryVIGraph,
@@ -415,6 +455,17 @@ def resolve_subvi_source(
     name = node.name
     if not name:
         return None
+
+    # Caller-RELATIVE path resolution first: a SubVI's qualified_path is a
+    # LabVIEW LinkSavePathRef token string whose leading empties (leading '/'s)
+    # are '..' hops from the CALLER file, then the rest append. A same-library/
+    # class call is stored as a bare LOCAL ref ("/Do.vi" -> the caller's own
+    # sibling); resolving that against the search ROOT (or by bare name) collides
+    # it with a same-named VI in another library (#29). Resolving from the caller
+    # places it correctly.
+    src = _resolve_caller_relative_vi(node)
+    if src is not None:
+        return SubVISource(src, project_local=True)
 
     # Pass qualified_path so two SubVIs that share a bare filename across
     # libraries (Lib1/Do.vi vs Lib2/Do.vi) each resolve to their OWN file — a
