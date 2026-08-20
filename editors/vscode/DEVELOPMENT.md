@@ -80,3 +80,20 @@ You need a **publisher** on the VS Code Marketplace and a token:
 
 The bundled binary means end users need nothing installed; developers inside the LVKit
 repo still get their own build via the `.venv`/`uv run` resolution.
+
+### Also publishing to Open VSX
+
+Open VSX (open-vsx.org) is a **separate registry** — the one Cursor, Windsurf,
+VSCodium, and Gitpod pull from (they cannot use the MS Marketplace). CI publishes
+there too (the `ovsx publish` step in `publish-bundles.yml`, reusing the same
+per-platform `.vsix`), gated on the **`OVSX_TOKEN`** repo secret — the step
+no-ops if it's unset. One-time onboarding (it's a legal agreement, so a human
+must do it):
+
+1. Create an **Eclipse Foundation** account (accounts.eclipse.org) and **sign the
+   Open VSX Publisher Agreement** — log into open-vsx.org with that account →
+   Settings → sign it. (Publishing is rejected until this is signed.)
+2. Generate an **access token** (open-vsx.org → Settings → Access Tokens) and add
+   it to the repo as the **`OVSX_TOKEN`** Actions secret.
+3. Claim the namespace once (must match `package.json`'s `publisher`):
+   `npx ovsx create-namespace pragmatest -p <token>`.

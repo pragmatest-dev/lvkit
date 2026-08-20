@@ -234,7 +234,7 @@ jobs:
           path: vsix
           merge-multiple: true
 
-      - name: Publish all platform packages
+      - name: Publish all platform packages to the VS Code Marketplace
         shell: bash
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
@@ -250,6 +250,29 @@ jobs:
             echo "::group::publish $target"
             npx --yes @vscode/vsce publish \
               --packagePath "vsix/lvkit-$target.vsix" --pat "$VSCE_PAT"
+            echo "::endgroup::"
+          done
+
+      # Also publish to Open VSX (open-vsx.org) — the registry Cursor / Windsurf /
+      # VSCodium / Gitpod pull from (they can't use the MS Marketplace). Reuses the
+      # SAME per-target .vsix already built above. `ovsx` reads OVSX_PAT from the
+      # env. No-ops if OVSX_TOKEN isn't set, so this is safe before the secret
+      # exists; once set, a genuine failure surfaces (red job) without having
+      # blocked the Marketplace publish above. The `pragmatest` namespace must be
+      # claimed once (`ovsx create-namespace pragmatest`) — see DEVELOPMENT.md.
+      - name: Publish all platform packages to Open VSX
+        shell: bash
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OVSX_PAT:-}" ]; then
+            echo "OVSX_TOKEN not set — skipping Open VSX publish"
+            exit 0
+          fi
+          for target in linux-x64 win32-x64 darwin-x64 darwin-arm64; do
+            echo "::group::open-vsx $target"
+            npx --yes ovsx publish "vsix/lvkit-$target.vsix"
             echo "::endgroup::"
           done
 
