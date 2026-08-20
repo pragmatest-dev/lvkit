@@ -168,13 +168,32 @@ class QueryMixin:
         """Get the source file path for a VI (accepts a vi_key, qname, or name)."""
         return self._source_paths.get(self.resolve_vi_name(vi_name))
 
-    def locate_vi_file(self, vi_name: str) -> Path | None:
-        """Best-effort on-disk ``.vi`` for a SubVI by name: an already-loaded
-        source first, else a filename search of the graph's retained search
-        paths. Decoration-only (SubVI icons) — never forces a load. Under a
-        MINIMAL load the SubVIs aren't in ``_source_paths``, so this filename
-        search is what lets a project-local SubVI's own ``_ICON.png`` resolve.
-        The search-path index is built once, lazily, and cached."""
+    def locate_vi_file(
+        self, vi_name: str, qualified_path: str | None = None
+    ) -> Path | None:
+        """Best-effort on-disk ``.vi`` for a SubVI. Decoration-only (SubVI icons /
+        click-nav) — never forces a load.
+
+        ``qualified_path`` (the caller's project-relative token, e.g.
+        ``/Lib1/Do.vi``) resolves to the EXACT file by PATH: joined to each search
+        root, the file AT that path IS the SubVI. This is what disambiguates two
+        SubVIs that share a bare filename across libraries (``Lib1/Do.vi`` vs
+        ``Lib2/Do.vi``) — a bare-name lookup collides, the path does not. A
+        ``<vilib>``/``<userlib>`` token is skipped here (resolved separately).
+
+        Falls back to an already-loaded source, then a bare-filename search of the
+        retained search paths (the last-resort path, which CAN collide on
+        duplicate names — callers with a ``qualified_path`` never reach it). Under
+        a MINIMAL load the SubVIs aren't in ``_source_paths``, so the filename
+        search is what lets a project-local SubVI's own ``_ICON.png`` resolve; its
+        index is built once, lazily, and cached."""
+        if qualified_path:
+            rel = qualified_path.replace("\\", "/").lstrip("/")
+            if rel and not rel.startswith("<"):
+                for root in self._search_paths:
+                    candidate = root / rel
+                    if candidate.is_file():
+                        return candidate
         loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
         if loaded is not None:
             return loaded

@@ -73,3 +73,41 @@ def test_resolvable_subvi_emits_relative_posix_path():
 def test_unresolvable_subvi_omits_the_attribute():
     svg = _render(UNRESOLVABLE_SUBVI_VI)
     assert "data-lv-vi-rel" not in svg
+
+
+def test_locate_vi_file_disambiguates_same_name_across_libraries(tmp_path: Path):
+    """Two SubVIs sharing a bare filename in sibling libraries (Lib1/Do.vi vs
+    Lib2/Do.vi) must EACH resolve to their own file via the caller's
+    qualified_path. A bare-name lookup collides — both resolve to whichever the
+    rglob saw first — which gave both nodes the SAME icon (the reported bug).
+    Hermetic: locate_vi_file only rglobs the search paths, never parses, so empty
+    marker files suffice."""
+    for lib in ("Lib1", "Lib2"):
+        (tmp_path / lib).mkdir()
+        (tmp_path / lib / "Do.vi").write_bytes(b"")
+    graph = InMemoryVIGraph()
+    graph._search_paths = [tmp_path]
+
+    # qualified_path picks the RIGHT library's file, per node.
+    assert graph.locate_vi_file("Do.vi", "/Lib1/Do.vi") == tmp_path / "Lib1" / "Do.vi"
+    assert graph.locate_vi_file("Do.vi", "/Lib2/Do.vi") == tmp_path / "Lib2" / "Do.vi"
+    # Windows-style separators in the token resolve the same.
+    assert graph.locate_vi_file("Do.vi", "\\Lib2\\Do.vi") == tmp_path / "Lib2" / "Do.vi"
+    # No qualified_path: unchanged bare-name behavior (deterministic single hit).
+    assert graph.locate_vi_file("Do.vi") in (
+        tmp_path / "Lib1" / "Do.vi",
+        tmp_path / "Lib2" / "Do.vi",
+    )
+
+
+def test_locate_vi_file_resolves_full_path_not_just_tail(tmp_path: Path):
+    """Resolution keys on the WHOLE project-relative path, not a parent/name tail:
+    two VIs sharing filename AND parent-dir name but different full paths
+    (A/sub/Do.vi vs B/sub/Do.vi) each resolve exactly."""
+    for top in ("A", "B"):
+        (tmp_path / top / "sub").mkdir(parents=True)
+        (tmp_path / top / "sub" / "Do.vi").write_bytes(b"")
+    graph = InMemoryVIGraph()
+    graph._search_paths = [tmp_path]
+    assert graph.locate_vi_file("Do.vi", "/A/sub/Do.vi") == tmp_path / "A/sub/Do.vi"
+    assert graph.locate_vi_file("Do.vi", "/B/sub/Do.vi") == tmp_path / "B/sub/Do.vi"

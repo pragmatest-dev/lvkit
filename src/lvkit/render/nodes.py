@@ -415,7 +415,10 @@ def resolve_subvi_source(
     if not name:
         return None
 
-    src_path = graph.locate_vi_file(name)
+    # Pass qualified_path so two SubVIs that share a bare filename across
+    # libraries (Lib1/Do.vi vs Lib2/Do.vi) each resolve to their OWN file — a
+    # bare-name lookup would collide and give both the same icon.
+    src_path = graph.locate_vi_file(name, node.qualified_path)
     if src_path is not None:
         return SubVISource(src_path, project_local=True)
     if node.qualified_path:
