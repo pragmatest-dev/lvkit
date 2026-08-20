@@ -17,8 +17,9 @@ only at the perimeter drop-in, never tracing the dashes.
 Validated 2026-08-19 on 1540 (Array To Spreadsheet String, 31x31) and Format
 Into String (expanding + error cluster, 31x51). Only dependency is PIL.
 """
-from PIL import Image
 from collections import deque
+
+from PIL import Image
 
 
 def _wire(p):
@@ -36,13 +37,15 @@ def _wire(p):
     return None
 
 
+def _ink(p):
+    return not (p[0] > 230 and p[1] > 230 and p[2] > 230)
+
+
 def icon_bbox(size, px):
     """Icon = largest non-wire-ink CONNECTED component not touching the image
     frame (border+lines+fill form one blob; labels are separate letters; the
     outer frame hugs the edges)."""
     W, H = size
-
-    def ink(p): return not (p[0] > 230 and p[1] > 230 and p[2] > 230)
 
     # wire mask, then EXTEND it to black pixels vertically sandwiched by wire
     # (the black core of an error-cluster wire, which would otherwise bridge the
@@ -58,7 +61,7 @@ def icon_bbox(size, px):
                     wm[y][x] = True
 
     def body(x, y):
-        return ink(px[x, y]) and not wm[y][x]
+        return _ink(px[x, y]) and not wm[y][x]
 
     seen = [[False] * W for _ in range(H)]
     best, best_n = None, 0
@@ -66,10 +69,15 @@ def icon_bbox(size, px):
         for sx in range(W):
             if seen[sy][sx] or not body(sx, sy):
                 continue
-            q = deque([(sx, sy)]); seen[sy][sx] = True
-            minx = maxx = sx; miny = maxy = sy; n = 0; touches = False
+            q = deque([(sx, sy)])
+            seen[sy][sx] = True
+            minx = maxx = sx
+            miny = maxy = sy
+            n = 0
+            touches = False
             while q:
-                x, y = q.popleft(); n += 1
+                x, y = q.popleft()
+                n += 1
                 if x in (0, W - 1) or y in (0, H - 1):
                     touches = True
                 minx, maxx = min(minx, x), max(maxx, x)
@@ -77,8 +85,10 @@ def icon_bbox(size, px):
                 for dx in (-1, 0, 1):
                     for dy in (-1, 0, 1):
                         nx, ny = x + dx, y + dy
-                        if 0 <= nx < W and 0 <= ny < H and not seen[ny][nx] and body(nx, ny):
-                            seen[ny][nx] = True; q.append((nx, ny))
+                        inside = 0 <= nx < W and 0 <= ny < H
+                        if inside and not seen[ny][nx] and body(nx, ny):
+                            seen[ny][nx] = True
+                            q.append((nx, ny))
             if not touches and n > best_n:
                 best_n, best = n, (minx, miny, maxx, maxy)
     return best
@@ -95,10 +105,14 @@ def attach_points(size, px, bbox, reach=3):
             c = _wire(px[x, y])
             if not c:
                 continue
-            if y0 - reach <= y < y0 and x0 <= x <= x1: hits["top"].append((x, c))
-            elif y1 < y <= y1 + reach and x0 <= x <= x1: hits["bot"].append((x, c))
-            elif x0 - reach <= x < x0 and y0 <= y <= y1: hits["left"].append((y, c))
-            elif x1 < x <= x1 + reach and y0 <= y <= y1: hits["right"].append((y, c))
+            if y0 - reach <= y < y0 and x0 <= x <= x1:
+                hits["top"].append((x, c))
+            elif y1 < y <= y1 + reach and x0 <= x <= x1:
+                hits["bot"].append((x, c))
+            elif x0 - reach <= x < x0 and y0 <= y <= y1:
+                hits["left"].append((y, c))
+            elif x1 < x <= x1 + reach and y0 <= y <= y1:
+                hits["right"].append((y, c))
     iw, ih = (x1 - x0) or 1, (y1 - y0) or 1
     out = []
     for edge, lst in hits.items():
@@ -112,7 +126,8 @@ def attach_points(size, px, bbox, reach=3):
             if coord - cluster[-1][0] <= 4:
                 cluster.append((coord, c))
             else:
-                cluster = [(coord, c)]; groups.append(cluster)
+                cluster = [(coord, c)]
+                groups.append(cluster)
         for g in groups:
             coord = sum(v for v, _ in g) / len(g)
             col = max(set(c for _, c in g), key=[c for _, c in g].count)
@@ -132,13 +147,16 @@ def match_parmindex(pos, termbounds, node=32):
     CONTAINS it (smallest such); else nearest center."""
     ex = min(max(pos[0], 0.0), 1.0)
     ey = min(max(pos[1], 0.0), 1.0)
-    contained = [(pi, (r - l) * (b - t)) for pi, t, l, b, r in termbounds
-                 if l / node <= ex <= r / node and t / node <= ey <= b / node]
+    contained = [
+        (pi, (rgt - lft) * (bot - top))
+        for pi, top, lft, bot, rgt in termbounds
+        if lft / node <= ex <= rgt / node and top / node <= ey <= bot / node
+    ]
     if contained:
         return min(contained, key=lambda z: z[1])[0]
     best, bd = None, 9.0
-    for pi, t, l, b, r in termbounds:
-        cx, cy = (l + r) / (2 * node), (t + b) / (2 * node)
+    for pi, top, lft, bot, rgt in termbounds:
+        cx, cy = (lft + rgt) / (2 * node), (top + bot) / (2 * node)
         d = (cx - ex) ** 2 + (cy - ey) ** 2
         if d < bd:
             bd, best = d, pi
@@ -157,14 +175,23 @@ def extract(path, termbounds):
     rows = []
     for a in attach_points(size, px, bbox):
         rows.append({**a, "parmIndex": match_parmindex(a["pos"], termbounds)})
-    for r in sorted(rows, key=lambda r: (r["edge"] != "right", r["pos"][1], r["pos"][0])):
-        print(f"  {r['edge']:5} @ {r['pos']} [{r['color']:7}] -> parmIndex {r['parmIndex']}")
+    ordered = sorted(
+        rows, key=lambda r: (r["edge"] != "right", r["pos"][1], r["pos"][0])
+    )
+    for r in ordered:
+        pi = r["parmIndex"]
+        print(f"  {r['edge']:5} @ {r['pos']} [{r['color']:7}] -> parmIndex {pi}")
     return rows
 
 
 if __name__ == "__main__":
     # termbounds = (parmIndex, top, left, bottom, right) from the BD <dco>
-    TB = [(0, 0, 21, 32, 32), (1, 0, 11, 32, 21), (2, 16, 0, 32, 11), (3, 0, 0, 16, 11)]
+    TB = [
+        (0, 0, 21, 32, 32),
+        (1, 0, 11, 32, 21),
+        (2, 16, 0, 32, 11),
+        (3, 0, 0, 16, 11),
+    ]
     print("=== 1540 Array To Spreadsheet String ===")
-    print("ground truth: delimiter=1(top-center) array=2(lower-left) format=3(upper-left) spreadsheet=0(right)")
+    print("ground truth: delimiter=1(top) array=2(low-L) format=3(up-L) out=0(right)")
     extract("/tmp/a2s.png", TB)
