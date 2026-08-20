@@ -133,3 +133,7 @@ experiments/
 
 # Claude Code agent worktrees (transient)
 .claude/worktrees/
+
+# CI deploy keys — never commit
+pragmatest_deploy
+pragmatest_deploy.pub
