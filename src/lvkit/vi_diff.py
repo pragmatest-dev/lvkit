@@ -85,11 +85,26 @@ def diff_vi_files(
     cmap = diff_uid(graph_a, graph_b, name_a, name_b)
     rows = netlist_diff_rows(graph_a, graph_b, name_a, name_b)
 
+    # DISPLAY-only names (qualified, never the vi_key = absolute source path) —
+    # same rule as render titles. name_a/name_b stay the vi_key for the graph
+    # ops above (render, diff_uid).
+    display_a = graph_a.vi_display_name(name_a)
+    display_b = graph_b.vi_display_name(name_b)
+    # Rewrite each change's ``full_id`` prefix from the vi_key to the qualified
+    # display name — its intended form ("Class.lvclass:vi.vi::uid") — so the
+    # serialized change-map never carries the source path. Synthetic ids (no
+    # vi_key prefix) are left untouched; the viewer keys on ``uid``, not full_id.
+    for c in cmap.changes:
+        if c.full_id.startswith(f"{name_a}::"):
+            c.full_id = display_a + c.full_id[len(name_a):]
+        elif c.full_id.startswith(f"{name_b}::"):
+            c.full_id = display_b + c.full_id[len(name_b):]
+
     def _label(name: str, ref: str | None) -> str:
         return f"{name} ({ref})" if ref else name
 
-    before_label = _label(name_a, before_ref)
-    after_label = _label(name_b, after_ref)
+    before_label = _label(display_a, before_ref)
+    after_label = _label(display_b, after_ref)
     title = (
         before_label
         if before_label == after_label
