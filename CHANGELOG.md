@@ -4,6 +4,30 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-08-19
+- **Fix: VI icons now render in color.** The renderer read the 1-bit
+  black-and-white icon layer, so a class/library banner color was dropped. It now
+  prefers the color layer (256-color `icl8`, then 16-color `icl4`, then the B&W
+  fallback), in both the block-diagram render and the generated HTML docs, so an
+  icon matches what LabVIEW shows.
+- **Fix: SubVIs that share a filename across libraries each render their own
+  icon.** Two VIs both named `Do.vi` in different libraries (`Lib1.lvlib` vs
+  `Lib2.lvlib`) drew the same icon — the second showed the first's — because the
+  icon source was resolved by bare filename. It is now resolved by the SubVI's
+  project-relative path, so each gets its own.
+- **Fix: rendered SVG/HTML and visual diffs no longer embed the source file's
+  absolute path.** VI titles, node ids (`data-node`), and the diff before/after
+  labels used the on-disk path; they now use the VI's qualified name, so a saved
+  or hosted render/diff carries no local filesystem path (the render identity is
+  unchanged — this is display-only).
+- **Fix: `Reverse 1D Array` (1902) and `Format Value` (1540) were mislabeled.**
+  They are actually **Transpose 2D Array** and **Array To Spreadsheet String** —
+  corrected, with the right terminal roles and generated Python. Re-generate any
+  Python produced from a VI that used either.
+- **Fix: connector-pane pattern 4817** (`special-7`) was transcribed on the wrong
+  row grid, so its middle terminal drew at the wrong height in the connector-pane
+  view; corrected.
+
 ## [0.6.2] - 2026-08-18
 - **Fix: corrected three mislabeled comparison primitives.** `Greater?` (1104),
   `Less?` (1110), and `Less Or Equal?` (1111) were each mapped to their logical

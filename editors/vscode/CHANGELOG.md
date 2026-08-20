@@ -8,6 +8,14 @@ lockstep with the `lvkit` library it ships** — so a **0.6.2** extension bundle
 extension.) Every entry below is **dated** so you can line a release up against
 the [`lvkit` library changelog](../../CHANGELOG.md).
 
+## [0.6.3] — 2026-08-19
+
+- **Bundles `lvkit` 0.6.3** — VI icons now render in **color** (the renderer was
+  using the black-and-white icon layer, dropping class/library banner colors);
+  SubVIs that share a filename across libraries each render their **own** icon;
+  and rendered diagrams / visual diffs no longer embed the source file's absolute
+  path (titles, node ids, and before/after labels use the VI's qualified name).
+
 ## [0.6.2] — 2026-08-18
 
 - **Bundles `lvkit` 0.6.2** — corrects three mislabeled comparison primitives
