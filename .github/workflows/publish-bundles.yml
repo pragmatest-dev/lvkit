@@ -256,11 +256,16 @@ jobs:
       # Also publish to Open VSX (open-vsx.org) — the registry Cursor / Windsurf /
       # VSCodium / Gitpod pull from (they can't use the MS Marketplace). Reuses the
       # SAME per-target .vsix already built above. `ovsx` reads OVSX_PAT from the
-      # env. No-ops if OVSX_TOKEN isn't set, so this is safe before the secret
-      # exists; once set, a genuine failure surfaces (red job) without having
-      # blocked the Marketplace publish above. The `pragmatest` namespace must be
-      # claimed once (`ovsx create-namespace pragmatest`) — see DEVELOPMENT.md.
+      # env. No-ops if OVSX_TOKEN isn't set.
+      #
+      # continue-on-error: Open VSX is a SECONDARY target — the Marketplace publish
+      # above is what a release depends on. The `pragmatest` namespace ownership is
+      # not yet resolved (once it is + the Publisher Agreement is signed, this
+      # starts working with no change here — see DEVELOPMENT.md), so a failure here
+      # must NOT red the release. It shows as an orange "succeeded with issues" and
+      # the log carries the reason.
       - name: Publish all platform packages to Open VSX
+        continue-on-error: true
         shell: bash
         env:
           OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
