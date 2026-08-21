@@ -34,6 +34,7 @@ from ..models import (
     LVType,
     LVTypeKind,
     Terminal,
+    TunnelMode,
     TunnelTerminal,
     _is_error_cluster,
 )
@@ -173,9 +174,11 @@ class RenderBorderTerminal:
     structure kind (see ``_LOOP_GUARANTEED_KINDS``).
 
     ``glyph_kind`` is the fixed decoration to draw: "N", "i", "cond",
-    "sr_down", "sr_up", "autoindex" (array index/accumulate), "tunnel"
-    (last-value passthrough — a filled type-color block), "selector", or None.
-    ``color`` is the type color for a filled "tunnel" block.
+    "sr_down", "sr_up", "autoindex" (array index/accumulate — [ ] brackets),
+    "concatenate" (auto-concatenating output tunnel — two side-by-side
+    type-color blocks), "tunnel" (last-value passthrough — a filled type-color
+    block), "selector", or None. ``color`` is the type color for a filled
+    "tunnel"/"concatenate" glyph and the "autoindex" brackets.
     """
 
     terminal: Terminal | None
@@ -817,9 +820,21 @@ def _structure_borders(
         if glyph_kind is None and t.name == "selector":
             glyph_kind = "selector"
         if t.tunnel_type == "lpTun":
-            # Auto-indexing (array in/accumulate out) -> [ ] brackets;
-            # last-value passthrough -> a filled block in the wire type color.
-            glyph_kind = "autoindex" if raw in layout.indexing_tunnels else "tunnel"
+            # Glyph from the loop tunnel's own aggregation MODE — the single
+            # source of truth is the parsed ``TunnelMode`` on the terminal, NOT
+            # a parallel geometry flag (which lumped concatenating in with
+            # indexing and mislabelled passthrough inputs as auto-index):
+            #   INDEXING     -> [ ] auto-index brackets (array in / accumulate
+            #                   out; input OR output — LabVIEW calls both this)
+            #   CONCATENATING-> the side-by-side concatenate glyph (output-only)
+            #   LAST_VALUE /
+            #   PASSTHROUGH  -> a plain filled block in the wire type color
+            if t.mode == TunnelMode.INDEXING:
+                glyph_kind = "autoindex"
+            elif t.mode == TunnelMode.CONCATENATING and t.direction == "output":
+                glyph_kind = "concatenate"
+            else:
+                glyph_kind = "tunnel"
         if glyph_kind is None:
             # A plain data tunnel (case/sequence border passthrough): LabVIEW
             # draws it as a solid block in the WIRE TYPE COLOR, never a flat
@@ -830,7 +845,8 @@ def _structure_borders(
         # in LabVIEW (orange DBL, blue I32, mustard error, ...) — not gray/white.
         color = (
             wire_style(t.lv_type).color
-            if glyph_kind in ("autoindex", "tunnel", "sr_down", "sr_up", "selector")
+            if glyph_kind
+            in ("autoindex", "concatenate", "tunnel", "sr_down", "sr_up", "selector")
             else None
         )
         # OUTPUT data tunnel: the frame VALUES whose per-frame inner terminal is

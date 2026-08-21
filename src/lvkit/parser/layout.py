@@ -79,8 +79,6 @@ class Layout:
     # Structure raw uid -> the raw uids of its border_terminals entries
     # (loop N/i/cond, case selector) — pure containment, no glyph semantics.
     structure_border_uids: dict[str, list[str]] = field(default_factory=dict)
-    # raw uids belonging to AUTO-INDEXING tunnels (vs last-value passthroughs).
-    indexing_tunnels: set[str] = field(default_factory=set)
     # raw uids whose ``<label>`` child is hidden (objFlags bit 0x8) — i.e.
     # LabVIEW's "label visible" property is off for that element.
     hidden_labels: set[str] = field(default_factory=set)
@@ -212,9 +210,6 @@ class _LayoutBuilder:
         self.border_terminals: dict[str, Rect] = {}
         self.border_terminal_kind: dict[str, str] = {}
         self.structure_border_uids: dict[str, list[str]] = {}
-        # raw uids of AUTO-INDEXING loop tunnels (array index/accumulate); a
-        # last-value passthrough tunnel is absent from this set.
-        self.indexing_tunnels: set[str] = set()
         # raw uids whose direct <label> child is hidden (objFlags bit 0x8).
         self.hidden_labels: set[str] = set()
         # flat-sequence raw uid -> inter-frame divider x-positions.
@@ -238,31 +233,6 @@ class _LayoutBuilder:
             return
         if flags & 0x8:
             self.hidden_labels.add(uid)
-
-    def _detect_tunnel_modes(self, elem: ET.Element) -> None:
-        """Record which lpTun tunnels are auto-indexing vs last-value.
-
-        LabVIEW marks an auto-indexing tunnel with a ``TunnelType`` (and an
-        ``innerLpTunDCO``); a plain last-value passthrough has neither.
-        """
-        tl = elem.find("termList")
-        if tl is None:
-            return
-        for term in tl.findall("SL__arrayElement"):
-            dco = term.find("dco")
-            src = (
-                dco
-                if dco is not None and dco.get("class") == "lpTun"
-                else (term if term.get("class") == "lpTun" else None)
-            )
-            if src is None:
-                continue
-            tt = (src.findtext("TunnelType") or "").strip()
-            indexing = src.find("innerLpTunDCO") is not None or (
-                tt not in ("", "00", "0")
-            )
-            if indexing:
-                self.indexing_tunnels.update(self._collect_uids(term))
 
     # -- uid collection -------------------------------------------------
     @staticmethod
@@ -591,7 +561,6 @@ class _LayoutBuilder:
         # (otherwise a control inside a loop lands far to the upper-left).
         term_ox, term_oy = (ox, oy) if elem.get("class") == "sRN" else (ax1, ay1)
         self._map_terms(elem, term_ox, term_oy)
-        self._detect_tunnel_modes(elem)
         if uid:
             self._border_dcos(elem, ax1, ay1, uid)
 
@@ -679,7 +648,6 @@ def build_layout_from_root(
         border_terminals=builder.border_terminals,
         border_terminal_kind=builder.border_terminal_kind,
         structure_border_uids=builder.structure_border_uids,
-        indexing_tunnels=builder.indexing_tunnels,
         hidden_labels=builder.hidden_labels,
         sequence_dividers=builder.sequence_dividers,
         label_bounds=builder.label_bounds,
