@@ -291,12 +291,14 @@ class DisableBuildHandler(StructureBuildHandler):
         disable_struct = ctx.disable_by_uid.get(node.uid)
         disable_frames: list[CaseFrame] = []
         active_frame: int | None = None
+        displayed_frame: int | None = None
 
         parser_tunnels: list = []
         if disable_struct:
             parser_tunnels = disable_struct.tunnels
             disable_frames = list(disable_struct.frames)
             active_frame = disable_struct.active_frame
+            displayed_frame = disable_struct.displayed_frame
 
         structure_terminals = ctx.build_structure_terminals(
             parser_tunnels,
@@ -314,6 +316,7 @@ class DisableBuildHandler(StructureBuildHandler):
             terminals=structure_terminals,
             frames=disable_frames,
             active_frame=active_frame,
+            displayed_frame=displayed_frame,
         )
 
 

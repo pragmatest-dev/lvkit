@@ -198,9 +198,13 @@ class DisableStructureNode(StructureNode):
 
     frames: list[CaseFrame] = []
     # Index into ``frames`` of the enabled/active subdiagram at compile/edit
-    # time (heap ``activeDiag``) -- the faithful initial view. None if
-    # unresolved.
+    # time (heap ``activeDiag``). None if unresolved.
     active_frame: int | None = None
+    # Frame LabVIEW last displayed (heap ``dIdx``, range-checked) -- the saved
+    # visible frame, which for a Conditional Disable can differ from the enabled
+    # one. Preferred as the initial view when present; None for an out-of-range
+    # legacy ``dIdx`` → renderer falls back to Enabled/active_frame. See #30.
+    displayed_frame: int | None = None
 
 
 class EventStructureNode(StructureNode):

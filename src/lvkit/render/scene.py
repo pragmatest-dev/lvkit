@@ -479,16 +479,22 @@ def _frame_info(
             # _frame_display's raw-value fallback (draw.py) handles it.
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(f.selector_value) for f in node.frames]
-            # Always show the ENABLED subdiagram — the code that actually
-            # compiles/runs — with the disabled one(s) hidden by default. The
-            # heap's active_frame reflects the editor's last-shown diagram, NOT
-            # which subdiagram is enabled, so prefer the "Enabled"-labelled
-            # frame. A Conditional Disable uses condition labels (no "Enabled"),
-            # so there fall back to active_frame, then default/first.
-            shown = next(
-                (f for f in node.frames if str(f.selector_value) == "Enabled"),
-                None,
-            )
+            # Prefer the SAVED VISIBLE frame (heap ``dIdx``, range-checked) — the
+            # frame the user had open when the VI was saved. For a Conditional
+            # Disable this can differ from the ENABLED subdiagram: you can save
+            # while viewing a disabled frame (issue #30). When there is no valid
+            # ``dIdx`` (an out-of-range legacy ordinal / INT_MIN sentinel on a
+            # plain Diagram Disable), fall back to showing the enabled
+            # subdiagram — the code that compiles/runs: the "Enabled" label,
+            # then ``active_frame`` (``activeDiag``, the enabled index), then
+            # default/first.
+            di = _shown_index(node.displayed_frame, len(node.frames), default=-1)
+            shown = node.frames[di] if di >= 0 else None
+            if shown is None:
+                shown = next(
+                    (f for f in node.frames if str(f.selector_value) == "Enabled"),
+                    None,
+                )
             af = _shown_index(node.active_frame, len(node.frames), default=-1)
             if shown is None and af >= 0:
                 shown = node.frames[af]

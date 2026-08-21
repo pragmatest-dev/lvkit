@@ -47,6 +47,7 @@ from lvkit.models import CaseFrame, Tunnel
 from ..constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
 from ..models import ParsedDisableStructure
 from ..utils import clean_labview_string
+from .base import parse_displayed_frame
 
 COMMENT_NODE_CLASS = "commentNode"
 COMMENT_TUNNEL_CLASS = "commentTun"
@@ -176,6 +177,12 @@ def _extract_one_disable_structure(
         frames=frames,
         tunnels=tunnels,
         active_frame=active_idx,
+        # The frame LabVIEW last displayed (heap ``dIdx``, range-checked) -- the
+        # saved visible frame, which for a Conditional Disable can differ from
+        # the enabled/active one. None when ``dIdx`` is an out-of-range legacy
+        # ordinal (an INT_MIN sentinel on a plain Diagram Disable), so the
+        # renderer keeps its Enabled/active_frame fallback. See issue #30.
+        displayed_frame=parse_displayed_frame(elem, num_frames),
     )
 
 

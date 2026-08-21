@@ -13,7 +13,12 @@ from pathlib import Path
 
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from lvkit.graph.models import CaseStructureNode, SequenceNode
+from lvkit.graph.models import (
+    CaseStructureNode,
+    DisableStructureNode,
+    SequenceNode,
+)
+from lvkit.render.scene import _frame_info
 
 _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 
@@ -74,3 +79,29 @@ def test_issue30_case_and_sequence_open_on_saved_visible_frame():
         elif isinstance(node, SequenceNode) and node.node_type != "flatSequence":
             seen["sequence"] = node.displayed_frame
     assert seen == {"case": 1, "sequence": 1}, seen
+
+
+def test_issue30_conditional_disable_opens_on_saved_visible_frame():
+    """#30 (issue's second comment): a Conditional Disable Structure saved while
+    viewing a non-enabled frame must open on that SAVED VISIBLE frame (heap
+    ``dIdx``), not the enabled subdiagram.
+
+    Both structures here carry ``dIdx=1`` (their 2nd frame). One (uid ending 42)
+    has that frame *disabled* in the IDE (``RUN_TIME_ENGINE==True``) with no
+    ``activeDiag`` — before the fix it fell back to frame 0. The visible frame
+    (``dIdx``) is now preferred over the enabled one.
+    """
+    graph, vi = _load("30/visible-frame-conditional-disable.vi")
+    nodes = [n for n in graph.iter_nodes(vi) if isinstance(n, DisableStructureNode)]
+    assert len(nodes) == 2
+    assert all(n.displayed_frame == 1 for n in nodes), [
+        n.displayed_frame for n in nodes
+    ]
+    # The renderer opens both on frame index 1 (the saved visible frame).
+    default_frame, frame_values, _, _ = _frame_info(
+        list(graph.iter_nodes(vi)), vi, graph
+    )
+    for n in nodes:
+        raw = n.id.split("::")[-1]
+        shown = default_frame[raw]
+        assert frame_values[raw].index(shown) == 1, (raw, shown)
