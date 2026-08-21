@@ -53,6 +53,7 @@ class LoopBuildHandler(StructureBuildHandler):
         stop_cond_inverted = False
         parallel = False
         parallel_static_workers: int | None = None
+        hidden_border_terminals: frozenset[str] = frozenset()
 
         parser_tunnels: list = []
         if loop_struct:
@@ -62,6 +63,7 @@ class LoopBuildHandler(StructureBuildHandler):
             stop_cond_inverted = loop_struct.stop_condition_inverted
             parallel = loop_struct.parallel
             parallel_static_workers = loop_struct.parallel_static_workers
+            hidden_border_terminals = loop_struct.hidden_border_terminals
 
         structure_terminals = ctx.build_structure_terminals(
             parser_tunnels,
@@ -80,6 +82,7 @@ class LoopBuildHandler(StructureBuildHandler):
             stop_condition_inverted=stop_cond_inverted,
             parallel=parallel,
             parallel_static_workers=parallel_static_workers,
+            hidden_border_terminals=hidden_border_terminals,
         )
 
 

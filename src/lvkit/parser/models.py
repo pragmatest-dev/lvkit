@@ -155,6 +155,11 @@ class ParsedLoopStructure:
     # <ParForNumStaticWorkers>, hex-parsed (e.g. "08" -> 8); None when absent
     # or 0 (no static worker count configured).
     parallel_static_workers: int | None = None
+    # Border-terminal KINDS ("i"/"N"/"cond") the developer HID via LabVIEW's
+    # "Visible Items" (objFlags bit 0x800000 on the terminal's inner sRN term).
+    # Empty when every terminal is shown (the common case). The renderer omits
+    # a hidden terminal's glyph; see loop.py::_hidden_border_terminals.
+    hidden_border_terminals: frozenset[str] = field(default_factory=frozenset)
 
 
 from ..models import CaseFrame, SequenceFrame  # noqa: E402

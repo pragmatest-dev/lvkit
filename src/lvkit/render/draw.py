@@ -1069,6 +1069,11 @@ def _draw_border_terminal(
     (the border terminal is redrawn once per container frame — see
     ``draw_scene``); an output tunnel unwired in that frame draws with a hole.
     """
+    # Hidden via "Visible Items" (loop i/N/cond) — omit the glyph, matching
+    # LabVIEW. The terminal stays in the scene (see RenderBorderTerminal.hidden)
+    # so a future "show hidden" viewer toggle can draw it ghosted instead.
+    if bt.hidden:
+        return
     x1, y1, x2, y2 = _inset(bt.bounds)
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
     kind = bt.glyph_kind
@@ -1142,7 +1147,14 @@ def _draw_border_terminal(
         # is the loop's ``stop_condition_inverted`` (heap ``loopTestDCO``
         # objFlags bit 16), carried here as ``bt.cond_continue``. Continue also
         # gets a small in-glyph loop arc so the two read apart without color.
-        r = min(x2 - x1, y2 - y1) / 2
+        # It sits in a terminal BOX on the border (like N/i/selector), the
+        # mode color on the box border and the inner glyph; per the LabVIEW
+        # reference the stop/continue symbol is boxed, not a bare disc.
+        mode_col = theme.cond_continue if bt.cond_continue else theme.cond_stop
+        backend.rect(
+            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=mode_col, stroke_width=1.2
+        )
+        r = min(x2 - x1, y2 - y1) / 2 * 0.62
         if bt.cond_continue:
             backend.circle(cx, cy, r, fill=theme.cond_continue)
             # a white looping arrow arc (↻) — the "keep going" cue
@@ -1317,6 +1329,16 @@ def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> Non
 def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
     backend.rect(
         x1, y1, x2, y2, rx=7, fill="none", stroke=theme.struct_border, stroke_width=1.2
+    )
+    # LabVIEW's While loop carries a small "loop-back" ARROWHEAD at the
+    # bottom-right corner — the cue that this is a looping process (a For loop
+    # has the dog-eared stacked cards instead). A solid right-pointing triangle
+    # sitting on the bottom edge just inside the corner, in the border color.
+    s = 7.0
+    backend.polygon(
+        [(x2 - s, y2 - s * 0.55), (x2 + s * 0.15, y2), (x2 - s, y2 + s * 0.55)],
+        fill=theme.struct_border,
+        stroke=None,
     )
 
 

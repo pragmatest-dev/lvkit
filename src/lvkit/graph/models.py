@@ -155,6 +155,11 @@ class LoopNode(StructureNode):
     # ParsedLoopStructure.parallel / .parallel_static_workers.
     parallel: bool = False
     parallel_static_workers: int | None = None
+    # Border-terminal KINDS ("i"/"N"/"cond") hidden via LabVIEW's "Visible
+    # Items" (objFlags bit 0x800000 on the inner sRN term). The renderer omits
+    # a hidden terminal's glyph; a future viewer toggle can reveal them. Empty
+    # when all are shown. See ParsedLoopStructure.hidden_border_terminals.
+    hidden_border_terminals: frozenset[str] = frozenset()
 
 
 class SequenceNode(StructureNode):
