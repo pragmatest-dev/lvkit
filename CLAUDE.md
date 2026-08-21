@@ -32,6 +32,14 @@ When stuck: do MORE of 1–4, or write a `"placeholder": true` primitive entry. 
 
 This is not "try harder." It is a hard gate: unverified → unsaid; unwritten commitment → didn't happen.
 
+## ⛔ BUGS — INVESTIGATE ONLY; THE MAINTAINER DECIDES THE FIX (READ THIS FIRST)
+
+**For any bug, independent decision-making on the FIX is revoked.** The workflow is: **investigate → present findings → the maintainer decides → only then implement, exactly as agreed.** Do NOT write code — not a "small" fix, not an "obvious" one, not a docstring — until the maintainer has explicitly approved the approach.
+
+- **Never ship a hard-coded / string-matched / heuristic fix.** If a fix keys off a string label (`flavor.endswith("Waveform")`, a literal `"Digitaldata"`) or a hand-written index→name table, that is precisely the kind of fix that is NOT trusted here — surface it as a finding, flag it as suspect, and let the maintainer direct a generic, data-driven solution.
+- **Investigation means:** parse/grep/read to find the real root cause and where the correct data actually lives in the pipeline. Report that. Then STOP and wait.
+- This is a hard gate, same standing as VERIFY BEFORE CLAIMING. Persisted in memory: `feedback_bugs_investigate_then_discuss`.
+
 ## Commands
 
 Always use `uv run` — it automatically activates the project venv without a separate activation step.
