@@ -200,6 +200,11 @@ class RenderBorderTerminal:
     # and future inner-tunnel-per-frame work; it is currently always ()
     # since only outer tunnels are emitted.
     frame_path: FramePath = ()
+    # The developer HID this border terminal via LabVIEW's "Visible Items"
+    # (loop i/N/cond only — see LoopNode.hidden_border_terminals). The glyph is
+    # still emitted (so the scene stays complete and a future "show hidden"
+    # viewer toggle can reveal it), but draw.py skips it by default.
+    hidden: bool = False
 
 
 @dataclass(frozen=True)
@@ -798,6 +803,14 @@ def _structure_borders(
     consumed: set[str] = set()
     kinds_present: set[str] = set()
 
+    # Loop border-terminal KINDS ("i"/"N"/"cond") the developer hid via
+    # LabVIEW's "Visible Items" — the glyph is still emitted (scene stays
+    # complete; a future "show hidden" toggle can reveal it) but tagged
+    # ``hidden`` so draw.py skips it by default. Only loops carry this.
+    hidden_kinds: frozenset[str] = (
+        node.hidden_border_terminals if isinstance(node, LoopNode) else frozenset()
+    )
+
     # Per-frame inner tunnel terminals, grouped by their outer tunnel — used to
     # detect "Use Default If Unwired" output tunnels (an output tunnel left
     # unwired in some frame). A valid VI must have the option enabled for such a
@@ -876,6 +889,7 @@ def _structure_borders(
                 glyph_kind=glyph_kind,
                 color=color,
                 unwired_frames=unwired_frames,
+                hidden=glyph_kind in hidden_kinds,
             )
         )
         consumed.add(raw)
@@ -913,6 +927,7 @@ def _structure_borders(
                     terminal=None,
                     bounds=layout.border_terminals[match],
                     glyph_kind=kind,
+                    hidden=kind in hidden_kinds,
                     cond_continue=(
                         kind == "cond"
                         and getattr(node, "stop_condition_inverted", False)

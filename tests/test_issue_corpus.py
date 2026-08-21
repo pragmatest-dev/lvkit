@@ -140,3 +140,39 @@ def test_issue38_fixture_renders():
     vi = _CORPUS / "38" / "auto-concatenating-tunnel.vi"
     svg = render_vi_file(vi, search_paths=[vi.parent])
     assert svg is not None and "<svg" in svg[:500] and len(svg) > 200
+
+
+def test_issue34_hidden_iteration_terminal_omitted():
+    """#34: a loop's iteration terminal (``i``) hidden via "Visible Items" is
+    carried on the graph and omitted by the renderer; shown terminals still draw.
+
+    Per-terminal visibility is objFlags bit ``0x800000`` on the terminal's inner
+    ``sRN`` ``<term>``. Both loops in this repro hide their ``i`` (and nothing
+    else). The graph records the hidden KIND on
+    ``LoopNode.hidden_border_terminals``; the renderer tags that glyph ``hidden``
+    (draw.py skips it), while the visible ``N`` / stop glyphs render normally.
+    """
+    graph, vi = _load("34/hidden-iteration-terminal.vi")
+    loops = [n for n in graph.iter_nodes(vi) if isinstance(n, LoopNode)]
+    assert len(loops) == 2
+    assert all(n.hidden_border_terminals == frozenset({"i"}) for n in loops), [
+        sorted(n.hidden_border_terminals) for n in loops
+    ]
+    layout = graph.get_layout(vi)
+    assert layout is not None
+    hidden_kinds: set[str | None] = set()
+    shown_kinds: set[str | None] = set()
+    for n in loops:
+        for b in _structure_borders(n, layout, vi):
+            (hidden_kinds if b.hidden else shown_kinds).add(b.glyph_kind)
+    # `i` is hidden on both loops; the visible N (for) and stop (while) are not.
+    assert "i" in hidden_kinds and "i" not in shown_kinds
+    assert {"N", "cond"} & shown_kinds
+    assert not ({"N", "cond"} & hidden_kinds)
+
+
+def test_issue34_fixture_renders():
+    """The #34 repro loads and renders to a non-empty SVG (crash guard)."""
+    vi = _CORPUS / "34" / "hidden-iteration-terminal.vi"
+    svg = render_vi_file(vi, search_paths=[vi.parent])
+    assert svg is not None and "<svg" in svg[:500] and len(svg) > 200
