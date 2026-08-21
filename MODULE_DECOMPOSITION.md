@@ -142,6 +142,19 @@ Split the resolver classes + per-node builders: `nodes/resolvers.py`
 `graph/queries.py` (1168 — likely stays, it's the graph's API), `graph/models.py` (961),
 `models.py` (943), `index/store.py` (939), `docs/html_generator.py` (923).
 
+### Small DRY, independent of the big lifts — a shared bundled-JSON loader
+Low-priority cleanup surfaced during the #36 design review (do opportunistically,
+not worth its own issue). `labview_error_codes._load_codes` and
+`measure_data._load_table` share a near-verbatim skeleton: module-global `None`
+sentinel → `data_dir() / <file>.json` → `.exists()` guard → `read_text(encoding=
+"utf-8")` + `json.loads` → degrade-to-empty. Extract `_data.load_json(filename)
+-> object | None` (parsed object, or `None` when the file is absent); each caller
+keeps only its own validation/shaping/caching. **Scope is exactly those two** —
+`primitive_resolver._load_codegen` and the `vilib_resolver` loaders only share the
+3-line `if path.exists(): json.load` core; their real bodies do project-vs-bundled
+merging + multi-index building, so the helper replaces their read-prologue at most,
+not the duplication that matters.
+
 ---
 
 ## Part C — `viewer/` extraction + `diff` dissolution
