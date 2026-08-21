@@ -15,8 +15,13 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # Issue-repro fixtures under tests/corpus/ are attached verbatim and are
+      # hashed in each PROVENANCE.md — they must stay byte-identical, so the
+      # whitespace/line-ending fixers skip them.
       - id: trailing-whitespace
+        exclude: ^tests/corpus/
       - id: end-of-file-fixer
+        exclude: ^tests/corpus/
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
@@ -24,6 +29,7 @@ repos:
       - id: check-merge-conflict
       - id: mixed-line-ending
         args: ["--fix=lf"]
+        exclude: ^tests/corpus/
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.14

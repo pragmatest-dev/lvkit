@@ -7,7 +7,7 @@ from enum import IntEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..models import ClusterField, EventFrame, LVType, Tunnel
+from ..models import ClusterField, DisableStructureKind, EventFrame, LVType, Tunnel
 
 if TYPE_CHECKING:
     from .layout import Layout
@@ -251,13 +251,18 @@ class ParsedDisableStructure:
     uid: str
     frames: list[CaseFrame] = field(default_factory=list)
     tunnels: list[Tunnel] = field(default_factory=list)
-    # Index into ``frames`` of the enabled/active subdiagram (heap
-    # ``activeDiag``). None if the heap value didn't parse.
+    # Index into ``frames`` of the enabled/active/accepted subdiagram (heap
+    # ``activeDiag``, hex). Absent in the heap means 0 (zero-valued fields are
+    # dropped); None only when the value was present but unparseable/out of
+    # range. Drives the frame LABELS.
     active_frame: int | None = None
     # Frame LabVIEW last displayed (heap ``dIdx``, range-checked) -- the saved
     # visible frame, which for a Conditional Disable can differ from the
     # enabled one. None for an out-of-range legacy ``dIdx``. See issue #30.
     displayed_frame: int | None = None
+    # Which disable-family structure this is (detected from stored fields) --
+    # drives the per-kind render styling.
+    kind: DisableStructureKind = DisableStructureKind.DIAGRAM
 
 
 @dataclass

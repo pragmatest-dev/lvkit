@@ -23,7 +23,7 @@ from ..graph.models import (
     VINode,
 )
 from ..graph.op_walk import _terminal_display_name
-from ..models import FPTerminal, LVType, LVTypeKind, Terminal
+from ..models import DisableStructureKind, FPTerminal, LVType, LVTypeKind, Terminal
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend, Point
@@ -1302,6 +1302,17 @@ _CASE_BAR_H = 14.0
 _SELECTOR_SIZE = 9.0  # font size of the value + arrows
 _SELECTOR_TRI_W = 11.0  # width of the dropdown-triangle zone (case only)
 _SELECTOR_ARROW_GAP = 15.0  # horizontal room reserved for each flanking arrow
+_SELECTOR_ICON_W = 11.0  # type-icon zone (Type Specialization selector only)
+
+
+def _is_type_spec_structure(node: AnyGraphNode) -> bool:
+    """Whether ``node`` is a Type Specialization Structure — LabVIEW draws its
+    selector with a small type icon (and a solid border), unlike the two plain
+    disable kinds."""
+    return (
+        isinstance(node, DisableStructureNode)
+        and node.kind is DisableStructureKind.TYPE_SPEC
+    )
 
 
 @dataclass(frozen=True)
@@ -1314,7 +1325,8 @@ class _SelectorGeom:
     outer: tuple[float, float, float, float]  # the single enclosing box
     box: tuple[float, float, float, float]  # the central value cell (inside outer)
     tri: tuple[float, float, float, float] | None  # dropdown ▼ zone (case only)
-    text_cx: float  # center-x of the value text (its own zone, left of ▼)
+    icon: tuple[float, float, float, float] | None  # type-icon zone (type-spec)
+    text_cx: float  # center-x of the value text (its own zone, between icon & ▼)
     baseline: float  # shared baseline y for value + arrows
     left_x: float  # ◄ center-x (in the left arrow cell)
     right_x: float  # ► center-x (in the right arrow cell)
@@ -1352,8 +1364,13 @@ def _selector_geom(
     )
     pad = 4.0
     tri_w = _SELECTOR_TRI_W if has_dropdown else 0.0
+    # Derived here (not passed) so every caller — box, menu, value label — lays
+    # the text out identically.
+    icon_w = _SELECTOR_ICON_W if _is_type_spec_structure(structure.node) else 0.0
     arrow_w = 13.0  # width of each flanking ◄ / ► arrow cell
-    val_w = max(22.0, max_val_w + 2 * pad + tri_w)  # central value cell (incl. ▼)
+    # central value cell holds (left→right): type icon (type-spec only) | value
+    # text | ▼ dropdown
+    val_w = max(22.0, max_val_w + 2 * pad + tri_w + icon_w)
     total_w = arrow_w + val_w + arrow_w
     total_w = min(total_w, (x2 - x1) - 6.0)
     cx = (x1 + x2) / 2
@@ -1363,14 +1380,17 @@ def _selector_geom(
     oy1, oy2 = y1 + 1.0, y1 + _CASE_BAR_H - 1.0
     vc1, vc2 = ox1 + arrow_w, ox2 - arrow_w  # value-cell x range
     box = (vc1, oy1, vc2, oy2)
+    icon = (vc1, oy1, vc1 + icon_w, oy2) if icon_w else None
     tri = (vc2 - tri_w, oy1, vc2, oy2) if has_dropdown else None
+    text_left = vc1 + icon_w
     text_right = vc2 - tri_w
     baseline = (oy1 + oy2) / 2 + _SELECTOR_SIZE * 0.34
     return _SelectorGeom(
         outer=(ox1, oy1, ox2, oy2),
         box=box,
         tri=tri,
-        text_cx=(vc1 + text_right) / 2,
+        icon=icon,
+        text_cx=(text_left + text_right) / 2,
         baseline=baseline,
         left_x=(ox1 + vc1) / 2,
         right_x=(vc2 + ox2) / 2,
@@ -1470,8 +1490,16 @@ def _draw_frame_border(
         color = _error_border_color(scene, structure.raw_uid, default, theme)
         # A Diagram/Conditional Disable structure draws a DOTTED boundary
         # (LabVIEW's signature for a disable frame — see reference),
-        # distinguishing it from the solid case/sequence box.
-        dash: str | None = "1.5,2.5" if isinstance(node, DisableStructureNode) else None
+        # distinguishing it from the solid case/sequence box. A Type
+        # Specialization Structure is a THIRD commentNode kind that LabVIEW
+        # draws with a SOLID boundary (plus a type icon in the selector, added
+        # separately) — so only the two disable kinds get the dash.
+        dash: str | None = (
+            "1.5,2.5"
+            if isinstance(node, DisableStructureNode)
+            and node.kind is not DisableStructureKind.TYPE_SPEC
+            else None
+        )
         if color is not None:
             backend.rect(
                 x1,
@@ -1519,6 +1547,28 @@ def _draw_frame_border(
         )
 
 
+def _draw_type_icon(
+    backend: Backend,
+    box: tuple[float, float, float, float],
+    theme: Theme,
+) -> None:
+    """A clean-room 'adapts to type' glyph for a Type Specialization selector:
+    a small square split into four quadrants in our own wire-family colors
+    (float / int / string / bool), signalling the malleable/polymorphic type.
+    Our composition from the lvkit palette — NOT NI artwork."""
+    x1, y1, x2, y2 = box
+    s = max(4.0, min(x2 - x1, y2 - y1) - 4.0)
+    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+    ix1, iy1 = cx - s / 2, cy - s / 2
+    ix2, iy2 = ix1 + s, iy1 + s
+    backend.rect(ix1, iy1, cx, cy, fill=theme.wire_float, stroke="none")  # TL
+    backend.rect(cx, iy1, ix2, cy, fill=theme.wire_int, stroke="none")  # TR
+    backend.rect(ix1, cy, cx, iy2, fill=theme.wire_string, stroke="none")  # BL
+    backend.rect(cx, cy, ix2, iy2, fill=theme.wire_bool, stroke="none")  # BR
+    backend.rect(ix1, iy1, ix2, iy2, fill="none", stroke=theme.struct_border,
+                 stroke_width=0.5)
+
+
 def _draw_frame_selector(
     structure: RenderStructure,
     scene: Scene,
@@ -1555,6 +1605,10 @@ def _draw_frame_selector(
     )
     backend.line(vc1, oy1, vc1, oy2, stroke=theme.struct_border, stroke_width=0.5)
     backend.line(vc2, oy1, vc2, oy2, stroke=theme.struct_border, stroke_width=0.5)
+
+    # A Type Specialization selector carries a small type icon left of the value.
+    if g.icon is not None:
+        _draw_type_icon(backend, g.icon, theme)
 
     def _arrow(action: str, xc: float, glyph: str, cell: tuple[float, float]) -> None:
         cx1, cx2 = cell

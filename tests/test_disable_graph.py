@@ -34,9 +34,8 @@ _BD_XML = """<?xml version='1.0' encoding='utf-8'?>
           </SL__arrayElement>
         </diagramList>
         <selString class="selLabel">
-          <textRec class="textHair"><text>" Disabled "</text></textRec>
+          <textRec class="textHair"><text>" Enabled "</text></textRec>
         </selString>
-        <activeDiag>01</activeDiag>
       </SL__arrayElement>
     </zPlaneList>
   </root>
