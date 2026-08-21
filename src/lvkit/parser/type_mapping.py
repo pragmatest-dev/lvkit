@@ -389,6 +389,16 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 element_type=element_type,
             )
 
+        elif type_name == "MeasureData":
+            # Waveform / digital-data: an opaque built-in structure (no VCTP
+            # children). Keep its FLAVOR so a built-in component table can name
+            # its fields (see measure_data.py / the nMux field resolution).
+            lv_type = LVType(
+                kind=LVTypeKind.PRIMITIVE,
+                underlying_type="MeasureData",
+                measure_flavor=td.get("Flavor"),
+            )
+
         else:
             # Primitive type
             lv_type = LVType(

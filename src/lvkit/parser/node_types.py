@@ -847,6 +847,44 @@ class ScanfHandler(NodeTypeHandler):
         return PrimitiveNode(**common)
 
 
+def _build_nmux_dco_maps(
+    elem: ET.Element, dco_list_uids: list[str], index_tag: str
+) -> tuple[dict[str, str], dict[str, int]]:
+    """``(term_to_dco, dco_field_index)`` for a bundle/unbundle-by-name node's
+    ``termList`` — shared by the nMux and decompose (IPE) handlers, which differ
+    only in the field-index element name (``index_tag``: ``"i"`` for nMux,
+    ``"index"`` for the decompose structure).
+
+    Every terminal maps to its DCO uid; each LIST DCO (a drawer) also gets the
+    cluster-field index it selects, read from its ``<index_tag>`` element.
+    LabVIEW OMITS that element when the selected field is index 0 (the default),
+    so an ABSENT element means field 0 — NOT the drawer's list position (that
+    mislabeled e.g. a "Name" drawer sitting at list slot 2, #36). A non-zero
+    index is always serialized, so the ``0`` fallback only ever fills in that
+    one case.
+    """
+    term_to_dco: dict[str, str] = {}
+    dco_field_index: dict[str, int] = {}
+    list_dco_set = set(dco_list_uids)
+    term_list = elem.find("termList")
+    if term_list is not None:
+        for term_elem in term_list.findall("SL__arrayElement"):
+            t_uid = term_elem.get("uid")
+            dco_elem = term_elem.find("dco")
+            if t_uid and dco_elem is not None:
+                d_uid = dco_elem.get("uid")
+                if d_uid:
+                    term_to_dco[t_uid] = d_uid
+                    if d_uid in list_dco_set:
+                        i_elem = dco_elem.find(index_tag)
+                        dco_field_index[d_uid] = (
+                            int(i_elem.text)
+                            if i_elem is not None and i_elem.text
+                            else 0
+                        )
+    return term_to_dco, dco_field_index
+
+
 class NMuxHandler(NodeTypeHandler):
     """Handler for Node Multiplexer (class="nMux").
 
@@ -873,28 +911,8 @@ class NMuxHandler(NodeTypeHandler):
                 if uid:
                     dco_list_uids.append(uid)
 
-        # Map terminal UID → DCO UID, and extract field index from <i> tag
-        term_to_dco: dict[str, str] = {}
-        dco_field_index: dict[str, int] = {}
-        list_dco_set = set(dco_list_uids)
-        term_list = elem.find("termList")
-        if term_list is not None:
-            for term_elem in term_list.findall("SL__arrayElement"):
-                t_uid = term_elem.get("uid")
-                dco_elem = term_elem.find("dco")
-                if t_uid and dco_elem is not None:
-                    d_uid = dco_elem.get("uid")
-                    if d_uid:
-                        term_to_dco[t_uid] = d_uid
-                        # Extract <i> field index from LIST DCOs
-                        if d_uid in list_dco_set:
-                            i_elem = dco_elem.find("i")
-                            idx = (
-                                int(i_elem.text)
-                                if i_elem is not None and i_elem.text
-                                else dco_list_uids.index(d_uid)
-                            )
-                            dco_field_index[d_uid] = idx
+        # nMux stores each drawer's selected field index in an <i> element.
+        term_to_dco, dco_field_index = _build_nmux_dco_maps(elem, dco_list_uids, "i")
 
         return SelectNode(
             **common,
@@ -1031,26 +1049,11 @@ class DecomposeClusterHandler(NodeTypeHandler):
                 if uid:
                     dco_list_uids.append(uid)
 
-        term_to_dco: dict[str, str] = {}
-        dco_field_index: dict[str, int] = {}
-        list_dco_set = set(dco_list_uids)
-        term_list = elem.find("termList")
-        if term_list is not None:
-            for term_elem in term_list.findall("SL__arrayElement"):
-                t_uid = term_elem.get("uid")
-                dco_elem = term_elem.find("dco")
-                if t_uid and dco_elem is not None:
-                    d_uid = dco_elem.get("uid")
-                    if d_uid:
-                        term_to_dco[t_uid] = d_uid
-                        if d_uid in list_dco_set:
-                            index_elem = dco_elem.find("index")
-                            idx = (
-                                int(index_elem.text)
-                                if index_elem is not None and index_elem.text
-                                else dco_list_uids.index(d_uid)
-                            )
-                            dco_field_index[d_uid] = idx
+        # The decompose (IPE) structure stores each drawer's field index in an
+        # <index> element (nMux uses <i>) — otherwise identical.
+        term_to_dco, dco_field_index = _build_nmux_dco_maps(
+            elem, dco_list_uids, "index"
+        )
 
         poser_elem = elem.find("poser")
         poser_uid = poser_elem.get("uid") if poser_elem is not None else None
