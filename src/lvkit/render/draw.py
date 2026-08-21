@@ -1227,6 +1227,31 @@ def _draw_border_terminal(
             stroke_width=1.3,
         )
         return
+    if kind == "concatenate":
+        # Auto-concatenating OUTPUT tunnel: LabVIEW draws it as TWO filled
+        # blocks side by side (vs the single block of a plain tunnel and the
+        # [ ] brackets of auto-indexing) — the loop concatenates each
+        # iteration's array into one output array of the same dimension. Pale
+        # box + dark border (matching the auto-index box), with the two blocks
+        # in the wire type color.
+        col = bt.color or theme.wire_default
+        backend.rect(
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.loop_term_fill,
+            stroke=theme.tunnel_border,
+            stroke_width=1.2,
+        )
+        sq = min(x2 - x1, y2 - y1) * 0.30
+        gap = sq * 0.40
+        left = cx - (2 * sq + gap) / 2
+        for sx in (left, left + sq + gap):
+            backend.rect(
+                sx, cy - sq / 2, sx + sq, cy + sq / 2, fill=col, stroke="none"
+            )
+        return
     if kind == "tunnel":
         # Normal data tunnel: a solid block filled in the wire type color.
         col = bt.color or theme.wire_default

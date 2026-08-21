@@ -16,9 +16,12 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     CaseStructureNode,
     DisableStructureNode,
+    LoopNode,
     SequenceNode,
 )
-from lvkit.render.scene import _frame_info
+from lvkit.models import TunnelMode, TunnelTerminal
+from lvkit.render import render_vi_file
+from lvkit.render.scene import _frame_info, _structure_borders
 
 _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 
@@ -105,3 +108,35 @@ def test_issue30_conditional_disable_opens_on_saved_visible_frame():
         raw = n.id.split("::")[-1]
         shown = default_frame[raw]
         assert frame_values[raw].index(shown) == 1, (raw, shown)
+
+
+def test_issue38_loop_tunnel_glyph_from_mode():
+    """#38: a loop tunnel's border glyph is chosen from its parsed
+    ``TunnelMode`` (single source of truth), not a binary indexing flag.
+
+    The repro For Loop has three OUTPUT tunnels — a last-value ``Numeric``
+    (``PASSTHROUGH`` here), an auto-indexing ``Array`` (``INDEXING``), and an
+    auto-concatenating ``Array 2`` (``CONCATENATING``). Before the fix the
+    concatenating tunnel was drawn identically to the indexing one (``[ ]``
+    brackets); now each mode maps to a distinct glyph, and ``concatenate`` is
+    reserved for output tunnels.
+    """
+    graph, vi = _load("38/auto-concatenating-tunnel.vi")
+    loop = next(n for n in graph.iter_nodes(vi) if isinstance(n, LoopNode))
+    layout = graph.get_layout(vi)
+    assert layout is not None
+    glyph_by_mode: dict[tuple[TunnelMode | None, str], str | None] = {}
+    for b in _structure_borders(loop, layout, vi):
+        t = b.terminal
+        if isinstance(t, TunnelTerminal) and t.tunnel_type == "lpTun":
+            glyph_by_mode[(t.mode, t.direction)] = b.glyph_kind
+    assert glyph_by_mode[(TunnelMode.CONCATENATING, "output")] == "concatenate"
+    assert glyph_by_mode[(TunnelMode.INDEXING, "output")] == "autoindex"
+    assert glyph_by_mode[(TunnelMode.PASSTHROUGH, "output")] == "tunnel"
+
+
+def test_issue38_fixture_renders():
+    """The #38 repro loads and renders to a non-empty SVG (crash guard)."""
+    vi = _CORPUS / "38" / "auto-concatenating-tunnel.vi"
+    svg = render_vi_file(vi, search_paths=[vi.parent])
+    assert svg is not None and "<svg" in svg[:500] and len(svg) > 200
