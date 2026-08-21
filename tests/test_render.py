@@ -1223,9 +1223,10 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
                 else:
                     visible += 1
         assert visible >= 1
-        # Stacked sequences open on frame 0. The heap ``dIdx`` is NOT a frame
-        # index (it resolves to a diagram outside the structure's own frames),
-        # so it cannot drive the initial view — see #81.
+        # This VI's stacked sequence carries an OUT-OF-RANGE ``dIdx`` (a legacy
+        # global-diagram ordinal, not a local frame index), so the parser's
+        # range check rejects it and the initial view falls back to frame 0.
+        # (An in-range ``dIdx`` DOES drive the displayed frame — see #30.)
         assert default == "0"
 
 

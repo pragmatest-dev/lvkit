@@ -59,7 +59,11 @@ from lvkit.models import EventFrame, Tunnel
 
 from ..models import ParsedEventStructure
 from ..utils import clean_labview_string, extract_label
-from .base import extract_tunnel_mapping, frame_inner_node_uids
+from .base import (
+    extract_tunnel_mapping,
+    frame_inner_node_uids,
+    parse_displayed_frame,
+)
 
 # dco classes on an eventStruct's OWN termList that carry data across the
 # structure boundary. All four share the SAME per-frame-array shape as a
@@ -334,11 +338,9 @@ def _resolve_frame_labels(
     labels = [
         _format_event_label(i, event_specs.get(i), fp_root) for i in range(num_frames)
     ]
-    d_idx_text = elem.findtext("dIdx")
-    displayed = (
-        int(d_idx_text) if d_idx_text and d_idx_text.lstrip("-").isdigit() else 0
-    )
-    if not (0 <= displayed < num_frames):
+    # Event frames use the "omit dIdx when 0" convention, so absent -> frame 0.
+    displayed = parse_displayed_frame(elem, num_frames, absent_is_zero=True)
+    if displayed is None:
         return labels, None
     sel = elem.find("selString")
     if sel is not None:

@@ -376,12 +376,13 @@ def _extract_one_case_structure(
         frames=frames,
         tunnels=tunnels,
         # The displayed frame from the case node's own heap ``dIdx`` (range-
-        # checked). This is the reliable source: the dataspace selector-table
-        # correlation (_apply_selector_tables) OVERRIDES it when it succeeds,
-        # but aborts on any case/table count mismatch -- leaving this value,
-        # which is why boolean cases (no table) and multi-case VIs still open
-        # on the right frame. See issue #30.
-        displayed_frame=parse_displayed_frame(case_elem, num_frames),
+        # checked against the frame list the renderer indexes). This is the
+        # reliable FALLBACK: the dataspace selector-table correlation
+        # (_apply_selector_tables) OVERRIDES it when it succeeds, but aborts on
+        # any case/table count mismatch -- leaving this value, which is why
+        # boolean cases (no table) and multi-case VIs still open on the right
+        # frame. See issue #30.
+        displayed_frame=parse_displayed_frame(case_elem, len(frames)),
     )
 
 
@@ -622,7 +623,9 @@ def _apply_selector_tables(
         if is_string != table.has_strings:
             return
         n_frames = len(case.frames)
-        if table.displayed_frame >= n_frames:
+        # Full range check (matches the diag check below and
+        # parse_displayed_frame) -- a negative displayed_frame is invalid too.
+        if not (0 <= table.displayed_frame < n_frames):
             return
         for _start, _end, diag in table.ranges:
             if not (0 <= diag < n_frames):

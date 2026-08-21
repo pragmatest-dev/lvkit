@@ -254,6 +254,10 @@ class ParsedDisableStructure:
     # Index into ``frames`` of the enabled/active subdiagram (heap
     # ``activeDiag``). None if the heap value didn't parse.
     active_frame: int | None = None
+    # Frame LabVIEW last displayed (heap ``dIdx``, range-checked) -- the saved
+    # visible frame, which for a Conditional Disable can differ from the
+    # enabled one. None for an out-of-range legacy ``dIdx``. See issue #30.
+    displayed_frame: int | None = None
 
 
 @dataclass
