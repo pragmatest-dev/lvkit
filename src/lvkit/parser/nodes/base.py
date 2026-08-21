@@ -18,7 +18,12 @@ __all__ = [
 ]
 
 
-def parse_displayed_frame(elem: ET.Element, num_frames: int) -> int | None:
+def parse_displayed_frame(
+    elem: ET.Element,
+    num_frames: int,
+    *,
+    absent_is_zero: bool = False,
+) -> int | None:
     """The frame LabVIEW last displayed for a stacked structure, from its heap
     ``dIdx``, or None when it isn't a usable local frame index.
 
@@ -29,11 +34,17 @@ def parse_displayed_frame(elem: ET.Element, num_frames: int) -> int | None:
     keeps its own fallback (default/first frame). This range check is exactly
     what tells the two encodings apart. See issue #30 (and #81, which correctly
     rejected the out-of-range value but over-generalised to rejecting ``dIdx``
-    wholesale). The event structure applies the same rule inline
-    (``event.py:_resolve_frame_labels``)."""
+    wholesale).
+
+    ``absent_is_zero`` selects how a MISSING/non-numeric ``dIdx`` is read.
+    LabVIEW omits the element when the value is 0 (the same "XML omits a 0
+    field" convention as ``parmIndex``): the event structure relies on that, so
+    it passes ``True`` (absent -> frame 0). Case/sequence pass ``False`` (absent
+    -> None -> keep the existing default/first-frame fallback), since that
+    omit-0 convention isn't separately verified for them."""
     d_idx_text = elem.findtext("dIdx")
     if not (d_idx_text and d_idx_text.lstrip("-").isdigit()):
-        return None
+        return 0 if (absent_is_zero and num_frames > 0) else None
     d = int(d_idx_text)
     return d if 0 <= d < num_frames else None
 

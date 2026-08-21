@@ -388,6 +388,16 @@ def _is_default_visible(path: FramePath, default_frame: dict[str, str]) -> bool:
     return all(default_frame.get(s) == v for s, v in path)
 
 
+def _shown_index(idx: int | None, n_frames: int, default: int = 0) -> int:
+    """The frame index to open a stacked structure on: ``idx`` when it is a
+    valid local frame index (``0 <= idx < n_frames``), else ``default``. One
+    place for the range check every structure branch in ``_frame_info`` shares.
+    (The parser already range-checks a ``dIdx``-derived ``displayed_frame``, but
+    a case's may instead come from the dataspace selector table, so the guard is
+    still load-bearing here.)"""
+    return idx if idx is not None and 0 <= idx < n_frames else default
+
+
 def _frame_info(
     nodes: list[AnyGraphNode],
     vi_name: str,
@@ -429,10 +439,9 @@ def _frame_info(
             # where the logic lives — NOT the Error frame, which is the semantic
             # default. Otherwise fall back to the default frame, else frame 0.
             shown = None
-            if node.displayed_frame is not None and 0 <= node.displayed_frame < len(
-                node.frames
-            ):
-                shown = node.frames[node.displayed_frame]
+            di = _shown_index(node.displayed_frame, len(node.frames), default=-1)
+            if di >= 0:
+                shown = node.frames[di]
             if shown is None and is_error:
                 shown = next(
                     (
@@ -480,12 +489,9 @@ def _frame_info(
                 (f for f in node.frames if str(f.selector_value) == "Enabled"),
                 None,
             )
-            if (
-                shown is None
-                and node.active_frame is not None
-                and 0 <= node.active_frame < len(node.frames)
-            ):
-                shown = node.frames[node.active_frame]
+            af = _shown_index(node.active_frame, len(node.frames), default=-1)
+            if shown is None and af >= 0:
+                shown = node.frames[af]
             if shown is None:
                 shown = next(
                     (f for f in node.frames if f.is_default),
@@ -501,13 +507,9 @@ def _frame_info(
             # ``dIdx``, range-checked in the parser), else frame 0.
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(i) for i in range(len(node.frames))]
-            shown_idx = (
-                node.displayed_frame
-                if node.displayed_frame is not None
-                and 0 <= node.displayed_frame < len(node.frames)
-                else 0
+            default_frame[raw] = str(
+                _shown_index(node.displayed_frame, len(node.frames))
             )
-            default_frame[raw] = str(shown_idx)
         elif isinstance(node, EventStructureNode) and node.frames:
             # Event structure: keyed by frame INDEX (like a stacked sequence,
             # not a case) — the active frame is chosen at runtime by whichever
@@ -519,13 +521,9 @@ def _frame_info(
             raw = _strip_prefix(node.id, vi_name)
             values = [str(i) for i in range(len(node.frames))]
             frame_values[raw] = values
-            shown_idx = (
-                node.displayed_frame
-                if node.displayed_frame is not None
-                and 0 <= node.displayed_frame < len(node.frames)
-                else 0
+            default_frame[raw] = str(
+                _shown_index(node.displayed_frame, len(node.frames))
             )
-            default_frame[raw] = str(shown_idx)
             frame_labels[raw] = {
                 str(i): f.event_label for i, f in enumerate(node.frames)
             }
@@ -1875,13 +1873,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         return d
 
     structures.sort(key=lambda s: _depth(s.node))
-
-    # Stacked sequences open on their saved displayed frame — set as
-    # ``default_frame`` from ``node.displayed_frame`` in ``_frame_info`` above.
-    # ``dIdx`` drives it ONLY when it is a valid local frame index; an
-    # out-of-range legacy ``dIdx`` (e.g. the 3-frame sequence carrying dIdx=17
-    # that #81 saw, a global-diagram ordinal) is rejected by the parser's range
-    # check and falls back to frame 0. See parse_displayed_frame + issue #30.
 
     # Tight viewBox: the bbox of everything actually DRAWN (rendered elements +
     # routed wires), padded. ``layout.scene_bounds()`` is computed from raw
