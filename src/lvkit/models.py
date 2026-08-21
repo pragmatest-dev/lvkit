@@ -64,6 +64,11 @@ class LVType:
     typedef_path: str | None = None
     typedef_name: str | None = None
     description: str | None = None
+    # For a MeasureData type (waveform / digital data): its LabVIEW "flavor"
+    # (e.g. "Float64Waveform", "DigitalWaveform", "Digitaldata"). These are
+    # opaque built-in structures with no VCTP children, so their component names
+    # come from a built-in table keyed by this flavor (see measure_data.py).
+    measure_flavor: str | None = None
 
     def to_python(self) -> str:
         """Render as Python type annotation string."""

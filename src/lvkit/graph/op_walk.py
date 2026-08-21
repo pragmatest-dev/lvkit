@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..extractor import extract_vi_xml
+from ..measure_data import measure_data_field_name
 from ..models import (
     CaseFrame,
     CaseOperation,
@@ -420,6 +421,15 @@ def _nmux_lane_name(
     None when neither source resolves a name — callers keep their own
     index/name fallback (a bracketed index or the terminal's own name is
     display-only, never worth pinning onto ``display_name``)."""
+    # A MeasureData aggregate (waveform / digital data) has no VCTP fields — its
+    # component names come from the built-in flavor table, keyed directly by the
+    # drawer's field index (no leaf-flatten).
+    if agg is not None and agg.lv_type is not None and agg.lv_type.measure_flavor:
+        name = measure_data_field_name(
+            agg.lv_type.measure_flavor, term.nmux_field_index
+        )
+        if name:
+            return name
     own_fields, dep_fields = _nmux_field_sources(vi_name, agg, graph)
     return _resolve_nmux_field_name(term.nmux_field_index, own_fields, dep_fields)
 
