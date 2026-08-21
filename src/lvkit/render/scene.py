@@ -404,9 +404,9 @@ def _frame_info(
     No-Error (green) frame.
 
     Cases key by selector value (with ``is_default``/first-frame fallback);
-    stacked sequences key by frame index and default to frame 0 here — but
-    ``build_scene`` overrides that with the heap's saved displayed frame
-    (``dIdx``), the faithful initial view.
+    stacked sequences key by frame index and open on ``node.displayed_frame``
+    (the heap ``dIdx`` when it is a valid local index — see
+    ``parser/nodes/base.parse_displayed_frame``), else frame 0.
     """
     default_frame: dict[str, str] = {}
     frame_values: dict[str, list[str]] = {}
@@ -497,9 +497,17 @@ def _frame_info(
             and node.node_type != "flatSequence"
             and node.frames
         ):
+            # Open a stacked sequence on the frame LabVIEW last displayed (heap
+            # ``dIdx``, range-checked in the parser), else frame 0.
             raw = _strip_prefix(node.id, vi_name)
             frame_values[raw] = [str(i) for i in range(len(node.frames))]
-            default_frame[raw] = "0"
+            shown_idx = (
+                node.displayed_frame
+                if node.displayed_frame is not None
+                and 0 <= node.displayed_frame < len(node.frames)
+                else 0
+            )
+            default_frame[raw] = str(shown_idx)
         elif isinstance(node, EventStructureNode) and node.frames:
             # Event structure: keyed by frame INDEX (like a stacked sequence,
             # not a case) — the active frame is chosen at runtime by whichever
@@ -1868,10 +1876,12 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
 
     structures.sort(key=lambda s: _depth(s.node))
 
-    # Stacked sequences open on frame 0. (The heap ``dIdx`` is NOT a frame
-    # index — verified: a 3-frame sequence carries dIdx=17, which resolves to a
-    # diagram outside the structure's own frames — so it cannot drive the
-    # initial view. See #81.)
+    # Stacked sequences open on their saved displayed frame — set as
+    # ``default_frame`` from ``node.displayed_frame`` in ``_frame_info`` above.
+    # ``dIdx`` drives it ONLY when it is a valid local frame index; an
+    # out-of-range legacy ``dIdx`` (e.g. the 3-frame sequence carrying dIdx=17
+    # that #81 saw, a global-diagram ordinal) is rejected by the parser's range
+    # check and falls back to frame 0. See parse_displayed_frame + issue #30.
 
     # Tight viewBox: the bbox of everything actually DRAWN (rendered elements +
     # routed wires), padded. ``layout.scene_bounds()`` is computed from raw

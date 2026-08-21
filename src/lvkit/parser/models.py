@@ -257,11 +257,16 @@ class ParsedDisableStructure:
 
 @dataclass
 class ParsedFlatSequenceStructure:
-    """A flat sequence structure on the block diagram."""
+    """A flat OR stacked sequence structure on the block diagram."""
 
     uid: str
     tunnels: list[Tunnel] = field(default_factory=list)
     frames: list[SequenceFrame] = field(default_factory=list)
+    # Frame LabVIEW last displayed (heap ``dIdx``, range-checked). Only a
+    # STACKED sequence stacks its frames, so this is None for a flat sequence
+    # (which shows every frame) and None when ``dIdx`` is an out-of-range
+    # legacy global-diagram ordinal. Consumed by the renderer's initial view.
+    displayed_frame: int | None = None
 
 
 @dataclass

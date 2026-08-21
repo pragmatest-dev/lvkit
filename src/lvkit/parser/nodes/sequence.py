@@ -8,7 +8,11 @@ from lvkit.models import SequenceFrame, Tunnel
 
 from ..constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from ..models import ParsedFlatSequenceStructure
-from .base import extract_tunnel_mapping, frame_inner_node_uids
+from .base import (
+    extract_tunnel_mapping,
+    frame_inner_node_uids,
+    parse_displayed_frame,
+)
 
 # Both flat and stacked sequences enforce sequential execution.
 # Flat: class="flatSequence", frames under <sequenceList>
@@ -92,10 +96,19 @@ def _extract_one_sequence(
             )
         )
 
+    # Only a STACKED sequence stacks its frames and remembers a displayed one;
+    # a flat sequence shows every frame side by side (no single initial view).
+    displayed_frame = (
+        parse_displayed_frame(seq_elem, len(frames))
+        if seq_class != "flatSequence"
+        else None
+    )
+
     return ParsedFlatSequenceStructure(
         uid=seq_uid,
         tunnels=all_tunnels,
         frames=frames,
+        displayed_frame=displayed_frame,
     )
 
 

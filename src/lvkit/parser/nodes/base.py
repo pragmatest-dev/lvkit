@@ -14,7 +14,28 @@ __all__ = [
     "extract_label",
     "extract_tunnel_mapping",
     "frame_inner_node_uids",
+    "parse_displayed_frame",
 ]
+
+
+def parse_displayed_frame(elem: ET.Element, num_frames: int) -> int | None:
+    """The frame LabVIEW last displayed for a stacked structure, from its heap
+    ``dIdx``, or None when it isn't a usable local frame index.
+
+    ``dIdx`` is the displayed frame's index ONLY when ``0 <= dIdx < num_frames``
+    -- validated corpus-wide against ``selString`` (20/20 in-range boolean cases
+    matched). An OUT-OF-RANGE ``dIdx`` (e.g. 17 on a 3-frame sequence) is an OLD
+    global-diagram ordinal, NOT a frame index, so it yields None and the caller
+    keeps its own fallback (default/first frame). This range check is exactly
+    what tells the two encodings apart. See issue #30 (and #81, which correctly
+    rejected the out-of-range value but over-generalised to rejecting ``dIdx``
+    wholesale). The event structure applies the same rule inline
+    (``event.py:_resolve_frame_labels``)."""
+    d_idx_text = elem.findtext("dIdx")
+    if not (d_idx_text and d_idx_text.lstrip("-").isdigit()):
+        return None
+    d = int(d_idx_text)
+    return d if 0 <= d < num_frames else None
 
 # Structure classes that LabVIEW may list ONLY in a frame diagram's zPlaneList
 # (not its nodeList) — see frame_inner_node_uids.

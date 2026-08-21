@@ -10,7 +10,11 @@ from lvkit.text_encoding import decode_labview_text
 
 from ..constants import TERMINAL_CLASS
 from ..models import ParsedCaseStructure, ParsedTerminalInfo, SelectorTable
-from .base import extract_tunnel_mapping, frame_inner_node_uids
+from .base import (
+    extract_tunnel_mapping,
+    frame_inner_node_uids,
+    parse_displayed_frame,
+)
 from .disable import is_structure_boundary
 
 # Tunnel DCO classes used in case structures
@@ -371,6 +375,13 @@ def _extract_one_case_structure(
         case_insensitive=case_insensitive and selector_type == "string",
         frames=frames,
         tunnels=tunnels,
+        # The displayed frame from the case node's own heap ``dIdx`` (range-
+        # checked). This is the reliable source: the dataspace selector-table
+        # correlation (_apply_selector_tables) OVERRIDES it when it succeeds,
+        # but aborts on any case/table count mismatch -- leaving this value,
+        # which is why boolean cases (no table) and multi-case VIs still open
+        # on the right frame. See issue #30.
+        displayed_frame=parse_displayed_frame(case_elem, num_frames),
     )
 
 

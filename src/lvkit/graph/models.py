@@ -163,6 +163,11 @@ class SequenceNode(StructureNode):
     model_config = {"arbitrary_types_allowed": True}
 
     frames: list[SequenceFrame] = []
+    # Frame a STACKED sequence last displayed (heap ``dIdx``, range-checked) —
+    # the faithful initial view. None for a flat sequence (all frames shown)
+    # and when ``dIdx`` is an out-of-range legacy ordinal → renderer opens
+    # frame 0.
+    displayed_frame: int | None = None
 
 
 class InPlaceNode(StructureNode):
