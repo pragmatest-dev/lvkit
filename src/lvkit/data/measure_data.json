@@ -1,0 +1,26 @@
+{
+  "_comment": "Built-in component names for LabVIEW MeasureData flavors. See src/lvkit/measure_data.py. A MeasureData value is an OPAQUE VCTP leaf -- its component fields are NOT serialized in the VI, so these names come from this table, keyed by the type's exact MEASURE_DATA_FLAVOR name (the string pylabview writes to the extracted XML's <Flavor>). Clean-room: the component names/order are the PUBLIC LabVIEW waveform/digital-data components (NI 'Get Waveform Components' docs), never licensed source. Field indices are the node's stored field index; gaps (e.g. the analog waveform's error cluster at 3-6) are internal fields that aren't user-extractable components. Flavors with no documented named components (TimeStamp, Dynamicdata) are intentionally absent -> resolve to None.",
+  "layouts": {
+    "waveform": {"0": "t0", "1": "dt", "2": "Y", "7": "attributes"},
+    "digital_data": {"0": "transitions", "1": "data"}
+  },
+  "flavors": {
+    "OldFloat64Waveform": "waveform",
+    "Int16Waveform": "waveform",
+    "Float64Waveform": "waveform",
+    "Float32Waveform": "waveform",
+    "FloatExtWaveform": "waveform",
+    "UInt8Waveform": "waveform",
+    "UInt16Waveform": "waveform",
+    "UInt32Waveform": "waveform",
+    "Int8Waveform": "waveform",
+    "Int32Waveform": "waveform",
+    "Complex64Waveform": "waveform",
+    "Complex128Waveform": "waveform",
+    "ComplexExtWaveform": "waveform",
+    "Int64Waveform": "waveform",
+    "UInt64Waveform": "waveform",
+    "DigitalWaveform": "waveform",
+    "Digitaldata": "digital_data"
+  }
+}
