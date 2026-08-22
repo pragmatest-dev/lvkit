@@ -31,17 +31,23 @@ class StructureBodyGlyph(ABC):
     :meth:`draw_outline` (border decoration).
 
     ``border_width`` is the outline stroke width, and each kind may set its own
-    — a While loop draws a thick grey border, a For loop a thin one. The border
-    is centered on the boundary, so it occupies ±border_width/2 around the line;
-    :meth:`interior` clips content that same half-width inside so content meets
-    the stroke's inner edge flush (no overpaint, no gap). Because each kind owns
-    its width, the clip tracks it automatically."""
+    — a While loop draws a thick grey border, a For loop a thin one. The layout
+    bounding box is the OUTER edge of the border, so the outline is stroked on a
+    rect pulled ``border_width/2`` INSIDE the bounds (its outer edge then lands
+    on the box), and :meth:`interior` clips content a FULL ``border_width``
+    inside — the border's inner edge — so content meets the border flush (no
+    overpaint, no gap). The opaque body still fills the whole box. Every
+    ``draw_outline`` override just strokes relative to the inset bounds it's
+    handed, so this needs no per-kind offset."""
 
     border_width: float = 1.2
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         self.draw_body(backend, bounds, theme)
-        self.draw_outline(backend, bounds, theme)
+        # Border OUTER edge = bounds, so stroke on a rect inset half the width.
+        i = self.border_width / 2
+        x1, y1, x2, y2 = bounds
+        self.draw_outline(backend, (x1 + i, y1 + i, x2 - i, y2 - i), theme)
 
     def draw_body(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """Paint the OPAQUE body so the structure occludes what's behind it.
@@ -62,9 +68,10 @@ class StructureBodyGlyph(ABC):
         return self._clip_inset(bounds)
 
     def _clip_inset(self, rect: Rect) -> Rect:
-        """Shrink a clip rect by THIS kind's border half-width on every side."""
+        """Shrink a clip rect by a FULL border width on every side — the border
+        sits fully inside the box, so its inner edge is one width in."""
         x1, y1, x2, y2 = rect
-        i = self.border_width / 2
+        i = self.border_width
         return (x1 + i, y1 + i, x2 - i, y2 - i)
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
