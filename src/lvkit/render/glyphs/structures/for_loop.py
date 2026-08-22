@@ -48,9 +48,10 @@ class ForLoopGlyph(StructureBodyGlyph):
         )
 
     def interior(self, bounds: Rect) -> Rect:
-        # Contents live inside the front card, not the outer stacked bounds.
+        # Contents live inside the front card (not the outer stacked bounds),
+        # border-inset on every side like every other kind.
         x1, y1, x2, y2 = bounds
-        return (x1, y1, x2 - 2 * _O, y2 - 2 * _O)
+        return self._clip_inset((x1, y1, x2 - 2 * _O, y2 - 2 * _O))
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds

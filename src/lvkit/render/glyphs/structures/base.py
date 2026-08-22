@@ -24,6 +24,13 @@ from ...style import Theme
 
 Rect = tuple[float, float, float, float]
 
+# Content is drawn OVER the structure's border (the outline strokes before the
+# content group), so the content clip is pulled this far inside the border on
+# every side — otherwise interior wires/glyphs that reach the boundary overpaint
+# the ~1.2px-wide border stroke and break it. One px clears the stroke's visible
+# inner half (0.6px) with margin, without leaving a visible canvas gap.
+_CLIP_INSET = 1.0
+
 
 class StructureBodyGlyph(ABC):
     """Base = the generic structure: an opaque rectangular body + a plain
@@ -46,10 +53,18 @@ class StructureBodyGlyph(ABC):
 
     def interior(self, bounds: Rect) -> Rect:
         """The rect the structure clips its CONTENTS to. Default: the whole
-        bounds. A kind whose inner diagram is bounded by an inset front card
-        (the For-loop) overrides this so contents clip to that card, not to the
-        outer stacked-card bounds."""
-        return bounds
+        bounds, pulled inside the border by :data:`_CLIP_INSET`. A kind whose
+        inner diagram is bounded by an inset front card (the For-loop) overrides
+        this so contents clip to that card (also border-inset), not to the outer
+        stacked-card bounds."""
+        return self._clip_inset(bounds)
+
+    @staticmethod
+    def _clip_inset(rect: Rect) -> Rect:
+        """Shrink a clip rect by the border clearance on every side."""
+        x1, y1, x2, y2 = rect
+        i = _CLIP_INSET
+        return (x1 + i, y1 + i, x2 - i, y2 - i)
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """Stroke the structure's static border."""
