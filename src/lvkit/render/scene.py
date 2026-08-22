@@ -1298,12 +1298,37 @@ def _innermost_common_container(
     obstacle. ``_endpoint_containers`` is ordered leaf→root, so the first
     container common to both endpoints is the deepest (nesting handled).
     """
-    src = _endpoint_containers(w.source, graph, by_id, vi_name)
-    dst = set(_endpoint_containers(w.dest, graph, by_id, vi_name))
+    src = _containment_of(w.source, graph, by_id, vi_name)
+    dst = set(_containment_of(w.dest, graph, by_id, vi_name))
     for uid in src:
         if uid in dst:
             return uid
     return None
+
+
+def _containment_of(
+    end: WireEnd,
+    graph: InMemoryVIGraph,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
+) -> list[str]:
+    """Structures this endpoint lives inside, innermost→outermost — the general
+    containment rule for a WIRE endpoint: its node's ancestor structures PLUS,
+    when the endpoint sits ON a structure's own border (a loop's ``i``/``cond``,
+    a tunnel/shift-register/selector), that structure itself as the innermost.
+
+    This is a superset of ``_endpoint_containers`` (which recognizes only INNER
+    tunnel faces, because it also drives obstacle EXEMPTION where the inner/outer
+    face matters). For CONTAINMENT the intersection with the OTHER endpoint does
+    the filtering: an external wire's outside endpoint has no structure here, so
+    the intersection is empty → root."""
+    containers = _endpoint_containers(end, graph, by_id, vi_name)
+    node = by_id.get(end.node_id)
+    if isinstance(node, StructureNode):
+        own = _strip_prefix(node.id, vi_name)
+        if own not in containers:
+            containers = [own, *containers]  # the endpoint's own structure is innermost
+    return containers
 
 
 def _build_wire_nets(
