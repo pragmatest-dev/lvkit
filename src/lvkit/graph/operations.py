@@ -480,7 +480,18 @@ class OperationsMixin:
         parent_uid: str,
         vi_name: str,
     ) -> list[str]:
-        """Get UIDs of all graph nodes whose parent == parent_uid."""
+        """UIDs of the nodes whose parent == parent_uid, in deterministic
+        ``_node_order_key`` order.
+
+        Reads the FORWARD containment adjacency stamped at construction
+        (``GraphNode.children``) — an O(1) lookup instead of the whole-VI
+        reverse scan this used to do. The stored list is already sorted by
+        ``_node_order_key``, so the result is byte-identical to the old scan.
+        Falls back to the scan only when ``parent_uid`` is not a graph node
+        (shouldn't happen for a real structure)."""
+        owner = self._graph.nodes.get(parent_uid, {}).get("node")
+        if owner is not None:
+            return owner.children
         node_uids = self._vi_nodes.get(vi_name, set())
         children: list[str] = []
         for uid in node_uids:
@@ -489,8 +500,6 @@ class OperationsMixin:
             gnode = self._graph.nodes[uid].get("node")
             if gnode is not None and gnode.parent == parent_uid:
                 children.append(uid)
-        # node_uids is a hash-randomized set — order deterministically so the
-        # structure's inner-node ordering is reproducible.
         return sorted(children, key=_node_order_key)
 
     def _populate_frame_operations(

@@ -36,6 +36,7 @@ class Theme:
 
     canvas: str = "#fbfbf5"
     struct_border: str = "#1e1e1e"  # loop/structure border (near-black, per GT)
+    while_border: str = "#808080"  # While loop's thick grey border (per GT)
     prim_fill: str = "#fff6d8"
     prim_stroke: str = "#b07d10"
     prim_text: str = "#1a1a1a"  # label text on prim_fill (Arith/Bundle/…)
@@ -44,7 +45,7 @@ class Theme:
     const_text: str = "#1a1a1a"  # label text on const_fill
     loop_term: str = "#1f3fbf"  # N / i border terminal
     loop_term_fill: str = "#ffffcc"  # pale-yellow fill of the N/i box (per GT)
-    loop_term_text: str = "#1a1a1a"  # "N"/"i" glyph text on loop_term_fill
+    loop_term_text: str = "#1f3fbf"  # "N"/"i" glyph text — integer blue (I32)
     cond_stop: str = "#c62828"  # while-loop cond terminal: Stop-if-True
     cond_continue: str = "#2e7d32"  # while-loop cond terminal: Continue-if-True
     subvi_fill: str = "#eef0e6"
@@ -58,7 +59,7 @@ class Theme:
     # diagonal-hatch border uses a similar tan hue): a WIDE filled BAND (not
     # a thin dashed line) between the structure's outer heap bounds and its
     # inset inner content, mirroring LabVIEW's own hatched border margin
-    # (see draw.py::_draw_event_border_band). ``event_border`` is the thin
+    # (see glyphs/structures/event.py::EventGlyph). ``event_border`` is the thin
     # edge-line color (outer + inner rule); ``event_band`` is the band's
     # light-yellow fill.
     event_border: str = "#b8860b"

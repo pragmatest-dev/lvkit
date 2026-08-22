@@ -152,6 +152,7 @@ class Backend(Protocol):
         style: str | None = None,
         title: str | None = None,
         href: str | None = None,
+        clip: tuple[float, float, float, float] | None = None,
     ) -> None:
         """Open a grouping container (``<g>``) — used for the interactive
         case-frame layering (``lv-frame``) and click targets (``lv-selector``).
@@ -159,7 +160,9 @@ class Backend(Protocol):
         ``title``, when given, is emitted as a ``<title>`` child so the whole
         group shows a native hover tooltip. ``href``, when given, wraps the
         group in an ``<a>`` (opens in a new tab) — e.g. a node linking to its
-        NI docs page. Must be paired with ``end_group()``."""
+        NI docs page. ``clip`` (a rect), when given, clips the group's contents
+        to that rect via a ``<clipPath>`` — a structure clipping its inner
+        content to its own bounds. Must be paired with ``end_group()``."""
         ...
 
     def end_group(self) -> None:
@@ -175,6 +178,11 @@ class SvgBackend:
         # Parallel to the open-group stack: whether each begin_group() also
         # opened an <a> wrapper (href given), so end_group() closes it too.
         self._anchor_stack: list[bool] = []
+        # Content-clip rects (structure bounds), deduped by rect so a structure
+        # drawn once per frame reuses one <clipPath>. The final ids are resolved
+        # in render() with the per-SVG root_id prefix (so many inlined SVGs on
+        # one page don't collide on url(#id)); begin_group emits a placeholder.
+        self._clip_ids: dict[tuple[float, float, float, float], int] = {}
 
     @staticmethod
     def _attrs(**attrs: str | float | None) -> str:
@@ -336,6 +344,7 @@ class SvgBackend:
         style: str | None = None,
         title: str | None = None,
         href: str | None = None,
+        clip: tuple[float, float, float, float] | None = None,
     ) -> None:
         if href is not None:
             self._elements.append(
@@ -350,6 +359,9 @@ class SvgBackend:
             attrs.append(f"data-{k}={quoteattr(data[k])}")
         if style is not None:
             attrs.append(f"style={quoteattr(style)}")
+        if clip is not None:
+            idx = self._clip_ids.setdefault(clip, len(self._clip_ids))
+            attrs.append(f'clip-path="url(#__LVCLIP{idx}__)"')
         suffix = (" " + " ".join(attrs)) if attrs else ""
         self._elements.append(f"<g{suffix}>")
         if title is not None:
@@ -413,10 +425,38 @@ class SvgBackend:
         )
         title_el = None
         style_el = f"<style>{style}</style>" if style else None
+        # Content-clip <defs>: one <clipPath> per distinct structure rect, ids
+        # prefixed with the per-SVG root scope so many inlined SVGs on one page
+        # don't collide on url(#id). begin_group emitted __LVCLIP{idx}__
+        # placeholders in the group tags; resolve them to the final ids here
+        # (per element, so the element/newline structure is unchanged).
+        prefix = root_id if root_id is not None else "lv"
+        defs_el = None
+        elements = self._elements
+        if self._clip_ids:
+            clips = []
+            sub: dict[str, str] = {}
+            for (cx1, cy1, cx2, cy2), idx in self._clip_ids.items():
+                cid = f"{prefix}-c{idx}"
+                sub[f"__LVCLIP{idx}__"] = cid
+                clips.append(
+                    f'<clipPath id="{cid}"><rect x="{cx1:.1f}" y="{cy1:.1f}" '
+                    f'width="{cx2 - cx1:.1f}" height="{cy2 - cy1:.1f}"/></clipPath>'
+                )
+            defs_el = "<defs>" + "".join(clips) + "</defs>"
+
+            def _resolve(el: str) -> str:
+                if "__LVCLIP" not in el:
+                    return el
+                for k, v in sub.items():
+                    el = el.replace(k, v)
+                return el
+
+            elements = [_resolve(el) for el in self._elements]
         script_el = None
         if script is not None:
             if "</script>" in script or "]]>" in script:
                 raise ValueError("script must not contain a literal </script> or ]]>")
             script_el = f"<script>/*<![CDATA[*/\n{script}\n/*]]>*/</script>"
-        parts = [head, title_el, style_el, *self._elements, script_el, "</svg>"]
+        parts = [head, title_el, style_el, defs_el, *elements, script_el, "</svg>"]
         return "\n".join(p for p in parts if p is not None)

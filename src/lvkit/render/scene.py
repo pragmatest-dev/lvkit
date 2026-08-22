@@ -242,6 +242,12 @@ class RenderWireNet:
     # LabVIEW's implicit-conversion coercion dot (see style.coercion_key).
     coercion_dots: list[Point] = field(default_factory=list)
     frame_path: FramePath = ()
+    # Raw uid of the INNERMOST structure containing BOTH endpoints, or None for
+    # a wire at the root diagram / not fully contained. This is the net's
+    # CONTAINMENT owner — the composite render tree draws each net inside its
+    # container's diagram so a container body occludes wires behind it but never
+    # its own inner wires (see _innermost_common_container).
+    container_uid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -283,6 +289,15 @@ class Scene:
     # raw struct uid of ERROR-cluster case structures -> {selector value ->
     # True if that frame is the No-Error (green) case, else False (red)}.
     error_frame_no_error: dict[str, dict[str, bool]] = field(default_factory=dict)
+    # Z-ORDER paint rank per raw uid (from Layout.z_order) — LabVIEW's back-to-
+    # front zPlaneList order. The composite render tree sorts each container's
+    # children by this so a later (higher-rank) sibling occludes earlier ones.
+    # Render-only paint order; containment comes from each node's own parent.
+    z_order: dict[str, int] = field(default_factory=dict)
+    # WIRE paint rank per source terminal uid (from Layout.wire_z) — LabVIEW's
+    # separate signalList order (wires are NOT in zPlaneList). The composite
+    # sorts each container's wire nets by this so crossings paint in that order.
+    wire_z: dict[str, int] = field(default_factory=dict)
 
 
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
@@ -1287,12 +1302,37 @@ def _innermost_common_container(
     obstacle. ``_endpoint_containers`` is ordered leaf→root, so the first
     container common to both endpoints is the deepest (nesting handled).
     """
-    src = _endpoint_containers(w.source, graph, by_id, vi_name)
-    dst = set(_endpoint_containers(w.dest, graph, by_id, vi_name))
+    src = _containment_of(w.source, graph, by_id, vi_name)
+    dst = set(_containment_of(w.dest, graph, by_id, vi_name))
     for uid in src:
         if uid in dst:
             return uid
     return None
+
+
+def _containment_of(
+    end: WireEnd,
+    graph: InMemoryVIGraph,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
+) -> list[str]:
+    """Structures this endpoint lives inside, innermost→outermost — the general
+    containment rule for a WIRE endpoint: its node's ancestor structures PLUS,
+    when the endpoint sits ON a structure's own border (a loop's ``i``/``cond``,
+    a tunnel/shift-register/selector), that structure itself as the innermost.
+
+    This is a superset of ``_endpoint_containers`` (which recognizes only INNER
+    tunnel faces, because it also drives obstacle EXEMPTION where the inner/outer
+    face matters). For CONTAINMENT the intersection with the OTHER endpoint does
+    the filtering: an external wire's outside endpoint has no structure here, so
+    the intersection is empty → root."""
+    containers = _endpoint_containers(end, graph, by_id, vi_name)
+    node = by_id.get(end.node_id)
+    if isinstance(node, StructureNode):
+        own = _strip_prefix(node.id, vi_name)
+        if own not in containers:
+            containers = [own, *containers]  # the endpoint's own structure is innermost
+    return containers
 
 
 def _build_wire_nets(
@@ -1552,6 +1592,9 @@ def _build_wire_nets(
                 branches=branches,
                 coercion_dots=coercion_dots,
                 frame_path=path,
+                container_uid=_innermost_common_container(
+                    group[0], graph, by_id, vi_name
+                ),
             )
         )
 
@@ -1939,4 +1982,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         frame_values=frame_values,
         frame_labels=frame_labels,
         error_frame_no_error=error_frame_no_error,
+        z_order=layout.z_order,
+        wire_z=layout.wire_z,
     )

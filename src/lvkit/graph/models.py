@@ -55,6 +55,16 @@ class GraphNode(BaseModel):
     description: str | None = None
     parent: str | None = None  # containing structure UID
     frame: str | int | None = None  # frame selector value
+    # First-class FORWARD containment: the qualified UIDs of the nodes this
+    # node contains (its direct children), in deterministic ``_node_order_key``
+    # order. ``parent`` is the authoritative back-link; this is the forward
+    # adjacency, populated once at construction so consumers read children in
+    # O(1) instead of scanning the whole VI's node set (see
+    # ``GraphManager._get_children_of``). Structures list their inner nodes; the
+    # root VINode lists the top-level (parent-less) diagram nodes. Pure
+    # containment — the render layer applies zPlaneList PAINT order separately
+    # (a draw concern that never enters the graph). Empty for leaf nodes.
+    children: list[str] = []
 
 
 class VINode(GraphNode):

@@ -3507,21 +3507,12 @@ class TestCaseDisplayedFrame:
 
 
 def _draw_case_border_svg(case_insensitive: bool) -> str:
-    from lvkit.render.draw import draw_structure
-    from lvkit.render.scene import RenderStructure
+    from lvkit.render.glyphs.structures.case import CaseGlyph
+    from lvkit.render.style import DEFAULT_THEME
 
-    node = CaseStructureNode(
-        id="vi::c",
-        vi="vi",
-        name="Case",
-        node_type="select",
-        frames=[],
-        case_insensitive=case_insensitive,
-    )
-    struct = RenderStructure(node=node, bounds=(0.0, 0.0, 120.0, 90.0), raw_uid="c")
-    scene = Scene(bounds=(0.0, 0.0, 120.0, 90.0), structures=[struct])
+    glyph = CaseGlyph(case_insensitive=case_insensitive)
     backend = SvgBackend()
-    draw_structure(struct, scene, backend)
+    glyph.draw(backend, (0.0, 0.0, 120.0, 90.0), DEFAULT_THEME)
     return backend.render((0.0, 0.0, 120.0, 90.0))
 
 

@@ -28,6 +28,7 @@ from .style import DEFAULT_THEME, Theme
 DARK_PALETTE: dict[str, str] = {
     "canvas": "#1b1c1e",
     "struct_border": "#cdcdcd",
+    "while_border": "#9a9a9a",
     "prim_fill": "#34301e",
     "prim_stroke": "#d9a93a",
     "prim_text": "#f2ecd8",
@@ -36,7 +37,7 @@ DARK_PALETTE: dict[str, str] = {
     "const_text": "#ededed",
     "loop_term": "#6b8cff",
     "loop_term_fill": "#34331d",
-    "loop_term_text": "#f2ecd8",
+    "loop_term_text": "#6b8cff",
     "cond_stop": "#ff5b5b",
     "cond_continue": "#5bd06a",
     "subvi_fill": "#2a2c26",
