@@ -45,9 +45,9 @@ from .glyph import (
     fit_wrapped,
     wrap_label,
 )
+from .glyphs.terminals.factory import border_terminal_glyph
 from .nodes import _CLUSTER_MUX_TYPES, mux_display_name, mux_doc_url
 from .scene import (
-    FramePath,
     RenderBorderTerminal,
     RenderLabel,
     RenderNode,
@@ -56,10 +56,8 @@ from .scene import (
     RenderWireNet,
     Scene,
     _exit_side,
-    _is_default_visible,
     _wire_edge_point,
     _wire_role,
-    encode_frame_path,
 )
 from .style import (
     DEFAULT_THEME,
@@ -71,25 +69,6 @@ from .style import (
     type_repr,
     wire_style,
 )
-
-# Structure node_type -> border style key (graph-sourced; see node_type
-# values assigned in graph/construction.py / parser/node_types.py's per-class
-# handler registry, get_display_name()).
-_STRUCTURE_STYLE = {
-    "forLoop": "forLoop",
-    "whileLoop": "whileLoop",
-    "caseStruct": "case",
-    "select": "case",
-    "flatSequence": "flatSequence",
-    "seq": "stackedSequence",
-    "sequence": "stackedSequence",
-    # Diagram/Conditional Disable structure — drawn like a case (bordered
-    # box + subdiagram selector) for now; faithful greyed-out styling of
-    # disabled diagrams is a follow-up.
-    "commentNode": "case",
-    "eventStruct": "event",
-    "decomposeRecomposeStructure": "inPlace",
-}
 
 # LabVIEW's array-control terminal icon always shows a 3-row index display
 # (i / j / k) as fixed chrome, independent of the array's real dimensionality.
@@ -226,15 +205,6 @@ def _draw_formula_tunnel(
             anchor="middle",
             fill=color,
         )
-
-
-def _inset(bounds, frac: float = 0.075):
-    """Shrink a rect toward its center by ``frac`` on each side. Border-terminal
-    termBounds are the clickable region; LabVIEW draws the visible glyph inset
-    within it (~15% smaller overall)."""
-    x1, y1, x2, y2 = bounds
-    dx, dy = (x2 - x1) * frac, (y2 - y1) * frac
-    return x1 + dx, y1 + dy, x2 - dx, y2 - dy
 
 
 # A primitive whose glyph is drawn as one of these keeps its own aspect ratio
@@ -1061,288 +1031,24 @@ def _draw_border_terminal(
     theme: Theme,
     frame_value: str | None = None,
 ) -> None:
-    """Draw a structure border glyph from its fixed ``glyph_kind`` — a
-    geometry-side decoration (see ``scene._structure_borders``), never
-    re-derived from heap class strings here.
-
-    ``frame_value`` is the case/sequence frame this glyph is being drawn for
-    (the border terminal is redrawn once per container frame — see
-    ``draw_scene``); an output tunnel unwired in that frame draws with a hole.
+    """Draw a structure border glyph from its fixed ``glyph_kind`` (see
+    ``scene._structure_borders``) by delegating to the per-kind glyph in
+    ``glyphs/terminals/``. ``frame_value`` is the frame this glyph is drawn for
+    (an output tunnel unwired in that frame draws with a canvas hole). Hidden
+    terminals (loop i/N/cond turned off via "Visible Items") are omitted — the
+    terminal stays in the scene so a future "show hidden" toggle can reveal it.
     """
-    # Hidden via "Visible Items" (loop i/N/cond) — omit the glyph, matching
-    # LabVIEW. The terminal stays in the scene (see RenderBorderTerminal.hidden)
-    # so a future "show hidden" viewer toggle can draw it ghosted instead.
     if bt.hidden:
         return
-    x1, y1, x2, y2 = _inset(bt.bounds)
-    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-    kind = bt.glyph_kind
-
-    if kind in ("N", "i"):
-        backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=theme.loop_term_fill,
-            stroke=theme.loop_term,
-            stroke_width=1.5,
-        )
-        backend.text(cx, cy + 4, kind, 11, fill=theme.loop_term_text, italic=True)
-        return
-    if kind == "eventTimeout":
-        # Event Structure timeout terminal: a small box (top-left, the
-        # position a For-Loop's N terminal occupies) holding a blue HOURGLASS
-        # — two triangles apex-to-apex — in the wire-integer color, matching
-        # the reference LabVIEW screenshot's blue timeout glyph. It's a real
-        # wireable INPUT (the timeout value), so it gets the same pale
-        # loop-term fill as N/i, just with its own bespoke symbol instead of
-        # falling through to a generic filled tunnel block.
-        backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=theme.loop_term_fill,
-            stroke=theme.wire_int,
-            stroke_width=1.2,
-        )
-        hw = (x2 - x1) * 0.30
-        hh = (y2 - y1) * 0.34
-        backend.polygon(
-            [(cx - hw, cy - hh), (cx + hw, cy - hh), (cx, cy)],
-            fill=theme.wire_int,
-            stroke=None,
-        )
-        backend.polygon(
-            [(cx - hw, cy + hh), (cx + hw, cy + hh), (cx, cy)],
-            fill=theme.wire_int,
-            stroke=None,
-        )
-        return
-    if kind == "eventDyn":
-        # Event Structure dynamic-event-registration terminal (appears as an
-        # ``otherSide``-linked pair — see parser/nodes/event.py): a small
-        # dark-green box (LabVIEW's own refnum-wire color) at its real heap
-        # position. Per the reference screenshot, BOTH terminals of the pair
-        # (left AND right edge) draw their arrow pointing RIGHT — the dynamic
-        # registration refnum threads left-to-right through the structure (in on
-        # the left, back out on the right), so the glyph follows that flow
-        # direction on both sides rather than mirroring by in/out.
-        col = theme.wire_refnum
-        backend.rect(
-            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col, stroke_width=1.2
-        )
-        aw = (x2 - x1) * 0.22
-        ah = (y2 - y1) * 0.26
-        backend.polygon(
-            [(cx - aw, cy - ah), (cx - aw, cy + ah), (cx + aw, cy)],
-            fill=col,
-            stroke=None,
-        )
-        return
-    if kind == "cond":
-        # LabVIEW's conditional terminal shows its mode by color: RED for
-        # Stop-if-True (the default) and GREEN for Continue-if-True. The mode
-        # is the loop's ``stop_condition_inverted`` (heap ``loopTestDCO``
-        # objFlags bit 16), carried here as ``bt.cond_continue``. Continue also
-        # gets a small in-glyph loop arc so the two read apart without color.
-        # It sits in a terminal BOX on the border (like N/i/selector), the
-        # mode color on the box border and the inner glyph; per the LabVIEW
-        # reference the stop/continue symbol is boxed, not a bare disc.
-        mode_col = theme.cond_continue if bt.cond_continue else theme.cond_stop
-        backend.rect(
-            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=mode_col, stroke_width=1.2
-        )
-        r = min(x2 - x1, y2 - y1) / 2 * 0.62
-        if bt.cond_continue:
-            backend.circle(cx, cy, r, fill=theme.cond_continue)
-            # a white looping arrow arc (↻) — the "keep going" cue
-            a = r * 0.55
-            backend.path(
-                [
-                    (cx - a, cy + a * 0.2),
-                    (cx - a, cy - a),
-                    (cx + a, cy - a),
-                    (cx + a, cy + a),
-                ],
-                stroke="#ffffff",
-                stroke_width=1.2,
-            )
-            backend.polygon(
-                [
-                    (cx + a - 1.6, cy + a - 1.8),
-                    (cx + a + 1.6, cy + a - 1.8),
-                    (cx + a, cy + a + 1.4),
-                ],
-                fill="#ffffff",
-                stroke=None,
-            )
-        else:
-            backend.circle(cx, cy, r, fill=theme.cond_stop)
-        return
-    if kind == "selector":
-        # The selector terminal takes the WIRE TYPE COLOR of whatever feeds it
-        # (bool -> green, enum -> blue, error cluster -> mustard, ...), not a
-        # flat hardcoded green. Neutral pale fill so the "?" stays legible.
-        col = bt.color or theme.selector_stroke
-        backend.rect(
-            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col, stroke_width=1.2
-        )
-        # The "?" itself keeps the same semantic wire-type color as the border
-        # when one is known (bt.color); only the NEUTRAL fallback (no wire
-        # feeding it yet) uses the dedicated selector_text role rather than
-        # reusing selector_stroke, so the two can be tuned independently.
-        backend.text(cx, cy + 4, "?", 10, fill=bt.color or theme.selector_text)
-        return
-    if kind in ("sr_down", "sr_up"):
-        # Shift register: a type-colored box with a filled triangle glyph.
-        col = bt.color or theme.sr_stroke
-        backend.rect(
-            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=col, stroke_width=1.2
-        )
-        if kind == "sr_up":
-            tri = [(x1 + 2, y2 - 2), (cx, y1 + 2), (x2 - 2, y2 - 2)]
-        else:
-            tri = [(x1 + 2, y1 + 2), (cx, y2 - 2), (x2 - 2, y1 + 2)]
-        backend.polygon(tri, fill=col)
-        return
-    if kind == "autoindex":
-        # Array auto-indexing tunnel: a pale box with a dark border and the
-        # element brackets drawn as SHAPES (not text) in the wire type color.
-        # The brackets sit padded inside the box with LONG serifs so [ and ]
-        # nearly meet top and bottom — reading as a square inside the square.
-        col = bt.color or "#333333"
-        backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=theme.loop_term_fill,
-            stroke=theme.tunnel_border,
-            stroke_width=1.2,
-        )
-        # A centered SQUARE inner region (side = min box dimension), padded.
-        side = min(x2 - x1, y2 - y1) * (1 - 2 * 0.26)
-        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
-        lx, rx = mx - side / 2, mx + side / 2
-        ty, by2 = my - side / 2, my + side / 2
-        sr = side * 0.40  # long serifs: [ and ] nearly close at top/bottom
-        backend.path(
-            [(lx + sr, ty), (lx, ty), (lx, by2), (lx + sr, by2)],
-            stroke=col,
-            stroke_width=1.3,
-        )
-        backend.path(
-            [(rx - sr, ty), (rx, ty), (rx, by2), (rx - sr, by2)],
-            stroke=col,
-            stroke_width=1.3,
-        )
-        return
-    if kind == "concatenate":
-        # Auto-concatenating OUTPUT tunnel: LabVIEW draws it as TWO filled
-        # blocks side by side (vs the single block of a plain tunnel and the
-        # [ ] brackets of auto-indexing) — the loop concatenates each
-        # iteration's array into one output array of the same dimension. Pale
-        # box + dark border (matching the auto-index box), with the two blocks
-        # in the wire type color.
-        col = bt.color or theme.wire_default
-        backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=theme.loop_term_fill,
-            stroke=theme.tunnel_border,
-            stroke_width=1.2,
-        )
-        sq = min(x2 - x1, y2 - y1) * 0.30
-        gap = sq * 0.40
-        left = cx - (2 * sq + gap) / 2
-        for sx in (left, left + sq + gap):
-            backend.rect(
-                sx, cy - sq / 2, sx + sq, cy + sq / 2, fill=col, stroke="none"
-            )
-        return
-    if kind == "tunnel":
-        # Normal data tunnel: a solid block filled in the wire type color.
-        col = bt.color or theme.wire_default
-        backend.rect(x1, y1, x2, y2, fill=col, stroke="#333333", stroke_width=0.75)
-        # "Use Default If Unwired": in a frame that leaves this output tunnel
-        # unwired, LabVIEW punches a small canvas HOLE in the block (the frame
-        # emits the type default). Per-frame — solid in the frames that wire it.
-        if frame_value is not None and frame_value in bt.unwired_frames:
-            hw = (x2 - x1) * 0.17
-            hh = (y2 - y1) * 0.17
-            backend.rect(
-                cx - hw, cy - hh, cx + hw, cy + hh, fill=theme.canvas, stroke="none"
-            )
-        return
-    # A border DCO the fixed glyph table doesn't cover — undecorated box
-    # rather than a guessed glyph.
-    backend.rect(
-        x1, y1, x2, y2, fill="#ffffff", stroke=theme.struct_border, stroke_width=1.0
+    glyph = border_terminal_glyph(
+        bt.glyph_kind,
+        color=bt.color,
+        cond_continue=bt.cond_continue,
+        unwired_frames=bt.unwired_frames,
     )
+    glyph.draw(backend, bt.bounds, theme, frame_value)
 
 
-def _draw_for_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
-    """The For-Loop's signature stacked-card border — three identical cards
-    fanning DOWN-RIGHT from a top-left-aligned front card. Drawn as OUTLINES
-    ONLY (no fill) so the whole border sits ON TOP of the wires: the loop edge
-    and the card slivers are never notched by wire casing, and there is no fill
-    to cover a wire running inside the loop. For each card behind the front, only
-    its VISIBLE L is stroked (top-right sliver -> right edge -> bottom edge ->
-    bottom-left sliver) — the edges that would fall inside the front card are
-    omitted, so no line shows through the front card's interior. The heap bounds
-    are the BACKMOST card's bottom-right corner; the front card is (2o x 2o)
-    smaller and top-left-aligned (measured against the ground truth)."""
-    o = 2.0
-    s = theme.struct_border
-    w2, h2 = (x2 - x1) - 2 * o, (y2 - y1) - 2 * o
-    fx2, fy2 = x1 + w2, y1 + h2  # front card bottom-right
-    for k in (2, 1):  # back + mid cards, offset +k*o down-right of the front card
-        backend.path(
-            [
-                (fx2, y1 + k * o),
-                (fx2 + k * o, y1 + k * o),
-                (fx2 + k * o, fy2 + k * o),
-                (x1 + k * o, fy2 + k * o),
-                (x1 + k * o, fy2),
-            ],
-            fill="none",
-            stroke=s,
-            stroke_width=1.2,
-        )
-    # Front card (loop boundary), top-left-aligned, dog-eared bottom-right.
-    f = 6.0
-    backend.path(
-        [(x1, y1), (fx2, y1), (fx2, fy2 - f), (fx2 - f, fy2), (x1, fy2), (x1, y1)],
-        fill="none",
-        stroke=s,
-        stroke_width=1.2,
-    )
-    backend.path(
-        [(fx2, fy2 - f), (fx2 - f, fy2 - f), (fx2 - f, fy2)], stroke=s, stroke_width=1.2
-    )
-
-
-def _draw_while_loop_border(x1, y1, x2, y2, backend: Backend, theme: Theme) -> None:
-    backend.rect(
-        x1, y1, x2, y2, rx=7, fill="none", stroke=theme.struct_border, stroke_width=1.2
-    )
-    # LabVIEW's While loop carries a small "loop-back" ARROWHEAD at the
-    # bottom-right corner — the cue that this is a looping process (a For loop
-    # has the dog-eared stacked cards instead). A solid right-pointing triangle
-    # sitting on the bottom edge just inside the corner, in the border color.
-    s = 7.0
-    backend.polygon(
-        [(x2 - s, y2 - s * 0.55), (x2 + s * 0.15, y2), (x2 - s, y2 + s * 0.55)],
-        fill=theme.struct_border,
-        stroke=None,
-    )
-
-
-# Height of a case/stacked-sequence selector bar, drawn INSIDE the top of the
 # structure's heap bounds (the selector sits within the frame, per LabVIEW — its
 # heap termBounds are inside the bounds; there is no band above the top edge).
 _CASE_BAR_H = 14.0
@@ -1440,131 +1146,6 @@ def _error_border_color(
     return (
         theme.case_no_error_border if err.get(value, False) else theme.case_error_border
     )
-
-
-# Border-band widths, MEASURED from authoritative 1:1 LabVIEW reference
-# screenshots (not guessed, not dynamically inferred): the pale band sits
-# between two 1px rules, and the whole diagram is drawn in these same LV pixel
-# units, so a fixed width scales with everything else. Cross-checked that both
-# reference shots share one scale — a two-row label box measures ~30px in each,
-# matching the ~32-unit border tile.
-#   Event Structure: 7px hatched band (ref: the "[0] Timeout" event structure).
-#   In Place Element Structure: 3px band (ref: the bool/int IPES).
-_EVENT_BAND_W = 7.0
-_IPES_BAND_W = 3.0
-
-
-def _draw_event_border_band(
-    structure: RenderStructure,
-    backend: Backend,
-    theme: Theme,
-    width: float,
-) -> None:
-    """A filled BAND border (Event Structure and In Place Element Structure):
-    a pale ``theme.event_band`` margin of ``width`` LV units between the outer
-    heap bounds and an inner rule, mirroring LabVIEW's own wide border (see the
-    reference screenshots) instead of a thin line — the same way
-    ``_draw_sequence_border`` gives a flat sequence its film-strip rails. Drawn
-    as four abutting filled rects (never overlapping, so there's no
-    double-opacity at the corners) plus the outer + inner edge rules in
-    ``theme.event_border``. This is the one deliberate exception to
-    ``draw_structure``'s "outline only" rule (see its docstring) — the fill is
-    confined to the edge margin, so it never covers an interior wire.
-
-    ``width`` is the fixed per-structure band thickness (``_EVENT_BAND_W`` /
-    ``_IPES_BAND_W``), measured from the reference screenshots."""
-    x1, y1, x2, y2 = structure.bounds
-    w = max(2.0, min(width, (x2 - x1) / 2 - 1.0, (y2 - y1) / 2 - 1.0))
-    fill = theme.event_band
-    backend.rect(x1, y1, x2, y1 + w, fill=fill, stroke="none")  # top
-    backend.rect(x1, y2 - w, x2, y2, fill=fill, stroke="none")  # bottom
-    backend.rect(x1, y1 + w, x1 + w, y2 - w, fill=fill, stroke="none")  # left
-    backend.rect(x2 - w, y1 + w, x2, y2 - w, fill=fill, stroke="none")  # right
-    backend.rect(
-        x1, y1, x2, y2, fill="none", stroke=theme.event_border, stroke_width=1.2
-    )
-    backend.rect(
-        x1 + w,
-        y1 + w,
-        x2 - w,
-        y2 - w,
-        fill="none",
-        stroke=theme.event_border,
-        stroke_width=1.0,
-    )
-
-
-def _draw_frame_border(
-    structure: RenderStructure,
-    scene: Scene,
-    backend: Backend,
-    theme: Theme,
-) -> None:
-    """The interactive structure's outer box only. LabVIEW draws NO header
-    band — the selector is a compact ``◄ value ▼ ►`` widget that sits inside
-    the top of the frame (drawn by ``_draw_frame_selector``), not a full-width
-    bar. The value text lives in the per-frame value-label groups (draw_scene).
-
-    For an ERROR-cluster case the border is colored by the DEFAULT frame here
-    (green No Error / red Error) so the static SVG is correct; per-frame colored
-    borders drawn in ``draw_scene`` recolor it as the viewer switches frames."""
-    x1, y1, x2, y2 = structure.bounds
-    node = structure.node
-    if isinstance(node, EventStructureNode):
-        _draw_event_border_band(structure, backend, theme, _EVENT_BAND_W)
-    else:
-        default = scene.default_frame.get(structure.raw_uid, "")
-        color = _error_border_color(scene, structure.raw_uid, default, theme)
-        # A Diagram/Conditional Disable structure draws a DOTTED boundary
-        # (LabVIEW's signature for a disable frame — see reference),
-        # distinguishing it from the solid case/sequence box.
-        dash: str | None = "1.5,2.5" if isinstance(node, DisableStructureNode) else None
-        if color is not None:
-            backend.rect(
-                x1,
-                y1,
-                x2,
-                y2,
-                fill="none",
-                stroke=color,
-                stroke_width=1.6,
-                stroke_dasharray=dash,
-            )
-        else:
-            backend.rect(
-                x1,
-                y1,
-                x2,
-                y2,
-                fill="none",
-                stroke=theme.struct_border,
-                stroke_width=1.2,
-                stroke_dasharray=dash,
-            )
-
-    # A STACKED sequence shares the flat sequence's top/bottom rails (the
-    # film-strip "3D frame" look) — the selector + single-frame layout is all
-    # that distinguishes stacked from flat. (Flat sequences never reach here;
-    # they draw in _draw_sequence_border.)
-    if isinstance(node, SequenceNode):
-        backend.line(x1, y1 + 4, x2, y1 + 4, stroke=theme.struct_border, stroke_width=1)
-        backend.line(x1, y2 - 4, x2, y2 - 4, stroke=theme.struct_border, stroke_width=1)
-
-    # "Case Insensitive Match" badge — LabVIEW 2015+ draws "A=a" at the
-    # bottom-left corner of a string case structure when the match is
-    # case-insensitive (the non-default mode). See CaseStructureNode.
-    if isinstance(node, CaseStructureNode) and node.case_insensitive:
-        # "A=a" is drawn in the string wire color (pink) — it is an attribute
-        # of the string selector, matching LabVIEW's own coloring.
-        backend.text(
-            x1 + 4.0,
-            y2 - 3.5,
-            "A=a",
-            8.5,
-            fill=theme.wire_string,
-            anchor="start",
-        )
-
 
 def _draw_frame_selector(
     structure: RenderStructure,
@@ -1727,64 +1308,6 @@ def _draw_frame_value_label(
     backend.text(g.text_cx, g.baseline, text, _SELECTOR_SIZE, fill=theme.case_bar_text)
 
 
-def _draw_sequence_border(
-    structure: RenderStructure,
-    backend: Backend,
-    theme: Theme,
-) -> None:
-    """Flat sequence: outer box + top/bottom rails, plus a vertical divider
-    line at each inter-frame boundary (the film-strip look)."""
-    x1, y1, x2, y2 = structure.bounds
-    backend.rect(
-        x1, y1, x2, y2, fill="none", stroke=theme.struct_border, stroke_width=1.2
-    )
-    backend.line(x1, y1 + 4, x2, y1 + 4, stroke=theme.struct_border, stroke_width=1)
-    backend.line(x1, y2 - 4, x2, y2 - 4, stroke=theme.struct_border, stroke_width=1)
-    for dx in structure.dividers:
-        backend.line(dx, y1, dx, y2, stroke=theme.struct_border, stroke_width=1)
-
-
-def draw_structure(
-    structure: RenderStructure,
-    scene: Scene,
-    backend: Backend,
-    theme: Theme = DEFAULT_THEME,
-) -> None:
-    """A structure's border (and film-strip/selector chrome), drawn AFTER wires
-    so it sits over the wire casing and is never notched by it. Every structure
-    is outline-only (``fill="none"``) — including the For-Loop, whose stacked
-    cards are stroked as visible outlines — so nothing here can cover a wire that
-    runs inside the structure."""
-    x1, y1, x2, y2 = structure.bounds
-    kind = _STRUCTURE_STYLE.get(structure.node.node_type or "", "generic")
-    if kind == "forLoop":
-        _draw_for_loop_border(x1, y1, x2, y2, backend, theme)
-    elif kind == "whileLoop":
-        _draw_while_loop_border(x1, y1, x2, y2, backend, theme)
-    elif kind in ("case", "stackedSequence", "event"):
-        _draw_frame_border(structure, scene, backend, theme)
-    elif kind == "flatSequence":
-        _draw_sequence_border(structure, backend, theme)
-    elif kind == "inPlace":
-        # In Place Element Structure — same filled border band + edge rules as
-        # an Event Structure (its decompose/recompose border nodes seat in the
-        # band). Fixed band width, NOT the event structure's measured margin:
-        # an IPES reserves no hatched border to measure, so the gap-to-content
-        # measurement runs wild (swallows the structure).
-        _draw_event_border_band(structure, backend, theme, _IPES_BAND_W)
-    else:
-        # Anything else — a plain border (matches the prior renderer).
-        backend.rect(
-            x1, y1, x2, y2, fill="none", stroke=theme.struct_border, stroke_width=1.2
-        )
-    # Border terminals (N/i/cond, tunnels, shift registers, selector) are NOT
-    # drawn here — draw_scene paints them AFTER wires so a wire is never drawn
-    # on top of a boundary terminal (it butts against it, like a VI's terminal).
-
-
-# Fallback family lookup when a control's LVType didn't resolve — the raw
-# ddo "class" string (FPTerminal.control_type) is a mechanical lookup, not
-# a guess, matching the dispatch tables already used by type_defaults.py.
 _CONTROL_TYPE_FAMILY = {
     "stdNum": "float",
     "stdNumeric": "float",
@@ -2053,58 +1576,6 @@ def draw_fp_terminal(
         _draw_fp_value_cell(value_bounds, sample, backend, theme)
 
 
-def _draw_layer_content(
-    structures: list[RenderStructure],
-    nets: list[RenderWireNet],
-    nodes: list[RenderNode],
-    scene: Scene,
-    backend: Backend,
-    theme: Theme,
-) -> None:
-    """One layer, in three stacked passes: wires -> structure OUTLINES +
-    boundary terminals -> nodes. Reused for the base layer and each frame group.
-
-    Every structure is outline-only (no fill — even the For-Loop's stacked
-    cards), so the whole border is drawn OVER the wires: the wire's casing never
-    notches an outline, and a tunnel sits on top of the wire it receives, while
-    nothing covers a wire that runs inside a structure. Casing is painted per-NET
-    (all of a net's casings, then all its colors) so the net's own trunk stays
-    solid while the NEXT net's casing breaks the prior net's color at an
-    orthogonal crossing (see ``Theme.wire_casing``)."""
-    # Pass 1 — wires (per-net casing then color).
-    casing = theme.wire_casing
-    for net in nets:
-        if casing > 0:
-            for branch in net.branches:
-                backend.path(
-                    branch,
-                    stroke=theme.canvas,
-                    stroke_width=net.style.width + 2 * casing,
-                )
-        for branch in net.branches:
-            backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
-        for jx, jy in net.junctions:
-            backend.circle(jx, jy, 3.0, fill=net.style.color)
-
-    # Pass 2 — structure OUTLINES + selector chrome, then boundary terminals
-    # (tunnels/SR/N-i), all ON TOP of the wires.
-    for structure in structures:
-        draw_structure(structure, scene, backend, theme)
-        if _is_interactive_structure(structure.node):
-            _draw_frame_selector(structure, scene, backend, theme)
-    for structure in structures:
-        # Border terminals show their DEFAULT-frame state here (this layer isn't
-        # inside one of the structure's own frames); the per-frame redraw in
-        # draw_scene overrides with the selected frame's state.
-        fv = scene.default_frame.get(structure.raw_uid)
-        for bt in structure.border_terminals:
-            _draw_border_terminal(bt, backend, theme, fv)
-
-    # Pass 3 — nodes on top.
-    for node in nodes:
-        draw_node(node, backend, theme)
-
-
 def _draw_layer_coercion_dots(
     nets: list[RenderWireNet],
     dots: list[Point],
@@ -2120,177 +1591,3 @@ def _draw_layer_coercion_dots(
         backend.circle(
             dx, dy, 2.0, fill=theme.coercion_dot, stroke="#ffffff", stroke_width=0.5
         )
-
-
-def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
-    """Draw an entire scene: canvas, base-layer structures/wires/nodes/FP
-    terminals/coercion dots (unchanged order — byte-identical for VIs with
-    no case structures), then one ``lv-frame`` group per distinct case-frame
-    path (all frames rendered; only the default-selected one starts visible
-    — see roadmap #17), then each case's clickable selector-value labels."""
-    x1, y1, x2, y2 = scene.bounds
-    backend.rect(x1, y1, x2, y2, fill=theme.canvas)
-
-    # A case/stacked-seq structure's tunnels live on its border and are drawn
-    # once with the (base-or-ancestor-layer) structure. But that structure's
-    # OWN frames' inner wires draw in LATER ``lv-frame`` groups, on top. So each
-    # frame layer re-draws its ENCLOSING structure's border terminals (tunnels/
-    # selector) after its inner content — the container draws its tunnels on top
-    # of its own inner wires, not the other way round. Keyed by raw_uid, which
-    # equals a frame path's leaf struct-uid (both strip the vi-name prefix).
-    by_raw_uid = {s.raw_uid: s for s in scene.structures if s.raw_uid}
-
-    base_structures = [s for s in scene.structures if not s.frame_path]
-    base_nets = [n for n in scene.wire_nets if not n.frame_path]
-    base_nodes = [n for n in scene.nodes if not n.frame_path]
-    base_dots = [d.point for d in scene.coercion_dots if not d.frame_path]
-    base_fps = [fp for fp in scene.fp_terminals if not fp.frame_path]
-
-    _draw_layer_content(base_structures, base_nets, base_nodes, scene, backend, theme)
-
-    for fp in base_fps:
-        draw_fp_terminal(
-            fp.terminal,
-            fp.bounds,
-            backend,
-            theme,
-            fp.label_visible,
-            fp.label_bounds,
-        )
-
-    _draw_layer_coercion_dots(base_nets, base_dots, backend, theme)
-
-    paths: set[FramePath] = set()
-    for s in scene.structures:
-        if s.frame_path:
-            paths.add(s.frame_path)
-    for n in scene.nodes:
-        if n.frame_path:
-            paths.add(n.frame_path)
-    for net in scene.wire_nets:
-        if net.frame_path:
-            paths.add(net.frame_path)
-    for d in scene.coercion_dots:
-        if d.frame_path:
-            paths.add(d.frame_path)
-    for fp in scene.fp_terminals:
-        if fp.frame_path:
-            paths.add(fp.frame_path)
-
-    for path in sorted(paths, key=encode_frame_path):
-        structures = [s for s in scene.structures if s.frame_path == path]
-        nets = [n for n in scene.wire_nets if n.frame_path == path]
-        nodes = [n for n in scene.nodes if n.frame_path == path]
-        dots = [d.point for d in scene.coercion_dots if d.frame_path == path]
-        fps = [fp for fp in scene.fp_terminals if fp.frame_path == path]
-        visible = _is_default_visible(path, scene.default_frame)
-        # Initial-hidden state is the .lv-frame.lv-frame-hidden CLASS (never inline
-        # style): the frame controllers — the SVG's own JS AND the diff viewer —
-        # both flip visibility by toggling lv-frame-hidden, so a baked-in inline
-        # display:none could never be cleared by removing the class.
-        backend.begin_group(
-            cls="lv-frame" if visible else "lv-frame lv-frame-hidden",
-            data={"path": encode_frame_path(path)},
-        )
-        _draw_layer_content(structures, nets, nodes, scene, backend, theme)
-        # The container draws its own tunnels on top of this frame's inner wires.
-        enclosing = by_raw_uid.get(path[-1][0])
-        if enclosing is not None:
-            # This IS one of the enclosing container's frames — its tunnels draw
-            # for THIS frame value, so an output tunnel unwired here shows a hole.
-            frame_value = path[-1][1]
-            for bt in enclosing.border_terminals:
-                _draw_border_terminal(bt, backend, theme, frame_value)
-        for fp in fps:
-            draw_fp_terminal(
-                fp.terminal,
-                fp.bounds,
-                backend,
-                theme,
-                fp.label_visible,
-                fp.label_bounds,
-            )
-        _draw_layer_coercion_dots(nets, dots, backend, theme)
-        # Disable structure: every frame EXCEPT the enabled/default one is a
-        # disabled subdiagram — wash it with a translucent grey mask so its
-        # contents read as inactive (matches LabVIEW). The mask is the LAST thing
-        # in the frame group so it sits over all the frame's nodes/wires; it is
-        # pointer-events:none so clicks fall through, and the selector chrome is
-        # redrawn ON TOP (outside the opacity group) so ◄ value ▼ ► stays crisp.
-        if (
-            enclosing is not None
-            and isinstance(enclosing.node, DisableStructureNode)
-            and path[-1][1] != scene.default_frame.get(enclosing.raw_uid)
-        ):
-            mx1, my1, mx2, my2 = enclosing.bounds
-            backend.begin_group(cls="lv-disabled-mask")
-            backend.rect(mx1, my1, mx2, my2, fill=theme.disabled_mask)
-            backend.end_group()
-            _draw_frame_selector(enclosing, scene, backend, theme)
-        backend.end_group()
-
-    # Dedicated single-segment value-label groups (see _draw_frame_border /
-    # DECISION 2): one per (struct, frame value), so each case's
-    # ``◄ value ▼ ►`` (or stacked sequence's ``◄ index ►``) label flips
-    # independently of content nesting.
-    for structure in scene.structures:
-        if not _is_interactive_structure(structure.node):
-            continue
-        values = scene.frame_values.get(structure.raw_uid, [])
-        default = scene.default_frame.get(structure.raw_uid)
-        for value in values:
-            # Full compositional path: this case's own ancestor frame_path
-            # PLUS its own (struct, value) segment. A nested case's label
-            # must hide when an ancestor case is on a different frame (its
-            # box is hidden), not just when its own selector differs — a
-            # bare single-segment path would leak a floating label. The JS
-            # controller ANDs every segment, so ancestors gate it correctly.
-            label_path: FramePath = structure.frame_path + ((structure.raw_uid, value),)
-            visible = value == default and _is_default_visible(
-                structure.frame_path,
-                scene.default_frame,
-            )
-            # .lv-label => pointer-events:none so a click on the value text
-            # falls through to the .lv-selector overlay beneath (drawn earlier),
-            # keeping the whole selector clickable; .lv-frame-hidden is the initial
-            # off-frame state (same class the controllers toggle — no inline
-            # display that the class toggle couldn't later clear).
-            backend.begin_group(
-                cls="lv-frame lv-label"
-                if visible
-                else "lv-frame lv-label lv-frame-hidden",
-                data={"path": encode_frame_path(label_path)},
-            )
-            _draw_frame_value_label(structure, scene, value, backend, theme)
-            # Error-cluster case: recolor the whole frame border green (No
-            # Error) / red (Error) with the shown frame. Drawn in this per-frame
-            # group so it flips with the selector; overlays the static default
-            # border painted by draw_structure.
-            err_color = _error_border_color(
-                scene,
-                structure.raw_uid,
-                value,
-                theme,
-            )
-            if err_color is not None:
-                bx1, by1, bx2, by2 = structure.bounds
-                backend.rect(
-                    bx1, by1, bx2, by2, fill="none", stroke=err_color, stroke_width=1.6
-                )
-            backend.end_group()
-
-    # Dropdown menus LAST so they overlay the whole diagram when opened (they
-    # are display:none until the ▼ toggle shows them). Cases + stacked seqs.
-    for structure in scene.structures:
-        if _is_interactive_structure(structure.node) and scene.frame_values.get(
-            structure.raw_uid,
-        ):
-            _draw_frame_menu(structure, scene, backend, theme)
-
-    # Connector-help panels go ABSOLUTE LAST, in one overlay group, over every
-    # other layer (base + all frame groups + menus) — see draw_help_overlay's
-    # docstring. scene.nodes is every RenderNode regardless of frame_path (one
-    # panel per node, not re-emitted per frame — a node inside a currently
-    # hidden case frame is itself hidden, so its panel simply never receives
-    # a hover event; no duplication needed).
-    draw_help_overlay(scene.nodes, backend, theme)

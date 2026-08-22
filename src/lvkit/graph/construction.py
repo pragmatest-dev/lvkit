@@ -51,7 +51,7 @@ from .builders import (
     SUBVI_CALL_NODE_TYPES,
     GraphBuildContext,
 )
-from .core import _graph_node_to_op_kind
+from .core import _graph_node_to_op_kind, _node_order_key
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -981,6 +981,30 @@ class ConstructionMixin:
         # === 8. Propagate types through wires and re-match indices ===
         # Now follows edges ACROSS VI boundaries too.
         self._propagate_types_and_rematch(g, vi_node_uids)
+
+        # === Populate first-class FORWARD containment (children) ===
+        # ``parent`` (set in step 4) is the authoritative back-link. Build the
+        # forward adjacency ONCE here so consumers read a container's children
+        # in O(1) instead of scanning the whole VI's node set every call (see
+        # GraphManager._get_children_of). Order by _node_order_key — byte-
+        # identical to the order that scan returned, so codegen/netlist output
+        # is unchanged. Parent-less nodes are the root diagram's children and
+        # hang off the VINode (keyed by vi_key). Pure containment; the render
+        # layer applies zPlaneList PAINT order on top (a draw concern that never
+        # enters the graph).
+        children_by_parent: dict[str, list[str]] = {}
+        for uid in vi_node_uids:
+            gnode = g.nodes.get(uid, {}).get("node")
+            if gnode is None:
+                continue
+            parent_id = gnode.parent if gnode.parent else vi_key
+            if parent_id == uid:
+                continue  # never self-parent
+            children_by_parent.setdefault(parent_id, []).append(uid)
+        for parent_id, kids in children_by_parent.items():
+            pnode = g.nodes.get(parent_id, {}).get("node")
+            if pnode is not None:
+                pnode.children = sorted(kids, key=_node_order_key)
 
         # Store per-VI node index
         self._vi_nodes[vi_key] = vi_node_uids

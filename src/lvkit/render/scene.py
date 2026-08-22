@@ -242,6 +242,12 @@ class RenderWireNet:
     # LabVIEW's implicit-conversion coercion dot (see style.coercion_key).
     coercion_dots: list[Point] = field(default_factory=list)
     frame_path: FramePath = ()
+    # Raw uid of the INNERMOST structure containing BOTH endpoints, or None for
+    # a wire at the root diagram / not fully contained. This is the net's
+    # CONTAINMENT owner — the composite render tree draws each net inside its
+    # container's diagram so a container body occludes wires behind it but never
+    # its own inner wires (see _innermost_common_container).
+    container_uid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -283,6 +289,11 @@ class Scene:
     # raw struct uid of ERROR-cluster case structures -> {selector value ->
     # True if that frame is the No-Error (green) case, else False (red)}.
     error_frame_no_error: dict[str, dict[str, bool]] = field(default_factory=dict)
+    # Z-ORDER paint rank per raw uid (from Layout.z_order) — LabVIEW's back-to-
+    # front zPlaneList order. The composite render tree sorts each container's
+    # children by this so a later (higher-rank) sibling occludes earlier ones.
+    # Render-only paint order; containment comes from each node's own parent.
+    z_order: dict[str, int] = field(default_factory=dict)
 
 
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
@@ -1552,6 +1563,9 @@ def _build_wire_nets(
                 branches=branches,
                 coercion_dots=coercion_dots,
                 frame_path=path,
+                container_uid=_innermost_common_container(
+                    group[0], graph, by_id, vi_name
+                ),
             )
         )
 
@@ -1939,4 +1953,5 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         frame_values=frame_values,
         frame_labels=frame_labels,
         error_frame_no_error=error_frame_no_error,
+        z_order=layout.z_order,
     )

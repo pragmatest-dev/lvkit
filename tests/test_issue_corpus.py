@@ -176,3 +176,63 @@ def test_issue34_fixture_renders():
     vi = _CORPUS / "34" / "hidden-iteration-terminal.vi"
     svg = render_vi_file(vi, search_paths=[vi.parent])
     assert svg is not None and "<svg" in svg[:500] and len(svg) > 200
+
+
+def test_issue35_structures_occlude_by_zorder():
+    """#35/#39: overlapping structures occlude by zPlaneList paint order.
+
+    The repro has two overlapping For loops (a big one containing a nested loop,
+    and a small top-left one) plus a ``0 -> Numeric`` wire that runs behind the
+    big loop. LabVIEW draws the small loop LAST (front of the root zPlaneList),
+    so it occludes the big loop's corner. The composite render tree must:
+
+    * nest the inner loop under the big loop (graph containment), and
+    * order the two root-level loops so the frontmost (highest ``z_order``) is
+      drawn AFTER the backmost's whole subtree — asserted on the TREE, not
+      pixels — with each structure painting an OPAQUE body.
+    """
+    from lvkit.render import build_scene
+    from lvkit.render.tree.element import StructureElement, build_render_tree
+
+    graph, vi = _load("35/objects-hidden-by-structures.vi")
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    # Two root-level (parent-less) structures overlap; the inner one is nested.
+    root_structs = [s for s in scene.structures if s.node.parent is None]
+    assert len(root_structs) == 2, "expected two overlapping root loops"
+    nested = [s for s in scene.structures if s.node.parent is not None]
+    assert nested, "expected a nested loop inside the big loop"
+
+    def overlap(a, b):
+        return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+    a, b = root_structs
+    assert overlap(a.bounds, b.bounds), "the two root loops must overlap"
+
+    # Draw order on the tree: the frontmost (higher z_order) root loop is emitted
+    # AFTER the backmost, so its opaque body occludes the backmost's corner.
+    tree = build_render_tree(scene)
+    order = [
+        c.rs.raw_uid
+        for c in tree.content.children
+        if isinstance(c, StructureElement)
+    ]
+    assert set(order) == {a.raw_uid, b.raw_uid}
+    a_front = scene.z_order[a.raw_uid] > scene.z_order[b.raw_uid]
+    front = a.raw_uid if a_front else b.raw_uid
+    back = b.raw_uid if a_front else a.raw_uid
+    assert order.index(front) > order.index(back), (
+        "frontmost (higher z_order) structure must be drawn after the backmost"
+    )
+
+    # The nested loop is a child of one of the root loops (containment nesting),
+    # not a sibling at the root.
+    assert nested[0].raw_uid not in order
+
+    # Opaque bodies actually reach the SVG (the fix): more canvas-colored FILLS
+    # than the single backdrop rect.
+    vi_path = _CORPUS / "35" / "objects-hidden-by-structures.vi"
+    svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
+    assert svg is not None
+    assert svg.count('fill="#fbfbf5"') > 3
