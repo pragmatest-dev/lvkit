@@ -260,7 +260,9 @@ def build_render_tree(scene: Scene) -> RootElement:
     z = scene.z_order
 
     def rank(raw_uid: str) -> int:
-        return z.get(raw_uid, 1_000_000_000)  # unknown → drawn last (frontmost)
+        # zPlaneList document index (0 = frontmost). Unknown → -1 so it sorts
+        # last under the reverse (back-to-front) draw sort → drawn frontmost.
+        return z.get(raw_uid, -1)
 
     # Group view-model items by their containment owner (raw structure uid, or
     # None for the root diagram).
@@ -312,7 +314,12 @@ def build_render_tree(scene: Scene) -> RootElement:
             if interactive and _struct_frame(rs) != frame:
                 continue
             ranked.append((rank(rs.raw_uid), _build_structure(rs)))
-        ranked.sort(key=lambda pair: pair[0])
+        # LabVIEW's zPlaneList is FRONT-to-back: document index 0 (lowest
+        # z_order rank) is the FRONTMOST object, drawn LAST so it occludes.
+        # So draw back-to-front = highest rank first (reverse=True). Ties keep
+        # insertion order (deterministic). Unknown-rank items (no geometry
+        # entry, rank -1) sort last -> drawn frontmost, a safe visible default.
+        ranked.sort(key=lambda pair: pair[0], reverse=True)
         children = [elem for _, elem in ranked]
 
         nets = [

@@ -210,7 +210,8 @@ def test_issue35_structures_occlude_by_zorder():
     a, b = root_structs
     assert overlap(a.bounds, b.bounds), "the two root loops must overlap"
 
-    # Draw order on the tree: the frontmost (higher z_order) root loop is emitted
+    # Draw order on the tree: LabVIEW's zPlaneList is FRONT-to-back, so the
+    # FRONTMOST loop has the LOWER z_order (document index 0) and must be emitted
     # AFTER the backmost, so its opaque body occludes the backmost's corner.
     tree = build_render_tree(scene)
     order = [
@@ -219,11 +220,11 @@ def test_issue35_structures_occlude_by_zorder():
         if isinstance(c, StructureElement)
     ]
     assert set(order) == {a.raw_uid, b.raw_uid}
-    a_front = scene.z_order[a.raw_uid] > scene.z_order[b.raw_uid]
+    a_front = scene.z_order[a.raw_uid] < scene.z_order[b.raw_uid]
     front = a.raw_uid if a_front else b.raw_uid
     back = b.raw_uid if a_front else a.raw_uid
     assert order.index(front) > order.index(back), (
-        "frontmost (higher z_order) structure must be drawn after the backmost"
+        "frontmost (lower z_order / zPlaneList index 0) structure must draw last"
     )
 
     # The nested loop is a child of one of the root loops (containment nesting),
