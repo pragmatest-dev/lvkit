@@ -237,3 +237,48 @@ def test_issue35_structures_occlude_by_zorder():
     svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
     assert svg is not None
     assert svg.count('fill="#fbfbf5"') > 3
+
+
+def test_issue39_overlapping_nodes_occlude_by_zorder():
+    """#39: overlapping NODES occlude by zPlaneList paint order.
+
+    The repro overlaps two ``Open/Create/Replace File`` subVIs (distinct from
+    #35, whose repro overlaps STRUCTURES). LabVIEW draws diagram children in
+    ``zPlaneList`` order (front object last), so the frontmost node occludes the
+    corner of the one behind it. The composite tree must order the two
+    overlapping root nodes so the frontmost (lower ``z_order``) draws LAST.
+    """
+    from lvkit.render import build_scene
+    from lvkit.render.composite import NodeObject, build_render_tree
+
+    graph, vi = _load("39/zorder-not-respected.vi")
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    def overlap(a, b):
+        return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+    # A pair of root-level nodes whose boxes overlap (the two file subVIs), both
+    # with a known paint rank.
+    root_nodes = [n for n in scene.nodes if n.node.parent is None]
+    pair = next(
+        (
+            (a, b)
+            for i, a in enumerate(root_nodes)
+            for b in root_nodes[i + 1 :]
+            if overlap(a.bounds, b.bounds)
+        ),
+        None,
+    )
+    assert pair is not None, "expected two overlapping nodes in the #39 repro"
+    a, b = pair
+    assert a.dom_id in scene.z_order and b.dom_id in scene.z_order
+
+    tree = build_render_tree(scene)
+    order = [c.rn.dom_id for c in tree.content.children if isinstance(c, NodeObject)]
+    a_front = scene.z_order[a.dom_id] < scene.z_order[b.dom_id]
+    front = a.dom_id if a_front else b.dom_id
+    back = b.dom_id if a_front else a.dom_id
+    assert order.index(front) > order.index(back), (
+        "frontmost (lower z_order) node must draw last so it occludes the back one"
+    )
