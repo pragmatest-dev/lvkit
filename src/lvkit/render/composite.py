@@ -150,15 +150,18 @@ class StructureObject(RenderObject):
         rs = self.rs
         # Background: opaque body + outline — occludes any earlier sibling's
         # whole subtree (the #35/#39 fix); its OWN inner wires draw on top next.
-        self._glyph(theme).draw(backend, rs.bounds, theme)
+        glyph = self._glyph(theme)
+        glyph.draw(backend, rs.bounds, theme)
+        # Contents clip to the glyph's INTERIOR (the front card for a For loop,
+        # the whole bounds for every other kind) so a child whose box exceeds
+        # this structure (e.g. a nested loop) doesn't draw outside it — LabVIEW
+        # clips a structure's contents to its inner border.
+        clip = glyph.interior(rs.bounds)
         if self.interactive:
-            self._draw_interactive(backend, theme)
+            self._draw_interactive(backend, theme, clip)
         else:
             assert self.body is not None
-            # Clip inner content to the structure's bounds so a child whose box
-            # exceeds this structure (e.g. a nested loop) doesn't draw outside it
-            # — LabVIEW clips a structure's contents to its border.
-            backend.begin_group(clip=rs.bounds)
+            backend.begin_group(clip=clip)
             self.body.draw(backend, theme)
             backend.end_group()
             # Border terminals LAST (a tunnel sits on its wire), default frame,
@@ -167,7 +170,9 @@ class StructureObject(RenderObject):
             for bt in rs.border_terminals:
                 _draw_border_terminal(bt, backend, theme, fv)
 
-    def _draw_interactive(self, backend: Backend, theme: Theme) -> None:
+    def _draw_interactive(
+        self, backend: Backend, theme: Theme, clip: tuple[float, float, float, float]
+    ) -> None:
         rs, scene = self.rs, self.scene
         _draw_frame_selector(rs, scene, backend, theme)  # base selector chrome
         default = scene.default_frame.get(rs.raw_uid)
@@ -182,10 +187,10 @@ class StructureObject(RenderObject):
                 cls="lv-frame" if visible else "lv-frame lv-frame-hidden",
                 data={"path": encode_frame_path(path)},
             )
-            # Clip the frame's inner content to the structure bounds (a nested
+            # Clip the frame's inner content to the glyph interior (a nested
             # structure whose box exceeds this one doesn't spill out); border
             # terminals stay UNCLIPPED so an edge-seated glyph isn't shaved.
-            backend.begin_group(clip=rs.bounds)
+            backend.begin_group(clip=clip)
             content.draw(backend, theme)
             backend.end_group()
             # The container draws its tunnels ON TOP of this frame's inner wires,

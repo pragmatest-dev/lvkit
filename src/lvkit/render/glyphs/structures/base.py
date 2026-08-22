@@ -35,9 +35,21 @@ class StructureBodyGlyph(ABC):
         self.draw_outline(backend, bounds, theme)
 
     def draw_body(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        """Paint the OPAQUE body so the structure occludes what's behind it."""
+        """Paint the OPAQUE body so the structure occludes what's behind it.
+
+        The default footprint is the whole bounds rect; a kind whose real
+        occluding silhouette is smaller than its bounds (a For-loop's stepped
+        cards leave transparent notches) overrides this to fill that silhouette
+        instead, so a sibling behind the notch shows through."""
         x1, y1, x2, y2 = bounds
         backend.rect(x1, y1, x2, y2, fill=theme.canvas, stroke=None)
+
+    def interior(self, bounds: Rect) -> Rect:
+        """The rect the structure clips its CONTENTS to. Default: the whole
+        bounds. A kind whose inner diagram is bounded by an inset front card
+        (the For-loop) overrides this so contents clip to that card, not to the
+        outer stacked-card bounds."""
+        return bounds
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """Stroke the structure's static border."""

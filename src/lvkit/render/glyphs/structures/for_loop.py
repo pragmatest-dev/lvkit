@@ -6,16 +6,51 @@ from ...backend import Backend
 from ...style import Theme
 from .base import Rect, StructureBodyGlyph
 
+_O = 2.0  # card fan offset (also in draw_outline; the silhouette must match)
+
 
 class ForLoopGlyph(StructureBodyGlyph):
     """The For-Loop's signature stacked-card border, now with an OPAQUE body.
 
-    The body fills the whole footprint (canvas colour) so anything behind the
-    loop is occluded. The outline then strokes three identical cards fanning
-    down-right from a top-left-aligned front card (only each back card's visible
-    L is stroked). Ground-truth geometry: heap bounds are the BACKMOST card's
-    bottom-right; the front card is (2o x 2o) smaller and top-left-aligned.
+    The body fills the stacked-card SILHOUETTE (canvas colour) so anything
+    behind the loop is occluded — but the top-right and bottom-left NOTCHES
+    outside the stairstep stay transparent, so a sibling behind a notch shows
+    through (LabVIEW does the same). The outline then strokes three identical
+    cards fanning down-right from a top-left-aligned front card (only each back
+    card's visible L is stroked). Ground-truth geometry: heap bounds are the
+    BACKMOST card's bottom-right; the front card is (2o x 2o) smaller and
+    top-left-aligned.
     """
+
+    def draw_body(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        x1, y1, x2, y2 = bounds
+        o = _O
+        fx2, fy2 = x2 - 2 * o, y2 - 2 * o  # front card bottom-right
+        # Outer silhouette of the three fanned cards, clockwise from top-left:
+        # a rising staircase down the right edge, a matching one up the bottom-
+        # left. The notch above/right of the steps and below/left is left open.
+        backend.polygon(
+            [
+                (x1, y1),
+                (fx2, y1),
+                (fx2, y1 + o),
+                (fx2 + o, y1 + o),
+                (fx2 + o, y1 + 2 * o),
+                (x2, y1 + 2 * o),
+                (x2, y2),
+                (x1 + 2 * o, y2),
+                (x1 + 2 * o, fy2 + o),
+                (x1 + o, fy2 + o),
+                (x1 + o, fy2),
+                (x1, fy2),
+            ],
+            fill=theme.canvas,
+        )
+
+    def interior(self, bounds: Rect) -> Rect:
+        # Contents live inside the front card, not the outer stacked bounds.
+        x1, y1, x2, y2 = bounds
+        return (x1, y1, x2 - 2 * _O, y2 - 2 * _O)
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds

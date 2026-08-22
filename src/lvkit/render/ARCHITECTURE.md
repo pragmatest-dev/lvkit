@@ -45,8 +45,13 @@ named honestly. The word "Element" does not appear.
   their append order (nodes appended before structures).
 - **A structure draws its opaque body FIRST** (so a later sibling occludes an
   earlier sibling's whole subtree — #35/#39), then its inner wires, then its
-  children, then its border terminals; contents are clipped to the structure
-  bounds, border terminals are not.
+  children, then its border terminals. The body fills the kind's exact occluding
+  FOOTPRINT (`Glyph.draw_body`) — a rect for most kinds, but the For loop's
+  stacked-card silhouette, so the top-right/bottom-left notches stay transparent
+  and a sibling behind a notch shows through. Contents clip to the glyph's
+  INTERIOR (`Glyph.interior`) — the whole bounds for most kinds, the inset front
+  card for a For loop; border terminals are never clipped by their own
+  structure (the PARENT's clip governs them).
 - **clipPath ids number by draw-call ARRIVAL order** and the `<defs>` emit in
   that order (`backend.py`: `setdefault(clip, len(self._clip_ids))`).
 - **Overlays (menus, help panels) emit LAST**, in BUILD order, above everything.
