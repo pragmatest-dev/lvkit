@@ -192,7 +192,7 @@ def test_issue35_structures_occlude_by_zorder():
       pixels — with each structure painting an OPAQUE body.
     """
     from lvkit.render import build_scene
-    from lvkit.render.tree.element import StructureElement, build_render_tree
+    from lvkit.render.composite import StructureObject, build_render_tree
 
     graph, vi = _load("35/objects-hidden-by-structures.vi")
     scene = build_scene(graph, vi)
@@ -217,7 +217,7 @@ def test_issue35_structures_occlude_by_zorder():
     order = [
         c.rs.raw_uid
         for c in tree.content.children
-        if isinstance(c, StructureElement)
+        if isinstance(c, StructureObject)
     ]
     assert set(order) == {a.raw_uid, b.raw_uid}
     a_front = scene.z_order[a.raw_uid] < scene.z_order[b.raw_uid]

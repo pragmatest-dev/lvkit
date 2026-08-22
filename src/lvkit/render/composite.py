@@ -1,19 +1,21 @@
-"""The recursive render tree: ``RenderElement`` hierarchy + builder + the single
-``draw_scene`` entry.
+"""The composite render tree: the ``RenderObject`` hierarchy + builder + the
+single ``draw_scene`` entry.
 
-DIRECTIVE 1 — starting at the block-diagram root, recursively tell glyphs,
-wires, structures and nodes to draw themselves in zPlaneList order. One root,
-one recursive ``draw()`` walk. A structure draws its OPAQUE body first (so a
-later sibling occludes an earlier sibling's whole subtree — the #35/#39 fix),
-then its own inner wires, then its children in paint order, then its border
-terminals last; an INTERACTIVE structure (case / stacked-sequence / disable /
-event) is a tree node that recurses its FRAMES inside ``lv-frame`` groups.
+DIRECTIVE 1 — starting at the block-diagram root, recursively tell nodes,
+structures and wires to draw themselves in zPlaneList order. One root, one
+recursive ``draw()`` walk. A structure draws its OPAQUE body first (so a later
+sibling occludes an earlier sibling's whole subtree — the #35/#39 fix), then its
+own inner wires, then its children in paint order, then its border terminals
+last; an INTERACTIVE structure (case / stacked-sequence / disable / event) is a
+tree object that recurses its FRAMES inside ``lv-frame`` groups.
 
 Containment (who is inside whom) comes from the graph, carried on each view
 model as ``node.parent`` / ``RenderWireNet.container_uid``. Paint order comes
 from the layout, carried as ``Scene.z_order``. This module is the composite; it
-reuses the leaf pixel helpers in ``draw`` and the structure body glyphs in
-``glyphs.structures`` — it never re-implements them.
+reuses the leaf pixel helpers in ``draw`` and the leaf ``Glyph`` faces (resolved
+onto each ``RenderNode``) — it never re-implements them. A ``Glyph`` is a
+draw-only leaf FACE stamped into a rect; a ``RenderObject`` is a placed tree
+citizen that draws itself and (for a container) recurses its children.
 """
 
 from __future__ import annotations
@@ -21,9 +23,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from ...graph.models import DisableStructureNode
-from ..backend import Backend, Point
-from ..draw import (
+from ..graph.models import DisableStructureNode
+from .backend import Backend, Point
+from .draw import (
     _draw_border_terminal,
     _draw_frame_menu,
     _draw_frame_selector,
@@ -35,8 +37,8 @@ from ..draw import (
     draw_help_overlay,
     draw_node,
 )
-from ..glyphs.structures.factory import structure_body_glyph
-from ..scene import (
+from .glyphs.structures.factory import structure_body_glyph
+from .scene import (
     RenderFPTerminal,
     RenderNode,
     RenderStructure,
@@ -45,7 +47,7 @@ from ..scene import (
     _is_default_visible,
     encode_frame_path,
 )
-from ..style import DEFAULT_THEME, Theme
+from .style import DEFAULT_THEME, Theme
 
 
 def _raw(qualified: str | None) -> str | None:
@@ -74,9 +76,9 @@ def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -
             backend.circle(jx, jy, 3.0, fill=net.style.color)
 
 
-class RenderElement(ABC):
-    """A node in the composite tree that knows how to draw itself (and, for a
-    container, recurse into its children)."""
+class RenderObject(ABC):
+    """A placed citizen of the composite tree that knows how to draw itself
+    (and, for a container, recurse into its children)."""
 
     @abstractmethod
     def draw(self, backend: Backend, theme: Theme) -> None: ...
@@ -89,7 +91,7 @@ class DiagramContent:
     front-panel terminals and coercion dots. Not a container border itself."""
 
     nets: list[RenderWireNet] = field(default_factory=list)
-    children: list[RenderElement] = field(default_factory=list)
+    children: list[RenderObject] = field(default_factory=list)
     fps: list[RenderFPTerminal] = field(default_factory=list)
     dots: list[Point] = field(default_factory=list)
 
@@ -110,8 +112,9 @@ class DiagramContent:
 
 
 @dataclass
-class NodeElement(RenderElement):
-    """A leaf diagram object (primitive, SubVI, constant, …)."""
+class NodeObject(RenderObject):
+    """A leaf diagram object (primitive, SubVI, constant, …). Draws its resolved
+    ``Glyph`` face at its own bounds."""
 
     rn: RenderNode
 
@@ -120,7 +123,7 @@ class NodeElement(RenderElement):
 
 
 @dataclass
-class StructureElement(RenderElement):
+class StructureObject(RenderObject):
     """A structure and its inner diagram(s). Draws its opaque body + outline
     first, then (non-interactive) its single body diagram, or (interactive) one
     ``lv-frame`` group per frame — recursing the whole subtree each time."""
@@ -232,14 +235,14 @@ class StructureElement(RenderElement):
 
 
 @dataclass
-class RootElement(RenderElement):
+class DiagramObject(RenderObject):
     """The block-diagram root diagram. ``draw()`` is the SINGLE entry: it draws
     the root content (recursing the whole tree), then the two overlay passes
     that must sit above everything — the case/sequence dropdown menus and the
     connector-help hover panels."""
 
     content: DiagramContent
-    interactive_structures: list[StructureElement]
+    interactive_structures: list[StructureObject]
     all_nodes: list[RenderNode]
 
     def draw(self, backend: Backend, theme: Theme) -> None:
@@ -250,10 +253,10 @@ class RootElement(RenderElement):
         draw_help_overlay(self.all_nodes, backend, theme)
 
 
-def build_render_tree(scene: Scene) -> RootElement:
+def build_render_tree(scene: Scene) -> DiagramObject:
     """Assemble the composite tree from the scene view model.
 
-    Containment nests every element (loops included, which create no frame
+    Containment nests every object (loops included, which create no frame
     path); paint order (``Scene.z_order``) orders siblings; interactive
     structures split their children by frame value.
     """
@@ -287,7 +290,7 @@ def build_render_tree(scene: Scene) -> RootElement:
         dkey = (d.frame_path[-1] if d.frame_path else (None, None))
         dots_by_cf.setdefault(dkey, []).append(d.point)
 
-    interactive_structures: list[StructureElement] = []
+    interactive_structures: list[StructureObject] = []
 
     def _node_frame(rn: RenderNode) -> str | None:
         return str(rn.node.frame) if rn.node.frame is not None else None
@@ -305,11 +308,11 @@ def build_render_tree(scene: Scene) -> RootElement:
         container: str | None, interactive: bool, frame: str | None
     ) -> DiagramContent:
         # z-ordered children (nodes + nested structures) for this diagram.
-        ranked: list[tuple[int, RenderElement]] = []
+        ranked: list[tuple[int, RenderObject]] = []
         for rn in nodes_by_container.get(container, []):
             if interactive and _node_frame(rn) != frame:
                 continue
-            ranked.append((rank(rn.dom_id), NodeElement(rn)))
+            ranked.append((rank(rn.dom_id), NodeObject(rn)))
         for rs in structs_by_container.get(container, []):
             if interactive and _struct_frame(rs) != frame:
                 continue
@@ -334,21 +337,21 @@ def build_render_tree(scene: Scene) -> RootElement:
             dots=dots_by_cf.get((container, frame), []),
         )
 
-    def _build_structure(rs: RenderStructure) -> StructureElement:
+    def _build_structure(rs: RenderStructure) -> StructureObject:
         if _is_interactive_structure(rs.node):
             frames = [
                 (value, build_content(rs.raw_uid, True, value))
                 for value in scene.frame_values.get(rs.raw_uid, [])
             ]
-            se = StructureElement(rs, scene, True, None, frames)
+            se = StructureObject(rs, scene, True, None, frames)
             interactive_structures.append(se)
             return se
-        return StructureElement(
+        return StructureObject(
             rs, scene, False, build_content(rs.raw_uid, False, None), []
         )
 
     root_content = build_content(None, False, None)
-    return RootElement(root_content, interactive_structures, scene.nodes)
+    return DiagramObject(root_content, interactive_structures, scene.nodes)
 
 
 def draw_scene(scene: Scene, backend: Backend, theme: Theme = DEFAULT_THEME) -> None:
