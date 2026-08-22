@@ -110,6 +110,12 @@ class Layout:
     # holds containment). The render tree sorts a container's children (from
     # graph containment) by this rank. Absent uids fall back to node order.
     z_order: dict[str, int] = field(default_factory=dict)
+    # Paint rank per WIRE, keyed by its SOURCE terminal uid — the position of the
+    # signal in its diagram's ``signalList`` (LabVIEW's separate z-list for
+    # wires; nodes/terms are in ``zPlaneList``, wires are NOT). Same convention
+    # as ``z_order``: a LOWER rank draws first (further back). The render sorts a
+    # container's wire nets by this so crossings paint in LabVIEW's order.
+    wire_z: dict[str, int] = field(default_factory=dict)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -233,6 +239,10 @@ class _LayoutBuilder:
         # paint order (see Layout.z_order). Render-only.
         self.z_order: dict[str, int] = {}
         self._z_seq: int = 0
+        # WIRE paint rank (per source terminal uid) + its own monotonic counter,
+        # assigned as each diagram's ``signalList`` is walked (see Layout.wire_z).
+        self.wire_z: dict[str, int] = {}
+        self._wire_z_seq: int = 0
 
     def _record_label_hidden(self, elem: ET.Element, uid: str | None) -> None:
         """Record uid whose ``<label>`` is hidden (objFlags bit 0x8), so the
@@ -527,6 +537,11 @@ class _LayoutBuilder:
                     continue
                 uids = [e.get("uid") for e in tl.findall("SL__arrayElement")]
                 uids = [u for u in uids if u]
+                if uids:
+                    # signalList order IS the wire z-list (front-to-back), keyed
+                    # by source terminal uid so the render can sort nets by it.
+                    self.wire_z.setdefault(uids[0], self._wire_z_seq)
+                    self._wire_z_seq += 1
                 self.raw_signals.append((uids, cw.text.strip()))
 
     def _resolve_wire_geometry(self) -> dict[str, list[tuple[float, float]]]:
@@ -674,6 +689,7 @@ def build_layout_from_root(
         label_bounds=builder.label_bounds,
         wire_by_uid=builder._resolve_wire_geometry(),
         z_order=builder.z_order,
+        wire_z=builder.wire_z,
         icon_png=icon_png,
     )
 

@@ -335,6 +335,20 @@ def build_render_tree(scene: Scene) -> DiagramObject:
             for net in nets_by_container.get(container, [])
             if not interactive or _wire_frame(net, container) == frame
         ]
+        # Draw wires in LabVIEW's signalList paint order (Scene.wire_z, keyed by
+        # source terminal). Unlike zPlaneList (front-to-back), signalList is
+        # BACK-to-front: a HIGHER rank is more forward, so it draws LATER and its
+        # casing breaks the wires behind it at a crossing (verified against the
+        # #39 reference — the higher-ranked wire is on top). Ascending sort.
+        # Unknown rank (-1) sorts first (drawn backmost). Stable within ties.
+        def _net_rank(net: RenderWireNet) -> int:
+            src = net.source
+            if src is None:
+                return -1
+            raw = _raw(src.source.terminal_id)
+            return scene.wire_z.get(raw, -1) if raw is not None else -1
+
+        nets.sort(key=_net_rank)
         return DiagramContent(
             nets=nets,
             children=children,

@@ -294,6 +294,10 @@ class Scene:
     # children by this so a later (higher-rank) sibling occludes earlier ones.
     # Render-only paint order; containment comes from each node's own parent.
     z_order: dict[str, int] = field(default_factory=dict)
+    # WIRE paint rank per source terminal uid (from Layout.wire_z) — LabVIEW's
+    # separate signalList order (wires are NOT in zPlaneList). The composite
+    # sorts each container's wire nets by this so crossings paint in that order.
+    wire_z: dict[str, int] = field(default_factory=dict)
 
 
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
@@ -1979,4 +1983,5 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         frame_labels=frame_labels,
         error_frame_no_error=error_frame_no_error,
         z_order=layout.z_order,
+        wire_z=layout.wire_z,
     )
