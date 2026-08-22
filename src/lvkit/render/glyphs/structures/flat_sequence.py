@@ -5,22 +5,25 @@ from __future__ import annotations
 
 from ...backend import Backend
 from ...style import Theme
-from .base import Rect, StructureBodyGlyph
+from .base import RAIL_W, Rect, StructureBodyGlyph
 
 
 class FlatSequenceGlyph(StructureBodyGlyph):
     """Outer box + top/bottom rails + a vertical divider at each inter-frame
     boundary (the film-strip look). ``dividers`` are absolute x-positions,
-    injected from the layout."""
+    injected from the layout; ``border_color`` colours an error-cluster boundary
+    (same treatment as case/stacked)."""
 
-    def __init__(self, *, dividers: list[float] | None = None) -> None:
+    def __init__(
+        self, *, dividers: list[float] | None = None, border_color: str | None = None
+    ) -> None:
         self.dividers = dividers or []
+        self._apply_error_border(border_color)
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        x1, y1, x2, y2 = bounds
-        s = theme.struct_border
-        backend.rect(x1, y1, x2, y2, fill="none", stroke=s, stroke_width=1.2)
-        backend.line(x1, y1 + 4, x2, y1 + 4, stroke=s, stroke_width=1)
-        backend.line(x1, y2 - 4, x2, y2 - 4, stroke=s, stroke_width=1)
+        _, y1, _, y2 = bounds
+        s = self.border_color or theme.struct_border
+        super().draw_outline(backend, bounds, theme)  # the box (colour + width)
+        self._draw_rails(backend, bounds, s)
         for dx in self.dividers:
-            backend.line(dx, y1, dx, y2, stroke=s, stroke_width=1)
+            backend.line(dx, y1, dx, y2, stroke=s, stroke_width=RAIL_W)

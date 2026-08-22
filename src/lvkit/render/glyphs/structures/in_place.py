@@ -15,5 +15,4 @@ class InPlaceGlyph(EventGlyph):
     """An IPES draws the identical band border as an Event Structure, only
     narrower — so it reuses ``EventGlyph`` with a fixed 3px band."""
 
-    def __init__(self, *, band_width: float = IPES_BAND_W) -> None:
-        super().__init__(band_width=band_width)
+    band_width = IPES_BAND_W

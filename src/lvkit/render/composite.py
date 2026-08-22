@@ -37,6 +37,7 @@ from .draw import (
     draw_help_overlay,
     draw_node,
 )
+from .glyphs.structures.base import ERROR_BORDER_W
 from .glyphs.structures.factory import structure_body_glyph
 from .scene import (
     RenderFPTerminal,
@@ -228,7 +229,8 @@ class StructureObject(RenderObject):
             if err_color is not None:
                 bx1, by1, bx2, by2 = rs.bounds
                 backend.rect(
-                    bx1, by1, bx2, by2, fill="none", stroke=err_color, stroke_width=1.6
+                    bx1, by1, bx2, by2, fill="none", stroke=err_color,
+                    stroke_width=ERROR_BORDER_W,
                 )
             backend.end_group()
 
@@ -328,7 +330,7 @@ def build_render_tree(scene: Scene) -> DiagramObject:
         # insertion order (deterministic). Unknown-rank items (no geometry
         # entry, rank -1) sort last -> drawn frontmost, a safe visible default.
         ranked.sort(key=lambda pair: pair[0], reverse=True)
-        children = [elem for _, elem in ranked]
+        children = [obj for _, obj in ranked]
 
         nets = [
             net

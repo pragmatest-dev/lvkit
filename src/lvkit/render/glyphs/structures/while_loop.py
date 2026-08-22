@@ -6,16 +6,19 @@ from ...backend import Backend
 from ...style import Theme
 from .base import Rect, StructureBodyGlyph
 
+# As wide as the For loop's whole 3-card stack (2*_O offset + line) ≈ 5.2px, and
+# a matching corner radius — both read from the reference.
+WHILE_BORDER_W = 5.2
+WHILE_RADIUS = 5.75
+
 
 class WhileLoopGlyph(StructureBodyGlyph):
     """A rounded-rectangle loop with an OPAQUE body and a THICK GREY border
     (vs the For loop's thin near-black stacked cards), plus the bottom-right
     loop-back arrowhead that marks it as a While loop."""
 
-    # As wide as the For loop's whole 3-card stack (2*_O offset + line) ≈ 5.2px,
-    # read from the reference.
-    border_width = 5.2
-    radius = 5.75
+    border_width = WHILE_BORDER_W
+    radius = WHILE_RADIUS
 
     def draw_body(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -34,13 +37,13 @@ class WhileLoopGlyph(StructureBodyGlyph):
         # border width so it sits flush with the thick stroke's outer edge, plus
         # a short GAP in the right border just above it, so it reads as a
         # loop-back.
-        a = 9.1  # arrow leg (scaled with the border)
+        a = w * 1.75  # arrow leg, scaled with the border
         d = w / 2  # align the arrow with the border stroke's outer edge
         ax, ay = x2 + d, y2 + d
         backend.polygon(
             [(ax, ay - a), (ax, ay), (ax - a, ay - a)], fill=c, stroke=None
         )
-        gap = 2.9  # erase a short border segment above the arrow, back to canvas
+        gap = w * 0.5  # erase a short border segment above the arrow, back to canvas
         backend.rect(
             x2 - w, ay - a - gap, x2 + w, ay - a, fill=theme.canvas, stroke=None
         )

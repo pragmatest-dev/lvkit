@@ -14,10 +14,10 @@ from .base import Rect, StructureBodyGlyph
 
 class CaseGlyph(StructureBodyGlyph):
     """A bordered box. ``border_color`` overrides the default border (an
-    error-cluster case colours its box by the default frame — green/red);
-    ``dotted`` draws LabVIEW's dashed disable-structure boundary;
-    ``case_insensitive`` adds the "A=a" badge of a case-insensitive string
-    selector."""
+    error-cluster case colours its box by the default frame — green/red, drawn
+    slightly bolder); ``dotted`` draws LabVIEW's dashed disable-structure
+    boundary; ``case_insensitive`` adds the "A=a" badge of a case-insensitive
+    string selector."""
 
     def __init__(
         self,
@@ -26,20 +26,21 @@ class CaseGlyph(StructureBodyGlyph):
         dotted: bool = False,
         case_insensitive: bool = False,
     ) -> None:
-        self.border_color = border_color
+        self._apply_error_border(border_color)
         self.dotted = dotted
         self.case_insensitive = case_insensitive
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        dash = "1.5,2.5" if self.dotted else None
-        stroke = self.border_color or theme.struct_border
-        width = 1.6 if self.border_color is not None else 1.2
         backend.rect(
-            x1, y1, x2, y2, fill="none", stroke=stroke, stroke_width=width,
-            stroke_dasharray=dash,
+            x1, y1, x2, y2, fill="none",
+            stroke=self.border_color or theme.struct_border,
+            stroke_width=self.border_width,
+            stroke_dasharray="1.5,2.5" if self.dotted else None,
         )
         if self.case_insensitive:
+            # Case-insensitivity is a STRING-selector feature, so the badge takes
+            # the string-wire colour as a type cue (not a generic text colour).
             backend.text(
                 x1 + 4.0, y2 - 3.5, "A=a", 8.5, fill=theme.wire_string, anchor="start"
             )

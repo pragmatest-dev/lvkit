@@ -6,7 +6,8 @@ from ...backend import Backend
 from ...style import Theme
 from .base import Rect, StructureBodyGlyph
 
-_O = 2.0  # card fan offset (also in draw_outline; the silhouette must match)
+_O = 2.0  # card fan offset — body silhouette and card outline must agree
+_DOG_EAR = 6.0  # front-card bottom-right fold size
 
 
 class ForLoopGlyph(StructureBodyGlyph):
@@ -55,8 +56,9 @@ class ForLoopGlyph(StructureBodyGlyph):
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        o = 2.0
+        o = _O
         s = theme.struct_border
+        w = self.border_width
         w2, h2 = (x2 - x1) - 2 * o, (y2 - y1) - 2 * o
         fx2, fy2 = x1 + w2, y1 + h2  # front card bottom-right
         for k in (2, 1):  # back + mid cards, offset +k*o down-right of the front
@@ -70,18 +72,18 @@ class ForLoopGlyph(StructureBodyGlyph):
                 ],
                 fill="none",
                 stroke=s,
-                stroke_width=1.2,
+                stroke_width=w,
             )
         # Front card (loop boundary), top-left-aligned, dog-eared bottom-right.
-        f = 6.0
+        f = _DOG_EAR
         backend.path(
             [(x1, y1), (fx2, y1), (fx2, fy2 - f), (fx2 - f, fy2), (x1, fy2), (x1, y1)],
             fill="none",
             stroke=s,
-            stroke_width=1.2,
+            stroke_width=w,
         )
         backend.path(
             [(fx2, fy2 - f), (fx2 - f, fy2 - f), (fx2 - f, fy2)],
             stroke=s,
-            stroke_width=1.2,
+            stroke_width=w,
         )

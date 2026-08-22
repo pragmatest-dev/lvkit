@@ -24,6 +24,16 @@ from ...style import Theme
 
 Rect = tuple[float, float, float, float]
 
+# Default structure border stroke width.
+DEFAULT_BORDER_W = 1.2
+# An error-cluster case/sequence colours its box (green/red by the default
+# frame) and draws it slightly bolder than a normal border.
+ERROR_BORDER_W = 1.6
+# Film-strip rail inset from the top/bottom edges, and rail/divider stroke width
+# (flat + stacked sequence).
+RAIL_INSET = 4.0
+RAIL_W = 1.0
+
 
 class StructureBodyGlyph(ABC):
     """Base = the generic structure: an opaque rectangular body + a plain
@@ -40,7 +50,18 @@ class StructureBodyGlyph(ABC):
     ``draw_outline`` override just strokes relative to the inset bounds it's
     handed, so this needs no per-kind offset."""
 
-    border_width: float = 1.2
+    border_width: float = DEFAULT_BORDER_W
+    # A scene-injected border colour (error-cluster case/sequence); None uses the
+    # theme's default structure border. Set by subclasses that accept it.
+    border_color: str | None = None
+
+    def _apply_error_border(self, border_color: str | None) -> None:
+        """Store a scene-injected border colour and bold the border to match —
+        the shared error-cluster boundary treatment (case + sequence)."""
+        self.border_color = border_color
+        self.border_width = (
+            ERROR_BORDER_W if border_color is not None else DEFAULT_BORDER_W
+        )
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         self.draw_body(backend, bounds, theme)
@@ -75,9 +96,18 @@ class StructureBodyGlyph(ABC):
         return (x1 + i, y1 + i, x2 - i, y2 - i)
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        """Stroke the structure's static border."""
+        """Stroke the structure's static border box (colour + width from the
+        kind's own ``border_color``/``border_width``)."""
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
+            x1, y1, x2, y2, fill="none",
+            stroke=self.border_color or theme.struct_border,
             stroke_width=self.border_width,
         )
+
+    def _draw_rails(self, backend: Backend, bounds: Rect, stroke: str) -> None:
+        """Draw the film-strip top/bottom rails shared by flat + stacked
+        sequences, ``RAIL_INSET`` in from the box's top and bottom edges."""
+        x1, y1, x2, y2 = bounds
+        for ry in (y1 + RAIL_INSET, y2 - RAIL_INSET):
+            backend.line(x1, ry, x2, ry, stroke=stroke, stroke_width=RAIL_W)

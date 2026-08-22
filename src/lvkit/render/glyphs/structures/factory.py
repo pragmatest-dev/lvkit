@@ -35,6 +35,9 @@ def structure_body_glyph(
         return ForLoopGlyph()
     if node_type == "whileLoop":
         return WhileLoopGlyph()
+    # ``select`` (the Select primitive) and ``commentNode`` (a boxed comment)
+    # both render as a plain bordered box — the same static chrome as a case —
+    # so they intentionally share CaseGlyph.
     if node_type in ("caseStruct", "select", "commentNode"):
         return CaseGlyph(
             border_color=border_color,
@@ -44,7 +47,7 @@ def structure_body_glyph(
     if node_type in ("seq", "sequence"):
         return StackedSequenceGlyph(border_color=border_color)
     if node_type == "flatSequence":
-        return FlatSequenceGlyph(dividers=dividers)
+        return FlatSequenceGlyph(dividers=dividers, border_color=border_color)
     if node_type == "eventStruct":
         return EventGlyph()
     if node_type == "decomposeRecomposeStructure":
