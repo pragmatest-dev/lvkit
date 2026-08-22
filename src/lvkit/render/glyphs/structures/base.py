@@ -24,19 +24,20 @@ from ...style import Theme
 
 Rect = tuple[float, float, float, float]
 
-# The border outline is stroked (centered on the boundary) at this width, so it
-# occupies ±BORDER/2 around the line. Content is clipped BORDER/2 inside the
-# boundary so it meets the stroke's inner edge exactly — no overpaint (content
-# never crosses into the stroke) and no gap (content reaches the stroke). This
-# is order-independent, so it applies uniformly to every structure kind.
-_BORDER_W = 1.2
-_CLIP_INSET = _BORDER_W / 2
-
 
 class StructureBodyGlyph(ABC):
     """Base = the generic structure: an opaque rectangular body + a plain
     border. Subclasses override :meth:`draw_body` (body shape) and/or
-    :meth:`draw_outline` (border decoration)."""
+    :meth:`draw_outline` (border decoration).
+
+    ``border_width`` is the outline stroke width, and each kind may set its own
+    — a While loop draws a thick grey border, a For loop a thin one. The border
+    is centered on the boundary, so it occupies ±border_width/2 around the line;
+    :meth:`interior` clips content that same half-width inside so content meets
+    the stroke's inner edge flush (no overpaint, no gap). Because each kind owns
+    its width, the clip tracks it automatically."""
+
+    border_width: float = 1.2
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         self.draw_body(backend, bounds, theme)
@@ -60,16 +61,16 @@ class StructureBodyGlyph(ABC):
         that card (also border-inset), not the outer stacked-card bounds."""
         return self._clip_inset(bounds)
 
-    @staticmethod
-    def _clip_inset(rect: Rect) -> Rect:
-        """Shrink a clip rect by the border half-width on every side."""
+    def _clip_inset(self, rect: Rect) -> Rect:
+        """Shrink a clip rect by THIS kind's border half-width on every side."""
         x1, y1, x2, y2 = rect
-        i = _CLIP_INSET
+        i = self.border_width / 2
         return (x1 + i, y1 + i, x2 - i, y2 - i)
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """Stroke the structure's static border."""
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill="none", stroke=theme.struct_border, stroke_width=1.2
+            x1, y1, x2, y2, fill="none", stroke=theme.struct_border,
+            stroke_width=self.border_width,
         )

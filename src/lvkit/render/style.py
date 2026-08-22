@@ -36,6 +36,7 @@ class Theme:
 
     canvas: str = "#fbfbf5"
     struct_border: str = "#1e1e1e"  # loop/structure border (near-black, per GT)
+    while_border: str = "#808080"  # While loop's thick grey border (per GT)
     prim_fill: str = "#fff6d8"
     prim_stroke: str = "#b07d10"
     prim_text: str = "#1a1a1a"  # label text on prim_fill (Arith/Bundle/…)
