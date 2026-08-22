@@ -24,12 +24,13 @@ from ...style import Theme
 
 Rect = tuple[float, float, float, float]
 
-# Content is drawn OVER the structure's border (the outline strokes before the
-# content group), so the content clip is pulled this far inside the border on
-# every side — otherwise interior wires/glyphs that reach the boundary overpaint
-# the ~1.2px-wide border stroke and break it. One px clears the stroke's visible
-# inner half (0.6px) with margin, without leaving a visible canvas gap.
-_CLIP_INSET = 1.0
+# The border outline is stroked (centered on the boundary) at this width, so it
+# occupies ±BORDER/2 around the line. Content is clipped BORDER/2 inside the
+# boundary so it meets the stroke's inner edge exactly — no overpaint (content
+# never crosses into the stroke) and no gap (content reaches the stroke). This
+# is order-independent, so it applies uniformly to every structure kind.
+_BORDER_W = 1.2
+_CLIP_INSET = _BORDER_W / 2
 
 
 class StructureBodyGlyph(ABC):
@@ -53,15 +54,15 @@ class StructureBodyGlyph(ABC):
 
     def interior(self, bounds: Rect) -> Rect:
         """The rect the structure clips its CONTENTS to. Default: the whole
-        bounds, pulled inside the border by :data:`_CLIP_INSET`. A kind whose
-        inner diagram is bounded by an inset front card (the For-loop) overrides
-        this so contents clip to that card (also border-inset), not to the outer
-        stacked-card bounds."""
+        bounds, pulled inside the border by half its stroke width so content
+        meets the border's inner edge flush. A kind whose inner diagram is
+        bounded by an inset front card (the For-loop) overrides this to clip to
+        that card (also border-inset), not the outer stacked-card bounds."""
         return self._clip_inset(bounds)
 
     @staticmethod
     def _clip_inset(rect: Rect) -> Rect:
-        """Shrink a clip rect by the border clearance on every side."""
+        """Shrink a clip rect by the border half-width on every side."""
         x1, y1, x2, y2 = rect
         i = _CLIP_INSET
         return (x1 + i, y1 + i, x2 - i, y2 - i)

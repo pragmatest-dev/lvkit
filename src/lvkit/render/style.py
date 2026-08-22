@@ -44,7 +44,7 @@ class Theme:
     const_text: str = "#1a1a1a"  # label text on const_fill
     loop_term: str = "#1f3fbf"  # N / i border terminal
     loop_term_fill: str = "#ffffcc"  # pale-yellow fill of the N/i box (per GT)
-    loop_term_text: str = "#1a1a1a"  # "N"/"i" glyph text on loop_term_fill
+    loop_term_text: str = "#1f3fbf"  # "N"/"i" glyph text — integer blue (I32)
     cond_stop: str = "#c62828"  # while-loop cond terminal: Stop-if-True
     cond_continue: str = "#2e7d32"  # while-loop cond terminal: Continue-if-True
     subvi_fill: str = "#eef0e6"

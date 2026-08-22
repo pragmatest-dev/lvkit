@@ -153,9 +153,9 @@ class StructureObject(RenderObject):
         glyph = self._glyph(theme)
         glyph.draw(backend, rs.bounds, theme)
         # Contents clip to the glyph's INTERIOR (the front card for a For loop,
-        # the whole bounds for every other kind) so a child whose box exceeds
-        # this structure (e.g. a nested loop) doesn't draw outside it — LabVIEW
-        # clips a structure's contents to its inner border.
+        # the whole bounds for every other kind), pulled inside the border by
+        # half its stroke width so content meets the border stroke's inner edge
+        # flush — no overpaint, no clearance gap.
         clip = glyph.interior(rs.bounds)
         if self.interactive:
             self._draw_interactive(backend, theme, clip)
