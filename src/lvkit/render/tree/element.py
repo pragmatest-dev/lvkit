@@ -152,8 +152,14 @@ class StructureElement(RenderElement):
             self._draw_interactive(backend, theme)
         else:
             assert self.body is not None
+            # Clip inner content to the structure's bounds so a child whose box
+            # exceeds this structure (e.g. a nested loop) doesn't draw outside it
+            # — LabVIEW clips a structure's contents to its border.
+            backend.begin_group(clip=rs.bounds)
             self.body.draw(backend, theme)
-            # Border terminals LAST (a tunnel sits on its wire), default frame.
+            backend.end_group()
+            # Border terminals LAST (a tunnel sits on its wire), default frame,
+            # UNCLIPPED so a glyph sitting on the edge is never shaved.
             fv = self.scene.default_frame.get(rs.raw_uid)
             for bt in rs.border_terminals:
                 _draw_border_terminal(bt, backend, theme, fv)
@@ -173,7 +179,12 @@ class StructureElement(RenderElement):
                 cls="lv-frame" if visible else "lv-frame lv-frame-hidden",
                 data={"path": encode_frame_path(path)},
             )
+            # Clip the frame's inner content to the structure bounds (a nested
+            # structure whose box exceeds this one doesn't spill out); border
+            # terminals stay UNCLIPPED so an edge-seated glyph isn't shaved.
+            backend.begin_group(clip=rs.bounds)
             content.draw(backend, theme)
+            backend.end_group()
             # The container draws its tunnels ON TOP of this frame's inner wires,
             # for THIS frame value (an output tunnel unwired here shows a hole).
             for bt in rs.border_terminals:
