@@ -34,6 +34,7 @@ from ..models import (
     LVType,
     LVTypeKind,
     Terminal,
+    TunnelMode,
     TunnelTerminal,
     _is_error_cluster,
 )
@@ -173,9 +174,11 @@ class RenderBorderTerminal:
     structure kind (see ``_LOOP_GUARANTEED_KINDS``).
 
     ``glyph_kind`` is the fixed decoration to draw: "N", "i", "cond",
-    "sr_down", "sr_up", "autoindex" (array index/accumulate), "tunnel"
-    (last-value passthrough — a filled type-color block), "selector", or None.
-    ``color`` is the type color for a filled "tunnel" block.
+    "sr_down", "sr_up", "autoindex" (array index/accumulate — [ ] brackets),
+    "concatenate" (auto-concatenating output tunnel — two side-by-side
+    type-color blocks), "tunnel" (last-value passthrough — a filled type-color
+    block), "selector", or None. ``color`` is the type color for a filled
+    "tunnel"/"concatenate" glyph and the "autoindex" brackets.
     """
 
     terminal: Terminal | None
@@ -197,6 +200,11 @@ class RenderBorderTerminal:
     # and future inner-tunnel-per-frame work; it is currently always ()
     # since only outer tunnels are emitted.
     frame_path: FramePath = ()
+    # The developer HID this border terminal via LabVIEW's "Visible Items"
+    # (loop i/N/cond only — see LoopNode.hidden_border_terminals). The glyph is
+    # still emitted (so the scene stays complete and a future "show hidden"
+    # viewer toggle can reveal it), but draw.py skips it by default.
+    hidden: bool = False
 
 
 @dataclass(frozen=True)
@@ -234,6 +242,12 @@ class RenderWireNet:
     # LabVIEW's implicit-conversion coercion dot (see style.coercion_key).
     coercion_dots: list[Point] = field(default_factory=list)
     frame_path: FramePath = ()
+    # Raw uid of the INNERMOST structure containing BOTH endpoints, or None for
+    # a wire at the root diagram / not fully contained. This is the net's
+    # CONTAINMENT owner — the composite render tree draws each net inside its
+    # container's diagram so a container body occludes wires behind it but never
+    # its own inner wires (see _innermost_common_container).
+    container_uid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -275,6 +289,15 @@ class Scene:
     # raw struct uid of ERROR-cluster case structures -> {selector value ->
     # True if that frame is the No-Error (green) case, else False (red)}.
     error_frame_no_error: dict[str, dict[str, bool]] = field(default_factory=dict)
+    # Z-ORDER paint rank per raw uid (from Layout.z_order) — LabVIEW's back-to-
+    # front zPlaneList order. The composite render tree sorts each container's
+    # children by this so a later (higher-rank) sibling occludes earlier ones.
+    # Render-only paint order; containment comes from each node's own parent.
+    z_order: dict[str, int] = field(default_factory=dict)
+    # WIRE paint rank per source terminal uid (from Layout.wire_z) — LabVIEW's
+    # separate signalList order (wires are NOT in zPlaneList). The composite
+    # sorts each container's wire nets by this so crossings paint in that order.
+    wire_z: dict[str, int] = field(default_factory=dict)
 
 
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
@@ -795,6 +818,14 @@ def _structure_borders(
     consumed: set[str] = set()
     kinds_present: set[str] = set()
 
+    # Loop border-terminal KINDS ("i"/"N"/"cond") the developer hid via
+    # LabVIEW's "Visible Items" — the glyph is still emitted (scene stays
+    # complete; a future "show hidden" toggle can reveal it) but tagged
+    # ``hidden`` so draw.py skips it by default. Only loops carry this.
+    hidden_kinds: frozenset[str] = (
+        node.hidden_border_terminals if isinstance(node, LoopNode) else frozenset()
+    )
+
     # Per-frame inner tunnel terminals, grouped by their outer tunnel — used to
     # detect "Use Default If Unwired" output tunnels (an output tunnel left
     # unwired in some frame). A valid VI must have the option enabled for such a
@@ -817,9 +848,21 @@ def _structure_borders(
         if glyph_kind is None and t.name == "selector":
             glyph_kind = "selector"
         if t.tunnel_type == "lpTun":
-            # Auto-indexing (array in/accumulate out) -> [ ] brackets;
-            # last-value passthrough -> a filled block in the wire type color.
-            glyph_kind = "autoindex" if raw in layout.indexing_tunnels else "tunnel"
+            # Glyph from the loop tunnel's own aggregation MODE — the single
+            # source of truth is the parsed ``TunnelMode`` on the terminal, NOT
+            # a parallel geometry flag (which lumped concatenating in with
+            # indexing and mislabelled passthrough inputs as auto-index):
+            #   INDEXING     -> [ ] auto-index brackets (array in / accumulate
+            #                   out; input OR output — LabVIEW calls both this)
+            #   CONCATENATING-> the side-by-side concatenate glyph (output-only)
+            #   LAST_VALUE /
+            #   PASSTHROUGH  -> a plain filled block in the wire type color
+            if t.mode == TunnelMode.INDEXING:
+                glyph_kind = "autoindex"
+            elif t.mode == TunnelMode.CONCATENATING and t.direction == "output":
+                glyph_kind = "concatenate"
+            else:
+                glyph_kind = "tunnel"
         if glyph_kind is None:
             # A plain data tunnel (case/sequence border passthrough): LabVIEW
             # draws it as a solid block in the WIRE TYPE COLOR, never a flat
@@ -830,7 +873,8 @@ def _structure_borders(
         # in LabVIEW (orange DBL, blue I32, mustard error, ...) — not gray/white.
         color = (
             wire_style(t.lv_type).color
-            if glyph_kind in ("autoindex", "tunnel", "sr_down", "sr_up", "selector")
+            if glyph_kind
+            in ("autoindex", "concatenate", "tunnel", "sr_down", "sr_up", "selector")
             else None
         )
         # OUTPUT data tunnel: the frame VALUES whose per-frame inner terminal is
@@ -860,6 +904,7 @@ def _structure_borders(
                 glyph_kind=glyph_kind,
                 color=color,
                 unwired_frames=unwired_frames,
+                hidden=glyph_kind in hidden_kinds,
             )
         )
         consumed.add(raw)
@@ -897,6 +942,7 @@ def _structure_borders(
                     terminal=None,
                     bounds=layout.border_terminals[match],
                     glyph_kind=kind,
+                    hidden=kind in hidden_kinds,
                     cond_continue=(
                         kind == "cond"
                         and getattr(node, "stop_condition_inverted", False)
@@ -1256,12 +1302,37 @@ def _innermost_common_container(
     obstacle. ``_endpoint_containers`` is ordered leaf→root, so the first
     container common to both endpoints is the deepest (nesting handled).
     """
-    src = _endpoint_containers(w.source, graph, by_id, vi_name)
-    dst = set(_endpoint_containers(w.dest, graph, by_id, vi_name))
+    src = _containment_of(w.source, graph, by_id, vi_name)
+    dst = set(_containment_of(w.dest, graph, by_id, vi_name))
     for uid in src:
         if uid in dst:
             return uid
     return None
+
+
+def _containment_of(
+    end: WireEnd,
+    graph: InMemoryVIGraph,
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
+) -> list[str]:
+    """Structures this endpoint lives inside, innermost→outermost — the general
+    containment rule for a WIRE endpoint: its node's ancestor structures PLUS,
+    when the endpoint sits ON a structure's own border (a loop's ``i``/``cond``,
+    a tunnel/shift-register/selector), that structure itself as the innermost.
+
+    This is a superset of ``_endpoint_containers`` (which recognizes only INNER
+    tunnel faces, because it also drives obstacle EXEMPTION where the inner/outer
+    face matters). For CONTAINMENT the intersection with the OTHER endpoint does
+    the filtering: an external wire's outside endpoint has no structure here, so
+    the intersection is empty → root."""
+    containers = _endpoint_containers(end, graph, by_id, vi_name)
+    node = by_id.get(end.node_id)
+    if isinstance(node, StructureNode):
+        own = _strip_prefix(node.id, vi_name)
+        if own not in containers:
+            containers = [own, *containers]  # the endpoint's own structure is innermost
+    return containers
 
 
 def _build_wire_nets(
@@ -1521,6 +1592,9 @@ def _build_wire_nets(
                 branches=branches,
                 coercion_dots=coercion_dots,
                 frame_path=path,
+                container_uid=_innermost_common_container(
+                    group[0], graph, by_id, vi_name
+                ),
             )
         )
 
@@ -1908,4 +1982,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         frame_values=frame_values,
         frame_labels=frame_labels,
         error_frame_no_error=error_frame_no_error,
+        z_order=layout.z_order,
+        wire_z=layout.wire_z,
     )

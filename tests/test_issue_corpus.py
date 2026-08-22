@@ -18,11 +18,12 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     CaseStructureNode,
     DisableStructureNode,
+    LoopNode,
     SequenceNode,
 )
-from lvkit.models import DisableStructureKind
+from lvkit.models import DisableStructureKind, TunnelMode, TunnelTerminal
 from lvkit.render import render_vi_file
-from lvkit.render.scene import _frame_info
+from lvkit.render.scene import _frame_info, _structure_borders
 
 _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 
@@ -155,3 +156,177 @@ def test_issue31_disable_structure_frame_names():
         "RUN_TIME_ENGINE==False",
     ]
     assert labels_by_kind[DisableStructureKind.TYPE_SPEC] == ["[0]", "[1]", "[2]"]
+
+
+def test_issue38_loop_tunnel_glyph_from_mode():
+    """#38: a loop tunnel's border glyph is chosen from its parsed
+    ``TunnelMode`` (single source of truth), not a binary indexing flag.
+
+    The repro For Loop has three OUTPUT tunnels — a last-value ``Numeric``
+    (``PASSTHROUGH`` here), an auto-indexing ``Array`` (``INDEXING``), and an
+    auto-concatenating ``Array 2`` (``CONCATENATING``). Before the fix the
+    concatenating tunnel was drawn identically to the indexing one (``[ ]``
+    brackets); now each mode maps to a distinct glyph, and ``concatenate`` is
+    reserved for output tunnels.
+    """
+    graph, vi = _load("38/auto-concatenating-tunnel.vi")
+    loop = next(n for n in graph.iter_nodes(vi) if isinstance(n, LoopNode))
+    layout = graph.get_layout(vi)
+    assert layout is not None
+    glyph_by_mode: dict[tuple[TunnelMode | None, str], str | None] = {}
+    for b in _structure_borders(loop, layout, vi):
+        t = b.terminal
+        if isinstance(t, TunnelTerminal) and t.tunnel_type == "lpTun":
+            glyph_by_mode[(t.mode, t.direction)] = b.glyph_kind
+    assert glyph_by_mode[(TunnelMode.CONCATENATING, "output")] == "concatenate"
+    assert glyph_by_mode[(TunnelMode.INDEXING, "output")] == "autoindex"
+    assert glyph_by_mode[(TunnelMode.PASSTHROUGH, "output")] == "tunnel"
+
+
+def test_issue38_fixture_renders():
+    """The #38 repro loads and renders to a non-empty SVG (crash guard)."""
+    vi = _CORPUS / "38" / "auto-concatenating-tunnel.vi"
+    svg = render_vi_file(vi, search_paths=[vi.parent])
+    assert svg is not None and "<svg" in svg[:500] and len(svg) > 200
+
+
+def test_issue34_hidden_iteration_terminal_omitted():
+    """#34: a loop's iteration terminal (``i``) hidden via "Visible Items" is
+    carried on the graph and omitted by the renderer; shown terminals still draw.
+
+    Per-terminal visibility is objFlags bit ``0x800000`` on the terminal's inner
+    ``sRN`` ``<term>``. Both loops in this repro hide their ``i`` (and nothing
+    else). The graph records the hidden KIND on
+    ``LoopNode.hidden_border_terminals``; the renderer tags that glyph ``hidden``
+    (draw.py skips it), while the visible ``N`` / stop glyphs render normally.
+    """
+    graph, vi = _load("34/hidden-iteration-terminal.vi")
+    loops = [n for n in graph.iter_nodes(vi) if isinstance(n, LoopNode)]
+    assert len(loops) == 2
+    assert all(n.hidden_border_terminals == frozenset({"i"}) for n in loops), [
+        sorted(n.hidden_border_terminals) for n in loops
+    ]
+    layout = graph.get_layout(vi)
+    assert layout is not None
+    hidden_kinds: set[str | None] = set()
+    shown_kinds: set[str | None] = set()
+    for n in loops:
+        for b in _structure_borders(n, layout, vi):
+            (hidden_kinds if b.hidden else shown_kinds).add(b.glyph_kind)
+    # `i` is hidden on both loops; the visible N (for) and stop (while) are not.
+    assert "i" in hidden_kinds and "i" not in shown_kinds
+    assert {"N", "cond"} & shown_kinds
+    assert not ({"N", "cond"} & hidden_kinds)
+
+
+def test_issue34_fixture_renders():
+    """The #34 repro loads and renders to a non-empty SVG (crash guard)."""
+    vi = _CORPUS / "34" / "hidden-iteration-terminal.vi"
+    svg = render_vi_file(vi, search_paths=[vi.parent])
+    assert svg is not None and "<svg" in svg[:500] and len(svg) > 200
+
+
+def test_issue35_structures_occlude_by_zorder():
+    """#35/#39: overlapping structures occlude by zPlaneList paint order.
+
+    The repro has two overlapping For loops (a big one containing a nested loop,
+    and a small top-left one) plus a ``0 -> Numeric`` wire that runs behind the
+    big loop. LabVIEW draws the small loop LAST (front of the root zPlaneList),
+    so it occludes the big loop's corner. The composite render tree must:
+
+    * nest the inner loop under the big loop (graph containment), and
+    * order the two root-level loops so the frontmost (highest ``z_order``) is
+      drawn AFTER the backmost's whole subtree — asserted on the TREE, not
+      pixels — with each structure painting an OPAQUE body.
+    """
+    from lvkit.render import build_scene
+    from lvkit.render.composite import StructureObject, build_render_tree
+
+    graph, vi = _load("35/objects-hidden-by-structures.vi")
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    # Two root-level (parent-less) structures overlap; the inner one is nested.
+    root_structs = [s for s in scene.structures if s.node.parent is None]
+    assert len(root_structs) == 2, "expected two overlapping root loops"
+    nested = [s for s in scene.structures if s.node.parent is not None]
+    assert nested, "expected a nested loop inside the big loop"
+
+    def overlap(a, b):
+        return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+    a, b = root_structs
+    assert overlap(a.bounds, b.bounds), "the two root loops must overlap"
+
+    # Draw order on the tree: LabVIEW's zPlaneList is FRONT-to-back, so the
+    # FRONTMOST loop has the LOWER z_order (document index 0) and must be emitted
+    # AFTER the backmost, so its opaque body occludes the backmost's corner.
+    tree = build_render_tree(scene)
+    order = [
+        c.rs.raw_uid
+        for c in tree.content.children
+        if isinstance(c, StructureObject)
+    ]
+    assert set(order) == {a.raw_uid, b.raw_uid}
+    a_front = scene.z_order[a.raw_uid] < scene.z_order[b.raw_uid]
+    front = a.raw_uid if a_front else b.raw_uid
+    back = b.raw_uid if a_front else a.raw_uid
+    assert order.index(front) > order.index(back), (
+        "frontmost (lower z_order / zPlaneList index 0) structure must draw last"
+    )
+
+    # The nested loop is a child of one of the root loops (containment nesting),
+    # not a sibling at the root.
+    assert nested[0].raw_uid not in order
+
+    # Opaque bodies actually reach the SVG (the fix): more canvas-colored FILLS
+    # than the single backdrop rect.
+    vi_path = _CORPUS / "35" / "objects-hidden-by-structures.vi"
+    svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
+    assert svg is not None
+    assert svg.count('fill="#fbfbf5"') > 3
+
+
+def test_issue39_overlapping_nodes_occlude_by_zorder():
+    """#39: overlapping NODES occlude by zPlaneList paint order.
+
+    The repro overlaps two ``Open/Create/Replace File`` subVIs (distinct from
+    #35, whose repro overlaps STRUCTURES). LabVIEW draws diagram children in
+    ``zPlaneList`` order (front object last), so the frontmost node occludes the
+    corner of the one behind it. The composite tree must order the two
+    overlapping root nodes so the frontmost (lower ``z_order``) draws LAST.
+    """
+    from lvkit.render import build_scene
+    from lvkit.render.composite import NodeObject, build_render_tree
+
+    graph, vi = _load("39/zorder-not-respected.vi")
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    def overlap(a, b):
+        return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+    # A pair of root-level nodes whose boxes overlap (the two file subVIs), both
+    # with a known paint rank.
+    root_nodes = [n for n in scene.nodes if n.node.parent is None]
+    pair = next(
+        (
+            (a, b)
+            for i, a in enumerate(root_nodes)
+            for b in root_nodes[i + 1 :]
+            if overlap(a.bounds, b.bounds)
+        ),
+        None,
+    )
+    assert pair is not None, "expected two overlapping nodes in the #39 repro"
+    a, b = pair
+    assert a.dom_id in scene.z_order and b.dom_id in scene.z_order
+
+    tree = build_render_tree(scene)
+    order = [c.rn.dom_id for c in tree.content.children if isinstance(c, NodeObject)]
+    a_front = scene.z_order[a.dom_id] < scene.z_order[b.dom_id]
+    front = a.dom_id if a_front else b.dom_id
+    back = b.dom_id if a_front else a.dom_id
+    assert order.index(front) > order.index(back), (
+        "frontmost (lower z_order) node must draw last so it occludes the back one"
+    )

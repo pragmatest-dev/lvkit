@@ -6,8 +6,11 @@ geometry the parser otherwise discards. See ``experiments/lv-renderer/DESIGN.md`
 
 Pipeline: ``parser/layout.py`` geometry + graph semantics -> ``scene.py``
 (``Scene`` view model, resolving each node's ``Glyph`` via ``nodes.py``'s
-resolver chain) -> ``draw.py`` (replays the resolved glyphs/structures/wires)
--> ``backend.py`` (``SvgBackend``) -> SVG string.
+resolver chain) -> ``composite.py`` (builds ONE hierarchical composite and
+draws it with a single recursive ``root.draw()`` — nesting by graph containment,
+paint order by the layout's zPlaneList rank, opaque structure bodies, reusing
+the leaf pixel helpers in ``draw.py`` and the structure body glyphs in
+``glyphs/structures/``) -> ``backend.py`` (``SvgBackend``) -> SVG string.
 """
 
 from __future__ import annotations
@@ -21,8 +24,8 @@ from ..graph.core import InMemoryVIGraph
 from ..graph.loading import LoadMode
 from ..graph.models import VINode, vi_health_to_dict, vi_properties_to_dict
 from .backend import SvgBackend
+from .composite import draw_scene
 from .connector_pane import pane_terminals, render_connector_pane_help
-from .draw import draw_scene
 from .icons import icon_data_uri
 from .scene import Scene, build_scene
 from .style import DEFAULT_THEME, Theme, css_var_theme

@@ -79,8 +79,6 @@ class Layout:
     # Structure raw uid -> the raw uids of its border_terminals entries
     # (loop N/i/cond, case selector) — pure containment, no glyph semantics.
     structure_border_uids: dict[str, list[str]] = field(default_factory=dict)
-    # raw uids belonging to AUTO-INDEXING tunnels (vs last-value passthroughs).
-    indexing_tunnels: set[str] = field(default_factory=set)
     # raw uids whose ``<label>`` child is hidden (objFlags bit 0x8) — i.e.
     # LabVIEW's "label visible" property is off for that element.
     hidden_labels: set[str] = field(default_factory=set)
@@ -103,6 +101,21 @@ class Layout:
     # (absolute), ready for ``_compress([src, *mid, dst])`` in scene.py. A signal
     # that doesn't decode exactly is absent (→ auto-router). See task #84 / #76.
     wire_by_uid: dict[str, list[tuple[float, float]]] = field(default_factory=dict)
+    # Z-ORDER paint rank per raw uid: the position at which the diagram walk
+    # first saw the element, assigned as a single monotonic DFS counter over
+    # ``zPlaneList`` (then ``nodeList``) at every nesting level. LabVIEW paints
+    # ``zPlaneList`` back-to-front, so a LOWER rank draws first (further back)
+    # and a later sibling (higher rank) occludes it. This is the ONLY carrier
+    # of paint order — a pure RENDER concern (never enters the graph, which
+    # holds containment). The render tree sorts a container's children (from
+    # graph containment) by this rank. Absent uids fall back to node order.
+    z_order: dict[str, int] = field(default_factory=dict)
+    # Paint rank per WIRE, keyed by its SOURCE terminal uid — the position of the
+    # signal in its diagram's ``signalList`` (LabVIEW's separate z-list for
+    # wires; nodes/terms are in ``zPlaneList``, wires are NOT). Same convention
+    # as ``z_order``: a LOWER rank draws first (further back). The render sorts a
+    # container's wire nets by this so crossings paint in LabVIEW's order.
+    wire_z: dict[str, int] = field(default_factory=dict)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -212,9 +225,6 @@ class _LayoutBuilder:
         self.border_terminals: dict[str, Rect] = {}
         self.border_terminal_kind: dict[str, str] = {}
         self.structure_border_uids: dict[str, list[str]] = {}
-        # raw uids of AUTO-INDEXING loop tunnels (array index/accumulate); a
-        # last-value passthrough tunnel is absent from this set.
-        self.indexing_tunnels: set[str] = set()
         # raw uids whose direct <label> child is hidden (objFlags bit 0x8).
         self.hidden_labels: set[str] = set()
         # flat-sequence raw uid -> inter-frame divider x-positions.
@@ -223,6 +233,16 @@ class _LayoutBuilder:
         # collected raw during the walk; resolved to centers afterward by
         # ``_resolve_wire_geometry`` once ``terminal_centers`` is complete.
         self.raw_signals: list[tuple[list[str], str]] = []
+        # Z-ORDER paint rank per raw uid + the monotonic DFS counter feeding it.
+        # Assigned in ``_visit`` as the walk descends ``zPlaneList`` (then
+        # ``nodeList``) at every level, so it captures LabVIEW's back-to-front
+        # paint order (see Layout.z_order). Render-only.
+        self.z_order: dict[str, int] = {}
+        self._z_seq: int = 0
+        # WIRE paint rank (per source terminal uid) + its own monotonic counter,
+        # assigned as each diagram's ``signalList`` is walked (see Layout.wire_z).
+        self.wire_z: dict[str, int] = {}
+        self._wire_z_seq: int = 0
 
     def _record_label_hidden(self, elem: ET.Element, uid: str | None) -> None:
         """Record uid whose ``<label>`` is hidden (objFlags bit 0x8), so the
@@ -238,31 +258,6 @@ class _LayoutBuilder:
             return
         if flags & 0x8:
             self.hidden_labels.add(uid)
-
-    def _detect_tunnel_modes(self, elem: ET.Element) -> None:
-        """Record which lpTun tunnels are auto-indexing vs last-value.
-
-        LabVIEW marks an auto-indexing tunnel with a ``TunnelType`` (and an
-        ``innerLpTunDCO``); a plain last-value passthrough has neither.
-        """
-        tl = elem.find("termList")
-        if tl is None:
-            return
-        for term in tl.findall("SL__arrayElement"):
-            dco = term.find("dco")
-            src = (
-                dco
-                if dco is not None and dco.get("class") == "lpTun"
-                else (term if term.get("class") == "lpTun" else None)
-            )
-            if src is None:
-                continue
-            tt = (src.findtext("TunnelType") or "").strip()
-            indexing = src.find("innerLpTunDCO") is not None or (
-                tt not in ("", "00", "0")
-            )
-            if indexing:
-                self.indexing_tunnels.update(self._collect_uids(term))
 
     # -- uid collection -------------------------------------------------
     @staticmethod
@@ -542,6 +537,11 @@ class _LayoutBuilder:
                     continue
                 uids = [e.get("uid") for e in tl.findall("SL__arrayElement")]
                 uids = [u for u in uids if u]
+                if uids:
+                    # signalList order IS the wire z-list (front-to-back), keyed
+                    # by source terminal uid so the render can sort nets by it.
+                    self.wire_z.setdefault(uids[0], self._wire_z_seq)
+                    self._wire_z_seq += 1
                 self.raw_signals.append((uids, cw.text.strip()))
 
     def _resolve_wire_geometry(self) -> dict[str, list[tuple[float, float]]]:
@@ -584,6 +584,12 @@ class _LayoutBuilder:
         self._record_label_hidden(elem, uid)
         if uid:
             self.node_bounds.setdefault(uid, (ax1, ay1, ax2, ay2))
+            # First-sight paint rank (see Layout.z_order): the walk reaches
+            # elements in zPlaneList back-to-front order at each level, so the
+            # rank captures LabVIEW's occlusion order for free.
+            if uid not in self.z_order:
+                self.z_order[uid] = self._z_seq
+                self._z_seq += 1
         # An sRN's own ``bounds`` is a translation for out-of-diagram terminal
         # REFERENCES, but its ``termList`` holds fPTerm/constants that are
         # diagram-level objects — each already carries diagram-relative bounds,
@@ -591,7 +597,6 @@ class _LayoutBuilder:
         # (otherwise a control inside a loop lands far to the upper-left).
         term_ox, term_oy = (ox, oy) if elem.get("class") == "sRN" else (ax1, ay1)
         self._map_terms(elem, term_ox, term_oy)
-        self._detect_tunnel_modes(elem)
         if uid:
             self._border_dcos(elem, ax1, ay1, uid)
 
@@ -679,11 +684,12 @@ def build_layout_from_root(
         border_terminals=builder.border_terminals,
         border_terminal_kind=builder.border_terminal_kind,
         structure_border_uids=builder.structure_border_uids,
-        indexing_tunnels=builder.indexing_tunnels,
         hidden_labels=builder.hidden_labels,
         sequence_dividers=builder.sequence_dividers,
         label_bounds=builder.label_bounds,
         wire_by_uid=builder._resolve_wire_geometry(),
+        z_order=builder.z_order,
+        wire_z=builder.wire_z,
         icon_png=icon_png,
     )
 

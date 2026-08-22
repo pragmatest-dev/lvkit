@@ -18,6 +18,57 @@ from ..models import ParsedLoopStructure
 from ..utils import safe_int, safe_text
 from .base import extract_tunnel_mapping
 
+# objFlags bit on a loop border terminal's inner ``sRN`` ``<term>`` marking that
+# terminal HIDDEN ("Visible Items" unchecked). Data-driven and verified: across
+# the whole corpus EVERY visible i/N/stop terminal has this bit CLEAR (537 i,
+# 438 N, 101 stop -- 0 set), while the hidden iteration terminals in issue #34's
+# repro have it SET. The bit lives on the sRN term, NOT on the DCO itself (every
+# ``loopIndexDCO`` carries the identical no-objFlags/termBMPs=1 signature). See
+# issue #34.
+_TERM_HIDDEN_FLAG = 0x800000
+
+# Loop border DCO tag -> the glyph kind the renderer draws for it. The iteration
+# terminal (i) and while-loop conditional (cond) are not graph Terminals; N is.
+_BORDER_DCO_KIND = {
+    "loopIndexDCO": "i",
+    "loopLimitDCO": "N",
+    "loopTestDCO": "cond",
+}
+
+
+def _hidden_border_terminals(loop_elem: ET.Element) -> frozenset[str]:
+    """The loop border-terminal KINDS (``"i"``/``"N"``/``"cond"``) the developer
+    HID via Visible Items.
+
+    Each border DCO's on-diagram terminal is an inner ``sRN`` ``<term>`` whose
+    ``<objFlags>`` carries ``_TERM_HIDDEN_FLAG`` when hidden; the DCO element
+    (``loopIndexDCO`` etc.) does not. Correlate by uid -- the sRN term's child
+    ``<dco uid>`` equals the border DCO's own uid. ``.find`` on the loop's own
+    ``diagramList`` never descends into a nested loop, so only THIS loop's
+    border terminals are read.
+    """
+    # dco-uid -> that terminal's sRN-term objFlags (this loop's inner diagram).
+    term_flags: dict[str, int] = {}
+    diag = loop_elem.find("diagramList/SL__arrayElement[@class='diag']")
+    node_list = diag.find("nodeList") if diag is not None else None
+    if node_list is not None:
+        for srn in node_list.findall("SL__arrayElement[@class='sRN']"):
+            term_list = srn.find("termList")
+            if term_list is None:
+                continue
+            for term in term_list.findall("SL__arrayElement[@class='term']"):
+                dco = term.find("dco")
+                if dco is not None and dco.get("uid"):
+                    term_flags[dco.get("uid", "")] = safe_int(term.find("objFlags"))
+
+    hidden: set[str] = set()
+    for tag, kind in _BORDER_DCO_KIND.items():
+        dco = loop_elem.find(tag)
+        uid = dco.get("uid") if dco is not None else None
+        if uid and term_flags.get(uid, 0) & _TERM_HIDDEN_FLAG:
+            hidden.add(kind)
+    return frozenset(hidden)
+
 
 def _wired_terminal_uids(root: ET.Element) -> set[str]:
     """Every terminal uid that appears as a ``<signal>`` endpoint anywhere on
@@ -229,6 +280,7 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                     stop_condition_inverted=stop_condition_inverted,
                     parallel=parallel,
                     parallel_static_workers=parallel_static_workers,
+                    hidden_border_terminals=_hidden_border_terminals(loop_elem),
                 )
             )
 
