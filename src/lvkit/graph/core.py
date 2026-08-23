@@ -24,6 +24,7 @@ from .models import (
     ConstantNode,
     DisableStructureNode,
     EventStructureNode,
+    LabelNode,
     LocalVariableNode,
     PolyInfo,
     StructureNode,
@@ -126,6 +127,8 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
         return "constant"
     if isinstance(node, LocalVariableNode):
         return "local_variable"
+    if isinstance(node, LabelNode):
+        return "label"
     return "operation"
 
 

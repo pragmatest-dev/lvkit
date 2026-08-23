@@ -25,6 +25,8 @@ from .models import (
     ClassHierarchyInfo,
     Constant,
     ConstantNode,
+    Label,
+    LabelNode,
     MethodAccessInfo,
     MethodOverrideInfo,
     PolyInfo,
@@ -556,6 +558,32 @@ class QueryMixin:
             )
         return results
 
+    def get_labels(self, vi_name: str) -> list[Label]:
+        """Get all free labels (block-diagram comments) in a VI."""
+        vi_name = self.resolve_vi_name(vi_name)
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
+            return []
+
+        results = []
+        for uid in sorted(node_uids, key=_node_order_key):
+            if uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if not isinstance(gnode, LabelNode):
+                continue
+            results.append(
+                Label(
+                    id=gnode.id,
+                    text=gnode.text,
+                    bg_color=gnode.bg_color,
+                    attached_to=gnode.attached_to,
+                    parent=gnode.parent,
+                    frame=gnode.frame,
+                )
+            )
+        return results
+
     def get_operations(self, vi_name: str) -> list[Operation]:
         """Get all operations (SubVIs, primitives) in a VI.
 
@@ -836,6 +864,7 @@ class QueryMixin:
         inputs = list(self.get_inputs(vi_name))
         outputs = list(self.get_outputs(vi_name))
         constants = list(self.get_constants(vi_name))
+        labels = list(self.get_labels(vi_name))
         operations = list(self.get_operations(vi_name))
         data_flow = list(self.get_wires(vi_name))
 
@@ -858,6 +887,7 @@ class QueryMixin:
             inputs=inputs,
             outputs=outputs,
             constants=constants,
+            labels=labels,
             operations=operations,
             terminals=terminals,
             data_flow=data_flow,

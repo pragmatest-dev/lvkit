@@ -18,6 +18,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     CaseStructureNode,
     DisableStructureNode,
+    LabelNode,
     LoopNode,
     SequenceNode,
 )
@@ -202,6 +203,43 @@ def test_issue33_enum_coerces_like_its_underlying_int():
             uint_dotted.append(bool(net.coercion_dots))
     assert enum_dotted and all(enum_dotted), "enum wire into I32 size input has no dot"
     assert uint_dotted and all(uint_dotted), "U32 wire regressed (no coercion dot)"
+
+
+def test_issue32_free_labels_are_modeled_and_rendered():
+    """#32 (Phase 1): a block-diagram free label (comment) is a first-class
+    ``LabelNode`` — carried in the graph, surfaced by ``describe`` (so its prose
+    reaches an agent), and rendered at its own bounds in zPlaneList paint order.
+
+    The repro has two "Hello World!" free labels (and a rectangle + arrow
+    decoration — decorations are Phase 2, still unrendered). Each label's heap
+    uid is already in ``Layout.z_order`` (the zPlaneList walk records it), so it
+    interleaves with real nodes in LabVIEW's own back-to-front order for free.
+    """
+    from lvkit.graph.describe import describe_vi
+
+    graph, vi = _load("32/comments-and-decorations.vi")
+    labels = [n for n in graph.iter_nodes(vi) if isinstance(n, LabelNode)]
+    assert len(labels) == 2
+    assert all(lbl.text == "Hello World!" for lbl in labels), [
+        lbl.text for lbl in labels
+    ]
+
+    # Geometry + z-order come from layout, keyed by the label's heap uid.
+    layout = graph.get_layout(vi)
+    assert layout is not None
+    for lbl in labels:
+        raw = lbl.id.rsplit("::", 1)[-1]
+        assert raw in layout.node_bounds, f"label {raw} has no bounds"
+        assert raw in layout.z_order, f"label {raw} missing from z_order"
+
+    # Rendered: both label texts appear in the SVG.
+    vi_path = _CORPUS / "32" / "comments-and-decorations.vi"
+    svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
+    assert svg is not None and svg.count("Hello World!") == 2
+
+    # Semantic: the comment text is surfaced for an agent reading the VI.
+    described = describe_vi(graph, vi)
+    assert "Hello World!" in described
 
 
 @pytest.mark.parametrize("vi,issue_dir", _fixture_vis())

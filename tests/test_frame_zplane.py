@@ -34,10 +34,14 @@ def test_zplane_only_flat_sequence_is_captured():
     uids = frame_inner_node_uids(diag)
     # nodeList members preserved (unchanged behaviour)
     assert "856" in uids and "3031" in uids
-    # the fix: the flatSequence structure from zPlaneList is now captured
+    # the flatSequence STRUCTURE from zPlaneList is captured (not orphaned)
     assert "3020" in uids
-    # decorations are NOT captured (only structures augment from zPlaneList)
-    assert "2949" not in uids and "464" not in uids
+    # a FREE LABEL in the frame's z-plane is OWNED by the frame (LabVIEW places a
+    # per-frame comment inside that frame's diagram) -> captured, so it toggles
+    # with the frame instead of floating in the always-visible base layer (#32)
+    assert "464" in uids
+    # a bare attachment anchor is not itself a frame-owned element
+    assert "2949" not in uids
 
 
 def test_nested_case_in_zplane_also_captured():

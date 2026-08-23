@@ -55,6 +55,7 @@ from .core import _graph_node_to_op_kind, _node_order_key
 from .models import (
     AnyGraphNode,
     ConstantNode,
+    LabelNode,
     StructureNode,
     VINode,
     WireEnd,
@@ -475,6 +476,29 @@ class ConstructionMixin:
                 name=const.label,
                 parent_kind=_graph_node_to_op_kind(const_node),
             )
+
+        # === 2b. Add Free Labels (block-diagram comments) ===
+        # No terminals, no dataflow -- never enters term_lookup. Bounds + paint
+        # order come for free from Layout (keyed by this same raw uid); see
+        # parser/layout.py's zPlaneList walk. Containment (parent/frame) IS
+        # stamped by ``_stamp`` below: a label in a structure frame's zPlaneList
+        # is listed in that frame's ``inner_node_uids`` (``frame_inner_node_uids``
+        # includes the free-label class), so a per-frame comment is owned by its
+        # frame and renders/toggles with it; a root-level label stays top-level.
+        # (Attachment resolution -- matching a label's anchor point to another
+        # node -- needs geometry not threaded into ``_add_vi_to_graph``, so
+        # ``attached_to`` is left None as a documented best-effort gap.)
+        for lbl in bd.labels:
+            q_label_uid = self._qid(vi_key, lbl.uid)
+            label_node = LabelNode(
+                id=q_label_uid,
+                vi=vi_key,
+                text=lbl.text,
+                bg_color=lbl.bg_color,
+                attached_to=None,
+            )
+            g.add_node(q_label_uid, node=label_node)
+            vi_node_uids.add(q_label_uid)
 
         # === 3. Add operations (SubVIs, primitives, structures) ===
 

@@ -511,6 +511,26 @@ class ParsedVIMetadata:
 
 
 @dataclass
+class ParsedFreeLabel:
+    """A free-standing block-diagram comment -- LabVIEW's "Free Label" (the
+    text tool's decoration), a heap ``class="label"`` element sitting
+    directly in a diagram's ``zPlaneList`` with its own ``textRec/text`` and
+    ``bounds``. Distinct from a node's OWNED label/caption (also
+    ``class="label"``, but nested inside that node's ``partsList`` -- see
+    ``extract_label``/``extract_caption``), which this is never confused
+    with (see ``parser/nodes/free_label.py``).
+    """
+
+    uid: str
+    text: str
+    bounds: tuple[int, int, int, int]  # top, left, bottom, right
+    bg_color: str | None = None  # heap "00RRGGBB" hex, e.g. "00FFFFD7"
+    # uid of the small "attachment" (pushpin) zPlaneList element this label
+    # points at, if any -- see extract_free_labels.
+    attach_uid: str | None = None
+
+
+@dataclass
 class ParsedBlockDiagram:
     """Parsed block diagram representation.
 
@@ -520,6 +540,7 @@ class ParsedBlockDiagram:
     nodes: list[ParsedNode]
     constants: list[ParsedConstant]
     wires: list[ParsedWire]
+    labels: list[ParsedFreeLabel] = field(default_factory=list)
     fp_terminals: list[ParsedFPTerminal] = field(default_factory=list)
     enum_labels: dict[str, list[str]] = field(default_factory=dict)
     terminal_info: dict[str, ParsedTerminalInfo] = field(default_factory=dict)
