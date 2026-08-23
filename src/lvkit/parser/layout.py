@@ -546,15 +546,20 @@ class _LayoutBuilder:
 
     def _resolve_wire_geometry(self) -> dict[str, list[tuple[float, float]]]:
         """Decode every ``raw_signal`` into ``Layout.wire_by_uid``: each branch's
-        intermediate bend points keyed by its SINK terminal uid.
+        FULL polyline (LabVIEW's own source anchor + bend points + sink anchor)
+        keyed by its SINK terminal uid.
 
         One pass over both 2-endpoint and fan-out signals — ``decode_signal``
         handles both (a 2-endpoint wire is the 1-leaf case). It needs the source
         and ALL sink centers (a tree can't be decoded one branch at a time), then
         each resulting branch is stored under its sink uid so ``scene.py`` can
         look it up per drawn wire by exact identity — no center rounding, no
-        proximity tolerance. Signals with an unresolved terminal, or that don't
-        decode exactly, are skipped and fall back to the auto-router.
+        proximity tolerance. The stored polyline is the wire's ACTUAL block-
+        diagram geometry, drawn verbatim: the endpoints are the heap terminal
+        centers the decode was anchored to, so the renderer never re-anchors it
+        to a separately-computed terminal coordinate. Signals with an unresolved
+        terminal, or that don't decode exactly, are skipped and fall back to the
+        auto-router (the ONLY case autoroute runs).
         """
         from .wire_table import decode_signal
 
@@ -570,7 +575,8 @@ class _LayoutBuilder:
             if mids is None:
                 continue
             for sink_uid, mid in zip(sink_uids, mids):
-                by_uid[sink_uid] = mid
+                # Full wire: source anchor -> decoded bends -> sink anchor.
+                by_uid[sink_uid] = [src, *mid, self.terminal_centers[sink_uid]]
         return by_uid
 
     def _visit(self, elem: ET.Element, ox: float, oy: float) -> None:

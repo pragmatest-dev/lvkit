@@ -67,6 +67,14 @@ OVERLAP_TOL = 2.0
 
 _EPS = 1e-6
 
+# A single-segment near-straight wire whose two terminal centers differ by a
+# SUB-PIXEL amount off-axis (e.g. a tunnel's 9px-tall termBounds center at .5
+# vs a front-panel terminal's 16px-tall center at .0 -> 0.5px) is drawn STRAIGHT
+# rather than bent into a mid-Z jog to force strict orthogonality. LabVIEW draws
+# such a wire straight; a jag under ~1px is a visible defect, not fidelity. Only
+# an off-axis gap of at least this many px earns an actual orthogonal jog.
+_STRAIGHT_TOL = 1.0
+
 
 @dataclass(frozen=True)
 class _Segment:
@@ -93,6 +101,13 @@ class BranchCtx:
     # free to separate.
     src_border: bool = False
     dst_border: bool = False
+    # Whether this branch's geometry came from LabVIEW's OWN decoded wire table
+    # (``compressedWireTable``) rather than our fallback auto-router. Lanes are
+    # an auto-route concept — separating wires OUR router might stack on one
+    # track. A decoded wire already carries LabVIEW's real, already-separated
+    # geometry, so it bypasses this pass ENTIRELY: no snap, no slice, no
+    # re-track, no rebuild. Only auto-routed branches are lane candidates.
+    faithful: bool = False
 
 
 def _snap_orthogonal(pts: list[Point]) -> list[Point]:
@@ -345,14 +360,14 @@ def _rebuild_branch(
     # terminal faces stay correct.
     if n == 1 and seg_idxs[0] not in new_track:
         if orients[0] == "H":
-            if abs(src[1] - dst[1]) <= _EPS:
+            if abs(src[1] - dst[1]) <= _STRAIGHT_TOL:
                 return _compress([src, dst], tol=_EPS)
             midx = (src[0] + dst[0]) / 2
             return _compress(
                 [src, (midx, src[1]), (midx, dst[1]), dst],
                 tol=_EPS,
             )
-        if abs(src[0] - dst[0]) <= _EPS:
+        if abs(src[0] - dst[0]) <= _STRAIGHT_TOL:
             return _compress([src, dst], tol=_EPS)
         midy = (src[1] + dst[1]) / 2
         return _compress([src, (src[0], midy), (dst[0], midy), dst], tol=_EPS)
@@ -508,6 +523,13 @@ def apply_lane_pass(
             net_id = _net_id(net, ni)
             for bi, branch in enumerate(net.branches):
                 ctx = ctx_map.get((ni, bi), BranchCtx())
+                if ctx.faithful:
+                    # Decoded wire: LabVIEW already placed it. Bypass the pass
+                    # entirely — keep its geometry verbatim and contribute NO
+                    # segments, so it is invisible to lane assignment and never
+                    # snapped/rebuilt (which would jag a sub-pixel diagonal).
+                    rebuilt[(ni, bi)] = list(branch)
+                    continue
                 snapped = _snap_orthogonal(branch)
                 idxs: list[int] = []
                 for seg in _slice_branch(snapped, net_id):
