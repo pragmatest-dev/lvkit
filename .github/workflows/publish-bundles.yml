@@ -194,6 +194,19 @@ jobs:
             "$h  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
           }
 
+      # The manifest is shared, so it declares BOTH `main` (this native binary)
+      # and `browser` (the web entry). vsce refuses to package if a declared
+      # entrypoint file is missing — so even the desktop VSIXes must carry the
+      # tiny dist/web/extension.js (it never loads on a desktop host). Build just
+      # that esbuild bundle here; the heavy Pyodide/wheel assets stay out of the
+      # desktop VSIX via .vscodeignore.
+      - name: Build the web entry (shared manifest `browser` field)
+        shell: bash
+        working-directory: editors/vscode
+        run: |
+          npm ci
+          node esbuild.web.js
+
       - name: Package .vsix for this platform
         shell: bash
         working-directory: editors/vscode
