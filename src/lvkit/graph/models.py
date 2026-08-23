@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from ..models import (
     CaseFrame,
     ClusterField,
+    DisableStructureKind,
     EventFrame,
     LVType,
     Operation,
@@ -212,14 +213,19 @@ class DisableStructureNode(StructureNode):
     model_config = {"arbitrary_types_allowed": True}
 
     frames: list[CaseFrame] = []
-    # Index into ``frames`` of the enabled/active subdiagram at compile/edit
-    # time (heap ``activeDiag``). None if unresolved.
+    # Index of the enabled/active/accepted subdiagram (heap ``activeDiag``) --
+    # drives the frame LABELS. Absent-means-0; None only if present-but-
+    # unparseable.
     active_frame: int | None = None
     # Frame LabVIEW last displayed (heap ``dIdx``, range-checked) -- the saved
     # visible frame, which for a Conditional Disable can differ from the enabled
     # one. Preferred as the initial view when present; None for an out-of-range
     # legacy ``dIdx`` → renderer falls back to Enabled/active_frame. See #30.
     displayed_frame: int | None = None
+    # Which disable-family structure this is -- render styles per kind
+    # (dotted border for Diagram/Conditional Disable; solid border + type icon
+    # for Type Specialization).
+    kind: DisableStructureKind = DisableStructureKind.DIAGRAM
 
 
 class EventStructureNode(StructureNode):

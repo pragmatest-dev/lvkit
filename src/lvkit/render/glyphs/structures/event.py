@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from ...backend import Backend
 from ...style import Theme
-from .base import Rect, StructureBodyGlyph
+from .base import Rect
+from .selectable import SelectableStructureGlyph
 
 # Band width MEASURED from authoritative 1:1 LabVIEW reference screenshots (the
 # "[0] Timeout" event structure): a 7px pale band between two 1px edge rules.
@@ -12,7 +13,7 @@ EVENT_BAND_W = 7.0
 _RULE_W = 1.0  # both band edge rules are 1px (per the reference)
 
 
-class EventGlyph(StructureBodyGlyph):
+class EventGlyph(SelectableStructureGlyph):
     """A filled BAND margin (``theme.event_band``) of ``band_width`` LV units
     between the outer bounds and an inner rule (both in ``theme.event_border``),
     mirroring LabVIEW's wide border. The band is confined to the edge margin, so

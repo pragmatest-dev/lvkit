@@ -438,6 +438,29 @@ class FPTerminal(Terminal):
     frame: str | int | None = None
 
 
+class DisableStructureKind(str, Enum):
+    """Which disable-family structure a ``class="commentNode"`` is. All three
+    share the heap element class and frame shape but LabVIEW draws them
+    differently, so the render styles per kind (dotted border for the two
+    disable kinds; solid border + a type icon for Type Specialization).
+
+    Detected from stored fields, never the user-editable border label (see
+    ``parser/nodes/disable.py::_disable_kind``):
+
+    - DIAGRAM: a plain Diagram Disable Structure (Enabled / Disabled).
+    - CONDITIONAL: a Conditional Disable Structure (per-symbol conditions +
+      an else/Default), each frame carrying condition tokens.
+    - TYPE_SPEC: a Type Specialization Structure (malleable-VI type cascade),
+      marked by the heap's ``Tag0273``. Frames get a bare storage-order ``[i]``
+      -- LabVIEW's [N] + Accepted/Declined/Ignored are a compile result it does
+      not persist (see issue #31).
+    """
+
+    DIAGRAM = "diagram"
+    CONDITIONAL = "conditional"
+    TYPE_SPEC = "type_spec"
+
+
 class TunnelMode(str, Enum):
     """A loop tunnel's BASE aggregation mode -- ``dco class="lpTun"`` ONLY (a
     ``None`` ``Tunnel.mode`` means "not a loop tunnel", not "unknown"; every

@@ -23,11 +23,19 @@ def _build_disable_xml(
     frame_node_uids: list[list[str]],
     outer_term_uid: str | None = None,
     inner_term_uids: list[str] | None = None,
+    conditions: list[list[str]] | None = None,
+    type_spec: bool = False,
 ) -> ET.Element:
     """Build minimal XML for a Disable structure, mirroring the real heap
     shape (verified against ctm_head.vi node 1926 and 111 other corpus VIs):
     termList (own boundary terminals) / diagramList (direct diag children,
-    each with a nodeList) / selString (active frame's label) / activeDiag.
+    each with a nodeList) / selString (displayed frame's caption) / activeDiag.
+
+    ``conditions`` (one hex-decodable ASCII token-list per frame, e.g.
+    ``[[], ["TARGET_TYPE", "Windows"]]``) builds the ``commentSelInfoArray``
+    that marks a Conditional Disable and carries each frame's condition.
+    ``type_spec=True`` adds the ``Tag0273`` marker of a Type Specialization
+    Structure.
     """
     root = ET.Element("root")
     comment = ET.SubElement(
@@ -95,6 +103,27 @@ def _build_disable_xml(
                 },
             )
 
+    if conditions is not None:
+        csa = ET.SubElement(comment, "commentSelInfoArray")
+        for tokens in conditions:
+            sie = ET.SubElement(
+                csa,
+                "SL__arrayElement",
+                attrib={"class": "SelectorInfoElement"},
+            )
+            ET.SubElement(sie, "Tag0000")  # leading empty tag (parser ignores)
+            expr = ET.SubElement(
+                sie, "activeDiag", attrib={"class": "ExpressionInfo"}
+            )
+            tag = ET.SubElement(expr, "Tag0000")
+            for tok in tokens:
+                ET.SubElement(tag, "SL__arrayElement").text = (
+                    tok.encode("ascii").hex().upper()
+                )
+
+    if type_spec:
+        ET.SubElement(comment, "Tag0273").text = "True"
+
     if active_label is not None:
         sel_string = ET.SubElement(
             comment,
@@ -159,11 +188,12 @@ class TestIsDisableStructure:
 
 class TestExtractDisableStructures:
     def test_two_frame_enabled_disabled(self):
-        """Diagram Disable Structure: frame 0 has the real code (node 200),
-        frame 1 (index == activeDiag) is the empty 'Disabled' frame -- the
-        currently-active label ('Disabled') is read from selString; frame 0
-        gets the fixed complementary label ('Enabled'), a LabVIEW product
-        invariant for the 2-frame case (not a guess)."""
+        """Diagram Disable labels come from ``activeDiag`` (the ENABLED frame),
+        NOT the displayed-frame ``selString`` caption: the ``activeDiag`` frame
+        is "Enabled", every other frame is "Disabled". Here ``activeDiag=1``
+        marks frame 1 enabled even though the real code sits in frame 0 -- a
+        valid "this block of code is disabled" scenario -- proving the label
+        tracks ``activeDiag``, not frame position or the caption."""
         root = _build_disable_xml(
             "1926",
             active_diag="01",
@@ -178,36 +208,70 @@ class TestExtractDisableStructures:
         assert ds.active_frame == 1
         assert len(ds.frames) == 2
 
-        enabled_frame, disabled_frame = ds.frames
-        assert enabled_frame.selector_value == "Enabled"
-        assert enabled_frame.is_default is False
-        assert enabled_frame.inner_node_uids == ["1938", "190"]
+        frame0, frame1 = ds.frames
+        assert frame0.selector_value == "Disabled"
+        assert frame0.is_default is False
+        assert frame0.inner_node_uids == ["1938", "190"]
 
-        assert disabled_frame.selector_value == "Disabled"
-        assert disabled_frame.is_default is True
-        assert disabled_frame.inner_node_uids == ["1945"]
+        assert frame1.selector_value == "Enabled"
+        assert frame1.is_default is True
+        assert frame1.inner_node_uids == ["1945"]
 
-    def test_conditional_three_frame_only_active_gets_real_label(self):
-        """A Conditional Disable Structure (3+ frames, e.g. per-symbol
-        conditions) has no reliable per-frame label source beyond the
-        active one -- non-active frames get an honest 'Frame N' placeholder
-        rather than a guessed symbol name."""
+    def test_diagram_disable_absent_activediag_enables_frame_zero(self):
+        """``activeDiag`` is omitted when it is 0 (the heap drops zero-valued
+        fields), so an absent one enables frame 0 -- matching the real #31
+        repro's Diagram Disable."""
+        root = _build_disable_xml(
+            "1926",
+            active_diag=None,
+            active_label=" Enabled ",
+            frame_node_uids=[["1938"], []],
+        )
+        ds = extract_disable_structures(root)[0]
+        assert ds.active_frame == 0
+        assert [f.selector_value for f in ds.frames] == ["Enabled", "Disabled"]
+        assert ds.frames[0].is_default is True
+
+    def test_conditional_frames_labeled_by_decoded_condition(self):
+        """A Conditional Disable labels each frame by its OWN stored condition
+        (decoded from the commentSelInfoArray hex-ASCII tokens); the
+        empty-token frame is the else/Default -- no 'Frame N' placeholders."""
         root = _build_disable_xml(
             "390",
-            active_diag="02",
-            active_label=" Default ",
-            frame_node_uids=[["401"], ["416"], ["429"]],
+            active_diag="01",
+            active_label=" TARGET_TYPE==Windows ",
+            frame_node_uids=[["401"], ["416"]],
+            conditions=[[], ["TARGET_TYPE", "Windows"]],
         )
         structures = extract_disable_structures(root)
 
         assert len(structures) == 1
         ds = structures[0]
-        assert ds.active_frame == 2
+        assert ds.active_frame == 1
         labels = [f.selector_value for f in ds.frames]
-        assert labels == ["Frame 0", "Frame 1", "Default"]
-        assert ds.frames[2].is_default is True
+        assert labels == ["Default", "TARGET_TYPE==Windows"]
+        assert ds.frames[1].is_default is True
         assert ds.frames[0].is_default is False
-        assert ds.frames[1].is_default is False
+
+    def test_type_spec_storage_order_index_labels(self):
+        """A Type Specialization Structure (``Tag0273``) labels frames with the
+        bare storage-order ``[i]``. LabVIEW's [N] + Accepted/Declined/Ignored
+        are a compile result it doesn't persist, so we show file order rather
+        than fabricate the cascade (#31)."""
+        root = _build_disable_xml(
+            "500",
+            active_diag="01",
+            active_label=" [1] Accepted ",
+            frame_node_uids=[["601"], ["616"], ["629"]],
+            type_spec=True,
+        )
+        structures = extract_disable_structures(root)
+
+        assert len(structures) == 1
+        ds = structures[0]
+        assert ds.kind.value == "type_spec"
+        labels = [f.selector_value for f in ds.frames]
+        assert labels == ["[0]", "[1]", "[2]"]
 
     def test_own_boundary_tunnels_selTun_style(self):
         """The structure's own commentTun boundary terminal maps to one

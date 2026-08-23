@@ -23,22 +23,23 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from ..graph.models import DisableStructureNode
+from ..graph.models import (
+    CaseStructureNode,
+    DisableStructureNode,
+    EventStructureNode,
+    SequenceNode,
+)
 from .backend import Backend, Point
 from .draw import (
     _draw_border_terminal,
-    _draw_frame_menu,
-    _draw_frame_selector,
-    _draw_frame_value_label,
     _draw_layer_coercion_dots,
-    _error_border_color,
-    _is_interactive_structure,
     draw_fp_terminal,
     draw_help_overlay,
     draw_node,
 )
 from .glyphs.structures.base import ERROR_BORDER_W
 from .glyphs.structures.factory import structure_body_glyph
+from .glyphs.structures.selectable import SelectableStructureGlyph, SelectorState
 from .scene import (
     RenderFPTerminal,
     RenderNode,
@@ -56,6 +57,47 @@ def _raw(qualified: str | None) -> str | None:
     key shared by ``Scene.z_order``, ``RenderStructure.raw_uid`` and
     ``RenderWireNet.container_uid``."""
     return qualified.rsplit("::", 1)[-1] if qualified else None
+
+
+def _is_interactive_structure(node: object) -> bool:
+    """Which structure kinds get selector chrome + ``lv-frame``/``lv-selector``
+    groups: a case, any disable-family structure, an event structure, and a
+    STACKED sequence (a flat sequence shows every frame, so it is not paged)."""
+    return isinstance(
+        node, (CaseStructureNode, DisableStructureNode, EventStructureNode)
+    ) or (isinstance(node, SequenceNode) and node.node_type != "flatSequence")
+
+
+def _error_border_color(
+    scene: Scene, raw_uid: str, value: str, theme: Theme
+) -> str | None:
+    """Green (No Error) / red (Error) border colour for an error-cluster case's
+    shown frame, or ``None`` if this structure isn't an error case."""
+    err = scene.error_frame_no_error.get(raw_uid)
+    if err is None:
+        return None
+    return (
+        theme.case_no_error_border if err.get(value, False) else theme.case_error_border
+    )
+
+
+def _selector_state(rs: RenderStructure, scene: Scene) -> SelectorState:
+    """Resolve the scene's frame data for one interactive structure into the
+    plain :class:`SelectorState` the glyph's selector methods consume — folding
+    the sequence ``N [0..M]`` label form and the case's typed labels here so the
+    glyph stays pure."""
+    raw = rs.raw_uid
+    values = scene.frame_values.get(raw, [])
+    default = scene.default_frame.get(raw) or ""
+    if isinstance(rs.node, SequenceNode):  # flat isn't interactive
+        last = len(values) - 1 if values else 0
+        display = {v: f"{v} [0..{last}]" for v in values}
+    else:
+        labels = scene.frame_labels.get(raw, {})
+        display = {v: labels.get(v, v) for v in values}
+    return SelectorState(
+        raw_uid=raw, values=values, default=default, display=display
+    )
 
 
 def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -> None:
@@ -139,10 +181,15 @@ class StructureObject(RenderObject):
         rs = self.rs
         default = self.scene.default_frame.get(rs.raw_uid, "")
         border_color = _error_border_color(self.scene, rs.raw_uid, default, theme)
+        # A disable-family structure routes to its per-subtype glyph by kind
+        # (Type Specialization → solid + icon; the rest → dotted); #31/#46.
+        disable_kind = (
+            rs.node.kind if isinstance(rs.node, DisableStructureNode) else None
+        )
         return structure_body_glyph(
             rs.node.node_type,
             border_color=border_color,
-            dotted=isinstance(rs.node, DisableStructureNode),
+            disable_kind=disable_kind,
             case_insensitive=bool(getattr(rs.node, "case_insensitive", False)),
             dividers=rs.dividers,
         )
@@ -159,7 +206,8 @@ class StructureObject(RenderObject):
         # flush — no overpaint, no clearance gap.
         clip = glyph.interior(rs.bounds)
         if self.interactive:
-            self._draw_interactive(backend, theme, clip)
+            assert isinstance(glyph, SelectableStructureGlyph)
+            self._draw_interactive(backend, theme, clip, glyph)
         else:
             assert self.body is not None
             backend.begin_group(clip=clip)
@@ -172,10 +220,15 @@ class StructureObject(RenderObject):
                 _draw_border_terminal(bt, backend, theme, fv)
 
     def _draw_interactive(
-        self, backend: Backend, theme: Theme, clip: tuple[float, float, float, float]
+        self,
+        backend: Backend,
+        theme: Theme,
+        clip: tuple[float, float, float, float],
+        glyph: SelectableStructureGlyph,
     ) -> None:
         rs, scene = self.rs, self.scene
-        _draw_frame_selector(rs, scene, backend, theme)  # base selector chrome
+        state = _selector_state(rs, scene)
+        glyph.draw_selector(backend, rs.bounds, theme, state)  # base selector chrome
         default = scene.default_frame.get(rs.raw_uid)
         # Base (always-present) border terminals in the default state; each
         # frame group redraws them for its own value on top.
@@ -206,11 +259,17 @@ class StructureObject(RenderObject):
                 backend.begin_group(cls="lv-disabled-mask")
                 backend.rect(x1, y1, x2, y2, fill=theme.disabled_mask)
                 backend.end_group()
-                _draw_frame_selector(rs, scene, backend, theme)
+                glyph.draw_selector(backend, rs.bounds, theme, state)
             backend.end_group()
-        self._draw_value_labels(backend, theme)
+        self._draw_value_labels(backend, theme, glyph, state)
 
-    def _draw_value_labels(self, backend: Backend, theme: Theme) -> None:
+    def _draw_value_labels(
+        self,
+        backend: Backend,
+        theme: Theme,
+        glyph: SelectableStructureGlyph,
+        state: SelectorState,
+    ) -> None:
         rs, scene = self.rs, self.scene
         default = scene.default_frame.get(rs.raw_uid)
         for value in scene.frame_values.get(rs.raw_uid, []):
@@ -224,7 +283,7 @@ class StructureObject(RenderObject):
                 else "lv-frame lv-label lv-frame-hidden",
                 data={"path": encode_frame_path(label_path)},
             )
-            _draw_frame_value_label(rs, scene, value, backend, theme)
+            glyph.draw_value_label(backend, rs.bounds, theme, state, value)
             err_color = _error_border_color(scene, rs.raw_uid, value, theme)
             if err_color is not None:
                 bx1, by1, bx2, by2 = rs.bounds
@@ -238,7 +297,11 @@ class StructureObject(RenderObject):
         """Dropdown menu overlay — drawn LAST of all so it sits over the whole
         diagram when opened (display:none until its ▼ toggle shows it)."""
         if self.interactive and self.scene.frame_values.get(self.rs.raw_uid):
-            _draw_frame_menu(self.rs, self.scene, backend, theme)
+            glyph = self._glyph(theme)
+            assert isinstance(glyph, SelectableStructureGlyph)
+            glyph.draw_menu(
+                backend, self.rs.bounds, theme, _selector_state(self.rs, self.scene)
+            )
 
 
 @dataclass

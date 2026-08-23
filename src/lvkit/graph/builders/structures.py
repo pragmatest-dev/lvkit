@@ -11,7 +11,13 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 
-from lvkit.models import CaseFrame, EventFrame, SequenceFrame, Terminal
+from lvkit.models import (
+    CaseFrame,
+    DisableStructureKind,
+    EventFrame,
+    SequenceFrame,
+    Terminal,
+)
 from lvkit.parser.models import ParsedNode
 
 from ..models import (
@@ -295,6 +301,7 @@ class DisableBuildHandler(StructureBuildHandler):
         disable_frames: list[CaseFrame] = []
         active_frame: int | None = None
         displayed_frame: int | None = None
+        kind = DisableStructureKind.DIAGRAM
 
         parser_tunnels: list = []
         if disable_struct:
@@ -302,6 +309,7 @@ class DisableBuildHandler(StructureBuildHandler):
             disable_frames = list(disable_struct.frames)
             active_frame = disable_struct.active_frame
             displayed_frame = disable_struct.displayed_frame
+            kind = disable_struct.kind
 
         structure_terminals = ctx.build_structure_terminals(
             parser_tunnels,
@@ -320,6 +328,7 @@ class DisableBuildHandler(StructureBuildHandler):
             frames=disable_frames,
             active_frame=active_frame,
             displayed_frame=displayed_frame,
+            kind=kind,
         )
 
 

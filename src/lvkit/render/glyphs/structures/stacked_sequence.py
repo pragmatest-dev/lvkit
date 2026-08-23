@@ -5,10 +5,11 @@ from __future__ import annotations
 
 from ...backend import Backend
 from ...style import Theme
-from .base import Rect, StructureBodyGlyph
+from .base import Rect
+from .selectable import SelectableStructureGlyph
 
 
-class StackedSequenceGlyph(StructureBodyGlyph):
+class StackedSequenceGlyph(SelectableStructureGlyph):
     """A bordered box sharing the flat sequence's top/bottom rails — the
     selector plus single-frame layout is all that distinguishes stacked from
     flat."""
