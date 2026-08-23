@@ -25,10 +25,13 @@ WORK="editors/vscode/build/.pyi-work"
 # to the package: a frozen binary ships no .py sources, so it cannot compute them
 # at runtime — without this the render/index caches would degrade (blind to code
 # changes) or crash. See embed_fingerprints.py + cache_paths._embedded_fingerprints.
-# ABSOLUTE path: PyInstaller resolves an --add-data SOURCE relative to
-# --specpath, not the cwd, so a repo-relative path would double and be silently
-# skipped (it only prints an ERROR and still exits 0).
-FP_DIR="$REPO/$WORK/fp"
+# PyInstaller resolves an --add-data SOURCE relative to --specpath (NOT the cwd).
+# Write the file under the workdir (= specpath) and pass it as a plain
+# specpath-relative "fp/…" path: a repo-relative path would double (and be
+# silently skipped — PyInstaller only prints an ERROR yet still exits 0), and an
+# absolute git-bash path (/d/a/…) gets mangled to \d\a\ when it reaches the native
+# PyInstaller through the "src;dest" arg on Windows. A bare "fp/…" avoids both.
+FP_DIR="$WORK/fp"
 mkdir -p "$FP_DIR"
 python editors/vscode/build/embed_fingerprints.py "$FP_DIR/_build_fingerprints.json"
 # PyInstaller's --add-data separator is os.pathsep: ';' on Windows, ':' elsewhere.
@@ -40,7 +43,7 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ADSEP=";" ;; *) ADSEP=":" ;; esac
   --collect-all pylabview \
   --collect-submodules networkx \
   --exclude-module tkinter --exclude-module matplotlib \
-  --add-data "$FP_DIR/_build_fingerprints.json${ADSEP}lvkit" \
+  --add-data "fp/_build_fingerprints.json${ADSEP}lvkit" \
   --distpath editors/vscode/bin \
   --workpath "$WORK" \
   --specpath "$WORK" \
