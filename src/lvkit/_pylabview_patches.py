@@ -44,6 +44,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore", SyntaxWarning)
     import pylabview.LVblock as _lv_block  # type: ignore[import-untyped]
     import pylabview.LVdatatype as _lv_datatype  # type: ignore[import-untyped]
+    import pylabview.LVheap as _lv_heap  # type: ignore[import-untyped]
     import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
     import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
     import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
@@ -282,5 +283,47 @@ def install_pylabview_patches() -> None:
 
     _resilient_tdlist.__wrapped__ = _orig_tdlist  # type: ignore[attr-defined]
     _lv_block.VCTP.exportXMLTypeDescList = _resilient_tdlist
+
+    # (7) HeapNodeString.prepareContentXML — byte-EXACT binary DefaultData.
+    # pylabview serializes every string heap value by decoding the raw bytes
+    # through a text codec (``self.content.decode(self.vi.textEncoding)``). For a
+    # binary ``DefaultData`` value — a constant's FLATTENED bytes: a 4-byte
+    # big-endian length prefix + content — any byte >= 0x80 is not representable
+    # in the mac_roman -> native transcode (``normalize_extracted_xml``) and
+    # collapses to U+FFFD, which our ``decode_xml_entities_to_bytes`` recovers as
+    # 0xFD. So a 250-byte string whose length prefix is ``00 00 00 FA`` reads back
+    # as 253, and the constant decodes to an EMPTY string (the whole 22-line
+    # dictionary constant renders as a blank box). LabVIEW display TEXT
+    # (labels / node & method names / format strings) legitimately rides the
+    # mac_roman + normalize path and must stay literal, so we rewrite ONLY the
+    # binary ``OF__DefaultData`` tag: emit each byte as a printable-ASCII literal
+    # or an ``&#xNN;`` entity of the byte value — exactly the byte-entity form the
+    # constant reader and the text-encoding tests already expect. Entities are
+    # ASCII, so ``normalize_extracted_xml`` leaves them untouched and the reader
+    # recovers each byte; the value's final code page is then applied by
+    # ``decode_labview_text`` (so a CJK string constant still decodes correctly).
+    _default_data_tag = _lv_heap.OBJ_FIELD_TAGS.OF__DefaultData
+    _orig_prep = _lv_heap.HeapNodeString.prepareContentXML
+
+    def _byte_exact_default_data(self, fname_base):  # type: ignore[no-untyped-def]
+        content = self.content
+        if (
+            self.tagEn != _default_data_tag
+            or content is None
+            or isinstance(content, bool)
+        ):
+            return _orig_prep(self, fname_base)
+        out = []
+        for b in content:
+            # printable ASCII (minus the wrapping quote and XML/CDATA-special
+            # bytes) stays literal; everything else -> exact byte entity, so the
+            # value round-trips byte-for-byte through CDATA + normalize.
+            if 0x20 <= b <= 0x7E and b not in (0x22, 0x26, 0x3C, 0x3E):
+                out.append(chr(b))
+            else:
+                out.append(f"&#x{b:02x};")
+        return '"' + "".join(out) + '"'
+
+    _lv_heap.HeapNodeString.prepareContentXML = _byte_exact_default_data
 
     _installed = True
