@@ -159,6 +159,51 @@ def test_issue37_tunnel_wires_have_no_subpixel_jog():
     assert not jogs, f"wires bent by a sub-pixel jog (issue #37): {jogs}"
 
 
+def test_issue33_enum_coerces_like_its_underlying_int():
+    """#33: an enum wired to a differently-sized numeric input takes a coercion
+    dot, exactly like its underlying unsigned int would.
+
+    The repro wires a U16 ``Enum`` and a plain ``U32`` into two ``Initialize
+    Array`` ``dimension size`` inputs (``I32``). The U32 kept its dot but the
+    enum silently dropped it — ``numeric_repr`` treated an enum as non-numeric.
+    The decision keys off the UNDERLYING width (``UnitUInt16`` -> ``NumUInt16``),
+    NOT "enums always coerce": a same-width enum would not dot. Here U16 != I32,
+    so both wires dot (the "not consistent" bug).
+    """
+    from lvkit.models import LVType, LVTypeKind
+    from lvkit.render import build_scene
+    from lvkit.render.style import numeric_repr
+
+    # The fix's core: an enum reports its underlying integer's numeric repr.
+    enum_u16 = LVType(kind=LVTypeKind.ENUM, underlying_type="UnitUInt16")
+    assert numeric_repr(enum_u16) == "NumUInt16"
+    # ...so a same-width target would NOT coerce, a different width WOULD.
+    assert numeric_repr(enum_u16) != numeric_repr(
+        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    )
+
+    # And the repro renders the dot: the enum-sourced wire into the I32 size
+    # input carries a coercion dot, just like the U32-sourced one (consistency is
+    # the whole bug).
+    graph, vi = _load("33/coercion-dot-consistency.vi")
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    enum_dotted: list[bool] = []
+    uint_dotted: list[bool] = []
+    for net in scene.wire_nets:
+        if net.source is None:
+            continue
+        lt = getattr(graph.get_terminal(net.source.source.terminal_id), "lv_type", None)
+        if lt is None:
+            continue
+        if lt.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+            enum_dotted.append(bool(net.coercion_dots))
+        elif numeric_repr(lt) == "NumUInt32":  # the plain U32 control
+            uint_dotted.append(bool(net.coercion_dots))
+    assert enum_dotted and all(enum_dotted), "enum wire into I32 size input has no dot"
+    assert uint_dotted and all(uint_dotted), "U32 wire regressed (no coercion dot)"
+
+
 @pytest.mark.parametrize("vi,issue_dir", _fixture_vis())
 def test_issue_fixture_renders(vi: Path, issue_dir: Path):
     """Every committed issue-repro VI loads and renders to a non-empty SVG --
