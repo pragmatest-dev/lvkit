@@ -127,6 +127,11 @@ function viewerHtml(webview, wheelUrls, pyodideBase) {
     `img-src ${webview.cspSource} data: blob:`,
     "worker-src blob:",
     `font-src ${webview.cspSource}`,
+    // The rendered viewer (lvkit's build_render_viewer HTML) is shown in a
+    // srcdoc iframe so Pyodide stays alive in this parent frame; a srcdoc frame
+    // inherits this CSP, so its inline zoom/theme scripts run under the same
+    // 'unsafe-inline' grant.
+    "frame-src 'self'",
   ].join("; ");
   return `<!doctype html>
 <html>
@@ -134,23 +139,23 @@ function viewerHtml(webview, wheelUrls, pyodideBase) {
 <meta charset="utf-8" />
 <meta http-equiv="Content-Security-Policy" content="${csp}" />
 <style>
-  body { font: 13px/1.5 var(--vscode-font-family, system-ui); margin: 0; padding: 10px; }
-  #status { font-family: var(--vscode-editor-font-family, monospace);
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { font: 13px/1.5 var(--vscode-font-family, system-ui); }
+  #status { padding: 10px; font-family: var(--vscode-editor-font-family, monospace);
             color: var(--vscode-descriptionForeground); white-space: pre-wrap; }
-  #view { margin-top: 10px; }
-  #view svg { max-width: 100%; height: auto; }
-  .meta { color: var(--vscode-descriptionForeground); margin-top: 8px; font-size: 12px; }
+  #viewer { border: 0; width: 100%; height: 100vh; display: none; }
 </style>
 </head>
 <body>
 <div id="status">booting Pyodide…</div>
-<div id="view"></div>
-<div class="meta" id="meta"></div>
+<iframe id="viewer" title="LVKit VI render"></iframe>
 <script src="${pyodideBase}pyodide.js"></script>
 <script>
 const vscodeApi = acquireVsCodeApi();
 const S = document.getElementById("status");
-const log = m => { S.textContent = m; vscodeApi.postMessage({ type: "log", text: m }); };
+// Re-reveal the status line whenever we log (so a post-render error is visible
+// even after the viewer iframe has covered the boot status).
+const log = m => { S.style.display = ""; S.textContent = m; vscodeApi.postMessage({ type: "log", text: m }); };
 const WHEELS = ${JSON.stringify(wheelUrls)};
 let render = null;
 
@@ -176,10 +181,15 @@ import os
 os.environ["LVKIT_CACHE_DIR"] = "/tmp/lvkitcache"
 from pathlib import Path
 from lvkit.render import render_vi_file_titled
+from lvkit.render.render_viewer import build_render_viewer
 def _render(data):
     Path("/tmp/in.vi").write_bytes(bytes(data.to_py()))
-    svg, name = render_vi_file_titled(Path("/tmp/in.vi"))
-    return [svg or "", name or ""]
+    # theme_mode="auto" so the viewer toolbar's theme toggle re-themes live —
+    # the same viewer chrome (zoom/pan, theme, properties, connector pane, help)
+    # the desktop extension gets, built by the SAME lvkit builder.
+    svg, name = render_vi_file_titled(Path("/tmp/in.vi"), theme_mode="auto")
+    html = build_render_viewer(svg or "", title=name or "")
+    return [html, name or ""]
 _render
 \`);
     log("ready — waiting for VI bytes…");
@@ -194,15 +204,16 @@ window.addEventListener("message", ev => {
     const bin = atob(m.b64);
     const u8 = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-    const t0 = performance.now();
     const res = render(u8);
-    const [svg, name] = res.toJs();
+    const [html] = res.toJs();
     res.destroy();
-    document.getElementById("view").innerHTML = svg;
-    document.getElementById("meta").textContent =
-      (name || m.name) + "  ·  " + svg.length + " chars  ·  " +
-      (performance.now() - t0).toFixed(0) + " ms";
+    // srcdoc (not innerHTML) so the viewer's own inline zoom/theme scripts run
+    // in a fresh browsing context; this parent frame keeps Pyodide alive.
+    const f = document.getElementById("viewer");
+    f.srcdoc = html;
+    f.style.display = "block";
     log("rendered via wasm ✓");
+    S.style.display = "none";
   } catch (e) { log("RENDER FAILED: " + e); }
 });
 
