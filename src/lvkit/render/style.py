@@ -182,16 +182,35 @@ _TYPE_REPR = {
 
 _NUMERIC_TYPES = _INT_TYPES | _FLOAT_TYPES | _COMPLEX_TYPES
 
+# An enum/ring is stored as an unsigned integer (the UnitUInt8/16/32 codes
+# 0x15/0x16/0x17) and coerces to/from numerics AS that integer — so it takes a
+# coercion dot against a differently-represented numeric exactly like a plain
+# uint would. Map the underlying unit token to the equivalent numeric token so
+# ``numeric_repr`` compares an enum by its width.
+_ENUM_UNIT_TO_NUMERIC = {
+    "UnitUInt8": "NumUInt8",
+    "UnitUInt16": "NumUInt16",
+    "UnitUInt32": "NumUInt32",
+}
+
 
 def numeric_repr(lv_type: LVType | None) -> str | None:
     """The numeric representation of a type (recursing into array elements),
     or None if it isn't numeric. A LabVIEW coercion dot appears ONLY when two
     wired terminals differ in numeric representation (I32 vs DBL) — NOT for
-    structural differences like array↔element at an auto-indexing tunnel."""
+    structural differences like array↔element at an auto-indexing tunnel.
+
+    An enum/ring counts as its underlying unsigned integer (``UnitUInt16`` ->
+    ``NumUInt16``): LabVIEW treats an enum as a special number, so wiring one to
+    a differently-sized numeric (e.g. a U16 enum into an I32 ``Initialize Array``
+    dimension-size input) coerces and draws a dot, just like a plain uint would
+    (issue #33)."""
     if lv_type is None:
         return None
     if lv_type.kind == LVTypeKind.ARRAY:
         return numeric_repr(lv_type.element_type)
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        return _ENUM_UNIT_TO_NUMERIC.get(lv_type.underlying_type or "")
     if (
         lv_type.kind == LVTypeKind.PRIMITIVE
         and lv_type.underlying_type in _NUMERIC_TYPES
