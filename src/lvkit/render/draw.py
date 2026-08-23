@@ -13,17 +13,13 @@ from dataclasses import dataclass
 
 from ..graph.models import (
     AnyGraphNode,
-    CaseStructureNode,
-    DisableStructureNode,
-    EventStructureNode,
     FormulaNode,
     LocalVariableNode,
     PrimitiveNode,
-    SequenceNode,
     VINode,
 )
 from ..graph.op_walk import _terminal_display_name
-from ..models import DisableStructureKind, FPTerminal, LVType, LVTypeKind, Terminal
+from ..models import FPTerminal, LVType, LVTypeKind, Terminal
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend, Point
@@ -51,10 +47,8 @@ from .scene import (
     RenderBorderTerminal,
     RenderLabel,
     RenderNode,
-    RenderStructure,
     RenderTerminal,
     RenderWireNet,
-    Scene,
     _exit_side,
     _wire_edge_point,
     _wire_role,
@@ -73,17 +67,6 @@ from .style import (
 # LabVIEW's array-control terminal icon always shows a 3-row index display
 # (i / j / k) as fixed chrome, independent of the array's real dimensionality.
 _ARRAY_INDEX_ROWS = 3
-
-
-def _is_interactive_structure(node: object) -> bool:
-    """Case structures, Disable structures, Event structures, and STACKED
-    sequences get selector chrome + per-frame ``lv-frame``/``lv-selector``
-    groups; flat sequences (film-strip, every frame always visible) and
-    loops do not."""
-    return isinstance(
-        node,
-        (CaseStructureNode, DisableStructureNode, EventStructureNode),
-    ) or (isinstance(node, SequenceNode) and node.node_type != "flatSequence")
 
 
 # A LabVIEW "Not" bubble — a small open circle drawn AT an inverted terminal,
@@ -1047,312 +1030,6 @@ def _draw_border_terminal(
         unwired_frames=bt.unwired_frames,
     )
     glyph.draw(backend, bt.bounds, theme, frame_value)
-
-
-# structure's heap bounds (the selector sits within the frame, per LabVIEW — its
-# heap termBounds are inside the bounds; there is no band above the top edge).
-_CASE_BAR_H = 14.0
-_SELECTOR_SIZE = 9.0  # font size of the value + arrows
-_SELECTOR_TRI_W = 11.0  # width of the dropdown-triangle zone (case only)
-_SELECTOR_ARROW_GAP = 15.0  # horizontal room reserved for each flanking arrow
-_SELECTOR_ICON_W = 11.0  # type-icon zone (Type Specialization selector only)
-
-
-def _is_type_spec_structure(node: AnyGraphNode) -> bool:
-    """Whether ``node`` is a Type Specialization Structure — LabVIEW draws its
-    selector with a small type icon (and a solid border), unlike the two plain
-    disable kinds."""
-    return (
-        isinstance(node, DisableStructureNode)
-        and node.kind is DisableStructureKind.TYPE_SPEC
-    )
-
-
-@dataclass(frozen=True)
-class _SelectorGeom:
-    """Laid-out pieces of a case/stacked-sequence selector. Per the LabVIEW
-    reference, the selector is ONE enclosing box at top-center holding, left to
-    right, a ◄ arrow cell | the value (+ ▼ dropdown for a case) | a ► arrow cell,
-    with vertical dividers between cells. Computed once from the frame values."""
-
-    outer: tuple[float, float, float, float]  # the single enclosing box
-    box: tuple[float, float, float, float]  # the central value cell (inside outer)
-    tri: tuple[float, float, float, float] | None  # dropdown ▼ zone (case only)
-    icon: tuple[float, float, float, float] | None  # type-icon zone (type-spec)
-    text_cx: float  # center-x of the value text (its own zone, between icon & ▼)
-    baseline: float  # shared baseline y for value + arrows
-    left_x: float  # ◄ center-x (in the left arrow cell)
-    right_x: float  # ► center-x (in the right arrow cell)
-
-
-def _frame_display(structure: RenderStructure, scene: Scene, value: str) -> str:
-    """Selector text for one frame value. A stacked sequence shows the frame
-    number WITH the full range — ``N [0..M]`` (e.g. ``2 [0..2]``) — LabVIEW's
-    signature sequence label; a case shows its faithful, typed selector label
-    (enum item name, ``No Error``/``Error``, quoted string, ``a, b``, ``a..b``,
-    ``Default``) resolved in ``scene.frame_labels``, falling back to the raw
-    value."""
-    if isinstance(structure.node, SequenceNode):  # flat isn't interactive
-        values = scene.frame_values.get(structure.raw_uid, [])
-        last = len(values) - 1 if values else 0
-        return f"{value} [0..{last}]"
-    return scene.frame_labels.get(structure.raw_uid, {}).get(value, value)
-
-
-def _selector_geom(
-    structure: RenderStructure,
-    scene: Scene,
-    *,
-    has_dropdown: bool,
-    backend: Backend,
-) -> _SelectorGeom:
-    x1, y1, x2, _ = structure.bounds
-    values = scene.frame_values.get(structure.raw_uid, [])
-    max_val_w = max(
-        (
-            backend.measure_text(_frame_display(structure, scene, v), _SELECTOR_SIZE)
-            for v in values
-        ),
-        default=10.0,
-    )
-    pad = 4.0
-    tri_w = _SELECTOR_TRI_W if has_dropdown else 0.0
-    # Derived here (not passed) so every caller — box, menu, value label — lays
-    # the text out identically.
-    icon_w = _SELECTOR_ICON_W if _is_type_spec_structure(structure.node) else 0.0
-    arrow_w = 13.0  # width of each flanking ◄ / ► arrow cell
-    # central value cell holds (left→right): type icon (type-spec only) | value
-    # text | ▼ dropdown
-    val_w = max(22.0, max_val_w + 2 * pad + tri_w + icon_w)
-    total_w = arrow_w + val_w + arrow_w
-    total_w = min(total_w, (x2 - x1) - 6.0)
-    cx = (x1 + x2) / 2
-    ox1, ox2 = cx - total_w / 2, cx + total_w / 2
-    # The enclosing box sits INSIDE the top of the frame (heap termBounds put the
-    # selector inside the bounds — no band above the top edge).
-    oy1, oy2 = y1 + 1.0, y1 + _CASE_BAR_H - 1.0
-    vc1, vc2 = ox1 + arrow_w, ox2 - arrow_w  # value-cell x range
-    box = (vc1, oy1, vc2, oy2)
-    icon = (vc1, oy1, vc1 + icon_w, oy2) if icon_w else None
-    tri = (vc2 - tri_w, oy1, vc2, oy2) if has_dropdown else None
-    text_left = vc1 + icon_w
-    text_right = vc2 - tri_w
-    baseline = (oy1 + oy2) / 2 + _SELECTOR_SIZE * 0.34
-    return _SelectorGeom(
-        outer=(ox1, oy1, ox2, oy2),
-        box=box,
-        tri=tri,
-        icon=icon,
-        text_cx=(text_left + text_right) / 2,
-        baseline=baseline,
-        left_x=(ox1 + vc1) / 2,
-        right_x=(vc2 + ox2) / 2,
-    )
-
-
-def _error_border_color(
-    scene: Scene,
-    raw_uid: str,
-    value: str,
-    theme: Theme,
-) -> str | None:
-    """Green (No Error) / red (Error) border color for an error-cluster case's
-    frame, or ``None`` if this structure isn't an error case. LabVIEW colors the
-    case border by the shown frame: green for the No-Error case, red otherwise.
-    """
-    err = scene.error_frame_no_error.get(raw_uid)
-    if err is None:
-        return None
-    return (
-        theme.case_no_error_border if err.get(value, False) else theme.case_error_border
-    )
-
-
-def _draw_type_icon(
-    backend: Backend,
-    box: tuple[float, float, float, float],
-    theme: Theme,
-) -> None:
-    """A clean-room 'adapts to type' glyph for a Type Specialization selector:
-    a small square split into four quadrants in our own wire-family colors
-    (float / int / string / bool), signalling the malleable/polymorphic type.
-    Our composition from the lvkit palette — NOT NI artwork."""
-    x1, y1, x2, y2 = box
-    s = max(4.0, min(x2 - x1, y2 - y1) - 4.0)
-    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-    ix1, iy1 = cx - s / 2, cy - s / 2
-    ix2, iy2 = ix1 + s, iy1 + s
-    backend.rect(ix1, iy1, cx, cy, fill=theme.wire_float, stroke="none")  # TL
-    backend.rect(cx, iy1, ix2, cy, fill=theme.wire_int, stroke="none")  # TR
-    backend.rect(ix1, cy, cx, iy2, fill=theme.wire_string, stroke="none")  # BL
-    backend.rect(cx, cy, ix2, iy2, fill=theme.wire_bool, stroke="none")  # BR
-    backend.rect(ix1, iy1, ix2, iy2, fill="none", stroke=theme.struct_border,
-                 stroke_width=0.5)
-
-
-def _draw_frame_selector(
-    structure: RenderStructure,
-    scene: Scene,
-    backend: Backend,
-    theme: Theme,
-) -> None:
-    """The selector chrome as separate CLICK TARGETS: a ◄ prev arrow, the value
-    box (a ▼ dropdown toggle carrying the frame list — both cases and stacked
-    sequences can jump to a frame), and a ► next arrow. The dropdown MENU is
-    drawn topmost by ``_draw_frame_menu``; the frame LABEL is drawn on top
-    per-frame by ``_draw_frame_value_label`` (a case shows its value, a stacked
-    sequence its ``N [0..M]`` frame label)."""
-    values = scene.frame_values.get(structure.raw_uid)
-    default = scene.default_frame.get(structure.raw_uid)
-    if not values or default is None:
-        return
-    has_dropdown = _is_interactive_structure(structure.node)
-    g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
-    ox1, oy1, ox2, oy2 = g.outer
-    vc1, _, vc2, _ = g.box
-    struct = structure.raw_uid
-
-    # One enclosing box, filled with the case-bar role (paired with
-    # case_bar_text below), with vertical dividers between the flanking arrow
-    # cells and the central value cell — the LabVIEW selector-label look.
-    backend.rect(
-        ox1,
-        oy1,
-        ox2,
-        oy2,
-        fill=theme.case_bar_fill,
-        stroke=theme.struct_border,
-        stroke_width=0.75,
-    )
-    backend.line(vc1, oy1, vc1, oy2, stroke=theme.struct_border, stroke_width=0.5)
-    backend.line(vc2, oy1, vc2, oy2, stroke=theme.struct_border, stroke_width=0.5)
-
-    # A Type Specialization selector carries a small type icon left of the value.
-    if g.icon is not None:
-        _draw_type_icon(backend, g.icon, theme)
-
-    def _arrow(action: str, xc: float, glyph: str, cell: tuple[float, float]) -> None:
-        cx1, cx2 = cell
-        backend.begin_group(
-            cls="lv-selector lv-clickable",
-            data={"lv-action": action, "lv-struct": struct},
-        )
-        backend.rect(cx1, oy1, cx2, oy2, fill="transparent", stroke="none")
-        backend.text(xc, g.baseline, glyph, _SELECTOR_SIZE, fill=theme.case_bar_text)
-        backend.end_group()
-
-    _arrow("prev", g.left_x, "◄", (ox1, vc1))
-
-    # Middle target — carries the frame list the JS controller reads, and (for a
-    # case) draws the ▼ dropdown toggle. The value TEXT is drawn per-frame by
-    # _draw_frame_value_label.
-    box_data = {
-        "lv-struct": struct,
-        "lv-frames": ";".join(values),
-        "lv-default": default,
-    }
-    if has_dropdown:
-        box_data["lv-action"] = "toggle"
-    backend.begin_group(
-        cls="lv-selector lv-clickable" if has_dropdown else "lv-selector",
-        data=box_data,
-    )
-    backend.rect(vc1, oy1, vc2, oy2, fill="transparent", stroke="none")
-    if has_dropdown and g.tri is not None:
-        tx1, ty1, tx2, ty2 = g.tri
-        backend.line(tx1, ty1, tx1, ty2, stroke="#cccccc", stroke_width=0.5)
-        tcx, tcy = (tx1 + tx2) / 2, (ty1 + ty2) / 2
-        backend.polygon(
-            [(tcx - 3.0, tcy - 1.6), (tcx + 3.0, tcy - 1.6), (tcx, tcy + 2.2)],
-            fill=theme.case_bar_text,
-        )
-    backend.end_group()
-
-    _arrow("next", g.right_x, "►", (vc2, ox2))
-
-
-_MENU_ROW_H = 13.0
-
-
-def _draw_frame_menu(
-    structure: RenderStructure,
-    scene: Scene,
-    backend: Backend,
-    theme: Theme,
-) -> None:
-    """An interactive structure's dropdown MENU: one clickable row per frame
-    value, stacked below the value box, hidden until the ▼ toggle opens it.
-    Drawn in a final topmost pass so it overlays the diagram; clicking a row
-    selects that frame (see the JS controller). Runs for every interactive
-    structure — both cases and stacked sequences get a menu (see the caller's
-    ``_is_interactive_structure`` gate)."""
-    values = scene.frame_values.get(structure.raw_uid)
-    if not values:
-        return
-    g = _selector_geom(structure, scene, has_dropdown=True, backend=backend)
-    bx1, _by1, bx2, by2 = g.box
-    struct = structure.raw_uid
-    zone_w = (bx2 - bx1) - 6.0
-    backend.begin_group(cls="lv-menu", data={"lv-struct": struct})
-    for i, v in enumerate(values):
-        ry1 = by2 + i * _MENU_ROW_H
-        ry2 = ry1 + _MENU_ROW_H
-        backend.begin_group(
-            cls="lv-option lv-clickable",
-            data={"lv-struct": struct, "lv-value": v},
-        )
-        # Same case-bar fill as the selector box above, so the row's
-        # case_bar_text label pairs with a themed background here too.
-        backend.rect(
-            bx1,
-            ry1,
-            bx2,
-            ry2,
-            fill=theme.case_bar_fill,
-            stroke="#999999",
-            stroke_width=0.5,
-        )
-        # The row's DISPLAY is the faithful typed label (enum name, No Error /
-        # Error, quoted string, ...); the raw value stays the click identity in
-        # ``lv-value`` above so the JS controller still matches frame paths.
-        label = _frame_display(structure, scene, v)
-        text = (
-            label
-            if backend.measure_text(label, _SELECTOR_SIZE) <= zone_w
-            else fit_label(label, zone_w, backend, _SELECTOR_SIZE)
-        )
-        backend.text(
-            (bx1 + bx2) / 2,
-            ry1 + _MENU_ROW_H / 2 + _SELECTOR_SIZE * 0.34,
-            text,
-            _SELECTOR_SIZE,
-            fill=theme.case_bar_text,
-        )
-        backend.end_group()
-    backend.end_group()
-
-
-def _draw_frame_value_label(
-    structure: RenderStructure,
-    scene: Scene,
-    value: str,
-    backend: Backend,
-    theme: Theme,
-) -> None:
-    """The selected frame's label, centered in the selector's text zone (to the
-    LEFT of a case's ▼ dropdown, never under it or the arrows). A case shows its
-    plain value; a stacked sequence shows ``N [0..M]`` (see _frame_display)."""
-    has_dropdown = _is_interactive_structure(structure.node)
-    g = _selector_geom(structure, scene, has_dropdown=has_dropdown, backend=backend)
-    label = _frame_display(structure, scene, value)
-    tri_w = (g.tri[2] - g.tri[0]) if g.tri is not None else 0.0
-    zone_w = (g.box[2] - g.box[0]) - tri_w - 4.0
-    text = (
-        label
-        if backend.measure_text(label, _SELECTOR_SIZE) <= zone_w
-        else fit_label(label, zone_w, backend, _SELECTOR_SIZE)
-    )
-    backend.text(g.text_cx, g.baseline, text, _SELECTOR_SIZE, fill=theme.case_bar_text)
 
 
 _CONTROL_TYPE_FAMILY = {

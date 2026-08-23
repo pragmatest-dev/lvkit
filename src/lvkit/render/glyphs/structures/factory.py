@@ -9,8 +9,10 @@ dashing, sequence dividers) and passes it in as plain values.
 
 from __future__ import annotations
 
+from ....models import DisableStructureKind
 from .base import StructureBodyGlyph
 from .case import CaseGlyph
+from .disable import DisableGlyph, TypeSpecGlyph
 from .event import EventGlyph
 from .flat_sequence import FlatSequenceGlyph
 from .for_loop import ForLoopGlyph
@@ -26,22 +28,28 @@ def structure_body_glyph(
     node_type: str | None,
     *,
     border_color: str | None = None,
-    dotted: bool = False,
+    disable_kind: DisableStructureKind | None = None,
     case_insensitive: bool = False,
     dividers: list[float] | None = None,
 ) -> StructureBodyGlyph:
-    """Return the glyph for ``node_type``, configured with the injected fields."""
+    """Return the glyph for ``node_type``, configured with the injected fields.
+    ``disable_kind`` (set only for a disable-family ``commentNode``) picks the
+    per-subtype class — the subtype, not a dash flag, chooses the appearance."""
     if node_type == "forLoop":
         return ForLoopGlyph()
     if node_type == "whileLoop":
         return WhileLoopGlyph()
-    # ``select`` (the Select primitive) and ``commentNode`` (a boxed comment)
-    # both render as a plain bordered box — the same static chrome as a case —
-    # so they intentionally share CaseGlyph.
+    # Disable-family structures serialize as commentNode; the kind picks the
+    # class (Type Specialization = solid box + icon; the rest = dotted box).
+    if disable_kind is not None:
+        if disable_kind is DisableStructureKind.TYPE_SPEC:
+            return TypeSpecGlyph(border_color=border_color)
+        return DisableGlyph(border_color=border_color)
+    # ``select`` (the Select primitive) and a plain ``commentNode`` (a boxed
+    # comment) render as a plain bordered box — the same static chrome as a case.
     if node_type in ("caseStruct", "select", "commentNode"):
         return CaseGlyph(
             border_color=border_color,
-            dotted=dotted,
             case_insensitive=case_insensitive,
         )
     if node_type in ("seq", "sequence"):

@@ -7,12 +7,17 @@ A structure glyph paints, for ONE kind of structure:
 * the structure's static outline/border decoration (loop cards, frame box,
   sequence rails, event/IPES band).
 
-The glyph is PURE: it imports neither ``scene`` nor ``draw`` and takes only a
-backend, a bounds rect, and a theme. Everything scene-derived (an error-cluster
-border colour, the disable dotted style, sequence divider positions) is injected
-as plain constructor fields by the tree builder, which is the layer allowed to
-know the scene. Interactive chrome (the selector widget, value labels, dropdown
-menus, border terminals) is NOT a glyph concern — the composite tree draws it.
+The glyph is PURE: it imports neither ``scene`` nor ``graph`` nor ``layout`` and
+takes only a backend, a bounds rect, and a theme. Everything scene-derived (an
+error-cluster border colour, sequence divider positions, the frame values a
+selector pages through) is injected as plain values by the composite, which is
+the layer allowed to know the scene.
+
+The frame SELECTOR chrome (the ``◄ value ▼ ►`` box, dropdown menu, value labels,
+and the type-spec type icon) is owned by :class:`~.selectable.SelectableStructureGlyph`
+— the parent of the interactive kinds (case, stacked sequence, event, disable
+family) — over an injected ``SelectorState``. Border terminals stay a composite
+concern (drawn by ``_draw_border_terminal`` per frame).
 """
 
 from __future__ import annotations

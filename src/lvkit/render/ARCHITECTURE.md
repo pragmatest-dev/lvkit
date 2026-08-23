@@ -18,6 +18,13 @@ There are exactly two kinds of drawable, kept deliberately separate:
   `glyphs/terminals/*`), one kind per file, dispatched only by the
   kind→class factories (`resolve_glyph`, `structure_body_glyph`,
   `border_terminal_glyph`). Glyphs import neither the graph nor the layout.
+  The interactive structure kinds (case, stacked sequence, event, and the
+  disable family — `DisableGlyph`/`TypeSpecGlyph`) subclass
+  `SelectableStructureGlyph`, which owns the frame SELECTOR chrome (the
+  `◄ value ▼ ►` box, dropdown menu, value labels, and — for `TypeSpecGlyph` —
+  the type icon). Purity is preserved by the composite resolving the four scene
+  frame-dicts into a plain `SelectorState` and injecting it, the same way
+  `border_color`/`dividers` are. Border terminals stay a composite concern.
 
 - **`RenderObject` — a placed CITIZEN of the composite tree.**
   `draw(backend, theme)`. It knows where it sits (its bounds/containment come
