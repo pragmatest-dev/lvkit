@@ -41,6 +41,7 @@ from .glyphs.structures.base import ERROR_BORDER_W
 from .glyphs.structures.factory import structure_body_glyph
 from .glyphs.structures.selectable import SelectableStructureGlyph, SelectorState
 from .scene import (
+    RenderDecoration,
     RenderFPTerminal,
     RenderNode,
     RenderStructure,
@@ -163,6 +164,18 @@ class NodeObject(RenderObject):
 
     def draw(self, backend: Backend, theme: Theme) -> None:
         draw_node(self.rn, backend, theme)
+
+
+@dataclass
+class DecorationObject(RenderObject):
+    """A block-diagram decoration (Flat Frame / Line / Arrow). A pure-visual leaf
+    that paints its clean-room shape glyph at its bounds; interleaves with nodes
+    by z-order like any other diagram citizen."""
+
+    deco: RenderDecoration
+
+    def draw(self, backend: Backend, theme: Theme) -> None:
+        self.deco.glyph.draw(backend, self.deco.bounds, theme)
 
 
 @dataclass
@@ -348,6 +361,9 @@ def build_render_tree(scene: Scene) -> DiagramObject:
     nets_by_container: dict[str | None, list[RenderWireNet]] = {}
     for net in scene.wire_nets:
         nets_by_container.setdefault(net.container_uid, []).append(net)
+    decos_by_container: dict[str | None, list[RenderDecoration]] = {}
+    for deco in scene.decorations:
+        decos_by_container.setdefault(deco.container_uid, []).append(deco)
 
     # Front-panel terminals + arithmetic coercion dots key off frame_path (their
     # innermost interactive ancestor); () → root diagram.
@@ -387,6 +403,16 @@ def build_render_tree(scene: Scene) -> DiagramObject:
             if interactive and _struct_frame(rs) != frame:
                 continue
             ranked.append((rank(rs.raw_uid), _build_structure(rs)))
+        # Decorations (Flat Frame / Line / Arrow) interleave by z-order like
+        # nodes. A decoration carries no frame value yet, so inside an
+        # interactive container it draws in the DEFAULT frame only (shown once,
+        # not duplicated across frames) — frame-precise placement is a follow-up.
+        deco_frame_ok = (not interactive) or frame == scene.default_frame.get(
+            container or "", frame
+        )
+        if deco_frame_ok:
+            for deco in decos_by_container.get(container, []):
+                ranked.append((rank(deco.dom_id), DecorationObject(deco)))
         # LabVIEW's zPlaneList is FRONT-to-back: document index 0 (lowest
         # z_order rank) is the FRONTMOST object, drawn LAST so it occludes.
         # So draw back-to-front = highest rank first (reverse=True). Ties keep

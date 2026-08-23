@@ -6,7 +6,11 @@ import xml.etree.ElementTree as ET
 
 from lvkit.models import Tunnel, TunnelMode
 
-from ..constants import NODE_CLASS_COMMENT, STRUCTURE_NODE_CLASSES
+from ..constants import (
+    FREE_LABEL_CLASS,
+    NODE_CLASS_COMMENT,
+    STRUCTURE_NODE_CLASSES,
+)
 from ..utils import extract_label, safe_int, safe_text
 
 # Re-export extract_label for backward compatibility
@@ -48,23 +52,26 @@ def parse_displayed_frame(
     d = int(d_idx_text)
     return d if 0 <= d < num_frames else None
 
-# Structure classes that LabVIEW may list ONLY in a frame diagram's zPlaneList
-# (not its nodeList) — see frame_inner_node_uids.
-_FRAME_ZPLANE_STRUCTS = STRUCTURE_NODE_CLASSES | {NODE_CLASS_COMMENT}
+# zPlaneList element classes a frame OWNS beyond its nodeList — structures
+# (incl. the disable ``commentNode``) and free labels. LabVIEW places a free
+# label inside the diagram it belongs to, so one in a frame's zPlaneList is
+# owned by that frame and must be stamped with it (see frame_inner_node_uids).
+_FRAME_ZPLANE_OWNED = STRUCTURE_NODE_CLASSES | {NODE_CLASS_COMMENT, FREE_LABEL_CLASS}
 
 
 def frame_inner_node_uids(diag_elem: ET.Element) -> list[str]:
-    """UIDs of the nodes/structures on a frame's diagram.
+    """UIDs of the nodes/structures/labels on a frame's diagram.
 
     Reads ``nodeList`` (the primary list, unchanged behaviour) AND augments it
-    with any STRUCTURE element found only in ``zPlaneList``. Neither list is a
-    superset: for a NESTED FLAT SEQUENCE, LabVIEW lists the flat seq's inner
-    ``sequenceFrame`` in the parent frame's ``nodeList`` but the ``flatSequence``
-    structure itself ONLY in the z-plane — so a nodeList-only walk orphans it
-    (and everything inside it) to the top level. nodeList also uniquely carries
-    the shift registers and zPlaneList uniquely carries decorations, so we
-    union: every nodeList member, plus every zPlaneList element whose class is a
-    structure. Order preserved, deduped.
+    with any STRUCTURE or FREE-LABEL element found only in ``zPlaneList``.
+    Neither list is a superset: for a NESTED FLAT SEQUENCE, LabVIEW lists the
+    flat seq's inner ``sequenceFrame`` in the parent frame's ``nodeList`` but the
+    ``flatSequence`` structure itself ONLY in the z-plane — so a nodeList-only
+    walk orphans it (and everything inside it) to the top level. nodeList also
+    uniquely carries the shift registers, and zPlaneList uniquely carries free
+    labels (a per-frame comment lives in that frame's z-plane, not its
+    nodeList), so we union: every nodeList member, plus every zPlaneList element
+    whose class is a structure or free label. Order preserved, deduped.
     """
     uids: list[str] = []
     seen: set[str] = set()
@@ -79,7 +86,7 @@ def frame_inner_node_uids(diag_elem: ET.Element) -> list[str]:
     if zplane is not None:
         for e in zplane.findall("SL__arrayElement"):
             u = e.get("uid")
-            if u and u not in seen and e.get("class") in _FRAME_ZPLANE_STRUCTS:
+            if u and u not in seen and e.get("class") in _FRAME_ZPLANE_OWNED:
                 seen.add(u)
                 uids.append(u)
     return uids

@@ -42,6 +42,7 @@ from ..parser.layout import Layout, Point, Rect, build_layout
 from ..parser.wire_table import FAITHFUL_WIRE_TABLE
 from .backend import SvgBackend
 from .glyph import ArithGlyph, CompoundArithGlyph, Glyph, wrap_label
+from .glyphs.decorations import DecorationGlyph, decoration_glyph
 from .lane_pass import BranchCtx, apply_lane_pass
 from .nodes import (
     _CLUSTER_MUX_TYPES,
@@ -261,6 +262,20 @@ class RenderCoercionDot:
 
 
 @dataclass(frozen=True)
+class RenderDecoration:
+    """A block-diagram decoration (cosm shape) placed for drawing: a pure-visual
+    Flat Frame / Line / Arrow. ``dom_id`` (the raw heap uid) keys its paint rank
+    in ``Scene.z_order`` so it interleaves with nodes in LabVIEW's zPlaneList
+    order; ``container_uid`` is the raw uid of the structure it lives in (None at
+    the root). Never a graph node."""
+
+    dom_id: str
+    bounds: Rect
+    glyph: DecorationGlyph
+    container_uid: str | None = None
+
+
+@dataclass(frozen=True)
 class Scene:
     """Backend-agnostic view model for one VI's block diagram."""
 
@@ -298,6 +313,9 @@ class Scene:
     # separate signalList order (wires are NOT in zPlaneList). The composite
     # sorts each container's wire nets by this so crossings paint in that order.
     wire_z: dict[str, int] = field(default_factory=dict)
+    # Block-diagram decorations (cosm shapes) — pure visual, drawn z-ordered with
+    # nodes in each container's diagram (never graph nodes).
+    decorations: list[RenderDecoration] = field(default_factory=list)
 
 
 def _strip_prefix(qualified_id: str, vi_name: str) -> str:
@@ -1674,6 +1692,7 @@ def _drawn_bounds(
     structures: list[RenderStructure],
     fp_terminals: list[RenderFPTerminal],
     wire_nets: list[RenderWireNet],
+    decorations: list[RenderDecoration] = (),  # type: ignore[assignment]
     pad: float = 30.0,
 ) -> Rect | None:
     """Padded bbox over everything actually DRAWN — rendered node/structure/
@@ -1703,6 +1722,9 @@ def _drawn_bounds(
             for x, y in branch:
                 xs.append(x)
                 ys.append(y)
+    for deco in decorations:
+        xs += [deco.bounds[0], deco.bounds[2]]
+        ys += [deco.bounds[1], deco.bounds[3]]
     if not xs:
         return None
     return (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)
@@ -1969,12 +1991,28 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     # canvas with empty margin. This crops the SVG view to the real content.
     # Computed HERE, after routing, so the router still confined wires to the
     # loose ``scene_bounds`` — routes are byte-identical; only the view crops in.
+    # Block-diagram decorations (cosm shapes): resolve each to its clean-room
+    # glyph. Geometry/paint-rank come from layout (node_bounds/z_order by uid).
+    # Built BEFORE view_bounds so a frame/arrow at the diagram edge is inside the
+    # viewBox (decorations aren't graph nodes, so they're not otherwise counted).
+    decorations = [
+        RenderDecoration(
+            dom_id=d.uid,
+            bounds=layout.node_bounds[d.uid],
+            glyph=decoration_glyph(d.image_res_id),
+            container_uid=d.container_uid,
+        )
+        for d in layout.decorations
+        if d.uid in layout.node_bounds
+    ]
+
     view_bounds = (
         _drawn_bounds(
             render_nodes,
             structures,
             fp_terminals,
             wire_nets,
+            decorations,
         )
         or scene_bounds
     )
@@ -1993,4 +2031,5 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         error_frame_no_error=error_frame_no_error,
         z_order=layout.z_order,
         wire_z=layout.wire_z,
+        decorations=decorations,
     )

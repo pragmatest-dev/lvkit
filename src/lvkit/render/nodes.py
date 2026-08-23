@@ -36,6 +36,7 @@ from ..graph.models import (
     ConstantNode,
     EventStructureNode,
     FormulaNode,
+    LabelNode,
     LocalVariableNode,
     PrimitiveNode,
     VINode,
@@ -78,6 +79,7 @@ from .glyph import (
     InlineSvgGlyph,
     InPlaceElementGlyph,
     InvokeNodeGlyph,
+    LabelGlyph,
     LocalVariableGlyph,
     PropertyNodeGlyph,
     UnbundleGlyph,
@@ -1110,6 +1112,8 @@ class GeneratedGlyphResolver:
     warrant a hand-authored SVG asset (arithmetic triangles, brackets)."""
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
+        if isinstance(node, LabelNode):
+            return LabelGlyph(text=node.text, bg_color=node.bg_color)
         if isinstance(node, PrimitiveNode):
             return self._primitive_glyph(node)
         if isinstance(node, VINode):

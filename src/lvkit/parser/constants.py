@@ -80,6 +80,14 @@ NMUX_BY_NAME_NODE_CLASSES = frozenset({NODE_CLASS_NMUX, "decomposeClusterNode"})
 NODE_CLASS_COMMENT = "commentNode"  # Block diagram annotation / labeled wire section
 SKIP_NODE_CLASSES: frozenset[str] = frozenset({NODE_CLASS_COMMENT})
 
+# A free label (block-diagram comment) — LabVIEW's "Free Label" decoration, a
+# zPlaneList element with its own text + bounds (modeled as a graph LabelNode;
+# see parser/nodes/free_label.py). LabVIEW places one inside the diagram it
+# belongs to, so a label in a structure FRAME's zPlaneList is owned by that
+# frame (881 nested vs 691 root across the corpus) — hence it counts as a frame
+# inner element for containment (see nodes/base.py::frame_inner_node_uids).
+FREE_LABEL_CLASS = "label"
+
 # All node classes that contain operations (and therefore have terminals)
 OPERATION_NODE_CLASSES = (
     NODE_CLASS_PRIM,

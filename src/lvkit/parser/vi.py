@@ -65,6 +65,7 @@ from .nodes import (
     extract_disable_structures,
     extract_event_structures,
     extract_flat_sequences,
+    extract_free_labels,
     extract_loops,
     is_disable_structure,
     parse_selector_tables,
@@ -338,6 +339,7 @@ def _parse_block_diagram(
 
     nodes = _extract_nodes(root)
     constants = extract_constants(root)
+    labels = extract_free_labels(root)
     wires = _extract_wires(root)
     fp_terminals = extract_fp_terminals(root, fp_xml, type_map)
     enum_labels = _extract_enum_labels(root)
@@ -365,6 +367,7 @@ def _parse_block_diagram(
         nodes=nodes,
         constants=constants,
         wires=wires,
+        labels=labels,
         fp_terminals=fp_terminals,
         enum_labels=enum_labels,
         terminal_info=terminal_info,

@@ -280,6 +280,23 @@ class ConstantNode(GraphNode):
     display_format: str | None = None
 
 
+class LabelNode(GraphNode):
+    """A free label (block-diagram comment) -- LabVIEW's ``class="label"``
+    zPlaneList decoration text, distinct from a node's own label/caption.
+    Carries no terminals and no dataflow; render draws it as a colored
+    text box (``LabelGlyph``), positioned by ``Layout.node_bounds[node.id]``
+    like any other node -- see ``parser/nodes/free_label.py``.
+    """
+
+    kind: Literal["label"] = "label"
+    text: str
+    bg_color: str | None = None  # heap "00RRGGBB" hex, e.g. "00FFFFD7"
+    # Qualified id of the node this label is attached to (LabVIEW's
+    # "attachment"/pushpin), resolved best-effort from the attachment
+    # element's anchor point -- None when unattached or unresolved.
+    attached_to: str | None = None
+
+
 class LocalVariableNode(GraphNode):
     """A Local Variable (class="gRef") — reads or writes an FP control's
     value from a POSITION on the diagram, not a passthrough alias.
@@ -312,6 +329,7 @@ AnyGraphNode = (
     | LocalVariableNode
     | DisableStructureNode
     | EventStructureNode
+    | LabelNode
 )
 
 
@@ -437,6 +455,24 @@ class Constant(BaseModel):
     label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:
     # parent = containing structure's node id, frame = selector value / index.
+    parent: str | None = None
+    frame: str | int | None = None
+
+
+class Label(BaseModel):
+    """A free label (block-diagram comment) for code generation / describe.
+
+    Codegen never emits these -- they carry no dataflow -- but describe and
+    the MCP query surface use them to show the VI's authored documentation.
+    """
+
+    id: str
+    text: str
+    bg_color: str | None = None
+    attached_to: str | None = None
+    # Structure containment (None = top-level diagram). Mirrors GraphNode /
+    # Constant: parent = containing structure's node id, frame = selector
+    # value / index.
     parent: str | None = None
     frame: str | int | None = None
 
@@ -789,6 +825,7 @@ class VIContext(BaseModel):
     inputs: list[Terminal] = []
     outputs: list[Terminal] = []
     constants: list[Constant] = []
+    labels: list[Label] = []
     operations: list[Operation] = []
     has_parallel_branches: bool = False
     terminals: list[TerminalRef] = []

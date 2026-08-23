@@ -32,6 +32,7 @@ from .models import (
     ExecutionProps,
     InstanceProps,
     KindProps,
+    Label,
     ToolbarProps,
     VIContext,
     WindowProps,
@@ -129,6 +130,17 @@ def describe_vi(
         lines.append("## Constants")
         for c in top_level_constants:
             lines.append(f"  {_describe_constant_line(c)}")
+        lines.append("")
+
+    # Comments: free labels (block-diagram annotations). Like constants,
+    # only top-level ones are shown here -- a label nested inside a
+    # structure frame would be shown alongside that frame's contents, but
+    # containment for free labels isn't tracked yet (see LabelNode), so
+    # every label currently surfaces here regardless of its real position.
+    if ctx.labels:
+        lines.append("## Comments")
+        for lbl in ctx.labels:
+            lines.append(f"  {_describe_label_line(lbl)}")
         lines.append("")
 
     # verbose: build the netlist IR once, shared by Components and Netlist.
@@ -700,6 +712,14 @@ def _describe_constant_line(c: Constant) -> str:
     """One-line ``name: type = value`` for a constant."""
     name = c.label or "(unnamed)"
     return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}"
+
+
+def _describe_label_line(lbl: Label) -> str:
+    """One-line free-label text, noting its attachment target when known."""
+    text = lbl.text.replace("\n", " / ")
+    if lbl.attached_to:
+        return f'"{text}" (attached to {lbl.attached_to.split("::")[-1]})'
+    return f'"{text}"'
 
 
 def _frame_constants(

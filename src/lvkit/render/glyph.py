@@ -55,6 +55,7 @@ from .glyphs.nodes.icon_image import IconImageGlyph
 from .glyphs.nodes.in_place_element import InPlaceElementGlyph
 from .glyphs.nodes.inline_svg import InlineSvgGlyph
 from .glyphs.nodes.invoke_node import InvokeNodeGlyph
+from .glyphs.nodes.label import LabelGlyph
 from .glyphs.nodes.local_variable import LocalVariableGlyph
 from .glyphs.nodes.property_node import PropertyNodeGlyph
 from .glyphs.nodes.unbundle import UnbundleGlyph
@@ -87,6 +88,7 @@ __all__ = [
     "InPlaceElementGlyph",
     "InlineSvgGlyph",
     "InvokeNodeGlyph",
+    "LabelGlyph",
     "LocalVariableGlyph",
     "PropertyNodeGlyph",
     "UnbundleGlyph",
