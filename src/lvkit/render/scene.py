@@ -1523,21 +1523,26 @@ def _build_wire_nets(
             src_route_owner = None if src_border else src_owner
             dst_route_owner = None if dst_border else dst_owner
             # FAITHFUL_WIRE_TABLE: when a signal's compressedWireTable heap blob
-            # decoded (in layout, by exact known endpoints), use LabVIEW's own
-            # routed geometry instead of the auto-router. The geometry is keyed
-            # by the DESTINATION terminal uid — the graph and the heap agree on
-            # that uid exactly, so this is a pure identity lookup, no center
-            # rounding or tolerance. src_out/dst_in are still computed above
-            # regardless — the coercion-dot placement below (_entry_edge_point)
-            # needs dst_in even in the faithful case. Default False -> this lookup
-            # never runs, so `mid` is always `router.route(...)`.
+            # decoded (in layout, by exact known endpoints), draw LabVIEW's OWN
+            # full wire polyline VERBATIM — its own source/sink anchors and bends,
+            # the wire's actual block-diagram geometry. NO terminal-center
+            # override, NO stub, NO auto-router: the decode IS the wire, and the
+            # lane pass skips it too (BranchCtx.faithful). The auto-router runs
+            # ONLY when the decode fails (the rare fallback), splicing its bends
+            # between the terminal centers. The lookup is keyed by the DEST
+            # terminal uid — graph and heap agree on it exactly, a pure identity
+            # lookup. src_out/dst_in are still computed above regardless — the
+            # coercion-dot placement below (_entry_edge_point) needs dst_in even
+            # in the faithful case.
             faithful = None
             if FAITHFUL_WIRE_TABLE:
-                mid_pts = layout.wire_by_uid.get(raw_dst)
-                if mid_pts is not None:
-                    faithful = list(mid_pts)
+                full = layout.wire_by_uid.get(raw_dst)
+                if full is not None:
+                    faithful = list(full)
             if faithful is not None:
-                mid = faithful
+                # Verbatim decoded geometry (already source..sink); just drop
+                # exactly-collinear vertices, never re-anchor to a terminal.
+                branch = _compress(faithful)
             else:
                 mid = router.route(
                     src_out,
@@ -1546,10 +1551,11 @@ def _build_wire_nets(
                     src_route_owner,
                     dst_route_owner,
                 )
-            # Drop redundant collinear points (the directional stubs are often
-            # collinear with the first/last leg) so we don't add kinks LabVIEW
-            # wouldn't draw.
-            branches.append(_compress([src_center, *mid, dst_center]))
+                # Auto-route fallback: splice the router's bends between the
+                # terminal centers (drop stub-collinear kinks LabVIEW wouldn't
+                # draw).
+                branch = _compress([src_center, *mid, dst_center])
+            branches.append(branch)
             # Same obstacle/owner/confinement this branch was routed against,
             # keyed for the lane pass. net_index = len(nets) (this net is
             # appended after the group loop, so it will occupy that slot).
@@ -1559,6 +1565,9 @@ def _build_wire_nets(
                 confine=confine,
                 src_border=src_border,
                 dst_border=dst_border,
+                # LabVIEW's own decoded geometry -> bypass the auto-route lane
+                # pass entirely (see BranchCtx.faithful / apply_lane_pass).
+                faithful=faithful is not None,
             )
 
             # Coercion dot ONLY on a numeric-representation change (I32->DBL),

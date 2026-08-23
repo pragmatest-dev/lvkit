@@ -37,6 +37,7 @@ from lvkit.cache_paths import (  # noqa: E402
     _slug,
     classify,
     cleanup_legacy_cache,
+    extraction_fingerprint,
     global_cache_root,
     meta_fresh,
 )
@@ -138,6 +139,7 @@ def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
         tool="pylabview",
         extracted_at=time.time(),
         text_encoding=labview_text_encoding(),
+        extraction_fingerprint=extraction_fingerprint(),
     )
     os.replace(tmp, meta_path)
 
@@ -267,7 +269,16 @@ def extract_vi_xml(
         and meta_fresh(
             vi_path,
             meta_path,
-            extra={"text_encoding": labview_text_encoding()},
+            extra={
+                "text_encoding": labview_text_encoding(),
+                # Invalidate ONLY when the extraction code changes (a pylabview
+                # monkeypatch / read option / the normalize pass — see
+                # extraction_fingerprint), NOT on unrelated parser/render edits.
+                # Without it an extraction-behaviour change silently serves stale
+                # XML; with source_fingerprint it would needlessly re-run
+                # pylabview over the whole corpus on every edit.
+                "extraction_fingerprint": extraction_fingerprint(),
+            },
         )
     ):
         return (

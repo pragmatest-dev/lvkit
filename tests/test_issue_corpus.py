@@ -122,6 +122,43 @@ def test_issue30_conditional_disable_opens_on_saved_visible_frame():
         assert frame_values[raw].index(shown) == 1, (raw, shown)
 
 
+def test_issue37_tunnel_wires_have_no_subpixel_jog():
+    """#37: a wire LabVIEW drew straight through a structure's border tunnel must
+    RENDER straight -- our auto-router's lane pass must not bend it.
+
+    The repro wires ``Numeric`` (I32) straight through a For Loop's input and
+    output tunnels to ``Numeric 2``. The tunnels' 9px-tall termBounds centre at
+    y.5 while the front-panel terminals' 16px-tall bounds centre at y.0 -- a real
+    0.5px offset baked into the VI. LabVIEW draws the wire straight across it;
+    lvkit used to snap the decoded-straight wire orthogonal and inject a mid-Z
+    jog at each tunnel (the reporter's two circled bends). Decoded wires now
+    bypass the auto-route lane pass ENTIRELY, and even the fallback router no
+    longer bends a wire to bridge a sub-pixel offset.
+    """
+    from lvkit.render import build_scene
+
+    graph, vi = _load("37/structure-tunnel-wire-bends.vi")
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    def _sub_pixel_jogs(branch: list[tuple[float, float]]):
+        # A jog is an interior vertex whose SHORTER adjacent segment is under a
+        # pixel -- the exact signature of a wire bent to bridge a sub-pixel gap.
+        out = []
+        for i in range(1, len(branch) - 1):
+            a, b, c = branch[i - 1], branch[i], branch[i + 1]
+            la = ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+            lc = ((c[0] - b[0]) ** 2 + (c[1] - b[1]) ** 2) ** 0.5
+            if 0 < min(la, lc) < 1.0:
+                out.append((a, b, c))
+        return out
+
+    branches = [br for net in scene.wire_nets for br in net.branches]
+    assert branches, "the repro really does have wires"
+    jogs = [seg for br in branches for seg in _sub_pixel_jogs(br)]
+    assert not jogs, f"wires bent by a sub-pixel jog (issue #37): {jogs}"
+
+
 @pytest.mark.parametrize("vi,issue_dir", _fixture_vis())
 def test_issue_fixture_renders(vi: Path, issue_dir: Path):
     """Every committed issue-repro VI loads and renders to a non-empty SVG --

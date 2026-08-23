@@ -256,6 +256,41 @@ def source_fingerprint() -> str:
     return h.hexdigest()
 
 
+# The ONLY modules that determine pylabview's emitted XML: the in-process
+# monkeypatches (which alter what pylabview writes), the extraction driver (read
+# options + the normalize call), and the text-encoding helpers (textcp choice +
+# ``normalize_extracted_xml``). Deliberately a tiny INCLUDE list, not the
+# package-wide ``source_fingerprint`` exclude list: extraction output does NOT
+# depend on parser/graph/render, so re-running pylabview over the whole corpus
+# on every unrelated edit would be pathologically slow. Extraction changes
+# rarely (basically only when a monkeypatch changes), so this invalidates rarely.
+_EXTRACTION_CODE_FILES = (
+    "_pylabview_patches.py",
+    "extractor.py",
+    "text_encoding.py",
+)
+
+
+@functools.lru_cache(maxsize=1)
+def extraction_fingerprint() -> str:
+    """A hash of ONLY the extraction code (``_EXTRACTION_CODE_FILES``), so the
+    extraction cache rebuilds when HOW we extract changes — a new/edited
+    pylabview monkeypatch, a read option, the normalize pass — but NOT when
+    post-extraction code (parser/graph/render, keyed on ``source_fingerprint``)
+    changes. Kept separate from ``source_fingerprint`` on purpose: extraction is
+    the expensive, rarely-changing stage."""
+    import lvkit
+
+    pkg = Path(lvkit.__file__).resolve().parent
+    h = hashlib.sha256()
+    for rel in _EXTRACTION_CODE_FILES:
+        h.update(rel.encode())
+        h.update(b"\0")
+        h.update((pkg / rel).read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()
+
+
 def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> bool:
     """True if the cached artifact described by ``meta_path`` is still valid for
     ``vi_path``.

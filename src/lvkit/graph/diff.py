@@ -98,8 +98,9 @@ class ElementChange:
     element: str | None = None
     # ── Faithful wire geometry (increment 2a) ────────────────────────────
     # The rendered wire's polyline — the SAME points render/scene.py draws:
-    # [source-terminal center, *Layout.wire_by_uid[sink], sink-terminal center],
-    # in absolute SVG-viewBox pixels. Set on WIRE changes so the viewer overlays
+    # LabVIEW's complete decoded polyline (Layout.wire_by_uid[sink], which runs
+    # source center -> bends -> sink center) verbatim, in absolute SVG-viewBox
+    # pixels. Set on WIRE changes so the viewer overlays
     # the real colored wire (not a pin). None when layout is absent. For an
     # added/modified wire it's the HEAD routing; for a removed wire the BASE.
     path: list[Point] | None = None
@@ -560,26 +561,30 @@ def _wire_path(
     sink_uid: str,
 ) -> list[Point] | None:
     """The FAITHFUL polyline of the drawn wire INTO ``sink_uid`` (a raw sink
-    terminal uid) — the exact points ``render/scene.py`` draws:
-    ``[source center, *Layout.wire_by_uid[sink], sink center]``.
+    terminal uid) — the exact points ``render/scene.py`` draws.
 
     Uses the IMMEDIATE non-internal wire whose destination is ``sink_uid`` (the
     actual drawn wire), NOT any contracted effective source — this overlay must
-    trace the real wire. ``wire_by_uid`` supplies the recorded intermediate
-    bends; when absent the polyline is just the two endpoint centers (a straight
-    segment — the renderer would auto-route, which is fine for an overlay).
-    Returns None when layout is absent or an endpoint center is missing (an
-    input terminal takes exactly one wire, so the first match is the wire)."""
+    trace the real wire. ``Layout.wire_by_uid`` supplies LabVIEW's COMPLETE
+    decoded polyline (source center -> recorded bends -> sink center), used
+    VERBATIM — the same geometry scene.py draws. When it is absent (the decode
+    failed / auto-route fallback) the polyline is just the two endpoint centers
+    (a straight segment — fine for an overlay). Returns None when layout is
+    absent or an endpoint center is missing (an input terminal takes exactly one
+    wire, so the first match is the wire)."""
     if layout is None:
         return None
     for w in wires:
         if _uid_of(w.dest.terminal_id) != sink_uid:
             continue
+        full = layout.wire_by_uid.get(sink_uid)
+        if full is not None:
+            return list(full)
         src_center = layout.terminal_centers.get(_uid_of(w.source.terminal_id))
         sink_center = layout.terminal_centers.get(sink_uid)
         if src_center is None or sink_center is None:
             return None
-        return [src_center, *layout.wire_by_uid.get(sink_uid, []), sink_center]
+        return [src_center, sink_center]
     return None
 
 
