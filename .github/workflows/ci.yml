@@ -65,6 +65,29 @@ jobs:
       - name: Pytest
         run: uv run pytest -q -m "not needs_samples"
 
+  # The web (browser / Pyodide) extension renders VIs in WebAssembly instead of a
+  # native binary. That is only safe if the wasm render is byte-identical to the
+  # native one — this guard renders a feature-diverse set of fixtures both ways
+  # and fails on any divergence, so renderer changes can never silently break the
+  # web target. Builds the same self-hosted Pyodide + wheels the VSIX ships.
+  web-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build self-hosted web assets (Pyodide + wheels)
+        working-directory: editors/vscode
+        run: |
+          npm ci
+          npm run build:web
+      - name: Web (wasm) render == native render, byte-for-byte
+        run: bash editors/vscode/build/check-web-parity.sh
+
   build:
     runs-on: ubuntu-latest
     needs: [lint, typecheck, test]
