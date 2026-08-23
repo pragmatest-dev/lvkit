@@ -1,30 +1,55 @@
 #!/usr/bin/env bash
-# Build the web extension's bundled Python wheels into media/wheels/ — the input
-# the browser (Pyodide) build installs at runtime instead of a native binary.
+# Build the web extension's self-hosted runtime into media/ — everything the
+# browser (Pyodide) build needs, so it NEVER touches a CDN or PyPI at runtime
+# (strict-CSP / offline / air-gapped hosts must work).
 #
-#   - lvkit wheel: built FROM THE CURRENT SOURCE TREE. A stale wheel silently
-#     ships old renderer code (bit the spike twice), so it is ALWAYS rebuilt.
-#   - pylabview wheel: the pinned release, fetched from PyPI AT BUILD TIME (the
-#     browser must NEVER touch PyPI at runtime). The URL is read from uv.lock so
-#     it tracks the dependency pin with no second place to bump.
+#   media/wheels/  — the pure-Python wheels micropip installs with deps=False:
+#     * lvkit     — built FROM THE CURRENT SOURCE TREE. A stale wheel silently
+#                   ships old renderer code (bit the spike twice), so ALWAYS
+#                   rebuilt.
+#     * pylabview — the pinned release (URL read from uv.lock).
+#     * networkx  — the pinned release (URL read from uv.lock). Self-hosted as a
+#                   wheel — NOT via Pyodide's `networkx` package — because that
+#                   package declares matplotlib+numpy as deps (~25 MB) that lvkit
+#                   never imports; installing the pure-Python wheel deps=False
+#                   drops the whole chain.
 #
-# (Pyodide core is still loaded from the CDN by web/extension.js; self-hosting it
-# as an asset for strict-CSP / offline hosts is the next step.)
+#   media/pyodide/ — the Pyodide CORE + only the packages the browser actually
+#     loadPackage()s (micropip, pydantic, Pillow + their closure), pruned from
+#     the pinned `pyodide` npm dist by build/prune_pyodide.py.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../../.." && pwd)"
-WHEELS="$HERE/../media/wheels"
+VSC="$HERE/.."
+WHEELS="$VSC/media/wheels"
+PYODIR="$VSC/media/pyodide"
 
+# --- wheels (micropip, deps=False) ------------------------------------------
 rm -rf "$WHEELS"
 mkdir -p "$WHEELS"
 
 echo "building lvkit wheel from $REPO …"
 ( cd "$REPO" && uv build --wheel -o "$WHEELS" )
 
-URL="$(grep -oE 'https://[^"]*pylabview-[0-9.]+-py3-none-any\.whl' "$REPO/uv.lock" | head -1)"
-[ -n "$URL" ] || { echo "ERROR: pylabview wheel URL not found in uv.lock" >&2; exit 1; }
-echo "fetching pinned pylabview wheel: $URL"
-curl -sSfL "$URL" -o "$WHEELS/$(basename "$URL")"
+fetch_pinned_wheel() {  # $1 = package name (matches <name>-<ver>-py3-none-any.whl)
+  local url
+  url="$(grep -oE "https://[^\"]*$1-[0-9][0-9.]*-py3-none-any\.whl" "$REPO/uv.lock" | head -1)"
+  [ -n "$url" ] || { echo "ERROR: $1 wheel URL not found in uv.lock" >&2; exit 1; }
+  echo "fetching pinned $1 wheel: $url"
+  curl -sSfL "$url" -o "$WHEELS/$(basename "$url")"
+}
+fetch_pinned_wheel pylabview
+fetch_pinned_wheel networkx
 
-echo "media/wheels/:"
-ls -1 "$WHEELS"
+# --- pyodide core + pruned package set --------------------------------------
+PYSRC="$VSC/node_modules/pyodide"
+[ -d "$PYSRC" ] || { echo "ERROR: $PYSRC missing — run 'npm install' first" >&2; exit 1; }
+PYVER="$(node -p "require('$PYSRC/package.json').version")"
+CDN="https://cdn.jsdelivr.net/pyodide/v$PYVER/full/"
+rm -rf "$PYODIR"
+echo "assembling Pyodide $PYVER (core from npm, packages from $CDN) → media/pyodide …"
+uv run --project "$REPO" python "$HERE/prune_pyodide.py" "$PYSRC" "$PYODIR" "$CDN" micropip pydantic Pillow
+
+# --- report ------------------------------------------------------------------
+echo "media/wheels/:"; ls -1 "$WHEELS"
+echo "media/pyodide/ ($(du -sh "$PYODIR" | cut -f1)):"; ls -1 "$PYODIR"

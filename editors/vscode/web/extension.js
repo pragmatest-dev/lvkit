@@ -13,10 +13,12 @@
 // swapping "spawn lvkit" for "render in-webview via wasm."
 const vscode = require("vscode");
 
-// Pyodide core (Python 3.14 wasm — bundles networkx / pydantic / Pillow). CDN
-// for now; Phase B self-hosts it as an extension asset for strict-CSP hosts.
-const PYODIDE_VERSION = "v314.0.5";
-const PYODIDE_BASE = `https://cdn.jsdelivr.net/pyodide/${PYODIDE_VERSION}/full/`;
+// Pyodide (Python 3.14 wasm) and every wheel are SELF-HOSTED under media/ —
+// assembled by build/build-web-assets.sh (core + pruned package closure in
+// media/pyodide, the lvkit/pylabview/networkx wheels in media/wheels). Nothing
+// is fetched from a CDN or PyPI at runtime, so the extension renders under a
+// strict CSP and works fully offline / air-gapped. The base URIs are resolved
+// per-webview via webview.asWebviewUri (below), so no absolute host appears here.
 
 class ViDocument {
   constructor(uri) {
@@ -43,9 +45,9 @@ async function wheelUris(webview, wheelsDir) {
   const entries = await vscode.workspace.fs.readDirectory(wheelsDir);
   const whls = entries
     .filter(([name, kind]) => kind === vscode.FileType.File && name.endsWith(".whl"))
-    // pylabview before lvkit (lvkit imports it at runtime; install order is cosmetic
-    // but keeps logs readable).
-    .sort((a, b) => (a[0].startsWith("pylabview") ? -1 : 1))
+    // lvkit LAST — it imports networkx + pylabview at import time, and
+    // micropip.install(deps=False) does not resolve/order deps for us.
+    .sort((a, b) => (a[0].startsWith("lvkit-") ? 1 : b[0].startsWith("lvkit-") ? -1 : 0))
     .map(([name]) =>
       webview.asWebviewUri(vscode.Uri.joinPath(wheelsDir, name)).toString()
     );
@@ -54,6 +56,7 @@ async function wheelUris(webview, wheelsDir) {
 
 function activate(context) {
   const wheelsDir = vscode.Uri.joinPath(context.extensionUri, "media", "wheels");
+  const pyodideDir = vscode.Uri.joinPath(context.extensionUri, "media", "pyodide");
   const provider = {
     openCustomDocument(uri) {
       return new ViDocument(uri);
@@ -78,7 +81,8 @@ function activate(context) {
         );
         return;
       }
-      webview.html = viewerHtml(webview, wheels);
+      const pyodideBase = webview.asWebviewUri(pyodideDir).toString() + "/";
+      webview.html = viewerHtml(webview, wheels, pyodideBase);
       webview.onDidReceiveMessage(async (m) => {
         if (m.type === "ready") {
           // THE hosted read path: virtual-FS-safe, no disk, no child_process.
@@ -110,15 +114,19 @@ function errorHtml(title, message) {
 <pre style="white-space:pre-wrap;color:var(--vscode-descriptionForeground)">${esc(message)}</pre></body>`;
 }
 
-function viewerHtml(webview, wheelUrls) {
+function viewerHtml(webview, wheelUrls, pyodideBase) {
+  // Strict CSP: everything (loader, wasm, wheels, fonts, images) is served from
+  // the webview's own asset origin — no CDN, no remote host. Pyodide needs
+  // 'unsafe-eval' (it compiles Python → JS) + 'wasm-unsafe-eval'; it runs its
+  // interpreter in a blob: web worker.
   const csp = [
     "default-src 'none'",
-    `script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net`,
-    `connect-src https://cdn.jsdelivr.net ${webview.cspSource} blob: data:`,
+    `script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'`,
+    `connect-src ${webview.cspSource} blob: data:`,
     "style-src 'unsafe-inline'",
     `img-src ${webview.cspSource} data: blob:`,
     "worker-src blob:",
-    "font-src https://cdn.jsdelivr.net",
+    `font-src ${webview.cspSource}`,
   ].join("; ");
   return `<!doctype html>
 <html>
@@ -138,7 +146,7 @@ function viewerHtml(webview, wheelUrls) {
 <div id="status">booting Pyodide…</div>
 <div id="view"></div>
 <div class="meta" id="meta"></div>
-<script src="${PYODIDE_BASE}pyodide.js"></script>
+<script src="${pyodideBase}pyodide.js"></script>
 <script>
 const vscodeApi = acquireVsCodeApi();
 const S = document.getElementById("status");
@@ -149,14 +157,19 @@ let render = null;
 async function boot() {
   try {
     log("loading Pyodide (Python 3.14, wasm)…");
-    const pyodide = await loadPyodide({ indexURL: ${JSON.stringify(PYODIDE_BASE)} });
-    log("loading networkx / pydantic / Pillow…");
-    await pyodide.loadPackage(["micropip", "Pillow", "networkx", "pydantic"]);
+    const pyodide = await loadPyodide({ indexURL: ${JSON.stringify(pyodideBase)} });
+    log("loading pydantic / Pillow…");
+    // Only the binary (emscripten) packages come from Pyodide: pydantic_core and
+    // Pillow. networkx is a PURE-Python wheel installed below (deps=False) — NOT
+    // Pyodide's networkx, which would drag in matplotlib+numpy (~25 MB) lvkit
+    // never imports.
+    await pyodide.loadPackage(["micropip", "pydantic", "Pillow"]);
     const micropip = pyodide.pyimport("micropip");
-    log("installing pylabview + lvkit wheels…");
+    log("installing networkx + pylabview + lvkit wheels…");
     // callKwargs so deps=False reaches Python as a kwarg (a plain JS object is a
-    // positional dict, silently ignored → micropip tries PyPI for mcp → fails).
-    // Pillow/networkx/pydantic are preloaded, so deps=False never touches PyPI.
+    // positional dict, silently ignored → micropip tries PyPI → fails offline).
+    // Everything lvkit imports is already present, so deps=False never fetches.
+    // WHEELS is ordered lvkit-last (it imports networkx + pylabview at import).
     for (const w of WHEELS) { await micropip.install.callKwargs(w, { deps: false }); }
     render = pyodide.runPython(\`
 import os
