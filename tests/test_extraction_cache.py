@@ -409,3 +409,55 @@ class TestGlobalHomeGuard:
         slug = cache_paths._slug(repo.resolve())
         assert target == _cache() / "projects" / slug / "extract" / "source"
         assert source == str(Path("source") / "x.vi")
+
+
+def test_fingerprints_prefer_embedded_build_values(monkeypatch):
+    """A FROZEN (PyInstaller) build ships compiled code, not ``.py`` sources, so
+    the fingerprints can't be computed live there — ``source_fingerprint`` would
+    see only the bundled data files (blind to code) and ``extraction_fingerprint``
+    would have no sources to read. The build embeds both, and each function must
+    return the embedded value so the binary's caches stay correct and code-aware.
+    """
+    monkeypatch.setattr(
+        cache_paths,
+        "_embedded_fingerprints",
+        lambda: {"source": "SRC_EMBEDDED", "extraction": "EXT_EMBEDDED"},
+    )
+    cache_paths.source_fingerprint.cache_clear()
+    cache_paths.extraction_fingerprint.cache_clear()
+    assert cache_paths.source_fingerprint() == "SRC_EMBEDDED"
+    assert cache_paths.extraction_fingerprint() == "EXT_EMBEDDED"
+    cache_paths.source_fingerprint.cache_clear()
+    cache_paths.extraction_fingerprint.cache_clear()
+
+
+def test_extraction_fingerprint_frozen_fallback_without_embed(monkeypatch):
+    """Last-resort defense: a frozen build with neither ``.py`` sources NOR an
+    embedded fingerprint must NOT crash reading its own source — it falls back to
+    the immutable release version.
+
+    Regression: the desktop binary read ``_pylabview_patches.py`` at render time
+    and raised ``FileNotFoundError`` from every extraction, so the render exited 0
+    having written nothing and the extension failed with ENOENT on the missing
+    ``preview.html``.
+    """
+    # Sources present (this test env), no embed: a real content hash.
+    monkeypatch.setattr(cache_paths, "_embedded_fingerprints", dict)
+    cache_paths.extraction_fingerprint.cache_clear()
+    normal = cache_paths.extraction_fingerprint()
+    assert len(normal) == 64 and all(c in "0123456789abcdef" for c in normal)
+
+    # Now also deny reading the sources → the sentinel fallback, not a crash.
+    real_read = Path.read_bytes
+
+    def deny(self):
+        if self.name in cache_paths._EXTRACTION_CODE_FILES:
+            raise FileNotFoundError(self)
+        return real_read(self)
+
+    monkeypatch.setattr(Path, "read_bytes", deny)
+    cache_paths.extraction_fingerprint.cache_clear()
+    frozen = cache_paths.extraction_fingerprint()
+    assert frozen == "extraction-unavailable"
+    assert frozen != normal
+    cache_paths.extraction_fingerprint.cache_clear()

@@ -216,6 +216,32 @@ def sha256_file(path: Path) -> str:
 # staleness back in.
 _FINGERPRINT_SKIP_DIRS = frozenset({"codegen", "docs", "formula", "mcp"})
 
+# A FROZEN distribution (PyInstaller) ships compiled code, not the ``.py``
+# sources the fingerprints hash, so neither fingerprint is computable at runtime
+# there (``source_fingerprint`` would see only the bundled data files — blind to
+# code — and ``extraction_fingerprint``'s fixed include list would not exist at
+# all). The build instead computes BOTH from the live sources and writes them to
+# this file, bundled next to the package (editors/vscode/build/build-binary.sh +
+# embed_fingerprints.py); at runtime each fingerprint returns the embedded value
+# when present, so a built binary's caches stay correct AND code-aware — the same
+# keys a source/wheel install computes — instead of degrading or crashing. Absent
+# in a normal source/wheel install, where the live computation is authoritative.
+_BUILD_FINGERPRINTS_FILE = "_build_fingerprints.json"
+
+
+@functools.lru_cache(maxsize=1)
+def _embedded_fingerprints() -> dict[str, str]:
+    """The build-time fingerprints bundled into a frozen distribution, or an
+    empty dict for a live source/wheel install (no such file)."""
+    # This module lives inside the package, so its own directory IS the package
+    # root — no need to import the top-level package to find it.
+    f = Path(__file__).resolve().parent / _BUILD_FINGERPRINTS_FILE
+    try:
+        raw = json.loads(f.read_text(encoding="utf-8"))
+    except OSError:
+        return {}
+    return {str(k): str(v) for k, v in raw.items()}
+
 
 @functools.lru_cache(maxsize=1)
 def source_fingerprint() -> str:
@@ -238,10 +264,16 @@ def source_fingerprint() -> str:
     over-invalidates at worst (one extra cold rebuild). Memoized: the source
     cannot change within a live process (Python does not hot-reload), and a dev
     editing lvkit restarts it before the next run anyway.
-    """
-    import lvkit
 
-    pkg = Path(lvkit.__file__).resolve().parent
+    In a frozen build the sources aren't on disk, so use the build-time value
+    embedded next to the package (``_BUILD_FINGERPRINTS_FILE``) instead of
+    hashing the code-blind data-file remnant.
+    """
+    embedded = _embedded_fingerprints().get("source")
+    if embedded:
+        return embedded
+
+    pkg = Path(__file__).resolve().parent
     h = hashlib.sha256()
     for f in sorted(pkg.rglob("*")):
         if not f.is_file() or f.suffix == ".pyc" or "__pycache__" in f.parts:
@@ -278,15 +310,34 @@ def extraction_fingerprint() -> str:
     pylabview monkeypatch, a read option, the normalize pass — but NOT when
     post-extraction code (parser/graph/render, keyed on ``source_fingerprint``)
     changes. Kept separate from ``source_fingerprint`` on purpose: extraction is
-    the expensive, rarely-changing stage."""
-    import lvkit
+    the expensive, rarely-changing stage.
 
-    pkg = Path(lvkit.__file__).resolve().parent
+    Reads the extraction ``.py`` sources when they are on disk (source checkout,
+    installed wheel, Cloud Run) — the precise, narrow signal. In a FROZEN build
+    (PyInstaller ships compiled code, not ``.py`` sources) those files are absent,
+    so it uses the build-time value embedded next to the package instead. The
+    sentinel return is a last-resort defense for the unexpected case of a frozen
+    build with neither the sources nor an embedded fingerprint — it never crashes
+    trying to read its own source at runtime.
+    """
+    embedded = _embedded_fingerprints().get("extraction")
+    if embedded:
+        return embedded
+
+    pkg = Path(__file__).resolve().parent
     h = hashlib.sha256()
     for rel in _EXTRACTION_CODE_FILES:
+        try:
+            data = (pkg / rel).read_bytes()
+        except OSError:
+            # Defensive only: a frozen build missing BOTH its .py sources and the
+            # embedded fingerprint (a broken build — build-binary.sh always embeds
+            # it, which short-circuits above). Return a stable sentinel rather
+            # than crash; a correctly built binary never reaches here.
+            return "extraction-unavailable"
         h.update(rel.encode())
         h.update(b"\0")
-        h.update((pkg / rel).read_bytes())
+        h.update(data)
         h.update(b"\0")
     return h.hexdigest()
 
