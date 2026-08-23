@@ -6,6 +6,9 @@ bin/
 *.vsix
 node_modules/
 
+# @vscode/test-web's downloaded VS Code web build (local web-extension testing)
+.vscode-test-web/
+
 # Web (browser) build outputs — rebuilt from source in CI, never committed.
 # The esbuild bundle and the Python wheels/Pyodide assets that ship IN the web
 # VSIX are produced by `npm run build:web` + build/build-web-assets.sh.
