@@ -19,6 +19,7 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.render import build_scene, render_vi_file
 from lvkit.render.composite import (
+    DecorationObject,
     NodeObject,
     StructureObject,
     build_render_tree,
@@ -115,11 +116,12 @@ def test_pin_sibling_order_stable_reverse_by_rank():
         tree = build_render_tree(scene)
 
         def rank_of(elem) -> int:
-            raw = (
-                elem.rn.dom_id
-                if isinstance(elem, NodeObject)
-                else elem.rs.raw_uid
-            )
+            if isinstance(elem, NodeObject):
+                raw = elem.rn.dom_id
+            elif isinstance(elem, DecorationObject):
+                raw = elem.deco.dom_id
+            else:
+                raw = elem.rs.raw_uid
             return z.get(raw, -1)
 
         def check(content) -> None:

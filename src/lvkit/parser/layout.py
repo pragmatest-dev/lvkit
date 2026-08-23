@@ -53,6 +53,22 @@ _TAG_TO_GLYPH_KIND = {
 
 
 @dataclass(frozen=True)
+class LayoutDecoration:
+    """A block-diagram decoration — LabVIEW's ``class="cosm"`` shape (Flat Frame,
+    Thin/Thick Line, Thin/Thick Line with Arrow). PURE VISUAL: no data, no
+    dataflow, never a graph node. ``image_res_id`` selects the shape kind (see
+    render/glyphs/decorations); ``container_uid`` is the raw uid of the structure
+    whose frame diagram this decoration lives in (None at the root diagram), so
+    it paints inside that structure. Its bounds + paint rank are looked up from
+    ``Layout.node_bounds``/``z_order`` by ``uid`` like any other element."""
+
+    uid: str
+    image_res_id: str
+    bg_color: str | None = None
+    container_uid: str | None = None
+
+
+@dataclass(frozen=True)
 class Layout:
     """Pure geometry extracted from a VI's heap XML — no semantics.
 
@@ -116,6 +132,9 @@ class Layout:
     # as ``z_order``: a LOWER rank draws first (further back). The render sorts a
     # container's wire nets by this so crossings paint in LabVIEW's order.
     wire_z: dict[str, int] = field(default_factory=dict)
+    # Block-diagram decorations (cosm shapes) — visual only, drawn z-ordered with
+    # nodes (never graph nodes). Bounds/rank come from node_bounds/z_order by uid.
+    decorations: list[LayoutDecoration] = field(default_factory=list)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -242,6 +261,7 @@ class _LayoutBuilder:
         # WIRE paint rank (per source terminal uid) + its own monotonic counter,
         # assigned as each diagram's ``signalList`` is walked (see Layout.wire_z).
         self.wire_z: dict[str, int] = {}
+        self.decorations: list[LayoutDecoration] = []
         self._wire_z_seq: int = 0
 
     def _record_label_hidden(self, elem: ET.Element, uid: str | None) -> None:
@@ -498,11 +518,13 @@ class _LayoutBuilder:
                 self.terminal_centers.setdefault(u, center)
 
     # -- recursive walk -----------------------------------------------------
-    def walk(self, diag: ET.Element, ox: float, oy: float) -> None:
+    def walk(
+        self, diag: ET.Element, ox: float, oy: float, container_uid: str | None = None
+    ) -> None:
         zp = diag.find("zPlaneList")
         if zp is not None:
             for elem in zp.findall("SL__arrayElement"):
-                self._visit(elem, ox, oy)
+                self._visit(elem, ox, oy, container_uid)
 
         # nodeList holds diagram nodes that don't sit in zPlaneList: sRN
         # (shift-register / border-terminal groups) AND In-Place-Element-
@@ -518,7 +540,7 @@ class _LayoutBuilder:
         nl = diag.find("nodeList")
         if nl is not None:
             for elem in nl.findall("SL__arrayElement"):
-                self._visit(elem, ox, oy)
+                self._visit(elem, ox, oy, container_uid)
 
         # Each diagram (root or a structure's inner frame) carries its own
         # signalList — the routed geometry for every wire whose endpoints
@@ -579,7 +601,9 @@ class _LayoutBuilder:
                 by_uid[sink_uid] = [src, *mid, self.terminal_centers[sink_uid]]
         return by_uid
 
-    def _visit(self, elem: ET.Element, ox: float, oy: float) -> None:
+    def _visit(
+        self, elem: ET.Element, ox: float, oy: float, container_uid: str | None = None
+    ) -> None:
         bb = _rect(elem)
         if bb is None:
             return
@@ -590,6 +614,21 @@ class _LayoutBuilder:
         self._record_label_hidden(elem, uid)
         if uid:
             self.node_bounds.setdefault(uid, (ax1, ay1, ax2, ay2))
+            # A block-diagram decoration (cosm shape): a pure-visual Flat Frame /
+            # Line / Arrow. Record its shape id + owning container; bounds + paint
+            # rank were just recorded above (uid-keyed) like any element.
+            if elem.get("class") == "cosm":
+                res_id = elem.findtext("image/ImageResID")
+                if res_id is not None:
+                    bg = elem.findtext("bgColor")
+                    self.decorations.append(
+                        LayoutDecoration(
+                            uid=uid,
+                            image_res_id=res_id.strip(),
+                            bg_color=bg.strip() if bg else None,
+                            container_uid=container_uid,
+                        )
+                    )
             # First-sight paint rank (see Layout.z_order): the walk reaches
             # elements in zPlaneList back-to-front order at each level, so the
             # rank captures LabVIEW's occlusion order for free.
@@ -614,7 +653,7 @@ class _LayoutBuilder:
         )
         if inner:
             for d in inner:
-                self.walk(d, ax1, ay1)
+                self.walk(d, ax1, ay1, uid)
             return
 
         # Flat/stacked sequence: frames live under sequenceList, each with
@@ -657,7 +696,7 @@ class _LayoutBuilder:
                 continue
             for d in fdl.findall("SL__arrayElement"):
                 if d.get("class") == "diag":
-                    self.walk(d, ax1 + dx, ay1 + dy)
+                    self.walk(d, ax1 + dx, ay1 + dy, uid)
         if is_flat and dividers and uid:
             self.sequence_dividers.setdefault(uid, []).extend(dividers)
 
@@ -696,6 +735,7 @@ def build_layout_from_root(
         wire_by_uid=builder._resolve_wire_geometry(),
         z_order=builder.z_order,
         wire_z=builder.wire_z,
+        decorations=builder.decorations,
         icon_png=icon_png,
     )
 

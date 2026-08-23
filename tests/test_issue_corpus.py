@@ -242,6 +242,35 @@ def test_issue32_free_labels_are_modeled_and_rendered():
     assert "Hello World!" in described
 
 
+def test_issue32_decorations_are_rendered():
+    """#32 (Phase 2): block-diagram decorations (cosm shapes) render as clean-room
+    glyphs — z-ordered with nodes, but never graph nodes. The repro has a Flat
+    Frame (ImageResID -35) and a Thick Line with Arrow (-502).
+    """
+    from lvkit.render import build_scene
+
+    graph, vi = _load("32/comments-and-decorations.vi")
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    # Decorations are NOT graph nodes (they carry no meaning).
+    from lvkit.graph.models import LabelNode  # (labels ARE nodes; decos are not)
+
+    assert not any(
+        type(n).__name__ in ("FrameGlyph", "ArrowGlyph") for n in graph.iter_nodes(vi)
+    )
+    kinds = sorted(type(d.glyph).__name__ for d in scene.decorations)
+    assert kinds == ["ArrowGlyph", "FrameGlyph"], kinds
+    # Each decoration interleaves with nodes by z-order (its uid has a rank).
+    for d in scene.decorations:
+        assert d.dom_id in scene.z_order, d.dom_id
+    # A label is still a graph node (Phase 1) — the two model paths coexist.
+    assert any(isinstance(n, LabelNode) for n in graph.iter_nodes(vi))
+    # Rendered: the arrowhead polygon appears in the SVG.
+    vi_path = _CORPUS / "32" / "comments-and-decorations.vi"
+    svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
+    assert svg is not None and "<polygon" in svg
+
+
 @pytest.mark.parametrize("vi,issue_dir", _fixture_vis())
 def test_issue_fixture_renders(vi: Path, issue_dir: Path):
     """Every committed issue-repro VI loads and renders to a non-empty SVG --
