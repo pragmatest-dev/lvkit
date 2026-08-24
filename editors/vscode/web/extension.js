@@ -146,13 +146,11 @@ function engineViewProvider(context) {
         engine.jobs.forEach((j) => j.reject(new Error("engine view disposed")));
         engine.jobs.clear();
       });
-      pyodideAssets(view.webview, context)
-        .then((assets) => { view.webview.html = engineHtml(view.webview, assets.wheels, assets.pyodideBase); })
-        .catch((e) => { view.webview.html = errorHtml("LVKit web build is missing its wheels", String(e)); logError("engine assets", e); engine.rejectReady(new Error(String(e))); });
       _engine = engine;
-      const waiters = _engineWaiters;
-      _engineWaiters = [];
-      waiters.forEach((r) => r(engine));
+      const wake = () => { const waiters = _engineWaiters; _engineWaiters = []; waiters.forEach((r) => r(engine)); };
+      pyodideAssets(view.webview, context)
+        .then((assets) => { view.webview.html = engineHtml(view.webview, assets.wheels, assets.pyodideBase); wake(); })
+        .catch((e) => { view.webview.html = errorHtml("LVKit web build is missing its wheels", String(e)); logError("engine assets", e); engine.rejectReady(new Error(String(e))); wake(); });
     },
   };
 }
@@ -161,7 +159,12 @@ function engineViewProvider(context) {
 function getEngine() {
   if (_engine) return Promise.resolve(_engine);
   const p = new Promise((resolve) => { _engineWaiters.push(resolve); });
+  // Reveal the engine view just long enough to instantiate it, then collapse the
+  // panel so the editor never stays split — retainContextWhenHidden keeps Pyodide
+  // booting while the panel is hidden, and the engine is reused for every later
+  // render (no re-reveal). The user can reopen the panel to watch it if they want.
   vscode.commands.executeCommand("lvkit.engine.focus").then(undefined, () => {});
+  p.then(() => vscode.commands.executeCommand("workbench.action.closePanel").then(undefined, () => {}));
   return p;
 }
 
