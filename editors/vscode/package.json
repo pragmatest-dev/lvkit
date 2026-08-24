@@ -82,7 +82,8 @@
     }
   },
   "scripts": {
-    "build:web": "node esbuild.web.js && bash build/build-web-assets.sh"
+    "build:web": "node esbuild.web.js && bash build/build-web-assets.sh",
+    "test:web": "vscode-test-web --browser=chromium --extensionDevelopmentPath=. ../../tests/corpus/issues/30"
   },
   "devDependencies": {
     "@types/vscode": "^1.101.0",
