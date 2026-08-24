@@ -357,6 +357,28 @@ def render_vi(
 
 
 _ASIDE_PAD = 8.0
+# The ▦ overlay reveals the aside a touch larger than its intrinsic drawn size for
+# readability -- it's still clamped to the view by CONNECTOR_PANE_CSS. Applied to
+# BOTH viewers (the aside svg is shared), never to help_tip's per-node panels.
+_ASIDE_REVEAL_SCALE = 1.2
+
+
+def _scale_svg_box(svg: str, factor: float) -> str:
+    """Multiply the FIRST ``<svg>`` tag's width/height by ``factor``; its viewBox is
+    untouched, so the rendered panel scales up uniformly."""
+
+    def _tag(m: re.Match[str]) -> str:
+        tag = m.group(0)
+        for attr in ("width", "height"):
+            tag = re.sub(
+                rf'(\b{attr}=")([\d.]+)(")',
+                lambda a: f"{a.group(1)}{float(a.group(2)) * factor:.1f}{a.group(3)}",
+                tag,
+                count=1,
+            )
+        return tag
+
+    return re.sub(r"<svg\b[^>]*>", _tag, svg, count=1)
 
 
 def _vi_aside_svg(
@@ -386,6 +408,7 @@ def _vi_aside_svg(
         icon_uri=icon_uri,
         theme=theme,
     )
+    panel = _scale_svg_box(panel, _ASIDE_REVEAL_SCALE)
     m = re.search(r'width="([\d.]+)"', panel)
     panel_w = float(m.group(1)) if m else 240.0
     _, y1, x2, _ = scene.bounds

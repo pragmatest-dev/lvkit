@@ -55,6 +55,52 @@ class TestBuildRenderViewerPureUnit:
         for marker in ("__TITLE__", "__SVG__", "__THEME_BTN__", "__THEME_SCRIPT__"):
             assert marker not in html
 
+    def test_connector_pane_reveals_as_clamped_shared_overlay(self):
+        """The ▦ VI connector-pane aside is revealed as a fixed overlay pinned to
+        the content area and CAPPED to the view -- never scaling with the diagram
+        zoom or exceeding the viewbox (the regression where it ballooned to ~3x
+        the view when zoomed in). The overlay CSS is SHARED with the diff viewer,
+        and the render reveal no longer clones the aside INTO the <svg> (an in-SVG
+        clone lives in diagram user-space and is exactly what ballooned)."""
+        from lvkit.render.connector_pane_panel import (
+            CONNECTOR_PANE_CSS,
+            CONNECTOR_PANE_SCRIPT,
+            DIFF_CONNECTOR_PANE_SCRIPT,
+        )
+
+        # The shared overlay CSS clamps to the content area.
+        assert ".lvkit-pane-overlay{position:absolute" in CONNECTOR_PANE_CSS
+        assert "max-width:" in CONNECTOR_PANE_CSS
+        assert "max-height:" in CONNECTOR_PANE_CSS
+
+        # Both viewers reveal via the SAME overlay class (same mechanism)...
+        assert "lvkit-pane-overlay" in CONNECTOR_PANE_SCRIPT
+        assert "lvkit-pane-overlay" in DIFF_CONNECTOR_PANE_SCRIPT
+        # ...and the render reveal is a <div> overlay in the stage-wrap, NOT an
+        # in-SVG clone (appending the aside into the <svg> is what ballooned).
+        assert "stage-wrap" in CONNECTOR_PANE_SCRIPT
+        assert "svg.appendChild" not in CONNECTOR_PANE_SCRIPT
+
+        # The render viewer injects the shared CSS, placeholder fully substituted.
+        html = build_render_viewer("<svg id='lv-stub'></svg>", title="Stub VI")
+        assert CONNECTOR_PANE_CSS in html
+        assert "__CONNECTOR_PANE_CSS__" not in html
+
+
+def test_scale_svg_box_scales_viewport_not_viewbox():
+    """The aside reveal is bumped a touch larger by scaling ONLY the outer <svg>'s
+    width/height (its viewBox + inner content are untouched, so it scales up
+    uniformly and stays clamped by the overlay CSS)."""
+    from lvkit.render import _scale_svg_box
+
+    out = _scale_svg_box(
+        '<svg width="100" height="50" viewBox="0 0 100 50"><rect width="10"/></svg>',
+        1.2,
+    )
+    assert 'width="120.0"' in out and 'height="60.0"' in out  # outer svg scaled
+    assert 'viewBox="0 0 100 50"' in out  # viewBox untouched
+    assert '<rect width="10"/>' in out  # inner content untouched
+
 
 class TestBuildRenderViewerEndToEnd:
     def test_html_embeds_auto_svg_and_controls(self):
