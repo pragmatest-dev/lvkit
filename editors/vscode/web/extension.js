@@ -381,7 +381,13 @@ async function diffVI(context, arg) {
             beforeRef: sides.before.ref || "",
             afterRef: sides.after.ref || "",
           });
-          panel.webview.postMessage({ type: "showResult", html, subvi: false });
+          // Empty body = lvkit declined (missing diagram geometry). Surface the
+          // error card rather than a blank page, matching the desktop viewer.
+          if (html && html.trim()) {
+            panel.webview.postMessage({ type: "showResult", html, subvi: false });
+          } else {
+            panel.webview.postMessage({ type: "jobError", error: "Diff declined — required diagram geometry is missing." });
+          }
         } catch (e) {
           panel.webview.postMessage({ type: "jobError", error: String(e && e.message ? e.message : e) });
           logError("diff", e);
@@ -447,7 +453,13 @@ function activate(context) {
               job = { type: "render", files: [{ rel: only, b64: toBase64(data) }], renderRel: only };
             }
             const html = await engine.run(job);
-            webview.postMessage({ type: "showResult", html, subvi: true });
+            // Empty body = lvkit declined (missing diagram geometry). Surface the
+            // error card rather than a blank page, matching the desktop viewer.
+            if (html && html.trim()) {
+              webview.postMessage({ type: "showResult", html, subvi: true });
+            } else {
+              webview.postMessage({ type: "jobError", error: "Render declined — required diagram geometry is missing." });
+            }
           } catch (e) {
             webview.postMessage({ type: "jobError", error: String(e && e.message ? e.message : e) });
             logError("render", e);
@@ -521,20 +533,21 @@ function engineHtml(webview, wheelUrls, pyodideBase) {
 </style>
 </head>
 <body>
-<p id="s">LVKit render engine — starting the in-browser Python runtime…</p>
+<p id="s">Starting LVKit… the first time takes a few seconds.</p>
 <script src="${pyodideBase}pyodide.js"></script>
 <script>
 const api = acquireVsCodeApi();
 const S = document.getElementById("s");
 const log = m => api.postMessage({ type: "log", text: String(m) });
 const PHASES = [
-  { re: /booting/i,            label: "Starting the Python runtime…",  pct: 8 },
-  { re: /loading Pyodide/i,    label: "Loading Python (WebAssembly)…", pct: 26 },
-  { re: /pydantic|Pillow/i,    label: "Loading libraries…",            pct: 50 },
-  { re: /installing.*wheels/i, label: "Installing lvkit…",             pct: 74 },
-  { re: /ready/i,              label: "Ready",                         pct: 90 },
+  { re: /booting/i,            label: "Starting LVKit…",   pct: 8 },
+  { re: /loading Pyodide/i,    label: "Setting up LVKit…", pct: 26 },
+  { re: /pydantic|Pillow/i,    label: "Loading LVKit…",    pct: 50 },
+  { re: /installing.*wheels/i, label: "Almost ready…",     pct: 74 },
+  { re: /ready/i,              label: "Ready",             pct: 90 },
 ];
-function status(m) { S.textContent = m; log(m); const p = PHASES.find(p => p.re.test(m)); api.postMessage({ type: "progress", label: p ? p.label : String(m), pct: p ? p.pct : null }); }
+// The raw status string is a match key + a log line; the panel/loader show the plain label.
+function status(m) { log(m); const p = PHASES.find(p => p.re.test(m)); const label = p ? p.label : String(m); S.textContent = label; api.postMessage({ type: "progress", label, pct: p ? p.pct : null }); }
 let pyodide = null, renderFn = null, diffFn = null;
 function u8(b64) { const bin = atob(b64); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
 function writeFile(pth, data) { const dir = pth.slice(0, pth.lastIndexOf("/")); if (dir) pyodide.FS.mkdirTree(dir); pyodide.FS.writeFile(pth, data); }
@@ -553,22 +566,33 @@ async function boot() {
 import os
 os.environ["LVKIT_CACHE_DIR"] = "/tmp/lvkitcache"
 from pathlib import Path
-from lvkit.render import render_vi_file_titled
-from lvkit.render.render_viewer import build_render_viewer
-from lvkit.vi_diff import diff_vi_files
+from lvkit import __version__
+from lvkit.output_cache import (
+    cached_diff, cached_render, diff_options_tag, render_options_tag,
+)
 
+# Same shared cached cores the CLI/MCP use: look up first, build + refresh the
+# slot on a miss. The cache lives in MEMFS (LVKIT_CACHE_DIR above), so repeat
+# opens of a VI in this session are instant hits. theme_mode="auto" lets the
+# viewer's light/dark toggle work live; SubVIs are staged next to the caller so
+# caller-relative resolution still emits data-lv-vi-rel.
 def _render(vi_path):
-    # SubVIs are staged next to the caller, so caller-relative resolution emits
-    # data-lv-vi-rel. theme_mode="auto" lets the viewer's theme toggle work live.
-    svg, name = render_vi_file_titled(Path(vi_path), theme_mode="auto")
-    return build_render_viewer(svg or "", title=name or "")
+    return cached_render(
+        Path(vi_path),
+        fmt="html",
+        options=render_options_tag("html", "auto", None),
+        version=__version__,
+        theme_mode="auto",
+    ) or ""
 
 def _diff(before, after, before_ref, after_ref):
     Path("/tmp/before.vi").write_bytes(bytes(before.to_py()))
     Path("/tmp/after.vi").write_bytes(bytes(after.to_py()))
-    return diff_vi_files(
+    return cached_diff(
         Path("/tmp/before.vi"), Path("/tmp/after.vi"),
         fmt="html",
+        options=diff_options_tag("html", False, before_ref or None, after_ref or None),
+        version=__version__,
         before_ref=(before_ref or None),
         after_ref=(after_ref or None),
     ) or ""
@@ -576,7 +600,7 @@ def _diff(before, after, before_ref, after_ref):
     renderFn = pyodide.globals.get("_render");
     diffFn = pyodide.globals.get("_diff");
     status("ready");
-    S.textContent = "LVKit render engine — ready. Keeps Python warm for fast renders; you can collapse this panel.";
+    S.textContent = "LVKit runs here in the background to draw your VIs. You can hide this panel — it keeps working.";
     api.postMessage({ type: "engineReady" });
   } catch (e) { api.postMessage({ type: "error", text: String(e && e.stack ? e.stack : e) }); }
 }
@@ -650,9 +674,9 @@ function displayHtml(webview) {
       <path class="spin" d="M24 6a18 18 0 0 1 18 18" stroke="var(--vscode-progressBar-background,#3794ff)" stroke-width="4" stroke-linecap="round"/>
     </svg>
     <p class="lv-title" id="lvTitle">Rendering VI…</p>
-    <p class="lv-phase" id="lvPhase">Starting…</p>
-    <div class="lv-bar"><div class="lv-fill" id="lvFill"></div></div>
-    <p class="lv-hint" id="lvHint">First open loads the in-browser Python runtime — a few seconds. It stays warm after that.</p>
+    <p class="lv-phase" id="lvPhase" hidden>Starting…</p>
+    <div class="lv-bar" id="lvBar" hidden><div class="lv-fill" id="lvFill"></div></div>
+    <p class="lv-hint" id="lvHint" hidden>The first VI takes a few seconds to get started. After that they open quickly.</p>
     <pre class="lv-err" id="lvErr" hidden></pre>
   </div>
 </div>
@@ -663,10 +687,18 @@ const L = {
   loader: document.getElementById("loader"),
   title: document.getElementById("lvTitle"),
   phase: document.getElementById("lvPhase"),
+  bar: document.getElementById("lvBar"),
   fill: document.getElementById("lvFill"),
+  hint: document.getElementById("lvHint"),
   err: document.getElementById("lvErr"),
 };
-function setPhase(label, pct) { if (label != null) L.phase.textContent = label; if (pct != null) L.fill.style.width = pct + "%"; }
+// Progress events flow only during the one-time cold boot (warm renders fire
+// none) — so revealing the bar/phase/hint here shows the detailed loader for a
+// cold start and leaves a warm open as just the spinner + title.
+function setPhase(label, pct) {
+  L.phase.hidden = false; L.bar.hidden = false; L.hint.hidden = false;
+  if (label != null) L.phase.textContent = label; if (pct != null) L.fill.style.width = pct + "%";
+}
 function showResult(html) { const f = document.getElementById("viewer"); f.srcdoc = html; f.style.display = "block"; L.loader.classList.add("hidden"); }
 function showError(msg) {
   L.loader.classList.remove("hidden");

@@ -71,12 +71,12 @@
     ],
     "viewsContainers": {
       "panel": [
-        { "id": "lvkitEngine", "title": "LVKit engine", "icon": "$(server-process)" }
+        { "id": "lvkitEngine", "title": "LVKit", "icon": "$(server-process)" }
       ]
     },
     "views": {
       "lvkitEngine": [
-        { "id": "lvkit.engine", "type": "webview", "name": "Render engine", "contextualTitle": "LVKit engine" }
+        { "id": "lvkit.engine", "type": "webview", "name": "LVKit", "contextualTitle": "LVKit" }
       ]
     },
     "menus": {
