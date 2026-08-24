@@ -424,22 +424,72 @@ function pyodideWebviewHtml(webview, wheelUrls, pyodideBase) {
 <meta http-equiv="Content-Security-Policy" content="${csp}" />
 <style>
   html, body { margin: 0; padding: 0; height: 100%; }
-  body { font: 13px/1.5 var(--vscode-font-family, system-ui); }
-  #status { padding: 10px; font-family: var(--vscode-editor-font-family, monospace);
-            color: var(--vscode-descriptionForeground); white-space: pre-wrap; }
+  body { font: 13px/1.5 var(--vscode-font-family, system-ui);
+         color: var(--vscode-foreground); background: var(--vscode-editor-background); }
   #viewer { border: 0; width: 100%; height: 100vh; display: none; }
+  #loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #loader.hidden { display: none; }
+  .lv-card { width: min(340px, 76vw); text-align: center; padding: 8px 20px 22px; }
+  .lv-mark { width: 46px; height: 46px; margin: 0 auto 14px; display: block; }
+  .lv-mark .spin { transform-origin: 24px 24px; animation: lv-rot 1.05s linear infinite; }
+  @keyframes lv-rot { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .lv-mark .spin { animation: none; } }
+  .lv-title { font-size: 14px; font-weight: 600; margin: 0 0 3px; }
+  .lv-phase { color: var(--vscode-descriptionForeground); min-height: 1.4em; font-size: 12.5px; margin: 0 0 14px; }
+  .lv-bar { height: 4px; border-radius: 3px; overflow: hidden; background: rgba(127,127,127,.2); }
+  .lv-fill { height: 100%; width: 6%; border-radius: 3px;
+             background: var(--vscode-progressBar-background, #3794ff); transition: width .35s ease; }
+  .lv-hint { color: var(--vscode-descriptionForeground); opacity: .7; font-size: 11px; margin: 12px 0 0; }
+  .lv-err { color: var(--vscode-errorForeground); white-space: pre-wrap; text-align: left;
+            font-family: var(--vscode-editor-font-family, monospace); font-size: 12px; margin-top: 10px; }
+  .lv-err[hidden] { display: none; }
 </style>
 </head>
 <body>
-<div id="status">booting Pyodide…</div>
+<div id="loader">
+  <div class="lv-card">
+    <svg class="lv-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <circle cx="24" cy="24" r="18" stroke="var(--vscode-descriptionForeground)" stroke-opacity=".22" stroke-width="4"/>
+      <path class="spin" d="M24 6a18 18 0 0 1 18 18" stroke="var(--vscode-progressBar-background,#3794ff)" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+    <p class="lv-title" id="lvTitle">Rendering VI…</p>
+    <p class="lv-phase" id="lvPhase">Starting…</p>
+    <div class="lv-bar"><div class="lv-fill" id="lvFill"></div></div>
+    <p class="lv-hint" id="lvHint">First open loads the in-browser Python runtime — a few seconds.</p>
+    <pre class="lv-err" id="lvErr" hidden></pre>
+  </div>
+</div>
 <iframe id="viewer" title="LVKit VI viewer"></iframe>
 <script src="${pyodideBase}pyodide.js"></script>
 <script>
 const vscodeApi = acquireVsCodeApi();
-const S = document.getElementById("status");
-const log = m => { vscodeApi.postMessage({ type: "log", text: String(m) }); };
-const err = m => { S.style.display = ""; S.textContent = String(m); vscodeApi.postMessage({ type: "error", text: String(m && m.stack ? m.stack : m) }); };
-const status = m => { S.style.display = ""; S.textContent = m; log(m); };
+const L = {
+  loader: document.getElementById("loader"),
+  title: document.getElementById("lvTitle"),
+  phase: document.getElementById("lvPhase"),
+  fill: document.getElementById("lvFill"),
+  err: document.getElementById("lvErr"),
+};
+// Boot status strings -> a friendly phase label + a progress %.
+const PHASES = [
+  { re: /booting/i,            label: "Starting the Python runtime…",  pct: 8 },
+  { re: /loading Pyodide/i,    label: "Loading Python (WebAssembly)…", pct: 26 },
+  { re: /pydantic|Pillow/i,    label: "Loading libraries…",            pct: 50 },
+  { re: /installing.*wheels/i, label: "Installing lvkit…",             pct: 74 },
+  { re: /ready/i,              label: "Ready",                         pct: 90 },
+];
+const log = m => vscodeApi.postMessage({ type: "log", text: String(m) });
+function setPhase(label, pct) { L.phase.textContent = label; if (pct != null) L.fill.style.width = pct + "%"; }
+const status = m => { log(m); const p = PHASES.find(p => p.re.test(m)); setPhase(p ? p.label : String(m), p ? p.pct : null); };
+const err = e => {
+  L.loader.classList.remove("hidden");
+  L.title.textContent = "Couldn’t render this VI";
+  setPhase("", 100);
+  L.fill.style.background = "var(--vscode-errorForeground)";
+  L.err.hidden = false;
+  L.err.textContent = String(e && e.message ? e.message : e);
+  vscodeApi.postMessage({ type: "error", text: String(e && e.stack ? e.stack : e) });
+};
 const WHEELS = ${JSON.stringify(wheelUrls)};
 let pyodide = null, renderFn = null, diffFn = null;
 
@@ -458,7 +508,7 @@ function showResult(html) {
   const f = document.getElementById("viewer");
   f.srcdoc = html;
   f.style.display = "block";
-  S.style.display = "none";
+  L.loader.classList.add("hidden");
 }
 // Inject SubVI click-navigation into a RENDER's viewer HTML (which starts
 // <!doctype>\\n<meta charset='utf-8'>). Runs inside the iframe; posts up to this
@@ -521,12 +571,14 @@ window.addEventListener("message", ev => {
   try {
     if (m.type === "render" && renderFn) {
       const t0 = performance.now();
+      setPhase("Drawing the diagram…", 96);
       for (const f of m.files) { writeFile("/proj/" + f.rel, u8(f.b64)); }
       const html = renderFn("/proj/" + m.renderRel);
       showResult(injectSubviNav(html));
       log("rendered via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
     } else if (m.type === "diff" && diffFn) {
       const t0 = performance.now();
+      setPhase("Computing the diff…", 96);
       const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "");
       showResult(html);
       log("diffed via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
