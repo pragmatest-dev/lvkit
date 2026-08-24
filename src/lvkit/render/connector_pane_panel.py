@@ -27,6 +27,7 @@ from __future__ import annotations
 
 __all__ = [
     "CONNECTOR_PANE_BUTTON",
+    "CONNECTOR_PANE_CSS",
     "CONNECTOR_PANE_GLYPH",
     "CONNECTOR_PANE_PANEL_BTN_ID",
     "CONNECTOR_PANE_SCRIPT",
@@ -37,6 +38,25 @@ __all__ = [
 
 CONNECTOR_PANE_PANEL_BTN_ID = "lvkitPaneBtn"
 DIFF_CONNECTOR_PANE_PANEL_BTN_ID = "lvkitDiffPaneBtn"
+
+# ONE overlay style, injected into BOTH viewers (render + diff) via the
+# __CONNECTOR_PANE_CSS__ placeholder, so the ▦-toggle aside is revealed IDENTICALLY
+# in each. The aside is a positioned <div> pinned top-right of its CONTENT AREA
+# (its position:relative container -- the render ``.stage-wrap`` / a diff pane
+# wrap), sitting OUTSIDE the zoomable <svg>, so it holds a CONSTANT on-screen size
+# and never scales with the diagram zoom (the in-SVG clone it replaced ballooned to
+# multiples of the view when zoomed). ``max-width``/``max-height`` are a fraction of
+# that content area, so it can NEVER exceed the view -- the same clamp the help-tip
+# hover panel applies; the panel svg has a viewBox, so it scales down within the cap
+# preserving aspect. ``pointer-events:none`` -- purely a view. (Diff-specific
+# changed-terminal highlight + ▦-ring rules stay in the diff template.)
+CONNECTOR_PANE_CSS = (
+    ".lvkit-pane-overlay{position:absolute;top:8px;right:8px;z-index:55;"
+    "max-width:88%;max-height:82%;pointer-events:none;"
+    "filter:drop-shadow(0 2px 8px rgba(0,0,0,.30))}"
+    ".lvkit-pane-overlay svg{display:block;width:auto;height:auto;"
+    "max-width:100%;max-height:100%;background:none;border-radius:0}"
+)
 
 # U+25A6 "SQUARE WITH ORTHOGONAL CROSSHATCH FILL" — a plain grid glyph standing
 # in for the connector-pane grid. A unicode character styled like every other
@@ -96,11 +116,15 @@ def _reveal_toggle_script(
     )
 
 
-# Render viewer: reveal by CLONING each aside OUT of its <defs> into the visible
-# tree; hide by removing the clones. The source stays in <defs> (structurally
-# non-rendered), so nothing leaks when JS is stripped or the SVG is sanitized.
-# Each clone is appended to its OWN owning <svg> as the last child so it paints
-# on top, at the source group's transform (the VI's top-right corner).
+# Render viewer: reveal each aside's panel as a FIXED-SIZE overlay pinned to the
+# stage's top-right, hide by removing the overlays. The source stays in <defs>
+# (structurally non-rendered), so nothing leaks when JS is stripped or the SVG is
+# sanitized. The overlay is a positioned <div> OUTSIDE the zoomable <svg> holding a
+# clone of the panel <svg>, so it keeps a CONSTANT on-screen size (capped to the
+# view by the .lvkit-pane-overlay CSS) instead of ballooning with the diagram zoom
+# -- the same clamp the help-tip hover panel uses. An in-SVG clone lives in
+# diagram user-space and grows to multiples of the view when zoomed in. Same
+# overlay pattern as the diff viewer's per-pane asides.
 CONNECTOR_PANE_SCRIPT = _reveal_toggle_script(
     CONNECTOR_PANE_PANEL_BTN_ID,
     collect_js=(
@@ -115,10 +139,17 @@ CONNECTOR_PANE_SCRIPT = _reveal_toggle_script(
         "      if (window.lvkitCloseProps) window.lvkitCloseProps();\n"
         "      sources.forEach(function (d) {\n"
         "        var svg = d.ownerSVGElement;\n"
-        "        if (!svg) return;\n"
-        "        var c = d.cloneNode(true);\n"
-        "        svg.appendChild(c);\n"
-        "        boxes.push(c);\n"
+        "        var wrap = svg && svg.closest && svg.closest('.stage-wrap');\n"
+        "        var panel = d.querySelector('svg');\n"
+        "        if (!wrap || !panel) return;\n"
+        "        // Lift the panel into a fixed-size overlay pinned top-right, so it\n"
+        "        // is a CONSTANT on-screen size (capped by CSS) -- not an in-SVG\n"
+        "        // clone that balloons with the diagram zoom.\n"
+        "        var box = document.createElement('div');\n"
+        "        box.className = 'lvkit-pane-overlay';\n"
+        "        box.appendChild(panel.cloneNode(true));\n"
+        "        wrap.appendChild(box);\n"
+        "        boxes.push(box);\n"
         "      });\n"
     ),
     hide_body=(
