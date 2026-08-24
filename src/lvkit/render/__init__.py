@@ -27,6 +27,7 @@ from .backend import SvgBackend
 from .composite import draw_scene
 from .connector_pane import pane_terminals, render_connector_pane_help
 from .icons import icon_data_uri
+from .render_viewer import build_render_viewer
 from .scene import Scene, build_scene
 from .style import DEFAULT_THEME, Theme, css_var_theme
 from .theme_web import embedded_dark_css
@@ -44,6 +45,7 @@ __all__ = [
     "Scene",
     "build_scene",
     "render_vi",
+    "render_vi_body",
     "render_vi_file",
     "render_vi_file_titled",
     "render_vi_with_subvis",
@@ -624,3 +626,43 @@ def render_vi_file_titled(
     # `name` is the vi_key (canonical source path) — the render identity. The
     # TITLE is display-only: the qualified name, never the abspath key.
     return svg, graph.vi_display_name(name)
+
+
+def render_vi_body(
+    path: Path,
+    *,
+    fmt: str = "html",
+    search_paths: list[Path] | None = None,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
+    mode: LoadMode = LoadMode.MINIMAL,
+    theme_mode: ThemeMode = "auto",
+    ref: str | None = None,
+) -> str | None:
+    """The single ``path -> output body`` render core, cache-free.
+
+    Returns the raw SVG for ``fmt="svg"`` or the self-contained interactive HTML
+    viewer otherwise; ``None`` when the render declines because required diagram
+    geometry is missing. ``ref`` (e.g. a git rev) is appended to the viewer title
+    as ``"name (ref)"``, matching the VS Code diff convention.
+
+    This is the pure builder shared by every entry point. The cached wrappers in
+    :mod:`lvkit.output_cache` (``cached_render``) add lookup/store around it; call
+    this directly only for a deliberately uncached build."""
+    svg, vi_title = render_vi_file_titled(
+        path,
+        search_paths=search_paths,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        mode=mode,
+        theme_mode=theme_mode,
+    )
+    if svg is None:
+        return None
+    if fmt != "html":
+        return svg
+    stem = path.stem.replace("_BDHb", "")
+    title = vi_title or stem
+    if ref:
+        title = f"{title} ({ref})"
+    return build_render_viewer(svg, title=title)

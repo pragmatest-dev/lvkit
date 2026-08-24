@@ -2,9 +2,13 @@
 
 The extracted-XML cache (``extractor``) already skips re-*extraction*; this skips
 the whole *build* (parse -> graph -> scene -> render) when the same inputs have
-already produced output. Stdlib-only (imports only :mod:`lvkit.cache_paths`) so
-the CLI can check for a hit BEFORE importing the graph/parser/pylabview stack
-(~250 ms) — a hit path that never touches the heavy machinery.
+already produced output. Light at MODULE scope (imports only
+:mod:`lvkit.cache_paths` + :mod:`lvkit.text_encoding`) so the lookup can run BEFORE
+the graph/parser/pylabview stack (~250 ms) is imported — a hit path that never
+touches the heavy machinery. The ``cached_render``/``cached_diff`` wrappers import
+that heavy core (``lvkit.render``/``lvkit.vi_diff``) *function-locally, inside the
+miss branch only*, so calling them on a hit still pays nothing — this preserves the
+light-lookup contract while keeping caching in one shared place for every caller.
 
 Addressing mirrors extraction (see :mod:`lvkit.cache_paths`):
 
@@ -271,6 +275,88 @@ def store_diff(
         },
     )
     return body_path
+
+
+# ── Options keys + cached build wrappers ────────────────────────────────────
+#
+# The ONE cached entry point per output kind: look up first (when
+# ``return_cached``), and only on a miss lazily import the heavy render/diff core
+# and build, then ALWAYS refresh the slot. This module stays stdlib-light, so the
+# lookup costs nothing to reach — the ~250 ms render/graph/pylabview import is
+# deferred into the miss branch and never paid on a hit. Every caller (CLI, MCP,
+# web) shares these, so caching is structural, not something each path re-wires.
+
+
+def render_options_tag(fmt: str, theme_mode: str, ref: str | None) -> str:
+    """The render output-cache options key: everything besides VI content + the
+    lvkit version that changes the rendered bytes (format, theme, title ref)."""
+    return f"{fmt}|{theme_mode}|ref={ref or ''}"
+
+
+def diff_options_tag(
+    fmt: str, verbose: bool, before_ref: str | None, after_ref: str | None
+) -> str:
+    """The diff output-cache options key: everything besides the two VIs' content
+    + the lvkit version that changes the output bytes."""
+    return (
+        f"{fmt}|verbose={int(bool(verbose))}"
+        f"|before={before_ref or ''}|after={after_ref or ''}"
+    )
+
+
+def cached_render(
+    input_path: Path,
+    *,
+    fmt: str,
+    options: str,
+    version: str,
+    return_cached: bool = True,
+    **build_kw: object,
+) -> str | None:
+    """Render ``input_path`` to ``fmt`` through the output cache.
+
+    ``return_cached`` gates the READ only — when true, a fresh slot short-circuits
+    and is returned as-is (the caller pays no heavy import). The build ALWAYS
+    refreshes the slot, so ``return_cached=False`` means "ignore any existing hit
+    and rebuild" (the ``--no-cache`` semantics) — never "don't cache". ``build_kw``
+    forwards to :func:`lvkit.render.render_vi_body` on a miss. Returns the body, or
+    ``None`` if the render declines (nothing is stored then)."""
+    if return_cached:
+        hit = lookup_render(input_path, fmt, options, version)
+        if hit is not None:
+            return hit
+    from lvkit.render import render_vi_body
+
+    body = render_vi_body(input_path, fmt=fmt, **build_kw)  # type: ignore[arg-type]
+    if body is not None:
+        store_render(input_path, fmt, options, version, body)
+    return body
+
+
+def cached_diff(
+    before_path: Path,
+    after_path: Path,
+    *,
+    fmt: str,
+    options: str,
+    version: str,
+    return_cached: bool = True,
+    **build_kw: object,
+) -> str | None:
+    """Diff ``(before, after)`` to ``fmt`` through the output cache — the diff twin
+    of :func:`cached_render` (same ``return_cached`` read-gate / always-refresh
+    semantics). ``build_kw`` forwards to :func:`lvkit.vi_diff.diff_vi_files` on a
+    miss. Returns the body, or ``None`` if the diff declines."""
+    if return_cached:
+        hit = lookup_diff(before_path, after_path, fmt, options, version)
+        if hit is not None:
+            return hit
+    from lvkit.vi_diff import diff_vi_files
+
+    body = diff_vi_files(before_path, after_path, fmt=fmt, **build_kw)  # type: ignore[arg-type]
+    if body is not None:
+        store_diff(before_path, after_path, fmt, options, version, body)
+    return body
 
 
 # ── TTL sweep (opportunistic, once per process) ─────────────────────────────

@@ -83,17 +83,14 @@ from ..index.store import save as store_save
 from ..index.store import save_lvproj_members as store_save_lvproj_members
 from ..load_mode import LoadMode
 from ..output_cache import (
+    cached_diff,
+    cached_render,
+    diff_options_tag,
     diff_slot,
-    lookup_diff,
-    lookup_render,
+    render_options_tag,
     render_slot,
-    store_diff,
-    store_render,
 )
 from ..project_store import find_project_store
-from ..render import render_vi_file_titled
-from ..render.render_viewer import build_render_viewer
-from ..vi_diff import diff_vi_files
 
 _INSTRUCTIONS = """\
 lvkit reads LabVIEW code. A LabVIEW project (`.vi`, `.lvclass`, `.lvlib`,
@@ -627,19 +624,21 @@ async def render(
         if not p.exists():
             raise FileNotFoundError(f"VI not found: {vi_path}")
         _configure_resolvers_for_vi(p)
-        opts, ver = "html", __version__
-        # Cache hit — same VI bytes + lvkit version already rendered.
-        cached = lookup_render(p, "html", opts, ver)
-        if cached is not None:
-            return {"render_path": str(render_slot(p, "html")), "bytes": len(cached)}
         roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
+        opts = render_options_tag("html", "auto", None)
+        # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
-        svg, title = render_vi_file_titled(p, search_paths=roots, theme_mode="auto")
-        if svg is None:
+        html = cached_render(
+            p,
+            fmt="html",
+            options=opts,
+            version=__version__,
+            search_paths=roots,
+            theme_mode="auto",
+        )
+        if html is None:
             raise RuntimeError(f"Could not render {p.name} (unresolvable diagram).")
-        html = build_render_viewer(svg, title=title or p.stem)
-        slot = store_render(p, "html", opts, ver, html)
-        return {"render_path": str(slot), "bytes": len(html)}
+        return {"render_path": str(render_slot(p, "html")), "bytes": len(html)}
 
     return await asyncio.to_thread(_work)
 
@@ -675,22 +674,25 @@ async def diff(
             if not p.exists():
                 raise FileNotFoundError(f"VI not found: {p}")
         _configure_resolvers_for_vi(pa)
-        opts, ver = "html|verbose=0|before=|after=", __version__
-        cached = lookup_diff(pa, pb, "html", opts, ver)
-        if cached is not None:
-            return {"diff_path": str(diff_slot(pa, pb, "html")), "bytes": len(cached)}
         roots = [
             pa.parent,
             pb.parent,
             *(Path(s).resolve() for s in (search_paths or [])),
         ]
-        body = diff_vi_files(pa, pb, fmt="html", search_paths=roots)
+        opts = diff_options_tag("html", False, None, None)
+        body = cached_diff(
+            pa,
+            pb,
+            fmt="html",
+            options=opts,
+            version=__version__,
+            search_paths=roots,
+        )
         if body is None:
             raise RuntimeError(
                 f"Could not render diff for {pa.name} (unresolvable diagram)."
             )
-        slot = store_diff(pa, pb, "html", opts, ver, body)
-        return {"diff_path": str(slot), "bytes": len(body)}
+        return {"diff_path": str(diff_slot(pa, pb, "html")), "bytes": len(body)}
 
     return await asyncio.to_thread(_work)
 
