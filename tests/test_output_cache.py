@@ -120,9 +120,15 @@ class TestAdhocContentAddressed:
         b = _vi(tmp_path / "tmpB" / "blob.vi", b"identical blob")
         assert output_cache.lookup_render(b, "html", OPT, V) == "RENDERED"
         # It lives in the flat adhoc/render pool, named by content hash.
-        slot, _meta, is_adhoc = output_cache._render_paths(b, "html")
+        slot, _, is_adhoc = output_cache._render_paths(b, "html")
         assert is_adhoc
-        assert slot.parent == cache_paths.global_cache_root() / "adhoc" / "render"
+        assert (
+            slot.parent
+            == cache_paths.global_cache_root()
+            / "adhoc"
+            / "render"
+            / cache_paths.kind_fingerprint("render")
+        )
 
 
 # ── diff: keyed by after-path + before-content ──────────────────────────────
@@ -158,34 +164,142 @@ class TestDiffCache:
         assert output_cache.lookup_diff(before, after, "html", OPT, V) is None
 
 
-# ── TTL sweep ───────────────────────────────────────────────────────────────
+# ── compatibility: coexist, never clobber (the anti-thrash property) ─────────
+
+
+class TestCompatibilityCoexistence:
+    """The headline properties of the ``<fp>``-in-path design: two lvkit builds
+    never clobber each other, and switching BACK to an old build is a hit, not a
+    rebuild (the thrash the fix removes)."""
+
+    def test_two_builds_coexist_no_clobber(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        vi = _project_vi(tmp_path)
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildAAA")
+        a_slot = output_cache.store_render(vi, "html", OPT, V, "A")
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildBBB")
+        b_slot = output_cache.store_render(vi, "html", OPT, V, "B")
+        assert a_slot != b_slot
+        assert a_slot.exists() and b_slot.exists()  # neither overwrote the other
+
+    def test_switch_back_to_old_build_hits_not_rebuilds(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        vi = _project_vi(tmp_path)
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildAAA")
+        output_cache.store_render(vi, "html", OPT, V, "A")
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildBBB")
+        assert output_cache.lookup_render(vi, "html", OPT, V) is None  # B: cold
+        output_cache.store_render(vi, "html", OPT, V, "B")
+        # Back to build A -> still cached, NOT rebuilt (its slot was never touched).
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildAAA")
+        assert output_cache.lookup_render(vi, "html", OPT, V) == "A"
+
+
+# ── TTL sweep: whole-<fp>-dir retirement, extract stickier ───────────────────
+
+
+def _age_dir(d: Path, days: float) -> None:
+    import os
+    import time
+
+    old = time.time() - days * 86400
+    for p in d.rglob("*"):
+        if p.is_file():
+            os.utime(p, (old, old))
 
 
 class TestTTLSweep:
-    def test_stale_diff_swept_fresh_kept_slots_untouched(
+    def test_idle_build_dir_retired_active_kept(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """A whole ``<fp>`` dir idle past the TTL is retired; a fresh sibling
+        ``<fp>`` dir (a different build) is untouched."""
+        monkeypatch.setenv("LVKIT_CACHE_TTL_DAYS", "7")
+        monkeypatch.setenv("LVKIT_SWEEP_INTERVAL_HOURS", "0")  # never skip the walk
+        vi = _project_vi(tmp_path, name="R.vi")
+        slug = cache_paths._slug((tmp_path / "repo").resolve())
+        root = cache_paths.global_cache_root()
+
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "oldbuild")
+        output_cache.store_render(vi, "html", OPT, V, "OLD")
+        old_dir = root / "projects" / slug / "render" / "oldbuild"
+        assert old_dir.is_dir()
+        _age_dir(old_dir, 30)
+
+        # A store under a NEW build triggers the sweep from a DIFFERENT <fp> dir,
+        # so the old one stays idle and is retired whole.
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "newbuild")
+        monkeypatch.setattr(output_cache, "_swept", False)
+        output_cache.store_render(vi, "html", OPT, V, "NEW")
+
+        assert not old_dir.exists()  # idle build reclaimed
+        assert (root / "projects" / slug / "render" / "newbuild").is_dir()
+
+    def test_no_within_fingerprint_aging(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An OLD file inside an ACTIVE ``<fp>`` dir survives — retirement is
+        whole-dir only, never per-file within a live fingerprint."""
         import os
         import time
 
         monkeypatch.setenv("LVKIT_CACHE_TTL_DAYS", "7")
-
-        # A path-addressed render slot (must SURVIVE — never swept).
-        vi = _project_vi(tmp_path, name="Render.vi")
-        render_slot = output_cache.store_render(vi, "html", OPT, V, "KEEP")
-
-        # A diff entry, aged well past the TTL.
-        before = _vi(tmp_path / "t" / "old.vi", b"B")
-        after = _project_vi(tmp_path, b"A2", name="After.vi")
-        diff_slot = output_cache.store_diff(before, after, "html", OPT, V, "OLD-DIFF")
-        old = time.time() - 30 * 86400
-        os.utime(diff_slot, (old, old))
-
-        # Force a sweep on the next write (it runs once per process).
+        monkeypatch.setenv("LVKIT_SWEEP_INTERVAL_HOURS", "0")  # never skip the walk
+        after = _project_vi(tmp_path, b"A", name="After.vi")
+        b1 = _vi(tmp_path / "t" / "b1.vi", b"B1")
+        old = output_cache.store_diff(b1, after, "html", OPT, V, "D1")
+        aged = time.time() - 30 * 86400
+        os.utime(old, (aged, aged))
+        # A fresh diff in the SAME <fp> dir keeps the whole dir active.
         monkeypatch.setattr(output_cache, "_swept", False)
-        fresh_before = _vi(tmp_path / "t" / "new.vi", b"NB")
-        output_cache.store_diff(fresh_before, after, "html", OPT, V, "NEW-DIFF")
+        b2 = _vi(tmp_path / "t" / "b2.vi", b"B2")
+        output_cache.store_diff(b2, after, "html", OPT, V, "D2")
+        assert old.exists()  # kept: the fingerprint is still in use
 
-        assert not diff_slot.exists(), "stale diff should be swept"
-        assert render_slot.exists(), "path-addressed render slot must never be swept"
-        assert output_cache.lookup_render(vi, "html", OPT, V) == "KEEP"
+    def test_extract_stickier_than_render(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """At the SAME age (30d) a render ``<fp>`` dir past its 7d TTL is retired,
+        but an extract ``<fp>`` dir within its 60d TTL survives."""
+        monkeypatch.setenv("LVKIT_CACHE_TTL_DAYS", "7")
+        monkeypatch.setenv("LVKIT_SWEEP_INTERVAL_HOURS", "0")  # never skip the walk
+        monkeypatch.setenv("LVKIT_EXTRACT_TTL_DAYS", "60")
+        root = cache_paths.global_cache_root()
+        fslug = "proj-deadbeef"
+        aged_render = root / "projects" / fslug / "render" / "aged1234"
+        aged_extract = root / "projects" / fslug / "extract" / "aged5678"
+        for d in (aged_render, aged_extract):
+            d.mkdir(parents=True)
+            (d / "f").write_text("x", encoding="utf-8")
+        _age_dir(root / "projects" / fslug, 30)
+
+        vi = _project_vi(tmp_path)
+        monkeypatch.setattr(output_cache, "_swept", False)
+        output_cache.store_render(vi, "html", OPT, V, "TRIGGER")
+
+        assert not aged_render.exists()  # past its 7d render TTL
+        assert aged_extract.exists()  # within its 60d extract TTL
+
+    def test_sweep_rate_limited_by_stamp(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A fresh ``<cache>/_last_sweep`` stamp makes the walk skip entirely — so
+        the whole-cache scan is not a per-command cost. (Default 24h interval.)"""
+        monkeypatch.setenv("LVKIT_CACHE_TTL_DAYS", "7")
+        root = cache_paths.global_cache_root()
+        # An aged build dir that WOULD be retired if the walk ran.
+        aged = root / "projects" / "p-deadbeef" / "render" / "old00000"
+        aged.mkdir(parents=True)
+        (aged / "f").write_text("x", encoding="utf-8")
+        _age_dir(root / "projects" / "p-deadbeef", 30)
+        # A fresh sweep stamp (mtime == now) -> the walk must be skipped.
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "_last_sweep").write_text("", encoding="utf-8")
+
+        vi = _project_vi(tmp_path)
+        monkeypatch.setattr(output_cache, "_swept", False)
+        output_cache.store_render(vi, "html", OPT, V, "X")
+
+        assert aged.exists()  # swept recently -> not retired this run

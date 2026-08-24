@@ -63,7 +63,8 @@ class TestClassify:
         vi = _touch_vi(tmp_path / "loose" / "foo.vi")
         target, source, ns = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(vi.parent.resolve())
-        assert target == _cache() / "adhoc" / "extract" / slug
+        xfp = cache_paths.kind_fingerprint("extract")
+        assert target == _cache() / "adhoc" / "extract" / xfp / slug
         assert source == "foo.vi"
         assert ns == "adhoc"
 
@@ -73,7 +74,8 @@ class TestClassify:
         vi = _touch_vi(proj / "src" / "bar.vi")
         target, source, ns = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(proj.resolve())
-        assert target == _cache() / "projects" / slug / "extract" / "src"
+        xfp = cache_paths.kind_fingerprint("extract")
+        assert target == _cache() / "projects" / slug / "extract" / xfp / "src"
         assert source == str(Path("src") / "bar.vi")
         assert ns == "projects"
 
@@ -83,7 +85,10 @@ class TestClassify:
         cache_paths.set_extraction_roots(vilib_root=vilib, userlib_root=None)
         target, source, ns = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(vilib.resolve())
-        assert target == _cache() / "shared" / "vilib" / slug / "extract" / "Utility"
+        xfp = cache_paths.kind_fingerprint("extract")
+        assert (
+            target == _cache() / "shared" / "vilib" / slug / "extract" / xfp / "Utility"
+        )
         assert source == str(Path("Utility") / "u.vi")
         assert ns == "shared"
 
@@ -93,7 +98,11 @@ class TestClassify:
         cache_paths.set_extraction_roots(vilib_root=None, userlib_root=userlib)
         target, _, _ = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(userlib.resolve())
-        assert target == _cache() / "shared" / "userlib" / slug / "extract" / "MyAddon"
+        xfp = cache_paths.kind_fingerprint("extract")
+        assert (
+            target
+            == _cache() / "shared" / "userlib" / slug / "extract" / xfp / "MyAddon"
+        )
 
     def test_vendored_openg_under_project_is_projects_not_shared(
         self, tmp_path: Path
@@ -129,12 +138,13 @@ class TestClassify:
         t32, _, _ = cache_paths.classify(vi32, "extract")
 
         assert t64 != t32
-        # target == shared/vilib/<slug>/extract/Utility -> the <slug> is
-        # parent.parent, and parent.parent.parent is the shared/vilib tier.
+        # target == shared/vilib/<slug>/extract/<fp>/Utility -> the <slug> is
+        # parent.parent.parent, and parent.parent.parent.parent is the
+        # shared/vilib tier.
         shared_vilib = _cache() / "shared" / "vilib"
         assert shared_vilib in t64.parents and shared_vilib in t32.parents
-        assert t64.parent.parent.parent == t32.parent.parent.parent
-        assert t64.parent.parent.name != t32.parent.parent.name
+        assert t64.parent.parent.parent.parent == t32.parent.parent.parent.parent
+        assert t64.parent.parent.parent.name != t32.parent.parent.parent.name
 
     def test_shared_vilib_reused_across_projects(self, tmp_path: Path) -> None:
         """A vilib VI resolves to the SAME shared entry regardless of which
@@ -157,30 +167,93 @@ class TestClassify:
         assert target.is_dir()
 
 
+# ── the per-kind <fp> path level + the compact slug ─────────────────────────
+
+
+class TestFingerprintPathLevel:
+    def test_kind_fingerprint_mapping(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """extract keys off extraction_fingerprint; render/diff/index off
+        source_fingerprint — both truncated to 8 hex."""
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "S" * 40)
+        monkeypatch.setattr(cache_paths, "extraction_fingerprint", lambda: "E" * 40)
+        assert cache_paths.kind_fingerprint("extract") == "E" * 8
+        for kind in ("render", "diff", "index"):
+            assert cache_paths.kind_fingerprint(kind) == "S" * 8
+
+    def test_render_change_does_not_move_extract_path(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The crux of putting <fp> BELOW <kind>: a render/parser edit bumps
+        source_fingerprint (re-namespacing render) but leaves extraction_fingerprint
+        alone — so the extract path is stable and extraction is NOT redone."""
+        proj = tmp_path / "p"
+        _mark_project(proj)
+        vi = _touch_vi(proj / "x.vi")
+        monkeypatch.setattr(cache_paths, "extraction_fingerprint", lambda: "extAAAAA")
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "srcAAAAA")
+        ext1, _, _ = cache_paths.classify(vi, "extract")
+        ren1, _, _ = cache_paths.classify(vi, "render")
+        # Edit render/parser code only: source fp changes, extraction fp stable.
+        monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "srcBBBBB")
+        ext2, _, _ = cache_paths.classify(vi, "extract")
+        ren2, _, _ = cache_paths.classify(vi, "render")
+        assert ext1 == ext2  # extraction slot unaffected -> no re-extract
+        assert ren1 != ren2  # render slot re-namespaced -> rebuilds
+
+    def test_slug_is_tail_hash_bounded_and_unique(self) -> None:
+        """The slug is <tail>-<8hex-of-full-path>: readable tail, path-unique hash,
+        always bounded. Two different paths sharing a tail must NOT collide."""
+        a = Path("/home/u/projects/acme/test")
+        b = Path("/home/u/other/test")  # SAME tail, different path
+        sa, sb = cache_paths._slug(a), cache_paths._slug(b)
+        assert sa.startswith("test-") and sb.startswith("test-")
+        assert sa != sb  # tail collision disambiguated by the path hash
+        assert cache_paths._slug(a) == sa  # deterministic
+        assert len(sa) == len("test-") + 8  # bounded regardless of path depth
+
+
 # ── one-time cleanup of the abandoned kind-first cache ──────────────────────
 
 
 class TestLegacyCleanup:
     def test_kind_first_trees_deleted(self) -> None:
         """The abandoned kind-first trees (``<root>/{extract,render,diff,index}/
-        …``) are deleted on cleanup; a live PROJECT-FIRST entry at the root is
-        left untouched (slugs live BELOW ``projects``/``shared``/``adhoc``, so the
-        kind names are never top-level under project-first)."""
+        …``) are deleted on cleanup (slugs live BELOW ``projects``/``shared``/
+        ``adhoc``, so the kind names are never top-level under project-first)."""
         root = cache_paths.global_cache_root()
         for kind in ("extract", "render", "diff", "index"):
             d = root / kind / "projects" / "myslug"
             d.mkdir(parents=True)
             (d / "stale").write_text("old", encoding="utf-8")
-        # A live project-first entry that MUST survive.
-        live = root / "projects" / "myslug" / "extract"
-        live.mkdir(parents=True)
-        (live / "keep").write_text("new", encoding="utf-8")
 
         cache_paths.cleanup_legacy_cache()
 
         for kind in ("extract", "render", "diff", "index"):
             assert not (root / kind).exists()
-        assert (root / "projects" / "myslug" / "extract" / "keep").read_text() == "new"
+
+    def test_layout_migration_drops_pre_fp_entries_once(self) -> None:
+        """On a layout-version mismatch the derived namespaces are dropped ONCE —
+        the per-kind ``<fp>`` level + ``<tail>-<hash>`` slug make every pre-existing
+        owned path unreachable, so old entries are dead weight — then the version
+        is stamped so a matching-version entry survives the next cleanup."""
+        root = cache_paths.global_cache_root()
+        # A pre-<fp> project-first entry (no <fp> level): unreachable now.
+        stale = root / "projects" / "myslug" / "extract" / "keep"
+        stale.parent.mkdir(parents=True)
+        stale.write_text("old", encoding="utf-8")
+
+        cache_paths.cleanup_legacy_cache()  # no marker -> migration wipes
+
+        assert not stale.exists()
+        marker = (root / "_layout_version").read_text(encoding="utf-8").strip()
+        assert marker == cache_paths._LAYOUT_VERSION
+
+        # Version now stamped -> a fresh (new-layout) entry survives the next pass.
+        live = root / "projects" / "p-abcd1234" / "extract" / "ef012345" / "x"
+        live.parent.mkdir(parents=True)
+        live.write_text("new", encoding="utf-8")
+        cache_paths.cleanup_legacy_cache()  # marker matches -> no wipe
+        assert live.read_text(encoding="utf-8") == "new"
 
     def test_cleanup_is_safe_with_nothing_to_delete(self) -> None:
         cache_paths.cleanup_legacy_cache()  # no legacy trees -> no error
@@ -407,7 +480,8 @@ class TestGlobalHomeGuard:
         assert cache_paths._project_root_for(vi.resolve()) == repo.resolve()
         target, source, _ = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(repo.resolve())
-        assert target == _cache() / "projects" / slug / "extract" / "source"
+        xfp = cache_paths.kind_fingerprint("extract")
+        assert target == _cache() / "projects" / slug / "extract" / xfp / "source"
         assert source == str(Path("source") / "x.vi")
 
 
