@@ -56,15 +56,22 @@ function toBase64(bytes) {
 }
 
 // The lvkit + pylabview + networkx wheels shipped under media/wheels/, as webview
-// URIs. Discovered (not hard-coded) so a version bump needs no code change.
+// URIs. Read from media/wheels/manifest.json (a KNOWN file, written by
+// build-web-assets.sh) — NOT by listing the directory: a browser extension host
+// can't enumerate the extension's own resources (vscode.workspace.fs.readDirectory
+// throws EntryNotADirectory in the web worker), only fetch known files. The
+// manifest is regenerated on a version bump, so this stays hard-coding-free.
 async function wheelUris(webview, wheelsDir) {
-  const entries = await vscode.workspace.fs.readDirectory(wheelsDir);
-  return entries
-    .filter(([name, kind]) => kind === vscode.FileType.File && name.endsWith(".whl"))
+  const raw = await vscode.workspace.fs.readFile(
+    vscode.Uri.joinPath(wheelsDir, "manifest.json")
+  );
+  const names = JSON.parse(new TextDecoder().decode(raw));
+  return names
+    .filter((name) => typeof name === "string" && name.endsWith(".whl"))
     // lvkit LAST — it imports networkx + pylabview at import time, and
     // micropip.install(deps=False) does not resolve/order deps for us.
-    .sort((a, b) => (a[0].startsWith("lvkit-") ? 1 : b[0].startsWith("lvkit-") ? -1 : 0))
-    .map(([name]) =>
+    .sort((a, b) => (a.startsWith("lvkit-") ? 1 : b.startsWith("lvkit-") ? -1 : 0))
+    .map((name) =>
       webview.asWebviewUri(vscode.Uri.joinPath(wheelsDir, name)).toString()
     );
 }

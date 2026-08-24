@@ -41,6 +41,11 @@ fetch_pinned_wheel() {  # $1 = package name (matches <name>-<ver>-py3-none-any.w
 fetch_pinned_wheel pylabview
 fetch_pinned_wheel networkx
 
+# Manifest of wheel filenames — the web extension reads THIS known file, because a
+# browser extension host cannot list a directory (readDirectory of the extension's
+# own resources throws EntryNotADirectory in the web worker).
+node -e 'const fs=require("fs"),d=process.argv[1];const w=fs.readdirSync(d).filter(f=>f.endsWith(".whl"));fs.writeFileSync(d+"/manifest.json",JSON.stringify(w));console.log("wrote manifest.json:",w.join(", "))' "$WHEELS"
+
 # --- pyodide core + pruned package set --------------------------------------
 PYSRC="$VSC/node_modules/pyodide"
 [ -d "$PYSRC" ] || { echo "ERROR: $PYSRC missing — run 'npm install' first" >&2; exit 1; }
