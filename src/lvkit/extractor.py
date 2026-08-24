@@ -37,7 +37,6 @@ from lvkit.cache_paths import (  # noqa: E402
     _slug,
     classify,
     cleanup_legacy_cache,
-    extraction_fingerprint,
     global_cache_root,
     meta_fresh,
 )
@@ -139,7 +138,6 @@ def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
         tool="pylabview",
         extracted_at=time.time(),
         text_encoding=labview_text_encoding(),
-        extraction_fingerprint=extraction_fingerprint(),
     )
     os.replace(tmp, meta_path)
 
@@ -262,25 +260,28 @@ def extract_vi_xml(
     meta_path = output_dir / f"{vi_stem}.meta.json"
 
     # Cache hit: XML present and the recorded content-hash (or mtime/size
-    # fast-path) still matches the VI.
+    # fast-path) still matches the VI. The extraction-code compatibility check is
+    # now the <extraction_fingerprint> level of the cache PATH (see
+    # cache_paths.kind_fingerprint): an extraction-code change lands in a DIFFERENT
+    # <fp> dir, so a stale slice is never even looked at here — this meta only has
+    # to catch a VI-content or text-encoding change. Bump the slice's mtime on the
+    # hit so the access-TTL sweep keeps the build in active use and only retires
+    # ones the user has upgraded away from.
     if (
         not force
         and bd_xml.exists()
         and meta_fresh(
             vi_path,
             meta_path,
-            extra={
-                "text_encoding": labview_text_encoding(),
-                # Invalidate ONLY when the extraction code changes (a pylabview
-                # monkeypatch / read option / the normalize pass — see
-                # extraction_fingerprint), NOT on unrelated parser/render edits.
-                # Without it an extraction-behaviour change silently serves stale
-                # XML; with source_fingerprint it would needlessly re-run
-                # pylabview over the whole corpus on every edit.
-                "extraction_fingerprint": extraction_fingerprint(),
-            },
+            extra={"text_encoding": labview_text_encoding()},
         )
     ):
+        _now = time.time()
+        for _p in (bd_xml, meta_path):
+            try:
+                os.utime(_p, (_now, _now))
+            except OSError:
+                pass
         return (
             bd_xml,
             fp_xml if fp_xml.exists() else None,

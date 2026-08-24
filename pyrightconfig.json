@@ -1,5 +1,8 @@
 {
   "include": ["src/lvkit"],
+  "extraPaths": ["src"],
+  "venvPath": ".",
+  "venv": ".venv",
   "pythonVersion": "3.10",
   "typeCheckingMode": "basic"
 }
