@@ -36,7 +36,7 @@
         "lvkit.path": {
           "type": "string",
           "default": "lvkit",
-          "markdownDescription": "Path to the `lvkit` executable. Use just `lvkit` if it is on your PATH, or an absolute path (e.g. a project venv's `.venv/bin/lvkit`). If unset, LVKit prefers a lvkit checkout's own `.venv`/`uv run lvkit`, then falls back to its bundled standalone binary. Ignored in an untrusted workspace."
+          "markdownDescription": "Path to a specific `lvkit` executable, overriding the one bundled with the extension. Leave unset (the default) and LVKit always uses its own bundled standalone binary for rendering, diffing, and the MCP server — one build behind every view, so they share a cache instead of fighting over it. Set this only to point at your own build (e.g. a checkout's `.venv/bin/lvkit`) when developing lvkit itself. Ignored in an untrusted workspace."
         },
         "lvkit.searchPaths": {
           "type": "array",
