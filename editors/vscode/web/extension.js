@@ -85,74 +85,84 @@ async function pyodideAssets(webview, context) {
   return { wheels, pyodideBase };
 }
 
-// ── The shared Pyodide "engine" ──────────────────────────────────────────────
-// ONE webview boots Pyodide ONCE and keeps it alive, so opening another VI or
-// clicking a SubVI never reboots; it holds the render cache (persistent MEMFS, so
-// re-rendering a VI hits) and answers render/diff jobs. Each VI tab / diff is a
-// thin DISPLAY that requests work through the host, which relays to the engine.
-// Lazily created, guarded by a single promise, and recreated on demand if closed.
-let _enginePromise = null;
+// ── The shared Pyodide "engine" (a PANEL WebviewView, not an editor tab) ─────
+// The engine runs Pyodide in a WebviewView contributed to the Panel (like Output/
+// Terminal), kept alive with retainContextWhenHidden — so it never costs editor
+// space. It boots Pyodide ONCE, holds the render cache (persistent MEMFS, so a
+// re-render hits), and answers render/diff jobs. Each VI tab / diff is a thin
+// DISPLAY that requests work through the host; boot progress is broadcast to their
+// loaders. The view is revealed once to instantiate, then can be collapsed.
+let _engine = null;
+let _engineWaiters = [];
+const _progressListeners = new Set();
 
-function getEngine(context) {
-  if (!_enginePromise) {
-    _enginePromise = createEngine(context).catch((e) => { _enginePromise = null; throw e; });
-  }
-  return _enginePromise;
+function onEngineProgress(fn) {
+  _progressListeners.add(fn);
+  return () => _progressListeners.delete(fn);
 }
 
-async function createEngine(context) {
-  const panel = vscode.window.createWebviewPanel(
-    "lvkitEngine",
-    "LVKit render engine",
-    { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-    {
-      enableScripts: true,
-      retainContextWhenHidden: true,
-      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
-    }
-  );
+function makeEngine(webview) {
   const jobs = new Map();
-  const progress = new Set();
   let seq = 0;
-  let readyResolve, readyReject;
-  const ready = new Promise((res, rej) => { readyResolve = res; readyReject = rej; });
-  const engine = {
-    panel,
+  let resolveReady, rejectReady;
+  const ready = new Promise((res, rej) => { resolveReady = res; rejectReady = rej; });
+  return {
+    webview,
     ready,
-    onProgress(fn) { progress.add(fn); return () => progress.delete(fn); },
+    jobs,
+    resolveReady,
+    rejectReady,
     run(job) {
       return new Promise((resolve, reject) => {
         const id = ++seq;
         jobs.set(id, { resolve, reject });
-        panel.webview.postMessage({ ...job, id });
+        webview.postMessage({ ...job, id });
       });
     },
   };
-  panel.webview.onDidReceiveMessage((m) => {
-    if (!m) return;
-    if (m.type === "engineReady") readyResolve();
-    else if (m.type === "progress") progress.forEach((fn) => fn(m));
-    else if (m.type === "result") { const j = jobs.get(m.id); if (j) { jobs.delete(m.id); j.resolve(m.html); } }
-    else if (m.type === "jobError") { const j = jobs.get(m.id); if (j) { jobs.delete(m.id); j.reject(new Error(m.error)); } }
-    else if (m.type === "log") log(`  [engine] ${m.text}`);
-    else if (m.type === "error") logError("engine", m.text);
-  });
-  panel.onDidDispose(() => {
-    _enginePromise = null;
-    readyReject(new Error("engine closed"));
-    jobs.forEach((j) => j.reject(new Error("engine closed")));
-    jobs.clear();
-  });
-  let assets;
-  try {
-    assets = await pyodideAssets(panel.webview, context);
-  } catch (e) {
-    panel.webview.html = errorHtml("LVKit web build is missing its wheels", String(e));
-    logError("engine assets", e);
-    throw e;
-  }
-  panel.webview.html = engineHtml(panel.webview, assets.wheels, assets.pyodideBase);
-  return engine;
+}
+
+// Boots Pyodide when the engine view is (re)resolved, and wires the job protocol.
+function engineViewProvider(context) {
+  return {
+    resolveWebviewView(view) {
+      view.webview.options = {
+        enableScripts: true,
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
+      };
+      const engine = makeEngine(view.webview);
+      view.webview.onDidReceiveMessage((m) => {
+        if (!m) return;
+        if (m.type === "engineReady") engine.resolveReady();
+        else if (m.type === "progress") _progressListeners.forEach((fn) => fn(m));
+        else if (m.type === "result") { const j = engine.jobs.get(m.id); if (j) { engine.jobs.delete(m.id); j.resolve(m.html); } }
+        else if (m.type === "jobError") { const j = engine.jobs.get(m.id); if (j) { engine.jobs.delete(m.id); j.reject(new Error(m.error)); } }
+        else if (m.type === "log") log(`  [engine] ${m.text}`);
+        else if (m.type === "error") logError("engine", m.text);
+      });
+      view.onDidDispose(() => {
+        if (_engine === engine) _engine = null;
+        engine.rejectReady(new Error("engine view disposed"));
+        engine.jobs.forEach((j) => j.reject(new Error("engine view disposed")));
+        engine.jobs.clear();
+      });
+      pyodideAssets(view.webview, context)
+        .then((assets) => { view.webview.html = engineHtml(view.webview, assets.wheels, assets.pyodideBase); })
+        .catch((e) => { view.webview.html = errorHtml("LVKit web build is missing its wheels", String(e)); logError("engine assets", e); engine.rejectReady(new Error(String(e))); });
+      _engine = engine;
+      const waiters = _engineWaiters;
+      _engineWaiters = [];
+      waiters.forEach((r) => r(engine));
+    },
+  };
+}
+
+// Get the engine, revealing the Panel view to instantiate it the first time.
+function getEngine() {
+  if (_engine) return Promise.resolve(_engine);
+  const p = new Promise((resolve) => { _engineWaiters.push(resolve); });
+  vscode.commands.executeCommand("lvkit.engine.focus").then(undefined, () => {});
+  return p;
 }
 
 // ---- SubVI staging ----------------------------------------------------------
@@ -352,14 +362,8 @@ async function diffVI(context, arg) {
         localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
       }
     );
-    let engine;
-    try {
-      engine = await getEngine(context);
-    } catch (e) {
-      panel.webview.html = errorHtml("LVKit web build is missing its wheels", String(e));
-      return;
-    }
-    const offProgress = engine.onProgress((m) =>
+    const engine = await getEngine();
+    const offProgress = onEngineProgress((m) =>
       panel.webview.postMessage({ type: "progress", label: m.label, pct: m.pct })
     );
     panel.onDidDispose(() => offProgress());
@@ -412,15 +416,9 @@ function activate(context) {
         localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
       };
       log(`open VI: ${document.uri.toString()}`);
-      let engine;
-      try {
-        engine = await getEngine(context);
-      } catch (e) {
-        webview.html = errorHtml("LVKit web build is missing its wheels", String(e));
-        return;
-      }
+      const engine = await getEngine();
       // Relay the engine's boot progress to THIS display's loader until it renders.
-      const offProgress = engine.onProgress((m) =>
+      const offProgress = onEngineProgress((m) =>
         webview.postMessage({ type: "progress", label: m.label, pct: m.pct })
       );
       panel.onDidDispose(() => offProgress());
@@ -473,6 +471,12 @@ function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand("lvkit.diffVI", (arg) => diffVI(context, arg))
   );
+  // The shared Pyodide engine lives in this Panel view (kept alive when hidden).
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("lvkit.engine", engineViewProvider(context), {
+      webviewOptions: { retainContextWhenHidden: true },
+    })
+  );
 }
 
 function errorHtml(title, message) {
@@ -514,7 +518,7 @@ function engineHtml(webview, wheelUrls, pyodideBase) {
 </style>
 </head>
 <body>
-<p id="s">LVKit render engine — booting the in-browser Python runtime… (keep this tab open)</p>
+<p id="s">LVKit render engine — starting the in-browser Python runtime…</p>
 <script src="${pyodideBase}pyodide.js"></script>
 <script>
 const api = acquireVsCodeApi();
@@ -569,7 +573,7 @@ def _diff(before, after, before_ref, after_ref):
     renderFn = pyodide.globals.get("_render");
     diffFn = pyodide.globals.get("_diff");
     status("ready");
-    S.textContent = "LVKit render engine — ready (keep this tab open).";
+    S.textContent = "LVKit render engine — ready. Keeps Python warm for fast renders; you can collapse this panel.";
     api.postMessage({ type: "engineReady" });
   } catch (e) { api.postMessage({ type: "error", text: String(e && e.stack ? e.stack : e) }); }
 }

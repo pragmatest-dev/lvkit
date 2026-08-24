@@ -69,6 +69,16 @@
         "priority": "default"
       }
     ],
+    "viewsContainers": {
+      "panel": [
+        { "id": "lvkitEngine", "title": "LVKit engine", "icon": "$(server-process)" }
+      ]
+    },
+    "views": {
+      "lvkitEngine": [
+        { "id": "lvkit.engine", "type": "webview", "name": "Render engine", "contextualTitle": "LVKit engine" }
+      ]
+    },
     "menus": {
       "scm/resourceState/context": [
         { "command": "lvkit.diffVI", "when": "scmProvider == git", "group": "navigation@1" }
