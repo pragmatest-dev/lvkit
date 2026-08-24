@@ -85,6 +85,76 @@ async function pyodideAssets(webview, context) {
   return { wheels, pyodideBase };
 }
 
+// ── The shared Pyodide "engine" ──────────────────────────────────────────────
+// ONE webview boots Pyodide ONCE and keeps it alive, so opening another VI or
+// clicking a SubVI never reboots; it holds the render cache (persistent MEMFS, so
+// re-rendering a VI hits) and answers render/diff jobs. Each VI tab / diff is a
+// thin DISPLAY that requests work through the host, which relays to the engine.
+// Lazily created, guarded by a single promise, and recreated on demand if closed.
+let _enginePromise = null;
+
+function getEngine(context) {
+  if (!_enginePromise) {
+    _enginePromise = createEngine(context).catch((e) => { _enginePromise = null; throw e; });
+  }
+  return _enginePromise;
+}
+
+async function createEngine(context) {
+  const panel = vscode.window.createWebviewPanel(
+    "lvkitEngine",
+    "LVKit render engine",
+    { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+    {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
+    }
+  );
+  const jobs = new Map();
+  const progress = new Set();
+  let seq = 0;
+  let readyResolve, readyReject;
+  const ready = new Promise((res, rej) => { readyResolve = res; readyReject = rej; });
+  const engine = {
+    panel,
+    ready,
+    onProgress(fn) { progress.add(fn); return () => progress.delete(fn); },
+    run(job) {
+      return new Promise((resolve, reject) => {
+        const id = ++seq;
+        jobs.set(id, { resolve, reject });
+        panel.webview.postMessage({ ...job, id });
+      });
+    },
+  };
+  panel.webview.onDidReceiveMessage((m) => {
+    if (!m) return;
+    if (m.type === "engineReady") readyResolve();
+    else if (m.type === "progress") progress.forEach((fn) => fn(m));
+    else if (m.type === "result") { const j = jobs.get(m.id); if (j) { jobs.delete(m.id); j.resolve(m.html); } }
+    else if (m.type === "jobError") { const j = jobs.get(m.id); if (j) { jobs.delete(m.id); j.reject(new Error(m.error)); } }
+    else if (m.type === "log") log(`  [engine] ${m.text}`);
+    else if (m.type === "error") logError("engine", m.text);
+  });
+  panel.onDidDispose(() => {
+    _enginePromise = null;
+    readyReject(new Error("engine closed"));
+    jobs.forEach((j) => j.reject(new Error("engine closed")));
+    jobs.clear();
+  });
+  let assets;
+  try {
+    assets = await pyodideAssets(panel.webview, context);
+  } catch (e) {
+    panel.webview.html = errorHtml("LVKit web build is missing its wheels", String(e));
+    logError("engine assets", e);
+    throw e;
+  }
+  panel.webview.html = engineHtml(panel.webview, assets.wheels, assets.pyodideBase);
+  return engine;
+}
+
 // ---- SubVI staging ----------------------------------------------------------
 // data-lv-vi-rel (the SubVI click-nav identity) is only emitted when the renderer
 // can RESOLVE each SubVI to an on-disk file relative to its caller. Pyodide has
@@ -282,30 +352,42 @@ async function diffVI(context, arg) {
         localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
       }
     );
-    let assets;
+    let engine;
     try {
-      assets = await pyodideAssets(panel.webview, context);
+      engine = await getEngine(context);
     } catch (e) {
       panel.webview.html = errorHtml("LVKit web build is missing its wheels", String(e));
-      logError("diff assets", e);
       return;
     }
-    panel.webview.html = pyodideWebviewHtml(panel.webview, assets.wheels, assets.pyodideBase);
-    panel.webview.onDidReceiveMessage((m) => {
+    const offProgress = engine.onProgress((m) =>
+      panel.webview.postMessage({ type: "progress", label: m.label, pct: m.pct })
+    );
+    panel.onDidDispose(() => offProgress());
+    panel.webview.onDidReceiveMessage(async (m) => {
       if (m.type === "ready") {
-        panel.webview.postMessage({
-          type: "diff",
-          beforeB64: toBase64(beforeBytes),
-          afterB64: toBase64(afterBytes),
-          beforeRef: sides.before.ref || "",
-          afterRef: sides.after.ref || "",
-        });
+        try {
+          await engine.ready;
+          const html = await engine.run({
+            type: "diff",
+            beforeB64: toBase64(beforeBytes),
+            afterB64: toBase64(afterBytes),
+            beforeRef: sides.before.ref || "",
+            afterRef: sides.after.ref || "",
+          });
+          panel.webview.postMessage({ type: "showResult", html, subvi: false });
+        } catch (e) {
+          panel.webview.postMessage({ type: "jobError", error: String(e && e.message ? e.message : e) });
+          logError("diff", e);
+        } finally {
+          offProgress();
+        }
       } else if (m.type === "log") {
-        log(`  [diff webview] ${m.text}`);
+        log(`  [diff display] ${m.text}`);
       } else if (m.type === "error") {
-        logError("diff webview", m.text);
+        logError("diff display", m.text);
       }
     });
+    panel.webview.html = displayHtml(panel.webview);
   } catch (e) {
     logError("diffVI", e);
     vscode.window.showErrorMessage(
@@ -330,53 +412,56 @@ function activate(context) {
         localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
       };
       log(`open VI: ${document.uri.toString()}`);
-      let assets;
+      let engine;
       try {
-        assets = await pyodideAssets(webview, context);
+        engine = await getEngine(context);
       } catch (e) {
         webview.html = errorHtml("LVKit web build is missing its wheels", String(e));
-        logError("render assets", e);
         return;
       }
-      if (assets.wheels.length === 0) {
-        webview.html = errorHtml(
-          "LVKit web build is missing its wheels",
-          "No .whl files under media/wheels — run build-web-assets.sh."
-        );
-        log("render: no wheels under media/wheels");
-        return;
-      }
-      webview.html = pyodideWebviewHtml(webview, assets.wheels, assets.pyodideBase);
+      // Relay the engine's boot progress to THIS display's loader until it renders.
+      const offProgress = engine.onProgress((m) =>
+        webview.postMessage({ type: "progress", label: m.label, pct: m.pct })
+      );
+      panel.onDidDispose(() => offProgress());
+      // Register BEFORE setting html so the display's "ready" is never missed.
       webview.onDidReceiveMessage(async (m) => {
         if (m.type === "ready") {
           try {
-            const staged = await stageWorkspaceSubtree(document.uri);
-            log(
-              `render: staged ${staged.files.length} VI(s) under ${staged.root}` +
-                `${staged.capped ? ` (CAPPED at ${MAX_STAGE_FILES} — some SubVI links may not resolve)` : ""}` +
-                `, entry=${staged.renderRel}`
-            );
-            webview.postMessage({
-              type: "render",
-              files: staged.files,
-              renderRel: staged.renderRel,
-            });
+            await engine.ready;
+            let job;
+            try {
+              const staged = await stageWorkspaceSubtree(document.uri);
+              log(
+                `render: staged ${staged.files.length} VI(s) under ${staged.root}` +
+                  `${staged.capped ? ` (CAPPED at ${MAX_STAGE_FILES} — some SubVI links may not resolve)` : ""}` +
+                  `, entry=${staged.renderRel}`
+              );
+              job = { type: "render", files: staged.files, renderRel: staged.renderRel };
+            } catch (e) {
+              logError("stage", e);
+              // Degrade: render just the opened VI (no SubVI links).
+              const data = await vscode.workspace.fs.readFile(document.uri);
+              const only = document.uri.path.split("/").pop();
+              job = { type: "render", files: [{ rel: only, b64: toBase64(data) }], renderRel: only };
+            }
+            const html = await engine.run(job);
+            webview.postMessage({ type: "showResult", html, subvi: true });
           } catch (e) {
-            logError("stage", e);
-            // Degrade: render just the opened VI (no SubVI links) so the diagram
-            // still shows even if staging the tree failed.
-            const data = await vscode.workspace.fs.readFile(document.uri);
-            const only = document.uri.path.split("/").pop();
-            webview.postMessage({ type: "render", files: [{ rel: only, b64: toBase64(data) }], renderRel: only });
+            webview.postMessage({ type: "jobError", error: String(e && e.message ? e.message : e) });
+            logError("render", e);
+          } finally {
+            offProgress();
           }
         } else if (m.type === "lvkitOpenVI") {
           await openSubVI(document, m.rel);
         } else if (m.type === "log") {
-          log(`  [webview] ${m.text}`);
+          log(`  [display] ${m.text}`);
         } else if (m.type === "error") {
-          logError("render webview", m.text);
+          logError("render display", m.text);
         }
       });
+      webview.html = displayHtml(webview);
     },
   };
   context.subscriptions.push(
@@ -398,16 +483,8 @@ function errorHtml(title, message) {
 <pre style="white-space:pre-wrap;color:var(--vscode-descriptionForeground)">${esc(message)}</pre></body>`;
 }
 
-// The shared Pyodide boot page. Boots Pyodide + installs the wheels once, then
-// waits for the host to post exactly one job: `render` (staged VI files + the
-// entry path) or `diff` (two VIs' bytes + refs). The result HTML — lvkit's own
-// render or diff viewer — is shown in a srcdoc <iframe> so its inline zoom/theme
-// scripts run in a fresh browsing context while THIS frame keeps Pyodide alive.
-// For a render, SubVI click-nav is injected: `data-lv-vi-rel` groups post
-// `lvkitOpenVI` up to this frame, which relays to the host. Every phase + error
-// is posted back to the host's Output channel via {type:'log'|'error'}.
-function pyodideWebviewHtml(webview, wheelUrls, pyodideBase) {
-  const csp = [
+function webviewCsp(webview) {
+  return [
     "default-src 'none'",
     `script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'`,
     `connect-src ${webview.cspSource} blob: data:`,
@@ -417,6 +494,119 @@ function pyodideWebviewHtml(webview, wheelUrls, pyodideBase) {
     `font-src ${webview.cspSource}`,
     "frame-src 'self'",
   ].join("; ");
+}
+
+// The hidden ENGINE page: boots Pyodide + installs the wheels ONCE, keeps them (and
+// the render cache under LVKIT_CACHE_DIR) alive, and answers render/diff jobs from
+// the host — each job carries an `id`, the reply is {type:'result', id, html} or
+// {type:'jobError', id, error}. It never shows a diagram; the DISPLAY tabs do. Boot
+// phases are posted as {type:'progress'} so waiting displays' loaders reflect them.
+function engineHtml(webview, wheelUrls, pyodideBase) {
+  const csp = webviewCsp(webview);
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="${csp}" />
+<style>
+  body { margin: 0; padding: 12px; font: 12px/1.5 var(--vscode-font-family, system-ui);
+         color: var(--vscode-descriptionForeground); background: var(--vscode-editor-background); }
+</style>
+</head>
+<body>
+<p id="s">LVKit render engine — booting the in-browser Python runtime… (keep this tab open)</p>
+<script src="${pyodideBase}pyodide.js"></script>
+<script>
+const api = acquireVsCodeApi();
+const S = document.getElementById("s");
+const log = m => api.postMessage({ type: "log", text: String(m) });
+const PHASES = [
+  { re: /booting/i,            label: "Starting the Python runtime…",  pct: 8 },
+  { re: /loading Pyodide/i,    label: "Loading Python (WebAssembly)…", pct: 26 },
+  { re: /pydantic|Pillow/i,    label: "Loading libraries…",            pct: 50 },
+  { re: /installing.*wheels/i, label: "Installing lvkit…",             pct: 74 },
+  { re: /ready/i,              label: "Ready",                         pct: 90 },
+];
+function status(m) { S.textContent = m; log(m); const p = PHASES.find(p => p.re.test(m)); api.postMessage({ type: "progress", label: p ? p.label : String(m), pct: p ? p.pct : null }); }
+let pyodide = null, renderFn = null, diffFn = null;
+function u8(b64) { const bin = atob(b64); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+function writeFile(pth, data) { const dir = pth.slice(0, pth.lastIndexOf("/")); if (dir) pyodide.FS.mkdirTree(dir); pyodide.FS.writeFile(pth, data); }
+const WHEELS = ${JSON.stringify(wheelUrls)};
+
+async function boot() {
+  try {
+    status("loading Pyodide (Python 3.14, wasm)…");
+    pyodide = await loadPyodide({ indexURL: ${JSON.stringify(pyodideBase)} });
+    status("loading pydantic / Pillow…");
+    await pyodide.loadPackage(["micropip", "pydantic", "Pillow"]);
+    const micropip = pyodide.pyimport("micropip");
+    status("installing networkx + pylabview + lvkit wheels…");
+    for (const w of WHEELS) { await micropip.install.callKwargs(w, { deps: false }); }
+    pyodide.runPython(\`
+import os
+os.environ["LVKIT_CACHE_DIR"] = "/tmp/lvkitcache"
+from pathlib import Path
+from lvkit.render import render_vi_file_titled
+from lvkit.render.render_viewer import build_render_viewer
+from lvkit.vi_diff import diff_vi_files
+
+def _render(vi_path):
+    # SubVIs are staged next to the caller, so caller-relative resolution emits
+    # data-lv-vi-rel. theme_mode="auto" lets the viewer's theme toggle work live.
+    svg, name = render_vi_file_titled(Path(vi_path), theme_mode="auto")
+    return build_render_viewer(svg or "", title=name or "")
+
+def _diff(before, after, before_ref, after_ref):
+    Path("/tmp/before.vi").write_bytes(bytes(before.to_py()))
+    Path("/tmp/after.vi").write_bytes(bytes(after.to_py()))
+    return diff_vi_files(
+        Path("/tmp/before.vi"), Path("/tmp/after.vi"),
+        fmt="html",
+        before_ref=(before_ref or None),
+        after_ref=(after_ref or None),
+    ) or ""
+\`);
+    renderFn = pyodide.globals.get("_render");
+    diffFn = pyodide.globals.get("_diff");
+    status("ready");
+    S.textContent = "LVKit render engine — ready (keep this tab open).";
+    api.postMessage({ type: "engineReady" });
+  } catch (e) { api.postMessage({ type: "error", text: String(e && e.stack ? e.stack : e) }); }
+}
+
+// Render/diff jobs from the host; reply by id.
+window.addEventListener("message", ev => {
+  const m = ev.data;
+  if (!m || m.id == null) return;
+  try {
+    if (m.type === "render") {
+      const t0 = performance.now();
+      for (const f of m.files) { writeFile("/proj/" + f.rel, u8(f.b64)); }
+      const html = renderFn("/proj/" + m.renderRel);
+      log("rendered via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
+      api.postMessage({ type: "result", id: m.id, html });
+    } else if (m.type === "diff") {
+      const t0 = performance.now();
+      const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "");
+      log("diffed via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
+      api.postMessage({ type: "result", id: m.id, html });
+    }
+  } catch (e) { api.postMessage({ type: "jobError", id: m.id, error: String(e && e.message ? e.message : e) }); }
+});
+
+boot();
+</script>
+</body>
+</html>`;
+}
+
+// A thin DISPLAY page (one per VI tab / diff): shows the loader (driven by the
+// engine's boot {type:'progress'} relayed via the host), then swaps in the result
+// HTML from {type:'showResult'} as a srcdoc <iframe> so its zoom/theme scripts run
+// in a fresh context. SubVI clicks bubble up from the srcdoc and are relayed to the
+// host as {type:'lvkitOpenVI'}. No Pyodide here.
+function displayHtml(webview) {
+  const csp = webviewCsp(webview);
   return `<!doctype html>
 <html>
 <head>
@@ -455,14 +645,13 @@ function pyodideWebviewHtml(webview, wheelUrls, pyodideBase) {
     <p class="lv-title" id="lvTitle">Rendering VI…</p>
     <p class="lv-phase" id="lvPhase">Starting…</p>
     <div class="lv-bar"><div class="lv-fill" id="lvFill"></div></div>
-    <p class="lv-hint" id="lvHint">First open loads the in-browser Python runtime — a few seconds.</p>
+    <p class="lv-hint" id="lvHint">First open loads the in-browser Python runtime — a few seconds. It stays warm after that.</p>
     <pre class="lv-err" id="lvErr" hidden></pre>
   </div>
 </div>
 <iframe id="viewer" title="LVKit VI viewer"></iframe>
-<script src="${pyodideBase}pyodide.js"></script>
 <script>
-const vscodeApi = acquireVsCodeApi();
+const api = acquireVsCodeApi();
 const L = {
   loader: document.getElementById("loader"),
   title: document.getElementById("lvTitle"),
@@ -470,49 +659,19 @@ const L = {
   fill: document.getElementById("lvFill"),
   err: document.getElementById("lvErr"),
 };
-// Boot status strings -> a friendly phase label + a progress %.
-const PHASES = [
-  { re: /booting/i,            label: "Starting the Python runtime…",  pct: 8 },
-  { re: /loading Pyodide/i,    label: "Loading Python (WebAssembly)…", pct: 26 },
-  { re: /pydantic|Pillow/i,    label: "Loading libraries…",            pct: 50 },
-  { re: /installing.*wheels/i, label: "Installing lvkit…",             pct: 74 },
-  { re: /ready/i,              label: "Ready",                         pct: 90 },
-];
-const log = m => vscodeApi.postMessage({ type: "log", text: String(m) });
-function setPhase(label, pct) { L.phase.textContent = label; if (pct != null) L.fill.style.width = pct + "%"; }
-const status = m => { log(m); const p = PHASES.find(p => p.re.test(m)); setPhase(p ? p.label : String(m), p ? p.pct : null); };
-const err = e => {
+function setPhase(label, pct) { if (label != null) L.phase.textContent = label; if (pct != null) L.fill.style.width = pct + "%"; }
+function showResult(html) { const f = document.getElementById("viewer"); f.srcdoc = html; f.style.display = "block"; L.loader.classList.add("hidden"); }
+function showError(msg) {
   L.loader.classList.remove("hidden");
   L.title.textContent = "Couldn’t render this VI";
   setPhase("", 100);
   L.fill.style.background = "var(--vscode-errorForeground)";
   L.err.hidden = false;
-  L.err.textContent = String(e && e.message ? e.message : e);
-  vscodeApi.postMessage({ type: "error", text: String(e && e.stack ? e.stack : e) });
-};
-const WHEELS = ${JSON.stringify(wheelUrls)};
-let pyodide = null, renderFn = null, diffFn = null;
-
-function u8(b64) {
-  const bin = atob(b64);
-  const a = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
-  return a;
-}
-function writeFile(pth, data) {
-  const dir = pth.slice(0, pth.lastIndexOf("/"));
-  if (dir) pyodide.FS.mkdirTree(dir);
-  pyodide.FS.writeFile(pth, data);
-}
-function showResult(html) {
-  const f = document.getElementById("viewer");
-  f.srcdoc = html;
-  f.style.display = "block";
-  L.loader.classList.add("hidden");
+  L.err.textContent = String(msg);
 }
 // Inject SubVI click-navigation into a RENDER's viewer HTML (which starts
-// <!doctype>\\n<meta charset='utf-8'>). Runs inside the iframe; posts up to this
-// parent frame, which relays to the host.
+// <!doctype>\\n<meta charset='utf-8'>). Runs inside the srcdoc iframe; posts up to
+// THIS frame, which relays to the host.
 function injectSubviNav(html) {
   const script = "<scr" + "ipt>(function(){"
     + "function openVI(el){var rel=el.getAttribute('data-lv-vi-rel'); if(rel) window.parent.postMessage({type:'lvkitOpenVI', rel:rel}, '*');}"
@@ -523,70 +682,17 @@ function injectSubviNav(html) {
     ? html.replace(/<meta charset=['"]utf-8['"]>/i, m => m + script)
     : script + html;
 }
-
-async function boot() {
-  try {
-    status("loading Pyodide (Python 3.14, wasm)…");
-    pyodide = await loadPyodide({ indexURL: ${JSON.stringify(pyodideBase)} });
-    status("loading pydantic / Pillow…");
-    await pyodide.loadPackage(["micropip", "pydantic", "Pillow"]);
-    const micropip = pyodide.pyimport("micropip");
-    status("installing networkx + pylabview + lvkit wheels…");
-    for (const w of WHEELS) { await micropip.install.callKwargs(w, { deps: false }); }
-    pyodide.runPython(\`
-import os
-os.environ["LVKIT_CACHE_DIR"] = "/tmp/lvkitcache"
-from pathlib import Path
-from lvkit.render import render_vi_file_titled
-from lvkit.render.render_viewer import build_render_viewer
-from lvkit.vi_diff import diff_vi_files
-
-def _render(vi_path):
-    # SubVIs are staged next to the caller, so caller-relative resolution emits
-    # data-lv-vi-rel. theme_mode="auto" lets the viewer's theme toggle work live.
-    svg, name = render_vi_file_titled(Path(vi_path), theme_mode="auto")
-    return build_render_viewer(svg or "", title=name or "")
-
-def _diff(before, after, before_ref, after_ref):
-    Path("/tmp/before.vi").write_bytes(bytes(before.to_py()))
-    Path("/tmp/after.vi").write_bytes(bytes(after.to_py()))
-    return diff_vi_files(
-        Path("/tmp/before.vi"), Path("/tmp/after.vi"),
-        fmt="html",
-        before_ref=(before_ref or None),
-        after_ref=(after_ref or None),
-    ) or ""
-\`);
-    renderFn = pyodide.globals.get("_render");
-    diffFn = pyodide.globals.get("_diff");
-    status("ready — waiting for a VI…");
-    vscodeApi.postMessage({ type: "ready" });
-  } catch (e) { err(e); }
-}
-
 window.addEventListener("message", ev => {
   const m = ev.data;
   if (!m) return;
-  if (m.type === "lvkitOpenVI") { vscodeApi.postMessage({ type: "lvkitOpenVI", rel: m.rel }); return; }
-  try {
-    if (m.type === "render" && renderFn) {
-      const t0 = performance.now();
-      setPhase("Drawing the diagram…", 96);
-      for (const f of m.files) { writeFile("/proj/" + f.rel, u8(f.b64)); }
-      const html = renderFn("/proj/" + m.renderRel);
-      showResult(injectSubviNav(html));
-      log("rendered via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
-    } else if (m.type === "diff" && diffFn) {
-      const t0 = performance.now();
-      setPhase("Computing the diff…", 96);
-      const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "");
-      showResult(html);
-      log("diffed via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
-    }
-  } catch (e) { err(e); }
+  // Bubbled up from the srcdoc viewer (a SubVI click) -> relay to the host.
+  if (m.type === "lvkitOpenVI") { api.postMessage({ type: "lvkitOpenVI", rel: m.rel }); return; }
+  // From the host:
+  if (m.type === "progress") { setPhase(m.label, m.pct); }
+  else if (m.type === "showResult") { showResult(m.subvi ? injectSubviNav(m.html) : m.html); }
+  else if (m.type === "jobError") { showError(m.error); }
 });
-
-boot();
+api.postMessage({ type: "ready" });
 </script>
 </body>
 </html>`;
