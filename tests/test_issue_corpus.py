@@ -242,6 +242,26 @@ def test_issue32_free_labels_are_modeled_and_rendered():
     assert "Hello World!" in described
 
 
+def test_transparent_free_label_renders_no_box():
+    """A LabVIEW transparent free label (alpha byte ``01`` — e.g. ``01000000`` /
+    ``0100000A``) renders as TEXT ONLY, no background box.
+
+    Regression: the alpha flag was stripped and the meaningless trailing RGB
+    (usually ``000000``) was painted as a solid BLACK rectangle over the diagram
+    and even over wires (seen on real JKI/OpenG VIs full of transparent
+    comments). Opaque colored labels (alpha ``00``) still keep their box.
+    """
+    from lvkit.render.glyphs.nodes.label import LabelGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    def fill(bg: str) -> str | None:
+        return LabelGlyph(text="x", bg_color=bg)._css_fill(DEFAULT_THEME)
+
+    assert fill("00FFFEA0") == "#FFFEA0"  # opaque colored → keeps its box
+    assert fill("01000000") is None  # transparent → no box (was solid black)
+    assert fill("0100000A") is None  # transparent over a wire
+
+
 def test_issue32_decorations_are_rendered():
     """#32 (Phase 2): block-diagram decorations (cosm shapes) render as clean-room
     glyphs — z-ordered with nodes, but never graph nodes. The repro has a Flat

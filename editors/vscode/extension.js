@@ -66,47 +66,46 @@ function bundledLvkit() {
 }
 
 // Resolve a ready-to-exec lvkit command PREFIX for a repo `root`. The prefix may
-// be MULTIPLE tokens (e.g. `uv run lvkit`), so callers must interpolate it raw —
-// never wrap the whole prefix in quotes as if it were a single path. Order:
+// be interpolated raw — never wrap the whole prefix in quotes as if it were a
+// single path. Order (SAME as mcpServerSpec, so the extension's CLI half and MCP
+// half can never land on different lvkit versions):
 //   1. an explicit `lvkit.path` override (the literal default "lvkit" counts as
-//      unset, so auto-resolution can still run) — quoted as one path. IGNORED in
-//      an untrusted workspace (running an arbitrary workspace-configured binary
-//      is exactly what Workspace Trust guards against).
-//   2. the repo-local venv's lvkit on disk (developing inside a lvkit project);
-//   3. `uv run lvkit` when the repo has a pyproject.toml/uv.lock and `uv` is on
-//      PATH (runs lvkit inside the repo's own env — latest code when developing);
-//   4. the BUNDLED, signed standalone binary shipped with the extension (works
-//      with no Python installed — the default for a normal end user);
-//   5. a global `lvkit` on PATH.
+//      unset) — quoted as one path. IGNORED in an untrusted workspace (running an
+//      arbitrary workspace-configured binary is what Workspace Trust guards).
+//   2. the BUNDLED, signed standalone binary shipped with the extension — the
+//      DEFAULT. The extension ALWAYS uses its own bundled lvkit, NEVER a repo
+//      `.venv`/`uv run`: a workspace `.venv` can hold a DIFFERENT lvkit version,
+//      which split the CLI half (this) from the MCP half (mcpServerSpec) onto two
+//      versions writing one shared ~/.lvkit/cache → each treats the other's
+//      entries as foreign and re-extracts the whole corpus. To develop against
+//      live code, point `lvkit.path` at your checkout's binary explicitly.
+//   3. a global `lvkit` on PATH (only when no bundle is present).
 // We NEVER write a global lvkit.path from here.
-function lvkitCmd(root) {
+function lvkitCmd() {
   if (vscode.workspace.isTrusted) {
     const configured = cfg().get('path', 'lvkit');
     if (configured && configured !== 'lvkit') return `"${configured}"`;
   }
-  const venv = process.platform === 'win32'
-    ? path.join(root, '.venv', 'Scripts', 'lvkit.exe')
-    : path.join(root, '.venv', 'bin', 'lvkit');
-  if (fileExists(venv)) return `"${venv}"`;
-  const hasProj = fileExists(path.join(root, 'pyproject.toml')) || fileExists(path.join(root, 'uv.lock'));
-  if (hasProj && onPath('uv')) return 'uv run lvkit';
   const bundled = bundledLvkit();
   if (bundled) return `"${bundled}"`;
   return 'lvkit';
 }
 
 // Resolve the lvkit MCP server as {command, args} for McpStdioServerDefinition,
-// which needs the executable and its args SPLIT (not a shell prefix string). We
-// do NOT use `uv run lvkit` here — an MCP server is a long-lived process VS Code
-// launches directly, so we point at a real executable: the bundled signed binary
-// first, then a repo .venv (dev), then `lvkit` on PATH.
-function mcpServerSpec(root) {
+// which needs the executable and its args SPLIT (not a shell prefix string).
+// SAME resolution as lvkitCmd, so the MCP half and the CLI half always run the
+// EXACT SAME lvkit build — an explicit `lvkit.path` override (trusted only),
+// then the BUNDLED signed binary (the default), then `lvkit` on PATH. No repo
+// `.venv`/`uv run`: the MCP server, the render viewer, and the diff viewer must
+// all agree on one lvkit, or they write conflicting entries into one shared
+// ~/.lvkit/cache and re-do each other's work.
+function mcpServerSpec() {
+  if (vscode.workspace.isTrusted) {
+    const configured = cfg().get('path', 'lvkit');
+    if (configured && configured !== 'lvkit') return { command: configured, args: ['mcp'] };
+  }
   const bundled = bundledLvkit();
   if (bundled) return { command: bundled, args: ['mcp'] };
-  const venv = process.platform === 'win32'
-    ? path.join(root, '.venv', 'Scripts', 'lvkit.exe')
-    : path.join(root, '.venv', 'bin', 'lvkit');
-  if (fileExists(venv)) return { command: venv, args: ['mcp'] };
   return { command: 'lvkit', args: ['mcp'] };
 }
 

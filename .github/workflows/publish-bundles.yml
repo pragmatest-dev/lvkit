@@ -94,6 +94,24 @@ jobs:
           uv pip install -e . pyinstaller
           uv run bash editors/vscode/build/build-binary.sh
 
+      # Smoke-test the FROZEN binary actually RENDERS a VI — the one thing the
+      # build never exercised. A PyInstaller build ships no .py sources, so a code
+      # path that reads its own source (as extraction_fingerprint once did) crashes
+      # ONLY in the frozen binary, never under `uv run` / pytest. Render a
+      # committed fixture that needs extraction (the exact path that broke) and
+      # require real SVG output — the extension reads this file back, so "exits 0
+      # but wrote nothing" is a release-blocker, not a warning.
+      - name: Smoke-test the bundled binary renders a VI
+        shell: bash
+        run: |
+          BIN="editors/vscode/bin/lvkit/lvkit"
+          [ "${{ matrix.target }}" = "win32-x64" ] && BIN="$BIN.exe"
+          "$BIN" render "tests/corpus/issues/34/hidden-iteration-terminal.vi" \
+            --format html --no-cache -o "$RUNNER_TEMP/smoke.html"
+          test -s "$RUNNER_TEMP/smoke.html" || { echo "::error::bundled binary produced no render"; exit 1; }
+          grep -q "<svg" "$RUNNER_TEMP/smoke.html" || { echo "::error::bundled binary render has no SVG"; exit 1; }
+          echo "bundled binary render OK ($(wc -c < "$RUNNER_TEMP/smoke.html") bytes)"
+
       # Windows only: sign every PE in the bundle so Smart App Control (which
       # blocks unsigned native code on enforce-mode Win11) allows the bundled
       # lvkit binary. SAC evaluates each on-disk file by its own hash, so every

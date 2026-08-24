@@ -90,13 +90,77 @@ def clear_extraction_roots() -> None:
 
 
 def _slug(path: Path) -> str:
-    """Readable per-project cache namespace: the absolute path with its
-    separators turned into ``-`` (``/home/u/repo`` -> ``-home-u-repo``), the way
-    ``~/.claude/projects`` names per-repo dirs. No hash — you can read the cache
-    and see which project a file came from. Windows drive colons and backslashes
-    collapse the same way (``C:\\proj`` -> ``C--proj``).
+    """Compact, path-unique, ALWAYS-bounded cache dir name for an owner root: its
+    last path component (readable) + ``-`` + 8 hex of a sha256 of the FULL path
+    (uniqueness). ``/home/u/repo`` -> ``repo-9f3a1c2b``; ``C:\\proj`` -> ``proj-…``.
+
+    Bounded length is the point: an arbitrarily deep project can never push a
+    cache path past the Windows MAX_PATH limit (the failure the old full-path slug
+    only *warned* about). The tail carries human readability; the hash carries
+    identity — the tail alone is NOT unique (two projects can share a final
+    component like ``test``/``src``). The full path is recoverable from the
+    ``_dirs.json`` sidecar (:func:`_note_owner`).
+
+    Deliberately NOT the build fingerprint: that is identical for every project,
+    so it could never tell two projects apart — it lives in its own path level
+    (:func:`kind_fingerprint`).
     """
-    return str(path).replace(":", "-").replace("\\", "-").replace("/", "-")
+    tail = path.name or "root"
+    tail = "".join(c if (c.isalnum() or c in "._-") else "-" for c in tail)
+    h = hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:8]
+    return f"{tail}-{h}"
+
+
+def kind_fingerprint(kind: str) -> str:
+    """The 8-hex build-compatibility tag stamped into a cache path for ``kind``.
+
+    ``extract`` keys off :func:`extraction_fingerprint` (the narrow extraction-code
+    hash) so an extract slot survives unrelated parser/render edits; every other
+    kind (``render``/``diff``/``index``) keys off :func:`source_fingerprint` (the
+    whole-package hash). This is why the fingerprint sits BELOW ``<kind>`` in the
+    path — the two kinds have genuinely different compatibility axes and each must
+    carry the one that governs it. Truncated to 8 hex: enough to separate
+    incompatible builds, short enough to stay clear of MAX_PATH. Both underlying
+    fingerprints are ``lru_cache``d (and embedded in a frozen build), so this is a
+    memoized lookup + slice, not real work on the hit path."""
+    fp = extraction_fingerprint() if kind == "extract" else source_fingerprint()
+    return fp[:8]
+
+
+_noted_owners: set[str] = set()
+
+
+def _note_owner(owner: Path) -> None:
+    """Best-effort: record ``slug -> full owner path`` in ``<cache>/_dirs.json`` so
+    the compact ``<tail>-<hash>`` slug stays reversible for ``lvkit cache`` / a
+    human. DISPLAY-ONLY — never read to resolve a path on the hit path, so a lost
+    or malformed row can only affect pretty-printing, never correctness. Memoized
+    per owner per process, so it touches disk at most once per project; the write
+    is atomic (temp + replace) and fully best-effort."""
+    key = str(owner)
+    if key in _noted_owners:
+        return
+    _noted_owners.add(key)
+    try:
+        f = global_cache_root() / "_dirs.json"
+        data: dict[str, str] = {}
+        if f.exists():
+            try:
+                loaded = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    data = {str(k): str(v) for k, v in loaded.items()}
+            except (OSError, ValueError):
+                data = {}
+        slug = _slug(owner)
+        if data.get(slug) == key:
+            return
+        data[slug] = key
+        f.parent.mkdir(parents=True, exist_ok=True)
+        tmp = f.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
+        os.replace(tmp, f)
+    except OSError:
+        pass
 
 
 def _rel_under(child: Path, parent: Path | None) -> Path | None:
@@ -151,41 +215,51 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     """Map ``vi_path`` to ``(cache_dir, source_label, namespace)`` for one
     artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``).
 
-    ``cache_dir`` is ``<cache>/<ns>/<slug>/<kind>/<rel-parent>`` — project-first:
-    the VI's identity (namespace + slug) is named ONCE and the ``kind`` hangs off
-    it, so one project's whole cache is a single subtree and sibling VIs of the
-    same kind share a dir. ``namespace`` is ``"projects"``, ``"shared"``, or
-    ``"adhoc"`` — callers path-address the first two and content-address
-    ``adhoc`` (its paths never repeat).
+    ``cache_dir`` is ``<cache>/<ns>/<slug>/<kind>/<fp>/<rel-parent>`` — project-
+    first: the VI's identity (namespace + slug) is named ONCE and the ``kind``
+    hangs off it, so one project's whole cache is a single subtree and sibling VIs
+    of the same kind + build share a dir. ``<fp>`` is the per-kind build tag
+    (:func:`kind_fingerprint`) so two incompatible lvkit builds get separate slots
+    instead of clobbering each other. ``namespace`` is ``"projects"``,
+    ``"shared"``, or ``"adhoc"`` — callers path-address the first two and
+    content-address ``adhoc`` (its paths never repeat).
     """
     resolved = vi_path.resolve()
     cache = global_cache_root()
+    # The per-kind build-compatibility tag (see kind_fingerprint): sits BELOW
+    # <kind> so two incompatible lvkit builds land in SEPARATE slots (they no
+    # longer overwrite each other in place -> no cross-version re-render thrash),
+    # while same-build lookups still hit the same slot.
+    fp = kind_fingerprint(kind)
 
     vilib = _vilib_root
     if vilib is not None:
         rel = _rel_under(resolved, vilib)
         if rel is not None:
-            d = cache / "shared" / "vilib" / _slug(vilib) / kind / rel.parent
+            _note_owner(vilib)
+            d = cache / "shared" / "vilib" / _slug(vilib) / kind / fp / rel.parent
             return d, str(rel), "shared"
 
     userlib = _userlib_root
     if userlib is not None:
         rel = _rel_under(resolved, userlib)
         if rel is not None:
-            d = cache / "shared" / "userlib" / _slug(userlib) / kind / rel.parent
+            _note_owner(userlib)
+            d = cache / "shared" / "userlib" / _slug(userlib) / kind / fp / rel.parent
             return d, str(rel), "shared"
 
     project = _project_root_for(resolved)
     if project is not None:
         proj_abs = project.resolve()
         rel = resolved.relative_to(proj_abs)
-        d = cache / "projects" / _slug(proj_abs) / kind / rel.parent
+        _note_owner(proj_abs)
+        d = cache / "projects" / _slug(proj_abs) / kind / fp / rel.parent
         return d, str(rel), "projects"
 
     # adhoc has NO owner (not a project, not a library) -> no identity slug to
     # name; kind sits right under the namespace and the parent-dir slug is just
     # the path-addressing key (render/diff override this to a flat content pool).
-    return cache / "adhoc" / kind / _slug(resolved.parent), resolved.name, "adhoc"
+    return cache / "adhoc" / kind / fp / _slug(resolved.parent), resolved.name, "adhoc"
 
 
 def cache_target(vi_path: Path, kind: str) -> Path:
@@ -216,6 +290,32 @@ def sha256_file(path: Path) -> str:
 # staleness back in.
 _FINGERPRINT_SKIP_DIRS = frozenset({"codegen", "docs", "formula", "mcp"})
 
+# A FROZEN distribution (PyInstaller) ships compiled code, not the ``.py``
+# sources the fingerprints hash, so neither fingerprint is computable at runtime
+# there (``source_fingerprint`` would see only the bundled data files — blind to
+# code — and ``extraction_fingerprint``'s fixed include list would not exist at
+# all). The build instead computes BOTH from the live sources and writes them to
+# this file, bundled next to the package (editors/vscode/build/build-binary.sh +
+# embed_fingerprints.py); at runtime each fingerprint returns the embedded value
+# when present, so a built binary's caches stay correct AND code-aware — the same
+# keys a source/wheel install computes — instead of degrading or crashing. Absent
+# in a normal source/wheel install, where the live computation is authoritative.
+_BUILD_FINGERPRINTS_FILE = "_build_fingerprints.json"
+
+
+@functools.lru_cache(maxsize=1)
+def _embedded_fingerprints() -> dict[str, str]:
+    """The build-time fingerprints bundled into a frozen distribution, or an
+    empty dict for a live source/wheel install (no such file)."""
+    # This module lives inside the package, so its own directory IS the package
+    # root — no need to import the top-level package to find it.
+    f = Path(__file__).resolve().parent / _BUILD_FINGERPRINTS_FILE
+    try:
+        raw = json.loads(f.read_text(encoding="utf-8"))
+    except OSError:
+        return {}
+    return {str(k): str(v) for k, v in raw.items()}
+
 
 @functools.lru_cache(maxsize=1)
 def source_fingerprint() -> str:
@@ -238,10 +338,16 @@ def source_fingerprint() -> str:
     over-invalidates at worst (one extra cold rebuild). Memoized: the source
     cannot change within a live process (Python does not hot-reload), and a dev
     editing lvkit restarts it before the next run anyway.
-    """
-    import lvkit
 
-    pkg = Path(lvkit.__file__).resolve().parent
+    In a frozen build the sources aren't on disk, so use the build-time value
+    embedded next to the package (``_BUILD_FINGERPRINTS_FILE``) instead of
+    hashing the code-blind data-file remnant.
+    """
+    embedded = _embedded_fingerprints().get("source")
+    if embedded:
+        return embedded
+
+    pkg = Path(__file__).resolve().parent
     h = hashlib.sha256()
     for f in sorted(pkg.rglob("*")):
         if not f.is_file() or f.suffix == ".pyc" or "__pycache__" in f.parts:
@@ -278,15 +384,34 @@ def extraction_fingerprint() -> str:
     pylabview monkeypatch, a read option, the normalize pass — but NOT when
     post-extraction code (parser/graph/render, keyed on ``source_fingerprint``)
     changes. Kept separate from ``source_fingerprint`` on purpose: extraction is
-    the expensive, rarely-changing stage."""
-    import lvkit
+    the expensive, rarely-changing stage.
 
-    pkg = Path(lvkit.__file__).resolve().parent
+    Reads the extraction ``.py`` sources when they are on disk (source checkout,
+    installed wheel, Cloud Run) — the precise, narrow signal. In a FROZEN build
+    (PyInstaller ships compiled code, not ``.py`` sources) those files are absent,
+    so it uses the build-time value embedded next to the package instead. The
+    sentinel return is a last-resort defense for the unexpected case of a frozen
+    build with neither the sources nor an embedded fingerprint — it never crashes
+    trying to read its own source at runtime.
+    """
+    embedded = _embedded_fingerprints().get("extraction")
+    if embedded:
+        return embedded
+
+    pkg = Path(__file__).resolve().parent
     h = hashlib.sha256()
     for rel in _EXTRACTION_CODE_FILES:
+        try:
+            data = (pkg / rel).read_bytes()
+        except OSError:
+            # Defensive only: a frozen build missing BOTH its .py sources and the
+            # embedded fingerprint (a broken build — build-binary.sh always embeds
+            # it, which short-circuits above). Return a stable sentinel rather
+            # than crash; a correctly built binary never reaches here.
+            return "extraction-unavailable"
         h.update(rel.encode())
         h.update(b"\0")
-        h.update((pkg / rel).read_bytes())
+        h.update(data)
         h.update(b"\0")
     return h.hexdigest()
 
@@ -343,7 +468,13 @@ def write_meta(vi_path: Path, meta_path: Path, **extra: object) -> None:
     meta_path.write_text(json.dumps(meta), encoding="utf-8")
 
 
-# ── One-time migration of the pre-kind extraction cache ─────────────────────
+# ── One-time migration of superseded cache layouts ──────────────────────────
+
+# The on-disk cache PATH schema. Bump ONLY when the path layout changes (not on a
+# source/fingerprint change — that is handled by the <fp> path level). A mismatch
+# triggers a one-time drop of the derived namespaces in cleanup_legacy_cache.
+#   "2": project-first with a per-kind <fp> level and <tail>-<hash8> slugs.
+_LAYOUT_VERSION = "2"
 
 
 def cleanup_legacy_cache() -> None:
@@ -368,3 +499,24 @@ def cleanup_legacy_cache() -> None:
         legacy = root / kind
         if legacy.is_dir():
             shutil.rmtree(legacy, ignore_errors=True)
+
+    # Layout migration: the project-first tree gained a per-kind <fp> level and
+    # the slug became <tail>-<hash8> (see classify / _slug). BOTH change every
+    # owned path, so pre-existing entries are unreachable dead weight — a lookup
+    # now computes a different path and simply misses (correctness never depends
+    # on this cleanup; it only reclaims the orphaned disk). On a layout-version
+    # mismatch, drop the derived namespaces ONCE and stamp the new version; the
+    # next run repopulates lazily under the new paths.
+    marker = root / "_layout_version"
+    try:
+        current = marker.read_text(encoding="utf-8").strip() if marker.exists() else ""
+    except OSError:
+        current = ""
+    if current != _LAYOUT_VERSION:
+        for ns in ("projects", "shared", "adhoc"):
+            shutil.rmtree(root / ns, ignore_errors=True)
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+            marker.write_text(_LAYOUT_VERSION, encoding="utf-8")
+        except OSError:
+            pass

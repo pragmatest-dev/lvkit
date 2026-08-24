@@ -30,7 +30,9 @@ version bump to forget. See ``_ensure_facts_version``.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, cast
@@ -297,18 +299,40 @@ _facts_fingerprint = cache_paths.source_fingerprint
 
 
 def db_path(project_root: Path) -> Path:
-    """The SQLite file for ``project_root``'s index (parent dir created)."""
+    """The SQLite file for ``project_root``'s index (parent dir created).
+
+    Path-partitioned by the source fingerprint (``kind_fingerprint("index")`` —
+    the same ``<fp>`` level every other cache kind uses) so two incompatible lvkit
+    builds keep SEPARATE index dbs and never drop/rebuild each other's tables. The
+    stored-fingerprint self-invalidation in ``_ensure_facts_version`` is now a
+    backstop (a matching path already implies a matching fingerprint), kept
+    because its guard test and any pre-<fp> db still rely on it.
+    """
     slug = cache_paths._slug(project_root.resolve())
-    d = cache_paths.global_cache_root() / "projects" / slug / "index"
+    d = (
+        cache_paths.global_cache_root()
+        / "projects"
+        / slug
+        / "index"
+        / cache_paths.kind_fingerprint("index")
+    )
     d.mkdir(parents=True, exist_ok=True)
     return d / "index.db"
 
 
 def _connect(project_root: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path(project_root))
+    path = db_path(project_root)
+    conn = sqlite3.connect(path)
     conn.execute("PRAGMA journal_mode=WAL")
     _ensure_facts_version(conn)
     conn.executescript(_SCHEMA)
+    # Bump the slice's mtime so the access-TTL sweep keeps an index in active use
+    # warm and only retires the ones for builds the user has upgraded away from.
+    try:
+        now = time.time()
+        os.utime(path, (now, now))
+    except OSError:
+        pass
     return conn
 
 

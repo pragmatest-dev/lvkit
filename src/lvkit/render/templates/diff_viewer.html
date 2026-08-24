@@ -354,12 +354,10 @@
       background:linear-gradient(180deg,#f0f3f7,#c4cad4);border:1px solid #40464f;
       box-shadow:0 2px 6px #000a,inset 0 1px 0 #fff9;cursor:grab}
   /* Connector-pane compare overlays: one per pane, pinned top-right of its wrap
-     (position:relative), so they stay put while the diagram pans/zooms. The
-     panel svg carries its own (diagram-themed) colours; we only add a drop
-     shadow so it reads as a floating card. pointer-events:none — purely a view. */
-  .lvkit-pane-overlay{position:absolute;top:8px;right:8px;z-index:55;
-    pointer-events:none;filter:drop-shadow(0 2px 8px rgba(0,0,0,.30))}
-  .lvkit-pane-overlay svg{display:block}
+     (position:relative), so they stay put while the diagram pans/zooms and are
+     clamped to that content area. SHARED with the render viewer via
+     CONNECTOR_PANE_CSS (connector_pane_panel.py) so both clamp identically. */
+  __CONNECTOR_PANE_CSS__
   /* A changed terminal lights up as ONE rounded union outline tracing cell ->
      wire -> label. It carries the diagram's OWN classes ("hl node <change>" +
      "hl-num <change>"), so it INHERITS every highlight/selection rule (colour,

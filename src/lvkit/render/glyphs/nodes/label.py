@@ -23,21 +23,35 @@ class LabelGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=self._css_fill(theme),
-            stroke=theme.struct_border,
-            stroke_width=1.0,
-        )
+        fill = self._css_fill(theme)
+        # A transparent free label (LabVIEW alpha byte 01) has NO box at all —
+        # text only over whatever is behind it (see draw.py::_draw_owned_label).
+        # Drawing the box would paint its meaningless RGB (usually 000000 → a
+        # solid black rectangle over the diagram/wire).
+        if fill is not None:
+            backend.rect(
+                x1,
+                y1,
+                x2,
+                y2,
+                fill=fill,
+                stroke=theme.struct_border,
+                stroke_width=1.0,
+            )
         if self.text:
             self._draw_wrapped(backend, x1, y1, x2, y2, theme)
 
-    def _css_fill(self, theme: Theme) -> str:
-        """The label's own heap background color, or a neutral fallback."""
+    def _css_fill(self, theme: Theme) -> str | None:
+        """The label's own heap background color, a neutral fallback, or None
+        when the label is TRANSPARENT.
+
+        ``bg_color`` is ``"AARRGGBB"``: the leading ALPHA byte is ``00`` for an
+        opaque colored label and non-zero (``01``) for LabVIEW's transparent
+        flag, where the trailing RGB is meaningless (e.g. ``01000000`` /
+        ``0100000A``). Return None for transparent so the caller draws no box."""
         if self.bg_color and len(self.bg_color) >= 6:
+            if len(self.bg_color) >= 8 and self.bg_color[:2] != "00":
+                return None
             return f"#{self.bg_color[-6:]}"
         return theme.canvas
 
