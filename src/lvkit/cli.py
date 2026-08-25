@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 import traceback
 import webbrowser
@@ -362,16 +364,23 @@ def main() -> int:
         "-v",
         "--verbose",
         action="store_true",
-        help="Include a full netlist section (see lvkit.graph.netlist)",
+        help=(
+            "Show full detail within each section (every VI Property, "
+            "Health, connector-pattern/pane-slot annotations, typed "
+            "terminals); with --format netlist, also emit a typed "
+            "## Components section before the netlist body."
+        ),
     )
     desc_parser.add_argument(
         "--format",
-        choices=["text", "json"],
+        choices=["text", "netlist", "json"],
         default="text",
         help=(
-            "'text' (default) prints the human-readable description; 'json' "
-            "emits the canonical netlist IR — the same structured payload the "
-            "MCP read_vi tool returns — for a program to parse."
+            "'text' (default) prints the human-readable description; "
+            "'netlist' prints the VI dataflow netlist body — the git-"
+            "textconv-friendly form (see `lvkit setup --git-textconv`); "
+            "'json' emits the canonical netlist IR — the same structured "
+            "payload the MCP read_vi tool returns — for a program to parse."
         ),
     )
     _add_project_root_arg(desc_parser)
@@ -626,6 +635,28 @@ def main() -> int:
         "--force",
         action="store_true",
         help="Overwrite existing skill files even if they have local edits",
+    )
+    setup_parser.add_argument(
+        "--git-textconv",
+        action="store_true",
+        help=(
+            "Wire up `git diff`/`git show` on .vi files to render lvkit's "
+            "netlist text instead of the raw binary: appends `*.vi "
+            "diff=lvkit` to .gitattributes and sets the `diff.lvkit."
+            "textconv`/`diff.lvkit.cachetextconv` git config in the current "
+            "repo. Does ONLY this — skips the .lvkit/ store + skill install."
+        ),
+    )
+    setup_parser.add_argument(
+        "--textconv-format",
+        choices=["netlist", "text", "json"],
+        default="netlist",
+        help=(
+            "Which `describe` format `--git-textconv` renders in a `git diff`: "
+            "'netlist' (default, the dataflow netlist — most diff-friendly), "
+            "'text' (the human summary), or 'json' (the structured IR). The VS "
+            "Code extension sets this from the `lvkit.viTextFormat` setting."
+        ),
     )
 
     # Unresolved command - batch-collect every resolution gap
@@ -1104,6 +1135,26 @@ def cmd_query(args: argparse.Namespace) -> int:
     return 0
 
 
+def _repo_relative_path(source: Path | None, base: Path) -> str | None:
+    """Best-effort repo/project-relative display path for ``source`` against
+    ``base`` -- for the ``-- <path>`` comment on each SubVI in a verbose
+    ``describe --format netlist`` ``## Components`` line, so a VS Code terminal
+    can click straight to the dependency instead of showing an absolute path.
+
+    Defensive by design: ``None`` when ``source`` is unresolvable (unknown/
+    unloaded VI) or ``os.path.relpath`` itself fails (e.g. a cross-drive path
+    on Windows, which raises ``ValueError``) -- a describe path annotation is
+    decoration, never load-bearing, so it silently falls back rather than
+    crashing the command.
+    """
+    if source is None:
+        return None
+    try:
+        return os.path.relpath(source.resolve(), base.resolve())
+    except (OSError, ValueError):
+        return None
+
+
 def cmd_describe(args: argparse.Namespace) -> int:
     """Handle the describe command - human-readable VI description."""
     from .graph.describe import describe_vi
@@ -1148,7 +1199,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
         # VI (and its SubVIs under MINIMAL), so warm all of them.
         warm_all_loaded(graph)
 
-        if getattr(args, "format", "text") == "json":
+        fmt = getattr(args, "format", "text")
+        if fmt == "json":
             # Same structured netlist IR the MCP read_vi tool returns — parity
             # so a non-MCP (CLI/CI/skill) consumer gets the structured read too.
             from .graph.netlist import build_netlist, netlist_to_dict
@@ -1158,6 +1210,48 @@ def cmd_describe(args: argparse.Namespace) -> int:
                     netlist_to_dict(build_netlist(graph, vi_name)), indent=2
                 )
             )
+        elif fmt == "netlist":
+            # The dataflow netlist body alone — the git-textconv-friendly
+            # form (`lvkit setup --git-textconv`): a diff of two commits'
+            # `.vi` blobs through this render is a meaningful, near-source-
+            # stable text diff. The VI-line always uses the qualified display
+            # name (never an abspath — that would make every clone's diff
+            # differ), IDENTICAL in base and verbose. Verbose adds only a
+            # `## Components` declaration table with each SubVI's repo-relative
+            # path as a clickable `-- ` comment (paths never touch the semantic
+            # lines, and don't resolve under textconv's isolated blob anyway).
+            from .graph.netlist import build_netlist, component_line, render_netlist
+
+            module = build_netlist(graph, vi_name)
+            # SubVI paths are resolved relative to — the first auto-detected
+            # search path (explicit --search-path wins, else the input's own
+            # enclosing .lvkit/ project root), falling back to the input's own
+            # directory. So a VS Code terminal can click straight to the dep.
+            rel_base = search_paths[0] if search_paths else input_path.parent
+
+            # The VI signature line always uses the QUALIFIED name — identical in
+            # base and verbose, so the netlist body diffs the same either way.
+            # Paths live only in verbose, and only as COMMENTS (never in the
+            # semantic lines): each called SubVI's repo-relative path as a
+            # trailing `-- ` comment on its ## Components declaration (clickable),
+            # skipped for primitives / unresolved SubVIs.
+            display_name = graph.vi_display_name(vi_name)
+
+            out_lines: list[str] = []
+            if args.verbose and module.components:
+                out_lines.append("## Components")
+                for c in module.components:
+                    line = f"  {component_line(c)}"
+                    comp_rel = _repo_relative_path(
+                        graph.get_vi_source_path(c.name), rel_base
+                    )
+                    if comp_rel is not None:
+                        line += f"  -- {comp_rel}"
+                    out_lines.append(line)
+                out_lines.append("")
+
+            out_lines.append(render_netlist(module, display_name=display_name))
+            print("\n".join(out_lines))
         else:
             print(describe_vi(graph, vi_name, verbose=args.verbose))
 
@@ -1188,8 +1282,83 @@ def _detect_ai_editors(root: Path) -> list[str]:
     return editors
 
 
+def _setup_git_textconv(root: Path, fmt: str = "netlist") -> int:
+    """Wire up ``git diff``/``git show`` on ``.vi`` files to render lvkit's
+    ``describe`` text (``lvkit describe --format <fmt>``, default the dataflow
+    ``netlist``) instead of the raw binary blob — the ``lvkit setup
+    --git-textconv`` mode.
+
+    Appends ``*.vi diff=lvkit`` to the repo's ``.gitattributes`` (creating it
+    if missing; a no-op if the line is already present) and sets the
+    ``diff.lvkit.textconv``/``diff.lvkit.cachetextconv`` git config in the
+    repo ``root`` belongs to. Requires ``root`` to be inside a git repo —
+    reports a clear error and a non-zero exit otherwise (this is a git-only
+    feature; there is nothing sensible to do without one).
+    """
+    repo_toplevel = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if repo_toplevel.returncode != 0:
+        print(
+            f"Error: {root} is not inside a git repository — "
+            "--git-textconv requires git (see `git init`).",
+            file=sys.stderr,
+        )
+        return 1
+    repo_root = Path(repo_toplevel.stdout.strip())
+
+    attrs_path = repo_root / ".gitattributes"
+    attrs_line = "*.vi diff=lvkit"
+    existing = attrs_path.read_text(encoding="utf-8") if attrs_path.is_file() else ""
+    if attrs_line in existing.splitlines():
+        print(f"{attrs_path}: already has `{attrs_line}`")
+    else:
+        if existing and not existing.endswith("\n"):
+            existing += "\n"
+        attrs_path.write_text(existing + attrs_line + "\n", encoding="utf-8")
+        print(f"{attrs_path}: added `{attrs_line}`")
+
+    textconv_cmd = f"lvkit describe --format {fmt}"
+    for key, value in (
+        ("diff.lvkit.textconv", textconv_cmd),
+        ("diff.lvkit.cachetextconv", "true"),
+    ):
+        result = subprocess.run(
+            ["git", "config", key, value],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            print(
+                f"Error: `git config {key} {value!r}` failed: "
+                f"{result.stderr.strip()}",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"git config {key} {value!r}")
+
+    print(
+        "\nGit textconv configured. `git diff`/`git show` on .vi files now "
+        "render lvkit's netlist text."
+    )
+    return 0
+
+
 def cmd_setup(args: argparse.Namespace) -> int:
     """Handle the setup command — install AI skills and create .lvkit/ store."""
+    if getattr(args, "git_textconv", False):
+        root = Path(args.directory or ".").resolve()
+        if not root.is_dir():
+            print(f"Error: Not a directory: {root}", file=sys.stderr)
+            return 1
+        return _setup_git_textconv(root, getattr(args, "textconv_format", "netlist"))
+
     # `directory` and `skills` are both optional positionals, so a lone
     # `lvkit setup copilot` binds "copilot" to `directory`. If the only
     # positional given is a skills choice, treat it as the skills target in

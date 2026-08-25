@@ -2,10 +2,10 @@
 ``netlist``.
 
 Split out to avoid a circular import: ``netlist.py`` needs these to trace
-wires back to their producing operation, and ``describe.py`` needs
-``build_netlist``/``render_netlist`` for its ``## Netlist`` section. Neither
-module may import the other at module level, so the shared walk helpers
-live here instead.
+wires back to their producing operation, and ``describe.py`` walks the same
+operation tree for its own ``## Dependencies``/``## Control Flow``/
+``## Operations`` sections. Neither module may import the other at module
+level, so the shared walk helpers live here instead.
 """
 
 from __future__ import annotations
