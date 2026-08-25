@@ -56,8 +56,9 @@ wiring is expressed as `port -> source.net` bindings, not source order.
 `components` lists each distinct subVI/primitive's typed port interface
 once. This one call gives you everything — operations, wiring, structures,
 and constants — in one structured tree instead of five separate reads.
-`lvkit describe <vi-path> --search-path <library-path> -v` (no `--format`)
-prints the same facts as prose for a human instead of JSON for a program.
+`lvkit describe <vi-path> --search-path <library-path> --format netlist -v`
+prints the same facts as prose for a human instead of JSON for a program (`-v`
+adds the typed `## Components` declarations ahead of the netlist body).
 
 **A structure's output is a named MERGE net, not a plain wire.** A value
 leaving a case/loop/feedback node is selector- or iteration-dependent, so the

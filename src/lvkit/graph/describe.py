@@ -38,7 +38,6 @@ from .models import (
     WindowProps,
     bool_str,
 )
-from .netlist import build_netlist, component_line, render_netlist
 from .op_walk import (
     _const_value_str,
     _has_output_tunnel,
@@ -61,17 +60,18 @@ def describe_vi(
     """Describe a VI as a documentation page.
 
     Uses the graph's resolved types, names, constants, and dataflow to
-    produce a complete reference for what this VI does. Default
-    (non-verbose) output is unchanged: Inputs/Outputs/Class/Constants,
+    produce a complete reference for what this VI does. Output (verbose or
+    not) always has the same section shape: Inputs/Outputs/Class/Constants,
     then ``## Dependencies`` (subVI signatures) / ``## Control Flow`` /
     ``## Operations``.
 
-    ``verbose`` replaces Dependencies + Control Flow + Operations with a
-    declare-then-wire pair: ``## Components`` (every distinct subVI/primitive's
-    typed interface, declared once -- see ``lvkit.graph.netlist``) followed by
-    a final ``## Netlist`` (every node instantiated, node-first, with wiring
-    -- its ``case (selector):`` scopes already cover control flow, so there is
-    no separate ``## Control Flow`` section in verbose output).
+    ``verbose`` (``-v``) only adds DEPTH within those same sections -- every
+    VI Property (not just non-default ones), the ``## Health`` section even
+    when healthy, each pane terminal's connector-pattern slot index, and
+    typed terminal detail -- it never swaps in a different section shape.
+    The dataflow NETLIST (the declare-then-wire ``## Components`` +
+    node-first wiring body) is a SEPARATE output entirely -- see
+    ``lvkit.graph.netlist`` and the CLI's ``describe --format netlist``.
     """
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
@@ -143,59 +143,41 @@ def describe_vi(
             lines.append(f"  {_describe_label_line(lbl)}")
         lines.append("")
 
-    # verbose: build the netlist IR once, shared by Components and Netlist.
-    netlist_module = build_netlist(graph, vi_name) if verbose else None
+    # Dependencies: SubVI calls with their signatures and descriptions.
+    # Same shape verbose or not -- verbose only deepens Properties/Health/
+    # pane detail above; it never swaps this section out.
+    subvi_names = _collect_subvi_names(ctx.operations)
+    if subvi_names:
+        lines.append("## Dependencies")
+        for name in sorted(subvi_names):
+            desc = _get_subvi_description(graph, name)
+            ports = _subvi_ports(graph, name)
+            sig = _render_ports(*ports) if ports is not None else None
+            entry = f"  {name}"
+            if sig:
+                entry += f": {sig}"
+            if desc:
+                entry += f" -- {desc}"
+            lines.append(entry)
+        lines.append("")
 
-    if verbose:
-        assert netlist_module is not None
-        if netlist_module.components:
-            lines.append("## Components")
-            for c in netlist_module.components:
-                lines.append(f"  {component_line(c)}")
-            lines.append("")
-    else:
-        # Dependencies: SubVI calls with their signatures and descriptions
-        subvi_names = _collect_subvi_names(ctx.operations)
-        if subvi_names:
-            lines.append("## Dependencies")
-            for name in sorted(subvi_names):
-                desc = _get_subvi_description(graph, name)
-                ports = _subvi_ports(graph, name)
-                sig = _render_ports(*ports) if ports is not None else None
-                entry = f"  {name}"
-                if sig:
-                    entry += f": {sig}"
-                if desc:
-                    entry += f" -- {desc}"
-                lines.append(entry)
-            lines.append("")
+    # Control flow: structure summary (case/loop/sequence/... with their
+    # gating selectors traced one hop back to the source).
+    structures = _collect_structures(
+        graph,
+        ctx,
+        ctx.operations,
+        index_terminal_owners(ctx.operations),
+    )
+    if structures:
+        lines.append("## Control Flow")
+        for s in structures:
+            lines.append(f"  {s}")
+        lines.append("")
 
-    # Control flow: non-verbose only. Verbose's ``## Netlist`` below already
-    # covers control flow in full (its ``case (selector):`` scopes, with
-    # correctly tunnel-resolved selectors) -- this shallower summary would
-    # be both redundant and stale there (its selector naming doesn't hop
-    # through tunnels the way ``build_netlist`` does).
-    if not verbose:
-        structures = _collect_structures(
-            graph,
-            ctx,
-            ctx.operations,
-            index_terminal_owners(ctx.operations),
-        )
-        if structures:
-            lines.append("## Control Flow")
-            for s in structures:
-                lines.append(f"  {s}")
-            lines.append("")
-
-    if verbose:
-        assert netlist_module is not None
-        lines.append("## Netlist")
-        lines.append(render_netlist(netlist_module))
-    else:
-        # Operations
-        lines.append("## Operations")
-        _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
+    # Operations
+    lines.append("## Operations")
+    _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
 
     return "\n".join(lines)
 

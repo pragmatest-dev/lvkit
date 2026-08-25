@@ -23,9 +23,11 @@ together, not five separate reads.
 
 No MCP server connected? The CLI `lvkit describe` above is the twin of both:
 plain (no `--format`) prints the same prose as MCP `describe`; `-v/--verbose`
-adds the full netlist section inline; `--format json` emits the identical
-structured payload MCP `read_vi` returns, for a program instead of a person
-to parse.
+shows full detail within each section (every VI Property, Health, typed
+terminals) without changing its shape; `--format netlist` prints the VI
+dataflow netlist body on its own (add `-v` for a typed `## Components`
+section first); `--format json` emits the identical structured payload MCP
+`read_vi` returns, for a program instead of a person to parse.
 
 To see the VI's faithful block diagram, render it to SVG (CLI-only, no MCP
 twin):

@@ -2496,10 +2496,17 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
     }
 
 
-def render_netlist(module: NetlistModule) -> str:
+def render_netlist(module: NetlistModule, *, display_name: str | None = None) -> str:
     """Render a ``NetlistModule`` to the locked netlist text syntax.
 
     See ``.tmp/netlist-spec.md`` -- syntax is LOCKED, ASCII only.
+
+    ``display_name`` overrides the header line's VI label (``module.vi_name``
+    is the resolved ``vi_key`` -- a source-path identity, not fit for
+    display -- see ``describe.py``'s ``--format netlist`` naming rules,
+    which pass the qualified display name or a repo-relative path here).
+    Defaults to ``module.vi_name`` for every existing caller (JSON/diff/the
+    embedded viewer never pass this).
     """
     lines: list[str] = []
     in_names = ", ".join(name for name, _ in module.inputs)
@@ -2512,7 +2519,8 @@ def render_netlist(module: NetlistModule) -> str:
         else o.name
         for o in module.outputs
     )
-    lines.append(f"{module.vi_name} ({in_names}) -> ({out_names})")
+    header_name = display_name if display_name is not None else module.vi_name
+    lines.append(f"{header_name} ({in_names}) -> ({out_names})")
 
     _render_items(module.body, 0, lines, ambiguous)
 
