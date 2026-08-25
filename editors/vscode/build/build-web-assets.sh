@@ -30,6 +30,12 @@ mkdir -p "$WHEELS"
 
 echo "building lvkit wheel from $REPO …"
 ( cd "$REPO" && uv build --wheel -o "$WHEELS" )
+# uv drops a `.gitignore` (content `*`) into its output dir. It must NOT ship in
+# the VSIX — Open VSX's resource CDN 404s the media/ tree when it's present (the
+# web extension then can't read its wheels on GitLab Web IDE / Cursor / Gitpod).
+# .vscodeignore.web also excludes **/.gitignore; removing it here keeps the local
+# media/ tree clean too.
+rm -f "$WHEELS/.gitignore"
 
 fetch_pinned_wheel() {  # $1 = package name (matches <name>-<ver>-py3-none-any.whl)
   local url

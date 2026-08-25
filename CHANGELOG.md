@@ -4,6 +4,17 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-25
+- **Fix: the web extension on Open VSX hosts (GitLab Web IDE, Cursor, Gitpod,
+  code-server).** The web VSIX was shipping a stray `media/wheels/.gitignore`
+  (auto-created by `uv build`); Open VSX's resource CDN honored it and 404-ed the
+  bundled Pyodide/wheels, so the in-browser engine failed to start. That ignore no
+  longer ships. (VS Code Marketplace hosts — vscode.dev, GitHub Codespaces — were
+  unaffected.)
+- **lvkit is now suggested for LabVIEW files.** Registers `.vi`, `.lvclass`,
+  `.lvlib`, `.lvproj` as file types, so a hosted or desktop editor that does not
+  already have lvkit offers it from the marketplace when you open one.
+
 ## [0.7.1] - 2026-08-24
 - **Fix: the extension now installs on more hosted / forked editors.** The
   required VS Code version was `^1.101.0`, which blocked GitLab Web IDE (1.94),

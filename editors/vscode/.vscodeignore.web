@@ -5,7 +5,12 @@
 .vscode/**
 build/**
 setup-jki-demo.sh
-.gitignore
+# ALL .gitignore files, at any depth — a bare `.gitignore` only matches the root
+# one, so `uv build`'s auto-created `media/wheels/.gitignore` (content `*`) was
+# shipping in the VSIX. Open VSX's resource CDN appears to honor it (and/or trips
+# on the media/ tree), 404-ing the wheels/Pyodide on Open VSX hosts (GitLab Web
+# IDE, Cursor, Gitpod). Ship no stray ignore files.
+**/.gitignore
 node_modules/**
 **/*.vsix
 **/.DS_Store
