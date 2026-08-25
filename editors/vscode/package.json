@@ -2,7 +2,7 @@
   "name": "lvkit",
   "displayName": "LVKit",
   "description": "View and diff VIs without LabVIEW.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "pragmatest",
   "icon": "icon.png",
   "license": "Apache-2.0",
@@ -28,6 +28,12 @@
   "main": "./extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
+    "languages": [
+      { "id": "labview-vi", "aliases": ["LabVIEW VI"], "extensions": [".vi"] },
+      { "id": "labview-class", "aliases": ["LabVIEW Class"], "extensions": [".lvclass"] },
+      { "id": "labview-library", "aliases": ["LabVIEW Library"], "extensions": [".lvlib"] },
+      { "id": "labview-project", "aliases": ["LabVIEW Project"], "extensions": [".lvproj"] }
+    ],
     "mcpServerDefinitionProviders": [
       { "id": "lvkit", "label": "LVKit VI tools" }
     ],

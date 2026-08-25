@@ -35,6 +35,16 @@ Mode banner.
 | `lvkit.searchPaths` | `[]` | Extra dirs to search for SubVIs (repo root is auto-detected). |
 | `lvkit.diagramTheme` | `auto` | Diagram color theme (`auto`/`light`/`dark`); updated automatically when you cycle the in-viewer theme control. |
 
+## Recommending LVKit to your team
+
+If your project has LabVIEW files, add LVKit to your workspace's recommended
+extensions so teammates are prompted to install it when they open the folder:
+
+```json
+// .vscode/extensions.json
+{ "recommendations": ["pragmatest.lvkit"] }
+```
+
 ## Trademarks
 
 LVKit is an independent, clean-room project, not affiliated with, authorized by,
