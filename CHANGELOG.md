@@ -4,13 +4,29 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-08-25
+- **Fix: the web extension now starts on Open VSX hosts (GitLab Web IDE, Cursor,
+  Gitpod, code-server).** These hosts do not serve a web extension's bundled
+  `media/` tree — the self-hosted Pyodide runtime and Python wheels — even though
+  those files are present in the published VSIX, so the in-browser engine could
+  not read its own assets and failed to start (upstream
+  [openvsx#2099](https://github.com/eclipse/openvsx/issues/2099)). The extension
+  now detects that and falls back to loading Pyodide from a public CDN (jsDelivr)
+  and the wheels from PyPI. VS Code Marketplace hosts (vscode.dev, GitHub
+  Codespaces) are unaffected and keep loading everything self-hosted and offline;
+  only a host that cannot serve the bundled assets reaches for the network.
+- **New: open a VI as text.** *LVKit: Open VI as Text* shows a read-only text view
+  of a `.vi` — its dataflow netlist by default, or a human-readable description or
+  the structured JSON IR (`lvkit.viTextFormat`). *LVKit: Enable VI text diff (git)*
+  wires the same text form into `git diff` so VI changes read as text.
+
 ## [0.7.2] - 2026-08-25
-- **Fix: the web extension on Open VSX hosts (GitLab Web IDE, Cursor, Gitpod,
-  code-server).** The web VSIX was shipping a stray `media/wheels/.gitignore`
-  (auto-created by `uv build`); Open VSX's resource CDN honored it and 404-ed the
-  bundled Pyodide/wheels, so the in-browser engine failed to start. That ignore no
-  longer ships. (VS Code Marketplace hosts — vscode.dev, GitHub Codespaces — were
-  unaffected.)
+- **Web extension packaging cleanup for Open VSX.** The web VSIX was shipping a
+  stray `media/wheels/.gitignore` (auto-created by `uv build`); it no longer ships.
+  This was a necessary cleanup but did **not** by itself make the in-browser engine
+  load on Open VSX hosts — those hosts do not serve the bundled `media/` tree at
+  all (fixed in 0.7.3, which adds the CDN fallback). VS Code Marketplace hosts
+  (vscode.dev, GitHub Codespaces) were unaffected throughout.
 - **lvkit is now suggested for LabVIEW files.** Registers `.vi`, `.lvclass`,
   `.lvlib`, `.lvproj` as file types, so a hosted or desktop editor that does not
   already have lvkit offers it from the marketplace when you open one.

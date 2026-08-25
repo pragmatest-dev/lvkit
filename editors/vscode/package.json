@@ -2,7 +2,7 @@
   "name": "lvkit",
   "displayName": "LVKit",
   "description": "View and diff VIs without LabVIEW.",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "publisher": "pragmatest",
   "icon": "icon.png",
   "license": "Apache-2.0",
@@ -60,11 +60,24 @@
           ],
           "default": "light",
           "markdownDescription": "Color theme for the **VI diagram itself** (the rendered block diagram and diff SVGs). Independent of the surrounding viewer chrome, which always follows your VS Code theme. The diagram defaults to `light` — what LabVIEW users expect — regardless of the editor theme; set `dark` to pin it dark. You can also toggle it live with the ☀/☾ button in the viewer."
+        },
+        "lvkit.viTextFormat": {
+          "type": "string",
+          "enum": ["netlist", "text", "json"],
+          "enumDescriptions": [
+            "The VI's dataflow netlist — a compact, diff-friendly text form (default).",
+            "A human-readable summary of the VI's purpose, signature, and structure.",
+            "The structured netlist IR as JSON — the same payload the MCP read_vi tool returns."
+          ],
+          "default": "netlist",
+          "markdownDescription": "Text form (`lvkit describe --format`) used by **LVKit: Open VI as Text** and by **LVKit: Enable VI text diff (git)**. `netlist` (default) is the dataflow netlist body; `text` is the human-readable description; `json` is the structured IR for programmatic use."
         }
       }
     },
     "commands": [
-      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "LVKit" }
+      { "command": "lvkit.diffVI", "title": "Open Visual Diff", "category": "LVKit" },
+      { "command": "lvkit.openViAsText", "title": "Open VI as Text", "category": "LVKit" },
+      { "command": "lvkit.enableViTextDiff", "title": "Enable VI text diff (git)", "category": "LVKit" }
     ],
     "customEditors": [
       {
@@ -89,10 +102,15 @@
         { "command": "lvkit.diffVI", "when": "scmProvider == git", "group": "navigation@1" }
       ],
       "explorer/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" },
+        { "command": "lvkit.openViAsText", "when": "resourceExtname == .vi", "group": "navigation@2" }
       ],
       "editor/title/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" },
+        { "command": "lvkit.openViAsText", "when": "resourceExtname == .vi" }
+      ],
+      "editor/title": [
+        { "command": "lvkit.openViAsText", "when": "resourceExtname == .vi", "group": "navigation" }
       ]
     }
   },

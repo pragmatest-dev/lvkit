@@ -20,11 +20,25 @@ function diagramTheme() {
   const t = cfg().get('diagramTheme', 'light');
   return ['light', 'dark'].includes(t) ? t : 'light';
 }
+// Text form (`lvkit describe --format`) used by "Open VI as Text" and by
+// "Enable VI text diff (git)". Persisted as `lvkit.viTextFormat`.
+function viTextFormat() {
+  const f = cfg().get('viTextFormat', 'netlist');
+  return ['netlist', 'text', 'json'].includes(f) ? f : 'netlist';
+}
 
 // ---- helpers ---------------------------------------------------------------
 function gitRootOr(dir) {
   try { return cp.execSync('git rev-parse --show-toplevel', { cwd: dir }).toString().trim(); }
   catch (_) { return dir; }
+}
+// The repo/search root for a command with no specific file in hand (e.g.
+// "Enable VI text diff"): the first workspace folder if one is open, else the
+// process cwd — then resolved up to its git toplevel the same way every
+// file-specific command does (gitRootOr).
+function workspaceRoot() {
+  const ws = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+  return gitRootOr(ws ? ws.uri.fsPath : process.cwd());
 }
 // A short, readable label for the commit/rev a `git:` diff URI points at, so the
 // rendered VI's title reads "…@ 3f9a1c2" instead of two identical qualified
@@ -505,9 +519,106 @@ async function diffVI(arg) {
   );
 }
 
+// ---- "Open VI as Text" (lvkit describe) -------------------------------------
+// The general in-editor text view of a VI — distinct from git textconv (below),
+// which only fires inside `git diff`/`git show`. A
+// TextDocumentContentProvider on a custom scheme is read-only by construction
+// (no save affordance VS Code would try to wire up), so this needs no custom
+// editor machinery: `vscode.workspace.openTextDocument(uri)` on a
+// `lvkit-vitext:` URI calls straight into `provideTextDocumentContent` below.
+const VITEXT_SCHEME = 'lvkit-vitext';
+
+class ViTextContentProvider {
+  provideTextDocumentContent(uri) {
+    // The .vi's absolute fsPath (and chosen format) travel as a JSON blob in
+    // the query, set via `Uri.from()` in openViAsText() below — the SAME
+    // technique VS Code's own `git:` scheme uses (see gitRefLabel/gitRawRef
+    // above), and for the same reason: an arbitrary fsPath can contain `&`,
+    // `=`, or `%`, which a hand-built `key=value&...` query string (even
+    // encodeURIComponent'd) would mis-split once Uri.parse()/URLSearchParams
+    // percent-decode it back. `Uri.from()` builds the URI from components
+    // directly — no string parse/decode step — so the query is stored
+    // verbatim, with nothing to get wrong on the round trip.
+    let params;
+    try { params = JSON.parse(uri.query || '{}'); } catch (_) { params = {}; }
+    const src = params.src;
+    const fmt = params.fmt || 'netlist';
+    if (!src) return '(lvkit: no source .vi path given)';
+    const root = gitRootOr(path.dirname(src));
+    checkLvkitVersion(root);
+    try {
+      const cmd = lvkitCmd(root);
+      const out = run(`${cmd} describe "${src}" ${searchArgs(root)} --format ${fmt}`, { cwd: root });
+      return out.toString('utf8');
+    } catch (e) {
+      vscode.window.showErrorMessage(`lvkit: describe failed — ${e.message}`);
+      return `lvkit describe failed:\n\n${e.message}`;
+    }
+  }
+}
+
+// Resolve the .vi to open as text: an explicit context-menu target
+// (Explorer/editor-title right-click, which supplies a `resourceUri`-bearing
+// arg), else the .vi in the ACTIVE tab. A .vi's normal home is our custom
+// editor (`lvkit.viPreview`), which shows up as a `TabInputCustom` — not a
+// `TextEditor` — so `activeTextEditor` alone would miss it; check the active
+// tab's `input.uri` first and fall back to `activeTextEditor` for the
+// (unlikely) case a .vi is somehow open as plain text.
+function resolveViTarget(arg) {
+  const argUri = arg && (arg.resourceUri || arg);
+  if (argUri && argUri.fsPath && argUri.fsPath.toLowerCase().endsWith('.vi')) return argUri.fsPath;
+  const tab = vscode.window.tabGroups.activeTabGroup && vscode.window.tabGroups.activeTabGroup.activeTab;
+  const tabUri = tab && tab.input && tab.input.uri;
+  if (tabUri && tabUri.fsPath && tabUri.fsPath.toLowerCase().endsWith('.vi')) return tabUri.fsPath;
+  const editor = vscode.window.activeTextEditor;
+  if (editor && editor.document.uri.fsPath.toLowerCase().endsWith('.vi')) return editor.document.uri.fsPath;
+  return null;
+}
+
+async function openViAsText(arg) {
+  const target = resolveViTarget(arg);
+  if (!target) { vscode.window.showErrorMessage('lvkit: no .vi selected.'); return; }
+  const fmt = viTextFormat();
+  // `Uri.from()` sets scheme/path/query directly, with NO string parsing —
+  // unlike `Uri.parse(fullString)`, it never percent-decodes the query, so the
+  // absolute fsPath goes into it untouched via JSON (see the content
+  // provider's comment above). The path component is just a display name
+  // (the VI's basename) — VS Code shows it as the editor tab title.
+  const uri = vscode.Uri.from({
+    scheme: VITEXT_SCHEME,
+    path: `/${path.basename(target)}.txt`,
+    query: JSON.stringify({ src: target, fmt }),
+  });
+  const doc = await vscode.workspace.openTextDocument(uri);
+  await vscode.window.showTextDocument(doc, { preview: false });
+}
+
+// ---- "Enable VI text diff (git)" --------------------------------------------
+// Thin wrapper around `lvkit setup --git-textconv`: explicit, user-invoked,
+// no prompt. Wires .vi files into `git diff`/`git show` as the chosen
+// `lvkit describe --format` text (see `_setup_git_textconv` in cli.py).
+async function enableViTextDiff() {
+  const root = workspaceRoot();
+  const fmt = viTextFormat();
+  try {
+    const cmd = lvkitCmd(root);
+    const out = run(`${cmd} setup --git-textconv --textconv-format ${fmt}`, { cwd: root }).toString('utf8');
+    vscode.window.showInformationMessage(
+      `lvkit: git text diff enabled for .vi files (format: ${fmt}).\n${out.trim()}`
+    );
+  } catch (e) {
+    vscode.window.showErrorMessage(`lvkit: enabling git text diff failed — ${e.message}`);
+  }
+}
+
 function activate(context) {
   _extensionPath = context.extensionPath;
   context.subscriptions.push(vscode.commands.registerCommand('lvkit.diffVI', diffVI));
+  context.subscriptions.push(vscode.commands.registerCommand('lvkit.openViAsText', openViAsText));
+  context.subscriptions.push(vscode.commands.registerCommand('lvkit.enableViTextDiff', enableViTextDiff));
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(VITEXT_SCHEME, new ViTextContentProvider())
+  );
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(
     'lvkit.viPreview', new ViPreviewProvider(),
     { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false }
