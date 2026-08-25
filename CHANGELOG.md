@@ -4,6 +4,14 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-24
+- **Fix: the extension now installs on more hosted / forked editors.** The
+  required VS Code version was `^1.101.0`, which blocked GitLab Web IDE (1.94),
+  Cursor (1.99), Windsurf, and lagging self-managed instances. The floor is now
+  `^1.84.0` — the extension only ever needed the MCP provider API for 1.101, and
+  that is desktop-only and feature-detected, so it still registers on VS Code
+  ≥1.101 and simply no-ops on older hosts.
+
 ## [0.7.0] - 2026-08-24
 - **New: the VS Code extension runs in web / hosted editors** (vscode.dev, GitHub
   Codespaces web, GitLab Web IDE, Cursor) — rendering `.vi` diagrams, SubVI
