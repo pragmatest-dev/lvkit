@@ -137,3 +137,6 @@ experiments/
 # CI deploy keys — never commit
 pragmatest_deploy
 pragmatest_deploy.pub
+
+# @vscode/test-web downloads VS Code Web here (cwd-dependent) — ignore anywhere
+.vscode-test-web/

@@ -18,14 +18,15 @@
       "description": "In an untrusted workspace LVKit renders and diffs .vi files with its own bundled lvkit binary; the `lvkit.path` override (which would run an executable the workspace names) is ignored."
     },
     "virtualWorkspaces": {
-      "supported": false,
-      "description": "LVKit reads .vi files from disk and runs a local lvkit executable, neither of which is available in a virtual workspace."
+      "supported": true,
+      "description": "In a virtual workspace (a hosted/web editor such as vscode.dev, GitHub Codespaces web, GitLab Web IDE, or Cursor) LVKit renders .vi files in the browser via its bundled lvkit WebAssembly build — no local disk or executable needed. Diff and the MCP server remain desktop-only."
     }
   },
   "categories": ["Visualization", "SCM Providers", "Other"],
   "keywords": ["labview", "vi", "diff", "block diagram", "ni", "test"],
   "activationEvents": ["onCommand:lvkit.diffVI", "onCustomEditor:lvkit.viPreview", "onStartupFinished"],
   "main": "./extension.js",
+  "browser": "./dist/web/extension.js",
   "contributes": {
     "mcpServerDefinitionProviders": [
       { "id": "lvkit", "label": "LVKit VI tools" }
@@ -46,14 +47,13 @@
         },
         "lvkit.diagramTheme": {
           "type": "string",
-          "enum": ["auto", "light", "dark"],
+          "enum": ["light", "dark"],
           "enumDescriptions": [
-            "Follow the editor theme — light diagram in a light theme, dark in a dark theme.",
-            "Always render the VI diagram with the light LabVIEW palette, regardless of editor theme.",
-            "Always render the VI diagram with the dark palette, regardless of editor theme."
+            "Render the VI diagram with the light LabVIEW palette (default).",
+            "Render the VI diagram with the dark palette."
           ],
-          "default": "auto",
-          "markdownDescription": "Color theme for the **VI diagram itself** (the rendered block diagram and diff SVGs). The surrounding viewer chrome always matches your VS Code theme; this setting controls only the diagram. `auto` (default) makes the diagram follow the editor theme; `light`/`dark` pin it regardless."
+          "default": "light",
+          "markdownDescription": "Color theme for the **VI diagram itself** (the rendered block diagram and diff SVGs). Independent of the surrounding viewer chrome, which always follows your VS Code theme. The diagram defaults to `light` — what LabVIEW users expect — regardless of the editor theme; set `dark` to pin it dark. You can also toggle it live with the ☀/☾ button in the viewer."
         }
       }
     },
@@ -68,6 +68,16 @@
         "priority": "default"
       }
     ],
+    "viewsContainers": {
+      "panel": [
+        { "id": "lvkitEngine", "title": "LVKit", "icon": "$(server-process)" }
+      ]
+    },
+    "views": {
+      "lvkitEngine": [
+        { "id": "lvkit.engine", "type": "webview", "name": "LVKit", "contextualTitle": "LVKit" }
+      ]
+    },
     "menus": {
       "scm/resourceState/context": [
         { "command": "lvkit.diffVI", "when": "scmProvider == git", "group": "navigation@1" }
@@ -79,5 +89,15 @@
         { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" }
       ]
     }
+  },
+  "scripts": {
+    "build:web": "node esbuild.web.js && bash build/build-web-assets.sh",
+    "test:web": "vscode-test-web --browser=chromium --extensionDevelopmentPath=. ../../tests/corpus/issues/30"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.101.0",
+    "@vscode/test-web": "^0.0.81",
+    "esbuild": "^0.24.0",
+    "pyodide": "314.0.5"
   }
 }

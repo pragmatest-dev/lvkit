@@ -262,6 +262,23 @@ def test_transparent_free_label_renders_no_box():
     assert fill("0100000A") is None  # transparent over a wire
 
 
+def test_own_colored_label_keeps_dark_text():
+    """A free label with its OWN opaque colour is a LIGHT swatch whatever the
+    diagram theme, so its text stays a FIXED dark — following ``theme.text`` (light
+    in dark mode) made the peach "Subroutine Priority" label invisible. Only a
+    transparent label (text over the diagram) or the neutral-canvas fallback
+    follows the theme."""
+    from lvkit.render.glyphs.nodes.label import _LABEL_OWN_TEXT, LabelGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    def text_fill(bg: str | None) -> str:
+        return LabelGlyph(text="x", bg_color=bg)._text_fill(DEFAULT_THEME)
+
+    assert text_fill("00FFFEA0") == _LABEL_OWN_TEXT  # own opaque colour → fixed dark
+    assert text_fill("01000000") == DEFAULT_THEME.text  # transparent → follow theme
+    assert text_fill(None) == DEFAULT_THEME.text  # no colour (canvas) → follow theme
+
+
 def test_issue32_decorations_are_rendered():
     """#32 (Phase 2): block-diagram decorations (cosm shapes) render as clean-room
     glyphs — z-ordered with nodes, but never graph nodes. The repro has a Flat

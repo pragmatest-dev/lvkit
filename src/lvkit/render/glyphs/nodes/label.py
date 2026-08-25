@@ -7,6 +7,12 @@ from ...backend import Backend
 from ...style import Theme
 from .base import wrap_label
 
+# A free label with its OWN opaque colour is a LIGHT swatch (LabVIEW's pale-yellow
+# default, etc.) whatever the diagram theme, so its text must stay dark — following
+# theme.text would make it invisible in dark mode. Fixed near-black reads on every
+# LabVIEW label colour.
+_LABEL_OWN_TEXT = "#1a1a1a"
+
 
 @dataclass(frozen=True)
 class LabelGlyph:
@@ -55,6 +61,17 @@ class LabelGlyph:
             return f"#{self.bg_color[-6:]}"
         return theme.canvas
 
+    def _text_fill(self, theme: Theme) -> str:
+        """Text colour. Follows the diagram theme ONLY when the label is
+        transparent (text sits over the diagram) or falls back to the neutral
+        canvas; a label with its OWN opaque colour keeps fixed dark text — its
+        swatch is light regardless of theme, so ``theme.text`` (light in dark
+        mode) would vanish on it."""
+        fill = self._css_fill(theme)
+        if fill is None or fill == theme.canvas:
+            return theme.text
+        return _LABEL_OWN_TEXT
+
     def _draw_wrapped(
         self,
         backend: Backend,
@@ -83,7 +100,7 @@ class LabelGlyph:
                 last = last[:-1]
             lines[-1] = last + "…"
         ty = y1 + pad + self.text_size
-        text_fill = theme.text
+        text_fill = self._text_fill(theme)
         for line in lines:
             backend.text(
                 x1 + pad,

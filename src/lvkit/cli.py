@@ -1321,9 +1321,11 @@ def cmd_detect(args: argparse.Namespace) -> int:
 def _render_options_tag(
     args: argparse.Namespace, theme_mode: str, ref: str | None
 ) -> str:
-    """The output-cache options key: everything besides the VI content and the
-    lvkit version that changes the rendered bytes (format, theme, title ref)."""
-    return f"{args.format}|{theme_mode}|ref={ref or ''}"
+    """The output-cache options key from CLI args — delegates to the shared
+    ``render_options_tag`` so CLI/MCP/web all key identically."""
+    from .output_cache import render_options_tag
+
+    return render_options_tag(args.format, theme_mode, ref)
 
 
 def _theme_mode(args: argparse.Namespace) -> ThemeMode:
@@ -1332,49 +1334,24 @@ def _theme_mode(args: argparse.Namespace) -> ThemeMode:
     return cast("ThemeMode", "auto" if args.format == "html" else args.theme)
 
 
-def _build_render_body(
+def _render_build_kw(
     args: argparse.Namespace,
     input_path: Path,
     theme_mode: ThemeMode,
     ref: str | None,
-) -> str | int:
-    """Build the render output (svg string or html viewer). Returns the body, or
-    an int exit code on failure. Imports the render/graph stack HERE — a cache
-    hit never reaches this, so it never pays the ~250 ms import."""
-    from .render import render_vi_file_titled
-    from .render.render_viewer import build_render_viewer
-
-    _configure_resolvers(args)
+) -> dict[str, object]:
+    """The ``render_vi_body`` build kwargs from CLI args (library roots, search
+    paths, load mode, theme, title ref). The actual build/import happens inside
+    ``cached_render`` on a miss — a cache hit never reaches it."""
     vilib_root, userlib_root = _parse_library_roots(args)
-    search_paths = _auto_search_paths(args.search_paths, input_path) or None
-    try:
-        # _titled also returns the VI's resolved (qualified) name for the title.
-        svg, vi_title = render_vi_file_titled(
-            input_path,
-            search_paths=search_paths,
-            vilib_root=vilib_root,
-            userlib_root=userlib_root,
-            mode=_resolve_load_mode(args, LoadMode.MINIMAL),
-            theme_mode=theme_mode,
-        )
-    except Exception as e:
-        print(f"Error: render failed: {e}", file=sys.stderr)
-        traceback.print_exc()
-        return 1
-    if svg is None:
-        print(
-            "Error: render declined — required diagram geometry is missing "
-            "(see logs for the missing ids)",
-            file=sys.stderr,
-        )
-        return 1
-    if args.format != "html":
-        return svg
-    stem = input_path.stem.replace("_BDHb", "")
-    title = vi_title or stem
-    if ref:  # qualified name + git rev, VS Code diff convention: "name (rev)"
-        title = f"{title} ({ref})"
-    return build_render_viewer(svg, title=title)
+    return {
+        "search_paths": _auto_search_paths(args.search_paths, input_path) or None,
+        "vilib_root": vilib_root,
+        "userlib_root": userlib_root,
+        "mode": _resolve_load_mode(args, LoadMode.MINIMAL),
+        "theme_mode": theme_mode,
+        "ref": ref,
+    }
 
 
 def _emit_render(args: argparse.Namespace, input_path: Path, body: str) -> int:
@@ -1410,8 +1387,14 @@ def cmd_render(args: argparse.Namespace) -> int:
     theme_mode = _theme_mode(args)
     options = _render_options_tag(args, theme_mode, args.ref)
 
-    # Fast path: a fresh cached render is returned WITHOUT importing the
-    # render/graph/pylabview stack.
+    # Fast path: a fresh cached render is served here before ANY miss-path setup.
+    # cached_render(return_cached=True) would also skip the heavy render import on a
+    # hit (its lookup precedes the lazy import), so what this outer path uniquely
+    # saves on a hit is the CLI's own setup: _configure_resolvers (which imports the
+    # resolver modules + loads project/JSON data) and _render_build_kw. That matters
+    # for a short-lived CLI; MCP/web (warm processes) skip this and call the wrapper
+    # directly. --no-cache skips this read (forcing a rebuild) but the rebuild below
+    # still refreshes the slot.
     if not args.no_cache:
         from .output_cache import lookup_render
 
@@ -1419,15 +1402,32 @@ def cmd_render(args: argparse.Namespace) -> int:
         if cached is not None:
             return _emit_render(args, input_path, cached)
 
-    body = _build_render_body(args, input_path, theme_mode, args.ref)
-    if isinstance(body, int):
-        return body
-    # A fresh build ALWAYS refreshes the slot — including under --no-cache, whose
-    # job is to ignore a (possibly stale) hit and rebuild, not to leave the stale
-    # entry behind for the next run.
-    from .output_cache import store_render
+    # Miss (or --no-cache): build + store via the shared core. return_cached=False
+    # because we already did the one read above (or were told to skip it) — no
+    # double-check. The build ALWAYS refreshes the slot.
+    from .output_cache import cached_render
 
-    store_render(input_path, args.format, options, __version__, body)
+    _configure_resolvers(args)
+    try:
+        body = cached_render(
+            input_path,
+            fmt=args.format,
+            options=options,
+            version=__version__,
+            return_cached=False,
+            **_render_build_kw(args, input_path, theme_mode, args.ref),
+        )
+    except Exception as e:
+        print(f"Error: render failed: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return 1
+    if body is None:
+        print(
+            "Error: render declined — required diagram geometry is missing "
+            "(see logs for the missing ids)",
+            file=sys.stderr,
+        )
+        return 1
     return _emit_render(args, input_path, body)
 
 
@@ -1435,7 +1435,7 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     """Render every ``.vi`` under ``root`` into the cache (a 'warm' pass in one
     process — the ~250 ms import is paid once, not once per VI). Already-fresh
     slots are skipped. With -o, also export a mirrored HTML/SVG tree there."""
-    from .output_cache import lookup_render, store_render
+    from .output_cache import cached_render, lookup_render
 
     vis = sorted(p for p in root.rglob("*.vi") if p.is_file())
     if not vis:
@@ -1445,6 +1445,7 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     options = _render_options_tag(args, theme_mode, None)  # no per-VI ref in batch
     ext = "html" if args.format == "html" else "svg"
     outdir = Path(args.output) if args.output else None
+    _configure_resolvers(args)  # once for the whole batch, not per VI
 
     rendered = fresh = failed = 0
     for vi in vis:
@@ -1454,12 +1455,25 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
         if body is not None:
             fresh += 1
         else:
-            built = _build_render_body(args, vi, theme_mode, None)
-            if isinstance(built, int):
+            # Own lookup already done above → return_cached=False (no re-read);
+            # cached_render builds + refreshes the slot.
+            try:
+                body = cached_render(
+                    vi,
+                    fmt=args.format,
+                    options=options,
+                    version=__version__,
+                    return_cached=False,
+                    **_render_build_kw(args, vi, theme_mode, None),
+                )
+            except Exception as e:
+                # Batch keeps going on a single VI's failure, but never silently —
+                # name the VI + reason so a warm-pass failure is diagnosable.
+                print(f"  {vi.name}: render failed: {e}", file=sys.stderr)
+                body = None
+            if body is None:
                 failed += 1
                 continue
-            body = built
-            store_render(vi, args.format, options, __version__, body)
             rendered += 1
         if outdir is not None:
             dest = outdir / vi.relative_to(root).with_suffix(f".{ext}")
@@ -1502,43 +1516,28 @@ def _auto_search_paths(explicit: list[str], *inputs: Path) -> list[Path]:
 
 
 def _diff_options_tag(args: argparse.Namespace, fmt: str, verbose: bool) -> str:
-    """The output-cache options key for a diff: everything besides the two VIs'
-    content and the lvkit version that changes the output bytes."""
-    return (
-        f"{fmt}|verbose={int(bool(verbose))}"
-        f"|before={args.before_ref or ''}|after={args.after_ref or ''}"
-    )
+    """The diff output-cache options key from CLI args — delegates to the shared
+    ``diff_options_tag`` so CLI/MCP/web all key identically."""
+    from .output_cache import diff_options_tag
+
+    return diff_options_tag(fmt, verbose, args.before_ref, args.after_ref)
 
 
-def _build_diff_body(
-    args: argparse.Namespace, path_a: Path, path_b: Path, fmt: str, verbose: bool
-) -> str | int:
-    """Build the diff body (text/json/html) via the shared ``diff_vi_files``
-    core. Returns the body, or an int exit code. Imports the render/graph stack
-    HERE (via ``vi_diff``) — a cache hit never reaches it."""
-    from .vi_diff import diff_vi_files
-
+def _diff_build_kw(
+    args: argparse.Namespace, path_a: Path, path_b: Path, verbose: bool
+) -> dict[str, object]:
+    """The ``diff_vi_files`` build kwargs from CLI args. The actual build/import
+    happens inside ``cached_diff`` on a miss — a cache hit never reaches it."""
     vilib_root, userlib_root = _parse_library_roots(args)
-    body = diff_vi_files(
-        path_a,
-        path_b,
-        fmt=fmt,
-        verbose=verbose,
-        search_paths=_auto_search_paths(args.search_paths, path_a, path_b),
-        before_ref=args.before_ref,
-        after_ref=args.after_ref,
-        mode=_resolve_load_mode(args, LoadMode.MINIMAL),
-        vilib_root=vilib_root,
-        userlib_root=userlib_root,
-    )
-    if body is None:
-        print(
-            "Error: render declined — required diagram geometry is missing "
-            "(see logs for the missing ids)",
-            file=sys.stderr,
-        )
-        return 1
-    return body
+    return {
+        "verbose": verbose,
+        "search_paths": _auto_search_paths(args.search_paths, path_a, path_b) or None,
+        "before_ref": args.before_ref,
+        "after_ref": args.after_ref,
+        "mode": _resolve_load_mode(args, LoadMode.MINIMAL),
+        "vilib_root": vilib_root,
+        "userlib_root": userlib_root,
+    }
 
 
 def _emit_diff(
@@ -1600,8 +1599,9 @@ def cmd_diff(args: argparse.Namespace) -> int:
     verbose = bool(args.verbose or args.long)
     options = _diff_options_tag(args, fmt, verbose)
 
-    # Fast path: a cached diff for the same (before, after) bytes is returned
-    # WITHOUT importing the graph/render stack. path_a is BEFORE, path_b AFTER.
+    # Fast path: a cached diff is served before any miss-path setup (see cmd_render
+    # — the unique saving on a hit is _configure_resolvers + _diff_build_kw, not the
+    # heavy import, which cached_diff also defers). path_a is BEFORE, path_b AFTER.
     if not args.no_cache:
         from .output_cache import lookup_diff
 
@@ -1609,20 +1609,33 @@ def cmd_diff(args: argparse.Namespace) -> int:
         if cached is not None:
             return _emit_diff(args, path_a, path_b, fmt, cached)
 
+    # Miss (or --no-cache): build + store via the shared core. return_cached=False
+    # because the read above already happened (or was skipped) — no double-check.
+    from .output_cache import cached_diff
+
     _configure_resolvers(args)
     try:
-        body = _build_diff_body(args, path_a, path_b, fmt, verbose)
-        if isinstance(body, int):
-            return body
-        # A fresh build always refreshes the slot (see cmd_render) — --no-cache
-        # forces the rebuild but still updates the cache.
-        from .output_cache import store_diff
-
-        store_diff(path_a, path_b, fmt, options, __version__, body)
-        return _emit_diff(args, path_a, path_b, fmt, body)
-    except (ValueError, FileNotFoundError, KeyError) as e:
-        print(f"Error: {e}", file=sys.stderr)
+        body = cached_diff(
+            path_a,
+            path_b,
+            fmt=fmt,
+            options=options,
+            version=__version__,
+            return_cached=False,
+            **_diff_build_kw(args, path_a, path_b, verbose),
+        )
+    except Exception as e:  # same catch as cmd_render — one shared cached_* call
+        print(f"Error: diff failed: {e}", file=sys.stderr)
+        traceback.print_exc()
         return 1
+    if body is None:
+        print(
+            "Error: diff declined — required diagram geometry is missing "
+            "(see logs for the missing ids)",
+            file=sys.stderr,
+        )
+        return 1
+    return _emit_diff(args, path_a, path_b, fmt, body)
 
 
 def cmd_generate(args: argparse.Namespace) -> int:

@@ -13,3 +13,14 @@ DEVELOPMENT.md
 # inside the package, so shipping them just costs every user ~380 KB.
 View.png
 Diff.png
+
+# --- Web-target assets (this file is the DESKTOP ignore) --------------------
+# The 4 desktop VSIXes ship the native bin/ and run lvkit as a subprocess, so
+# the ~16 MB self-hosted Pyodide runtime + wheels are pure bloat here. The tiny
+# dist/web/extension.js (the browser entry the shared manifest declares) still
+# ships so vsce is satisfied — it is never loaded on a desktop host. The WEB
+# VSIX is packaged with the inverse .vscodeignore.web (includes media/, excludes
+# bin/); see build-web-assets.sh + publish-bundles.yml.
+media/**
+web/**
+esbuild.web.js

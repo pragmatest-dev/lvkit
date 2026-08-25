@@ -3,7 +3,7 @@ name: Publish lvkit bundles
 # ONE build per platform, published as MANY forms. Fires on an EXTENSION tag
 # (ext-v*), separate from the PyPI publish (v*).
 #
-#   verify -> build (fan out: native runner per OS) -> publish (VSIX) + release-bundles
+#   verify -> build (native runner per OS) + build-web (Pyodide) -> publish (VSIX) + release-bundles
 #
 # Each platform builds ITS OWN `lvkit` standalone binary once (PyInstaller, via
 # build-binary.sh) on that platform's NATIVE runner, then packages EVERY
@@ -25,9 +25,10 @@ on:
   push:
     tags:
       - "ext-v*"
-  # Manual dry-run: builds + uploads the four .vsix artifacts WITHOUT publishing
-  # (the publish job below is gated to ext-v* tag pushes). Use it to install and
-  # test the exact Marketplace binary on each platform before cutting a release.
+  # Manual dry-run: builds + uploads all five .vsix artifacts (4 desktop + web)
+  # WITHOUT publishing (the publish job below is gated to ext-v* tag pushes). Use
+  # it to install and test the exact Marketplace binary on each platform — and
+  # the web VSIX on vscode.dev — before cutting a release.
   workflow_dispatch:
 
 jobs:
@@ -211,6 +212,19 @@ jobs:
             "$h  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
           }
 
+      # The manifest is shared, so it declares BOTH `main` (this native binary)
+      # and `browser` (the web entry). vsce refuses to package if a declared
+      # entrypoint file is missing — so even the desktop VSIXes must carry the
+      # tiny dist/web/extension.js (it never loads on a desktop host). Build just
+      # that esbuild bundle here; the heavy Pyodide/wheel assets stay out of the
+      # desktop VSIX via .vscodeignore.
+      - name: Build the web entry (shared manifest `browser` field)
+        shell: bash
+        working-directory: editors/vscode
+        run: |
+          npm ci
+          node esbuild.web.js
+
       - name: Package .vsix for this platform
         shell: bash
         working-directory: editors/vscode
@@ -235,8 +249,43 @@ jobs:
             lvkit-*.sha256
           retention-days: 5
 
+  # The 5th target: the WEB (browser / Pyodide) VSIX for hosted editors
+  # (vscode.dev, GitHub Codespaces web, GitLab Web IDE, Cursor). wasm is
+  # platform-agnostic, so this is ONE ubuntu build with NO PyInstaller and NO
+  # signing. Instead of a native bin/ it bundles the self-hosted Pyodide runtime
+  # + wheels (build-web-assets.sh) and packages with the inverse
+  # .vscodeignore.web (ships media/, drops bin/). `--target web` is the marker
+  # that lights up the Marketplace "Install" button on web hosts.
+  build-web:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build web bundle + self-hosted assets
+        shell: bash
+        working-directory: editors/vscode
+        run: |
+          npm ci
+          npm run build:web
+      - name: Package web .vsix
+        shell: bash
+        working-directory: editors/vscode
+        run: |
+          npx --yes @vscode/vsce package --target web \
+            --ignoreFile .vscodeignore.web --no-git-tag-version -o "lvkit-web.vsix"
+          ls -la "lvkit-web.vsix"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix-web
+          path: editors/vscode/lvkit-web.vsix
+          retention-days: 5
+
   publish:
-    needs: build
+    needs: [build, build-web]
     # ONLY on an ext-v* tag push. A manual workflow_dispatch run still reaches
     # build (the .vsix artifacts are uploaded), but this job is skipped, so
     # nothing is ever published from a dry-run.
@@ -259,12 +308,12 @@ jobs:
         run: |
           set -euo pipefail
           ls -la vsix
-          # Every target must be present before anything is uploaded.
-          for target in linux-x64 win32-x64 darwin-x64 darwin-arm64; do
+          # Every target must be present before anything is uploaded (web incl.).
+          for target in linux-x64 win32-x64 darwin-x64 darwin-arm64 web; do
             test -f "vsix/lvkit-$target.vsix" || {
               echo "::error::missing vsix/lvkit-$target.vsix"; exit 1; }
           done
-          for target in linux-x64 win32-x64 darwin-x64 darwin-arm64; do
+          for target in linux-x64 win32-x64 darwin-x64 darwin-arm64 web; do
             echo "::group::publish $target"
             npx --yes @vscode/vsce publish \
               --packagePath "vsix/lvkit-$target.vsix" --pat "$VSCE_PAT"
@@ -293,7 +342,7 @@ jobs:
             echo "OVSX_TOKEN not set — skipping Open VSX publish"
             exit 0
           fi
-          for target in linux-x64 win32-x64 darwin-x64 darwin-arm64; do
+          for target in linux-x64 win32-x64 darwin-x64 darwin-arm64 web; do
             echo "::group::open-vsx $target"
             npx --yes ovsx publish "vsix/lvkit-$target.vsix"
             echo "::endgroup::"

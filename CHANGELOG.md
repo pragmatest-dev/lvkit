@@ -3,6 +3,12 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **New: the VS Code extension now works in web / hosted editors** — vscode.dev,
+  GitHub Codespaces web, GitLab Web IDE, and Cursor. It renders `.vi` diagrams,
+  navigates SubVIs (click to open), and shows visual diffs by running lvkit in
+  WebAssembly (Pyodide) right in the browser — no native binary, no local disk,
+  and nothing fetched at runtime. Published as a 5th target alongside the four
+  desktop builds; the desktop extension is unchanged.
 
 ## [0.6.3] - 2026-08-19
 - **Fix: VI icons now render in color.** The renderer read the 1-bit

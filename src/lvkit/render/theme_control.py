@@ -10,18 +10,20 @@ dark)`` / ``:root[data-theme="dark"]`` palette that
 the page at once, with no re-render.
 
 This module supplies the ONE small toolbar button (and its JS) that drives that
-flip. It is deliberately UNOBTRUSIVE — a single ~28px icon button that cycles
-``auto → light → dark → auto`` on click, NOT a segmented control — so the theme
-control never becomes a large part of the viewer chrome.
+flip. It is deliberately UNOBTRUSIVE — a single ~28px icon button that toggles
+``light <-> dark`` on click, NOT a segmented control — so the theme control never
+becomes a large part of the viewer chrome. The diagram theme is INDEPENDENT of
+the host chrome (which follows the OS/browser/VS Code); it defaults to light —
+what LabVIEW users expect — regardless of the surrounding environment.
 
 The JS is CSP-safe (listeners attached in JS, no inline ``on*`` attributes) and
 dependency-free. It:
 
-- sets ``document.documentElement.dataset.theme`` to ``''`` (auto →
-  ``removeAttribute``), ``'light'``, or ``'dark'``;
+- sets ``document.documentElement.dataset.theme`` to ``'light'`` or ``'dark'``
+  (always an explicit palette — never removed);
 - persists the choice to ``localStorage['lvkitDiagramTheme']``;
 - restores the initial mode from ``window.__lvkitInitialTheme`` (a host may
-  inject one), else ``localStorage``, else ``'auto'``;
+  inject one), else ``localStorage``, else ``'light'``;
 - if running inside VS Code (``typeof acquireVsCodeApi === 'function'``),
   acquires the API ONCE (VS Code throws on a second ``acquireVsCodeApi()`` call)
   and ``postMessage({type:'lvkitDiagramTheme', value})`` on each change, so a
@@ -50,18 +52,20 @@ THEME_CONTROL_BTN_ID = "lvkitThemeBtn"
 # viewer still sees a labelled, inert button.
 THEME_CONTROL_BUTTON = (
     f'<button id="{THEME_CONTROL_BTN_ID}" type="button" class="lvkit-theme-btn" '
-    'title="Diagram theme: Auto (click to cycle)" '
-    'aria-label="Cycle diagram theme">◐</button>'
+    'title="Diagram theme: Light (click to toggle)" '
+    'aria-label="Toggle diagram theme">☀</button>'
 )
 
-# ◐ auto (half-filled — follows the editor), ☀ light, ☾ dark. Clean minimal
-# glyphs that read at ~28px in both light and dark chrome.
+# ☀ light, ☾ dark. The diagram theme is deliberately INDEPENDENT of the host
+# chrome (which follows the OS/browser/VS Code) — it defaults to light (what
+# LabVIEW users expect) and the button toggles light<->dark. Clean minimal glyphs
+# that read at ~28px in both light and dark chrome.
 THEME_CONTROL_SCRIPT = """<script>
 (function(){
   var KEY = "lvkitDiagramTheme";
-  var MODES = ["auto", "light", "dark"];
-  var GLYPH = {auto: "◐", light: "☀", dark: "☾"};
-  var LABEL = {auto: "Auto (follows editor)", light: "Light", dark: "Dark"};
+  var MODES = ["light", "dark"];
+  var GLYPH = {light: "☀", dark: "☾"};
+  var LABEL = {light: "Light", dark: "Dark"};
   // VS Code throws if acquireVsCodeApi() is called twice, so grab it ONCE here
   // and reuse the handle for every postMessage below. Stashed on `window` so
   // any OTHER inline script the host injects into this same page (e.g. the
@@ -76,16 +80,16 @@ THEME_CONTROL_SCRIPT = """<script>
     if (typeof window.__lvkitInitialTheme === "string")
       return window.__lvkitInitialTheme;
     try { var v = localStorage.getItem(KEY); if (v) return v; } catch (e) {}
-    return "auto";
+    return "light";
   }
   var mode = initialMode();
-  if (MODES.indexOf(mode) < 0) mode = "auto";
+  if (MODES.indexOf(mode) < 0) mode = "light";  // ignore a stale "auto" value
   var btn = document.getElementById("__BTN_ID__");
   function apply(){
     var root = document.documentElement;
-    // auto = no override -> the SVG's own @media(prefers-color-scheme) decides.
-    if (mode === "auto") root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", mode);
+    // The diagram is always an explicit light/dark palette (default light),
+    // independent of the host chrome — so data-theme is always set.
+    root.setAttribute("data-theme", mode);
     if (btn) {
       btn.textContent = GLYPH[mode];
       btn.title = "Diagram theme: " + LABEL[mode] + " (click to cycle)";
