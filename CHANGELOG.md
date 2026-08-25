@@ -3,12 +3,32 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
-- **New: the VS Code extension now works in web / hosted editors** — vscode.dev,
-  GitHub Codespaces web, GitLab Web IDE, and Cursor. It renders `.vi` diagrams,
-  navigates SubVIs (click to open), and shows visual diffs by running lvkit in
-  WebAssembly (Pyodide) right in the browser — no native binary, no local disk,
-  and nothing fetched at runtime. Published as a 5th target alongside the four
-  desktop builds; the desktop extension is unchanged.
+
+## [0.7.0] - 2026-08-24
+- **New: the VS Code extension runs in web / hosted editors** (vscode.dev, GitHub
+  Codespaces web, GitLab Web IDE, Cursor) — rendering `.vi` diagrams, SubVI
+  navigation, and visual diffs via lvkit in WebAssembly (Pyodide), no native
+  binary or local disk. A 5th target; the desktop builds are unchanged.
+- **The diagram now defaults to the light LabVIEW palette** regardless of OS or
+  editor theme; the viewer chrome still follows its host (OS in a browser, VS
+  Code theme in the editor). Toggle light/dark with the ☀/☾ button — the old
+  "auto" diagram mode (and the `auto` value of `lvkit.diagramTheme`) is gone.
+- **The web viewer now caches renders and diffs**, so reopening a VI in a session
+  is instant — every render/diff path now shares one cache.
+- **Rendering fidelity — many fixes so a diagram matches LabVIEW more closely:**
+  nested structures occlude and clip their contents correctly (#35, #39); Case
+  structures and stacked sequences show the saved-visible frame (#30); hidden
+  loop terminals are respected and auto-indexing/concatenating tunnels draw per
+  their mode (#34, #38); Disable-structure frame labels and per-subtype styling
+  (#31); free-label comments and decorations render (#32); structure tunnel wire
+  bends and byte-exact string constants (#37); enums take a coercion dot (#33);
+  correct Bundle/Unbundle-By-Name field names (#36); and a SubVI call into its
+  own library/class resolves to the caller's sibling (#29).
+- **Fix: the connector-pane aside (▦) no longer balloons with zoom** — pinned
+  outside the diagram and clamped to the view, like the help tip (#58).
+- **The extension always uses its bundled lvkit** (never a repo `.venv`) so
+  render, diff, and MCP share one cache; incompatible builds now coexist by
+  fingerprint instead of re-extracting (#57).
 
 ## [0.6.3] - 2026-08-19
 - **Fix: VI icons now render in color.** The renderer read the 1-bit
