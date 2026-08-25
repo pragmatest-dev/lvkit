@@ -699,7 +699,29 @@ function setPhase(label, pct) {
   L.phase.hidden = false; L.bar.hidden = false; L.hint.hidden = false;
   if (label != null) L.phase.textContent = label; if (pct != null) L.fill.style.width = pct + "%";
 }
-function showResult(html) { const f = document.getElementById("viewer"); f.srcdoc = html; f.style.display = "block"; L.loader.classList.add("hidden"); }
+// The viewer CHROME (page frame + buttons) follows the VS CODE theme, not the OS.
+// VS Code stamps the kind on this webview's <body> (data-vscode-theme-kind /
+// vscode-dark|light class); resolve it to light/dark and set data-viewer-theme on
+// the srcdoc iframe's <html>, which the viewer CSS reads. The DIAGRAM stays
+// independent (defaults light, its own ☀/☾ toggle) — this only drives chrome.
+function vscodeThemeKind() {
+  const k = document.body.getAttribute("data-vscode-theme-kind") || document.body.className || "";
+  return /light/.test(k) ? "light" : "dark";
+}
+function applyChromeTheme() {
+  const f = document.getElementById("viewer");
+  const doc = f && f.contentDocument;
+  if (doc && doc.documentElement) doc.documentElement.setAttribute("data-viewer-theme", vscodeThemeKind());
+}
+// Re-apply when the user switches VS Code theme (the class/attr on <body> mutates).
+new MutationObserver(applyChromeTheme).observe(document.body, { attributes: true, attributeFilter: ["class", "data-vscode-theme-kind"] });
+function showResult(html) {
+  const f = document.getElementById("viewer");
+  f.onload = applyChromeTheme;   // srcdoc loads async — theme it once its DOM exists
+  f.srcdoc = html;
+  f.style.display = "block";
+  L.loader.classList.add("hidden");
+}
 function showError(msg) {
   L.loader.classList.remove("hidden");
   L.title.textContent = "Couldn’t render this VI";

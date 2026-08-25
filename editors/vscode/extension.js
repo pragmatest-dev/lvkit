@@ -14,10 +14,11 @@ const MIN_LVKIT = "0.5.3";
 function cfg() { return vscode.workspace.getConfiguration('lvkit'); }
 function extraSearchPaths() { return cfg().get('searchPaths', []); }
 // Theme for the DIAGRAM SVG only (the viewer chrome always follows the editor
-// via prefers-color-scheme). Persisted as the `lvkit.diagramTheme` setting.
+// via prefers-color-scheme). Persisted as the `lvkit.diagramTheme` setting. The
+// diagram defaults to light — what LabVIEW users expect — independent of chrome.
 function diagramTheme() {
-  const t = cfg().get('diagramTheme', 'auto');
-  return ['auto', 'light', 'dark'].includes(t) ? t : 'auto';
+  const t = cfg().get('diagramTheme', 'light');
+  return ['light', 'dark'].includes(t) ? t : 'light';
 }
 
 // ---- helpers ---------------------------------------------------------------

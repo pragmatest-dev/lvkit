@@ -21,7 +21,23 @@
       --accent:#1f6feb;--accent-fg:#e6edf3;
     }
   }
-  /* DIAGRAM theme only. The ◐/☀/☾ toggle sets data-theme on <html> to re-theme
+  /* HOST chrome override. A host that KNOWS its theme (the VS Code extension)
+     sets data-viewer-theme on <html> so the chrome follows the editor, not the
+     OS. Absent (a standalone browser) => the @media above decides, i.e. follow
+     the OS. Higher specificity than the plain :root in @media, so it wins either
+     way. SEPARATE from data-theme (the diagram) so the diagram toggle never
+     moves the chrome. */
+  :root[data-viewer-theme="light"]{
+    --bg:#ffffff;--panel:#f6f8fa;--fg:#1f2328;--line:#d0d7de;
+    --btn:#eaeef2;--btn-hover:#dfe4ea;--fg-muted:#57606a;
+    --accent:#0969da;--accent-fg:#ffffff;
+  }
+  :root[data-viewer-theme="dark"]{
+    --bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--line:#30363d;
+    --btn:#21262d;--btn-hover:#2a3038;--fg-muted:#aeb6c2;
+    --accent:#1f6feb;--accent-fg:#e6edf3;
+  }
+  /* DIAGRAM theme only. The ☀/☾ toggle sets data-theme on <html> to re-theme
      the embedded diagram SVG (its own CSS listens to it). The ONLY chrome
      property allowed to follow the toggle is --canvas — the diagram backdrop,
      visually part of the diagram. ALL other chrome above follows the
