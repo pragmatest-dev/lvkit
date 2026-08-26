@@ -80,11 +80,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Build self-hosted web assets (Pyodide + wheels)
+      - name: Build self-hosted web assets (Pyodide + wheels) for the parity render
         working-directory: editors/vscode
+        # The shipped web VSIX is CDN-only (no media/), but the parity check needs a
+        # self-hosted Pyodide to run the wasm render — so build it directly here,
+        # independent of `build:web` (which no longer produces media/).
         run: |
           npm ci
-          npm run build:web
+          bash build/build-web-assets.sh
       - name: Web (wasm) render == native render, byte-for-byte
         run: bash editors/vscode/build/check-web-parity.sh
 

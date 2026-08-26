@@ -2,7 +2,7 @@
   "name": "lvkit",
   "displayName": "LVKit",
   "description": "View and diff VIs without LabVIEW.",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "publisher": "pragmatest",
   "icon": "icon.png",
   "license": "Apache-2.0",
@@ -19,7 +19,7 @@
     },
     "virtualWorkspaces": {
       "supported": true,
-      "description": "In a virtual workspace (a hosted/web editor such as vscode.dev, GitHub Codespaces web, GitLab Web IDE, or Cursor) LVKit renders .vi files in the browser via its bundled lvkit WebAssembly build — no local disk or executable needed. Diff and the MCP server remain desktop-only."
+      "description": "In a virtual workspace (a hosted/web editor such as vscode.dev, GitHub Codespaces web, GitLab Web IDE, or Cursor) LVKit renders .vi files in the browser via lvkit compiled to WebAssembly (Pyodide, loaded from a CDN) — no local disk or executable needed. Diff and the MCP server remain desktop-only."
     }
   },
   "categories": ["Visualization", "SCM Providers", "Other"],
@@ -97,7 +97,7 @@
     }
   },
   "scripts": {
-    "build:web": "node esbuild.web.js && bash build/build-web-assets.sh",
+    "build:web": "node esbuild.web.js",
     "test:web": "vscode-test-web --browser=chromium --extensionDevelopmentPath=. ../../tests/corpus/issues/30"
   },
   "devDependencies": {
