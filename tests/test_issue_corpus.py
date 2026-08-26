@@ -9,6 +9,7 @@ always run.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ from lvkit.graph.models import (
     LoopNode,
     SequenceNode,
 )
+from lvkit.list_deps import list_deps
 from lvkit.models import DisableStructureKind, TunnelMode, TunnelTerminal
 from lvkit.render import render_vi_file
 from lvkit.render.scene import _frame_info, _structure_borders
@@ -44,6 +46,72 @@ def _load(rel: str) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(vi, mode=LoadMode.MINIMAL, search_paths=[vi.parent], layout=True)
     return graph, graph.resolve_vi_name(vi.name)
+
+
+def _strip_path_id(svg: str) -> str:
+    """Normalize the SVG root ``id`` (and its ``getElementById``), which is
+    derived from the source file PATH (``lv-<pathslug>``) and so legitimately
+    differs between a ``/proj``-staged web render and a workspace desktop
+    render. The web/desktop parity guarantee is about render CONTENT, not the
+    path, so compare content with the path-id normalized out."""
+    svg = re.sub(r'id="lv-[^"]+"', 'id="lv-NORM"', svg)
+    return re.sub(r'getElementById\("lv-[^"]+"\)', 'getElementById("lv-NORM")', svg)
+
+
+def _closure(entry: Path, root: Path) -> set[Path]:
+    """The transitive dependency closure the web extension's
+    ``stageDependencyClosure`` BFS mirrors into ``/proj`` — driven by
+    ``lvkit.list_deps`` exactly as ``editors/vscode/web/extension.js`` does."""
+    closure: set[Path] = set()
+    frontier = [entry]
+    while frontier:
+        nxt: list[Path] = []
+        for f in frontier:
+            for d in list_deps(f, search_paths=[root]):
+                p = Path(d)
+                if p not in closure:
+                    closure.add(p)
+                    nxt.append(p)
+        frontier = nxt
+    return closure
+
+
+def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
+    """The web (Pyodide) extension stages only a VI's dependency CLOSURE into
+    ``/proj`` before rendering — not the whole workspace — so that closure must
+    contain everything the render reads, or the web render degrades vs desktop.
+
+    Issue 29's ``Test.vi`` references two same-named ``Do.vi`` (in ``Lib1`` and
+    ``Lib2``) via ``LinkSavePathRef`` but has an EMPTY SubVI call table, so a
+    closure keyed off the call table (``subvi_qualified_names``) misses them and
+    draws the SubVIs as bare boxes. Assert that rendering from the ``list_deps``
+    closure alone is byte-identical (content) to rendering from the full tree.
+    """
+    root = (_CORPUS / "29" / "Test LVKit").resolve()
+    entry = root / "Lib2" / "Class" / "Test.vi"
+
+    closure = _closure(entry, root)
+    assert "Do.vi" in {p.name for p in closure}, (
+        f"closure {sorted(p.name for p in closure)} missing the referenced Do.vi "
+        "— the web render would understage vs desktop"
+    )
+
+    # Stage ONLY {entry} + its closure into a temp /proj-like tree.
+    for src in [entry, *closure]:
+        dst = tmp_path / src.resolve().relative_to(root)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(src.read_bytes())
+
+    svg_closure = render_vi_file(
+        tmp_path / entry.relative_to(root), search_paths=[tmp_path]
+    )
+    svg_full = render_vi_file(entry, search_paths=[root])
+    assert svg_closure and svg_full, "expected both renders to produce a diagram"
+
+    assert _strip_path_id(svg_closure) == _strip_path_id(svg_full), (
+        "web closure render differs from the full-tree (desktop) render — "
+        "list_deps understaged this VI's dependencies"
+    )
 
 
 def test_issue36_bundle_unbundle_and_waveform_field_names():

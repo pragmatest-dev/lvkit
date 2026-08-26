@@ -106,6 +106,15 @@ def _list_deps_vi(path: Path, search_paths: list[Path] | None) -> list[str]:
         if ref.qualified_name
     }
 
+    # Every recorded LinkSavePathRef dependency, too. The SubVI/type call table
+    # (subvi_qualified_names / type_map) is empty on some VIs — e.g. older files
+    # whose VITS block doesn't decode — yet the RENDER still resolves and reads
+    # each LinkSavePathRef, so a closure keyed only off the call table understages
+    # and the web render degrades vs desktop (a wired SubVI drawn as a bare box).
+    # dependency_refs is the complete record of what the file references, so the
+    # closure must follow it. (tests/test_issue_corpus.py::…issue29… guards this.)
+    all_dep_qnames.update(dep_ref_map)
+
     graph = InMemoryVIGraph()
     results: list[str] = []
     seen: set[str] = set()
