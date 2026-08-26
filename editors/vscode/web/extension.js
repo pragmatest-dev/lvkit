@@ -12,9 +12,10 @@
 // The SAME boot page (pyodideWebviewHtml) serves two jobs — a single-VI render
 // (the custom editor) and a two-VI visual diff (the lvkit.diffVI command).
 //
-// Everything is SELF-HOSTED under media/ (build-web-assets.sh): the Pyodide core
-// + pruned package closure in media/pyodide, and the lvkit/pylabview/networkx
-// wheels in media/wheels. Nothing is fetched from a CDN or PyPI at runtime.
+// The Pyodide runtime is loaded from jsDelivr and the lvkit/pylabview/networkx
+// wheels from PyPI at runtime (see CDN_PYODIDE / CDN_WHEELS below); the VSIX
+// bundles no media/ runtime (self-hosting was dropped in v0.7.4 — slower on
+// vscode.dev, and Open VSX couldn't serve it anyway).
 //
 // DIAGNOSTICS: several web-only paths (SubVI staging/resolution, the Git diff
 // integration, the webview CSP/iframe) can't be verified headlessly, so this
@@ -57,10 +58,18 @@ function toBase64(bytes) {
 
 // Pyodide runtime + wheels, loaded from public CDNs: jsDelivr for the runtime,
 // PyPI for the pure-Python wheels (micropip installs each by NAME, deps:false;
-// lvkit LAST since it imports networkx + pylabview at import time). Versions pinned
-// to match the render (uv.lock) and lvkit's own release; keep in sync on a bump.
+// lvkit LAST since it imports networkx + pylabview at import time).
+//
+// LVKIT_WHEEL is pinned to the lvkit CORE version this build runs against, and is
+// DECOUPLED from the extension's own version on purpose: an extension-only fix
+// (anything under editors/vscode/ — a bug in this file, marketplace metadata) can
+// ship a new ext-vX.Y.Z WITHOUT re-publishing lvkit to PyPI, because the web
+// target keeps installing this fixed wheel. Bump LVKIT_WHEEL *only* when src/lvkit
+// changes (and publish that lvkit to PyPI); it MUST name a version that exists on
+// PyPI. networkx/pylabview are likewise pinned to match the render (uv.lock).
 const CDN_PYODIDE = "https://cdn.jsdelivr.net/pyodide/v314.0.5/full/";
-const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2"]; // lvkit appended (its own version)
+const LVKIT_WHEEL = "lvkit==0.7.6";
+const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2", LVKIT_WHEEL];
 
 // The web extension runs ONLY in hosted editors (vscode.dev, GitLab Web IDE,
 // Cursor, Gitpod, Codespaces) — all online — so we load Pyodide + wheels straight
@@ -70,9 +79,8 @@ const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2"]; // lvkit appended (i
 // VI), so this is smaller AND faster. No bundled fallback: an air-gapped browser
 // IDE isn't a real host, and Open VSX can't serve bundled media/ anyway
 // (eclipse-openvsx/openvsx#2099).
-async function pyodideAssets(context) {
-  const lvkitSpec = `lvkit==${context.extension.packageJSON.version}`;
-  return { wheels: [...CDN_WHEELS, lvkitSpec], pyodideBase: CDN_PYODIDE };
+async function pyodideAssets() {
+  return { wheels: CDN_WHEELS, pyodideBase: CDN_PYODIDE };
 }
 
 // ── The shared Pyodide "engine" (a PANEL WebviewView, not an editor tab) ─────
@@ -113,12 +121,12 @@ function makeEngine(webview) {
 }
 
 // Boots Pyodide when the engine view is (re)resolved, and wires the job protocol.
-function engineViewProvider(context) {
+function engineViewProvider() {
   return {
     resolveWebviewView(view) {
       view.webview.options = {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
+        localResourceRoots: [], // CDN-only: nothing loaded as a local webview resource (no media/)
       };
       const engine = makeEngine(view.webview);
       view.webview.onDidReceiveMessage((m) => {
@@ -138,7 +146,7 @@ function engineViewProvider(context) {
       });
       _engine = engine;
       const wake = () => { const waiters = _engineWaiters; _engineWaiters = []; waiters.forEach((r) => r(engine)); };
-      pyodideAssets(context)
+      pyodideAssets()
         .then((assets) => { view.webview.html = engineHtml(view.webview, assets.wheels, assets.pyodideBase); wake(); })
         .catch((e) => { view.webview.html = errorHtml("LVKit web build is missing its wheels", String(e)); logError("engine assets", e); engine.rejectReady(new Error(String(e))); wake(); });
     },
@@ -335,7 +343,7 @@ async function resolveDiffSides(target) {
   return { before: { uri: head, ref: "HEAD" }, after: { uri: target, ref: null } };
 }
 
-async function diffVI(context, arg) {
+async function diffVI(arg) {
   const target = arg && (arg.resourceUri || arg);
   if (!target || !/\.vi$/i.test(target.path || "")) {
     vscode.window.showErrorMessage("lvkit: no .vi selected.");
@@ -373,7 +381,7 @@ async function diffVI(context, arg) {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
+        localResourceRoots: [], // CDN-only: nothing loaded as a local webview resource (no media/)
       }
     );
     const engine = await getEngine();
@@ -433,7 +441,7 @@ function activate(context) {
       const webview = panel.webview;
       webview.options = {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")],
+        localResourceRoots: [], // CDN-only: nothing loaded as a local webview resource (no media/)
       };
       log(`open VI: ${document.uri.toString()}`);
       const engine = await getEngine();
@@ -498,11 +506,11 @@ function activate(context) {
     })
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand("lvkit.diffVI", (arg) => diffVI(context, arg))
+    vscode.commands.registerCommand("lvkit.diffVI", (arg) => diffVI(arg))
   );
   // The shared Pyodide engine lives in this Panel view (kept alive when hidden).
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("lvkit.engine", engineViewProvider(context), {
+    vscode.window.registerWebviewViewProvider("lvkit.engine", engineViewProvider(), {
       webviewOptions: { retainContextWhenHidden: true },
     })
   );

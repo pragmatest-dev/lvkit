@@ -4,6 +4,11 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-08-26
+- **Web VI open is fast again (seconds, not minutes)** — stage only the opened VI's dependency closure, in parallel, not the whole workspace; render stays byte-identical to desktop.
+- **Fix: the viewer renders the VI you opened**, even when several VIs share a name — resolve by the loader's identity, not a bare filename. Web + desktop.
+- **Web extension version decoupled from the lvkit PyPI version** — an extension-only change now ships without republishing lvkit to PyPI.
+
 ## [0.7.5] - 2026-08-26
 - **Fix: extension README screenshots now load on vscode.dev** — serve them from
   jsDelivr's GitHub CDN instead of `github.com/.../raw/...`, whose 302 redirect
