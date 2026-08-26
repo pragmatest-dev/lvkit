@@ -32,8 +32,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from ..models import (
+    CaseFrame,
     CaseOperation,
     DisableStructureOperation,
+    EventFrame,
     EventOperation,
     FeedbackOperation,
     InPlaceOperation,
@@ -45,23 +47,36 @@ from ..models import (
     PrimitiveOperation,
     PropertyOperation,
     ScalarValue,
+    SequenceFrame,
     SequenceOperation,
     Terminal,
+    Tunnel,
     TunnelMode,
     TunnelTerminal,
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
-from .core import _uid_of
+from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _uid_of
 from .interface_order import is_required
 from .models import (
+    AnyGraphNode,
+    CaseStructureNode,
     Constant,
+    DisableStructureNode,
+    EventStructureNode,
+    InPlaceNode,
+    LoopNode,
+    SequenceNode,
     VIContext,
     VIHealth,
+    VINode,
     VIProperties,
     WireEnd,
     vi_health_to_dict,
     vi_properties_to_dict,
+)
+from .models import (
+    PrimitiveNode as GraphPrimitiveNode,
 )
 from .op_walk import (
     ComponentPort,
@@ -1893,6 +1908,1354 @@ def _pane_terminal(t: Terminal, direction: str) -> ConnectorPaneTerminal:
         index=t.index,
         is_required=is_required(t, direction),
         default=t.default_value,
+    )
+
+
+# ============================================================
+# build_netlist_from_graph -- PHASE 1 (byte-parity with build_netlist)
+# ============================================================
+#
+# A SIBLING builder that walks the ``GraphNode`` graph directly -- never the
+# ``Operation`` projection -- and must reproduce ``build_netlist``'s output
+# BYTE-FOR-BYTE (see ``tests/test_netlist_from_graph_parity.py``). Every
+# helper below has a ``_gn`` suffix (or is new) to keep it visually distinct
+# from its Operation-based twin above; the model dataclasses and both
+# serializers (``render_netlist``/``netlist_to_dict``) are shared VERBATIM --
+# nothing below this point defines a new IR shape, only a new way to build the
+# existing one.
+#
+# Node-type dispatch mirrors the Operation-based ``match`` statements using
+# the ``GraphNode`` hierarchy (``graph/models.py``) instead: ``CaseOperation``
+# -> ``CaseStructureNode``, ``LoopOperation`` -> ``LoopNode``,
+# ``SequenceOperation`` -> ``SequenceNode``, ``DisableStructureOperation`` ->
+# ``DisableStructureNode``, ``EventOperation`` -> ``EventStructureNode``,
+# ``InPlaceOperation`` -> ``InPlaceNode``, a SubVI call -> ``VINode`` (with
+# ``id != vi``), and primitive/property/invoke/Feedback-Node all share the one
+# ``PrimitiveNode`` graph type (discriminated by ``.properties``/
+# ``.method_name`` / ``graph.get_feedback_info``, mirroring
+# ``operations.py::_build_operation``'s own dispatch priority).
+#
+# Two facts live ONLY as extra networkx node attributes, never on the
+# Pydantic node models (see ``construction.py``) -- reached via the two small
+# accessors added to ``queries.py`` for this builder:
+# ``graph.get_feedback_info(node_id)`` (Feedback Node master/slave link +
+# delay) and ``graph.get_poser_uid(node_id)`` (IPES decompose/recompose
+# pairing).
+
+
+_STRUCTURE_NODE_TYPES = (
+    CaseStructureNode,
+    LoopNode,
+    SequenceNode,
+    DisableStructureNode,
+    InPlaceNode,
+    EventStructureNode,
+)
+
+# Case/Sequence/Disable/Event -- structures whose inner nodes are grouped by
+# FRAME (``node.frames`` + ``node.children`` filtered by ``child.frame``),
+# mirroring ``_walk_flat``'s branch to ``frame.operations`` for these same
+# four Operation types (see that function's SHARED INVARIANT docstring).
+_FRAME_STRUCTURE_TYPES = (
+    CaseStructureNode,
+    SequenceNode,
+    DisableStructureNode,
+    EventStructureNode,
+)
+
+
+@dataclass(frozen=True)
+class _GraphBuildCtx:
+    """The graph-native analogue of ``_BuildCtx`` -- same four id spaces
+    (occurrence/case/loop/feedback), keyed identically by trailing node UID,
+    but with no ``op_by_uid``/``owner_by_terminal`` (the graph builder reaches
+    a wire's producing node directly via ``graph.get_graph_node``/
+    ``graph.get_terminal`` -- see ``_owning_node_gn`` -- instead of a
+    precomputed Operation-tree index)."""
+
+    occurrence_by_uid: dict[str, int]
+    const_by_id: dict[str, Constant]
+    case_id_by_uid: dict[str, int]
+    loop_id_by_uid: dict[str, int]
+    feedback_id_by_uid: dict[str, int]
+
+
+def _display_name_gn(node: AnyGraphNode) -> str:
+    """The graph-node analogue of ``_display_name`` -- same fallback chain
+    (``name`` -> the node-type's human word -> ``"Node"``)."""
+    node_word = get_display_name(node.node_type) if node.node_type else None
+    return node.name or node_word or "Node"
+
+
+def _has_output_tunnel_gn(node: AnyGraphNode) -> bool:
+    """The graph-node analogue of ``op_walk._has_output_tunnel``."""
+    return any(t.direction == "output" for t in node.terminals)
+
+
+def _tunnels_from_terminals_gn(terminals: list[Terminal]) -> list[Tunnel]:
+    """Reconstruct ``Tunnel`` objects from a structure's own terminal
+    metadata -- a deliberate, purely-terminal-based DUPLICATE of
+    ``OperationsMixin._tunnels_from_terminals`` (that method is a
+    ``@staticmethod`` operating ONLY on ``terminals: list[Terminal]``, no
+    Operation involved -- but importing ``InMemoryVIGraph`` for real at
+    module level here would add a real (non-``TYPE_CHECKING``) import this
+    module has deliberately avoided; duplicating this small, pure helper is
+    cheaper than that risk). Keep in sync with that method if the tunnel
+    reconstruction rule ever changes.
+    """
+    tunnels: list[Tunnel] = []
+    seen_pairs: set[tuple[str, str]] = set()
+    for term in terminals:
+        if not isinstance(term, TunnelTerminal):
+            continue
+        if not term.tunnel_type or not term.paired_id:
+            continue
+        if term.boundary == "outer":
+            outer_uid = term.id
+            inner_uid = term.paired_id
+        elif term.boundary == "inner":
+            outer_uid = term.paired_id
+            inner_uid = term.id
+        else:
+            continue
+        pair_key = (outer_uid, inner_uid)
+        if pair_key in seen_pairs:
+            continue
+        seen_pairs.add(pair_key)
+        tunnels.append(
+            Tunnel(
+                outer_terminal_uid=outer_uid,
+                inner_terminal_uid=inner_uid,
+                tunnel_type=term.tunnel_type,
+                mode=term.mode,
+                conditional=term.conditional,
+                sr_initialized=term.sr_initialized,
+                sr_stack_depth=term.sr_stack_depth,
+            )
+        )
+    return tunnels
+
+
+def _case_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
+    """The graph-node analogue of ``op_walk._case_output_tunnel_outers``."""
+    return [
+        t
+        for t in node.terminals
+        if isinstance(t, TunnelTerminal)
+        and t.boundary == "outer"
+        and t.direction == "output"
+    ]
+
+
+def _is_gamma_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """The graph-node analogue of ``op_walk._is_gamma_output_tunnel`` --
+    finds the ">1 paired inner" shape directly off ``node.terminals``
+    (inner tunnel terminals whose ``paired_id`` names this outer), rather
+    than off a reconstructed ``op.tunnels`` list."""
+    if not isinstance(node, CaseStructureNode) or not isinstance(term, TunnelTerminal):
+        return False
+    if term.boundary != "outer" or term.direction != "output":
+        return False
+    inners = {
+        t.id
+        for t in node.terminals
+        if isinstance(t, TunnelTerminal)
+        and t.boundary == "inner"
+        and t.paired_id == term.id
+    }
+    return len(inners) > 1
+
+
+def _loop_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
+    """The graph-node analogue of ``op_walk._loop_output_tunnel_outers``."""
+    return [
+        t
+        for t in node.terminals
+        if isinstance(t, TunnelTerminal)
+        and t.tunnel_type == "lpTun"
+        and t.boundary == "outer"
+        and t.direction == "output"
+    ]
+
+
+def _is_eta_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """The graph-node analogue of ``op_walk._is_eta_output_tunnel``."""
+    if not isinstance(node, LoopNode) or not isinstance(term, TunnelTerminal):
+        return False
+    return (
+        term.tunnel_type == "lpTun"
+        and term.boundary == "outer"
+        and term.direction == "output"
+    )
+
+
+def _is_mu_shift_register_read_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """The graph-node analogue of ``op_walk._is_mu_shift_register_read``."""
+    if not isinstance(node, LoopNode) or not isinstance(term, TunnelTerminal):
+        return False
+    if term.tunnel_type == "lSR" and term.boundary == "inner":
+        return True
+    return term.tunnel_type == "rSR" and term.boundary == "outer"
+
+
+def _loop_shift_register_pairs_gn(
+    node: AnyGraphNode,
+) -> list[tuple[Tunnel, Tunnel | None]]:
+    """The graph-node analogue of ``op_walk._loop_shift_register_pairs``."""
+    tunnels = _tunnels_from_terminals_gn(node.terminals)
+    lsrs = [t for t in tunnels if t.tunnel_type == "lSR"]
+    rsrs = [t for t in tunnels if t.tunnel_type == "rSR"]
+    return [(lsr, rsrs[i] if i < len(rsrs) else None) for i, lsr in enumerate(lsrs)]
+
+
+def _paired_tunnel_id_gn(term: Terminal) -> str | None:
+    """The graph-node analogue of ``op_walk._paired_tunnel_id`` -- reads
+    ``TunnelTerminal.paired_id`` directly rather than re-deriving it from a
+    reconstructed ``op.tunnels`` list. Equivalent to that lookup for every
+    terminal actually reached here: a >1-paired case output-tunnel OUTER is
+    always intercepted earlier by ``_is_gamma_output_tunnel_gn`` (same for
+    the loop eta/mu equivalents), so by the time this is called ``term`` is
+    guaranteed single-paired and ``paired_id`` alone is exact (see
+    ``_tunnels_from_terminals_gn``: an outer's reconstructed pairing IS
+    ``term.paired_id`` verbatim; only an inner's REVERSE lookup needs the
+    full tunnel table, and ``term.paired_id`` already carries that too)."""
+    if not isinstance(term, TunnelTerminal):
+        return None
+    return term.paired_id
+
+
+def _tunnel_net_name_gn(
+    node: AnyGraphNode,
+    term: Terminal,
+    id_map: dict[str, int],
+    outers_fn: Callable[[AnyGraphNode], list[Terminal]],
+    prefix: str,
+) -> str:
+    """The graph-node analogue of ``_tunnel_net_name``."""
+    id_ = id_map[_uid_of(node.id)]
+    outers = outers_fn(node)
+    k = next(i for i, t in enumerate(outers) if t.id == term.id)
+    return f"{prefix}{id_}.out{k}"
+
+
+def _gamma_net_name_gn(
+    node: AnyGraphNode, term: Terminal, build_ctx: _GraphBuildCtx
+) -> str:
+    return _tunnel_net_name_gn(
+        node, term, build_ctx.case_id_by_uid, _case_output_tunnel_outers_gn, "case"
+    )
+
+
+def _eta_net_name_gn(
+    node: AnyGraphNode, term: Terminal, build_ctx: _GraphBuildCtx
+) -> str:
+    return _tunnel_net_name_gn(
+        node, term, build_ctx.loop_id_by_uid, _loop_output_tunnel_outers_gn, "loop"
+    )
+
+
+def _mu_net_name_gn(
+    node: AnyGraphNode, term: Terminal, build_ctx: _GraphBuildCtx
+) -> str:
+    loop_id = build_ctx.loop_id_by_uid[_uid_of(node.id)]
+    pairs = _loop_shift_register_pairs_gn(node)
+    k = next(
+        i
+        for i, (lsr, rsr) in enumerate(pairs)
+        if lsr.inner_terminal_uid == term.id
+        or (rsr is not None and rsr.outer_terminal_uid == term.id)
+    )
+    return f"loop{loop_id}.shift{k}"
+
+
+def _is_feedback_output_read_gn(
+    graph: InMemoryVIGraph, node: AnyGraphNode, term: Terminal
+) -> bool:
+    """The graph-node analogue of ``_is_feedback_output_read`` -- ``graph.
+    get_feedback_info`` replaces ``isinstance(op, FeedbackOperation) and
+    op.is_master`` (the Operation-layer reclassification of a Feedback Node
+    master; at the graph level it's still a plain ``PrimitiveNode``)."""
+    if not isinstance(node, GraphPrimitiveNode) or term.direction != "output":
+        return False
+    info = graph.get_feedback_info(node.id)
+    return info is not None and info[0]
+
+
+def _is_ipes_border_node_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
+    """True when ``node`` is an In-Place-Element-Structure DECOMPOSE or
+    RECOMPOSE border node (``graph.get_poser_uid`` set, and its own
+    terminals carry list fields in only ONE direction -- the same per-node
+    test ``operations._classify_ipes_ops`` applies; a poser_uid'd node with
+    list terminals in BOTH directions, or none, is "regular", i.e. NOT a
+    border node here).
+
+    These border nodes are deliberately excluded from ``InPlaceOperation.
+    inner_nodes`` (see ``_classify_ipes_ops`` -- they're lifted onto
+    ``decompose_ops``/``recompose_ops`` instead), so ``index_terminal_owners``
+    (which only walks ``inner_nodes``/frames) never registers their
+    terminals either -- a wire sourced there falls all the way through
+    ``_resolve_source`` to the raw ``uid.index`` structural fallback. This is
+    the graph-level mirror of that exclusion, checked directly off the
+    node's own terminals (no sibling/IPES context needed -- the classification
+    is per-node)."""
+    if not isinstance(node, GraphPrimitiveNode):
+        return False
+    if not graph.get_poser_uid(node.id):
+        return False
+    has_list_out = any(
+        t.nmux_role == "list" and t.direction == "output" for t in node.terminals
+    )
+    has_list_in = any(
+        t.nmux_role == "list" and t.direction == "input" for t in node.terminals
+    )
+    return (has_list_out and not has_list_in) or (has_list_in and not has_list_out)
+
+
+def _owning_node_gn(
+    graph: InMemoryVIGraph, node_id: str, vi_name: str
+) -> AnyGraphNode | None:
+    """The graph-node analogue of ``_BuildCtx.owner_by_terminal`` -- given a
+    wire endpoint's OWN carried ``node_id`` (``WireEnd.node_id``, set at
+    construction time), resolve the owning ``GraphNode`` directly, gated to
+    the same set of "real operation" node kinds ``index_terminal_owners``'s
+    Operation-tree walk would have covered (``_OPERATION_KINDS`` --excludes
+    constants/labels/local variables), explicitly excluding the VI's OWN
+    definition node (``node_id == vi_name``: that node's own terminals are
+    the VI's boundary controls, which ``get_operations``/``index_
+    terminal_owners`` never include in the op tree either -- ``ctx.inputs``
+    is the separate boundary-control check the caller falls through to), and
+    excluding an IPES decompose/recompose border node (see
+    ``_is_ipes_border_node_gn`` -- ``index_terminal_owners`` never reaches
+    those either).
+    """
+    if node_id == vi_name:
+        return None
+    node = graph.get_graph_node(node_id)
+    if node is None:
+        return None
+    if _graph_node_to_op_kind(node) not in _OPERATION_KINDS:
+        return None
+    if _is_ipes_border_node_gn(graph, node):
+        return None
+    return node
+
+
+def _resolve_source_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    terminal_id: str,
+    build_ctx: _GraphBuildCtx,
+) -> NetRef | None:
+    """The graph-node analogue of ``_resolve_source`` -- identical hop/merge
+    logic, but resolves a wire's producing node via ``_owning_node_gn``
+    (``graph.get_graph_node``/``graph.get_terminal``-backed) instead of the
+    precomputed ``owner_by_terminal`` Operation-tree index."""
+    seen: set[str] = set()
+    tid = terminal_id
+    while True:
+        if tid in seen:
+            return None
+        seen.add(tid)
+
+        sources = graph.incoming_edges(tid)
+        if not sources:
+            return None
+        src: WireEnd = sources[0]
+
+        owner = _owning_node_gn(graph, src.node_id, vi_name)
+        term = (
+            next(
+                (
+                    t
+                    for t in _call_terminals_gn(graph, vi_name, owner)
+                    if t.id == src.terminal_id
+                ),
+                None,
+            )
+            if owner is not None
+            else None
+        )
+        if owner is not None and term is not None:
+            if _is_gamma_output_tunnel_gn(owner, term):
+                name = _gamma_net_name_gn(owner, term, build_ctx)
+                return NetRef(node=None, port=name, occurrence=None, bare=name)
+            if _is_eta_output_tunnel_gn(owner, term):
+                name = _eta_net_name_gn(owner, term, build_ctx)
+                return NetRef(node=None, port=name, occurrence=None, bare=name)
+            if _is_mu_shift_register_read_gn(owner, term):
+                name = _mu_net_name_gn(owner, term, build_ctx)
+                return NetRef(node=None, port=name, occurrence=None, bare=name)
+            if _is_feedback_output_read_gn(graph, owner, term):
+                name = f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"
+                return NetRef(node=None, port=name, occurrence=None, bare=name)
+            paired = _paired_tunnel_id_gn(term)
+            if paired is not None and paired not in seen:
+                tid = paired
+                continue
+            node_name = _display_name_gn(owner)
+            occurrence = build_ctx.occurrence_by_uid.get(_uid_of(owner.id))
+            return _term_ref(node_name, occurrence, term)
+
+        for t in ctx.inputs:
+            if t.id == src.terminal_id:
+                bare = t.name or str(t.index)
+                return NetRef(node=None, port=bare, occurrence=None, bare=bare)
+
+        const = build_ctx.const_by_id.get(src.node_id)
+        if const is not None:
+            value_str = _const_value_str(const)
+            return NetRef(
+                node=None,
+                port=value_str,
+                occurrence=None,
+                bare=value_str,
+            )
+
+        node_name = src.name or _uid_of(src.node_id)
+        port = str(src.index) if src.index is not None else src.terminal_id
+        return NetRef(
+            node=node_name,
+            port=port,
+            occurrence=None,
+            bare=f"{node_name}.{port}",
+        )
+
+
+def _resolve_or_default_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    build_ctx: _GraphBuildCtx,
+    terminal_id: str | None,
+    *fallback_terminals: Terminal | None,
+) -> NetRef | DefaultValue:
+    """The graph-node analogue of ``_resolve_or_default``."""
+    source: NetRef | None = None
+    if terminal_id is not None:
+        source = _resolve_source_gn(graph, ctx, vi_name, terminal_id, build_ctx)
+    if source is not None:
+        return source
+    lv_type = next(
+        (
+            t.lv_type
+            for t in fallback_terminals
+            if t is not None and t.lv_type is not None
+        ),
+        None,
+    )
+    return _type_default(lv_type)
+
+
+def _input_ref_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    build_ctx: _GraphBuildCtx,
+    terminal: Terminal,
+) -> NetRef | None:
+    """The graph-node analogue of ``_input_ref``."""
+    return _resolve_source_gn(graph, ctx, vi_name, terminal.id, build_ctx)
+
+
+def _selector_ref_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    build_ctx: _GraphBuildCtx,
+    terminal_id: str | None,
+) -> NetRef | None:
+    """The graph-node analogue of ``_selector_ref``."""
+    if not terminal_id:
+        return None
+    return _resolve_source_gn(graph, ctx, vi_name, terminal_id, build_ctx)
+
+
+def _build_property_accesses_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    build_ctx: _GraphBuildCtx,
+    node: GraphPrimitiveNode,
+    name: str,
+    occurrence: int | None,
+) -> list[NetlistPropertyAccess]:
+    """The graph-node analogue of ``_build_property_accesses`` -- ``node.
+    properties``/``node.property_value_terminal_ids`` are already the SAME
+    fields ``PropertyOperation`` copies them from (see ``_build_operation``),
+    so ``op_walk.correlate_property_terminals`` is reused verbatim."""
+    accesses: list[NetlistPropertyAccess] = []
+    correlated = correlate_property_terminals(
+        node.properties,
+        node.terminals,
+        node.property_value_terminal_ids,
+    )
+    for prop, term in correlated:
+        if term is None:
+            continue
+        prop_name = (prop.name or "").strip()
+        if not prop_name:
+            continue
+        if term.direction == "output":
+            net = _term_ref(name, occurrence, term)
+            accesses.append(
+                NetlistPropertyAccess(name=prop_name, direction="read", net=net)
+            )
+        else:
+            net = _input_ref_gn(graph, ctx, vi_name, build_ctx, term)
+            accesses.append(
+                NetlistPropertyAccess(name=prop_name, direction="write", net=net)
+            )
+    return accesses
+
+
+def _call_terminals_gn(
+    graph: InMemoryVIGraph, vi_name: str, node: AnyGraphNode
+) -> list[Terminal]:
+    """The displayed/wired terminal list for ``node`` -- for a SubVI CALL
+    (``VINode`` with ``id != vi``), the CALLEE's real parameter names
+    enriched in via ``OperationsMixin._enrich_subvi_terminals_typed`` (the
+    SAME graph-native method ``_build_operation`` calls to build a
+    ``SubVIOperation``'s terminals -- it reads only graph state, no
+    ``Operation`` involved, so reusing it directly is exact rather than
+    re-derived); every other node kind's own ``terminals`` unchanged.
+    Without this, a SubVI call's INPUT/OUTPUT port names would show the
+    caller-side placeholder name instead of the callee's real parameter name
+    (e.g. ``start path`` misread as ``error out``)."""
+    if isinstance(node, VINode) and node.id != node.vi:
+        return graph._enrich_subvi_terminals_typed(  # noqa: SLF001
+            list(node.terminals), node.name, vi_name
+        )
+    return node.terminals
+
+
+def _build_instance_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: AnyGraphNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetlistInstance:
+    """The graph-node analogue of ``_build_instance``. Reached only for
+    genuine leaf/instance nodes -- ``_build_items_gn`` dispatches Feedback
+    Node masters/slaves to ``_build_feedback_gn``/dissolution before this is
+    ever called, so a Feedback Node is never mistaken for a plain primitive
+    here."""
+    uid = _uid_of(node.id)
+    name = _display_name_gn(node)
+    occurrence = build_ctx.occurrence_by_uid.get(uid)
+    terminals = _call_terminals_gn(graph, vi_name, node)
+    inputs = [
+        NetlistPortBinding(port=_component_port_name(t), net=ref, inverted=t.inverted)
+        for t in terminals
+        if t.direction == "input"
+        if (ref := _input_ref_gn(graph, ctx, vi_name, build_ctx, t)) is not None
+    ]
+    outputs = [
+        _term_ref(name, occurrence, t) for t in terminals if t.direction == "output"
+    ]
+    is_property = isinstance(node, GraphPrimitiveNode) and bool(node.properties)
+    is_invoke = (
+        isinstance(node, GraphPrimitiveNode)
+        and not is_property
+        and bool(node.method_name)
+    )
+    operation = (
+        node.operation
+        if isinstance(node, GraphPrimitiveNode) and not is_property and not is_invoke
+        else None
+    )
+    object_name: str | None = None
+    method_name: str | None = None
+    properties: list[NetlistPropertyAccess] = []
+    if is_property:
+        assert isinstance(node, GraphPrimitiveNode)
+        object_name = (node.object_name or "").strip() or None
+        properties = _build_property_accesses_gn(
+            graph, ctx, vi_name, build_ctx, node, name, occurrence
+        )
+    elif is_invoke:
+        assert isinstance(node, GraphPrimitiveNode)
+        object_name = (node.object_name or "").strip() or None
+        method_name = (node.method_name or "").strip() or None
+    qualified_name = getattr(node, "qualified_name", None) or node.name
+    return NetlistInstance(
+        uid=uid,
+        name=name,
+        occurrence=occurrence,
+        inputs=inputs,
+        outputs=outputs,
+        operation=operation,
+        object_name=object_name,
+        method_name=method_name,
+        qualified_name=qualified_name,
+        properties=properties,
+    )
+
+
+def _build_feedback_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: AnyGraphNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetlistFeedback:
+    """The graph-node analogue of ``_build_feedback`` -- ``graph.
+    get_feedback_info`` replaces ``op.partner_uid``/``op.delay``, and the
+    linked write side is fetched via ``graph.get_graph_node`` instead of
+    ``build_ctx.op_by_uid``."""
+    fb = graph.get_feedback_info(node.id)
+    assert fb is not None
+    _, partner_uid, delay = fb
+    k = build_ctx.feedback_id_by_uid[_uid_of(node.id)]
+
+    init_term = next((t for t in node.terminals if t.direction == "input"), None)
+    out_term = next((t for t in node.terminals if t.direction == "output"), None)
+    init = _resolve_or_default_gn(
+        graph,
+        ctx,
+        vi_name,
+        build_ctx,
+        init_term.id if init_term is not None else None,
+        init_term,
+        out_term,
+    )
+
+    recur: NetRef | None = None
+    slave = graph.get_graph_node(partner_uid) if partner_uid else None
+    if slave is not None:
+        recur_term = next((t for t in slave.terminals if t.direction == "input"), None)
+        if recur_term is not None:
+            recur = _resolve_source_gn(graph, ctx, vi_name, recur_term.id, build_ctx)
+
+    return NetlistFeedback(
+        uid=_uid_of(node.id),
+        net=f"fb{k}",
+        init=init,
+        recur=recur,
+        delay=delay,
+    )
+
+
+def _resolve_op_nodes_gn(graph: InMemoryVIGraph, uids: list[str]) -> list[AnyGraphNode]:
+    """Resolve ``uids`` to typed graph nodes, keeping only "real operation"
+    kinds (``_OPERATION_KINDS`` -- excludes constants/labels/local
+    variables), in the given order. The graph-node analogue of the
+    ``op_kind in _OPERATION_KINDS`` filter ``_build_inner_nodes``/
+    ``get_operations``/``get_operation_order`` apply before constructing an
+    ``Operation`` for a uid."""
+    nodes: list[AnyGraphNode] = []
+    for uid in uids:
+        node = graph.get_graph_node(uid)
+        if node is not None and _graph_node_to_op_kind(node) in _OPERATION_KINDS:
+            nodes.append(node)
+    return nodes
+
+
+def _top_level_nodes_gn(graph: InMemoryVIGraph, vi_name: str) -> list[AnyGraphNode]:
+    """The graph-node analogue of ``ctx.operations``'s top-level ordering --
+    ``graph.get_operation_order`` IS the same dataflow-topological,
+    ``_node_order_key``-tie-broken sort ``get_operations`` (which builds
+    ``ctx.operations``) itself sorts by; this reuses it directly rather than
+    re-deriving the order (a pure graph-level function already, no
+    ``Operation`` involved)."""
+    return _resolve_op_nodes_gn(graph, graph.get_operation_order(vi_name))
+
+
+def _body_nodes_gn(
+    graph: InMemoryVIGraph, vi_name: str, node: AnyGraphNode
+) -> list[AnyGraphNode]:
+    """The graph-node analogue of ``_build_inner_nodes`` -- ``node.children``
+    (the forward containment adjacency, already in ``_node_order_key`` order)
+    topologically re-sorted by dataflow via ``graph._sort_inner_uids`` (the
+    SAME pure graph-level tie-break ``_build_inner_nodes`` itself calls --
+    reused directly rather than re-derived, for the identical reason
+    ``_top_level_nodes_gn`` reuses ``get_operation_order``)."""
+    if not node.children:
+        return []
+    sorted_uids = graph._sort_inner_uids(node.children, vi_name)  # noqa: SLF001
+    return _resolve_op_nodes_gn(graph, sorted_uids)
+
+
+def _frame_key_gn(
+    frame: CaseFrame | SequenceFrame | EventFrame, position: int
+) -> str | int:
+    """The graph-node analogue of ``_populate_frame_operations``'s per-frame
+    match key: a case/disable frame's own ``selector_value``, a sequence
+    frame's ``str(index)``, an event frame's list POSITION (there is no
+    selector_value/index of its own -- see ``_populate_frame_operations``)."""
+    if isinstance(frame, CaseFrame):
+        return frame.selector_value
+    if isinstance(frame, SequenceFrame):
+        return str(frame.index)
+    return str(position)
+
+
+def _frame_nodes_gn(
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    node: AnyGraphNode,
+    frame: CaseFrame | SequenceFrame | EventFrame,
+    position: int,
+) -> list[AnyGraphNode]:
+    """The graph-node analogue of ``_populate_frame_operations`` for ONE
+    frame: ``node.children`` filtered to this frame's key (matching each
+    child's own ``.frame`` attribute -- the SAME field ``_group_children_by_
+    frame`` groups by), then dataflow-sorted exactly like ``_body_nodes_gn``.
+    """
+    key = _frame_key_gn(frame, position)
+    child_uids = []
+    for uid in node.children:
+        child = graph.get_graph_node(uid)
+        if child is not None and child.frame == key:
+            child_uids.append(uid)
+    if not child_uids:
+        return []
+    sorted_uids = graph._sort_inner_uids(child_uids, vi_name)  # noqa: SLF001
+    return _resolve_op_nodes_gn(graph, sorted_uids)
+
+
+def _ipes_regular_nodes_gn(
+    graph: InMemoryVIGraph, vi_name: str, node: AnyGraphNode
+) -> list[AnyGraphNode]:
+    """The "regular" (non decompose/recompose) children of an In-Place-
+    Element Structure -- the graph-node analogue of
+    ``InPlaceOperation.inner_nodes`` (``_walk_flat``/``_build_items`` only
+    ever recurse into THIS subset; decompose/recompose ops are dropped from
+    the flat walk/body entirely, matching ``build_netlist``'s existing gap --
+    see the module's Phase 1 docstring). Filters via ``_is_ipes_border_node_gn``
+    -- the SAME per-node classification ``_owning_node_gn`` uses to exclude a
+    border node's terminals from wire-source resolution."""
+    all_nodes = _body_nodes_gn(graph, vi_name, node)
+    return [n for n in all_nodes if not _is_ipes_border_node_gn(graph, n)]
+
+
+def _walk_flat_nodes_gn(
+    graph: InMemoryVIGraph, vi_name: str, nodes: list[AnyGraphNode]
+) -> list[AnyGraphNode]:
+    """The graph-node analogue of ``_walk_flat`` -- SAME recursion shape
+    (frame-structures recurse per-frame, an In-Place Element Structure
+    recurses into its "regular" children only, everything else recurses into
+    its (dataflow-sorted) children), applied to freshly-resolved node lists
+    instead of an already-built ``Operation`` tree."""
+    flat: list[AnyGraphNode] = []
+    for node in nodes:
+        flat.append(node)
+        if isinstance(node, _FRAME_STRUCTURE_TYPES):
+            for i, frame in enumerate(node.frames):
+                flat.extend(
+                    _walk_flat_nodes_gn(
+                        graph, vi_name, _frame_nodes_gn(graph, vi_name, node, frame, i)
+                    )
+                )
+        elif isinstance(node, InPlaceNode):
+            flat.extend(
+                _walk_flat_nodes_gn(
+                    graph, vi_name, _ipes_regular_nodes_gn(graph, vi_name, node)
+                )
+            )
+        elif node.children:
+            flat.extend(
+                _walk_flat_nodes_gn(
+                    graph, vi_name, _body_nodes_gn(graph, vi_name, node)
+                )
+            )
+    return flat
+
+
+def _walk_flat_gn(graph: InMemoryVIGraph, vi_name: str) -> list[AnyGraphNode]:
+    return _walk_flat_nodes_gn(graph, vi_name, _top_level_nodes_gn(graph, vi_name))
+
+
+_OCCURRENCE_EXCLUDED_TYPES = _STRUCTURE_NODE_TYPES
+
+
+def _assign_occurrences_gn(
+    graph: InMemoryVIGraph, flat: list[AnyGraphNode]
+) -> dict[str, int]:
+    """The graph-node analogue of ``_assign_occurrences``."""
+    insts = [
+        node
+        for node in flat
+        if not isinstance(node, _OCCURRENCE_EXCLUDED_TYPES)
+        and not (
+            isinstance(node, GraphPrimitiveNode)
+            and graph.get_feedback_info(node.id) is not None
+        )
+    ]
+    names = [_display_name_gn(node) for node in insts]
+    counts = Counter(names)
+
+    occurrence_by_uid: dict[str, int] = {}
+    running: dict[str, int] = {}
+    for node, name in zip(insts, names, strict=True):
+        if counts[name] > 1:
+            running[name] = running.get(name, 0) + 1
+            occurrence_by_uid[_uid_of(node.id)] = running[name]
+    return occurrence_by_uid
+
+
+def _assign_sequential_ids_gn(
+    flat: list[AnyGraphNode],
+    predicate: Callable[[AnyGraphNode], bool],
+) -> dict[str, int]:
+    """The graph-node analogue of ``_assign_sequential_ids``."""
+    ids: dict[str, int] = {}
+    next_id = 0
+    for node in flat:
+        if predicate(node):
+            ids[_uid_of(node.id)] = next_id
+            next_id += 1
+    return ids
+
+
+def _build_case_outputs_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: CaseStructureNode,
+    build_ctx: _GraphBuildCtx,
+    case_id: int,
+    selector: NetRef | None,
+    frames: list[NetlistFrame],
+) -> list[GammaMerge]:
+    """The graph-node analogue of ``_build_case_outputs``."""
+    outers = _case_output_tunnel_outers_gn(node)
+    gammas: list[GammaMerge] = []
+    for k, outer in enumerate(outers):
+        cases: list[GammaCase] = []
+        for raw_frame, nl_frame in zip(node.frames, frames, strict=True):
+            inner = next(
+                (
+                    t
+                    for t in node.terminals
+                    if isinstance(t, TunnelTerminal)
+                    and t.boundary == "inner"
+                    and t.paired_id == outer.id
+                    and t.frame == raw_frame.selector_value
+                ),
+                None,
+            )
+            source = _resolve_or_default_gn(
+                graph,
+                ctx,
+                vi_name,
+                build_ctx,
+                inner.id if inner is not None else None,
+                inner,
+                outer,
+            )
+            frame_key = "default" if nl_frame.is_default else nl_frame.label
+            cases.append(GammaCase(frame_key=frame_key, source=source))
+        gammas.append(
+            GammaMerge(net=f"case{case_id}.out{k}", selector=selector, cases=cases)
+        )
+    return gammas
+
+
+def _selector_lv_type_gn(
+    node: AnyGraphNode, selector_terminal: str | None
+) -> LVType | None:
+    """The graph-node analogue of ``_selector_lv_type``."""
+    if not selector_terminal:
+        return None
+    for t in node.terminals:
+        if t.id == selector_terminal:
+            return t.lv_type
+    return None
+
+
+def _build_case_scope_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: CaseStructureNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetlistScope:
+    """The graph-node analogue of ``_build_case_scope``."""
+    selector = _selector_ref_gn(graph, ctx, vi_name, build_ctx, node.selector_terminal)
+    passthrough = _has_output_tunnel_gn(node)
+    lv_type = _selector_lv_type_gn(node, node.selector_terminal)
+    is_error = bool(lv_type and _is_error_cluster(lv_type))
+    frames = [
+        NetlistFrame(
+            label=_selector_label(frame, lv_type, is_error),
+            value=str(frame.selector_value),
+            is_default=frame.is_default,
+            body=_build_items_gn(
+                graph,
+                ctx,
+                vi_name,
+                _frame_nodes_gn(graph, vi_name, node, frame, i),
+                build_ctx,
+            ),
+            passthrough=passthrough,
+        )
+        for i, frame in enumerate(node.frames)
+    ]
+    case_id = build_ctx.case_id_by_uid[_uid_of(node.id)]
+    outputs: list[GammaMerge | MuMerge | EtaMerge] = [
+        *_build_case_outputs_gn(
+            graph, ctx, vi_name, node, build_ctx, case_id, selector, frames
+        ),
+    ]
+    return NetlistScope(
+        uid=_uid_of(node.id),
+        kind="case",
+        selector=selector,
+        frames=frames,
+        outputs=outputs,
+    )
+
+
+def _build_disabled_scope_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: DisableStructureNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetlistScope:
+    """The graph-node analogue of ``_build_disabled_scope``."""
+    passthrough = _has_output_tunnel_gn(node)
+    frames = [
+        NetlistFrame(
+            label=str(frame.selector_value),
+            value=str(frame.selector_value),
+            is_default=frame.is_default,
+            body=_build_items_gn(
+                graph,
+                ctx,
+                vi_name,
+                _frame_nodes_gn(graph, vi_name, node, frame, i),
+                build_ctx,
+            ),
+            passthrough=passthrough,
+        )
+        for i, frame in enumerate(node.frames)
+    ]
+    return NetlistScope(
+        uid=_uid_of(node.id), kind="disabled", selector=None, frames=frames
+    )
+
+
+def _build_event_scope_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: EventStructureNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetlistScope:
+    """The graph-node analogue of ``_build_event_scope``."""
+    passthrough = _has_output_tunnel_gn(node)
+    frames = [
+        NetlistFrame(
+            label=frame.event_label,
+            value=frame.event_label,
+            is_default=False,
+            body=_build_items_gn(
+                graph,
+                ctx,
+                vi_name,
+                _frame_nodes_gn(graph, vi_name, node, frame, i),
+                build_ctx,
+            ),
+            passthrough=passthrough,
+        )
+        for i, frame in enumerate(node.frames)
+    ]
+    return NetlistScope(
+        uid=_uid_of(node.id), kind="event", selector=None, frames=frames
+    )
+
+
+def _build_sequence_scope_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: SequenceNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetlistScope:
+    """The graph-node analogue of ``_build_sequence_scope``."""
+    frames = [
+        NetlistFrame(
+            label=str(frame.index),
+            value=str(frame.index),
+            is_default=False,
+            body=_build_items_gn(
+                graph,
+                ctx,
+                vi_name,
+                _frame_nodes_gn(graph, vi_name, node, frame, i),
+                build_ctx,
+            ),
+            passthrough=False,
+        )
+        for i, frame in enumerate(node.frames)
+    ]
+    return NetlistScope(
+        uid=_uid_of(node.id), kind="sequence", selector=None, frames=frames
+    )
+
+
+def _build_loop_shift_registers_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: LoopNode,
+    build_ctx: _GraphBuildCtx,
+    loop_id: int,
+    term_by_id: dict[str, Terminal],
+) -> list[MuMerge]:
+    """The graph-node analogue of ``_build_loop_shift_registers``."""
+    merges: list[MuMerge] = []
+    for k, (lsr, rsr) in enumerate(_loop_shift_register_pairs_gn(node)):
+        outer_t = term_by_id.get(lsr.outer_terminal_uid)
+        inner_t = term_by_id.get(lsr.inner_terminal_uid)
+        init = _resolve_or_default_gn(
+            graph,
+            ctx,
+            vi_name,
+            build_ctx,
+            lsr.outer_terminal_uid if lsr.sr_initialized else None,
+            outer_t,
+            inner_t,
+        )
+        recur = (
+            _resolve_source_gn(graph, ctx, vi_name, rsr.inner_terminal_uid, build_ctx)
+            if rsr is not None
+            else None
+        )
+        merges.append(MuMerge(net=f"loop{loop_id}.shift{k}", init=init, recur=recur))
+    return merges
+
+
+def _build_loop_outputs_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: LoopNode,
+    build_ctx: _GraphBuildCtx,
+    loop_id: int,
+    term_by_id: dict[str, Terminal],
+) -> list[EtaMerge]:
+    """The graph-node analogue of ``_build_loop_outputs``."""
+    tunnels = _tunnels_from_terminals_gn(node.terminals)
+    tunnel_by_outer = {
+        t.outer_terminal_uid: t for t in tunnels if t.tunnel_type == "lpTun"
+    }
+    outers = _loop_output_tunnel_outers_gn(node)
+    merges: list[EtaMerge] = []
+    for k, outer in enumerate(outers):
+        tunnel = tunnel_by_outer[outer.id]
+        inner_t = term_by_id.get(tunnel.inner_terminal_uid)
+        value = _resolve_or_default_gn(
+            graph, ctx, vi_name, build_ctx, tunnel.inner_terminal_uid, inner_t, outer
+        )
+        merges.append(
+            EtaMerge(
+                net=f"loop{loop_id}.out{k}",
+                index_mode=_eta_index_mode(tunnel.mode),
+                conditional=tunnel.conditional,
+                value=value,
+            )
+        )
+    return merges
+
+
+def _build_loop_scope_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: LoopNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetlistScope:
+    """The graph-node analogue of ``_build_loop_scope``."""
+    kind = "while" if node.loop_type == "whileLoop" else "for"
+    selector = _selector_ref_gn(
+        graph, ctx, vi_name, build_ctx, node.stop_condition_terminal
+    )
+    body = _build_items_gn(
+        graph, ctx, vi_name, _body_nodes_gn(graph, vi_name, node), build_ctx
+    )
+    frame = NetlistFrame(
+        label="",
+        value="",
+        is_default=False,
+        body=body,
+        passthrough=_has_output_tunnel_gn(node),
+    )
+    tunnels = _tunnels_from_terminals_gn(node.terminals)
+    tunnel_info = [
+        NetlistTunnelInfo(
+            tunnel_type=t.tunnel_type,
+            mode=t.mode.value if t.mode is not None else None,
+            sr_initialized=t.sr_initialized,
+            sr_stack_depth=t.sr_stack_depth,
+        )
+        for t in tunnels
+    ]
+    loop_id = build_ctx.loop_id_by_uid[_uid_of(node.id)]
+    term_by_id = {t.id: t for t in node.terminals}
+    outputs: list[GammaMerge | MuMerge | EtaMerge] = [
+        *_build_loop_shift_registers_gn(
+            graph, ctx, vi_name, node, build_ctx, loop_id, term_by_id
+        ),
+        *_build_loop_outputs_gn(
+            graph, ctx, vi_name, node, build_ctx, loop_id, term_by_id
+        ),
+    ]
+    return NetlistScope(
+        uid=_uid_of(node.id),
+        kind=kind,
+        selector=selector,
+        frames=[frame],
+        parallel=node.parallel,
+        parallel_static_workers=node.parallel_static_workers,
+        tunnels=tunnel_info,
+        outputs=outputs,
+    )
+
+
+def _build_items_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    nodes: list[AnyGraphNode],
+    build_ctx: _GraphBuildCtx,
+) -> list[NetlistItem]:
+    """The graph-node analogue of ``_build_items``."""
+    items: list[NetlistItem] = []
+    for node in nodes:
+        if isinstance(node, CaseStructureNode):
+            items.append(_build_case_scope_gn(graph, ctx, vi_name, node, build_ctx))
+        elif isinstance(node, DisableStructureNode):
+            items.append(_build_disabled_scope_gn(graph, ctx, vi_name, node, build_ctx))
+        elif isinstance(node, EventStructureNode):
+            items.append(_build_event_scope_gn(graph, ctx, vi_name, node, build_ctx))
+        elif isinstance(node, LoopNode):
+            items.append(_build_loop_scope_gn(graph, ctx, vi_name, node, build_ctx))
+        elif isinstance(node, SequenceNode):
+            items.append(_build_sequence_scope_gn(graph, ctx, vi_name, node, build_ctx))
+        elif (
+            isinstance(node, GraphPrimitiveNode)
+            and (fb := graph.get_feedback_info(node.id)) is not None
+        ):
+            # The MASTER becomes one ``fb{k}`` mu item; the SLAVE is dissolved
+            # (its written value is captured as the master's ``recur`` in
+            # ``_build_feedback_gn``) -- mirrors ``_build_items``'s
+            # ``FeedbackOperation`` branch.
+            if fb[0]:
+                items.append(_build_feedback_gn(graph, ctx, vi_name, node, build_ctx))
+        else:
+            items.append(_build_instance_gn(graph, ctx, vi_name, node, build_ctx))
+            if isinstance(node, InPlaceNode):
+                items.extend(
+                    _build_items_gn(
+                        graph,
+                        ctx,
+                        vi_name,
+                        _ipes_regular_nodes_gn(graph, vi_name, node),
+                        build_ctx,
+                    )
+                )
+    return items
+
+
+def _is_subvi_call_gn(node: AnyGraphNode) -> bool:
+    """The graph-node analogue of ``_is_subvi_call``. Every ``VINode``
+    reached by the flat walk is inherently a SubVI CALL (``node.id !=
+    node.vi``) -- the VI's own definition node is never part of it (see
+    ``_owning_node_gn``/``get_operation_order``)."""
+    return isinstance(node, VINode) and bool(node.name)
+
+
+def _is_primitive_component_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
+    """True when ``node`` becomes its own declared component -- the
+    graph-node analogue of ``isinstance(op, PrimitiveOperation)`` in
+    ``_build_components``: a plain primitive, NEVER a property/invoke node
+    (those become ``PropertyOperation``/``InvokeOperation`` at the Operation
+    layer, which are not ``PrimitiveOperation`` subclasses either) and NEVER
+    a Feedback Node (which becomes ``FeedbackOperation`` instead)."""
+    return (
+        isinstance(node, GraphPrimitiveNode)
+        and not node.properties
+        and not node.method_name
+        and graph.get_feedback_info(node.id) is None
+    )
+
+
+def _component_identity_gn(node: AnyGraphNode) -> tuple[object, ...]:
+    """The graph-node analogue of ``_component_identity`` -- ``PrimitiveNode.
+    prim_id`` is the SAME value ``PrimitiveOperation.primResID`` copies it
+    from (see ``_build_operation``)."""
+    prim_res_id = node.prim_id if isinstance(node, GraphPrimitiveNode) else None
+    operation = node.operation if isinstance(node, GraphPrimitiveNode) else None
+    return (node.node_type or "unknown", prim_res_id, operation)
+
+
+def _synthesize_ports_gn(
+    terminals: list[Terminal],
+) -> tuple[list[ComponentPort], list[ComponentPort]]:
+    """The graph-node analogue of ``_synthesize_ports`` -- takes the
+    terminal list directly (rather than a node) so a SubVI-call fallback can
+    pass ``_call_terminals_gn``'s CALLEE-enriched names, same as
+    ``_build_instance_gn``."""
+    ins: list[ComponentPort] = []
+    outs: list[ComponentPort] = []
+    for t in sorted(terminals, key=lambda t: t.index):
+        port = ComponentPort(
+            name=_component_port_name(t),
+            type=t.lv_type.type_descriptor() if t.lv_type else "Any",
+        )
+        (ins if t.direction == "input" else outs).append(port)
+    return ins, outs
+
+
+def _dedupe_primitive_group_gn(
+    instances: list[tuple[AnyGraphNode, list[ComponentPort], list[ComponentPort]]],
+) -> list[NetlistComponent]:
+    """The graph-node analogue of ``_dedupe_primitive_group``."""
+    by_signature: dict[
+        str, tuple[AnyGraphNode, list[ComponentPort], list[ComponentPort]]
+    ] = {}
+    order: list[str] = []
+    for node, ins, outs in instances:
+        sig = _port_signature(ins, outs)
+        if sig not in by_signature:
+            by_signature[sig] = (node, ins, outs)
+            order.append(sig)
+
+    if len(order) == 1:
+        node, ins, outs = by_signature[order[0]]
+        return [NetlistComponent(name=_display_name_gn(node), inputs=ins, outputs=outs)]
+
+    result: list[NetlistComponent] = []
+    for i, sig in enumerate(order, start=1):
+        node, ins, outs = by_signature[sig]
+        base = _display_name_gn(node)
+        name = base if i == 1 else f"{base} ({i})"
+        result.append(NetlistComponent(name=name, inputs=ins, outputs=outs))
+    return result
+
+
+def _build_components_gn(
+    graph: InMemoryVIGraph, vi_name: str, flat: list[AnyGraphNode]
+) -> list[NetlistComponent]:
+    """The graph-node analogue of ``_build_components``."""
+    subvi_order: list[str] = []
+    seen_subvi: set[str] = set()
+    subvi_reps: dict[str, AnyGraphNode] = {}
+    groups: dict[
+        tuple[object, ...],
+        list[tuple[AnyGraphNode, list[ComponentPort], list[ComponentPort]]],
+    ] = {}
+
+    for node in flat:
+        if isinstance(node, _STRUCTURE_NODE_TYPES):
+            continue
+        if _is_subvi_call_gn(node):
+            assert isinstance(node, VINode)
+            key = node.qualified_name or node.name
+            assert key is not None
+            if key not in seen_subvi:
+                seen_subvi.add(key)
+                subvi_order.append(key)
+                subvi_reps[key] = node
+            continue
+        if not _is_primitive_component_gn(graph, node):
+            continue
+        ins, outs = _synthesize_ports_gn(node.terminals)
+        key = _component_identity_gn(node)
+        groups.setdefault(key, []).append((node, ins, outs))
+
+    components: list[NetlistComponent] = []
+    for key in subvi_order:
+        ports = _subvi_ports(graph, key)
+        if ports is not None and (ports[0] or ports[1]):
+            ins, outs = ports
+        else:
+            rep = subvi_reps[key]
+            ins, outs = _synthesize_ports_gn(_call_terminals_gn(graph, vi_name, rep))
+        components.append(NetlistComponent(name=key, inputs=ins, outputs=outs))
+    for instances in groups.values():
+        components.extend(_dedupe_primitive_group_gn(instances))
+
+    _disambiguate_cross_group_names(components)
+    components.sort(key=lambda c: c.name)
+    return components
+
+
+def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
+    """Walk a VI's ``GraphNode`` graph directly into a ``NetlistModule`` IR --
+    the PHASE 1 sibling of ``build_netlist`` (see the module docstring section
+    above): same IR, same net names, same byte-for-byte text/JSON output
+    (``tests/test_netlist_from_graph_parity.py``).
+
+    The netlist *body* is built by walking the graph nodes; it never reads the
+    ``Operation`` projection. Facets (inputs/outputs/constants/connector
+    pattern/properties/health) still come from ``get_vi_context``, which builds
+    the ``Operation`` list as a side effect -- Phase 2 swaps that for the
+    per-facet getters (``get_inputs``/``get_outputs``/``get_constants``/
+    ``get_vi_properties``/``get_vi_health``) so no projection is built at all.
+    """
+    vi_name = graph.resolve_vi_name(vi_name)
+    ctx = graph.get_vi_context(vi_name)
+
+    flat = _walk_flat_gn(graph, vi_name)
+
+    build_ctx = _GraphBuildCtx(
+        occurrence_by_uid=_assign_occurrences_gn(graph, flat),
+        const_by_id={c.id: c for c in ctx.constants},
+        case_id_by_uid=_assign_sequential_ids_gn(
+            flat, lambda n: isinstance(n, CaseStructureNode)
+        ),
+        loop_id_by_uid=_assign_sequential_ids_gn(
+            flat, lambda n: isinstance(n, LoopNode)
+        ),
+        feedback_id_by_uid=_assign_sequential_ids_gn(
+            flat,
+            lambda n: (
+                isinstance(n, GraphPrimitiveNode)
+                and (fb := graph.get_feedback_info(n.id)) is not None
+                and fb[0]
+            ),
+        ),
+    )
+
+    inputs = [
+        (t.name or "input", t.lv_type.type_descriptor() if t.lv_type else "Any")
+        for t in ctx.inputs
+    ]
+    outputs = [
+        BoundaryOutput(
+            name=t.name or "output",
+            type_descriptor=t.lv_type.type_descriptor() if t.lv_type else "Any",
+            source=_resolve_source_gn(graph, ctx, vi_name, t.id, build_ctx),
+        )
+        for t in ctx.outputs
+    ]
+
+    connector_pane = ConnectorPane(
+        pattern_id=ctx.connector_pattern_id,
+        terminals=[_pane_terminal(t, "input") for t in ctx.inputs]
+        + [_pane_terminal(t, "output") for t in ctx.outputs],
+    )
+
+    body = _build_items_gn(
+        graph, ctx, vi_name, _top_level_nodes_gn(graph, vi_name), build_ctx
+    )
+    components = _build_components_gn(graph, vi_name, flat)
+
+    return NetlistModule(
+        vi_name=vi_name,
+        inputs=inputs,
+        outputs=outputs,
+        body=body,
+        components=components,
+        properties=ctx.properties,
+        health=ctx.health,
+        class_context=_build_class_context(graph, ctx),
+        connector_pane=connector_pane,
     )
 
 
