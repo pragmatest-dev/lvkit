@@ -799,6 +799,45 @@ class QueryMixin:
                 return t
         return None
 
+    def get_feedback_info(
+        self, node_id: str
+    ) -> tuple[bool, str | None, int | None] | None:
+        """Feedback Node (z^-N) master/slave link for ``node_id`` --
+        ``(is_master, partner_uid, delay)``, or ``None`` when ``node_id`` isn't
+        a Feedback Node.
+
+        These three facts are stashed as extra networkx node attributes
+        (``feedback_is_master``/``feedback_partner``/``feedback_delay`` --
+        see ``construction.py``) rather than on the Pydantic ``PrimitiveNode``
+        model itself (the graph node stays a plain ``PrimitiveNode`` so
+        render/codegen treat it exactly as before). This is the one
+        graph-level accessor for them, letting a graph-only consumer (e.g.
+        ``netlist.build_netlist_from_graph``) resolve a Feedback Node's linked
+        write side without going through the ``Operation`` projection
+        (``_build_operation`` reads the same attributes to build a
+        ``FeedbackOperation``).
+        """
+        if node_id not in self._graph:
+            return None
+        data = self._graph.nodes[node_id]
+        is_master = data.get("feedback_is_master")
+        if is_master is None:
+            return None
+        return is_master, data.get("feedback_partner"), data.get("feedback_delay")
+
+    def get_poser_uid(self, node_id: str) -> str | None:
+        """The In-Place-Element-Structure decompose/recompose pairing id for
+        ``node_id`` (``PrimitiveOperation.poser_uid``'s graph-level source),
+        or ``None`` when ``node_id`` isn't an IPES border node.
+
+        Stashed as an extra networkx node attribute (``poser_uid`` -- see
+        ``construction.py``) rather than a ``PrimitiveNode`` model field, for
+        the same reason as ``get_feedback_info`` above.
+        """
+        if node_id not in self._graph:
+            return None
+        return self._graph.nodes[node_id].get("poser_uid")
+
     # === Legacy API ===
 
     def get_vi_properties(self, vi_name: str) -> VIProperties:
@@ -1155,6 +1194,7 @@ class QueryMixin:
             if isinstance(node, VINode) and node.name
             else vi_name.rsplit(":", 1)[-1]
         )
+
         # A parent/child class's version of this method is "documented" when its
         # class-qualified name resolves to a loaded VI. VIs are path-keyed now,
         # so resolve the qname to its vi_key and test membership (works whether
