@@ -25,6 +25,7 @@ from lvkit.graph.models import (
 from lvkit.models import DisableStructureKind, TunnelMode, TunnelTerminal
 from lvkit.render import render_vi_file
 from lvkit.render.scene import _frame_info, _structure_borders
+from tests.helpers import normalize_render_ids, transitive_closure
 
 _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 
@@ -44,6 +45,44 @@ def _load(rel: str) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(vi, mode=LoadMode.MINIMAL, search_paths=[vi.parent], layout=True)
     return graph, graph.resolve_vi_name(vi.name)
+
+
+def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
+    """The web (Pyodide) extension stages only a VI's dependency CLOSURE into
+    ``/proj`` before rendering — not the whole workspace — so that closure must
+    contain everything the render reads, or the web render degrades vs desktop.
+
+    Issue 29's ``Test.vi`` references two same-named ``Do.vi`` (in ``Lib1`` and
+    ``Lib2``) via ``LinkSavePathRef`` but has an EMPTY SubVI call table, so a
+    closure keyed off the call table (``subvi_qualified_names``) misses them and
+    draws the SubVIs as bare boxes. Assert that rendering from the ``list_deps``
+    closure alone is byte-identical (content) to rendering from the full tree.
+    """
+    root = (_CORPUS / "29" / "Test LVKit").resolve()
+    entry = root / "Lib2" / "Class" / "Test.vi"
+
+    closure = transitive_closure(entry, root)
+    assert "Do.vi" in {p.name for p in closure}, (
+        f"closure {sorted(p.name for p in closure)} missing the referenced Do.vi "
+        "— the web render would understage vs desktop"
+    )
+
+    # Stage ONLY {entry} + its closure into a temp /proj-like tree.
+    for src in [entry, *closure]:
+        dst = tmp_path / src.resolve().relative_to(root)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(src.read_bytes())
+
+    svg_closure = render_vi_file(
+        tmp_path / entry.relative_to(root), search_paths=[tmp_path]
+    )
+    svg_full = render_vi_file(entry, search_paths=[root])
+    assert svg_closure and svg_full, "expected both renders to produce a diagram"
+
+    assert normalize_render_ids(svg_closure) == normalize_render_ids(svg_full), (
+        "web closure render differs from the full-tree (desktop) render — "
+        "list_deps understaged this VI's dependencies"
+    )
 
 
 def test_issue36_bundle_unbundle_and_waveform_field_names():

@@ -174,6 +174,38 @@ def _mode_covers(have: LoadMode | None, want: LoadMode) -> bool:
     return have is not None and _MODE_RANK[have] >= _MODE_RANK[want]
 
 
+def collect_direct_dep_qnames(
+    subvi_qualified_names: list[str],
+    type_map: dict[int, LVType],
+    own_qname: str | None,
+) -> set[str]:
+    """The base set of dependency qnames a VI records: its SubVI/class call
+    table (``subvi_qualified_names``) plus its referenced-type classes/typedefs
+    (from ``type_map``), excluding the VI's own qname. Shared by the loader's
+    ``_load_vi_recursive`` and ``lvkit.list_deps`` so both provably enumerate
+    the SAME base set (``list_deps`` then unions the recorded ``dependency_refs``
+    on top, since the render reads those even when the call table is empty)."""
+    qnames: set[str] = set()
+    for qname in subvi_qualified_names:
+        if qname and qname != own_qname:
+            qnames.add(qname)
+    for lv_type in type_map.values():
+        if lv_type.classname and lv_type.classname != "LabVIEW Object":
+            qnames.add(lv_type.classname)
+        if lv_type.typedef_name:
+            qnames.add(lv_type.typedef_name)
+    return qnames
+
+
+def build_dep_ref_map(
+    dependency_refs: list[ParsedDependencyRef],
+) -> dict[str, ParsedDependencyRef]:
+    """The recorded ``LinkSavePathRef`` deps keyed by qualified name (skipping
+    refs that carry none). Shared by the loader's ``_load_vi_recursive`` and
+    ``lvkit.list_deps`` so both key the same map from the same source."""
+    return {ref.qualified_name: ref for ref in dependency_refs if ref.qualified_name}
+
+
 class LoadingMixin:
     """Mixin providing VI loading methods."""
 
@@ -868,11 +900,7 @@ class LoadingMixin:
         # Build dep_ref_map from recorded LinkSavePathRef data.
         # Used for both dependency loading and iUse path diagnostics.
         dep_ref_map: dict[str, ParsedDependencyRef] = (
-            {
-                ref.qualified_name: ref
-                for ref in metadata.dependency_refs
-                if ref.qualified_name
-            }
+            build_dep_ref_map(metadata.dependency_refs)
             if main_xml and main_xml.exists()
             else {}
         )
@@ -885,15 +913,9 @@ class LoadingMixin:
             # (see _load_dependency): MINIMAL leaf-loads each SubVI (its connector
             # pane, for param names; no recursion into ITS SubVIs) and field-loads
             # each class (no methods); FULL loads the whole transitive tree.
-            all_dep_qnames: set[str] = set()
-            for qname in metadata.subvi_qualified_names:
-                if qname and qname != own_qname:
-                    all_dep_qnames.add(qname)
-            for lv_type in type_map.values():
-                if lv_type.classname and lv_type.classname != "LabVIEW Object":
-                    all_dep_qnames.add(lv_type.classname)
-                if lv_type.typedef_name:
-                    all_dep_qnames.add(lv_type.typedef_name)
+            all_dep_qnames = collect_direct_dep_qnames(
+                metadata.subvi_qualified_names, type_map, own_qname
+            )
 
             # Sorted: dependency load ORDER decides which same-named candidate
             # file claims a name first, so a hash-ordered set here made the
@@ -945,14 +967,19 @@ class LoadingMixin:
         class private-data fallback in ``load_lvclass`` (a class whose private
         data is a ``.ctl`` control, not an inline cluster). Returns
         ``(None, {})`` when the control's XML can't be produced."""
+        # Guard the whole extract+parse. A control can extract to XML that is
+        # then malformed, so parse_type_map_rich / _get_fp_root_type_id can raise
+        # ET.ParseError (a SyntaxError subclass — NOT an OSError/ValueError) or
+        # ValueError. Honor this method's documented "(None, {}) on failure"
+        # contract for those too (load_typedef and lvkit.list_deps rely on it).
         try:
             _, fp_xml, main_xml = extract_vi_xml(ctl_path)
-        except (RuntimeError, OSError):
+            if not (main_xml and main_xml.exists()):
+                return None, {}
+            type_map = parse_type_map_rich(main_xml)
+            root_type_id = _get_fp_root_type_id(fp_xml)
+        except (RuntimeError, OSError, ValueError, ET.ParseError):
             return None, {}
-        if not (main_xml and main_xml.exists()):
-            return None, {}
-        type_map = parse_type_map_rich(main_xml)
-        root_type_id = _get_fp_root_type_id(fp_xml)
         if root_type_id is None:
             root_type_id = 1  # cluster control default
         root = type_map.get(root_type_id)
@@ -1025,36 +1052,25 @@ class LoadingMixin:
             self._dep_graph.add_node(qname, node_type="typedef")
             self._stubs.add(qname)
 
-    def _load_dependency(
+    def _resolve_dependency_path(
         self,
         qualified_name: str,
         dep_ref: ParsedDependencyRef | None,
         caller_file: Path,
         search_paths: list[Path],
-        caller_qname: str | None = None,
-        mode: LoadMode = LoadMode.FULL,
-    ) -> None:
-        """Load one dependency by its LabVIEW qualified name and optional path ref.
-
-        Single entry point for all dependency loading: SubVI calls, class refs,
-        typedef refs, and library refs all funnel through here.
-
-        Uses the recorded LinkSavePathRef for resolution (exact path, no scanning).
-        Falls back to name-based search only when no path ref is available or the
-        recorded path doesn't exist on disk (e.g. <userlib> refs without a root).
-
-        LabVIEW's one-qname-per-memory invariant means the dep_graph node check
-        at the top is the definitive dedup — resolution only runs on first visit.
+    ) -> Path | None:
+        """Resolve one dependency ref to an on-disk file — the pure
+        PATH-RESOLUTION half of ``_load_dependency`` (no graph mutation, no
+        ``.lvclass`` walk-up): prefer the recorded LinkSavePathRef (+ LLB
+        archive fallback + class/library MEMBER-VI redirect), else fall back
+        to a name-based search. Shared with ``lvkit.list_deps`` (the web
+        staging closure) so that reader can never drift from what this loader
+        actually resolves — callers that also need the ``.lvclass`` walk-up
+        fallback (``_load_dependency`` itself; ``list_deps``) call
+        ``_walk_up_find`` themselves afterward, since its DISPOSITION differs
+        per caller (``_load_dependency`` field-loads it at a fixed MINIMAL
+        mode; ``list_deps`` just wants the file path).
         """
-        if self._dep_graph.has_node(qualified_name):
-            if caller_qname:
-                self._dep_graph.add_edge(caller_qname, qualified_name)
-            # A fields-only class placeholder (walk-up interface load) is NOT the
-            # definitive dedup — if THIS reference can resolve the class on disk,
-            # fall through so a full load (with methods) upgrades it.
-            if not self._dep_graph.nodes[qualified_name].get("fields_only"):
-                return
-
         leaf = qualified_name.rsplit(":", 1)[-1]
 
         # Resolve path: prefer the recorded ref, fall back to name-based search.
@@ -1096,6 +1112,43 @@ class LoadingMixin:
                 resolved = self._find_subvi(leaf, search_paths, caller_file.parent)
             else:
                 resolved = self._find_file(leaf, search_paths, caller_file.parent)
+
+        return resolved
+
+    def _load_dependency(
+        self,
+        qualified_name: str,
+        dep_ref: ParsedDependencyRef | None,
+        caller_file: Path,
+        search_paths: list[Path],
+        caller_qname: str | None = None,
+        mode: LoadMode = LoadMode.FULL,
+    ) -> None:
+        """Load one dependency by its LabVIEW qualified name and optional path ref.
+
+        Single entry point for all dependency loading: SubVI calls, class refs,
+        typedef refs, and library refs all funnel through here.
+
+        Uses the recorded LinkSavePathRef for resolution (exact path, no scanning).
+        Falls back to name-based search only when no path ref is available or the
+        recorded path doesn't exist on disk (e.g. <userlib> refs without a root).
+
+        LabVIEW's one-qname-per-memory invariant means the dep_graph node check
+        at the top is the definitive dedup — resolution only runs on first visit.
+        """
+        if self._dep_graph.has_node(qualified_name):
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, qualified_name)
+            # A fields-only class placeholder (walk-up interface load) is NOT the
+            # definitive dedup — if THIS reference can resolve the class on disk,
+            # fall through so a full load (with methods) upgrades it.
+            if not self._dep_graph.nodes[qualified_name].get("fields_only"):
+                return
+
+        leaf = qualified_name.rsplit(":", 1)[-1]
+        resolved = self._resolve_dependency_path(
+            qualified_name, dep_ref, caller_file, search_paths
+        )
 
         if resolved is None:
             # A class referenced only by TYPE whose .lvclass isn't on a search

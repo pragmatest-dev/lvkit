@@ -601,20 +601,28 @@ def render_vi_file_titled(
         else path.name
     )
 
-    def _load(load_mode: LoadMode) -> InMemoryVIGraph:
+    def _load(load_mode: LoadMode) -> tuple[InMemoryVIGraph, str | None]:
         graph = InMemoryVIGraph()
         if vilib_root or userlib_root:
             graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-        graph.load_vi(path, mode=load_mode, search_paths=search_paths, layout=True)
-        return graph
+        vi_key = graph.load_vi(
+            path, mode=load_mode, search_paths=search_paths, layout=True
+        )
+        return graph, vi_key
 
     try:
-        graph = _load(mode)
+        graph, vi_key = _load(mode)
     except Exception:
         if mode is LoadMode.NONE:
             raise
-        graph = _load(LoadMode.NONE)  # degrade: still render this VI's own diagram
-    name = graph.resolve_vi_name(vi_name_hint)
+        # degrade: still render this VI's own diagram
+        graph, vi_key = _load(LoadMode.NONE)
+    # Use the exact vi_key that load_vi assigned to THIS file as the render
+    # identity. Never re-resolve by bare filename: several loaded VIs can share
+    # a name (e.g. every class's own run.vi under a MINIMAL SubVI load), so a
+    # bare-name lookup can resolve to — and render — the wrong VI. Fall back to
+    # the bare-name resolution only if load_vi couldn't key the file.
+    name = vi_key if vi_key is not None else graph.resolve_vi_name(vi_name_hint)
     # Every command that parses a VI warms the index — a render parses this VI
     # (and, under MINIMAL, its SubVIs) into `graph`, so upsert their facts
     # (best-effort; never fails the render). A cache HIT never reaches here, so
