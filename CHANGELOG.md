@@ -4,6 +4,17 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-08-25
+- **The web extension now loads Pyodide from the CDN by default, and no longer
+  bundles it.** 0.7.3 tried the self-hosted `media/` copy first and only fell back
+  to the CDN on Open VSX; but on vscode.dev the marketplace/webview-resource layer
+  serves that ~13 MB copy so slowly that the first render took *minutes*, while the
+  same VI over jsDelivr renders in ~3 s. So the extension now loads the Pyodide
+  runtime from jsDelivr and the wheels from PyPI on every web host, and the VSIX no
+  longer ships `media/` at all — smaller download, and fast everywhere. (Hosted
+  editors are always online; there is no offline browser IDE to protect. Desktop is
+  unchanged — it still uses its bundled native binary.)
+
 ## [0.7.3] - 2026-08-25
 - **Fix: the web extension now actually starts on Open VSX hosts (GitLab Web IDE,
   Cursor, Gitpod, code-server).** These hosts do not serve a web extension's

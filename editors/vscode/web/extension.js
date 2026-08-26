@@ -55,53 +55,24 @@ function toBase64(bytes) {
   return btoa(s);
 }
 
-// The lvkit + pylabview + networkx wheels shipped under media/wheels/, as webview
-// URIs. Read from media/wheels/manifest.json (a KNOWN file, written by
-// build-web-assets.sh) — NOT by listing the directory: a browser extension host
-// can't enumerate the extension's own resources (vscode.workspace.fs.readDirectory
-// throws EntryNotADirectory in the web worker), only fetch known files. The
-// manifest is regenerated on a version bump, so this stays hard-coding-free.
-async function wheelUris(webview, wheelsDir) {
-  const raw = await vscode.workspace.fs.readFile(
-    vscode.Uri.joinPath(wheelsDir, "manifest.json")
-  );
-  const names = JSON.parse(new TextDecoder().decode(raw));
-  return names
-    .filter((name) => typeof name === "string" && name.endsWith(".whl"))
-    // lvkit LAST — it imports networkx + pylabview at import time, and
-    // micropip.install(deps=False) does not resolve/order deps for us.
-    .sort((a, b) => (a.startsWith("lvkit-") ? 1 : b.startsWith("lvkit-") ? -1 : 0))
-    .map((name) =>
-      webview.asWebviewUri(vscode.Uri.joinPath(wheelsDir, name)).toString()
-    );
-}
-
-// CDN fallback (below): pinned to match the bundled wheels (uv.lock /
-// build-web-assets.sh) and the `pyodide` devDependency. Keep in sync on a bump.
+// Pyodide runtime + wheels, loaded from public CDNs: jsDelivr for the runtime,
+// PyPI for the pure-Python wheels (micropip installs each by NAME, deps:false;
+// lvkit LAST since it imports networkx + pylabview at import time). Versions pinned
+// to match the render (uv.lock) and lvkit's own release; keep in sync on a bump.
 const CDN_PYODIDE = "https://cdn.jsdelivr.net/pyodide/v314.0.5/full/";
 const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2"]; // lvkit appended (its own version)
 
-// Resolve the Pyodide runtime + wheels for one webview. Bundled-FIRST — self-hosted
-// under media/, so MS-Marketplace hosts (vscode.dev, Codespaces) and offline/strict
-// setups stay fast and network-free. CDN FALLBACK for Open VSX hosts (GitLab Web IDE,
-// Cursor, Gitpod): their resource CDN does not serve bundled media/ files
-// (eclipse-openvsx/openvsx#2099), so the bundled read below throws and we load Pyodide
-// from jsDelivr + the wheels from PyPI instead — working there beats not working.
-async function pyodideAssets(webview, context) {
-  const wheelsDir = vscode.Uri.joinPath(context.extensionUri, "media", "wheels");
-  const pyodideDir = vscode.Uri.joinPath(context.extensionUri, "media", "pyodide");
-  try {
-    const wheels = await wheelUris(webview, wheelsDir);
-    const pyodideBase = webview.asWebviewUri(pyodideDir).toString() + "/";
-    return { wheels, pyodideBase, source: "bundled" };
-  } catch (e) {
-    // micropip installs each wheel below by NAME from PyPI (deps:false); lvkit LAST
-    // (it imports networkx + pylabview at import time). loadPyodide + loadPackage come
-    // from jsDelivr. See webviewCsp for the extra hosts this path requires.
-    log(`bundled Pyodide/wheels unavailable (${e && e.message ? e.message : e}) — using CDN fallback`);
-    const lvkitSpec = `lvkit==${context.extension.packageJSON.version}`;
-    return { wheels: [...CDN_WHEELS, lvkitSpec], pyodideBase: CDN_PYODIDE, source: "cdn" };
-  }
+// The web extension runs ONLY in hosted editors (vscode.dev, GitLab Web IDE,
+// Cursor, Gitpod, Codespaces) — all online — so we load Pyodide + wheels straight
+// from the CDN rather than bundling ~13 MB of media/ in the VSIX. jsDelivr serves
+// the Pyodide runtime far faster than the marketplace / webview-resource layer
+// serves a self-hosted copy (measured: ~3 s vs. minutes on vscode.dev for the same
+// VI), so this is smaller AND faster. No bundled fallback: an air-gapped browser
+// IDE isn't a real host, and Open VSX can't serve bundled media/ anyway
+// (eclipse-openvsx/openvsx#2099).
+async function pyodideAssets(context) {
+  const lvkitSpec = `lvkit==${context.extension.packageJSON.version}`;
+  return { wheels: [...CDN_WHEELS, lvkitSpec], pyodideBase: CDN_PYODIDE };
 }
 
 // ── The shared Pyodide "engine" (a PANEL WebviewView, not an editor tab) ─────
@@ -167,7 +138,7 @@ function engineViewProvider(context) {
       });
       _engine = engine;
       const wake = () => { const waiters = _engineWaiters; _engineWaiters = []; waiters.forEach((r) => r(engine)); };
-      pyodideAssets(view.webview, context)
+      pyodideAssets(context)
         .then((assets) => { view.webview.html = engineHtml(view.webview, assets.wheels, assets.pyodideBase); wake(); })
         .catch((e) => { view.webview.html = errorHtml("LVKit web build is missing its wheels", String(e)); logError("engine assets", e); engine.rejectReady(new Error(String(e))); wake(); });
     },
@@ -521,10 +492,9 @@ function errorHtml(title, message) {
 <pre style="white-space:pre-wrap;color:var(--vscode-descriptionForeground)">${esc(message)}</pre></body>`;
 }
 
-// Hosts the CDN fallback (pyodideAssets) needs when bundled media/ is unavailable:
-// jsDelivr serves the Pyodide runtime (pyodide.js + wasm/data), and micropip resolves
-// wheels via the PyPI JSON index (pypi.org) and downloads them (files.pythonhosted.org).
-// The bundled path uses only webview.cspSource, so these only matter on Open VSX hosts.
+// Hosts the engine loads from (pyodideAssets): jsDelivr serves the Pyodide runtime
+// (pyodide.js + wasm/data), and micropip resolves wheels via the PyPI JSON index
+// (pypi.org) and downloads them (files.pythonhosted.org).
 const CDN_HOSTS = "https://cdn.jsdelivr.net https://files.pythonhosted.org https://pypi.org";
 
 function webviewCsp(webview) {

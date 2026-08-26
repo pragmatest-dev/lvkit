@@ -1,7 +1,8 @@
 # .vscodeignore for the WEB target VSIX (`vsce package --target web
-# --ignoreFile .vscodeignore.web`). The inverse of the desktop .vscodeignore:
-# it SHIPS the self-hosted Pyodide runtime + wheels under media/ and the browser
-# entry dist/web/extension.js, and DROPS the native binary.
+# --ignoreFile .vscodeignore.web`). Ships ONLY the browser entry
+# dist/web/extension.js — DROPS the native binary (bin/) AND the bundled Pyodide
+# runtime + wheels (media/): the engine loads Pyodide from jsDelivr and the wheels
+# from PyPI at runtime (smaller VSIX, and faster than self-hosting media/).
 .vscode/**
 build/**
 setup-jki-demo.sh
@@ -27,6 +28,11 @@ Diff.png
 # Excluding bin/ drops the ~70 MB per-platform PyInstaller bundle the browser
 # cannot execute anyway. (The desktop VSIXes are the ones that carry bin/.)
 bin/**
+
+# No bundled Pyodide/wheels — the engine loads them from the CDN (jsDelivr + PyPI)
+# at runtime (web/extension.js pyodideAssets). Self-hosting media/ was ~13 MB and,
+# served via the marketplace/webview-resource layer, slower than the CDN.
+media/**
 
 # Build sources — the shipped browser entry is the pre-built
 # dist/web/extension.js, so the un-bundled source + its esbuild config stay out.
