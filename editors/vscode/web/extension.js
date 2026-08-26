@@ -158,63 +158,84 @@ function getEngine() {
   return p;
 }
 
-// ---- SubVI staging ----------------------------------------------------------
+// ---- SubVI staging -----------------------------------------------------------
 // data-lv-vi-rel (the SubVI click-nav identity) is only emitted when the renderer
-// can RESOLVE each SubVI to an on-disk file relative to its caller. Pyodide has
-// no access to the workspace FS, so before a render we mirror the VI's
-// workspace-folder subtree of .vi files into Pyodide under /proj, preserving
-// relative layout — then render /proj/<the VI>. Bounded so opening one VI in a
-// huge repo can't read the whole tree; the opened VI is always staged even if
-// the cap trips (it just renders with fewer clickable SubVIs).
+// can RESOLVE each SubVI to an on-disk file relative to its caller — and even the
+// FIRST render's byte-identity to desktop depends on it: a referenced class's or
+// typedef's file has to be present too, or the graph degrades to a stub and the
+// wasm render diverges from the native one (see check-web-parity.sh). Pyodide has
+// no access to the workspace FS, so before a render we mirror the VI's TRANSITIVE
+// DEPENDENCY CLOSURE (not the whole workspace, and not .vi-only) into Pyodide
+// under /proj, preserving relative layout, reading each BFS level in PARALLEL —
+// then render /proj/<the VI>.
+//
+// The closure is computed by lvkit.list_deps (core Python) — the SAME resolution
+// the graph loader's `_load_dependency` uses — so /proj ends up holding exactly
+// the files the desktop loader would have touched: .vi, .ctl, .lvclass, .lvlib
+// alike. Bounded so a pathological project can't stage forever; the opened VI is
+// always staged even if the cap trips (it just renders with fewer clickable
+// SubVIs / possibly-stubbed types).
 const MAX_STAGE_FILES = 400;
 const MAX_STAGE_BYTES = 64 * 1024 * 1024;
 
-async function stageWorkspaceSubtree(uri) {
+async function stageDependencyClosure(uri, engine) {
   const folder = vscode.workspace.getWorkspaceFolder(uri);
   const root = folder ? folder.uri : uri.with({ path: uri.path.replace(/\/[^/]*$/, "") });
-  const files = [];
-  let bytes = 0;
-  let capped = false;
-  async function walk(dirUri, relDir) {
-    if (capped) return;
-    let entries;
-    try {
-      entries = await vscode.workspace.fs.readDirectory(dirUri);
-    } catch (e) {
-      log(`  stage: cannot list ${dirUri.toString()} — ${e}`);
-      return;
-    }
-    for (const [name, kind] of entries) {
-      if (capped) return;
-      const rel = relDir ? `${relDir}/${name}` : name;
-      const child = vscode.Uri.joinPath(dirUri, name);
-      if (kind === vscode.FileType.Directory) {
-        await walk(child, rel);
-      } else if (kind === vscode.FileType.File && name.toLowerCase().endsWith(".vi")) {
-        if (files.length >= MAX_STAGE_FILES || bytes >= MAX_STAGE_BYTES) {
-          capped = true;
-          return;
-        }
-        try {
-          const data = await vscode.workspace.fs.readFile(child);
-          bytes += data.length;
-          files.push({ rel, b64: toBase64(data) });
-        } catch (e) {
-          log(`  stage: cannot read ${rel} — ${e}`);
-        }
-      }
-    }
-  }
-  await walk(root, "");
   const renderRel = uri.path.startsWith(root.path)
     ? uri.path.slice(root.path.length).replace(/^\/+/, "")
     : uri.path.split("/").pop();
-  // The opened VI must be present even if the walk capped out before reaching it.
-  if (!files.some((f) => f.rel === renderRel)) {
-    const data = await vscode.workspace.fs.readFile(uri);
-    files.push({ rel: renderRel, b64: toBase64(data) });
+
+  async function readRel(rel) {
+    const data = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, rel));
+    return { rel, b64: toBase64(data), size: data.length };
   }
-  return { files, renderRel, capped, root: root.toString() };
+
+  const staged = new Set([renderRel]);
+  let bytes = 0;
+  let capped = false;
+  // Level 0 is always the opened VI itself, cap or no cap.
+  const first = await readRel(renderRel);
+  bytes += first.size;
+  let level = [first];
+
+  while (level.length > 0) {
+    // PARALLEL: one round trip to the engine per level, not one per file.
+    const depsJson = await engine.run({
+      type: "stageDeps",
+      files: level.map(({ rel, b64 }) => ({ rel, b64 })),
+    });
+    const nextRels = [...new Set(JSON.parse(depsJson))].filter((rel) => !staged.has(rel));
+    if (nextRels.length === 0) break;
+
+    if (staged.size >= MAX_STAGE_FILES || bytes >= MAX_STAGE_BYTES) {
+      capped = true;
+      break;
+    }
+
+    // PARALLEL: every file in a level is read off the workspace FS at once —
+    // this is the whole point (the old walk read one .vi at a time, which is
+    // what made staging take 1-8 minutes over a remote VFS).
+    const reads = await Promise.all(
+      nextRels.map((rel) =>
+        readRel(rel).catch((e) => {
+          log(`  stage: cannot read ${rel} — ${e}`);
+          return null;
+        })
+      )
+    );
+    level = [];
+    for (const r of reads) {
+      if (!r || staged.has(r.rel)) continue;
+      staged.add(r.rel);
+      bytes += r.size;
+      level.push(r);
+    }
+  }
+
+  if (capped) {
+    log(`  stage: capped at ${MAX_STAGE_FILES} files / ${MAX_STAGE_BYTES} bytes — some deps may be missing`);
+  }
+  return { renderRel, capped, root: root.toString(), stagedCount: staged.size };
 }
 
 // ---- SubVI click-navigation -------------------------------------------------
@@ -426,23 +447,26 @@ function activate(context) {
         if (m.type === "ready") {
           try {
             await engine.ready;
-            let job;
+            let html;
             try {
-              const staged = await stageWorkspaceSubtree(document.uri);
+              const staged = await stageDependencyClosure(document.uri, engine);
               log(
-                `render: staged ${staged.files.length} VI(s) under ${staged.root}` +
-                  `${staged.capped ? ` (CAPPED at ${MAX_STAGE_FILES} — some SubVI links may not resolve)` : ""}` +
+                `render: staged ${staged.stagedCount} file(s) (dependency closure) under ${staged.root}` +
+                  `${staged.capped ? ` (CAPPED at ${MAX_STAGE_FILES} — some deps may be missing)` : ""}` +
                   `, entry=${staged.renderRel}`
               );
-              job = { type: "render", files: staged.files, renderRel: staged.renderRel };
+              html = await engine.run({ type: "render", renderRel: staged.renderRel });
             } catch (e) {
               logError("stage", e);
-              // Degrade: render just the opened VI (no SubVI links).
+              // Degrade: render just the opened VI (no SubVI links / typed deps).
               const data = await vscode.workspace.fs.readFile(document.uri);
               const only = document.uri.path.split("/").pop();
-              job = { type: "render", files: [{ rel: only, b64: toBase64(data) }], renderRel: only };
+              html = await engine.run({
+                type: "render",
+                files: [{ rel: only, b64: toBase64(data) }],
+                renderRel: only,
+              });
             }
-            const html = await engine.run(job);
             // Empty body = lvkit declined (missing diagram geometry). Surface the
             // error card rather than a blank page, matching the desktop viewer.
             if (html && html.trim()) {
@@ -543,7 +567,7 @@ const PHASES = [
 ];
 // The raw status string is a match key + a log line; the panel/loader show the plain label.
 function status(m) { log(m); const p = PHASES.find(p => p.re.test(m)); const label = p ? p.label : String(m); S.textContent = label; api.postMessage({ type: "progress", label, pct: p ? p.pct : null }); }
-let pyodide = null, renderFn = null, diffFn = null;
+let pyodide = null, renderFn = null, diffFn = null, listDepsFn = null;
 function u8(b64) { const bin = atob(b64); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
 function writeFile(pth, data) { const dir = pth.slice(0, pth.lastIndexOf("/")); if (dir) pyodide.FS.mkdirTree(dir); pyodide.FS.writeFile(pth, data); }
 const WHEELS = ${JSON.stringify(wheelUrls)};
@@ -558,10 +582,12 @@ async function boot() {
     status("installing networkx + pylabview + lvkit wheels…");
     for (const w of WHEELS) { await micropip.install.callKwargs(w, { deps: false }); }
     pyodide.runPython(\`
+import json
 import os
 os.environ["LVKIT_CACHE_DIR"] = "/tmp/lvkitcache"
 from pathlib import Path
 from lvkit import __version__
+from lvkit.list_deps import list_deps
 from lvkit.output_cache import (
     cached_diff, cached_render, diff_options_tag, render_options_tag,
 )
@@ -591,23 +617,48 @@ def _diff(before, after, before_ref, after_ref):
         before_ref=(before_ref or None),
         after_ref=(after_ref or None),
     ) or ""
+
+# Host-side staging BFS (stageDependencyClosure below) calls this once per
+# newly-staged file to discover the next level of the transitive dependency
+# closure — the SAME resolution lvkit's graph loader uses (see
+# lvkit.list_deps's module docstring), so the closure staged into /proj is
+# never missing a file the desktop loader would have used. Returns a JSON
+# array of paths relative to /proj (the host re-joins them against the real
+# workspace root to read the next batch).
+def _list_deps(vi_path):
+    try:
+        deps = list_deps(vi_path)
+    except Exception:
+        deps = []
+    proj = Path("/proj")
+    rels = []
+    for d in deps:
+        try:
+            rels.append(str(Path(d).relative_to(proj)))
+        except ValueError:
+            pass  # shouldn't happen -- everything staged lives under /proj
+    return json.dumps(rels)
 \`);
     renderFn = pyodide.globals.get("_render");
     diffFn = pyodide.globals.get("_diff");
+    listDepsFn = pyodide.globals.get("_list_deps");
     status("ready");
     S.textContent = "LVKit runs here in the background to draw your VIs. You can hide this panel — it keeps working.";
     api.postMessage({ type: "engineReady" });
   } catch (e) { api.postMessage({ type: "error", text: String(e && e.stack ? e.stack : e) }); }
 }
 
-// Render/diff jobs from the host; reply by id.
+// Render/diff/stageDeps jobs from the host; reply by id.
 window.addEventListener("message", ev => {
   const m = ev.data;
   if (!m || m.id == null) return;
   try {
     if (m.type === "render") {
       const t0 = performance.now();
-      for (const f of m.files) { writeFile("/proj/" + f.rel, u8(f.b64)); }
+      // files is normally omitted -- stageDeps already wrote everything the
+      // closure walk found. It's only sent by the degrade path (staging
+      // failed), which writes just the opened VI's own bytes here instead.
+      for (const f of (m.files || [])) { writeFile("/proj/" + f.rel, u8(f.b64)); }
       const html = renderFn("/proj/" + m.renderRel);
       log("rendered via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
       api.postMessage({ type: "result", id: m.id, html });
@@ -616,6 +667,24 @@ window.addEventListener("message", ev => {
       const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "");
       log("diffed via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
       api.postMessage({ type: "result", id: m.id, html });
+    } else if (m.type === "stageDeps") {
+      // One BFS level of the host's dependency-closure walk (see
+      // stageDependencyClosure): write this batch into /proj, then ask lvkit
+      // for each file's own direct deps so the host can read+send the next
+      // level. Reply carries a JSON array of /proj-relative paths in the
+      // 'html' field (reusing the generic job/result field — it is just the
+      // response body, not markup, for this job type).
+      for (const f of m.files) { writeFile("/proj/" + f.rel, u8(f.b64)); }
+      const nextRels = [];
+      for (const f of m.files) {
+        try {
+          const rels = JSON.parse(listDepsFn("/proj/" + f.rel));
+          for (const r of rels) nextRels.push(r);
+        } catch (e) {
+          log("list_deps failed for " + f.rel + " — " + (e && e.message ? e.message : e));
+        }
+      }
+      api.postMessage({ type: "result", id: m.id, html: JSON.stringify(nextRels) });
     }
   } catch (e) { api.postMessage({ type: "jobError", id: m.id, error: String(e && e.message ? e.message : e) }); }
 });

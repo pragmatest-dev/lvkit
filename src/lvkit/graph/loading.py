@@ -1025,36 +1025,25 @@ class LoadingMixin:
             self._dep_graph.add_node(qname, node_type="typedef")
             self._stubs.add(qname)
 
-    def _load_dependency(
+    def _resolve_dependency_path(
         self,
         qualified_name: str,
         dep_ref: ParsedDependencyRef | None,
         caller_file: Path,
         search_paths: list[Path],
-        caller_qname: str | None = None,
-        mode: LoadMode = LoadMode.FULL,
-    ) -> None:
-        """Load one dependency by its LabVIEW qualified name and optional path ref.
-
-        Single entry point for all dependency loading: SubVI calls, class refs,
-        typedef refs, and library refs all funnel through here.
-
-        Uses the recorded LinkSavePathRef for resolution (exact path, no scanning).
-        Falls back to name-based search only when no path ref is available or the
-        recorded path doesn't exist on disk (e.g. <userlib> refs without a root).
-
-        LabVIEW's one-qname-per-memory invariant means the dep_graph node check
-        at the top is the definitive dedup — resolution only runs on first visit.
+    ) -> Path | None:
+        """Resolve one dependency ref to an on-disk file — the pure
+        PATH-RESOLUTION half of ``_load_dependency`` (no graph mutation, no
+        ``.lvclass`` walk-up): prefer the recorded LinkSavePathRef (+ LLB
+        archive fallback + class/library MEMBER-VI redirect), else fall back
+        to a name-based search. Shared with ``lvkit.list_deps`` (the web
+        staging closure) so that reader can never drift from what this loader
+        actually resolves — callers that also need the ``.lvclass`` walk-up
+        fallback (``_load_dependency`` itself; ``list_deps``) call
+        ``_walk_up_find`` themselves afterward, since its DISPOSITION differs
+        per caller (``_load_dependency`` field-loads it at a fixed MINIMAL
+        mode; ``list_deps`` just wants the file path).
         """
-        if self._dep_graph.has_node(qualified_name):
-            if caller_qname:
-                self._dep_graph.add_edge(caller_qname, qualified_name)
-            # A fields-only class placeholder (walk-up interface load) is NOT the
-            # definitive dedup — if THIS reference can resolve the class on disk,
-            # fall through so a full load (with methods) upgrades it.
-            if not self._dep_graph.nodes[qualified_name].get("fields_only"):
-                return
-
         leaf = qualified_name.rsplit(":", 1)[-1]
 
         # Resolve path: prefer the recorded ref, fall back to name-based search.
@@ -1096,6 +1085,43 @@ class LoadingMixin:
                 resolved = self._find_subvi(leaf, search_paths, caller_file.parent)
             else:
                 resolved = self._find_file(leaf, search_paths, caller_file.parent)
+
+        return resolved
+
+    def _load_dependency(
+        self,
+        qualified_name: str,
+        dep_ref: ParsedDependencyRef | None,
+        caller_file: Path,
+        search_paths: list[Path],
+        caller_qname: str | None = None,
+        mode: LoadMode = LoadMode.FULL,
+    ) -> None:
+        """Load one dependency by its LabVIEW qualified name and optional path ref.
+
+        Single entry point for all dependency loading: SubVI calls, class refs,
+        typedef refs, and library refs all funnel through here.
+
+        Uses the recorded LinkSavePathRef for resolution (exact path, no scanning).
+        Falls back to name-based search only when no path ref is available or the
+        recorded path doesn't exist on disk (e.g. <userlib> refs without a root).
+
+        LabVIEW's one-qname-per-memory invariant means the dep_graph node check
+        at the top is the definitive dedup — resolution only runs on first visit.
+        """
+        if self._dep_graph.has_node(qualified_name):
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, qualified_name)
+            # A fields-only class placeholder (walk-up interface load) is NOT the
+            # definitive dedup — if THIS reference can resolve the class on disk,
+            # fall through so a full load (with methods) upgrades it.
+            if not self._dep_graph.nodes[qualified_name].get("fields_only"):
+                return
+
+        leaf = qualified_name.rsplit(":", 1)[-1]
+        resolved = self._resolve_dependency_path(
+            qualified_name, dep_ref, caller_file, search_paths
+        )
 
         if resolved is None:
             # A class referenced only by TYPE whose .lvclass isn't on a search
