@@ -4,7 +4,7 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
-## [0.7.4] - 2026-08-25
+## [0.7.4] - 2026-08-26
 - **The web extension now loads Pyodide from the CDN by default, and no longer
   bundles it.** 0.7.3 tried the self-hosted `media/` copy first and only fell back
   to the CDN on Open VSX; but on vscode.dev the marketplace/webview-resource layer
