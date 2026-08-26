@@ -21,7 +21,6 @@ VS Code host):
 
 from __future__ import annotations
 
-import re
 import shutil
 from pathlib import Path
 
@@ -29,6 +28,7 @@ import pytest
 
 from lvkit.list_deps import list_deps
 from lvkit.render import render_vi_body
+from tests.helpers import normalize_render_ids, transitive_closure
 
 SAMPLES = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 
@@ -114,29 +114,11 @@ def test_list_deps_lvclass_and_ctl():
 # ---------------------------------------------------------------------------
 
 
-def _transitive_closure(entry: Path, root: Path) -> set[Path]:
-    """BFS over ``list_deps``, exactly mirroring the web extension's staging
-    loop (``stageWorkspaceSubtree`` in ``editors/vscode/web/extension.js``):
-    read one level, discover the next from what was just staged, repeat."""
-    frontier = [entry.resolve()]
-    staged: set[Path] = {entry.resolve()}
-    while frontier:
-        next_frontier: list[Path] = []
-        for f in frontier:
-            for dep_str in list_deps(f, search_paths=[root]):
-                dep = Path(dep_str).resolve()
-                if dep not in staged:
-                    staged.add(dep)
-                    next_frontier.append(dep)
-        frontier = next_frontier
-    return staged
-
-
 @pytest.mark.needs_samples
 def test_transitive_closure_stays_in_workspace_and_is_bounded():
     entry = SAMPLES / "Classes/TestCase/run.vi"
     _skip_if_missing(entry)
-    closure = _transitive_closure(entry, SAMPLES)
+    closure = transitive_closure(entry, SAMPLES, include_entry=True)
 
     assert entry.resolve() in closure
     for p in closure:
@@ -156,23 +138,13 @@ def _stage_closure(entry: Path, root: Path, mirror_dir: Path) -> Path:
     """Copy ONLY the transitive closure into ``mirror_dir``, preserving each
     file's path relative to ``root`` — exactly the ``/proj/<rel>`` layout the
     web extension stages into Pyodide's virtual FS."""
-    closure = _transitive_closure(entry, root)
+    closure = transitive_closure(entry, root, include_entry=True)
     for p in closure:
         rel = p.relative_to(root.resolve())
         dest = mirror_dir / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(p, dest)
     return mirror_dir / entry.relative_to(root)
-
-
-_NODE_ID_RE = re.compile(r"lv-[a-z0-9-]*-vi", re.IGNORECASE)
-
-
-def _normalize(svg: str) -> str:
-    """Strip the path-derived DOM id (differs between the full-corpus path
-    and the staged mirror path) — mirrors
-    ``editors/vscode/build/check-web-parity.sh``'s ``norm()``."""
-    return _NODE_ID_RE.sub("lv-ID", svg)
 
 
 # VIs with a mix of dependency shapes: a class method calling into ANOTHER
@@ -208,7 +180,7 @@ def test_closure_staged_render_matches_desktop(rel, tmp_path):
     staged_svg = render_vi_body(staged_entry, fmt="svg", search_paths=[mirror_dir])
     assert staged_svg is not None, f"closure-staged render declined for {rel}"
 
-    assert _normalize(native_svg) == _normalize(staged_svg), (
+    assert normalize_render_ids(native_svg) == normalize_render_ids(staged_svg), (
         f"web/closure render diverges from desktop for {rel} — "
         "the staging closure is missing a file the desktop loader used"
     )

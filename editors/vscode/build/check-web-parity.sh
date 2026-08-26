@@ -23,7 +23,11 @@ FIXTURES=(
 )
 
 OUT="$(mktemp -d)"
-norm() { sed -E 's/lv-[a-z0-9-]*-vi/lv-ID/g' "$1"; }
+# Case-INSENSITIVE char class: the id embeds the source PATH slug, which
+# preserves case (JKI-VI-Tester, Test LVKit). Must stay identical to
+# tests/helpers.py::normalize_render_ids so this gate and the Python parity
+# tests can't drift.
+norm() { sed -E 's/lv-[A-Za-z0-9-]*-vi/lv-ID/g' "$1"; }
 slug() { printf '%s' "$1" | tr -c 'a-zA-Z0-9' '_'; }
 
 echo "native renders (lvkit render --no-cache) …"

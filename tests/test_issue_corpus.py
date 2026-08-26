@@ -9,7 +9,6 @@ always run.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -23,10 +22,10 @@ from lvkit.graph.models import (
     LoopNode,
     SequenceNode,
 )
-from lvkit.list_deps import list_deps
 from lvkit.models import DisableStructureKind, TunnelMode, TunnelTerminal
 from lvkit.render import render_vi_file
 from lvkit.render.scene import _frame_info, _structure_borders
+from tests.helpers import normalize_render_ids, transitive_closure
 
 _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 
@@ -48,34 +47,6 @@ def _load(rel: str) -> tuple[InMemoryVIGraph, str]:
     return graph, graph.resolve_vi_name(vi.name)
 
 
-def _strip_path_id(svg: str) -> str:
-    """Normalize the SVG root ``id`` (and its ``getElementById``), which is
-    derived from the source file PATH (``lv-<pathslug>``) and so legitimately
-    differs between a ``/proj``-staged web render and a workspace desktop
-    render. The web/desktop parity guarantee is about render CONTENT, not the
-    path, so compare content with the path-id normalized out."""
-    svg = re.sub(r'id="lv-[^"]+"', 'id="lv-NORM"', svg)
-    return re.sub(r'getElementById\("lv-[^"]+"\)', 'getElementById("lv-NORM")', svg)
-
-
-def _closure(entry: Path, root: Path) -> set[Path]:
-    """The transitive dependency closure the web extension's
-    ``stageDependencyClosure`` BFS mirrors into ``/proj`` — driven by
-    ``lvkit.list_deps`` exactly as ``editors/vscode/web/extension.js`` does."""
-    closure: set[Path] = set()
-    frontier = [entry]
-    while frontier:
-        nxt: list[Path] = []
-        for f in frontier:
-            for d in list_deps(f, search_paths=[root]):
-                p = Path(d)
-                if p not in closure:
-                    closure.add(p)
-                    nxt.append(p)
-        frontier = nxt
-    return closure
-
-
 def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
     """The web (Pyodide) extension stages only a VI's dependency CLOSURE into
     ``/proj`` before rendering — not the whole workspace — so that closure must
@@ -90,7 +61,7 @@ def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
     root = (_CORPUS / "29" / "Test LVKit").resolve()
     entry = root / "Lib2" / "Class" / "Test.vi"
 
-    closure = _closure(entry, root)
+    closure = transitive_closure(entry, root)
     assert "Do.vi" in {p.name for p in closure}, (
         f"closure {sorted(p.name for p in closure)} missing the referenced Do.vi "
         "— the web render would understage vs desktop"
@@ -108,7 +79,7 @@ def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
     svg_full = render_vi_file(entry, search_paths=[root])
     assert svg_closure and svg_full, "expected both renders to produce a diagram"
 
-    assert _strip_path_id(svg_closure) == _strip_path_id(svg_full), (
+    assert normalize_render_ids(svg_closure) == normalize_render_ids(svg_full), (
         "web closure render differs from the full-tree (desktop) render — "
         "list_deps understaged this VI's dependencies"
     )
