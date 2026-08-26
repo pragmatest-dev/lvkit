@@ -4,6 +4,11 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-08-26
+- **Fix: extension README screenshots now load on vscode.dev** — serve them from
+  jsDelivr's GitHub CDN instead of `github.com/.../raw/...`, whose 302 redirect
+  vscode.dev's cross-origin-isolated (COEP) webview blocked.
+
 ## [0.7.4] - 2026-08-26
 - **The web extension now loads Pyodide from the CDN by default, and no longer
   bundles it.** 0.7.3 tried the self-hosted `media/` copy first and only fell back

@@ -14,11 +14,11 @@ Nodes LVKit doesn't have a glyph for yet render as labeled boxes.
 
 **View** - click a `.vi` in the Explorer.
 
-![A .vi open in VS Code as an interactive block diagram](https://github.com/pragmatest-dev/lvkit/raw/main/editors/vscode/View.png)
+![A .vi open in VS Code as an interactive block diagram](https://cdn.jsdelivr.net/gh/pragmatest-dev/lvkit@main/editors/vscode/View.png)
 
 **Diff** - right-click a changed `.vi` and select "Open Visual Diff"
 
-![The visual before/after diff, opened from the Source Control context menu](https://github.com/pragmatest-dev/lvkit/raw/main/editors/vscode/Diff.png)
+![The visual before/after diff, opened from the Source Control context menu](https://cdn.jsdelivr.net/gh/pragmatest-dev/lvkit@main/editors/vscode/Diff.png)
 
 ## Workspace Trust
 
