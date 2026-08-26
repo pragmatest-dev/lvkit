@@ -22,6 +22,21 @@ jobs:
       - run: uv sync --all-extras --dev
       - name: Ruff
         run: uv run ruff check .
+      # The web extension installs `lvkit==<LVKIT_WHEEL>` from PyPI at runtime,
+      # pinned to the lvkit CORE version and DECOUPLED from the extension's own
+      # version (an extension-only fix ships without a PyPI republish). But the
+      # pin must track the published core: it has to equal pyproject's version,
+      # or the web target would install a stale/absent wheel. Fails if a core
+      # (src/lvkit) version bump forgot to update the pin, or vice-versa.
+      - name: Web lvkit wheel pin matches core version
+        run: |
+          pin=$(grep -oE 'LVKIT_WHEEL = "lvkit==[0-9]+\.[0-9]+\.[0-9]+"' editors/vscode/web/extension.js | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          proj=$(grep -oE '^version = "[0-9]+\.[0-9]+\.[0-9]+"' pyproject.toml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "web LVKIT_WHEEL pin=$pin  pyproject=$proj"
+          if [ "$pin" != "$proj" ]; then
+            echo "::error::LVKIT_WHEEL pin ($pin) != pyproject version ($proj). The web target installs lvkit==<pin> from PyPI, so a core release must bump BOTH — update LVKIT_WHEEL in editors/vscode/web/extension.js (and publish lvkit==$proj to PyPI)."
+            exit 1
+          fi
 
   typecheck:
     runs-on: ubuntu-latest
