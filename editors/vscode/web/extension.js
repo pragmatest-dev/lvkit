@@ -76,13 +76,32 @@ async function wheelUris(webview, wheelsDir) {
     );
 }
 
-// Resolve the self-hosted Pyodide runtime + wheels for one webview.
+// CDN fallback (below): pinned to match the bundled wheels (uv.lock /
+// build-web-assets.sh) and the `pyodide` devDependency. Keep in sync on a bump.
+const CDN_PYODIDE = "https://cdn.jsdelivr.net/pyodide/v314.0.5/full/";
+const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2"]; // lvkit appended (its own version)
+
+// Resolve the Pyodide runtime + wheels for one webview. Bundled-FIRST — self-hosted
+// under media/, so MS-Marketplace hosts (vscode.dev, Codespaces) and offline/strict
+// setups stay fast and network-free. CDN FALLBACK for Open VSX hosts (GitLab Web IDE,
+// Cursor, Gitpod): their resource CDN does not serve bundled media/ files
+// (eclipse-openvsx/openvsx#2099), so the bundled read below throws and we load Pyodide
+// from jsDelivr + the wheels from PyPI instead — working there beats not working.
 async function pyodideAssets(webview, context) {
   const wheelsDir = vscode.Uri.joinPath(context.extensionUri, "media", "wheels");
   const pyodideDir = vscode.Uri.joinPath(context.extensionUri, "media", "pyodide");
-  const wheels = await wheelUris(webview, wheelsDir);
-  const pyodideBase = webview.asWebviewUri(pyodideDir).toString() + "/";
-  return { wheels, pyodideBase };
+  try {
+    const wheels = await wheelUris(webview, wheelsDir);
+    const pyodideBase = webview.asWebviewUri(pyodideDir).toString() + "/";
+    return { wheels, pyodideBase, source: "bundled" };
+  } catch (e) {
+    // micropip installs each wheel below by NAME from PyPI (deps:false); lvkit LAST
+    // (it imports networkx + pylabview at import time). loadPyodide + loadPackage come
+    // from jsDelivr. See webviewCsp for the extra hosts this path requires.
+    log(`bundled Pyodide/wheels unavailable (${e && e.message ? e.message : e}) — using CDN fallback`);
+    const lvkitSpec = `lvkit==${context.extension.packageJSON.version}`;
+    return { wheels: [...CDN_WHEELS, lvkitSpec], pyodideBase: CDN_PYODIDE, source: "cdn" };
+  }
 }
 
 // ── The shared Pyodide "engine" (a PANEL WebviewView, not an editor tab) ─────
@@ -502,11 +521,17 @@ function errorHtml(title, message) {
 <pre style="white-space:pre-wrap;color:var(--vscode-descriptionForeground)">${esc(message)}</pre></body>`;
 }
 
+// Hosts the CDN fallback (pyodideAssets) needs when bundled media/ is unavailable:
+// jsDelivr serves the Pyodide runtime (pyodide.js + wasm/data), and micropip resolves
+// wheels via the PyPI JSON index (pypi.org) and downloads them (files.pythonhosted.org).
+// The bundled path uses only webview.cspSource, so these only matter on Open VSX hosts.
+const CDN_HOSTS = "https://cdn.jsdelivr.net https://files.pythonhosted.org https://pypi.org";
+
 function webviewCsp(webview) {
   return [
     "default-src 'none'",
-    `script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'`,
-    `connect-src ${webview.cspSource} blob: data:`,
+    `script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net`,
+    `connect-src ${webview.cspSource} blob: data: ${CDN_HOSTS}`,
     "style-src 'unsafe-inline'",
     `img-src ${webview.cspSource} data: blob:`,
     "worker-src blob:",

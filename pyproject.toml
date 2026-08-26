@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lvkit"
-version = "0.7.2"
+version = "0.7.3"
 description = "Understand and convert LabVIEW VIs to Python without a LabVIEW license"
 readme = "README.md"
 requires-python = ">=3.10"
