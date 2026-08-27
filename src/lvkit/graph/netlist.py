@@ -28,7 +28,7 @@ from __future__ import annotations
 import os
 import re
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import asdict as _dataclass_asdict
 from dataclasses import dataclass, field
 from enum import Enum
@@ -61,6 +61,7 @@ from ..models import (
     TunnelMode,
     TunnelTerminal,
     _is_error_cluster,
+    _strip_typedef_stem,
 )
 from ..num_format import format_numeric_const
 from ..parser import parse_vi
@@ -4822,6 +4823,381 @@ def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
     return lv_type.type_descriptor(expand_named=False)
 
 
+# ============================================================
+# §10 lossless ``types :`` footnotes (verbose-only) -- the type-REHYDRATION
+# counterpart to ``_lvnet_type_label``'s by-name terse/verbose-inline label.
+# A NAMED enum/ring/cluster/typedef always renders by bare name inline
+# (above); its FULL structure -- enum ordinals, cluster field TYPES (not
+# just names), a refnum's inner type -- lives ONCE, here, in a bottom
+# appendix. Primitives (even one wrapped in its own scalar ``.ctl``
+# typedef) and class IDENTITIES never get an entry: a primitive has no
+# structure beyond its own faithful token, and a class is identified by
+# ``classname``, never ``typedef_name`` -- see ``_lvnet_named_stem``, the
+# single source of truth both this section and ``netlist_signature``'s
+# strengthened type comparison (``lvnet_parse.py``) key off, so the two can
+# never disagree about what counts as "named".
+# ============================================================
+
+
+def _lvnet_named_stem(lv_type: LVType) -> str | None:
+    """This type's own bare stripped display name IFF it is one of §10's
+    NAMED kinds (enum/ring/cluster/typedef_ref) with a real ``typedef_name``
+    -- the SAME check ``LVType.type_descriptor(expand_named=False)`` already
+    applies to decide when to collapse to a bare name (mirrored here rather
+    than re-derived from that method's return value, since a bare "cluster"
+    fallback for an UNNAMED-but-fieldless cluster would otherwise be
+    ambiguous with a genuinely named one).
+
+    ``None`` for: an anonymous type; a PRIMITIVE (even one wrapped in its
+    own scalar ``.ctl`` typedef -- §10: "primitives ... get no [types:]
+    entry"); a CLASS identity (uses ``classname``, never ``typedef_name``);
+    and an error cluster (``type_descriptor`` renders ``"Error"`` for one
+    unconditionally, never falling through to its ``typedef_name`` either).
+    """
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        if not lv_type.typedef_name:
+            return None
+        return _strip_typedef_stem(lv_type.typedef_name)
+    if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
+        if not lv_type.typedef_name or _is_error_cluster(lv_type):
+            return None
+        return _strip_typedef_stem(lv_type.typedef_name)
+    return None
+
+
+def _lvnet_type_ref(lv_type: LVType | None) -> str:
+    """One type REFERENCE inside the §10 lossless grammar -- a cluster
+    field's type, an array's element, a refnum's inner type: a NAMED type
+    renders BY NAME alone (its own definition lives in its own ``types :``
+    entry -- never re-inlined here, so every footnote stays FLAT, one entry
+    per name, and a cyclic/self-referential named type can't recurse
+    forever); an ANONYMOUS composite renders its own full structural
+    definition recursively (``_lvnet_type_lossless_def`` -- nothing else
+    faithful to show, mirroring ``type_descriptor``'s own "anonymous still
+    expands" rule); ``None`` (no type resolved) is the honest ``"?"``.
+    """
+    if lv_type is None:
+        return "?"
+    name = _lvnet_named_stem(lv_type)
+    if name is not None:
+        return name
+    return _lvnet_type_lossless_def(lv_type)
+
+
+def _lvnet_type_lossless_def(lv_type: LVType) -> str:
+    """The FULL lossless structural definition (§10's ``types :`` footnote
+    grammar) for one ``LVType`` -- the type-REHYDRATION form, distinct from
+    ``type_descriptor()`` (terse-faithful but intentionally lossy: no field
+    types, no enum ordinals). Used both as a NAMED type's own top-level
+    footnote entry (called directly on that type -- it never re-collapses
+    to its own bare name) and, via ``_lvnet_type_ref``, recursively for an
+    ANONYMOUS nested composite.
+
+    - enum/ring: ``Enum{ m0 = 0, m1 = 1, ... }`` / ``Ring{ ... }``, ordinals
+      explicit in ORDINAL order.
+    - cluster/typedef_ref: ``Cluster{ f0 : <type-ref>, f1 : <type-ref>, ... }``
+      -- each field's own faithful type via ``_lvnet_type_ref`` (by name if
+      named, structural if anonymous, a scalar token otherwise).
+    - array: ``[<type-ref>]``, nested once per ``dimensions``.
+    - refnum: a class refnum shows its class name verbatim; a parametrized
+      refnum shows ``<ref_type> refnum{ <type-ref> }``; otherwise
+      ``<ref_type> refnum`` / ``"refnum"``.
+    - any other primitive: its own faithful scalar token
+      (``type_descriptor``'s scalar path -- unaffected by ``expand_named``).
+    - class identity: its ``classname`` verbatim.
+
+    Never fabricates: a cluster/typedef_ref with no ``fields`` loaded (e.g.
+    an unresolved ``TYPEDEF_REF`` placeholder) or an enum/ring with no
+    ``values`` loaded renders the honest ``Cluster{ ? }`` / ``Enum{ ? }``
+    rather than guessing a member/field list.
+    """
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        keyword = "Enum" if lv_type.kind == LVTypeKind.ENUM else "Ring"
+        if not lv_type.values:
+            return f"{keyword}{{ ? }}"
+        members = sorted(lv_type.values.items(), key=lambda kv: kv[1].value)
+        body = ", ".join(f"{name} = {ev.value}" for name, ev in members)
+        return f"{keyword}{{ {body} }}"
+    if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
+        if not lv_type.fields:
+            return "Cluster{ ? }"
+        body = ", ".join(
+            f"{f.name} : {_lvnet_type_ref(f.type)}" for f in lv_type.fields
+        )
+        return f"Cluster{{ {body} }}"
+    if lv_type.kind == LVTypeKind.ARRAY:
+        dims = lv_type.dimensions or 1
+        inner = _lvnet_type_ref(lv_type.element_type) if lv_type.element_type else "?"
+        return "[" * dims + inner + "]" * dims
+    if lv_type.kind == LVTypeKind.PRIMITIVE:
+        if lv_type.underlying_type == "Refnum":
+            if lv_type.classname:
+                return lv_type.classname
+            if lv_type.ref_type:
+                if lv_type.element_type is not None:
+                    return (
+                        f"{lv_type.ref_type} refnum{{ "
+                        f"{_lvnet_type_ref(lv_type.element_type)} }}"
+                    )
+                return f"{lv_type.ref_type} refnum"
+            return "refnum"
+        return lv_type.type_descriptor(expand_named=False)
+    if lv_type.kind == LVTypeKind.CLASS:
+        return lv_type.classname or "?"
+    return "?"
+
+
+def _iter_lv_types_in_items(items: list[NetlistItem]) -> Iterator[LVType]:
+    """Every structured ``LVType`` reachable from a body item's own
+    terminals -- an INSTANCE's input/output port types (``NetlistScope``
+    recurses into its frames'/loop's own body). A ``NetlistFeedback``/
+    ``NetlistConstant`` carries no structured ``LVType`` (only an already-
+    flattened label string), so neither yields anything here -- matching
+    the ``types :`` footnote's documented scope (boundary, body terminals,
+    dependency interfaces; never a constant's own type or a case/loop
+    merge's synthesized type)."""
+    for item in items:
+        if isinstance(item, NetlistInstance):
+            for b in item.inputs:
+                if b.lv_type is not None:
+                    yield b.lv_type
+            for o in item.outputs:
+                if o.lv_type is not None:
+                    yield o.lv_type
+        elif isinstance(item, NetlistScope):
+            # Every scope kind's contents live in ``frames`` -- a loop's
+            # single implicit body is ``frames[0].body`` (see
+            # ``lvnet_parse._module_loop_scope_signature`` for the same
+            # convention), a case/sequence/disabled/event scope has one
+            # frame per branch/event.
+            for frame in item.frames:
+                yield from _iter_lv_types_in_items(frame.body)
+
+
+def _iter_named_subtypes(
+    lv_type: LVType, _visited: set[int] | None = None
+) -> Iterator[tuple[str, LVType]]:
+    """Every NAMED type (§10) reachable from ``lv_type`` -- itself (if
+    named) plus every named type nested inside it (an array's element, a
+    cluster's field, a parametrized refnum's inner type) -- regardless of
+    whether ``lv_type`` ITSELF is named, so a named type nested inside an
+    anonymous container is still found. ``_visited`` (keyed by ``id()``,
+    not name) guards a genuinely self-referential ``LVType`` graph from
+    infinite recursion; a real cycle already bottoms out at a ``Recursive``
+    PRIMITIVE placeholder in practice (``type_mapping.py``), so this is a
+    defensive belt only.
+    """
+    if _visited is None:
+        _visited = set()
+    if id(lv_type) in _visited:
+        return
+    _visited.add(id(lv_type))
+    name = _lvnet_named_stem(lv_type)
+    if name is not None:
+        yield name, lv_type
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        yield from _iter_named_subtypes(lv_type.element_type, _visited)
+    elif (
+        lv_type.kind == LVTypeKind.PRIMITIVE
+        and lv_type.underlying_type == "Refnum"
+        and lv_type.element_type is not None
+    ):
+        yield from _iter_named_subtypes(lv_type.element_type, _visited)
+    elif (
+        lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF) and lv_type.fields
+    ):
+        for f in lv_type.fields:
+            if f.type is not None:
+                yield from _iter_named_subtypes(f.type, _visited)
+
+
+def _collect_lvnet_named_types(module: NetlistModule) -> dict[str, LVType]:
+    """Every NAMED type (§10) reachable ANYWHERE in ``module`` -- the
+    connector pane (covers both boundary in/out, positionally), every
+    ``uses :`` ``subVI`` dependency's own inline interface, and every
+    instance's own terminals throughout the body (recursing structures) --
+    keyed by stripped display name (first-seen ``LVType`` wins on a name
+    collision; the same typedef has the same structure everywhere it's
+    referenced, so this never actually loses information in practice),
+    sorted for a deterministic render/collection order.
+    """
+    seen: dict[str, LVType] = {}
+    sources: list[LVType] = [
+        t.lv_type for t in module.connector_pane.terminals if t.lv_type is not None
+    ]
+    for dep in module.dependencies:
+        sources.extend(t.lv_type for t in dep.interface if t.lv_type is not None)
+    sources.extend(_iter_lv_types_in_items(module.body))
+    for lv_type in sources:
+        for name, t in _iter_named_subtypes(lv_type):
+            seen.setdefault(name, t)
+    return dict(sorted(seen.items()))
+
+
+def _render_lvnet_types(module: NetlistModule, lines: list[str]) -> None:
+    """Render the §10 ``types :`` footnote section (verbose-only, a bottom
+    appendix -- LAYOUT PROVISIONAL like ``uses :``, its own small function,
+    trivial to move once the maintainer settles final placement): one
+    ``<Name> = <lossless-def>[ ; ./path]`` line per NAMED type reachable
+    anywhere in the module, sorted by name. Omitted entirely (no lines
+    appended) when the VI has no named types -- never an empty header.
+    """
+    named = _collect_lvnet_named_types(module)
+    if not named:
+        return
+    lines.append("")
+    lines.append("  types :")
+    for name, lv_type in named.items():
+        body = _lvnet_type_lossless_def(lv_type)
+        path = f" ; ./{lv_type.typedef_path}" if lv_type.typedef_path else ""
+        lines.append(f"    {name} = {body}{path}")
+
+
+def _lvnet_ambiguous_named_types(module: NetlistModule) -> frozenset[str]:
+    """Every §10 NAMED type name that resolves to MORE THAN ONE DISTINCT
+    structure somewhere in ``module`` -- the SAME nominal typedef (e.g. a
+    User Event's Variant-typed data field) genuinely carrying a different
+    concrete structure at different call sites, observed on a real corpus
+    VI (``WaveGen.vi``'s ``Event Data.ctl``, whose ``Value`` field resolves
+    to ``Gen Action`` at one occurrence and ``Gen Params`` at another).
+
+    The ``types :`` footnote still emits exactly ONE entry per name (§10's
+    decided "flat, one entry per name" rule -- see ``_collect_lvnet_named_
+    types``, which keeps the first-seen occurrence) -- so for one of these
+    names, that single footnote entry is NECESSARILY unfaithful to at
+    least one occurrence. ``netlist_signature``'s strengthened type
+    comparison excludes exactly this set from full structural resolution
+    (falls back to comparing by bare name, same as before this pass, for
+    every terminal typed with one of these names) -- claiming full
+    structural equality for an ambiguous name would be unverifiable from
+    the flat one-entry-per-name text, never fabricated as a round-trip
+    proof it can't actually make.
+    """
+    seen_defs: dict[str, str] = {}
+    ambiguous: set[str] = set()
+    sources: list[LVType] = [
+        t.lv_type for t in module.connector_pane.terminals if t.lv_type is not None
+    ]
+    for dep in module.dependencies:
+        sources.extend(t.lv_type for t in dep.interface if t.lv_type is not None)
+    sources.extend(_iter_lv_types_in_items(module.body))
+    for lv_type in sources:
+        for name, t in _iter_named_subtypes(lv_type):
+            def_text = _lvnet_type_lossless_def(t)
+            prior = seen_defs.get(name)
+            if prior is None:
+                seen_defs[name] = def_text
+            elif prior != def_text:
+                ambiguous.add(name)
+    return frozenset(ambiguous)
+
+
+def _lv_type_comparison_shape(
+    lv_type: LVType | None,
+    seen: frozenset[str] = frozenset(),
+    *,
+    full: bool = False,
+    ambiguous: frozenset[str] = frozenset(),
+) -> tuple:
+    """The canonical, comparable projection of one type reference for
+    ``lvnet_parse.netlist_signature``'s STRENGTHENED type check (§10's
+    lossless ``types :`` footnotes) -- the MODULE-side half; the PARSED-side
+    counterpart is ``lvnet_parse._parsed_type_ref_shape``, built
+    independently from TEXT but producing the identical tuple shape so the
+    two are directly comparable.
+
+    Below a NAMED enum/ring/cluster (not yet reached, ``full=False``): an
+    array/refnum wrapper still decomposes (``("array", dims, inner)`` /
+    ``("refnum", ref_type, inner)`` -- this is NOT new depth, it mirrors
+    ``type_descriptor``'s own pre-existing recursion into those two
+    containers); anything else is an opaque ``("leaf", <the SAME
+    ``type_descriptor(expand_named=False)`` string ``_lvnet_type_label``
+    already renders>)`` -- i.e. "compares by its inline structural form as
+    today" for anything with no footnote to rehydrate from.
+
+    The MOMENT a named enum/ring/cluster is reached (top-level, or nested
+    through an array/refnum wrapper) -- UNLESS its name is in ``ambiguous``
+    (``_lvnet_ambiguous_named_types``: the SAME name genuinely resolves to
+    different structures at different occurrences elsewhere in the module,
+    so the single ``types :`` footnote entry can't be trusted for this
+    particular one -- treated as if unnamed, an opaque leaf) -- ``full``
+    flips ``True`` and STAYS true for the rest of that subtree: every
+    enum/cluster reached from there on (named or anonymous) decomposes
+    FULLY -- ordinals, field types -- matching exactly what
+    ``_lvnet_type_lossless_def``/``_lvnet_type_ref`` render into that
+    type's footnote text (an anonymous nested composite is fully expanded
+    there too, never left opaque, since there's nothing else faithful to
+    show once the wrapper commits to structural detail).
+
+    ``seen`` cycle-guards a genuinely self-referential named type: re-
+    entering an in-progress name renders ``("named", name)`` instead of
+    recursing again -- both sides apply the identical rule, so a real cycle
+    still compares equal rather than diverging or infinite-looping.
+    """
+    if lv_type is None:
+        return ("leaf", "?")
+    if lv_type.kind == LVTypeKind.ARRAY:
+        dims = lv_type.dimensions or 1
+        return (
+            "array",
+            dims,
+            _lv_type_comparison_shape(
+                lv_type.element_type, seen, full=full, ambiguous=ambiguous
+            ),
+        )
+    if (
+        lv_type.kind == LVTypeKind.PRIMITIVE
+        and lv_type.underlying_type == "Refnum"
+        and lv_type.classname is None
+        and lv_type.ref_type is not None
+        and lv_type.element_type is not None
+    ):
+        return (
+            "refnum",
+            lv_type.ref_type,
+            _lv_type_comparison_shape(
+                lv_type.element_type, seen, full=full, ambiguous=ambiguous
+            ),
+        )
+
+    name = _lvnet_named_stem(lv_type)
+    if name is not None and name in ambiguous:
+        name = None
+    if name is not None:
+        if name in seen:
+            return ("named", name)
+        seen = seen | {name}
+        full = True
+    elif not full:
+        return ("leaf", lv_type.type_descriptor(expand_named=False))
+
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        members = tuple(
+            sorted(
+                ((n, ev.value) for n, ev in (lv_type.values or {}).items()),
+                key=lambda kv: kv[1],
+            )
+        )
+        return ("enum" if lv_type.kind == LVTypeKind.ENUM else "ring", members)
+    if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
+        if lv_type.fields:
+            fields = tuple(
+                (
+                    f.name,
+                    _lv_type_comparison_shape(
+                        f.type, seen, full=True, ambiguous=ambiguous
+                    ),
+                )
+                for f in lv_type.fields
+            )
+            return ("cluster", fields)
+        return ("cluster", None)
+    # PRIMITIVE / CLASS reached while full=True (e.g. a named cluster's own
+    # field typed as a scalar or a class) -- still just its own faithful
+    # label, the SAME as ``_lvnet_type_label`` already renders.
+    return ("leaf", lv_type.type_descriptor(expand_named=False))
+
+
 def _lvnet_handle_base(name: str) -> str:
     """The un-suffixed base of an instance/constant's HANDLE (lvnet §7): the
     display name with a trailing ``.vi``/``.ctl`` file extension stripped,
@@ -5652,7 +6028,11 @@ def render_lvnet(
     pass, each ``subVI`` ``uses :`` entry's own inline connector-pane
     interface (see ``_render_lvnet_uses``/``_render_lvnet_dependency_
     interface``): enough to rehydrate that dependency's MINIMAL-load
-    connector pane from the text alone.
+    connector pane from the text alone; plus, this pass, a bottom-appendix
+    ``types :`` section (§10, ``_render_lvnet_types``) giving every NAMED
+    type's own FULL lossless structure (enum ordinals, cluster field
+    types) -- the piece that makes verbose actually type-REHYDRATABLE,
+    not just by-name-referenceable.
     """
     handles = _assign_lvnet_handles(module)
     header_name = display_name if display_name is not None else module.vi_name
@@ -5700,5 +6080,8 @@ def render_lvnet(
                 _render_lvnet_source(o.source, handles) if o.source is not None else "?"
             )
             lines.append(f"  {o.name.ljust(name_width)}= {source_str}")
+
+    if verbose:
+        _render_lvnet_types(module, lines)
 
     return "\n".join(lines)

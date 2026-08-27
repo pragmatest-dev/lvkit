@@ -404,6 +404,61 @@ Complex-constant literal *values* (a cluster/array/enum/path constant's field
 values inline) are **OPEN** — the *types* render, the literal-value syntax was
 never pinned.
 
+### 10.1 The lossless `types :` footnote (verbose-only)
+
+The by-name form above (`lveventtype`, `Cluster{TestSuite, suiteStatus}` — no
+field *types*, no enum ordinals) is **intentionally lossy** — it's what makes a
+terminal line readable. It is *not* enough to **rehydrate** a type: verbose
+needs the FULL structure of every NAMED type, once, somewhere. That's the
+`types :` section — a bottom appendix (LAYOUT PROVISIONAL, trivial to move):
+one `<Name> = <lossless-def>` line per NAMED enum/ring/cluster/typedef
+reachable anywhere in the VI (boundary, every node's own terminals, `uses :`
+dependency interfaces), sorted by name, carrying a `; ./path` nav suffix when
+the type's own file is known. **Terse never emits this section.** Anonymous
+types stay inline everywhere (there's no name to hang a footnote off) — a
+named type's *inline* occurrence (a terminal line, a cluster field) still
+renders by bare name (§10 above); its footnote entry is the ONE place its
+full structure lives.
+
+The lossless def grammar, keyed to the same closed set of `LVType` kinds:
+
+- **enum/ring**: `Enum{ m0 = 0, m1 = 1, … }` / `Ring{ … }` — ordinals
+  **explicit**, in ordinal order (never omitted the way the inline form does).
+- **cluster**: `Cluster{ f0 : <type-ref>, f1 : <type-ref>, … }` — every
+  field's own faithful type, not just its name. `<type-ref>` is: a NAMED
+  sub-type BY NAME (its own footnote entry, never re-inlined — footnotes stay
+  FLAT, one entry per name, so a self-referential type can't recurse
+  forever); an ANONYMOUS composite expanded fully and recursively (nothing
+  else faithful to show); a scalar as its own token.
+- **array**: `[<type-ref>]`, nested once per `dimensions` (`[[DBL]]` for a 2D
+  array of `DBL`).
+- **refnum**: a class refnum shows its class name verbatim; a parametrized
+  refnum shows `<ref_type> refnum{ <type-ref> }`; otherwise `<ref_type>
+  refnum` / `"refnum"`.
+- **typedef wrapping something with no enum/cluster shape of its own** (e.g.
+  a `.ctl` typedef of a bare scalar): falls out of the same dispatch as its
+  own underlying kind — there is no separate "typedef" keyword, the footnote
+  entry just shows whatever that type's real structure is.
+- Never fabricated: a cluster/typedef with no field list loaded, or an
+  enum/ring with no member list loaded (an unresolved reference), renders the
+  honest `Cluster{ ? }` / `Enum{ ? }` rather than guessing.
+
+**Known lossy corner case — ambiguous same-name types.** A `.ctl` typedef name
+is not a global identity: the SAME nominal name can genuinely resolve to
+*different* structures at different call sites in one VI (observed on a real
+corpus VI, `WaveGen.vi`'s `Event Data.ctl` — its `Value` field is a
+Variant-typed User Event data field that resolves to one enum at one
+registration site and a different cluster at another). Because a footnote is
+ONE entry per name (this section's own rule — never per-occurrence variants),
+that single entry cannot be faithful to every occurrence of an ambiguous
+name. The round-trip gate treats this honestly rather than either fabricating
+a per-occurrence footnote (not part of this design) or silently reporting a
+false structural match: a name known (from the real graph) to carry more than
+one distinct structure is excluded from the strengthened structural
+comparison everywhere it's used, falling back to the same by-name comparison
+§10's terse form already provides. This is a genuine, documented information
+loss of the flat one-entry-per-name model, not a bug in the comparison logic.
+
 ## 11. verbose vs terse
 
 Only **netlist + JSON** have the two modes and are lossless targets. **`text` is
@@ -419,11 +474,14 @@ design; an agent needing full understanding uses netlist/JSON.
   `inlinable`, `allow_debugging`, `priority`, reentrancy) + health; node
   labels/captions/descriptions & comment text; positions/decorations; constant
   display formats & raw values; a *wired* terminal's now-unused default; hidden
-  loop terminals revealed; full cluster/enum type expansions; the `wiring_rule`
-  nuance at call sites; class-context fields/methods; property/invoke detail;
-  `poly_variant_name`; `primResID` as data; disable-structure `kind`;
-  `displayed_frame`/`active_frame`/`case_insensitive`; Event Filter-vs-Data;
-  local-var `is_write`/`control_terminal_id`; `VIContext.description`.
+  loop terminals revealed; full cluster/enum type expansions via the `types :`
+  footnote (§10.1 — lossless: enum ordinals, cluster field types, one entry
+  per NAMED type, the piece that makes verbose actually type-rehydratable);
+  the `wiring_rule` nuance at call sites; class-context fields/methods;
+  property/invoke detail; `poly_variant_name`; `primResID` as data;
+  disable-structure `kind`; `displayed_frame`/`active_frame`/`case_insensitive`;
+  Event Filter-vs-Data; local-var `is_write`/`control_terminal_id`;
+  `VIContext.description`.
 
 Terse is a *documented reduction* of the proven-lossless verbose, never its own
 thing. The exact per-construct terse reduction is otherwise **OPEN**.

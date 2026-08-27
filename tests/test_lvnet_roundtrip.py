@@ -62,6 +62,7 @@ from lvkit.graph.lvnet_parse import (
 from lvkit.graph.netlist import (
     NetlistConstant,
     NetlistModule,
+    _lvnet_ambiguous_named_types,
     _lvnet_literal_token,
     build_netlist_from_graph,
     render_lvnet,
@@ -168,8 +169,15 @@ def test_netlist_round_trips_through_verbose_lvnet(
     text = render_lvnet(module, display_name=vi_path.name, verbose=True)
     parsed: ParsedLvnet = parse_lvnet(text)
 
-    sig_module = netlist_signature(module)
-    sig_parsed = netlist_signature(parsed)
+    # A name genuinely ambiguous in THIS module (§10's flat one-entry-per-
+    # name `types :` footnote can't distinguish two occurrences of the same
+    # nominal typedef resolving to different structures -- e.g. a Variant-
+    # typed User Event data field, seen on WaveGen.vi's `Event Data.ctl`)
+    # is computed ONCE from the real module and fed to BOTH sides, so the
+    # strengthened type comparison excludes it identically on both.
+    ambiguous = _lvnet_ambiguous_named_types(module)
+    sig_module = netlist_signature(module, ambiguous)
+    sig_parsed = netlist_signature(parsed, ambiguous)
     mismatch = _first_mismatch(sig_module, sig_parsed)
     assert mismatch is None, (
         f"netlist round-trip mismatch for {vi_path.name!r} at {mismatch[0]}: "

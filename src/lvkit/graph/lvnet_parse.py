@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from ..models import DisableStructureKind, ScalarValue
 from .netlist import (
@@ -55,12 +56,13 @@ from .netlist import (
     NetlistScope,
     _assign_lvnet_handles,
     _is_void_type,
+    _lv_type_comparison_shape,
+    _lvnet_ambiguous_named_types,
     _lvnet_component,
     _lvnet_default_trailing,
     _lvnet_literal_token,
     _lvnet_net_separator,
     _lvnet_requirement_trailing,
-    _lvnet_type_label,
     _LvnetHandles,
     _quoted_frame_label,
     _render_lvnet_source,
@@ -107,6 +109,12 @@ _DISABLED_SCOPE_HEADERS = frozenset(
     {"diagram-disable :", "conditional-disable :", "type-specialization :"}
 )
 _EVENT_SCOPE_HEADER = "event-structure :"
+
+# The OPTIONAL bottom-appendix ``types :`` footnote section header (§10,
+# verbose-only) -- immediately after the final boundary-output-drive block,
+# at the very end of the document (see ``_parse_types_block``). Rendered by
+# ``netlist._render_lvnet_types``.
+_TYPES_HEADER_LINE = "  types :"
 
 
 class LvnetParseError(ValueError):
@@ -561,14 +569,24 @@ class ParsedDependency:
 @dataclass(frozen=True)
 class ParsedLvnet:
     """The result of parsing an lvnet text: header, the OPTIONAL ``uses :``
-    dependency manifest, boundary block, body, and the final
-    boundary-output-drive block."""
+    dependency manifest, boundary block, body, the final
+    boundary-output-drive block, and the OPTIONAL bottom-appendix
+    ``types :`` footnote section (§10, verbose-only).
+
+    ``types`` is the RAW per-name structural definition text (``name ->
+    "<lossless-def>"``, the ``; ./path`` nav suffix already stripped) --
+    ``netlist_signature``'s strengthened type comparison resolves a bare
+    by-name type reference through this dict (``_parsed_type_ref_shape``),
+    recursively, to compare full structure against the module side instead
+    of by-name-vs-by-name.
+    """
 
     vi_name: str
     uses: tuple[ParsedDependency, ...] = field(default_factory=tuple)
     boundary: tuple[ParsedBoundaryTerminal, ...] = field(default_factory=tuple)
     body: tuple[ParsedBodyItem, ...] = field(default_factory=tuple)
     output_drives: tuple[ParsedDrive, ...] = field(default_factory=tuple)
+    types: dict[str, str] = field(default_factory=dict)
 
 
 # ============================================================
@@ -1214,6 +1232,11 @@ def _parse_output_drives(cursor: _Cursor) -> list[ParsedDrive]:
         line = cursor.peek()
         if line is None:
             break
+        if line == _TYPES_HEADER_LINE:
+            # the OPTIONAL bottom-appendix ``types :`` footnote (§10) --
+            # never itself an output-drive line, hand control back without
+            # consuming it.
+            break
         if line.strip() == "":
             cursor.take()
             continue
@@ -1242,12 +1265,57 @@ def _parse_output_drives(cursor: _Cursor) -> list[ParsedDrive]:
     return drives
 
 
+def _parse_types_block(cursor: _Cursor) -> dict[str, str]:
+    """Parse the OPTIONAL bottom-appendix ``types :`` footnote section
+    (§10, verbose-only) -- immediately after the final boundary-output-
+    drive block, at the very end of the document. Absent entirely (``{}``)
+    when the next line isn't exactly the ``types :`` header --
+    ``render_lvnet`` omits the section when the VI has no NAMED types,
+    rather than emit an empty header, so its absence here is never itself
+    an error.
+
+    Each entry is ``<Name> = <def>[ ; ./path]`` at 4-space indent (one level
+    deeper than the header's 2 spaces) -- the FIRST `` = `` occurrence is
+    always the real name/def separator (a type's own display name never
+    itself contains `` = ``, matching every other name/value split in this
+    module), and the trailing `` ; ./path`` nav clause (if present) is
+    stripped from the stored def text -- ``;`` never appears inside the
+    lossless grammar itself (``_lvnet_type_lossless_def`` never emits one),
+    so this split can never clip real structure.
+    """
+    if cursor.peek() != _TYPES_HEADER_LINE:
+        return {}
+    cursor.take()
+    defs: dict[str, str] = {}
+    while True:
+        line = cursor.peek()
+        if line is None or _indent_len(line) != 4:
+            break
+        line_no = cursor.line_no
+        cursor.take()
+        content = line[4:]
+        eq_idx = content.find(" = ")
+        if eq_idx == -1:
+            raise LvnetParseError(
+                f"line {line_no}: expected a 'types :' entry "
+                f"'<Name> = <def>' (§10), got {line!r}"
+            )
+        name = content[:eq_idx]
+        def_text = content[eq_idx + 3 :].split(" ; ", 1)[0]
+        if not name:
+            raise LvnetParseError(
+                f"line {line_no}: empty type name in 'types :' entry: {line!r}"
+            )
+        defs[name] = def_text
+    return defs
+
+
 def parse_lvnet(text: str) -> ParsedLvnet:
     """Parse an lvnet text's ``vi <name> :`` header, OPTIONAL ``uses :``
-    dependency manifest, boundary block, BODY, and final
-    boundary-output-drive block. Raises ``LvnetParseError`` naming the exact
-    line on anything that doesn't fit the grammar this increment knows --
-    never silently skips.
+    dependency manifest, boundary block, BODY, final boundary-output-drive
+    block, and OPTIONAL bottom-appendix ``types :`` footnote section (§10).
+    Raises ``LvnetParseError`` naming the exact line on anything that
+    doesn't fit the grammar this increment knows -- never silently skips.
     """
     lines = text.splitlines()
     if not lines:
@@ -1275,6 +1343,7 @@ def parse_lvnet(text: str) -> ParsedLvnet:
     if blank is not None and blank.strip() == "":
         cursor.take()  # the blank line separating body from output-drives (§2)
     output_drives = _parse_output_drives(cursor)
+    type_defs = _parse_types_block(cursor)
 
     return ParsedLvnet(
         vi_name=vi_name,
@@ -1282,12 +1351,174 @@ def parse_lvnet(text: str) -> ParsedLvnet:
         boundary=tuple(boundary),
         body=tuple(body_items),
         output_drives=tuple(output_drives),
+        types=type_defs,
     )
 
 
 # ============================================================
 # Signatures -- the canonical, comparable projections
 # ============================================================
+
+# The comparable projection of ONE type reference in a signature tuple --
+# either a plain ``("leaf", <label string>)`` (unchanged, string-equality
+# comparison) or a decomposed structural shape once a §10 NAMED type is
+# reached (``("enum", members)`` / ``("cluster", fields)`` / ``("array",
+# dims, inner)`` / ``("refnum", ref_type, inner)`` / ``("named", name)`` on
+# a cycle) -- see ``netlist._lv_type_comparison_shape`` (MODULE side) and
+# ``_parsed_type_ref_shape`` below (PARSED side), which build the identical
+# shape independently so the two compare directly.
+TypeShape = tuple[Any, ...]
+
+
+def _split_top_level_commas(text: str) -> list[str]:
+    """Split ``text`` on ``", "`` at brace/bracket DEPTH ZERO -- separates
+    an ``Enum{...}``'s members or a ``Cluster{...}``'s fields (§10's
+    lossless ``types :`` grammar) without breaking on a comma that's itself
+    inside a NESTED structural type (a cluster field whose own type is
+    another ``Cluster{...}``/array). No quote-awareness needed -- the
+    lossless grammar carries pure type syntax, never a string-literal
+    value."""
+    parts: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for ch in text:
+        if ch in "{[":
+            depth += 1
+        elif ch in "}]":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            current.append(ch)
+    tail = "".join(current).strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _parse_lossless_members(body: str) -> tuple[tuple[str, int], ...]:
+    """Parse an ``Enum{...}``/``Ring{...}`` footnote body (§10) into
+    ``(member_name, ordinal)`` pairs, sorted by ordinal -- the SAME
+    canonical order ``netlist._lv_type_comparison_shape`` builds on the
+    module side. ``body`` is the text BETWEEN the outer braces."""
+    body = body.strip()
+    if not body or body == "?":
+        return ()
+    members: list[tuple[str, int]] = []
+    for part in _split_top_level_commas(body):
+        name, _, ordinal_text = part.rpartition(" = ")
+        members.append((name.strip(), int(ordinal_text.strip())))
+    return tuple(sorted(members, key=lambda kv: kv[1]))
+
+
+def _parse_lossless_cluster_fields(
+    body: str,
+    types_dict: dict[str, str],
+    seen: frozenset[str],
+    ambiguous: frozenset[str],
+) -> tuple[tuple[str, TypeShape], ...] | None:
+    """Parse a ``Cluster{...}`` footnote body (§10) into ``(field_name,
+    resolved_type_shape)`` pairs -- ``None`` for the honest ``Cluster{ ? }``
+    placeholder (fields never loaded), mirroring the module side's
+    ``("cluster", None)`` shape for the same case."""
+    body = body.strip()
+    if body == "?":
+        return None
+    if not body:
+        return ()
+    fields: list[tuple[str, TypeShape]] = []
+    for part in _split_top_level_commas(body):
+        name, _sep, type_text = part.partition(" : ")
+        fields.append(
+            (
+                name.strip(),
+                _parsed_type_ref_shape(
+                    type_text.strip(), types_dict, seen, full=True, ambiguous=ambiguous
+                ),
+            )
+        )
+    return tuple(fields)
+
+
+def _parsed_type_ref_shape(
+    text: str,
+    types_dict: dict[str, str],
+    seen: frozenset[str] = frozenset(),
+    *,
+    full: bool = False,
+    ambiguous: frozenset[str] = frozenset(),
+) -> TypeShape:
+    """The PARSED-side counterpart to ``netlist._lv_type_comparison_shape``
+    -- built from TEXT (an already-flattened inline type label, OR a
+    ``types :`` footnote's own def text) instead of a real ``LVType``, but
+    producing the IDENTICAL tuple shape, so the two sides compare directly.
+    See that function's docstring for the full ``full``/``seen``/
+    ``ambiguous`` contract -- mirrored here exactly (``ambiguous`` --
+    ``netlist._lvnet_ambiguous_named_types``, computed from the MODULE and
+    passed down by the caller when both sides are being compared against
+    each other -- treats a name known to resolve to more than one distinct
+    structure elsewhere in the module as unnamed, falling back to a bare
+    leaf instead of resolving through ``types_dict``, since the flat
+    one-entry-per-name footnote can't be trusted for it).
+
+    Recognizes, in order: an array wrapper (``[...]``, one or more dims);
+    a refnum wrapper (``<ref_type> refnum{...}`` / ``<ref_type> refnum`` /
+    bare ``refnum``); the NEW capitalized lossless-grammar structural forms
+    (``Enum{...}``/``Ring{...}``/``Cluster{...}`` -- these NEVER appear in
+    the OLD terse/anonymous inline label, only inside a resolved footnote's
+    own def text, so there's no ambiguity with an anonymous cluster's
+    lowercase ``cluster{...}`` label); and finally a bare NAME that
+    resolves through ``types_dict`` (recursively, cycle-guarded by
+    ``seen``, skipped when the name is in ``ambiguous``). Anything else (a
+    scalar token, a qualified class name, the OLD lowercase
+    ``cluster{...}``/``enum{...}``/``ring{...}`` anonymous label,
+    ``"Error"``, an unresolved bare name) is an opaque ``("leaf", text)``
+    -- compared by plain string equality, exactly as before this pass.
+    """
+    text = text.strip()
+    if text.startswith("[") and text.endswith("]"):
+        dims = 0
+        inner = text
+        while inner.startswith("[") and inner.endswith("]"):
+            inner = inner[1:-1]
+            dims += 1
+        return (
+            "array",
+            dims,
+            _parsed_type_ref_shape(
+                inner.strip(), types_dict, seen, full=full, ambiguous=ambiguous
+            ),
+        )
+    refnum_idx = text.find(" refnum{")
+    if refnum_idx != -1 and text.endswith("}"):
+        ref_type = text[:refnum_idx]
+        inner = text[refnum_idx + len(" refnum{") : -1].strip()
+        return (
+            "refnum",
+            ref_type,
+            _parsed_type_ref_shape(
+                inner, types_dict, seen, full=full, ambiguous=ambiguous
+            ),
+        )
+    if text.endswith(" refnum") and "{" not in text:
+        return ("leaf", text)
+    if text.startswith("Enum{") and text.endswith("}"):
+        return ("enum", _parse_lossless_members(text[len("Enum{") : -1]))
+    if text.startswith("Ring{") and text.endswith("}"):
+        return ("ring", _parse_lossless_members(text[len("Ring{") : -1]))
+    if text.startswith("Cluster{") and text.endswith("}"):
+        fields = _parse_lossless_cluster_fields(
+            text[len("Cluster{") : -1], types_dict, seen, ambiguous
+        )
+        return ("cluster", fields)
+    if text in types_dict and text not in ambiguous:
+        if text in seen:
+            return ("named", text)
+        return _parsed_type_ref_shape(
+            types_dict[text], types_dict, seen | {text}, full=True, ambiguous=ambiguous
+        )
+    return ("leaf", text)
 
 
 def _module_default_token(default: ScalarValue) -> str | None:
@@ -1303,16 +1534,35 @@ def _module_default_token(default: ScalarValue) -> str | None:
 
 def boundary_signature(
     module_or_parsed: NetlistModule | ParsedLvnet,
-) -> tuple[tuple[str, str, str, str | None, str | None], ...]:
+    parsed_types: dict[str, str] | None = None,
+    ambiguous: frozenset[str] = frozenset(),
+) -> tuple[tuple[str, TypeShape, str, str | None, str | None], ...]:
     """The canonical, comparable boundary projection: an ordered tuple of
-    ``(name, type_string, direction, wiring_requirement_or_None,
+    ``(name, type_shape, direction, wiring_requirement_or_None,
     default_token_or_None)`` per terminal (inputs then outputs) -- computed
     IDENTICALLY (same helper calls, same field sources) from a real
     ``NetlistModule`` and from a ``ParsedLvnet``.
+
+    ``type_shape`` is the STRENGTHENED §10 type comparison
+    (``netlist._lv_type_comparison_shape`` / ``_parsed_type_ref_shape`` --
+    a plain ``("leaf", label)`` unless a NAMED type is reached, in which
+    case it's the full resolved structure). ``parsed_types`` is the
+    ``ParsedLvnet.types`` footnote dict, needed ONLY to resolve the
+    ``ParsedLvnet`` branch's by-name references -- unused (module side
+    resolves directly from the real ``LVType`` objects it already holds).
+    ``ambiguous`` -- see ``netlist._lvnet_ambiguous_named_types`` -- names
+    excluded from the strengthened resolution on BOTH branches.
     """
     if isinstance(module_or_parsed, ParsedLvnet):
+        types_dict = parsed_types if parsed_types is not None else {}
         return tuple(
-            (t.name, t.type, t.direction, t.requirement, t.default)
+            (
+                t.name,
+                _parsed_type_ref_shape(t.type, types_dict, ambiguous=ambiguous),
+                t.direction,
+                t.requirement,
+                t.default,
+            )
             for t in module_or_parsed.boundary
         )
 
@@ -1323,10 +1573,12 @@ def boundary_signature(
         len(module.inputs) : len(module.inputs) + len(module.outputs)
     ]
 
-    entries: list[tuple[str, str, str, str | None, str | None]] = [
+    entries: list[tuple[str, TypeShape, str, str | None, str | None]] = [
         (
             inp.name,
-            _lvnet_type_label(inp.type_descriptor, inp.lv_type),
+            _lv_type_comparison_shape(inp.lv_type, ambiguous=ambiguous)
+            if inp.lv_type is not None
+            else ("leaf", inp.type_descriptor),
             "in",
             _lvnet_requirement_trailing(pane),
             _module_default_token(pane.default),
@@ -1335,7 +1587,9 @@ def boundary_signature(
     ] + [
         (
             o.name,
-            _lvnet_type_label(o.type_descriptor, o.lv_type),
+            _lv_type_comparison_shape(o.lv_type, ambiguous=ambiguous)
+            if o.lv_type is not None
+            else ("leaf", o.type_descriptor),
             "out",
             _lvnet_requirement_trailing(pane),
             _module_default_token(pane.default),
@@ -1346,20 +1600,22 @@ def boundary_signature(
 
 
 def _dependency_interface_signature(
-    interface: list[ConnectorPaneTerminal],
-) -> tuple[tuple[str, str, str], ...]:
+    interface: list[ConnectorPaneTerminal], ambiguous: frozenset[str]
+) -> tuple[tuple[str, str, TypeShape], ...]:
     """The comparable projection of a ``uses :`` ``subVI`` entry's inline
-    §7a interface: ``(direction, name, type)`` per terminal, ``"input"``/
-    ``"output"`` normalized to ``"in"``/``"out"`` the same way
+    §7a interface: ``(direction, name, type_shape)`` per terminal,
+    ``"input"``/``"output"`` normalized to ``"in"``/``"out"`` the same way
     ``boundary_signature`` normalizes a boundary terminal's direction, and
-    the type computed through the SAME ``_lvnet_type_label`` call
-    ``_render_lvnet_dependency_interface`` renders from.
+    the type computed through the SAME strengthened §10 shape
+    (``netlist._lv_type_comparison_shape``) ``boundary_signature`` uses.
     """
     return tuple(
         (
             "in" if t.direction == "input" else "out",
             t.name,
-            _lvnet_type_label(t.type, t.lv_type),
+            _lv_type_comparison_shape(t.lv_type, ambiguous=ambiguous)
+            if t.lv_type is not None
+            else ("leaf", t.type),
         )
         for t in interface
     )
@@ -1377,13 +1633,17 @@ def _strip_default_prefix(rendered: str) -> str:
 
 
 def _module_terminal_tuple(
-    instance: NetlistInstance, handles: _LvnetHandles
-) -> tuple[tuple[str, str, str, str | None, str | None, bool], ...]:
-    entries: list[tuple[str, str, str, str | None, str | None, bool]] = []
+    instance: NetlistInstance, handles: _LvnetHandles, ambiguous: frozenset[str]
+) -> tuple[tuple[str, str, TypeShape, str | None, str | None, bool], ...]:
+    entries: list[tuple[str, str, TypeShape, str | None, str | None, bool]] = []
     for b in sorted(instance.inputs, key=lambda b: b.pane_rank):
         if _is_void_type(b.type):
             continue
-        type_label = _lvnet_type_label(b.type, b.lv_type)
+        type_shape = (
+            _lv_type_comparison_shape(b.lv_type, ambiguous=ambiguous)
+            if b.lv_type is not None
+            else ("leaf", b.type)
+        )
         if b.net is not None:
             driver = _render_lvnet_source(b.net, handles)
             default = None
@@ -1391,24 +1651,28 @@ def _module_terminal_tuple(
             assert b.default is not None
             driver = None
             default = _strip_default_prefix(_lvnet_default_trailing(b.default))
-        entries.append(("in", b.port, type_label, driver, default, b.inverted))
+        entries.append(("in", b.port, type_shape, driver, default, b.inverted))
     for o in sorted(instance.outputs, key=lambda o: o.pane_rank):
         if _is_void_type(o.type):
             continue
-        type_label = _lvnet_type_label(o.type, o.lv_type)
-        entries.append(("out", o.net.port, type_label, None, None, False))
+        type_shape = (
+            _lv_type_comparison_shape(o.lv_type, ambiguous=ambiguous)
+            if o.lv_type is not None
+            else ("leaf", o.type)
+        )
+        entries.append(("out", o.net.port, type_shape, None, None, False))
     return tuple(entries)
 
 
 def _module_instance_signature(
-    instance: NetlistInstance, handles: _LvnetHandles
+    instance: NetlistInstance, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
     if instance.kind == NetlistInstanceKind.LOCAL_VARIABLE:
         return ("node", "local-variable", None, None, (), True)
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
     handle = handles.by_uid[instance.uid]
     component = _lvnet_component(instance)
-    terminals = _module_terminal_tuple(instance, handles)
+    terminals = _module_terminal_tuple(instance, handles, ambiguous)
     has_todo = instance.kind in _OPEN_INSTANCE_TRAILING_TODO
     return ("node", header_kw, handle, component, terminals, has_todo)
 
@@ -1431,7 +1695,9 @@ def _module_feedback_signature(fb: NetlistFeedback, handles: _LvnetHandles) -> t
     return ("feedback", fb.net, attr, init_str, each_str)
 
 
-def _module_case_scope_signature(scope: NetlistScope, handles: _LvnetHandles) -> tuple:
+def _module_case_scope_signature(
+    scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
+) -> tuple:
     sel = (
         _render_lvnet_source(scope.selector, handles)
         if scope.selector is not None
@@ -1441,7 +1707,7 @@ def _module_case_scope_signature(scope: NetlistScope, handles: _LvnetHandles) ->
     frames: list[tuple] = []
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label)
-        body_sig = _module_body_signature(frame.body, handles)
+        body_sig = _module_body_signature(frame.body, handles, ambiguous)
         frame_key = "default" if frame.is_default else frame.label
         drive_entries: list[tuple[str, str]] = []
         for gamma in gammas:
@@ -1457,9 +1723,11 @@ def _module_case_scope_signature(scope: NetlistScope, handles: _LvnetHandles) ->
     return ("scope", "case", sel, tuple(frames))
 
 
-def _module_loop_scope_signature(scope: NetlistScope, handles: _LvnetHandles) -> tuple:
+def _module_loop_scope_signature(
+    scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
+) -> tuple:
     kind_word = "while-loop" if scope.kind == "while" else "for-loop"
-    body_sig = _module_body_signature(scope.frames[0].body, handles)
+    body_sig = _module_body_signature(scope.frames[0].body, handles, ambiguous)
     shift_regs: list[tuple[str, str, str | None]] = []
     tunnels: list[tuple[str, str, str]] = []
     for merge in scope.outputs:
@@ -1486,6 +1754,7 @@ def _module_frame_only_scope_signature(
     kind_word: str,
     frame_labels_and_bodies: list[tuple[str, list[NetlistItem]]],
     handles: _LvnetHandles,
+    ambiguous: frozenset[str],
 ) -> tuple:
     """Shared by the three frame-only scope families (sequence/disabled/
     event, see ``_parse_labeled_frames``'s docstring for why they share one
@@ -1497,14 +1766,14 @@ def _module_frame_only_scope_signature(
     ``_parsed_item_signature``'s matching branch doesn't need a special
     case)."""
     frames = tuple(
-        (label, _module_body_signature(body, handles), ())
+        (label, _module_body_signature(body, handles, ambiguous), ())
         for label, body in frame_labels_and_bodies
     )
     return ("scope", kind_word, None, frames)
 
 
 def _module_sequence_scope_signature(
-    scope: NetlistScope, handles: _LvnetHandles
+    scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
     """``flat-sequence``/``stacked-sequence`` (§8) -- ``kind_word`` picked
     from ``scope.sequence_is_flat``, the label composed EXACTLY as
@@ -1514,11 +1783,12 @@ def _module_sequence_scope_signature(
         kind_word,
         [(f"[{frame.value}]", frame.body) for frame in scope.frames],
         handles,
+        ambiguous,
     )
 
 
 def _module_disabled_scope_signature(
-    scope: NetlistScope, handles: _LvnetHandles
+    scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
     """``diagram-disable``/``conditional-disable``/``type-specialization``
     (§8) -- ``kind_word`` from ``scope.disable_kind`` via the SAME
@@ -1538,35 +1808,41 @@ def _module_disabled_scope_signature(
             for frame in scope.frames
         ],
         handles,
+        ambiguous,
     )
 
 
-def _module_event_scope_signature(scope: NetlistScope, handles: _LvnetHandles) -> tuple:
+def _module_event_scope_signature(
+    scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
+) -> tuple:
     """``event-structure`` (§8) -- every frame label quoted, matching
     ``_render_lvnet_event_scope`` exactly."""
     return _module_frame_only_scope_signature(
         "event-structure",
         [(_quoted_frame_label(frame.label), frame.body) for frame in scope.frames],
         handles,
+        ambiguous,
     )
 
 
-def _module_body_signature(items: list[NetlistItem], handles: _LvnetHandles) -> tuple:
+def _module_body_signature(
+    items: list[NetlistItem], handles: _LvnetHandles, ambiguous: frozenset[str]
+) -> tuple:
     out: list[tuple] = []
     for item in items:
         if isinstance(item, NetlistInstance):
-            out.append(_module_instance_signature(item, handles))
+            out.append(_module_instance_signature(item, handles, ambiguous))
         elif isinstance(item, NetlistScope):
             if item.kind == "case":
-                out.append(_module_case_scope_signature(item, handles))
+                out.append(_module_case_scope_signature(item, handles, ambiguous))
             elif item.kind in ("for", "while"):
-                out.append(_module_loop_scope_signature(item, handles))
+                out.append(_module_loop_scope_signature(item, handles, ambiguous))
             elif item.kind == "sequence":
-                out.append(_module_sequence_scope_signature(item, handles))
+                out.append(_module_sequence_scope_signature(item, handles, ambiguous))
             elif item.kind == "disabled":
-                out.append(_module_disabled_scope_signature(item, handles))
+                out.append(_module_disabled_scope_signature(item, handles, ambiguous))
             elif item.kind == "event":
-                out.append(_module_event_scope_signature(item, handles))
+                out.append(_module_event_scope_signature(item, handles, ambiguous))
             else:
                 raise LvnetUnsupportedConstructError(
                     f"netlist_signature does not yet cover scope kind "
@@ -1591,7 +1867,17 @@ _FRAME_ONLY_SCOPE_KINDS = frozenset(
 )
 
 
-def _parsed_item_signature(item: ParsedBodyItem) -> tuple:
+def _parsed_item_signature(
+    item: ParsedBodyItem, types_dict: dict[str, str], ambiguous: frozenset[str]
+) -> tuple:
+    """``types_dict`` (``ParsedLvnet.types``, the §10 footnote defs) and
+    ``ambiguous`` (``netlist._lvnet_ambiguous_named_types``) are threaded
+    through every recursive call so a node's own terminal types
+    (``ParsedNode.terminals``) can resolve a by-name reference to its full
+    structure -- see ``_parsed_type_ref_shape``. Constants/feedback/tunnel
+    sources carry no structured type of their own (unchanged, plain-text
+    comparison, matching ``netlist.NetlistConstant``'s own scope -- see
+    ``_iter_lv_types_in_items``'s docstring)."""
     if isinstance(item, ParsedConstant):
         return ("constant", item.handle, item.type, item.value)
     if isinstance(item, ParsedFeedback):
@@ -1605,19 +1891,31 @@ def _parsed_item_signature(item: ParsedBodyItem) -> tuple:
             frames = tuple(
                 (
                     f.label,
-                    tuple(_parsed_item_signature(i) for i in f.body),
+                    tuple(
+                        _parsed_item_signature(i, types_dict, ambiguous)
+                        for i in f.body
+                    ),
                     tuple((d.net, d.source) for d in f.drives),
                 )
                 for f in item.frames
             )
             return ("scope", item.kind, item.selector, frames)
-        body_sig = tuple(_parsed_item_signature(i) for i in item.body)
+        body_sig = tuple(
+            _parsed_item_signature(i, types_dict, ambiguous) for i in item.body
+        )
         shift_regs = tuple((sr.net, sr.init, sr.each) for sr in item.shift_registers)
         tunnels = tuple((t.net, t.mode, t.source) for t in item.tunnels)
         return ("scope", item.kind, None, body_sig, shift_regs, tunnels)
     if isinstance(item, ParsedNode):
         terminals = tuple(
-            (t.direction, t.name, t.type, t.driver, t.default, t.inverted)
+            (
+                t.direction,
+                t.name,
+                _parsed_type_ref_shape(t.type, types_dict, ambiguous=ambiguous),
+                t.driver,
+                t.default,
+                t.inverted,
+            )
             for t in item.terminals
         )
         return (
@@ -1631,15 +1929,43 @@ def _parsed_item_signature(item: ParsedBodyItem) -> tuple:
     raise TypeError(f"unknown parsed body item: {item!r}")  # pragma: no cover
 
 
-def netlist_signature(module_or_parsed: NetlistModule | ParsedLvnet) -> tuple:
+def netlist_signature(
+    module_or_parsed: NetlistModule | ParsedLvnet,
+    ambiguous_named_types: frozenset[str] | None = None,
+) -> tuple:
     """The full, comparable projection of an lvnet document: the ``uses :``
     manifest + boundary + body + the final boundary-output-drive block --
     computed IDENTICALLY from a real ``NetlistModule`` (reusing
     ``render_lvnet``'s own private helpers directly, e.g.
-    ``_lvnet_component``/``_render_lvnet_source``/``_lvnet_type_label``, so
-    the module side is provably what the text would say) and from a
-    ``ParsedLvnet``. Excludes uid and any derived/non-textual field, same
-    principle as ``boundary_signature``.
+    ``_lvnet_component``/``_render_lvnet_source``/``netlist._lv_type_
+    comparison_shape``, so the module side is provably what the text would
+    say) and from a ``ParsedLvnet``. Excludes uid and any derived/non-
+    textual field, same principle as ``boundary_signature``.
+
+    Every type reference anywhere in the comparison (boundary, ``uses :``
+    dependency interfaces, node terminals) is now the STRENGTHENED §10
+    shape: a plain ``("leaf", label)`` for anything with no ``types :``
+    footnote to rehydrate from (compares by its existing inline structural
+    form, unchanged), or the type's FULL resolved structure once a NAMED
+    enum/ring/cluster is reached -- resolved from the real ``LVType``
+    graph on the module side (``_lv_type_comparison_shape``) and through
+    the parsed ``types :`` footnote dict on the parsed side
+    (``_parsed_type_ref_shape``, fed ``parsed.types``) -- so a passing
+    round-trip now proves TYPE REHYDRATION, not just by-name equality.
+
+    ``ambiguous_named_types`` (``netlist._lvnet_ambiguous_named_types``) is
+    the set of names EXCLUDED from that strengthened resolution -- a name
+    that genuinely resolves to more than one distinct structure at
+    different occurrences in the module (a Variant-typed field, observed
+    on a real corpus VI), where the flat one-entry-per-name ``types :``
+    footnote can't be trusted for every occurrence. Module side: ``None``
+    (the default) computes it fresh from ``module`` itself. Parsed side:
+    ``None`` defaults to the empty set (a bare ``ParsedLvnet`` has no
+    independent way to detect this from text alone) -- a caller comparing
+    a parsed reproduction of a SPECIFIC module's own render should compute
+    ``netlist.``:func:`_lvnet_ambiguous_named_types` from that module ONCE
+    and pass the SAME set to both calls, so the two sides apply an
+    identical exclusion.
 
     Every §8 structure kind is now covered (case/for-loop/while-loop/
     flat-sequence/stacked-sequence/diagram-disable/conditional-disable/
@@ -1650,33 +1976,51 @@ def netlist_signature(module_or_parsed: NetlistModule | ParsedLvnet) -> tuple:
     """
     if isinstance(module_or_parsed, ParsedLvnet):
         parsed = module_or_parsed
+        types_dict = parsed.types
+        ambiguous = (
+            ambiguous_named_types if ambiguous_named_types is not None else frozenset()
+        )
         uses = tuple(
             (
                 d.kind,
                 d.qualified,
                 d.path,
-                tuple((t.direction, t.name, t.type) for t in d.interface),
+                tuple(
+                    (
+                        t.direction,
+                        t.name,
+                        _parsed_type_ref_shape(t.type, types_dict, ambiguous=ambiguous),
+                    )
+                    for t in d.interface
+                ),
             )
             for d in parsed.uses
         )
-        boundary = boundary_signature(parsed)
-        body = tuple(_parsed_item_signature(item) for item in parsed.body)
+        boundary = boundary_signature(parsed, types_dict, ambiguous)
+        body = tuple(
+            _parsed_item_signature(item, types_dict, ambiguous) for item in parsed.body
+        )
         drives = tuple((d.net, d.source) for d in parsed.output_drives)
         return (uses, boundary, body, drives)
 
     module = module_or_parsed
+    ambiguous = (
+        ambiguous_named_types
+        if ambiguous_named_types is not None
+        else _lvnet_ambiguous_named_types(module)
+    )
     uses = tuple(
         (
             d.kind.value,
             d.qualified,
             d.path,
-            _dependency_interface_signature(d.interface),
+            _dependency_interface_signature(d.interface, ambiguous),
         )
         for d in module.dependencies
     )
     handles = _assign_lvnet_handles(module)
-    boundary = boundary_signature(module)
-    body = _module_body_signature(module.body, handles)
+    boundary = boundary_signature(module, ambiguous=ambiguous)
+    body = _module_body_signature(module.body, handles, ambiguous)
     drives = tuple(
         (
             o.name,
