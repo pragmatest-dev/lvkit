@@ -60,6 +60,7 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..num_format import format_numeric_const
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _uid_of
 from .interface_order import WiringRequirement, ordered_interface, requirement_state
@@ -90,6 +91,7 @@ from .op_walk import (
     ComponentPort,
     _case_output_tunnel_outers,
     _const_value_str,
+    _format_error_cluster,
     _has_output_tunnel,
     _is_eta_output_tunnel,
     _is_gamma_output_tunnel,
@@ -141,6 +143,17 @@ class NetRef:
     # ``= <name>#<n>`` instead of the inlined literal -- see
     # ``_render_lvnet_source``.
     constant_uid: str | None = None
+    # Phase A, ``render_lvnet``-ONLY (like ``constant_uid`` above): the
+    # ALREADY lvnet-escaped literal text (``_lvnet_const_value_str``, md
+    # §4/§10) for a constant-driven net -- set alongside ``constant_uid`` in
+    # ``_resolve_source_gn``'s constant branch. ``bare`` stays the OLD
+    # ``op_walk._const_value_str`` text (unescaped strings, ``render_netlist``/
+    # ``netlist_to_dict`` parity); ``render_lvnet`` prefers this field so a
+    # control-char string constant escapes to one physical line instead of
+    # breaking ``parse_lvnet``'s line-oriented grammar (closes the
+    # ``Graphical Test Runner - Main UI - .vi`` round-trip xfail). ``None``
+    # for every non-constant ``NetRef`` (a net name is never escaped).
+    lvnet_value: str | None = None
 
     def render(self, *, qualified: bool) -> str:
         """Render this net reference.
@@ -570,7 +583,14 @@ class NetlistConstant:
     constants sharing the same ``name``, via ``_GraphBuildCtx.
     constant_occurrence_by_uid`` (built once over ``ctx.constants``, the
     same list ``const_by_id`` is keyed from). ``value`` is the faithful
-    display text (``op_walk._const_value_str``), NEVER a Python literal.
+    display text (``op_walk._const_value_str``), NEVER a Python literal --
+    kept BYTE-IDENTICAL to before this pass for ``render_netlist``/
+    ``netlist_to_dict`` parity. ``lvnet_value`` is ``render_lvnet``-ONLY
+    (``_lvnet_const_value_str``, md §4/§10): the SAME faithful value, but
+    with a string escaped for lvnet's own grammar (a control char can't
+    survive unescaped in a line-oriented text surface) -- see
+    ``NetRef.lvnet_value``'s docstring for the sibling field on the
+    inline-literal side.
     """
 
     uid: str
@@ -578,6 +598,7 @@ class NetlistConstant:
     occurrence: int | None
     type: str
     value: str
+    lvnet_value: str
 
 
 NetlistItem = NetlistInstance | NetlistScope | NetlistFeedback | NetlistConstant
@@ -2541,7 +2562,10 @@ def _resolve_source_gn(
             # own handle map (see ``_LvnetHandles.by_uid``/
             # ``_assign_lvnet_handles``) to decide whether to show the
             # inlined literal or the LABELED constant's own ``<handle>``
-            # net name -- lvnet §7.
+            # net name -- lvnet §7. ``lvnet_value`` is the SAME value,
+            # escaped for lvnet's own grammar (``NetRef.lvnet_value``'s
+            # docstring) -- ``render_lvnet`` prefers it; ``render_netlist``/
+            # ``netlist_to_dict`` never read it, so ``bare`` stays untouched.
             value_str = _const_value_str(const)
             return NetRef(
                 node=None,
@@ -2549,6 +2573,7 @@ def _resolve_source_gn(
                 occurrence=None,
                 bare=value_str,
                 constant_uid=_uid_of(const.id),
+                lvnet_value=_lvnet_const_value_str(const),
             )
 
         node_name = src.name or _uid_of(src.node_id)
@@ -3128,6 +3153,11 @@ def _build_constant_gn(
     const = build_ctx.const_by_id.get(node.id)
     type_desc = node.lv_type.type_descriptor() if node.lv_type else "?"
     value = _const_value_str(const) if const is not None else str(node.value)
+    lvnet_value = (
+        _lvnet_const_value_str(const)
+        if const is not None
+        else _lvnet_literal_token(node.value)
+    )
     occurrence = build_ctx.constant_occurrence_by_uid.get(node.id)
     return NetlistConstant(
         uid=_uid_of(node.id),
@@ -3135,6 +3165,7 @@ def _build_constant_gn(
         occurrence=occurrence,
         type=type_desc,
         value=value,
+        lvnet_value=lvnet_value,
     )
 
 
@@ -4750,8 +4781,8 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
       (e.g. ``GUID_1``) -- lvnet §7's "a shared/named constant becomes a
       constant node referenced by net". A constant_uid that does NOT resolve
       is a one-off/unlabeled constant -- falls through to its inlined literal
-      value below (``source.bare``, since ``source.node`` is ``None`` for
-      every constant reference).
+      value below (``source.lvnet_value``, the lvnet-escaped text, since
+      ``source.node`` is ``None`` for every constant reference).
     - A node-port reference (``source.node is not None``) ALWAYS renders
       fully qualified as ``<handle>::<port>`` (never a bare, unqualified
       form -- unlike ``render_netlist``'s ambiguity-gated qualification;
@@ -4759,7 +4790,8 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
     - Everything else (``source.node is None``, no constant) is a boundary
       control's plain name or a structure-scoped net (``caseN.outK``/
       ``loopN.shiftK``/``loopN.outK``/``fbK``) -- ``_lvnet_net_separator``
-      reformats only the latter.
+      reformats only the latter; ``source.lvnet_value`` is ``None`` here, so
+      the fallback is ``source.bare`` unchanged.
     """
     if isinstance(source, DefaultValue):
         return _lvnet_default_token(source)
@@ -4780,7 +4812,14 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
         # crashing without fabricating a handle scheme the spec never
         # designed for this one remaining kind -- flagged as an OPEN gap.
         return f"{source.node}::{source.port}"
-    return _lvnet_net_separator(source.bare)
+    # An inlined (unlabeled) constant's literal value: ``lvnet_value`` is
+    # the lvnet-escaped text (md §4/§10) -- ``_lvnet_net_separator`` is a
+    # no-op on it (a quoted/``True``/``False``/numeric token never matches
+    # the ``caseN.outK``-shaped structure-net regex), so routing it through
+    # unconditionally is safe and keeps one call site for every ``bare``
+    # shape (net name, structure net, or literal).
+    literal = source.lvnet_value if source.lvnet_value is not None else source.bare
+    return _lvnet_net_separator(literal)
 
 
 # §7 (revised): the ONE instance kind that never declares itself at all --
@@ -4919,9 +4958,11 @@ def _render_lvnet_constant(
     no column alignment (unlike a node's own in/out block; the golden shows
     exactly one, so there's no evidence a peer group of constants aligns
     with each other). ``<handle>`` (§7/§9's ``_N`` suffix, e.g. ``GUID_1``)
-    replaces the OLD ``#N`` occurrence tag."""
+    replaces the OLD ``#N`` occurrence tag. Uses ``const.lvnet_value``
+    (lvnet-escaped, md §4/§10) rather than ``const.value`` (the OLD
+    ``render_netlist``/``netlist_to_dict``-parity text, unescaped)."""
     handle = handles.by_uid[const.uid]
-    lines.append(f"{indent}constant {handle} : {const.type} = {const.value}")
+    lines.append(f"{indent}constant {handle} : {const.type} = {const.lvnet_value}")
 
 
 # ``EtaMerge.index_mode``'s internal short code -> lvnet §8's border-construct
@@ -5184,23 +5225,84 @@ def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
     return term.wiring_requirement.value
 
 
-def _lvnet_scalar_value_token(value: ScalarValue) -> str:
-    """The literal-value TOKEN for a raw ``ScalarValue`` (e.g.
-    ``ConnectorPaneTerminal.default`` -- a connector-pane control's own
-    authored default value, distinct from ``DefaultValue``'s LVType-derived
-    GUESS used elsewhere on this page). Matches ``describe.py``'s
-    ``_default_suffix`` quoting rule -- the ALREADY-ESTABLISHED convention
-    for rendering this exact ``Terminal.default_value`` field elsewhere in
-    the codebase (``' = "{default}"' if isinstance(default, str) else
-    ' = {default}'``) -- minus its ``" = "`` prefix, since lvnet's own
-    ``default <value>`` keyword already supplies that role (§4). A string
-    quotes (``"1"``, ``"Initializing ..."``); anything else (bool/int/float)
-    renders via plain ``str()``. Never called with ``None`` -- callers only
-    reach for this when ``default is not None``.
+# The lvnet §4/§10 string-literal escape table: standard backslash escapes
+# for the four control chars a real LabVIEW string constant is actually
+# observed to carry (CR, LF, TAB, plus the two syntactic chars the quoting
+# itself introduces -- a literal backslash and a literal double-quote).
+# Anything else in the C0 control range (U+0000-U+001F) -- unobserved in the
+# corpus but not excludable -- falls through to a `\xHH` escape below rather
+# than being guessed at. This is the ONE lvnet literal-value escape table;
+# ``lvnet_parse._LVNET_STRING_UNESCAPES`` is its exact reverse.
+_LVNET_STRING_ESCAPES: dict[str, str] = {
+    "\\": "\\\\",
+    '"': '\\"',
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+
+
+def _lvnet_literal_token(value: ScalarValue) -> str:
+    """THE single lvnet §4/§10 literal-value TOKEN renderer for a raw
+    ``ScalarValue`` -- a connector-pane control's own authored default
+    (``ConnectorPaneTerminal.default``), a wired-constant driver, or a
+    labeled ``constant`` node's own value (see ``_lvnet_const_value_str``,
+    which feeds the last two through this for their plain-scalar case).
+    Replaces the old ``_lvnet_scalar_value_token``, which quoted a string
+    with NO escaping at all -- the bug this closes (md §4/§10/§17 item 5's
+    "scalar string escaping" note): a raw control char (a CRLF, a bare
+    ``"``) rendered VERBATIM inside the quotes, so the literal's own text
+    could span multiple physical lines and break ``parse_lvnet``'s line-
+    oriented grammar (the ``Graphical Test Runner - Main UI - .vi`` xfail).
+
+    A ``str`` renders double-quoted with standard backslash escapes
+    (``\\\\``, ``\\"``, ``\\n``, ``\\r``, ``\\t`` -- ``_LVNET_STRING_ESCAPES``);
+    any OTHER C0 control char (U+0000-U+001F) as ``\\xHH``. A ``bool`` checks
+    FIRST (Python's ``bool`` is an ``int`` subclass) -> ``True``/``False``;
+    ``int``/``float`` -> plain ``str()``. Never called with ``None``.
     """
+    if isinstance(value, bool):
+        return str(value)
     if isinstance(value, str):
-        return f'"{value}"'
+        out: list[str] = []
+        for ch in value:
+            escaped = _LVNET_STRING_ESCAPES.get(ch)
+            if escaped is not None:
+                out.append(escaped)
+            elif ord(ch) < 0x20:
+                out.append(f"\\x{ord(ch):02X}")
+            else:
+                out.append(ch)
+        return '"' + "".join(out) + '"'
     return str(value)
+
+
+def _lvnet_const_value_str(c: Constant) -> str:
+    """``render_lvnet``-ONLY sibling of ``op_walk._const_value_str`` (kept
+    byte-parity, untouched, for ``render_netlist``/``netlist_to_dict``): the
+    SAME error-cluster and numeric-display-format special cases (a radix/
+    precision string is already correct display text, never re-escaped),
+    but the plain-SCALAR fallthrough (``lv_type.kind is PRIMITIVE`` -- a
+    real numeric/string/boolean value, no error cluster, no matching
+    display format) routes through ``_lvnet_literal_token`` instead of a
+    bare ``str()``, so a plain String constant's real value escapes for
+    lvnet's grammar (md §4/§10).
+
+    A CLUSTER/ARRAY/ENUM/etc. constant's ``.value`` is ALREADY a pre-
+    stringified display text (e.g. a Python-dict-repr-shaped string for a
+    cluster) -- not the scalar content ``_lvnet_literal_token`` is designed
+    to escape -- so it falls back to the exact OLD ``str(c.value)`` text,
+    UNCHANGED: complex-constant literal-value syntax is still §17 item 5
+    OPEN, never invented here as a side effect of the scalar-string fix.
+    """
+    if c.lv_type and _is_error_cluster(c.lv_type):
+        return _format_error_cluster(c.value)
+    formatted = format_numeric_const(c.lv_type, c.value, c.display_format)
+    if formatted is not None:
+        return formatted
+    if c.lv_type is not None and c.lv_type.kind != LVTypeKind.PRIMITIVE:
+        return str(c.value)
+    return _lvnet_literal_token(c.value)
 
 
 def _lvnet_boundary_trailing(
@@ -5230,7 +5332,7 @@ def _lvnet_boundary_trailing(
     if requirement is not None:
         parts.append(requirement)
     if pane.default is not None:
-        parts.append(f"default {_lvnet_scalar_value_token(pane.default)}")
+        parts.append(f"default {_lvnet_literal_token(pane.default)}")
     return " ".join(parts) if parts else None
 
 

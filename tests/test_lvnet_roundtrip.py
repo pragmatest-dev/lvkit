@@ -19,22 +19,29 @@ Increment 2 grew ``parse_lvnet``/``netlist_signature`` to the BODY: node
 declarations, terminal lines, net references, and the CLOSED case/for-loop/
 while-loop/shift-register/tunnel constructs.
 
-Increment 3 (this pass) surfaces the sub-kind discriminators the Phase-1
-model had flattened -- ``NetlistScope.sequence_is_flat``/``disable_kind`` --
-so ``render_lvnet`` emits the real §8 keyword (``flat-sequence``/
-``stacked-sequence``, ``diagram-disable``/``conditional-disable``/``type-
+Increment 3 surfaces the sub-kind discriminators the Phase-1 model had
+flattened -- ``NetlistScope.sequence_is_flat``/``disable_kind`` -- so
+``render_lvnet`` emits the real §8 keyword (``flat-sequence``/``stacked-
+sequence``, ``diagram-disable``/``conditional-disable``/``type-
 specialization``, ``event-structure``) instead of a hard-coded default, and
 extends ``parse_lvnet``/``netlist_signature`` to cover all three families.
 ``WaveGen.vi`` (diagram-disable, plus a nested case and a feedback node --
 both ALREADY covered by increment 2) and ``VI Tester Menu Launch.vi``
-(flat-sequence) now round-trip CLEANLY end to end, moved here from the old
-"unsupported construct" list. ``Graphical Test Runner - Main UI - .vi``
-(event-structure, with a nested case and several property-node/invoke-node
-calls -- ALL of which round-trip correctly) still fails the full round-trip,
-but for a DIFFERENT, unrelated reason: a String CONSTANT whose real value
-contains a raw control character is rendered unescaped, splitting one
-logical line across two physical lines -- see that case's ``xfail`` reason
-below for the precise mismatch. Not a §8 gap; out of this pass's scope.
+(flat-sequence) round-trip CLEANLY end to end.
+
+Increment 4 closes the LAST gap increment 3 found: ``Graphical Test Runner -
+Main UI - .vi`` (event-structure, with a nested case and several property-
+node/invoke-node calls -- all of which already round-tripped correctly)
+still failed the full round-trip for a DIFFERENT, unrelated reason -- a
+String CONSTANT whose real value contains a raw control character (a CRLF
+on ``Array To Spreadsheet String``'s ``delimiter`` input, and a 3-line
+UI-status literal driving a case output tunnel) rendered UNESCAPED,
+splitting one logical line across two physical lines and breaking this
+line-oriented parser. ``netlist.py``'s new ``_lvnet_literal_token`` (the
+one lvnet string-literal renderer, replacing the old ``_lvnet_scalar_value_
+token``) now escapes a backslash/double-quote/newline/CR/tab (any other C0
+control char as a hex escape), so the literal stays on ONE physical line;
+this VI now round-trips CLEANLY too, closing the former ``xfail`` below.
 """
 
 from __future__ import annotations
@@ -44,8 +51,21 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.lvnet_parse import ParsedLvnet, netlist_signature, parse_lvnet
-from lvkit.graph.netlist import NetlistModule, build_netlist_from_graph, render_lvnet
+from lvkit.graph.lvnet_parse import (
+    LvnetParseError,
+    ParsedLvnet,
+    _scan_quoted_literal,
+    _unescape_lvnet_string,
+    netlist_signature,
+    parse_lvnet,
+)
+from lvkit.graph.netlist import (
+    NetlistConstant,
+    NetlistModule,
+    _lvnet_literal_token,
+    build_netlist_from_graph,
+    render_lvnet,
+)
 from lvkit.load_mode import LoadMode
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
@@ -94,30 +114,6 @@ _ROUND_TRIP_CASES = [
         / "Graphical Test Runner"
         / "Graphical Test Runner - Main UI - .vi",
         _JKI_SOURCE_ROOT,
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason=(
-                "residual gap, VERIFIED unrelated to §8 structures: this "
-                "VI's while-loop > event-structure > frame '[0] Timeout' > "
-                "nested case (on Data_Changed__ogtk_1's output) round-trips "
-                "correctly, as do its many property-node/invoke-node calls "
-                "elsewhere in the body -- the actual mismatch is that a "
-                "String CONSTANT whose real (LabVIEW-authored) value "
-                "contains a raw control character -- a CRLF on "
-                "'Array To Spreadsheet String's `delimiter` input, and a "
-                "3-line UI-status literal driving a case output tunnel -- "
-                "renders UNESCAPED (`_lvnet_scalar_value_token`/the inline-"
-                "literal render path never escapes embedded \\r/\\n), so "
-                "the literal's own text spans multiple physical lines and "
-                "breaks this line-oriented parser at the FIRST such "
-                "literal (reported as a stray 'output-drive line must be "
-                "at 2-space indent' parse error, since the literal's "
-                "trailing quote lands on its own physical line). A general "
-                "lvnet literal-escaping gap (§10/§17), not a sequence/"
-                "disabled/event-structure one -- flagged, not fixed, per "
-                "this project's bugs-are-investigate-then-discuss rule."
-            ),
-        ),
         id="Graphical_Test_Runner_Main_UI_event_structure",
     ),
 ]
@@ -179,3 +175,81 @@ def test_netlist_round_trips_through_verbose_lvnet(
         f"netlist round-trip mismatch for {vi_path.name!r} at {mismatch[0]}: "
         f"module={mismatch[1]!r} parsed={mismatch[2]!r}"
     )
+
+
+def test_control_char_string_constant_round_trips_on_one_physical_line() -> None:
+    """Focused, corpus-independent regression for the escaping fix itself
+    (increment 4): a labeled ``constant`` node whose real value carries a
+    CRLF, a tab, an embedded double-quote, and a literal backslash -- the
+    exact shape of value that broke ``Graphical Test Runner - Main UI -
+    .vi``'s round-trip (a CRLF splitting the ``constant ... = ...`` line
+    across two physical lines, which then broke this line-oriented parser
+    downstream) -- must render as ONE physical line and round-trip through
+    ``parse_lvnet``/``netlist_signature`` byte-for-byte.
+    """
+    control_char_value = 'Line one\r\nLine two\twith "quotes" and a \\backslash'
+    escaped = _lvnet_literal_token(control_char_value)
+
+    const = NetlistConstant(
+        uid="const_1",
+        name="StatusText",
+        occurrence=None,
+        type="String",
+        # OLD render_netlist-parity text -- unused by render_lvnet.
+        value=f"'{control_char_value}'",
+        lvnet_value=escaped,
+    )
+    module = NetlistModule(vi_name="Synthetic.vi", inputs=[], outputs=[], body=[const])
+
+    text = render_lvnet(module, verbose=True)
+    const_lines = [
+        line for line in text.split("\n") if line.strip().startswith("constant ")
+    ]
+    assert const_lines == [f"  constant StatusText_1 : String = {escaped}"]
+
+    parsed = parse_lvnet(text)
+    assert netlist_signature(module) == netlist_signature(parsed)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "plain",
+        'has "quotes" inside',
+        "trailing backslash \\",
+        "CRLF\r\nsplit across lines",
+        "tab\there",
+        "null\x00byte",
+        "bell\x07and\x1fus",
+    ],
+)
+def test_lvnet_string_literal_escape_unescape_round_trip(value: str) -> None:
+    """``_unescape_lvnet_string`` is the exact reverse of
+    ``_lvnet_literal_token`` (md §4/§10) -- the "reverse the escapes
+    symmetrically" requirement -- for every control-char shape it's meant
+    to cover, not just the corpus VI's own two literals."""
+    token = _lvnet_literal_token(value)
+    assert "\n" not in token and "\r" not in token, (
+        f"escaped token must stay on one physical line: {token!r}"
+    )
+    assert _unescape_lvnet_string(token) == value
+
+
+def test_scan_quoted_literal_skips_escaped_quote() -> None:
+    """A value containing an escaped double-quote must not end the scan
+    early at the ``\\"`` -- only a REAL (unescaped) closing quote does."""
+    token = _lvnet_literal_token('say "hi" please')
+    assert token == '"say \\"hi\\" please"'
+    end = _scan_quoted_literal(token, 0)
+    assert end == len(token)
+
+
+def test_scan_quoted_literal_raises_on_unterminated_quote() -> None:
+    with pytest.raises(LvnetParseError):
+        _scan_quoted_literal('"unterminated', 0)
+
+
+def test_unescape_lvnet_string_rejects_malformed_escape() -> None:
+    with pytest.raises(LvnetParseError):
+        _unescape_lvnet_string('"bad \\q escape"')

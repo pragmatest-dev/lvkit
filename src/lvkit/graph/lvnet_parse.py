@@ -56,9 +56,9 @@ from .netlist import (
     _is_void_type,
     _lvnet_component,
     _lvnet_default_trailing,
+    _lvnet_literal_token,
     _lvnet_net_separator,
     _lvnet_requirement_trailing,
-    _lvnet_scalar_value_token,
     _lvnet_type_label,
     _LvnetHandles,
     _quoted_frame_label,
@@ -122,6 +122,130 @@ class LvnetUnsupportedConstructError(NotImplementedError):
 
 
 # ============================================================
+# String-literal escaping (closes the control-char round-trip gap --
+# ``tests/test_lvnet_roundtrip.py``'s former ``Graphical Test Runner``
+# xfail)
+# ============================================================
+
+# The exact reverse of ``netlist._LVNET_STRING_ESCAPES`` (md §4/§10): every
+# two-char escape lvnet's string-literal renderer can emit, mapped back to
+# its real character. ``\xHH`` (any OTHER C0 control char) is handled
+# separately in ``_unescape_lvnet_string`` since it's three chars wide, not
+# two.
+_LVNET_STRING_UNESCAPES: dict[str, str] = {
+    "\\": "\\",
+    '"': '"',
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+}
+
+
+def _scan_quoted_literal(text: str, start: int) -> int:
+    """Scan an lvnet double-quoted string literal beginning at
+    ``text[start] == '"'`` (render_lvnet's own §4/§10 escaping --
+    ``netlist._lvnet_literal_token``), honoring backslash escapes, and
+    return the index ONE PAST its closing (real, unescaped) quote.
+
+    An escaped ``\\"`` is part of the literal's own text, never mistaken for
+    the real close -- so a value containing a literal ``=``/``:``/
+    ``default`` substring inside its quotes (a status string like
+    ``"5 = 5 is true"``) can never fool a caller's word-based clause
+    splitter, and this scan won't stop early on an escaped quote either.
+    Raises ``LvnetParseError`` if the quote is never closed on this line --
+    a genuine grammar violation, since ``_lvnet_literal_token`` escapes
+    every control char to a same-line backslash sequence (lvnet never emits
+    a literal spanning physical lines).
+    """
+    i = start + 1
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch == "\\":
+            if i + 1 >= n:
+                raise LvnetParseError(
+                    f"unterminated escape at end of quoted literal: "
+                    f"{text[start:]!r}"
+                )
+            i += 2
+            continue
+        if ch == '"':
+            return i + 1
+        i += 1
+    raise LvnetParseError(f"unterminated quoted literal: {text[start:]!r}")
+
+
+def _unescape_lvnet_string(token: str) -> str:
+    """Reverse ``netlist._lvnet_literal_token``'s string escaping: a
+    double-quoted token (``'"foo\\\\nbar"'``) -> its real value (a genuine
+    embedded newline). ``token`` must be exactly the ``"..."`` substring,
+    quotes included -- callers isolate it first via ``_scan_quoted_literal``
+    (a bare closing-quote match), so this never needs its own boundary
+    search. Raises ``LvnetParseError`` on a malformed/unrecognized escape
+    (never silently drops or guesses at one)."""
+    if len(token) < 2 or not (token.startswith('"') and token.endswith('"')):
+        raise LvnetParseError(f"not a quoted lvnet string literal: {token!r}")
+    body = token[1:-1]
+    out: list[str] = []
+    i = 0
+    n = len(body)
+    while i < n:
+        ch = body[i]
+        if ch != "\\":
+            out.append(ch)
+            i += 1
+            continue
+        if i + 1 >= n:
+            raise LvnetParseError(
+                f"trailing backslash in lvnet string literal: {token!r}"
+            )
+        esc = body[i + 1]
+        if esc == "x":
+            hex_digits = body[i + 2 : i + 4]
+            if len(hex_digits) != 2:
+                raise LvnetParseError(
+                    f"malformed \\x escape in lvnet string literal: {token!r}"
+                )
+            try:
+                out.append(chr(int(hex_digits, 16)))
+            except ValueError:
+                raise LvnetParseError(
+                    f"malformed \\x escape in lvnet string literal: {token!r}"
+                ) from None
+            i += 4
+            continue
+        real = _LVNET_STRING_UNESCAPES.get(esc)
+        if real is None:
+            raise LvnetParseError(
+                f"unrecognized escape '\\{esc}' in lvnet string literal: "
+                f"{token!r}"
+            )
+        out.append(real)
+        i += 2
+    return "".join(out)
+
+
+def _validate_if_quoted(value: str, line_no: int) -> None:
+    """A driver/default/constant VALUE token that (now, md §4/§10) looks
+    like a quoted lvnet string literal must actually BE one, end to end --
+    catches a truncated or malformed escape at parse time (loudly) instead
+    of it silently surviving as opaque text into ``netlist_signature``.
+    Every OTHER token shape (a net identifier, ``True``/``False``, a bare
+    number) is untouched -- this only fires when the value's own first
+    character is a literal-string open quote.
+    """
+    if not value.startswith('"'):
+        return
+    end = _scan_quoted_literal(value, 0)
+    if end != len(value):
+        raise LvnetParseError(
+            f"line {line_no}: trailing text after closing quote in value "
+            f"token: {value!r}"
+        )
+    _unescape_lvnet_string(value)  # raises LvnetParseError if malformed
+
+
+# ============================================================
 # Boundary block (increment 1)
 # ============================================================
 
@@ -165,9 +289,14 @@ def _split_type_requirement_default(
     single spaces -- safe because the actual VALUE text itself is assumed to
     never contain more than one consecutive space (an assumption, not a
     proof -- flagged in the round-trip report). The ``default`` keyword is
-    found by its LAST occurrence (the default clause is always the
-    RIGHTMOST clause on a terminal line, §3), so a value that happens to
-    contain the word "default" earlier does not fool the split.
+    found by its FIRST occurrence: a ``<Type>`` clause never legitimately
+    contains the bare word "default" (it's a faithful LVType descriptor,
+    never LabVIEW vocabulary), but a STRING value legitimately CAN (e.g. a
+    real status literal reading "Restore to default settings", md §4/§10 --
+    now that a string literal's own text survives escaped-but-intact) --
+    so the FIRST occurrence is always the real keyword, and everything from
+    there to end of line is the value, however many more times the word
+    recurs inside it.
     """
     words = tail.split()
     if "=" in words:
@@ -181,10 +310,11 @@ def _split_type_requirement_default(
 
     default: str | None = None
     if "default" in words:
-        idx = len(words) - 1 - words[::-1].index("default")
+        idx = words.index("default")
         value_words = words[idx + 1 :]
         default = " ".join(value_words) if value_words else "default"
         words = words[:idx]
+        _validate_if_quoted(default, line_no)
 
     requirement: str | None = None
     if words and words[-1] in _REQUIREMENT_WORDS:
@@ -209,6 +339,14 @@ def _split_node_terminal_tail(
     `` ; inverted`` (§6); an OUTPUT line carries neither. No requirement
     keyword ever appears here (§11: "the wiring_rule nuance at call sites"
     is a later slice).
+
+    ``=``/``default`` are found by their FIRST occurrence, same reasoning as
+    ``_split_type_requirement_default``: a ``<Type>`` clause never contains
+    either as a bare word, but a wired STRING literal's own text legitimately
+    can (e.g. a driver value reading ``"5 = 5 is true"``, md §4/§10) -- so
+    the first occurrence is always the real operator, everything after it
+    to end of line is the value however many more times the word/symbol
+    recurs inside it.
     """
     text = tail
     inverted = False
@@ -223,7 +361,7 @@ def _split_node_terminal_tail(
     driver: str | None = None
     default: str | None = None
     if "=" in words:
-        idx = len(words) - 1 - words[::-1].index("=")
+        idx = words.index("=")
         value_words = words[idx + 1 :]
         if not value_words:
             raise LvnetParseError(
@@ -231,11 +369,13 @@ def _split_node_terminal_tail(
             )
         driver = " ".join(value_words)
         words = words[:idx]
+        _validate_if_quoted(driver, line_no)
     elif "default" in words:
-        idx = len(words) - 1 - words[::-1].index("default")
+        idx = words.index("default")
         value_words = words[idx + 1 :]
         default = " ".join(value_words) if value_words else "default"
         words = words[:idx]
+        _validate_if_quoted(default, line_no)
 
     if not words:
         raise LvnetParseError(
@@ -550,6 +690,11 @@ def _finish_local_variable(cursor: _Cursor, indent: int, line_no: int) -> Parsed
 
 
 def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
+    """``constant <handle> : <Type> = <value>`` (§7). ``tail.find(" = ")``
+    takes the FIRST ``" = "`` -- safe without any quote-awareness, since a
+    ``<Type>`` clause never contains that substring, so the first match is
+    always the real operator regardless of what the (possibly quoted,
+    md §4/§10) value afterward contains."""
     rest = content[len("constant ") :]
     sep_idx = rest.find(" : ")
     if sep_idx == -1:
@@ -563,7 +708,9 @@ def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
         raise LvnetParseError(
             f"line {line_no}: constant line missing ' = <value>' (§7): {content!r}"
         )
-    return ParsedConstant(handle=handle, type=tail[:eq_idx], value=tail[eq_idx + 3 :])
+    value = tail[eq_idx + 3 :]
+    _validate_if_quoted(value, line_no)
+    return ParsedConstant(handle=handle, type=tail[:eq_idx], value=value)
 
 
 def _parse_feedback(
@@ -806,7 +953,12 @@ def _parse_one_item_or_drive(
     if content == _EVENT_SCOPE_HEADER:
         return _parse_event_scope(cursor, indent, content, line_no)
     if " = " in content:
+        # FIRST occurrence: a net name (``caseN::outK``/``loopN::shiftK``/a
+        # boundary control's name) never contains " = ", so it's always the
+        # real operator regardless of what a (possibly quoted, md §4/§10)
+        # literal source afterward contains.
         net, _, source = content.partition(" = ")
+        _validate_if_quoted(source, line_no)
         return ParsedDrive(net=net, source=source)
     raise LvnetParseError(f"line {line_no}: unrecognized body line: {content!r}")
 
@@ -930,6 +1082,7 @@ def _parse_output_drives(cursor: _Cursor) -> list[ParsedDrive]:
             raise LvnetParseError(
                 f"line {line_no}: empty output name in drive line: {line!r}"
             )
+        _validate_if_quoted(source, line_no)
         drives.append(ParsedDrive(net=name, source=source))
     return drives
 
@@ -984,10 +1137,10 @@ def _module_default_token(default: ScalarValue) -> str | None:
     (``ConnectorPaneTerminal.default``, a raw ``ScalarValue``) -- ``None``
     when the pane genuinely has no default recorded, else the exact literal
     text ``render_lvnet`` now emits for it (Gap #1, closed: see
-    ``_lvnet_scalar_value_token`` in ``netlist.py``)."""
+    ``_lvnet_literal_token`` in ``netlist.py``)."""
     if default is None:
         return None
-    return _lvnet_scalar_value_token(default)
+    return _lvnet_literal_token(default)
 
 
 def boundary_signature(
@@ -1084,7 +1237,10 @@ def _module_instance_signature(
 
 def _module_constant_signature(const: NetlistConstant, handles: _LvnetHandles) -> tuple:
     handle = handles.by_uid[const.uid]
-    return ("constant", handle, const.type, const.value)
+    # ``lvnet_value`` (lvnet-escaped, md §4/§10) -- what ``_render_lvnet_
+    # constant`` actually emits -- NOT ``const.value`` (the OLD render_
+    # netlist/netlist_to_dict-parity text, unescaped).
+    return ("constant", handle, const.type, const.lvnet_value)
 
 
 def _module_feedback_signature(fb: NetlistFeedback, handles: _LvnetHandles) -> tuple:

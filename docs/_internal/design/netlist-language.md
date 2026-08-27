@@ -132,6 +132,12 @@ in   GUID        : String           default ""                            # UNWI
 **Net vs. constant is told apart lexically (the Verilog convention):** a literal
 (quoted string / number / boolean) is a constant; an identifier is a net.
 
+**A string literal is double-quoted with standard backslash escapes** —
+`\\`, `\"`, `\n`, `\r`, `\t`; any other C0 control char (U+0000–U+001F) as
+`\xHH` — so a real LabVIEW string constant carrying a raw CR/LF (a
+multi-line UI-status default, a CRLF delimiter) still renders on ONE
+physical line, the way every other lvnet construct does (§10, §17 item 5).
+
 **Direction is `sink = source`** — target on the left, source on the right —
 because a terminal reads like a named argument (`f(name = "runTest")`), the most
 universal target-left pattern in text languages. **Not `<=`** (reads as ≤, HDL
@@ -516,6 +522,9 @@ in   GUID : String = GUID_1
 4. **Degenerate tunnel collapse** — an all-frames-identical tunnel: collapse to a
    plain wire vs. show faithfully per frame.
 5. **Complex constant literal values** (cluster/array/enum/path field values).
+   The §4 backslash-escaping rule covers SCALAR string escaping only (a
+   plain String constant/default's own text); a cluster/array/enum/path
+   constant's field-value syntax remains OPEN.
 6. **Concrete line syntax** — DESIGNED for property-node / invoke-node /
    feedback-node (§7). Still open: in-place-element decompose↔recompose pairing,
    and formula-node script rendering (needs the `script` field plumbed).
