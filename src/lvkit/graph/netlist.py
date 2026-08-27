@@ -784,11 +784,27 @@ class NetlistDependency:
     annotation), or ``None`` when the dependency's recorded/searched
     reference doesn't resolve to an on-disk file -- NEVER fabricated (see
     ``_build_dependency_manifest``).
+
+    ``interface`` is the §7a verbose-only element this ``NetlistDependency``
+    docstring above forward-referenced: a ``subVI`` dependency's OWN
+    connector-pane terminals (in order, inputs then outputs), reusing the
+    SAME already-leaf-loaded graph a ``LoadMode.MINIMAL`` load populates
+    (``load_mode.py``/``graph/loading.py``'s own leaf-load comment) and the
+    SAME per-terminal extraction the VI's own boundary uses
+    (``InMemoryVIGraph.get_inputs``/``get_outputs`` -> ``interface_order.
+    ordered_interface`` -> ``_pane_terminal``) -- never a second, re-parsed
+    VI (see ``_dependency_interface``). Rendered ONLY in verbose mode,
+    indented under this entry's own ``uses :`` line (``_render_lvnet_uses``/
+    ``_render_lvnet_dependency_interface``). Empty for a ``class``/``typedef``
+    dependency (a connector pane is a VI-only concept) or an unresolved
+    ``subVI`` dependency (not reachable in the loaded graph) -- NEVER
+    fabricated, same rule as ``path`` above.
     """
 
     kind: DependencyKind
     qualified: str
     path: str | None
+    interface: list[ConnectorPaneTerminal] = field(default_factory=list)
 
 
 @dataclass
@@ -3777,6 +3793,35 @@ def _project_relative_display(resolved: Path | None, base: Path) -> str | None:
     return "./" + rel.replace(os.sep, "/")
 
 
+def _dependency_interface(
+    graph: InMemoryVIGraph, kind: DependencyKind, qname: str
+) -> list[ConnectorPaneTerminal]:
+    """The §7a verbose-only inline interface for one ``uses :`` entry: a
+    ``subVI`` dependency's OWN connector-pane terminals (inputs then
+    outputs), pulled from the SAME already-leaf-loaded graph a
+    ``LoadMode.MINIMAL`` load populates for every direct SubVI (its own
+    connector pane, per ``graph/loading.py``'s leaf-load comment) -- never a
+    second, re-parsed VI. Reuses the exact primitives this VI's OWN boundary
+    is built from: ``InMemoryVIGraph.get_inputs``/``get_outputs`` (already
+    canonically ordered by ``interface_order.ordered_interface``) projected
+    through ``_pane_terminal``, the SAME helper ``build_netlist_from_graph``
+    calls for ``module.connector_pane``.
+
+    ``class``/``typedef`` dependencies get no interface (a connector pane is
+    a VI-only concept) -- ``[]``. A ``subVI`` dependency that isn't
+    resolvable in the loaded graph (``graph.resolve_vi_name(qname)`` falls
+    through to a name with no ``VINode``) also yields ``[]``: ``get_inputs``/
+    ``get_outputs`` already return ``[]`` for a ``vi_name`` absent from the
+    graph, so this is never fabricated, only genuinely absent.
+    """
+    if kind != DependencyKind.SUBVI:
+        return []
+    dep_key = graph.resolve_vi_name(qname)
+    return [_pane_terminal(t, "input") for t in graph.get_inputs(dep_key)] + [
+        _pane_terminal(t, "output") for t in graph.get_outputs(dep_key)
+    ]
+
+
 def _build_dependency_manifest(
     graph: InMemoryVIGraph, vi_name: str
 ) -> list[NetlistDependency]:
@@ -3829,11 +3874,13 @@ def _build_dependency_manifest(
             # fallback: a class referenced only by TYPE, whose .lvclass sits
             # one directory up rather than on a search path.
             resolved = graph._walk_up_find(source_path.parent, leaf)
+        kind = _dependency_kind_for(qname)
         manifest.append(
             NetlistDependency(
-                kind=_dependency_kind_for(qname),
+                kind=kind,
                 qualified=qname,
                 path=_project_relative_display(resolved, rel_base),
+                interface=_dependency_interface(graph, kind, qname),
             )
         )
     return manifest
@@ -5485,7 +5532,49 @@ _LVNET_DEP_KIND_CAP = 12
 _LVNET_DEP_QUALIFIED_CAP = 60
 
 
-def _render_lvnet_uses(dependencies: list[NetlistDependency], lines: list[str]) -> None:
+# Indent of a ``uses :`` entry's inline §7a interface lines -- one level
+# (2 spaces) deeper than the entry's own 4-space indent, matching the SAME
+# "header, then body at +2" rule every other lvnet block follows (a node's
+# own in/out block nests at ``indent + "  "`` under its declaration line --
+# see ``_render_lvnet_instance``).
+_LVNET_DEP_INTERFACE_INDENT = "      "
+
+
+def _render_lvnet_dependency_interface(
+    interface: list[ConnectorPaneTerminal], lines: list[str]
+) -> None:
+    """Render a ``subVI`` dependency's inline connector-pane interface (lvnet
+    §7a, verbose-only) -- enough to rehydrate the MINIMAL graph's own leaf-
+    loaded connector pane for this dependency, without a second parse.
+    Indented under the dependency's own ``uses :`` entry line (LAYOUT
+    PROVISIONAL, like the manifest itself -- trivial to move once the
+    maintainer settles final placement).
+
+    No requirement keyword, no driver (``_TermLine.trailing`` stays ``None``
+    for both directions) -- this is the dependency's SIGNATURE, not a call
+    site's own bindings; a call site's own wiring already renders under its
+    own ``subVI <handle> : ...`` instance block elsewhere in the body (§7).
+    Reuses ``_render_term_group``/``_lvnet_type_label`` directly -- the SAME
+    column-alignment and named-type-collapsing rules every other terminal
+    block in this renderer follows, never a second formatting path.
+    """
+    if not interface:
+        return
+    entries = [
+        _TermLine(
+            "in " if t.direction == "input" else "out",
+            t.name,
+            _lvnet_type_label(t.type, t.lv_type),
+            None,
+        )
+        for t in interface
+    ]
+    lines.extend(_render_term_group(entries, _LVNET_DEP_INTERFACE_INDENT))
+
+
+def _render_lvnet_uses(
+    dependencies: list[NetlistDependency], lines: list[str], *, verbose: bool
+) -> None:
     """Render the lvnet ``uses :`` dependency manifest (new §2/§7 note,
     ``docs/_internal/design/netlist-language.md``) -- the first "element" of
     the terse/verbose design: a plain reference list of every external file
@@ -5495,6 +5584,12 @@ def _render_lvnet_uses(dependencies: list[NetlistDependency], lines: list[str]) 
     element exists), so this is its own small function, trivial to move.
     Omitted entirely (no lines appended) when the VI has no dependencies --
     never an empty ``uses :`` header.
+
+    ``verbose`` gates the SECOND, later element §7a documents: each ``subVI``
+    entry's own inline connector-pane interface
+    (``_render_lvnet_dependency_interface``), indented right under that
+    entry's line. Terse (``verbose=False``) renders the plain reference list
+    only -- byte-identical to before this element existed.
     """
     if not dependencies:
         return
@@ -5523,6 +5618,8 @@ def _render_lvnet_uses(dependencies: list[NetlistDependency], lines: list[str]) 
             lines.append(f"    {kind_part}{qualified_part}; {dep.path}")
         else:
             lines.append(f"    {kind_part}{dep.qualified}")
+        if verbose:
+            _render_lvnet_dependency_interface(dep.interface, lines)
 
 
 def render_lvnet(
@@ -5551,12 +5648,16 @@ def render_lvnet(
     pane) terminal's §5 requirement keyword and (this pass) its own §4
     ``default <value>`` clause when the pane records one (see
     ``_lvnet_boundary_trailing``) -- subVI call-site wiring_rule nuance is a
-    later slice (§11: "the wiring_rule nuance at call sites").
+    later slice (§11: "the wiring_rule nuance at call sites") -- plus, this
+    pass, each ``subVI`` ``uses :`` entry's own inline connector-pane
+    interface (see ``_render_lvnet_uses``/``_render_lvnet_dependency_
+    interface``): enough to rehydrate that dependency's MINIMAL-load
+    connector pane from the text alone.
     """
     handles = _assign_lvnet_handles(module)
     header_name = display_name if display_name is not None else module.vi_name
     lines: list[str] = [f"vi {header_name} :"]
-    _render_lvnet_uses(module.dependencies, lines)
+    _render_lvnet_uses(module.dependencies, lines, verbose=verbose)
 
     # ``connector_pane.terminals`` is built (by BOTH builders) as inputs then
     # outputs, walked over the SAME ``ctx.inputs``/``ctx.outputs`` lists used

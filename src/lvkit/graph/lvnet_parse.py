@@ -529,15 +529,33 @@ ParsedBodyItem = ParsedNode | ParsedScope | ParsedFeedback | ParsedConstant
 
 
 @dataclass(frozen=True)
+class ParsedDependencyTerminal:
+    """One parsed inline connector-pane terminal under a ``uses :`` ``subVI``
+    entry (lvnet §7a, verbose-only): ``(name, type, direction)`` only -- no
+    requirement keyword, no driver/default (``_render_lvnet_dependency_
+    interface`` never emits either: this is the dependency's SIGNATURE, not
+    a call site's own wiring)."""
+
+    name: str
+    type: str
+    direction: str  # "in" | "out"
+
+
+@dataclass(frozen=True)
 class ParsedDependency:
     """One parsed ``uses :`` entry (new §2/§7 note) -- the exact fields
     ``NetlistDependency`` renders: the §7 kind keyword (``subVI``/
-    ``typedef``/``class``), the fully-qualified identity, and the optional
-    ``; ./path`` nav annotation (``None`` when the line carried none)."""
+    ``typedef``/``class``), the fully-qualified identity, the optional
+    ``; ./path`` nav annotation (``None`` when the line carried none), and
+    (§7a, verbose-only) the ordered inline connector-pane interface a
+    ``subVI`` entry may carry right under its own line -- ``()`` for a
+    ``class``/``typedef`` entry, an unresolved ``subVI`` dependency, or
+    terse mode (``_render_lvnet_uses`` never emits the block there)."""
 
     kind: str
     qualified: str
     path: str | None = None
+    interface: tuple[ParsedDependencyTerminal, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -1030,6 +1048,60 @@ def _parse_items(
 # Top-level parse
 # ============================================================
 
+# Indent of a ``uses :`` entry's inline §7a interface lines -- one level
+# (2 spaces) deeper than the entry's own 4-space indent, matching
+# ``netlist._LVNET_DEP_INTERFACE_INDENT``.
+_USES_INTERFACE_INDENT = 6
+
+
+def _parse_dependency_interface(
+    cursor: _Cursor, indent: int
+) -> tuple[ParsedDependencyTerminal, ...]:
+    """Read a ``subVI`` ``uses :`` entry's inline connector-pane interface
+    (lvnet §7a, verbose-only), immediately following that entry's own line,
+    at EXACTLY ``indent`` spaces -- the SAME ``in ``/``out`` terminal-line
+    shape as a boundary line (§3), minus the §5 requirement keyword and §4
+    default clause (``_render_lvnet_dependency_interface`` never emits
+    either). Stops at the first line that isn't one: a dedent back to the
+    next ``uses :`` entry (4-space) or the boundary block (2-space), or the
+    end of the manifest. Absent entirely (``()``) for a ``class``/``typedef``
+    entry or an unresolved ``subVI`` dependency -- ``render_lvnet`` never
+    emits the block in either case, so its absence here is never itself an
+    error.
+    """
+    terminals: list[ParsedDependencyTerminal] = []
+    while True:
+        line = cursor.peek()
+        if line is None or line.strip() == "" or _indent_len(line) != indent:
+            break
+        content = line[indent:]
+        m = _TERMINAL_CONTENT_RE.match(content)
+        if m is None:
+            raise LvnetParseError(
+                f"line {cursor.line_no}: expected an 'in '/'out' dependency "
+                f"interface line (§7a), got {line!r}"
+            )
+        line_no = cursor.line_no
+        cursor.take()
+        direction, rest = m.group(1), m.group(2)
+        sep_idx = rest.find(" : ")
+        if sep_idx == -1:
+            raise LvnetParseError(
+                f"line {line_no}: missing ' : <Type>' clause in dependency "
+                f"interface line (§3/§7a): {line!r}"
+            )
+        name = rest[:sep_idx].strip()
+        type_str = rest[sep_idx + 3 :]
+        if not name:
+            raise LvnetParseError(
+                f"line {line_no}: empty terminal name in dependency "
+                f"interface line: {line!r}"
+            )
+        terminals.append(
+            ParsedDependencyTerminal(name=name, type=type_str, direction=direction)
+        )
+    return tuple(terminals)
+
 
 def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
     """Parse the OPTIONAL ``uses :`` dependency manifest (new §2/§7 note) --
@@ -1076,7 +1148,12 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
             raise LvnetParseError(
                 f"line {line_no}: empty qualified identity in 'uses :' entry: {line!r}"
             )
-        entries.append(ParsedDependency(kind=kind, qualified=qualified, path=path))
+        interface = _parse_dependency_interface(cursor, _USES_INTERFACE_INDENT)
+        entries.append(
+            ParsedDependency(
+                kind=kind, qualified=qualified, path=path, interface=interface
+            )
+        )
     if not entries:
         raise LvnetParseError(
             "'uses :' header present but the block has no dependency entries"
@@ -1266,6 +1343,26 @@ def boundary_signature(
         for o, pane in zip(module.outputs, output_panes, strict=True)
     ]
     return tuple(entries)
+
+
+def _dependency_interface_signature(
+    interface: list[ConnectorPaneTerminal],
+) -> tuple[tuple[str, str, str], ...]:
+    """The comparable projection of a ``uses :`` ``subVI`` entry's inline
+    §7a interface: ``(direction, name, type)`` per terminal, ``"input"``/
+    ``"output"`` normalized to ``"in"``/``"out"`` the same way
+    ``boundary_signature`` normalizes a boundary terminal's direction, and
+    the type computed through the SAME ``_lvnet_type_label`` call
+    ``_render_lvnet_dependency_interface`` renders from.
+    """
+    return tuple(
+        (
+            "in" if t.direction == "input" else "out",
+            t.name,
+            _lvnet_type_label(t.type, t.lv_type),
+        )
+        for t in interface
+    )
 
 
 def _strip_default_prefix(rendered: str) -> str:
@@ -1553,14 +1650,30 @@ def netlist_signature(module_or_parsed: NetlistModule | ParsedLvnet) -> tuple:
     """
     if isinstance(module_or_parsed, ParsedLvnet):
         parsed = module_or_parsed
-        uses = tuple((d.kind, d.qualified, d.path) for d in parsed.uses)
+        uses = tuple(
+            (
+                d.kind,
+                d.qualified,
+                d.path,
+                tuple((t.direction, t.name, t.type) for t in d.interface),
+            )
+            for d in parsed.uses
+        )
         boundary = boundary_signature(parsed)
         body = tuple(_parsed_item_signature(item) for item in parsed.body)
         drives = tuple((d.net, d.source) for d in parsed.output_drives)
         return (uses, boundary, body, drives)
 
     module = module_or_parsed
-    uses = tuple((d.kind.value, d.qualified, d.path) for d in module.dependencies)
+    uses = tuple(
+        (
+            d.kind.value,
+            d.qualified,
+            d.path,
+            _dependency_interface_signature(d.interface),
+        )
+        for d in module.dependencies
+    )
     handles = _assign_lvnet_handles(module)
     boundary = boundary_signature(module)
     body = _module_body_signature(module.body, handles)

@@ -282,9 +282,33 @@ uses :
   fabricated as an empty/guessed value) when the dependency's recorded or
   searched reference doesn't resolve to a real on-disk file.
 - **Sorted by qualified identity** for byte-reproducibility.
-- A later, verbose-only element extends each entry with the dependency's own
-  inline interface (its terminals) and type structure — not part of this
-  pass; `uses :` here is the plain reference list only.
+- **Verbose-only: each `subVI` entry inlines its own connector-pane
+  interface** right under its line — the later element the bullet above used
+  to forward-reference, now implemented. Terse omits it (the plain reference
+  list only, as above); this is a documented addition — the syntax was not
+  pinned by an existing golden example, so it is spelled out here rather than
+  guessed:
+
+  ```
+  uses :
+    subVI <qualified-identity>   ; ./<project-relative-path>
+      in  <name> : <Type>
+      out <name> : <Type>
+  ```
+
+  One `in`/`out` line per connector-pane terminal (inputs then outputs, same
+  canonical pane order as everywhere else, §3's shape reused verbatim), at one
+  indent level deeper than the entry's own line (2 further spaces) — no `=
+  <driver>` clause and no §5 requirement keyword: this is the dependency's
+  own SIGNATURE, not a call site's wiring (a call site's actual bindings
+  still render under its own `subVI <handle> : ...` instance block in the
+  body, §7). A `class`/`typedef` entry never gets one (a connector pane is a
+  VI-only concept), and an unresolved `subVI` dependency (not reachable in
+  the loaded graph) renders with no interface block rather than a fabricated
+  one — same "omit, never guess" rule as `; ./path` above. This is exactly
+  the payload verbose mode needs to rehydrate the MINIMAL graph's own
+  leaf-loaded connector pane for each direct dependency straight from the
+  text.
 
 ## 8. Structures
 

@@ -237,18 +237,44 @@ def test_golden_load_tests_from_test_case_matches_verified_render() -> None:
 # `interface_order.requirement_rank`'s docstring); `TestLoader in`/`error
 # out` are unresolved (rule=0/INVALID) so they render NO keyword at all,
 # same as terse (§5: never claim a resolved state that was never authored).
-# The `uses :` manifest itself is IDENTICAL in both modes (it's a plain
-# reference list present in both terse and verbose, per the design doc) --
-# included here unchanged from `_GOLDEN_LVNET`.
+# The `uses :` manifest's OWN reference-list lines are IDENTICAL in both
+# modes (a plain reference list present in both terse and verbose, per the
+# design doc) -- unchanged from `_GOLDEN_LVNET`. NEW this pass (§7a's later,
+# verbose-only element): each `subVI` entry's OWN connector-pane interface
+# now inlines right under its line -- `TestCase_Init.vi`/
+# `listAllTestMethods.vi`/`TestSuite_Init.vi` each get their real in/out
+# terminals (pulled from the SAME already-leaf-loaded graph these VIs'
+# OWN call-site blocks read from further down in the body -- verified by
+# actually running the renderer, not hand-typed); the two `class` entries
+# (`TestCase.lvclass`/`TestLoader.lvclass`/`TestSuite.lvclass` -- a
+# connector pane is a VI-only concept) get none.
 _GOLDEN_LVNET_VERBOSE_BOUNDARY = """\
 vi loadTestsFromTestCase.vi :
   uses :
     class TestCase.lvclass                       ; ./Classes/TestCase/TestCase.lvclass
     subVI TestCase.lvclass:TestCase_Init.vi      ; ./Classes/TestCase/TestCase_Init.vi
+      in   TestCase in            : TestCase.lvclass
+      in   methodName ("runTest") : String
+      in   GUID ("")              : String
+      in   error in (no error)    : Error
+      out  TestCase out           : TestCase.lvclass
+      out  error out              : Error
     subVI TestCase.lvclass:listAllTestMethods.vi ; ./Classes/TestCase/listAllTestMethods.vi
+      in   TestCase in         : TestCase.lvclass
+      in   error in (no error) : Error
+      out  TestCase out        : TestCase.lvclass
+      out  test methods        : [String]
+      out  error out           : Error
     class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
     class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
     subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
+      in   TestSuite in                    : TestSuite.lvclass
+      in   tests (none)                    : [LabVIEW Object]
+      in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster}
+      in   GUID ("")                       : String
+      in   error in (no error)             : Error
+      out  TestSuite out                   : TestSuite.lvclass
+      out  error out                       : Error
   in   TestLoader in       : TestLoader.lvclass
   in   TestCase            : TestCase.lvclass   recommended
   in   error in (no error) : Error              recommended
