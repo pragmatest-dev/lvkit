@@ -25,6 +25,8 @@ and deterministic (fallback: slot index).
 
 from __future__ import annotations
 
+from enum import Enum
+
 from ..connector_pane_geometry import get_pattern
 from ..models import Terminal
 from ..parser.models import ParsedWiringRule
@@ -64,6 +66,47 @@ def requirement_rank(terminal: Terminal, direction: str) -> int:
 def is_required(terminal: Terminal, direction: str) -> bool:
     """A terminal the caller MUST wire (used by presentation to mark Required)."""
     return requirement_rank(terminal, direction) == 0
+
+
+class WiringRequirement(Enum):
+    """A connector-pane terminal's full wiring-requirement state -- lvnet
+    §5's "three-state connector (``wiring_rule``)", which in practice is
+    four states: the three real LabVIEW dispositions plus UNKNOWN for an
+    unresolved wiring rule. An axis independent of whether the terminal is
+    actually wired (a terminal can be REQUIRED and unwired -- a broken
+    wire -- or OPTIONAL and wired).
+
+    Bare ``Enum``, not ``(str, Enum)``: this value space is fully owned --
+    built once here from ``requirement_rank``/``ParsedWiringRule`` and never
+    compared against a raw wiring-rule int/string anywhere else. ``.value``
+    is read only for lvnet-text/JSON display.
+    """
+
+    REQUIRED = "required"
+    RECOMMENDED = "recommended"
+    OPTIONAL = "optional"
+    UNKNOWN = "unknown"
+
+
+_RANK_TO_REQUIREMENT = {
+    _RANK_REQUIRED: WiringRequirement.REQUIRED,
+    _RANK_RECOMMENDED: WiringRequirement.RECOMMENDED,
+    _RANK_OPTIONAL: WiringRequirement.OPTIONAL,
+}
+
+
+def requirement_state(terminal: Terminal, direction: str) -> WiringRequirement:
+    """The full §5 requirement state for display -- ``requirement_rank``'s
+    same REQUIRED/RECOMMENDED/OPTIONAL fold (including the Dynamic-Dispatch
+    and error-direction rules), EXCEPT an unresolved wiring rule
+    (``ParsedWiringRule.INVALID``) reports UNKNOWN here instead of the
+    rank's ordering-only fold into RECOMMENDED. Sorting wants an unresolved
+    rule to sit at the neutral (Recommended) position; display must not
+    claim a resolved state the VI never authored.
+    """
+    if terminal.wiring_rule == ParsedWiringRule.INVALID:
+        return WiringRequirement.UNKNOWN
+    return _RANK_TO_REQUIREMENT[requirement_rank(terminal, direction)]
 
 
 def ordered_interface(

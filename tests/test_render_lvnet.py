@@ -23,7 +23,15 @@ from pathlib import Path
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
+from lvkit.graph.interface_order import WiringRequirement
+from lvkit.graph.netlist import (
+    ConnectorPaneTerminal,
+    _lvnet_requirement_trailing,
+    _render_term_group,
+    _TermLine,
+    build_netlist_from_graph,
+    render_lvnet,
+)
 from lvkit.load_mode import LoadMode
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
@@ -192,6 +200,107 @@ def test_golden_load_tests_from_test_case_matches_verified_render() -> None:
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module, display_name="loadTestsFromTestCase.vi")
     assert text == _GOLDEN_LVNET
+
+
+# ============================================================
+# Phase-B slice: verbose/terse switch + the §5 tri-state `wiring_rule`.
+# ============================================================
+
+# The golden VI's own boundary block, VERBOSE -- captured the same way as
+# `_GOLDEN_LVNET` (actually running the renderer, not hand-typed). Every
+# terminal here resolves REAL `wiring_rule` values off the graph: the four
+# non-error terminals are all authored `Recommended` (rule=2, or rule=1 on
+# an OUTPUT, which `requirement_state` folds to Recommended -- see
+# `interface_order.requirement_rank`'s docstring); `TestLoader in`/`error
+# out` are unresolved (rule=0/INVALID) so they render NO keyword at all,
+# same as terse (§5: never claim a resolved state that was never authored).
+_GOLDEN_LVNET_VERBOSE_BOUNDARY = """\
+vi loadTestsFromTestCase.vi :
+  in   TestLoader in       : TestLoader.lvclass
+  in   TestCase            : TestCase.lvclass   recommended
+  in   error in (no error) : Error              recommended
+  out  TestLoader out      : TestLoader.lvclass recommended
+  out  TestSuite           : TestSuite.lvclass  recommended
+  out  error out           : Error"""
+
+
+@pytest.mark.needs_samples
+def test_golden_verbose_boundary_shows_recommended_and_omits_unknown() -> None:
+    """`verbose=True` on the SAME real golden VI: its boundary lines gain the
+    §5 bare requirement keyword; the two UNKNOWN (unresolved) terminals
+    render with none, identically to terse. This is the actual, run render
+    (not hand-typed) -- see the fixture's own comment for the real
+    `wiring_rule` values behind each line."""
+    loaded = _load_golden()
+    if loaded is None:
+        pytest.skip("JKI-VI-Tester sample corpus not present")
+    graph, vi_name = loaded
+    module = build_netlist_from_graph(graph, vi_name)
+    text = render_lvnet(
+        module, display_name="loadTestsFromTestCase.vi", verbose=True
+    )
+    boundary_block = text.split("\n\n", 1)[0]
+    assert boundary_block == _GOLDEN_LVNET_VERBOSE_BOUNDARY
+
+    # terse (default / verbose=False) is completely unaffected.
+    terse = render_lvnet(module, display_name="loadTestsFromTestCase.vi")
+    assert terse == _GOLDEN_LVNET
+
+
+def test_verbose_requirement_keyword_required_and_optional() -> None:
+    """`required`/`optional` on real `ConnectorPaneTerminal`s, exercised
+    directly against the SAME functions `render_lvnet` calls
+    (`_lvnet_requirement_trailing` + `_render_term_group`).
+
+    Not sourced from a real VI: a bounded scan of `loadTestsFromTestCase.vi`
+    plus ~8 Create/Init-style top-level VIs across 3 other sample corpora
+    (JKI-VI-Tester, LabVIEW-OOP-Classes, actor-framework -- see
+    `.tmp/scan_requirement_states*.py`) found only `Recommended`/`Unknown`
+    wiring rules ever authored at a top-level connector pane -- never an
+    explicit Required INPUT or an Optional terminal. `Recommended`/`Unknown`
+    are already covered against real data by
+    `test_golden_verbose_boundary_shows_recommended_and_omits_unknown`
+    above; this test covers the two states real corpus data didn't exercise,
+    against the real rendering code path.
+    """
+    required = ConnectorPaneTerminal(
+        name="in1",
+        type="DBL",
+        direction="input",
+        index=0,
+        wiring_requirement=WiringRequirement.REQUIRED,
+        default=None,
+    )
+    optional = ConnectorPaneTerminal(
+        name="in2",
+        type="String",
+        direction="input",
+        index=1,
+        wiring_requirement=WiringRequirement.OPTIONAL,
+        default="",
+    )
+    unknown = ConnectorPaneTerminal(
+        name="in3",
+        type="Boolean",
+        direction="input",
+        index=2,
+        wiring_requirement=WiringRequirement.UNKNOWN,
+        default=False,
+    )
+    assert _lvnet_requirement_trailing(required) == "required"
+    assert _lvnet_requirement_trailing(optional) == "optional"
+    assert _lvnet_requirement_trailing(unknown) is None
+
+    entries = [
+        _TermLine("in ", t.name, t.type, _lvnet_requirement_trailing(t))
+        for t in (required, optional, unknown)
+    ]
+    lines = _render_term_group(entries, "  ")
+    assert lines == [
+        "  in   in1 : DBL     required",
+        "  in   in2 : String  optional",
+        "  in   in3 : Boolean",
+    ]
 
 
 # ============================================================

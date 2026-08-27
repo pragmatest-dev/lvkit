@@ -61,7 +61,7 @@ from ..models import (
 )
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _uid_of
-from .interface_order import is_required, ordered_interface
+from .interface_order import WiringRequirement, ordered_interface, requirement_state
 from .models import (
     AnyGraphNode,
     CaseStructureNode,
@@ -674,10 +674,22 @@ class ConnectorPaneTerminal:
     type: str  # FAITHFUL LabVIEW type label, not a Python annotation
     direction: str  # "input" | "output"
     index: int | None  # connector-pane slot index (None if unassigned)
-    is_required: bool  # caller MUST wire it — inputs only (never an output)
+    # lvnet §5's tri-state (+ unknown) connector requirement -- the LOSSLESS
+    # replacement for the old ``is_required: bool`` (kept below as a derived
+    # property so existing bool consumers keep working unchanged).
+    wiring_requirement: WiringRequirement
     default: ScalarValue  # terminal default value, None when it has none
     # Mirrors ``NetlistPortBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
+
+    @property
+    def is_required(self) -> bool:
+        """Backward-compat bool view of ``wiring_requirement`` -- caller MUST
+        wire it. Inputs only: ``requirement_state`` already folds a
+        Required/Dynamic-Dispatch OUTPUT down to RECOMMENDED, so this is
+        never ``True`` for an output.
+        """
+        return self.wiring_requirement == WiringRequirement.REQUIRED
 
 
 @dataclass
@@ -2092,7 +2104,7 @@ def _pane_terminal(t: Terminal, direction: str) -> ConnectorPaneTerminal:
         type=t.type_label(),
         direction=direction,
         index=t.index,
-        is_required=is_required(t, direction),
+        wiring_requirement=requirement_state(t, direction),
         default=t.default_value,
         lv_type=t.lv_type,
     )
@@ -4313,7 +4325,7 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any] | None:
     return d
 
 
-def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
+def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str, Any]:
     """The netlist IR as a faithful JSON-able tree — the STRUCTURED counterpart
     to :func:`render_netlist`'s ASCII projection.
 
@@ -4322,6 +4334,12 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
     against the IR: boundary ``inputs``/``outputs`` carry the FAITHFUL LabVIEW
     type label (not a Python annotation), the ``instance``/``scope`` union is
     ``kind``-tagged, and scopes nest their frames' bodies recursively.
+
+    ``verbose`` (default ``False``, lvnet §11/§12) additionally surfaces each
+    connector-pane terminal's full ``wiring_rule`` tri-state (+ unknown) --
+    non-verbose keeps the plain ``required: bool`` exactly as before, so
+    default output (and the netlist-from-graph parity test, which compares
+    non-verbose output) is byte/JSON-identical to pre-verbose output.
     """
     return {
         "vi": module.vi_name,
@@ -4337,6 +4355,11 @@ def netlist_to_dict(module: NetlistModule) -> dict[str, Any]:
                     "index": p.index,
                     "required": p.is_required,
                     "default": p.default,
+                    **(
+                        {"wiring_rule": p.wiring_requirement.value}
+                        if verbose
+                        else {}
+                    ),
                 }
                 for p in module.connector_pane.terminals
             ],
@@ -5108,7 +5131,74 @@ def _render_lvnet_items(
                 _render_lvnet_feedback(item, indent, lines, handles)
 
 
-def render_lvnet(module: NetlistModule, *, display_name: str | None = None) -> str:
+def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
+    """The §5 bare requirement keyword (``required``/``recommended``/
+    ``optional``) for a boundary terminal line, verbose-only. ``None`` for
+    an UNKNOWN (unresolved) wiring rule -- §5: terse omits the keyword, and
+    an unresolved rule has no keyword to show even in verbose, so it
+    renders exactly like terse there.
+    """
+    if term.wiring_requirement == WiringRequirement.UNKNOWN:
+        return None
+    return term.wiring_requirement.value
+
+
+def _lvnet_scalar_value_token(value: ScalarValue) -> str:
+    """The literal-value TOKEN for a raw ``ScalarValue`` (e.g.
+    ``ConnectorPaneTerminal.default`` -- a connector-pane control's own
+    authored default value, distinct from ``DefaultValue``'s LVType-derived
+    GUESS used elsewhere on this page). Matches ``describe.py``'s
+    ``_default_suffix`` quoting rule -- the ALREADY-ESTABLISHED convention
+    for rendering this exact ``Terminal.default_value`` field elsewhere in
+    the codebase (``' = "{default}"' if isinstance(default, str) else
+    ' = {default}'``) -- minus its ``" = "`` prefix, since lvnet's own
+    ``default <value>`` keyword already supplies that role (§4). A string
+    quotes (``"1"``, ``"Initializing ..."``); anything else (bool/int/float)
+    renders via plain ``str()``. Never called with ``None`` -- callers only
+    reach for this when ``default is not None``.
+    """
+    if isinstance(value, str):
+        return f'"{value}"'
+    return str(value)
+
+
+def _lvnet_boundary_trailing(
+    pane: ConnectorPaneTerminal, *, verbose: bool
+) -> str | None:
+    """The verbose-only trailing text for a BOUNDARY (connector-pane)
+    terminal line: the §5 requirement keyword, the control's own §4
+    ``default <value>`` clause, or both space-joined in that order -- §5's
+    own worked example composes exactly this way: ``error in (no error) :
+    Error optional default (no error)``. Terse (``verbose=False``) renders
+    neither (unchanged from before this pass -- the golden §16 fixture's
+    boundary has no non-``None`` default on any of its terminals, so it is
+    byte-identical either way).
+
+    Closes the round-trip harness's Gap #1 (see
+    ``lvkit.graph.lvnet_parse``'s module docstring / the round-trip report):
+    until this pass, a boundary line NEVER rendered
+    ``ConnectorPaneTerminal.default`` at all, even in verbose mode -- a
+    connector-pane control's authored default (e.g. a real ``U16`` output
+    defaulting to ``"1"`` in ``Graphical Test Runner - Main UI - .vi``) was
+    silently dropped from the lossless surface.
+    """
+    if not verbose:
+        return None
+    parts: list[str] = []
+    requirement = _lvnet_requirement_trailing(pane)
+    if requirement is not None:
+        parts.append(requirement)
+    if pane.default is not None:
+        parts.append(f"default {_lvnet_scalar_value_token(pane.default)}")
+    return " ".join(parts) if parts else None
+
+
+def render_lvnet(
+    module: NetlistModule,
+    *,
+    display_name: str | None = None,
+    verbose: bool = False,
+) -> str:
     """Render a ``NetlistModule`` to the lvnet text surface -- see
     ``docs/_internal/design/netlist-language.md`` §2-§10 (CLOSED grammar
     only; an OPEN construct, §17, emits its header keyword plus a literal
@@ -5122,19 +5212,45 @@ def render_lvnet(module: NetlistModule, *, display_name: str | None = None) -> s
     reason: ``module.vi_name`` is the resolved ``vi_key`` -- a source-path
     identity, not fit for display, per ``NetlistModule.vi_name``'s own
     docstring). Defaults to ``module.vi_name`` when omitted.
+
+    ``verbose`` (default ``False``, lvnet §11) is the terse/lossless switch:
+    terse (default) renders IDENTICALLY to before this parameter existed
+    (the §16 golden). Verbose additionally shows each BOUNDARY (connector-
+    pane) terminal's §5 requirement keyword and (this pass) its own §4
+    ``default <value>`` clause when the pane records one (see
+    ``_lvnet_boundary_trailing``) -- subVI call-site wiring_rule nuance is a
+    later slice (§11: "the wiring_rule nuance at call sites").
     """
     handles = _assign_lvnet_handles(module)
     header_name = display_name if display_name is not None else module.vi_name
     lines: list[str] = [f"vi {header_name} :"]
 
+    # ``connector_pane.terminals`` is built (by BOTH builders) as inputs then
+    # outputs, walked over the SAME ``ctx.inputs``/``ctx.outputs`` lists used
+    # to build ``module.inputs``/``module.outputs`` -- so it lines up
+    # POSITIONALLY, 1:1, with the boundary entries below.
+    pane_terminals = module.connector_pane.terminals
+    input_panes = pane_terminals[: len(module.inputs)]
+    output_panes = pane_terminals[
+        len(module.inputs) : len(module.inputs) + len(module.outputs)
+    ]
+
     boundary_entries: list[_TermLine] = [
         _TermLine(
-            "in ", inp.name, _lvnet_type_label(inp.type_descriptor, inp.lv_type), None
+            "in ",
+            inp.name,
+            _lvnet_type_label(inp.type_descriptor, inp.lv_type),
+            _lvnet_boundary_trailing(pane, verbose=verbose),
         )
-        for inp in module.inputs
+        for inp, pane in zip(module.inputs, input_panes, strict=True)
     ] + [
-        _TermLine("out", o.name, _lvnet_type_label(o.type_descriptor, o.lv_type), None)
-        for o in module.outputs
+        _TermLine(
+            "out",
+            o.name,
+            _lvnet_type_label(o.type_descriptor, o.lv_type),
+            _lvnet_boundary_trailing(pane, verbose=verbose),
+        )
+        for o, pane in zip(module.outputs, output_panes, strict=True)
     ]
     if boundary_entries:
         lines.extend(_render_term_group(boundary_entries, "  "))
