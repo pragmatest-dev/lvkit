@@ -42,6 +42,7 @@ from .netlist import (
     _LVNET_TUNNEL_MODE_WORD,
     _OPEN_INSTANCE_TRAILING_TODO,
     ConnectorPaneTerminal,
+    DependencyKind,
     EtaMerge,
     GammaMerge,
     MuMerge,
@@ -72,6 +73,16 @@ from .netlist import (
 _REQUIREMENT_WORDS = frozenset({"required", "recommended", "optional"})
 
 _HEADER_RE = re.compile(r"^vi (.+) :$")
+# The OPTIONAL ``uses :`` dependency-manifest header (new §2/§7 note) --
+# immediately after the ``vi <name> :`` header, before the boundary block
+# (see ``_parse_uses_block``). Rendered by ``_render_lvnet_uses``.
+_USES_HEADER_LINE = "  uses :"
+# One dependency entry: 4-space indent, then the kind keyword, then at least
+# one space, then the qualified identity (+ optional ``; ./path`` nav).
+_USES_ENTRY_RE = re.compile(r"^    (\S+)\s+(.+)$")
+# Reuses ``render_lvnet``'s OWN kind enum directly, rather than a second
+# hand-maintained word list that could drift from it.
+_USES_KIND_WORDS = frozenset(k.value for k in DependencyKind)
 # A boundary terminal line: 2-space block indent (§2), then the 3-char
 # ``in ``/``out`` keyword, then at least one space, then everything else
 # (name/type/requirement/default -- split out below).
@@ -518,11 +529,25 @@ ParsedBodyItem = ParsedNode | ParsedScope | ParsedFeedback | ParsedConstant
 
 
 @dataclass(frozen=True)
+class ParsedDependency:
+    """One parsed ``uses :`` entry (new §2/§7 note) -- the exact fields
+    ``NetlistDependency`` renders: the §7 kind keyword (``subVI``/
+    ``typedef``/``class``), the fully-qualified identity, and the optional
+    ``; ./path`` nav annotation (``None`` when the line carried none)."""
+
+    kind: str
+    qualified: str
+    path: str | None = None
+
+
+@dataclass(frozen=True)
 class ParsedLvnet:
-    """The result of parsing an lvnet text: header, boundary block, body,
-    and the final boundary-output-drive block."""
+    """The result of parsing an lvnet text: header, the OPTIONAL ``uses :``
+    dependency manifest, boundary block, body, and the final
+    boundary-output-drive block."""
 
     vi_name: str
+    uses: tuple[ParsedDependency, ...] = field(default_factory=tuple)
     boundary: tuple[ParsedBoundaryTerminal, ...] = field(default_factory=tuple)
     body: tuple[ParsedBodyItem, ...] = field(default_factory=tuple)
     output_drives: tuple[ParsedDrive, ...] = field(default_factory=tuple)
@@ -1006,6 +1031,59 @@ def _parse_items(
 # ============================================================
 
 
+def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
+    """Parse the OPTIONAL ``uses :`` dependency manifest (new §2/§7 note) --
+    immediately after the ``vi <name> :`` header, before the boundary block.
+    Absent entirely (``()``) when the next line isn't exactly the ``uses :``
+    header -- ``render_lvnet`` omits the section when the VI has no
+    dependencies, rather than emit an empty header, so its absence is never
+    itself an error.
+
+    Once inside a confirmed ``uses :`` block, every entry line is expected at
+    EXACTLY 4-space indent (one level deeper than the header's 2 spaces) --
+    the boundary block's own ``in ``/``out`` lines are always 2-space (never
+    4-space), so indent alone unambiguously ends this block with no blank-line
+    separator needed (matching ``render_lvnet``'s own header-to-boundary
+    style, which has none either).
+    """
+    if cursor.peek() != _USES_HEADER_LINE:
+        return ()
+    cursor.take()
+    entries: list[ParsedDependency] = []
+    while True:
+        line = cursor.peek()
+        if line is None or _indent_len(line) != 4:
+            break
+        line_no = cursor.line_no
+        cursor.take()
+        m = _USES_ENTRY_RE.match(line)
+        if m is None:
+            raise LvnetParseError(
+                f"line {line_no}: expected a 'uses :' dependency entry, got {line!r}"
+            )
+        kind, rest = m.group(1), m.group(2)
+        if kind not in _USES_KIND_WORDS:
+            raise LvnetParseError(
+                f"line {line_no}: unrecognized 'uses :' kind {kind!r} "
+                f"(expected one of {sorted(_USES_KIND_WORDS)}): {line!r}"
+            )
+        sep_idx = rest.find("; ")
+        if sep_idx == -1:
+            qualified, path = rest.strip(), None
+        else:
+            qualified, path = rest[:sep_idx].rstrip(), rest[sep_idx + 2 :]
+        if not qualified:
+            raise LvnetParseError(
+                f"line {line_no}: empty qualified identity in 'uses :' entry: {line!r}"
+            )
+        entries.append(ParsedDependency(kind=kind, qualified=qualified, path=path))
+    if not entries:
+        raise LvnetParseError(
+            "'uses :' header present but the block has no dependency entries"
+        )
+    return tuple(entries)
+
+
 def _parse_boundary_block(cursor: _Cursor) -> list[ParsedBoundaryTerminal]:
     boundary: list[ParsedBoundaryTerminal] = []
     while True:
@@ -1088,10 +1166,11 @@ def _parse_output_drives(cursor: _Cursor) -> list[ParsedDrive]:
 
 
 def parse_lvnet(text: str) -> ParsedLvnet:
-    """Parse an lvnet text's ``vi <name> :`` header, boundary block, BODY,
-    and final boundary-output-drive block. Raises ``LvnetParseError`` naming
-    the exact line on anything that doesn't fit the grammar this increment
-    knows -- never silently skips.
+    """Parse an lvnet text's ``vi <name> :`` header, OPTIONAL ``uses :``
+    dependency manifest, boundary block, BODY, and final
+    boundary-output-drive block. Raises ``LvnetParseError`` naming the exact
+    line on anything that doesn't fit the grammar this increment knows --
+    never silently skips.
     """
     lines = text.splitlines()
     if not lines:
@@ -1105,6 +1184,7 @@ def parse_lvnet(text: str) -> ParsedLvnet:
     vi_name = header_match.group(1)
 
     cursor = _Cursor(lines, pos=1)
+    uses = _parse_uses_block(cursor)
     boundary = _parse_boundary_block(cursor)
 
     body_items, stray_drives = _parse_items(cursor, indent=2)
@@ -1121,6 +1201,7 @@ def parse_lvnet(text: str) -> ParsedLvnet:
 
     return ParsedLvnet(
         vi_name=vi_name,
+        uses=uses,
         boundary=tuple(boundary),
         body=tuple(body_items),
         output_drives=tuple(output_drives),
@@ -1454,13 +1535,14 @@ def _parsed_item_signature(item: ParsedBodyItem) -> tuple:
 
 
 def netlist_signature(module_or_parsed: NetlistModule | ParsedLvnet) -> tuple:
-    """The full, comparable projection of an lvnet document: boundary +
-    body + the final boundary-output-drive block -- computed IDENTICALLY
-    from a real ``NetlistModule`` (reusing ``render_lvnet``'s own private
-    helpers directly, e.g. ``_lvnet_component``/``_render_lvnet_source``/
-    ``_lvnet_type_label``, so the module side is provably what the text
-    would say) and from a ``ParsedLvnet``. Excludes uid and any derived/
-    non-textual field, same principle as ``boundary_signature``.
+    """The full, comparable projection of an lvnet document: the ``uses :``
+    manifest + boundary + body + the final boundary-output-drive block --
+    computed IDENTICALLY from a real ``NetlistModule`` (reusing
+    ``render_lvnet``'s own private helpers directly, e.g.
+    ``_lvnet_component``/``_render_lvnet_source``/``_lvnet_type_label``, so
+    the module side is provably what the text would say) and from a
+    ``ParsedLvnet``. Excludes uid and any derived/non-textual field, same
+    principle as ``boundary_signature``.
 
     Every §8 structure kind is now covered (case/for-loop/while-loop/
     flat-sequence/stacked-sequence/diagram-disable/conditional-disable/
@@ -1471,12 +1553,14 @@ def netlist_signature(module_or_parsed: NetlistModule | ParsedLvnet) -> tuple:
     """
     if isinstance(module_or_parsed, ParsedLvnet):
         parsed = module_or_parsed
+        uses = tuple((d.kind, d.qualified, d.path) for d in parsed.uses)
         boundary = boundary_signature(parsed)
         body = tuple(_parsed_item_signature(item) for item in parsed.body)
         drives = tuple((d.net, d.source) for d in parsed.output_drives)
-        return (boundary, body, drives)
+        return (uses, boundary, body, drives)
 
     module = module_or_parsed
+    uses = tuple((d.kind.value, d.qualified, d.path) for d in module.dependencies)
     handles = _assign_lvnet_handles(module)
     boundary = boundary_signature(module)
     body = _module_body_signature(module.body, handles)
@@ -1487,4 +1571,4 @@ def netlist_signature(module_or_parsed: NetlistModule | ParsedLvnet) -> tuple:
         )
         for o in module.outputs
     )
-    return (boundary, body, drives)
+    return (uses, boundary, body, drives)

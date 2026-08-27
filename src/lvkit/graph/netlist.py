@@ -25,12 +25,14 @@ port interface, declared once (see ``_build_components``), alongside
 
 from __future__ import annotations
 
+import os
 import re
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import asdict as _dataclass_asdict
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..models import (
@@ -61,9 +63,11 @@ from ..models import (
     _is_error_cluster,
 )
 from ..num_format import format_numeric_const
+from ..parser import parse_vi
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _uid_of
 from .interface_order import WiringRequirement, ordered_interface, requirement_state
+from .loading import build_dep_ref_map, collect_direct_dep_qnames
 from .models import (
     AnyGraphNode,
     CaseStructureNode,
@@ -738,6 +742,55 @@ class ConnectorPane:
     terminals: list[ConnectorPaneTerminal] = field(default_factory=list)
 
 
+class DependencyKind(str, Enum):
+    """The lvnet §7 `uses :` dependency-manifest kind -- DERIVED from a
+    dependency's qualified identity file extension (``.vi`` -> subVI,
+    ``.ctl`` -> typedef, ``.lvclass`` -> class), never a separate guessed
+    input. See ``_dependency_kind_for``/``_build_dependency_manifest``.
+    """
+
+    SUBVI = "subVI"
+    TYPEDEF = "typedef"
+    CLASS = "class"
+
+
+def _dependency_kind_for(qualified: str) -> DependencyKind:
+    """The §7 ``uses :`` kind word for one dependency's fully-qualified
+    identity, read off its file extension -- the identity itself already
+    carries this (never a second, independently-guessed classification)."""
+    leaf = qualified.rsplit(":", 1)[-1]
+    if leaf.endswith(".vi"):
+        return DependencyKind.SUBVI
+    if leaf.endswith(".ctl"):
+        return DependencyKind.TYPEDEF
+    if leaf.endswith(".lvclass"):
+        return DependencyKind.CLASS
+    raise ValueError(
+        f"cannot derive a lvnet 'uses :' dependency kind from {qualified!r} "
+        "-- unrecognized extension (expected .vi/.ctl/.lvclass)"
+    )
+
+
+@dataclass(frozen=True)
+class NetlistDependency:
+    """One external FILE this VI directly depends on -- a subVI call, a
+    referenced class (``.lvclass``), or a referenced typedef (``.ctl``).
+    This is the lvnet §7 ``uses :`` dependency manifest (docs/_internal/
+    design/netlist-language.md) -- the first "element" of the terse/verbose
+    design, present in BOTH modes (a plain reference list; the dependency's
+    own INTERFACE/type structure is a later, verbose-only element).
+
+    ``path`` is a project-relative ``./...`` display path (§6's ``; ./path``
+    annotation), or ``None`` when the dependency's recorded/searched
+    reference doesn't resolve to an on-disk file -- NEVER fabricated (see
+    ``_build_dependency_manifest``).
+    """
+
+    kind: DependencyKind
+    qualified: str
+    path: str | None
+
+
 @dataclass
 class NetlistModule:
     """The whole VI as a netlist."""
@@ -776,6 +829,13 @@ class NetlistModule:
     connector_pane: ConnectorPane = field(
         default_factory=lambda: ConnectorPane(pattern_id=None)
     )
+    # The lvnet §7 ``uses :`` dependency manifest -- see ``NetlistDependency``.
+    # Populated ONLY by ``build_netlist_from_graph`` (see
+    # ``_build_dependency_manifest``); the OLD Operation-based ``build_netlist``
+    # leaves this at its empty default, and ``render_netlist``/``netlist_to_dict``
+    # never read it -- ``render_lvnet`` is its only consumer, so the old
+    # render/JSON surfaces stay byte-unchanged (test_netlist_from_graph_parity).
+    dependencies: list[NetlistDependency] = field(default_factory=list)
 
 
 # ============================================================
@@ -3700,6 +3760,85 @@ def _build_components_gn(
     return components
 
 
+def _project_relative_display(resolved: Path | None, base: Path) -> str | None:
+    """A ``./``-prefixed, forward-slash project-relative display path for the
+    lvnet §6 ``; ./path`` annotation. Best-effort, never fabricated: ``None``
+    when ``resolved`` is ``None`` or ``os.path.relpath`` itself fails (e.g. a
+    cross-drive path on Windows) -- mirrors ``cli.py``'s ``_repo_relative_path``,
+    the existing precedent for this exact annotation on the OLD ``describe
+    --format netlist``'s ``## Components`` path comment.
+    """
+    if resolved is None:
+        return None
+    try:
+        rel = os.path.relpath(resolved.resolve(), base.resolve())
+    except (OSError, ValueError):
+        return None
+    return "./" + rel.replace(os.sep, "/")
+
+
+def _build_dependency_manifest(
+    graph: InMemoryVIGraph, vi_name: str
+) -> list[NetlistDependency]:
+    """The lvnet §7 ``uses :`` manifest: every external file this VI
+    directly depends on (subVI calls, referenced classes, referenced
+    typedefs) -- built with the SAME primitives the loader itself walks a
+    VI's dependencies with (``collect_direct_dep_qnames``/
+    ``build_dep_ref_map``, ``graph/loading.py``) and the SAME path-resolution
+    ``lvkit.list_deps`` reuses (``InMemoryVIGraph._resolve_dependency_path``
+    plus its ``.lvclass`` walk-up fallback) -- never a separate,
+    reimplemented mechanism.
+
+    Needs the VI's own on-disk ``.vi`` file (``graph.get_vi_source_path``) to
+    re-derive its ``subvi_qualified_names``/``type_map``/``dependency_refs``:
+    the already-loaded graph does not retain these PER VI once loading
+    finishes (they are a transient, load-time-only projection consumed
+    inside ``_load_vi_recursive`` and then discarded). Returns ``[]`` when
+    the source file can't be found or re-parsed (e.g. a graph built straight
+    from BD-heap XML with no ``.vi`` sibling) -- never a guess.
+    """
+    source_path = graph.get_vi_source_path(vi_name)
+    if source_path is None or not source_path.exists():
+        return []
+
+    try:
+        vi = parse_vi(source_path)
+    except (RuntimeError, OSError, ValueError):
+        return []
+
+    metadata = vi.metadata
+    own_qname = metadata.qualified_name or source_path.name
+    all_dep_qnames = collect_direct_dep_qnames(
+        metadata.subvi_qualified_names, metadata.type_map, own_qname
+    )
+    if not all_dep_qnames:
+        return []
+
+    dep_ref_map = build_dep_ref_map(metadata.dependency_refs)
+    search_paths = graph._search_paths or [source_path.parent]
+    rel_base = search_paths[0]
+
+    manifest: list[NetlistDependency] = []
+    for qname in sorted(all_dep_qnames):
+        leaf = qname.rsplit(":", 1)[-1]
+        resolved = graph._resolve_dependency_path(
+            qname, dep_ref_map.get(qname), source_path, search_paths
+        )
+        if resolved is None and leaf.endswith(".lvclass"):
+            # Mirrors lvkit.list_deps._resolve_one's caller-side walk-up
+            # fallback: a class referenced only by TYPE, whose .lvclass sits
+            # one directory up rather than on a search path.
+            resolved = graph._walk_up_find(source_path.parent, leaf)
+        manifest.append(
+            NetlistDependency(
+                kind=_dependency_kind_for(qname),
+                qualified=qname,
+                path=_project_relative_display(resolved, rel_base),
+            )
+        )
+    return manifest
+
+
 def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     """Walk a VI's ``GraphNode`` graph directly into a ``NetlistModule`` IR --
     the PHASE 1 sibling of ``build_netlist`` (see the module docstring section
@@ -3773,6 +3912,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         owner_children=top_level_children,
     )
     components = _build_components_gn(graph, vi_name, flat)
+    dependencies = _build_dependency_manifest(graph, vi_name)
 
     return NetlistModule(
         vi_name=vi_name,
@@ -3784,6 +3924,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         health=ctx.health,
         class_context=_build_class_context(graph, ctx),
         connector_pane=connector_pane,
+        dependencies=dependencies,
     )
 
 
@@ -5336,6 +5477,54 @@ def _lvnet_boundary_trailing(
     return " ".join(parts) if parts else None
 
 
+# §14-style column-alignment caps for the ``uses :`` manifest (mirrors
+# ``_LVNET_NAME_CAP``/``_LVNET_TYPE_CAP`` above) -- a long qualified identity
+# (``Class.lvclass:VeryLongSubVIName.vi``) overflows on its own line instead
+# of stretching every sibling dependency line's column out to match it.
+_LVNET_DEP_KIND_CAP = 12
+_LVNET_DEP_QUALIFIED_CAP = 60
+
+
+def _render_lvnet_uses(dependencies: list[NetlistDependency], lines: list[str]) -> None:
+    """Render the lvnet ``uses :`` dependency manifest (new §2/§7 note,
+    ``docs/_internal/design/netlist-language.md``) -- the first "element" of
+    the terse/verbose design: a plain reference list of every external file
+    this VI directly depends on, present in BOTH modes. Appends directly to
+    ``lines`` immediately after the ``vi <name> :`` header -- LAYOUT IS
+    PROVISIONAL (the maintainer decides final section placement once every
+    element exists), so this is its own small function, trivial to move.
+    Omitted entirely (no lines appended) when the VI has no dependencies --
+    never an empty ``uses :`` header.
+    """
+    if not dependencies:
+        return
+    lines.append("  uses :")
+    under_cap_kinds = [
+        len(d.kind.value)
+        for d in dependencies
+        if len(d.kind.value) <= _LVNET_DEP_KIND_CAP
+    ]
+    kind_width = (max(under_cap_kinds) if under_cap_kinds else 0) + 1
+    needs_path_pad = any(d.path is not None for d in dependencies)
+    qualified_width = 0
+    if needs_path_pad:
+        under_cap_q = [
+            len(d.qualified)
+            for d in dependencies
+            if len(d.qualified) <= _LVNET_DEP_QUALIFIED_CAP
+        ]
+        qualified_width = (max(under_cap_q) if under_cap_q else 0) + 1
+    for dep in dependencies:
+        kind_part = _lvnet_capped_pad(dep.kind.value, kind_width, _LVNET_DEP_KIND_CAP)
+        if dep.path is not None:
+            qualified_part = _lvnet_capped_pad(
+                dep.qualified, qualified_width, _LVNET_DEP_QUALIFIED_CAP
+            )
+            lines.append(f"    {kind_part}{qualified_part}; {dep.path}")
+        else:
+            lines.append(f"    {kind_part}{dep.qualified}")
+
+
 def render_lvnet(
     module: NetlistModule,
     *,
@@ -5367,6 +5556,7 @@ def render_lvnet(
     handles = _assign_lvnet_handles(module)
     header_name = display_name if display_name is not None else module.vi_name
     lines: list[str] = [f"vi {header_name} :"]
+    _render_lvnet_uses(module.dependencies, lines)
 
     # ``connector_pane.terminals`` is built (by BOTH builders) as inputs then
     # outputs, walked over the SAME ``ctx.inputs``/``ctx.outputs`` lists used

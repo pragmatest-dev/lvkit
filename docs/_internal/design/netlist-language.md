@@ -39,6 +39,8 @@ away per format on the way out." The correctness gate is a round-trip:
 
 ```
 vi <VIName.vi> :
+  uses :                                 # dependency manifest (§7a), OPTIONAL -- omitted with no deps
+    <kind> <qualified-identity>   [; ./path]
   in   <name> : <Type> [<requirement>] [default <value>]     # boundary terminal line (§3)
   out  <name> : <Type>
                                         # blank line
@@ -53,6 +55,14 @@ vi <VIName.vi> :
 
 - **`vi <name> :`** header (top-level VI). A VI with an empty connector pane
   (a top-level/main VI) simply has no `in`/`out` lines.
+- **`uses :`** dependency manifest (§7a) — a plain reference list of every
+  external file this VI directly depends on, right after the header.
+  Present in BOTH terse and verbose (it's the first "element" of the
+  terse/verbose design — a later, verbose-only element adds each
+  dependency's own inline interface/type structure on top). Omitted
+  entirely when the VI has no dependencies. LAYOUT IS PROVISIONAL: this
+  placement (right after the header) is where it lands until every element
+  of the design exists and the maintainer picks final section ordering.
 - **Boundary block:** the connector-pane terminals — `in ` lines then `out`
   lines. A boundary input whose default is notable renders it into the name:
   `in error in (no error) : Error`.
@@ -246,6 +256,35 @@ connector pane is the `vi` block's `in`/`out`. One **off** the connector pane is
 an internal `control`/`indicator` **node** in the body. Local/global variables
 are extra taps on that net. **Multiple writes to one control = one net, several
 drivers** (LabVIEW's race/ordering) — surface it plainly, don't hide it.
+
+## 7a. The `uses :` dependency manifest
+
+The first "element" of the terse/verbose design: a plain reference list of
+every external FILE this VI directly depends on — a subVI it calls, a
+referenced typedef (`.ctl`), or a referenced class (`.lvclass`) — each once,
+right after the `vi <name> :` header (§2; LAYOUT PROVISIONAL — the maintainer
+decides final section placement once every element of the design exists).
+Present in BOTH terse and verbose. Omitted entirely when the VI has no
+dependencies (never an empty `uses :` header).
+
+```
+uses :
+  <kind> <qualified-identity>   ; ./<project-relative-path>
+```
+
+- **`<kind>`** — derived from the identity's file extension, never guessed
+  independently: `.vi` → `subVI`, `.ctl` → `typedef`, `.lvclass` → `class`.
+- **`<qualified-identity>`** — the SAME fully-qualified identity a `subVI`/
+  `class`/`typedef` component spells at its own declaration elsewhere in the
+  file (§7/§9) — e.g. `TestCase.lvclass:listAllTestMethods.vi`,
+  `TestLoader.lvclass`.
+- **`; ./path`** — the §6 project-relative nav annotation, omitted (not
+  fabricated as an empty/guessed value) when the dependency's recorded or
+  searched reference doesn't resolve to a real on-disk file.
+- **Sorted by qualified identity** for byte-reproducibility.
+- A later, verbose-only element extends each entry with the dependency's own
+  inline interface (its terminals) and type structure — not part of this
+  pass; `uses :` here is the plain reference list only.
 
 ## 8. Structures
 
@@ -450,10 +489,21 @@ its inner cluster's NAME (`UserEvent refnum{suiteStatusChanged--Cluster}`,
 render the bare word `default` (no literal to show, §4); and the block's
 own column width is capped, so that one refnum type doesn't stretch the
 `tests (none)`/`GUID ("")`/`error in (no error)` lines' `: <Type>` column
-out to match it (§14).
+out to match it (§14). It now also carries the §7a `uses :` dependency
+manifest right after the header -- this VI's real six direct dependencies
+(its three SubVI calls plus the three classes its own connector pane is
+typed with), sorted by qualified identity, every one resolving to a real
+on-disk file in this corpus so every line carries a `; ./path` nav comment.
 
 ```
 vi loadTestsFromTestCase.vi :
+  uses :
+    class TestCase.lvclass                       ; ./Classes/TestCase/TestCase.lvclass
+    subVI TestCase.lvclass:TestCase_Init.vi      ; ./Classes/TestCase/TestCase_Init.vi
+    subVI TestCase.lvclass:listAllTestMethods.vi ; ./Classes/TestCase/listAllTestMethods.vi
+    class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
+    class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
+    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
   in   TestLoader in       : TestLoader.lvclass
   in   TestCase            : TestCase.lvclass
   in   error in (no error) : Error

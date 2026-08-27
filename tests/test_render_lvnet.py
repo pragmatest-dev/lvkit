@@ -43,6 +43,13 @@ _GOLDEN_VI = _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCas
 # markdown text -- see the module docstring and the implementation report).
 _GOLDEN_LVNET = '''\
 vi loadTestsFromTestCase.vi :
+  uses :
+    class TestCase.lvclass                       ; ./Classes/TestCase/TestCase.lvclass
+    subVI TestCase.lvclass:TestCase_Init.vi      ; ./Classes/TestCase/TestCase_Init.vi
+    subVI TestCase.lvclass:listAllTestMethods.vi ; ./Classes/TestCase/listAllTestMethods.vi
+    class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
+    class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
+    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
   in   TestLoader in       : TestLoader.lvclass
   in   TestCase            : TestCase.lvclass
   in   error in (no error) : Error
@@ -163,6 +170,22 @@ vi loadTestsFromTestCase.vi :
 #    double "default") is redundant on a terminal line specifically. A
 #    DRIVE-POSITION default (`case0::out2 = (default TestSuite.lvclass)`,
 #    below) is UNCHANGED -- it has no type column of its own to lean on.
+# 9. NEW vs §16's text (§16 predates the `uses :` manifest entirely): a
+#    `uses :` dependency-manifest block now renders right after the `vi ...
+#    :` header (provisional placement, own function -- see
+#    `_render_lvnet_uses`/`_build_dependency_manifest`) -- one line per
+#    external file this VI directly depends on, sorted by qualified identity.
+#    This real VI has SIX: its three own SubVI calls (`listAllTestMethods.vi`/
+#    `TestCase_Init.vi`/`TestSuite_Init.vi`, each `TestCase.lvclass`- or
+#    `TestSuite.lvclass`-qualified) plus the three CLASSES its own connector
+#    pane's terminals are typed with (`TestCase.lvclass`/`TestLoader.lvclass`/
+#    `TestSuite.lvclass`) -- verified directly off the re-parsed VI's own
+#    `subvi_qualified_names`/`type_map` (`collect_direct_dep_qnames`, the same
+#    primitive `graph/loading.py`'s own dependency walk uses). Every one of
+#    the six resolves to a real on-disk file in this corpus, so every line
+#    carries a `; ./path` nav comment -- none unresolved in this particular
+#    VI (an unresolved dependency would render with no `; ./path` at all,
+#    never a fabricated one -- see `_build_dependency_manifest`'s docstring).
 #
 # NOTE: under the revised §9 rule every node-port net is ALWAYS fully
 # qualified as `<handle>::<port>` -- never a bare, ambiguity-gated form (the
@@ -214,8 +237,18 @@ def test_golden_load_tests_from_test_case_matches_verified_render() -> None:
 # `interface_order.requirement_rank`'s docstring); `TestLoader in`/`error
 # out` are unresolved (rule=0/INVALID) so they render NO keyword at all,
 # same as terse (§5: never claim a resolved state that was never authored).
+# The `uses :` manifest itself is IDENTICAL in both modes (it's a plain
+# reference list present in both terse and verbose, per the design doc) --
+# included here unchanged from `_GOLDEN_LVNET`.
 _GOLDEN_LVNET_VERBOSE_BOUNDARY = """\
 vi loadTestsFromTestCase.vi :
+  uses :
+    class TestCase.lvclass                       ; ./Classes/TestCase/TestCase.lvclass
+    subVI TestCase.lvclass:TestCase_Init.vi      ; ./Classes/TestCase/TestCase_Init.vi
+    subVI TestCase.lvclass:listAllTestMethods.vi ; ./Classes/TestCase/listAllTestMethods.vi
+    class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
+    class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
+    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
   in   TestLoader in       : TestLoader.lvclass
   in   TestCase            : TestCase.lvclass   recommended
   in   error in (no error) : Error              recommended
