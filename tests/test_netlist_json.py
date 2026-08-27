@@ -15,11 +15,13 @@ from lvkit.graph.netlist import (
     GammaCase,
     GammaMerge,
     MuMerge,
+    NetlistBoundaryInput,
     NetlistComponent,
     NetlistFeedback,
     NetlistFrame,
     NetlistInstance,
     NetlistModule,
+    NetlistOutput,
     NetlistPortBinding,
     NetlistPropertyAccess,
     NetlistScope,
@@ -33,13 +35,21 @@ def _ref(node, port, bare, occ=None):
     return NetRef(node=node, port=port, occurrence=occ, bare=bare)
 
 
+def _out(node, port, bare, occ=None):
+    """Test-only convenience: a ``NetlistOutput`` wrapping ``_ref(...)`` --
+    these hand-built fixtures don't exercise the ``type`` field (added by
+    Phase A, no assertion in this file reads it), so a placeholder is fine.
+    """
+    return NetlistOutput(net=_ref(node, port, bare, occ=occ), type="?")
+
+
 def test_instance_and_scope_are_kind_tagged_and_nested():
     inner = NetlistInstance(
         uid="7",
         name="Increment",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", net=_ref(None, "n", "n"))],
-        outputs=[_ref("Increment", "out", "n2")],
+        inputs=[NetlistPortBinding(port="x", type="I32", net=_ref(None, "n", "n"))],
+        outputs=[_out("Increment", "out", "n2")],
     )
     scope = NetlistScope(
         uid="3",
@@ -64,7 +74,10 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     )
     module = NetlistModule(
         vi_name="m.vi",
-        inputs=[("x", "I32"), ("err in", "Error")],
+        inputs=[
+            NetlistBoundaryInput(name="x", type_descriptor="I32"),
+            NetlistBoundaryInput(name="err in", type_descriptor="Error"),
+        ],
         outputs=[
             BoundaryOutput(
                 name="y",
@@ -306,10 +319,14 @@ def test_instance_carries_cpdarith_operation():
         name="Compound Arithmetic",
         occurrence=1,
         inputs=[
-            NetlistPortBinding(port="1", net=_ref("Not Equal?", "result", "result")),
-            NetlistPortBinding(port="2", net=_ref("Not Equal?", "result", "result")),
+            NetlistPortBinding(
+                port="1", type="Boolean", net=_ref("Not Equal?", "result", "result")
+            ),
+            NetlistPortBinding(
+                port="2", type="Boolean", net=_ref("Not Equal?", "result", "result")
+            ),
         ],
-        outputs=[_ref("Compound Arithmetic", "0", "Compound Arithmetic#1.0")],
+        outputs=[_out("Compound Arithmetic", "0", "Compound Arithmetic#1.0")],
         operation="and",
     )
     module = NetlistModule(vi_name="c.vi", inputs=[], outputs=[], body=[inst])
@@ -338,15 +355,17 @@ def test_input_binding_carries_inverted_flag():
         inputs=[
             NetlistPortBinding(
                 port="1",
+                type="Boolean",
                 net=_ref("Less?", "result", "result"),
             ),
             NetlistPortBinding(
                 port="2",
+                type="Boolean",
                 net=_ref("Equal?", "equal", "equal", occ=2),
                 inverted=True,
             ),
         ],
-        outputs=[_ref("Compound Arithmetic", "0", "Compound Arithmetic#2.0")],
+        outputs=[_out("Compound Arithmetic", "0", "Compound Arithmetic#2.0")],
         operation="and",
     )
     module = NetlistModule(vi_name="c.vi", inputs=[], outputs=[], body=[inst])
@@ -385,13 +404,16 @@ def test_property_node_instance_carries_structured_properties_and_object():
         inputs=[
             NetlistPortBinding(
                 port="0",
+                type="refnum",
                 net=_ref("Bundle/Unbundle By Name", "ref", "ref"),
             ),
-            NetlistPortBinding(port="Disabled", net=_ref(None, "True", "True")),
+            NetlistPortBinding(
+                port="Disabled", type="Boolean", net=_ref(None, "True", "True")
+            ),
         ],
         outputs=[
-            _ref("Property Node", "1", "Property Node#1.1"),
-            _ref("Property Node", "Enabled", "Enabled"),
+            _out("Property Node", "1", "Property Node#1.1"),
+            _out("Property Node", "Enabled", "Enabled"),
         ],
         object_name="Bool",
         properties=[
@@ -461,8 +483,8 @@ def test_non_property_instance_has_no_object_and_empty_properties():
         uid="1",
         name="Not Equal?",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", net=_ref(None, "n", "n"))],
-        outputs=[_ref("Not Equal?", "result", "result")],
+        inputs=[NetlistPortBinding(port="x", type="I32", net=_ref(None, "n", "n"))],
+        outputs=[_out("Not Equal?", "result", "result")],
     )
     module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
 
@@ -490,14 +512,16 @@ def test_invoke_node_instance_carries_method_and_object():
         inputs=[
             NetlistPortBinding(
                 port="0",
+                type="refnum",
                 net=_ref("Event Data Node", "3", "Event Data Node#12.3", occ=12),
             ),
             NetlistPortBinding(
                 port="6",
+                type="refnum",
                 net=_ref("Event Data Node", "4", "Event Data Node#12.4", occ=12),
             ),
         ],
-        outputs=[_ref("Invoke Node", "1", "Invoke Node#1.1", occ=1)],
+        outputs=[_out("Invoke Node", "1", "Invoke Node#1.1", occ=1)],
         object_name="Tree (strict)",
         method_name="Point To Row Column",
     )
@@ -538,8 +562,8 @@ def test_non_invoke_instance_has_no_method():
         uid="1",
         name="Not Equal?",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", net=_ref(None, "n", "n"))],
-        outputs=[_ref("Not Equal?", "result", "result")],
+        inputs=[NetlistPortBinding(port="x", type="I32", net=_ref(None, "n", "n"))],
+        outputs=[_out("Not Equal?", "result", "result")],
     )
     module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
 
