@@ -15,40 +15,49 @@ keyword AND the §4 ``default <value>`` clause on the same line -- see
 boundary terminals all carry ``default=None``, so the golden is byte-
 identical either way).
 
-Increment 2 (this pass) grows ``parse_lvnet``/``netlist_signature`` to the
-BODY: node declarations, terminal lines, net references, and the CLOSED
-case/for-loop/while-loop/shift-register/tunnel constructs. Sequence/
-disabled/event structures are OUT OF SCOPE this pass -- a VI exercising one
-is expected to make ``parse_lvnet`` raise ``LvnetParseError`` naming the
-exact unsupported construct (tested below as a real, asserted gap, not a
-silent skip).
+Increment 2 grew ``parse_lvnet``/``netlist_signature`` to the BODY: node
+declarations, terminal lines, net references, and the CLOSED case/for-loop/
+while-loop/shift-register/tunnel constructs.
+
+Increment 3 (this pass) surfaces the sub-kind discriminators the Phase-1
+model had flattened -- ``NetlistScope.sequence_is_flat``/``disable_kind`` --
+so ``render_lvnet`` emits the real §8 keyword (``flat-sequence``/
+``stacked-sequence``, ``diagram-disable``/``conditional-disable``/``type-
+specialization``, ``event-structure``) instead of a hard-coded default, and
+extends ``parse_lvnet``/``netlist_signature`` to cover all three families.
+``WaveGen.vi`` (diagram-disable, plus a nested case and a feedback node --
+both ALREADY covered by increment 2) and ``VI Tester Menu Launch.vi``
+(flat-sequence) now round-trip CLEANLY end to end, moved here from the old
+"unsupported construct" list. ``Graphical Test Runner - Main UI - .vi``
+(event-structure, with a nested case and several property-node/invoke-node
+calls -- ALL of which round-trip correctly) still fails the full round-trip,
+but for a DIFFERENT, unrelated reason: a String CONSTANT whose real value
+contains a raw control character is rendered unescaped, splitting one
+logical line across two physical lines -- see that case's ``xfail`` reason
+below for the precise mismatch. Not a §8 gap; out of this pass's scope.
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.lvnet_parse import (
-    LvnetParseError,
-    ParsedLvnet,
-    netlist_signature,
-    parse_lvnet,
-)
+from lvkit.graph.lvnet_parse import ParsedLvnet, netlist_signature, parse_lvnet
 from lvkit.graph.netlist import NetlistModule, build_netlist_from_graph, render_lvnet
 from lvkit.load_mode import LoadMode
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
 
-# VIs whose body stays entirely within this increment's supported grammar
-# (node declarations/terminals/nets + case/for-loop/while-loop/shift-
-# register/tunnel) -- expected to round-trip CLEANLY end to end. Same load
-# recipe as tests/test_netlist_from_graph_parity.py's `_load`.
-_CLOSED_SCOPE_CASES = [
+# A VI whose rendered lvnet text is expected to round-trip CLEANLY end to
+# end -- node declarations/terminals/nets, case/for-loop/while-loop/shift-
+# register/tunnel (increment 2), and flat-sequence/stacked-sequence/
+# diagram-disable/conditional-disable/type-specialization/event-structure
+# (increment 3, this pass). Same load recipe as
+# tests/test_netlist_from_graph_parity.py's `_load`.
+_ROUND_TRIP_CASES = [
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCase.vi",
         _JKI_SOURCE_ROOT,
@@ -69,25 +78,14 @@ _CLOSED_SCOPE_CASES = [
         _JKI_SOURCE_ROOT,
         id="TextTestRunner_run",
     ),
-]
-
-# VIs that exercise a structure kind this increment's parser does not yet
-# cover (§8 sequence/disabled/event families) -- ``parse_lvnet`` is expected
-# to raise ``LvnetParseError`` naming exactly that construct. This is itself
-# the deliverable gap report: if a later increment adds support, THIS test
-# starts failing (parse_lvnet stops raising) -- the intended signal to
-# extend the closed-scope list above instead of just deleting the assertion.
-_UNSUPPORTED_CONSTRUCT_CASES = [
     pytest.param(
         _FLEX_ROOT / "WaveGen" / "WaveGen.vi",
         _FLEX_ROOT / "WaveGen",
-        "diagram-disable",
-        id="WaveGen_diagram_disable",
+        id="WaveGen_diagram_disable_nested_case_feedback_node",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Menu Launch" / "VI Tester Menu Launch.vi",
         _JKI_SOURCE_ROOT,
-        "flat-sequence",
         id="VI_Tester_Menu_Launch_flat_sequence",
     ),
     pytest.param(
@@ -96,7 +94,30 @@ _UNSUPPORTED_CONSTRUCT_CASES = [
         / "Graphical Test Runner"
         / "Graphical Test Runner - Main UI - .vi",
         _JKI_SOURCE_ROOT,
-        "event-structure",
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason=(
+                "residual gap, VERIFIED unrelated to §8 structures: this "
+                "VI's while-loop > event-structure > frame '[0] Timeout' > "
+                "nested case (on Data_Changed__ogtk_1's output) round-trips "
+                "correctly, as do its many property-node/invoke-node calls "
+                "elsewhere in the body -- the actual mismatch is that a "
+                "String CONSTANT whose real (LabVIEW-authored) value "
+                "contains a raw control character -- a CRLF on "
+                "'Array To Spreadsheet String's `delimiter` input, and a "
+                "3-line UI-status literal driving a case output tunnel -- "
+                "renders UNESCAPED (`_lvnet_scalar_value_token`/the inline-"
+                "literal render path never escapes embedded \\r/\\n), so "
+                "the literal's own text spans multiple physical lines and "
+                "breaks this line-oriented parser at the FIRST such "
+                "literal (reported as a stray 'output-drive line must be "
+                "at 2-space indent' parse error, since the literal's "
+                "trailing quote lands on its own physical line). A general "
+                "lvnet literal-escaping gap (§10/§17), not a sequence/"
+                "disabled/event-structure one -- flagged, not fixed, per "
+                "this project's bugs-are-investigate-then-discuss rule."
+            ),
+        ),
         id="Graphical_Test_Runner_Main_UI_event_structure",
     ),
 ]
@@ -134,7 +155,7 @@ def _first_mismatch(
 
 
 @pytest.mark.needs_samples
-@pytest.mark.parametrize("vi_path,search_root", _CLOSED_SCOPE_CASES)
+@pytest.mark.parametrize("vi_path,search_root", _ROUND_TRIP_CASES)
 def test_netlist_round_trips_through_verbose_lvnet(
     vi_path: Path, search_root: Path
 ) -> None:
@@ -158,24 +179,3 @@ def test_netlist_round_trips_through_verbose_lvnet(
         f"netlist round-trip mismatch for {vi_path.name!r} at {mismatch[0]}: "
         f"module={mismatch[1]!r} parsed={mismatch[2]!r}"
     )
-
-
-@pytest.mark.needs_samples
-@pytest.mark.parametrize(
-    "vi_path,search_root,expected_construct", _UNSUPPORTED_CONSTRUCT_CASES
-)
-def test_body_parse_names_unsupported_construct(
-    vi_path: Path, search_root: Path, expected_construct: str
-) -> None:
-    """A VI whose body exercises a §8 structure kind this increment's parser
-    doesn't cover (sequence/disabled/event) must fail LOUDLY, naming that
-    exact construct -- never silently produce a wrong/partial signature.
-    """
-    loaded = _load(vi_path, search_root)
-    if loaded is None:
-        pytest.skip(f"sample corpus VI not present: {vi_path}")
-    graph, vi_name = loaded
-    module: NetlistModule = build_netlist_from_graph(graph, vi_name)
-    text = render_lvnet(module, display_name=vi_path.name, verbose=True)
-    with pytest.raises(LvnetParseError, match=re.escape(expected_construct)):
-        parse_lvnet(text)

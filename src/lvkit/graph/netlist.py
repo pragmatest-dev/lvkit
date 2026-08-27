@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, Any
 from ..models import (
     CaseFrame,
     CaseOperation,
+    DisableStructureKind,
     DisableStructureOperation,
     EventFrame,
     EventOperation,
@@ -494,6 +495,22 @@ class NetlistScope:
     kind: str  # "case" | "for" | "while" | "sequence" | "disabled" | "event"
     selector: NetRef | None
     frames: list[NetlistFrame]
+    # Sequence-only (kind == "sequence") sub-kind: the EXPLICIT flat-vs-
+    # stacked discriminator surfaced from the parser's XML class
+    # (``SequenceNode.is_flat`` / ``SequenceOperation.is_flat``) -- never
+    # inferred from the ambiguous ``displayed_frame`` proxy (None for both a
+    # flat sequence and an out-of-range legacy stacked one). Meaningless for
+    # every other scope kind; the default (True/Flat) is also the lvnet
+    # renderer's pre-existing hard-coded fallback, so an unpopulated
+    # construction path renders exactly as before.
+    sequence_is_flat: bool = True
+    # Disabled-only (kind == "disabled") sub-kind: WHICH disable-family
+    # structure this is (Diagram / Conditional / Type Specialization),
+    # straight from ``DisableStructureNode.kind`` /
+    # ``DisableStructureOperation.disable_kind``. Meaningless for every other
+    # scope kind; the default (DIAGRAM) is also the lvnet renderer's
+    # pre-existing hard-coded fallback.
+    disable_kind: DisableStructureKind = DisableStructureKind.DIAGRAM
     # Loop-only (kind in ("for", "while")) -- False/None/empty for every
     # other scope kind. JSON-only surface (see ``_item_to_dict``); the ASCII
     # renderer (``scope_header``/``render_netlist``) never reads these.
@@ -1597,6 +1614,7 @@ def _build_disabled_scope(
         kind="disabled",
         selector=None,
         frames=frames,
+        disable_kind=op.disable_kind,
     )
 
 
@@ -1660,6 +1678,7 @@ def _build_sequence_scope(
         kind="sequence",
         selector=None,
         frames=frames,
+        sequence_is_flat=op.is_flat,
     )
 
 
@@ -3271,7 +3290,11 @@ def _build_disabled_scope_gn(
         for i, frame in enumerate(node.frames)
     ]
     return NetlistScope(
-        uid=_uid_of(node.id), kind="disabled", selector=None, frames=frames
+        uid=_uid_of(node.id),
+        kind="disabled",
+        selector=None,
+        frames=frames,
+        disable_kind=node.kind,
     )
 
 
@@ -3332,7 +3355,11 @@ def _build_sequence_scope_gn(
         for i, frame in enumerate(node.frames)
     ]
     return NetlistScope(
-        uid=_uid_of(node.id), kind="sequence", selector=None, frames=frames
+        uid=_uid_of(node.id),
+        kind="sequence",
+        selector=None,
+        frames=frames,
+        sequence_is_flat=node.is_flat,
     )
 
 
@@ -4908,6 +4935,14 @@ _LVNET_TUNNEL_MODE_WORD: dict[str, str] = {
     "passthrough": "pass-through",
 }
 
+# ``DisableStructureKind`` -> lvnet §8's disable-family structure KEYWORD.
+# Straight from the §8 table -- no invented word.
+_LVNET_DISABLE_KEYWORD: dict[DisableStructureKind, str] = {
+    DisableStructureKind.DIAGRAM: "diagram-disable",
+    DisableStructureKind.CONDITIONAL: "conditional-disable",
+    DisableStructureKind.TYPE_SPEC: "type-specialization",
+}
+
 
 def _render_lvnet_loop_scope(
     scope: NetlistScope,
@@ -5006,14 +5041,13 @@ def _render_lvnet_sequence_scope(
     handles: _LvnetHandles,
 ) -> None:
     """``flat-sequence :`` / ``stacked-sequence :`` (§8), ``frame [i] :`` per
-    frame. Phase A's ``NetlistScope`` does NOT carry a flat-vs-stacked
-    discriminator at all (``_build_sequence_scope_gn`` never threads one
-    through, and the graph-level signal -- ``SequenceNode.displayed_frame``
-    -- is ``None`` for BOTH a flat sequence and an out-of-range legacy
-    stacked one, so it isn't a clean discriminator either). Defaults to
-    ``flat-sequence`` (the more common case) -- DISCLOSED as an unresolved
-    gap in the report, not a verified rule."""
-    lines.append(f"{indent}flat-sequence :")
+    frame -- picked from ``scope.sequence_is_flat``, the EXPLICIT
+    flat-vs-stacked discriminator surfaced from the parser's own XML class
+    (``SequenceNode.is_flat`` / ``SequenceOperation.is_flat``), never
+    inferred from the ambiguous ``displayed_frame`` proxy (None for both a
+    flat sequence and an out-of-range legacy stacked one)."""
+    keyword = "flat-sequence" if scope.sequence_is_flat else "stacked-sequence"
+    lines.append(f"{indent}{keyword} :")
     body_indent = indent + "  "
     for frame in scope.frames:
         lines.append(f"{body_indent}frame [{frame.value}] :")
@@ -5027,15 +5061,22 @@ def _render_lvnet_disabled_scope(
     handles: _LvnetHandles,
 ) -> None:
     """``diagram-disable :`` / ``conditional-disable :`` / ``type-
-    specialization :`` (§8). The model doesn't currently carry WHICH
-    disable-family kind this is (``_build_disabled_scope_gn`` never threads
-    ``DisableStructureNode.kind`` through to ``NetlistScope``) -- defaults
-    to ``diagram-disable`` (the plain/most common case), DISCLOSED as a gap
-    in the report rather than a verified discriminator."""
-    lines.append(f"{indent}diagram-disable :")
+    specialization :`` (§8) -- picked from ``scope.disable_kind``, sourced
+    from ``DisableStructureNode.kind`` / ``DisableStructureOperation
+    .disable_kind`` (never a hard-coded default). Frame-label quoting also
+    follows §8's own table: a Diagram Disable frame (``Enabled``/
+    ``Disabled``) and a Type Specialization frame (``[i]``) render BARE (no
+    quotes -- ``_frame_labels`` in parser/nodes/disable.py already produces
+    those exact tokens); a Conditional Disable frame's decoded symbol
+    condition (``SYMBOL==VALUE`` / ``Default``) is quoted, matching §8's
+    ``frame "<symbol cond>" :``."""
+    keyword = _LVNET_DISABLE_KEYWORD[scope.disable_kind]
+    lines.append(f"{indent}{keyword} :")
     body_indent = indent + "  "
+    quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
     for frame in scope.frames:
-        lines.append(f"{body_indent}frame {frame.label} :")
+        label = _quoted_frame_label(frame.label) if quote_labels else frame.label
+        lines.append(f"{body_indent}frame {label} :")
         _render_lvnet_items(frame.body, body_indent + "  ", lines, handles)
 
 

@@ -201,6 +201,7 @@ class OperationsMixin:
             return DisableStructureOperation(
                 **common,
                 frames=case_frames,
+                disable_kind=gnode.kind,
             )
         if isinstance(gnode, CaseStructureNode):
             return CaseOperation(
@@ -212,6 +213,7 @@ class OperationsMixin:
             return SequenceOperation(
                 **common,
                 frames=seq_frames,
+                is_flat=gnode.is_flat,
             )
         if isinstance(gnode, EventStructureNode):
             return EventOperation(

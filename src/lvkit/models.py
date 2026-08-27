@@ -842,6 +842,11 @@ class SequenceOperation(Operation):
     """Flat or stacked sequence."""
 
     frames: list[SequenceFrame] = []
+    # EXPLICIT flat-vs-stacked discriminator (see ``graph.models.SequenceNode
+    # .is_flat``'s docstring for why this is not inferred from a
+    # ``displayed_frame`` proxy). True = Flat Sequence, False = Stacked
+    # Sequence.
+    is_flat: bool = True
 
 
 class EventOperation(Operation):
@@ -870,6 +875,12 @@ class DisableStructureOperation(Operation):
     """
 
     frames: list[CaseFrame] = []
+    # Which disable-family structure this is (Diagram / Conditional / Type
+    # Specialization -- see ``graph.models.DisableStructureNode.kind``, whose
+    # value this mirrors). Named ``disable_kind`` here, NOT ``kind`` --
+    # ``Operation.kind`` already holds the operation-classification
+    # discriminator (e.g. ``"disabled"``) and must not be shadowed.
+    disable_kind: DisableStructureKind = DisableStructureKind.DIAGRAM
 
 
 class InPlaceOperation(Operation):

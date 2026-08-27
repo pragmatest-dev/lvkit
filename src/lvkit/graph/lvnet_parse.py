@@ -8,12 +8,16 @@ surface is ``parse_lvnet(render_lvnet(module, verbose=True))`` reproducing
 ``module``'s semantic content -- ``boundary_signature``/``netlist_signature``
 are the comparable projections that gate compares.
 
-Increment 1 built the harness on the boundary block only. Increment 2 (this
-pass) grows it to the BODY: node declarations, their terminal lines, net
-references, and the CLOSED case/for-loop/while-loop/shift-register/tunnel
-constructs (per the coordinator's explicit scope). Sequence/disabled/event
-structures are NOT yet covered -- encountering one raises ``LvnetParseError``
-naming it, rather than guessing a shape for an unimplemented construct.
+Increment 1 built the harness on the boundary block only. Increment 2 grew it
+to the BODY: node declarations, their terminal lines, net references, and the
+CLOSED case/for-loop/while-loop/shift-register/tunnel constructs. Increment 3
+(this pass) adds the three families the Phase-1 model had flattened to a
+generic scope: ``flat-sequence``/``stacked-sequence``, ``diagram-disable``/
+``conditional-disable``/``type-specialization``, and ``event-structure`` --
+see ``_parse_labeled_frames``, shared by all three (none of them carry an
+output merge to drive, unlike a case frame). A construct genuinely outside
+lvnet's §8 vocabulary still raises ``LvnetParseError`` naming it, rather than
+guessing a shape.
 
 Parsing is grammar-aware, not regex-guesswork over the whole line: every line
 is split on the SAME structural markers ``render_lvnet`` composes it from
@@ -31,8 +35,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from ..models import ScalarValue
+from ..models import DisableStructureKind, ScalarValue
 from .netlist import (
+    _LVNET_DISABLE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_TUNNEL_MODE_WORD,
     _OPEN_INSTANCE_TRAILING_TODO,
@@ -81,37 +86,38 @@ _TERMINAL_CONTENT_RE = re.compile(r"^(in|out)\s+(.+)$")
 # hand-maintained list that could drift from it).
 _NODE_KEYWORDS: tuple[str, ...] = tuple(_LVNET_INSTANCE_KEYWORDS.values())
 
-# Structure keywords this increment does NOT yet parse (§8's sequence/
-# disabled/event families) -- recognized ONLY so encountering one raises a
-# precise, named error instead of falling through to "unrecognized line".
-_UNSUPPORTED_STRUCTURE_HEADERS = frozenset(
-    {
-        "flat-sequence :",
-        "stacked-sequence :",
-        "diagram-disable :",
-        "conditional-disable :",
-        "type-specialization :",
-        "event-structure :",
-    }
+# §8's sequence/disabled/event-structure family headers, as rendered
+# verbatim by ``_render_lvnet_sequence_scope``/``_render_lvnet_disabled_scope``/
+# ``_render_lvnet_event_scope`` -- recognized so ``_parse_one_item_or_drive``
+# can dispatch to the matching parser (see ``_parse_sequence_scope``/
+# ``_parse_disabled_scope``/``_parse_event_scope`` below).
+_SEQUENCE_SCOPE_HEADERS = frozenset({"flat-sequence :", "stacked-sequence :"})
+_DISABLED_SCOPE_HEADERS = frozenset(
+    {"diagram-disable :", "conditional-disable :", "type-specialization :"}
 )
+_EVENT_SCOPE_HEADER = "event-structure :"
 
 
 class LvnetParseError(ValueError):
-    """A line did not fit the lvnet grammar this parser knows -- OR a
-    recognized-but-not-yet-implemented construct was encountered (e.g. an
-    event/sequence/disable structure, §8 -- out of THIS increment's scope,
-    per the coordinator's explicit case/loop-only ask). Always names the
-    offending line/construct -- this parser never silently skips or
-    guesses a shape it hasn't verified against real rendered text.
+    """A line did not fit the lvnet grammar this parser knows -- every §8
+    structure kind is now covered (case/for-loop/while-loop/flat-sequence/
+    stacked-sequence/diagram-disable/conditional-disable/type-specialization/
+    event-structure), so this now fires only on a genuine grammar violation
+    (a malformed line, a missing frame, a stray drive line where this scope
+    family has no output to drive). Always names the offending line/
+    construct -- this parser never silently skips or guesses a shape it
+    hasn't verified against real rendered text.
     """
 
 
 class LvnetUnsupportedConstructError(NotImplementedError):
-    """Raised by the MODULE-side ``netlist_signature`` builder when it meets
-    a construct this increment's parser also can't parse (sequence/disabled/
-    event scopes) -- kept symmetric with ``LvnetParseError`` so a VI
-    exercising one of these fails LOUDLY on EITHER side of the round-trip,
-    never silently by producing a signature the other side can't match.
+    """Raised by the MODULE-side ``netlist_signature`` builder if it ever
+    meets a ``NetlistScope.kind`` outside the closed set §8 defines (case/
+    for/while/sequence/disabled/event) -- kept symmetric with
+    ``LvnetParseError`` so a VI exercising a genuinely new construct fails
+    LOUDLY on whichever side reaches it first, never silently by producing a
+    signature the other side can't match. Unreachable for any construct this
+    module currently builds a ``NetlistScope`` for.
     """
 
 
@@ -341,22 +347,28 @@ class ParsedFrame:
 
 @dataclass(frozen=True)
 class ParsedScope:
-    """A structure (§8) -- CLOSED kinds only this increment: ``"case"`` /
-    ``"for-loop"`` / ``"while-loop"``.
+    """A structure (§8) -- every kind is now covered: ``"case"``, the two
+    loop kinds (``"for-loop"``/``"while-loop"``), and the three frame-only
+    families the Phase-1 model had flattened to a generic scope kind --
+    ``"flat-sequence"``/``"stacked-sequence"``, ``"diagram-disable"``/
+    ``"conditional-disable"``/``"type-specialization"``, and
+    ``"event-structure"``.
 
-    ``case`` uses ``selector`` + ``frames`` (frame headers + per-frame
-    drives); a loop uses ``body`` directly (its single implicit body, §2)
-    plus its own ``shift_registers``/``tunnels`` border constructs (§8),
-    rendered as siblings of ``body``'s own items. The two shapes don't
-    overlap in practice (a loop's ``frames`` is always empty; a case's
-    ``body``/``shift_registers``/``tunnels`` are always empty) -- kept as
-    one dataclass because both are "a structure with a kind and contents",
-    not because the fields are meaningful together.
+    ``case`` and the frame-only families use ``selector`` (case only,
+    ``None`` otherwise) + ``frames`` (frame headers + per-frame drives, empty
+    for the frame-only families -- see ``_parse_labeled_frames``); a loop
+    uses ``body`` directly (its single implicit body, §2) plus its own
+    ``shift_registers``/``tunnels`` border constructs (§8), rendered as
+    siblings of ``body``'s own items. The two shapes don't overlap in
+    practice (a loop's ``frames`` is always empty; every other kind's
+    ``body``/``shift_registers``/``tunnels`` are always empty) -- kept as one
+    dataclass because all of them are "a structure with a kind and
+    contents," not because the fields are meaningful together.
     """
 
-    kind: str  # "case" | "for-loop" | "while-loop"
+    kind: str  # "case" | "for-loop" | "while-loop" | one of §8's frame-only kinds
     selector: str | None = None  # case only
-    frames: tuple[ParsedFrame, ...] = ()  # case only
+    frames: tuple[ParsedFrame, ...] = ()  # case + frame-only families
     body: tuple[ParsedBodyItem, ...] = ()  # loop only
     shift_registers: tuple[ParsedShiftRegister, ...] = ()  # loop only
     tunnels: tuple[ParsedTunnel, ...] = ()  # loop only
@@ -682,6 +694,95 @@ def _parse_case_scope(
     return ParsedScope(kind="case", selector=selector, frames=tuple(frames))
 
 
+def _parse_labeled_frames(
+    cursor: _Cursor, frame_indent: int, body_indent: int
+) -> list[ParsedFrame]:
+    """Parse a run of ``frame <label> :`` blocks (§8) at EXACTLY
+    ``frame_indent`` spaces -- shared by the sequence/disabled/event-
+    structure families (``_parse_sequence_scope``/``_parse_disabled_scope``/
+    ``_parse_event_scope``), unlike ``_parse_case_scope`` which requires its
+    label to be quoted: these families render some labels bare (``[0]``,
+    ``Enabled``) and some quoted (a Conditional Disable symbol condition, an
+    event label) -- so ``label`` is kept VERBATIM, quotes and all, exactly as
+    ``_parse_case_scope`` already does for its own (always-quoted) labels.
+
+    None of these three families' ``NetlistScope``s carry any output MERGE
+    (see ``NetlistScope.outputs``'s docstring: "empty for every other scope
+    kind" -- sequence/disabled/event have none), so unlike a case frame, a
+    frame here never has its own ``net = source`` drive lines; encountering
+    one is a genuine grammar violation for this scope family, raised rather
+    than silently accepted.
+    """
+    frames: list[ParsedFrame] = []
+    while True:
+        line = cursor.peek()
+        if line is None or line.strip() == "" or _indent_len(line) != frame_indent:
+            break
+        frame_line_no = cursor.line_no
+        frame_line = cursor.take()
+        frame_content = frame_line[frame_indent:]
+        if not (frame_content.startswith("frame ") and frame_content.endswith(" :")):
+            raise LvnetParseError(
+                f"line {frame_line_no}: expected 'frame <label> :' (§8), "
+                f"got {frame_line!r}"
+            )
+        label = frame_content[len("frame ") : -len(" :")]
+        items, drives = _parse_items(cursor, body_indent)
+        if drives:
+            raise LvnetParseError(
+                f"line {frame_line_no}: this scope family has no output "
+                f"merge to drive, so its frames must not contain bare "
+                f"'net = source' lines (§8): {drives!r}"
+            )
+        frames.append(ParsedFrame(label=label, body=tuple(items), drives=()))
+    return frames
+
+
+def _parse_sequence_scope(
+    cursor: _Cursor, indent: int, content: str, line_no: int
+) -> ParsedScope:
+    """``flat-sequence :`` / ``stacked-sequence :`` (§8) -- ``frame [i] :``
+    per frame, matching ``_render_lvnet_sequence_scope`` exactly."""
+    kind = "flat-sequence" if content == "flat-sequence :" else "stacked-sequence"
+    frames = _parse_labeled_frames(cursor, indent + 2, indent + 4)
+    if not frames:
+        raise LvnetParseError(
+            f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
+        )
+    return ParsedScope(kind=kind, frames=tuple(frames))
+
+
+def _parse_disabled_scope(
+    cursor: _Cursor, indent: int, content: str, line_no: int
+) -> ParsedScope:
+    """``diagram-disable :`` / ``conditional-disable :`` / ``type-
+    specialization :`` (§8), matching ``_render_lvnet_disabled_scope``
+    exactly -- ``kind`` is the exact header word (minus its trailing
+    ``" :"``), so ``netlist_signature`` compares it directly against
+    ``_LVNET_DISABLE_KEYWORD[scope.disable_kind]`` with no extra mapping."""
+    kind = content[: -len(" :")]
+    frames = _parse_labeled_frames(cursor, indent + 2, indent + 4)
+    if not frames:
+        raise LvnetParseError(
+            f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
+        )
+    return ParsedScope(kind=kind, frames=tuple(frames))
+
+
+def _parse_event_scope(
+    cursor: _Cursor, indent: int, content: str, line_no: int
+) -> ParsedScope:
+    """``event-structure :`` (§8) -- ``frame "<event>" :`` per event case,
+    matching ``_render_lvnet_event_scope`` exactly."""
+    frames = _parse_labeled_frames(cursor, indent + 2, indent + 4)
+    if not frames:
+        raise LvnetParseError(
+            f"line {line_no}: event-structure scope has no frames (§8): "
+            f"{content!r}"
+        )
+    return ParsedScope(kind="event-structure", frames=tuple(frames))
+
+
 def _parse_one_item_or_drive(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedBodyItem | ParsedDrive:
@@ -698,12 +799,12 @@ def _parse_one_item_or_drive(
         return _parse_loop_scope(cursor, indent, content, line_no)
     if content.startswith("case ") and content.endswith(" :"):
         return _parse_case_scope(cursor, indent, content, line_no)
-    if content in _UNSUPPORTED_STRUCTURE_HEADERS:
-        raise LvnetParseError(
-            f"line {line_no}: structure {content!r} is not yet supported by "
-            f"this parser increment (scope: case/for-loop/while-loop only, "
-            f"per the round-trip harness build-out -- see the report)"
-        )
+    if content in _SEQUENCE_SCOPE_HEADERS:
+        return _parse_sequence_scope(cursor, indent, content, line_no)
+    if content in _DISABLED_SCOPE_HEADERS:
+        return _parse_disabled_scope(cursor, indent, content, line_no)
+    if content == _EVENT_SCOPE_HEADER:
+        return _parse_event_scope(cursor, indent, content, line_no)
     if " = " in content:
         net, _, source = content.partition(" = ")
         return ParsedDrive(net=net, source=source)
@@ -1047,6 +1148,75 @@ def _module_loop_scope_signature(scope: NetlistScope, handles: _LvnetHandles) ->
     return ("scope", kind_word, None, body_sig, tuple(shift_regs), tuple(tunnels))
 
 
+def _module_frame_only_scope_signature(
+    kind_word: str,
+    frame_labels_and_bodies: list[tuple[str, list[NetlistItem]]],
+    handles: _LvnetHandles,
+) -> tuple:
+    """Shared by the three frame-only scope families (sequence/disabled/
+    event, see ``_parse_labeled_frames``'s docstring for why they share one
+    shape): none of them carry an output MERGE (``NetlistScope.outputs`` is
+    always empty for these kinds), so a frame's signature is just its own
+    already-rendered label + its body -- no drive-entries computation like
+    ``_module_case_scope_signature``'s (kept as an empty tuple for
+    STRUCTURAL symmetry with a case frame's 3-tuple shape, so
+    ``_parsed_item_signature``'s matching branch doesn't need a special
+    case)."""
+    frames = tuple(
+        (label, _module_body_signature(body, handles), ())
+        for label, body in frame_labels_and_bodies
+    )
+    return ("scope", kind_word, None, frames)
+
+
+def _module_sequence_scope_signature(
+    scope: NetlistScope, handles: _LvnetHandles
+) -> tuple:
+    """``flat-sequence``/``stacked-sequence`` (§8) -- ``kind_word`` picked
+    from ``scope.sequence_is_flat``, the label composed EXACTLY as
+    ``_render_lvnet_sequence_scope`` does (``[<value>]``, never quoted)."""
+    kind_word = "flat-sequence" if scope.sequence_is_flat else "stacked-sequence"
+    return _module_frame_only_scope_signature(
+        kind_word,
+        [(f"[{frame.value}]", frame.body) for frame in scope.frames],
+        handles,
+    )
+
+
+def _module_disabled_scope_signature(
+    scope: NetlistScope, handles: _LvnetHandles
+) -> tuple:
+    """``diagram-disable``/``conditional-disable``/``type-specialization``
+    (§8) -- ``kind_word`` from ``scope.disable_kind`` via the SAME
+    ``_LVNET_DISABLE_KEYWORD`` table the renderer uses; a Conditional
+    Disable frame's label is quoted (its decoded symbol condition), the
+    other two kinds' labels (``Enabled``/``Disabled``/``[i]``) are bare --
+    matching ``_render_lvnet_disabled_scope`` exactly."""
+    kind_word = _LVNET_DISABLE_KEYWORD[scope.disable_kind]
+    quote = scope.disable_kind is DisableStructureKind.CONDITIONAL
+    return _module_frame_only_scope_signature(
+        kind_word,
+        [
+            (
+                _quoted_frame_label(frame.label) if quote else frame.label,
+                frame.body,
+            )
+            for frame in scope.frames
+        ],
+        handles,
+    )
+
+
+def _module_event_scope_signature(scope: NetlistScope, handles: _LvnetHandles) -> tuple:
+    """``event-structure`` (§8) -- every frame label quoted, matching
+    ``_render_lvnet_event_scope`` exactly."""
+    return _module_frame_only_scope_signature(
+        "event-structure",
+        [(_quoted_frame_label(frame.label), frame.body) for frame in scope.frames],
+        handles,
+    )
+
+
 def _module_body_signature(items: list[NetlistItem], handles: _LvnetHandles) -> tuple:
     out: list[tuple] = []
     for item in items:
@@ -1057,11 +1227,16 @@ def _module_body_signature(items: list[NetlistItem], handles: _LvnetHandles) -> 
                 out.append(_module_case_scope_signature(item, handles))
             elif item.kind in ("for", "while"):
                 out.append(_module_loop_scope_signature(item, handles))
+            elif item.kind == "sequence":
+                out.append(_module_sequence_scope_signature(item, handles))
+            elif item.kind == "disabled":
+                out.append(_module_disabled_scope_signature(item, handles))
+            elif item.kind == "event":
+                out.append(_module_event_scope_signature(item, handles))
             else:
                 raise LvnetUnsupportedConstructError(
                     f"netlist_signature does not yet cover scope kind "
-                    f"{item.kind!r} (sequence/disabled/event -- out of this "
-                    f"increment's scope, matching parse_lvnet's own limit)"
+                    f"{item.kind!r}"
                 )
         elif isinstance(item, NetlistFeedback):
             out.append(_module_feedback_signature(item, handles))
@@ -1070,13 +1245,29 @@ def _module_body_signature(items: list[NetlistItem], handles: _LvnetHandles) -> 
     return tuple(out)
 
 
+_FRAME_ONLY_SCOPE_KINDS = frozenset(
+    {
+        "flat-sequence",
+        "stacked-sequence",
+        "diagram-disable",
+        "conditional-disable",
+        "type-specialization",
+        "event-structure",
+    }
+)
+
+
 def _parsed_item_signature(item: ParsedBodyItem) -> tuple:
     if isinstance(item, ParsedConstant):
         return ("constant", item.handle, item.type, item.value)
     if isinstance(item, ParsedFeedback):
         return ("feedback", item.net, item.attribute, item.init, item.each)
     if isinstance(item, ParsedScope):
-        if item.kind == "case":
+        if item.kind == "case" or item.kind in _FRAME_ONLY_SCOPE_KINDS:
+            # Same 3-tuple frame shape as a case scope (label, body, drives)
+            # -- §8's sequence/disabled/event families just never populate
+            # ``drives`` (see ``_parse_labeled_frames``: none of them carry
+            # an output merge to drive, so ``f.drives`` is always ``()``).
             frames = tuple(
                 (
                     f.label,
@@ -1085,7 +1276,7 @@ def _parsed_item_signature(item: ParsedBodyItem) -> tuple:
                 )
                 for f in item.frames
             )
-            return ("scope", "case", item.selector, frames)
+            return ("scope", item.kind, item.selector, frames)
         body_sig = tuple(_parsed_item_signature(i) for i in item.body)
         shift_regs = tuple((sr.net, sr.init, sr.each) for sr in item.shift_registers)
         tunnels = tuple((t.net, t.mode, t.source) for t in item.tunnels)
@@ -1115,11 +1306,12 @@ def netlist_signature(module_or_parsed: NetlistModule | ParsedLvnet) -> tuple:
     would say) and from a ``ParsedLvnet``. Excludes uid and any derived/
     non-textual field, same principle as ``boundary_signature``.
 
-    Raises ``LvnetUnsupportedConstructError`` (module side) or
-    ``LvnetParseError`` (parsed side) on a sequence/disabled/event scope --
-    this increment's parser doesn't cover those, so a VI exercising one
-    fails loudly on whichever side reaches it first, rather than silently
-    producing an incomparable signature.
+    Every §8 structure kind is now covered (case/for-loop/while-loop/
+    flat-sequence/stacked-sequence/diagram-disable/conditional-disable/
+    type-specialization/event-structure); ``LvnetUnsupportedConstructError``
+    (module side) / ``LvnetParseError`` (parsed side) remain as the loud
+    failure for a genuinely new construct outside that set, rather than
+    silently producing an incomparable signature.
     """
     if isinstance(module_or_parsed, ParsedLvnet):
         parsed = module_or_parsed

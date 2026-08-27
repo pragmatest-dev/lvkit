@@ -184,6 +184,12 @@ class SequenceNode(StructureNode):
     # and when ``dIdx`` is an out-of-range legacy ordinal → renderer opens
     # frame 0.
     displayed_frame: int | None = None
+    # EXPLICIT flat-vs-stacked discriminator (from the parser's XML class,
+    # ``ParsedFlatSequenceStructure.is_flat``) — NOT inferred from
+    # ``displayed_frame`` (ambiguous: None for both a flat sequence and an
+    # out-of-range legacy stacked one). True = Flat Sequence, False = Stacked
+    # Sequence.
+    is_flat: bool = True
 
 
 class InPlaceNode(StructureNode):

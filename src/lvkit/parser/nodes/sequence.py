@@ -109,6 +109,7 @@ def _extract_one_sequence(
         tunnels=all_tunnels,
         frames=frames,
         displayed_frame=displayed_frame,
+        is_flat=(seq_class == "flatSequence"),
     )
 
 
