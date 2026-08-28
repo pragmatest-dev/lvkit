@@ -38,10 +38,22 @@ from typing import Any
 
 from ..models import DisableStructureKind, ScalarValue
 from .netlist import (
+    _LVNET_ANNOTATION_SEP,
+    _LVNET_BLOCK_OPEN,
+    _LVNET_CLUSTER_OPEN,
+    _LVNET_DEFAULT_KEYWORD,
+    _LVNET_DEP_PATH_SEP,
     _LVNET_DISABLE_KEYWORD,
+    _LVNET_DRIVER_OP,
+    _LVNET_ENUM_OPEN,
     _LVNET_INSTANCE_KEYWORDS,
+    _LVNET_RING_OPEN,
     _LVNET_TUNNEL_MODE_WORD,
+    _LVNET_TYPE_SEP,
+    _LVNET_TYPEDEF_NAV_PREFIX,
     _OPEN_INSTANCE_TRAILING_TODO,
+    _TYPES_HEADER_LINE,
+    _USES_HEADER_LINE,
     ConnectorPaneTerminal,
     DependencyKind,
     EtaMerge,
@@ -74,11 +86,11 @@ from .netlist import (
 # (node/call-site terminal lines never carry this axis at all this pass).
 _REQUIREMENT_WORDS = frozenset({"required", "recommended", "optional"})
 
-_HEADER_RE = re.compile(r"^vi (.+) :$")
+_HEADER_RE = re.compile(rf"^vi (.+){_LVNET_BLOCK_OPEN}$")
 # The OPTIONAL ``uses :`` dependency-manifest header (new §2/§7 note) --
 # immediately after the ``vi <name> :`` header, before the boundary block
-# (see ``_parse_uses_block``). Rendered by ``_render_lvnet_uses``.
-_USES_HEADER_LINE = "  uses :"
+# (see ``_parse_uses_block``). Rendered by ``_render_lvnet_uses`` -- reuses
+# ``netlist._USES_HEADER_LINE`` directly, never a second hand-spelled copy.
 # One dependency entry: 4-space indent, then the kind keyword, then at least
 # one space, then the qualified identity (+ optional ``; ./path`` nav).
 _USES_ENTRY_RE = re.compile(r"^    (\S+)\s+(.+)$")
@@ -104,17 +116,23 @@ _NODE_KEYWORDS: tuple[str, ...] = tuple(_LVNET_INSTANCE_KEYWORDS.values())
 # ``_render_lvnet_event_scope`` -- recognized so ``_parse_one_item_or_drive``
 # can dispatch to the matching parser (see ``_parse_sequence_scope``/
 # ``_parse_disabled_scope``/``_parse_event_scope`` below).
-_SEQUENCE_SCOPE_HEADERS = frozenset({"flat-sequence :", "stacked-sequence :"})
-_DISABLED_SCOPE_HEADERS = frozenset(
-    {"diagram-disable :", "conditional-disable :", "type-specialization :"}
+_SEQUENCE_SCOPE_HEADERS = frozenset(
+    {f"flat-sequence{_LVNET_BLOCK_OPEN}", f"stacked-sequence{_LVNET_BLOCK_OPEN}"}
 )
-_EVENT_SCOPE_HEADER = "event-structure :"
+_DISABLED_SCOPE_HEADERS = frozenset(
+    {
+        f"diagram-disable{_LVNET_BLOCK_OPEN}",
+        f"conditional-disable{_LVNET_BLOCK_OPEN}",
+        f"type-specialization{_LVNET_BLOCK_OPEN}",
+    }
+)
+_EVENT_SCOPE_HEADER = f"event-structure{_LVNET_BLOCK_OPEN}"
 
 # The OPTIONAL bottom-appendix ``types :`` footnote section header (§10,
 # verbose-only) -- immediately after the final boundary-output-drive block,
 # at the very end of the document (see ``_parse_types_block``). Rendered by
-# ``netlist._render_lvnet_types``.
-_TYPES_HEADER_LINE = "  types :"
+# ``netlist._render_lvnet_types`` -- reuses ``netlist._TYPES_HEADER_LINE``
+# directly, never a second hand-spelled copy.
 
 
 class LvnetParseError(ValueError):
@@ -328,10 +346,10 @@ def _split_type_requirement_default(
         raise LvnetParseError(f"line {line_no}: missing type after ':': {line!r}")
 
     default: str | None = None
-    if "default" in words:
-        idx = words.index("default")
+    if _LVNET_DEFAULT_KEYWORD in words:
+        idx = words.index(_LVNET_DEFAULT_KEYWORD)
         value_words = words[idx + 1 :]
-        default = " ".join(value_words) if value_words else "default"
+        default = " ".join(value_words) if value_words else _LVNET_DEFAULT_KEYWORD
         words = words[:idx]
         _validate_if_quoted(default, line_no)
 
@@ -369,8 +387,9 @@ def _split_node_terminal_tail(
     """
     text = tail
     inverted = False
-    if text.endswith(" ; inverted"):
-        text = text[: -len(" ; inverted")]
+    inverted_suffix = f"{_LVNET_ANNOTATION_SEP}inverted"
+    if text.endswith(inverted_suffix):
+        text = text[: -len(inverted_suffix)]
         inverted = True
 
     words = text.split()
@@ -389,10 +408,10 @@ def _split_node_terminal_tail(
         driver = " ".join(value_words)
         words = words[:idx]
         _validate_if_quoted(driver, line_no)
-    elif "default" in words:
-        idx = words.index("default")
+    elif _LVNET_DEFAULT_KEYWORD in words:
+        idx = words.index(_LVNET_DEFAULT_KEYWORD)
         value_words = words[idx + 1 :]
-        default = " ".join(value_words) if value_words else "default"
+        default = " ".join(value_words) if value_words else _LVNET_DEFAULT_KEYWORD
         words = words[:idx]
         _validate_if_quoted(default, line_no)
 
@@ -642,7 +661,7 @@ def _expect_kv_line(
     feedback-node's ``init``/``each``) at EXACTLY ``indent`` spaces, or
     return/raise per ``required`` when it's absent."""
     line = cursor.peek()
-    prefix = f"{keyword} = "
+    prefix = f"{keyword}{_LVNET_DRIVER_OP}"
     if line is None or line.strip() == "" or _indent_len(line) != indent:
         if required:
             raise LvnetParseError(
@@ -689,13 +708,13 @@ def _parse_terminal_block(
         line_no = cursor.line_no
         cursor.take()
         direction, rest = m.group(1), m.group(2)
-        sep_idx = rest.find(" : ")
+        sep_idx = rest.find(_LVNET_TYPE_SEP)
         if sep_idx == -1:
             raise LvnetParseError(
                 f"line {line_no}: missing ' : <Type>' clause (§3): {line!r}"
             )
         name = rest[:sep_idx].strip()
-        tail = rest[sep_idx + 3 :]
+        tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
         if not name:
             raise LvnetParseError(f"line {line_no}: empty terminal name: {line!r}")
         type_str, driver, default, inverted = _split_node_terminal_tail(
@@ -723,14 +742,14 @@ def _parse_node(
     cursor: _Cursor, indent: int, kw: str, content: str, line_no: int
 ) -> ParsedNode:
     rest = content[len(kw) + 1 :]
-    sep_idx = rest.find(" : ")
+    sep_idx = rest.find(_LVNET_TYPE_SEP)
     if sep_idx == -1:
         raise LvnetParseError(
             f"line {line_no}: node declaration missing ' : <component>' "
             f"(§7): {content!r}"
         )
     handle = rest[:sep_idx]
-    component = rest[sep_idx + 3 :]
+    component = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
     if not handle or " " in handle:
         raise LvnetParseError(
             f"line {line_no}: node handle must be a single space-free "
@@ -769,19 +788,19 @@ def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
     always the real operator regardless of what the (possibly quoted,
     md §4/§10) value afterward contains."""
     rest = content[len("constant ") :]
-    sep_idx = rest.find(" : ")
+    sep_idx = rest.find(_LVNET_TYPE_SEP)
     if sep_idx == -1:
         raise LvnetParseError(
             f"line {line_no}: constant line missing ' : <Type>' (§7): {content!r}"
         )
     handle = rest[:sep_idx]
-    tail = rest[sep_idx + 3 :]
-    eq_idx = tail.find(" = ")
+    tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
+    eq_idx = tail.find(_LVNET_DRIVER_OP)
     if eq_idx == -1:
         raise LvnetParseError(
             f"line {line_no}: constant line missing ' = <value>' (§7): {content!r}"
         )
-    value = tail[eq_idx + 3 :]
+    value = tail[eq_idx + len(_LVNET_DRIVER_OP) :]
     _validate_if_quoted(value, line_no)
     return ParsedConstant(handle=handle, type=tail[:eq_idx], value=value)
 
@@ -790,12 +809,12 @@ def _parse_feedback(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedFeedback:
     rest = content[len("feedback-node ") :]
-    if not rest.endswith(" :"):
+    if not rest.endswith(_LVNET_BLOCK_OPEN):
         raise LvnetParseError(
             f"line {line_no}: feedback-node header must end with ' :' (§7): "
             f"{content!r}"
         )
-    rest = rest[: -len(" :")]
+    rest = rest[: -len(_LVNET_BLOCK_OPEN)]
     open_paren = rest.find(" (")
     if open_paren == -1 or not rest.endswith(")"):
         raise LvnetParseError(
@@ -815,12 +834,12 @@ def _parse_shift_register(
     cursor: _Cursor, body_indent: int, content: str, line_no: int
 ) -> ParsedShiftRegister:
     rest = content[len("shift-register ") :]
-    if not rest.endswith(" :"):
+    if not rest.endswith(_LVNET_BLOCK_OPEN):
         raise LvnetParseError(
             f"line {line_no}: shift-register header must end with ' :' "
             f"(§8): {content!r}"
         )
-    net = rest[: -len(" :")]
+    net = rest[: -len(_LVNET_BLOCK_OPEN)]
     child_indent = body_indent + 2
     init = _expect_kv_line(cursor, child_indent, "init", required=True)
     assert init is not None
@@ -830,25 +849,27 @@ def _parse_shift_register(
 
 def _parse_tunnel(content: str, line_no: int) -> ParsedTunnel:
     rest = content[len("tunnel ") :]
-    sep_idx = rest.find(" : ")
+    sep_idx = rest.find(_LVNET_TYPE_SEP)
     if sep_idx == -1:
         raise LvnetParseError(
             f"line {line_no}: tunnel line missing ' : <mode>' (§8): {content!r}"
         )
     net = rest[:sep_idx]
-    tail = rest[sep_idx + 3 :]
-    eq_idx = tail.find(" = ")
+    tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
+    eq_idx = tail.find(_LVNET_DRIVER_OP)
     if eq_idx == -1:
         raise LvnetParseError(
             f"line {line_no}: tunnel line missing ' = <source>' (§8): {content!r}"
         )
-    return ParsedTunnel(net=net, mode=tail[:eq_idx], source=tail[eq_idx + 3 :])
+    return ParsedTunnel(
+        net=net, mode=tail[:eq_idx], source=tail[eq_idx + len(_LVNET_DRIVER_OP) :]
+    )
 
 
 def _parse_loop_scope(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedScope:
-    kind = "while-loop" if content == "while-loop :" else "for-loop"
+    kind = "while-loop" if content == f"while-loop{_LVNET_BLOCK_OPEN}" else "for-loop"
     body_indent = indent + 2
     body, drives = _parse_items(
         cursor, body_indent, stop_prefixes=("shift-register ", "tunnel ")
@@ -888,7 +909,7 @@ def _parse_loop_scope(
 def _parse_case_scope(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedScope:
-    selector = content[len("case ") : -len(" :")]
+    selector = content[len("case ") : -len(_LVNET_BLOCK_OPEN)]
     frame_indent = indent + 2
     body_indent = indent + 4
     frames: list[ParsedFrame] = []
@@ -899,12 +920,16 @@ def _parse_case_scope(
         frame_line_no = cursor.line_no
         frame_line = cursor.take()
         frame_content = frame_line[frame_indent:]
-        if not (frame_content.startswith('frame "') and frame_content.endswith('" :')):
+        quoted_open = f'"{_LVNET_BLOCK_OPEN}'
+        if not (
+            frame_content.startswith('frame "') and frame_content.endswith(quoted_open)
+        ):
             raise LvnetParseError(
                 f"line {frame_line_no}: expected 'frame \"<label>\" :' "
                 f"inside a case scope (§8), got {frame_line!r}"
             )
-        label = frame_content[len("frame ") : -len(" :")]  # keeps its quotes
+        # keeps its quotes
+        label = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
         items, drives = _parse_items(cursor, body_indent)
         frames.append(ParsedFrame(label=label, body=tuple(items), drives=tuple(drives)))
     if not frames:
@@ -941,12 +966,15 @@ def _parse_labeled_frames(
         frame_line_no = cursor.line_no
         frame_line = cursor.take()
         frame_content = frame_line[frame_indent:]
-        if not (frame_content.startswith("frame ") and frame_content.endswith(" :")):
+        if not (
+            frame_content.startswith("frame ")
+            and frame_content.endswith(_LVNET_BLOCK_OPEN)
+        ):
             raise LvnetParseError(
                 f"line {frame_line_no}: expected 'frame <label> :' (§8), "
                 f"got {frame_line!r}"
             )
-        label = frame_content[len("frame ") : -len(" :")]
+        label = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
         items, drives = _parse_items(cursor, body_indent)
         if drives:
             raise LvnetParseError(
@@ -980,7 +1008,7 @@ def _parse_disabled_scope(
     exactly -- ``kind`` is the exact header word (minus its trailing
     ``" :"``), so ``netlist_signature`` compares it directly against
     ``_LVNET_DISABLE_KEYWORD[scope.disable_kind]`` with no extra mapping."""
-    kind = content[: -len(" :")]
+    kind = content[: -len(_LVNET_BLOCK_OPEN)]
     frames = _parse_labeled_frames(cursor, indent + 2, indent + 4)
     if not frames:
         raise LvnetParseError(
@@ -1015,9 +1043,9 @@ def _parse_one_item_or_drive(
     for kw in _NODE_KEYWORDS:
         if content.startswith(kw + " "):
             return _parse_node(cursor, indent, kw, content, line_no)
-    if content in ("for-loop :", "while-loop :"):
+    if content in (f"for-loop{_LVNET_BLOCK_OPEN}", f"while-loop{_LVNET_BLOCK_OPEN}"):
         return _parse_loop_scope(cursor, indent, content, line_no)
-    if content.startswith("case ") and content.endswith(" :"):
+    if content.startswith("case ") and content.endswith(_LVNET_BLOCK_OPEN):
         return _parse_case_scope(cursor, indent, content, line_no)
     if content in _SEQUENCE_SCOPE_HEADERS:
         return _parse_sequence_scope(cursor, indent, content, line_no)
@@ -1025,12 +1053,12 @@ def _parse_one_item_or_drive(
         return _parse_disabled_scope(cursor, indent, content, line_no)
     if content == _EVENT_SCOPE_HEADER:
         return _parse_event_scope(cursor, indent, content, line_no)
-    if " = " in content:
+    if _LVNET_DRIVER_OP in content:
         # FIRST occurrence: a net name (``caseN::outK``/``loopN::shiftK``/a
         # boundary control's name) never contains " = ", so it's always the
         # real operator regardless of what a (possibly quoted, md §4/§10)
         # literal source afterward contains.
-        net, _, source = content.partition(" = ")
+        net, _, source = content.partition(_LVNET_DRIVER_OP)
         _validate_if_quoted(source, line_no)
         return ParsedDrive(net=net, source=source)
     raise LvnetParseError(f"line {line_no}: unrecognized body line: {content!r}")
@@ -1114,14 +1142,14 @@ def _parse_dependency_interface(
         line_no = cursor.line_no
         cursor.take()
         direction, rest = m.group(1), m.group(2)
-        sep_idx = rest.find(" : ")
+        sep_idx = rest.find(_LVNET_TYPE_SEP)
         if sep_idx == -1:
             raise LvnetParseError(
                 f"line {line_no}: missing ' : <Type>' clause in dependency "
                 f"interface line (§3/§7a): {line!r}"
             )
         name = rest[:sep_idx].strip()
-        type_str = rest[sep_idx + 3 :]
+        type_str = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
         if not name:
             raise LvnetParseError(
                 f"line {line_no}: empty terminal name in dependency "
@@ -1169,11 +1197,14 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
                 f"line {line_no}: unrecognized 'uses :' kind {kind!r} "
                 f"(expected one of {sorted(_USES_KIND_WORDS)}): {line!r}"
             )
-        sep_idx = rest.find("; ")
+        sep_idx = rest.find(_LVNET_DEP_PATH_SEP)
         if sep_idx == -1:
             qualified, path = rest.strip(), None
         else:
-            qualified, path = rest[:sep_idx].rstrip(), rest[sep_idx + 2 :]
+            qualified, path = (
+                rest[:sep_idx].rstrip(),
+                rest[sep_idx + len(_LVNET_DEP_PATH_SEP) :],
+            )
         if not qualified:
             raise LvnetParseError(
                 f"line {line_no}: empty qualified identity in 'uses :' entry: {line!r}"
@@ -1214,13 +1245,13 @@ def _parse_boundary_block(cursor: _Cursor) -> list[ParsedBoundaryTerminal]:
         # a bare ``":"``: a terminal's own authored name can itself contain
         # a literal colon with no preceding space (a real corpus control
         # named ``"txtRuns:"``), which a first-bare-":" split mis-splits.
-        sep_idx = rest.find(" : ")
+        sep_idx = rest.find(_LVNET_TYPE_SEP)
         if sep_idx == -1:
             raise LvnetParseError(
                 f"line {line_no}: missing ' : <Type>' clause (§3): {line!r}"
             )
         name = rest[:sep_idx].strip()
-        tail = rest[sep_idx + 3 :]
+        tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
         if not name:
             raise LvnetParseError(f"line {line_no}: empty terminal name: {line!r}")
         type_str, requirement, default = _split_type_requirement_default(
@@ -1306,19 +1337,23 @@ def _parse_types_block(cursor: _Cursor) -> dict[str, ParsedTypeDef]:
         line_no = cursor.line_no
         cursor.take()
         content = line[4:]
-        eq_idx = content.find(" = ")
+        eq_idx = content.find(_LVNET_DRIVER_OP)
         if eq_idx == -1:
             raise LvnetParseError(
                 f"line {line_no}: expected a 'types :' entry "
                 f"'<Name> = <def>' (§10), got {line!r}"
             )
         name = content[:eq_idx]
-        def_text, _, path_suffix = content[eq_idx + 3 :].partition(" ; ")
+        def_text, _, path_suffix = content[eq_idx + len(_LVNET_DRIVER_OP) :].partition(
+            _LVNET_ANNOTATION_SEP
+        )
         # render emits the nav suffix as ``; ./{typedef_path}`` (netlist.py
         # _render_lvnet_types), so strip the leading ``./`` back off to recover
         # the raw typedef_path -- reconstruct_module re-adds ``./``.
         path = (
-            path_suffix[2:] if path_suffix.startswith("./") else (path_suffix or None)
+            path_suffix[len(_LVNET_TYPEDEF_NAV_PREFIX) :]
+            if path_suffix.startswith(_LVNET_TYPEDEF_NAV_PREFIX)
+            else (path_suffix or None)
         )
         if not name:
             raise LvnetParseError(
@@ -1425,7 +1460,7 @@ def _parse_lossless_members(body: str) -> tuple[tuple[str, int], ...]:
         return ()
     members: list[tuple[str, int]] = []
     for part in _split_top_level_commas(body):
-        name, _, ordinal_text = part.rpartition(" = ")
+        name, _, ordinal_text = part.rpartition(_LVNET_DRIVER_OP)
         members.append((name.strip(), int(ordinal_text.strip())))
     return tuple(sorted(members, key=lambda kv: kv[1]))
 
@@ -1447,7 +1482,7 @@ def _parse_lossless_cluster_fields(
         return ()
     fields: list[tuple[str, TypeShape]] = []
     for part in _split_top_level_commas(body):
-        name, _sep, type_text = part.partition(" : ")
+        name, _sep, type_text = part.partition(_LVNET_TYPE_SEP)
         fields.append(
             (
                 name.strip(),
@@ -1521,13 +1556,13 @@ def _parsed_type_ref_shape(
         )
     if text.endswith(" refnum") and "{" not in text:
         return ("leaf", text)
-    if text.startswith("Enum{") and text.endswith("}"):
-        return ("enum", _parse_lossless_members(text[len("Enum{") : -1]))
-    if text.startswith("Ring{") and text.endswith("}"):
-        return ("ring", _parse_lossless_members(text[len("Ring{") : -1]))
-    if text.startswith("Cluster{") and text.endswith("}"):
+    if text.startswith(_LVNET_ENUM_OPEN) and text.endswith("}"):
+        return ("enum", _parse_lossless_members(text[len(_LVNET_ENUM_OPEN) : -1]))
+    if text.startswith(_LVNET_RING_OPEN) and text.endswith("}"):
+        return ("ring", _parse_lossless_members(text[len(_LVNET_RING_OPEN) : -1]))
+    if text.startswith(_LVNET_CLUSTER_OPEN) and text.endswith("}"):
         fields = _parse_lossless_cluster_fields(
-            text[len("Cluster{") : -1], types_dict, seen, ambiguous
+            text[len(_LVNET_CLUSTER_OPEN) : -1], types_dict, seen, ambiguous
         )
         return ("cluster", fields)
     if text in types_dict and text not in ambiguous:
@@ -1649,9 +1684,9 @@ def _strip_default_prefix(rendered: str) -> str:
     ``ParsedTerminalLine.default`` carries (``"default"`` or ``"<literal>"``
     -- the word itself is not repeated, matching how the boundary side
     already represents this)."""
-    if rendered == "default":
+    if rendered == _LVNET_DEFAULT_KEYWORD:
         return rendered
-    return rendered[len("default ") :]
+    return rendered[len(_LVNET_DEFAULT_KEYWORD) + 1 :]
 
 
 def _module_terminal_tuple(

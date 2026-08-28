@@ -3791,7 +3791,7 @@ def _project_relative_display(resolved: Path | None, base: Path) -> str | None:
         rel = os.path.relpath(resolved.resolve(), base.resolve())
     except (OSError, ValueError):
         return None
-    return "./" + rel.replace(os.sep, "/")
+    return _LVNET_TYPEDEF_NAV_PREFIX + rel.replace(os.sep, "/")
 
 
 def _dependency_interface(
@@ -4677,6 +4677,58 @@ def render_netlist(module: NetlistModule, *, display_name: str | None = None) ->
 # NO invented inner syntax -- see ``_OPEN_INSTANCE_KINDS``.
 # ============================================================
 
+# ------------------------------------------------------------------
+# Grammar delimiters -- the exact punctuation/keyword literals §2-§10 is
+# built from. Defined ONCE here (this module is the grammar's render
+# source-of-truth) and imported verbatim into lvnet_parse.py/lvnet_
+# reconstruct.py, so a round-trip can never silently break from render and
+# parse drifting onto two slightly different literals for the same token.
+#
+# Two near-identical-looking fragments are DELIBERATELY kept separate,
+# never folded together:
+# - ``_LVNET_TYPE_SEP`` (`` : ``, fixed-width) vs. ``_LVNET_BLOCK_OPEN``
+#   (`` :``, no trailing space) -- a terminal's ``name : Type`` clause is a
+#   different grammar role from a construct header's trailing block-opener
+#   (``case <sel> :``, ``vi <name> :``, ``while-loop :``, ...), even though
+#   both happen to contain a colon.
+# - A COLUMN-ALIGNED line (``_render_term_group``'s ``: ``/its caller's
+#   ``= `` trailing text, and the padded output-drive line's own ``= ``)
+#   never routes through these fixed-width constants -- the leading space
+#   there comes from ``str.ljust`` padding, not from the literal itself, so
+#   gluing those call sites to the 3-char constants would either double a
+#   space or force a derivation for no real drift-safety gain (the parse
+#   side recovers the split by SEARCHING for the fixed-width token with
+#   ``str.find``, which already tolerates arbitrary extra padding either
+#   side of it). Left as documented one-off literals at their call sites.
+# ------------------------------------------------------------------
+_LVNET_TYPE_SEP = " : "  # `name : Type` / `handle : component` (§3/§7)
+_LVNET_DRIVER_OP = " = "  # `= driver` / `name = def` (§4/§7/§8/§10)
+_LVNET_BLOCK_OPEN = " :"  # trailing block-opener (§2/§7/§8)
+_LVNET_ANNOTATION_SEP = " ; "  # fixed-width trailing-annotation sep (§6)
+_LVNET_PORT_SEP = "::"  # `<handle>::<port>` / structure-scoped net (§9)
+_LVNET_TYPEDEF_NAV_PREFIX = "./"  # the `; ./path` nav clause's own prefix
+# The `uses :` manifest's own qualified;path separator -- a padding-
+# tolerant sibling of ``_LVNET_ANNOTATION_SEP`` (2 chars, not 3: the space
+# before it comes from ``_lvnet_capped_pad``'s column padding, same
+# reasoning as the column-aligned one-offs above) -- kept as its own named
+# constant rather than a one-off because, unlike those, BOTH render
+# (``_render_lvnet_uses``) and parse (``_parse_uses_block``) spell it out
+# as a literal, so it is a genuine cross-file drift risk.
+_LVNET_DEP_PATH_SEP = "; "
+_LVNET_ENUM_OPEN = "Enum{"  # §10 lossless enum/ring/cluster open tokens
+_LVNET_RING_OPEN = "Ring{"
+_LVNET_CLUSTER_OPEN = "Cluster{"
+_LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
+# The drive-position `(default <Type>)` form's own prefix (§4) -- derived
+# from ``_LVNET_DEFAULT_KEYWORD`` rather than re-spelled, so the two can
+# never drift apart.
+_LVNET_DEFAULT_PAREN_PREFIX = f"({_LVNET_DEFAULT_KEYWORD} "
+# The OPTIONAL bottom-appendix `types :` footnote section header (§10) and
+# the OPTIONAL `uses :` dependency-manifest header (§2/§7) -- each its own
+# full line (2-space indent), matched verbatim by lvnet_parse.py.
+_TYPES_HEADER_LINE = "  types :"
+_USES_HEADER_LINE = "  uses :"
+
 
 @dataclass(frozen=True)
 class _TermLine:
@@ -4779,7 +4831,7 @@ def _lvnet_default_token(dv: DefaultValue) -> str:
     naming what LabVIEW substitutes, since there is no bare literal to show.
     """
     if dv.literal == "?":
-        return f"(default {dv.type_descriptor})"
+        return f"{_LVNET_DEFAULT_PAREN_PREFIX}{dv.type_descriptor})"
     return dv.literal
 
 
@@ -4796,8 +4848,8 @@ def _lvnet_default_trailing(dv: DefaultValue) -> str:
     ``default <literal>`` (``default ""``, ``default 0``).
     """
     if dv.literal == "?":
-        return "default"
-    return f"default {dv.literal}"
+        return _LVNET_DEFAULT_KEYWORD
+    return f"{_LVNET_DEFAULT_KEYWORD} {dv.literal}"
 
 
 def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
@@ -4912,19 +4964,21 @@ def _lvnet_type_lossless_def(lv_type: LVType) -> str:
     rather than guessing a member/field list.
     """
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
-        keyword = "Enum" if lv_type.kind == LVTypeKind.ENUM else "Ring"
+        is_enum = lv_type.kind == LVTypeKind.ENUM
+        open_token = _LVNET_ENUM_OPEN if is_enum else _LVNET_RING_OPEN
         if not lv_type.values:
-            return f"{keyword}{{ ? }}"
+            return f"{open_token} ? }}"
         members = sorted(lv_type.values.items(), key=lambda kv: kv[1].value)
-        body = ", ".join(f"{name} = {ev.value}" for name, ev in members)
-        return f"{keyword}{{ {body} }}"
+        body = ", ".join(f"{name}{_LVNET_DRIVER_OP}{ev.value}" for name, ev in members)
+        return f"{open_token} {body} }}"
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         if not lv_type.fields:
-            return "Cluster{ ? }"
+            return f"{_LVNET_CLUSTER_OPEN} ? }}"
         body = ", ".join(
-            f"{f.name} : {_lvnet_type_ref(f.type)}" for f in lv_type.fields
+            f"{f.name}{_LVNET_TYPE_SEP}{_lvnet_type_ref(f.type)}"
+            for f in lv_type.fields
         )
-        return f"Cluster{{ {body} }}"
+        return f"{_LVNET_CLUSTER_OPEN} {body} }}"
     if lv_type.kind == LVTypeKind.ARRAY:
         dims = lv_type.dimensions or 1
         inner = _lvnet_type_ref(lv_type.element_type) if lv_type.element_type else "?"
@@ -5046,11 +5100,15 @@ def _render_lvnet_types(module: NetlistModule, lines: list[str]) -> None:
     if not named:
         return
     lines.append("")
-    lines.append("  types :")
+    lines.append(_TYPES_HEADER_LINE)
     for name, lv_type in named.items():
         body = _lvnet_type_lossless_def(lv_type)
-        path = f" ; ./{lv_type.typedef_path}" if lv_type.typedef_path else ""
-        lines.append(f"    {name} = {body}{path}")
+        path = (
+            f"{_LVNET_ANNOTATION_SEP}{_LVNET_TYPEDEF_NAV_PREFIX}{lv_type.typedef_path}"
+            if lv_type.typedef_path
+            else ""
+        )
+        lines.append(f"    {name}{_LVNET_DRIVER_OP}{body}{path}")
 
 
 def _lvnet_ambiguous_named_types(module: NetlistModule) -> frozenset[str]:
@@ -5331,7 +5389,7 @@ def _lvnet_net_separator(bare: str) -> str:
     if m is None:
         return bare
     prefix, rest = m.groups()
-    return f"{prefix}::{rest}"
+    return f"{prefix}{_LVNET_PORT_SEP}{rest}"
 
 
 def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) -> str:
@@ -5366,7 +5424,7 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
     if source.node is not None:
         handle = handles.by_name_occurrence.get((source.node, source.occurrence))
         if handle is not None:
-            return f"{handle}::{source.port}"
+            return f"{handle}{_LVNET_PORT_SEP}{source.port}"
         # The producer is a Local/Global Variable's own control/indicator --
         # the ONE instance kind still excluded from the handle map (§7: "a
         # terminal, not a node"; its tap-resolution-to-the-control's-net is
@@ -5375,7 +5433,7 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
         # ``::`` port separator lvnet §9 mandates) keeps the render from
         # crashing without fabricating a handle scheme the spec never
         # designed for this one remaining kind -- flagged as an OPEN gap.
-        return f"{source.node}::{source.port}"
+        return f"{source.node}{_LVNET_PORT_SEP}{source.port}"
     # An inlined (unlabeled) constant's literal value: ``lvnet_value`` is
     # the lvnet-escaped text (md §4/§10) -- ``_lvnet_net_separator`` is a
     # no-op on it (a quoted/``True``/``False``/numeric token never matches
@@ -5484,7 +5542,7 @@ def _render_lvnet_instance(
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
     handle = handles.by_uid[instance.uid]
     component = _lvnet_component(instance)
-    lines.append(f"{indent}{header_kw} {handle} : {component}")
+    lines.append(f"{indent}{header_kw} {handle}{_LVNET_TYPE_SEP}{component}")
 
     entries: list[_TermLine] = []
     for b in sorted(instance.inputs, key=lambda b: b.pane_rank):
@@ -5497,7 +5555,7 @@ def _render_lvnet_instance(
             # ``; inverted`` trailing annotation (never the OLD renderer's
             # ``not(...)`` wrapper, which is NOT part of the lvnet grammar).
             if b.inverted:
-                trailing += " ; inverted"
+                trailing += f"{_LVNET_ANNOTATION_SEP}inverted"
         else:
             assert b.default is not None
             trailing = _lvnet_default_trailing(b.default)
@@ -5526,7 +5584,10 @@ def _render_lvnet_constant(
     (lvnet-escaped, md §4/§10) rather than ``const.value`` (the OLD
     ``render_netlist``/``netlist_to_dict``-parity text, unescaped)."""
     handle = handles.by_uid[const.uid]
-    lines.append(f"{indent}constant {handle} : {const.type} = {const.lvnet_value}")
+    lines.append(
+        f"{indent}constant {handle}{_LVNET_TYPE_SEP}{const.type}"
+        f"{_LVNET_DRIVER_OP}{const.lvnet_value}"
+    )
 
 
 # ``EtaMerge.index_mode``'s internal short code -> lvnet §8's border-construct
@@ -5572,18 +5633,18 @@ def _render_lvnet_loop_scope(
     THIS render only, never mutating the stored field (§9).
     """
     header_kw = "while-loop" if scope.kind == "while" else "for-loop"
-    lines.append(f"{indent}{header_kw} :")
+    lines.append(f"{indent}{header_kw}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + "  "
     _render_lvnet_items(scope.frames[0].body, body_indent, lines, handles)
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
             net = _lvnet_net_separator(merge.net)
-            lines.append(f"{body_indent}shift-register {net} :")
+            lines.append(f"{body_indent}shift-register {net}{_LVNET_BLOCK_OPEN}")
             init_str = _render_lvnet_source(merge.init, handles)
-            lines.append(f"{body_indent}  init = {init_str}")
+            lines.append(f"{body_indent}  init{_LVNET_DRIVER_OP}{init_str}")
             if merge.recur is not None:
                 recur_str = _render_lvnet_source(merge.recur, handles)
-                lines.append(f"{body_indent}  each = {recur_str}")
+                lines.append(f"{body_indent}  each{_LVNET_DRIVER_OP}{recur_str}")
         elif isinstance(merge, EtaMerge):
             mode_word = _LVNET_TUNNEL_MODE_WORD.get(merge.index_mode, merge.index_mode)
             # The Conditional modifier's exact appended form is only HINTED
@@ -5595,7 +5656,10 @@ def _render_lvnet_loop_scope(
                 mode_word += "+conditional"
             value_str = _render_lvnet_source(merge.value, handles)
             net = _lvnet_net_separator(merge.net)
-            lines.append(f"{body_indent}tunnel {net} : {mode_word} = {value_str}")
+            lines.append(
+                f"{body_indent}tunnel {net}{_LVNET_TYPE_SEP}{mode_word}"
+                f"{_LVNET_DRIVER_OP}{value_str}"
+            )
 
 
 def _render_lvnet_case_scope(
@@ -5620,12 +5684,12 @@ def _render_lvnet_case_scope(
         if scope.selector is not None
         else "?"
     )
-    lines.append(f"{indent}case {sel_str} :")
+    lines.append(f"{indent}case {sel_str}{_LVNET_BLOCK_OPEN}")
     gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
     body_indent = indent + "    "
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label)
-        lines.append(f"{indent}  frame {label} :")
+        lines.append(f"{indent}  frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles)
         frame_key = "default" if frame.is_default else frame.label
         for gamma in gammas:
@@ -5636,7 +5700,7 @@ def _render_lvnet_case_scope(
                 continue
             source_str = _render_lvnet_source(case_entry.source, handles)
             net = _lvnet_net_separator(gamma.net)
-            lines.append(f"{body_indent}{net} = {source_str}")
+            lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
 
 
 def _render_lvnet_sequence_scope(
@@ -5652,10 +5716,10 @@ def _render_lvnet_sequence_scope(
     inferred from the ambiguous ``displayed_frame`` proxy (None for both a
     flat sequence and an out-of-range legacy stacked one)."""
     keyword = "flat-sequence" if scope.sequence_is_flat else "stacked-sequence"
-    lines.append(f"{indent}{keyword} :")
+    lines.append(f"{indent}{keyword}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + "  "
     for frame in scope.frames:
-        lines.append(f"{body_indent}frame [{frame.value}] :")
+        lines.append(f"{body_indent}frame [{frame.value}]{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent + "  ", lines, handles)
 
 
@@ -5676,12 +5740,12 @@ def _render_lvnet_disabled_scope(
     condition (``SYMBOL==VALUE`` / ``Default``) is quoted, matching §8's
     ``frame "<symbol cond>" :``."""
     keyword = _LVNET_DISABLE_KEYWORD[scope.disable_kind]
-    lines.append(f"{indent}{keyword} :")
+    lines.append(f"{indent}{keyword}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + "  "
     quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label) if quote_labels else frame.label
-        lines.append(f"{body_indent}frame {label} :")
+        lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent + "  ", lines, handles)
 
 
@@ -5692,11 +5756,11 @@ def _render_lvnet_event_scope(
     handles: _LvnetHandles,
 ) -> None:
     """``event-structure :`` (§8), ``frame "<event>" :`` per event case."""
-    lines.append(f"{indent}event-structure :")
+    lines.append(f"{indent}event-structure{_LVNET_BLOCK_OPEN}")
     body_indent = indent + "  "
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label)
-        lines.append(f"{body_indent}frame {label} :")
+        lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent + "  ", lines, handles)
 
 
@@ -5751,12 +5815,12 @@ def _render_lvnet_feedback(
         attr = "? iterations"
     else:
         attr = f"{feedback.delay} iteration" + ("" if feedback.delay == 1 else "s")
-    lines.append(f"{indent}feedback-node {feedback.net} ({attr}) :")
+    lines.append(f"{indent}feedback-node {feedback.net} ({attr}){_LVNET_BLOCK_OPEN}")
     init_str = _render_lvnet_source(feedback.init, handles)
-    lines.append(f"{indent}  init = {init_str}")
+    lines.append(f"{indent}  init{_LVNET_DRIVER_OP}{init_str}")
     if feedback.recur is not None:
         recur_str = _render_lvnet_source(feedback.recur, handles)
-        lines.append(f"{indent}  each = {recur_str}")
+        lines.append(f"{indent}  each{_LVNET_DRIVER_OP}{recur_str}")
 
 
 def _render_lvnet_items(
@@ -5896,7 +5960,7 @@ def _lvnet_boundary_trailing(
     if requirement is not None:
         parts.append(requirement)
     if pane.default is not None:
-        parts.append(f"default {_lvnet_literal_token(pane.default)}")
+        parts.append(f"{_LVNET_DEFAULT_KEYWORD} {_lvnet_literal_token(pane.default)}")
     return " ".join(parts) if parts else None
 
 
@@ -5969,7 +6033,7 @@ def _render_lvnet_uses(
     """
     if not dependencies:
         return
-    lines.append("  uses :")
+    lines.append(_USES_HEADER_LINE)
     under_cap_kinds = [
         len(d.kind.value)
         for d in dependencies
@@ -5991,7 +6055,9 @@ def _render_lvnet_uses(
             qualified_part = _lvnet_capped_pad(
                 dep.qualified, qualified_width, _LVNET_DEP_QUALIFIED_CAP
             )
-            lines.append(f"    {kind_part}{qualified_part}; {dep.path}")
+            lines.append(
+                f"    {kind_part}{qualified_part}{_LVNET_DEP_PATH_SEP}{dep.path}"
+            )
         else:
             lines.append(f"    {kind_part}{dep.qualified}")
         if verbose:
@@ -6036,7 +6102,7 @@ def render_lvnet(
     """
     handles = _assign_lvnet_handles(module)
     header_name = display_name if display_name is not None else module.vi_name
-    lines: list[str] = [f"vi {header_name} :"]
+    lines: list[str] = [f"vi {header_name}{_LVNET_BLOCK_OPEN}"]
     _render_lvnet_uses(module.dependencies, lines, verbose=verbose)
 
     # ``connector_pane.terminals`` is built (by BOTH builders) as inputs then

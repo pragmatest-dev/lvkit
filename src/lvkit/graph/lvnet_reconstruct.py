@@ -81,9 +81,17 @@ from .lvnet_parse import (
     _unescape_lvnet_string,
 )
 from .netlist import (
+    _LVNET_CLUSTER_OPEN,
+    _LVNET_DEFAULT_KEYWORD,
+    _LVNET_DEFAULT_PAREN_PREFIX,
     _LVNET_DISABLE_KEYWORD,
+    _LVNET_DRIVER_OP,
+    _LVNET_ENUM_OPEN,
     _LVNET_INSTANCE_KEYWORDS,
+    _LVNET_PORT_SEP,
+    _LVNET_RING_OPEN,
     _LVNET_TUNNEL_MODE_WORD,
+    _LVNET_TYPE_SEP,
     BoundaryOutput,
     ConnectorPane,
     ConnectorPaneTerminal,
@@ -284,8 +292,10 @@ def _parse_source_token(
     render idempotence.
     """
     text = text.strip()
-    if text.startswith("(default ") and text.endswith(")"):
-        return DefaultValue(literal="?", type_descriptor=text[len("(default ") : -1])
+    if text.startswith(_LVNET_DEFAULT_PAREN_PREFIX) and text.endswith(")"):
+        return DefaultValue(
+            literal="?", type_descriptor=text[len(_LVNET_DEFAULT_PAREN_PREFIX) : -1]
+        )
     if text.startswith('"'):
         end = _scan_quoted_literal(text, 0)
         if end != len(text):
@@ -295,8 +305,8 @@ def _parse_source_token(
         return NetRef(node=None, port="", occurrence=None, bare=text, lvnet_value=text)
     if text in ("True", "False") or _is_numeric_literal(text):
         return NetRef(node=None, port="", occurrence=None, bare=text, lvnet_value=text)
-    if "::" in text:
-        handle_part, _, port = text.partition("::")
+    if _LVNET_PORT_SEP in text:
+        handle_part, _, port = text.partition(_LVNET_PORT_SEP)
         target = registry.get(handle_part)
         if target is not None and not target.is_constant:
             return NetRef(
@@ -336,7 +346,7 @@ def _fill_enum_values(lv: LVType, body: str) -> None:
         return
     values: dict[str, EnumValue] = {}
     for part in _split_top_level_commas(body):
-        name, _, ordinal_text = part.rpartition(" = ")
+        name, _, ordinal_text = part.rpartition(_LVNET_DRIVER_OP)
         values[name.strip()] = EnumValue(value=int(ordinal_text.strip()))
     lv.values = values
 
@@ -353,7 +363,7 @@ def _fill_cluster_fields(
         return
     fields: list[ClusterField] = []
     for part in _split_top_level_commas(body):
-        name, _, type_text = part.partition(" : ")
+        name, _, type_text = part.partition(_LVNET_TYPE_SEP)
         field_type = _reconstruct_type_ref(type_text.strip(), types_dict, memo)
         fields.append(ClusterField(name=name.strip(), type=field_type))
     lv.fields = fields
@@ -376,20 +386,22 @@ def _reconstruct_named_type(
         return memo[name]
     entry = types_dict[name]
     def_text = entry.def_text
-    if def_text.startswith("Enum{") and def_text.endswith("}"):
+    if def_text.startswith(_LVNET_ENUM_OPEN) and def_text.endswith("}"):
         lv = LVType(kind=LVTypeKind.ENUM, typedef_name=name, typedef_path=entry.path)
         memo[name] = lv
-        _fill_enum_values(lv, def_text[len("Enum{") : -1])
+        _fill_enum_values(lv, def_text[len(_LVNET_ENUM_OPEN) : -1])
         return lv
-    if def_text.startswith("Ring{") and def_text.endswith("}"):
+    if def_text.startswith(_LVNET_RING_OPEN) and def_text.endswith("}"):
         lv = LVType(kind=LVTypeKind.RING, typedef_name=name, typedef_path=entry.path)
         memo[name] = lv
-        _fill_enum_values(lv, def_text[len("Ring{") : -1])
+        _fill_enum_values(lv, def_text[len(_LVNET_RING_OPEN) : -1])
         return lv
-    if def_text.startswith("Cluster{") and def_text.endswith("}"):
+    if def_text.startswith(_LVNET_CLUSTER_OPEN) and def_text.endswith("}"):
         lv = LVType(kind=LVTypeKind.CLUSTER, typedef_name=name, typedef_path=entry.path)
         memo[name] = lv
-        _fill_cluster_fields(lv, def_text[len("Cluster{") : -1], types_dict, memo)
+        _fill_cluster_fields(
+            lv, def_text[len(_LVNET_CLUSTER_OPEN) : -1], types_dict, memo
+        )
         return lv
     raise LvnetReconstructError(
         f"'types :' entry {name!r} has an unexpected def shape: {def_text!r}"
@@ -448,17 +460,17 @@ def _reconstruct_type_ref(
         )
     if text == "refnum":
         return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
-    if text.startswith("Enum{") and text.endswith("}"):
+    if text.startswith(_LVNET_ENUM_OPEN) and text.endswith("}"):
         lv = LVType(kind=LVTypeKind.ENUM)
-        _fill_enum_values(lv, text[len("Enum{") : -1])
+        _fill_enum_values(lv, text[len(_LVNET_ENUM_OPEN) : -1])
         return lv
-    if text.startswith("Ring{") and text.endswith("}"):
+    if text.startswith(_LVNET_RING_OPEN) and text.endswith("}"):
         lv = LVType(kind=LVTypeKind.RING)
-        _fill_enum_values(lv, text[len("Ring{") : -1])
+        _fill_enum_values(lv, text[len(_LVNET_RING_OPEN) : -1])
         return lv
-    if text.startswith("Cluster{") and text.endswith("}"):
+    if text.startswith(_LVNET_CLUSTER_OPEN) and text.endswith("}"):
         lv = LVType(kind=LVTypeKind.CLUSTER)
-        _fill_cluster_fields(lv, text[len("Cluster{") : -1], types_dict, memo)
+        _fill_cluster_fields(lv, text[len(_LVNET_CLUSTER_OPEN) : -1], types_dict, memo)
         return lv
     if text in types_dict:
         return _reconstruct_named_type(text, types_dict, memo)
@@ -555,7 +567,7 @@ def _reconstruct_instance(
                 default = None
             elif t.default is not None:
                 net = None
-                literal = "?" if t.default == "default" else t.default
+                literal = "?" if t.default == _LVNET_DEFAULT_KEYWORD else t.default
                 default = DefaultValue(literal=literal, type_descriptor=t.type)
             else:
                 raise LvnetReconstructError(
@@ -875,7 +887,7 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
         )
         default_scalar: ScalarValue = None
         if t.default is not None:
-            if t.default == "default":
+            if t.default == _LVNET_DEFAULT_KEYWORD:
                 raise LvnetReconstructError(
                     f"boundary terminal {t.name!r} has a bare 'default' "
                     f"keyword with no value -- not a shape a boundary line "
