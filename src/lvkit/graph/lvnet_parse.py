@@ -567,18 +567,30 @@ class ParsedDependency:
 
 
 @dataclass(frozen=True)
+class ParsedTypeDef:
+    """One ``types :`` footnote entry (§10): the lossless structural
+    ``def_text`` (``Enum{...}``/``Cluster{...}``) and, when the entry carried
+    a ``; ./path`` nav suffix, the ``path`` from it (the ``./`` prefix
+    removed) -- kept so ``reconstruct_module`` can restore
+    ``LVType.typedef_path`` and re-render the exact ``; ./path``."""
+
+    def_text: str
+    path: str | None = None
+
+
+@dataclass(frozen=True)
 class ParsedLvnet:
     """The result of parsing an lvnet text: header, the OPTIONAL ``uses :``
     dependency manifest, boundary block, body, the final
     boundary-output-drive block, and the OPTIONAL bottom-appendix
     ``types :`` footnote section (§10, verbose-only).
 
-    ``types`` is the RAW per-name structural definition text (``name ->
-    "<lossless-def>"``, the ``; ./path`` nav suffix already stripped) --
-    ``netlist_signature``'s strengthened type comparison resolves a bare
-    by-name type reference through this dict (``_parsed_type_ref_shape``),
-    recursively, to compare full structure against the module side instead
-    of by-name-vs-by-name.
+    ``types`` maps each NAMED type to its ``ParsedTypeDef`` (the structural
+    ``def_text`` plus the optional ``; ./path``) -- ``netlist_signature``'s
+    strengthened type comparison resolves a bare by-name type reference
+    through this dict (``_parsed_type_ref_shape``), recursively, to compare
+    full structure against the module side instead of by-name-vs-by-name;
+    ``reconstruct_module`` also reads each entry's ``path``.
     """
 
     vi_name: str
@@ -586,7 +598,7 @@ class ParsedLvnet:
     boundary: tuple[ParsedBoundaryTerminal, ...] = field(default_factory=tuple)
     body: tuple[ParsedBodyItem, ...] = field(default_factory=tuple)
     output_drives: tuple[ParsedDrive, ...] = field(default_factory=tuple)
-    types: dict[str, str] = field(default_factory=dict)
+    types: dict[str, ParsedTypeDef] = field(default_factory=dict)
 
 
 # ============================================================
@@ -1265,7 +1277,7 @@ def _parse_output_drives(cursor: _Cursor) -> list[ParsedDrive]:
     return drives
 
 
-def _parse_types_block(cursor: _Cursor) -> dict[str, str]:
+def _parse_types_block(cursor: _Cursor) -> dict[str, ParsedTypeDef]:
     """Parse the OPTIONAL bottom-appendix ``types :`` footnote section
     (§10, verbose-only) -- immediately after the final boundary-output-
     drive block, at the very end of the document. Absent entirely (``{}``)
@@ -1286,7 +1298,7 @@ def _parse_types_block(cursor: _Cursor) -> dict[str, str]:
     if cursor.peek() != _TYPES_HEADER_LINE:
         return {}
     cursor.take()
-    defs: dict[str, str] = {}
+    defs: dict[str, ParsedTypeDef] = {}
     while True:
         line = cursor.peek()
         if line is None or _indent_len(line) != 4:
@@ -1301,12 +1313,18 @@ def _parse_types_block(cursor: _Cursor) -> dict[str, str]:
                 f"'<Name> = <def>' (§10), got {line!r}"
             )
         name = content[:eq_idx]
-        def_text = content[eq_idx + 3 :].split(" ; ", 1)[0]
+        def_text, _, path_suffix = content[eq_idx + 3 :].partition(" ; ")
+        # render emits the nav suffix as ``; ./{typedef_path}`` (netlist.py
+        # _render_lvnet_types), so strip the leading ``./`` back off to recover
+        # the raw typedef_path -- reconstruct_module re-adds ``./``.
+        path = (
+            path_suffix[2:] if path_suffix.startswith("./") else (path_suffix or None)
+        )
         if not name:
             raise LvnetParseError(
                 f"line {line_no}: empty type name in 'types :' entry: {line!r}"
             )
-        defs[name] = def_text
+        defs[name] = ParsedTypeDef(def_text=def_text, path=path)
     return defs
 
 
@@ -1414,7 +1432,7 @@ def _parse_lossless_members(body: str) -> tuple[tuple[str, int], ...]:
 
 def _parse_lossless_cluster_fields(
     body: str,
-    types_dict: dict[str, str],
+    types_dict: dict[str, ParsedTypeDef],
     seen: frozenset[str],
     ambiguous: frozenset[str],
 ) -> tuple[tuple[str, TypeShape], ...] | None:
@@ -1443,7 +1461,7 @@ def _parse_lossless_cluster_fields(
 
 def _parsed_type_ref_shape(
     text: str,
-    types_dict: dict[str, str],
+    types_dict: dict[str, ParsedTypeDef],
     seen: frozenset[str] = frozenset(),
     *,
     full: bool = False,
@@ -1516,7 +1534,11 @@ def _parsed_type_ref_shape(
         if text in seen:
             return ("named", text)
         return _parsed_type_ref_shape(
-            types_dict[text], types_dict, seen | {text}, full=True, ambiguous=ambiguous
+            types_dict[text].def_text,
+            types_dict,
+            seen | {text},
+            full=True,
+            ambiguous=ambiguous,
         )
     return ("leaf", text)
 
@@ -1534,7 +1556,7 @@ def _module_default_token(default: ScalarValue) -> str | None:
 
 def boundary_signature(
     module_or_parsed: NetlistModule | ParsedLvnet,
-    parsed_types: dict[str, str] | None = None,
+    parsed_types: dict[str, ParsedTypeDef] | None = None,
     ambiguous: frozenset[str] = frozenset(),
 ) -> tuple[tuple[str, TypeShape, str, str | None, str | None], ...]:
     """The canonical, comparable boundary projection: an ordered tuple of
@@ -1868,7 +1890,9 @@ _FRAME_ONLY_SCOPE_KINDS = frozenset(
 
 
 def _parsed_item_signature(
-    item: ParsedBodyItem, types_dict: dict[str, str], ambiguous: frozenset[str]
+    item: ParsedBodyItem,
+    types_dict: dict[str, ParsedTypeDef],
+    ambiguous: frozenset[str],
 ) -> tuple:
     """``types_dict`` (``ParsedLvnet.types``, the §10 footnote defs) and
     ``ambiguous`` (``netlist._lvnet_ambiguous_named_types``) are threaded
