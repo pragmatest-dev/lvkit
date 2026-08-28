@@ -367,18 +367,24 @@ def main() -> int:
         help=(
             "Show full detail within each section (every VI Property, "
             "Health, connector-pattern/pane-slot annotations, typed "
-            "terminals); with --format netlist, also emit a typed "
+            "terminals); with --format lvnet, also inline each direct "
+            "SubVI's connector-pane interface and a trailing `types :` "
+            "appendix; with --format netlist, also emit a typed "
             "## Components section before the netlist body."
         ),
     )
     desc_parser.add_argument(
         "--format",
-        choices=["text", "netlist", "json"],
+        choices=["text", "netlist", "lvnet", "json"],
         default="text",
         help=(
             "'text' (default) prints the human-readable description; "
-            "'netlist' prints the VI dataflow netlist body — the git-"
-            "textconv-friendly form (see `lvkit setup --git-textconv`); "
+            "'lvnet' prints the VI as the lvnet text surface (terse by "
+            "default; -v/--verbose inlines each direct SubVI's connector-"
+            "pane interface plus a trailing `types :` appendix, making the "
+            "render type-rehydratable); 'netlist' (DEPRECATED — use 'lvnet') "
+            "prints the old dataflow netlist body — still the git-textconv-"
+            "friendly form (see `lvkit setup --git-textconv`); "
             "'json' emits the canonical netlist IR — the same structured "
             "payload the MCP read_vi tool returns — for a program to parse."
         ),
@@ -1210,7 +1216,29 @@ def cmd_describe(args: argparse.Namespace) -> int:
                     netlist_to_dict(build_netlist(graph, vi_name)), indent=2
                 )
             )
+        elif fmt == "lvnet":
+            # The lvnet text surface (see docs/_internal/design/netlist-
+            # language.md) — the NEW replacement for --format netlist below.
+            # Terse (default) is the compact form; -v/--verbose inlines each
+            # direct SubVI's connector-pane interface (MINIMAL-load-friendly)
+            # plus a trailing `types :` appendix, making the render type-
+            # rehydratable. Display name mirrors --format netlist: the VI's
+            # qualified/display name, never an abspath.
+            from .graph.netlist import build_netlist_from_graph, render_lvnet
+
+            module = build_netlist_from_graph(graph, vi_name)
+            display_name = graph.vi_display_name(vi_name)
+            print(
+                render_lvnet(module, display_name=display_name, verbose=args.verbose)
+            )
         elif fmt == "netlist":
+            # DEPRECATED — use --format lvnet. Kept byte-for-byte unchanged
+            # (this is also the `lvkit setup --git-textconv` command; don't
+            # touch its output here).
+            print(
+                "lvkit: 'netlist' format is deprecated; use 'lvnet'.",
+                file=sys.stderr,
+            )
             # The dataflow netlist body alone — the git-textconv-friendly
             # form (`lvkit setup --git-textconv`): a diff of two commits'
             # `.vi` blobs through this render is a meaningful, near-source-

@@ -553,6 +553,8 @@ def _load_one(
 async def read_vi(
     vi_path: str,
     search_paths: list[str] | None = None,
+    format: str = "json",
+    verbose: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """READ one VI in full — its structure as the canonical **netlist IR**
@@ -582,11 +584,29 @@ async def read_vi(
     array/last), and a feedback node is ``fb{k}`` = ``mu``. ``vi_path`` may be
     relative to the client's workspace root. ``search_paths`` are extra
     dependency-resolution roots for an out-of-tree library the VI calls into
-    (its own directory is always searched)."""
+    (its own directory is always searched).
+
+    ``format`` picks the surface: ``"json"`` (default, unchanged) returns the
+    structured IR dict above. ``"lvnet"`` instead returns
+    ``{"lvnet": <text>}`` — the same lvnet text surface as
+    ``lvkit describe --format lvnet`` (see
+    ``docs/_internal/design/netlist-language.md``): terse by default, or
+    ``verbose=True`` to also inline each direct SubVI's connector-pane
+    interface plus a trailing ``types :`` appendix (type-rehydratable)."""
     vi_path = await _resolve_target(vi_path, ctx)
 
     def _work() -> dict[str, Any]:
         graph, vi_name = _load_one(vi_path, search_paths)
+        if format == "lvnet":
+            from ..graph.netlist import build_netlist_from_graph, render_lvnet
+
+            module = build_netlist_from_graph(graph, vi_name)
+            display_name = graph.vi_display_name(vi_name)
+            return {
+                "lvnet": render_lvnet(
+                    module, display_name=display_name, verbose=verbose
+                )
+            }
         return netlist_to_dict(build_netlist(graph, vi_name))
 
     return await asyncio.to_thread(_work)

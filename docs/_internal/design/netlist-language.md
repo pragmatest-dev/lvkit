@@ -551,6 +551,13 @@ Density never costs data.
   and native theme colors). A `language-configuration.json` gives bracket-match +
   folding.
 
+- **CLI**: `lvkit describe --format lvnet [-v]` produces exactly this text
+  (terse by default; `-v`/`--verbose` inlines each direct SubVI's
+  connector-pane interface plus the trailing `types :` appendix). The MCP
+  `read_vi` tool mirrors it via `format="lvnet"` (+ `verbose=True`). The
+  older `--format netlist` (old `gamma`/`mu`/`eta` render) still works,
+  unchanged, but is deprecated in favor of `lvnet`.
+
 ## 16. Golden reference render
 
 `loadTestsFromTestCase.vi`, the canonical example to build against:
