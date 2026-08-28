@@ -4863,6 +4863,12 @@ def render_netlist(module: NetlistModule, *, display_name: str | None = None) ->
 #   ``str.find``, which already tolerates arbitrary extra padding either
 #   side of it). Left as documented one-off literals at their call sites.
 # ------------------------------------------------------------------
+# The single indent unit -- ONE nesting level of every lvnet block. The whole
+# renderer nests by string-concatenating this (``indent + _LVNET_INDENT``); the
+# parser recovers a level by its width (``_LVNET_INDENT_WIDTH``), so the two
+# sides share one source of truth and can't drift on how deep a level is.
+_LVNET_INDENT = "  "
+_LVNET_INDENT_WIDTH = len(_LVNET_INDENT)
 _LVNET_TYPE_SEP = " : "  # `name : Type` / `handle : component` (§3/§7)
 _LVNET_DRIVER_OP = " = "  # `= driver` / `name = def` (§4/§7/§8/§10)
 _LVNET_BLOCK_OPEN = " :"  # trailing block-opener (§2/§7/§8)
@@ -4888,8 +4894,8 @@ _LVNET_DEFAULT_PAREN_PREFIX = f"({_LVNET_DEFAULT_KEYWORD} "
 # The OPTIONAL bottom-appendix `types :` footnote section header (§10) and
 # the OPTIONAL `uses :` dependency-manifest header (§2/§7) -- each its own
 # full line (2-space indent), matched verbatim by lvnet_parse.py.
-_TYPES_HEADER_LINE = "  types :"
-_USES_HEADER_LINE = "  uses :"
+_TYPES_HEADER_LINE = f"{_LVNET_INDENT}types :"
+_USES_HEADER_LINE = f"{_LVNET_INDENT}uses :"
 
 
 @dataclass(frozen=True)
@@ -5698,7 +5704,7 @@ def _render_lvnet_instance(
     """
     if instance.kind == NetlistInstanceKind.LOCAL_VARIABLE:
         lines.append(f"{indent}{instance.kind.value}")
-        lines.append(f"{indent}  # TODO(lvnet): {_LOCAL_VARIABLE_TODO}")
+        lines.append(f"{indent + _LVNET_INDENT}# TODO(lvnet): {_LOCAL_VARIABLE_TODO}")
         return
 
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
@@ -5728,11 +5734,11 @@ def _render_lvnet_instance(
             continue
         type_label = _lvnet_type_label(o.type, o.lv_type)
         entries.append(_TermLine("out", o.net.port, type_label, None))
-    lines.extend(_render_term_group(entries, indent + "  "))
+    lines.extend(_render_term_group(entries, indent + _LVNET_INDENT))
 
     trailing_todo = _OPEN_INSTANCE_TRAILING_TODO.get(instance.kind)
     if trailing_todo is not None:
-        lines.append(f"{indent}  # TODO(lvnet): {trailing_todo}")
+        lines.append(f"{indent + _LVNET_INDENT}# TODO(lvnet): {trailing_todo}")
 
 
 def _render_lvnet_constant(
@@ -5796,17 +5802,18 @@ def _render_lvnet_loop_scope(
     """
     header_kw = "while-loop" if scope.kind == "while" else "for-loop"
     lines.append(f"{indent}{header_kw}{_LVNET_BLOCK_OPEN}")
-    body_indent = indent + "  "
+    body_indent = indent + _LVNET_INDENT
     _render_lvnet_items(scope.frames[0].body, body_indent, lines, handles)
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
             net = _lvnet_net_separator(merge.net)
             lines.append(f"{body_indent}shift-register {net}{_LVNET_BLOCK_OPEN}")
+            kv_indent = body_indent + _LVNET_INDENT
             init_str = _render_lvnet_source(merge.init, handles)
-            lines.append(f"{body_indent}  init{_LVNET_DRIVER_OP}{init_str}")
+            lines.append(f"{kv_indent}init{_LVNET_DRIVER_OP}{init_str}")
             if merge.recur is not None:
                 recur_str = _render_lvnet_source(merge.recur, handles)
-                lines.append(f"{body_indent}  each{_LVNET_DRIVER_OP}{recur_str}")
+                lines.append(f"{kv_indent}each{_LVNET_DRIVER_OP}{recur_str}")
         elif isinstance(merge, EtaMerge):
             mode_word = _LVNET_TUNNEL_MODE_WORD.get(merge.index_mode, merge.index_mode)
             # The Conditional modifier's exact appended form is only HINTED
@@ -5848,10 +5855,10 @@ def _render_lvnet_case_scope(
     )
     lines.append(f"{indent}case {sel_str}{_LVNET_BLOCK_OPEN}")
     gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
-    body_indent = indent + "    "
+    body_indent = indent + _LVNET_INDENT * 2
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label)
-        lines.append(f"{indent}  frame {label}{_LVNET_BLOCK_OPEN}")
+        lines.append(f"{indent + _LVNET_INDENT}frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles)
         frame_key = "default" if frame.is_default else frame.label
         for gamma in gammas:
@@ -5879,10 +5886,10 @@ def _render_lvnet_sequence_scope(
     flat sequence and an out-of-range legacy stacked one)."""
     keyword = "flat-sequence" if scope.sequence_is_flat else "stacked-sequence"
     lines.append(f"{indent}{keyword}{_LVNET_BLOCK_OPEN}")
-    body_indent = indent + "  "
+    body_indent = indent + _LVNET_INDENT
     for frame in scope.frames:
         lines.append(f"{body_indent}frame [{frame.value}]{_LVNET_BLOCK_OPEN}")
-        _render_lvnet_items(frame.body, body_indent + "  ", lines, handles)
+        _render_lvnet_items(frame.body, body_indent + _LVNET_INDENT, lines, handles)
 
 
 def _render_lvnet_disabled_scope(
@@ -5903,12 +5910,12 @@ def _render_lvnet_disabled_scope(
     ``frame "<symbol cond>" :``."""
     keyword = _LVNET_DISABLE_KEYWORD[scope.disable_kind]
     lines.append(f"{indent}{keyword}{_LVNET_BLOCK_OPEN}")
-    body_indent = indent + "  "
+    body_indent = indent + _LVNET_INDENT
     quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label) if quote_labels else frame.label
         lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
-        _render_lvnet_items(frame.body, body_indent + "  ", lines, handles)
+        _render_lvnet_items(frame.body, body_indent + _LVNET_INDENT, lines, handles)
 
 
 def _render_lvnet_event_scope(
@@ -5919,11 +5926,11 @@ def _render_lvnet_event_scope(
 ) -> None:
     """``event-structure :`` (§8), ``frame "<event>" :`` per event case."""
     lines.append(f"{indent}event-structure{_LVNET_BLOCK_OPEN}")
-    body_indent = indent + "  "
+    body_indent = indent + _LVNET_INDENT
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label)
         lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
-        _render_lvnet_items(frame.body, body_indent + "  ", lines, handles)
+        _render_lvnet_items(frame.body, body_indent + _LVNET_INDENT, lines, handles)
 
 
 def _render_lvnet_scope(
@@ -5979,10 +5986,10 @@ def _render_lvnet_feedback(
         attr = f"{feedback.delay} iteration" + ("" if feedback.delay == 1 else "s")
     lines.append(f"{indent}feedback-node {feedback.net} ({attr}){_LVNET_BLOCK_OPEN}")
     init_str = _render_lvnet_source(feedback.init, handles)
-    lines.append(f"{indent}  init{_LVNET_DRIVER_OP}{init_str}")
+    lines.append(f"{indent + _LVNET_INDENT}init{_LVNET_DRIVER_OP}{init_str}")
     if feedback.recur is not None:
         recur_str = _render_lvnet_source(feedback.recur, handles)
-        lines.append(f"{indent}  each{_LVNET_DRIVER_OP}{recur_str}")
+        lines.append(f"{indent + _LVNET_INDENT}each{_LVNET_DRIVER_OP}{recur_str}")
 
 
 def _render_lvnet_items(
@@ -6137,9 +6144,9 @@ _LVNET_DEP_QUALIFIED_CAP = 60
 # Indent of a ``uses :`` entry's inline §7a interface lines -- one level
 # (2 spaces) deeper than the entry's own 4-space indent, matching the SAME
 # "header, then body at +2" rule every other lvnet block follows (a node's
-# own in/out block nests at ``indent + "  "`` under its declaration line --
+# own in/out block nests at ``indent + _LVNET_INDENT`` under its declaration --
 # see ``_render_lvnet_instance``).
-_LVNET_DEP_INTERFACE_INDENT = "      "
+_LVNET_DEP_INTERFACE_INDENT = _LVNET_INDENT * 3
 
 
 def _render_lvnet_dependency_interface(
@@ -6295,10 +6302,10 @@ def render_lvnet(
         for o, pane in zip(module.outputs, output_panes, strict=True)
     ]
     if boundary_entries:
-        lines.extend(_render_term_group(boundary_entries, "  "))
+        lines.extend(_render_term_group(boundary_entries, _LVNET_INDENT))
 
     lines.append("")
-    _render_lvnet_items(module.body, "  ", lines, handles)
+    _render_lvnet_items(module.body, _LVNET_INDENT, lines, handles)
     lines.append("")
 
     if module.outputs:

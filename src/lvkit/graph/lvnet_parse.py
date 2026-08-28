@@ -46,6 +46,7 @@ from .netlist import (
     _LVNET_DISABLE_KEYWORD,
     _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
+    _LVNET_INDENT_WIDTH,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_RING_OPEN,
     _LVNET_TUNNEL_MODE_WORD,
@@ -755,7 +756,7 @@ def _parse_node(
             f"line {line_no}: node handle must be a single space-free "
             f"token (§7/§9): {content!r}"
         )
-    terminals, has_todo = _parse_terminal_block(cursor, indent + 2)
+    terminals, has_todo = _parse_terminal_block(cursor, indent + _LVNET_INDENT_WIDTH)
     return ParsedNode(
         kind=kw,
         handle=handle,
@@ -766,7 +767,7 @@ def _parse_node(
 
 
 def _finish_local_variable(cursor: _Cursor, indent: int, line_no: int) -> ParsedNode:
-    todo_indent = indent + 2
+    todo_indent = indent + _LVNET_INDENT_WIDTH
     line = cursor.peek()
     if (
         line is None
@@ -823,7 +824,7 @@ def _parse_feedback(
         )
     net = rest[:open_paren]
     attribute = rest[open_paren + 2 : -1]
-    child_indent = indent + 2
+    child_indent = indent + _LVNET_INDENT_WIDTH
     init = _expect_kv_line(cursor, child_indent, "init", required=True)
     assert init is not None
     each = _expect_kv_line(cursor, child_indent, "each", required=False)
@@ -840,7 +841,7 @@ def _parse_shift_register(
             f"(§8): {content!r}"
         )
     net = rest[: -len(_LVNET_BLOCK_OPEN)]
-    child_indent = body_indent + 2
+    child_indent = body_indent + _LVNET_INDENT_WIDTH
     init = _expect_kv_line(cursor, child_indent, "init", required=True)
     assert init is not None
     each = _expect_kv_line(cursor, child_indent, "each", required=False)
@@ -870,7 +871,7 @@ def _parse_loop_scope(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedScope:
     kind = "while-loop" if content == f"while-loop{_LVNET_BLOCK_OPEN}" else "for-loop"
-    body_indent = indent + 2
+    body_indent = indent + _LVNET_INDENT_WIDTH
     body, drives = _parse_items(
         cursor, body_indent, stop_prefixes=("shift-register ", "tunnel ")
     )
@@ -910,8 +911,8 @@ def _parse_case_scope(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedScope:
     selector = content[len("case ") : -len(_LVNET_BLOCK_OPEN)]
-    frame_indent = indent + 2
-    body_indent = indent + 4
+    frame_indent = indent + _LVNET_INDENT_WIDTH
+    body_indent = indent + _LVNET_INDENT_WIDTH * 2
     frames: list[ParsedFrame] = []
     while True:
         line = cursor.peek()
@@ -992,7 +993,9 @@ def _parse_sequence_scope(
     """``flat-sequence :`` / ``stacked-sequence :`` (§8) -- ``frame [i] :``
     per frame, matching ``_render_lvnet_sequence_scope`` exactly."""
     kind = "flat-sequence" if content == "flat-sequence :" else "stacked-sequence"
-    frames = _parse_labeled_frames(cursor, indent + 2, indent + 4)
+    frames = _parse_labeled_frames(
+        cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
+    )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
@@ -1009,7 +1012,9 @@ def _parse_disabled_scope(
     ``" :"``), so ``netlist_signature`` compares it directly against
     ``_LVNET_DISABLE_KEYWORD[scope.disable_kind]`` with no extra mapping."""
     kind = content[: -len(_LVNET_BLOCK_OPEN)]
-    frames = _parse_labeled_frames(cursor, indent + 2, indent + 4)
+    frames = _parse_labeled_frames(
+        cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
+    )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
@@ -1022,7 +1027,9 @@ def _parse_event_scope(
 ) -> ParsedScope:
     """``event-structure :`` (§8) -- ``frame "<event>" :`` per event case,
     matching ``_render_lvnet_event_scope`` exactly."""
-    frames = _parse_labeled_frames(cursor, indent + 2, indent + 4)
+    frames = _parse_labeled_frames(
+        cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
+    )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: event-structure scope has no frames (§8): "
