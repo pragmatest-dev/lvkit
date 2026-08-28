@@ -502,8 +502,34 @@ faithful `type` (plus any per-node annotations). A scope carries `scope_kind`
 tunnel). **These `select`/`shift`/`collect` names survive only as internal JSON
 tags** — they are rendered into the LV-native surface (`shift-register` /
 `tunnel` / per-frame `caseN::outK =`) and never appear as words in lvnet text.
-(The tri-state `wiring_rule` and structured `LVType` must be surfaced here in
-verbose, not collapsed to `required: bool` / one opaque string.)
+
+Verbose (`-v`/`verbose=True`) adds, on top of everything terse already
+carries, the JSON counterparts of lvnet's own verbose-only elements —
+**never present, not even as an empty value, in non-verbose output**:
+
+- `connector_pane.terminals[]` gain `wiring_rule` (the tri-state +
+  unknown, replacing the always-present terse `required: bool` collapse).
+- A top-level `dependencies[]` — the `uses :` manifest: one entry per
+  directly-referenced file, `{kind, qualified, path}`
+  (`kind` ∈ `subVI`/`typedef`/`class`); a resolved `subVI` entry also
+  carries `interface[]` — its own connector pane, ordered inputs then
+  outputs, each `{name, type, direction, lv_type?}` (omitted entirely,
+  never `[]`, for a `class`/`typedef` dependency or an unresolved `subVI`).
+- Every terminal that carries a structured type — `connector_pane.
+  terminals[]`, boundary `inputs[]`/`outputs[]`, a dependency's own
+  `interface[]`, and each body instance's wired `inputs[]`/`outputs[]` —
+  gains an `lv_type` object alongside its existing flattened `type` string:
+  a direct recursive mirror of the `LVType` dataclass itself (`kind`,
+  `underlying_type`, `ref_type`, `classname`, `values` — enum/ring members
+  keyed by name with explicit ordinals, `fields` — cluster fields with
+  their own nested `type`, `element_type`, `dimensions`, `typedef_path`,
+  `typedef_name`, `description`, `measure_flavor`). Unlike lvnet's `types :`
+  footnote (one entry per NAMED type, referenced by name to stay
+  line-length-sane in text), the JSON form nests each type's full structure
+  inline at every occurrence — JSON has no whitespace/line-length pressure
+  forcing a by-name indirection, so repetition costs nothing and every
+  terminal is self-contained. `lv_type` is omitted (never `null`) when the
+  underlying type didn't resolve.
 
 ## 13. Diff
 

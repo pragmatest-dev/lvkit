@@ -8,15 +8,20 @@ frames' bodies recursively (the parts `dataclasses.asdict` would get wrong).
 
 from __future__ import annotations
 
+from lvkit.graph.interface_order import WiringRequirement
 from lvkit.graph.netlist import (
     BoundaryOutput,
+    ConnectorPane,
+    ConnectorPaneTerminal,
     DefaultValue,
+    DependencyKind,
     EtaMerge,
     GammaCase,
     GammaMerge,
     MuMerge,
     NetlistBoundaryInput,
     NetlistComponent,
+    NetlistDependency,
     NetlistFeedback,
     NetlistFrame,
     NetlistInstance,
@@ -29,6 +34,7 @@ from lvkit.graph.netlist import (
     netlist_to_dict,
 )
 from lvkit.graph.op_walk import ComponentPort
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 
 
 def _ref(node, port, bare, occ=None):
@@ -609,6 +615,276 @@ def test_scope_without_selector_serializes_null():
     )
     d = netlist_to_dict(module)
     assert d["body"][0]["selector"] is None
+
+
+# ============================================================
+# verbose ``netlist_to_dict``: ``dependencies`` + structured ``lv_type``
+# (Element 6 -- JSON content parity with verbose lvnet)
+# ============================================================
+
+
+def _verbose_fixture_module() -> NetlistModule:
+    """One module exercising every verbose-only JSON addition: a NAMED enum
+    and a NAMED cluster (whose own field is that enum), reachable from a
+    connector-pane terminal, a boundary input/output, a resolved ``subVI``
+    dependency's own interface, AND a body instance's wired input/output --
+    every ``lv_type`` site ``netlist_to_dict``'s docstring lists."""
+    mode_enum = LVType(
+        kind=LVTypeKind.ENUM,
+        typedef_name="Mode.ctl",
+        typedef_path="Mode.ctl",
+        values={"Idle": EnumValue(value=0), "Run": EnumValue(value=1)},
+    )
+    count_i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32")
+    config_cluster = LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="Config.ctl",
+        typedef_path="Config.ctl",
+        fields=[
+            ClusterField(name="mode", type=mode_enum),
+            ClusterField(name="count", type=count_i32),
+        ],
+    )
+    dependency = NetlistDependency(
+        kind=DependencyKind.SUBVI,
+        qualified="Lib.lvlib:Sub.vi",
+        path="./Lib.lvlib/Sub.vi",
+        interface=[
+            ConnectorPaneTerminal(
+                name="in1",
+                type="I32",
+                direction="input",
+                index=0,
+                wiring_requirement=WiringRequirement.REQUIRED,
+                default=None,
+                lv_type=count_i32,
+            ),
+            ConnectorPaneTerminal(
+                name="out1",
+                type="Mode",
+                direction="output",
+                index=1,
+                wiring_requirement=WiringRequirement.RECOMMENDED,
+                default=None,
+                lv_type=mode_enum,
+            ),
+        ],
+    )
+    instance = NetlistInstance(
+        uid="1",
+        name="Sub",
+        occurrence=None,
+        inputs=[
+            NetlistPortBinding(
+                port="cfg",
+                type="Config",
+                net=NetRef(node=None, port="cfg", occurrence=None, bare="cfg"),
+                lv_type=config_cluster,
+            )
+        ],
+        outputs=[
+            NetlistOutput(
+                net=NetRef(node="Sub", port="out1", occurrence=None, bare="Sub.out1"),
+                type="Mode",
+                lv_type=mode_enum,
+            )
+        ],
+    )
+    return NetlistModule(
+        vi_name="m.vi",
+        inputs=[
+            NetlistBoundaryInput(
+                name="cfg", type_descriptor="Config", lv_type=config_cluster
+            )
+        ],
+        outputs=[
+            BoundaryOutput(
+                name="out",
+                type_descriptor="Mode",
+                source=NetRef(
+                    node="Sub", port="out1", occurrence=None, bare="Sub.out1"
+                ),
+                lv_type=mode_enum,
+            )
+        ],
+        body=[instance],
+        connector_pane=ConnectorPane(
+            pattern_id=1,
+            terminals=[
+                ConnectorPaneTerminal(
+                    name="cfg",
+                    type="Config",
+                    direction="input",
+                    index=0,
+                    wiring_requirement=WiringRequirement.REQUIRED,
+                    default=None,
+                    lv_type=config_cluster,
+                ),
+                ConnectorPaneTerminal(
+                    name="out",
+                    type="Mode",
+                    direction="output",
+                    index=1,
+                    wiring_requirement=WiringRequirement.RECOMMENDED,
+                    default=None,
+                    lv_type=mode_enum,
+                ),
+            ],
+        ),
+        dependencies=[dependency],
+    )
+
+
+def test_verbose_adds_dependencies_manifest_with_interface():
+    module = _verbose_fixture_module()
+    d = netlist_to_dict(module, verbose=True)
+
+    assert d["dependencies"] == [
+        {
+            "kind": "subVI",
+            "qualified": "Lib.lvlib:Sub.vi",
+            "path": "./Lib.lvlib/Sub.vi",
+            "interface": [
+                {
+                    "name": "in1",
+                    "type": "I32",
+                    "direction": "input",
+                    "lv_type": {
+                        "kind": "primitive",
+                        "underlying_type": "I32",
+                        "ref_type": None,
+                        "classname": None,
+                        "values": None,
+                        "fields": None,
+                        "element_type": None,
+                        "dimensions": None,
+                        "typedef_path": None,
+                        "typedef_name": None,
+                        "description": None,
+                        "measure_flavor": None,
+                    },
+                },
+                {
+                    "name": "out1",
+                    "type": "Mode",
+                    "direction": "output",
+                    "lv_type": {
+                        "kind": "enum",
+                        "underlying_type": None,
+                        "ref_type": None,
+                        "classname": None,
+                        "values": {
+                            "Idle": {"value": 0, "description": None},
+                            "Run": {"value": 1, "description": None},
+                        },
+                        "fields": None,
+                        "element_type": None,
+                        "dimensions": None,
+                        "typedef_path": "Mode.ctl",
+                        "typedef_name": "Mode.ctl",
+                        "description": None,
+                        "measure_flavor": None,
+                    },
+                },
+            ],
+        }
+    ]
+
+
+def test_verbose_adds_structured_type_with_enum_ordinals_and_cluster_fields():
+    module = _verbose_fixture_module()
+    d = netlist_to_dict(module, verbose=True)
+
+    # Boundary input: the NAMED cluster, fields recursively typed.
+    cfg_type = d["inputs"][0]["lv_type"]
+    assert cfg_type["kind"] == "cluster"
+    assert cfg_type["typedef_name"] == "Config.ctl"
+    assert cfg_type["fields"] == [
+        {
+            "name": "mode",
+            "type": {
+                "kind": "enum",
+                "underlying_type": None,
+                "ref_type": None,
+                "classname": None,
+                "values": {
+                    "Idle": {"value": 0, "description": None},
+                    "Run": {"value": 1, "description": None},
+                },
+                "fields": None,
+                "element_type": None,
+                "dimensions": None,
+                "typedef_path": "Mode.ctl",
+                "typedef_name": "Mode.ctl",
+                "description": None,
+                "measure_flavor": None,
+            },
+        },
+        {
+            "name": "count",
+            "type": {
+                "kind": "primitive",
+                "underlying_type": "I32",
+                "ref_type": None,
+                "classname": None,
+                "values": None,
+                "fields": None,
+                "element_type": None,
+                "dimensions": None,
+                "typedef_path": None,
+                "typedef_name": None,
+                "description": None,
+                "measure_flavor": None,
+            },
+        },
+    ]
+
+    # Boundary output + connector pane: the NAMED enum, ordinals explicit.
+    out_type = d["outputs"][0]["lv_type"]
+    assert out_type["kind"] == "enum"
+    assert out_type["values"] == {
+        "Idle": {"value": 0, "description": None},
+        "Run": {"value": 1, "description": None},
+    }
+    pane_types = {t["name"]: t.get("lv_type") for t in d["connector_pane"]["terminals"]}
+    assert pane_types["cfg"]["kind"] == "cluster"
+    assert pane_types["out"]["kind"] == "enum"
+
+    # Body instance: wired input + output ports also carry the structure.
+    instance = d["body"][0]
+    assert instance["inputs"][0]["lv_type"]["kind"] == "cluster"
+    assert instance["outputs"][0]["lv_type"]["kind"] == "enum"
+
+
+def test_non_verbose_output_omits_all_new_verbose_fields():
+    module = _verbose_fixture_module()
+    d = netlist_to_dict(module)
+
+    assert "dependencies" not in d
+    for t in d["connector_pane"]["terminals"]:
+        assert "lv_type" not in t
+        assert "wiring_rule" not in t
+    for inp in d["inputs"]:
+        assert "lv_type" not in inp
+    for out in d["outputs"]:
+        assert "lv_type" not in out
+    instance = d["body"][0]
+    assert "lv_type" not in instance["inputs"][0]
+    assert "lv_type" not in instance["outputs"][0]
+
+    # Non-verbose stays exactly the pre-existing shape (Element 6 must not
+    # regress the byte/JSON-identical parity guard -- see
+    # tests/test_netlist_from_graph_parity.py).
+    assert d["inputs"] == [{"name": "cfg", "type": "Config"}]
+    assert d["outputs"][0]["type"] == "Mode"
+    assert d["connector_pane"]["terminals"][0] == {
+        "name": "cfg",
+        "type": "Config",
+        "direction": "input",
+        "index": 0,
+        "required": True,
+        "default": None,
+    }
 
 
 def test_is_json_serializable():

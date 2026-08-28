@@ -586,8 +586,13 @@ async def read_vi(
     dependency-resolution roots for an out-of-tree library the VI calls into
     (its own directory is always searched).
 
-    ``format`` picks the surface: ``"json"`` (default, unchanged) returns the
-    structured IR dict above. ``"lvnet"`` instead returns
+    ``format`` picks the surface: ``"json"`` (default, unchanged when
+    ``verbose=False``) returns the structured IR dict above; ``verbose=True``
+    additionally nests the ``uses :`` dependency manifest (each resolved
+    subVI's own interface) and every terminal's structured type alongside
+    its existing flattened type string -- the JSON counterpart of
+    ``"lvnet"``'s verbose elements below (see ``netlist_to_dict``'s
+    docstring). ``"lvnet"`` instead returns
     ``{"lvnet": <text>}`` — the same lvnet text surface as
     ``lvkit describe --format lvnet`` (see
     ``docs/_internal/design/netlist-language.md``): terse by default, or
@@ -607,6 +612,16 @@ async def read_vi(
                     module, display_name=display_name, verbose=verbose
                 )
             }
+        # verbose's `dependencies` + structured `lv_type` facts only exist
+        # on `build_netlist_from_graph`'s module (the OLD `build_netlist`
+        # never populates them) -- non-verbose stays on the OLD builder,
+        # byte-identical to before.
+        if verbose:
+            from ..graph.netlist import build_netlist_from_graph
+
+            return netlist_to_dict(
+                build_netlist_from_graph(graph, vi_name), verbose=True
+            )
         return netlist_to_dict(build_netlist(graph, vi_name))
 
     return await asyncio.to_thread(_work)

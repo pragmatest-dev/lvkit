@@ -4400,7 +4400,7 @@ def _netref_to_dict(ref: NetRef) -> dict[str, Any]:
     }
 
 
-def _frame_to_dict(frame: NetlistFrame) -> dict[str, Any]:
+def _frame_to_dict(frame: NetlistFrame, *, verbose: bool = False) -> dict[str, Any]:
     return {
         "label": frame.label,
         "value": frame.value,
@@ -4411,7 +4411,11 @@ def _frame_to_dict(frame: NetlistFrame) -> dict[str, Any]:
         # Phase A (see ``_item_to_dict``'s docstring) -- filtered here so
         # the Operation-based builder's JSON (which never produces one)
         # stays byte-identical.
-        "body": [d for i in frame.body if (d := _item_to_dict(i)) is not None],
+        "body": [
+            d
+            for i in frame.body
+            if (d := _item_to_dict(i, verbose=verbose)) is not None
+        ],
     }
 
 
@@ -4499,14 +4503,130 @@ def _feedback_to_dict(fb: NetlistFeedback) -> dict[str, Any]:
     }
 
 
-def _item_to_dict(item: NetlistItem) -> dict[str, Any] | None:
+def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
+    """The FULL lossless structured type -- JSON's counterpart to lvnet's
+    verbose-only ``types :`` footnote body (``_lvnet_type_lossless_def``),
+    but shaped as a direct recursive mirror of the ``LVType`` dataclass
+    itself (every field, unflattened) rather than lvnet's by-name-
+    deduplicated appendix: JSON has none of lvnet's line-length/whitespace
+    pressure forcing a footnote indirection, so each terminal's own
+    ``lv_type`` just nests its own full structure inline (repeated verbatim
+    at every occurrence of the same named type -- still lossless, since a
+    JSON reader pays no textual-length cost for the repetition, unlike
+    lvnet's rendered text). ``verbose``-only caller (``netlist_to_dict``);
+    never called for the default (non-verbose) output.
+
+    - ``values``: ``{member_name: {"value": ordinal, "description": ...}}``,
+      sorted by ordinal (mirrors ``_lvnet_type_lossless_def``'s enum/ring
+      ordinal order) -- ``None`` when the type has none loaded (an
+      unresolved enum/ring, or any non-enum/ring kind).
+    - ``fields``: ``[{"name": ..., "type": <recursive dict or None>}, ...]``
+      in declared order -- ``None`` when the type has none loaded (an
+      unresolved cluster/typedef_ref, or any non-cluster kind).
+    - ``element_type``: the recursive dict for an array's element or a
+      parametrized refnum's inner type -- ``None`` when absent.
+    - every other ``LVType`` field carried through verbatim.
+    """
+    return {
+        "kind": lv_type.kind.value,
+        "underlying_type": lv_type.underlying_type,
+        "ref_type": lv_type.ref_type,
+        "classname": lv_type.classname,
+        "values": (
+            {
+                name: {"value": ev.value, "description": ev.description}
+                for name, ev in sorted(
+                    lv_type.values.items(), key=lambda kv: kv[1].value
+                )
+            }
+            if lv_type.values is not None
+            else None
+        ),
+        "fields": (
+            [
+                {
+                    "name": f.name,
+                    "type": _lv_type_to_dict(f.type) if f.type is not None else None,
+                }
+                for f in lv_type.fields
+            ]
+            if lv_type.fields is not None
+            else None
+        ),
+        "element_type": (
+            _lv_type_to_dict(lv_type.element_type)
+            if lv_type.element_type is not None
+            else None
+        ),
+        "dimensions": lv_type.dimensions,
+        "typedef_path": lv_type.typedef_path,
+        "typedef_name": lv_type.typedef_name,
+        "description": lv_type.description,
+        "measure_flavor": lv_type.measure_flavor,
+    }
+
+
+def _dependency_terminal_to_dict(t: ConnectorPaneTerminal) -> dict[str, Any]:
+    """One ``uses :`` dependency's own interface terminal -- the JSON
+    counterpart of ``_render_lvnet_dependency_interface``'s rendered line,
+    which shows only name/type/direction (no pane index, wiring-rule, or
+    default -- those are the OWNING VI's own connector-pane concerns, not
+    reproduced for a dependency's borrowed interface). ``verbose``-only
+    caller (``_dependency_to_dict``)."""
+    d: dict[str, Any] = {"name": t.name, "type": t.type, "direction": t.direction}
+    if t.lv_type is not None:
+        d["lv_type"] = _lv_type_to_dict(t.lv_type)
+    return d
+
+
+def _dependency_to_dict(dep: NetlistDependency) -> dict[str, Any]:
+    """One ``uses :`` manifest entry -- the JSON counterpart of
+    ``_render_lvnet_uses``'s rendered line (+ its verbose-only nested
+    interface). ``verbose``-only caller (``netlist_to_dict``); ``interface``
+    is omitted entirely (never an empty list) when this dependency has none
+    loaded -- a ``class``/``typedef`` dependency, or an unresolved ``subVI``
+    (see ``NetlistDependency.interface`` docstring)."""
+    d: dict[str, Any] = {
+        "kind": dep.kind.value,
+        "qualified": dep.qualified,
+        "path": dep.path,
+    }
+    if dep.interface:
+        d["interface"] = [_dependency_terminal_to_dict(t) for t in dep.interface]
+    return d
+
+
+def _instance_input_to_dict(b: NetlistPortBinding, *, verbose: bool) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "port": b.port,
+        "net": _netref_to_dict(b.net),  # type: ignore[arg-type]
+        "inverted": b.inverted,
+    }
+    if verbose and b.lv_type is not None:
+        d["lv_type"] = _lv_type_to_dict(b.lv_type)
+    return d
+
+
+def _instance_output_to_dict(o: NetlistOutput, *, verbose: bool) -> dict[str, Any]:
+    d = _netref_to_dict(o.net)
+    if verbose and o.lv_type is not None:
+        d["lv_type"] = _lv_type_to_dict(o.lv_type)
+    return d
+
+
+def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any] | None:
     """One body item, tagged with a ``kind`` discriminator so the
     ``instance``/``scope``/``feedback`` union survives JSON (``asdict`` would
     erase it). Returns ``None`` for a Phase A ``NetlistConstant`` -- this OLD
     JSON shape never surfaced a constant before Phase A either (only
     ``render_lvnet`` does); callers filter the ``None`` out (see
     ``_frame_to_dict``/``netlist_to_dict``) so the Operation-based builder's
-    JSON (which never produces one) stays byte-identical."""
+    JSON (which never produces one) stays byte-identical.
+
+    ``verbose`` (default ``False``, threaded from ``netlist_to_dict``)
+    additionally nests each wired input/output's own structured ``lv_type``
+    (see ``_instance_input_to_dict``/``_instance_output_to_dict``) -- terse
+    output is completely unaffected."""
     if isinstance(item, NetlistConstant):
         return None
     if isinstance(item, NetlistInstance):
@@ -4532,14 +4652,11 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any] | None:
             "method": item.method_name,
             "properties": [_property_access_to_dict(p) for p in item.properties],
             "inputs": [
-                {
-                    "port": b.port,
-                    "net": _netref_to_dict(b.net),  # type: ignore[arg-type]
-                    "inverted": b.inverted,
-                }
-                for b in wired_inputs
+                _instance_input_to_dict(b, verbose=verbose) for b in wired_inputs
             ],
-            "outputs": [_netref_to_dict(o.net) for o in item.outputs],
+            "outputs": [
+                _instance_output_to_dict(o, verbose=verbose) for o in item.outputs
+            ],
         }
     if isinstance(item, NetlistFeedback):
         return _feedback_to_dict(item)
@@ -4548,7 +4665,7 @@ def _item_to_dict(item: NetlistItem) -> dict[str, Any] | None:
         "uid": item.uid,
         "scope_kind": item.kind,
         "selector": _netref_to_dict(item.selector) if item.selector else None,
-        "frames": [_frame_to_dict(f) for f in item.frames],
+        "frames": [_frame_to_dict(f, verbose=verbose) for f in item.frames],
         # Always present (empty for sequence/disabled/event scopes) -- see
         # NetlistScope.outputs docstring: a case scope's GammaMerge, or a
         # loop scope's MuMerge/EtaMerge, tagged-union by "kind".
@@ -4582,13 +4699,25 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
     type label (not a Python annotation), the ``instance``/``scope`` union is
     ``kind``-tagged, and scopes nest their frames' bodies recursively.
 
-    ``verbose`` (default ``False``, lvnet §11/§12) additionally surfaces each
-    connector-pane terminal's full ``wiring_rule`` tri-state (+ unknown) --
-    non-verbose keeps the plain ``required: bool`` exactly as before, so
-    default output (and the netlist-from-graph parity test, which compares
-    non-verbose output) is byte/JSON-identical to pre-verbose output.
+    ``verbose`` (default ``False``, lvnet §11/§12) additionally surfaces:
+
+    - each connector-pane terminal's full ``wiring_rule`` tri-state
+      (+ unknown) -- non-verbose keeps the plain ``required: bool`` exactly
+      as before;
+    - a top-level ``dependencies`` array -- the JSON counterpart of lvnet's
+      ``uses :`` manifest (each entry's own ``interface`` when it's a
+      resolved ``subVI`` dependency), see ``_dependency_to_dict``;
+    - each terminal's own structured ``lv_type`` (connector pane, boundary
+      inputs/outputs, dependency interfaces, and every instance's wired
+      input/output throughout ``body``) alongside the existing flattened
+      ``type`` string -- the JSON counterpart of lvnet's ``types :``
+      footnote, see ``_lv_type_to_dict``.
+
+    Non-verbose keeps every one of these OMITTED entirely, so default output
+    (and the netlist-from-graph parity test, which compares non-verbose
+    output) is byte/JSON-identical to pre-verbose output.
     """
-    return {
+    result: dict[str, Any] = {
         "vi": module.vi_name,
         # Authored connector pane (pattern + canonically-ordered terminals), a
         # sibling to the connectivity inputs/outputs below.
@@ -4607,25 +4736,48 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                         if verbose
                         else {}
                     ),
+                    **(
+                        {"lv_type": _lv_type_to_dict(p.lv_type)}
+                        if verbose and p.lv_type is not None
+                        else {}
+                    ),
                 }
                 for p in module.connector_pane.terminals
             ],
         },
         "inputs": [
-            {"name": inp.name, "type": inp.type_descriptor} for inp in module.inputs
+            {
+                "name": inp.name,
+                "type": inp.type_descriptor,
+                **(
+                    {"lv_type": _lv_type_to_dict(inp.lv_type)}
+                    if verbose and inp.lv_type is not None
+                    else {}
+                ),
+            }
+            for inp in module.inputs
         ],
         "outputs": [
             {
                 "name": o.name,
                 "type": o.type_descriptor,
                 "source": _netref_to_dict(o.source) if o.source else None,
+                **(
+                    {"lv_type": _lv_type_to_dict(o.lv_type)}
+                    if verbose and o.lv_type is not None
+                    else {}
+                ),
             }
             for o in module.outputs
         ],
         "components": [_component_to_dict(c) for c in module.components],
         # ``_item_to_dict`` returns ``None`` for a Phase A ``NetlistConstant``
         # -- filtered out, see its docstring.
-        "body": [d for i in module.body if (d := _item_to_dict(i)) is not None],
+        "body": [
+            item_d
+            for i in module.body
+            if (item_d := _item_to_dict(i, verbose=verbose)) is not None
+        ],
         "properties": vi_properties_to_dict(module.properties),
         "health": vi_health_to_dict(module.health),
         "class_context": (
@@ -4634,6 +4786,16 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
             else None
         ),
     }
+    if verbose:
+        # The lvnet §7 ``uses :`` dependency manifest -- populated ONLY by
+        # ``build_netlist_from_graph`` (``NetlistModule.dependencies``
+        # docstring); the OLD Operation-based ``build_netlist`` always
+        # leaves this empty, so gating on ``verbose`` (never unconditional)
+        # keeps non-verbose output byte-identical for EITHER builder.
+        result["dependencies"] = [
+            _dependency_to_dict(dep) for dep in module.dependencies
+        ]
+    return result
 
 
 def render_netlist(module: NetlistModule, *, display_name: str | None = None) -> str:
