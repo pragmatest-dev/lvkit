@@ -602,6 +602,26 @@ field types inline, `cluster{f1 : T1, f2 : T2, …}`, closing the gap at its
 source — is a separate, not-yet-designed enhancement (it would also make
 this corner case moot for future cases): not implemented here.
 
+**Why it is not a one-liner (verified 2026-08-29): it forks the inline
+grammar.** The footnote lossless-def already spells anonymous composites with
+field types — but in the *capitalized* grammar `Cluster{ a : DBL }` /
+`Enum{ m0 = 0 }`, which uses bare ` : ` and ` = ` tokens. The inline
+terminal-line parser (`_split_node_terminal_tail`) is whitespace-tokenized and
+treats any bare `=` as the `= <driver>` operator (and any bare `default` as
+the default keyword) — it is **not brace-aware** — so pasting that grammar onto
+a terminal line misparses (`in x : Enum{ m0 = 0 }` → type `Enum{ m0`, driver
+`0 }`). Pure-scalar anonymous clusters (`Cluster{ a : DBL, b : I32 }`) happen
+to survive as an opaque string but are compared by string equality, gaining no
+structural recovery, and any enum/named field inside re-triggers the collision.
+Closing the gap therefore requires a **maintainer grammar decision**, between:
+(a) **harden the inline line parser to be brace-aware** (ignore
+`=`/`default`/`@index` inside `{}`/`[]`), then reuse the capital lossless-def
+grammar inline — consistent and fully structural, but it changes the inline
+`<Type>` contract the graph-identity gate rests on; or (b) **give each
+anonymous cluster a synthetic footnote handle** — but §10 reserves the footnote
+for NAMED types and anonymous types have no stable cross-occurrence name, so
+this invents new grammar. Not to be chosen silently.
+
 ## 11. verbose vs terse
 
 Only **lvnet + JSON** have the two modes and are lossless targets. **`text` is
