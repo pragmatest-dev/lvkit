@@ -909,7 +909,7 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
                 name=t.name,
                 type=t.type,
                 direction="input" if t.direction == "in" else "output",
-                index=None,
+                index=t.index,
                 wiring_requirement=requirement,
                 default=default_scalar,
                 lv_type=lv_type,
@@ -954,6 +954,8 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
         inputs=inputs,
         outputs=outputs,
         body=body,
-        connector_pane=ConnectorPane(pattern_id=None, terminals=pane_terminals),
+        connector_pane=ConnectorPane(
+            pattern_id=parsed.pattern_id, terminals=pane_terminals
+        ),
         dependencies=dependencies,
     )

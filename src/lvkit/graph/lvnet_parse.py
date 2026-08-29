@@ -38,6 +38,8 @@ from typing import Any
 
 from ..models import DisableStructureKind, ScalarValue
 from .lvnet_grammar import (
+    _BLOCK_DIAGRAM_HEADER_LINE,
+    _FRONT_PANEL_HEADER_LINE,
     _LVNET_ANNOTATION_SEP,
     _LVNET_BLOCK_OPEN,
     _LVNET_CLUSTER_OPEN,
@@ -48,6 +50,8 @@ from .lvnet_grammar import (
     _LVNET_ENUM_OPEN,
     _LVNET_INDENT_WIDTH,
     _LVNET_INSTANCE_KEYWORDS,
+    _LVNET_PANE_INDEX_PREFIX,
+    _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
     _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
@@ -102,14 +106,19 @@ _USES_ENTRY_RE = re.compile(r"^    (\S+)\s+(.+)$")
 # Reuses ``render_lvnet``'s OWN kind enum directly, rather than a second
 # hand-maintained word list that could drift from it.
 _USES_KIND_WORDS = frozenset(k.value for k in DependencyKind)
-# A boundary terminal line: 2-space block indent (§2), then the 3-char
-# ``in ``/``out`` keyword, then at least one space, then everything else
-# (name/type/requirement/default -- split out below).
-_BOUNDARY_LINE_RE = re.compile(r"^  (in|out)\s+(.+)$")
-# The SAME ``in ``/``out`` shape, but matched against already indent-stripped
-# CONTENT (variable indent -- a node's own terminal block nests at whatever
-# depth its declaration sits at), reused for every node's terminal block.
+# The ``in ``/``out`` terminal-line shape, matched against already
+# indent-stripped CONTENT -- reused for every node's own terminal block AND
+# (Phase 2) the ``front-panel :`` section's boundary block, both of which
+# nest at whatever depth their own header sits at (4 spaces for the
+# boundary block, one level deeper than a node's own declaration for a
+# node's terminals).
 _TERMINAL_CONTENT_RE = re.compile(r"^(in|out)\s+(.+)$")
+# Phase 2's unconditional ``@<index>`` trailing column on a boundary
+# terminal row (``render_lvnet._lvnet_pane_index_suffix``) -- an ON-PANE
+# terminal's connector-pane slot index, always the RIGHTMOST token on the
+# line when present (peeled off before requirement/default extraction, see
+# ``_split_type_requirement_default``).
+_PANE_INDEX_RE = re.compile(rf"^{re.escape(_LVNET_PANE_INDEX_PREFIX)}(\d+)$")
 
 # The §7 header keywords a node-DECLARATION line can open with (reusing
 # ``render_lvnet``'s OWN keyword table directly, rather than a second
@@ -296,7 +305,7 @@ def _validate_if_quoted(value: str, line_no: int) -> None:
 class ParsedBoundaryTerminal:
     """One parsed ``in ``/``out`` boundary line (lvnet §3's terminal-line
     grammar, applied to the VI's own connector pane): ``(name, type,
-    direction, requirement, default)`` -- the same 5 facts §3 composes a
+    direction, requirement, default, index)`` -- the same facts §3 composes a
     terminal line from, minus the ``= <driver>`` clause (§2: a boundary line
     never carries one -- it's the pane CONTRACT, not a wire).
 
@@ -309,6 +318,11 @@ class ParsedBoundaryTerminal:
     (e.g. ``'""'``, ``'"1"'``), the literal string ``"default"`` for the BARE
     keyword (§4: a class/refnum type with no literal default), or ``None``
     when the line carries no default clause at all.
+
+    ``index`` is the Phase 2 ``@<index>`` pane-slot column
+    (``ConnectorPaneTerminal.index``), or ``None`` when the row carried none
+    -- an OFF-PANE terminal (not yet surfaced by this pass, see
+    ``render_lvnet._lvnet_pane_index_suffix``).
     """
 
     name: str
@@ -316,29 +330,34 @@ class ParsedBoundaryTerminal:
     direction: str  # "in" | "out"
     requirement: str | None
     default: str | None
+    index: int | None = None
 
 
 def _split_type_requirement_default(
     tail: str, line_no: int, line: str
-) -> tuple[str, str | None, str | None]:
+) -> tuple[str, str | None, str | None, int | None]:
     """Split a BOUNDARY terminal line's post-``:`` tail into ``(type,
-    requirement, default)`` per §3's ``<Type> [<requirement>] [default
-    <value>]`` order -- no ``= <driver>`` clause is ever expected here (§2:
-    the pane is a contract, not a wire).
+    requirement, default, index)`` per §3's ``<Type> [<requirement>]
+    [default <value>] [@<index>]`` order -- no ``= <driver>`` clause is ever
+    expected here (§2: the pane is a contract, not a wire).
 
     Tokenizes on whitespace RUNS (``str.split()``), which collapses the
     column-alignment padding ``_render_term_group`` inserts back down to
     single spaces -- safe because the actual VALUE text itself is assumed to
     never contain more than one consecutive space (an assumption, not a
-    proof -- flagged in the round-trip report). The ``default`` keyword is
-    found by its FIRST occurrence: a ``<Type>`` clause never legitimately
-    contains the bare word "default" (it's a faithful LVType descriptor,
-    never LabVIEW vocabulary), but a STRING value legitimately CAN (e.g. a
-    real status literal reading "Restore to default settings", md §4/§10 --
-    now that a string literal's own text survives escaped-but-intact) --
-    so the FIRST occurrence is always the real keyword, and everything from
-    there to end of line is the value, however many more times the word
-    recurs inside it.
+    proof -- flagged in the round-trip report). The Phase 2 ``@<index>``
+    column is peeled off FIRST, since it's the OUTERMOST/rightmost token
+    when present (``render_lvnet``'s own append order) -- a quoted STRING
+    value's own last token always retains its closing quote character, so it
+    can never be mistaken for a bare ``@<digits>`` token. The ``default``
+    keyword is found by its FIRST occurrence (after that): a ``<Type>``
+    clause never legitimately contains the bare word "default" (it's a
+    faithful LVType descriptor, never LabVIEW vocabulary), but a STRING
+    value legitimately CAN (e.g. a real status literal reading "Restore to
+    default settings", md §4/§10 -- now that a string literal's own text
+    survives escaped-but-intact) -- so the FIRST occurrence is always the
+    real keyword, and everything from there to end of line is the value,
+    however many more times the word recurs inside it.
     """
     words = tail.split()
     if "=" in words:
@@ -349,6 +368,18 @@ def _split_type_requirement_default(
         )
     if not words:
         raise LvnetParseError(f"line {line_no}: missing type after ':': {line!r}")
+
+    index: int | None = None
+    if words:
+        m = _PANE_INDEX_RE.match(words[-1])
+        if m is not None:
+            index = int(m.group(1))
+            words = words[:-1]
+
+    if not words:
+        raise LvnetParseError(
+            f"line {line_no}: empty type after stripping '@index': {line!r}"
+        )
 
     default: str | None = None
     if _LVNET_DEFAULT_KEYWORD in words:
@@ -367,7 +398,7 @@ def _split_type_requirement_default(
             f"line {line_no}: empty type after stripping requirement/default "
             f"keywords: {line!r}"
         )
-    return " ".join(words), requirement, default
+    return " ".join(words), requirement, default, index
 
 
 def _split_node_terminal_tail(
@@ -605,9 +636,14 @@ class ParsedTypeDef:
 @dataclass(frozen=True)
 class ParsedLvnet:
     """The result of parsing an lvnet text: header, the OPTIONAL ``uses :``
-    dependency manifest, boundary block, body, the final
-    boundary-output-drive block, and the OPTIONAL bottom-appendix
+    dependency manifest, the Phase 2 ``front-panel :`` section (pattern +
+    boundary block), the ``block-diagram :`` body + its trailing
+    boundary-output-drive lines, and the OPTIONAL bottom-appendix
     ``types :`` footnote section (§10, verbose-only).
+
+    ``pattern_id`` is ``ConnectorPane.pattern_id`` (the conId) -- ``None``
+    when the ``front-panel :`` section carried no ``pattern :`` line (an
+    unknown pattern, or no ``front-panel :`` section at all).
 
     ``types`` maps each NAMED type to its ``ParsedTypeDef`` (the structural
     ``def_text`` plus the optional ``; ./path``) -- ``netlist_signature``'s
@@ -619,6 +655,7 @@ class ParsedLvnet:
 
     vi_name: str
     uses: tuple[ParsedDependency, ...] = field(default_factory=tuple)
+    pattern_id: int | None = None
     boundary: tuple[ParsedBoundaryTerminal, ...] = field(default_factory=tuple)
     body: tuple[ParsedBodyItem, ...] = field(default_factory=tuple)
     output_drives: tuple[ParsedDrive, ...] = field(default_factory=tuple)
@@ -1233,90 +1270,117 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
     return tuple(entries)
 
 
-def _parse_boundary_block(cursor: _Cursor) -> list[ParsedBoundaryTerminal]:
+def _parse_boundary_terminal_line(
+    content: str, line_no: int, line: str
+) -> ParsedBoundaryTerminal:
+    """Parse one already indent-stripped ``in ``/``out`` boundary CONTENT
+    line (§3, applied to the connector pane) -- shared by
+    ``_parse_front_panel_block``."""
+    m = _TERMINAL_CONTENT_RE.match(content)
+    if m is None:
+        raise LvnetParseError(
+            f"line {line_no}: expected an 'in '/'out' boundary terminal "
+            f"line, got {line!r}"
+        )
+    direction, rest = m.group(1), m.group(2)
+    # Split on the STRUCTURAL ``" : "`` (space-colon-space) token, never
+    # a bare ``":"``: a terminal's own authored name can itself contain
+    # a literal colon with no preceding space (a real corpus control
+    # named ``"txtRuns:"``), which a first-bare-":" split mis-splits.
+    sep_idx = rest.find(_LVNET_TYPE_SEP)
+    if sep_idx == -1:
+        raise LvnetParseError(
+            f"line {line_no}: missing ' : <Type>' clause (§3): {line!r}"
+        )
+    name = rest[:sep_idx].strip()
+    tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
+    if not name:
+        raise LvnetParseError(f"line {line_no}: empty terminal name: {line!r}")
+    type_str, requirement, default, index = _split_type_requirement_default(
+        tail, line_no, line
+    )
+    return ParsedBoundaryTerminal(
+        name=name,
+        type=type_str,
+        direction=direction,
+        requirement=requirement,
+        default=default,
+        index=index,
+    )
+
+
+def _parse_front_panel_block(
+    cursor: _Cursor,
+) -> tuple[int | None, list[ParsedBoundaryTerminal]]:
+    """Parse the OPTIONAL Phase 2 ``front-panel :`` section (the VI's own
+    connector pane): the ``pattern : <conId>`` line (OPTIONAL -- omitted by
+    ``render_lvnet`` when the pattern is unknown) followed by the boundary
+    ``in``/``out`` terminal block, both at 4-space indent (one level deeper
+    than the section header's own 2 spaces). Absent entirely (``(None,
+    [])``) when the next line isn't exactly the ``front-panel :`` header --
+    ``render_lvnet`` omits the section when there is nothing to show, rather
+    than emit an empty header, so its absence here is never itself an
+    error.
+    """
+    if cursor.peek() != _FRONT_PANEL_HEADER_LINE:
+        return None, []
+    cursor.take()
+    content_indent = _LVNET_INDENT_WIDTH * 2
+
+    pattern_id: int | None = None
+    pattern_prefix = f"{_LVNET_PATTERN_KEYWORD}{_LVNET_TYPE_SEP}"
+    line = cursor.peek()
+    if line is not None and _indent_len(line) == content_indent:
+        content = line[content_indent:]
+        if content.startswith(pattern_prefix):
+            line_no = cursor.line_no
+            cursor.take()
+            pattern_text = content[len(pattern_prefix) :]
+            try:
+                pattern_id = int(pattern_text)
+            except ValueError:
+                raise LvnetParseError(
+                    f"line {line_no}: 'pattern :' value must be an integer "
+                    f"conId: {line!r}"
+                ) from None
+
     boundary: list[ParsedBoundaryTerminal] = []
     while True:
         line = cursor.peek()
-        if line is None:
-            break
-        if line.strip() == "":
-            cursor.take()  # the blank line ending the boundary block (§2)
+        if line is None or _indent_len(line) != content_indent:
             break
         line_no = cursor.line_no
         cursor.take()
-        m = _BOUNDARY_LINE_RE.match(line)
-        if m is None:
-            raise LvnetParseError(
-                f"line {line_no}: expected an 'in '/'out' boundary terminal "
-                f"line or the blank line ending the boundary block, got "
-                f"{line!r}"
-            )
-        direction, rest = m.group(1), m.group(2)
-        # Split on the STRUCTURAL ``" : "`` (space-colon-space) token, never
-        # a bare ``":"``: a terminal's own authored name can itself contain
-        # a literal colon with no preceding space (a real corpus control
-        # named ``"txtRuns:"``), which a first-bare-":" split mis-splits.
-        sep_idx = rest.find(_LVNET_TYPE_SEP)
-        if sep_idx == -1:
-            raise LvnetParseError(
-                f"line {line_no}: missing ' : <Type>' clause (§3): {line!r}"
-            )
-        name = rest[:sep_idx].strip()
-        tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
-        if not name:
-            raise LvnetParseError(f"line {line_no}: empty terminal name: {line!r}")
-        type_str, requirement, default = _split_type_requirement_default(
-            tail, line_no, line
-        )
         boundary.append(
-            ParsedBoundaryTerminal(
-                name=name,
-                type=type_str,
-                direction=direction,
-                requirement=requirement,
-                default=default,
-            )
+            _parse_boundary_terminal_line(line[content_indent:], line_no, line)
         )
-    return boundary
+    return pattern_id, boundary
 
 
-def _parse_output_drives(cursor: _Cursor) -> list[ParsedDrive]:
-    drives: list[ParsedDrive] = []
-    while True:
-        line = cursor.peek()
-        if line is None:
-            break
-        if line == _TYPES_HEADER_LINE:
-            # the OPTIONAL bottom-appendix ``types :`` footnote (§10) --
-            # never itself an output-drive line, hand control back without
-            # consuming it.
-            break
-        if line.strip() == "":
-            cursor.take()
-            continue
-        line_no = cursor.line_no
-        cursor.take()
-        if _indent_len(line) != 2:
-            raise LvnetParseError(
-                f"line {line_no}: output-drive line must be at 2-space "
-                f"indent (§2): {line!r}"
-            )
-        content = line[2:]
-        eq_idx = content.find("=")
-        if eq_idx == -1:
-            raise LvnetParseError(
-                f"line {line_no}: expected '<name> = <source>' output-drive "
-                f"line, got {line!r}"
-            )
-        name = content[:eq_idx].rstrip()
-        source = content[eq_idx + 1 :].lstrip()
-        if not name:
-            raise LvnetParseError(
-                f"line {line_no}: empty output name in drive line: {line!r}"
-            )
-        _validate_if_quoted(source, line_no)
-        drives.append(ParsedDrive(net=name, source=source))
-    return drives
+def _parse_block_diagram_block(
+    cursor: _Cursor,
+) -> tuple[list[ParsedBodyItem], list[ParsedDrive]]:
+    """Parse the Phase 2 ``block-diagram :`` section (ALWAYS present,
+    unlike ``front-panel :``/``uses :``/``types :`` -- every VI has a
+    diagram, even an empty one): the VI's own body, one level deeper (4
+    spaces) than the section header. The boundary-output-drive lines
+    (§2's ``<out name> = <source-net>``) now live at the END of this SAME
+    body, at the SAME indent as its own top-level items -- rendered with
+    the plain generic ``net = source`` shape (``render_lvnet``'s own
+    ``_LVNET_DRIVER_OP``), so they parse through the exact same generic
+    bare-drive path ``_parse_items``/``_parse_one_item_or_drive`` already
+    uses for a case frame's own drives; no dedicated output-drive grammar
+    or "stray drives are an error" check is needed here any more.
+    """
+    line = cursor.peek()
+    if line != _BLOCK_DIAGRAM_HEADER_LINE:
+        raise LvnetParseError(
+            f"line {cursor.line_no}: expected the 'block-diagram :' "
+            f"section header, got {line!r}"
+        )
+    cursor.take()
+    content_indent = _LVNET_INDENT_WIDTH * 2
+    return _parse_items(cursor, content_indent)
 
 
 def _parse_types_block(cursor: _Cursor) -> dict[str, ParsedTypeDef]:
@@ -1376,10 +1440,12 @@ def _parse_types_block(cursor: _Cursor) -> dict[str, ParsedTypeDef]:
 
 def parse_lvnet(text: str) -> ParsedLvnet:
     """Parse an lvnet text's ``vi <name> :`` header, OPTIONAL ``uses :``
-    dependency manifest, boundary block, BODY, final boundary-output-drive
-    block, and OPTIONAL bottom-appendix ``types :`` footnote section (§10).
-    Raises ``LvnetParseError`` naming the exact line on anything that
-    doesn't fit the grammar this increment knows -- never silently skips.
+    dependency manifest, OPTIONAL Phase 2 ``front-panel :`` section
+    (pattern + boundary block), the ``block-diagram :`` BODY (with its
+    trailing boundary-output-drive lines), and OPTIONAL bottom-appendix
+    ``types :`` footnote section (§10). Raises ``LvnetParseError`` naming
+    the exact line on anything that doesn't fit the grammar this increment
+    knows -- never silently skips.
     """
     lines = text.splitlines()
     if not lines:
@@ -1394,24 +1460,14 @@ def parse_lvnet(text: str) -> ParsedLvnet:
 
     cursor = _Cursor(lines, pos=1)
     uses = _parse_uses_block(cursor)
-    boundary = _parse_boundary_block(cursor)
-
-    body_items, stray_drives = _parse_items(cursor, indent=2)
-    if stray_drives:
-        raise LvnetParseError(
-            f"the top-level VI body must not contain bare 'net = source' "
-            f"drive lines outside a case frame (§8): {stray_drives!r}"
-        )
-
-    blank = cursor.peek()
-    if blank is not None and blank.strip() == "":
-        cursor.take()  # the blank line separating body from output-drives (§2)
-    output_drives = _parse_output_drives(cursor)
+    pattern_id, boundary = _parse_front_panel_block(cursor)
+    body_items, output_drives = _parse_block_diagram_block(cursor)
     type_defs = _parse_types_block(cursor)
 
     return ParsedLvnet(
         vi_name=vi_name,
         uses=uses,
+        pattern_id=pattern_id,
         boundary=tuple(boundary),
         body=tuple(body_items),
         output_drives=tuple(output_drives),
@@ -1604,12 +1660,17 @@ def boundary_signature(
     module_or_parsed: NetlistModule | ParsedLvnet,
     parsed_types: dict[str, ParsedTypeDef] | None = None,
     ambiguous: frozenset[str] = frozenset(),
-) -> tuple[tuple[str, TypeShape, str, str | None, str | None], ...]:
+) -> tuple[tuple[str, TypeShape, str, str | None, str | None, int | None], ...]:
     """The canonical, comparable boundary projection: an ordered tuple of
     ``(name, type_shape, direction, wiring_requirement_or_None,
-    default_token_or_None)`` per terminal (inputs then outputs) -- computed
-    IDENTICALLY (same helper calls, same field sources) from a real
-    ``NetlistModule`` and from a ``ParsedLvnet``.
+    default_token_or_None, pane_index_or_None)`` per terminal (inputs then
+    outputs) -- computed IDENTICALLY (same helper calls, same field
+    sources) from a real ``NetlistModule`` and from a ``ParsedLvnet``.
+
+    ``pane_index`` (Phase 2) is the connector-pane slot index
+    (``ConnectorPaneTerminal.index`` / ``ParsedBoundaryTerminal.index``) --
+    included so a round-trip proves the ``@<index>`` column itself
+    survives, not just the terminal's name/type/requirement/default.
 
     ``type_shape`` is the STRENGTHENED §10 type comparison
     (``netlist._lv_type_comparison_shape`` / ``_parsed_type_ref_shape`` --
@@ -1630,6 +1691,7 @@ def boundary_signature(
                 t.direction,
                 t.requirement,
                 t.default,
+                t.index,
             )
             for t in module_or_parsed.boundary
         )
@@ -1641,7 +1703,7 @@ def boundary_signature(
         len(module.inputs) : len(module.inputs) + len(module.outputs)
     ]
 
-    entries: list[tuple[str, TypeShape, str, str | None, str | None]] = [
+    entries: list[tuple[str, TypeShape, str, str | None, str | None, int | None]] = [
         (
             inp.name,
             _lv_type_comparison_shape(inp.lv_type, ambiguous=ambiguous)
@@ -1650,6 +1712,7 @@ def boundary_signature(
             "in",
             _lvnet_requirement_trailing(pane),
             _module_default_token(pane.default),
+            pane.index,
         )
         for inp, pane in zip(module.inputs, input_panes, strict=True)
     ] + [
@@ -1661,6 +1724,7 @@ def boundary_signature(
             "out",
             _lvnet_requirement_trailing(pane),
             _module_default_token(pane.default),
+            pane.index,
         )
         for o, pane in zip(module.outputs, output_panes, strict=True)
     ]
@@ -2003,8 +2067,11 @@ def netlist_signature(
     module_or_parsed: NetlistModule | ParsedLvnet,
     ambiguous_named_types: frozenset[str] | None = None,
 ) -> tuple:
-    """The full, comparable projection of an lvnet document: the ``uses :``
-    manifest + boundary + body + the final boundary-output-drive block --
+    """The full, comparable projection of an lvnet document: ``(uses,
+    pattern_id, boundary, body, drives)`` -- the ``uses :`` manifest, the
+    Phase 2 ``front-panel :`` section's own ``pattern_id``
+    (``ConnectorPane.pattern_id``) plus its boundary block, the
+    ``block-diagram :`` body, and the final boundary-output-drive block --
     computed IDENTICALLY from a real ``NetlistModule`` (reusing
     ``render_lvnet``'s own private helpers directly, e.g.
     ``_lvnet_component``/``_render_lvnet_source``/``netlist._lv_type_
@@ -2071,7 +2138,7 @@ def netlist_signature(
             _parsed_item_signature(item, types_dict, ambiguous) for item in parsed.body
         )
         drives = tuple((d.net, d.source) for d in parsed.output_drives)
-        return (uses, boundary, body, drives)
+        return (uses, parsed.pattern_id, boundary, body, drives)
 
     module = module_or_parsed
     ambiguous = (
@@ -2098,4 +2165,4 @@ def netlist_signature(
         )
         for o in module.outputs
     )
-    return (uses, boundary, body, drives)
+    return (uses, module.connector_pane.pattern_id, boundary, body, drives)

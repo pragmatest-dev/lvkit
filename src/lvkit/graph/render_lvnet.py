@@ -29,6 +29,8 @@ from ..models import (
 from ..num_format import format_numeric_const
 from .interface_order import WiringRequirement
 from .lvnet_grammar import (
+    _BLOCK_DIAGRAM_HEADER_LINE,
+    _FRONT_PANEL_HEADER_LINE,
     _LOCAL_VARIABLE_TODO,
     _LVNET_ANNOTATION_SEP,
     _LVNET_BLOCK_OPEN,
@@ -45,6 +47,8 @@ from .lvnet_grammar import (
     _LVNET_INDENT,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_NAME_CAP,
+    _LVNET_PANE_INDEX_PREFIX,
+    _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
     _LVNET_STRING_ESCAPES,
     _LVNET_STRUCTURE_NET_RE,
@@ -463,12 +467,14 @@ def _render_lvnet_types(module: NetlistModule, lines: list[str]) -> None:
     trivial to move once the maintainer settles final placement): one
     ``<Name> = <lossless-def>[ ; ./path]`` line per NAMED type reachable
     anywhere in the module, sorted by name. Omitted entirely (no lines
-    appended) when the VI has no named types -- never an empty header.
+    appended) when the VI has no named types -- never an empty header. No
+    leading blank-line separator (Phase 2 dropped those everywhere -- every
+    section is self-delimiting by its own header line + indent, never a
+    blank line, so the parser never has to special-case skipping one).
     """
     named = _collect_lvnet_named_types(module)
     if not named:
         return
-    lines.append("")
     lines.append(_TYPES_HEADER_LINE)
     for name, lv_type in named.items():
         body = _lvnet_type_lossless_def(lv_type)
@@ -1229,35 +1235,115 @@ def _lvnet_const_value_str(c: Constant) -> str:
     return _lvnet_literal_token(c.value)
 
 
+def _lvnet_pane_index_suffix(pane: ConnectorPaneTerminal) -> str | None:
+    """The Phase 2 ``@<index>`` trailing column (the connector-pane identity
+    surfacing this pass adds) for an ON-PANE boundary terminal row --
+    rendered in BOTH terse and verbose, unlike the requirement/default
+    clause ``_lvnet_boundary_trailing`` composes below: the pane SLOT index
+    is structural identity (the same fact ``front-panel : / pattern :``
+    names), not a lossless-verbosity nicety.
+
+    ``None`` only when ``ConnectorPaneTerminal.index`` is genuinely
+    unassigned -- never fabricated. This is also the seam an OFF-PANE
+    terminal (a front-panel control not on the connector pane) would use if
+    the model ever carried one: it would have ``index=None`` and render with
+    no ``@`` at all, same as here -- but ``build_netlist_from_graph`` reads
+    ``InMemoryVIGraph.get_inputs``/``get_outputs`` with their default
+    ``public_only=True``, so an off-pane terminal never reaches
+    ``module.connector_pane.terminals`` in the first place today; surfacing
+    one is deferred to a later pass (needs build-side plumbing), not
+    invented here.
+    """
+    if pane.index is None:
+        return None
+    return f"{_LVNET_PANE_INDEX_PREFIX}{pane.index}"
+
+
 def _lvnet_boundary_trailing(
     pane: ConnectorPaneTerminal, *, verbose: bool
 ) -> str | None:
-    """The verbose-only trailing text for a BOUNDARY (connector-pane)
-    terminal line: the §5 requirement keyword, the control's own §4
-    ``default <value>`` clause, or both space-joined in that order -- §5's
-    own worked example composes exactly this way: ``error in (no error) :
-    Error optional default (no error)``. Terse (``verbose=False``) renders
-    neither (unchanged from before this pass -- the golden §16 fixture's
-    boundary has no non-``None`` default on any of its terminals, so it is
-    byte-identical either way).
+    """The trailing text for a BOUNDARY (connector-pane) terminal line: the
+    §5 requirement keyword and the control's own §4 ``default <value>``
+    clause (both VERBOSE-only, space-joined in that order -- §5's own worked
+    example composes exactly this way: ``error in (no error) : Error
+    optional default (no error)``), followed by the Phase 2 ``@<index>``
+    column (``_lvnet_pane_index_suffix``, unconditional -- present in terse
+    too). Terse (``verbose=False``) renders ONLY the index column.
 
     Closes the round-trip harness's Gap #1 (see
     ``lvkit.graph.lvnet_parse``'s module docstring / the round-trip report):
-    until this pass, a boundary line NEVER rendered
+    until an earlier pass, a boundary line NEVER rendered
     ``ConnectorPaneTerminal.default`` at all, even in verbose mode -- a
     connector-pane control's authored default (e.g. a real ``U16`` output
     defaulting to ``"1"`` in ``Graphical Test Runner - Main UI - .vi``) was
     silently dropped from the lossless surface.
     """
-    if not verbose:
-        return None
     parts: list[str] = []
-    requirement = _lvnet_requirement_trailing(pane)
-    if requirement is not None:
-        parts.append(requirement)
-    if pane.default is not None:
-        parts.append(f"{_LVNET_DEFAULT_KEYWORD} {_lvnet_literal_token(pane.default)}")
+    if verbose:
+        requirement = _lvnet_requirement_trailing(pane)
+        if requirement is not None:
+            parts.append(requirement)
+        if pane.default is not None:
+            parts.append(
+                f"{_LVNET_DEFAULT_KEYWORD} {_lvnet_literal_token(pane.default)}"
+            )
+    index_suffix = _lvnet_pane_index_suffix(pane)
+    if index_suffix is not None:
+        parts.append(index_suffix)
     return " ".join(parts) if parts else None
+
+
+def _render_lvnet_front_panel(
+    module: NetlistModule, lines: list[str], *, verbose: bool
+) -> None:
+    """Render the Phase 2 ``front-panel :`` section: the LV-mirroring home
+    for the VI's own connector pane -- its wiring ``pattern :`` (§2's
+    ``ConnectorPane.pattern_id``, the conId, OMITTED entirely when unknown)
+    followed by the boundary ``in``/``out`` terminal block, each row now
+    carrying a trailing ``@<index>`` pane-slot column
+    (``_lvnet_pane_index_suffix``). Omitted entirely (no header, no lines)
+    when there is NOTHING to show -- no pattern AND no boundary terminals
+    (a top-level/main VI) -- never an empty header, same convention as
+    ``uses :``/``types :``.
+
+    ``connector_pane.terminals`` is built (by BOTH builders) as inputs then
+    outputs, walked over the SAME ``ctx.inputs``/``ctx.outputs`` lists used
+    to build ``module.inputs``/``module.outputs`` -- so it lines up
+    POSITIONALLY, 1:1, with the boundary entries below.
+    """
+    pane_terminals = module.connector_pane.terminals
+    input_panes = pane_terminals[: len(module.inputs)]
+    output_panes = pane_terminals[
+        len(module.inputs) : len(module.inputs) + len(module.outputs)
+    ]
+
+    boundary_entries: list[_TermLine] = [
+        _TermLine(
+            "in ",
+            inp.name,
+            _lvnet_type_label(inp.type_descriptor, inp.lv_type),
+            _lvnet_boundary_trailing(pane, verbose=verbose),
+        )
+        for inp, pane in zip(module.inputs, input_panes, strict=True)
+    ] + [
+        _TermLine(
+            "out",
+            o.name,
+            _lvnet_type_label(o.type_descriptor, o.lv_type),
+            _lvnet_boundary_trailing(pane, verbose=verbose),
+        )
+        for o, pane in zip(module.outputs, output_panes, strict=True)
+    ]
+
+    pattern_id = module.connector_pane.pattern_id
+    if pattern_id is None and not boundary_entries:
+        return
+    lines.append(_FRONT_PANEL_HEADER_LINE)
+    content_indent = _LVNET_INDENT * 2
+    if pattern_id is not None:
+        lines.append(f"{content_indent}{_LVNET_PATTERN_KEYWORD}{_LVNET_TYPE_SEP}{pattern_id}")
+    if boundary_entries:
+        lines.extend(_render_term_group(boundary_entries, content_indent))
 
 
 def _render_lvnet_dependency_interface(
@@ -1366,66 +1452,58 @@ def render_lvnet(
 
     ``verbose`` (default ``False``, lvnet §11) is the terse/lossless switch:
     terse (default) renders IDENTICALLY to before this parameter existed
-    (the §16 golden). Verbose additionally shows each BOUNDARY (connector-
-    pane) terminal's §5 requirement keyword and (this pass) its own §4
-    ``default <value>`` clause when the pane records one (see
+    (the §16 golden), except for Phase 2's own unconditional additions (the
+    ``front-panel :``/``block-diagram :`` section layout and each boundary
+    row's ``@<index>`` pane-slot column -- both structural identity, shown
+    in BOTH modes). Verbose additionally shows each BOUNDARY (connector-
+    pane) terminal's §5 requirement keyword and its own §4 ``default
+    <value>`` clause when the pane records one (see
     ``_lvnet_boundary_trailing``) -- subVI call-site wiring_rule nuance is a
-    later slice (§11: "the wiring_rule nuance at call sites") -- plus, this
-    pass, each ``subVI`` ``uses :`` entry's own inline connector-pane
-    interface (see ``_render_lvnet_uses``/``_render_lvnet_dependency_
-    interface``): enough to rehydrate that dependency's MINIMAL-load
-    connector pane from the text alone; plus, this pass, a bottom-appendix
-    ``types :`` section (§10, ``_render_lvnet_types``) giving every NAMED
-    type's own FULL lossless structure (enum ordinals, cluster field
-    types) -- the piece that makes verbose actually type-REHYDRATABLE,
-    not just by-name-referenceable.
+    later slice (§11: "the wiring_rule nuance at call sites") -- plus each
+    ``subVI`` ``uses :`` entry's own inline connector-pane interface (see
+    ``_render_lvnet_uses``/``_render_lvnet_dependency_interface``): enough
+    to rehydrate that dependency's MINIMAL-load connector pane from the
+    text alone; plus a bottom-appendix ``types :`` section (§10,
+    ``_render_lvnet_types``) giving every NAMED type's own FULL lossless
+    structure (enum ordinals, cluster field types) -- the piece that makes
+    verbose actually type-REHYDRATABLE, not just by-name-referenceable.
+
+    Phase 2 (this pass) restructures the document into the LV-mirroring
+    section layout: ``uses :`` -> ``front-panel :`` (the connector pane:
+    ``pattern :`` + boundary terminals, see ``_render_lvnet_front_panel``)
+    -> ``block-diagram :`` (the body, with the boundary-output-drive lines
+    now nested at ITS end, no longer a separate trailing block) ->
+    ``types :``. This CHANGES the terse output too (NOT byte-preserving
+    against the pre-Phase-2 golden) -- the gate is the round-trip +
+    reconstruct-idempotence + regenerated golden, never byte-identity with
+    the old layout.
     """
     handles = _assign_lvnet_handles(module)
     header_name = display_name if display_name is not None else module.vi_name
     lines: list[str] = [f"vi {header_name}{_LVNET_BLOCK_OPEN}"]
     _render_lvnet_uses(module.dependencies, lines, verbose=verbose)
+    _render_lvnet_front_panel(module, lines, verbose=verbose)
 
-    # ``connector_pane.terminals`` is built (by BOTH builders) as inputs then
-    # outputs, walked over the SAME ``ctx.inputs``/``ctx.outputs`` lists used
-    # to build ``module.inputs``/``module.outputs`` -- so it lines up
-    # POSITIONALLY, 1:1, with the boundary entries below.
-    pane_terminals = module.connector_pane.terminals
-    input_panes = pane_terminals[: len(module.inputs)]
-    output_panes = pane_terminals[
-        len(module.inputs) : len(module.inputs) + len(module.outputs)
-    ]
+    lines.append(_BLOCK_DIAGRAM_HEADER_LINE)
+    body_indent = _LVNET_INDENT * 2
+    _render_lvnet_items(module.body, body_indent, lines, handles)
 
-    boundary_entries: list[_TermLine] = [
-        _TermLine(
-            "in ",
-            inp.name,
-            _lvnet_type_label(inp.type_descriptor, inp.lv_type),
-            _lvnet_boundary_trailing(pane, verbose=verbose),
-        )
-        for inp, pane in zip(module.inputs, input_panes, strict=True)
-    ] + [
-        _TermLine(
-            "out",
-            o.name,
-            _lvnet_type_label(o.type_descriptor, o.lv_type),
-            _lvnet_boundary_trailing(pane, verbose=verbose),
-        )
-        for o, pane in zip(module.outputs, output_panes, strict=True)
-    ]
-    if boundary_entries:
-        lines.extend(_render_term_group(boundary_entries, _LVNET_INDENT))
-
-    lines.append("")
-    _render_lvnet_items(module.body, _LVNET_INDENT, lines, handles)
-    lines.append("")
-
+    # The boundary-output-drive lines now live at the END of the
+    # ``block-diagram :`` body, at the SAME indent as its own top-level
+    # items -- the VI's own diagram is, in this respect, just like a case
+    # frame: it may declare what it drives onto its own (boundary) outputs
+    # alongside its nodes. Plain ``net = source`` (``_LVNET_DRIVER_OP``,
+    # unchanged from a structure-scoped drive line's own format -- no
+    # separate column-alignment scheme any more) rather than the OLD
+    # dedicated ljust-padded form, so this now parses through the SAME
+    # generic bare-drive path every other scope's own drives use (see
+    # ``lvnet_parse._parse_items``/``_parse_one_item_or_drive``).
     if module.outputs:
-        name_width = max(len(o.name) for o in module.outputs) + 1
         for o in module.outputs:
             source_str = (
                 _render_lvnet_source(o.source, handles) if o.source is not None else "?"
             )
-            lines.append(f"  {o.name.ljust(name_width)}= {source_str}")
+            lines.append(f"{body_indent}{o.name}{_LVNET_DRIVER_OP}{source_str}")
 
     if verbose:
         _render_lvnet_types(module, lines)

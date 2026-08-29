@@ -73,6 +73,23 @@ _LVNET_DEFAULT_PAREN_PREFIX = f"({_LVNET_DEFAULT_KEYWORD} "
 # full line (2-space indent), matched verbatim by lvnet_parse.py.
 _TYPES_HEADER_LINE = f"{_LVNET_INDENT}types :"
 _USES_HEADER_LINE = f"{_LVNET_INDENT}uses :"
+# Phase 2 (lvnet redesign): the LV-mirroring section layout -- a VI's own
+# connector pane (`front-panel :`, OPTIONAL -- omitted when the pane is
+# empty and the pattern is unknown) and its diagram body (`block-diagram :`,
+# ALWAYS present). Both are 2-space-indent section headers, exactly like
+# `uses :`/`types :` above -- their own content nests one level deeper (4
+# spaces), matched verbatim by lvnet_parse.py.
+_FRONT_PANEL_HEADER_LINE = f"{_LVNET_INDENT}front-panel :"
+_BLOCK_DIAGRAM_HEADER_LINE = f"{_LVNET_INDENT}block-diagram :"
+# The `front-panel :` section's own `pattern : <conId>` line keyword (§2's
+# connector-pane identity) and the unconditional `@<index>` trailing column
+# every ON-PANE boundary terminal row gains (present in BOTH terse and
+# verbose -- pane slot identity is structural, not a lossless-verbosity
+# nicety, unlike the `<requirement>`/`default <value>` clause it sits next
+# to). OFF-PANE terminals (a front-panel control not on the connector pane)
+# are not surfaced by this pass -- deferred, needs build-side plumbing.
+_LVNET_PATTERN_KEYWORD = "pattern"
+_LVNET_PANE_INDEX_PREFIX = "@"
 
 # Column-alignment caps (lvnet §14: "density is a view concern"). A single
 # outlier terminal -- a named enum with ~300 members shown structurally

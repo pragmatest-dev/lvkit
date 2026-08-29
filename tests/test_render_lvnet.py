@@ -52,52 +52,53 @@ vi loadTestsFromTestCase.vi :
     class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
     class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
     subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
-  in   TestLoader in       : TestLoader.lvclass
-  in   TestCase            : TestCase.lvclass
-  in   error in (no error) : Error
-  out  TestLoader out      : TestLoader.lvclass
-  out  TestSuite           : TestSuite.lvclass
-  out  error out           : Error
-
-  case error in (no error) :
-    frame "No Error" :
-      subVI listAllTestMethods_1 : TestCase.lvclass:listAllTestMethods.vi
-        in   TestCase in         : TestCase.lvclass = TestCase
-        in   error in (no error) : Error            = error in (no error)
-        out  TestCase out        : TestCase.lvclass
-        out  test methods        : [String]
-        out  error out           : Error
-      for-loop :
-        subVI TestCase_Init_1 : TestCase.lvclass:TestCase_Init.vi
-          in   TestCase in            : TestCase.lvclass = listAllTestMethods_1::TestCase out
-          in   methodName ("runTest") : String           = listAllTestMethods_1::test methods
-          in   GUID ("")              : String           default ""
-          in   error in (no error)    : Error            = loop0::shift0
-          out  TestCase out           : TestCase.lvclass
-          out  error out              : Error
-        shift-register loop0::shift0 :
-          init = listAllTestMethods_1::error out
-          each = TestCase_Init_1::error out
-        tunnel loop0::out0 : auto-indexing = TestCase_Init_1::TestCase out
-      subVI TestSuite_Init_1 : TestSuite.lvclass:TestSuite_Init.vi
-        in   TestSuite in                    : TestSuite.lvclass default
-        in   tests (none)                    : [LabVIEW Object]  = loop0::out0
-        in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster} default
-        in   GUID ("")                       : String            default ""
-        in   error in (no error)             : Error             = loop0::shift0
-        out  TestSuite out                   : TestSuite.lvclass
-        out  error out                       : Error
-      case0::out0 = TestSuite_Init_1::error out
-      case0::out1 = TestLoader in
-      case0::out2 = TestSuite_Init_1::TestSuite out
-    frame "Error" :
-      case0::out0 = error in (no error)
-      case0::out1 = TestLoader in
-      case0::out2 = (default TestSuite.lvclass)
-
-  TestLoader out = case0::out1
-  TestSuite      = case0::out2
-  error out      = case0::out0\
+  front-panel :
+    pattern : 4815
+    in   TestLoader in       : TestLoader.lvclass @11
+    in   TestCase            : TestCase.lvclass   @10
+    in   error in (no error) : Error              @8
+    out  TestLoader out      : TestLoader.lvclass @3
+    out  TestSuite           : TestSuite.lvclass  @2
+    out  error out           : Error              @0
+  block-diagram :
+    case error in (no error) :
+      frame "No Error" :
+        subVI listAllTestMethods_1 : TestCase.lvclass:listAllTestMethods.vi
+          in   TestCase in         : TestCase.lvclass = TestCase
+          in   error in (no error) : Error            = error in (no error)
+          out  TestCase out        : TestCase.lvclass
+          out  test methods        : [String]
+          out  error out           : Error
+        for-loop :
+          subVI TestCase_Init_1 : TestCase.lvclass:TestCase_Init.vi
+            in   TestCase in            : TestCase.lvclass = listAllTestMethods_1::TestCase out
+            in   methodName ("runTest") : String           = listAllTestMethods_1::test methods
+            in   GUID ("")              : String           default ""
+            in   error in (no error)    : Error            = loop0::shift0
+            out  TestCase out           : TestCase.lvclass
+            out  error out              : Error
+          shift-register loop0::shift0 :
+            init = listAllTestMethods_1::error out
+            each = TestCase_Init_1::error out
+          tunnel loop0::out0 : auto-indexing = TestCase_Init_1::TestCase out
+        subVI TestSuite_Init_1 : TestSuite.lvclass:TestSuite_Init.vi
+          in   TestSuite in                    : TestSuite.lvclass default
+          in   tests (none)                    : [LabVIEW Object]  = loop0::out0
+          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster} default
+          in   GUID ("")                       : String            default ""
+          in   error in (no error)             : Error             = loop0::shift0
+          out  TestSuite out                   : TestSuite.lvclass
+          out  error out                       : Error
+        case0::out0 = TestSuite_Init_1::error out
+        case0::out1 = TestLoader in
+        case0::out2 = TestSuite_Init_1::TestSuite out
+      frame "Error" :
+        case0::out0 = error in (no error)
+        case0::out1 = TestLoader in
+        case0::out2 = (default TestSuite.lvclass)
+    TestLoader out = case0::out1
+    TestSuite = case0::out2
+    error out = case0::out0\
 '''
 # Divergences from §16's literal markdown text (each verified against the real
 # graph, not guessed) -- captured by ACTUALLY running the renderer against the
@@ -195,6 +196,21 @@ vi loadTestsFromTestCase.vi :
 # file's PRIOR revision flagged as a divergence at "test methods"/"TestSuite
 # out", no longer applies: those two ARE now qualified, like every other
 # node-port reference, consistent with §9's one uniform rule).
+#
+# 10. Phase 2 (this pass): the LV-mirroring section layout. The header-less
+#     boundary block is now a `front-panel :` section (own 2-space-indent
+#     header, like `uses :`/`types :`) whose first line is `pattern :
+#     <conId>` (`ConnectorPane.pattern_id`, OMITTED when unknown) and whose
+#     terminal rows each gain a trailing `@<index>` pane-slot column
+#     (`ConnectorPaneTerminal.index`) -- shown in BOTH terse and verbose,
+#     unlike the `<requirement>`/`default <value>` clause next to it, which
+#     stays verbose-only. The body is now wrapped in a `block-diagram :`
+#     section, one level deeper (4 spaces); the boundary-output-drive lines
+#     moved INSIDE it, at the end, rendered with the plain `net = source`
+#     shape (no more dedicated column alignment for just those three
+#     lines). This CHANGES the terse output too -- verified by actually
+#     running the renderer (`.tmp/render_phase2_golden.py`), never
+#     hand-edited.
 
 
 def _load_golden() -> tuple[InMemoryVIGraph, str] | None:
@@ -277,20 +293,24 @@ vi loadTestsFromTestCase.vi :
       in   error in (no error)             : Error
       out  TestSuite out                   : TestSuite.lvclass
       out  error out                       : Error
-  in   TestLoader in       : TestLoader.lvclass
-  in   TestCase            : TestCase.lvclass   recommended
-  in   error in (no error) : Error              recommended
-  out  TestLoader out      : TestLoader.lvclass recommended
-  out  TestSuite           : TestSuite.lvclass  recommended
-  out  error out           : Error"""
+  front-panel :
+    pattern : 4815
+    in   TestLoader in       : TestLoader.lvclass @11
+    in   TestCase            : TestCase.lvclass   recommended @10
+    in   error in (no error) : Error              recommended @8
+    out  TestLoader out      : TestLoader.lvclass recommended @3
+    out  TestSuite           : TestSuite.lvclass  recommended @2
+    out  error out           : Error              @0"""
 
 
 @pytest.mark.needs_samples
 def test_golden_verbose_boundary_shows_recommended_and_omits_unknown() -> None:
     """`verbose=True` on the SAME real golden VI: its boundary lines gain the
-    §5 bare requirement keyword; the two UNKNOWN (unresolved) terminals
-    render with none, identically to terse. This is the actual, run render
-    (not hand-typed) -- see the fixture's own comment for the real
+    §5 bare requirement keyword (plus, Phase 2, the unconditional `@<index>`
+    pane-slot column); the two UNKNOWN (unresolved) terminals render with no
+    requirement keyword, same as terse -- but they still carry their own
+    `@<index>`, since that column is unconditional. This is the actual, run
+    render (not hand-typed) -- see the fixture's own comment for the real
     `wiring_rule` values behind each line."""
     loaded = _load_golden()
     if loaded is None:
@@ -300,7 +320,10 @@ def test_golden_verbose_boundary_shows_recommended_and_omits_unknown() -> None:
     text = render_lvnet(
         module, display_name="loadTestsFromTestCase.vi", verbose=True
     )
-    boundary_block = text.split("\n\n", 1)[0]
+    # Everything up to (not including) the "block-diagram :" section --
+    # Phase 2 dropped the blank-line separators, so slice on the next
+    # section header instead of the old "\n\n" boundary/body split.
+    boundary_block = text[: text.index("  block-diagram :")].rstrip("\n")
     assert boundary_block == _GOLDEN_LVNET_VERBOSE_BOUNDARY
 
     # terse (default / verbose=False) is completely unaffected.
