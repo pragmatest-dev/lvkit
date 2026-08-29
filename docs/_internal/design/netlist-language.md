@@ -379,9 +379,9 @@ frame** (never hoisted to a bottom-of-block merge).
 | Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, … |
 | Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time |
 | Event Structure | `event-structure :` | `frame "<event>" :` per event case |
-| Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` |
-| Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` |
-| Type Specialization | `type-specialization :` | `frame [i] :` |
+| Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`) |
+| Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (matched frame carries `, default`) |
+| Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`) |
 | In Place Element | `in-place-element :` | decompose / recompose (no control flow) *(line syntax: OPEN)* |
 | Timed Loop / Sequence | `timed-loop` | **PROPOSED — coverage unverified in the model** |
 

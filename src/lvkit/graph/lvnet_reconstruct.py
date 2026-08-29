@@ -917,7 +917,7 @@ def _reconstruct_scope(
             NetlistFrame(
                 label=f.label,
                 value=f.label,
-                is_default=False,
+                is_default=f.is_default,
                 body=_reconstruct_items(f.body, registry, types_dict, memo, fresh_uid),
             )
             for f in item.frames

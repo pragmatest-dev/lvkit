@@ -375,18 +375,15 @@ def _compare_scope(
     else:
         for i, (fa, fb) in enumerate(zip(a.frames, b.frames)):
             frame_path = f"{path}.frame[{i}]"
-            # Case-scope ONLY: this is the exact blind spot that let the
-            # TextTestRunner/run.vi bug through -- two frames both labeled
-            # "Error", only one of which is ``is_default``, previously
-            # indistinguishable once rendered (§8's ``"Error", default``
-            # convention fixes the render/parse/reconstruct round trip; this
-            # is the identity gate that must now actually catch a
-            # regression). Scoped to "case" because it is the only scope
-            # kind whose header now encodes ``is_default`` at all --
-            # sequence/disabled/event frames keep their plain header and
-            # ``lvnet_reconstruct`` still hardcodes ``is_default=False`` for
-            # them (a separate, pre-existing gap outside this fix's scope).
-            if a.kind == "case":
+            # case AND disabled scopes encode ``is_default`` in the frame
+            # header (§8's ``, default`` marker) and must round-trip it. Case:
+            # the TextTestRunner/run.vi bug (two frames both labeled "Error",
+            # only one the default). Disabled: a diagram-disable's ``Enabled``
+            # frame (or a conditional-disable/type-spec matched frame) is the
+            # ACTIVE one -- previously dropped by ``lvnet_reconstruct``, now
+            # recovered via the same ``, default`` marker. sequence/event/loop
+            # frames have no default concept (always ``is_default=False``).
+            if a.kind in ("case", "disabled"):
                 if fa.is_default != fb.is_default:
                     errors.append(
                         f"{frame_path}: is_default mismatch: "

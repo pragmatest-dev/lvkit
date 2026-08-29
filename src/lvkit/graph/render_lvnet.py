@@ -1245,6 +1245,15 @@ def _render_lvnet_disabled_scope(
     quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label) if quote_labels else frame.label
+        # A disable structure's ACTIVE frame (the enabled diagram-disable
+        # frame, the matched conditional-disable/type-spec frame) carries
+        # ``is_default`` -- encoded with the SAME ``, default`` marker as a
+        # case frame (§8), so it round-trips. The specific label is always
+        # kept explicit (never collapsed to a bare ``default``): unlike a
+        # case scope's synthetic "Default" sentinel, a disable frame's label
+        # (``Enabled``/a symbol condition/``[i]``) is real, load-bearing text.
+        if frame.is_default:
+            label = f"{label}, {_LVNET_DEFAULT_KEYWORD}"
         lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose

@@ -1128,24 +1128,28 @@ def _parse_case_frame_header(
             f"line {frame_line_no}: expected 'frame \"<value>\"[, default] :' "
             f"or 'frame default :' inside a case scope (§8), got {frame_line!r}"
         )
-    end = _scan_quoted_literal(header, 0)
-    n = len(header)
-    while (
-        end + 2 < n
-        and header[end : end + 2] == ", "
-        and header[end + 2] == '"'
-    ):
-        end = _scan_quoted_literal(header, end + 2)
-    value_part = header[:end]
-    rest = header[end:]
-    if rest == "":
-        return value_part, False
-    if rest == _LVNET_CASE_DEFAULT_SUFFIX:
-        return value_part, True
-    raise LvnetParseError(
-        f"line {frame_line_no}: unexpected trailing text {rest!r} after case "
-        f"frame value (§8), got {frame_line!r}"
-    )
+    return _split_trailing_default(header)
+
+
+def _split_trailing_default(header: str) -> tuple[str, bool]:
+    """Peel an optional trailing ``, default`` marker (§8) off a frame
+    header, returning ``(label, is_default)`` -- shared by case frames
+    (always quoted) AND the frame-only families (``_parse_labeled_frames``:
+    sequence/disabled/event, whose labels may be BARE -- ``Enabled``, ``[0]``
+    -- or quoted).
+
+    A plain suffix strip is exact for BOTH, and -- unlike a quote-literal
+    scan -- never chokes on an event label whose OWN text embeds raw quotes
+    (``"[2] "Abort": Value Change"``, a real corpus label): a QUOTED label
+    always ends with its closing ``"``, so a genuine trailing marker
+    (appended AFTER the quote by ``_render_lvnet_case_scope`` /
+    ``_render_lvnet_disabled_scope``) is exactly a header ending in
+    ``", default"`` -- never confused with a ``, default`` occurring INSIDE
+    the quotes (which is followed by that closing ``"``); a BARE label
+    (``Enabled``/``[0]``) is a comma-free token, so the same check is exact."""
+    if header.endswith(_LVNET_CASE_DEFAULT_SUFFIX):
+        return header[: -len(_LVNET_CASE_DEFAULT_SUFFIX)], True
+    return header, False
 
 
 def _parse_case_scope(
@@ -1223,7 +1227,8 @@ def _parse_labeled_frames(
                 f"line {frame_line_no}: expected 'frame <label> :' (§8), "
                 f"got {frame_line!r}"
             )
-        label = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
+        header = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
+        label, is_default = _split_trailing_default(header)
         items, drives = _parse_items(cursor, body_indent)
         if drives:
             raise LvnetParseError(
@@ -1231,7 +1236,14 @@ def _parse_labeled_frames(
                 f"merge to drive, so its frames must not contain bare "
                 f"'net = source' lines (§8): {drives!r}"
             )
-        frames.append(ParsedFrame(label=label, body=tuple(items), drives=()))
+        frames.append(
+            ParsedFrame(
+                label=label,
+                body=tuple(items),
+                drives=(),
+                is_default=is_default,
+            )
+        )
     return frames
 
 
