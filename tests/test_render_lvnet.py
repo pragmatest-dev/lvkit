@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.graph import load_vi_by_path
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.interface_order import WiringRequirement
 from lvkit.graph.netlist import (
@@ -217,18 +218,15 @@ vi loadTestsFromTestCase.vi :
 def _load_golden() -> tuple[InMemoryVIGraph, str] | None:
     if not _GOLDEN_VI.exists():
         return None
-    graph = InMemoryVIGraph()
     try:
-        graph.load_vi(
-            str(_GOLDEN_VI),
+        return load_vi_by_path(
+            _GOLDEN_VI,
             LoadMode.MINIMAL,
             search_paths=[_JKI_SOURCE_ROOT],
             layout=False,
         )
     except Exception:
         return None
-    vi_name = graph.resolve_vi_name(_GOLDEN_VI.name)
-    return graph, vi_name
 
 
 @pytest.mark.needs_samples
@@ -533,14 +531,12 @@ def test_property_and_invoke_nodes_render_handle_and_component_no_todo() -> None
     keyword, never a TODO (md §7, revised)."""
     if not _PROPERTY_NODE_VI.exists():
         pytest.skip("JKI-VI-Tester sample corpus not present")
-    graph = InMemoryVIGraph()
-    graph.load_vi(
-        str(_PROPERTY_NODE_VI),
+    graph, vi_name = load_vi_by_path(
+        _PROPERTY_NODE_VI,
         LoadMode.MINIMAL,
         search_paths=[_JKI_SOURCE_ROOT],
         layout=False,
     )
-    vi_name = graph.resolve_vi_name(_PROPERTY_NODE_VI.name)
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module)
     counts = _assert_no_invented_open_syntax(text)
@@ -565,14 +561,12 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     its own `fbK` net, §7), then `init =`/`each =` -- never a TODO."""
     if not _FEEDBACK_VI.exists():
         pytest.skip("lv-flex-channel-examples sample corpus not present")
-    graph = InMemoryVIGraph()
-    graph.load_vi(
-        str(_FEEDBACK_VI),
+    graph, vi_name = load_vi_by_path(
+        _FEEDBACK_VI,
         LoadMode.MINIMAL,
         search_paths=[_FEEDBACK_SEARCH_ROOT],
         layout=False,
     )
-    vi_name = graph.resolve_vi_name(_FEEDBACK_VI.name)
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module)
     counts = _assert_no_invented_open_syntax(text)
@@ -598,14 +592,12 @@ def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
     and ``_render_lvnet_local_variable`` in ``render_lvnet.py``)."""
     if not _FEEDBACK_VI.exists():
         pytest.skip("lv-flex-channel-examples sample corpus not present")
-    graph = InMemoryVIGraph()
-    graph.load_vi(
-        str(_FEEDBACK_VI),
+    graph, vi_name = load_vi_by_path(
+        _FEEDBACK_VI,
         LoadMode.MINIMAL,
         search_paths=[_FEEDBACK_SEARCH_ROOT],
         layout=False,
     )
-    vi_name = graph.resolve_vi_name(_FEEDBACK_VI.name)
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module)
     counts = _assert_no_invented_open_syntax(text)
@@ -695,11 +687,12 @@ def test_render_lvnet_smoke_run_vis(vi_path: Path) -> None:
     structure each)."""
     if not vi_path.exists():
         pytest.skip("JKI-VI-Tester sample corpus not present")
-    graph = InMemoryVIGraph()
-    graph.load_vi(
-        str(vi_path), LoadMode.MINIMAL, search_paths=[_JKI_SOURCE_ROOT], layout=False
+    # load_vi_by_path returns load_vi's OWN key for vi_path -- never
+    # re-derived from vi_path.name, which collides across these three VIs
+    # (all literally named "run.vi").
+    graph, vi_name = load_vi_by_path(
+        vi_path, LoadMode.MINIMAL, search_paths=[_JKI_SOURCE_ROOT], layout=False
     )
-    vi_name = graph.resolve_vi_name(vi_path.name)
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module)
     _assert_no_invented_open_syntax(text)

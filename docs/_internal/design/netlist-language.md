@@ -1,10 +1,16 @@
 # lvnet — the netlist language (design spec)
 
-> **Status:** reconstructed 2026-08-26 from the design conversation
-> (session `38451279`) after the original uncommitted draft was lost. This is
-> the durable record of the language we designed; it is **not yet implemented**
-> — the shipped `render_netlist` still emits the old `gamma`/`:=` form. Sections
-> marked **OPEN** were never finalized. Companion durable record:
+> **Status:** originally reconstructed 2026-08-26 from the design conversation
+> (session `38451279`) after the original uncommitted draft was lost, and now
+> **implemented and shipped** as `render_lvnet` (`src/lvkit/graph/render_lvnet.py`)
+> — `lvkit describe --format lvnet [-v]` and the MCP `read_vi` tool's
+> `format="lvnet"` both produce exactly this surface (§15); a parser
+> (`lvnet_parse.py`) and full-model reconstructor (`lvnet_reconstruct.py`)
+> round-trip it back to a `NetlistModule` (§1). The OLD `render_netlist`
+> (`gamma`/`mu`/`eta`, `:=`) still exists as the deprecated `--format netlist`
+> alias. This is the durable record of the language, kept in sync with the
+> shipped renderer as it evolves — sections marked **OPEN** are the genuine
+> remaining gaps, not the whole document. Companion durable record:
 > `memory/project_netlist_is_a_schematic.md`.
 
 ## 1. What it is, and why
@@ -56,24 +62,32 @@ otherwise has no way to recover its identity from the text at all.
 
 ## 2. Document skeleton
 
+The document mirrors LabVIEW's own two-pane mental model — a `front-panel :`
+section (the connector pane's identity + boundary terminals) followed by a
+`block-diagram :` section (the body) — rather than spelling the boundary
+terminals loose under the `vi :` header:
+
 ```
 vi <VIName.vi> :
   uses :                                 # dependency manifest (§7a), OPTIONAL -- omitted with no deps
     <kind> <qualified-identity>   [; ./path]
-  in   <name> : <Type> [<requirement>] [default <value>]     # boundary terminal line (§3)
-  out  <name> : <Type>
-                                        # blank line
-  <keyword> <handle> : <component>       # a node's DECLARATION line (§7)
-    in   <name> : <Type> [= <driver> | default <value>]      # its terminal lines (§3)
-    out  <name> : <Type>
-  <structure> :                          # a structure opens an indented block (§8)
-    …
-                                        # blank line
-  <out name> = <source-net>            # boundary outputs driven at the bottom
+  front-panel :                          # OPTIONAL -- omitted when there is nothing to show at all
+    pattern : <conId>                    # ConnectorPane.pattern_id, OMITTED when unknown
+    in   <name> : <Type> [<requirement>] [default <value>] @<index>   # on-pane boundary terminal (§3)
+    out  <name> : <Type>                                   @<index>
+    in   <name> : <Type>                                              # OFF-pane terminal -- no `@<index>`
+  block-diagram :                        # ALWAYS present
+    <keyword> <handle> : <component>       # a node's DECLARATION line (§7)
+      in   <name> : <Type> [= <driver> | default <value>]      # its terminal lines (§3)
+      out  <name> : <Type>
+    <structure> :                          # a structure opens an indented block (§8)
+      …
+    <out name> = <source-net>            # boundary outputs driven at the end of block-diagram
+  types :                                # verbose-only lossless footnote (§10.1), OPTIONAL
+    <Name> = <lossless-def>   [; ./path]
 ```
 
-- **`vi <name> :`** header (top-level VI). A VI with an empty connector pane
-  (a top-level/main VI) simply has no `in`/`out` lines.
+- **`vi <name> :`** header (top-level VI).
 - **`uses :`** dependency manifest (§7a) — a plain reference list of every
   external file this VI directly depends on, right after the header.
   Present in BOTH terse and verbose (it's the first "element" of the
@@ -82,13 +96,26 @@ vi <VIName.vi> :
   entirely when the VI has no dependencies. LAYOUT IS PROVISIONAL: this
   placement (right after the header) is where it lands until every element
   of the design exists and the maintainer picks final section ordering.
-- **Boundary block:** the connector-pane terminals — `in ` lines then `out`
-  lines. A boundary input whose default is notable renders it into the name:
-  `in error in (no error) : Error`.
-- **Body** in graph order (`_node_order_key`).
-- **Boundary outputs** are declared at the top *and driven at the very bottom*
-  (`error out = case0::out0`). So an input appears twice (declared, then read),
-  an output twice (declared, then driven) — follow either by its net name.
+- **`front-panel :`** — the connector pane's own identity (`pattern :
+  <conId>`, omitted when unknown) followed by the boundary terminals: `in `
+  lines then `out` lines, each carrying a trailing `@<index>` pane-slot
+  column (the terminal's `ConnectorPaneTerminal.index` — present in BOTH
+  terse and verbose, since pane-slot identity is structural, not a
+  lossless-verbosity nicety), then any OFF-pane front-panel controls/
+  indicators (a control/indicator that exists on the front panel but was
+  never wired onto the connector pane) as their own group, with no
+  `@<index>` (they have no pane slot). Omitted entirely — no header at all —
+  when there is nothing to show: no pattern, no on-pane terminals, and no
+  off-pane terminals (a top-level/main VI with an empty connector pane and
+  no front-panel objects). A boundary input whose default is notable
+  renders it into the name: `in error in (no error) : Error`.
+- **`block-diagram :`** (always present) — the body, in graph order
+  (`_node_order_key`), followed by the boundary-output-drive lines at its
+  own end: `<out name> = <source-net>` (`error out = case_139::out0`). So a
+  boundary output is declared once (in `front-panel :`) and driven once (at
+  the end of `block-diagram :`) — follow its net name to connect the two.
+- **`types :`** (§10.1, verbose-only) — the bottom lossless-types footnote,
+  omitted entirely when the VI has no named types.
 - **Indentation is structural** — 2 spaces per scope level; blocks open with a
   `… :` header and nest by indent (enables editor folding for free).
 
@@ -235,10 +262,16 @@ component block: each instance still declares itself inline and shows its own
 wiring; the handle just gives its copies distinct, variable-like names.
 
 **The handle** is *our* label: the node's display name with its **file extension
-stripped** and **spaces replaced by `_`**, suffixed **`_N`** for every instance —
-including the first (schematics don't leave `U1` blank). The faithful
-**component** — a subVI's fully-qualified `Class.lvclass:Name.vi`, a primitive's
-LabVIEW name — is spelled **once**, at the declaration, so the verbose qualifier
+stripped** and **spaces replaced by `_`**, suffixed **`_<uid>`** — the node's own
+stable BD `uid` (`netlist_build._uid_of`), not a positional occurrence counter —
+for every instance, including the first (schematics don't leave `U1` blank).
+Because a `uid` is globally unique on its own, every instance carries its
+handle regardless of whether its base name repeats elsewhere in the VI, with
+no VI-wide grouping/visitation-order bookkeeping needed to stay
+collision-free — and, as a side effect, the handle also doubles as the
+node's own graph-identity round-trip key (§1). The faithful **component** —
+a subVI's fully-qualified `Class.lvclass:Name.vi`, a primitive's LabVIEW
+name — is spelled **once**, at the declaration, so the verbose qualifier
 never repeats on every wire and the handle carries no `.vi`/class (that is the
 declaration's job, and answers "which class/library?" authoritatively). The
 faithful identity lives on the declaration line, so the handle is a display
@@ -246,7 +279,7 @@ designator only — round-trip reads the component from the `:` clause, never by
 parsing the handle.
 
 **Every producing node gets a handle** (§9), CLOSED or OPEN — so a net pointing
-at any node is uniform (`propRef_1::Value`) and a downstream reader never has to
+at any node is uniform (`propRef_1580::Value`) and a downstream reader never has to
 special-case its source. Naming the wire and drawing the node's insides are
 separate problems: the handle solves the first for *all* kinds; the second is
 designed per kind. `property-node`, `invoke-node`, `feedback-node`, and
@@ -262,13 +295,13 @@ invented form.
 
 | Node | keyword | rendering |
 |---|---|---|
-| SubVI call | `subVI` | `subVI <handle> : <Qualified:Name.vi>` header (+ `; ./path` nav comment), then its `in`/`out` terminal lines. The **handle** (`<despaced-name>_N`, §9) names the instance; the **component** after `:` is **always fully qualified** and spelled only here (e.g. `subVI listAllTestMethods_1 : TestCase.lvclass:listAllTestMethods.vi`). |
+| SubVI call | `subVI` | `subVI <handle> : <Qualified:Name.vi>` header (+ `; ./path` nav comment), then its `in`/`out` terminal lines. The **handle** (`<despaced-name>_<uid>`, §9) names the instance; the **component** after `:` is **always fully qualified** and spelled only here (e.g. `subVI listAllTestMethods_359 : TestCase.lvclass:listAllTestMethods.vi`). |
 | Primitive | `function <handle> : <LabVIEW name>` | Rendered **exactly like a subVI** — `function Add_1 : Add`, `function Index_Array_1 : Index Array`, `function Bundle_By_Name_1 : Bundle By Name` — handle left of `:`, faithful primitive name right of it, then typed terminals wired by nets. Interface from `primitives.json` **plus per-call parsed types** (primitives are polymorphic); variadic ones (Compound Arithmetic, Build Array) show their actual per-call terminals. **No inline operators** — LabVIEW has an `Add` *node*, so we show a node (keeps fidelity and diffs cleanly). |
 | Property Node | `property-node <handle> : <ObjectClass>` | a property's value terminal IS a terminal: a **read** renders as an `out` (value flows out), a **write** as an `in` (`= <driver>`), each named by the property; drawer order = line order (top-to-bottom sequential). No special syntax — the standard terminal block carries it. |
 | Invoke Node | `invoke-node <handle> : <ObjectClass>.<Method>` | the method IS the node's identity, so it sits in the component; parameters render **by index** (`in  0 : <Type> = <net>`, `out 1 : <Type>`) because LabVIEW stores no param names in the VI (only the VI-server signature does). |
-| Feedback Node | `feedback-node <handle> (<N> iteration[s]) :` | a state **register** — no more-specific-type (like a shift register), so the `:` just opens its `init = <src>` (first iteration) / `each = <src>` (fed back next) block. The count — how many iterations back the value is handed — rides as a parenthetical **attribute**: `(1 iteration)` / `(3 iterations)`. **Not** `delay` (reads as time) or `z^-N` (DSP glyph). Handle is its `fbK` net; `(? iterations)` when the depth didn't parse (LabVIEW enforces ≥1). |
-| Constant | `constant` | `constant <handle> : <Type> = <value>` (handle `<name>_N`, e.g. `constant GUID_1 : String = "TC-001"`). A one-off literal stays inline on the terminal; a shared/named constant becomes a `constant` node referenced by net (`= GUID_1`). |
-| Local Variable | `local-variable` | a TAP on a control/indicator's named net, not a computation — but it still gets its own handle (§9) since a read is a genuine producer. A **read** is a SOURCE: `local-variable <handle> : read`, with no component and no terminal block (the tapped control's own type is already spelled at its `front-panel :` row); a downstream reader references its value as `<handle>::<port>`, exactly like any other node-terminal net. A **write** is a SINK: `local-variable <handle> : write = <source>`, terminating its one driven source into the control — no output of its own. The netlist does not resolve which write a given read observes (stateful/runtime); reads and writes are independent access points linked only by tapping the same control. `global-variable` (a separate Global-VI construct) is not yet modeled — OPEN, §17. |
+| Feedback Node | `feedback-node <handle> (<N> iteration[s]) :` | a state **register** — no more-specific-type (like a shift register), so the `:` just opens its `init = <src>` (first iteration) / `each = <src>` (fed back next) block. The count — how many iterations back the value is handed — rides as a parenthetical **attribute**: `(1 iteration)` / `(3 iterations)`. **Not** `delay` (reads as time) or `z^-N` (DSP glyph). Handle is its own `fbK` net — a small sequential id, one per feedback node in the VI, unlike every other node's `_<uid>` handle suffix (a feedback node has no separate "declared name" for a base to attach a uid to; the net name doubles as the handle); `(? iterations)` when the depth didn't parse (LabVIEW enforces ≥1). |
+| Constant | `constant` | `constant <handle> : <Type> = <value>` (handle `<name>_<uid>`, e.g. `constant GUID_142 : String = "TC-001"`). A one-off literal stays inline on the terminal; a shared/named constant becomes a `constant` node referenced by net (`= GUID_142`). |
+| Local Variable | `local-variable` | a TAP on a control/indicator's named net, not a computation — but it still gets its own handle (§9) since a read is a genuine producer. A **read** is a SOURCE: `local-variable <handle> : read`, with no component and no terminal block (the tapped control's own type is already spelled at its `front-panel :` row); a downstream reader references its value as `<handle>::<terminal>`, exactly like any other node-terminal net. A **write** is a SINK: `local-variable <handle> : write = <source>`, terminating its one driven source into the control — no output of its own. The netlist does not resolve which write a given read observes (stateful/runtime); reads and writes are independent access points linked only by tapping the same control. `global-variable` (a separate Global-VI construct) is not yet modeled — OPEN, §17. |
 | Control / Indicator (internal) | `control` / `indicator` | a front-panel control/indicator **not** on the connector pane → a body node. `control` = source, `indicator` = sink. |
 | Formula Node | `formula-node` | C-like text body; the `script` is lossless-required. *(rendering: OPEN)* |
 | Free label / comment | `comment` | non-executing text. |
@@ -340,7 +373,7 @@ frame** (never hoisted to a bottom-of-block merge).
 
 | LabVIEW structure | keyword | frames |
 |---|---|---|
-| Case Structure | `case <selector-net> :` | `frame "<value>" :` per case (default frame keyed by its value) |
+| Case Structure | `case <selector-net> :` | `frame "<value>"[, default] :` per case (`default` appended as the header's own comma-list entry when the frame is the default; `frame default :` when it carries no specific value of its own) |
 | For Loop | `for-loop :` | single implicit body (index `i`, count `N`) |
 | While Loop | `while-loop :` | single implicit body (stop/continue on `cond`) |
 | Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, … |
@@ -374,15 +407,44 @@ register — has no way to recover its own identity from the text at all;
 this is the piece that closes that gap (§1's graph-identity round-trip
 gate).
 
+**A case frame's `is_default` flag, in the header.** A case frame's header
+lists its selector value(s) as the existing quoted comma list, and — mirroring
+LabVIEW's own `"Error", Default` selector convention — the bare, unquoted
+keyword `default` is appended as that list's **last entry** whenever the frame
+is the structure's default frame, and is the list's **sole entry** when the
+frame carries no specific selector value of its own (the ordinary case:
+`_selector_label` collapses a non-error default frame to the `"Default"`
+sentinel with no real value left to show):
+
+- a pure default frame (no specific value): `frame default :`
+- a frame that catches a value AND is the default: `frame "Error", default :`
+- a plain value frame (unchanged): `frame "Error" :`
+- a multi-value frame stays a comma list (unchanged): `frame "A", "B" :`
+
+This closes a real gap an earlier pass of this doc flagged as open: an
+Error-cluster default frame keeps a real value (`_selector_label`'s
+`is_error` branch never returns the `"Default"` sentinel), so on a real
+corpus VI — `TextTestRunner/run.vi`'s dynamic-dispatch cascade — both the
+default frame and an ordinary `"1"`-valued frame are labeled `"Error"`; before
+this fix both rendered the identical `frame "Error" :` header with nothing in
+the text to tell them apart, breaking §1's graph-identity round trip
+(`reconstruct_module` re-attached per-frame output-tunnel sources by label
+text and could resolve the wrong frame's source for the other). Scoped to the
+case/select structure only — sequence/disabled/event frames keep their plain
+`frame <label> :` header; none of them encode a comparable "default" concept
+in their own header text.
+
 ### Border constructs
 
 ```
-shift-register loop0::shift0 :
+shift-register loop_879::shift0 :
   init = <source>          # value on the first iteration
   each = <source>          # value fed to the next iteration
-tunnel loop0::out0 : auto-indexing = <source>   # mode: auto-indexing | last-value | concatenating | pass-through [+ conditional]
-case0::out0 = <source>      # a case output, driven inside each frame
+tunnel loop_879::out0 : auto-indexing = <source>   # mode: auto-indexing | last-value | concatenating | pass-through [+ conditional]
+case_139::out0 = <source>      # a case output, driven inside each frame
 ```
+
+(`879`/`139` are the loop's/case's own real BD `uid` — see §9.)
 
 ## 9. Net naming
 
@@ -394,26 +456,37 @@ in different places.
 - Node-terminal nets: `<handle>::<terminal>` — the producing node's **instance
   handle** (§7), a `::` (scope resolution, "the terminal *within* this
   instance"), then the faithful terminal name, or the terminal's **index**
-  when it is unnamed (`listAllTestMethods_1::test methods`, `Not_2::0`). `::`
-  (never `.`) keeps an indexed terminal off the handle's `_N`, so `Not_2::0`
-  can't be misread as the float `2.0`, and `::` doesn't pile onto the already
-  four-way-overloaded `:` (type, declaration, block header, class qualifier).
-- Structure nets use the same `::`: `caseN::outK` (case output), `loopN::shiftK`
-  (shift register), `loopN::outK` (loop output tunnel), `fbK` (feedback — a whole
-  net, no terminal). Structure prefixes keep their reserved bare-numbered form —
-  they are not node handles. `::` is the **only** instance→terminal separator, so
-  `.` never appears in a net name (it survives only inside a component path at a
-  declaration, §7).
-- **Instance number `_N`:** every node/constant instance carries `_N` (from 1),
-  the first copy included — the handle's uniquifier and the stable diff identity.
-  (Replaces the old `#n`; `#` is now the comment marker, §6.)
+  when it is unnamed (`listAllTestMethods_359::test methods`, `Not_212::0`). `::`
+  (never `.`) keeps an indexed terminal off the handle's `_<uid>` suffix, so
+  `Not_212::0` can't be misread as the float `212.0`, and `::` doesn't pile onto
+  the already four-way-overloaded `:` (type, declaration, block header, class
+  qualifier).
+- Structure nets use the same `::`, keyed by the structure's own real BD `uid`
+  (never a small per-structure counter, §1/§8): `case_<uid>::outK` (case
+  output), `loop_<uid>::shiftK` (shift register), `loop_<uid>::outK` (loop
+  output tunnel), `sequence_<uid>::outK` (flat/stacked-sequence output),
+  `disabled_<uid>::outK` (disable-family output), `event_<uid>::outK` (event
+  structure output), `fbK` (feedback — a whole net, no terminal, its own small
+  sequential id rather than a uid, §7). Structure prefixes keep their
+  reserved `<kind>_<uid>` form — they are not node handles. `::` is the
+  **only** instance→terminal separator, so `.` never appears in a net name
+  (it survives only inside a component path at a declaration, §7; the
+  MODEL's own internal storage keeps a `.` separator here instead of `::` —
+  `_lvnet_net_separator` reformats it for this render only).
+- **Instance suffix `_<uid>`:** every node/constant instance carries
+  `_<uid>` — the node's own stable BD `uid` (`netlist_build._uid_of`), not a
+  positional occurrence counter — the first copy included: the handle's
+  uniquifier and the stable diff/round-trip identity. (Replaces the old
+  `#n`; `#` is now the comment marker, §6.)
 - **Component identity lives at the declaration** (§7), always fully qualified
   there; the net prefix is the **handle**, unique VI-wide by construction — the
-  `_N` uniquifier absorbs both a repeated copy *and* a same-base-name collision
-  across classes (`Do.vi` in two `.lvclass`es → `Do_1`, `Do_2`, each declared
-  against its own `Lib1.lvclass:Do.vi` / `Lib2.lvclass:Do.vi`). So a net still
-  names exactly one instance, spelled identically at its declaration and every
-  reader — grep the handle, land once.
+  `_<uid>` suffix absorbs both a repeated copy *and* a same-base-name collision
+  across classes (`Do.vi` in two `.lvclass`es → `Do_44`, `Do_207`, each declared
+  against its own `Lib1.lvclass:Do.vi` / `Lib2.lvclass:Do.vi`) for free, since a
+  real BD `uid` is already globally unique — no VI-wide grouping/visitation-order
+  bookkeeping needed to stay collision-free. So a net still names exactly one
+  instance, spelled identically at its declaration and every reader — grep the
+  handle, land once.
 
 ## 10. Types
 
@@ -422,7 +495,14 @@ Faithful LVType on every terminal, **never a Python type**:
 - Scalars: `DBL`, `I32`, `Boolean`, `String`, `Path`.
 - Error cluster: `Error` (default `(no error)`).
 - Array: `[T]` — `[String]`, `[LabVIEW Object]`.
-- Cluster: `Cluster{…}` — `Cluster{TestSuite, suiteStatus}`.
+- Cluster: an ANONYMOUS cluster's inline form is field **NAMES only**, lower-case
+  `cluster{…}` — `cluster{Source, Type, Time}` — never field types (there is no
+  name to hang a `types :` footnote entry off, so this is genuinely the most
+  faithful inline form available); a NAMED cluster's inline form is its bare
+  `typedef_name` alone (§10's next bullet) — never the generic `Cluster{…}`
+  word. `Cluster{…}` (capitalized) is reserved for the verbose `types :`
+  footnote's own FULL lossless definition (§10.1), which does show every
+  field's type.
 - Enum: `Enum{a,b,c}`.
 - Class: `MyClass.lvclass` (qualified).
 - Refnum: `refnum{…}` — `UserEvent refnum{suiteStatusChanged--Cluster{TestSuite, suiteStatus}}`.
@@ -499,11 +579,34 @@ comparison everywhere it's used, falling back to the same by-name comparison
 §10's terse form already provides. This is a genuine, documented information
 loss of the flat one-entry-per-name model, not a bug in the comparison logic.
 
+**Known limitation — a named type reachable ONLY through an anonymous
+cluster's field is not captured.** The footnote collects every NAMED type
+reachable from the boundary/body/dependency interfaces (§10.1 above), and a
+NAMED cluster's OWN footnote entry recurses into its fields (a named field's
+type is itself collectible, since the named cluster's own def spells that
+field's real type via `<type-ref>`, §10.1's cluster bullet). An ANONYMOUS
+cluster's fields are different: its only occurrence anywhere in the rendered
+text (§10's Cluster bullet above) is `cluster{f1, f2, …}` — field NAMES
+only, never field types — so even if one of those fields' own type is a
+NAMED type (e.g. an Event Data Node's `cluster{Source, Type, Time}`, whose
+`Type` field is the named enum `lveventtype`), there is nothing in the
+rendered text that names that field's type at all. Collecting it into the
+footnote anyway would list a type reconstruction can never re-derive from
+the text (`reconstruct_module` has no way to learn "the anonymous cluster's
+`Type` field is `lveventtype`" from `cluster{Source, Type, Time}` alone),
+breaking §1's round-trip gate. So a named type reachable *exclusively*
+through an anonymous cluster's field is correctly excluded from the
+footnote (it is still collected normally when *some other* reachable path
+also reaches it directly). The full fix — rendering an anonymous cluster's
+field types inline, `cluster{f1 : T1, f2 : T2, …}`, closing the gap at its
+source — is a separate, not-yet-designed enhancement (it would also make
+this corner case moot for future cases): not implemented here.
+
 ## 11. verbose vs terse
 
-Only **netlist + JSON** have the two modes and are lossless targets. **`text` is
+Only **lvnet + JSON** have the two modes and are lossless targets. **`text` is
 human-only, NOT a lossless target** — its "losses" (no wiring, no locals) are by
-design; an agent needing full understanding uses netlist/JSON.
+design; an agent needing full understanding uses lvnet/JSON.
 
 - **Terse (default) = structurally understandable.** The *complete dataflow
   program* — every node, terminal, wire, type, value, structure, control flow —
@@ -633,26 +736,29 @@ Density never costs data.
 `loadTestsFromTestCase.vi`, the canonical example to build against:
 
 This is the ACTUAL, verified output of `render_lvnet(build_netlist_from_graph(...))`
-on the real corpus VI (captured via `.tmp/render_golden.py`, byte-identical to
-`tests/test_render_lvnet.py`'s `_GOLDEN_LVNET` fixture) -- not hand-typed. It
-diverges from an earlier hand-written draft of this section in ways the test
-file's module docstring documents with receipts (verbatim FP-control terminal
-labels including their `(...)` annotation; `TestSuite_Init.vi`'s real 5th
-input; its real `error in` wiring from `loop0::shift0`; no `constant` node,
-since this VI's own diagram has none; one alignment nit) -- none of them are
-invented syntax, and none of them are the naming-scheme revision itself.
-`TestSuite_Init.vi`'s block also shows this pass's three type-readability
-fixes on real data: `testSuiteStatusChanged EventRef`'s refnum collapses to
-its inner cluster's NAME (`UserEvent refnum{suiteStatusChanged--Cluster}`,
-§10) instead of expanding its fields; that same line and `TestSuite in`
-render the bare word `default` (no literal to show, §4); and the block's
-own column width is capped, so that one refnum type doesn't stretch the
-`tests (none)`/`GUID ("")`/`error in (no error)` lines' `: <Type>` column
-out to match it (§14). It now also carries the §7a `uses :` dependency
-manifest right after the header -- this VI's real six direct dependencies
-(its three SubVI calls plus the three classes its own connector pane is
-typed with), sorted by qualified identity, every one resolving to a real
-on-disk file in this corpus so every line carries a `; ./path` nav comment.
+on the real corpus VI (byte-identical to `tests/test_render_lvnet.py`'s
+`_GOLDEN_LVNET` fixture -- re-verified against the current renderer, not
+hand-typed) in **terse** mode. Notable real facts it locks in: every node
+handle carries the node's own real BD `uid` (`listAllTestMethods_359`,
+`TestCase_Init_772`, never a small sequential counter, §7/§9); every
+structure net is keyed the same way (`loop_879::shift0`, `case_139::out0`);
+the document is wrapped in the `front-panel :` (connector-pane `pattern :`
+id + boundary terminals, each with its own `@<index>` pane-slot column) /
+`block-diagram :` (body + boundary-output-drive lines at the end) section
+layout (§2); `testSuiteStatusChanged EventRef`'s refnum collapses to its
+inner cluster's NAME (`UserEvent refnum{suiteStatusChanged--Cluster}`, §10)
+instead of expanding its fields; `TestSuite in`/that same refnum terminal
+render the bare word `default` (no literal to show, §4); and the block's own
+column width is capped, so that one refnum type doesn't stretch the
+`tests (none)`/`GUID ("")`/`error in (no error)` lines' `: <Type>` column out
+to match it (§14). It also carries the §7a `uses :` dependency manifest right
+after the header -- this VI's real six direct dependencies (its three SubVI
+calls plus the three classes its own connector pane is typed with), sorted
+by qualified identity, every one resolving to a real on-disk file in this
+corpus so every line carries a `; ./path` nav comment. This VI has no
+`constant` node on its own diagram (see the synthetic example below for that
+shape) and no off-pane front-panel controls (see §2/§7's `front-panel :`
+description for that shape).
 
 ```
 vi loadTestsFromTestCase.vi :
@@ -663,61 +769,63 @@ vi loadTestsFromTestCase.vi :
     class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
     class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
     subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
-  in   TestLoader in       : TestLoader.lvclass
-  in   TestCase            : TestCase.lvclass
-  in   error in (no error) : Error
-  out  TestLoader out      : TestLoader.lvclass
-  out  TestSuite           : TestSuite.lvclass
-  out  error out           : Error
-
-  case error in (no error) :
-    frame "No Error" :
-      subVI listAllTestMethods_1 : TestCase.lvclass:listAllTestMethods.vi
-        in   TestCase in         : TestCase.lvclass = TestCase
-        in   error in (no error) : Error            = error in (no error)
-        out  TestCase out        : TestCase.lvclass
-        out  test methods        : [String]
-        out  error out           : Error
-      for-loop :
-        subVI TestCase_Init_1 : TestCase.lvclass:TestCase_Init.vi
-          in   TestCase in            : TestCase.lvclass = listAllTestMethods_1::TestCase out
-          in   methodName ("runTest") : String           = listAllTestMethods_1::test methods
-          in   GUID ("")              : String           default ""
-          in   error in (no error)    : Error            = loop0::shift0
-          out  TestCase out           : TestCase.lvclass
-          out  error out              : Error
-        shift-register loop0::shift0 :
-          init = listAllTestMethods_1::error out
-          each = TestCase_Init_1::error out
-        tunnel loop0::out0 : auto-indexing = TestCase_Init_1::TestCase out
-      subVI TestSuite_Init_1 : TestSuite.lvclass:TestSuite_Init.vi
-        in   TestSuite in                    : TestSuite.lvclass default
-        in   tests (none)                    : [LabVIEW Object]  = loop0::out0
-        in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster} default
-        in   GUID ("")                       : String            default ""
-        in   error in (no error)             : Error             = loop0::shift0
-        out  TestSuite out                   : TestSuite.lvclass
-        out  error out                       : Error
-      case0::out0 = TestSuite_Init_1::error out
-      case0::out1 = TestLoader in
-      case0::out2 = TestSuite_Init_1::TestSuite out
-    frame "Error" :
-      case0::out0 = error in (no error)
-      case0::out1 = TestLoader in
-      case0::out2 = (default TestSuite.lvclass)
-
-  TestLoader out = case0::out1
-  TestSuite      = case0::out2
-  error out      = case0::out0
+  front-panel :
+    pattern : 4815
+    in   TestLoader in       : TestLoader.lvclass @11
+    in   TestCase            : TestCase.lvclass   @10
+    in   error in (no error) : Error              @8
+    out  TestLoader out      : TestLoader.lvclass @3
+    out  TestSuite           : TestSuite.lvclass  @2
+    out  error out           : Error              @0
+  block-diagram :
+    case error in (no error) :
+      frame "No Error" :
+        subVI listAllTestMethods_359 : TestCase.lvclass:listAllTestMethods.vi
+          in   TestCase in         : TestCase.lvclass = TestCase
+          in   error in (no error) : Error            = error in (no error)
+          out  TestCase out        : TestCase.lvclass
+          out  test methods        : [String]
+          out  error out           : Error
+        for-loop :
+          subVI TestCase_Init_772 : TestCase.lvclass:TestCase_Init.vi
+            in   TestCase in            : TestCase.lvclass = listAllTestMethods_359::TestCase out
+            in   methodName ("runTest") : String           = listAllTestMethods_359::test methods
+            in   GUID ("")              : String           default ""
+            in   error in (no error)    : Error            = loop_879::shift0
+            out  TestCase out           : TestCase.lvclass
+            out  error out              : Error
+          shift-register loop_879::shift0 :
+            init = listAllTestMethods_359::error out
+            each = TestCase_Init_772::error out
+          tunnel loop_879::out0 : auto-indexing = TestCase_Init_772::TestCase out
+        subVI TestSuite_Init_115 : TestSuite.lvclass:TestSuite_Init.vi
+          in   TestSuite in                    : TestSuite.lvclass default
+          in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
+          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster} default
+          in   GUID ("")                       : String            default ""
+          in   error in (no error)             : Error             = loop_879::shift0
+          out  TestSuite out                   : TestSuite.lvclass
+          out  error out                       : Error
+        case_139::out0 = TestSuite_Init_115::error out
+        case_139::out1 = TestLoader in
+        case_139::out2 = TestSuite_Init_115::TestSuite out
+      frame "Error" :
+        case_139::out0 = error in (no error)
+        case_139::out1 = TestLoader in
+        case_139::out2 = (default TestSuite.lvclass)
+    TestLoader out = case_139::out1
+    TestSuite = case_139::out2
+    error out = case_139::out0
 ```
 
 A `constant` node (not exercised by this particular VI, which has none on its
-own diagram) would declare and read as:
+own diagram) would declare and read as (`142` illustrative -- the node's own
+real BD `uid`, §7/§9):
 
 ```
-constant GUID_1 : String = "TC-001"
+constant GUID_142 : String = "TC-001"
 ...
-in   GUID : String = GUID_1
+in   GUID : String = GUID_142
 ```
 
 ## 17. Open items (never finalized)

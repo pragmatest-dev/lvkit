@@ -65,7 +65,7 @@ except ImportError:  # mcp 1.x
 
 from .. import __version__, primitive_resolver, vilib_resolver
 from ..cache_paths import _project_root_for
-from ..graph import InMemoryVIGraph
+from ..graph import InMemoryVIGraph, load_vi_by_path
 from ..graph.netlist import build_netlist, netlist_to_dict
 from ..index import sql as isql
 from ..index.build import (
@@ -520,7 +520,8 @@ def _load_one(
     """Load ONE VI (MINIMAL) into a fresh graph and return ``(graph, vi_name)``.
 
     A MINIMAL load also leaf-loads direct SubVIs, so ``list_vis()`` may hold
-    several names; we pick the one whose source path IS ``vi_path``.
+    several names; ``vi_name`` is ``load_vi``'s OWN return key for ``vi_path``
+    (see ``load_vi_by_path``), never re-derived from the bare filename.
 
     ``search_paths`` are extra dependency-resolution roots (an out-of-tree
     library the VI calls into) — searched IN ADDITION to the VI's own directory,
@@ -530,18 +531,13 @@ def _load_one(
     if not p.exists():
         raise FileNotFoundError(f"VI not found: {vi_path}")
     _configure_resolvers_for_vi(p)
-    graph = InMemoryVIGraph()
     roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
-    graph.load_vi(p, LoadMode.MINIMAL, search_paths=roots)
-    vi_name: str | None = None
-    for name in graph.list_vis():
-        src = graph.get_vi_source_path(name)
-        if src is not None and src.resolve() == p:
-            vi_name = name
-            break
-    if vi_name is None:
-        # Fall back to the leaf-name resolver (single-VI graphs usually have one)
-        vi_name = graph.resolve_vi_name(p.name)
+    # Path IS a VI's identity: load_vi_by_path returns load_vi's OWN key for
+    # the exact file requested, never re-derived from p.name (which would
+    # collide across two same-named VIs -- routine under LabVIEW dynamic
+    # dispatch, where every class's override of a method is literally
+    # "run.vi").
+    graph, vi_name = load_vi_by_path(p, LoadMode.MINIMAL, search_paths=roots)
     # Progressive index: every parse warms the store — a MINIMAL load parses
     # this VI AND its SubVIs, so warm all of them (accumulates as the repo is
     # used).

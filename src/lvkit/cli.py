@@ -1173,33 +1173,22 @@ def cmd_describe(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     try:
-        from .graph import InMemoryVIGraph
+        from .graph import load_vi_by_path
         from .index.build import warm_all_loaded
 
-        graph = InMemoryVIGraph()
-        _configure_library_roots(graph, args)
+        vilib_root, userlib_root = _parse_library_roots(args)
         search_paths = _auto_search_paths(args.search_paths, input_path)
-        graph.load_vi(
-            str(input_path),
+        # Path IS a VI's identity: ``load_vi_by_path`` returns ``load_vi``'s
+        # OWN key for the exact file requested, never re-derived from the
+        # input's bare leaf name (which would collide across e.g.
+        # TestCase.lvclass:run.vi vs TestSuite.lvclass:run.vi).
+        graph, vi_name = load_vi_by_path(
+            input_path,
             _resolve_load_mode(args, LoadMode.MINIMAL),
             search_paths=search_paths,
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
         )
-
-        # Disambiguate by parent dir when multiple loaded VIs share the
-        # input's leaf name (e.g. TestCase.lvclass:run.vi vs TestSuite's)
-        vis = graph.list_vis()
-        vi_name = graph.resolve_vi_name(input_path.name)
-        candidates = [v for v in vis if v.rsplit(":", 1)[-1] == input_path.name]
-        if len(candidates) > 1:
-            parent_dir = input_path.parent.name
-            preferred = [
-                c
-                for c in candidates
-                if c.startswith(f"{parent_dir}.lvclass:")
-                or c.startswith(f"{parent_dir}.lvlib:")
-            ]
-            if preferred:
-                vi_name = preferred[0]
 
         # Progressive index: every parse warms the store — describe parses this
         # VI (and its SubVIs under MINIMAL), so warm all of them.

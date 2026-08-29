@@ -90,9 +90,13 @@ class OperationsMixin:
         terminals = list(gnode.terminals)
         if isinstance(gnode, VINode) and gnode.id != gnode.vi:
             # SubVI call — enrich with callee param names via
-            # _enrich_subvi_terminals_typed
+            # _enrich_subvi_terminals_typed. Resolve by the callee's
+            # QUALIFIED name (e.g. "TestSuite.lvclass:run.vi"), never the bare
+            # ``gnode.name`` ("run.vi") -- a bare-name lookup collides across
+            # every same-named override in a dynamic-dispatch class hierarchy
+            # (every class's override of a method is literally "run.vi").
             terminals = self._enrich_subvi_terminals_typed(
-                terminals, gnode.name, vi_name
+                terminals, gnode.qualified_name or gnode.name, vi_name
             )
 
         # Structure-specific fields
@@ -333,7 +337,12 @@ class OperationsMixin:
         subvi_name: str | None,
         caller_vi: str,
     ) -> list[Terminal]:
-        """Add callee parameter names to SubVI terminals via _get_slot_to_name."""
+        """Add callee parameter names to SubVI terminals via _get_slot_to_name.
+
+        ``subvi_name`` should be the callee's QUALIFIED name/vi_key when
+        available (not a bare filename) -- resolve_vi_name's bare-name lookup
+        collides across same-named VIs (e.g. two classes' same-named
+        dynamic-dispatch override, both literally "run.vi")."""
         if not subvi_name:
             return terminals
         resolved_name = self.resolve_vi_name(subvi_name)

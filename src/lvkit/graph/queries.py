@@ -52,6 +52,13 @@ if TYPE_CHECKING:
     from .core import InMemoryVIGraph
 
 
+class AmbiguousVIReferenceError(Exception):
+    """A bare name/qname lookup (``resolve_vi_name``) matched two or more
+    on-disk VIs that are genuinely DIFFERENT (distinct qualified identity),
+    not duplicate copies of the same VI. Raised by ``_pick_vi_key`` instead of
+    silently guessing one -- resolve by full source path instead."""
+
+
 class QueryMixin:
     """Mixin providing graph query methods."""
 
@@ -141,9 +148,39 @@ class QueryMixin:
         control labels, so it carries fewer labelled terminals than its source
         twin, and fewer graph nodes -- then the lexically-smallest key. Path is
         the identity; this only fires for genuine on-disk duplicates, and the
-        final key tie-break makes it filesystem-order-independent."""
+        final key tie-break makes it filesystem-order-independent.
+
+        GUARD: before collapsing, group the candidates by the loader-tracked
+        qualified identity (``_vi_display_names`` -- each VI's own LIBN/LIBH
+        owner chain, stamped once at load time; see ``_load_vi_recursive``).
+        Two keys sharing that qname are genuinely the SAME VI saved to two
+        paths (a stripped build copy alongside its source twin, or a parallel
+        plugin tree) -- the collapse above is correct for those. Two keys with
+        DIFFERENT qnames are provably DIFFERENT VIs that merely share a bare
+        filename -- routine under LabVIEW dynamic dispatch, where every
+        class's override of a method is literally ``run.vi`` (e.g.
+        ``TestCase.lvclass:run.vi`` vs ``TestSuite.lvclass:run.vi``).
+        Silently collapsing those via "richest wins" previously picked one
+        arbitrarily and rendered/diffed/described the WRONG VI, so this
+        raises a named, actionable error instead of guessing.
+        """
         if len(keys) == 1:
             return keys[0]
+
+        by_qname: dict[str, list[str]] = {}
+        for key in keys:
+            by_qname.setdefault(self._vi_display_names.get(key, key), []).append(key)
+        if len(by_qname) > 1:
+            groups = "; ".join(
+                f"{qname!r}: {sorted(group_keys)}"
+                for qname, group_keys in sorted(by_qname.items())
+            )
+            raise AmbiguousVIReferenceError(
+                "Ambiguous VI reference -- this name matches multiple "
+                f"DISTINCT VIs (different qualified identity): {groups}. "
+                "Load/reference the VI by its full source path instead of "
+                "its bare filename or an unqualified name."
+            )
 
         def rank(key: str) -> tuple[int, int, str]:
             uids = self._vi_nodes.get(key) or set()
@@ -1274,7 +1311,12 @@ def collect_class_context(
         return None
 
     parent = graph._dep_graph.nodes[cls].get("parent_class")
-    access = graph.get_method_access(ctx.name)
+    # ctx.name is the DISPLAY bare filename (e.g. "run.vi" -- see
+    # get_vi_context's docstring comment), which collides across every
+    # same-named override in a dynamic-dispatch class hierarchy. Resolve by
+    # ctx.qualified_name (the class-qualified identity, e.g.
+    # "TestSuite.lvclass:run.vi") instead -- exact and unambiguous.
+    access = graph.get_method_access(ctx.qualified_name or ctx.name)
     return ClassContext(
         owning_class=cls,
         parent=parent,

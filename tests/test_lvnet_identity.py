@@ -56,6 +56,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.graph import load_vi_by_path
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
@@ -71,7 +72,11 @@ from lvkit.graph.netlist import (
     render_lvnet,
 )
 from lvkit.graph.netlist_models import DefaultValue, EtaMerge, GammaMerge, MuMerge
-from lvkit.graph.render_lvnet import _is_void_type, _lvnet_net_separator
+from lvkit.graph.render_lvnet import (
+    _is_void_type,
+    _lvnet_net_separator,
+    _quoted_frame_label,
+)
 from lvkit.load_mode import LoadMode
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
@@ -124,15 +129,15 @@ _IDENTITY_CASES = [
 def _load(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str] | None:
     if not vi_path.exists():
         return None
-    graph = InMemoryVIGraph()
     try:
-        graph.load_vi(
-            str(vi_path), LoadMode.MINIMAL, search_paths=[search_root], layout=False
+        # load_vi_by_path returns load_vi's OWN key for vi_path -- never
+        # re-derived from vi_path.name, which collides across same-named
+        # VIs (e.g. TestCase.lvclass:run.vi vs TestSuite.lvclass:run.vi).
+        return load_vi_by_path(
+            vi_path, LoadMode.MINIMAL, search_paths=[search_root], layout=False
         )
     except Exception:
         return None
-    vi_name = graph.resolve_vi_name(vi_path.name)
-    return graph, vi_name
 
 
 # ============================================================
@@ -369,7 +374,38 @@ def _compare_scope(
         )
     else:
         for i, (fa, fb) in enumerate(zip(a.frames, b.frames)):
-            _compare_items(fa.body, fb.body, f"{path}.frame[{i}]", errors, ctx)
+            frame_path = f"{path}.frame[{i}]"
+            # Case-scope ONLY: this is the exact blind spot that let the
+            # TextTestRunner/run.vi bug through -- two frames both labeled
+            # "Error", only one of which is ``is_default``, previously
+            # indistinguishable once rendered (§8's ``"Error", default``
+            # convention fixes the render/parse/reconstruct round trip; this
+            # is the identity gate that must now actually catch a
+            # regression). Scoped to "case" because it is the only scope
+            # kind whose header now encodes ``is_default`` at all --
+            # sequence/disabled/event frames keep their plain header and
+            # ``lvnet_reconstruct`` still hardcodes ``is_default=False`` for
+            # them (a separate, pre-existing gap outside this fix's scope).
+            if a.kind == "case":
+                if fa.is_default != fb.is_default:
+                    errors.append(
+                        f"{frame_path}: is_default mismatch: "
+                        f"{fa.is_default!r} vs {fb.is_default!r}"
+                    )
+                # Compare the frame's OWN selector value(s) via the same
+                # quoting ``_render_lvnet_case_scope`` itself applies (the
+                # original's ``label`` is stored BARE, e.g. "Error", while a
+                # reconstructed label is stored ALREADY quoted, e.g.
+                # '"Error"' -- an intentional passthrough asymmetry, not a
+                # real difference -- see ``_quoted_frame_label``'s own
+                # docstring), so this normalizes both sides to the same
+                # final rendered token before comparing.
+                if _quoted_frame_label(fa.label) != _quoted_frame_label(fb.label):
+                    errors.append(
+                        f"{frame_path}: selector value mismatch: "
+                        f"{fa.label!r} vs {fb.label!r}"
+                    )
+            _compare_items(fa.body, fb.body, frame_path, errors, ctx)
 
     if len(a.outputs) != len(b.outputs):
         errors.append(

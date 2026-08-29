@@ -29,6 +29,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.graph import load_vi_by_path
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
@@ -79,15 +80,15 @@ _IDEMPOTENCE_CASES = [
 def _load(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str] | None:
     if not vi_path.exists():
         return None
-    graph = InMemoryVIGraph()
     try:
-        graph.load_vi(
-            str(vi_path), LoadMode.MINIMAL, search_paths=[search_root], layout=False
+        # load_vi_by_path returns load_vi's OWN key for vi_path -- never
+        # re-derived from vi_path.name, which collides across same-named
+        # VIs (e.g. TestCase.lvclass:run.vi vs TestSuite.lvclass:run.vi).
+        return load_vi_by_path(
+            vi_path, LoadMode.MINIMAL, search_paths=[search_root], layout=False
         )
     except Exception:
         return None
-    vi_name = graph.resolve_vi_name(vi_path.name)
-    return graph, vi_name
 
 
 def _first_line_diff(a: str, b: str) -> str:

@@ -809,18 +809,27 @@ def _reconstruct_scope(
         for f in item.frames:
             body = _reconstruct_items(f.body, registry, types_dict, memo, fresh_uid)
             frames.append(
-                NetlistFrame(label=f.label, value=f.label, is_default=False, body=body)
+                NetlistFrame(
+                    label=f.label, value=f.label, is_default=f.is_default, body=body
+                )
             )
         net_order: list[str] = []
         cases_by_net: dict[str, list[GammaCase]] = {}
         for f, frame_obj in zip(item.frames, frames, strict=True):
+            # Matches ``netlist_build._build_case_outputs``'s OWN frame_key
+            # convention exactly ("default" if is_default else label) -- both
+            # sides must agree, or a default frame's ``GammaCase`` fails to
+            # find its match by key and its case-output drive is silently
+            # dropped (the TextTestRunner/run.vi bug this closes: two frames
+            # both labeled "Error", only one of which is the default).
+            frame_key = "default" if frame_obj.is_default else frame_obj.label
             for d in f.drives:
                 if d.net not in cases_by_net:
                     cases_by_net[d.net] = []
                     net_order.append(d.net)
                 source = _parse_source_token(d.source, registry)
                 cases_by_net[d.net].append(
-                    GammaCase(frame_key=frame_obj.label, source=source)
+                    GammaCase(frame_key=frame_key, source=source)
                 )
         selector = None
         if item.selector is not None and item.selector != "?":

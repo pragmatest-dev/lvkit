@@ -408,11 +408,21 @@ def _iter_named_subtypes(
     named) plus every named type nested inside it (an array's element, a
     cluster's field, a parametrized refnum's inner type) -- regardless of
     whether ``lv_type`` ITSELF is named, so a named type nested inside an
-    anonymous container is still found. ``_visited`` (keyed by ``id()``,
-    not name) guards a genuinely self-referential ``LVType`` graph from
-    infinite recursion; a real cycle already bottoms out at a ``Recursive``
-    PRIMITIVE placeholder in practice (``type_mapping.py``), so this is a
-    defensive belt only.
+    anonymous container is still found -- EXCEPT a cluster/typedef_ref's
+    fields, which are only descended into when the cluster ITSELF is named.
+    A named cluster's footnote def renders its fields' full types
+    (``_lvnet_type_lossless_def``), so a named type reachable only through a
+    named cluster is still recoverable from the rendered text; an ANONYMOUS
+    cluster's body/type-ref occurrences render field NAMES only
+    (``LVType.type_descriptor``, no field types), so a named type reachable
+    ONLY through an anonymous cluster's field is NOT recoverable from the
+    rendered text and must not be collected -- collecting it anyway would
+    break render(reconstruct(parse(T))) == T (the footnote would list a type
+    reconstruction can never re-derive from the text). ``_visited`` (keyed by
+    ``id()``, not name) guards a genuinely self-referential ``LVType`` graph
+    from infinite recursion; a real cycle already bottoms out at a
+    ``Recursive`` PRIMITIVE placeholder in practice (``type_mapping.py``), so
+    this is a defensive belt only.
     """
     if _visited is None:
         _visited = set()
@@ -431,7 +441,9 @@ def _iter_named_subtypes(
     ):
         yield from _iter_named_subtypes(lv_type.element_type, _visited)
     elif (
-        lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF) and lv_type.fields
+        lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF)
+        and lv_type.fields
+        and name is not None
     ):
         for f in lv_type.fields:
             if f.type is not None:
@@ -1056,7 +1068,22 @@ def _render_lvnet_case_scope(
     frame" -- never the OLD renderer's single bottom-of-scope ``gamma(...)``
     line). ``gamma.net`` is reformatted to ``::`` the same render-time-only
     way as the loop scope's ``merge.net`` above.
-    """
+
+    A frame's ``is_default`` is encoded IN the header's comma list, mirroring
+    LabVIEW's own ``"Error", Default`` selector convention -- it is NOT a
+    separate keyword line, and it does NOT apply to the frame-only families
+    below (sequence/disabled/event keep their plain ``frame <label> :``
+    header): ``default`` (the bare, unquoted ``_LVNET_DEFAULT_KEYWORD``) is
+    appended as the list's last entry when ``frame.is_default``, and is the
+    SOLE entry when the frame carries no specific selector value of its own
+    (``_selector_label`` collapsed it to the ``"Default"`` sentinel because
+    it isn't also an Error-cluster frame -- see its own docstring). An
+    Error-cluster default frame DOES keep its specific value (``"Error"``/
+    ``"Error 3..10"``), since ``_selector_label``'s ``is_error`` branch never
+    returns the ``"Default"`` sentinel -- that's exactly the
+    ``TextTestRunner/run.vi`` shape this fixes: two frames both labeled
+    ``"Error"``, only one of which is the default, previously indistinguishable
+    once rendered."""
     sel_str = (
         _render_lvnet_source(scope.selector, handles)
         if scope.selector is not None
@@ -1067,7 +1094,12 @@ def _render_lvnet_case_scope(
     gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
     body_indent = indent + _LVNET_INDENT * 2
     for frame in scope.frames:
-        label = _quoted_frame_label(frame.label)
+        if frame.is_default and frame.label == "Default":
+            label = _LVNET_DEFAULT_KEYWORD
+        elif frame.is_default:
+            label = f"{_quoted_frame_label(frame.label)}, {_LVNET_DEFAULT_KEYWORD}"
+        else:
+            label = _quoted_frame_label(frame.label)
         lines.append(f"{indent + _LVNET_INDENT}frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles, verbose=verbose)
         frame_key = "default" if frame.is_default else frame.label
