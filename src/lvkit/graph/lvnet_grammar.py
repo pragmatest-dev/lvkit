@@ -101,14 +101,41 @@ _LVNET_PANE_INDEX_PREFIX = "@"
 _LVNET_NAME_CAP = 32
 _LVNET_TYPE_CAP = 40
 
+# The OPTIONAL trailing ``(id <uid>)`` structure-identity annotation on a
+# scope header line (§8, verbose-only -- render_lvnet's own render-
+# rehydration axis, md §11, not a readability nicety: terse output never
+# carries it, byte-identical to before this constant existed). Every
+# ``NetlistScope`` -- case/for-loop/while-loop/flat-sequence/stacked-
+# sequence/diagram-disable/conditional-disable/type-specialization/
+# event-structure -- carries a real BD ``uid`` (``netlist_build._uid_of``),
+# but only a structure that also happens to drive an output tunnel (case/
+# loop's shift-register/output-tunnel merges, or a sequence/disabled/event
+# structure's own output tunnel -- see ``_frame_net_name_gn``) ever spells
+# that uid into a net name (``case_UID::outK`` etc, below) -- a structure
+# with NO such output (e.g. a case/loop with no output tunnel/shift
+# register, or a sequence/disabled/event structure that drives nothing out)
+# has NO way to recover its own identity from the body text otherwise.
+# Verified against the real corpus (``.tmp/probe_scope_uid_gap.py``): WITHOUT
+# this annotation, ``WaveGen.vi``/``VI Tester Menu Launch.vi``/``Graphical
+# Test Runner - Main UI - .vi`` each reconstruct one or more scopes with a
+# freshly-minted uid instead of the original's -- a real, not theoretical,
+# graph-identity round-trip gap. Kept as its own named constant (mirrors
+# ``_LVNET_DEP_PATH_SEP``'s reasoning above): BOTH render
+# (``render_lvnet._lvnet_scope_id_suffix``) and parse
+# (``lvnet_parse._split_scope_header_id``) spell it out as a literal.
+_LVNET_SCOPE_ID_PREFIX = " (id "
+
 # A structure-scoped net name (``case_UID.outK``/``loop_UID.shiftK``/
-# ``loop_UID.outK`` -- built by ``_gamma_net_name_gn``/``_eta_net_name_gn``/
-# ``_mu_net_name_gn``; Phase 3: ``UID`` is the structure's own stable BD uid,
-# not a small per-structure counter) always has this exact
-# ``<prefix>_<uid>.<rest>`` shape -- ONE dot, never more. A boundary
-# control's bare name and a feedback net (``fbK``) have no dot at all and
-# never match.
-_LVNET_STRUCTURE_NET_RE = re.compile(r"^((?:case|loop)_\d+)\.(.+)$")
+# ``loop_UID.outK``/``sequence_UID.outK``/``disabled_UID.outK``/
+# ``event_UID.outK`` -- built by ``_gamma_net_name_gn``/``_eta_net_name_gn``/
+# ``_mu_net_name_gn``/``_frame_net_name_gn``; Phase 3: ``UID`` is the
+# structure's own stable BD uid, not a small per-structure counter) always
+# has this exact ``<prefix>_<uid>.<rest>`` shape -- ONE dot, never more. A
+# boundary control's bare name and a feedback net (``fbK``) have no dot at
+# all and never match.
+_LVNET_STRUCTURE_NET_RE = re.compile(
+    r"^((?:case|loop|sequence|disabled|event)_\d+)\.(.+)$"
+)
 
 # ``LOCAL_VARIABLE`` (now designed, §7 revised again): a read/write TAP on a
 # control's own net, not a generic `<keyword> <handle> : <component>` +

@@ -1814,6 +1814,68 @@ def _mu_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     return f"loop_{loop_uid}.shift{k}"
 
 
+# Frame-only structures (sequence/disabled/event, ``_FRAME_STRUCTURE_TYPES``
+# minus ``CaseStructureNode``) never carry their own ``GammaMerge``/
+# ``EtaMerge`` model (``NetlistScope.outputs`` stays empty for these kinds --
+# see its own docstring) -- but a consumer downstream of one of their output
+# tunnels still needs a net name that recovers the STRUCTURE's identity, the
+# same way ``case_<uid>.out<k>``/``loop_<uid>.out<k>`` do. The prefix is the
+# structure's own ``NetlistScope.kind`` string verbatim (``sequence``/
+# ``disabled``/``event``) -- unlike loop, which generalizes its two kinds
+# (``for``/``while``) to one net-vocabulary word (``loop``), each of these
+# three kinds already IS its own net-vocabulary word, so no such mapping is
+# needed beyond the node-type -> kind-string lookup below.
+_FRAME_ONLY_NET_PREFIX: dict[type, str] = {
+    SequenceNode: "sequence",
+    DisableStructureNode: "disabled",
+    EventStructureNode: "event",
+}
+
+
+def _frame_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
+    """Output-tunnel outer terminals for a frame-only structure (sequence/
+    disabled/event) -- the analogue of ``_case_output_tunnel_outers_gn``/
+    ``_loop_output_tunnel_outers_gn`` for the structure kinds with no
+    dedicated merge model of their own."""
+    return [
+        t
+        for t in node.terminals
+        if isinstance(t, TunnelTerminal)
+        and t.boundary == "outer"
+        and t.direction == "output"
+    ]
+
+
+def _is_frame_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """True for an output-tunnel OUTER terminal on a frame-only structure
+    (sequence/disabled/event) -- the analogue of
+    ``_is_gamma_output_tunnel_gn``/``_is_eta_output_tunnel_gn``/
+    ``_is_mu_shift_register_read_gn`` for the structure kinds with no
+    dedicated merge model. Unlike a case's gamma tunnel (claimed only when
+    ``>1`` inner is paired) or a loop's eta tunnel (every ``lpTun`` outer
+    qualifies), a frame-only structure's output tunnel is claimed
+    UNCONDITIONALLY here -- the same "this net's identity belongs to the
+    STRUCTURE, not to whichever frame happens to drive it" rule case/loop
+    already apply uniformly to their own output tunnels (§ ``_tunnel_net_
+    name_gn``), extended to the frame-only kinds that never got a merge
+    model to carry it."""
+    if type(node) not in _FRAME_ONLY_NET_PREFIX:
+        return False
+    return (
+        isinstance(term, TunnelTerminal)
+        and term.boundary == "outer"
+        and term.direction == "output"
+    )
+
+
+def _frame_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
+    """``<prefix>_<uid>.out<k>`` for a frame-only structure's output tunnel
+    -- see ``_tunnel_net_name_gn``; ``prefix`` is ``_FRAME_ONLY_NET_PREFIX``'s
+    lookup for ``node``'s own type."""
+    prefix = _FRAME_ONLY_NET_PREFIX[type(node)]
+    return _tunnel_net_name_gn(node, term, _frame_output_tunnel_outers_gn, prefix)
+
+
 def _is_feedback_output_read_gn(
     graph: InMemoryVIGraph, node: AnyGraphNode, term: Terminal
 ) -> bool:
@@ -1948,6 +2010,9 @@ def _resolve_source_gn(
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_mu_shift_register_read_gn(owner, term):
                 name = _mu_net_name_gn(owner, term)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
+            if _is_frame_output_tunnel_gn(owner, term):
+                name = _frame_net_name_gn(owner, term)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_feedback_output_read_gn(graph, owner, term):
                 name = f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"

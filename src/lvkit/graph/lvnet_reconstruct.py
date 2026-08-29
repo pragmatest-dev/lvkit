@@ -43,12 +43,29 @@ derivation) and §10/§10.1 (types) for the grammar this reverses, and
   REAL identity: the reconstructed ``NetlistInstance.uid`` is the same BD
   uid the original graph carried, not a fresh mint.
 - **Structural nets** (``case_UID::outK``, ``loop_UID::shiftK``,
-  ``loop_UID::outK``, ``fbK``): kept EXACTLY as captured from the text
+  ``loop_UID::outK``, ``sequence_UID::outK``, ``disabled_UID::outK``,
+  ``event_UID::outK``, ``fbK``): kept EXACTLY as captured from the text
   (``::`` and all) -- ``netlist._lvnet_net_separator`` is a no-op on a
   string that already contains ``::`` (its regex only rewrites a literal
   ``.`` separator), so round-tripping the already-final text through
   unchanged reproduces it byte-for-byte with no ``.``/``::`` bookkeeping
   needed on this side.
+- **Structure identity** (Phase 4, the graph-IDENTITY round-trip gate,
+  stronger still than Phase 3's byte-identity re-render): a case/loop/
+  sequence/disabled/event structure's own real BD ``uid``
+  (``NetlistScope.uid``) is recovered from its header's own OPTIONAL
+  trailing ``(id <uid>)`` annotation (``ParsedScope.uid``, set by
+  ``lvnet_parse._split_scope_header_id``) -- preferred over the OLDER
+  net-derived recovery (``_structure_uid_from_net``, which now works for
+  any structure kind that drives an output tunnel/shift register --
+  ``netlist_build._frame_net_name_gn`` extended the same ``<kind>_<uid>.
+  outK`` scheme case/loop already used to sequence/disabled/event's own
+  output tunnels -- but still nothing for a structure that drives NO such
+  output at all) in every ``_reconstruct_*_scope`` branch below. This
+  closes a real gap verified against the corpus: WITHOUT the header
+  annotation, a case/loop with no such output net, and a sequence/disabled/
+  event structure that likewise drives no output tunnel, reconstructed with
+  a freshly-minted uid instead of the original's.
 - **Types**: a real ``LVType`` is reconstructed for a terminal's type text
   ONLY when doing so is both possible (the text is a bare name resolvable
   through the ``types :`` footnote, or an array/refnum wrapper around one)
@@ -759,14 +776,20 @@ def _reconstruct_tunnel(
 
 
 def _structure_uid_from_net(net: str) -> str | None:
-    """Phase 3: recover a case/loop's own real BD uid from one of its
-    ``case_UID::outK``/``loop_UID::shiftK``/``loop_UID::outK`` structural net
-    strings (the ``_render_lvnet_source``/``_lvnet_net_separator``-reformed
-    text ``_reconstruct_scope`` already has in hand, unchanged -- see the
-    module docstring's "Structural nets" note). Returns ``None`` for a
-    structure with NO such net anywhere in the text (a case/loop with no
-    output tunnel or shift register never spells its own uid at all -- a
-    genuine, unavoidable gap; the caller mints a fresh uid in that case)."""
+    """Recover a structure's own real BD uid from one of its
+    ``case_UID::outK``/``loop_UID::shiftK``/``loop_UID::outK``/
+    ``sequence_UID::outK``/``disabled_UID::outK``/``event_UID::outK``
+    structural net strings (the ``_render_lvnet_source``/
+    ``_lvnet_net_separator``-reformed text ``_reconstruct_scope`` already has
+    in hand, unchanged -- see the module docstring's "Structural nets" note).
+    Generic over the prefix -- it splits on the first ``_`` and takes
+    whatever digit run follows, so a new structure-net prefix needs no
+    change here. Returns ``None`` for a structure with NO such net anywhere
+    in the text -- Phase 4 closed the gap this used to leave open (a
+    structure that drives no output tunnel/shift register at all) via the
+    header's own ``(id <uid>)`` annotation (``ParsedScope.uid``, preferred by
+    every ``_reconstruct_*_scope`` branch below); this function now serves
+    only as a defensive fallback for text that predates that annotation."""
     _, sep, rest = net.partition("_")
     if not sep:
         return None
@@ -808,7 +831,9 @@ def _reconstruct_scope(
             GammaMerge(net=net, selector=None, cases=cases_by_net[net])
             for net in net_order
         ]
-        case_uid = _structure_uid_from_net(net_order[0]) if net_order else None
+        case_uid = item.uid
+        if case_uid is None and net_order:
+            case_uid = _structure_uid_from_net(net_order[0])
         return NetlistScope(
             uid=case_uid if case_uid is not None else fresh_uid.next("case"),
             kind="case",
@@ -825,14 +850,16 @@ def _reconstruct_scope(
             _reconstruct_shift_register(sr, registry) for sr in item.shift_registers
         ]
         eta_list = [_reconstruct_tunnel(t, registry) for t in item.tunnels]
-        loop_uid = next(
-            (
-                uid
-                for net in (*(m.net for m in mu_list), *(m.net for m in eta_list))
-                if (uid := _structure_uid_from_net(net)) is not None
-            ),
-            None,
-        )
+        loop_uid = item.uid
+        if loop_uid is None:
+            loop_uid = next(
+                (
+                    uid
+                    for net in (*(m.net for m in mu_list), *(m.net for m in eta_list))
+                    if (uid := _structure_uid_from_net(net)) is not None
+                ),
+                None,
+            )
         return NetlistScope(
             uid=loop_uid if loop_uid is not None else fresh_uid.next("loop"),
             kind=kind,
@@ -852,7 +879,7 @@ def _reconstruct_scope(
                 NetlistFrame(label=value, value=value, is_default=False, body=body)
             )
         return NetlistScope(
-            uid=fresh_uid.next("sequence"),
+            uid=item.uid if item.uid is not None else fresh_uid.next("sequence"),
             kind="sequence",
             selector=None,
             frames=frames,
@@ -873,7 +900,7 @@ def _reconstruct_scope(
             for f in item.frames
         ]
         return NetlistScope(
-            uid=fresh_uid.next("disabled"),
+            uid=item.uid if item.uid is not None else fresh_uid.next("disabled"),
             kind="disabled",
             selector=None,
             frames=frames,
@@ -891,7 +918,10 @@ def _reconstruct_scope(
             for f in item.frames
         ]
         return NetlistScope(
-            uid=fresh_uid.next("event"), kind="event", selector=None, frames=frames
+            uid=item.uid if item.uid is not None else fresh_uid.next("event"),
+            kind="event",
+            selector=None,
+            frames=frames,
         )
 
     raise LvnetReconstructError(f"unrecognized scope kind: {item.kind!r}")

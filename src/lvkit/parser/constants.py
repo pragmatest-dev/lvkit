@@ -186,8 +186,39 @@ TUNNEL_DCO_CLASSES = (
     TUNNEL_CLASS_DECOMPOSE_RECOMPOSE,
 )
 
-# Node classes that have terminals (for terminal extraction)
-TERMINAL_CONTAINER_CLASSES = OPERATION_NODE_CLASSES + (NODE_CLASS_SHIFT_REG,)
+# Node classes that have terminals (for terminal extraction).
+#
+# Includes two structure-FRAME container classes whose own direct <termList>
+# can carry a boundary tunnel's <term> (e.g. a flat/stacked sequence's seqTun/
+# flatSeqTun outer-vs-frame pass-through, per sequence.py's
+# `_extract_tunnels_from_termlist`) -- distinct from the STRUCTURE element
+# itself (flatSequence/seq/sequence/eventStruct/caseStruct are already
+# OPERATION_NODE_CLASSES members; a Disable structure's commentNode gets the
+# same treatment via the `is_disable_elem` gate in `_walk_and_extract_terminals`,
+# since a plain free-text comment must NOT be swept in):
+#   - "sequenceFrame" -- a flat sequence's per-frame container (element found
+#     directly under flatSequence/sequenceList). Confirmed LIVE in the corpus:
+#     1607 sequenceFrame elements across the local sample corpus carry a
+#     direct-child tunnel <term> (100% tunnel-typed dco, 0 non-tunnel) that
+#     was previously invisible to `_extract_terminal_info` -- so
+#     `_build_structure_terminals` fell back to the tunnel-TYPE default
+#     (`_INPUT_TUNNEL_TYPES` hardcodes seqTun as always-input) instead of the
+#     real wire-based direction, mistagging a flat sequence's genuine OUTPUT
+#     tunnel as "input" (see tests/test_lvnet_identity.py, VI_Tester_Menu_Launch).
+#   - "diag" -- a stacked-sequence/event/disable/case frame's own diagram
+#     container. Added for the SAME principled reason (a frame boundary is a
+#     frame boundary regardless of structure kind) but VERIFIED INERT on the
+#     local corpus: 8397 "diag" elements, ZERO with a populated direct
+#     <termList> -- every stacked-sequence/event/disable/case frame observed
+#     routes its per-frame tunnel face through an inner sRN node instead
+#     (NODE_CLASS_SHIFT_REG, already a member below), which is walked
+#     regardless of container-class membership. Kept for corpus VIs not
+#     locally sampled where a frame might carry a boundary term directly.
+TERMINAL_CONTAINER_CLASSES = OPERATION_NODE_CLASSES + (
+    NODE_CLASS_SHIFT_REG,
+    "sequenceFrame",
+    "diag",
+)
 
 # Terminal-related classes
 TERMINAL_CLASS = "term"

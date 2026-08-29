@@ -19,6 +19,12 @@ output merge to drive, unlike a case frame). A construct genuinely outside
 lvnet's §8 vocabulary still raises ``LvnetParseError`` naming it, rather than
 guessing a shape.
 
+Phase 4 (graph-identity round-trip) recovers ``ParsedScope.uid`` from a
+header's own OPTIONAL trailing `` (id <uid>)`` annotation (``lvnet_
+reconstruct.py``'s stronger gate: not just a matching TEXT projection, but
+the SAME structure/node identity the original graph carried) -- see
+``_split_scope_header_id``.
+
 Parsing is grammar-aware, not regex-guesswork over the whole line: every line
 is split on the SAME structural markers ``render_lvnet`` composes it from
 (`` : `` opens a type/component clause; `` = `` opens a driver/source clause;
@@ -53,6 +59,7 @@ from .lvnet_grammar import (
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
+    _LVNET_SCOPE_ID_PREFIX,
     _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
@@ -606,6 +613,16 @@ class ParsedScope:
     body: tuple[ParsedBodyItem, ...] = ()  # loop only
     shift_registers: tuple[ParsedShiftRegister, ...] = ()  # loop only
     tunnels: tuple[ParsedTunnel, ...] = ()  # loop only
+    # Phase 4: the header's own OPTIONAL trailing ``(id <uid>)`` annotation
+    # (``_LVNET_SCOPE_ID_PREFIX``, verbose-only) -- the structure's real BD
+    # uid, recovered by ``_split_scope_header_id`` BEFORE this scope's own
+    # header-matching logic ever sees the header content (so every existing
+    # ``content == ...``/``content.startswith(...)`` check below keeps
+    # working against the header with its id annotation already stripped).
+    # ``None`` for a header carrying no such annotation (terse text, or
+    # lvnet text rendered before this pass existed) -- ``lvnet_reconstruct.
+    # py`` falls back to a net-derived or freshly-minted uid in that case.
+    uid: str | None = None
 
 
 ParsedBodyItem = (
@@ -950,8 +967,40 @@ def _parse_tunnel(content: str, line_no: int) -> ParsedTunnel:
     )
 
 
+def _split_scope_header_id(content: str) -> tuple[str, str | None]:
+    """Split OFF an OPTIONAL trailing `` (id <uid>)`` structure-identity
+    annotation (§8, Phase 4, verbose-only) from a scope-header line's
+    content, immediately before its block-opening `` :`` -- the exact
+    reverse of ``render_lvnet._lvnet_scope_id_suffix``. Returns the REDUCED
+    content, as if the annotation had never been there (so every existing
+    header-matching branch in ``_parse_one_item_or_drive`` -- and every
+    kind-specific parser's own header slicing below it -- keeps working
+    completely unchanged), plus the recovered uid (``None`` when the line
+    carries no such annotation: not a parse error, just a header rendered
+    terse, or by a build of ``render_lvnet`` that predates this pass).
+
+    A false-positive strip is not a realistic risk: every real scope header
+    this could ever be called on is either a fixed keyword (``for-loop
+    :``/``while-loop :``/the frame-only families' own headers) or a ``case
+    <selector> :`` line whose selector is always a single space-free net
+    token (§9) -- never itself containing literal `` (id <digits>)`` text.
+    """
+    if not content.endswith(_LVNET_BLOCK_OPEN):
+        return content, None
+    body = content[: -len(_LVNET_BLOCK_OPEN)]
+    if not body.endswith(")"):
+        return content, None
+    open_idx = body.rfind(_LVNET_SCOPE_ID_PREFIX)
+    if open_idx == -1:
+        return content, None
+    uid = body[open_idx + len(_LVNET_SCOPE_ID_PREFIX) : -1]
+    if not uid.isdigit():
+        return content, None
+    return body[:open_idx] + _LVNET_BLOCK_OPEN, uid
+
+
 def _parse_loop_scope(
-    cursor: _Cursor, indent: int, content: str, line_no: int
+    cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
 ) -> ParsedScope:
     kind = "while-loop" if content == f"while-loop{_LVNET_BLOCK_OPEN}" else "for-loop"
     body_indent = indent + _LVNET_INDENT_WIDTH
@@ -987,11 +1036,12 @@ def _parse_loop_scope(
         body=tuple(body),
         shift_registers=tuple(shift_registers),
         tunnels=tuple(tunnels),
+        uid=uid,
     )
 
 
 def _parse_case_scope(
-    cursor: _Cursor, indent: int, content: str, line_no: int
+    cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
 ) -> ParsedScope:
     selector = content[len("case ") : -len(_LVNET_BLOCK_OPEN)]
     frame_indent = indent + _LVNET_INDENT_WIDTH
@@ -1020,7 +1070,7 @@ def _parse_case_scope(
         raise LvnetParseError(
             f"line {line_no}: case scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind="case", selector=selector, frames=tuple(frames))
+    return ParsedScope(kind="case", selector=selector, frames=tuple(frames), uid=uid)
 
 
 def _parse_labeled_frames(
@@ -1071,7 +1121,7 @@ def _parse_labeled_frames(
 
 
 def _parse_sequence_scope(
-    cursor: _Cursor, indent: int, content: str, line_no: int
+    cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
 ) -> ParsedScope:
     """``flat-sequence :`` / ``stacked-sequence :`` (§8) -- ``frame [i] :``
     per frame, matching ``_render_lvnet_sequence_scope`` exactly."""
@@ -1083,11 +1133,11 @@ def _parse_sequence_scope(
         raise LvnetParseError(
             f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind=kind, frames=tuple(frames))
+    return ParsedScope(kind=kind, frames=tuple(frames), uid=uid)
 
 
 def _parse_disabled_scope(
-    cursor: _Cursor, indent: int, content: str, line_no: int
+    cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
 ) -> ParsedScope:
     """``diagram-disable :`` / ``conditional-disable :`` / ``type-
     specialization :`` (§8), matching ``_render_lvnet_disabled_scope``
@@ -1102,11 +1152,11 @@ def _parse_disabled_scope(
         raise LvnetParseError(
             f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind=kind, frames=tuple(frames))
+    return ParsedScope(kind=kind, frames=tuple(frames), uid=uid)
 
 
 def _parse_event_scope(
-    cursor: _Cursor, indent: int, content: str, line_no: int
+    cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
 ) -> ParsedScope:
     """``event-structure :`` (§8) -- ``frame "<event>" :`` per event case,
     matching ``_render_lvnet_event_scope`` exactly."""
@@ -1118,7 +1168,7 @@ def _parse_event_scope(
             f"line {line_no}: event-structure scope has no frames (§8): "
             f"{content!r}"
         )
-    return ParsedScope(kind="event-structure", frames=tuple(frames))
+    return ParsedScope(kind="event-structure", frames=tuple(frames), uid=uid)
 
 
 def _parse_one_item_or_drive(
@@ -1133,16 +1183,25 @@ def _parse_one_item_or_drive(
     for kw in _NODE_KEYWORDS:
         if content.startswith(kw + " "):
             return _parse_node(cursor, indent, kw, content, line_no)
-    if content in (f"for-loop{_LVNET_BLOCK_OPEN}", f"while-loop{_LVNET_BLOCK_OPEN}"):
-        return _parse_loop_scope(cursor, indent, content, line_no)
-    if content.startswith("case ") and content.endswith(_LVNET_BLOCK_OPEN):
-        return _parse_case_scope(cursor, indent, content, line_no)
-    if content in _SEQUENCE_SCOPE_HEADERS:
-        return _parse_sequence_scope(cursor, indent, content, line_no)
-    if content in _DISABLED_SCOPE_HEADERS:
-        return _parse_disabled_scope(cursor, indent, content, line_no)
-    if content == _EVENT_SCOPE_HEADER:
-        return _parse_event_scope(cursor, indent, content, line_no)
+    # Strip an optional Phase-4 `` (id <uid>)`` header annotation BEFORE any
+    # of the scope-header matching below -- every one of these checks (an
+    # exact-set membership, a `startswith`) was written against the header
+    # AS IF that annotation never existed, and stays correct unchanged once
+    # it's peeled off here (see ``_split_scope_header_id``'s own docstring).
+    scope_content, scope_uid = _split_scope_header_id(content)
+    if scope_content in (
+        f"for-loop{_LVNET_BLOCK_OPEN}",
+        f"while-loop{_LVNET_BLOCK_OPEN}",
+    ):
+        return _parse_loop_scope(cursor, indent, scope_content, line_no, scope_uid)
+    if scope_content.startswith("case ") and scope_content.endswith(_LVNET_BLOCK_OPEN):
+        return _parse_case_scope(cursor, indent, scope_content, line_no, scope_uid)
+    if scope_content in _SEQUENCE_SCOPE_HEADERS:
+        return _parse_sequence_scope(cursor, indent, scope_content, line_no, scope_uid)
+    if scope_content in _DISABLED_SCOPE_HEADERS:
+        return _parse_disabled_scope(cursor, indent, scope_content, line_no, scope_uid)
+    if scope_content == _EVENT_SCOPE_HEADER:
+        return _parse_event_scope(cursor, indent, scope_content, line_no, scope_uid)
     if _LVNET_DRIVER_OP in content:
         # FIRST occurrence: a net name (``case_UID::outK``/``loop_UID::
         # shiftK``/a boundary control's name) never contains " = ", so it's

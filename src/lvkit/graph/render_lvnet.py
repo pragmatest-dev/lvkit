@@ -49,6 +49,7 @@ from .lvnet_grammar import (
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
+    _LVNET_SCOPE_ID_PREFIX,
     _LVNET_STRING_ESCAPES,
     _LVNET_STRUCTURE_NET_RE,
     _LVNET_TERMINAL_SEP,
@@ -722,7 +723,8 @@ def _lvnet_net_separator(bare: str) -> str:
     """Reformat a structure-scoped net name's separator from the model's
     stored ``.`` to lvnet's ``::`` (§9) -- a RENDER-TIME-ONLY transform of a
     string this same module deterministically constructs in exactly this
-    shape (``_tunnel_net_name_gn``/``_mu_net_name_gn``); the model's own
+    shape (``_tunnel_net_name_gn``/``_mu_net_name_gn``/``_frame_net_name_gn``);
+    the model's own
     stored string is never mutated, so ``render_netlist``/``netlist_to_dict``
     (which must keep ``.``) are untouched. A boundary control's bare name or
     an ``fbK`` feedback net (neither ever contains this shape) pass through
@@ -758,9 +760,10 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
       occurrence)``.
     - Everything else (``source.node is None``, no constant) is a boundary
       control's plain name or a structure-scoped net (``case_UID.outK``/
-      ``loop_UID.shiftK``/``loop_UID.outK``/``fbK``) -- ``_lvnet_net_separator``
-      reformats only the latter; ``source.lvnet_value`` is ``None`` here, so
-      the fallback is ``source.bare`` unchanged.
+      ``loop_UID.shiftK``/``loop_UID.outK``/``sequence_UID.outK``/
+      ``disabled_UID.outK``/``event_UID.outK``/``fbK``) -- ``_lvnet_net_
+      separator`` reformats only the latter; ``source.lvnet_value`` is
+      ``None`` here, so the fallback is ``source.bare`` unchanged.
     """
     if isinstance(source, DefaultValue):
         return _lvnet_default_token(source)
@@ -957,11 +960,33 @@ def _render_lvnet_constant(
     )
 
 
+def _lvnet_scope_id_suffix(uid: str, *, verbose: bool) -> str:
+    """The OPTIONAL trailing `` (id <uid>)`` annotation on a scope header
+    line (§8) -- the structure's own real BD ``uid`` (``NetlistScope.uid``),
+    the SAME identity ``index_module``/``diff.py`` key a case/loop/sequence/
+    disabled/event structure by. VERBOSE-ONLY: this is the render-
+    rehydration axis (md §11), exactly like the ``types :`` footnote or a
+    ``uses :`` entry's inlined interface -- never a readability nicety, so
+    terse output stays byte-identical to before this helper existed.
+
+    Without this, a structure that never spells its own uid into a net name
+    (a case/loop with no output tunnel/shift register; every sequence/
+    disabled/event structure, which never carries ANY ``case_UID::``/
+    ``loop_UID::``-shaped net at all) has no way for
+    ``lvnet_reconstruct.py`` to recover ``NetlistScope.uid`` from the text
+    alone -- verified against the real corpus, not a theoretical gap: see
+    ``_LVNET_SCOPE_ID_PREFIX``'s own docstring in ``lvnet_grammar.py``.
+    """
+    return f"{_LVNET_SCOPE_ID_PREFIX}{uid})" if verbose else ""
+
+
 def _render_lvnet_loop_scope(
     scope: NetlistScope,
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     """``for-loop :`` / ``while-loop :`` (§8) -- a single implicit body,
     followed by its border constructs (``shift-register``/``tunnel``, §8) at
@@ -980,9 +1005,12 @@ def _render_lvnet_loop_scope(
     THIS render only, never mutating the stored field (§9).
     """
     header_kw = "while-loop" if scope.kind == "while" else "for-loop"
-    lines.append(f"{indent}{header_kw}{_LVNET_BLOCK_OPEN}")
+    id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
+    lines.append(f"{indent}{header_kw}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
-    _render_lvnet_items(scope.frames[0].body, body_indent, lines, handles)
+    _render_lvnet_items(
+        scope.frames[0].body, body_indent, lines, handles, verbose=verbose
+    )
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
             net = _lvnet_net_separator(merge.net)
@@ -1015,6 +1043,8 @@ def _render_lvnet_case_scope(
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     """``case <selector-net> :`` (§8) -- ``frame "<value>" :`` per case, each
     followed (at the SAME indent as its own body items -- the golden shows
@@ -1032,13 +1062,14 @@ def _render_lvnet_case_scope(
         if scope.selector is not None
         else "?"
     )
-    lines.append(f"{indent}case {sel_str}{_LVNET_BLOCK_OPEN}")
+    id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
+    lines.append(f"{indent}case {sel_str}{id_suffix}{_LVNET_BLOCK_OPEN}")
     gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
     body_indent = indent + _LVNET_INDENT * 2
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label)
         lines.append(f"{indent + _LVNET_INDENT}frame {label}{_LVNET_BLOCK_OPEN}")
-        _render_lvnet_items(frame.body, body_indent, lines, handles)
+        _render_lvnet_items(frame.body, body_indent, lines, handles, verbose=verbose)
         frame_key = "default" if frame.is_default else frame.label
         for gamma in gammas:
             case_entry = next(
@@ -1056,6 +1087,8 @@ def _render_lvnet_sequence_scope(
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     """``flat-sequence :`` / ``stacked-sequence :`` (§8), ``frame [i] :`` per
     frame -- picked from ``scope.sequence_is_flat``, the EXPLICIT
@@ -1064,11 +1097,14 @@ def _render_lvnet_sequence_scope(
     inferred from the ambiguous ``displayed_frame`` proxy (None for both a
     flat sequence and an out-of-range legacy stacked one)."""
     keyword = "flat-sequence" if scope.sequence_is_flat else "stacked-sequence"
-    lines.append(f"{indent}{keyword}{_LVNET_BLOCK_OPEN}")
+    id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
+    lines.append(f"{indent}{keyword}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     for frame in scope.frames:
         lines.append(f"{body_indent}frame [{frame.value}]{_LVNET_BLOCK_OPEN}")
-        _render_lvnet_items(frame.body, body_indent + _LVNET_INDENT, lines, handles)
+        _render_lvnet_items(
+            frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
+        )
 
 
 def _render_lvnet_disabled_scope(
@@ -1076,6 +1112,8 @@ def _render_lvnet_disabled_scope(
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     """``diagram-disable :`` / ``conditional-disable :`` / ``type-
     specialization :`` (§8) -- picked from ``scope.disable_kind``, sourced
@@ -1088,13 +1126,16 @@ def _render_lvnet_disabled_scope(
     condition (``SYMBOL==VALUE`` / ``Default``) is quoted, matching §8's
     ``frame "<symbol cond>" :``."""
     keyword = _LVNET_DISABLE_KEYWORD[scope.disable_kind]
-    lines.append(f"{indent}{keyword}{_LVNET_BLOCK_OPEN}")
+    id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
+    lines.append(f"{indent}{keyword}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label) if quote_labels else frame.label
         lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
-        _render_lvnet_items(frame.body, body_indent + _LVNET_INDENT, lines, handles)
+        _render_lvnet_items(
+            frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
+        )
 
 
 def _render_lvnet_event_scope(
@@ -1102,14 +1143,19 @@ def _render_lvnet_event_scope(
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     """``event-structure :`` (§8), ``frame "<event>" :`` per event case."""
-    lines.append(f"{indent}event-structure{_LVNET_BLOCK_OPEN}")
+    id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
+    lines.append(f"{indent}event-structure{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label)
         lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
-        _render_lvnet_items(frame.body, body_indent + _LVNET_INDENT, lines, handles)
+        _render_lvnet_items(
+            frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
+        )
 
 
 def _render_lvnet_scope(
@@ -1117,17 +1163,19 @@ def _render_lvnet_scope(
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     if scope.kind == "case":
-        _render_lvnet_case_scope(scope, indent, lines, handles)
+        _render_lvnet_case_scope(scope, indent, lines, handles, verbose=verbose)
     elif scope.kind in ("for", "while"):
-        _render_lvnet_loop_scope(scope, indent, lines, handles)
+        _render_lvnet_loop_scope(scope, indent, lines, handles, verbose=verbose)
     elif scope.kind == "sequence":
-        _render_lvnet_sequence_scope(scope, indent, lines, handles)
+        _render_lvnet_sequence_scope(scope, indent, lines, handles, verbose=verbose)
     elif scope.kind == "disabled":
-        _render_lvnet_disabled_scope(scope, indent, lines, handles)
+        _render_lvnet_disabled_scope(scope, indent, lines, handles, verbose=verbose)
     elif scope.kind == "event":
-        _render_lvnet_event_scope(scope, indent, lines, handles)
+        _render_lvnet_event_scope(scope, indent, lines, handles, verbose=verbose)
 
 
 def _render_lvnet_feedback(
@@ -1176,13 +1224,15 @@ def _render_lvnet_items(
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     for item in items:
         match item:
             case NetlistInstance():
                 _render_lvnet_instance(item, indent, lines, handles)
             case NetlistScope():
-                _render_lvnet_scope(item, indent, lines, handles)
+                _render_lvnet_scope(item, indent, lines, handles, verbose=verbose)
             case NetlistConstant():
                 _render_lvnet_constant(item, indent, lines, handles)
             case NetlistFeedback():
@@ -1523,7 +1573,17 @@ def render_lvnet(
     text alone; plus a bottom-appendix ``types :`` section (§10,
     ``_render_lvnet_types``) giving every NAMED type's own FULL lossless
     structure (enum ordinals, cluster field types) -- the piece that makes
-    verbose actually type-REHYDRATABLE, not just by-name-referenceable.
+    verbose actually type-REHYDRATABLE, not just by-name-referenceable; plus
+    (Phase 4) every STRUCTURE's own header line (``case``/``for-loop``/
+    ``while-loop``/``flat-sequence``/``stacked-sequence``/``diagram-
+    disable``/``conditional-disable``/``type-specialization``/``event-
+    structure``) gains a trailing `` (id <uid>)`` annotation
+    (``_lvnet_scope_id_suffix``) -- the structure's own real BD ``uid``
+    (``NetlistScope.uid``), the piece that makes ``lvnet_reconstruct.py``
+    able to recover a structure's identity even when it drives no output
+    net that would otherwise spell it (a sequence/disabled/event structure
+    with no output tunnel; a case/loop with no output tunnel or shift
+    register).
 
     Phase 2 (this pass) restructures the document into the LV-mirroring
     section layout: ``uses :`` -> ``front-panel :`` (the connector pane:
@@ -1543,7 +1603,7 @@ def render_lvnet(
 
     lines.append(_BLOCK_DIAGRAM_HEADER_LINE)
     body_indent = _LVNET_INDENT * 2
-    _render_lvnet_items(module.body, body_indent, lines, handles)
+    _render_lvnet_items(module.body, body_indent, lines, handles, verbose=verbose)
 
     # The boundary-output-drive lines now live at the END of the
     # ``block-diagram :`` body, at the SAME indent as its own top-level

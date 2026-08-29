@@ -32,8 +32,27 @@ tri-state → a bool, structured `LVType` → one opaque string). So a lossless
 lvnet **must emit straight from the full `GraphNode` model + `VIContext`
 facets** — never `Operation`, never `describe --format json` (which collapses the
 tri-state to `required: bool`). "No reason to start lossy — start full and throw
-away per format on the way out." The correctness gate is a round-trip:
-`reparse(emit_verbose) == graph`.
+away per format on the way out."
+
+**The gate is GRAPH-IDENTITY round-trip, not merely text stability.** It is not
+enough for `render_lvnet(reconstruct_module(parse_lvnet(T)), verbose=True) == T`
+(byte-identical re-render — a real, necessary gate, but a proxy: two different
+models can render to identical text if a field the renderer never reads happens
+to differ). The stronger, decisive gate is that `reconstruct_module(parse_lvnet(
+render_lvnet(m, verbose=True)))` recovers the SAME graph identity `m` itself
+carried — every node/constant/local-variable's own trailing BD `uid`, every
+structure's (case/for-loop/while-loop/flat-sequence/stacked-sequence/diagram-
+disable/conditional-disable/type-specialization/event-structure) own `uid`, the
+connector pane's `pattern_id`, every connector-pane terminal's own pane `index`
+(on-pane and off-pane alike), and every net reference resolving to the SAME
+producer by identity — not just a model that happens to re-render to the same
+bytes. `tests/test_lvnet_identity.py` is this gate; `tests/test_lvnet_
+reconstruct.py`'s byte-identity check is kept alongside it as the weaker,
+necessary-but-not-sufficient proof. See §8's `(id <uid>)` structure-header
+annotation below for the piece that closes the gap this gate exists to catch:
+a structure that drives no output net spelling its own uid (every sequence/
+disabled/event structure; a case/loop with no output tunnel or shift register)
+otherwise has no way to recover its identity from the text at all.
 
 ## 2. Document skeleton
 
@@ -337,6 +356,24 @@ frame** (never hoisted to a bottom-of-block merge).
 from text languages doesn't import C's `init; cond; incr` (a LabVIEW For Loop
 runs `N` times / auto-indexes; a While Loop checks its condition at the end).
 
+**The structure-identity annotation `(id <uid>)` (verbose-only).** Every
+structure header above may carry a trailing `` (id <uid>)`` right before its
+block-opening `:` — e.g. `case Params_1480::Params (id 139) :`, `while-loop
+(id 42) :`, `flat-sequence (id 7) :` — the structure's own real BD `uid`
+(the same identity `case_<uid>::outK`/`loop_<uid>::shiftK` net names already
+carry, and `index_module`/the diff renderer key a changed structure by).
+Shown in verbose mode only (lvnet §11's render-rehydration axis, exactly
+like the `types :` footnote or a `uses :` entry's inlined interface — never
+a readability nicety, so terse output is unaffected). Without it, a
+structure that never drives an output net spelling its own uid — every
+`flat-sequence`/`stacked-sequence`/`diagram-disable`/`conditional-disable`/
+`type-specialization`/`event-structure` (none of these carry ANY output
+merge, so none of them ever get a `case_UID::`/`loop_UID::`-shaped net at
+all), or a `case`/`for-loop`/`while-loop` with no output tunnel or shift
+register — has no way to recover its own identity from the text at all;
+this is the piece that closes that gap (§1's graph-identity round-trip
+gate).
+
 ### Border constructs
 
 ```
@@ -483,7 +520,10 @@ design; an agent needing full understanding uses netlist/JSON.
   the `wiring_rule` nuance at call sites; class-context fields/methods;
   property/invoke detail; `poly_variant_name`; `primResID` as data;
   disable-structure `kind`; `displayed_frame`/`active_frame`/`case_insensitive`;
-  Event Filter-vs-Data; `VIContext.description`. (A local variable's
+  Event Filter-vs-Data; `VIContext.description`; every structure header's own
+  `(id <uid>)` identity annotation (§8 — the piece that makes a structure's
+  identity recoverable even when it drives no output net that would
+  otherwise spell it). (A local variable's
   `is_write` is NOT verbose-only — it decides the `read`/`write` keyword
   itself, §7, present in every mode.)
 
