@@ -6,12 +6,16 @@ skill calls duplicate names a red flag. In practice a batch of resolutions lande
 six such duplicates with nothing to catch them, because the only safeguard was
 "remember to check", which is the wrong place for an invariant.
 
-LabVIEW *does* legitimately give one function two resIDs (Absolute Value
-1054/1057; Split 1D Array 1056/1908 — identical panes, one returning SubArray
-views). So duplicates are not banned outright: they must be **explicitly
-reviewed**. Anything not listed below fails, which makes an accidental duplicate
+LabVIEW *does* legitimately give one function two resIDs on occasion (identical
+panes, e.g. one variant returning a view onto the other's result). So
+duplicates are not banned outright: they must be **explicitly reviewed**.
+Anything not listed below fails, which makes an accidental duplicate
 impossible to land silently while a proven twin is a one-line, evidence-carrying
-addition.
+addition. (REVIEWED_DUPLICATES is currently empty — its last two entries,
+Absolute Value 1054/1057 and Split 1D Array 1056/1908, turned out not to be
+twins after all: nodes.json's VI-Scripting export (#59) proved 1057 is really
+Increment and 1056 is really Quotient & Remainder, each a different function
+from 1054/1908, not a shared-pane variant.)
 
 To add an entry here you must have compared the two panes AS OBSERVED in the
 corpus (scripts/audit_primitive_consistency.py + the duplicate pane dump) — not
@@ -43,13 +47,24 @@ PRIMS = Path(__file__).resolve().parents[1] / "src/lvkit/data/primitives.json"
 # NEEDS-ADJUDICATION = panes materially DIFFER, so one of the pair is mislabeled;
 # tracked as debt, must not grow.
 REVIEWED_DUPLICATES: dict[str, set[str]] = {
-    # --- confirmed twins (observed panes identical) ---
-    "Logical Shift": {"1081", "1082"},  # same (data, shift)->data pane
-    "Split 1D Array": {"1056", "1908"},  # same pane; 1908 yields SubArray
     # --- pre-existing, inherited (predate the audit; not yet pane-compared) ---
-    "Absolute Value": {"1054", "1057"},
-    "Flatten To String": {"1165", "1189", "1608"},
-    "Get Type Information": {"1164", "8203"},
+    # NOTE (#59, VI-Scripting nodes-export import): 1082, 1056, 1165/1189/1608,
+    # and 1164/8203 were renamed away from these shared labels once the export
+    # supplied their real style_name ("Rotate", "Quotient & Remainder",
+    # "Unflatten From String"/"To Lower Case"/"String To Byte Array", and
+    # "Flatten To String"/"Variant To Flattened String" respectively) — so
+    # "Logical Shift", "Split 1D Array" (this pair), "Flatten To String" (this
+    # pair) and "Get Type Information" are no longer duplicated.
+    #
+    # "Absolute Value" {1054, 1057} was the one pair the import initially held
+    # back (import_nodes_primitives.py's HOLD_IDS), because 1057's nodes.json
+    # claim ("Increment") contradicted a verified:true corpus dataflow chain.
+    # The maintainer reviewed the conflict and confirmed nodes.json is correct
+    # (1057's own output terminal is literally named "x+1", not an
+    # absolute-value expression) — 1057 was corrected to "Increment", which
+    # dissolves this duplicate too, so it is no longer listed here either.
+    # REVIEWED_DUPLICATES is currently empty; kept as the mechanism for a
+    # FUTURE pane-compared twin.
 }
 # RESOLVED, no longer duplicated (kept as a record of what the gate caught):
 #   Close File / Open/Create/Replace File — 8011/8010 were never file I/O; they are
@@ -64,6 +79,48 @@ REVIEWED_DUPLICATES: dict[str, set[str]] = {
 #     (2D-in/2D-out across 8 element types in the corpus; 1900 is the real 1D
 #     reverse). Also Format Value (1540) was Array To Spreadsheet String (every
 #     instance takes a 1D array + single %s + delimiter; inverse of 1539).
+
+# --- ground-truth IMPORT collisions (#59), NOT pane-compared ---
+# The VI-Scripting nodes export (695 primResID -> real style_name) was bulk
+# merge-imported (scripts/import_nodes_primitives.py) as UNVERIFIED baseline
+# data (see project_080_primitives_baseline). Every pid below that carries
+# `"source": "vi-scripting-nodes-lv2025"` makes no verified-identity claim at
+# all — its name is the primitive's REAL name (confirmed straight from
+# LabVIEW's own VI-Scripting API, not guessed), so two such entries sharing a
+# name is expected LabVIEW reality (the same palette label legitimately
+# covers multiple resIDs — polymorphic/legacy/type-family variants), not a
+# guessing error the pane-comparison rule exists to catch. Listed here so the
+# gate doesn't block a legitimate provisional import; NOT a claim that any
+# pair's panes were compared. Re-verify (and fold into REVIEWED_DUPLICATES
+# proper once confirmed) via the normal lvkit-resolve-primitive workflow.
+IMPORT_UNVERIFIED_DUPLICATES: dict[str, set[str]] = {
+    "Add": {"1050", "3915"},
+    "Close File": {"1405", "8052"},
+    "Copy": {"1416", "8053"},
+    "Delete": {"1417", "8056"},
+    "Divide": {"1053", "3918"},
+    "File Dialog": {"1429", "8058", "8081"},
+    "File/Directory Info": {"1413", "8082"},
+    "Flatten To String": {"1160", "1164"},
+    "Flatten To XML": {"8400", "8402"},
+    "Flush File": {"1406", "8059"},
+    "List Folder": {"1418", "8083"},
+    # NOTE (#59, resolved 2026-08-27): "Merge Errors" {2147, 2401} and
+    # "Quotient & Remainder" {1056, 1108} were both listed here as HOLD_IDS
+    # corroborating evidence -- 2401/1108 each had a prior identity (Merge
+    # Errors / Quotient & Remainder respectively) that collided with the
+    # nodes.json-sourced 2147/1056. The maintainer confirmed nodes.json is
+    # correct for both (2401 is really Swap Values; 1108 is really Max & Min,
+    # each proven by their own terminal EXPRESSION text, not just style_name),
+    # so 2401 and 1108 were corrected away from these labels and both
+    # collisions are dissolved -- removed from this dict.
+    "Move": {"1415", "8068"},
+    "Multiply": {"1052", "3917"},
+    "Subtract": {"1051", "3916"},
+    "Text to UTF-8": {"23066", "23067"},
+    "Unflatten From String": {"1161", "1165"},
+    "Unknown": {"2372", "11163"},
+}
 
 
 def _duplicate_groups() -> dict[str, set[str]]:
@@ -81,7 +138,9 @@ def test_no_unreviewed_duplicate_primitive_names() -> None:
     groups = _duplicate_groups()
     problems = []
     for name, pids in sorted(groups.items()):
-        reviewed = REVIEWED_DUPLICATES.get(name)
+        reviewed = REVIEWED_DUPLICATES.get(name) or IMPORT_UNVERIFIED_DUPLICATES.get(
+            name
+        )
         if reviewed is None:
             problems.append(
                 f"NEW duplicate name {name!r} -> {sorted(pids, key=int)}. "
@@ -101,8 +160,12 @@ def test_no_unreviewed_duplicate_primitive_names() -> None:
 def test_reviewed_duplicates_still_exist() -> None:
     """Keep the review list honest — drop entries once a mislabel is fixed."""
     groups = _duplicate_groups()
-    stale = [n for n in REVIEWED_DUPLICATES if n not in groups]
+    stale = [
+        n
+        for n in {**REVIEWED_DUPLICATES, **IMPORT_UNVERIFIED_DUPLICATES}
+        if n not in groups
+    ]
     assert not stale, (
-        "REVIEWED_DUPLICATES lists names that are no longer duplicated "
-        f"(remove them): {stale}"
+        "REVIEWED_DUPLICATES/IMPORT_UNVERIFIED_DUPLICATES lists names that are "
+        f"no longer duplicated (remove them): {stale}"
     )

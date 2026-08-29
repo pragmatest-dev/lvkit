@@ -1,0 +1,202 @@
+{
+  "metadata": {
+    "description": "Unified built-in LabVIEW terminal-type catalog. One entry per canonical type; `aliases` maps every spelling seen in the corpus (nodes.json's lowercase VI-Scripting vocabulary AND primitives.json's existing flat vocabulary) onto the canonical name, so any terminal `type` string encountered while importing/merging normalizes through this file.",
+    "source": "LabVIEW VI Scripting node terminal data_type names (.tmp/nodes.json, issue #59) unified with lvkit's pre-existing terminal-type vocabulary (src/lvkit/data/primitives.json)",
+    "version": "1.0"
+  },
+  "types": {
+    "NumInt8": {
+      "kind": "integer",
+      "bits": 8,
+      "signed": true,
+      "description": "8-bit signed integer",
+      "aliases": ["i8", "NumInt8"]
+    },
+    "NumInt16": {
+      "kind": "integer",
+      "bits": 16,
+      "signed": true,
+      "description": "16-bit signed integer",
+      "aliases": ["i16", "NumInt16"]
+    },
+    "NumInt32": {
+      "kind": "integer",
+      "bits": 32,
+      "signed": true,
+      "description": "32-bit signed integer",
+      "aliases": ["i32", "NumInt32"]
+    },
+    "NumInt64": {
+      "kind": "integer",
+      "bits": 64,
+      "signed": true,
+      "description": "64-bit signed integer",
+      "aliases": ["i64", "NumInt64"]
+    },
+    "NumUInt8": {
+      "kind": "integer",
+      "bits": 8,
+      "signed": false,
+      "description": "8-bit unsigned integer",
+      "aliases": ["u8", "NumUInt8"]
+    },
+    "NumUInt16": {
+      "kind": "integer",
+      "bits": 16,
+      "signed": false,
+      "description": "16-bit unsigned integer",
+      "aliases": ["u16", "NumUInt16", "UnitUInt16"]
+    },
+    "NumUInt32": {
+      "kind": "integer",
+      "bits": 32,
+      "signed": false,
+      "description": "32-bit unsigned integer",
+      "aliases": ["u32", "NumUInt32"]
+    },
+    "NumUInt64": {
+      "kind": "integer",
+      "bits": 64,
+      "signed": false,
+      "description": "64-bit unsigned integer",
+      "aliases": ["u64", "NumUInt64"]
+    },
+    "NumFloat32": {
+      "kind": "float",
+      "bits": 32,
+      "description": "Single-precision (32-bit) floating point",
+      "aliases": ["single_float"]
+    },
+    "NumFloat64": {
+      "kind": "float",
+      "bits": 64,
+      "description": "Double-precision (64-bit) floating point",
+      "aliases": ["double_float", "NumFloat64"]
+    },
+    "NumFloatExt": {
+      "kind": "float",
+      "bits": null,
+      "description": "Extended-precision floating point (platform-native \"long double\"; bit width is platform-dependent, commonly 80-bit on x86)",
+      "aliases": ["extended_float"]
+    },
+    "NumComplex64": {
+      "kind": "complex",
+      "bits": 64,
+      "description": "Single-precision complex (two 32-bit floats)",
+      "aliases": ["single_complex"]
+    },
+    "NumComplex128": {
+      "kind": "complex",
+      "bits": 128,
+      "description": "Double-precision complex (two 64-bit floats)",
+      "aliases": ["double_complex", "NumComplex"],
+      "note": "'NumComplex' (primitives.json's pre-existing generic spelling) is aliased here, not to an abstract/precision-less complex type, because primResID 1044 'Complex To Re/Im' terminal idx0 uses 'NumComplex' in primitives.json and nodes.json's ground truth for that exact same terminal (same primResID, same index/direction) is 'double_complex' -- cross-referenced from .tmp/nodes.json, not guessed."
+    },
+    "NumComplexExt": {
+      "kind": "complex",
+      "bits": null,
+      "description": "Extended-precision complex (two extended-precision floats; bit width is platform-dependent)",
+      "aliases": ["extended_complex"]
+    },
+    "Boolean": {
+      "kind": "boolean",
+      "description": "LabVIEW boolean",
+      "aliases": ["boolean", "Boolean"]
+    },
+    "String": {
+      "kind": "string",
+      "description": "LabVIEW string",
+      "aliases": ["string", "String"]
+    },
+    "Path": {
+      "kind": "path",
+      "description": "LabVIEW path",
+      "aliases": ["path", "Path"]
+    },
+    "Refnum": {
+      "kind": "refnum",
+      "description": "Reference number (opaque handle); specific refnum family carried on the terminal as refnum_type/class_id/class_name when nodes.json supplies it, not in this catalog",
+      "aliases": ["refnum", "Refnum"]
+    },
+    "Cluster": {
+      "kind": "cluster",
+      "description": "Generic LabVIEW cluster",
+      "aliases": ["cluster", "Cluster"]
+    },
+    "ErrorCluster": {
+      "kind": "cluster",
+      "description": "LabVIEW error cluster (status, code, source)",
+      "aliases": ["error_cluster"]
+    },
+    "Array": {
+      "kind": "array",
+      "description": "LabVIEW array (element type and dimensionality carried per-terminal, not in this catalog)",
+      "aliases": ["array", "Array"]
+    },
+    "Enum": {
+      "kind": "enum",
+      "bits": null,
+      "description": "Enumerated ring type of unspecified bit width -- primitives.json's pre-existing generic 'enum' spelling, kept distinct from nodes.json's bit-width-specific enum_u16/enum_u32 rather than assumed to be either",
+      "aliases": ["enum"]
+    },
+    "Enum16": {
+      "kind": "enum",
+      "bits": 16,
+      "description": "16-bit enumerated ring type",
+      "aliases": ["enum_u16"]
+    },
+    "Enum32": {
+      "kind": "enum",
+      "bits": 32,
+      "description": "32-bit enumerated ring type",
+      "aliases": ["enum_u32"]
+    },
+    "LVVariant": {
+      "kind": "variant",
+      "description": "LabVIEW variant",
+      "aliases": ["lv_variant", "LVVariant"]
+    },
+    "Timestamp": {
+      "kind": "timestamp",
+      "description": "LabVIEW absolute timestamp",
+      "aliases": ["timestamp", "MeasureData"],
+      "note": "'MeasureData' (primitives.json's pre-existing spelling) is aliased here, not to Waveform, because every existing primitives.json use of 'MeasureData' (primResIDs 1303 idx0 'current_time', 8100 idx2 'timestamp', 8082 idx1 'last_mod') matches -- same primResID, same index/direction -- a nodes.json 'timestamp' terminal, cross-referenced from .tmp/nodes.json, not guessed. Elsewhere in the codebase (src/lvkit/models.py LVType.measure_flavor) 'MeasureData' names a different, unrelated concept (the waveform/digital-data underlying_type family); this catalog only covers the primitives.json/nodes.json terminal-type vocabulary and does not change that."
+    },
+    "Waveform": {
+      "kind": "waveform",
+      "description": "LabVIEW waveform (element type carried per-terminal, not in this catalog)",
+      "aliases": ["waveform"]
+    },
+    "SetCollection": {
+      "kind": "collection",
+      "description": "LabVIEW Set collection",
+      "aliases": ["set_collection"]
+    },
+    "MapCollection": {
+      "kind": "collection",
+      "description": "LabVIEW Map collection",
+      "aliases": ["map_collection"]
+    },
+    "FixedPoint": {
+      "kind": "fixedpoint",
+      "description": "LabVIEW fixed-point numeric (word_length/integer_word_length/signed/overflow-status carried per-terminal, not in this catalog)",
+      "aliases": ["fixed_point"]
+    },
+    "ExpressData": {
+      "kind": "express",
+      "description": "Express VI dynamic data wire type",
+      "aliases": ["express_data"]
+    },
+    "Void": {
+      "kind": "void",
+      "description": "No data (e.g. a bare system handle)",
+      "aliases": ["void"]
+    },
+    "Polymorphic": {
+      "kind": "abstract",
+      "abstract": true,
+      "description": "Adapts to wired type",
+      "aliases": ["polymorphic", "numeric"]
+    }
+  }
+}

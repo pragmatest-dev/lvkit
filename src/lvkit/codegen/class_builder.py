@@ -394,9 +394,11 @@ class ClassBuilder:
         # whitelisted by id. (This set was historically populated with stale
         # ids -- 1340/1302/2075/2076 actually map to One Button Dialog / Wait
         # (ms) / Destroy User Event / Unregister For Events -- so real Merge
-        # Errors was never recognized here; corrected to 2401.)
+        # Errors was never recognized here; corrected to 2401, then to 2147
+        # once nodes.json's VI-Scripting export proved 2401 is really Swap
+        # Values and 2147 is the real Merge Errors -- #59.)
         simple_prim_ids = {
-            2401,  # Merge Errors
+            2147,  # Merge Errors
         }
 
         for op in operations:

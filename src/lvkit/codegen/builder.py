@@ -74,7 +74,7 @@ def build_module(
     ctx.unresolved_sink = unresolved_sink
 
     # Determine if we need error handling infrastructure (graph-driven).
-    # True only if Merge Errors (prim 2401) exists in the VI's operations.
+    # True only if Merge Errors (prim 2147) exists in the VI's operations.
     use_error_handling = needs_error_handling(vi_context.operations, vi_context)
     ctx.use_held_error_model = use_error_handling
 

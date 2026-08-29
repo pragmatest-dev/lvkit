@@ -1260,10 +1260,13 @@ _HANDLERS: list[NodeTypeHandler] = [
     _BuiltinPrimitiveHandler("aIndx", "Index Array", None),
     _BuiltinPrimitiveHandler("subset", "Array Subset", None),
     # mergeErrors/oHExt have NO node_types entry, so their primResID IS the
-    # resolution path (and is not counter-indicated: 2401 really is Merge Errors;
-    # 8069 has no competing prim-class entry). Keep them until/unless they get a
-    # node_types entry.
-    _BuiltinPrimitiveHandler("mergeErrors", "Merge Errors", 2401),
+    # resolution path (and is not counter-indicated: 2147 really is Merge
+    # Errors -- confirmed by nodes.json's VI-Scripting export, whose pane for
+    # 2147 is error_cluster out x1 / error_cluster in x2, matching the
+    # expandable Merge Errors doc; 2401 is a different primitive, Swap Values
+    # (#59). 8069 has no competing prim-class entry). Keep them until/unless
+    # they get a node_types entry.
+    _BuiltinPrimitiveHandler("mergeErrors", "Merge Errors", 2147),
     _BuiltinPrimitiveHandler("oHExt", "Obtain/Release Semaphore", 8069),
     # Class-resolved primitives — no numeric primResID. These resolve via the
     # node_types section of primitives.json by XML class. Do NOT borrow a numeric

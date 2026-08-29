@@ -84,10 +84,11 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a primitive node."""
     prim_id = node.primResID
 
-    # Merge Errors (prim 2401) is a structural signal, not a code node.
-    # In the exception model, error merging happens via try/except on
-    # future.result() calls — the primitive itself produces no code.
-    if prim_id == 2401:
+    # Merge Errors (prim 2147; not 2401, which is Swap Values -- #59) is a
+    # structural signal, not a code node. In the exception model, error
+    # merging happens via try/except on future.result() calls — the
+    # primitive itself produces no code.
+    if prim_id == 2147:
         return CodeFragment.empty()
 
     # Get primitive hint.
