@@ -348,7 +348,7 @@ def test_eta_line_renders_base_mode_and_conditional_modifier() -> None:
     genuine last-value OUTPUT tunnel (the old ``eta(last)`` cases were
     mislabeled indexing -- inner element vs outer array), so exercise the
     render directly."""
-    from lvkit.graph.netlist import _eta_definition_line
+    from lvkit.graph.netlist_render_deprecated import _eta_definition_line
 
     val = DefaultValue(literal="0", type_descriptor="I32")
     last = _eta_definition_line(
