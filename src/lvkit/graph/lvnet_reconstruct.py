@@ -116,9 +116,11 @@ from .lvnet_parse import (
     ParsedShiftRegister,
     ParsedTunnel,
     ParsedTypeDef,
+    _find_first_top_level,
     _scan_quoted_literal,
     _split_top_level_commas,
     _unescape_lvnet_string,
+    _unquote_name_token,
 )
 from .netlist import (
     BoundaryOutput,
@@ -402,7 +404,7 @@ def _fill_enum_values(lv: LVType, body: str) -> None:
     values: dict[str, EnumValue] = {}
     for part in _split_top_level_commas(body):
         name, _, ordinal_text = part.rpartition(_LVNET_DRIVER_OP)
-        values[name.strip()] = EnumValue(value=int(ordinal_text.strip()))
+        values[_unquote_name_token(name)] = EnumValue(value=int(ordinal_text.strip()))
     lv.values = values
 
 
@@ -418,9 +420,11 @@ def _fill_cluster_fields(
         return
     fields: list[ClusterField] = []
     for part in _split_top_level_commas(body):
-        name, _, type_text = part.partition(_LVNET_TYPE_SEP)
+        sep_pos = _find_first_top_level(part, _LVNET_TYPE_SEP)
+        name = part[:sep_pos] if sep_pos != -1 else part
+        type_text = part[sep_pos + len(_LVNET_TYPE_SEP) :] if sep_pos != -1 else ""
         field_type = _reconstruct_type_ref(type_text.strip(), types_dict, memo)
-        fields.append(ClusterField(name=name.strip(), type=field_type))
+        fields.append(ClusterField(name=_unquote_name_token(name), type=field_type))
     lv.fields = fields
 
 

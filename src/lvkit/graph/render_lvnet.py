@@ -346,13 +346,16 @@ def _lvnet_type_lossless_def(lv_type: LVType) -> str:
         if not lv_type.values:
             return f"{open_token} ? }}"
         members = sorted(lv_type.values.items(), key=lambda kv: kv[1].value)
-        body = ", ".join(f"{name}{_LVNET_DRIVER_OP}{ev.value}" for name, ev in members)
+        body = ", ".join(
+            f"{_lvnet_name_token(name)}{_LVNET_DRIVER_OP}{ev.value}"
+            for name, ev in members
+        )
         return f"{open_token} {body} }}"
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         if not lv_type.fields:
             return f"{_LVNET_CLUSTER_OPEN} ? }}"
         body = ", ".join(
-            f"{f.name}{_LVNET_TYPE_SEP}{_lvnet_type_ref(f.type)}"
+            f"{_lvnet_name_token(f.name)}{_LVNET_TYPE_SEP}{_lvnet_type_ref(f.type)}"
             for f in lv_type.fields
         )
         return f"{_LVNET_CLUSTER_OPEN} {body} }}"
@@ -426,7 +429,7 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
         and not _is_error_cluster(lv_type)
     ):
         body = ", ".join(
-            f"{f.name}{_LVNET_TYPE_SEP}{_lvnet_type_ref(f.type)}"
+            f"{_lvnet_name_token(f.name)}{_LVNET_TYPE_SEP}{_lvnet_type_ref(f.type)}"
             for f in lv_type.fields
         )
         return f"{_LVNET_CLUSTER_OPEN} {body} }}"
@@ -740,7 +743,14 @@ def _lvnet_handle_base(name: str) -> str:
         if base.endswith(ext):
             base = base[: -len(ext)]
             break
-    return base.replace(" ", "_")
+    # Every WHITESPACE character -- a space, and crucially a NEWLINE/tab/CR that
+    # a multi-line String constant's own display value can carry -- becomes
+    # ``_``, so the handle is always a single-line grammar-safe token. A raw
+    # newline would otherwise split the declaration line and break
+    # ``parse_lvnet`` (``constant App_Data:_Initialize\nProject: Open...``).
+    # Per-character (never run-collapsing), so it is idempotent and unchanged
+    # for an ordinary name; the ``_<uid>`` suffix still uniquifies.
+    return "".join("_" if ch.isspace() else ch for ch in base)
 
 
 @dataclass(frozen=True)
@@ -1371,6 +1381,25 @@ def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
     if term.wiring_requirement == WiringRequirement.UNKNOWN:
         return None
     return term.wiring_requirement.value
+
+
+# Characters that make an enum/ring MEMBER or cluster FIELD name unsafe to
+# render BARE in the §10 lossless grammar -- they collide with a member/field
+# separator (``,``), the ordinal/type separator (``=``/``:``), a structural
+# brace/bracket, or the quote/escape mechanism itself. A name containing any
+# of these (or leading/trailing whitespace) is quoted + backslash-escaped
+# exactly like a string literal, so a real LabVIEW name such as
+# ``big-endian, network order`` round-trips.
+_LVNET_NAME_UNSAFE = frozenset(',={}[]:"\\')
+
+
+def _lvnet_name_token(name: str) -> str:
+    """One enum/ring member or cluster field NAME in the §10 grammar: bare
+    when grammar-safe, else quoted + escaped (reusing ``_lvnet_literal_token``'s
+    string escaping) so a name carrying a delimiter round-trips."""
+    if name and name == name.strip() and not (_LVNET_NAME_UNSAFE & set(name)):
+        return name
+    return _lvnet_literal_token(name)
 
 
 def _lvnet_literal_token(value: ScalarValue) -> str:

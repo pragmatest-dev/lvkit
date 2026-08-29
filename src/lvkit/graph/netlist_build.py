@@ -3246,10 +3246,19 @@ def _dependency_interface(
     ]
 
 
-def _dependency_kind_for(qualified: str) -> DependencyKind:
+def _dependency_kind_for(
+    qualified: str, source_hint: DependencyKind | None = None
+) -> DependencyKind:
     """The §7 ``uses :`` kind word for one dependency's fully-qualified
-    identity, read off its file extension -- the identity itself already
-    carries this (never a second, independently-guessed classification)."""
+    identity. The file extension is authoritative WHEN PRESENT (``.vi`` /
+    ``.ctl`` / ``.lvclass``); otherwise the kind comes from ``source_hint`` --
+    which of the VI's own dependency TABLES the qname was drawn from (its
+    SubVI call table vs its referenced-type map), the real data-driven
+    classification rather than a filename guess. Some genuine dependencies
+    carry no extension in their recorded qname (an external/library function
+    such as ``IMAQ AVI2 Close``); a called dependency with neither an
+    extension nor a hint is a SubVI (the only kind reached by a call), never
+    an error."""
     leaf = qualified.rsplit(":", 1)[-1]
     if leaf.endswith(".vi"):
         return DependencyKind.SUBVI
@@ -3257,10 +3266,7 @@ def _dependency_kind_for(qualified: str) -> DependencyKind:
         return DependencyKind.TYPEDEF
     if leaf.endswith(".lvclass"):
         return DependencyKind.CLASS
-    raise ValueError(
-        f"cannot derive a lvnet 'uses :' dependency kind from {qualified!r} "
-        "-- unrecognized extension (expected .vi/.ctl/.lvclass)"
-    )
+    return source_hint if source_hint is not None else DependencyKind.SUBVI
 
 
 def _build_dependency_manifest(
@@ -3304,6 +3310,29 @@ def _build_dependency_manifest(
     search_paths = graph._search_paths or [source_path.parent]
     rel_base = search_paths[0]
 
+    # Which of the VI's own dependency tables each qname came from -- the
+    # data-driven kind used when the qname carries no file extension (see
+    # ``_dependency_kind_for``). SubVI calls win over a type reference for a
+    # qname that is somehow in both (a called subVI is the stronger signal).
+    subvi_qnames = {q for q in metadata.subvi_qualified_names if q}
+    class_qnames = {
+        t.classname
+        for t in metadata.type_map.values()
+        if t.classname and t.classname != "LabVIEW Object"
+    }
+    typedef_qnames = {
+        t.typedef_name for t in metadata.type_map.values() if t.typedef_name
+    }
+
+    def _source_hint(qname: str) -> DependencyKind | None:
+        if qname in subvi_qnames:
+            return DependencyKind.SUBVI
+        if qname in class_qnames:
+            return DependencyKind.CLASS
+        if qname in typedef_qnames:
+            return DependencyKind.TYPEDEF
+        return None
+
     manifest: list[NetlistDependency] = []
     for qname in sorted(all_dep_qnames):
         leaf = qname.rsplit(":", 1)[-1]
@@ -3315,7 +3344,7 @@ def _build_dependency_manifest(
             # fallback: a class referenced only by TYPE, whose .lvclass sits
             # one directory up rather than on a search path.
             resolved = graph._walk_up_find(source_path.parent, leaf)
-        kind = _dependency_kind_for(qname)
+        kind = _dependency_kind_for(qname, _source_hint(qname))
         manifest.append(
             NetlistDependency(
                 kind=kind,

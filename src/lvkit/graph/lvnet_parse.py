@@ -127,6 +127,13 @@ _TERMINAL_CONTENT_RE = re.compile(r"^(in|out)\s+(.+)$")
 # line when present (peeled off before requirement/default extraction, see
 # ``_split_type_requirement_default``).
 _PANE_INDEX_RE = re.compile(rf"^{re.escape(_LVNET_PANE_INDEX_PREFIX)}(\d+)$")
+# The same ``@<index>`` token as the LAST whitespace-delimited token of a raw
+# line tail -- used to peel it off WITHOUT ``str.split()`` (which would collapse
+# a multi-space default VALUE). A quoted value ends with ``"``, so a trailing
+# ``@<digits>`` preceded by whitespace is unambiguously the pane-index column.
+_PANE_INDEX_TRAILING_RE = re.compile(
+    rf"\s{re.escape(_LVNET_PANE_INDEX_PREFIX)}(\d+)\s*$"
+)
 
 # The §7 header keywords a node-DECLARATION line can open with (reusing
 # ``render_lvnet``'s OWN keyword table directly, rather than a second
@@ -394,55 +401,49 @@ def _split_type_requirement_default(
     [default <value>] [@<index>]`` order -- no ``= <driver>`` clause is ever
     expected here (§2: the pane is a contract, not a wire).
 
-    Tokenizes on whitespace RUNS (``str.split()``), which collapses the
-    column-alignment padding ``_render_term_group`` inserts back down to
-    single spaces -- safe because the actual VALUE text itself is assumed to
-    never contain more than one consecutive space (an assumption, not a
-    proof -- flagged in the round-trip report). The Phase 2 ``@<index>``
-    column is peeled off FIRST, since it's the OUTERMOST/rightmost token
-    when present (``render_lvnet``'s own append order) -- a quoted STRING
-    value's own last token always retains its closing quote character, so it
-    can never be mistaken for a bare ``@<digits>`` token. The ``default``
-    keyword is found by its FIRST occurrence (after that): a ``<Type>``
-    clause never legitimately contains the bare word "default" (it's a
-    faithful LVType descriptor, never LabVIEW vocabulary), but a STRING
-    value legitimately CAN (e.g. a real status literal reading "Restore to
-    default settings", md §4/§10 -- now that a string literal's own text
-    survives escaped-but-intact) -- so the FIRST occurrence is always the
-    real keyword, and everything from there to end of line is the value,
-    however many more times the word recurs inside it.
+    The ``default`` VALUE is taken as a RAW substring (never
+    ``" ".join(split())``) so a multi-space UI status literal survives
+    verbatim; the TYPE (and the requirement keyword) carry only single spaces
+    and are normalized to collapse ``_render_term_group``'s column-alignment
+    padding. Columns are peeled right-to-left in ``render_lvnet``'s own append
+    order: ``@<index>`` (outermost) first, then the ``default`` clause at brace
+    DEPTH ZERO -- a ``<Type>`` never contains the bare word ``default`` (it is
+    LVType descriptor syntax, never LabVIEW vocabulary), and a quoted VALUE's
+    own ``default``/``@N`` text is shielded by its surrounding quotes.
     """
-    words = tail.split()
-    if _top_level_word_index(words, "=") != -1:
+    if _find_top_level_sep(tail, _LVNET_DRIVER_OP) != -1:
         raise LvnetParseError(
             f"line {line_no}: boundary terminal line must not carry a "
             f"'= <driver>' clause (§2: the pane is a contract, not a wire): "
             f"{line!r}"
         )
-    if not words:
+    raw = tail
+    if not raw.strip():
         raise LvnetParseError(f"line {line_no}: missing type after ':': {line!r}")
 
     index: int | None = None
-    if words:
-        m = _PANE_INDEX_RE.match(words[-1])
-        if m is not None:
-            index = int(m.group(1))
-            words = words[:-1]
+    m = _PANE_INDEX_TRAILING_RE.search(raw)
+    if m is not None:
+        index = int(m.group(1))
+        raw = raw[: m.start()]
 
-    if not words:
+    if not raw.strip():
         raise LvnetParseError(
             f"line {line_no}: empty type after stripping '@index': {line!r}"
         )
 
     default: str | None = None
-    default_idx = _top_level_word_index(words, _LVNET_DEFAULT_KEYWORD)
-    if default_idx != -1:
-        idx = default_idx
-        value_words = words[idx + 1 :]
-        default = " ".join(value_words) if value_words else _LVNET_DEFAULT_KEYWORD
-        words = words[:idx]
-        _validate_if_quoted(default, line_no)
+    def_pos = _find_top_level_sep(raw, f" {_LVNET_DEFAULT_KEYWORD}")
+    if def_pos != -1:
+        rest = raw[def_pos + 1 :].rstrip()  # drop the separating space + any pad
+        raw = raw[:def_pos]
+        if rest == _LVNET_DEFAULT_KEYWORD:
+            default = _LVNET_DEFAULT_KEYWORD
+        else:
+            default = rest[len(_LVNET_DEFAULT_KEYWORD) + 1 :]
+            _validate_if_quoted(default, line_no)
 
+    words = raw.split()
     requirement: str | None = None
     if words and words[-1] in _REQUIREMENT_WORDS:
         requirement = words.pop()
@@ -467,13 +468,15 @@ def _split_node_terminal_tail(
     keyword ever appears here (§11: "the wiring_rule nuance at call sites"
     is a later slice).
 
-    ``=``/``default`` are found by their FIRST occurrence, same reasoning as
-    ``_split_type_requirement_default``: a ``<Type>`` clause never contains
-    either as a bare word, but a wired STRING literal's own text legitimately
-    can (e.g. a driver value reading ``"5 = 5 is true"``, md §4/§10) -- so
-    the first occurrence is always the real operator, everything after it
-    to end of line is the value however many more times the word/symbol
-    recurs inside it.
+    The line's own ``= <driver>`` / ``default <value>`` operator is found at
+    brace/bracket DEPTH ZERO (so an inline ``Enum{ m = 0 }`` type's own ``=``
+    is skipped), and the value after it is taken as a RAW substring -- NEVER
+    ``" ".join(split())`` -- so a string literal's or a path's consecutive
+    spaces survive verbatim (a multi-space UI status literal; a VI filename
+    like ``To and  From String Array.vi`` inside a ``handle::path::uid`` net
+    reference). A ``<Type>`` never legitimately contains ``= ``/`` default``
+    at depth 0, so the operator is unambiguous even though the value may
+    repeat it.
     """
     text = tail
     inverted = False
@@ -482,36 +485,39 @@ def _split_node_terminal_tail(
         text = text[: -len(inverted_suffix)]
         inverted = True
 
-    words = text.split()
-    if not words:
-        raise LvnetParseError(f"line {line_no}: missing type after ':': {line!r}")
-
     driver: str | None = None
     default: str | None = None
-    eq_idx = _top_level_word_index(words, "=")
-    default_idx = _top_level_word_index(words, _LVNET_DEFAULT_KEYWORD)
-    if eq_idx != -1:
-        idx = eq_idx
-        value_words = words[idx + 1 :]
-        if not value_words:
+    eq_pos = _find_top_level_sep(text, _LVNET_DRIVER_OP)
+    default_sep = f" {_LVNET_DEFAULT_KEYWORD}"
+    def_pos = _find_top_level_sep(text, default_sep)
+    if eq_pos != -1:
+        # Type before the operator is normalized (``" ".join(split())``
+        # collapses the column-ALIGNMENT padding ``_render_term_group`` inserts
+        # -- a type carries only single internal spaces); the driver value
+        # after it is raw.
+        type_str = " ".join(text[:eq_pos].split())
+        driver = text[eq_pos + len(_LVNET_DRIVER_OP) :]
+        if not driver:
             raise LvnetParseError(
                 f"line {line_no}: '=' with no driver value: {line!r}"
             )
-        driver = " ".join(value_words)
-        words = words[:idx]
         _validate_if_quoted(driver, line_no)
-    elif default_idx != -1:
-        idx = default_idx
-        value_words = words[idx + 1 :]
-        default = " ".join(value_words) if value_words else _LVNET_DEFAULT_KEYWORD
-        words = words[:idx]
-        _validate_if_quoted(default, line_no)
+    elif def_pos != -1:
+        type_str = " ".join(text[:def_pos].split())
+        rest = text[def_pos + 1 :]  # drop the single separating space
+        if rest == _LVNET_DEFAULT_KEYWORD:
+            default = _LVNET_DEFAULT_KEYWORD
+        else:
+            default = rest[len(_LVNET_DEFAULT_KEYWORD) + 1 :]
+            _validate_if_quoted(default, line_no)
+    else:
+        type_str = " ".join(text.split())
 
-    if not words:
+    if not type_str:
         raise LvnetParseError(
             f"line {line_no}: empty type after stripping '='/'default': {line!r}"
         )
-    return " ".join(words), driver, default, inverted
+    return type_str, driver, default, inverted
 
 
 # ============================================================
@@ -1719,30 +1725,83 @@ TypeShape = tuple[Any, ...]
 
 
 def _split_top_level_commas(text: str) -> list[str]:
-    """Split ``text`` on ``", "`` at brace/bracket DEPTH ZERO -- separates
-    an ``Enum{...}``'s members or a ``Cluster{...}``'s fields (§10's
-    lossless ``types :`` grammar) without breaking on a comma that's itself
-    inside a NESTED structural type (a cluster field whose own type is
-    another ``Cluster{...}``/array). No quote-awareness needed -- the
-    lossless grammar carries pure type syntax, never a string-literal
-    value."""
+    """Split ``text`` on ``,`` at brace/bracket DEPTH ZERO and OUTSIDE any
+    quoted token -- separates an ``Enum{...}``'s members or a ``Cluster{...}``'s
+    fields (§10) without breaking on a comma inside a NESTED structural type
+    (a cluster field whose own type is another ``Cluster{...}``/array) NOR on a
+    comma inside a QUOTED member/field NAME (a real LabVIEW name like
+    ``"big-endian, network order"`` -- ``_lvnet_name_token`` quotes+escapes
+    such names, honoring ``\\``-escapes)."""
     parts: list[str] = []
     depth = 0
+    in_quote = False
+    escaped = False
     current: list[str] = []
     for ch in text:
-        if ch in "{[":
+        current.append(ch)
+        if in_quote:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_quote = False
+            continue
+        if ch == '"':
+            in_quote = True
+        elif ch in "{[":
             depth += 1
         elif ch in "}]":
             depth -= 1
-        if ch == "," and depth == 0:
+        elif ch == "," and depth == 0:
+            current.pop()  # drop the comma we just appended
             parts.append("".join(current).strip())
             current = []
-        else:
-            current.append(ch)
     tail = "".join(current).strip()
     if tail:
         parts.append(tail)
     return parts
+
+
+def _find_first_top_level(text: str, sep: str) -> int:
+    """Index of the FIRST ``sep`` at brace/bracket depth 0 and OUTSIDE any
+    quoted token, or ``-1`` -- the name/ordinal (`` = ``) and name/type
+    (`` : ``) separator finder for §10 members/fields, so a QUOTED name whose
+    own text embeds the separator (``"a : b" : DBL``) is not mis-split."""
+    depth = 0
+    in_quote = False
+    escaped = False
+    i = 0
+    end = len(text) - len(sep)
+    while i <= end:
+        ch = text[i]
+        if in_quote:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_quote = False
+        elif ch == '"':
+            in_quote = True
+        elif ch in "{[":
+            depth += 1
+        elif ch in "}]":
+            depth -= 1
+        elif depth == 0 and text.startswith(sep, i):
+            return i
+        i += 1
+    return -1
+
+
+def _unquote_name_token(raw: str) -> str:
+    """A §10 member/ordinal or field NAME as parsed -> its real value: a
+    quoted token is unescaped (``_lvnet_name_token``'s inverse), a bare token
+    passes through. Mirrors the module side, which compares by the raw name."""
+    raw = raw.strip()
+    if raw.startswith('"'):
+        return _unescape_lvnet_string(raw)
+    return raw
 
 
 def _parse_lossless_members(body: str) -> tuple[tuple[str, int], ...]:
@@ -1755,8 +1814,12 @@ def _parse_lossless_members(body: str) -> tuple[tuple[str, int], ...]:
         return ()
     members: list[tuple[str, int]] = []
     for part in _split_top_level_commas(body):
+        # The ordinal (an int) never contains `` = ``, so the LAST `` = `` is
+        # always the name/ordinal separator even when a QUOTED name embeds one.
         name, _, ordinal_text = part.rpartition(_LVNET_DRIVER_OP)
-        members.append((name.strip(), int(ordinal_text.strip())))
+        members.append(
+            (_unquote_name_token(name), int(ordinal_text.strip()))
+        )
     return tuple(sorted(members, key=lambda kv: kv[1]))
 
 
@@ -1777,10 +1840,12 @@ def _parse_lossless_cluster_fields(
         return ()
     fields: list[tuple[str, TypeShape]] = []
     for part in _split_top_level_commas(body):
-        name, _sep, type_text = part.partition(_LVNET_TYPE_SEP)
+        sep_pos = _find_first_top_level(part, _LVNET_TYPE_SEP)
+        name = part[:sep_pos] if sep_pos != -1 else part
+        type_text = part[sep_pos + len(_LVNET_TYPE_SEP) :] if sep_pos != -1 else ""
         fields.append(
             (
-                name.strip(),
+                _unquote_name_token(name),
                 _parsed_type_ref_shape(
                     type_text.strip(), types_dict, seen, full=True, ambiguous=ambiguous
                 ),
