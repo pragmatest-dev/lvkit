@@ -38,13 +38,13 @@ from .models import (
 from .netlist import (
     NetlistItem,
     NetlistScope,
-    _selector_lv_type,
     ambiguous_bares,
     build_netlist,
     index_module,
     instance_line,
     scope_header,
 )
+from .netlist_build import _selector_lv_type
 from .op_walk import (
     _const_value_str,
     _selector_label,

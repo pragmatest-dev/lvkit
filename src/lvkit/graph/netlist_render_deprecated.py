@@ -24,9 +24,12 @@ happens to be imported first would work, the other would raise
 ...graph.netlist import ambiguous_bares`` (etc.) call site -- ``diff.py``,
 tests -- keeps working unchanged.
 
-``index_module``/``component_line`` are NOT here: ``render_netlist``'s call
-graph never reaches them (they're used only by ``diff.py`` and the CLI's
-``## Components`` table respectively), so they stayed in ``netlist.py``.
+``index_module`` is NOT here: ``render_netlist``'s call graph never reaches
+it (it's used only by ``diff.py``), so it stayed with the builder in
+``netlist_build.py``. ``component_line`` (the CLI's ``## Components`` table
+line) DOES live here, even though it's a declaration renderer rather than
+part of ``render_netlist``'s own call graph -- it renders IR the builder
+produces, same as everything else in this module.
 
 ``_quoted_frame_label`` comes from ``render_lvnet`` (a prior cut already
 moved it there) -- that import is one-way and safe: ``render_lvnet`` never
@@ -40,6 +43,7 @@ from .netlist_models import (
     EtaMerge,
     GammaMerge,
     MuMerge,
+    NetlistComponent,
     NetlistConstant,
     NetlistFeedback,
     NetlistFrame,
@@ -430,3 +434,20 @@ def render_netlist(module: NetlistModule, *, display_name: str | None = None) ->
     _render_items(module.body, 0, lines, ambiguous)
 
     return "\n".join(lines)
+
+
+def component_line(component: NetlistComponent) -> str:
+    """NODE-FIRST typed interface DECLARATION: ``"name(a: T, b: U) -> (c: V)"``
+    (``"name(ins)"`` when there are no outputs) -- NO indent; callers own that.
+
+    Unlike ``instance_line`` (a CALL -- unparenthesized outputs, wire names),
+    this is a DECLARATION -- typed ports, outputs parenthesized like the
+    inputs, matching the VI's own signature line and the subVI signature
+    ``## Dependencies`` already prints (``op_walk._render_ports``).
+    """
+    ins = ", ".join(f"{p.name}: {p.type}" for p in component.inputs)
+    base = f"{component.name}({ins})"
+    if not component.outputs:
+        return base
+    outs = ", ".join(f"{p.name}: {p.type}" for p in component.outputs)
+    return f"{base} -> ({outs})"
