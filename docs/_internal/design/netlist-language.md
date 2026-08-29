@@ -12,6 +12,11 @@
 > shipped renderer as it evolves — sections marked **OPEN** are the genuine
 > remaining gaps, not the whole document. Companion durable record:
 > `memory/project_netlist_is_a_schematic.md`.
+>
+> **Last synced 2026-08-29** — captured the name-safety/name-quoting rule (§4),
+> complex-constant control-char line-safety (§10), qualified-name whitespace
+> normalization (§7a), the In-Place-Element **scope** rendering (§8, no longer
+> OPEN), and the terse↔lossless closure note (§11).
 
 ## 1. What it is, and why
 
@@ -194,6 +199,24 @@ in   GUID        : String           default ""                            # UNWI
 multi-line UI-status default, a CRLF delimiter) still renders on ONE
 physical line, the way every other lvnet construct does (§10, §17 item 5).
 
+**Quoting a NAME (the name-safety rule).** A string *value* is always quoted
+(above); a **name** — a terminal name (§3), an enum member or cluster field
+(§10/§10.1) — renders **bare by default** and is quoted **only when a bare
+spelling would break the parser.** A name renders bare unless it (a) is empty
+or carries leading/trailing whitespace, (b) contains a column-delimiter
+**SEQUENCE** — `` : `` / `, ` / ` = ` (the exact tokens the grammar splits a
+line on) — or (c) carries an **UNBALANCED** quote or brace/bracket. Crucially,
+a bare `:` / `,` / `=` with **no surrounding spaces** stays bare (`error in
+(None: Create New)`, `Not::0`), and a name with **BALANCED** embedded quotes or
+parens stays bare (`methodName ("runTest")`) — the parser's quote/depth
+tracking still lands on the real separator, so quoting there would be noise.
+When a name *is* unsafe it is double-quoted and backslash-escaped exactly like a
+string literal (same escapes as above), so a control named `Image Parameters :
+Image Type` or an enum member `big-endian, network order` round-trips. This is
+the single rule `_lvnet_name_is_safe_bare` enforces for every name column; it is
+**not** verbose-only — a name that needs quoting to parse is quoted in every
+mode.
+
 **Direction is `sink = source`** — target on the left, source on the right —
 because a terminal reads like a named argument (`f(name = "runTest")`), the most
 universal target-left pattern in text languages. **Not `<=`** (reads as ≤, HDL
@@ -285,13 +308,13 @@ separate problems: the handle solves the first for *all* kinds; the second is
 designed per kind. `property-node`, `invoke-node`, `feedback-node`, and
 `local-variable` now have a designed rendering (rows below) — they emit like
 any other node (`local-variable`'s own shape is a single `read`/`write` line,
-not the generic handle+terminal-block form the others use). Still pending only
-their *special content* (handle + terminals still render): `formula-node` (the
-`script` body — needs the `script` field plumbed), `in-place-element` (the
-decompose↔recompose pairing), and `global-variable` (a separate Global-VI
-construct, not yet modeled at all — see §17). Those emit their handle + typed
-terminals with a `# TODO(lvnet): …` on the one undesigned part — never an
-invented form.
+not the generic handle+terminal-block form the others use). `in-place-element`
+is a **structure**, not a node — it now renders as a scope (§8), so it is no
+longer pending here. Still pending only their *special content* (handle +
+terminals still render): `formula-node` (the `script` body — needs the `script`
+field plumbed) and `global-variable` (a separate Global-VI construct, not yet
+modeled at all — see §17). Those emit their handle + typed terminals with a
+`# TODO(lvnet): …` on the one undesigned part — never an invented form.
 
 | Node | keyword | rendering |
 |---|---|---|
@@ -332,7 +355,12 @@ uses :
 - **`<qualified-identity>`** — the SAME fully-qualified identity a `subVI`/
   `class`/`typedef` component spells at its own declaration elsewhere in the
   file (§7/§9) — e.g. `TestCase.lvclass:listAllTestMethods.vi`,
-  `TestLoader.lvclass`.
+  `TestLoader.lvclass`. Each `class:member` component is **whitespace-stripped
+  at the source** (`metadata.py` `LinkSaveQualName` decode): a
+  `LinkSaveQualName` string can carry a spurious leading/trailing whitespace
+  char from the binary (a real corpus case decoded a member as
+  `"\nToTable.vi"`) that a legitimate VI/class name never has — left in, it
+  corrupts the `class:member` identity and splits this `uses :` line.
 - **`; ./path`** — the §6 project-relative nav annotation, omitted (not
   fabricated as an empty/guessed value) when the dependency's recorded or
   searched reference doesn't resolve to a real on-disk file.
@@ -382,7 +410,7 @@ frame** (never hoisted to a bottom-of-block merge).
 | Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`) |
 | Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (matched frame carries `, default`) |
 | Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`) |
-| In Place Element | `in-place-element :` | decompose / recompose (no control flow) *(line syntax: OPEN)* |
+| In Place Element | `in-place-element :` | a single implicit body (like a loop, **not** a per-frame family); its decompose/recompose **border** ports emit no line of their own — a reader of an output port resolves straight to the `inplace_<uid>::outK` structure-scoped net (§9), exactly as the frame-only families resolve their own output tunnels. Faithful + round-trippable, **not** execution-worthy (an IPES is transparent — mutable references — with no headless-Python analogue, so the scope projects its structure/containment without inventing decompose/recompose semantics the model doesn't carry). |
 | Timed Loop / Sequence | `timed-loop` | **PROPOSED — coverage unverified in the model** |
 
 `for-loop`/`while-loop`, **not** bare `for`/`while` — deliberately, so a reader
@@ -400,10 +428,10 @@ like the `types :` footnote or a `uses :` entry's inlined interface — never
 a readability nicety, so terse output is unaffected). Without it, a
 structure that never drives an output net spelling its own uid — every
 `flat-sequence`/`stacked-sequence`/`diagram-disable`/`conditional-disable`/
-`type-specialization`/`event-structure` (none of these carry ANY output
-merge, so none of them ever get a `case_UID::`/`loop_UID::`-shaped net at
-all), or a `case`/`for-loop`/`while-loop` with no output tunnel or shift
-register — has no way to recover its own identity from the text at all;
+`type-specialization`/`event-structure`/`in-place-element` (none of these
+carry ANY output merge, so none of them ever get a `case_UID::`/`loop_UID::`-
+shaped net at all), or a `case`/`for-loop`/`while-loop` with no output tunnel
+or shift register — has no way to recover its own identity from the text at all;
 this is the piece that closes that gap (§1's graph-identity round-trip
 gate).
 
@@ -522,7 +550,13 @@ Faithful LVType on every terminal, **never a Python type**:
 
 Complex-constant literal *values* (a cluster/array/enum/path constant's field
 values inline) are **OPEN** — the *types* render, the literal-value syntax was
-never pinned.
+never pinned. A complex constant still emits its existing opaque
+`str(value)` display form, but with its **control characters backslash-escaped**
+(`_lvnet_escape_controls` — LF/CR/TAB and any other C0), so a Path/array/cluster
+literal carrying an embedded newline or NUL byte (a real corpus case) stays on
+ONE physical line and never desyncs the line-oriented parser. This makes the
+opaque form **line-safe** (it round-trips as text) without inventing the
+structured §10.1 complex-literal grammar (still §17 item 5).
 
 ### 10.1 The lossless `types :` footnote (verbose-only)
 
@@ -636,6 +670,20 @@ design; an agent needing full understanding uses lvnet/JSON.
 
 Terse is a *documented reduction* of the proven-lossless verbose, never its own
 thing. The exact per-construct terse reduction is otherwise **OPEN**.
+
+**Terse↔lossless closure (can you tell a lossless file from a lossy-terse
+one?).** The two modes are told apart by the **verbose-only carriers**, not a
+mode flag: a lossless (verbose) file has the structure-identity `(id <uid>)`
+suffixes (§8), the `types :` footnote (§10.1), the `uses :` inline interfaces
+(§7a), and the tri-state `wiring_rule` keywords (§5); a terse file has none of
+them. Reconstruction is therefore **honest about identity**: from terse text a
+structure that carries no `(id <uid>)` and drives no uid-spelling net recovers a
+**fresh** uid (`lvnet_reconstruct`'s documented fallback), so terse round-trips
+the *program* but **not** the graph's original identity — which is exactly why
+the §1 gate runs on **verbose** text. A dedicated closure check (reconstruct
+*fails loud* on a dangling reference, plus an optional mode banner) is future
+work — see §17 item 2 and the deferred terse-mode axis; today the presence or
+absence of the verbose carriers is the signal.
 
 ## 12. JSON form
 
@@ -847,9 +895,8 @@ in   GUID : String = GUID_142
    plain String constant/default's own text); a cluster/array/enum/path
    constant's field-value syntax remains OPEN.
 6. **Concrete line syntax** — DESIGNED for property-node / invoke-node /
-   feedback-node / local-variable (§7). Still open: in-place-element
-   decompose↔recompose pairing, and formula-node script rendering (needs the
-   `script` field plumbed).
+   feedback-node / local-variable (§7) and in-place-element (now a scope, §8).
+   Still open: formula-node script rendering (needs the `script` field plumbed).
 7. **Not-yet-modeled constructs** — `timed-loop`, `global-variable`, Shared
    Variable, Call By Reference, MathScript (proposed keywords, unverified).
 8. **lvnet text diff gutter** (`+`/`-`/`~`) — the diff was designed as a tree.
