@@ -1715,7 +1715,7 @@ def _module_terminal_tuple(
             assert b.default is not None
             driver = None
             default = _strip_default_prefix(_lvnet_default_trailing(b.default))
-        entries.append(("in", b.port, type_shape, driver, default, b.inverted))
+        entries.append(("in", b.terminal, type_shape, driver, default, b.inverted))
     for o in sorted(instance.outputs, key=lambda o: o.pane_rank):
         if _is_void_type(o.type):
             continue
@@ -1724,7 +1724,7 @@ def _module_terminal_tuple(
             if o.lv_type is not None
             else ("leaf", o.type)
         )
-        entries.append(("out", o.net.port, type_shape, None, None, False))
+        entries.append(("out", o.net.terminal, type_shape, None, None, False))
     return tuple(entries)
 
 

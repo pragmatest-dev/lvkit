@@ -124,9 +124,9 @@ if TYPE_CHECKING:
 class NetRef:
     """A reference to one net (wire) in the netlist.
 
-    ``node``/``port`` identify the PRODUCING terminal (EDA ``refdes.pin``):
+    ``node``/``terminal`` identify the PRODUCING terminal (EDA ``refdes.pin``):
     ``node`` is the producing operation's display name, or ``None`` when the
-    net is a VI-boundary control. ``port`` is the terminal NAME when known,
+    net is a VI-boundary control. ``terminal`` is the terminal NAME when known,
     else its index. ``occurrence`` is the ``#n`` disambiguator for repeated
     node display names (``None`` when the name is unique in the VI).
     ``bare`` is the net's short display name -- see the naming rule in
@@ -134,13 +134,13 @@ class NetRef:
     """
 
     node: str | None
-    port: str
+    terminal: str
     occurrence: int | None
     bare: str
     # Phase A, ``render_lvnet``-ONLY: set (to the producing ``ConstantNode``'s
     # TRAILING uid -- the SAME id ``NetlistConstant.uid`` uses) when this
     # net's driver is a constant -- labeled or not. ``bare``/``node``/
-    # ``port`` stay the literal VALUE text either way
+    # ``terminal`` stay the literal VALUE text either way
     # (unchanged, so ``NetRef.render``/``render_netlist``/``netlist_to_dict``
     # -- and the graph<->Operation parity test -- are completely unaffected).
     # Only ``render_lvnet`` reads this, to decide whether a LABELED
@@ -170,11 +170,11 @@ class NetRef:
         if not qualified or self.node is None:
             return self.bare
         tag = f"#{self.occurrence}" if self.occurrence else ""
-        return f"{self.node}{tag}.{self.port}"
+        return f"{self.node}{tag}.{self.terminal}"
 
 
 @dataclass(frozen=True)
-class NetlistPortBinding:
+class NetlistTerminalBinding:
     """One input PORT on an instance: its declared name, its own faithful
     type, and how it's bound -- wired to a driver (``net``) or, since Phase A
     (lvnet ``default <value>`` -- see ``docs/_internal/design/netlist-
@@ -182,15 +182,15 @@ class NetlistPortBinding:
     carries the type's faithful substitute value).
 
     Verilog ``.port(net)`` / VHDL ``port => signal`` / Python-kwargs named-
-    port association -- the OLD ``render_netlist``'s rendered form is
-    ``port=net`` (see ``instance_line``, which only ever sees a wired
+    terminal association -- the OLD ``render_netlist``'s rendered form is
+    ``terminal=net`` (see ``instance_line``, which only ever sees a wired
     binding -- ``net is not None`` -- since that renderer/``netlist_to_dict``
     filter to those, to stay byte-identical to the Operation-based builder;
     the NEW ``render_lvnet`` renders every binding, wired or not, per §3/§4).
-    ``port`` is the input terminal's own name (the same naming rule as
+    ``terminal`` is the input terminal's own name (the same naming rule as
     everywhere else in this module: ``display_name or name or str(index)`` --
     for an nMux/decompose LIST terminal ``display_name`` IS the real field
-    name, stamped once at load time; see ``_component_port_name``), NOT the
+    name, stamped once at load time; see ``_component_terminal_name``), NOT the
     source net's name. ``type`` is this terminal's OWN faithful
     ``LVType.type_descriptor()`` (never a Python type), present on every
     binding wired or not (lvnet §3: "never dropped").
@@ -219,7 +219,7 @@ class NetlistPortBinding:
     equivalent pane-order concept -- only ``render_lvnet`` sorts by it.
     """
 
-    port: str
+    terminal: str
     type: str
     net: NetRef | None
     default: DefaultValue | None = None
@@ -248,10 +248,10 @@ class NetlistPropertyAccess:
     OUTPUT terminal (the property's current value flows out), ``"write"``
     for an INPUT terminal (a value flows in, setting the property).
 
-    ``net`` is the SAME ``NetRef`` shape as any other instance port: for a
+    ``net`` is the SAME ``NetRef`` shape as any other instance terminal: for a
     read, the net this property PRODUCES (identical to the matching entry in
     ``NetlistInstance.outputs``); for a write, the net FEEDING it (identical
-    to the matching ``NetlistPortBinding.net`` in ``NetlistInstance.inputs``)
+    to the matching ``NetlistTerminalBinding.net`` in ``NetlistInstance.inputs``)
     -- ``None`` only when a write property's value terminal is genuinely
     unwired (never fabricated).
 
@@ -270,18 +270,18 @@ class NetlistOutput:
     """One output PORT on an instance: the net it produces, plus its own
     faithful type (lvnet §3/§10 -- a type is shown on EVERY terminal, wired
     or not, output ports included). Split out of a bare ``NetRef`` (Phase A)
-    so ``render_lvnet`` can show ``out <port> : <Type>`` the same way an
+    so ``render_lvnet`` can show ``out <terminal> : <Type>`` the same way an
     input terminal line does; ``render_netlist``/``netlist_to_dict`` keep
     reading only ``.net`` (see ``_collect_refs``/``instance_line``/
     ``netlist_to_dict``), so their OLD byte-identical output is untouched.
 
-    ``pane_rank`` mirrors ``NetlistPortBinding.pane_rank`` -- see there.
+    ``pane_rank`` mirrors ``NetlistTerminalBinding.pane_rank`` -- see there.
     """
 
     net: NetRef
     type: str
     pane_rank: int = 0
-    # Mirrors ``NetlistPortBinding.lv_type`` -- see there.
+    # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
 
 
@@ -313,8 +313,9 @@ class NetlistInstance:
     uid: str  # trailing node UID (matches ElementChange.uid / SVG data-node)
     name: str  # node / subVI / primitive display name
     occurrence: int | None
-    inputs: list[NetlistPortBinding]  # one binding per input port (Phase A: all, wired)
-    outputs: list[NetlistOutput]  # one entry per output port, in terminal order
+    # one binding per input terminal (Phase A: all, wired)
+    inputs: list[NetlistTerminalBinding]
+    outputs: list[NetlistOutput]  # one entry per output terminal, in terminal order
     # Which §7 keyword this instance renders as in ``render_lvnet`` -- see
     # ``NetlistInstanceKind``. Defaults to ``FUNCTION`` (the Operation-based
     # ``_build_instance`` path's fallback; ``render_lvnet`` never consumes
@@ -340,7 +341,7 @@ class NetlistInstance:
     # An Invoke Node's method name (``InvokeOperation.method_name``) -- the
     # entire meaning of the node -- ``None`` for every other instance kind.
     # A distinct concept from cpdArith's ``operation``, so it gets its own
-    # field rather than overloading it. Parameter port NAMES are never
+    # field rather than overloading it. Parameter terminal NAMES are never
     # available (they live in the method's VI-server signature, not the VI
     # file) -- ``inputs``/``outputs`` stay numeric; this is the one thing we
     # CAN say faithfully about an invoke call. Annotation ONLY, same
@@ -445,7 +446,7 @@ class GammaMerge:
     hop-through producer (netlist.py's finding #1: which frame actually
     supplies the value is selector-dependent at runtime, so a case output
     tunnel is a genuine multi-producer merge, not a single wire). ``net`` is
-    the SAME string a downstream consumer's ``NetlistPortBinding``/
+    the SAME string a downstream consumer's ``NetlistTerminalBinding``/
     ``BoundaryOutput`` resolves to via ``_resolve_source`` -- see
     ``_gamma_net_name``, the one place that name is assembled.
     """
@@ -637,7 +638,7 @@ class _BuildCtx:
     ``const_by_id``: every constant in the VI, keyed by its graph node id
     (``Constant.id``, matching a wire source's ``WireEnd.node_id``) -- lets
     ``_resolve_source`` join a wire's real constant VALUE instead of just
-    the producing node's uid.port.
+    the producing node's uid.terminal.
 
     ``case_id_by_uid``: deterministic ``case0``, ``case1``, … id per
     ``CaseOperation``, keyed by trailing node UID (see
@@ -684,7 +685,7 @@ class BoundaryOutput:
     name: str
     type_descriptor: str  # FAITHFUL LabVIEW type label, not a Python annotation
     source: NetRef | None
-    # Mirrors ``NetlistPortBinding.lv_type`` -- see there.
+    # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
 
 
@@ -699,7 +700,7 @@ class NetlistBoundaryInput:
 
     name: str
     type_descriptor: str  # FAITHFUL LabVIEW type label, not a Python annotation
-    # Mirrors ``NetlistPortBinding.lv_type`` -- see there.
+    # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
 
 
@@ -722,7 +723,7 @@ class ConnectorPaneTerminal:
     # property so existing bool consumers keep working unchanged).
     wiring_requirement: WiringRequirement
     default: ScalarValue  # terminal default value, None when it has none
-    # Mirrors ``NetlistPortBinding.lv_type`` -- see there.
+    # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
 
     @property
@@ -991,7 +992,7 @@ def _is_feedback_output_read(op: Operation, term: Terminal) -> bool:
     """True when ``term`` is a Feedback Node MASTER's OUTPUT terminal
     (``leftFeedback`` -- the value read this iteration). A wire whose source
     lands here IS the mu recurrence, so ``_resolve_source`` names the
-    ``fb{k}`` net instead of the raw producing node.port."""
+    ``fb{k}`` net instead of the raw producing node.terminal."""
     return (
         isinstance(op, FeedbackOperation)
         and op.is_master
@@ -1161,17 +1162,17 @@ def _term_ref(
     stamped once graph-wide by ``op_walk.stamp_nmux_lane_names`` at load time
     -- see ``construction.py``) over the codegen ``name``, over a meaningless
     numeric index. An unnamed terminal's ``bare`` is the only place a
-    number-port shows (``Node[#n].idx``), fully qualified up front since a
+    number-terminal shows (``Node[#n].idx``), fully qualified up front since a
     bare index alone would be meaningless.
     """
     label = _terminal_display_name(term)
-    port = label or str(term.index)
+    terminal = label or str(term.index)
     if label:
         bare = label
     else:
         tag = f"#{occurrence}" if occurrence else ""
         bare = f"{node_name}{tag}.{term.index}"
-    return NetRef(node=node_name, port=port, occurrence=occurrence, bare=bare)
+    return NetRef(node=node_name, terminal=terminal, occurrence=occurrence, bare=bare)
 
 
 def _resolve_source(
@@ -1224,7 +1225,7 @@ def _resolve_source(
                 # ``_paired_tunnel_id`` would pick first (finding #1) --
                 # ``_build_case_outputs`` defines the merge itself.
                 name = _gamma_net_name(op, term, build_ctx)
-                return NetRef(node=None, port=name, occurrence=None, bare=name)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_eta_output_tunnel(op, term):
                 # A loop output tunnel's outer terminal carries the value
                 # LEAVING the loop -- an aggregation across every iteration
@@ -1234,7 +1235,7 @@ def _resolve_source(
                 # (the loop analogue of the case finding above) --
                 # ``_build_loop_outputs`` defines the merge itself.
                 name = _eta_net_name(op, term, build_ctx)
-                return NetRef(node=None, port=name, occurrence=None, bare=name)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_mu_shift_register_read(op, term):
                 # A shift register's LEFT terminal (read inside the loop) or
                 # RIGHT terminal (rarely read directly from outside) IS the
@@ -1243,7 +1244,7 @@ def _resolve_source(
                 # and silently drop the recurrence. Stop here and name the
                 # merge net -- ``_build_loop_shift_registers`` defines it.
                 name = _mu_net_name(op, term, build_ctx)
-                return NetRef(node=None, port=name, occurrence=None, bare=name)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_feedback_output_read(op, term):
                 # A Feedback Node's output terminal IS the mu recurrence
                 # itself -- name the ``fb{k}`` net (defined by the standalone
@@ -1254,7 +1255,7 @@ def _resolve_source(
                 # id from ``_assign_sequential_ids`` in ``build_netlist``, so
                 # a miss here would mean a real bug, not a legitimate miss.
                 name = f"fb{build_ctx.feedback_id_by_uid[_uid_of(op.id)]}"
-                return NetRef(node=None, port=name, occurrence=None, bare=name)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             paired = _paired_tunnel_id(op, term)
             if paired is not None and paired not in seen:
                 tid = paired
@@ -1266,10 +1267,10 @@ def _resolve_source(
         for t in ctx.inputs:
             if t.id == src.terminal_id:
                 bare = t.name or str(t.index)
-                return NetRef(node=None, port=bare, occurrence=None, bare=bare)
+                return NetRef(node=None, terminal=bare, occurrence=None, bare=bare)
 
         # A wire fed directly by a constant renders the constant's real
-        # VALUE (a literal), not the structural uid.port fallback below --
+        # VALUE (a literal), not the structural uid.terminal fallback below --
         # a literal has no producing node, so ``node=None`` (same
         # convention as a boundary control) and it always renders bare.
         const = build_ctx.const_by_id.get(src.node_id)
@@ -1277,7 +1278,7 @@ def _resolve_source(
             value_str = _const_value_str(const)
             return NetRef(
                 node=None,
-                port=value_str,
+                terminal=value_str,
                 occurrence=None,
                 bare=value_str,
             )
@@ -1285,12 +1286,12 @@ def _resolve_source(
         # Structural fallback: identify by the wire source's own carried
         # info (never invent a placeholder like "x").
         node_name = src.name or _uid_of(src.node_id)
-        port = str(src.index) if src.index is not None else src.terminal_id
+        terminal = str(src.index) if src.index is not None else src.terminal_id
         return NetRef(
             node=node_name,
-            port=port,
+            terminal=terminal,
             occurrence=None,
-            bare=f"{node_name}.{port}",
+            bare=f"{node_name}.{terminal}",
         )
 
 
@@ -1377,7 +1378,7 @@ def _build_property_accesses(
     correlation ``render/nodes.py::_property_node_glyph`` uses. A property
     whose value terminal can't be correlated (fewer value terminals than
     properties, or an unresolved name) is skipped here -- its terminal still
-    renders via the generic ``inputs``/``outputs`` numeric-port fallback,
+    renders via the generic ``inputs``/``outputs`` numeric-terminal fallback,
     never a fabricated name.
     """
     accesses: list[NetlistPropertyAccess] = []
@@ -1434,8 +1435,8 @@ def _build_instance(
     name = _display_name(op)
     occurrence = build_ctx.occurrence_by_uid.get(uid)
     inputs = [
-        NetlistPortBinding(
-            port=_component_port_name(t),
+        NetlistTerminalBinding(
+            terminal=_component_terminal_name(t),
             type=t.type_descriptor() or "?",
             net=ref,
             default=None,
@@ -1963,8 +1964,8 @@ def _component_identity(op: Operation) -> tuple[object, ...]:
     return (op.node_type or "unknown", prim_res_id, operation)
 
 
-def _component_port_name(term: Terminal) -> str:
-    """Port name for one of ``op``'s own terminals, in a synthesized
+def _component_terminal_name(term: Terminal) -> str:
+    """Terminal name for one of ``op``'s own terminals, in a synthesized
     (not wire-derived) component declaration.
 
     ``display_name or name or str(index)``, per the netlist naming rule --
@@ -1987,7 +1988,7 @@ def _synthesize_ports(
     outs: list[ComponentPort] = []
     for t in sorted(op.terminals, key=lambda t: t.index):
         port = ComponentPort(
-            name=_component_port_name(t),
+            name=_component_terminal_name(t),
             type=t.lv_type.type_descriptor() if t.lv_type else "Any",
         )
         (ins if t.direction == "input" else outs).append(port)
@@ -2604,16 +2605,16 @@ def _resolve_source_gn(
         if owner is not None and term is not None:
             if _is_gamma_output_tunnel_gn(owner, term):
                 name = _gamma_net_name_gn(owner, term, build_ctx)
-                return NetRef(node=None, port=name, occurrence=None, bare=name)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_eta_output_tunnel_gn(owner, term):
                 name = _eta_net_name_gn(owner, term, build_ctx)
-                return NetRef(node=None, port=name, occurrence=None, bare=name)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_mu_shift_register_read_gn(owner, term):
                 name = _mu_net_name_gn(owner, term, build_ctx)
-                return NetRef(node=None, port=name, occurrence=None, bare=name)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_feedback_output_read_gn(graph, owner, term):
                 name = f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"
-                return NetRef(node=None, port=name, occurrence=None, bare=name)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             paired = _paired_tunnel_id_gn(term)
             if paired is not None and paired not in seen:
                 tid = paired
@@ -2625,11 +2626,11 @@ def _resolve_source_gn(
         for t in ctx.inputs:
             if t.id == src.terminal_id:
                 bare = t.name or str(t.index)
-                return NetRef(node=None, port=bare, occurrence=None, bare=bare)
+                return NetRef(node=None, terminal=bare, occurrence=None, bare=bare)
 
         const = build_ctx.const_by_id.get(src.node_id)
         if const is not None:
-            # ``bare``/``node``/``port`` stay the inlined literal VALUE --
+            # ``bare``/``node``/``terminal`` stay the inlined literal VALUE --
             # unchanged behavior, so ``render_netlist``/``netlist_to_dict``
             # (and the graph<->Operation parity test) never see a
             # difference. ``constant_uid`` tags the PRODUCER (the SAME
@@ -2646,7 +2647,7 @@ def _resolve_source_gn(
             value_str = _const_value_str(const)
             return NetRef(
                 node=None,
-                port=value_str,
+                terminal=value_str,
                 occurrence=None,
                 bare=value_str,
                 constant_uid=_uid_of(const.id),
@@ -2654,12 +2655,12 @@ def _resolve_source_gn(
             )
 
         node_name = src.name or _uid_of(src.node_id)
-        port = str(src.index) if src.index is not None else src.terminal_id
+        terminal = str(src.index) if src.index is not None else src.terminal_id
         return NetRef(
             node=node_name,
-            port=port,
+            terminal=terminal,
             occurrence=None,
-            bare=f"{node_name}.{port}",
+            bare=f"{node_name}.{terminal}",
         )
 
 
@@ -2760,7 +2761,7 @@ def _call_terminals_gn(
     ``SubVIOperation``'s terminals -- it reads only graph state, no
     ``Operation`` involved, so reusing it directly is exact rather than
     re-derived); every other node kind's own ``terminals`` unchanged.
-    Without this, a SubVI call's INPUT/OUTPUT port names would show the
+    Without this, a SubVI call's INPUT/OUTPUT terminal names would show the
     caller-side placeholder name instead of the callee's real parameter name
     (e.g. ``start path`` misread as ``error out``)."""
     if isinstance(node, VINode) and node.id != node.vi:
@@ -2779,7 +2780,7 @@ def _is_real_terminal(t: Terminal) -> bool:
     slot with no data"), reproduced here via ``Terminal.type_descriptor()``
     directly (never a new import -- ``graph/`` does not depend on
     ``render/``) so Phase A's "keep every terminal" doesn't surface pane
-    geometry noise that was never a genuine port.
+    geometry noise that was never a genuine terminal.
     """
     return not (t.lv_type is not None and t.lv_type.type_descriptor() == "Void")
 
@@ -2787,7 +2788,7 @@ def _is_real_terminal(t: Terminal) -> bool:
 def _is_void_type(type_descriptor: str) -> bool:
     """The stored-``type``-string counterpart of ``_is_real_terminal`` --
     used by ``render_lvnet`` (the one consumer that must drop a dead pane
-    slot) directly off ``NetlistPortBinding.type``/``NetlistOutput.type``,
+    slot) directly off ``NetlistTerminalBinding.type``/``NetlistOutput.type``,
     since Phase A's STORED model keeps every terminal Void-included (to
     match the Operation-based builder 1:1 -- see ``_build_instance_gn``)."""
     return type_descriptor == "Void"
@@ -2811,7 +2812,7 @@ def _ordered_real_terminals_gn(
     the reading order and is returned unchanged.
 
     This is a PRESENTATION-only helper -- ``render_lvnet`` uses it to sort
-    by ``NetlistPortBinding``/``NetlistOutput.pane_rank``; the STORED
+    by ``NetlistTerminalBinding``/``NetlistOutput.pane_rank``; the STORED
     ``NetlistInstance.inputs``/``.outputs`` order (built from
     ``_call_terminals_gn`` directly, unreordered) never changes, so
     ``render_netlist``/``netlist_to_dict`` -- and the parity test -- stay
@@ -2874,7 +2875,7 @@ def _build_instance_gn(
 
     Phase A: keeps EVERY terminal -- wired or not -- per lvnet §3/§4 (an
     unwired input carries its type's faithful ``default`` instead of a
-    driver; see ``NetlistPortBinding``). Deliberately does NOT drop a dead
+    driver; see ``NetlistTerminalBinding``). Deliberately does NOT drop a dead
     ``Void`` pane slot HERE (unlike ``_ordered_real_terminals_gn``, a
     presentation-only helper) -- ``_call_terminals_gn``'s terminal list, and
     the Void ones among them, are exactly what the Operation-based ``op.
@@ -2894,8 +2895,8 @@ def _build_instance_gn(
         t.id: i for i, t in enumerate(_ordered_real_terminals_gn(graph, vi_name, node))
     }
     inputs = [
-        NetlistPortBinding(
-            port=_component_port_name(t),
+        NetlistTerminalBinding(
+            terminal=_component_terminal_name(t),
             type=t.type_descriptor() or "?",
             net=(net := _input_ref_gn(graph, ctx, vi_name, build_ctx, t)),
             default=None if net is not None else _type_default(t.lv_type),
@@ -3696,7 +3697,7 @@ def _synthesize_ports_gn(
     outs: list[ComponentPort] = []
     for t in sorted(terminals, key=lambda t: t.index):
         port = ComponentPort(
-            name=_component_port_name(t),
+            name=_component_terminal_name(t),
             type=t.lv_type.type_descriptor() if t.lv_type else "Any",
         )
         (ins if t.direction == "input" else outs).append(port)
@@ -3999,7 +4000,7 @@ def _collect_refs(items: list[NetlistItem]) -> list[NetRef]:
         match item:
             case NetlistInstance():
                 # Phase A: an unwired input's binding carries no ``net`` (it
-                # has a ``default`` instead, see ``NetlistPortBinding``) --
+                # has a ``default`` instead, see ``NetlistTerminalBinding``) --
                 # never a disambiguation source, so skip it here exactly as
                 # it was always absent before Phase A (when it was dropped
                 # from ``inputs`` entirely).
@@ -4016,7 +4017,7 @@ def _collect_refs(items: list[NetlistItem]) -> list[NetRef]:
                 # A constant's OWN declaration carries no NetRef of its own
                 # (its net is a plain identifier built at the point of use,
                 # already collected there via a consumer's
-                # ``NetlistPortBinding.net`` -- see ``_resolve_source_gn``).
+                # ``NetlistTerminalBinding.net`` -- see ``_resolve_source_gn``).
                 pass
     return refs
 
@@ -4031,7 +4032,7 @@ def ambiguous_bares(module: NetlistModule) -> set[str]:
     """
     bare_to_identities: dict[str, set[tuple[str | None, int | None, str]]] = {}
     for ref in _collect_refs(module.body):
-        identity = (ref.node, ref.occurrence, ref.port)
+        identity = (ref.node, ref.occurrence, ref.terminal)
         bare_to_identities.setdefault(ref.bare, set()).add(identity)
     return {bare for bare, ids in bare_to_identities.items() if len(ids) > 1}
 
@@ -4114,42 +4115,42 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     -- the changed node's name sits right after the ``+/-/~`` gutter. The
     header itself (``name``/``#n``/bracket suffixes) is ``_instance_name_display``.
 
-    Inputs use NAMED-PORT association (Verilog ``.port(net)`` / VHDL
-    ``port => signal`` / Python kwargs), rendered ``port=net`` -- each wire
-    is tied to the declared input port it feeds, not left positional. An
-    inverted input (``NetlistPortBinding.inverted`` -- the "Not" bubble
+    Inputs use NAMED-TERMINAL association (Verilog ``.port(net)`` / VHDL
+    ``port => signal`` / Python kwargs), rendered ``terminal=net`` -- each wire
+    is tied to the declared input terminal it feeds, not left positional. An
+    inverted input (``NetlistTerminalBinding.inverted`` -- the "Not" bubble
     LabVIEW draws directly on that input, negating it before the node's own
-    operation runs) renders ``port=not(net)``: a function-form wrapper around
+    operation runs) renders ``terminal=not(net)``: a function-form wrapper around
     the net, ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
     ``_render_merge_source``/the module docstring already reserve arrows for.
     A non-inverted input is unchanged from before this flag existed.
 
-    Each accessed property's port is already labelled by its real NAME (not
+    Each accessed property's terminal is already labelled by its real NAME (not
     a numeric index) via the load-time ``op_walk.stamp_property_value_names``
     stamp on its VALUE terminal's ``display_name`` -- a WRITTEN property
     shows as an input binding (``Value=<net>``), a READ property as a named
     output net -- so no further special-casing is needed here; direction is
-    unambiguous from which side of ``->`` a property's port appears on (see
+    unambiguous from which side of ``->`` a property's terminal appears on (see
     ``NetlistInstance.properties`` for the JSON-only structured mirror of
     the same facts).
 
-    Parameter port NAMES are never available in the VI file for an Invoke
+    Parameter terminal NAMES are never available in the VI file for an Invoke
     Node (they live in the method's VI-server signature) -- ``ins``/``outs``
     below stay numeric for an invoke node; only the node's OWN identity
     (``_instance_name_display``) gains the method it calls.
     """
     name_disp = _instance_name_display(instance)
 
-    def _bind(b: NetlistPortBinding) -> str:
+    def _bind(b: NetlistTerminalBinding) -> str:
         assert b.net is not None
         net = b.net.render(qualified=b.net.bare in ambiguous)
         # An inverted input wraps the net in `not(...)` -- a function form that
         # reads clearly and can't be mistaken for the primitive "Not Equal?"
         # the way a bare `NOT `/`!` prefix glued to the name would.
-        return f"{b.port}={f'not({net})' if b.inverted else net}"
+        return f"{b.terminal}={f'not({net})' if b.inverted else net}"
 
     # Phase A: ``instance.inputs`` now carries EVERY real terminal, wired or
-    # not (see ``NetlistPortBinding``) -- this OLD renderer only ever showed
+    # not (see ``NetlistTerminalBinding``) -- this OLD renderer only ever showed
     # wired ones, so filter back down to keep it byte-identical to the
     # Operation-based builder (which never produces an unwired binding).
     wired_inputs = [b for b in instance.inputs if b.net is not None]
@@ -4394,7 +4395,7 @@ def _render_items(
 def _netref_to_dict(ref: NetRef) -> dict[str, Any]:
     return {
         "node": ref.node,
-        "port": ref.port,
+        "terminal": ref.terminal,
         "occurrence": ref.occurrence,
         "bare": ref.bare,
     }
@@ -4596,9 +4597,11 @@ def _dependency_to_dict(dep: NetlistDependency) -> dict[str, Any]:
     return d
 
 
-def _instance_input_to_dict(b: NetlistPortBinding, *, verbose: bool) -> dict[str, Any]:
+def _instance_input_to_dict(
+    b: NetlistTerminalBinding, *, verbose: bool
+) -> dict[str, Any]:
     d: dict[str, Any] = {
-        "port": b.port,
+        "terminal": b.terminal,
         "net": _netref_to_dict(b.net),  # type: ignore[arg-type]
         "inverted": b.inverted,
     }
@@ -4631,7 +4634,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
         return None
     if isinstance(item, NetlistInstance):
         # Phase A: ``item.inputs`` now carries EVERY real terminal, wired or
-        # not (see ``NetlistPortBinding``) -- this OLD JSON shape only ever
+        # not (see ``NetlistTerminalBinding``) -- this OLD JSON shape only ever
         # showed wired ones, so filter back down to keep it byte-identical
         # to the Operation-based builder (which never produces an unwired
         # binding).
@@ -4813,7 +4816,7 @@ def render_netlist(module: NetlistModule, *, display_name: str | None = None) ->
     lines: list[str] = []
     in_names = ", ".join(inp.name for inp in module.inputs)
     # Show each output's driving net inline as ``name=source`` (arrow-free, the
-    # same ``port=net`` idiom instance inputs use); bare name when unwired.
+    # same ``terminal=net`` idiom instance inputs use); bare name when unwired.
     ambiguous = ambiguous_bares(module)
     out_names = ", ".join(
         f"{o.name}={o.source.render(qualified=o.source.bare in ambiguous)}"
@@ -4873,7 +4876,7 @@ _LVNET_TYPE_SEP = " : "  # `name : Type` / `handle : component` (§3/§7)
 _LVNET_DRIVER_OP = " = "  # `= driver` / `name = def` (§4/§7/§8/§10)
 _LVNET_BLOCK_OPEN = " :"  # trailing block-opener (§2/§7/§8)
 _LVNET_ANNOTATION_SEP = " ; "  # fixed-width trailing-annotation sep (§6)
-_LVNET_PORT_SEP = "::"  # `<handle>::<port>` / structure-scoped net (§9)
+_LVNET_TERMINAL_SEP = "::"  # `<handle>::<terminal>` / structure-scoped net (§9)
 _LVNET_TYPEDEF_NAV_PREFIX = "./"  # the `; ./path` nav clause's own prefix
 # The `uses :` manifest's own qualified;path separator -- a padding-
 # tolerant sibling of ``_LVNET_ANNOTATION_SEP`` (2 chars, not 3: the space
@@ -5171,7 +5174,7 @@ def _lvnet_type_lossless_def(lv_type: LVType) -> str:
 
 def _iter_lv_types_in_items(items: list[NetlistItem]) -> Iterator[LVType]:
     """Every structured ``LVType`` reachable from a body item's own
-    terminals -- an INSTANCE's input/output port types (``NetlistScope``
+    terminals -- an INSTANCE's input/output terminal types (``NetlistScope``
     recurses into its frames'/loop's own body). A ``NetlistFeedback``/
     ``NetlistConstant`` carries no structured ``LVType`` (only an already-
     flattened label string), so neither yields anything here -- matching
@@ -5453,7 +5456,7 @@ class _LvnetHandles:
     (``NetRef.constant_uid`` -- the SAME id, see ``NetlistConstant``'s
     docstring); a ``constant_uid`` NOT present here is a one-off/unlabeled
     constant, rendered as its inlined literal instead (see
-    ``_render_lvnet_source``). ``by_name_occurrence`` serves a node-port
+    ``_render_lvnet_source``). ``by_name_occurrence`` serves a node-terminal
     ``NetRef``: ``(node, occurrence)`` is the only identity such a reference
     carries back to its producing instance (it has no ``uid``), and -- for a
     given display name -- ``occurrence`` is already a VI-wide-unique
@@ -5557,7 +5560,7 @@ def _lvnet_net_separator(bare: str) -> str:
     if m is None:
         return bare
     prefix, rest = m.groups()
-    return f"{prefix}{_LVNET_PORT_SEP}{rest}"
+    return f"{prefix}{_LVNET_TERMINAL_SEP}{rest}"
 
 
 def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) -> str:
@@ -5573,10 +5576,10 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
       is a one-off/unlabeled constant -- falls through to its inlined literal
       value below (``source.lvnet_value``, the lvnet-escaped text, since
       ``source.node`` is ``None`` for every constant reference).
-    - A node-port reference (``source.node is not None``) ALWAYS renders
-      fully qualified as ``<handle>::<port>`` (never a bare, unqualified
+    - A node-terminal reference (``source.node is not None``) ALWAYS renders
+      fully qualified as ``<handle>::<terminal>`` (never a bare, unqualified
       form -- unlike ``render_netlist``'s ambiguity-gated qualification;
-      lvnet §9 names every node-port net this one way).
+      lvnet §9 names every node-terminal net this one way).
     - Everything else (``source.node is None``, no constant) is a boundary
       control's plain name or a structure-scoped net (``caseN.outK``/
       ``loopN.shiftK``/``loopN.outK``/``fbK``) -- ``_lvnet_net_separator``
@@ -5592,16 +5595,16 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
     if source.node is not None:
         handle = handles.by_name_occurrence.get((source.node, source.occurrence))
         if handle is not None:
-            return f"{handle}{_LVNET_PORT_SEP}{source.port}"
+            return f"{handle}{_LVNET_TERMINAL_SEP}{source.terminal}"
         # The producer is a Local/Global Variable's own control/indicator --
         # the ONE instance kind still excluded from the handle map (§7: "a
         # terminal, not a node"; its tap-resolution-to-the-control's-net is
         # still undesigned, §17 item 6), so there is no designed identity to
         # reuse here. Falling back to the raw display name (with the SAME
-        # ``::`` port separator lvnet §9 mandates) keeps the render from
+        # ``::`` terminal separator lvnet §9 mandates) keeps the render from
         # crashing without fabricating a handle scheme the spec never
         # designed for this one remaining kind -- flagged as an OPEN gap.
-        return f"{source.node}{_LVNET_PORT_SEP}{source.port}"
+        return f"{source.node}{_LVNET_TERMINAL_SEP}{source.terminal}"
     # An inlined (unlabeled) constant's literal value: ``lvnet_value`` is
     # the lvnet-escaped text (md §4/§10) -- ``_lvnet_net_separator`` is a
     # no-op on it (a quoted/``True``/``False``/numeric token never matches
@@ -5694,10 +5697,10 @@ def _render_lvnet_instance(
 
     Property Node / Invoke Node terminals need NO special-case code here:
     the model already names a property's value terminal by the property
-    (stamped at load, ``_component_port_name``) and an Invoke Node's
+    (stamped at load, ``_component_terminal_name``) and an Invoke Node's
     parameter terminals by their raw index (LabVIEW stores no param names)
     -- the SAME generic terminal-rendering loop below (shared with
-    subVI/function) already reads ``b.port``/``o.net.port`` faithfully
+    subVI/function) already reads ``b.terminal``/``o.net.terminal`` faithfully
     either way. In-place-element/formula-node render that same terminal
     block, THEN one trailing ``# TODO(lvnet): ...`` for their one remaining
     undesigned part (``_OPEN_INSTANCE_TRAILING_TODO``) -- never more.
@@ -5728,12 +5731,12 @@ def _render_lvnet_instance(
             assert b.default is not None
             trailing = _lvnet_default_trailing(b.default)
         type_label = _lvnet_type_label(b.type, b.lv_type)
-        entries.append(_TermLine("in ", b.port, type_label, trailing))
+        entries.append(_TermLine("in ", b.terminal, type_label, trailing))
     for o in sorted(instance.outputs, key=lambda o: o.pane_rank):
         if _is_void_type(o.type):
             continue
         type_label = _lvnet_type_label(o.type, o.lv_type)
-        entries.append(_TermLine("out", o.net.port, type_label, None))
+        entries.append(_TermLine("out", o.net.terminal, type_label, None))
     lines.extend(_render_term_group(entries, indent + _LVNET_INDENT))
 
     trailing_todo = _OPEN_INSTANCE_TRAILING_TODO.get(instance.kind)

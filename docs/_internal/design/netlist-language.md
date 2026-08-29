@@ -351,18 +351,18 @@ a wire by grepping its name and land once (VHDL-like "one name → one
 declaration"). No scope-local abbreviation that makes `out0` mean different nets
 in different places.
 
-- Node-port nets: `<handle>::<port>` — the producing node's **instance handle**
-  (§7), a `::` (scope resolution, "the port *within* this instance"), then the
-  faithful terminal name, or the terminal's **index** when it is unnamed
-  (`listAllTestMethods_1::test methods`, `Not_2::0`). `::` (never `.`) keeps an
-  indexed port off the handle's `_N`, so `Not_2::0` can't be misread as the float
-  `2.0`, and `::` doesn't pile onto the already four-way-overloaded `:` (type,
-  declaration, block header, class qualifier).
+- Node-terminal nets: `<handle>::<terminal>` — the producing node's **instance
+  handle** (§7), a `::` (scope resolution, "the terminal *within* this
+  instance"), then the faithful terminal name, or the terminal's **index**
+  when it is unnamed (`listAllTestMethods_1::test methods`, `Not_2::0`). `::`
+  (never `.`) keeps an indexed terminal off the handle's `_N`, so `Not_2::0`
+  can't be misread as the float `2.0`, and `::` doesn't pile onto the already
+  four-way-overloaded `:` (type, declaration, block header, class qualifier).
 - Structure nets use the same `::`: `caseN::outK` (case output), `loopN::shiftK`
   (shift register), `loopN::outK` (loop output tunnel), `fbK` (feedback — a whole
-  net, no port). Structure prefixes keep their reserved bare-numbered form — they
-  are not node handles. `::` is the **only** instance→port separator, so `.` never
-  appears in a net name (it survives only inside a component path at a
+  net, no terminal). Structure prefixes keep their reserved bare-numbered form —
+  they are not node handles. `::` is the **only** instance→terminal separator, so
+  `.` never appears in a net name (it survives only inside a component path at a
   declaration, §7).
 - **Instance number `_N`:** every node/constant instance carries `_N` (from 1),
   the first copy included — the handle's uniquifier and the stable diff identity.
@@ -592,7 +592,7 @@ This is the ACTUAL, verified output of `render_lvnet(build_netlist_from_graph(..
 on the real corpus VI (captured via `.tmp/render_golden.py`, byte-identical to
 `tests/test_render_lvnet.py`'s `_GOLDEN_LVNET` fixture) -- not hand-typed. It
 diverges from an earlier hand-written draft of this section in ways the test
-file's module docstring documents with receipts (verbatim FP-control port
+file's module docstring documents with receipts (verbatim FP-control terminal
 labels including their `(...)` annotation; `TestSuite_Init.vi`'s real 5th
 input; its real `error in` wiring from `loop0::shift0`; no `constant` node,
 since this VI's own diagram has none; one alignment nit) -- none of them are

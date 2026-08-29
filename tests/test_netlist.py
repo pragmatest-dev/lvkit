@@ -279,7 +279,7 @@ def test_shift_register_renders_mu_and_inner_reader_resolves_to_shift_net() -> N
     test_case_init = _find_instance(loop_scope, "TestCase_Init.vi")
     assert test_case_init is not None
     error_in_binding = next(
-        b for b in test_case_init.inputs if b.port.startswith("error in")
+        b for b in test_case_init.inputs if b.terminal.startswith("error in")
     )
     error_in_net = error_in_binding.net
     assert error_in_net is not None
@@ -326,7 +326,7 @@ def test_auto_indexed_output_renders_eta_array_and_outside_consumer_resolves() -
         for item in no_error_frame.body
         if isinstance(item, NetlistInstance) and item.name == "TestSuite_Init.vi"
     )
-    tests_binding = next(b for b in suite_init.inputs if b.port.startswith("tests"))
+    tests_binding = next(b for b in suite_init.inputs if b.terminal.startswith("tests"))
     tests_net = tests_binding.net
     assert tests_net is not None
     assert tests_net.node is None
@@ -831,7 +831,7 @@ def test_compound_arithmetic_inverted_input_renders_negation_prefix() -> None:
     assert {i.occurrence for i in instances} == {1, 2}
     inst2 = next(i for i in instances if i.occurrence == 2)
 
-    bindings_by_port = {b.port: b for b in inst2.inputs}
+    bindings_by_port = {b.terminal: b for b in inst2.inputs}
     assert bindings_by_port["1"].inverted is False
     assert bindings_by_port["2"].inverted is True
     # Faithful: the negation is an annotation on the BINDING, never on the
@@ -865,7 +865,7 @@ def test_compound_arithmetic_non_inverted_inputs_unchanged() -> None:
     instances = _cpdarith_instances(module)
     for inst in instances:
         for b in inst.inputs:
-            if b.port != "2" or inst.occurrence != 2:
+            if b.terminal != "2" or inst.occurrence != 2:
                 assert b.inverted is False
 
 
@@ -907,7 +907,7 @@ def test_property_node_write_properties_render_named_bindings_and_object_class()
         ("Active Item Tag", "write"),
         ("Open?", "write"),
     ]
-    port_names = {b.port for b in inst.inputs}
+    port_names = {b.terminal for b in inst.inputs}
     assert {"Active Item Tag", "Open?"}.issubset(port_names)
     assert "4" not in port_names and "5" not in port_names
 
@@ -960,9 +960,9 @@ def test_property_node_non_value_terminals_keep_numeric_ports() -> None:
     module = build_netlist(graph, vi_name)
 
     inst = next(i for i in _property_node_instances(module) if i.uid == "1065")
-    input_ports = {b.port for b in inst.inputs}
+    input_ports = {b.terminal for b in inst.inputs}
     assert input_ports == {"0", "2"}  # object ref in, error in -- unlabeled
-    output_ports = {o.net.port for o in inst.outputs}
+    output_ports = {o.net.terminal for o in inst.outputs}
     # ref-out (1) and error-out (3) stay numeric; only the correlated
     # property value terminal (originally "4") is named.
     assert output_ports == {"1", "3", "Project"}
@@ -993,9 +993,9 @@ def test_invoke_node_renders_method_and_object_and_keeps_numeric_params() -> Non
     inst = next(i for i in _invoke_node_instances(module) if i.uid == "6753")
     assert inst.object_name == "Tree (strict)"
     assert inst.method_name == "Point To Row Column"
-    input_ports = {b.port for b in inst.inputs}
+    input_ports = {b.terminal for b in inst.inputs}
     assert input_ports == {"0", "6"}  # params stay numeric -- names unrecoverable
-    output_ports = {o.net.port for o in inst.outputs}
+    output_ports = {o.net.terminal for o in inst.outputs}
     assert output_ports == {"1", "3", "5", "7", "9", "11", "13", "15"}
 
     out = render_netlist(module)

@@ -27,9 +27,9 @@ from lvkit.graph.netlist import (
     NetlistInstance,
     NetlistModule,
     NetlistOutput,
-    NetlistPortBinding,
     NetlistPropertyAccess,
     NetlistScope,
+    NetlistTerminalBinding,
     NetRef,
     netlist_to_dict,
 )
@@ -37,16 +37,16 @@ from lvkit.graph.op_walk import ComponentPort
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 
 
-def _ref(node, port, bare, occ=None):
-    return NetRef(node=node, port=port, occurrence=occ, bare=bare)
+def _ref(node, terminal, bare, occ=None):
+    return NetRef(node=node, terminal=terminal, occurrence=occ, bare=bare)
 
 
-def _out(node, port, bare, occ=None):
+def _out(node, terminal, bare, occ=None):
     """Test-only convenience: a ``NetlistOutput`` wrapping ``_ref(...)`` --
     these hand-built fixtures don't exercise the ``type`` field (added by
     Phase A, no assertion in this file reads it), so a placeholder is fine.
     """
-    return NetlistOutput(net=_ref(node, port, bare, occ=occ), type="?")
+    return NetlistOutput(net=_ref(node, terminal, bare, occ=occ), type="?")
 
 
 def test_instance_and_scope_are_kind_tagged_and_nested():
@@ -54,7 +54,9 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
         uid="7",
         name="Increment",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", type="I32", net=_ref(None, "n", "n"))],
+        inputs=[
+            NetlistTerminalBinding(terminal="x", type="I32", net=_ref(None, "n", "n"))
+        ],
         outputs=[_out("Increment", "out", "n2")],
     )
     scope = NetlistScope(
@@ -114,7 +116,7 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
             "type": "DBL",
             "source": {
                 "node": "Increment",
-                "port": "out",
+                "terminal": "out",
                 "occurrence": None,
                 "bare": "n2",
             },
@@ -128,7 +130,7 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
 
     inst = d["body"][0]
     assert inst["name"] == "Increment"
-    assert inst["inputs"][0]["port"] == "x"
+    assert inst["inputs"][0]["terminal"] == "x"
     assert inst["inputs"][0]["net"]["bare"] == "n"
     assert inst["outputs"][0]["bare"] == "n2"
     # A non-cpdArith instance carries no operation -- the key is present
@@ -325,11 +327,11 @@ def test_instance_carries_cpdarith_operation():
         name="Compound Arithmetic",
         occurrence=1,
         inputs=[
-            NetlistPortBinding(
-                port="1", type="Boolean", net=_ref("Not Equal?", "result", "result")
+            NetlistTerminalBinding(
+                terminal="1", type="Boolean", net=_ref("Not Equal?", "result", "result")
             ),
-            NetlistPortBinding(
-                port="2", type="Boolean", net=_ref("Not Equal?", "result", "result")
+            NetlistTerminalBinding(
+                terminal="2", type="Boolean", net=_ref("Not Equal?", "result", "result")
             ),
         ],
         outputs=[_out("Compound Arithmetic", "0", "Compound Arithmetic#1.0")],
@@ -349,7 +351,7 @@ def test_instance_carries_cpdarith_operation():
 
 def test_input_binding_carries_inverted_flag():
     """Audit finding: an INPUT terminal's "Not" bubble
-    (``NetlistPortBinding.inverted``, mirroring ``Terminal.inverted``) must be
+    (``NetlistTerminalBinding.inverted``, mirroring ``Terminal.inverted``) must be
     readable straight off the JSON binding -- a program can't tell
     ``x AND NOT y`` from ``x AND y`` by parsing rendered text. The inverted
     binding's own net identity (``bare``/``occurrence``) is UNCHANGED --
@@ -359,13 +361,13 @@ def test_input_binding_carries_inverted_flag():
         name="Compound Arithmetic",
         occurrence=2,
         inputs=[
-            NetlistPortBinding(
-                port="1",
+            NetlistTerminalBinding(
+                terminal="1",
                 type="Boolean",
                 net=_ref("Less?", "result", "result"),
             ),
-            NetlistPortBinding(
-                port="2",
+            NetlistTerminalBinding(
+                terminal="2",
                 type="Boolean",
                 net=_ref("Equal?", "equal", "equal", occ=2),
                 inverted=True,
@@ -378,14 +380,14 @@ def test_input_binding_carries_inverted_flag():
 
     d = netlist_to_dict(module)
     inputs = d["body"][0]["inputs"]
-    assert inputs[0]["port"] == "1"
+    assert inputs[0]["terminal"] == "1"
     assert inputs[0]["inverted"] is False
-    assert inputs[1]["port"] == "2"
+    assert inputs[1]["terminal"] == "2"
     assert inputs[1]["inverted"] is True
     # Net identity is untouched by the flag.
     assert inputs[1]["net"] == {
         "node": "Equal?",
-        "port": "equal",
+        "terminal": "equal",
         "occurrence": 2,
         "bare": "equal",
     }
@@ -394,7 +396,7 @@ def test_input_binding_carries_inverted_flag():
 def test_property_node_instance_carries_structured_properties_and_object():
     """Audit finding: a Property Node used to be a black box in the JSON IR --
     which properties it accesses, and whether each is a read or a write, was
-    completely lost (every value port rendered as a bare numeric index). The
+    completely lost (every value terminal rendered as a bare numeric index). The
     instance dict must now carry a structured ``properties`` list (name +
     direction + the net read from/written to) and the target object CLASS
     under ``object`` -- a program reads which properties without parsing
@@ -408,13 +410,13 @@ def test_property_node_instance_carries_structured_properties_and_object():
         name="Property Node",
         occurrence=1,
         inputs=[
-            NetlistPortBinding(
-                port="0",
+            NetlistTerminalBinding(
+                terminal="0",
                 type="refnum",
                 net=_ref("Bundle/Unbundle By Name", "ref", "ref"),
             ),
-            NetlistPortBinding(
-                port="Disabled", type="Boolean", net=_ref(None, "True", "True")
+            NetlistTerminalBinding(
+                terminal="Disabled", type="Boolean", net=_ref(None, "True", "True")
             ),
         ],
         outputs=[
@@ -444,14 +446,19 @@ def test_property_node_instance_carries_structured_properties_and_object():
         {
             "name": "Disabled",
             "direction": "write",
-            "net": {"node": None, "port": "True", "occurrence": None, "bare": "True"},
+            "net": {
+                "node": None,
+                "terminal": "True",
+                "occurrence": None,
+                "bare": "True",
+            },
         },
         {
             "name": "Enabled",
             "direction": "read",
             "net": {
                 "node": "Property Node",
-                "port": "Enabled",
+                "terminal": "Enabled",
                 "occurrence": 1,
                 "bare": "Enabled",
             },
@@ -489,7 +496,9 @@ def test_non_property_instance_has_no_object_and_empty_properties():
         uid="1",
         name="Not Equal?",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", type="I32", net=_ref(None, "n", "n"))],
+        inputs=[
+            NetlistTerminalBinding(terminal="x", type="I32", net=_ref(None, "n", "n"))
+        ],
         outputs=[_out("Not Equal?", "result", "result")],
     )
     module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
@@ -509,20 +518,20 @@ def test_invoke_node_instance_carries_method_and_object():
     without parsing text. Mirrors uid 6753 of the real JKI-VI-Tester
     "Graphical Test Runner - Main UI" VI (Invoke Node#1, "Point To Row
     Column" on a "Tree (strict)" reference -- see test_netlist.py's real-VI
-    coverage). Parameter ports are never named (unrecoverable from the VI
+    coverage). Parameter terminals are never named (unrecoverable from the VI
     file) and stay numeric."""
     inst = NetlistInstance(
         uid="6753",
         name="Invoke Node",
         occurrence=1,
         inputs=[
-            NetlistPortBinding(
-                port="0",
+            NetlistTerminalBinding(
+                terminal="0",
                 type="refnum",
                 net=_ref("Event Data Node", "3", "Event Data Node#12.3", occ=12),
             ),
-            NetlistPortBinding(
-                port="6",
+            NetlistTerminalBinding(
+                terminal="6",
                 type="refnum",
                 net=_ref("Event Data Node", "4", "Event Data Node#12.4", occ=12),
             ),
@@ -537,7 +546,7 @@ def test_invoke_node_instance_carries_method_and_object():
     body_inst = d["body"][0]
     assert body_inst["method"] == "Point To Row Column"
     assert body_inst["object"] == "Tree (strict)"
-    assert [b["port"] for b in body_inst["inputs"]] == ["0", "6"]
+    assert [b["terminal"] for b in body_inst["inputs"]] == ["0", "6"]
     assert body_inst["outputs"][0]["bare"] == "Invoke Node#1.1"
 
 
@@ -568,7 +577,9 @@ def test_non_invoke_instance_has_no_method():
         uid="1",
         name="Not Equal?",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", type="I32", net=_ref(None, "n", "n"))],
+        inputs=[
+            NetlistTerminalBinding(terminal="x", type="I32", net=_ref(None, "n", "n"))
+        ],
         outputs=[_out("Not Equal?", "result", "result")],
     )
     module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
@@ -675,16 +686,18 @@ def _verbose_fixture_module() -> NetlistModule:
         name="Sub",
         occurrence=None,
         inputs=[
-            NetlistPortBinding(
-                port="cfg",
+            NetlistTerminalBinding(
+                terminal="cfg",
                 type="Config",
-                net=NetRef(node=None, port="cfg", occurrence=None, bare="cfg"),
+                net=NetRef(node=None, terminal="cfg", occurrence=None, bare="cfg"),
                 lv_type=config_cluster,
             )
         ],
         outputs=[
             NetlistOutput(
-                net=NetRef(node="Sub", port="out1", occurrence=None, bare="Sub.out1"),
+                net=NetRef(
+                    node="Sub", terminal="out1", occurrence=None, bare="Sub.out1"
+                ),
                 type="Mode",
                 lv_type=mode_enum,
             )
@@ -702,7 +715,7 @@ def _verbose_fixture_module() -> NetlistModule:
                 name="out",
                 type_descriptor="Mode",
                 source=NetRef(
-                    node="Sub", port="out1", occurrence=None, bare="Sub.out1"
+                    node="Sub", terminal="out1", occurrence=None, bare="Sub.out1"
                 ),
                 lv_type=mode_enum,
             )

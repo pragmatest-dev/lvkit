@@ -31,7 +31,7 @@ derivation) and §10/§10.1 (types) for the grammar this reverses, and
   ``_derive_instance_name``), then thread that identity through a
   handle -> identity map (``_HandleTarget``, built by ``_index_handles`` in
   one pass over the WHOLE body before any terminal is resolved) so every
-  ``<handle>::<port>`` reference elsewhere resolves to the identical
+  ``<handle>::<terminal>`` reference elsewhere resolves to the identical
   ``(name, occurrence)`` pair the declaration itself carries -- which is
   all ``_assign_lvnet_handles``/``_render_lvnet_source`` need to re-derive
   the SAME handle string on the way back out.
@@ -88,8 +88,8 @@ from .netlist import (
     _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
     _LVNET_INSTANCE_KEYWORDS,
-    _LVNET_PORT_SEP,
     _LVNET_RING_OPEN,
+    _LVNET_TERMINAL_SEP,
     _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
     BoundaryOutput,
@@ -111,8 +111,8 @@ from .netlist import (
     NetlistItem,
     NetlistModule,
     NetlistOutput,
-    NetlistPortBinding,
     NetlistScope,
+    NetlistTerminalBinding,
     NetRef,
 )
 
@@ -135,7 +135,7 @@ class LvnetReconstructError(ValueError):
 @dataclass(frozen=True)
 class _HandleTarget:
     """What a declared handle resolves to, for every later ``<handle>::
-    <port>`` (or bare, for a labeled constant) reference to it: the
+    <terminal>`` (or bare, for a labeled constant) reference to it: the
     ``(name, occurrence)`` pair ``_assign_lvnet_handles``/``_render_lvnet_
     source`` use to resolve a ``NetRef`` back to a handle string, plus the
     ``uid`` we mint for the instance/constant itself (used as the dict key
@@ -277,7 +277,7 @@ def _parse_source_token(
 ) -> NetRef | DefaultValue:
     """The reverse of ``netlist._render_lvnet_source``: a rendered
     ``= <driver>``/merge-source VALUE token back to a ``NetRef`` (a net
-    reference: node-port, boundary control, structural net, or an inlined
+    reference: node-terminal, boundary control, structural net, or an inlined
     literal) or a ``DefaultValue`` (the drive-position ``(default <Type>)``
     form -- an unwired case-output tunnel/shift-register/feedback init).
 
@@ -302,28 +302,35 @@ def _parse_source_token(
             raise LvnetReconstructError(
                 f"trailing text after quoted literal in source: {text!r}"
             )
-        return NetRef(node=None, port="", occurrence=None, bare=text, lvnet_value=text)
+        return NetRef(
+            node=None, terminal="", occurrence=None, bare=text, lvnet_value=text
+        )
     if text in ("True", "False") or _is_numeric_literal(text):
-        return NetRef(node=None, port="", occurrence=None, bare=text, lvnet_value=text)
-    if _LVNET_PORT_SEP in text:
-        handle_part, _, port = text.partition(_LVNET_PORT_SEP)
+        return NetRef(
+            node=None, terminal="", occurrence=None, bare=text, lvnet_value=text
+        )
+    if _LVNET_TERMINAL_SEP in text:
+        handle_part, _, terminal = text.partition(_LVNET_TERMINAL_SEP)
         target = registry.get(handle_part)
         if target is not None and not target.is_constant:
             return NetRef(
-                node=target.name, port=port, occurrence=target.occurrence, bare=text
+                node=target.name,
+                terminal=terminal,
+                occurrence=target.occurrence,
+                bare=text,
             )
         # Not a registered node handle -- a structure-scoped net
         # (`caseN::outK`/`loopN::shiftK`/`loopN::outK`) never IS one; fall
         # through to the bare/structural-net form below.
-        return NetRef(node=None, port="", occurrence=None, bare=text)
+        return NetRef(node=None, terminal="", occurrence=None, bare=text)
     target = registry.get(text)
     if target is not None and target.is_constant:
         return NetRef(
-            node=None, port="", occurrence=None, bare=text, constant_uid=target.uid
+            node=None, terminal="", occurrence=None, bare=text, constant_uid=target.uid
         )
     # A boundary control's own display name, or a bare structural net
     # (`fbK`) -- both render via the same "node is None" fallback.
-    return NetRef(node=None, port="", occurrence=None, bare=text)
+    return NetRef(node=None, terminal="", occurrence=None, bare=text)
 
 
 def _require_netref(source: NetRef | DefaultValue, where: str) -> NetRef:
@@ -552,7 +559,7 @@ def _reconstruct_instance(
         if not sep:
             object_name, method_name = item.component, "?"
 
-    inputs: list[NetlistPortBinding] = []
+    inputs: list[NetlistTerminalBinding] = []
     outputs: list[NetlistOutput] = []
     in_rank = 0
     out_rank = 0
@@ -575,8 +582,8 @@ def _reconstruct_instance(
                     f"neither a driver nor a default"
                 )
             inputs.append(
-                NetlistPortBinding(
-                    port=t.name,
+                NetlistTerminalBinding(
+                    terminal=t.name,
                     type=t.type,
                     net=net,
                     default=default,
@@ -589,7 +596,7 @@ def _reconstruct_instance(
         else:
             ref = NetRef(
                 node=target.name,
-                port=t.name,
+                terminal=t.name,
                 occurrence=target.occurrence,
                 bare=f"{item.handle}::{t.name}",
             )
