@@ -1228,14 +1228,12 @@ def _lvnet_pane_index_suffix(pane: ConnectorPaneTerminal) -> str | None:
 
     ``None`` only when ``ConnectorPaneTerminal.index`` is genuinely
     unassigned -- never fabricated. This is also the seam an OFF-PANE
-    terminal (a front-panel control not on the connector pane) would use if
-    the model ever carried one: it would have ``index=None`` and render with
-    no ``@`` at all, same as here -- but ``build_netlist_from_graph`` reads
-    ``InMemoryVIGraph.get_inputs``/``get_outputs`` with their default
-    ``public_only=True``, so an off-pane terminal never reaches
-    ``module.connector_pane.terminals`` in the first place today; surfacing
-    one is deferred to a later pass (needs build-side plumbing), not
-    invented here.
+    terminal (a front-panel control/indicator not on the connector pane)
+    uses: ``build_netlist_from_graph`` appends those after the on-pane
+    terminals with ``index`` forced ``None`` (``netlist_build._pane_terminal``'s
+    ``off_pane=True``), so this same helper renders their row with no ``@``
+    at all -- see ``_render_lvnet_front_panel``, which emits them as a
+    second, separate term-group right after the on-pane block.
     """
     if pane.index is None:
         return None
@@ -1286,19 +1284,33 @@ def _render_lvnet_front_panel(
     carrying a trailing ``@<index>`` pane-slot column
     (``_lvnet_pane_index_suffix``). Omitted entirely (no header, no lines)
     when there is NOTHING to show -- no pattern AND no boundary terminals
-    (a top-level/main VI) -- never an empty header, same convention as
-    ``uses :``/``types :``.
+    AND no off-pane terminals (a top-level/main VI) -- never an empty
+    header, same convention as ``uses :``/``types :``.
 
-    ``connector_pane.terminals`` is built (by BOTH builders) as inputs then
-    outputs, walked over the SAME ``ctx.inputs``/``ctx.outputs`` lists used
-    to build ``module.inputs``/``module.outputs`` -- so it lines up
-    POSITIONALLY, 1:1, with the boundary entries below.
+    ``connector_pane.terminals`` is built (by ``build_netlist_from_graph``)
+    as on-pane inputs, then on-pane outputs -- walked over the SAME
+    ``ctx.inputs``/``ctx.outputs`` lists used to build
+    ``module.inputs``/``module.outputs``, so it lines up POSITIONALLY, 1:1,
+    with the on-pane boundary entries below -- followed by every OFF-PANE
+    front-panel control/indicator (a control/indicator that exists on the
+    front panel but was never wired onto the connector pane,
+    ``ConnectorPaneTerminal.index is None`` -- ``netlist_build.
+    _off_pane_terminals``/``_pane_terminal``'s ``off_pane=True``), which has
+    no counterpart in ``module.inputs``/``.outputs`` at all (an off-pane
+    object never drives/reads the VI's own boundary wiring -- it's a
+    front-panel object declaration only). Rendered as its OWN
+    ``_render_term_group`` call, after the on-pane block: a separate column-
+    alignment group (§16's "per group, never globally" rule) so an off-pane
+    name/type never widens or narrows the on-pane block's own columns --
+    on-pane rows stay byte-identical whether or not this VI has any
+    off-pane controls at all.
     """
     pane_terminals = module.connector_pane.terminals
-    input_panes = pane_terminals[: len(module.inputs)]
-    output_panes = pane_terminals[
-        len(module.inputs) : len(module.inputs) + len(module.outputs)
-    ]
+    n_in = len(module.inputs)
+    n_out = len(module.outputs)
+    input_panes = pane_terminals[:n_in]
+    output_panes = pane_terminals[n_in : n_in + n_out]
+    off_pane_panes = pane_terminals[n_in + n_out :]
 
     boundary_entries: list[_TermLine] = [
         _TermLine(
@@ -1318,8 +1330,22 @@ def _render_lvnet_front_panel(
         for o, pane in zip(module.outputs, output_panes, strict=True)
     ]
 
+    # An off-pane row shares the exact same terminal-line shape as an
+    # on-pane one (name/type/§5 requirement/§4 default) minus the ``@<index>``
+    # column -- `_lvnet_boundary_trailing` already renders that correctly
+    # with no extra branching, since `pane.index` is `None` here.
+    off_pane_entries: list[_TermLine] = [
+        _TermLine(
+            "in " if pane.direction == "input" else "out",
+            pane.name,
+            _lvnet_type_label(pane.type, pane.lv_type),
+            _lvnet_boundary_trailing(pane, verbose=verbose),
+        )
+        for pane in off_pane_panes
+    ]
+
     pattern_id = module.connector_pane.pattern_id
-    if pattern_id is None and not boundary_entries:
+    if pattern_id is None and not boundary_entries and not off_pane_entries:
         return
     lines.append(_FRONT_PANEL_HEADER_LINE)
     content_indent = _LVNET_INDENT * 2
@@ -1327,6 +1353,8 @@ def _render_lvnet_front_panel(
         lines.append(f"{content_indent}{_LVNET_PATTERN_KEYWORD}{_LVNET_TYPE_SEP}{pattern_id}")
     if boundary_entries:
         lines.extend(_render_term_group(boundary_entries, content_indent))
+    if off_pane_entries:
+        lines.extend(_render_term_group(off_pane_entries, content_indent))
 
 
 def _render_lvnet_dependency_interface(

@@ -321,8 +321,14 @@ class ParsedBoundaryTerminal:
 
     ``index`` is the Phase 2 ``@<index>`` pane-slot column
     (``ConnectorPaneTerminal.index``), or ``None`` when the row carried none
-    -- an OFF-PANE terminal (not yet surfaced by this pass, see
-    ``render_lvnet._lvnet_pane_index_suffix``).
+    -- an OFF-PANE front-panel control/indicator (a control/indicator that
+    exists on the front panel but isn't wired onto the connector pane, see
+    ``render_lvnet._lvnet_pane_index_suffix``/``netlist_build.
+    _off_pane_terminals``). ``_parse_front_panel_block`` doesn't otherwise
+    distinguish an on-pane row from an off-pane one -- both are just
+    ``in``/``out`` lines at the same indent -- so this ``index`` field IS
+    the on-pane/off-pane discriminator downstream (``boundary_signature``/
+    ``reconstruct_module``).
     """
 
     name: str
@@ -1698,10 +1704,19 @@ def boundary_signature(
 
     module = module_or_parsed
     pane_terminals = module.connector_pane.terminals
-    input_panes: list[ConnectorPaneTerminal] = pane_terminals[: len(module.inputs)]
-    output_panes: list[ConnectorPaneTerminal] = pane_terminals[
-        len(module.inputs) : len(module.inputs) + len(module.outputs)
-    ]
+    n_in = len(module.inputs)
+    n_out = len(module.outputs)
+    input_panes: list[ConnectorPaneTerminal] = pane_terminals[:n_in]
+    output_panes: list[ConnectorPaneTerminal] = pane_terminals[n_in : n_in + n_out]
+    # Everything after the on-pane inputs/outputs is an OFF-PANE front-panel
+    # control/indicator (``ConnectorPaneTerminal.index is None`` --
+    # ``netlist_build._off_pane_terminals``) -- it has no ``module.inputs``/
+    # ``.outputs`` counterpart at all (never drives/reads the VI's own
+    # boundary), so its ``(name, type_shape, direction, requirement,
+    # default, index)`` tuple is built straight from the pane terminal
+    # itself, matching the PARSED branch above (which reads every boundary
+    # line, on- or off-pane, uniformly from ``ParsedLvnet.boundary``).
+    off_panes = pane_terminals[n_in + n_out :]
 
     entries: list[tuple[str, TypeShape, str, str | None, str | None, int | None]] = [
         (
@@ -1727,6 +1742,18 @@ def boundary_signature(
             pane.index,
         )
         for o, pane in zip(module.outputs, output_panes, strict=True)
+    ] + [
+        (
+            pane.name,
+            _lv_type_comparison_shape(pane.lv_type, ambiguous=ambiguous)
+            if pane.lv_type is not None
+            else ("leaf", pane.type),
+            "in" if pane.direction == "input" else "out",
+            _lvnet_requirement_trailing(pane),
+            _module_default_token(pane.default),
+            pane.index,
+        )
+        for pane in off_panes
     ]
     return tuple(entries)
 

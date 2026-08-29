@@ -957,6 +957,16 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
                 lv_type=lv_type,
             )
         )
+        # A boundary line with NO ``@<index>`` is an OFF-PANE front-panel
+        # control/indicator (``netlist_build._off_pane_terminals`` --
+        # ``ConnectorPaneTerminal.index is None``): it has no
+        # ``module.inputs``/``.outputs`` counterpart at all -- it never
+        # drives/reads the VI's own boundary wiring, only declares itself in
+        # ``connector_pane.terminals`` -- so it contributes to
+        # ``pane_terminals`` above only, never to ``inputs``/``outputs``
+        # (which would wrongly demand an output-drive line for it below).
+        if t.index is None:
+            continue
         if t.direction == "in":
             inputs.append(
                 NetlistBoundaryInput(

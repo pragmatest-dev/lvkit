@@ -40,6 +40,7 @@ from ..models import (
     EventOperation,
     FeedbackOperation,
     FormulaOperation,
+    FPTerminal,
     InPlaceOperation,
     InvokeOperation,
     LoopOperation,
@@ -1495,19 +1496,56 @@ def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     )
 
 
-def _pane_terminal(t: Terminal, direction: str) -> ConnectorPaneTerminal:
-    """One interface terminal -> its ``ConnectorPaneTerminal`` contract record."""
+def _pane_terminal(
+    t: Terminal, direction: str, *, off_pane: bool = False
+) -> ConnectorPaneTerminal:
+    """One interface terminal -> its ``ConnectorPaneTerminal`` contract record.
+
+    ``off_pane`` forces ``index=None`` regardless of ``t.index`` -- an
+    off-pane ``FPTerminal`` (a front-panel control/indicator not on the
+    connector pane, ``is_public=False``) is stamped ``index=0`` at
+    construction time (``construction.py``: ``slot_index if slot_index is
+    not None else 0``) as a harmless placeholder, never a real pane slot,
+    so passing it through unchanged would render a fabricated ``@0``. lvnet
+    §2's off-pane row already renders correctly with no ``@`` at all once
+    ``index`` is genuinely ``None`` (``render_lvnet._lvnet_pane_index_suffix``).
+    """
     return ConnectorPaneTerminal(
         name=t.name or direction,
         # FAITHFUL label (family-word fallback when unresolved) -- same as
         # describe's ## Inputs/## Outputs, never the codegen "Any".
         type=t.type_label(),
         direction=direction,
-        index=t.index,
+        index=None if off_pane else t.index,
         wiring_requirement=requirement_state(t, direction),
         default=t.default_value,
         lv_type=t.lv_type,
     )
+
+
+def _off_pane_terminals(
+    graph: InMemoryVIGraph, vi_name: str, direction: str
+) -> list[Terminal]:
+    """Every front-panel control/indicator NOT on this VI's connector pane
+    (``FPTerminal.is_public is False``) -- the off-pane front-panel objects
+    ``get_inputs``/``get_outputs``' default ``public_only=True`` filters out
+    of ``VIContext.inputs``/``.outputs`` (and so, previously, out of the
+    ``front-panel :`` section entirely: see the module's off-pane-controls
+    finding). Queried with ``public_only=False`` (the full front-panel
+    control/indicator list) and filtered down to just the off-pane subset
+    here, rather than adding a THIRD ``get_*`` variant to ``queries.py`` --
+    ``is_public`` is the one fact this needs that ``ordered_interface``'s
+    already-public-filtered getters don't expose.
+
+    A non-``FPTerminal`` (never occurs for a VI's own boundary, but
+    defensively) is treated as on-pane -- ``FPTerminal.is_public`` is the
+    ONLY source of this fact, so anything without it can't be off-pane.
+    """
+    if direction == "input":
+        terms = graph.get_inputs(vi_name, public_only=False)
+    else:
+        terms = graph.get_outputs(vi_name, public_only=False)
+    return [t for t in terms if isinstance(t, FPTerminal) and not t.is_public]
 
 
 # ============================================================
@@ -3238,10 +3276,25 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         for t in ctx.outputs
     ]
 
+    # On-pane terminals first (unchanged order/identity -- `@<index>` rows),
+    # THEN every off-pane front-panel control/indicator (`is_public=False`,
+    # no connector-pane slot -- `_off_pane_terminals`), inputs before
+    # outputs in both groups. `boundary_signature`/`reconstruct_module`
+    # (lvnet_parse.py/lvnet_reconstruct.py) both key "is this on-pane?" off
+    # `ConnectorPaneTerminal.index is None`, so ordering here only affects
+    # display, never round-trip identity.
     connector_pane = ConnectorPane(
         pattern_id=ctx.connector_pattern_id,
         terminals=[_pane_terminal(t, "input") for t in ctx.inputs]
-        + [_pane_terminal(t, "output") for t in ctx.outputs],
+        + [_pane_terminal(t, "output") for t in ctx.outputs]
+        + [
+            _pane_terminal(t, "input", off_pane=True)
+            for t in _off_pane_terminals(graph, vi_name, "input")
+        ]
+        + [
+            _pane_terminal(t, "output", off_pane=True)
+            for t in _off_pane_terminals(graph, vi_name, "output")
+        ],
     )
 
     vi_def_node = graph.get_graph_node(vi_name)
