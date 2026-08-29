@@ -63,55 +63,56 @@ vi loadTestsFromTestCase.vi :
   block-diagram :
     case error in (no error) :
       frame "No Error" :
-        subVI listAllTestMethods_1 : TestCase.lvclass:listAllTestMethods.vi
+        subVI listAllTestMethods_359 : TestCase.lvclass:listAllTestMethods.vi
           in   TestCase in         : TestCase.lvclass = TestCase
           in   error in (no error) : Error            = error in (no error)
           out  TestCase out        : TestCase.lvclass
           out  test methods        : [String]
           out  error out           : Error
         for-loop :
-          subVI TestCase_Init_1 : TestCase.lvclass:TestCase_Init.vi
-            in   TestCase in            : TestCase.lvclass = listAllTestMethods_1::TestCase out
-            in   methodName ("runTest") : String           = listAllTestMethods_1::test methods
+          subVI TestCase_Init_772 : TestCase.lvclass:TestCase_Init.vi
+            in   TestCase in            : TestCase.lvclass = listAllTestMethods_359::TestCase out
+            in   methodName ("runTest") : String           = listAllTestMethods_359::test methods
             in   GUID ("")              : String           default ""
-            in   error in (no error)    : Error            = loop0::shift0
+            in   error in (no error)    : Error            = loop_879::shift0
             out  TestCase out           : TestCase.lvclass
             out  error out              : Error
-          shift-register loop0::shift0 :
-            init = listAllTestMethods_1::error out
-            each = TestCase_Init_1::error out
-          tunnel loop0::out0 : auto-indexing = TestCase_Init_1::TestCase out
-        subVI TestSuite_Init_1 : TestSuite.lvclass:TestSuite_Init.vi
+          shift-register loop_879::shift0 :
+            init = listAllTestMethods_359::error out
+            each = TestCase_Init_772::error out
+          tunnel loop_879::out0 : auto-indexing = TestCase_Init_772::TestCase out
+        subVI TestSuite_Init_115 : TestSuite.lvclass:TestSuite_Init.vi
           in   TestSuite in                    : TestSuite.lvclass default
-          in   tests (none)                    : [LabVIEW Object]  = loop0::out0
+          in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
           in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster} default
           in   GUID ("")                       : String            default ""
-          in   error in (no error)             : Error             = loop0::shift0
+          in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass
           out  error out                       : Error
-        case0::out0 = TestSuite_Init_1::error out
-        case0::out1 = TestLoader in
-        case0::out2 = TestSuite_Init_1::TestSuite out
+        case_139::out0 = TestSuite_Init_115::error out
+        case_139::out1 = TestLoader in
+        case_139::out2 = TestSuite_Init_115::TestSuite out
       frame "Error" :
-        case0::out0 = error in (no error)
-        case0::out1 = TestLoader in
-        case0::out2 = (default TestSuite.lvclass)
-    TestLoader out = case0::out1
-    TestSuite = case0::out2
-    error out = case0::out0\
+        case_139::out0 = error in (no error)
+        case_139::out1 = TestLoader in
+        case_139::out2 = (default TestSuite.lvclass)
+    TestLoader out = case_139::out1
+    TestSuite = case_139::out2
+    error out = case_139::out0\
 '''
 # Divergences from §16's literal markdown text (each verified against the real
 # graph, not guessed) -- captured by ACTUALLY running the renderer against the
 # real corpus VI (`.tmp/render_golden.py`), never hand-edited to "look nicer":
 #
 # 1. Every node instance now declares `<keyword> <handle> : <component>` --
-#    `subVI listAllTestMethods_1 : TestCase.lvclass:listAllTestMethods.vi` --
+#    `subVI listAllTestMethods_359 : TestCase.lvclass:listAllTestMethods.vi` --
 #    per the REVISED md's §7/§9 handle rule (strip `.vi`/`.ctl`, despace,
-#    suffix `_N` from 1 even for a lone instance) and every net reference
-#    to that instance uses the SAME handle with the `::` scope-resolution
-#    separator (§9) -- e.g. `listAllTestMethods_1::TestCase out`,
-#    `loop0::shift0`, `case0::out1`. This supersedes §16's OLD
-#    `subVI listAllTestMethods.vi` / `listAllTestMethods.vi.TestCase out` /
+#    suffix `_<uid>` with the node's own stable BD uid -- Phase 3, no longer
+#    a positional counter) and every net reference to that instance uses the
+#    SAME handle with the `::` scope-resolution separator (§9) -- e.g.
+#    `listAllTestMethods_359::TestCase out`, `loop_879::shift0`,
+#    `case_139::out1`. This supersedes §16's OLD `subVI
+#    listAllTestMethods.vi` / `listAllTestMethods.vi.TestCase out` /
 #    `loop0.shift0` forms, which predate the revision.
 # 2. Port names on every subVI's OWN terminal lines ("error in (no error)",
 #    "methodName (\"runTest\")", "GUID (\"\")", "tests (none)") are shown
@@ -532,8 +533,11 @@ def test_property_and_invoke_nodes_render_handle_and_component_no_todo() -> None
     # Structural spot-checks against REAL data (verified via
     # `.tmp/render_open_kinds.py`): a Boolean property (`ObjectClass` =
     # `Bool`) and a Tree-control method call (`ObjectClass.Method`).
-    assert "property-node Abort_2 : Bool" in text
-    assert "invoke-node Test_Hierarchy_Tree_1 : Tree (strict).Point To Row Column" in text
+    assert "property-node Abort_16295 : Bool" in text
+    assert (
+        "invoke-node Test_Hierarchy_Tree_17125 : Tree (strict).Point To Row Column"
+        in text
+    )
 
 
 @pytest.mark.needs_samples
@@ -561,7 +565,7 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     idx = next(i for i, ln in enumerate(lines) if ln.strip().startswith("feedback-node "))
     assert lines[idx].strip() == "feedback-node fb0 (1 iteration) :"
     assert lines[idx + 1].strip() == "init = 0.0"
-    assert lines[idx + 2].strip() == "each = High_Resolution_Relative_Seconds_1::0"
+    assert lines[idx + 2].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
 
 
 def test_in_place_element_and_formula_node_synthetic_block_invariant() -> None:

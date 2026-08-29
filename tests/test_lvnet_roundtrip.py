@@ -217,7 +217,7 @@ def test_control_char_string_constant_round_trips_on_one_physical_line() -> None
     ]
     # Phase 2: body items now nest under "block-diagram :" -- one level (2
     # spaces) deeper than the old top-level indent.
-    assert const_lines == [f"    constant StatusText_1 : String = {escaped}"]
+    assert const_lines == [f"    constant StatusText_const_1 : String = {escaped}"]
 
     parsed = parse_lvnet(text)
     assert netlist_signature(module) == netlist_signature(parsed)

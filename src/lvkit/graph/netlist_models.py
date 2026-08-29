@@ -68,6 +68,18 @@ class NetRef:
     # ``Graphical Test Runner - Main UI - .vi`` round-trip xfail). ``None``
     # for every non-constant ``NetRef`` (a net name is never escaped).
     lvnet_value: str | None = None
+    # Phase 3, ``render_lvnet``-ONLY (mirrors ``constant_uid`` above): the
+    # producing NODE's own uid (the SAME id ``NetlistInstance.uid`` uses) for
+    # a genuine node-terminal reference -- lets ``render_lvnet`` resolve the
+    # reference straight to its producer's ``<base>_<uid>`` handle via
+    # ``_LvnetHandles.by_uid`` (the identical mechanism a labeled constant
+    # already uses via ``constant_uid``), instead of re-deriving it from
+    # ``node``/``occurrence``. ``None`` for a boundary control, a structure-
+    # scoped net, a constant, or a literal -- and for every ``NetRef`` the
+    # OLD (Operation-based) ``build_netlist`` builds. ``node``/``occurrence``
+    # stay populated exactly as before (``render_netlist``/``netlist_to_dict``
+    # parity is unaffected -- neither ever reads this field).
+    producer_uid: str | None = None
 
     def render(self, *, qualified: bool) -> str:
         """Render this net reference.

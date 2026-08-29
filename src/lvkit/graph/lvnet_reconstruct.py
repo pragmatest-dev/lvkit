@@ -11,36 +11,43 @@ losslessness gate:
 This is a stronger proof than ``lvnet_parse.netlist_signature`` equality
 (the existing round-trip gate): it proves the verbose text is enough to
 rebuild a full, RENDER-EQUIVALENT model, not just a model whose comparable
-projection matches. Non-textual fields (``uid``, ``occurrence``'s exact
-int value, ``NetlistScope.uid``, ...) do NOT need to match the original
-model -- only ``render_lvnet``'s OWN output needs to match, so this module
-is free to invent any value for a field ``render_lvnet`` never reads.
+projection matches. Fields ``render_lvnet`` never reads (a scope's
+``NetlistFeedback.uid``, a local-variable instance's own ``uid``, ...) do
+NOT need to match the original model -- this module is free to invent any
+value for those. Phase 3 changes this for the fields that DO drive the
+text: ``NetlistInstance.uid``/``NetlistConstant.uid``/``NetlistScope.uid``
+are now recovered FROM the handle/net text (the node's real BD uid), not
+minted fresh -- see "Handles" below.
 
 See ``docs/_internal/design/netlist-language.md`` §7/§9 (handle/net
 derivation) and §10/§10.1 (types) for the grammar this reverses, and
 ``netlist.py``'s ``render_lvnet``/``_assign_lvnet_handles``/
 ``_render_lvnet_types`` for exactly what must be re-derived:
 
-- **Handles**: ``render_lvnet`` derives an instance's HANDLE from its
-  display ``name`` + ``occurrence`` (extension stripped, despaced, ``_N``)
-  in body-visitation order (``_assign_lvnet_handles``). We already HAVE the
-  handle text in every declaration (``ParsedNode.handle`` /
-  ``ParsedConstant.handle``), so instead of trying to re-derive a name that
-  happens to hash to the same handle, we go the other way: recover
-  ``name``/``occurrence`` FROM the handle + declaration text (see
-  ``_derive_instance_name``), then thread that identity through a
-  handle -> identity map (``_HandleTarget``, built by ``_index_handles`` in
-  one pass over the WHOLE body before any terminal is resolved) so every
-  ``<handle>::<terminal>`` reference elsewhere resolves to the identical
-  ``(name, occurrence)`` pair the declaration itself carries -- which is
-  all ``_assign_lvnet_handles``/``_render_lvnet_source`` need to re-derive
-  the SAME handle string on the way back out.
-- **Structural nets** (``caseN::outK``, ``loopN::shiftK``, ``loopN::outK``,
-  ``fbK``): kept EXACTLY as captured from the text (``::`` and all) --
-  ``netlist._lvnet_net_separator`` is a no-op on a string that already
-  contains ``::`` (its regex only rewrites a literal ``.`` separator), so
-  round-tripping the already-final text through unchanged reproduces it
-  byte-for-byte with no ``.``/``::`` bookkeeping needed on this side.
+- **Handles**: Phase 3: ``render_lvnet`` derives an instance's HANDLE from
+  its display ``name`` (extension stripped, despaced) plus the node's own
+  stable BD uid (``<base>_<uid>``, ``_assign_lvnet_handles``) -- no longer a
+  positional occurrence counter. We already HAVE the handle text in every
+  declaration (``ParsedNode.handle`` / ``ParsedConstant.handle``), so
+  instead of trying to re-derive a name that happens to hash to the same
+  handle, we go the other way: recover ``name``/``uid`` FROM the handle
+  text (see ``_derive_instance_name``/``_handle_base_and_suffix``), then
+  thread that identity through a handle -> identity map (``_HandleTarget``,
+  built by ``_index_handles`` in one pass over the WHOLE body before any
+  terminal is resolved) so every ``<handle>::<terminal>`` reference
+  elsewhere resolves to the identical ``uid`` the declaration itself
+  carries (via ``NetRef.producer_uid``) -- which is all
+  ``_assign_lvnet_handles``/``_render_lvnet_source`` need to re-derive the
+  SAME handle string on the way back out. This also recovers the node's
+  REAL identity: the reconstructed ``NetlistInstance.uid`` is the same BD
+  uid the original graph carried, not a fresh mint.
+- **Structural nets** (``case_UID::outK``, ``loop_UID::shiftK``,
+  ``loop_UID::outK``, ``fbK``): kept EXACTLY as captured from the text
+  (``::`` and all) -- ``netlist._lvnet_net_separator`` is a no-op on a
+  string that already contains ``::`` (its regex only rewrites a literal
+  ``.`` separator), so round-tripping the already-final text through
+  unchanged reproduces it byte-for-byte with no ``.``/``::`` bookkeeping
+  needed on this side.
 - **Types**: a real ``LVType`` is reconstructed for a terminal's type text
   ONLY when doing so is both possible (the text is a bare name resolvable
   through the ``types :`` footnote, or an array/refnum wrapper around one)
@@ -130,33 +137,41 @@ class LvnetReconstructError(ValueError):
 
 
 # ============================================================
-# Pass 1: handle -> (name, occurrence) identity map
+# Pass 1: handle -> (name, uid) identity map
 # ============================================================
 
 
 @dataclass(frozen=True)
 class _HandleTarget:
     """What a declared handle resolves to, for every later ``<handle>::
-    <terminal>`` (or bare, for a labeled constant) reference to it: the
-    ``(name, occurrence)`` pair ``_assign_lvnet_handles``/``_render_lvnet_
-    source`` use to resolve a ``NetRef`` back to a handle string, plus the
-    ``uid`` we mint for the instance/constant itself (used as the dict key
-    ``_assign_lvnet_handles`` re-derives its OWN fresh handle under)."""
+    <terminal>`` (or bare, for a labeled constant) reference to it: ``name``
+    (so ``_assign_lvnet_handles`` re-derives the SAME BASE on the way back
+    out) and ``uid`` -- Phase 3: the node's own real BD uid, RECOVERED from
+    the handle's own ``_<uid>`` suffix (``_handle_base_and_suffix``), not
+    minted. ``uid`` serves both as the reconstructed instance/constant's own
+    ``NetlistInstance.uid``/``NetlistConstant.uid`` and, for a later node-
+    terminal reference, as ``NetRef.producer_uid`` -- the SAME identity
+    ``_assign_lvnet_handles``/``_render_lvnet_source`` resolve through
+    ``handles.by_uid`` on the way back out."""
 
     name: str
-    occurrence: int | None
     uid: str
     is_constant: bool
 
 
-def _handle_base_and_suffix(handle: str) -> tuple[str, int]:
+def _handle_base_and_suffix(handle: str) -> tuple[str, str]:
+    """Split a rendered ``<base>_<uid>`` handle (lvnet §7/§9) into its base
+    and its trailing uid -- Phase 3: that suffix is the node's own stable BD
+    uid (see ``_uid_of``), not a positional occurrence counter. Every real
+    uid is a decimal-digit string, so a non-digit (or missing) suffix is a
+    genuine grammar violation, raised rather than guessed at."""
     base, sep, suffix = handle.rpartition("_")
     if not sep or not suffix.isdigit():
         raise LvnetReconstructError(
-            f"handle {handle!r} does not end in the mandatory '_N' "
-            f"instance-number suffix (lvnet §9)"
+            f"handle {handle!r} does not end in the mandatory '_<uid>' "
+            f"suffix (lvnet §9)"
         )
-    return base, int(suffix)
+    return base, suffix
 
 
 def _derive_instance_name(kind: str, handle: str, component: str) -> str:
@@ -182,7 +197,7 @@ def _derive_instance_name(kind: str, handle: str, component: str) -> str:
       other by text alone (a genuine losslessness gap, see the
       implementation report). So for all three of these kinds we don't
       try to recover the "true" display name at all -- the handle's own
-      base (the part before its final ``_N``) is used directly as
+      base (the part before its final ``_<uid>``) is used directly as
       ``.name``; it already has no extension/spaces to strip, and since
       ``.name`` is invisible to rendering for these kinds, this always
       reproduces the identical handle with no loss.
@@ -196,7 +211,6 @@ def _derive_instance_name(kind: str, handle: str, component: str) -> str:
 def _index_handles(
     items: tuple[ParsedBodyItem, ...],
     registry: dict[str, _HandleTarget],
-    name_counts: dict[str, int],
 ) -> None:
     """Walk the parsed body ONCE, in the SAME order ``_collect_lvnet_handle_
     targets`` walks the real model, registering every declared handle's
@@ -209,26 +223,23 @@ def _index_handles(
                 continue
             assert item.handle is not None and item.component is not None
             name = _derive_instance_name(item.kind, item.handle, item.component)
-            name_counts[name] = name_counts.get(name, 0) + 1
+            _, uid = _handle_base_and_suffix(item.handle)
             registry[item.handle] = _HandleTarget(
-                name=name,
-                occurrence=name_counts[name],
-                uid=item.handle,
-                is_constant=False,
+                name=name, uid=uid, is_constant=False
             )
         elif isinstance(item, ParsedConstant):
-            base, _ = _handle_base_and_suffix(item.handle)
+            base, uid = _handle_base_and_suffix(item.handle)
             registry[item.handle] = _HandleTarget(
-                name=base, occurrence=None, uid=item.handle, is_constant=True
+                name=base, uid=uid, is_constant=True
             )
         elif isinstance(item, ParsedFeedback):
             pass  # referenced by its own bare `fbK` net text, never a handle
         elif isinstance(item, ParsedScope):
             if item.kind == "case" or item.kind in _FRAME_ONLY_SCOPE_KINDS:
                 for frame in item.frames:
-                    _index_handles(frame.body, registry, name_counts)
+                    _index_handles(frame.body, registry)
             else:  # for-loop / while-loop -- single implicit body
-                _index_handles(item.body, registry, name_counts)
+                _index_handles(item.body, registry)
 
 
 # ============================================================
@@ -315,15 +326,21 @@ def _parse_source_token(
         handle_part, _, terminal = text.partition(_LVNET_TERMINAL_SEP)
         target = registry.get(handle_part)
         if target is not None and not target.is_constant:
+            # Phase 3: ``producer_uid`` is the recovered identity --
+            # ``_render_lvnet_source`` resolves it straight through
+            # ``handles.by_uid`` on the way back out (mirrors a labeled
+            # constant's ``constant_uid``); ``occurrence`` is no longer
+            # part of that resolution (see ``_HandleTarget``).
             return NetRef(
                 node=target.name,
                 terminal=terminal,
-                occurrence=target.occurrence,
+                occurrence=None,
                 bare=text,
+                producer_uid=target.uid,
             )
         # Not a registered node handle -- a structure-scoped net
-        # (`caseN::outK`/`loopN::shiftK`/`loopN::outK`) never IS one; fall
-        # through to the bare/structural-net form below.
+        # (`case_UID::outK`/`loop_UID::shiftK`/`loop_UID::outK`) never IS
+        # one; fall through to the bare/structural-net form below.
         return NetRef(node=None, terminal="", occurrence=None, bare=text)
     target = registry.get(text)
     if target is not None and target.is_constant:
@@ -599,8 +616,9 @@ def _reconstruct_instance(
             ref = NetRef(
                 node=target.name,
                 terminal=t.name,
-                occurrence=target.occurrence,
+                occurrence=None,
                 bare=f"{item.handle}::{t.name}",
+                producer_uid=target.uid,
             )
             outputs.append(
                 NetlistOutput(net=ref, type=t.type, pane_rank=out_rank, lv_type=lv_type)
@@ -610,7 +628,7 @@ def _reconstruct_instance(
     return NetlistInstance(
         uid=target.uid,
         name=target.name,
-        occurrence=target.occurrence,
+        occurrence=None,
         inputs=inputs,
         outputs=outputs,
         kind=kind_enum,
@@ -685,6 +703,22 @@ def _reconstruct_tunnel(
     )
 
 
+def _structure_uid_from_net(net: str) -> str | None:
+    """Phase 3: recover a case/loop's own real BD uid from one of its
+    ``case_UID::outK``/``loop_UID::shiftK``/``loop_UID::outK`` structural net
+    strings (the ``_render_lvnet_source``/``_lvnet_net_separator``-reformed
+    text ``_reconstruct_scope`` already has in hand, unchanged -- see the
+    module docstring's "Structural nets" note). Returns ``None`` for a
+    structure with NO such net anywhere in the text (a case/loop with no
+    output tunnel or shift register never spells its own uid at all -- a
+    genuine, unavoidable gap; the caller mints a fresh uid in that case)."""
+    _, sep, rest = net.partition("_")
+    if not sep:
+        return None
+    uid, _, _ = rest.partition(_LVNET_TERMINAL_SEP)
+    return uid if uid.isdigit() else None
+
+
 def _reconstruct_scope(
     item: ParsedScope,
     registry: dict[str, _HandleTarget],
@@ -719,8 +753,9 @@ def _reconstruct_scope(
             GammaMerge(net=net, selector=None, cases=cases_by_net[net])
             for net in net_order
         ]
+        case_uid = _structure_uid_from_net(net_order[0]) if net_order else None
         return NetlistScope(
-            uid=fresh_uid.next("case"),
+            uid=case_uid if case_uid is not None else fresh_uid.next("case"),
             kind="case",
             selector=selector,
             frames=frames,
@@ -735,8 +770,16 @@ def _reconstruct_scope(
             _reconstruct_shift_register(sr, registry) for sr in item.shift_registers
         ]
         eta_list = [_reconstruct_tunnel(t, registry) for t in item.tunnels]
+        loop_uid = next(
+            (
+                uid
+                for net in (*(m.net for m in mu_list), *(m.net for m in eta_list))
+                if (uid := _structure_uid_from_net(net)) is not None
+            ),
+            None,
+        )
         return NetlistScope(
-            uid=fresh_uid.next("loop"),
+            uid=loop_uid if loop_uid is not None else fresh_uid.next("loop"),
             kind=kind,
             selector=None,
             frames=[frame],
@@ -879,8 +922,7 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
     fresh_uid = _UidSource()
 
     registry: dict[str, _HandleTarget] = {}
-    name_counts: dict[str, int] = {}
-    _index_handles(parsed.body, registry, name_counts)
+    _index_handles(parsed.body, registry)
 
     body = _reconstruct_items(parsed.body, registry, types_dict, memo, fresh_uid)
 

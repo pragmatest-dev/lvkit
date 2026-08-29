@@ -212,7 +212,7 @@ def _lvnet_default_trailing(dv: DefaultValue) -> str:
     """The ``default <value>`` TRAILING text for a terminal LINE specifically
     (lvnet §4, revised this pass) -- distinct from ``_lvnet_default_token``
     above, which is the DRIVE-POSITION form (``_render_lvnet_source``, e.g.
-    ``case0::out2 = (default TestSuite.lvclass)``) and keeps naming the type
+    ``case_42::out2 = (default TestSuite.lvclass)``) and keeps naming the type
     there, since a drive position has no ``: <Type>`` column of its own to
     read it from. A terminal line ALREADY has that column -- so when the
     default has NO literal value (``dv.literal == "?"``, a class/refnum
@@ -634,11 +634,13 @@ def _lv_type_comparison_shape(
 def _lvnet_handle_base(name: str) -> str:
     """The un-suffixed base of an instance/constant's HANDLE (lvnet §7): the
     display name with a trailing ``.vi``/``.ctl`` file extension stripped,
-    then spaces replaced by ``_``. The uniquifying ``_N`` suffix is assigned
-    separately, over ALL instances/constants VI-wide (see
-    ``_assign_lvnet_handles``), so two different display names that collide
-    only AFTER this transform (e.g. ``"Foo Bar.vi"`` and literal ``"Foo_Bar"``)
-    still land in one shared numbering group and get distinct ``_N``s.
+    then spaces replaced by ``_``. The uniquifying suffix -- Phase 3: the
+    instance/constant's own stable BD uid (``NetlistInstance.uid``/
+    ``NetlistConstant.uid``), never a positional counter -- is appended
+    separately (see ``_assign_lvnet_handles``); since a uid is globally
+    unique, two different display names that collide only AFTER this
+    transform (e.g. ``"Foo Bar.vi"`` and literal ``"Foo_Bar"``) still get
+    distinct handles with no shared numbering group needed.
     """
     base = name
     for ext in (".vi", ".ctl"):
@@ -655,54 +657,45 @@ class _LvnetHandles:
     helper -- lvnet §7's "the handle at a node's DECLARATION must be
     identical to the handle used in every net that references that node".
 
-    ``by_uid`` serves a declaration line directly (``NetlistInstance.uid`` /
-    ``NetlistConstant.uid``) and a labeled-constant net reference
-    (``NetRef.constant_uid`` -- the SAME id, see ``NetlistConstant``'s
-    docstring); a ``constant_uid`` NOT present here is a one-off/unlabeled
-    constant, rendered as its inlined literal instead (see
-    ``_render_lvnet_source``). ``by_name_occurrence`` serves a node-terminal
-    ``NetRef``: ``(node, occurrence)`` is the only identity such a reference
-    carries back to its producing instance (it has no ``uid``), and -- for a
-    given display name -- ``occurrence`` is already a VI-wide-unique
-    disambiguator (``_assign_occurrences_gn``), so the pair reliably resolves
-    to exactly one instance.
+    ``by_uid`` (keyed by ``NetlistInstance.uid``/``NetlistConstant.uid`` --
+    the node's own stable BD uid) serves BOTH a declaration line directly
+    AND every net reference back to it: a labeled-constant reference
+    (``NetRef.constant_uid``) and, Phase 3, a node-terminal reference
+    (``NetRef.producer_uid``) -- the SAME id, see ``NetlistConstant``'s and
+    ``NetRef.producer_uid``'s docstrings. A ``constant_uid``/``producer_uid``
+    NOT present here is either a one-off/unlabeled constant (rendered as its
+    inlined literal instead, see ``_render_lvnet_source``) or a Local/Global
+    Variable's own producer (excluded from this map -- see
+    ``_collect_lvnet_handle_targets``).
     """
 
     by_uid: dict[str, str]
-    by_name_occurrence: dict[tuple[str, int | None], str]
 
 
-def _collect_lvnet_handle_targets(
-    items: list[NetlistItem],
-) -> list[tuple[str, str, str | None, int | None]]:
+def _collect_lvnet_handle_targets(items: list[NetlistItem]) -> list[tuple[str, str]]:
     """Every PRODUCING instance and every ``constant`` body item under
-    ``items``, in body-VISITATION order -- the same document order
-    ``_render_lvnet_items`` walks (recursing into a scope's frames in order)
-    -- since that's the deterministic order ``_assign_lvnet_handles`` assigns
-    ``_N`` suffixes in. §7 (revised): "Every producing node gets a handle,
-    CLOSED or OPEN" -- so every ``NetlistInstanceKind`` gets one here EXCEPT
-    ``LOCAL_VARIABLE`` (§7 keeps that one "a terminal, not a node", tap-
-    resolution still undesigned, so it never declares itself at all -- see
-    ``_render_lvnet_instance``). A ``NetlistFeedback`` is NOT collected here:
-    its handle IS its own ``net`` string (already a globally-unique ``fbK``,
-    assigned elsewhere) -- see ``_render_lvnet_items``'s own ``NetlistFeedback``
-    case, which needs no map lookup at all.
-
-    Each entry is ``(uid, base, name_key, occurrence)``: ``name_key`` is the
-    instance's raw display ``name`` (for the ``by_name_occurrence`` map), or
-    ``None`` for a constant (a constant net reference resolves ONLY via its
-    ``constant_uid``, never ``(node, occurrence)`` -- see ``NetRef``).
+    ``items``, as ``(uid, base)`` pairs: ``base`` is the strip-extension+
+    despace form of its display ``name`` (``_lvnet_handle_base``), and
+    ``uid`` (Phase 3) is the node's own stable BD uid -- globally unique, so
+    unlike the old positional ``_N`` counter this needs no VI-wide grouping
+    or visitation order to stay collision-free. §7 (revised): "Every
+    producing node gets a handle, CLOSED or OPEN" -- so every
+    ``NetlistInstanceKind`` gets one here EXCEPT ``LOCAL_VARIABLE`` (§7 keeps
+    that one "a terminal, not a node", tap-resolution still undesigned, so it
+    never declares itself at all -- see ``_render_lvnet_instance``). A
+    ``NetlistFeedback`` is NOT collected here: its handle IS its own ``net``
+    string (already a globally-unique ``fbK``, assigned elsewhere) -- see
+    ``_render_lvnet_items``'s own ``NetlistFeedback`` case, which needs no
+    map lookup at all.
     """
-    found: list[tuple[str, str, str | None, int | None]] = []
+    found: list[tuple[str, str]] = []
     for item in items:
         match item:
             case NetlistInstance():
                 if item.kind != NetlistInstanceKind.LOCAL_VARIABLE:
-                    base = _lvnet_handle_base(item.name)
-                    found.append((item.uid, base, item.name, item.occurrence))
+                    found.append((item.uid, _lvnet_handle_base(item.name)))
             case NetlistConstant():
-                base = _lvnet_handle_base(item.name)
-                found.append((item.uid, base, None, None))
+                found.append((item.uid, _lvnet_handle_base(item.name)))
             case NetlistScope():
                 for frame in item.frames:
                     found.extend(_collect_lvnet_handle_targets(frame.body))
@@ -713,33 +706,15 @@ def _collect_lvnet_handle_targets(
 
 def _assign_lvnet_handles(module: NetlistModule) -> _LvnetHandles:
     """Build the ONE handle map for this module (lvnet §7/§9): every CLOSED
-    instance/constant, in deterministic body-visitation order (node/graph
-    order -- ``_collect_lvnet_handle_targets`` walks the SAME list order
-    ``_render_lvnet_items`` renders, so there are no ties left to break; the
-    ``uid`` carried alongside each entry is the tie-break of last resort were
-    that visitation order ever to repeat an item), grouped by its
-    strip-extension+despace BASE name (``_lvnet_handle_base``) -- never by
-    the raw display name -- and suffixed ``_N`` from 1 within each group, the
-    first copy included. Two instances whose raw names differ but collide
-    after the base transform (e.g. ``"Foo.vi"`` and ``"Foo.ctl"`` -> both
-    ``"Foo"``) land in the SAME group and get distinct ``_N``s, exactly like
-    two calls to the identical VI. (The visitation list itself has no ties to
-    break -- each entry is one list position -- so no secondary ``uid`` sort
-    is needed; ``uid`` is carried on every entry regardless, as the stable
-    per-instance identity a tie-break would use if the walk order were ever
-    not already total.)
-    """
+    instance/constant gets ``<base>_<uid>`` -- Phase 3: ``uid`` is the
+    node's own stable BD uid (``_uid_of``), not a positional occurrence
+    counter, so every instance carries its handle regardless of whether its
+    base name repeats elsewhere in the VI (a uid is globally unique on its
+    own, so no VI-wide grouping/visitation-order bookkeeping is needed to
+    stay collision-free)."""
     targets = _collect_lvnet_handle_targets(module.body)
-    counts: dict[str, int] = {}
-    by_uid: dict[str, str] = {}
-    by_name_occurrence: dict[tuple[str, int | None], str] = {}
-    for uid, base, name_key, occurrence in targets:
-        counts[base] = counts.get(base, 0) + 1
-        handle = f"{base}_{counts[base]}"
-        by_uid[uid] = handle
-        if name_key is not None:
-            by_name_occurrence[(name_key, occurrence)] = handle
-    return _LvnetHandles(by_uid=by_uid, by_name_occurrence=by_name_occurrence)
+    by_uid = {uid: f"{base}_{uid}" for uid, base in targets}
+    return _LvnetHandles(by_uid=by_uid)
 
 
 def _lvnet_net_separator(bare: str) -> str:
@@ -775,10 +750,14 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
     - A node-terminal reference (``source.node is not None``) ALWAYS renders
       fully qualified as ``<handle>::<terminal>`` (never a bare, unqualified
       form -- unlike ``render_netlist``'s ambiguity-gated qualification;
-      lvnet §9 names every node-terminal net this one way).
+      lvnet §9 names every node-terminal net this one way). Phase 3:
+      ``source.producer_uid`` resolves straight to the producer's handle via
+      ``handles.by_uid`` -- the SAME mechanism a labeled constant uses via
+      ``constant_uid`` -- rather than re-deriving it from ``(node,
+      occurrence)``.
     - Everything else (``source.node is None``, no constant) is a boundary
-      control's plain name or a structure-scoped net (``caseN.outK``/
-      ``loopN.shiftK``/``loopN.outK``/``fbK``) -- ``_lvnet_net_separator``
+      control's plain name or a structure-scoped net (``case_UID.outK``/
+      ``loop_UID.shiftK``/``loop_UID.outK``/``fbK``) -- ``_lvnet_net_separator``
       reformats only the latter; ``source.lvnet_value`` is ``None`` here, so
       the fallback is ``source.bare`` unchanged.
     """
@@ -789,7 +768,11 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
         if handle is not None:
             return handle
     if source.node is not None:
-        handle = handles.by_name_occurrence.get((source.node, source.occurrence))
+        handle = (
+            handles.by_uid.get(source.producer_uid)
+            if source.producer_uid is not None
+            else None
+        )
         if handle is not None:
             return f"{handle}{_LVNET_TERMINAL_SEP}{source.terminal}"
         # The producer is a Local/Global Variable's own control/indicator --
@@ -804,9 +787,9 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
     # An inlined (unlabeled) constant's literal value: ``lvnet_value`` is
     # the lvnet-escaped text (md §4/§10) -- ``_lvnet_net_separator`` is a
     # no-op on it (a quoted/``True``/``False``/numeric token never matches
-    # the ``caseN.outK``-shaped structure-net regex), so routing it through
-    # unconditionally is safe and keeps one call site for every ``bare``
-    # shape (net name, structure net, or literal).
+    # the ``case_UID.outK``-shaped structure-net regex), so routing it
+    # through unconditionally is safe and keeps one call site for every
+    # ``bare`` shape (net name, structure net, or literal).
     literal = source.lvnet_value if source.lvnet_value is not None else source.bare
     return _lvnet_net_separator(literal)
 
@@ -937,7 +920,7 @@ def _render_lvnet_loop_scope(
     """``for-loop :`` / ``while-loop :`` (§8) -- a single implicit body,
     followed by its border constructs (``shift-register``/``tunnel``, §8) at
     the SAME indent as the body's own items (the golden shows
-    ``shift-register loop0::shift0 :`` as a sibling of ``subVI
+    ``shift-register loop_42::shift0 :`` as a sibling of ``subVI
     TestCase_Init_1``, not nested deeper).
 
     A while-loop's stop-condition net (``scope.selector``) is NOT rendered
@@ -989,10 +972,10 @@ def _render_lvnet_case_scope(
 ) -> None:
     """``case <selector-net> :`` (§8) -- ``frame "<value>" :`` per case, each
     followed (at the SAME indent as its own body items -- the golden shows
-    ``case0::out0 = ...`` as a sibling of ``subVI TestSuite_Init_1``, not
+    ``case_7::out0 = ...`` as a sibling of ``subVI TestSuite_Init_1``, not
     nested deeper) by that frame's contribution to every case-output tunnel,
     REDISTRIBUTED from the ``GammaMerge``/``GammaCase`` model built once per
-    scope into per-frame ``caseN::outK = <source>`` lines (§8's "each frame
+    scope into per-frame ``case_UID::outK = <source>`` lines (§8's "each frame
     declares what it drives onto the structure's output nets, INSIDE the
     frame" -- never the OLD renderer's single bottom-of-scope ``gamma(...)``
     line). ``gamma.net`` is reformatted to ``::`` the same render-time-only

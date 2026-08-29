@@ -28,7 +28,7 @@ from __future__ import annotations
 import os
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -1565,25 +1565,30 @@ _FRAME_STRUCTURE_TYPES = (
 
 @dataclass(frozen=True)
 class _GraphBuildCtx:
-    """The graph-native analogue of ``_BuildCtx`` -- same four id spaces
-    (occurrence/case/loop/feedback), keyed identically by trailing node UID,
-    but with no ``op_by_uid``/``owner_by_terminal`` (the graph builder reaches
-    a wire's producing node directly via ``graph.get_graph_node``/
+    """The graph-native analogue of ``_BuildCtx`` -- same id spaces
+    (occurrence/feedback), keyed identically by trailing node UID, but with
+    no ``op_by_uid``/``owner_by_terminal`` (the graph builder reaches a
+    wire's producing node directly via ``graph.get_graph_node``/
     ``graph.get_terminal`` -- see ``_owning_node_gn`` -- instead of a
     precomputed Operation-tree index).
 
-    ``constant_occurrence_by_uid`` is Phase A's fifth id space (lvnet
+    Phase 3: no ``case_id_by_uid``/``loop_id_by_uid`` here -- a case/loop's
+    own stable BD uid (``_uid_of(node.id)``, the SAME id ``NetlistScope.uid``
+    already carries) names its merge nets directly now (see
+    ``_tunnel_net_name_gn``/``_mu_net_name_gn``), so the small per-structure
+    sequential counter ``_BuildCtx`` (the OLD Operation-based builder) still
+    needs is never computed on this path.
+
+    ``constant_occurrence_by_uid`` is Phase A's own id space (lvnet
     ``NetlistConstant`` only): the ``#n`` disambiguator for a LABELED
     constant whose ``label`` repeats within the VI -- keyed by the
     constant's own FULL qualified id (matching ``const_by_id``'s key, NOT
-    the trailing uid the other four maps use), built once over
-    ``ctx.constants`` via ``_assign_constant_occurrences`` (see there).
+    the trailing uid the other maps use), built once over ``ctx.constants``
+    via ``_assign_constant_occurrences`` (see there).
     """
 
     occurrence_by_uid: dict[str, int]
     const_by_id: dict[str, Constant]
-    case_id_by_uid: dict[str, int]
-    loop_id_by_uid: dict[str, int]
     feedback_id_by_uid: dict[str, int]
     constant_occurrence_by_uid: dict[str, int]
 
@@ -1735,37 +1740,32 @@ def _paired_tunnel_id_gn(term: Terminal) -> str | None:
 def _tunnel_net_name_gn(
     node: AnyGraphNode,
     term: Terminal,
-    id_map: dict[str, int],
     outers_fn: Callable[[AnyGraphNode], list[Terminal]],
     prefix: str,
 ) -> str:
-    """The graph-node analogue of ``_tunnel_net_name``."""
-    id_ = id_map[_uid_of(node.id)]
+    """The graph-node analogue of ``_tunnel_net_name`` -- Phase 3: the
+    structure's own stable BD uid (``_uid_of``, the SAME id
+    ``NetlistScope.uid`` already uses) names the net directly, replacing the
+    small per-structure sequential counter (``case_id_by_uid``/
+    ``loop_id_by_uid``, still used by the OLD Operation-based ``build_
+    netlist`` -- this graph-node path never reads those maps anymore)."""
+    uid = _uid_of(node.id)
     outers = outers_fn(node)
     k = next(i for i, t in enumerate(outers) if t.id == term.id)
-    return f"{prefix}{id_}.out{k}"
+    return f"{prefix}_{uid}.out{k}"
 
 
-def _gamma_net_name_gn(
-    node: AnyGraphNode, term: Terminal, build_ctx: _GraphBuildCtx
-) -> str:
-    return _tunnel_net_name_gn(
-        node, term, build_ctx.case_id_by_uid, _case_output_tunnel_outers_gn, "case"
-    )
+def _gamma_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
+    return _tunnel_net_name_gn(node, term, _case_output_tunnel_outers_gn, "case")
 
 
-def _eta_net_name_gn(
-    node: AnyGraphNode, term: Terminal, build_ctx: _GraphBuildCtx
-) -> str:
-    return _tunnel_net_name_gn(
-        node, term, build_ctx.loop_id_by_uid, _loop_output_tunnel_outers_gn, "loop"
-    )
+def _eta_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
+    return _tunnel_net_name_gn(node, term, _loop_output_tunnel_outers_gn, "loop")
 
 
-def _mu_net_name_gn(
-    node: AnyGraphNode, term: Terminal, build_ctx: _GraphBuildCtx
-) -> str:
-    loop_id = build_ctx.loop_id_by_uid[_uid_of(node.id)]
+def _mu_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
+    """Phase 3: ``loop_<uid>.shift<k>`` -- see ``_tunnel_net_name_gn``."""
+    loop_uid = _uid_of(node.id)
     pairs = _loop_shift_register_pairs_gn(node)
     k = next(
         i
@@ -1773,7 +1773,7 @@ def _mu_net_name_gn(
         if lsr.inner_terminal_uid == term.id
         or (rsr is not None and rsr.outer_terminal_uid == term.id)
     )
-    return f"loop{loop_id}.shift{k}"
+    return f"loop_{loop_uid}.shift{k}"
 
 
 def _is_feedback_output_read_gn(
@@ -1886,13 +1886,13 @@ def _resolve_source_gn(
         )
         if owner is not None and term is not None:
             if _is_gamma_output_tunnel_gn(owner, term):
-                name = _gamma_net_name_gn(owner, term, build_ctx)
+                name = _gamma_net_name_gn(owner, term)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_eta_output_tunnel_gn(owner, term):
-                name = _eta_net_name_gn(owner, term, build_ctx)
+                name = _eta_net_name_gn(owner, term)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_mu_shift_register_read_gn(owner, term):
-                name = _mu_net_name_gn(owner, term, build_ctx)
+                name = _mu_net_name_gn(owner, term)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_feedback_output_read_gn(graph, owner, term):
                 name = f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"
@@ -1903,7 +1903,17 @@ def _resolve_source_gn(
                 continue
             node_name = _display_name_gn(owner)
             occurrence = build_ctx.occurrence_by_uid.get(_uid_of(owner.id))
-            return _term_ref(node_name, occurrence, term)
+            # Phase 3: tag this reference with its producer's own uid
+            # (``NetRef.producer_uid``) so ``render_lvnet`` can resolve it
+            # straight to the producer's ``<base>_<uid>`` handle via
+            # ``_LvnetHandles.by_uid`` -- the SAME mechanism a labeled
+            # constant already uses via ``constant_uid``. ``occurrence``
+            # stays populated unchanged (``render_netlist``/``netlist_to_
+            # dict`` parity -- neither reads ``producer_uid``).
+            return replace(
+                _term_ref(node_name, occurrence, term),
+                producer_uid=_uid_of(owner.id),
+            )
 
         for t in ctx.inputs:
             if t.id == src.terminal_id:
@@ -2551,7 +2561,7 @@ def _build_case_outputs_gn(
     vi_name: str,
     node: CaseStructureNode,
     build_ctx: _GraphBuildCtx,
-    case_id: int,
+    case_uid: str,
     selector: NetRef | None,
     frames: list[NetlistFrame],
 ) -> list[GammaMerge]:
@@ -2584,7 +2594,7 @@ def _build_case_outputs_gn(
             frame_key = "default" if nl_frame.is_default else nl_frame.label
             cases.append(GammaCase(frame_key=frame_key, source=source))
         gammas.append(
-            GammaMerge(net=f"case{case_id}.out{k}", selector=selector, cases=cases)
+            GammaMerge(net=f"case_{case_uid}.out{k}", selector=selector, cases=cases)
         )
     return gammas
 
@@ -2630,10 +2640,10 @@ def _build_case_scope_gn(
         )
         for i, frame in enumerate(node.frames)
     ]
-    case_id = build_ctx.case_id_by_uid[_uid_of(node.id)]
+    case_uid = _uid_of(node.id)
     outputs: list[GammaMerge | MuMerge | EtaMerge] = [
         *_build_case_outputs_gn(
-            graph, ctx, vi_name, node, build_ctx, case_id, selector, frames
+            graph, ctx, vi_name, node, build_ctx, case_uid, selector, frames
         ),
     ]
     return NetlistScope(
@@ -2751,7 +2761,7 @@ def _build_loop_shift_registers_gn(
     vi_name: str,
     node: LoopNode,
     build_ctx: _GraphBuildCtx,
-    loop_id: int,
+    loop_uid: str,
     term_by_id: dict[str, Terminal],
 ) -> list[MuMerge]:
     """The graph-node analogue of ``_build_loop_shift_registers``."""
@@ -2773,7 +2783,7 @@ def _build_loop_shift_registers_gn(
             if rsr is not None
             else None
         )
-        merges.append(MuMerge(net=f"loop{loop_id}.shift{k}", init=init, recur=recur))
+        merges.append(MuMerge(net=f"loop_{loop_uid}.shift{k}", init=init, recur=recur))
     return merges
 
 
@@ -2783,7 +2793,7 @@ def _build_loop_outputs_gn(
     vi_name: str,
     node: LoopNode,
     build_ctx: _GraphBuildCtx,
-    loop_id: int,
+    loop_uid: str,
     term_by_id: dict[str, Terminal],
 ) -> list[EtaMerge]:
     """The graph-node analogue of ``_build_loop_outputs``."""
@@ -2801,7 +2811,7 @@ def _build_loop_outputs_gn(
         )
         merges.append(
             EtaMerge(
-                net=f"loop{loop_id}.out{k}",
+                net=f"loop_{loop_uid}.out{k}",
                 index_mode=_eta_index_mode(tunnel.mode),
                 conditional=tunnel.conditional,
                 value=value,
@@ -2847,14 +2857,14 @@ def _build_loop_scope_gn(
         )
         for t in tunnels
     ]
-    loop_id = build_ctx.loop_id_by_uid[_uid_of(node.id)]
+    loop_uid = _uid_of(node.id)
     term_by_id = {t.id: t for t in node.terminals}
     outputs: list[GammaMerge | MuMerge | EtaMerge] = [
         *_build_loop_shift_registers_gn(
-            graph, ctx, vi_name, node, build_ctx, loop_id, term_by_id
+            graph, ctx, vi_name, node, build_ctx, loop_uid, term_by_id
         ),
         *_build_loop_outputs_gn(
-            graph, ctx, vi_name, node, build_ctx, loop_id, term_by_id
+            graph, ctx, vi_name, node, build_ctx, loop_uid, term_by_id
         ),
     ]
     return NetlistScope(
@@ -3199,12 +3209,6 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
     build_ctx = _GraphBuildCtx(
         occurrence_by_uid=_assign_occurrences_gn(graph, flat),
         const_by_id={c.id: c for c in ctx.constants},
-        case_id_by_uid=_assign_sequential_ids_gn(
-            flat, lambda n: isinstance(n, CaseStructureNode)
-        ),
-        loop_id_by_uid=_assign_sequential_ids_gn(
-            flat, lambda n: isinstance(n, LoopNode)
-        ),
         feedback_id_by_uid=_assign_sequential_ids_gn(
             flat,
             lambda n: (

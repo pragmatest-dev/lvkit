@@ -1102,10 +1102,10 @@ def _parse_one_item_or_drive(
     if content == _EVENT_SCOPE_HEADER:
         return _parse_event_scope(cursor, indent, content, line_no)
     if _LVNET_DRIVER_OP in content:
-        # FIRST occurrence: a net name (``caseN::outK``/``loopN::shiftK``/a
-        # boundary control's name) never contains " = ", so it's always the
-        # real operator regardless of what a (possibly quoted, md §4/§10)
-        # literal source afterward contains.
+        # FIRST occurrence: a net name (``case_UID::outK``/``loop_UID::
+        # shiftK``/a boundary control's name) never contains " = ", so it's
+        # always the real operator regardless of what a (possibly quoted,
+        # md §4/§10) literal source afterward contains.
         net, _, source = content.partition(_LVNET_DRIVER_OP)
         _validate_if_quoted(source, line_no)
         return ParsedDrive(net=net, source=source)

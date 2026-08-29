@@ -101,12 +101,14 @@ _LVNET_PANE_INDEX_PREFIX = "@"
 _LVNET_NAME_CAP = 32
 _LVNET_TYPE_CAP = 40
 
-# A structure-scoped net name (``caseN.outK``/``loopN.shiftK``/``loopN.outK``
-# -- built by ``_gamma_net_name_gn``/``_eta_net_name_gn``/``_mu_net_name_gn``)
-# always has this exact ``<prefix-with-number>.<rest>`` shape -- ONE dot,
-# never more. A boundary control's bare name and a feedback net (``fbK``) have
-# no dot at all and never match.
-_LVNET_STRUCTURE_NET_RE = re.compile(r"^((?:case|loop)\d+)\.(.+)$")
+# A structure-scoped net name (``case_UID.outK``/``loop_UID.shiftK``/
+# ``loop_UID.outK`` -- built by ``_gamma_net_name_gn``/``_eta_net_name_gn``/
+# ``_mu_net_name_gn``; Phase 3: ``UID`` is the structure's own stable BD uid,
+# not a small per-structure counter) always has this exact
+# ``<prefix>_<uid>.<rest>`` shape -- ONE dot, never more. A boundary
+# control's bare name and a feedback net (``fbK``) have no dot at all and
+# never match.
+_LVNET_STRUCTURE_NET_RE = re.compile(r"^((?:case|loop)_\d+)\.(.+)$")
 
 # §7 (revised): the ONE instance kind that never declares itself at all --
 # "a terminal, not a node" -- its tap-resolution to the control's own net is
