@@ -69,6 +69,8 @@ from .netlist import (
     NetlistItem,
     NetlistModule,
     NetlistScope,
+)
+from .render_lvnet import (
     _assign_lvnet_handles,
     _is_void_type,
     _lv_type_comparison_shape,

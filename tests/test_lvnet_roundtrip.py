@@ -62,9 +62,11 @@ from lvkit.graph.lvnet_parse import (
 from lvkit.graph.netlist import (
     NetlistConstant,
     NetlistModule,
+    build_netlist_from_graph,
+)
+from lvkit.graph.render_lvnet import (
     _lvnet_ambiguous_named_types,
     _lvnet_literal_token,
-    build_netlist_from_graph,
     render_lvnet,
 )
 from lvkit.load_mode import LoadMode

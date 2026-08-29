@@ -26,10 +26,12 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.interface_order import WiringRequirement
 from lvkit.graph.netlist import (
     ConnectorPaneTerminal,
+    build_netlist_from_graph,
+)
+from lvkit.graph.render_lvnet import (
     _lvnet_requirement_trailing,
     _render_term_group,
     _TermLine,
-    build_netlist_from_graph,
     render_lvnet,
 )
 from lvkit.load_mode import LoadMode
