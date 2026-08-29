@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..models import DisableStructureKind, ScalarValue
-from .netlist import (
+from .lvnet_grammar import (
     _LVNET_ANNOTATION_SEP,
     _LVNET_BLOCK_OPEN,
     _LVNET_CLUSTER_OPEN,
@@ -55,6 +55,8 @@ from .netlist import (
     _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
+)
+from .netlist import (
     ConnectorPaneTerminal,
     DependencyKind,
     EtaMerge,

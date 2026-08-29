@@ -64,6 +64,19 @@ from ..models import (
     ScalarValue,
 )
 from .interface_order import WiringRequirement
+from .lvnet_grammar import (
+    _LVNET_CLUSTER_OPEN,
+    _LVNET_DEFAULT_KEYWORD,
+    _LVNET_DEFAULT_PAREN_PREFIX,
+    _LVNET_DISABLE_KEYWORD,
+    _LVNET_DRIVER_OP,
+    _LVNET_ENUM_OPEN,
+    _LVNET_INSTANCE_KEYWORDS,
+    _LVNET_RING_OPEN,
+    _LVNET_TERMINAL_SEP,
+    _LVNET_TUNNEL_MODE_WORD,
+    _LVNET_TYPE_SEP,
+)
 from .lvnet_parse import (
     _FRAME_ONLY_SCOPE_KINDS,
     ParsedBodyItem,
@@ -81,17 +94,6 @@ from .lvnet_parse import (
     _unescape_lvnet_string,
 )
 from .netlist import (
-    _LVNET_CLUSTER_OPEN,
-    _LVNET_DEFAULT_KEYWORD,
-    _LVNET_DEFAULT_PAREN_PREFIX,
-    _LVNET_DISABLE_KEYWORD,
-    _LVNET_DRIVER_OP,
-    _LVNET_ENUM_OPEN,
-    _LVNET_INSTANCE_KEYWORDS,
-    _LVNET_RING_OPEN,
-    _LVNET_TERMINAL_SEP,
-    _LVNET_TUNNEL_MODE_WORD,
-    _LVNET_TYPE_SEP,
     BoundaryOutput,
     ConnectorPane,
     ConnectorPaneTerminal,
