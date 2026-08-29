@@ -335,7 +335,13 @@ def _parse_source_token(
     the text itself to tell the two apart, and none is needed for
     render idempotence.
     """
-    text = text.strip()
+    # Only LEADING whitespace is stripped; a TRAILING space is preserved
+    # because it can be part of a real net/terminal NAME (a LabVIEW control
+    # literally named ``"Analog Acquisition "``) -- ``_render_lvnet_source``
+    # re-emits the stored ``terminal`` verbatim, so stripping it here would
+    # lose it on round-trip. The value is extracted raw (no alignment padding
+    # trails a driver), so there is no spurious trailing whitespace to shed.
+    text = text.lstrip()
     if text.startswith(_LVNET_DEFAULT_PAREN_PREFIX) and text.endswith(")"):
         return DefaultValue(
             literal="?", type_descriptor=text[len(_LVNET_DEFAULT_PAREN_PREFIX) : -1]
