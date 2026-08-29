@@ -97,6 +97,7 @@ from .lvnet_grammar import (
     _LVNET_DISABLE_KEYWORD,
     _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
+    _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_RING_OPEN,
     _LVNET_TERMINAL_SEP,
@@ -955,6 +956,22 @@ def _reconstruct_scope(
             kind="event",
             selector=None,
             frames=frames,
+        )
+
+    if item.kind == _LVNET_INPLACE_SCOPE_KEYWORD:
+        # A single implicit body (like a loop), no border merge of its own.
+        # An IPES never spells its own uid into a net name (its output ports
+        # are named ``inplace_<uid>.out<k>`` only where a CONSUMER references
+        # them, not defined inside this scope), so ``item.uid`` -- recovered
+        # from the verbose ``(id <uid>)`` header suffix -- is the ONLY source;
+        # a fresh uid is the honest fallback when the text was terse.
+        body = _reconstruct_items(item.body, registry, types_dict, memo, fresh_uid)
+        frame = NetlistFrame(label="", value="", is_default=False, body=body)
+        return NetlistScope(
+            uid=item.uid if item.uid is not None else fresh_uid.next("inplace"),
+            kind="inplace",
+            selector=None,
+            frames=[frame],
         )
 
     raise LvnetReconstructError(f"unrecognized scope kind: {item.kind!r}")

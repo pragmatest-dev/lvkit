@@ -134,7 +134,7 @@ _LVNET_SCOPE_ID_PREFIX = " (id "
 # boundary control's bare name and a feedback net (``fbK``) have no dot at
 # all and never match.
 _LVNET_STRUCTURE_NET_RE = re.compile(
-    r"^((?:case|loop|sequence|disabled|event)_\d+)\.(.+)$"
+    r"^((?:case|loop|sequence|disabled|event|inplace)_\d+)\.(.+)$"
 )
 
 # ``LOCAL_VARIABLE`` (now designed, §7 revised again): a read/write TAP on a
@@ -152,24 +152,33 @@ _LVNET_STRUCTURE_NET_RE = re.compile(
 # the generic ``<keyword> <handle> : <component>`` + terminal-block form
 # (everything except ``LOCAL_VARIABLE``, handled separately above, and
 # ``NetlistFeedback`` -- not a ``NetlistInstanceKind`` at all).
+#
+# ``IN_PLACE_ELEMENT`` is deliberately ABSENT: an In Place Element Structure
+# is no longer projected as a flat instance at all (the graph-native builder
+# emits it as a ``NetlistScope`` of kind ``"inplace"`` -- see
+# ``netlist_build._build_inplace_scope_gn`` / ``render_lvnet.
+# _render_lvnet_inplace_scope``), so it never reaches the generic instance
+# render/parse path. Keeping the keyword here would also make
+# ``lvnet_parse._NODE_KEYWORDS`` match the ``in-place-element (id N) :`` scope
+# header as a node line before the scope dispatch ever saw it.
 _LVNET_INSTANCE_KEYWORDS: dict[NetlistInstanceKind, str] = {
     NetlistInstanceKind.SUBVI: "subVI",
     NetlistInstanceKind.FUNCTION: "function",
     NetlistInstanceKind.PROPERTY_NODE: "property-node",
     NetlistInstanceKind.INVOKE_NODE: "invoke-node",
-    NetlistInstanceKind.IN_PLACE_ELEMENT: "in-place-element",
     NetlistInstanceKind.FORMULA_NODE: "formula-node",
 }
+
+# The lvnet §8 scope header keyword for an In Place Element Structure --
+# rendered/parsed as a scope (single implicit body, like a loop), NOT an
+# instance (see ``_LVNET_INSTANCE_KEYWORDS`` above for why it is not there).
+_LVNET_INPLACE_SCOPE_KEYWORD = "in-place-element"
 
 # A trailing ``# TODO(lvnet): ...`` for the ONE part of an otherwise-fully-
 # rendered declaration that §17 item 6 still leaves undesigned. Absent here
 # (SUBVI/FUNCTION/PROPERTY_NODE/INVOKE_NODE) means nothing is undesigned --
 # the declaration + terminal block is the WHOLE rendering, per §7's table.
 _OPEN_INSTANCE_TRAILING_TODO: dict[NetlistInstanceKind, str] = {
-    NetlistInstanceKind.IN_PLACE_ELEMENT: (
-        "in-place-element decompose/recompose pairing was never designed "
-        "(md §17 item 6)"
-    ),
     NetlistInstanceKind.FORMULA_NODE: (
         "formula-node script rendering needs the `script` field plumbed "
         "onto the model first (md §17 item 6)"

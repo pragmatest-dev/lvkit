@@ -1876,6 +1876,43 @@ def _frame_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     return _tunnel_net_name_gn(node, term, _frame_output_tunnel_outers_gn, prefix)
 
 
+def _inplace_output_outers_gn(node: AnyGraphNode) -> list[Terminal]:
+    """External OUTPUT ports of an In Place Element Structure -- every
+    output-direction terminal EXCEPT an inner tunnel boundary (an inner
+    tunnel terminal is read from INSIDE the body and resolves transparently
+    to its paired outer source, never as a structure-scoped net). Covers both
+    a border ``decomposeRecomposeTunnel``'s outer-output terminal AND a plain
+    In-Place-In/Out-Element output port (e.g. the Error passed through a DVR
+    element), which -- unlike a loop/case/sequence output tunnel -- is NOT a
+    ``TunnelTerminal`` at all, so the frame-only ``_frame_output_tunnel_outers_gn``
+    (TunnelTerminal-only) can't name it. Ordered by ``.index`` so the ``outK``
+    numbering is stable/byte-reproducible."""
+    outers = [
+        t
+        for t in node.terminals
+        if t.direction == "output"
+        and not (isinstance(t, TunnelTerminal) and t.boundary == "inner")
+    ]
+    return sorted(outers, key=lambda t: t.index)
+
+
+def _is_inplace_output_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """True for an external OUTPUT port on an In Place Element Structure --
+    the IPES analogue of ``_is_frame_output_tunnel_gn`` (the value's identity
+    belongs to the STRUCTURE, named ``inplace_<uid>.out<k>``, not to whatever
+    border element drives it)."""
+    if not isinstance(node, InPlaceNode):
+        return False
+    return any(o.id == term.id for o in _inplace_output_outers_gn(node))
+
+
+def _inplace_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
+    """``inplace_<uid>.out<k>`` for an IPES external output port -- see
+    ``_tunnel_net_name_gn`` (the SAME ``<prefix>_<uid>.out<k>`` shape
+    case/loop/sequence use)."""
+    return _tunnel_net_name_gn(node, term, _inplace_output_outers_gn, "inplace")
+
+
 def _is_feedback_output_read_gn(
     graph: InMemoryVIGraph, node: AnyGraphNode, term: Terminal
 ) -> bool:
@@ -2013,6 +2050,9 @@ def _resolve_source_gn(
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_frame_output_tunnel_gn(owner, term):
                 name = _frame_net_name_gn(owner, term)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
+            if _is_inplace_output_gn(owner, term):
+                name = _inplace_net_name_gn(owner, term)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_feedback_output_read_gn(graph, owner, term):
                 name = f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"
@@ -3017,6 +3057,51 @@ def _build_loop_scope_gn(
     )
 
 
+def _build_inplace_scope_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: InPlaceNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetlistScope:
+    """An In Place Element Structure -- a scope with a single implicit body
+    (like a loop, NOT a per-frame family), whose body is the structure's
+    "regular" (non decompose/recompose border) children. Its border ports
+    (the ``decomposeRecomposeTunnel`` and the In-Place-In/Out-Element ports)
+    are NOT emitted as their own items here: a downstream reader of one of the
+    IPES's OUTPUT ports resolves straight to the structure-scoped
+    ``inplace_<uid>.out<k>`` net (``_is_inplace_output_gn`` in
+    ``_resolve_source_gn``), the same "the net's identity belongs to the
+    STRUCTURE" rule the frame-only families apply to their own output tunnels
+    -- so, exactly like a sequence/disabled/event scope, the scope header +
+    body IS the whole rendering (``render_lvnet._render_lvnet_inplace_scope``).
+    Faithful + round-trippable, NOT execution-worthy: an IPES has no headless
+    Python analogue (it is transparent -- mutable references), so this projects
+    its structure/containment without inventing decompose/recompose semantics
+    the model does not carry."""
+    body = _build_items_gn(
+        graph,
+        ctx,
+        vi_name,
+        _ipes_regular_nodes_gn(graph, vi_name, node),
+        build_ctx,
+        owner_children=node.children,
+    )
+    frame = NetlistFrame(
+        label="",
+        value="",
+        is_default=False,
+        body=body,
+        passthrough=_has_output_tunnel_gn(node),
+    )
+    return NetlistScope(
+        uid=_uid_of(node.id),
+        kind="inplace",
+        selector=None,
+        frames=[frame],
+    )
+
+
 def _build_items_gn(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -3050,6 +3135,13 @@ def _build_items_gn(
             items.append(_build_loop_scope_gn(graph, ctx, vi_name, node, build_ctx))
         elif isinstance(node, SequenceNode):
             items.append(_build_sequence_scope_gn(graph, ctx, vi_name, node, build_ctx))
+        elif isinstance(node, InPlaceNode):
+            # An In Place Element Structure becomes its OWN scope (kind
+            # ``"inplace"``), with its regular children as the nested body --
+            # NOT a flat instance followed by its inner nodes hoisted up as
+            # siblings (which lost the containment and left a ``# TODO(lvnet)``
+            # placeholder). See ``_build_inplace_scope_gn``.
+            items.append(_build_inplace_scope_gn(graph, ctx, vi_name, node, build_ctx))
         elif (
             isinstance(node, GraphPrimitiveNode)
             and (fb := graph.get_feedback_info(node.id)) is not None
@@ -3062,17 +3154,6 @@ def _build_items_gn(
                 items.append(_build_feedback_gn(graph, ctx, vi_name, node, build_ctx))
         else:
             items.append(_build_instance_gn(graph, ctx, vi_name, node, build_ctx))
-            if isinstance(node, InPlaceNode):
-                items.extend(
-                    _build_items_gn(
-                        graph,
-                        ctx,
-                        vi_name,
-                        _ipes_regular_nodes_gn(graph, vi_name, node),
-                        build_ctx,
-                        owner_children=node.children,
-                    )
-                )
     return items
 
 

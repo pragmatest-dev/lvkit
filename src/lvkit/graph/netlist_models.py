@@ -429,10 +429,17 @@ class EtaMerge:
 
 @dataclass
 class NetlistScope:
-    """A structure: case / for / while / sequence / disabled / event."""
+    """A structure: case / for / while / sequence / disabled / event / inplace.
+
+    ``inplace`` is an In Place Element Structure -- like a loop, a single
+    implicit body (``frames[0]``, no per-frame family, no selector) and no
+    output MERGE of its own (a downstream reader of one of its output ports
+    resolves to the ``inplace_<uid>.out<k>`` structure net directly). See
+    ``netlist_build._build_inplace_scope_gn`` / ``render_lvnet.
+    _render_lvnet_inplace_scope``."""
 
     uid: str
-    kind: str  # "case" | "for" | "while" | "sequence" | "disabled" | "event"
+    kind: str  # "case"|"for"|"while"|"sequence"|"disabled"|"event"|"inplace"
     selector: NetRef | None
     frames: list[NetlistFrame]
     # Sequence-only (kind == "sequence") sub-kind: the EXPLICIT flat-vs-

@@ -55,6 +55,7 @@ from .lvnet_grammar import (
     _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
     _LVNET_INDENT_WIDTH,
+    _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
@@ -156,6 +157,10 @@ _DISABLED_SCOPE_HEADERS = frozenset(
     }
 )
 _EVENT_SCOPE_HEADER = f"event-structure{_LVNET_BLOCK_OPEN}"
+# §8's In-Place-Element-Structure header, as rendered by
+# ``_render_lvnet_inplace_scope`` -- a single implicit body (like a loop), no
+# ``frame`` sub-headers, no border constructs.
+_INPLACE_SCOPE_HEADER = f"{_LVNET_INPLACE_SCOPE_KEYWORD}{_LVNET_BLOCK_OPEN}"
 
 # The OPTIONAL bottom-appendix ``types :`` footnote section header (§10,
 # verbose-only) -- immediately after the final boundary-output-drive block,
@@ -1291,6 +1296,27 @@ def _parse_disabled_scope(
     return ParsedScope(kind=kind, frames=tuple(frames), uid=uid)
 
 
+def _parse_inplace_scope(
+    cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
+) -> ParsedScope:
+    """``in-place-element :`` (§8) -- a single implicit body (like a loop, via
+    ``body``, NOT ``frames``), matching ``_render_lvnet_inplace_scope``
+    exactly: no ``frame`` sub-headers and no border ``shift-register``/
+    ``tunnel`` constructs. An IPES carries no output MERGE to drive, so a bare
+    ``net = source`` line inside it is a genuine grammar violation (raised,
+    same as a loop/frame-only family)."""
+    body_indent = indent + _LVNET_INDENT_WIDTH
+    body, drives = _parse_items(cursor, body_indent)
+    if drives:
+        raise LvnetParseError(
+            f"line {line_no}: an in-place-element body must not contain bare "
+            f"'net = source' drive lines (§8): {drives!r}"
+        )
+    return ParsedScope(
+        kind=_LVNET_INPLACE_SCOPE_KEYWORD, body=tuple(body), uid=uid
+    )
+
+
 def _parse_event_scope(
     cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
 ) -> ParsedScope:
@@ -1338,6 +1364,8 @@ def _parse_one_item_or_drive(
         return _parse_disabled_scope(cursor, indent, scope_content, line_no, scope_uid)
     if scope_content == _EVENT_SCOPE_HEADER:
         return _parse_event_scope(cursor, indent, scope_content, line_no, scope_uid)
+    if scope_content == _INPLACE_SCOPE_HEADER:
+        return _parse_inplace_scope(cursor, indent, scope_content, line_no, scope_uid)
     if _LVNET_DRIVER_OP in content:
         # FIRST occurrence: a net name (``case_UID::outK``/``loop_UID::
         # shiftK``/a boundary control's name) never contains " = ", so it's
@@ -2300,6 +2328,18 @@ def _module_event_scope_signature(
     )
 
 
+def _module_inplace_scope_signature(
+    scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
+) -> tuple:
+    """``in-place-element`` (§8) -- a single implicit body, no border
+    constructs (empty shift-register/tunnel tuples), matching
+    ``_render_lvnet_inplace_scope`` and the parse-side body branch of
+    ``_parsed_item_signature`` (which returns the same 6-tuple shape a loop
+    does)."""
+    body_sig = _module_body_signature(scope.frames[0].body, handles, ambiguous)
+    return ("scope", _LVNET_INPLACE_SCOPE_KEYWORD, None, body_sig, (), ())
+
+
 def _module_body_signature(
     items: list[NetlistItem], handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
@@ -2318,6 +2358,8 @@ def _module_body_signature(
                 out.append(_module_disabled_scope_signature(item, handles, ambiguous))
             elif item.kind == "event":
                 out.append(_module_event_scope_signature(item, handles, ambiguous))
+            elif item.kind == "inplace":
+                out.append(_module_inplace_scope_signature(item, handles, ambiguous))
             else:
                 raise LvnetUnsupportedConstructError(
                     f"netlist_signature does not yet cover scope kind "

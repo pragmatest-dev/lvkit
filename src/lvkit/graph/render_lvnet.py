@@ -44,6 +44,7 @@ from .lvnet_grammar import (
     _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
     _LVNET_INDENT,
+    _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_NAME_CAP,
     _LVNET_PANE_INDEX_PREFIX,
@@ -1298,6 +1299,34 @@ def _render_lvnet_event_scope(
         )
 
 
+def _render_lvnet_inplace_scope(
+    scope: NetlistScope,
+    indent: str,
+    lines: list[str],
+    handles: _LvnetHandles,
+    *,
+    verbose: bool,
+) -> None:
+    """``in-place-element :`` (§8) -- a single implicit body (like a loop, not
+    a per-frame family), rendered directly under the header with no ``frame``
+    sub-headers. An IPES carries no output MERGE of its own (``NetlistScope.
+    outputs`` is empty for this kind, like the frame-only families): a
+    downstream reader of one of its output ports resolves straight to the
+    ``inplace_<uid>::out<k>`` structure-scoped net (see
+    ``netlist_build._is_inplace_output_gn``), so the header + body IS the whole
+    rendering -- no border ``tunnel``/``shift-register`` lines, unlike a loop.
+    The ``(id <uid>)`` header suffix (verbose-only) is what lets
+    ``lvnet_reconstruct`` recover ``NetlistScope.uid`` -- an IPES never spells
+    its own uid anywhere else."""
+    id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
+    lines.append(
+        f"{indent}{_LVNET_INPLACE_SCOPE_KEYWORD}{id_suffix}{_LVNET_BLOCK_OPEN}"
+    )
+    _render_lvnet_items(
+        scope.frames[0].body, indent + _LVNET_INDENT, lines, handles, verbose=verbose
+    )
+
+
 def _render_lvnet_scope(
     scope: NetlistScope,
     indent: str,
@@ -1316,6 +1345,8 @@ def _render_lvnet_scope(
         _render_lvnet_disabled_scope(scope, indent, lines, handles, verbose=verbose)
     elif scope.kind == "event":
         _render_lvnet_event_scope(scope, indent, lines, handles, verbose=verbose)
+    elif scope.kind == "inplace":
+        _render_lvnet_inplace_scope(scope, indent, lines, handles, verbose=verbose)
 
 
 def _render_lvnet_feedback(
