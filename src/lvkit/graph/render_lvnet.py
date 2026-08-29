@@ -1461,8 +1461,34 @@ def _lvnet_const_value_str(c: Constant) -> str:
     if formatted is not None:
         return formatted
     if c.lv_type is not None and c.lv_type.kind != LVTypeKind.PRIMITIVE:
-        return str(c.value)
+        return _lvnet_escape_controls(str(c.value))
     return _lvnet_literal_token(c.value)
+
+
+def _lvnet_escape_controls(text: str) -> str:
+    """Backslash-escape ONLY the control characters (LF/CR/TAB and any other
+    C0) in a complex constant's pre-stringified display value, so the value
+    stays on ONE physical line. A raw newline or NUL in a Path/array/cluster
+    literal (a real corpus case: a Path constant carrying embedded
+    ``menus\\nCategories`` and ``\\x00`` bytes) would otherwise split the
+    constant/driver line and break ``parse_lvnet``'s line-oriented grammar.
+    Quotes/backslashes/brackets pass through verbatim -- this only makes the
+    existing opaque ``str(value)`` form LINE-SAFE (lossless, round-trips as
+    text); the STRUCTURED §10 complex-literal grammar is still §17 item 5
+    OPEN, not invented here."""
+    out: list[str] = []
+    for ch in text:
+        if ch == "\n":
+            out.append("\\n")
+        elif ch == "\r":
+            out.append("\\r")
+        elif ch == "\t":
+            out.append("\\t")
+        elif ord(ch) < 0x20:
+            out.append(f"\\x{ord(ch):02X}")
+        else:
+            out.append(ch)
+    return "".join(out)
 
 
 def _lvnet_pane_index_suffix(pane: ConnectorPaneTerminal) -> str | None:
