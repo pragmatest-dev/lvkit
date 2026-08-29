@@ -347,6 +347,45 @@ class ParsedBoundaryTerminal:
     index: int | None = None
 
 
+def _top_level_word_index(words: list[str], target: str) -> int:
+    """Index of the first ``target`` word at brace/bracket DEPTH ZERO, or
+    ``-1``. A terminal's ``<Type>`` may now be an inline anonymous composite
+    in the capital lossless grammar (``Enum{ m = 0 }`` / ``Cluster{ a : X }``)
+    whose OWN tokens include bare ``=``/``default``/``:`` -- those live at
+    depth >= 1 and must never be mistaken for the LINE's own ``= <driver>`` /
+    ``default`` operator. Depth is accumulated from the words BEFORE each one
+    (the lossless grammar always spaces its braces -- ``Enum{ ... }`` -- so a
+    ``{``/``}`` is its own boundary character within a word), so the
+    separator words that open a driver/default clause are seen at depth 0."""
+    depth = 0
+    for i, w in enumerate(words):
+        if depth == 0 and w == target:
+            return i
+        depth += w.count("{") + w.count("[") - w.count("}") - w.count("]")
+    return -1
+
+
+def _find_top_level_sep(text: str, token: str) -> int:
+    """Index of the first ``token`` substring at brace/bracket DEPTH ZERO in
+    ``text``, or ``-1`` -- the string counterpart of ``_top_level_word_index``
+    for splitters that scan the raw tail (``constant`` lines) rather than a
+    word list, so an inline ``Enum{ m = 0 }`` type's own ``=`` can't be
+    mistaken for the line's ``= <value>`` separator."""
+    depth = 0
+    i = 0
+    end = len(text) - len(token)
+    while i <= end:
+        c = text[i]
+        if c in "{[":
+            depth += 1
+        elif c in "}]":
+            depth -= 1
+        elif depth == 0 and text.startswith(token, i):
+            return i
+        i += 1
+    return -1
+
+
 def _split_type_requirement_default(
     tail: str, line_no: int, line: str
 ) -> tuple[str, str | None, str | None, int | None]:
@@ -374,7 +413,7 @@ def _split_type_requirement_default(
     however many more times the word recurs inside it.
     """
     words = tail.split()
-    if "=" in words:
+    if _top_level_word_index(words, "=") != -1:
         raise LvnetParseError(
             f"line {line_no}: boundary terminal line must not carry a "
             f"'= <driver>' clause (§2: the pane is a contract, not a wire): "
@@ -396,8 +435,9 @@ def _split_type_requirement_default(
         )
 
     default: str | None = None
-    if _LVNET_DEFAULT_KEYWORD in words:
-        idx = words.index(_LVNET_DEFAULT_KEYWORD)
+    default_idx = _top_level_word_index(words, _LVNET_DEFAULT_KEYWORD)
+    if default_idx != -1:
+        idx = default_idx
         value_words = words[idx + 1 :]
         default = " ".join(value_words) if value_words else _LVNET_DEFAULT_KEYWORD
         words = words[:idx]
@@ -448,8 +488,10 @@ def _split_node_terminal_tail(
 
     driver: str | None = None
     default: str | None = None
-    if "=" in words:
-        idx = words.index("=")
+    eq_idx = _top_level_word_index(words, "=")
+    default_idx = _top_level_word_index(words, _LVNET_DEFAULT_KEYWORD)
+    if eq_idx != -1:
+        idx = eq_idx
         value_words = words[idx + 1 :]
         if not value_words:
             raise LvnetParseError(
@@ -458,8 +500,8 @@ def _split_node_terminal_tail(
         driver = " ".join(value_words)
         words = words[:idx]
         _validate_if_quoted(driver, line_no)
-    elif _LVNET_DEFAULT_KEYWORD in words:
-        idx = words.index(_LVNET_DEFAULT_KEYWORD)
+    elif default_idx != -1:
+        idx = default_idx
         value_words = words[idx + 1 :]
         default = " ".join(value_words) if value_words else _LVNET_DEFAULT_KEYWORD
         words = words[:idx]
@@ -891,11 +933,12 @@ def _parse_local_variable(content: str, line_no: int) -> ParsedLocalVariable:
 
 
 def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
-    """``constant <handle> : <Type> = <value>`` (§7). ``tail.find(" = ")``
-    takes the FIRST ``" = "`` -- safe without any quote-awareness, since a
-    ``<Type>`` clause never contains that substring, so the first match is
-    always the real operator regardless of what the (possibly quoted,
-    md §4/§10) value afterward contains."""
+    """``constant <handle> : <Type> = <value>`` (§7). The ``= <value>``
+    separator is found at brace DEPTH ZERO (``_find_top_level_sep``): a
+    ``<Type>`` that is an inline anonymous ``Enum{ m = 0 }`` carries its own
+    ``=`` tokens, so a naive first-``" = "`` would split inside the type --
+    the first DEPTH-ZERO match is always the real operator, regardless of
+    what the (possibly quoted, md §4/§10) value afterward contains."""
     rest = content[len("constant ") :]
     sep_idx = rest.find(_LVNET_TYPE_SEP)
     if sep_idx == -1:
@@ -904,7 +947,7 @@ def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
         )
     handle = rest[:sep_idx]
     tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
-    eq_idx = tail.find(_LVNET_DRIVER_OP)
+    eq_idx = _find_top_level_sep(tail, _LVNET_DRIVER_OP)
     if eq_idx == -1:
         raise LvnetParseError(
             f"line {line_no}: constant line missing ' = <value>' (§7): {content!r}"
@@ -1784,7 +1827,16 @@ def _parsed_type_ref_shape(
             ),
         )
     refnum_idx = text.find(" refnum{")
-    if refnum_idx != -1 and text.endswith("}"):
+    if (
+        refnum_idx != -1
+        and text.endswith("}")
+        and "{" not in text[:refnum_idx]
+        and "[" not in text[:refnum_idx]
+    ):
+        # A genuine top-level refnum's ``<ref_type>`` is a bare word -- so a
+        # brace BEFORE `` refnum{`` means this `` refnum{`` is nested inside a
+        # ``Cluster{ ... refnum{...} ... }`` field, and the whole text is a
+        # cluster (handled below), not a refnum.
         ref_type = text[:refnum_idx]
         inner = text[refnum_idx + len(" refnum{") : -1].strip()
         return (

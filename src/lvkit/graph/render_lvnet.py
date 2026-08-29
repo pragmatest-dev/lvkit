@@ -226,15 +226,19 @@ def _lvnet_default_trailing(dv: DefaultValue) -> str:
 
 
 def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
-    """The TERSE type label for a terminal line (lvnet §10/§11's terse
-    mode): a NAMED enum/ring/cluster/typedef renders its bare name alone
-    (``lveventtype``, ``LVPoint32TypeDef``) -- full member expansion is
-    VERBOSE-only, and there is no verbose mode yet, so terse simply never
-    expands one; an ANONYMOUS type (no name to fall back on) renders its
-    full structural form, identical either way. Recurses into containers
-    (an array's element, a parametrized refnum's element) via
-    ``LVType.type_descriptor(expand_named=False)``, so ``[NamedThing]``/
-    ``refnum{NamedThing}`` collapse the SAME way one level down.
+    """The type label for a terminal line (§3/§10): a NAMED
+    enum/ring/cluster/typedef renders its bare name alone (``lveventtype``,
+    ``LVPoint32TypeDef``) -- its full structure lives ONCE in the ``types :``
+    footnote; an ANONYMOUS composite (no name to fall back on) renders its
+    full structural form INLINE via the capital lossless grammar
+    (``Cluster{ f : <type> }`` / ``Enum{ m = 0 }``), so its field/member
+    TYPES -- and any named type reachable only through one of its fields --
+    are text-recoverable (closing the §10 anonymous-cluster gap). Recurses
+    into containers (an array's element, a parametrized refnum's element),
+    so ``[NamedThing]`` / ``refnum{NamedThing}`` collapse the same way one
+    level down, and ``[cluster{a, b}]`` expands its element. See
+    ``_lvnet_type_inline`` for the exact leaf/structural split (which mirrors
+    ``_lv_type_comparison_shape``'s so the round-trip compares equal).
 
     Falls back to the already-flattened ``type_str`` untouched when
     ``lv_type`` isn't available -- the Operation-based (non-``_gn``)
@@ -245,7 +249,7 @@ def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return type_str
-    return lv_type.type_descriptor(expand_named=False)
+    return _lvnet_type_inline(lv_type)
 
 
 # ============================================================
@@ -374,6 +378,61 @@ def _lvnet_type_lossless_def(lv_type: LVType) -> str:
     return "?"
 
 
+def _lvnet_type_inline(lv_type: LVType) -> str:
+    """The TOP-LEVEL inline type label for a terminal (§3): identical to
+    ``type_descriptor(expand_named=False)`` for everything it already renders
+    losslessly -- a NAMED type (bare name), an error cluster (``"Error"``), a
+    scalar, and an array/refnum WRAPPER around any of those (so the ubiquitous
+    ``[NamedThing]`` / ``Queue refnum{Error}`` labels stay byte-unchanged) --
+    EXCEPT a genuinely ANONYMOUS, non-error cluster/enum/ring, whose field/
+    member TYPES ``type_descriptor`` drops (rendering names only): those expand
+    INLINE in the capital lossless grammar (``Cluster{ f : <ref> }`` /
+    ``Enum{ m = 0 }``).
+
+    The leaf-vs-structural split here mirrors ``_lv_type_comparison_shape``'s
+    EXACTLY, so ``_parsed_type_ref_shape`` of this text reconstructs the same
+    ``TypeShape`` the module builds -- the round-trip's only correctness bar.
+    Crucially, an anonymous cluster's FIELDS render via ``_lvnet_type_ref``
+    (the §10 "past the name boundary / full=True" reference form: a named
+    field by name, an anonymous field structurally, a nested error cluster
+    EXPANDED) -- matching how a NAMED cluster's own footnote already renders
+    its fields, and how the comparison shape recurses fields with
+    ``full=True``. A refnum/array WRAPPER's element instead recurses through
+    ``_lvnet_type_inline`` (still the top-level ``full=False`` context, so a
+    ``refnum{Error}`` element stays ``"Error"``), matching the comparison
+    shape's ``full=full`` on those two containers.
+    """
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        dims = lv_type.dimensions or 1
+        return "[" * dims + _lvnet_type_inline(lv_type.element_type) + "]" * dims
+    if (
+        lv_type.kind == LVTypeKind.PRIMITIVE
+        and lv_type.underlying_type == "Refnum"
+        and lv_type.classname is None
+        and lv_type.ref_type is not None
+        and lv_type.element_type is not None
+    ):
+        return (
+            f"{lv_type.ref_type} refnum{{"
+            f"{_lvnet_type_inline(lv_type.element_type)}}}"
+        )
+    if _lvnet_named_stem(lv_type) is not None:
+        return lv_type.type_descriptor(expand_named=False)
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING) and lv_type.values:
+        return _lvnet_type_lossless_def(lv_type)
+    if (
+        lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF)
+        and lv_type.fields
+        and not _is_error_cluster(lv_type)
+    ):
+        body = ", ".join(
+            f"{f.name}{_LVNET_TYPE_SEP}{_lvnet_type_ref(f.type)}"
+            for f in lv_type.fields
+        )
+        return f"{_LVNET_CLUSTER_OPEN} {body} }}"
+    return lv_type.type_descriptor(expand_named=False)
+
+
 def _iter_lv_types_in_items(items: list[NetlistItem]) -> Iterator[LVType]:
     """Every structured ``LVType`` reachable from a body item's own
     terminals -- an INSTANCE's input/output terminal types (``NetlistScope``
@@ -408,17 +467,16 @@ def _iter_named_subtypes(
     named) plus every named type nested inside it (an array's element, a
     cluster's field, a parametrized refnum's inner type) -- regardless of
     whether ``lv_type`` ITSELF is named, so a named type nested inside an
-    anonymous container is still found -- EXCEPT a cluster/typedef_ref's
-    fields, which are only descended into when the cluster ITSELF is named.
-    A named cluster's footnote def renders its fields' full types
-    (``_lvnet_type_lossless_def``), so a named type reachable only through a
-    named cluster is still recoverable from the rendered text; an ANONYMOUS
-    cluster's body/type-ref occurrences render field NAMES only
-    (``LVType.type_descriptor``, no field types), so a named type reachable
-    ONLY through an anonymous cluster's field is NOT recoverable from the
-    rendered text and must not be collected -- collecting it anyway would
-    break render(reconstruct(parse(T))) == T (the footnote would list a type
-    reconstruction can never re-derive from the text). ``_visited`` (keyed by
+    anonymous container is still found. A cluster/typedef_ref's fields are
+    descended into whenever the cluster's own field types are TEXT-RECOVERABLE
+    -- i.e. any non-error cluster with fields: a NAMED cluster spells them in
+    its footnote def, and an ANONYMOUS cluster now spells them INLINE
+    (``_lvnet_type_inline`` -> ``Cluster{ f : <type> }``), so a named type
+    reachable only through an anonymous cluster's field IS recoverable and is
+    correctly collected. Only an ERROR cluster is skipped: it renders as the
+    opaque ``"Error"`` token (fields never spelled), so a named type reachable
+    only through one would not be re-derivable from the text -- collecting it
+    would break render(reconstruct(parse(T))) == T. ``_visited`` (keyed by
     ``id()``, not name) guards a genuinely self-referential ``LVType`` graph
     from infinite recursion; a real cycle already bottoms out at a
     ``Recursive`` PRIMITIVE placeholder in practice (``type_mapping.py``), so
@@ -443,7 +501,7 @@ def _iter_named_subtypes(
     elif (
         lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF)
         and lv_type.fields
-        and name is not None
+        and not _is_error_cluster(lv_type)
     ):
         for f in lv_type.fields:
             if f.type is not None:
@@ -607,14 +665,37 @@ def _lv_type_comparison_shape(
 
     name = _lvnet_named_stem(lv_type)
     if name is not None and name in ambiguous:
-        name = None
+        # Ambiguous named type: ``_lvnet_type_inline``/``_lvnet_type_ref``
+        # still render it by its bare NAME (a leaf), and ``_parsed_type_ref_
+        # shape`` skips ``types_dict`` for an ambiguous name (also a leaf by
+        # name). So it must compare as ``("leaf", name)`` -- NEVER descend
+        # structurally, even though it has fields (that is exactly the
+        # unfaithful-flat-footnote case the ambiguous set exists to exclude).
+        return ("leaf", name)
     if name is not None:
         if name in seen:
             return ("named", name)
         seen = seen | {name}
         full = True
     elif not full:
-        return ("leaf", lv_type.type_descriptor(expand_named=False))
+        # Anonymous. A non-error cluster/enum/ring with real content now
+        # expands INLINE (``_lvnet_type_inline``), so it is text-recoverable
+        # and must decompose structurally here too -- else the module shape
+        # would leaf while ``_parsed_type_ref_shape`` decomposes the same
+        # ``Cluster{...}``/``Enum{...}`` text, a FALSE round-trip mismatch.
+        # Everything else anonymous -- a scalar, an error cluster
+        # (``"Error"``), an empty/unresolved composite, a class -- stays an
+        # opaque leaf, exactly as ``_lvnet_type_inline`` leaves it.
+        expands = (
+            lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
+            and bool(lv_type.values)
+        ) or (
+            lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF)
+            and bool(lv_type.fields)
+            and not _is_error_cluster(lv_type)
+        )
+        if not expands:
+            return ("leaf", lv_type.type_descriptor(expand_named=False))
 
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         members = tuple(

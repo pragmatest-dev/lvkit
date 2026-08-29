@@ -68,9 +68,10 @@ derivation) and §10/§10.1 (types) for the grammar this reverses, and
   a freshly-minted uid instead of the original's.
 - **Types**: a real ``LVType`` is reconstructed for a terminal's type text
   ONLY when doing so is both possible (the text is a bare name resolvable
-  through the ``types :`` footnote, or an array/refnum wrapper around one)
-  and SELF-CONSISTENT (the rebuilt ``LVType.type_descriptor(expand_named=
-  False)`` reproduces the exact text) -- see ``_maybe_attach_lvtype``. This
+  through the ``types :`` footnote, an array/refnum wrapper around one, or an
+  anonymous ``Cluster{ f : <type> }`` / ``Enum{ m = 0 }`` spelled inline) and
+  SELF-CONSISTENT (``_lvnet_type_inline`` of the rebuilt type reproduces the
+  exact text) -- see ``_maybe_attach_lvtype``. This
   seeds ``_collect_lvnet_named_types`` so the footnote re-renders; every
   other terminal keeps ``lv_type=None`` and renders straight from its
   captured text, which is already byte-correct on its own.
@@ -143,6 +144,7 @@ from .netlist import (
     NetlistTerminalBinding,
     NetRef,
 )
+from .render_lvnet import _lvnet_type_inline
 
 
 class LvnetReconstructError(ValueError):
@@ -495,7 +497,15 @@ def _reconstruct_type_ref(
         elem = _reconstruct_type_ref(inner.strip(), types_dict, memo)
         return LVType(kind=LVTypeKind.ARRAY, dimensions=dims, element_type=elem)
     refnum_idx = text.find(" refnum{")
-    if refnum_idx != -1 and text.endswith("}"):
+    if (
+        refnum_idx != -1
+        and text.endswith("}")
+        and "{" not in text[:refnum_idx]
+        and "[" not in text[:refnum_idx]
+    ):
+        # A brace before `` refnum{`` means it's nested inside a
+        # ``Cluster{ ... refnum{...} ... }`` field -- the whole text is a
+        # cluster (handled below), not a top-level refnum.
         ref_type = text[:refnum_idx]
         inner = text[refnum_idx + len(" refnum{") : -1].strip()
         elem = _reconstruct_type_ref(inner, types_dict, memo)
@@ -534,12 +544,16 @@ def _maybe_attach_lvtype(
     type_text: str, types_dict: dict[str, ParsedTypeDef], memo: dict[str, LVType]
 ) -> LVType | None:
     """Reconstruct a REAL ``LVType`` for one terminal's inline type text
-    ONLY when doing so is self-consistent -- ``candidate.type_descriptor(
-    expand_named=False)`` must reproduce ``type_text`` exactly, the same
-    check ``render_lvnet`` itself would apply on the way out. Returns
-    ``None`` (never attach) when the text is a plain scalar/class leaf at
-    the TOP level (the ``LVTypeKind.CLASS`` placeholder's ``type_
-    descriptor()`` renders ``"?"``, which can never equal real text) --
+    ONLY when doing so is self-consistent -- ``_lvnet_type_inline(candidate)``
+    must reproduce ``type_text`` exactly, the very renderer ``render_lvnet``
+    applies to a terminal's type on the way out (so an anonymous cluster
+    reconstructed from its ``Cluster{ f : <type> }`` inline text, carrying
+    its rebuilt field types, is attached and re-renders identically -- the
+    check must mirror THAT renderer, not the lossy ``type_descriptor`` an
+    anonymous cluster would fail). Returns ``None`` (never attach) when the
+    text is a plain scalar/class leaf at the TOP level (the
+    ``LVTypeKind.CLASS`` placeholder's ``type_descriptor()`` renders ``"?"``,
+    which can never equal real text) --
     the terminal's own already-correct raw text is used instead (see
     ``netlist._lvnet_type_label``'s ``lv_type is None`` fallback), and no
     named type is ever lost by skipping this: a top-level leaf never wraps
@@ -548,7 +562,7 @@ def _maybe_attach_lvtype(
     """
     candidate = _reconstruct_type_ref(type_text, types_dict, memo)
     try:
-        rendered = candidate.type_descriptor(expand_named=False)
+        rendered = _lvnet_type_inline(candidate)
     except Exception:
         return None
     if rendered != type_text:

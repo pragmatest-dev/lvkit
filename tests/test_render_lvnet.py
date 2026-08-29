@@ -18,6 +18,7 @@ own §9 prose). See the implementation report for the full writeup.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -627,6 +628,45 @@ def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
     assert any(
         ln.endswith("Continuous_1109::Continuous") for ln in stripped_lines
     ), "Bundle/Unbundle By Name input should resolve through the local-variable read"
+
+
+@pytest.mark.needs_samples
+def test_anonymous_cluster_spells_field_types_inline_and_recovers_named() -> None:
+    """An ANONYMOUS cluster renders its field TYPES inline in the capital
+    lossless grammar (``Cluster{ f : <type> }``), never the old names-only
+    ``cluster{f, ...}`` -- so a named type reachable ONLY through one of its
+    fields is text-recoverable and lands in the ``types :`` footnote.
+    ``WaveGen.vi``'s Event Data cluster is exactly this case: an anonymous
+    cluster whose ``Type`` field is the named enum ``lveventtype``. (The
+    graph-identity round-trip that proves this is lossless lives in
+    ``test_lvnet_identity``; this test pins the human-visible surface.)"""
+    if not _FEEDBACK_VI.exists():
+        pytest.skip("lv-flex-channel-examples sample corpus not present")
+    graph, vi_name = load_vi_by_path(
+        _FEEDBACK_VI,
+        LoadMode.MINIMAL,
+        search_paths=[_FEEDBACK_SEARCH_ROOT],
+        layout=False,
+    )
+    module = build_netlist_from_graph(graph, vi_name)
+    text = render_lvnet(module, verbose=True)
+
+    # The old names-only anonymous form is gone everywhere.
+    assert not re.search(r"\bcluster\{", text), (
+        "no anonymous cluster should render the old names-only lowercase "
+        f"`cluster{{...}}` form:\n{text}"
+    )
+    # An anonymous Event Data cluster now spells its field types inline,
+    # including the named enum `lveventtype` referenced by name.
+    assert re.search(r"Cluster\{[^}]*\bType : lveventtype\b", text), (
+        "the anonymous Event Data cluster should spell its `Type` field's "
+        f"named enum inline:\n{text}"
+    )
+    # ...and that named enum is recovered into the `types :` footnote (it is
+    # reachable ONLY through the anonymous cluster's field), so it round-trips.
+    assert any(
+        ln.strip().startswith("lveventtype = Enum{") for ln in text.splitlines()
+    ), f"`lveventtype` should appear as a `types :` footnote entry:\n{text}"
 
 
 def test_in_place_element_and_formula_node_synthetic_block_invariant() -> None:

@@ -579,48 +579,32 @@ comparison everywhere it's used, falling back to the same by-name comparison
 §10's terse form already provides. This is a genuine, documented information
 loss of the flat one-entry-per-name model, not a bug in the comparison logic.
 
-**Known limitation — a named type reachable ONLY through an anonymous
-cluster's field is not captured.** The footnote collects every NAMED type
-reachable from the boundary/body/dependency interfaces (§10.1 above), and a
-NAMED cluster's OWN footnote entry recurses into its fields (a named field's
-type is itself collectible, since the named cluster's own def spells that
-field's real type via `<type-ref>`, §10.1's cluster bullet). An ANONYMOUS
-cluster's fields are different: its only occurrence anywhere in the rendered
-text (§10's Cluster bullet above) is `cluster{f1, f2, …}` — field NAMES
-only, never field types — so even if one of those fields' own type is a
-NAMED type (e.g. an Event Data Node's `cluster{Source, Type, Time}`, whose
-`Type` field is the named enum `lveventtype`), there is nothing in the
-rendered text that names that field's type at all. Collecting it into the
-footnote anyway would list a type reconstruction can never re-derive from
-the text (`reconstruct_module` has no way to learn "the anonymous cluster's
-`Type` field is `lveventtype`" from `cluster{Source, Type, Time}` alone),
-breaking §1's round-trip gate. So a named type reachable *exclusively*
-through an anonymous cluster's field is correctly excluded from the
-footnote (it is still collected normally when *some other* reachable path
-also reaches it directly). The full fix — rendering an anonymous cluster's
-field types inline, `cluster{f1 : T1, f2 : T2, …}`, closing the gap at its
-source — is a separate, not-yet-designed enhancement (it would also make
-this corner case moot for future cases): not implemented here.
+**Anonymous cluster field types are spelled inline (closed 2026-08-29, option
+a).** An anonymous cluster renders its field TYPES inline in the capital
+lossless grammar — `Cluster{ Source : U32, Type : lveventtype, Time : U32 }`
+(each field a `<type-ref>`: a named field by name, an anonymous field
+structurally, a nested error cluster as `Error`) — not the old names-only
+`cluster{Source, Type, Time}`; an anonymous enum/ring likewise spells its
+ordinals inline (`Enum{ m0 = 0, m1 = 1 }`). So a named type reachable ONLY
+through an anonymous cluster's field (e.g. that `Type` field's `lveventtype`)
+IS now recoverable from the text and is correctly collected into the footnote
+(`_iter_named_subtypes` descends every non-error cluster's fields — named or
+anonymous — and skips only an error cluster, which stays the opaque `Error`
+token). `_lvnet_type_inline` is the single renderer for this; its leaf-vs-
+structural split mirrors `_lv_type_comparison_shape`'s exactly, so the
+round-trip compares equal.
 
-**Why it is not a one-liner (verified 2026-08-29): it forks the inline
-grammar.** The footnote lossless-def already spells anonymous composites with
-field types — but in the *capitalized* grammar `Cluster{ a : DBL }` /
-`Enum{ m0 = 0 }`, which uses bare ` : ` and ` = ` tokens. The inline
-terminal-line parser (`_split_node_terminal_tail`) is whitespace-tokenized and
-treats any bare `=` as the `= <driver>` operator (and any bare `default` as
-the default keyword) — it is **not brace-aware** — so pasting that grammar onto
-a terminal line misparses (`in x : Enum{ m0 = 0 }` → type `Enum{ m0`, driver
-`0 }`). Pure-scalar anonymous clusters (`Cluster{ a : DBL, b : I32 }`) happen
-to survive as an opaque string but are compared by string equality, gaining no
-structural recovery, and any enum/named field inside re-triggers the collision.
-Closing the gap therefore requires a **maintainer grammar decision**, between:
-(a) **harden the inline line parser to be brace-aware** (ignore
-`=`/`default`/`@index` inside `{}`/`[]`), then reuse the capital lossless-def
-grammar inline — consistent and fully structural, but it changes the inline
-`<Type>` contract the graph-identity gate rests on; or (b) **give each
-anonymous cluster a synthetic footnote handle** — but §10 reserves the footnote
-for NAMED types and anonymous types have no stable cross-occurrence name, so
-this invents new grammar. Not to be chosen silently.
+Because an inline `<Type>` can now carry bare ` : ` / ` = ` tokens inside its
+braces, the inline terminal-line parser is **brace-aware**: it finds the
+line's own `= <driver>` / `default` / `@index` operators only at brace/bracket
+DEPTH ZERO (`_top_level_word_index` / `_find_top_level_sep` in `lvnet_parse`),
+so an `Enum{ m0 = 0 }` type's own `=` is never mistaken for a driver. Named
+types still render by their bare name (their structure lives once in the
+footnote); an error cluster still renders `Error`; a refnum/array wrapper is
+byte-unchanged (`Queue refnum{Error}`, `[NamedThing]`). An **ambiguous** named
+type (one resolving to more than one structure across the module, §10's flat
+one-entry-per-name caveat) still renders and compares by its bare name, never
+descended — the footnote can't be trusted to spell it.
 
 ## 11. verbose vs terse
 
