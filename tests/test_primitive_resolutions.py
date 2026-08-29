@@ -9,19 +9,37 @@ Build Array routing. No user IP: only resID → function-identity facts.
 Four of these (1057, 1809, 1903, 1904) were ALL mislabeled "Array Size"; only
 1809 is really Array Size. The collision guard below stops a future edit from
 re-merging them.
+
+UPDATE (#59, 2026-08-27): 1057's onward identification as "Absolute Value"
+(pinned below as of this docstring's original writing) has since been
+corrected to "Increment" -- nodes.json's VI-Scripting export gives 1057's real
+output terminal as literally "x+1", proving the earlier context-based
+resolution had the right ALGORITHM (abs-value feeding an increment for a
+pixel-span computation) attached to the wrong primResID. The real
+Absolute-Value primitive in that calibration VI's pane is not yet
+re-identified. 1057's python_code was dropped pending that, then restored
+once corpus-confirmed (pylabview terminal_info) as its own real function --
+`in_1 + 1`, the genuine Increment semantics -- not the old Absolute-Value
+code, and not a stand-in for the calibration VI's still-unidentified abs-value
+step.
 """
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 import pytest
 
 from lvkit.primitive_resolver import get_resolver
 
+PRIMS = Path(__file__).resolve().parents[1] / "src/lvkit/data/primitives.json"
+
 EXPECTED_NAMES = {
     1809: "Array Size",
     1903: "Add Array Elements",
     1904: "Multiply Array Elements",
-    1057: "Absolute Value",
+    1057: "Increment",  # was "Absolute Value" -- corrected per nodes.json, #59
     1049: "Sign",
     1140: "To Byte Integer",
     # The 2-input arithmetic block: 1050 Add, 1051 Subtract, 1052 Multiply,
@@ -58,7 +76,10 @@ def test_key_python_code_semantics():
     assert "len(in_1)" in str(res.resolve(prim_id=1809).python_code)
     assert "sum(in_1)" in str(res.resolve(prim_id=1903).python_code)
     assert "prod(in_1)" in str(res.resolve(prim_id=1904).python_code)
-    assert "abs(in_1)" in str(res.resolve(prim_id=1057).python_code)
+    # 1057 no longer carries "abs(in_1)" -- it was corrected from the
+    # mislabeled "Absolute Value" to its real identity "Increment" (#59), and
+    # its own python_code ("in_1 + 1") was restored once corpus-confirmed.
+    assert "in_1 + 1" in str(res.resolve(prim_id=1057).python_code)
     # Sign -> +/-1, To Byte Integer -> saturating I8
     assert "(in_1 > 0) - (in_1 < 0)" in str(res.resolve(prim_id=1049).python_code)
     assert "127" in str(res.resolve(prim_id=1140).python_code)
@@ -126,16 +147,28 @@ def test_comparison_to_zero_block_verified_members():
     assert len(in_terms) == 1
 
 
-def test_1116_is_not_a_comparison_and_unresolved():
-    """1116 was mislabeled 'Call Chain' / a to-0 compare, but its corpus feeders
-    are boolean/cluster (not numeric). Kept only as a flagged placeholder (used
-    by TestCase.lvclass) — must never claim to be Call Chain or a comparison."""
+def test_1116_is_not_equal_to_zero():
+    """1116 was previously mislabeled 'Call Chain' / kept as a flagged
+    placeholder because its corpus feeders looked boolean/cluster, not
+    numeric. That finding was itself wrong: nodes.json's VI-Scripting export
+    (#59) gives 1116's real pane -- output terminal literally named 'x != 0?'
+    (Boolean) over a scalar double_float input 'x' -- confirming it as Not
+    Equal To 0?, one of the comparison-to-0 family alongside 1113/1114/1118
+    (see test_comparison_to_zero_block_verified_members). It was corrected
+    from the nodes.json ground truth, dropping the old placeholder along with
+    its now-superseded python_code -- codegen re-derivation is a separate
+    follow-on, so it resolves unverified with no python_code yet."""
     res = get_resolver()
     r = res.resolve(prim_id=1116)
     assert r is not None
-    assert r.name == "Unresolved primitive 1116"
-    assert r.name != "Call Chain"
-    assert "Equal" not in r.name and "Greater" not in r.name and "Less" not in r.name
+    assert r.name == "Not Equal To 0?"
+    assert r.confidence != "placeholder"
+    assert not r.python_code
+
+    entry = json.loads(PRIMS.read_text())["primitives"]["1116"]
+    assert entry.get("verified") is False
+    assert "python_code" not in entry
+    assert "placeholder" not in entry
 
 
 def test_1901_search_vs_delete_collision():
