@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .graph.core import InMemoryVIGraph
 from .load_mode import LoadMode
 
 
@@ -42,6 +41,7 @@ def diff_vi_files(
     the html title. Returns ``None`` ONLY when an ``html`` render declines
     because required diagram geometry is missing. ``warm_index`` upserts both
     VIs' facts into their project index (best-effort; set ``False`` to skip)."""
+    from .graph import load_vi_by_path
     from .graph.diff import (
         diff_to_dict,
         diff_uid,
@@ -52,15 +52,27 @@ def diff_vi_files(
 
     layout = fmt != "text"
 
-    def _load(path: Path) -> tuple[InMemoryVIGraph, str]:
-        g = InMemoryVIGraph()
-        if vilib_root or userlib_root:
-            g.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-        g.load_vi(str(path), mode, search_paths=search_paths, layout=layout)
-        return g, g.resolve_vi_name(path.name)
-
-    graph_a, name_a = _load(before_path)
-    graph_b, name_b = _load(after_path)
+    # Path IS a VI's identity: load_vi_by_path returns load_vi's OWN key for
+    # the exact file requested, never re-derived from the bare filename (which
+    # would collide across two same-named VIs -- routine under LabVIEW
+    # dynamic dispatch, where every class's override of a method is literally
+    # "run.vi").
+    graph_a, name_a = load_vi_by_path(
+        before_path,
+        mode,
+        search_paths=search_paths,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        layout=layout,
+    )
+    graph_b, name_b = load_vi_by_path(
+        after_path,
+        mode,
+        search_paths=search_paths,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        layout=layout,
+    )
 
     if warm_index:
         from .index.build import warm_index_for_vi

@@ -282,6 +282,12 @@ class ParsedFlatSequenceStructure:
     # (which shows every frame) and None when ``dIdx`` is an out-of-range
     # legacy global-diagram ordinal. Consumed by the renderer's initial view.
     displayed_frame: int | None = None
+    # EXPLICIT flat-vs-stacked discriminator, straight from the XML class
+    # (``sequence.py``'s ``seq_class``: ``"flatSequence"`` -> True, ``"seq"``/
+    # ``"sequence"`` -> False) -- NOT inferred from ``displayed_frame`` (that
+    # field is None for a flat sequence AND for a stacked one with an
+    # out-of-range legacy ``dIdx``, so it is not a clean proxy for this axis).
+    is_flat: bool = True
 
 
 @dataclass

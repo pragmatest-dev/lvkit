@@ -239,13 +239,17 @@ def test_feedback_output_consumer_resolves_to_named_fb_net() -> None:
     assert loop_scope is not None
     subtract = _find_instance(loop_scope, "Subtract")
     assert subtract is not None
-    fb_bindings = [b for b in subtract.inputs if b.net.bare == "fb0"]
+    fb_bindings = [
+        b for b in subtract.inputs if b.net is not None and b.net.bare == "fb0"
+    ]
     assert fb_bindings, (
         "Subtract should read the feedback output as fb0, got "
-        f"{[b.net.bare for b in subtract.inputs]}"
+        f"{[b.net.bare for b in subtract.inputs if b.net is not None]}"
     )
+    fb_net = fb_bindings[0].net
+    assert fb_net is not None
     # A merge net has no producing node (like a boundary/const), renders bare.
-    assert fb_bindings[0].net.node is None
+    assert fb_net.node is None
 
 
 def test_shift_register_renders_mu_and_inner_reader_resolves_to_shift_net() -> None:
@@ -275,10 +279,12 @@ def test_shift_register_renders_mu_and_inner_reader_resolves_to_shift_net() -> N
     test_case_init = _find_instance(loop_scope, "TestCase_Init.vi")
     assert test_case_init is not None
     error_in_binding = next(
-        b for b in test_case_init.inputs if b.port.startswith("error in")
+        b for b in test_case_init.inputs if b.terminal.startswith("error in")
     )
-    assert error_in_binding.net.node is None
-    assert error_in_binding.net.bare == mu.net
+    error_in_net = error_in_binding.net
+    assert error_in_net is not None
+    assert error_in_net.node is None
+    assert error_in_net.bare == mu.net
 
     out = render_netlist(module)
     mu_lines = [ln for ln in out.splitlines() if ":= mu(" in ln]
@@ -320,9 +326,11 @@ def test_auto_indexed_output_renders_eta_array_and_outside_consumer_resolves() -
         for item in no_error_frame.body
         if isinstance(item, NetlistInstance) and item.name == "TestSuite_Init.vi"
     )
-    tests_binding = next(b for b in suite_init.inputs if b.port.startswith("tests"))
-    assert tests_binding.net.node is None
-    assert tests_binding.net.bare == eta.net
+    tests_binding = next(b for b in suite_init.inputs if b.terminal.startswith("tests"))
+    tests_net = tests_binding.net
+    assert tests_net is not None
+    assert tests_net.node is None
+    assert tests_net.bare == eta.net
 
     out = render_netlist(module)
     eta_lines = [ln for ln in out.splitlines() if ":= eta(" in ln]
@@ -340,7 +348,7 @@ def test_eta_line_renders_base_mode_and_conditional_modifier() -> None:
     genuine last-value OUTPUT tunnel (the old ``eta(last)`` cases were
     mislabeled indexing -- inner element vs outer array), so exercise the
     render directly."""
-    from lvkit.graph.netlist import _eta_definition_line
+    from lvkit.graph.netlist_render_deprecated import _eta_definition_line
 
     val = DefaultValue(literal="0", type_descriptor="I32")
     last = _eta_definition_line(
@@ -468,6 +476,7 @@ def test_case_output_gamma_merges_feed_build_array() -> None:
     assert len(build_array.inputs) == 3
     for binding in build_array.inputs:
         net = binding.net
+        assert net is not None
         # A gamma net is a boundary-shaped NetRef (node=None, like a literal
         # or a VI control) whose bare name is the case's own merge net.
         assert net.node is None
@@ -759,9 +768,9 @@ def test_compound_arithmetic_operator_does_not_perturb_net_names() -> None:
     assert {i.uid for i in instances} != set()
     for inst in instances:
         assert inst.name == "Compound Arithmetic"  # unsuffixed by operation
-        for out_ref in inst.outputs:
-            assert out_ref.node == "Compound Arithmetic"
-            assert out_ref.bare == f"Compound Arithmetic#{inst.occurrence}.0"
+        for out in inst.outputs:
+            assert out.net.node == "Compound Arithmetic"
+            assert out.net.bare == f"Compound Arithmetic#{inst.occurrence}.0"
 
     out = render_netlist(module)
     # The producing-net names referenced downstream are unchanged -- no
@@ -822,12 +831,14 @@ def test_compound_arithmetic_inverted_input_renders_negation_prefix() -> None:
     assert {i.occurrence for i in instances} == {1, 2}
     inst2 = next(i for i in instances if i.occurrence == 2)
 
-    bindings_by_port = {b.port: b for b in inst2.inputs}
+    bindings_by_port = {b.terminal: b for b in inst2.inputs}
     assert bindings_by_port["1"].inverted is False
     assert bindings_by_port["2"].inverted is True
     # Faithful: the negation is an annotation on the BINDING, never on the
     # net's own identity.
-    assert bindings_by_port["2"].net.bare == "equal"
+    net2 = bindings_by_port["2"].net
+    assert net2 is not None
+    assert net2.bare == "equal"
 
     out = render_netlist(module)
     assert (
@@ -854,7 +865,7 @@ def test_compound_arithmetic_non_inverted_inputs_unchanged() -> None:
     instances = _cpdarith_instances(module)
     for inst in instances:
         for b in inst.inputs:
-            if b.port != "2" or inst.occurrence != 2:
+            if b.terminal != "2" or inst.occurrence != 2:
                 assert b.inverted is False
 
 
@@ -896,7 +907,7 @@ def test_property_node_write_properties_render_named_bindings_and_object_class()
         ("Active Item Tag", "write"),
         ("Open?", "write"),
     ]
-    port_names = {b.port for b in inst.inputs}
+    port_names = {b.terminal for b in inst.inputs}
     assert {"Active Item Tag", "Open?"}.issubset(port_names)
     assert "4" not in port_names and "5" not in port_names
 
@@ -949,9 +960,9 @@ def test_property_node_non_value_terminals_keep_numeric_ports() -> None:
     module = build_netlist(graph, vi_name)
 
     inst = next(i for i in _property_node_instances(module) if i.uid == "1065")
-    input_ports = {b.port for b in inst.inputs}
+    input_ports = {b.terminal for b in inst.inputs}
     assert input_ports == {"0", "2"}  # object ref in, error in -- unlabeled
-    output_ports = {o.port for o in inst.outputs}
+    output_ports = {o.net.terminal for o in inst.outputs}
     # ref-out (1) and error-out (3) stay numeric; only the correlated
     # property value terminal (originally "4") is named.
     assert output_ports == {"1", "3", "Project"}
@@ -982,9 +993,9 @@ def test_invoke_node_renders_method_and_object_and_keeps_numeric_params() -> Non
     inst = next(i for i in _invoke_node_instances(module) if i.uid == "6753")
     assert inst.object_name == "Tree (strict)"
     assert inst.method_name == "Point To Row Column"
-    input_ports = {b.port for b in inst.inputs}
+    input_ports = {b.terminal for b in inst.inputs}
     assert input_ports == {"0", "6"}  # params stay numeric -- names unrecoverable
-    output_ports = {o.port for o in inst.outputs}
+    output_ports = {o.net.terminal for o in inst.outputs}
     assert output_ports == {"1", "3", "5", "7", "9", "11", "13", "15"}
 
     out = render_netlist(module)

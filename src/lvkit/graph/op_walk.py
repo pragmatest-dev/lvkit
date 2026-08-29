@@ -612,7 +612,7 @@ def _terminal_display_name(term: Terminal) -> str | None:
     """The resolved-name half of the terminal naming rule: ``display_name`` (the
     resolved-def name) else the caller-side ``name``, or ``None`` when neither is
     set. Callers append their OWN index-based fallback (the netlist's
-    ``str(index)`` port name -- ``netlist._component_port_name`` -- the
+    ``str(index)`` terminal name -- ``netlist._component_terminal_name`` -- the
     renderer's ``terminal N`` tooltip -- ``render/draw.py::_terminal_label``), so
     only the shared name lookup lives here."""
     return term.display_name or term.name

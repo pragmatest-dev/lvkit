@@ -8,29 +8,45 @@ frames' bodies recursively (the parts `dataclasses.asdict` would get wrong).
 
 from __future__ import annotations
 
+from lvkit.graph.interface_order import WiringRequirement
 from lvkit.graph.netlist import (
     BoundaryOutput,
+    ConnectorPane,
+    ConnectorPaneTerminal,
     DefaultValue,
+    DependencyKind,
     EtaMerge,
     GammaCase,
     GammaMerge,
     MuMerge,
+    NetlistBoundaryInput,
     NetlistComponent,
+    NetlistDependency,
     NetlistFeedback,
     NetlistFrame,
     NetlistInstance,
     NetlistModule,
-    NetlistPortBinding,
+    NetlistOutput,
     NetlistPropertyAccess,
     NetlistScope,
+    NetlistTerminalBinding,
     NetRef,
     netlist_to_dict,
 )
 from lvkit.graph.op_walk import ComponentPort
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 
 
-def _ref(node, port, bare, occ=None):
-    return NetRef(node=node, port=port, occurrence=occ, bare=bare)
+def _ref(node, terminal, bare, occ=None):
+    return NetRef(node=node, terminal=terminal, occurrence=occ, bare=bare)
+
+
+def _out(node, terminal, bare, occ=None):
+    """Test-only convenience: a ``NetlistOutput`` wrapping ``_ref(...)`` --
+    these hand-built fixtures don't exercise the ``type`` field (added by
+    Phase A, no assertion in this file reads it), so a placeholder is fine.
+    """
+    return NetlistOutput(net=_ref(node, terminal, bare, occ=occ), type="?")
 
 
 def test_instance_and_scope_are_kind_tagged_and_nested():
@@ -38,8 +54,10 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
         uid="7",
         name="Increment",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", net=_ref(None, "n", "n"))],
-        outputs=[_ref("Increment", "out", "n2")],
+        inputs=[
+            NetlistTerminalBinding(terminal="x", type="I32", net=_ref(None, "n", "n"))
+        ],
+        outputs=[_out("Increment", "out", "n2")],
     )
     scope = NetlistScope(
         uid="3",
@@ -64,7 +82,10 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     )
     module = NetlistModule(
         vi_name="m.vi",
-        inputs=[("x", "I32"), ("err in", "Error")],
+        inputs=[
+            NetlistBoundaryInput(name="x", type_descriptor="I32"),
+            NetlistBoundaryInput(name="err in", type_descriptor="Error"),
+        ],
         outputs=[
             BoundaryOutput(
                 name="y",
@@ -95,7 +116,7 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
             "type": "DBL",
             "source": {
                 "node": "Increment",
-                "port": "out",
+                "terminal": "out",
                 "occurrence": None,
                 "bare": "n2",
             },
@@ -109,7 +130,7 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
 
     inst = d["body"][0]
     assert inst["name"] == "Increment"
-    assert inst["inputs"][0]["port"] == "x"
+    assert inst["inputs"][0]["terminal"] == "x"
     assert inst["inputs"][0]["net"]["bare"] == "n"
     assert inst["outputs"][0]["bare"] == "n2"
     # A non-cpdArith instance carries no operation -- the key is present
@@ -306,10 +327,14 @@ def test_instance_carries_cpdarith_operation():
         name="Compound Arithmetic",
         occurrence=1,
         inputs=[
-            NetlistPortBinding(port="1", net=_ref("Not Equal?", "result", "result")),
-            NetlistPortBinding(port="2", net=_ref("Not Equal?", "result", "result")),
+            NetlistTerminalBinding(
+                terminal="1", type="Boolean", net=_ref("Not Equal?", "result", "result")
+            ),
+            NetlistTerminalBinding(
+                terminal="2", type="Boolean", net=_ref("Not Equal?", "result", "result")
+            ),
         ],
-        outputs=[_ref("Compound Arithmetic", "0", "Compound Arithmetic#1.0")],
+        outputs=[_out("Compound Arithmetic", "0", "Compound Arithmetic#1.0")],
         operation="and",
     )
     module = NetlistModule(vi_name="c.vi", inputs=[], outputs=[], body=[inst])
@@ -326,7 +351,7 @@ def test_instance_carries_cpdarith_operation():
 
 def test_input_binding_carries_inverted_flag():
     """Audit finding: an INPUT terminal's "Not" bubble
-    (``NetlistPortBinding.inverted``, mirroring ``Terminal.inverted``) must be
+    (``NetlistTerminalBinding.inverted``, mirroring ``Terminal.inverted``) must be
     readable straight off the JSON binding -- a program can't tell
     ``x AND NOT y`` from ``x AND y`` by parsing rendered text. The inverted
     binding's own net identity (``bare``/``occurrence``) is UNCHANGED --
@@ -336,31 +361,33 @@ def test_input_binding_carries_inverted_flag():
         name="Compound Arithmetic",
         occurrence=2,
         inputs=[
-            NetlistPortBinding(
-                port="1",
+            NetlistTerminalBinding(
+                terminal="1",
+                type="Boolean",
                 net=_ref("Less?", "result", "result"),
             ),
-            NetlistPortBinding(
-                port="2",
+            NetlistTerminalBinding(
+                terminal="2",
+                type="Boolean",
                 net=_ref("Equal?", "equal", "equal", occ=2),
                 inverted=True,
             ),
         ],
-        outputs=[_ref("Compound Arithmetic", "0", "Compound Arithmetic#2.0")],
+        outputs=[_out("Compound Arithmetic", "0", "Compound Arithmetic#2.0")],
         operation="and",
     )
     module = NetlistModule(vi_name="c.vi", inputs=[], outputs=[], body=[inst])
 
     d = netlist_to_dict(module)
     inputs = d["body"][0]["inputs"]
-    assert inputs[0]["port"] == "1"
+    assert inputs[0]["terminal"] == "1"
     assert inputs[0]["inverted"] is False
-    assert inputs[1]["port"] == "2"
+    assert inputs[1]["terminal"] == "2"
     assert inputs[1]["inverted"] is True
     # Net identity is untouched by the flag.
     assert inputs[1]["net"] == {
         "node": "Equal?",
-        "port": "equal",
+        "terminal": "equal",
         "occurrence": 2,
         "bare": "equal",
     }
@@ -369,7 +396,7 @@ def test_input_binding_carries_inverted_flag():
 def test_property_node_instance_carries_structured_properties_and_object():
     """Audit finding: a Property Node used to be a black box in the JSON IR --
     which properties it accesses, and whether each is a read or a write, was
-    completely lost (every value port rendered as a bare numeric index). The
+    completely lost (every value terminal rendered as a bare numeric index). The
     instance dict must now carry a structured ``properties`` list (name +
     direction + the net read from/written to) and the target object CLASS
     under ``object`` -- a program reads which properties without parsing
@@ -383,15 +410,18 @@ def test_property_node_instance_carries_structured_properties_and_object():
         name="Property Node",
         occurrence=1,
         inputs=[
-            NetlistPortBinding(
-                port="0",
+            NetlistTerminalBinding(
+                terminal="0",
+                type="refnum",
                 net=_ref("Bundle/Unbundle By Name", "ref", "ref"),
             ),
-            NetlistPortBinding(port="Disabled", net=_ref(None, "True", "True")),
+            NetlistTerminalBinding(
+                terminal="Disabled", type="Boolean", net=_ref(None, "True", "True")
+            ),
         ],
         outputs=[
-            _ref("Property Node", "1", "Property Node#1.1"),
-            _ref("Property Node", "Enabled", "Enabled"),
+            _out("Property Node", "1", "Property Node#1.1"),
+            _out("Property Node", "Enabled", "Enabled"),
         ],
         object_name="Bool",
         properties=[
@@ -416,14 +446,19 @@ def test_property_node_instance_carries_structured_properties_and_object():
         {
             "name": "Disabled",
             "direction": "write",
-            "net": {"node": None, "port": "True", "occurrence": None, "bare": "True"},
+            "net": {
+                "node": None,
+                "terminal": "True",
+                "occurrence": None,
+                "bare": "True",
+            },
         },
         {
             "name": "Enabled",
             "direction": "read",
             "net": {
                 "node": "Property Node",
-                "port": "Enabled",
+                "terminal": "Enabled",
                 "occurrence": 1,
                 "bare": "Enabled",
             },
@@ -461,8 +496,10 @@ def test_non_property_instance_has_no_object_and_empty_properties():
         uid="1",
         name="Not Equal?",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", net=_ref(None, "n", "n"))],
-        outputs=[_ref("Not Equal?", "result", "result")],
+        inputs=[
+            NetlistTerminalBinding(terminal="x", type="I32", net=_ref(None, "n", "n"))
+        ],
+        outputs=[_out("Not Equal?", "result", "result")],
     )
     module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
 
@@ -481,23 +518,25 @@ def test_invoke_node_instance_carries_method_and_object():
     without parsing text. Mirrors uid 6753 of the real JKI-VI-Tester
     "Graphical Test Runner - Main UI" VI (Invoke Node#1, "Point To Row
     Column" on a "Tree (strict)" reference -- see test_netlist.py's real-VI
-    coverage). Parameter ports are never named (unrecoverable from the VI
+    coverage). Parameter terminals are never named (unrecoverable from the VI
     file) and stay numeric."""
     inst = NetlistInstance(
         uid="6753",
         name="Invoke Node",
         occurrence=1,
         inputs=[
-            NetlistPortBinding(
-                port="0",
+            NetlistTerminalBinding(
+                terminal="0",
+                type="refnum",
                 net=_ref("Event Data Node", "3", "Event Data Node#12.3", occ=12),
             ),
-            NetlistPortBinding(
-                port="6",
+            NetlistTerminalBinding(
+                terminal="6",
+                type="refnum",
                 net=_ref("Event Data Node", "4", "Event Data Node#12.4", occ=12),
             ),
         ],
-        outputs=[_ref("Invoke Node", "1", "Invoke Node#1.1", occ=1)],
+        outputs=[_out("Invoke Node", "1", "Invoke Node#1.1", occ=1)],
         object_name="Tree (strict)",
         method_name="Point To Row Column",
     )
@@ -507,7 +546,7 @@ def test_invoke_node_instance_carries_method_and_object():
     body_inst = d["body"][0]
     assert body_inst["method"] == "Point To Row Column"
     assert body_inst["object"] == "Tree (strict)"
-    assert [b["port"] for b in body_inst["inputs"]] == ["0", "6"]
+    assert [b["terminal"] for b in body_inst["inputs"]] == ["0", "6"]
     assert body_inst["outputs"][0]["bare"] == "Invoke Node#1.1"
 
 
@@ -538,8 +577,10 @@ def test_non_invoke_instance_has_no_method():
         uid="1",
         name="Not Equal?",
         occurrence=None,
-        inputs=[NetlistPortBinding(port="x", net=_ref(None, "n", "n"))],
-        outputs=[_ref("Not Equal?", "result", "result")],
+        inputs=[
+            NetlistTerminalBinding(terminal="x", type="I32", net=_ref(None, "n", "n"))
+        ],
+        outputs=[_out("Not Equal?", "result", "result")],
     )
     module = NetlistModule(vi_name="p.vi", inputs=[], outputs=[], body=[inst])
 
@@ -585,6 +626,278 @@ def test_scope_without_selector_serializes_null():
     )
     d = netlist_to_dict(module)
     assert d["body"][0]["selector"] is None
+
+
+# ============================================================
+# verbose ``netlist_to_dict``: ``dependencies`` + structured ``lv_type``
+# (Element 6 -- JSON content parity with verbose lvnet)
+# ============================================================
+
+
+def _verbose_fixture_module() -> NetlistModule:
+    """One module exercising every verbose-only JSON addition: a NAMED enum
+    and a NAMED cluster (whose own field is that enum), reachable from a
+    connector-pane terminal, a boundary input/output, a resolved ``subVI``
+    dependency's own interface, AND a body instance's wired input/output --
+    every ``lv_type`` site ``netlist_to_dict``'s docstring lists."""
+    mode_enum = LVType(
+        kind=LVTypeKind.ENUM,
+        typedef_name="Mode.ctl",
+        typedef_path="Mode.ctl",
+        values={"Idle": EnumValue(value=0), "Run": EnumValue(value=1)},
+    )
+    count_i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32")
+    config_cluster = LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="Config.ctl",
+        typedef_path="Config.ctl",
+        fields=[
+            ClusterField(name="mode", type=mode_enum),
+            ClusterField(name="count", type=count_i32),
+        ],
+    )
+    dependency = NetlistDependency(
+        kind=DependencyKind.SUBVI,
+        qualified="Lib.lvlib:Sub.vi",
+        path="./Lib.lvlib/Sub.vi",
+        interface=[
+            ConnectorPaneTerminal(
+                name="in1",
+                type="I32",
+                direction="input",
+                index=0,
+                wiring_requirement=WiringRequirement.REQUIRED,
+                default=None,
+                lv_type=count_i32,
+            ),
+            ConnectorPaneTerminal(
+                name="out1",
+                type="Mode",
+                direction="output",
+                index=1,
+                wiring_requirement=WiringRequirement.RECOMMENDED,
+                default=None,
+                lv_type=mode_enum,
+            ),
+        ],
+    )
+    instance = NetlistInstance(
+        uid="1",
+        name="Sub",
+        occurrence=None,
+        inputs=[
+            NetlistTerminalBinding(
+                terminal="cfg",
+                type="Config",
+                net=NetRef(node=None, terminal="cfg", occurrence=None, bare="cfg"),
+                lv_type=config_cluster,
+            )
+        ],
+        outputs=[
+            NetlistOutput(
+                net=NetRef(
+                    node="Sub", terminal="out1", occurrence=None, bare="Sub.out1"
+                ),
+                type="Mode",
+                lv_type=mode_enum,
+            )
+        ],
+    )
+    return NetlistModule(
+        vi_name="m.vi",
+        inputs=[
+            NetlistBoundaryInput(
+                name="cfg", type_descriptor="Config", lv_type=config_cluster
+            )
+        ],
+        outputs=[
+            BoundaryOutput(
+                name="out",
+                type_descriptor="Mode",
+                source=NetRef(
+                    node="Sub", terminal="out1", occurrence=None, bare="Sub.out1"
+                ),
+                lv_type=mode_enum,
+            )
+        ],
+        body=[instance],
+        connector_pane=ConnectorPane(
+            pattern_id=1,
+            terminals=[
+                ConnectorPaneTerminal(
+                    name="cfg",
+                    type="Config",
+                    direction="input",
+                    index=0,
+                    wiring_requirement=WiringRequirement.REQUIRED,
+                    default=None,
+                    lv_type=config_cluster,
+                ),
+                ConnectorPaneTerminal(
+                    name="out",
+                    type="Mode",
+                    direction="output",
+                    index=1,
+                    wiring_requirement=WiringRequirement.RECOMMENDED,
+                    default=None,
+                    lv_type=mode_enum,
+                ),
+            ],
+        ),
+        dependencies=[dependency],
+    )
+
+
+def test_verbose_adds_dependencies_manifest_with_interface():
+    module = _verbose_fixture_module()
+    d = netlist_to_dict(module, verbose=True)
+
+    assert d["dependencies"] == [
+        {
+            "kind": "subVI",
+            "qualified": "Lib.lvlib:Sub.vi",
+            "path": "./Lib.lvlib/Sub.vi",
+            "interface": [
+                {
+                    "name": "in1",
+                    "type": "I32",
+                    "direction": "input",
+                    "lv_type": {
+                        "kind": "primitive",
+                        "underlying_type": "I32",
+                        "ref_type": None,
+                        "classname": None,
+                        "values": None,
+                        "fields": None,
+                        "element_type": None,
+                        "dimensions": None,
+                        "typedef_path": None,
+                        "typedef_name": None,
+                        "description": None,
+                        "measure_flavor": None,
+                    },
+                },
+                {
+                    "name": "out1",
+                    "type": "Mode",
+                    "direction": "output",
+                    "lv_type": {
+                        "kind": "enum",
+                        "underlying_type": None,
+                        "ref_type": None,
+                        "classname": None,
+                        "values": {
+                            "Idle": {"value": 0, "description": None},
+                            "Run": {"value": 1, "description": None},
+                        },
+                        "fields": None,
+                        "element_type": None,
+                        "dimensions": None,
+                        "typedef_path": "Mode.ctl",
+                        "typedef_name": "Mode.ctl",
+                        "description": None,
+                        "measure_flavor": None,
+                    },
+                },
+            ],
+        }
+    ]
+
+
+def test_verbose_adds_structured_type_with_enum_ordinals_and_cluster_fields():
+    module = _verbose_fixture_module()
+    d = netlist_to_dict(module, verbose=True)
+
+    # Boundary input: the NAMED cluster, fields recursively typed.
+    cfg_type = d["inputs"][0]["lv_type"]
+    assert cfg_type["kind"] == "cluster"
+    assert cfg_type["typedef_name"] == "Config.ctl"
+    assert cfg_type["fields"] == [
+        {
+            "name": "mode",
+            "type": {
+                "kind": "enum",
+                "underlying_type": None,
+                "ref_type": None,
+                "classname": None,
+                "values": {
+                    "Idle": {"value": 0, "description": None},
+                    "Run": {"value": 1, "description": None},
+                },
+                "fields": None,
+                "element_type": None,
+                "dimensions": None,
+                "typedef_path": "Mode.ctl",
+                "typedef_name": "Mode.ctl",
+                "description": None,
+                "measure_flavor": None,
+            },
+        },
+        {
+            "name": "count",
+            "type": {
+                "kind": "primitive",
+                "underlying_type": "I32",
+                "ref_type": None,
+                "classname": None,
+                "values": None,
+                "fields": None,
+                "element_type": None,
+                "dimensions": None,
+                "typedef_path": None,
+                "typedef_name": None,
+                "description": None,
+                "measure_flavor": None,
+            },
+        },
+    ]
+
+    # Boundary output + connector pane: the NAMED enum, ordinals explicit.
+    out_type = d["outputs"][0]["lv_type"]
+    assert out_type["kind"] == "enum"
+    assert out_type["values"] == {
+        "Idle": {"value": 0, "description": None},
+        "Run": {"value": 1, "description": None},
+    }
+    pane_types = {t["name"]: t.get("lv_type") for t in d["connector_pane"]["terminals"]}
+    assert pane_types["cfg"]["kind"] == "cluster"
+    assert pane_types["out"]["kind"] == "enum"
+
+    # Body instance: wired input + output ports also carry the structure.
+    instance = d["body"][0]
+    assert instance["inputs"][0]["lv_type"]["kind"] == "cluster"
+    assert instance["outputs"][0]["lv_type"]["kind"] == "enum"
+
+
+def test_non_verbose_output_omits_all_new_verbose_fields():
+    module = _verbose_fixture_module()
+    d = netlist_to_dict(module)
+
+    assert "dependencies" not in d
+    for t in d["connector_pane"]["terminals"]:
+        assert "lv_type" not in t
+        assert "wiring_rule" not in t
+    for inp in d["inputs"]:
+        assert "lv_type" not in inp
+    for out in d["outputs"]:
+        assert "lv_type" not in out
+    instance = d["body"][0]
+    assert "lv_type" not in instance["inputs"][0]
+    assert "lv_type" not in instance["outputs"][0]
+
+    # Non-verbose stays exactly the pre-existing shape (Element 6 must not
+    # regress the byte/JSON-identical parity guard -- see
+    # tests/test_netlist_from_graph_parity.py).
+    assert d["inputs"] == [{"name": "cfg", "type": "Config"}]
+    assert d["outputs"][0]["type"] == "Mode"
+    assert d["connector_pane"]["terminals"][0] == {
+        "name": "cfg",
+        "type": "Config",
+        "direction": "input",
+        "index": 0,
+        "required": True,
+        "default": None,
+    }
 
 
 def test_is_json_serializable():

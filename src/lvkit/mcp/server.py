@@ -65,7 +65,7 @@ except ImportError:  # mcp 1.x
 
 from .. import __version__, primitive_resolver, vilib_resolver
 from ..cache_paths import _project_root_for
-from ..graph import InMemoryVIGraph
+from ..graph import InMemoryVIGraph, load_vi_by_path
 from ..graph.netlist import build_netlist, netlist_to_dict
 from ..index import sql as isql
 from ..index.build import (
@@ -520,7 +520,8 @@ def _load_one(
     """Load ONE VI (MINIMAL) into a fresh graph and return ``(graph, vi_name)``.
 
     A MINIMAL load also leaf-loads direct SubVIs, so ``list_vis()`` may hold
-    several names; we pick the one whose source path IS ``vi_path``.
+    several names; ``vi_name`` is ``load_vi``'s OWN return key for ``vi_path``
+    (see ``load_vi_by_path``), never re-derived from the bare filename.
 
     ``search_paths`` are extra dependency-resolution roots (an out-of-tree
     library the VI calls into) — searched IN ADDITION to the VI's own directory,
@@ -530,18 +531,13 @@ def _load_one(
     if not p.exists():
         raise FileNotFoundError(f"VI not found: {vi_path}")
     _configure_resolvers_for_vi(p)
-    graph = InMemoryVIGraph()
     roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
-    graph.load_vi(p, LoadMode.MINIMAL, search_paths=roots)
-    vi_name: str | None = None
-    for name in graph.list_vis():
-        src = graph.get_vi_source_path(name)
-        if src is not None and src.resolve() == p:
-            vi_name = name
-            break
-    if vi_name is None:
-        # Fall back to the leaf-name resolver (single-VI graphs usually have one)
-        vi_name = graph.resolve_vi_name(p.name)
+    # Path IS a VI's identity: load_vi_by_path returns load_vi's OWN key for
+    # the exact file requested, never re-derived from p.name (which would
+    # collide across two same-named VIs -- routine under LabVIEW dynamic
+    # dispatch, where every class's override of a method is literally
+    # "run.vi").
+    graph, vi_name = load_vi_by_path(p, LoadMode.MINIMAL, search_paths=roots)
     # Progressive index: every parse warms the store — a MINIMAL load parses
     # this VI AND its SubVIs, so warm all of them (accumulates as the repo is
     # used).
@@ -553,6 +549,8 @@ def _load_one(
 async def read_vi(
     vi_path: str,
     search_paths: list[str] | None = None,
+    format: str = "json",
+    verbose: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """READ one VI in full — its structure as the canonical **netlist IR**
@@ -582,11 +580,44 @@ async def read_vi(
     array/last), and a feedback node is ``fb{k}`` = ``mu``. ``vi_path`` may be
     relative to the client's workspace root. ``search_paths`` are extra
     dependency-resolution roots for an out-of-tree library the VI calls into
-    (its own directory is always searched)."""
+    (its own directory is always searched).
+
+    ``format`` picks the surface: ``"json"`` (default, unchanged when
+    ``verbose=False``) returns the structured IR dict above; ``verbose=True``
+    additionally nests the ``uses :`` dependency manifest (each resolved
+    subVI's own interface) and every terminal's structured type alongside
+    its existing flattened type string -- the JSON counterpart of
+    ``"lvnet"``'s verbose elements below (see ``netlist_to_dict``'s
+    docstring). ``"lvnet"`` instead returns
+    ``{"lvnet": <text>}`` — the same lvnet text surface as
+    ``lvkit describe --format lvnet`` (see
+    ``docs/_internal/design/netlist-language.md``): terse by default, or
+    ``verbose=True`` to also inline each direct SubVI's connector-pane
+    interface plus a trailing ``types :`` appendix (type-rehydratable)."""
     vi_path = await _resolve_target(vi_path, ctx)
 
     def _work() -> dict[str, Any]:
         graph, vi_name = _load_one(vi_path, search_paths)
+        if format == "lvnet":
+            from ..graph.netlist import build_netlist_from_graph, render_lvnet
+
+            module = build_netlist_from_graph(graph, vi_name)
+            display_name = graph.vi_display_name(vi_name)
+            return {
+                "lvnet": render_lvnet(
+                    module, display_name=display_name, verbose=verbose
+                )
+            }
+        # verbose's `dependencies` + structured `lv_type` facts only exist
+        # on `build_netlist_from_graph`'s module (the OLD `build_netlist`
+        # never populates them) -- non-verbose stays on the OLD builder,
+        # byte-identical to before.
+        if verbose:
+            from ..graph.netlist import build_netlist_from_graph
+
+            return netlist_to_dict(
+                build_netlist_from_graph(graph, vi_name), verbose=True
+            )
         return netlist_to_dict(build_netlist(graph, vi_name))
 
     return await asyncio.to_thread(_work)

@@ -60,6 +60,7 @@ from .models import (
     VINode,
     WireEnd,
 )
+from .queries import AmbiguousVIReferenceError
 
 logger = logging.getLogger(__name__)
 
@@ -1071,7 +1072,19 @@ class ConstructionMixin:
                 # resolve_vi_name returns the callee's vi_key (path); we only use
                 # it to confirm that class's method VI is actually loaded, then
                 # stamp the class-qualified NAME (not the path) for display.
-                cand_key = self.resolve_vi_name(candidate_qname)
+                # This is a best-effort PROBE over candidate classes (the loop
+                # tries each wired type and keeps the first real hit) -- when
+                # ``candidate_qname`` isn't registered under that exact qname,
+                # resolve_vi_name falls back to a bare-leaf lookup that can be
+                # genuinely ambiguous against another same-named override
+                # elsewhere in the tree; treat that the same as "not this
+                # class" (not a match) rather than letting it abort the whole
+                # load, since the NEXT candidate class (or no match at all) is
+                # an equally valid, non-guessing outcome here.
+                try:
+                    cand_key = self.resolve_vi_name(candidate_qname)
+                except AmbiguousVIReferenceError:
+                    continue
                 if cand_key and cand_key in g:
                     gnode.qualified_name = candidate_qname
                     break
@@ -1098,10 +1111,22 @@ class ConstructionMixin:
             if gnode.node_type not in _STATIC_SUBVI_CALL_NODE_TYPES:
                 continue
 
-            # Resolve callee VI name
+            # Resolve callee VI name. A dynamic-dispatch call left BARE here
+            # (no iUse entry yet -- resolve_dispatch_qnames' static-type
+            # fixpoint hasn't run; it needs every VI in the hierarchy loaded
+            # first, which is what THIS pass is part of) can be genuinely
+            # ambiguous against another same-named override elsewhere in the
+            # tree (dynamic dispatch means literally every class's override
+            # is named e.g. "run.vi"). This pass is best-effort dataflow
+            # wiring, not identity resolution -- skip creating the edge
+            # rather than guess; resolve_dispatch_qnames' later fixpoint (or
+            # a static iUse qname) is what actually disambiguates it.
             raw_uid = nid.split("::")[-1] if "::" in nid else nid
             callee_qname = iuse_to_qname.get(raw_uid, gnode.name or "")
-            callee_name = self.resolve_vi_name(callee_qname)
+            try:
+                callee_name = self.resolve_vi_name(callee_qname)
+            except AmbiguousVIReferenceError:
+                continue
             if not callee_name or callee_name not in g:
                 continue
 

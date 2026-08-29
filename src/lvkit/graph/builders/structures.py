@@ -226,6 +226,7 @@ class SequenceBuildHandler(StructureBuildHandler):
             terminals=structure_terminals,
             frames=seq_frames,
             displayed_frame=(flat_seq.displayed_frame if flat_seq else None),
+            is_flat=(flat_seq.is_flat if flat_seq else True),
         )
 
 

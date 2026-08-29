@@ -52,6 +52,13 @@ if TYPE_CHECKING:
     from .core import InMemoryVIGraph
 
 
+class AmbiguousVIReferenceError(Exception):
+    """A bare name/qname lookup (``resolve_vi_name``) matched two or more
+    on-disk VIs that are genuinely DIFFERENT (distinct qualified identity),
+    not duplicate copies of the same VI. Raised by ``_pick_vi_key`` instead of
+    silently guessing one -- resolve by full source path instead."""
+
+
 class QueryMixin:
     """Mixin providing graph query methods."""
 
@@ -141,9 +148,39 @@ class QueryMixin:
         control labels, so it carries fewer labelled terminals than its source
         twin, and fewer graph nodes -- then the lexically-smallest key. Path is
         the identity; this only fires for genuine on-disk duplicates, and the
-        final key tie-break makes it filesystem-order-independent."""
+        final key tie-break makes it filesystem-order-independent.
+
+        GUARD: before collapsing, group the candidates by the loader-tracked
+        qualified identity (``_vi_display_names`` -- each VI's own LIBN/LIBH
+        owner chain, stamped once at load time; see ``_load_vi_recursive``).
+        Two keys sharing that qname are genuinely the SAME VI saved to two
+        paths (a stripped build copy alongside its source twin, or a parallel
+        plugin tree) -- the collapse above is correct for those. Two keys with
+        DIFFERENT qnames are provably DIFFERENT VIs that merely share a bare
+        filename -- routine under LabVIEW dynamic dispatch, where every
+        class's override of a method is literally ``run.vi`` (e.g.
+        ``TestCase.lvclass:run.vi`` vs ``TestSuite.lvclass:run.vi``).
+        Silently collapsing those via "richest wins" previously picked one
+        arbitrarily and rendered/diffed/described the WRONG VI, so this
+        raises a named, actionable error instead of guessing.
+        """
         if len(keys) == 1:
             return keys[0]
+
+        by_qname: dict[str, list[str]] = {}
+        for key in keys:
+            by_qname.setdefault(self._vi_display_names.get(key, key), []).append(key)
+        if len(by_qname) > 1:
+            groups = "; ".join(
+                f"{qname!r}: {sorted(group_keys)}"
+                for qname, group_keys in sorted(by_qname.items())
+            )
+            raise AmbiguousVIReferenceError(
+                "Ambiguous VI reference -- this name matches multiple "
+                f"DISTINCT VIs (different qualified identity): {groups}. "
+                "Load/reference the VI by its full source path instead of "
+                "its bare filename or an unqualified name."
+            )
 
         def rank(key: str) -> tuple[int, int, str]:
             uids = self._vi_nodes.get(key) or set()
@@ -628,7 +665,9 @@ class QueryMixin:
             if uid in self._graph
         ]
 
-    def get_operation_order(self, vi_name: str) -> list[str]:
+    def get_operation_order(
+        self, vi_name: str, extra_kinds: tuple[str, ...] = ()
+    ) -> list[str]:
         """Get top-level operations in dataflow execution order.
 
         Returns operation node IDs in the order they should execute
@@ -638,11 +677,25 @@ class QueryMixin:
         (inside structures like flat/stacked sequences, loops, cases) are
         handled by their parent structure's codegen — including them here
         creates cycles (structure ↔ child edges) that break topological sort.
+
+        ``extra_kinds`` widens the "real operation" gate (``_OPERATION_KINDS``)
+        for ONE call, without touching the shared constant every other caller
+        (codegen's ``get_operations``, this method's own default) relies on.
+        The ONLY current use is ``netlist_build._top_level_nodes_gn`` passing
+        ``("local_variable",)`` so a top-level local-variable read/write
+        (lvnet-only; codegen never sees it) participates in the SAME
+        dataflow-topological sort as every other node instead of being
+        dropped before ordering even starts.
         """
         vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
+
+        allowed_kinds = _OPERATION_KINDS if not extra_kinds else (
+            *_OPERATION_KINDS,
+            *extra_kinds,
+        )
 
         # Get top-level operation node IDs only
         op_ids: set[str] = set()
@@ -655,7 +708,7 @@ class QueryMixin:
             if gnode is None:
                 continue
             op_kind = _graph_node_to_op_kind(gnode)
-            if op_kind in _OPERATION_KINDS and gnode.parent is None:
+            if op_kind in allowed_kinds and gnode.parent is None:
                 op_ids.add(uid)
 
         if not op_ids:
@@ -798,6 +851,45 @@ class QueryMixin:
             if t.id == terminal_id:
                 return t
         return None
+
+    def get_feedback_info(
+        self, node_id: str
+    ) -> tuple[bool, str | None, int | None] | None:
+        """Feedback Node (z^-N) master/slave link for ``node_id`` --
+        ``(is_master, partner_uid, delay)``, or ``None`` when ``node_id`` isn't
+        a Feedback Node.
+
+        These three facts are stashed as extra networkx node attributes
+        (``feedback_is_master``/``feedback_partner``/``feedback_delay`` --
+        see ``construction.py``) rather than on the Pydantic ``PrimitiveNode``
+        model itself (the graph node stays a plain ``PrimitiveNode`` so
+        render/codegen treat it exactly as before). This is the one
+        graph-level accessor for them, letting a graph-only consumer (e.g.
+        ``netlist.build_netlist_from_graph``) resolve a Feedback Node's linked
+        write side without going through the ``Operation`` projection
+        (``_build_operation`` reads the same attributes to build a
+        ``FeedbackOperation``).
+        """
+        if node_id not in self._graph:
+            return None
+        data = self._graph.nodes[node_id]
+        is_master = data.get("feedback_is_master")
+        if is_master is None:
+            return None
+        return is_master, data.get("feedback_partner"), data.get("feedback_delay")
+
+    def get_poser_uid(self, node_id: str) -> str | None:
+        """The In-Place-Element-Structure decompose/recompose pairing id for
+        ``node_id`` (``PrimitiveOperation.poser_uid``'s graph-level source),
+        or ``None`` when ``node_id`` isn't an IPES border node.
+
+        Stashed as an extra networkx node attribute (``poser_uid`` -- see
+        ``construction.py``) rather than a ``PrimitiveNode`` model field, for
+        the same reason as ``get_feedback_info`` above.
+        """
+        if node_id not in self._graph:
+            return None
+        return self._graph.nodes[node_id].get("poser_uid")
 
     # === Legacy API ===
 
@@ -1155,6 +1247,7 @@ class QueryMixin:
             if isinstance(node, VINode) and node.name
             else vi_name.rsplit(":", 1)[-1]
         )
+
         # A parent/child class's version of this method is "documented" when its
         # class-qualified name resolves to a loaded VI. VIs are path-keyed now,
         # so resolve the qname to its vi_key and test membership (works whether
@@ -1218,7 +1311,12 @@ def collect_class_context(
         return None
 
     parent = graph._dep_graph.nodes[cls].get("parent_class")
-    access = graph.get_method_access(ctx.name)
+    # ctx.name is the DISPLAY bare filename (e.g. "run.vi" -- see
+    # get_vi_context's docstring comment), which collides across every
+    # same-named override in a dynamic-dispatch class hierarchy. Resolve by
+    # ctx.qualified_name (the class-qualified identity, e.g.
+    # "TestSuite.lvclass:run.vi") instead -- exact and unambiguous.
+    access = graph.get_method_access(ctx.qualified_name or ctx.name)
     return ClassContext(
         owning_class=cls,
         parent=parent,

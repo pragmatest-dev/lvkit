@@ -1505,3 +1505,45 @@ class LoadingMixin:
                 if found is not None:
                     return found
         return None
+
+
+def load_vi_by_path(
+    path: Path | str,
+    mode: LoadMode = LoadMode.FULL,
+    *,
+    search_paths: list[Path] | None = None,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
+    layout: bool = False,
+) -> tuple[InMemoryVIGraph, str]:
+    """Load ONE VI, by its on-disk PATH, into a fresh graph and return
+    ``(graph, vi_key)``.
+
+    ``vi_key`` is ``load_vi``'s OWN return value -- the exact identity of the
+    file just requested. Path IS a VI's identity (see ``resolve_vi_name``):
+    two on-disk VIs routinely share a bare filename under LabVIEW dynamic
+    dispatch (every class's override of a method is literally ``run.vi``), so
+    re-resolving "the VI I just loaded" by ``path.name`` afterward can
+    silently pick the WRONG same-named VI out of the graph. This is the ONE
+    place "load a user-given path, get its key" is implemented -- the three
+    user-facing single-VI load sites (``cli.cmd_describe``, the MCP
+    ``read_vi`` tool, ``vi_diff.diff_vi_files``) share it instead of each
+    re-deriving the key by bare name and getting it wrong the same way.
+
+    ``vilib_root``/``userlib_root`` are forwarded to ``set_library_roots``
+    when given. Raises if ``load_vi`` returns no key (only possible for a
+    ``.llb`` container, which none of these single-VI callers pass).
+    """
+    from .core import InMemoryVIGraph  # local: avoid a core<->loading cycle
+
+    path = Path(path)
+    graph = InMemoryVIGraph()
+    if vilib_root or userlib_root:
+        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+    key = graph.load_vi(str(path), mode, search_paths=search_paths, layout=layout)
+    if key is None:
+        raise ValueError(
+            f"load_vi_by_path: load_vi returned no key for {path!r} "
+            "(expected a single .vi file)"
+        )
+    return graph, key

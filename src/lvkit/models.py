@@ -101,7 +101,7 @@ class LVType:
             return "Any"
         return "Any"
 
-    def type_descriptor(self) -> str:
+    def type_descriptor(self, *, expand_named: bool = True) -> str:
         """Render a LabVIEW-faithful type label from this type's structure.
 
         The FAITHFUL counterpart to :meth:`to_python` — every non-codegen
@@ -128,16 +128,47 @@ class LVType:
           ``"refnum"``. Other primitives map through the shared numeric/scalar
           token table, falling back to the raw ``underlying_type`` (never
           "Any"/"int") for an unmapped token.
+
+        ``expand_named`` (default ``True``, every existing caller's
+        behavior is UNCHANGED): when ``False`` (lvnet §10/§11's terse type
+        renderer -- ``render_lvnet`` is the one caller that ever passes
+        this), a NAMED enum/ring/cluster/typedef renders its bare stripped
+        name ALONE (``lveventtype``, not ``lveventtype{Mouse Down, Mouse
+        Up, …~300 more}``) — full member expansion is verbose-only (§11);
+        an ANONYMOUS type (no name to fall back on) still renders its full
+        structural form regardless, since there's nothing else faithful to
+        show. Recurses into containers (``array``'s element, a parametrized
+        refnum's element) with the SAME flag, so ``[NamedThing]``/
+        ``refnum{NamedThing}`` also collapse to the name one level down.
         """
         if self.kind == LVTypeKind.ARRAY:
             dims = self.dimensions or 1
-            inner = self.element_type.type_descriptor() if self.element_type else "?"
+            inner = (
+                self.element_type.type_descriptor(expand_named=expand_named)
+                if self.element_type
+                else "?"
+            )
             return "[" * dims + inner + "]" * dims
         if self.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+            if self.typedef_name:
+                name = _strip_typedef_stem(self.typedef_name)
+                if not expand_named:
+                    return name
+                members = (
+                    [
+                        n
+                        for n, _ev in sorted(
+                            self.values.items(), key=lambda kv: kv[1].value
+                        )
+                    ]
+                    if self.values
+                    else []
+                )
+                return f"{name}{{{', '.join(members)}}}"
             members = (
                 [
-                    name
-                    for name, _ev in sorted(
+                    n
+                    for n, _ev in sorted(
                         self.values.items(), key=lambda kv: kv[1].value
                     )
                 ]
@@ -145,14 +176,14 @@ class LVType:
                 else []
             )
             body = "{" + ", ".join(members) + "}"
-            if self.typedef_name:
-                return f"{_strip_typedef_stem(self.typedef_name)}{body}"
             return ("enum" if self.kind == LVTypeKind.ENUM else "ring") + body
         if self.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
             if _is_error_cluster(self):
                 return "Error"
-            fields = ", ".join(f.name for f in (self.fields or []))
             name = _strip_typedef_stem(self.typedef_name) if self.typedef_name else None
+            if name and not expand_named:
+                return name
+            fields = ", ".join(f.name for f in (self.fields or []))
             if name and fields:
                 return f"{name}{{{fields}}}"
             if name:
@@ -169,7 +200,9 @@ class LVType:
                     # cluster/enum shows its members: ``Queue refnum{Error}``,
                     # ``Notifier refnum{DBL}``.
                     if self.element_type is not None:
-                        inner = self.element_type.type_descriptor()
+                        inner = self.element_type.type_descriptor(
+                            expand_named=expand_named
+                        )
                         return f"{self.ref_type} refnum{{{inner}}}"
                     return f"{self.ref_type} refnum"
                 return "refnum"
@@ -809,6 +842,11 @@ class SequenceOperation(Operation):
     """Flat or stacked sequence."""
 
     frames: list[SequenceFrame] = []
+    # EXPLICIT flat-vs-stacked discriminator (see ``graph.models.SequenceNode
+    # .is_flat``'s docstring for why this is not inferred from a
+    # ``displayed_frame`` proxy). True = Flat Sequence, False = Stacked
+    # Sequence.
+    is_flat: bool = True
 
 
 class EventOperation(Operation):
@@ -837,6 +875,12 @@ class DisableStructureOperation(Operation):
     """
 
     frames: list[CaseFrame] = []
+    # Which disable-family structure this is (Diagram / Conditional / Type
+    # Specialization -- see ``graph.models.DisableStructureNode.kind``, whose
+    # value this mirrors). Named ``disable_kind`` here, NOT ``kind`` --
+    # ``Operation.kind`` already holds the operation-classification
+    # discriminator (e.g. ``"disabled"``) and must not be shadowed.
+    disable_kind: DisableStructureKind = DisableStructureKind.DIAGRAM
 
 
 class InPlaceOperation(Operation):
