@@ -169,7 +169,15 @@ def _render_term_group(entries: list[_TermLine], indent: str) -> list[str]:
     """
     if not entries:
         return []
-    under_cap_names = [len(e.name) for e in entries if len(e.name) <= _LVNET_NAME_CAP]
+    # A terminal NAME carrying a grammar delimiter (a control literally named
+    # ``Image Parameters : Image Type`` -- a real corpus case) is quoted +
+    # escaped, exactly like an enum member / cluster field, so the
+    # ``<name> : <type>`` split can't be fooled by a ``:`` inside the name.
+    # Alignment uses the SAME display form (widths from the quoted name), so
+    # render and reconstruct-render stay byte-identical. An ordinary name has
+    # no unsafe char and renders bare, unchanged.
+    display = [(e, _lvnet_name_token(e.name)) for e in entries]
+    under_cap_names = [len(n) for _e, n in display if len(n) <= _LVNET_NAME_CAP]
     name_width = (max(under_cap_names) if under_cap_names else 0) + 1
     needs_type_pad = any(e.trailing is not None for e in entries)
     type_width = 0
@@ -179,8 +187,8 @@ def _render_term_group(entries: list[_TermLine], indent: str) -> list[str]:
         ]
         type_width = (max(under_cap_types) if under_cap_types else 0) + 1
     lines: list[str] = []
-    for e in entries:
-        name_part = _lvnet_capped_pad(e.name, name_width, _LVNET_NAME_CAP)
+    for e, name in display:
+        name_part = _lvnet_capped_pad(name, name_width, _LVNET_NAME_CAP)
         if e.trailing is not None:
             type_part = _lvnet_capped_pad(e.type, type_width, _LVNET_TYPE_CAP)
             lines.append(f"{indent}{e.direction}  {name_part}: {type_part}{e.trailing}")
@@ -1383,21 +1391,46 @@ def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
     return term.wiring_requirement.value
 
 
-# Characters that make an enum/ring MEMBER or cluster FIELD name unsafe to
-# render BARE in the §10 lossless grammar -- they collide with a member/field
-# separator (``,``), the ordinal/type separator (``=``/``:``), a structural
-# brace/bracket, or the quote/escape mechanism itself. A name containing any
-# of these (or leading/trailing whitespace) is quoted + backslash-escaped
-# exactly like a string literal, so a real LabVIEW name such as
-# ``big-endian, network order`` round-trips.
-_LVNET_NAME_UNSAFE = frozenset(',={}[]:"\\')
+# What makes a NAME (a terminal, enum/ring member, or cluster field) unsafe to
+# render BARE in the lvnet grammar. The real collisions are the delimiter
+# SEQUENCES that separate the surrounding columns -- `` : `` (name/type,
+# name/ordinal), ``, `` (member/field), `` = `` (ordinal) -- NOT a bare
+# ``:``/``,``/``=`` a name may legitimately carry with no surrounding spaces
+# (``TestResult in (None: Create New)``, ``getData(a,b)``): keying on the
+# sequences avoids needlessly quoting those. A structural brace/bracket or the
+# quote/escape chars themselves are always unsafe, as is any leading/trailing
+# whitespace. An unsafe name is quoted + backslash-escaped exactly like a
+# string literal, so e.g. ``big-endian, network order`` and a control named
+# ``Image Parameters : Image Type`` round-trip.
+_LVNET_NAME_UNSAFE_SEQS = (" : ", ", ", " = ")
+
+
+def _lvnet_name_is_safe_bare(name: str) -> bool:
+    """Whether a NAME can render BARE without breaking the parser. It is safe
+    unless it (a) is empty or has leading/trailing whitespace, (b) contains a
+    column-delimiter SEQUENCE (`` : `` / ``, `` / `` = ``) at all -- a bare
+    ``:``/``,``/``=`` with no surrounding spaces is fine, e.g. ``(None: Create
+    New)`` -- or (c) carries an UNBALANCED quote or brace/bracket, which would
+    desync ``_find_first_top_level`` / ``_split_top_level_commas``'s quote/depth
+    tracking. A name with BALANCED embedded quotes/parens (``methodName
+    ("runTest")``) stays bare, since the tracking still lands on the real
+    separator."""
+    return bool(
+        name
+        and name == name.strip()
+        and not any(seq in name for seq in _LVNET_NAME_UNSAFE_SEQS)
+        and name.count('"') % 2 == 0
+        and name.count("{") == name.count("}")
+        and name.count("[") == name.count("]")
+    )
 
 
 def _lvnet_name_token(name: str) -> str:
-    """One enum/ring member or cluster field NAME in the §10 grammar: bare
-    when grammar-safe, else quoted + escaped (reusing ``_lvnet_literal_token``'s
-    string escaping) so a name carrying a delimiter round-trips."""
-    if name and name == name.strip() and not (_LVNET_NAME_UNSAFE & set(name)):
+    """One terminal / enum-member / cluster-field NAME in the lvnet grammar:
+    bare when grammar-safe (``_lvnet_name_is_safe_bare``), else quoted +
+    escaped (reusing ``_lvnet_literal_token``'s string escaping) so a name
+    carrying a column delimiter or an unbalanced quote/brace round-trips."""
+    if _lvnet_name_is_safe_bare(name):
         return name
     return _lvnet_literal_token(name)
 

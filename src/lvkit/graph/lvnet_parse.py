@@ -845,12 +845,15 @@ def _parse_terminal_block(
         line_no = cursor.line_no
         cursor.take()
         direction, rest = m.group(1), m.group(2)
-        sep_idx = rest.find(_LVNET_TYPE_SEP)
+        # Quote-aware ` : ` split: a terminal NAME may be quoted (a control
+        # named ``"Image Parameters : Image Type"``), so find the name/type
+        # separator OUTSIDE the quoted name, then unquote it.
+        sep_idx = _find_first_top_level(rest, _LVNET_TYPE_SEP)
         if sep_idx == -1:
             raise LvnetParseError(
                 f"line {line_no}: missing ' : <Type>' clause (§3): {line!r}"
             )
-        name = rest[:sep_idx].strip()
+        name = _unquote_name_token(rest[:sep_idx])
         tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
         if not name:
             raise LvnetParseError(f"line {line_no}: empty terminal name: {line!r}")
@@ -1424,13 +1427,16 @@ def _parse_dependency_interface(
         line_no = cursor.line_no
         cursor.take()
         direction, rest = m.group(1), m.group(2)
-        sep_idx = rest.find(_LVNET_TYPE_SEP)
+        # Quote-aware ` : ` split + unquote, same as the node/boundary terminal
+        # parsers: a dependency-interface terminal NAME may be quoted (a subVI
+        # control named ``"TestResult in (None: Create New)"``).
+        sep_idx = _find_first_top_level(rest, _LVNET_TYPE_SEP)
         if sep_idx == -1:
             raise LvnetParseError(
                 f"line {line_no}: missing ' : <Type>' clause in dependency "
                 f"interface line (§3/§7a): {line!r}"
             )
-        name = rest[:sep_idx].strip()
+        name = _unquote_name_token(rest[:sep_idx])
         type_str = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
         if not name:
             raise LvnetParseError(
@@ -1517,16 +1523,17 @@ def _parse_boundary_terminal_line(
             f"line, got {line!r}"
         )
     direction, rest = m.group(1), m.group(2)
-    # Split on the STRUCTURAL ``" : "`` (space-colon-space) token, never
-    # a bare ``":"``: a terminal's own authored name can itself contain
-    # a literal colon with no preceding space (a real corpus control
-    # named ``"txtRuns:"``), which a first-bare-":" split mis-splits.
-    sep_idx = rest.find(_LVNET_TYPE_SEP)
+    # Quote-aware ` : ` split: a terminal NAME that contains the structural
+    # ``" : "`` (a control named ``"Image Parameters : Image Type"``) is
+    # rendered QUOTED, so the name/type separator is the first ` : ` OUTSIDE
+    # the quoted name; then unquote it. (A name with a bare colon and no
+    # surrounding spaces -- ``"txtRuns:"`` -- never matched ` : ` anyway.)
+    sep_idx = _find_first_top_level(rest, _LVNET_TYPE_SEP)
     if sep_idx == -1:
         raise LvnetParseError(
             f"line {line_no}: missing ' : <Type>' clause (§3): {line!r}"
         )
-    name = rest[:sep_idx].strip()
+    name = _unquote_name_token(rest[:sep_idx])
     tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
     if not name:
         raise LvnetParseError(f"line {line_no}: empty terminal name: {line!r}")
