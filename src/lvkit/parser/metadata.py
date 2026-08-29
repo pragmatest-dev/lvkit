@@ -459,7 +459,16 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
         if not qual_name_strings:
             continue
 
-        qual_parts = [s.text for s in qual_name_strings if s.text]
+        # Strip each component: a LinkSaveQualName String can carry a spurious
+        # leading/trailing whitespace char from the binary (a real corpus case:
+        # a class-member name decoded as ``"\nToTable.vi"``), which a legitimate
+        # VI/class name never has -- left in, it corrupts the ``class:member``
+        # qualified identity and, downstream, splits a lvnet ``uses :`` line.
+        qual_parts = [
+            s.text.strip()
+            for s in qual_name_strings
+            if s.text and s.text.strip()
+        ]
         if not qual_parts:
             continue
         qualified_name = ":".join(qual_parts)
@@ -546,12 +555,15 @@ def parse_iuse_from_libd(libd_path: Path) -> dict[str, str]:
         p += 1
         if p + vi_len > record_end or not vi_len:
             continue
-        vi_name = decode_labview_text(data[p : p + vi_len])
+        # Strip a spurious leading/trailing whitespace char (a NEWLINE the
+        # binary sometimes carries into a decoded member name) -- never part of
+        # a real name, and left in it corrupts the ``class:member`` identity.
+        vi_name = decode_labview_text(data[p : p + vi_len]).strip()
 
         if not vi_name.endswith(".vi"):
             continue  # sanity check — skip malformed records
 
-        qualified = f"{class_name}:{vi_name}"
+        qualified = f"{class_name.strip()}:{vi_name}"
 
         # UID: the 4 bytes just before the second PTH0, preceded by \x00\x00\x00\x01
         window = data[m.end() : record_end]

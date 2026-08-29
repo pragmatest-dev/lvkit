@@ -1019,8 +1019,13 @@ def _resolve_qualified_name(
     if not strings:
         return None
 
-    # Strip control characters and XML entities from all strings
-    strings = [clean_labview_string(s) for s in strings]
+    # Strip control characters and XML entities from all strings, then strip
+    # leading/trailing whitespace: a LinkSaveQualName String can carry a
+    # spurious newline the binary left on a member name (a real corpus case:
+    # ``"\nToTable.vi"``), which corrupts the ``class:member`` qualified
+    # identity and, downstream, splits a lvnet ``uses :`` line across two
+    # physical lines.
+    strings = [clean_labview_string(s).strip() for s in strings]
     strings = [s for s in strings if s]  # Remove any that became empty
     if not strings:
         return None
