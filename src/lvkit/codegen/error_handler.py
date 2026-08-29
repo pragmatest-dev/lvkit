@@ -76,8 +76,8 @@ def classify_error_node(op: Operation) -> ErrorHandlingPattern:
     Checks the operation itself — not its downstream connections.
     This is a structural check based on node identity.
     """
-    # Merge Errors primitive (prim 2401)
-    if isinstance(op, PrimitiveOperation) and op.primResID == 2401:
+    # Merge Errors primitive (prim 2147; not 2401, which is Swap Values -- #59)
+    if isinstance(op, PrimitiveOperation) and op.primResID == 2147:
         return ErrorHandlingPattern.MERGE
 
     # Clear Errors VI
@@ -100,7 +100,7 @@ def needs_error_handling(
 ) -> bool:
     """Determine if a VI needs _held_error infrastructure.
 
-    Graph-driven: True only if Merge Errors (prim 2401) exists
+    Graph-driven: True only if Merge Errors (prim 2147) exists
     in the VI's operations. Clear Errors and error case structures
     don't need _held_error — they use different patterns.
     """

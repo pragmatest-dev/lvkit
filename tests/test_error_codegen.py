@@ -2,7 +2,7 @@
 
 Covers:
 - ErrorHandlingPattern classification
-- Merge Errors (prim 2401) produces empty fragment
+- Merge Errors (prim 2147) produces empty fragment
 - needs_error_handling() graph-driven detection
 - future.result() wrapping with held-error model
 - No wrapping when no error handling nodes present
@@ -94,8 +94,8 @@ def _make_terminal(
 class TestClassifyErrorNode:
     """classify_error_node identifies error handling patterns."""
 
-    def test_merge_errors_prim_2401(self):
-        op = _make_op("m", prim_res_id=2401, kind="primitive")
+    def test_merge_errors_prim_2147(self):
+        op = _make_op("m", prim_res_id=2147, kind="primitive")
         assert classify_error_node(op) == ErrorHandlingPattern.MERGE
 
     def test_clear_errors_subvi(self):
@@ -141,7 +141,7 @@ class TestNeedsErrorHandling:
     def test_merge_errors_returns_true(self):
         ops = [
             _make_op("a"),
-            _make_op("m", prim_res_id=2401, kind="primitive"),
+            _make_op("m", prim_res_id=2147, kind="primitive"),
         ]
         assert needs_error_handling(ops) is True
 
@@ -152,7 +152,7 @@ class TestNeedsErrorHandling:
 
     def test_merge_errors_in_case_frame(self):
         """Merge Errors nested in a case frame is detected."""
-        inner_op = _make_op("m", prim_res_id=2401, kind="primitive")
+        inner_op = _make_op("m", prim_res_id=2147, kind="primitive")
         frame = CaseFrame(
             selector_value="default",
             is_default=True,
@@ -163,7 +163,7 @@ class TestNeedsErrorHandling:
 
     def test_merge_errors_in_inner_nodes(self):
         """Merge Errors in inner_nodes is detected."""
-        inner_op = _make_op("m", prim_res_id=2401, kind="primitive")
+        inner_op = _make_op("m", prim_res_id=2147, kind="primitive")
         outer = _make_op("loop", inner_nodes=[inner_op])
         assert needs_error_handling([outer]) is True
 
@@ -174,13 +174,13 @@ class TestNeedsErrorHandling:
 
 
 class TestMergeErrorsNoOp:
-    """Merge Errors (prim 2401) produces no code."""
+    """Merge Errors (prim 2147) produces no code."""
 
     def test_merge_errors_empty_fragment(self):
         merge_op = _make_op(
             "m",
             name="Merge Errors",
-            prim_res_id=2401,
+            prim_res_id=2147,
             kind="primitive",
             node_type="prim",
         )
@@ -211,7 +211,7 @@ class TestFutureResultWrapping:
         ]
 
         if include_merge:
-            ops.append(_make_op("M", prim_res_id=2401, kind="primitive"))
+            ops.append(_make_op("M", prim_res_id=2147, kind="primitive"))
 
         return VIContext(
             name="test_vi",
@@ -243,7 +243,7 @@ class TestFutureResultWrapping:
         ops = [
             _make_op("A", name="op_a", terminals=[a_out]),
             _make_op("B", name="op_b", terminals=[b_out]),
-            _make_op("M", prim_res_id=2401, kind="primitive"),
+            _make_op("M", prim_res_id=2147, kind="primitive"),
         ]
 
         vi_ctx = VIContext(

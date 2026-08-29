@@ -14,23 +14,30 @@ from .ast_utils import parse_expr
 from .context import CodeGenContext
 
 # Mapping of primitive IDs to AST comparison operators
+#
+# (#59) 1107/1108/1100/1101/1109 were phantom IDs -- they exist in neither
+# nodes.json (a public LabVIEW VI Scripting export of every real primitive
+# style_id) nor primitives.json. The real ids, confirmed by both sources'
+# per-terminal output EXPRESSION text (not just a name guess): 1104's output
+# is "x <= y?" (Less Or Equal?), 1111's is "x < y?" (Less?), 1061's is
+# "x .and. y?" (And), 1062's is "x .or. y?" (Or), 1064's is ".not. x?" (Not).
 COMPARISON_PRIMITIVES: dict[int, type[ast.cmpop]] = {
     1102: ast.Eq,  # Equal?
     1103: ast.GtE,  # Greater Or Equal?
+    1104: ast.LtE,  # Less Or Equal?
     1105: ast.NotEq,  # Not Equal?
-    1107: ast.Lt,  # Less? (inferred)
-    1108: ast.LtE,  # Less Or Equal?
     1110: ast.Gt,  # Greater?
+    1111: ast.Lt,  # Less?
 }
 
 # Mapping of primitive IDs to AST boolean operators
 BOOLEAN_PRIMITIVES: dict[int, type[ast.boolop]] = {
-    1100: ast.And,  # And
-    1101: ast.Or,  # Or
+    1061: ast.And,  # And
+    1062: ast.Or,  # Or
 }
 
 # Not primitive for unary negation
-NOT_PRIMITIVES: set[int] = {1109}  # Not
+NOT_PRIMITIVES: set[int] = {1064}  # Not
 
 
 def build_condition_expr(
