@@ -123,12 +123,12 @@ class TestComparisonPrimitives:
             {"src_x": "value", "src_y": "threshold"},
         )
 
-        # Less? primitive (1107)
+        # Less? primitive (1111)
         cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Less?",
             kind="primitive",
-            primResID=1107,
+            primResID=1111,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
                 Terminal(id="cmp_in2", index=1, direction="input"),
@@ -153,12 +153,12 @@ class TestBooleanPrimitives:
             {"src_a": "flag_a", "src_b": "flag_b"},
         )
 
-        # And primitive (1100)
+        # And primitive (1061)
         and_op = PrimitiveOperation(
             id="and1",
             name="And",
             kind="primitive",
-            primResID=1100,
+            primResID=1061,
             terminals=[
                 Terminal(id="and_in1", index=0, direction="input"),
                 Terminal(id="and_in2", index=1, direction="input"),
@@ -179,12 +179,12 @@ class TestBooleanPrimitives:
             {"src_a": "done", "src_b": "timeout"},
         )
 
-        # Or primitive (1101)
+        # Or primitive (1062)
         or_op = PrimitiveOperation(
             id="or1",
             name="Or",
             kind="primitive",
-            primResID=1101,
+            primResID=1062,
             terminals=[
                 Terminal(id="or_in1", index=0, direction="input"),
                 Terminal(id="or_in2", index=1, direction="input"),
@@ -209,12 +209,12 @@ class TestNotPrimitive:
             {"src_x": "running"},
         )
 
-        # Not primitive (1109)
+        # Not primitive (1064)
         not_op = PrimitiveOperation(
             id="not1",
             name="Not",
             kind="primitive",
-            primResID=1109,
+            primResID=1064,
             terminals=[
                 Terminal(id="not_in", index=0, direction="input"),
                 Terminal(id="not_out", index=1, direction="output"),
@@ -277,12 +277,12 @@ class TestNestedExpressions:
             ],
         )
 
-        # Or (1101)
+        # Or (1062)
         or_op = PrimitiveOperation(
             id="or1",
             name="Or",
             kind="primitive",
-            primResID=1101,
+            primResID=1062,
             terminals=[
                 Terminal(id="or_in1", index=0, direction="input"),
                 Terminal(id="or_in2", index=1, direction="input"),
@@ -310,12 +310,12 @@ class TestNestedExpressions:
             {"src_x": "value", "src_y": "limit"},
         )
 
-        # Less? (1107)
+        # Less? (1111)
         cmp_op = PrimitiveOperation(
             id="cmp1",
             name="Less?",
             kind="primitive",
-            primResID=1107,
+            primResID=1111,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
                 Terminal(id="cmp_in2", index=1, direction="input"),
@@ -323,12 +323,12 @@ class TestNestedExpressions:
             ],
         )
 
-        # Not (1109)
+        # Not (1064)
         not_op = PrimitiveOperation(
             id="not1",
             name="Not",
             kind="primitive",
-            primResID=1109,
+            primResID=1064,
             terminals=[
                 Terminal(id="not_in", index=0, direction="input"),
                 Terminal(id="not_out", index=1, direction="output"),
@@ -473,16 +473,16 @@ class TestPrimitiveMappings:
         """Verify comparison primitive IDs map to correct AST operators."""
         assert COMPARISON_PRIMITIVES[1102] == ast.Eq
         assert COMPARISON_PRIMITIVES[1103] == ast.GtE
+        assert COMPARISON_PRIMITIVES[1104] == ast.LtE
         assert COMPARISON_PRIMITIVES[1105] == ast.NotEq
-        assert COMPARISON_PRIMITIVES[1107] == ast.Lt
-        assert COMPARISON_PRIMITIVES[1108] == ast.LtE
         assert COMPARISON_PRIMITIVES[1110] == ast.Gt
+        assert COMPARISON_PRIMITIVES[1111] == ast.Lt
 
     def test_boolean_primitives_mapping(self):
         """Verify boolean primitive IDs map to correct AST operators."""
-        assert BOOLEAN_PRIMITIVES[1100] == ast.And
-        assert BOOLEAN_PRIMITIVES[1101] == ast.Or
+        assert BOOLEAN_PRIMITIVES[1061] == ast.And
+        assert BOOLEAN_PRIMITIVES[1062] == ast.Or
 
     def test_not_primitives_set(self):
         """Verify NOT primitive ID is in the set."""
-        assert 1109 in NOT_PRIMITIVES
+        assert 1064 in NOT_PRIMITIVES
