@@ -148,26 +148,24 @@ def test_comparison_to_zero_block_verified_members():
 
 
 def test_1116_is_not_equal_to_zero():
-    """1116 was previously mislabeled 'Call Chain' / kept as a flagged
-    placeholder because its corpus feeders looked boolean/cluster, not
-    numeric. That finding was itself wrong: nodes.json's VI-Scripting export
-    (#59) gives 1116's real pane -- output terminal literally named 'x != 0?'
-    (Boolean) over a scalar double_float input 'x' -- confirming it as Not
-    Equal To 0?, one of the comparison-to-0 family alongside 1113/1114/1118
-    (see test_comparison_to_zero_block_verified_members). It was corrected
-    from the nodes.json ground truth, dropping the old placeholder along with
-    its now-superseded python_code -- codegen re-derivation is a separate
-    follow-on, so it resolves unverified with no python_code yet."""
+    """1116 is Not Equal To 0? -- confirmed by nodes.json's VI-Scripting export
+    (#59), whose pane names the output terminal literally 'x != 0?' (Boolean)
+    over a scalar 'x' input, and by the NI doc. Codegen (the follow-on the #59
+    correction deferred) is now filled in as `in_1 != 0`, matching the rest of
+    the comparison-to-0 family (1113/1114/1115/1117/1118, see
+    test_comparison_to_zero_block_verified_members). verified stays False: like
+    its complement 1117 (>0) it is not corpus-separable from >0 on non-negative
+    feeders, so the mapping is trusted from the export pane, not corpus-proven."""
     res = get_resolver()
     r = res.resolve(prim_id=1116)
     assert r is not None
     assert r.name == "Not Equal To 0?"
     assert r.confidence != "placeholder"
-    assert not r.python_code
+    assert r.python_code == {"result": "in_1 != 0"}
 
     entry = json.loads(PRIMS.read_text())["primitives"]["1116"]
     assert entry.get("verified") is False
-    assert "python_code" not in entry
+    assert entry["python_code"] == {"result": "in_1 != 0"}
     assert "placeholder" not in entry
 
 

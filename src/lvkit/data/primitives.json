@@ -1504,9 +1504,14 @@
           "type": "NumFloat64"
         }
       ],
+      "python_code": {
+        "result": "in_1 != 0"
+      },
+      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal-to-0.html",
+      "note": "Missing member of the compare-to-0 family (1113/1114/1115/1117/1118); operator fixed by the 'x != 0?' output name."
     },
     "1117": {
       "name": "Greater Than 0?",
@@ -11414,9 +11419,14 @@
           "type": "Array"
         }
       ],
+      "python_code": {
+        "call chain": "[]"
+      },
+      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-chain.html",
+      "note": "No headless analogue (runtime VI call chain); emits []. verified:false = approximation."
     },
     "2040": {
       "name": "Concatenate Strings",
