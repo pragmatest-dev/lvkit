@@ -628,7 +628,9 @@ class QueryMixin:
             if uid in self._graph
         ]
 
-    def get_operation_order(self, vi_name: str) -> list[str]:
+    def get_operation_order(
+        self, vi_name: str, extra_kinds: tuple[str, ...] = ()
+    ) -> list[str]:
         """Get top-level operations in dataflow execution order.
 
         Returns operation node IDs in the order they should execute
@@ -638,11 +640,25 @@ class QueryMixin:
         (inside structures like flat/stacked sequences, loops, cases) are
         handled by their parent structure's codegen — including them here
         creates cycles (structure ↔ child edges) that break topological sort.
+
+        ``extra_kinds`` widens the "real operation" gate (``_OPERATION_KINDS``)
+        for ONE call, without touching the shared constant every other caller
+        (codegen's ``get_operations``, this method's own default) relies on.
+        The ONLY current use is ``netlist_build._top_level_nodes_gn`` passing
+        ``("local_variable",)`` so a top-level local-variable read/write
+        (lvnet-only; codegen never sees it) participates in the SAME
+        dataflow-topological sort as every other node instead of being
+        dropped before ordering even starts.
         """
         vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
+
+        allowed_kinds = _OPERATION_KINDS if not extra_kinds else (
+            *_OPERATION_KINDS,
+            *extra_kinds,
+        )
 
         # Get top-level operation node IDs only
         op_ids: set[str] = set()
@@ -655,7 +671,7 @@ class QueryMixin:
             if gnode is None:
                 continue
             op_kind = _graph_node_to_op_kind(gnode)
-            if op_kind in _OPERATION_KINDS and gnode.parent is None:
+            if op_kind in allowed_kinds and gnode.parent is None:
                 op_ids.add(uid)
 
         if not op_ids:

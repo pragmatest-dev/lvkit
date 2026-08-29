@@ -230,13 +230,16 @@ parsing the handle.
 at any node is uniform (`propRef_1::Value`) and a downstream reader never has to
 special-case its source. Naming the wire and drawing the node's insides are
 separate problems: the handle solves the first for *all* kinds; the second is
-designed per kind. `property-node`, `invoke-node`, and `feedback-node` now have a
-designed rendering (rows below) — they emit like any other node. Still pending
-only their *special content* (handle + terminals still render): `formula-node`
-(the `script` body — needs the `script` field plumbed), `local`/`global-variable`
-(tap resolution to the control's net), `in-place-element` (the
-decompose↔recompose pairing). Those emit their handle + typed terminals with a
-`# TODO(lvnet): …` on the one undesigned part — never an invented form.
+designed per kind. `property-node`, `invoke-node`, `feedback-node`, and
+`local-variable` now have a designed rendering (rows below) — they emit like
+any other node (`local-variable`'s own shape is a single `read`/`write` line,
+not the generic handle+terminal-block form the others use). Still pending only
+their *special content* (handle + terminals still render): `formula-node` (the
+`script` body — needs the `script` field plumbed), `in-place-element` (the
+decompose↔recompose pairing), and `global-variable` (a separate Global-VI
+construct, not yet modeled at all — see §17). Those emit their handle + typed
+terminals with a `# TODO(lvnet): …` on the one undesigned part — never an
+invented form.
 
 | Node | keyword | rendering |
 |---|---|---|
@@ -246,7 +249,7 @@ decompose↔recompose pairing). Those emit their handle + typed terminals with a
 | Invoke Node | `invoke-node <handle> : <ObjectClass>.<Method>` | the method IS the node's identity, so it sits in the component; parameters render **by index** (`in  0 : <Type> = <net>`, `out 1 : <Type>`) because LabVIEW stores no param names in the VI (only the VI-server signature does). |
 | Feedback Node | `feedback-node <handle> (<N> iteration[s]) :` | a state **register** — no more-specific-type (like a shift register), so the `:` just opens its `init = <src>` (first iteration) / `each = <src>` (fed back next) block. The count — how many iterations back the value is handed — rides as a parenthetical **attribute**: `(1 iteration)` / `(3 iterations)`. **Not** `delay` (reads as time) or `z^-N` (DSP glyph). Handle is its `fbK` net; `(? iterations)` when the depth didn't parse (LabVIEW enforces ≥1). |
 | Constant | `constant` | `constant <handle> : <Type> = <value>` (handle `<name>_N`, e.g. `constant GUID_1 : String = "TC-001"`). A one-off literal stays inline on the terminal; a shared/named constant becomes a `constant` node referenced by net (`= GUID_1`). |
-| Local / Global Variable | `local-variable` / `global-variable` | **a terminal, not a node** — a tap on a control/indicator's named net. A **read = source**, a **write = sink**. |
+| Local Variable | `local-variable` | a TAP on a control/indicator's named net, not a computation — but it still gets its own handle (§9) since a read is a genuine producer. A **read** is a SOURCE: `local-variable <handle> : read`, with no component and no terminal block (the tapped control's own type is already spelled at its `front-panel :` row); a downstream reader references its value as `<handle>::<port>`, exactly like any other node-terminal net. A **write** is a SINK: `local-variable <handle> : write = <source>`, terminating its one driven source into the control — no output of its own. The netlist does not resolve which write a given read observes (stateful/runtime); reads and writes are independent access points linked only by tapping the same control. `global-variable` (a separate Global-VI construct) is not yet modeled — OPEN, §17. |
 | Control / Indicator (internal) | `control` / `indicator` | a front-panel control/indicator **not** on the connector pane → a body node. `control` = source, `indicator` = sink. |
 | Formula Node | `formula-node` | C-like text body; the `script` is lossless-required. *(rendering: OPEN)* |
 | Free label / comment | `comment` | non-executing text. |
@@ -480,8 +483,9 @@ design; an agent needing full understanding uses netlist/JSON.
   the `wiring_rule` nuance at call sites; class-context fields/methods;
   property/invoke detail; `poly_variant_name`; `primResID` as data;
   disable-structure `kind`; `displayed_frame`/`active_frame`/`case_insensitive`;
-  Event Filter-vs-Data; local-var `is_write`/`control_terminal_id`;
-  `VIContext.description`.
+  Event Filter-vs-Data; `VIContext.description`. (A local variable's
+  `is_write` is NOT verbose-only — it decides the `read`/`write` keyword
+  itself, §7, present in every mode.)
 
 Terse is a *documented reduction* of the proven-lossless verbose, never its own
 thing. The exact per-construct terse reduction is otherwise **OPEN**.
@@ -691,8 +695,9 @@ in   GUID : String = GUID_1
    plain String constant/default's own text); a cluster/array/enum/path
    constant's field-value syntax remains OPEN.
 6. **Concrete line syntax** — DESIGNED for property-node / invoke-node /
-   feedback-node (§7). Still open: in-place-element decompose↔recompose pairing,
-   and formula-node script rendering (needs the `script` field plumbed).
+   feedback-node / local-variable (§7). Still open: in-place-element
+   decompose↔recompose pairing, and formula-node script rendering (needs the
+   `script` field plumbed).
 7. **Not-yet-modeled constructs** — `timed-loop`, `global-variable`, Shared
    Variable, Call By Reference, MathScript (proposed keywords, unverified).
 8. **lvnet text diff gutter** (`+`/`-`/`~`) — the diff was designed as a tree.

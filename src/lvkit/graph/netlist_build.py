@@ -1857,20 +1857,37 @@ def _is_ipes_border_node_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
     return (has_list_out and not has_list_in) or (has_list_in and not has_list_out)
 
 
+# The graph-native netlist builder's OWN "real node" gate -- ``_OPERATION_
+# KINDS`` (core.py, shared with codegen/``get_operations``) PLUS
+# ``"local_variable"``. A local-variable read/write is a genuine lvnet §7
+# node (a distinct producer/sink the netlist must name), but it is NOT a
+# codegen "operation" (codegen still resolves it however it already does,
+# untouched) -- so this widening lives here, netlist-build-local, rather than
+# in the shared ``_OPERATION_KINDS`` constant every other consumer
+# (``operations.py``'s ``get_operations``/``_build_inner_nodes``,
+# ``analysis.py``, ``queries.py``'s own top-level scan) relies on. Used by
+# ``_owning_node_gn`` (a local-variable node becomes a resolvable WIRE-SOURCE
+# owner, so a downstream reader's ``NetRef`` points at the read node itself --
+# never hops through to the tapped control) and ``_resolve_op_nodes_gn`` (a
+# local-variable node participates in body/top-level enumeration like any
+# other leaf instance).
+_GRAPH_NETLIST_NODE_KINDS = (*_OPERATION_KINDS, "local_variable")
+
+
 def _owning_node_gn(
     graph: InMemoryVIGraph, node_id: str, vi_name: str
 ) -> AnyGraphNode | None:
     """The graph-node analogue of ``_BuildCtx.owner_by_terminal`` -- given a
     wire endpoint's OWN carried ``node_id`` (``WireEnd.node_id``, set at
     construction time), resolve the owning ``GraphNode`` directly, gated to
-    the same set of "real operation" node kinds ``index_terminal_owners``'s
-    Operation-tree walk would have covered (``_OPERATION_KINDS`` --excludes
-    constants/labels/local variables), explicitly excluding the VI's OWN
-    definition node (``node_id == vi_name``: that node's own terminals are
-    the VI's boundary controls, which ``get_operations``/``index_
-    terminal_owners`` never include in the op tree either -- ``ctx.inputs``
-    is the separate boundary-control check the caller falls through to), and
-    excluding an IPES decompose/recompose border node (see
+    the graph-native netlist builder's "real node" kinds
+    (``_GRAPH_NETLIST_NODE_KINDS`` -- ``_OPERATION_KINDS`` plus
+    ``local_variable``; excludes constants/labels), explicitly excluding the
+    VI's OWN definition node (``node_id == vi_name``: that node's own
+    terminals are the VI's boundary controls, which ``get_operations``/
+    ``index_terminal_owners`` never include in the op tree either --
+    ``ctx.inputs`` is the separate boundary-control check the caller falls
+    through to), and excluding an IPES decompose/recompose border node (see
     ``_is_ipes_border_node_gn`` -- ``index_terminal_owners`` never reaches
     those either).
     """
@@ -1879,7 +1896,7 @@ def _owning_node_gn(
     node = graph.get_graph_node(node_id)
     if node is None:
         return None
-    if _graph_node_to_op_kind(node) not in _OPERATION_KINDS:
+    if _graph_node_to_op_kind(node) not in _GRAPH_NETLIST_NODE_KINDS:
         return None
     if _is_ipes_border_node_gn(graph, node):
         return None
@@ -2324,16 +2341,19 @@ def _build_feedback_gn(
 
 
 def _resolve_op_nodes_gn(graph: InMemoryVIGraph, uids: list[str]) -> list[AnyGraphNode]:
-    """Resolve ``uids`` to typed graph nodes, keeping only "real operation"
-    kinds (``_OPERATION_KINDS`` -- excludes constants/labels/local
-    variables), in the given order. The graph-node analogue of the
-    ``op_kind in _OPERATION_KINDS`` filter ``_build_inner_nodes``/
+    """Resolve ``uids`` to typed graph nodes, keeping only the graph-native
+    netlist builder's "real node" kinds (``_GRAPH_NETLIST_NODE_KINDS`` --
+    excludes constants/labels), in the given order. The graph-node analogue
+    of the ``op_kind in _OPERATION_KINDS`` filter ``_build_inner_nodes``/
     ``get_operations``/``get_operation_order`` apply before constructing an
-    ``Operation`` for a uid."""
+    ``Operation`` for a uid, widened here (netlist-only) to also keep a
+    local-variable node."""
     nodes: list[AnyGraphNode] = []
     for uid in uids:
         node = graph.get_graph_node(uid)
-        if node is not None and _graph_node_to_op_kind(node) in _OPERATION_KINDS:
+        if node is not None and (
+            _graph_node_to_op_kind(node) in _GRAPH_NETLIST_NODE_KINDS
+        ):
             nodes.append(node)
     return nodes
 
@@ -2344,8 +2364,15 @@ def _top_level_nodes_gn(graph: InMemoryVIGraph, vi_name: str) -> list[AnyGraphNo
     ``_node_order_key``-tie-broken sort ``get_operations`` (which builds
     ``ctx.operations``) itself sorts by; this reuses it directly rather than
     re-deriving the order (a pure graph-level function already, no
-    ``Operation`` involved)."""
-    return _resolve_op_nodes_gn(graph, graph.get_operation_order(vi_name))
+    ``Operation`` involved). ``extra_kinds=("local_variable",)`` widens ONLY
+    this call's own top-level scan -- ``get_operations``/codegen's default
+    call keeps seeing none, so a top-level local-variable read/write joins
+    the SAME dataflow-topological sort as every other node (a read orders
+    before its consumer via the real wire edge between them) instead of
+    being dropped before ordering even starts."""
+    return _resolve_op_nodes_gn(
+        graph, graph.get_operation_order(vi_name, extra_kinds=("local_variable",))
+    )
 
 
 def _body_nodes_gn(
@@ -2928,8 +2955,9 @@ def _build_items_gn(
     """The graph-node analogue of ``_build_items``.
 
     ``owner_children`` is this SAME scope's raw (unfiltered-by-kind) child
-    uid list -- ``nodes`` has already been filtered to ``_OPERATION_KINDS``
-    (see ``_resolve_op_nodes_gn``), which drops a ``ConstantNode`` entirely,
+    uid list -- ``nodes`` has already been filtered to
+    ``_GRAPH_NETLIST_NODE_KINDS`` (see ``_resolve_op_nodes_gn``), which drops
+    a ``ConstantNode`` entirely,
     so a Phase A labeled constant (lvnet §7) can only be found from the RAW
     list. Every labeled constant among ``owner_children`` is placed FIRST
     (see ``_labeled_constant_items_gn``); callers with no meaningful raw

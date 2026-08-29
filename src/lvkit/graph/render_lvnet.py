@@ -31,7 +31,6 @@ from .interface_order import WiringRequirement
 from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
-    _LOCAL_VARIABLE_TODO,
     _LVNET_ANNOTATION_SEP,
     _LVNET_BLOCK_OPEN,
     _LVNET_CLUSTER_OPEN,
@@ -663,9 +662,9 @@ class _LvnetHandles:
     (``NetRef.constant_uid``) and, Phase 3, a node-terminal reference
     (``NetRef.producer_uid``) -- the SAME id, see ``NetlistConstant``'s and
     ``NetRef.producer_uid``'s docstrings. A ``constant_uid``/``producer_uid``
-    NOT present here is either a one-off/unlabeled constant (rendered as its
-    inlined literal instead, see ``_render_lvnet_source``) or a Local/Global
-    Variable's own producer (excluded from this map -- see
+    NOT present here is a one-off/unlabeled constant, rendered as its
+    inlined literal instead (see ``_render_lvnet_source``) -- every
+    PRODUCING node, including a local-variable READ, gets an entry (see
     ``_collect_lvnet_handle_targets``).
     """
 
@@ -680,9 +679,12 @@ def _collect_lvnet_handle_targets(items: list[NetlistItem]) -> list[tuple[str, s
     unlike the old positional ``_N`` counter this needs no VI-wide grouping
     or visitation order to stay collision-free. §7 (revised): "Every
     producing node gets a handle, CLOSED or OPEN" -- so every
-    ``NetlistInstanceKind`` gets one here EXCEPT ``LOCAL_VARIABLE`` (§7 keeps
-    that one "a terminal, not a node", tap-resolution still undesigned, so it
-    never declares itself at all -- see ``_render_lvnet_instance``). A
+    ``NetlistInstanceKind`` gets one here, ``LOCAL_VARIABLE`` included: a
+    local-variable READ is a genuine producer (its tapped control's current
+    value flows out onto a net a downstream node references as
+    ``<handle>::<port>``, see ``_render_lvnet_local_variable``) -- a WRITE
+    (no output terminal) still gets a handle entry here too, harmlessly
+    unused since nothing ever references a write's own net. A
     ``NetlistFeedback`` is NOT collected here: its handle IS its own ``net``
     string (already a globally-unique ``fbK``, assigned elsewhere) -- see
     ``_render_lvnet_items``'s own ``NetlistFeedback`` case, which needs no
@@ -692,8 +694,7 @@ def _collect_lvnet_handle_targets(items: list[NetlistItem]) -> list[tuple[str, s
     for item in items:
         match item:
             case NetlistInstance():
-                if item.kind != NetlistInstanceKind.LOCAL_VARIABLE:
-                    found.append((item.uid, _lvnet_handle_base(item.name)))
+                found.append((item.uid, _lvnet_handle_base(item.name)))
             case NetlistConstant():
                 found.append((item.uid, _lvnet_handle_base(item.name)))
             case NetlistScope():
@@ -775,14 +776,15 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
         )
         if handle is not None:
             return f"{handle}{_LVNET_TERMINAL_SEP}{source.terminal}"
-        # The producer is a Local/Global Variable's own control/indicator --
-        # the ONE instance kind still excluded from the handle map (§7: "a
-        # terminal, not a node"; its tap-resolution-to-the-control's-net is
-        # still undesigned, §17 item 6), so there is no designed identity to
-        # reuse here. Falling back to the raw display name (with the SAME
-        # ``::`` terminal separator lvnet §9 mandates) keeps the render from
-        # crashing without fabricating a handle scheme the spec never
-        # designed for this one remaining kind -- flagged as an OPEN gap.
+        # A genuinely unresolved producer -- ``_resolve_source_gn`` fell all
+        # the way through to its raw structural fallback (the wire's own
+        # carried ``name``/``index``, no owning graph node found at all), so
+        # there is no designed handle to reuse here (every KNOWN producer
+        # kind, local-variable included, now resolves via ``producer_uid``
+        # above). Falling back to the raw display name (with the SAME ``::``
+        # terminal separator lvnet §9 mandates) keeps the render from
+        # crashing without fabricating a handle scheme for a node this
+        # module never identified.
         return f"{source.node}{_LVNET_TERMINAL_SEP}{source.terminal}"
     # An inlined (unlabeled) constant's literal value: ``lvnet_value`` is
     # the lvnet-escaped text (md §4/§10) -- ``_lvnet_net_separator`` is a
@@ -831,9 +833,11 @@ def _render_lvnet_instance(
     handles: _LvnetHandles,
 ) -> None:
     """One ``<keyword> <handle> : <component>`` node (§3/§7) -- EVERY
-    instance kind except Local/Global Variable, which stays a bare
-    keyword + placeholder (``_LOCAL_VARIABLE_TODO``): §7 keeps that one "a
-    terminal, not a node", so it never declares itself or gets a handle.
+    instance kind except Local/Global Variable, which renders its own
+    dedicated ``read``/``write`` tap shape instead (see
+    ``_render_lvnet_local_variable``): it has no ``<component>`` identity of
+    its own (the tapped control's ``front-panel :`` row already names its
+    type) and no terminal block.
 
     ``<handle>`` (left of ``:``) is OUR label -- looked up in
     ``handles.by_uid``, built once for the whole module by
@@ -856,8 +860,7 @@ def _render_lvnet_instance(
     undesigned part (``_OPEN_INSTANCE_TRAILING_TODO``) -- never more.
     """
     if instance.kind == NetlistInstanceKind.LOCAL_VARIABLE:
-        lines.append(f"{indent}{instance.kind.value}")
-        lines.append(f"{indent + _LVNET_INDENT}# TODO(lvnet): {_LOCAL_VARIABLE_TODO}")
+        _render_lvnet_local_variable(instance, indent, lines, handles)
         return
 
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
@@ -892,6 +895,49 @@ def _render_lvnet_instance(
     trailing_todo = _OPEN_INSTANCE_TRAILING_TODO.get(instance.kind)
     if trailing_todo is not None:
         lines.append(f"{indent + _LVNET_INDENT}# TODO(lvnet): {trailing_todo}")
+
+
+def _render_lvnet_local_variable(
+    instance: NetlistInstance,
+    indent: str,
+    lines: list[str],
+    handles: _LvnetHandles,
+) -> None:
+    """``local-variable <handle> : read`` / ``local-variable <handle> :
+    write = <source>`` (§7, now designed) -- a TAP on a front-panel
+    control/indicator's own net, not a computation: a **read** is a SOURCE
+    (the control's current value flows OUT; a downstream node references it
+    as ``<handle>::<port>``, resolved the SAME way as any other node-terminal
+    reference -- see ``_render_lvnet_source``'s ``producer_uid`` branch), a
+    **write** is a SINK (terminates its one driven source INTO the control,
+    no output of its own). The netlist does not resolve which write a given
+    read observes (that is stateful/runtime) -- reads and writes are
+    independent access points linked only by tapping the same control.
+
+    ``instance.inputs``/``.outputs`` already encode which shape this is (a
+    ``LocalVariableNode`` always carries exactly one terminal -- see
+    ``graph/builders/refs.py`` -- so the two never coexist): non-empty
+    ``inputs`` is a write, empty is a read (including a DEAD read, consumed
+    by nobody -- it still declares itself, per lvnet's "every producing node
+    gets a handle" rule). Neither shape shows a component or a terminal
+    block: the tapped control's own type is already spelled at its
+    ``front-panel :`` declaration (resolved there by name), so repeating it
+    here would be redundant.
+    """
+    handle = handles.by_uid[instance.uid]
+    if instance.inputs:
+        binding = instance.inputs[0]
+        if binding.net is not None:
+            source_str = _render_lvnet_source(binding.net, handles)
+        else:
+            assert binding.default is not None
+            source_str = _lvnet_default_token(binding.default)
+        lines.append(
+            f"{indent}{instance.kind.value} {handle}{_LVNET_TYPE_SEP}write"
+            f"{_LVNET_DRIVER_OP}{source_str}"
+        )
+        return
+    lines.append(f"{indent}{instance.kind.value} {handle}{_LVNET_TYPE_SEP}read")
 
 
 def _render_lvnet_constant(

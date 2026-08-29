@@ -80,6 +80,7 @@ from .render_lvnet import (
     _lv_type_comparison_shape,
     _lvnet_ambiguous_named_types,
     _lvnet_component,
+    _lvnet_default_token,
     _lvnet_default_trailing,
     _lvnet_literal_token,
     _lvnet_net_separator,
@@ -488,17 +489,17 @@ class ParsedTerminalLine:
 @dataclass(frozen=True)
 class ParsedNode:
     """One node declaration (§7): ``<kind> <handle> : <component>`` plus its
-    terminal block -- OR, for ``local-variable`` (§7's one still-fully-
-    deferred kind), a bare keyword with no handle/component at all.
+    terminal block. ``local-variable`` is NOT one of these -- its ``read``/
+    ``write`` shape carries no component and no terminal block, so it parses
+    to its own ``ParsedLocalVariable`` instead (see there).
 
     ``has_todo`` is whether a trailing ``# TODO(lvnet): ...`` line followed
-    the terminal block (expected for ``in-place-element``/``formula-node``/
-    ``local-variable``; unexpected for anything else -- ``netlist_signature``
-    comparison catches a mismatch here, this dataclass just records the
-    plain fact).
+    the terminal block (expected for ``in-place-element``/``formula-node``;
+    unexpected for anything else -- ``netlist_signature`` comparison catches
+    a mismatch here, this dataclass just records the plain fact).
     """
 
-    kind: str  # the §7 header keyword, e.g. "subVI", "function", "local-variable"
+    kind: str  # the §7 header keyword, e.g. "subVI", "function"
     handle: str | None
     component: str | None
     terminals: tuple[ParsedTerminalLine, ...] = ()
@@ -513,6 +514,19 @@ class ParsedConstant:
     handle: str
     type: str
     value: str
+
+
+@dataclass(frozen=True)
+class ParsedLocalVariable:
+    """``local-variable <handle> : read`` (a SOURCE) or ``local-variable
+    <handle> : write = <source>`` (a SINK) -- §7, now designed. A single
+    line, no component and no terminal block (the tapped control's own type
+    is already spelled at its ``front-panel :`` row, resolved there by
+    name -- repeating it here would be redundant)."""
+
+    handle: str
+    is_write: bool
+    source: str | None = None  # write only; None for a read
 
 
 @dataclass(frozen=True)
@@ -594,7 +608,9 @@ class ParsedScope:
     tunnels: tuple[ParsedTunnel, ...] = ()  # loop only
 
 
-ParsedBodyItem = ParsedNode | ParsedScope | ParsedFeedback | ParsedConstant
+ParsedBodyItem = (
+    ParsedNode | ParsedScope | ParsedFeedback | ParsedConstant | ParsedLocalVariable
+)
 
 
 @dataclass(frozen=True)
@@ -813,20 +829,40 @@ def _parse_node(
     )
 
 
-def _finish_local_variable(cursor: _Cursor, indent: int, line_no: int) -> ParsedNode:
-    todo_indent = indent + _LVNET_INDENT_WIDTH
-    line = cursor.peek()
-    if (
-        line is None
-        or _indent_len(line) != todo_indent
-        or not line[todo_indent:].startswith("# TODO(lvnet):")
-    ):
+def _parse_local_variable(content: str, line_no: int) -> ParsedLocalVariable:
+    """``local-variable <handle> : read`` / ``local-variable <handle> :
+    write = <source>`` (§7, now designed) -- a single line, no cursor
+    consumption (unlike ``_parse_node``, there is no following terminal
+    block to read)."""
+    rest = content[len("local-variable ") :]
+    sep_idx = rest.find(_LVNET_TYPE_SEP)
+    if sep_idx == -1:
         raise LvnetParseError(
-            f"line {line_no}: 'local-variable' must be followed by a "
-            f"'# TODO(lvnet): ...' placeholder line (§7)"
+            f"line {line_no}: local-variable declaration missing "
+            f"' : read'/' : write = <source>' (§7): {content!r}"
         )
-    cursor.take()
-    return ParsedNode(kind="local-variable", handle=None, component=None, has_todo=True)
+    handle = rest[:sep_idx]
+    tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
+    if not handle or " " in handle:
+        raise LvnetParseError(
+            f"line {line_no}: local-variable handle must be a single "
+            f"space-free token (§7/§9): {content!r}"
+        )
+    if tail == "read":
+        return ParsedLocalVariable(handle=handle, is_write=False)
+    write_prefix = f"write{_LVNET_DRIVER_OP}"
+    if not tail.startswith(write_prefix):
+        raise LvnetParseError(
+            f"line {line_no}: local-variable must be ' : read' or "
+            f"' : write = <source>' (§7): {content!r}"
+        )
+    source = tail[len(write_prefix) :]
+    if not source:
+        raise LvnetParseError(
+            f"line {line_no}: local-variable write has an empty source: "
+            f"{content!r}"
+        )
+    return ParsedLocalVariable(handle=handle, is_write=True, source=source)
 
 
 def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
@@ -1088,8 +1124,8 @@ def _parse_event_scope(
 def _parse_one_item_or_drive(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedBodyItem | ParsedDrive:
-    if content == "local-variable":
-        return _finish_local_variable(cursor, indent, line_no)
+    if content.startswith("local-variable "):
+        return _parse_local_variable(content, line_no)
     if content.startswith("constant "):
         return _parse_constant_line(content, line_no)
     if content.startswith("feedback-node "):
@@ -1827,7 +1863,20 @@ def _module_instance_signature(
     instance: NetlistInstance, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
     if instance.kind == NetlistInstanceKind.LOCAL_VARIABLE:
-        return ("node", "local-variable", None, None, (), True)
+        # Matches ``_parsed_item_signature``'s ``ParsedLocalVariable`` branch
+        # exactly -- see ``_render_lvnet_local_variable`` for the shape this
+        # mirrors (a write's single input's ``net``/``default``, a read's
+        # empty ``inputs``).
+        handle = handles.by_uid[instance.uid]
+        if instance.inputs:
+            binding = instance.inputs[0]
+            if binding.net is not None:
+                source_str = _render_lvnet_source(binding.net, handles)
+            else:
+                assert binding.default is not None
+                source_str = _lvnet_default_token(binding.default)
+            return ("local-variable", handle, "write", source_str)
+        return ("local-variable", handle, "read")
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
     handle = handles.by_uid[instance.uid]
     component = _lvnet_component(instance)
@@ -2041,6 +2090,12 @@ def _parsed_item_signature(
     ``_iter_lv_types_in_items``'s docstring)."""
     if isinstance(item, ParsedConstant):
         return ("constant", item.handle, item.type, item.value)
+    if isinstance(item, ParsedLocalVariable):
+        # Matches ``_module_instance_signature``'s ``NetlistInstanceKind.
+        # LOCAL_VARIABLE`` branch exactly.
+        if item.is_write:
+            return ("local-variable", item.handle, "write", item.source)
+        return ("local-variable", item.handle, "read")
     if isinstance(item, ParsedFeedback):
         return ("feedback", item.net, item.attribute, item.init, item.each)
     if isinstance(item, ParsedScope):

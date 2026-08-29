@@ -110,19 +110,21 @@ _LVNET_TYPE_CAP = 40
 # never match.
 _LVNET_STRUCTURE_NET_RE = re.compile(r"^((?:case|loop)_\d+)\.(.+)$")
 
-# §7 (revised): the ONE instance kind that never declares itself at all --
-# "a terminal, not a node" -- its tap-resolution to the control's own net is
-# still undesigned (§17 item 6). Every other kind now gets a full
-# ``<keyword> <handle> : <component>`` declaration (see
-# ``_LVNET_INSTANCE_KEYWORDS``/``_lvnet_component`` below).
-_LOCAL_VARIABLE_TODO = (
-    "local/global-variable net-tap rendering (md §7 describes the "
-    "principle -- 'a terminal, not a node' -- but the tap-resolution "
-    "mechanism is still undesigned; see the implementation report)"
-)
+# ``LOCAL_VARIABLE`` (now designed, §7 revised again): a read/write TAP on a
+# control's own net, not a generic `<keyword> <handle> : <component>` +
+# terminal-block declaration -- it carries no component identity of its own
+# (the tapped control's own `front-panel :` row already names the type) and
+# no terminal block (a read's single output/a write's single input is spelled
+# inline: `local-variable <handle> : read` / `local-variable <handle> :
+# write = <source>`). Rendered by its own dedicated branch in
+# ``_render_lvnet_instance`` -- kept OUT of ``_LVNET_INSTANCE_KEYWORDS`` below
+# for the same reason ``feedback-node`` is: its shape doesn't fit the generic
+# dict-lookup + terminal-block path.
 
-# The §7 header keyword for every instance kind that DOES declare itself
-# (everything except ``LOCAL_VARIABLE``, handled separately above).
+# The §7 header keyword for every instance kind that DOES declare itself via
+# the generic ``<keyword> <handle> : <component>`` + terminal-block form
+# (everything except ``LOCAL_VARIABLE``, handled separately above, and
+# ``NetlistFeedback`` -- not a ``NetlistInstanceKind`` at all).
 _LVNET_INSTANCE_KEYWORDS: dict[NetlistInstanceKind, str] = {
     NetlistInstanceKind.SUBVI: "subVI",
     NetlistInstanceKind.FUNCTION: "function",

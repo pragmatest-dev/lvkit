@@ -389,12 +389,10 @@ def test_verbose_requirement_keyword_required_and_optional() -> None:
 
 
 # ============================================================
-# OPEN-invariant (md §7, revised): property-node/invoke-node/feedback-node
-# are now FULLY designed -- handle + component + terminals, NEVER a TODO.
-# in-place-element/formula-node render the same handle+terminal block but
+# OPEN-invariant (md §7, revised): property-node/invoke-node/feedback-node/
+# local-variable are now FULLY designed -- never a TODO.
+# in-place-element/formula-node render a handle+terminal block but
 # still end with exactly one TODO for their one undesigned part.
-# local-variable (Local/Global Variable) is the ONE kind still fully
-# deferred: a bare keyword line, no handle, immediately followed by a TODO.
 # No construct anywhere may emit invented syntax beyond this.
 # ============================================================
 
@@ -414,6 +412,11 @@ _FULLY_DESIGNED_KEYWORDS = ("property-node", "invoke-node", "feedback-node")
 # form, but whose own block still ends with exactly one trailing TODO for
 # the one part §17 item 6 leaves undesigned.
 _STILL_OPEN_KEYWORDS = ("in-place-element", "formula-node")
+# local-variable is fully designed too (§7, revised again), but its shape is
+# neither of the two above: a single line, no component, no terminal block --
+# `local-variable <handle> : read` (a source) or `local-variable <handle> :
+# write = <source>` (a sink). Counted/validated in its own branch below.
+_LOCAL_VARIABLE_KEYWORD = "local-variable"
 
 
 def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
@@ -422,9 +425,10 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
     (0 for one not exercised by this particular VI) so callers can assert
     coverage where they expect it.
 
-    - ``local-variable`` (Local/Global Variable) is STILL fully deferred:
-      a BARE keyword line (no handle, no component) immediately followed by
-      exactly one ``# TODO(lvnet): ...`` line -- never anything else.
+    - ``local-variable`` is fully designed: a single ``local-variable
+      <handle> : read`` (a source) or ``local-variable <handle> :
+      write = <source>`` (a sink) line -- no component, no terminal block, no
+      TODO ever.
     - ``property-node``/``invoke-node`` are now fully designed: their header
       carries `` : <more-specific-type>`` (the object class [+ method]) and is
       never immediately followed by a TODO.
@@ -441,20 +445,33 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
     lines = text.splitlines()
     counts = {
         k: 0
-        for k in ("local-variable", *_FULLY_DESIGNED_KEYWORDS, *_STILL_OPEN_KEYWORDS)
+        for k in (
+            _LOCAL_VARIABLE_KEYWORD,
+            *_FULLY_DESIGNED_KEYWORDS,
+            *_STILL_OPEN_KEYWORDS,
+        )
     }
 
     for i, line in enumerate(lines):
         stripped = line.strip()
 
-        if stripped == "local-variable":
-            counts["local-variable"] += 1
-            assert i + 1 < len(lines), "local-variable has no following line"
-            next_line = lines[i + 1].strip()
-            assert next_line.startswith("# TODO(lvnet):"), (
-                f"local-variable must be followed by a TODO placeholder, "
-                f"got {next_line!r}"
+        if stripped.startswith(_LOCAL_VARIABLE_KEYWORD + " "):
+            counts[_LOCAL_VARIABLE_KEYWORD] += 1
+            assert " : " in stripped, (
+                f"local-variable declaration missing its ' : read'/"
+                f"' : write = <source>' clause: {stripped!r}"
             )
+            _, _, tail = stripped.partition(" : ")
+            assert tail == "read" or tail.startswith("write = "), (
+                f"local-variable must be ' : read' or ' : write = <source>' "
+                f"(md §7), got {stripped!r}"
+            )
+            if i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
+                assert not next_line.startswith("# TODO(lvnet):"), (
+                    f"local-variable is fully designed (md §7) -- must not "
+                    f"emit a TODO, got {next_line!r}"
+                )
             continue
 
         for kw in _FULLY_DESIGNED_KEYWORDS:
@@ -566,6 +583,58 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     assert lines[idx].strip() == "feedback-node fb0 (1 iteration) :"
     assert lines[idx + 1].strip() == "init = 0.0"
     assert lines[idx + 2].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
+
+
+@pytest.mark.needs_samples
+def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
+    """``WaveGen.vi`` has exactly 8 local-variable (gRef) nodes -- 4 WRITEs
+    into ``Params`` (each ``local-variable <handle> : write = <source>``), 2
+    READs consumed elsewhere (a case selector, a Bundle/Unbundle By Name
+    input), and 2 dead READs (``local-variable <handle> : read``, never
+    referenced by anything). Locks in the fix for the bug where a read was
+    ALIASED THROUGH to the tapped control's bare name (losing the read
+    node's own identity) and a write was DROPPED entirely (see
+    ``_GRAPH_NETLIST_NODE_KINDS``/``_owning_node_gn`` in ``netlist_build.py``
+    and ``_render_lvnet_local_variable`` in ``render_lvnet.py``)."""
+    if not _FEEDBACK_VI.exists():
+        pytest.skip("lv-flex-channel-examples sample corpus not present")
+    graph = InMemoryVIGraph()
+    graph.load_vi(
+        str(_FEEDBACK_VI),
+        LoadMode.MINIMAL,
+        search_paths=[_FEEDBACK_SEARCH_ROOT],
+        layout=False,
+    )
+    vi_name = graph.resolve_vi_name(_FEEDBACK_VI.name)
+    module = build_netlist_from_graph(graph, vi_name)
+    text = render_lvnet(module)
+    counts = _assert_no_invented_open_syntax(text)
+    assert counts["local-variable"] == 8, (
+        f"expected exactly 8 local-variable nodes, got {counts['local-variable']}"
+    )
+
+    stripped_lines = [ln.strip() for ln in text.splitlines()]
+    for expected in (
+        'local-variable Params_1974 : write = "False"',
+        'local-variable Params_1728 : write = "False"',
+        'local-variable Params_2013 : write = "False"',
+        'local-variable Params_2003 : write = "False"',
+        "local-variable Params_1480 : read",
+        "local-variable Continuous_1109 : read",
+        "local-variable Params_1402 : read",
+        "local-variable Continuous_1066 : read",
+    ):
+        assert expected in stripped_lines, f"missing {expected!r}"
+
+    # The case selector reads a resolved reference to the LOCAL-VARIABLE
+    # read node's own output, never the raw "Params" control -- the alias
+    # bug this closes.
+    assert "case Params_1480::Params :" in stripped_lines
+    # The Bundle/Unbundle By Name input likewise resolves through the
+    # Continuous read node, never the bare "Continuous" boundary terminal.
+    assert any(
+        ln.endswith("Continuous_1109::Continuous") for ln in stripped_lines
+    ), "Bundle/Unbundle By Name input should resolve through the local-variable read"
 
 
 def test_in_place_element_and_formula_node_synthetic_block_invariant() -> None:

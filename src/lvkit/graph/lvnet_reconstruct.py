@@ -12,12 +12,13 @@ This is a stronger proof than ``lvnet_parse.netlist_signature`` equality
 (the existing round-trip gate): it proves the verbose text is enough to
 rebuild a full, RENDER-EQUIVALENT model, not just a model whose comparable
 projection matches. Fields ``render_lvnet`` never reads (a scope's
-``NetlistFeedback.uid``, a local-variable instance's own ``uid``, ...) do
-NOT need to match the original model -- this module is free to invent any
-value for those. Phase 3 changes this for the fields that DO drive the
-text: ``NetlistInstance.uid``/``NetlistConstant.uid``/``NetlistScope.uid``
-are now recovered FROM the handle/net text (the node's real BD uid), not
-minted fresh -- see "Handles" below.
+``NetlistFeedback.uid``, ...) do NOT need to match the original model --
+this module is free to invent any value for those. Phase 3 changes this for
+the fields that DO drive the text: ``NetlistInstance.uid``/
+``NetlistConstant.uid``/``NetlistScope.uid`` (a local-variable instance's own
+``uid`` included, now that its ``read``/``write`` declaration carries a real
+``<handle>`` too) are now recovered FROM the handle/net text (the node's real
+BD uid), not minted fresh -- see "Handles" below.
 
 See ``docs/_internal/design/netlist-language.md`` §7/§9 (handle/net
 derivation) and §10/§10.1 (types) for the grammar this reverses, and
@@ -90,6 +91,7 @@ from .lvnet_parse import (
     ParsedConstant,
     ParsedDependency,
     ParsedFeedback,
+    ParsedLocalVariable,
     ParsedLvnet,
     ParsedNode,
     ParsedScope,
@@ -219,13 +221,21 @@ def _index_handles(
     declaration regardless of where in the body it sits."""
     for item in items:
         if isinstance(item, ParsedNode):
-            if item.kind == "local-variable":
-                continue
             assert item.handle is not None and item.component is not None
             name = _derive_instance_name(item.kind, item.handle, item.component)
             _, uid = _handle_base_and_suffix(item.handle)
             registry[item.handle] = _HandleTarget(
                 name=name, uid=uid, is_constant=False
+            )
+        elif isinstance(item, ParsedLocalVariable):
+            # Same base+uid derivation as a plain node (no ``component`` to
+            # feed ``_derive_instance_name`` with -- a local-variable's own
+            # handle base already IS the tapped control's display name, see
+            # ``_render_lvnet_local_variable``, so the handle's own text is
+            # enough).
+            base, uid = _handle_base_and_suffix(item.handle)
+            registry[item.handle] = _HandleTarget(
+                name=base, uid=uid, is_constant=False
             )
         elif isinstance(item, ParsedConstant):
             base, uid = _handle_base_and_suffix(item.handle)
@@ -544,6 +554,60 @@ _REVERSE_DISABLE_KEYWORD: dict[str, DisableStructureKind] = {
 }
 
 
+def _reconstruct_local_variable(
+    item: ParsedLocalVariable, registry: dict[str, _HandleTarget]
+) -> NetlistInstance:
+    """The reverse of ``_render_lvnet_local_variable`` (§7, now designed): a
+    ``read`` becomes a SOURCE (one output, no inputs) so a LATER
+    ``<handle>::<port>`` reference elsewhere resolves through
+    ``producer_uid`` exactly like any other node's; a ``write`` becomes a
+    SINK (one input driven by the parsed ``source``, no outputs). Neither
+    shape carries a real terminal name or type (§7's local-variable syntax
+    renders none) -- ``target.name`` (the tapped control's own display name,
+    recovered from the handle) doubles as the placeholder terminal name,
+    never read back out by ``render_lvnet`` either way; ``type`` is the
+    honest ``"?"`` (unobservable from text alone).
+    """
+    target = registry[item.handle]
+    if item.is_write:
+        assert item.source is not None
+        source = _parse_source_token(item.source, registry)
+        net = source if isinstance(source, NetRef) else None
+        default = source if isinstance(source, DefaultValue) else None
+        binding = NetlistTerminalBinding(
+            terminal=target.name,
+            type="?",
+            net=net,
+            default=default,
+            inverted=False,
+            pane_rank=0,
+            lv_type=None,
+        )
+        return NetlistInstance(
+            uid=target.uid,
+            name=target.name,
+            occurrence=None,
+            inputs=[binding],
+            outputs=[],
+            kind=NetlistInstanceKind.LOCAL_VARIABLE,
+        )
+    ref = NetRef(
+        node=target.name,
+        terminal=target.name,
+        occurrence=None,
+        bare=f"{item.handle}{_LVNET_TERMINAL_SEP}{target.name}",
+        producer_uid=target.uid,
+    )
+    return NetlistInstance(
+        uid=target.uid,
+        name=target.name,
+        occurrence=None,
+        inputs=[],
+        outputs=[NetlistOutput(net=ref, type="?", pane_rank=0, lv_type=None)],
+        kind=NetlistInstanceKind.LOCAL_VARIABLE,
+    )
+
+
 def _reconstruct_instance(
     item: ParsedNode,
     registry: dict[str, _HandleTarget],
@@ -551,15 +615,6 @@ def _reconstruct_instance(
     memo: dict[str, LVType],
     fresh_uid: _UidSource,
 ) -> NetlistInstance:
-    if item.kind == "local-variable":
-        return NetlistInstance(
-            uid=fresh_uid.next("localvar"),
-            name="",
-            occurrence=None,
-            inputs=[],
-            outputs=[],
-            kind=NetlistInstanceKind.LOCAL_VARIABLE,
-        )
     assert item.handle is not None and item.component is not None
     target = registry[item.handle]
     kind_enum = _REVERSE_INSTANCE_KEYWORDS.get(item.kind)
@@ -855,6 +910,8 @@ def _reconstruct_items(
             out.append(
                 _reconstruct_instance(item, registry, types_dict, memo, fresh_uid)
             )
+        elif isinstance(item, ParsedLocalVariable):
+            out.append(_reconstruct_local_variable(item, registry))
         elif isinstance(item, ParsedConstant):
             out.append(_reconstruct_constant(item, registry))
         elif isinstance(item, ParsedFeedback):
@@ -868,9 +925,12 @@ def _reconstruct_items(
 
 class _UidSource:
     """A trivial unique-string generator for body items whose ``uid`` is
-    never looked up by anything (a scope, a feedback node, a local-variable
-    instance) -- only needs to be distinct within one module, never to
-    match the original graph's real trailing-node uid."""
+    never looked up by anything (a scope, a feedback node) -- only needs to
+    be distinct within one module, never to match the original graph's real
+    trailing-node uid. A local-variable instance's ``uid`` is NOT one of
+    these -- it is recovered from its own handle (``_reconstruct_local_
+    variable``), since a later ``<handle>::<port>`` reference must resolve
+    through it."""
 
     def __init__(self) -> None:
         self._n = 0
