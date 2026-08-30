@@ -2216,7 +2216,7 @@ def _call_terminals_gn(
     Without this, a SubVI call's INPUT/OUTPUT terminal names would show the
     caller-side placeholder name instead of the callee's real parameter name
     (e.g. ``start path`` misread as ``error out``)."""
-    if isinstance(node, VINode) and node.id != node.vi:
+    if isinstance(node, VINode) and node.id != node.vi_path:
         # Resolve by the callee's QUALIFIED name, never the bare ``node.name``
         # ("run.vi") -- a bare-name lookup collides across every same-named
         # override in a dynamic-dispatch class hierarchy.
@@ -2265,12 +2265,12 @@ def _ordered_real_terminals_gn(
     byte-identical to the Operation-based builder.
     """
     real = [t for t in _call_terminals_gn(graph, vi_name, node) if _is_real_terminal(t)]
-    if not (isinstance(node, VINode) and node.id != node.vi and node.name):
+    if not (isinstance(node, VINode) and node.id != node.vi_path and node.name):
         return real
     # Resolve the CALLEE by its own qualified identity (``node.qualified_name``,
     # e.g. "TestSuite.lvclass:run.vi"), never by ``node.name`` -- the bare
     # filename ("run.vi") collides across every same-named override in a
-    # dynamic-dispatch class hierarchy (``node.vi`` is the CALLER's key, not
+    # dynamic-dispatch class hierarchy (``node.vi_path`` is the CALLER's key, not
     # the callee's -- see ``GraphNode.vi``/``SubVIBuildHandler``).
     resolved = graph.resolve_vi_name(node.qualified_name or node.name)
     callee = graph.get_graph_node(resolved)
@@ -3160,7 +3160,7 @@ def _build_items_gn(
 def _is_subvi_call_gn(node: AnyGraphNode) -> bool:
     """The graph-node analogue of ``_is_subvi_call``. Every ``VINode``
     reached by the flat walk is inherently a SubVI CALL (``node.id !=
-    node.vi``) -- the VI's own definition node is never part of it (see
+    node.vi_path``) -- the VI's own definition node is never part of it (see
     ``_owning_node_gn``/``get_operation_order``)."""
     return isinstance(node, VINode) and bool(node.name)
 

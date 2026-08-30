@@ -99,7 +99,7 @@ class CtlRefConstHandler(RefBuildHandler):
         )
         local_var_node = LocalVariableNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=control_name,
             label=node.label,
             caption=node.caption,
@@ -192,7 +192,7 @@ class GRefHandler(RefBuildHandler):
         )
         local_var_node = LocalVariableNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=control_name or node.name or "Local Variable",
             label=node.label,
             caption=node.caption,
@@ -249,7 +249,7 @@ class StatVIRefHandler(RefBuildHandler):
         vi_ref_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="VIRefnum")
         const_node = ConstantNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             value=vi_ref_name,
             lv_type=vi_ref_type,
             raw_value=vi_ref_name,

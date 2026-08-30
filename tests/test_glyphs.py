@@ -86,7 +86,7 @@ def test_generated_glyph_wins_for_cpdarith():
     icon (there is none) and not the generic labeled-box fallback."""
     node = PrimitiveNode(
         id="vi::1",
-        vi="vi",
+        vi_path="vi",
         name="Compound Arithmetic",
         node_type="cpdArith",
         operation="add",
@@ -105,7 +105,7 @@ def test_generated_glyph_wins_over_fallback_for_known_arithmetic():
     nodes by prim_id (which would break P1 visual equivalence)."""
     node = PrimitiveNode(
         id="vi::2",
-        vi="vi",
+        vi_path="vi",
         name="Add",
         node_type="prim",
         prim_id=1050,
@@ -129,7 +129,7 @@ def test_array_reduction_primitives_resolve_to_arith_triangle():
     for name, prim_id, symbol in cases:
         node = PrimitiveNode(
             id=f"vi::{prim_id}",
-            vi="vi",
+            vi_path="vi",
             name=name,
             node_type="prim",
             prim_id=prim_id,
@@ -149,7 +149,7 @@ def test_select_resolves_to_arith_triangle_with_question_mark():
     the real Select primitive's ``node_type`` is ``"prim"``."""
     node = PrimitiveNode(
         id="vi::1516",
-        vi="vi",
+        vi_path="vi",
         name="Select",
         node_type="prim",
         prim_id=1516,
@@ -173,7 +173,7 @@ def test_boolean_gate_dispatch_for_and_or_not():
     for name, prim_id, kind, symbol, negated, input_bubble in cases:
         node = PrimitiveNode(
             id=f"vi::{prim_id}",
-            vi="vi",
+            vi_path="vi",
             name=name,
             node_type="prim",
             prim_id=prim_id,
@@ -230,7 +230,7 @@ def test_negated_gate_bubble_sits_on_output_side():
 def test_constant_node_resolves_via_generated_glyph():
     node = ConstantNode(
         id="vi::3",
-        vi="vi",
+        vi_path="vi",
         value=0.0,
         lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
         terminals=[],
@@ -246,10 +246,10 @@ def test_boolean_constant_resolves_to_boolean_glyph():
 
     bool_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
     true_node = ConstantNode(
-        id="vi::t", vi="vi", value="True", lv_type=bool_t, terminals=[]
+        id="vi::t", vi_path="vi", value="True", lv_type=bool_t, terminals=[]
     )
     false_node = ConstantNode(
-        id="vi::f", vi="vi", value="0000", lv_type=bool_t, terminals=[]
+        id="vi::f", vi_path="vi", value="0000", lv_type=bool_t, terminals=[]
     )
     gt = resolve_glyph(true_node, _ctx())
     gf = resolve_glyph(false_node, _ctx())
@@ -312,13 +312,13 @@ def test_fallback_always_returns_a_glyph_for_an_unhandled_node_kind():
     calling the chain directly on one exercises the "truly unknown node"
     path end to end: every earlier resolver falls through, and
     FallbackBoxResolver still succeeds."""
-    node = InPlaceNode(id="vi::4", vi="vi", node_type="ipes", terminals=[])
+    node = InPlaceNode(id="vi::4", vi_path="vi", node_type="ipes", terminals=[])
     glyph = resolve_glyph(node, _ctx())
     assert isinstance(glyph, WrappedBoxGlyph)
 
 
 def test_fallback_resolver_never_returns_none_directly():
-    node = InPlaceNode(id="vi::5", vi="vi", node_type="ipes", terminals=[])
+    node = InPlaceNode(id="vi::5", vi_path="vi", node_type="ipes", terminals=[])
     glyph = FallbackBoxResolver().resolve(node, _ctx())
     assert glyph is not None
 
@@ -331,7 +331,7 @@ def test_fallback_resolver_never_returns_none_directly():
 def test_json_glyph_resolver_falls_through_when_no_icon_declared():
     node = PrimitiveNode(
         id="vi::6",
-        vi="vi",
+        vi_path="vi",
         name="Add",
         node_type="prim",
         prim_id=1050,
@@ -341,12 +341,12 @@ def test_json_glyph_resolver_falls_through_when_no_icon_declared():
 
 
 def test_json_glyph_resolver_falls_through_for_non_primitive_non_vi_nodes():
-    node = ConstantNode(id="vi::7", vi="vi", terminals=[])
+    node = ConstantNode(id="vi::7", vi_path="vi", terminals=[])
     assert JsonGlyphResolver().resolve(node, _ctx()) is None
 
 
 def test_generated_glyph_resolver_falls_through_for_structure_nodes():
-    node = InPlaceNode(id="vi::8", vi="vi", node_type="ipes", terminals=[])
+    node = InPlaceNode(id="vi::8", vi_path="vi", node_type="ipes", terminals=[])
     assert GeneratedGlyphResolver().resolve(node, _ctx()) is None
 
 
@@ -354,12 +354,14 @@ def test_extracted_icon_resolver_is_fail_soft_when_subvi_not_locatable():
     """A SubVI call whose source isn't loaded in the graph and has no
     (resolvable) qualified_path must fall through cheaply — no exception,
     no subprocess extraction attempt."""
-    node = VINode(id="vi::9", vi="vi", name="Some Unresolved SubVI.vi", terminals=[])
+    node = VINode(
+        id="vi::9", vi_path="vi", name="Some Unresolved SubVI.vi", terminals=[]
+    )
     assert ExtractedIconResolver().resolve(node, _ctx()) is None
 
 
 def test_extracted_icon_resolver_ignores_non_vi_nodes():
-    node = PrimitiveNode(id="vi::10", vi="vi", prim_id=1050, terminals=[])
+    node = PrimitiveNode(id="vi::10", vi_path="vi", prim_id=1050, terminals=[])
     assert ExtractedIconResolver().resolve(node, _ctx()) is None
 
 
@@ -373,7 +375,7 @@ def test_extracted_icon_resolver_ignores_non_vi_nodes():
 def test_compound_arith_glyph_renders_at_real_bounds_with_default_operation():
     node = PrimitiveNode(
         id="vi::11",
-        vi="vi",
+        vi_path="vi",
         name="Compound Arithmetic",
         node_type="cpdArith",
         terminals=[],
@@ -401,7 +403,7 @@ def test_cpd_arith_boolean_add_renders_as_logical_or():
     bool_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
     node = PrimitiveNode(
         id="vi::20",
-        vi="vi",
+        vi_path="vi",
         name="Compound Arithmetic",
         node_type="cpdArith",
         operation="add",
@@ -431,7 +433,7 @@ def test_cpd_arith_numeric_add_still_renders_as_plus():
     num_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
     node = PrimitiveNode(
         id="vi::21",
-        vi="vi",
+        vi_path="vi",
         name="Compound Arithmetic",
         node_type="cpdArith",
         operation="add",
@@ -452,7 +454,7 @@ def test_cpd_arith_three_inputs_draws_two_horizontal_dividers():
     num_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
     node = PrimitiveNode(
         id="vi::22",
-        vi="vi",
+        vi_path="vi",
         name="Compound Arithmetic",
         node_type="cpdArith",
         operation="add",

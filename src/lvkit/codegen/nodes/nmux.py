@@ -62,6 +62,7 @@ def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
         if ctx.graph is not None:
             class_fields = ctx.graph.get_type_fields(
                 agg_terminals[0].lv_type,
+                caller_vi_key=ctx.vi_name,
             )
 
     if list_in and list_out:

@@ -159,7 +159,7 @@ def _arith_node(glyph, input_reprs):
     from lvkit.render.scene import RenderNode
 
     return RenderNode(
-        node=PrimitiveNode(id="n1", name="op", vi="v"),
+        node=PrimitiveNode(id="n1", name="op", vi_path="v"),
         bounds=(0.0, 0.0, 20.0, 40.0),
         glyph=glyph,
         terminals=[_num_input(i + 1, r) for i, r in enumerate(input_reprs)],
@@ -224,7 +224,7 @@ def _prim_render_node(glyph, terminals, node_bounds=(0.0, 0.0, 32.0, 32.0)):
     from lvkit.render.scene import RenderNode
 
     return RenderNode(
-        node=PrimitiveNode(id="p1", name="String Length", vi="v"),
+        node=PrimitiveNode(id="p1", name="String Length", vi_path="v"),
         bounds=node_bounds,
         glyph=glyph,
         terminals=terminals,
@@ -333,7 +333,7 @@ def test_non_primitive_keeps_node_bounds():
     from lvkit.render.scene import RenderNode
 
     node = RenderNode(
-        node=VINode(id="v1", name="My SubVI", vi="v"),
+        node=VINode(id="v1", name="My SubVI", vi_path="v"),
         bounds=(0.0, 0.0, 32.0, 32.0),
         glyph=WrappedBoxGlyph("My SubVI"),
         terminals=[_term(0, "input", (0.0, 8.0, 4.0, 12.0))],
@@ -2027,7 +2027,7 @@ def test_border_terminal_top_edge_inner_face_points_down_into_frame():
 def test_for_loop_guarantees_N_and_i_glyphs_from_layout_geometry():
     node = LoopNode(
         id="vi::43",
-        vi="vi",
+        vi_path="vi",
         node_type="forLoop",
         loop_type="forLoop",
         terminals=[],
@@ -2048,7 +2048,7 @@ def test_for_loop_guarantees_N_and_i_glyphs_from_layout_geometry():
 def test_while_loop_guarantees_i_and_cond_glyphs():
     node = LoopNode(
         id="vi::7",
-        vi="vi",
+        vi_path="vi",
         node_type="whileLoop",
         loop_type="whileLoop",
         terminals=[],
@@ -2188,7 +2188,7 @@ def test_node_tooltip_includes_doc_url_for_resolved_primitive():
     last line of its hover <title> (task #67). Add (1050) has a doc_url."""
     from lvkit.render.draw import _node_doc_url, _node_tooltip
 
-    add = PrimitiveNode(id="a", vi="V", name="Add", prim_id=1050, terminals=[])
+    add = PrimitiveNode(id="a", vi_path="V", name="Add", prim_id=1050, terminals=[])
     url = _node_doc_url(add)
     assert url is not None and url.endswith("/functions/add.html")
     tip = _node_tooltip(add)
@@ -2200,7 +2200,7 @@ def test_node_tooltip_has_no_doc_url_when_unresolved():
     from lvkit.render.draw import _node_doc_url
 
     unknown = PrimitiveNode(
-        id="u", vi="V", name="mystery", prim_id=999999, terminals=[]
+        id="u", vi_path="V", name="mystery", prim_id=999999, terminals=[]
     )
     assert _node_doc_url(unknown) is None
 
@@ -2324,7 +2324,7 @@ def _prim(node_type, name=None, dirs=(), roles=()):
     ]
     return PrimitiveNode(
         id="n0",
-        vi="V",
+        vi_path="V",
         name=name,
         node_type=node_type,
         terminals=terms,
@@ -2449,7 +2449,7 @@ def test_cluster_constant_compacted_to_natural_rows():
     def cluster_const(n_fields):
         return ConstantNode(
             id="V::5",
-            vi="V",
+            vi_path="V",
             name="c",
             lv_type=LVType(
                 kind=LVTypeKind.CLUSTER,
@@ -2482,7 +2482,7 @@ def test_cluster_constant_compacted_to_natural_rows():
 
     # A non-cluster constant (no fields) is ignored.
     scalar = ConstantNode(
-        id="V::5", vi="V", name="c", lv_type=LVType(kind=LVTypeKind.PRIMITIVE)
+        id="V::5", vi_path="V", name="c", lv_type=LVType(kind=LVTypeKind.PRIMITIVE)
     )
     b3, _ = _compact_cluster_const_geom(_Graph([scalar]), "V", layout)
     assert b3 == {}
@@ -2558,7 +2558,7 @@ def test_bundle_by_name_falls_back_to_bracketed_index_labels():
     ]
     node = PrimitiveNode(
         id="n0",
-        vi="V",
+        vi_path="V",
         name="Bundle/Unbundle By Name",
         node_type="nMux",
         terminals=terms,
@@ -2615,7 +2615,7 @@ def test_decompose_cluster_node_graph_name_is_direction_aware():
 
     decompose_half = PrimitiveNode(
         id="n0",
-        vi="V",
+        vi_path="V",
         name="Bundle/Unbundle By Name",
         node_type="decomposeClusterNode",
         terminals=[
@@ -2625,7 +2625,7 @@ def test_decompose_cluster_node_graph_name_is_direction_aware():
     )
     recompose_half = PrimitiveNode(
         id="n1",
-        vi="V",
+        vi_path="V",
         name="Bundle/Unbundle By Name",
         node_type="decomposeClusterNode",
         terminals=[
@@ -2916,7 +2916,7 @@ def test_string_constant_has_full_text_tooltip():
     full = "a very long string constant that will not fit in this little box"
     node = ConstantNode(
         id="c1",
-        vi="v",
+        vi_path="v",
         value=full,
         lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
     )
@@ -3449,7 +3449,7 @@ def test_bundle_by_name_falls_back_to_dep_graph_when_vi_source_unknown():
     ]
     node = PrimitiveNode(
         id="n0",
-        vi="V",
+        vi_path="V",
         name="Bundle/Unbundle By Name",
         node_type="nMux",
         terminals=terms,
@@ -3475,7 +3475,7 @@ def _case_node_with_frames(displayed_frame):
     ]
     return CaseStructureNode(
         id="vi::case1",
-        vi="vi",
+        vi_path="vi",
         name="Case",
         node_type="select",
         frames=frames,
@@ -3551,7 +3551,11 @@ def _case_with_output_tunnel(frames: list[str], wired: list[str]):
         for f in frames
     ]
     node = CaseStructureNode(
-        id="vi::c", vi="vi", name="Case", node_type="select", terminals=[outer, *inners]
+        id="vi::c",
+        vi_path="vi",
+        name="Case",
+        node_type="select",
+        terminals=[outer, *inners],
     )
     wired_dest = frozenset(f"vi::in_{f}" for f in wired)
     return node, wired_dest
@@ -3893,7 +3897,7 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
 
     node = PrimitiveNode(
         id="VI::9",
-        vi="VI",
+        vi_path="VI",
         node_type="propNode",
         name="Property Node",
         object_name="VI",
@@ -3920,7 +3924,7 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
 
     # No properties -> None, so the caller falls back to the plain box.
     empty = PrimitiveNode(
-        id="VI::10", vi="VI", node_type="propNode", name="Property Node"
+        id="VI::10", vi_path="VI", node_type="propNode", name="Property Node"
     )
     assert _property_node_glyph(empty) is None
 

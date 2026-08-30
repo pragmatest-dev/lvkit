@@ -324,7 +324,7 @@ class TestThemeAdaptiveChrome:
         # …and the in-view panel tokens (dark + light both keyed on the toggle;
         # values are the diagram theme's own canvas role, so the panel is the
         # same material as the drawn-in-SVG VI dialogs).
-        assert "--dpanel:#1b1c1e" in html and "--dpanel:#fbfbf5" in html
+        assert "--dpanel:#1b1c1e" in html and "--dpanel:#ffffff" in html
         # auto mode: the diagram surface follows the system scheme unless pinned…
         assert ":not([data-theme]){--canvas:#1b1c1e}" in html
         # …while the window-chrome palette is NEVER guarded on / overridden by it.

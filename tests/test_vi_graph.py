@@ -103,7 +103,7 @@ class TestTypedGraphNodes:
         # VINode with FP terminals — node ID = vi_name
         vi_node = VINode(
             id=vi_name,
-            vi=vi_name,
+            vi_path=vi_name,
             name="Test.vi",
             terminals=[
                 FPTerminal(
@@ -130,7 +130,7 @@ class TestTypedGraphNodes:
         # Constant
         const_node = ConstantNode(
             id="const1",
-            vi=vi_name,
+            vi_path=vi_name,
             value=42,
             label="MyConst",
             terminals=[Terminal(id="const1", index=0, direction="output")],
@@ -140,7 +140,7 @@ class TestTypedGraphNodes:
         # Primitive
         prim_node = PrimitiveNode(
             id="add1",
-            vi=vi_name,
+            vi_path=vi_name,
             name="Add",
             node_type="prim",
             prim_id=1,

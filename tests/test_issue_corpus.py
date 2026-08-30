@@ -55,8 +55,9 @@ def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
     Issue 29's ``Test.vi`` references two same-named ``Do.vi`` (in ``Lib1`` and
     ``Lib2``) via ``LinkSavePathRef`` but has an EMPTY SubVI call table, so a
     closure keyed off the call table (``subvi_qualified_names``) misses them and
-    draws the SubVIs as bare boxes. Assert that rendering from the ``list_deps``
-    closure alone is byte-identical (content) to rendering from the full tree.
+    draws the SubVIs as bare boxes. Assert that rendering from the MINIMAL
+    dependency closure alone is byte-identical (content) to rendering from the
+    full tree.
     """
     root = (_CORPUS / "29" / "Test LVKit").resolve()
     entry = root / "Lib2" / "Class" / "Test.vi"
@@ -81,7 +82,7 @@ def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
 
     assert normalize_render_ids(svg_closure) == normalize_render_ids(svg_full), (
         "web closure render differs from the full-tree (desktop) render — "
-        "list_deps understaged this VI's dependencies"
+        "the MINIMAL dependency closure understaged this VI's dependencies"
     )
 
 
@@ -509,7 +510,7 @@ def test_issue35_structures_occlude_by_zorder():
     vi_path = _CORPUS / "35" / "objects-hidden-by-structures.vi"
     svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
     assert svg is not None
-    assert svg.count('fill="#fbfbf5"') > 3
+    assert svg.count('fill="#ffffff"') > 3
 
 
 def test_issue39_overlapping_nodes_occlude_by_zorder():

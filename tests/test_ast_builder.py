@@ -286,7 +286,7 @@ def test_context_resolution():
     graph = InMemoryVIGraph()
     node = PrimitiveNode(
         id="n1",
-        vi="test.vi",
+        vi_path="test.vi",
         name="n1",
         terminals=[
             Terminal(id="term:1", index=0, direction="output"),

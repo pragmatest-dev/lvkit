@@ -405,7 +405,7 @@ def _nmux_field_sources(
                 agg.lv_type.classname,
                 graph,
             )
-        dep_fields = graph.get_type_fields(agg.lv_type) or []
+        dep_fields = graph.get_type_fields(agg.lv_type, caller_vi_key=vi_name) or []
     return own_fields, dep_fields
 
 

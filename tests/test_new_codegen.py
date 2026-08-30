@@ -392,7 +392,7 @@ class TestSelectorTopoSort:
         # Producer: Equal? primitive with output terminal
         producer = PrimitiveNode(
             id="equal_1",
-            vi="test.vi",
+            vi_path="test.vi",
             name="Equal?",
             terminals=[
                 Terminal(id="eq_in", index=0, direction="input"),
@@ -406,7 +406,7 @@ class TestSelectorTopoSort:
         # Consumer: case structure with selector wired from Equal? output
         case = CaseStructureNode(
             id="case_1",
-            vi="test.vi",
+            vi_path="test.vi",
             name="Case",
             node_type="caseStruct",
             terminals=[

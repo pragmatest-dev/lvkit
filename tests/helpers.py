@@ -12,32 +12,27 @@ from pathlib import Path
 from lvkit.codegen.context import CodeGenContext
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
-from lvkit.list_deps import list_deps
+from lvkit.load_mode import LoadMode
 from lvkit.models import Terminal
 
 
 def transitive_closure(
     entry: Path, root: Path, *, include_entry: bool = False
 ) -> set[Path]:
-    """The transitive dependency closure the web extension's
-    ``stageDependencyClosure`` BFS mirrors into ``/proj`` — driven by
-    ``lvkit.list_deps`` exactly as ``editors/vscode/web/extension.js`` does:
-    read one level, discover the next from what was just staged, repeat. All
-    paths are resolved (``list_deps`` already returns resolved strings).
-    ``include_entry`` seeds the result with ``entry`` itself (the extension
-    stages the opened VI too)."""
+    """The MINIMAL dependency closure the web extension's
+    ``stageDependencyClosure`` stages into ``/proj`` — mirrored here the SAME
+    way the extension does it: MINIMAL-load ``entry`` and ask the loader which
+    files that load resolved (``get_dependency_paths``). Over a complete on-disk
+    corpus every dependency is present, so a single load names the whole
+    closure; the extension reaches the same set incrementally as it fetches
+    absent files into ``/proj``. ``include_entry`` seeds the result with
+    ``entry`` itself (the extension stages the opened VI too)."""
     entry = entry.resolve()
-    closure: set[Path] = {entry} if include_entry else set()
-    frontier = [entry]
-    while frontier:
-        nxt: list[Path] = []
-        for f in frontier:
-            for dep_str in list_deps(f, search_paths=[root]):
-                dep = Path(dep_str).resolve()
-                if dep not in closure:
-                    closure.add(dep)
-                    nxt.append(dep)
-        frontier = nxt
+    graph = InMemoryVIGraph()
+    name = graph.load_vi(entry, LoadMode.MINIMAL, search_paths=[root])
+    closure = {p.resolve() for p in graph.get_dependency_paths(name or str(entry))}
+    if include_entry:
+        closure.add(entry)
     return closure
 
 _RENDER_ID_RE = re.compile(r"lv-[a-z0-9-]*-vi", re.IGNORECASE)
@@ -63,7 +58,7 @@ def make_node(node_id: str, terminal_ids: list[str]) -> PrimitiveNode:
     """Create a graph node with terminals."""
     return PrimitiveNode(
         id=node_id,
-        vi="test.vi",
+        vi_path="test.vi",
         name=node_id,
         terminals=[
             Terminal(id=tid, index=i, direction="output")

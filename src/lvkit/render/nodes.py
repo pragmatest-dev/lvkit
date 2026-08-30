@@ -656,7 +656,7 @@ def _bundle_by_name_glyph(
     (caller falls back to the compact glyph).
     """
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
-    own_fields, dep_fields = _nmux_field_sources(node.vi, agg, graph)
+    own_fields, dep_fields = _nmux_field_sources(node.vi_path, agg, graph)
     field_terms = sorted(
         (t for t in node.terminals if t.nmux_role == "list"),
         key=lambda t: t.index,
@@ -706,9 +706,9 @@ def _event_data_glyph(
     # the glyph row and the hover connector-panel agree. The positional
     # ``fields`` list is kept ONLY for the per-row type-color FALLBACK (the
     # terminal's own VCTP type is preferred, so this rarely fires).
-    own_fields, dep_fields = _nmux_field_sources(node.vi, agg, graph)
+    own_fields, dep_fields = _nmux_field_sources(node.vi_path, agg, graph)
     fields = (
-        graph.get_type_fields(agg.lv_type) or []
+        graph.get_type_fields(agg.lv_type, caller_vi_key=node.vi_path) or []
         if agg is not None and agg.lv_type is not None
         else []
     )

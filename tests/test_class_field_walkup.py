@@ -55,8 +55,11 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     assert fields is not None
     assert [f.name for f in fields] == ["Report Path"]
 
-    # ...and the field-only load is a placeholder, not a full class load:
-    node = g._dep_graph.nodes["TextTestRunner.JUnitXML.lvclass"]
+    # ...and the field-only load is a placeholder, not a full class load. The
+    # class node is keyed by PATH now — resolve the qname to its key first.
+    class_key = g._dep_key_for_ref("TextTestRunner.JUnitXML.lvclass")
+    assert class_key is not None
+    node = g._dep_graph.nodes[class_key]
     assert node.get("fields_only") is True
     # The ONLY method VI of that class in the graph is the target VI itself
     # (processResult.vi is a method) — the field-only load pulled in NONE of the
@@ -67,7 +70,7 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     class_method_vis = [
         q
         for q in g._qname_to_keys
-        if q.startswith("TextTestRunner.JUnitXML.lvclass:")
+        if q.startswith("TextTestRunner.JUnitXML.lvclass:") and q.endswith(".vi")
     ]
     assert class_method_vis == ["TextTestRunner.JUnitXML.lvclass:processResult.vi"]
 

@@ -386,7 +386,11 @@ class ParsedDependencyRef:
 
         Use ``resolve_against()`` for actual path resolution.
         """
-        if self.path_tokens and self.path_tokens[0] in ("<vilib>", "<userlib>"):
+        if self.path_tokens and self.path_tokens[0] in (
+            "<vilib>",
+            "<userlib>",
+            "<instrlib>",
+        ):
             return "/".join(self.path_tokens[1:])
         return "/".join(self.path_tokens)
 
@@ -395,6 +399,7 @@ class ParsedDependencyRef:
         caller_file: Path,
         vilib_root: Path | None = None,
         userlib_root: Path | None = None,
+        instrlib_root: Path | None = None,
     ) -> Path | None:
         """Resolve LabVIEW's LinkSavePathRef tokens to an absolute path.
 
@@ -402,7 +407,9 @@ class ParsedDependencyRef:
         empty string pops one level (1 empty -> caller's containing
         directory, 2 empties -> its parent, etc.). Non-empty tokens are
         appended as path components. If the first token is <vilib> /
-        <userlib>, the corresponding root is used as the base instead.
+        <userlib> / <instrlib>, the corresponding root is used as the base
+        instead (returns None when that root is not configured — such a dep
+        lives outside the project and must never be treated as local).
         """
         tokens = self.path_tokens
         if not tokens:
@@ -417,6 +424,11 @@ class ParsedDependencyRef:
             if userlib_root is None:
                 return None
             base = userlib_root
+            rest = tokens[1:]
+        elif tokens[0] == "<instrlib>":
+            if instrlib_root is None:
+                return None
+            base = instrlib_root
             rest = tokens[1:]
         else:
             # Each leading empty = one '..' starting from the caller file

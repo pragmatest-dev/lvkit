@@ -254,4 +254,4 @@ def _get_class_fields(
     """Get type fields for an aggregate terminal."""
     if term is None or term.lv_type is None or ctx.graph is None:
         return None
-    return ctx.graph.get_type_fields(term.lv_type)
+    return ctx.graph.get_type_fields(term.lv_type, caller_vi_key=ctx.vi_name)

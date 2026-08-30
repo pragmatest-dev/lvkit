@@ -54,12 +54,12 @@
      DARK_PALETTE): --dpanel = canvas, --dline = struct_border, --dfg = text,
      --dfg-muted = pane_type_text — so an in-view panel is the SAME material as
      the drawn-in-SVG VI dialogs (tooltip / connector-pane help). */
-  :root{--dpanel:#fbfbf5;--dline:#1e1e1e;--dfg:#1a1a1a;--dfg-muted:#777777}
+  :root{--dpanel:#ffffff;--dline:#1e1e1e;--dfg:#1a1a1a;--dfg-muted:#777777}
   @media (prefers-color-scheme: dark){ :root:not([data-theme]){
     --dpanel:#1b1c1e;--dline:#cdcdcd;--dfg:#e8e8e0;--dfg-muted:#9a9a9a} }
   :root[data-theme="dark"]{--dpanel:#1b1c1e;--dline:#cdcdcd;--dfg:#e8e8e0;
     --dfg-muted:#9a9a9a}
-  :root[data-theme="light"]{--dpanel:#fbfbf5;--dline:#1e1e1e;--dfg:#1a1a1a;
+  :root[data-theme="light"]{--dpanel:#ffffff;--dline:#1e1e1e;--dfg:#1a1a1a;
     --dfg-muted:#777777}
   *{box-sizing:border-box}
   body{margin:0;font:14px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg);

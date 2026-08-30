@@ -34,7 +34,7 @@ def _make_wired_ctx(
                 nid = f"node_{tid}"
                 node = PrimitiveNode(
                     id=nid,
-                    vi="test.vi",
+                    vi_path="test.vi",
                     name=nid,
                     terminals=[Terminal(id=tid, index=0, direction="output")],
                 )
