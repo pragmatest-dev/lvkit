@@ -36,6 +36,55 @@ def _text_width_em(text: str) -> float:
     return total
 
 
+def _stroke_inset(stroke: str | None, stroke_width: float | None) -> float:
+    """THE single definition of the outline inset, in one place so no drawer
+    ever re-derives or forgets it.
+
+    SVG strokes are CENTERED on the path, so an outline drawn at the raw bounds
+    bleeds ``stroke_width / 2`` OUTSIDE the shape — the box then reads larger
+    than its bounds. Every stroked *bounded* shape (rect/polygon/circle) pulls
+    its outer boundary inward by this amount so the stroke's OUTER edge lands on
+    the bounds. Zero when there's no visible outline (no stroke, or width 0/None),
+    so an un-stroked fill is never moved."""
+    return stroke_width / 2.0 if (stroke is not None and stroke_width) else 0.0
+
+
+def _inset_polygon(points: list[Point], d: float) -> list[Point]:
+    """Offset a CLOSED convex polygon inward by ``d`` (perpendicular to every
+    edge), so a centered stroke of width ``2d`` stays inside the shape's bounds.
+    Offsets each edge line inward and intersects consecutive offset lines for the
+    new vertices — exact for the convex glyph shapes (triangles, gates). Returns
+    the input unchanged for a degenerate polygon (< 3 pts, zero-length edge,
+    parallel neighbours)."""
+    n = len(points)
+    if n < 3 or d <= 0:
+        return points
+    area = sum(
+        points[i][0] * points[(i + 1) % n][1] - points[(i + 1) % n][0] * points[i][1]
+        for i in range(n)
+    )
+    s = 1.0 if area > 0 else -1.0  # inward-normal sign by winding
+    lines: list[tuple[float, float, float, float]] = []
+    for i in range(n):
+        (x1, y1), (x2, y2) = points[i], points[(i + 1) % n]
+        dx, dy = x2 - x1, y2 - y1
+        length = (dx * dx + dy * dy) ** 0.5
+        if length == 0:
+            return points
+        nx, ny = -dy / length * s, dx / length * s  # inward normal
+        lines.append((x1 + nx * d, y1 + ny * d, dx, dy))
+    out: list[Point] = []
+    for i in range(n):
+        px1, py1, dx1, dy1 = lines[(i - 1) % n]
+        px2, py2, dx2, dy2 = lines[i]
+        denom = dx1 * dy2 - dy1 * dx2
+        if abs(denom) < 1e-9:
+            return points  # parallel neighbours — bail rather than blow up
+        t = ((px2 - px1) * dy2 - (py2 - py1) * dx2) / denom
+        out.append((px1 + dx1 * t, py1 + dy1 * t))
+    return out
+
+
 @runtime_checkable
 class Backend(Protocol):
     """Backend-agnostic drawing surface for block-diagram rendering."""
@@ -206,14 +255,9 @@ class SvgBackend:
         rx: float | None = None,
         stroke_dasharray: str | None = None,
     ) -> None:
-        # SVG strokes are CENTERED on the path, so a stroked rect drawn at the
-        # raw bounds bleeds stroke_width/2 OUTSIDE the bounding box (the box then
-        # reads larger than its bounds — visible on fallback text boxes / node
-        # tiles). Inset the rect by half the stroke so the outline's OUTER edge
-        # sits on the bounding box. Single source for every stroked rect.
-        if stroke is not None and stroke_width:
-            h = stroke_width / 2.0
-            x1, y1, x2, y2 = x1 + h, y1 + h, x2 - h, y2 - h
+        # Keep the stroked outline inside the bounding box (see _stroke_inset).
+        h = _stroke_inset(stroke, stroke_width)
+        x1, y1, x2, y2 = x1 + h, y1 + h, x2 - h, y2 - h
         a = self._attrs(
             fill=fill,
             stroke=stroke,
@@ -292,6 +336,9 @@ class SvgBackend:
         stroke: str | None = None,
         stroke_width: float | None = None,
     ) -> None:
+        # Keep the stroked outline inside the bounding box (see _stroke_inset);
+        # for a polygon that means offsetting every (convex) edge inward.
+        points = _inset_polygon(points, _stroke_inset(stroke, stroke_width))
         pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
         a = self._attrs(fill=fill, stroke=stroke, stroke_width=stroke_width)
         self._elements.append(f'<polygon points="{pts}" {a}/>')
@@ -306,6 +353,9 @@ class SvgBackend:
         stroke: str | None = None,
         stroke_width: float | None = None,
     ) -> None:
+        # Keep the stroked outline inside the bounding box (see _stroke_inset);
+        # for a circle that means shrinking the radius.
+        r = max(0.0, r - _stroke_inset(stroke, stroke_width))
         a = self._attrs(fill=fill, stroke=stroke, stroke_width=stroke_width)
         self._elements.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" {a}/>')
 

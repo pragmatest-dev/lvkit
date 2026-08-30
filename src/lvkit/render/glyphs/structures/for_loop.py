@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ...backend import Backend
+from ...backend import Backend, _stroke_inset
 from ...style import Theme
 from .base import Rect, StructureBodyGlyph
 
@@ -55,10 +55,15 @@ class ForLoopGlyph(StructureBodyGlyph):
         return self._clip_inset((x1, y1, x2 - 2 * _O, y2 - 2 * _O))
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        x1, y1, x2, y2 = bounds
-        o = _O
         s = theme.struct_border
         w = self.border_width
+        # The cards are freeform paths, which the backend does NOT auto-inset,
+        # so pull the working rect in by the same half-stroke every bounded
+        # outline uses — the card outer edges then land on the OUTER bounds.
+        i = _stroke_inset(s, w)
+        x1, y1, x2, y2 = bounds
+        x1, y1, x2, y2 = x1 + i, y1 + i, x2 - i, y2 - i
+        o = _O
         w2, h2 = (x2 - x1) - 2 * o, (y2 - y1) - 2 * o
         fx2, fy2 = x1 + w2, y1 + h2  # front card bottom-right
         for k in (2, 1):  # back + mid cards, offset +k*o down-right of the front

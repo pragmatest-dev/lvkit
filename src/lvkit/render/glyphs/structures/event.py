@@ -23,12 +23,10 @@ class EventGlyph(SelectableStructureGlyph):
 
     band_width: float = EVENT_BAND_W
 
-    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        # The band is a FILLED region reaching the true bounds, NOT a centered
-        # stroke, so it does not use the base's border_width/2 stroke-inset:
-        # draw_outline gets the OUTER bounds, matching interior().
-        self.draw_body(backend, bounds, theme)
-        self.draw_outline(backend, bounds, theme)
+    # No draw() override: the base draws the opaque body then draw_outline at the
+    # OUTER bounds, which is exactly what the band wants (it's a FILLED region
+    # reaching the true bounds; its two 1px edge rules are auto-inset by the
+    # backend). interior() still clips contents inside the full band.
 
     def _band(self, bounds: Rect) -> float:
         """The band's actual width, clamped so it never exceeds half the box."""
