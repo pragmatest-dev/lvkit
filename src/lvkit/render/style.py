@@ -34,7 +34,7 @@ def clean_help_text(text: str | None) -> str | None:
 class Theme:
     """The renderer's full color palette."""
 
-    canvas: str = "#fbfbf5"
+    canvas: str = "#ffffff"
     struct_border: str = "#1e1e1e"  # loop/structure border (near-black, per GT)
     while_border: str = "#808080"  # While loop's thick grey border (per GT)
     prim_fill: str = "#fff6d8"

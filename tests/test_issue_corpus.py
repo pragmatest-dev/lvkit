@@ -510,7 +510,7 @@ def test_issue35_structures_occlude_by_zorder():
     vi_path = _CORPUS / "35" / "objects-hidden-by-structures.vi"
     svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
     assert svg is not None
-    assert svg.count('fill="#fbfbf5"') > 3
+    assert svg.count('fill="#ffffff"') > 3
 
 
 def test_issue39_overlapping_nodes_occlude_by_zorder():
