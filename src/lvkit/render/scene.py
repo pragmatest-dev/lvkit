@@ -52,7 +52,7 @@ from .nodes import (
     string_const_display,
 )
 from .style import WireStyle, numeric_repr, type_family, wire_style
-from .wire_router import WireRouter, _compress, orthogonalize
+from .wire_router import WireRouter, _compress, straighten_faithful
 
 logger = logging.getLogger(__name__)
 
@@ -1560,10 +1560,12 @@ def _build_wire_nets(
             if faithful is not None:
                 # Verbatim decoded geometry (already source..sink); just drop
                 # exactly-collinear vertices, never re-anchor to a terminal.
-                # Keep LabVIEW's orthogonal geometry orthogonal: the decoded
-                # leaf snapped to our terminal center can tilt the final segment
-                # (issue #68), so elbow any diagonal before compressing.
-                branch = _compress(orthogonalize(faithful))
+                # LabVIEW draws no diagonal wires: a no-bend faithful wire whose
+                # terminal centers our geometry left slightly misaligned must
+                # still render straight (issue #68). termHotPoint fixes the big
+                # offsets at the source; this enforces the invariant on any
+                # residual so ZERO wires are diagonal.
+                branch = _compress(straighten_faithful(faithful))
             else:
                 mid = router.route(
                     src_out,

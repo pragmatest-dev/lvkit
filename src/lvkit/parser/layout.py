@@ -484,6 +484,19 @@ class _LayoutBuilder:
                         )
                 cx = (abs_cb[0] + abs_cb[2]) / 2
                 cy = (abs_cb[1] + abs_cb[3]) / 2
+            # termHotPoint: LabVIEW's EXPLICIT per-terminal wire-attach offset
+            # from the termBounds centre — the wire connects HERE, not the
+            # geometric middle (an expandable prim's row terminal, say, attaches
+            # above/below its box centre). It shifts the CONNECTION point only,
+            # never the terminal's own box (node_bounds). Absent on most
+            # terminals (centre == box middle). (x, y) in the node's frame.
+            hp = term.find(".//termHotPoint")
+            if hp is not None and hp.text:
+                try:
+                    hx, hy = (int(v) for v in hp.text.strip("()").split(","))
+                    cx, cy = cx + hx, cy + hy
+                except ValueError:
+                    pass
             for u in self._collect_uids(term):
                 self.terminal_centers.setdefault(u, (cx, cy))
 

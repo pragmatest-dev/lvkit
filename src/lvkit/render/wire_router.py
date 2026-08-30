@@ -372,44 +372,23 @@ class WireRouter:
         return pts
 
 
-def orthogonalize(pts: list[Point], tol: float = 0.75) -> list[Point]:
-    """Force a polyline orthogonal by elbowing any genuinely DIAGONAL segment.
-
-    LabVIEW's decoded ``compressedWireTable`` bends are exactly orthogonal, so
-    the only diagonal segments in a faithful wire are the endpoint snap-to-center
-    artifacts (the decoded leaf lands on our terminal center, which can disagree
-    with LabVIEW's attach point by a few px — issue #68). Replace each such
-    diagonal with an axis-aligned elbow that CONTINUES the incoming orthogonal
-    segment's direction, so the wire stays orthogonal and still reaches the
-    terminal center. Near-axis-aligned segments (<= ``tol`` on an axis) are left
-    untouched — they're already flush and re-snapping them would jog every wire.
-    """
-    if len(pts) < 2:
+def straighten_faithful(pts: list[Point]) -> list[Point]:
+    """LabVIEW NEVER draws a diagonal wire. A faithful wire it stored as a single
+    cardinal segment (``nseg == 1`` — no bends) must render straight; connecting
+    two terminal centers that our geometry left even slightly misaligned would
+    draw a diagonal. Snap such a 2-point wire onto its DOMINANT cardinal axis
+    (its stored direction), taking the perpendicular coordinate from the source
+    anchor — the endpoint's parallel reach is unchanged. Fires on ANY non-zero
+    tilt (LabVIEW has none), not just large ones. Multi-bend wires are already
+    cardinal by construction (``_decode_chain`` enforces H/V segments), so only
+    the no-bend case can be diagonal."""
+    if len(pts) != 2:
         return list(pts)
-    # A STRAIGHT (2-point) faithful wire that LabVIEW drew axis-aligned but our
-    # misaligned terminal centers tilted (its stored direction is a single
-    # H or V segment — wire_table returns no bends for it): draw it CLEAN in the
-    # dominant axis, matching LabVIEW's straight wire, rather than jogging it.
-    # The endpoint shifts by the MINOR offset (a few px, within the terminal
-    # glyph's own height), so it still lands on the terminal.
-    if len(pts) == 2:
-        (x1, y1), (x2, y2) = pts
-        if abs(x2 - x1) > tol and abs(y2 - y1) > tol:
-            return [(x1, y1), (x2, y1)] if abs(x2 - x1) >= abs(y2 - y1) else [
-                (x1, y1),
-                (x1, y2),
-            ]
-        return list(pts)
-    out: list[Point] = [pts[0]]
-    for i in range(1, len(pts)):
-        x1, y1 = out[-1]
-        x2, y2 = pts[i]
-        if abs(x2 - x1) > tol and abs(y2 - y1) > tol:
-            # genuine diagonal: elbow, continuing the incoming axis.
-            horiz_in = len(out) >= 2 and abs(out[-1][1] - out[-2][1]) <= tol
-            out.append((x2, y1) if horiz_in else (x1, y2))
-        out.append((x2, y2))
-    return out
+    (x1, y1), (x2, y2) = pts
+    dx, dy = abs(x2 - x1), abs(y2 - y1)
+    if dx and dy:
+        return [(x1, y1), (x2, y1)] if dx >= dy else [(x1, y1), (x1, y2)]
+    return list(pts)
 
 
 def _compress(pts: list[Point], tol: float = 0.75) -> list[Point]:
