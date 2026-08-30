@@ -47,13 +47,16 @@ class StructureBodyGlyph(ABC):
 
     ``border_width`` is the outline stroke width, and each kind may set its own
     — a While loop draws a thick grey border, a For loop a thin one. The layout
-    bounding box is the OUTER edge of the border, so the outline is stroked on a
-    rect pulled ``border_width/2`` INSIDE the bounds (its outer edge then lands
-    on the box), and :meth:`interior` clips content a FULL ``border_width``
-    inside — the border's inner edge — so content meets the border flush (no
-    overpaint, no gap). The opaque body still fills the whole box. Every
-    ``draw_outline`` override just strokes relative to the inset bounds it's
-    handed, so this needs no per-kind offset."""
+    bounding box is the OUTER edge of the border. ``draw_outline`` is handed the
+    OUTER bounds and strokes there: the backend insets every stroked bounded
+    shape by half its width (``backend._stroke_inset``), so a plain bordered box
+    lands its outer edge on the bounds with no per-kind offset. :meth:`interior`
+    clips content a FULL ``border_width`` inside — the border's inner edge — so
+    content meets the border flush (no overpaint, no gap). The opaque body still
+    fills the whole box. (A kind whose border is a freeform *path*/line rather
+    than a bounded shape — the For-loop cards, the sequence rails — isn't
+    auto-inset by the backend and pulls its own working rect in by
+    ``_stroke_inset``.)"""
 
     border_width: float = DEFAULT_BORDER_W
     # A scene-injected border colour (error-cluster case/sequence); None uses the
@@ -70,10 +73,10 @@ class StructureBodyGlyph(ABC):
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         self.draw_body(backend, bounds, theme)
-        # Border OUTER edge = bounds, so stroke on a rect inset half the width.
-        i = self.border_width / 2
-        x1, y1, x2, y2 = bounds
-        self.draw_outline(backend, (x1 + i, y1 + i, x2 - i, y2 - i), theme)
+        # Pass the OUTER bounds straight through: the backend insets every
+        # stroked bounded outline by half its width, so the border's outer edge
+        # lands on the box with no pre-inset here (that would double up).
+        self.draw_outline(backend, bounds, theme)
 
     def draw_body(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """Paint the OPAQUE body so the structure occludes what's behind it.

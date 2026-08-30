@@ -33,13 +33,12 @@ class WhileLoopGlyph(StructureBodyGlyph):
         )
         # The While-loop cue at the bottom-right: a 45-45-90 arrowhead with the
         # RIGHT ANGLE at the top, a 45 at the bottom-right corner and a 45 to its
-        # left (hypotenuse bottom-right → up-left), shifted out by half the
-        # border width so it sits flush with the thick stroke's outer edge, plus
-        # a short GAP in the right border just above it, so it reads as a
-        # loop-back.
+        # left (hypotenuse bottom-right → up-left), sitting flush at the outer
+        # corner (the backend insets the box rect, so the border's outer edge is
+        # the bounds), plus a short GAP in the right border just above it, so it
+        # reads as a loop-back. The arrow is unstroked, so it is NOT auto-inset.
         a = w * 1.75  # arrow leg, scaled with the border
-        d = w / 2  # align the arrow with the border stroke's outer edge
-        ax, ay = x2 + d, y2 + d
+        ax, ay = x2, y2
         backend.polygon(
             [(ax, ay - a), (ax, ay), (ax - a, ay - a)], fill=c, stroke=None
         )

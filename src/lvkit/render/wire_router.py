@@ -372,6 +372,25 @@ class WireRouter:
         return pts
 
 
+def straighten_faithful(pts: list[Point]) -> list[Point]:
+    """LabVIEW NEVER draws a diagonal wire. A faithful wire it stored as a single
+    cardinal segment (``nseg == 1`` — no bends) must render straight; connecting
+    two terminal centers that our geometry left even slightly misaligned would
+    draw a diagonal. Snap such a 2-point wire onto its DOMINANT cardinal axis
+    (its stored direction), taking the perpendicular coordinate from the source
+    anchor — the endpoint's parallel reach is unchanged. Fires on ANY non-zero
+    tilt (LabVIEW has none), not just large ones. Multi-bend wires are already
+    cardinal by construction (``_decode_chain`` enforces H/V segments), so only
+    the no-bend case can be diagonal."""
+    if len(pts) != 2:
+        return list(pts)
+    (x1, y1), (x2, y2) = pts
+    dx, dy = abs(x2 - x1), abs(y2 - y1)
+    if dx and dy:
+        return [(x1, y1), (x2, y1)] if dx >= dy else [(x1, y1), (x1, y2)]
+    return list(pts)
+
+
 def _compress(pts: list[Point], tol: float = 0.75) -> list[Point]:
     """Drop interior points that lie on a straight axis-aligned run, keeping real
     bends.

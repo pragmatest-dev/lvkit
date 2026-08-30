@@ -274,8 +274,9 @@ def test_boolean_constant_glyph_true_vs_false_render():
     # False: white fill + green outline + green F
     assert 'fill="#ffffff"' in false_svg and f'stroke="{green}"' in false_svg
     assert ">F</text>" in false_svg
-    # centered SQUARE (side = min(w,h) = 14), not stretched to the 16 width
-    assert 'width="14.0"' in true_svg
+    # centered SQUARE (side = min(w,h) = 14, inset by the ½-stroke so the
+    # outline honors the box → 13), not stretched to the 16 width
+    assert 'width="13.0"' in true_svg
 
 
 def test_string_constant_wraps_full_text_no_ellipsis():
@@ -386,10 +387,10 @@ def test_compound_arith_glyph_renders_at_real_bounds_with_default_operation():
     backend = SvgBackend()
     glyph.draw(backend, bounds, DEFAULT_THEME)
     svg = backend.render(bounds)
-    # A plain rectangle sized to the PASSED-IN bounds — not a fixed 24x16
-    # icon — so a wider/taller node (more inputs) grows the box, not a fixed
-    # asset.
-    assert 'width="40.0" height="30.0"' in svg
+    # A plain rectangle sized to the PASSED-IN bounds (inset by the ½-stroke so
+    # the outline honors the box) — not a fixed 24x16 icon — so a wider/taller
+    # node (more inputs) grows the box, not a fixed asset.
+    assert 'width="38.8" height="28.8"' in svg
     # LabVIEW's Compound Arithmetic defaults to Add (numeric palette), so an
     # unset operation renders the "+" symbol.
     assert ">+<" in svg
