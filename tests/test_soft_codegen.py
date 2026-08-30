@@ -66,7 +66,7 @@ def test_vinode_qualified_path_field_exists() -> None:
     """VINode accepts and stores qualified_path."""
     node = VINode(
         id="vi_uid_42",
-        vi="Caller.vi",
+        vi_path="Caller.vi",
         name="Foo.vi",
         node_type="iUse",
         terminals=[],

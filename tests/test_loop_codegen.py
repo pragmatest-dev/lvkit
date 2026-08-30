@@ -863,7 +863,7 @@ class TestUninitializedShiftRegister:
 
         src_node = PrimitiveNode(
             id="src",
-            vi="test.vi",
+            vi_path="test.vi",
             name="src",
             terminals=[Terminal(id="new_val_src", index=0, direction="output")],
         )
@@ -906,7 +906,7 @@ class TestUninitializedShiftRegister:
         ]
         loop_node = PrimitiveNode(
             id="loop1",
-            vi="test.vi",
+            vi_path="test.vi",
             name="loop1",
             terminals=loop_terminals,
         )

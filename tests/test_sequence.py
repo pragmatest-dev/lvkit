@@ -283,7 +283,7 @@ class TestSequenceInMemoryGraph:
         # VINode for the VI itself (FP terminals)
         vi_node = VINode(
             id=vi_name,
-            vi=vi_name,
+            vi_path=vi_name,
             name=vi_name,
             terminals=[],
         )
@@ -293,7 +293,7 @@ class TestSequenceInMemoryGraph:
         # all stored ON the StructureNode
         seq_node = SequenceNode(
             id="seq1",
-            vi=vi_name,
+            vi_path=vi_name,
             name="Flat Sequence",
             node_type="flatSequence",
             frames=[
@@ -324,7 +324,7 @@ class TestSequenceInMemoryGraph:
         # Inner VINodes in two frames
         write1_node = VINode(
             id="write1",
-            vi=vi_name,
+            vi_path=vi_name,
             name="Write.vi",
             node_type="iUse",
             parent="seq1",
@@ -337,7 +337,7 @@ class TestSequenceInMemoryGraph:
 
         write2_node = VINode(
             id="write2",
-            vi=vi_name,
+            vi_path=vi_name,
             name="Write.vi",
             node_type="iUse",
             parent="seq1",
@@ -349,7 +349,7 @@ class TestSequenceInMemoryGraph:
         # Upstream VINode
         start_node = VINode(
             id="start",
-            vi=vi_name,
+            vi_path=vi_name,
             name="Start.vi",
             node_type="iUse",
             terminals=[

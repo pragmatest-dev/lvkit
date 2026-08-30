@@ -400,7 +400,7 @@ class CodeGenContext:
         for nid, tids in node_terminals.items():
             node = PrimitiveNode(
                 id=nid,
-                vi="test.vi",
+                vi_path="test.vi",
                 name=nid,
                 terminals=[
                     Terminal(id=tid, index=i, direction="output")
@@ -426,7 +426,7 @@ class CodeGenContext:
                     nid = f"_bind_{tid}"
                     node = PrimitiveNode(
                         id=nid,
-                        vi="test.vi",
+                        vi_path="test.vi",
                         name=nid,
                         terminals=[Terminal(id=tid, index=0, direction="output")],
                     )
@@ -492,7 +492,7 @@ class CodeGenContext:
             nid = f"_auto_{i}"
             node = PrimitiveNode(
                 id=nid,
-                vi="test.vi",
+                vi_path="test.vi",
                 name=nid,
                 terminals=[
                     Terminal(id=tid, index=0, direction="output"),

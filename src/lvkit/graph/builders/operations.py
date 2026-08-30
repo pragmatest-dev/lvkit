@@ -74,7 +74,7 @@ class FormulaBuildHandler(NodeBuildHandler):
             )
         return GraphFormulaNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,
@@ -115,7 +115,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
 
         return GraphPrimitiveNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,
@@ -152,7 +152,7 @@ class SubVIBuildHandler(NodeBuildHandler):
         qualified_name = ctx.iuse_to_qname.get(node.uid) or node_name
         return VINode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,

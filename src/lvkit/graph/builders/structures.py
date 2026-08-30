@@ -77,7 +77,7 @@ class LoopBuildHandler(StructureBuildHandler):
         )
         return LoopNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,
@@ -144,7 +144,7 @@ class CaseBuildHandler(StructureBuildHandler):
 
         return CaseStructureNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,
@@ -188,7 +188,7 @@ class EventBuildHandler(StructureBuildHandler):
 
         return EventStructureNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,
@@ -218,7 +218,7 @@ class SequenceBuildHandler(StructureBuildHandler):
         )
         return SequenceNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,
@@ -276,7 +276,7 @@ class InPlaceBuildHandler(StructureBuildHandler):
                 )
         return InPlaceNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,
@@ -320,7 +320,7 @@ class DisableBuildHandler(StructureBuildHandler):
 
         return DisableStructureNode(
             id=q_node_uid,
-            vi=ctx.vi_name,
+            vi_path=ctx.vi_name,
             name=node_name,
             label=node.label,
             caption=node.caption,

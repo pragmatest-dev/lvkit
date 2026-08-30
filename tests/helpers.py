@@ -58,7 +58,7 @@ def make_node(node_id: str, terminal_ids: list[str]) -> PrimitiveNode:
     """Create a graph node with terminals."""
     return PrimitiveNode(
         id=node_id,
-        vi="test.vi",
+        vi_path="test.vi",
         name=node_id,
         terminals=[
             Terminal(id=tid, index=i, direction="output")

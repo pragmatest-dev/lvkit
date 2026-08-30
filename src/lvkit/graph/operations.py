@@ -88,7 +88,7 @@ class OperationsMixin:
 
         # Build terminals, enriching SubVI terminals with callee param names
         terminals = list(gnode.terminals)
-        if isinstance(gnode, VINode) and gnode.id != gnode.vi:
+        if isinstance(gnode, VINode) and gnode.id != gnode.vi_path:
             # SubVI call — enrich with callee param names via
             # _enrich_subvi_terminals_typed. Resolve by the callee's
             # QUALIFIED name (e.g. "TestSuite.lvclass:run.vi"), never the bare

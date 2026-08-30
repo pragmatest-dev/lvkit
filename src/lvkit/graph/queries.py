@@ -561,7 +561,7 @@ class QueryMixin:
 
         if isinstance(gnode, VINode):
             # Could be a VI definition or SubVI call
-            if gnode.id == gnode.vi:
+            if gnode.id == gnode.vi_path:
                 # VI definition — doesn't have a "kind" in the old sense
                 result["kind"] = "vi_definition"
             else:
@@ -1020,7 +1020,7 @@ class QueryMixin:
             if uid not in self._graph:
                 continue
             gnode = self._graph.nodes[uid].get("node")
-            if isinstance(gnode, VINode) and gnode.id != gnode.vi:
+            if isinstance(gnode, VINode) and gnode.id != gnode.vi_path:
                 subvi_calls.append(
                     SubVICall(
                         call_name=gnode.name,

@@ -47,7 +47,7 @@ class GraphNode(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     id: str
-    vi: str
+    vi_path: str  # owning VI's PATH (dep-graph key/identity), not a name
     name: str | None = None
     label: str | None = None  # LabVIEW label (partID 16), see extract_label
     caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption

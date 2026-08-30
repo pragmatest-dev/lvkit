@@ -283,9 +283,10 @@ class InMemoryVIGraph(
         self._parse_cache = None
 
     @staticmethod
-    def _qid(vi_name: str, uid: str) -> str:
-        """Qualify a parser UID with VI name to prevent cross-VI collisions."""
-        return f"{vi_name}::{uid}"
+    def _qid(vi_path: str, uid: str) -> str:
+        """Qualify a parser UID with the VI PATH (its identity) to prevent
+        cross-VI collisions -- the node key is ``<vi_path>::<uid>``."""
+        return f"{vi_path}::{uid}"
 
     def _enrich_type(self, parsed_type: ParsedType | None) -> LVType | None:
         """Enrich ParsedType from parser to LVType with vilib data.

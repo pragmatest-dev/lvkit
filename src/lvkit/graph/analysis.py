@@ -80,7 +80,7 @@ class AnalysisMixin:
             gnode = self._graph.nodes[node_id].get("node")
 
             # If we hit the VINode (an output terminal), branch ends
-            if isinstance(gnode, VINode) and gnode.id == gnode.vi:
+            if isinstance(gnode, VINode) and gnode.id == gnode.vi_path:
                 merge_terminal = node_id
                 return True
 

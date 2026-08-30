@@ -223,7 +223,7 @@ class ConstructionMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         @staticmethod
-        def _qid(_vi_name: str, _uid: str) -> str: ...
+        def _qid(_vi_path: str, _uid: str) -> str: ...
         def _enrich_type(
             self,
             _parsed_type: ParsedType | None,
@@ -419,7 +419,7 @@ class ConstructionMixin:
         _meta = getattr(self, "_vi_metadata", {}).get(vi_key)
         vi_node = VINode(
             id=vi_key,
-            vi=vi_key,
+            vi_path=vi_key,
             name=display_name,
             # A VI's OWN qualified identity: its LIBN/LIBH-derived
             # ``Lib.lvlib:VI.vi`` (or the bare filename when it's owned by no
@@ -459,7 +459,7 @@ class ConstructionMixin:
 
             const_node = ConstantNode(
                 id=q_const_uid,
-                vi=vi_key,
+                vi_path=vi_key,
                 value=decoded_value,
                 lv_type=lv_type,
                 raw_value=const.value,
@@ -493,7 +493,7 @@ class ConstructionMixin:
             q_label_uid = self._qid(vi_key, lbl.uid)
             label_node = LabelNode(
                 id=q_label_uid,
-                vi=vi_key,
+                vi_path=vi_key,
                 text=lbl.text,
                 bg_color=lbl.bg_color,
                 attached_to=None,
