@@ -206,6 +206,14 @@ class SvgBackend:
         rx: float | None = None,
         stroke_dasharray: str | None = None,
     ) -> None:
+        # SVG strokes are CENTERED on the path, so a stroked rect drawn at the
+        # raw bounds bleeds stroke_width/2 OUTSIDE the bounding box (the box then
+        # reads larger than its bounds — visible on fallback text boxes / node
+        # tiles). Inset the rect by half the stroke so the outline's OUTER edge
+        # sits on the bounding box. Single source for every stroked rect.
+        if stroke is not None and stroke_width:
+            h = stroke_width / 2.0
+            x1, y1, x2, y2 = x1 + h, y1 + h, x2 - h, y2 - h
         a = self._attrs(
             fill=fill,
             stroke=stroke,

@@ -372,6 +372,32 @@ class WireRouter:
         return pts
 
 
+def orthogonalize(pts: list[Point], tol: float = 0.75) -> list[Point]:
+    """Force a polyline orthogonal by elbowing any genuinely DIAGONAL segment.
+
+    LabVIEW's decoded ``compressedWireTable`` bends are exactly orthogonal, so
+    the only diagonal segments in a faithful wire are the endpoint snap-to-center
+    artifacts (the decoded leaf lands on our terminal center, which can disagree
+    with LabVIEW's attach point by a few px — issue #68). Replace each such
+    diagonal with an axis-aligned elbow that CONTINUES the incoming orthogonal
+    segment's direction, so the wire stays orthogonal and still reaches the
+    terminal center. Near-axis-aligned segments (<= ``tol`` on an axis) are left
+    untouched — they're already flush and re-snapping them would jog every wire.
+    """
+    if len(pts) < 2:
+        return list(pts)
+    out: list[Point] = [pts[0]]
+    for i in range(1, len(pts)):
+        x1, y1 = out[-1]
+        x2, y2 = pts[i]
+        if abs(x2 - x1) > tol and abs(y2 - y1) > tol:
+            # genuine diagonal: elbow, continuing the incoming axis.
+            horiz_in = len(out) >= 2 and abs(out[-1][1] - out[-2][1]) <= tol
+            out.append((x2, y1) if horiz_in else (x1, y2))
+        out.append((x2, y2))
+    return out
+
+
 def _compress(pts: list[Point], tol: float = 0.75) -> list[Point]:
     """Drop interior points that lie on a straight axis-aligned run, keeping real
     bends.

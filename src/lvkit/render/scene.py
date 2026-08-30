@@ -52,7 +52,7 @@ from .nodes import (
     string_const_display,
 )
 from .style import WireStyle, numeric_repr, type_family, wire_style
-from .wire_router import WireRouter, _compress
+from .wire_router import WireRouter, _compress, orthogonalize
 
 logger = logging.getLogger(__name__)
 
@@ -1560,7 +1560,10 @@ def _build_wire_nets(
             if faithful is not None:
                 # Verbatim decoded geometry (already source..sink); just drop
                 # exactly-collinear vertices, never re-anchor to a terminal.
-                branch = _compress(faithful)
+                # Keep LabVIEW's orthogonal geometry orthogonal: the decoded
+                # leaf snapped to our terminal center can tilt the final segment
+                # (issue #68), so elbow any diagonal before compressing.
+                branch = _compress(orthogonalize(faithful))
             else:
                 mid = router.route(
                     src_out,
