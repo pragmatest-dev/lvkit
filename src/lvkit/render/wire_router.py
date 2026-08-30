@@ -386,6 +386,20 @@ def orthogonalize(pts: list[Point], tol: float = 0.75) -> list[Point]:
     """
     if len(pts) < 2:
         return list(pts)
+    # A STRAIGHT (2-point) faithful wire that LabVIEW drew axis-aligned but our
+    # misaligned terminal centers tilted (its stored direction is a single
+    # H or V segment — wire_table returns no bends for it): draw it CLEAN in the
+    # dominant axis, matching LabVIEW's straight wire, rather than jogging it.
+    # The endpoint shifts by the MINOR offset (a few px, within the terminal
+    # glyph's own height), so it still lands on the terminal.
+    if len(pts) == 2:
+        (x1, y1), (x2, y2) = pts
+        if abs(x2 - x1) > tol and abs(y2 - y1) > tol:
+            return [(x1, y1), (x2, y1)] if abs(x2 - x1) >= abs(y2 - y1) else [
+                (x1, y1),
+                (x1, y2),
+            ]
+        return list(pts)
     out: list[Point] = [pts[0]]
     for i in range(1, len(pts)):
         x1, y1 = out[-1]
