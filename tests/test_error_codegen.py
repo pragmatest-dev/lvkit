@@ -550,7 +550,7 @@ class TestErrorBundleRaise:
         ctx.resolve = lambda terminal_id: bindings.get(terminal_id)
 
         class FakeGraph:
-            def get_type_fields(self, lv_type):
+            def get_type_fields(self, lv_type, caller_vi_key=None):
                 return [
                     ClusterField(name="status"),
                     ClusterField(name="code"),
@@ -606,7 +606,7 @@ class TestErrorBundleRaise:
         ctx.resolve = lambda terminal_id: {"code_in": "42"}.get(terminal_id)
 
         class FakeGraph:
-            def get_type_fields(self, lv_type):
+            def get_type_fields(self, lv_type, caller_vi_key=None):
                 return [
                     ClusterField(name="status"),
                     ClusterField(name="code"),

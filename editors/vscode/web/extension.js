@@ -172,71 +172,90 @@ function getEngine() {
 // FIRST render's byte-identity to desktop depends on it: a referenced class's or
 // typedef's file has to be present too, or the graph degrades to a stub and the
 // wasm render diverges from the native one (see check-web-parity.sh). Pyodide has
-// no access to the workspace FS, so before a render we mirror the VI's TRANSITIVE
-// DEPENDENCY CLOSURE (not the whole workspace, and not .vi-only) into Pyodide
-// under /proj, preserving relative layout, reading each BFS level in PARALLEL —
-// then render /proj/<the VI>.
+// no access to the workspace FS, so before a render we mirror the VI's MINIMAL
+// dependency closure (not the whole workspace, and not .vi-only) into Pyodide
+// under /proj, preserving relative layout — then render /proj/<the VI>.
 //
-// The closure is computed by lvkit.list_deps (core Python) — the SAME resolution
-// the graph loader's `_load_dependency` uses — so /proj ends up holding exactly
-// the files the desktop loader would have touched: .vi, .ctl, .lvclass, .lvlib
-// alike. Bounded so a pathological project can't stage forever; the opened VI is
-// always staged even if the cap trips (it just renders with fewer clickable
-// SubVIs / possibly-stubbed types).
+// This works WITH the graph loader, not around it: each pass MINIMAL-loads the
+// opened VI against whatever is currently in /proj and asks the loader itself
+// which files that load resolved (get_dependency_paths). The loader knows every
+// dependency's path from the referencing VI's LinkSavePathRef — present or not —
+// so the first pass (only the opened VI staged) already names its direct deps;
+// we fetch those in PARALLEL and the next pass, now able to open them, walks a
+// level deeper. The set is exactly the MINIMAL closure the desktop loader would
+// touch (.vi/.ctl/.lvclass/.lvlib), so /proj ends byte-parity with desktop.
+// Bounded so a pathological project can't stage forever; the opened VI is always
+// staged even if the cap trips (it just renders with fewer clickable SubVIs /
+// possibly-stubbed types).
 const MAX_STAGE_FILES = 400;
 const MAX_STAGE_BYTES = 64 * 1024 * 1024;
 
-async function stageDependencyClosure(uri, engine) {
+// The opened URI's workspace root + its path relative to that root — the
+// layout /proj mirrors. Shared by the cache probe and the staging loop so both
+// key the VI by the SAME /proj/<renderRel> path.
+function resolveEntry(uri) {
   const folder = vscode.workspace.getWorkspaceFolder(uri);
   const root = folder ? folder.uri : uri.with({ path: uri.path.replace(/\/[^/]*$/, "") });
   const renderRel = uri.path.startsWith(root.path)
     ? uri.path.slice(root.path.length).replace(/^\/+/, "")
     : uri.path.split("/").pop();
+  return { root, renderRel };
+}
+
+async function stageDependencyClosure(uri, engine) {
+  const { root, renderRel } = resolveEntry(uri);
 
   async function readRel(rel) {
     const data = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, rel));
     return { rel, b64: toBase64(data), size: data.length };
   }
 
-  const staged = new Set([renderRel]);
+  const staged = new Set();
   let bytes = 0;
   let capped = false;
-  // Level 0 is always the opened VI itself, cap or no cap.
+  // Each pass writes the new batch into /proj, MINIMAL-loads the opened VI, and
+  // gets back the path of every dependency that load reached. The loader names
+  // absent deps too (from the referencing VI's LinkSavePathRef), so the FIRST
+  // pass — with only the opened VI present — already yields its direct deps;
+  // fetching them lets the next pass walk a level deeper. Converges when a pass
+  // surfaces nothing new. Level 0 is always the opened VI, cap or no cap.
   const first = await readRel(renderRel);
   bytes += first.size;
-  let level = [first];
+  let batch = [first];
 
-  while (level.length > 0) {
-    // PARALLEL: one round trip to the engine per level, not one per file.
+  while (batch.length > 0) {
+    // One round trip per pass: write this batch, then re-derive the full dep
+    // set from a fresh MINIMAL load (get_dependency_paths).
     const depsJson = await engine.run({
       type: "stageDeps",
-      files: level.map(({ rel, b64 }) => ({ rel, b64 })),
+      renderRel,
+      files: batch.map(({ rel, b64 }) => ({ rel, b64 })),
     });
-    const nextRels = [...new Set(JSON.parse(depsJson))].filter((rel) => !staged.has(rel));
-    if (nextRels.length === 0) break;
+    for (const f of batch) staged.add(f.rel);
+    const wanted = [...new Set(JSON.parse(depsJson))].filter((rel) => !staged.has(rel));
+    if (wanted.length === 0) break;
 
     if (staged.size >= MAX_STAGE_FILES || bytes >= MAX_STAGE_BYTES) {
       capped = true;
       break;
     }
 
-    // PARALLEL: every file in a level is read off the workspace FS at once —
+    // PARALLEL: every newly-wanted file is read off the workspace FS at once —
     // this is the whole point (the old walk read one .vi at a time, which is
     // what made staging take 1-8 minutes over a remote VFS).
     const reads = await Promise.all(
-      nextRels.map((rel) =>
+      wanted.map((rel) =>
         readRel(rel).catch((e) => {
           log(`  stage: cannot read ${rel} — ${e}`);
           return null;
         })
       )
     );
-    level = [];
+    batch = [];
     for (const r of reads) {
       if (!r || staged.has(r.rel)) continue;
-      staged.add(r.rel);
       bytes += r.size;
-      level.push(r);
+      batch.push(r);
     }
   }
 
@@ -456,24 +475,38 @@ function activate(context) {
           try {
             await engine.ready;
             let html;
-            try {
-              const staged = await stageDependencyClosure(document.uri, engine);
-              log(
-                `render: staged ${staged.stagedCount} file(s) (dependency closure) under ${staged.root}` +
-                  `${staged.capped ? ` (CAPPED at ${MAX_STAGE_FILES} — some deps may be missing)` : ""}` +
-                  `, entry=${staged.renderRel}`
-              );
-              html = await engine.run({ type: "render", renderRel: staged.renderRel });
-            } catch (e) {
-              logError("stage", e);
-              // Degrade: render just the opened VI (no SubVI links / typed deps).
-              const data = await vscode.workspace.fs.readFile(document.uri);
-              const only = document.uri.path.split("/").pop();
-              html = await engine.run({
-                type: "render",
-                files: [{ rel: only, b64: toBase64(data) }],
-                renderRel: only,
-              });
+            // Probe the render cache FIRST (per command): a repeat open is an
+            // instant MEMFS hit that needs no dependency staging. Stage only the
+            // opened VI so the probe can key + content-hash it; run the staging
+            // loop only on a miss. renderRel is computed the same way
+            // stageDependencyClosure does, so the probe key matches the render.
+            const { root, renderRel } = resolveEntry(document.uri);
+            const openData = await vscode.workspace.fs.readFile(document.uri);
+            html = await engine.run({
+              type: "probe",
+              renderRel,
+              files: [{ rel: renderRel, b64: toBase64(openData) }],
+            });
+            if (html && html.trim()) {
+              log(`render: cache hit — skipped dependency staging, entry=${renderRel}`);
+            } else {
+              try {
+                const staged = await stageDependencyClosure(document.uri, engine);
+                log(
+                  `render: staged ${staged.stagedCount} file(s) (dependency closure) under ${staged.root}` +
+                    `${staged.capped ? ` (CAPPED at ${MAX_STAGE_FILES} — some deps may be missing)` : ""}` +
+                    `, entry=${staged.renderRel}`
+                );
+                html = await engine.run({ type: "render", renderRel: staged.renderRel });
+              } catch (e) {
+                logError("stage", e);
+                // Degrade: render just the opened VI (no SubVI links / typed deps).
+                html = await engine.run({
+                  type: "render",
+                  files: [{ rel: renderRel, b64: toBase64(openData) }],
+                  renderRel,
+                });
+              }
             }
             // Empty body = lvkit declined (missing diagram geometry). Surface the
             // error card rather than a blank page, matching the desktop viewer.
@@ -575,7 +608,7 @@ const PHASES = [
 ];
 // The raw status string is a match key + a log line; the panel/loader show the plain label.
 function status(m) { log(m); const p = PHASES.find(p => p.re.test(m)); const label = p ? p.label : String(m); S.textContent = label; api.postMessage({ type: "progress", label, pct: p ? p.pct : null }); }
-let pyodide = null, renderFn = null, diffFn = null, listDepsFn = null;
+let pyodide = null, renderFn = null, diffFn = null, depsFn = null, probeFn = null;
 function u8(b64) { const bin = atob(b64); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
 function writeFile(pth, data) { const dir = pth.slice(0, pth.lastIndexOf("/")); if (dir) pyodide.FS.mkdirTree(dir); pyodide.FS.writeFile(pth, data); }
 const WHEELS = ${JSON.stringify(wheelUrls)};
@@ -595,9 +628,10 @@ import os
 os.environ["LVKIT_CACHE_DIR"] = "/tmp/lvkitcache"
 from pathlib import Path
 from lvkit import __version__
-from lvkit.list_deps import list_deps
+from lvkit.graph import InMemoryVIGraph
+from lvkit.load_mode import LoadMode
 from lvkit.output_cache import (
-    cached_diff, cached_render, diff_options_tag, render_options_tag,
+    cached_diff, cached_render, diff_options_tag, lookup_render, render_options_tag,
 )
 
 # Same shared cached cores the CLI/MCP use: look up first, build + refresh the
@@ -614,6 +648,19 @@ def _render(vi_path):
         theme_mode="auto",
     ) or ""
 
+# Cache probe (VI path -> output), checked BEFORE any dependency staging: a
+# repeat open is an instant MEMFS hit that needs no deps at all, so the host
+# probes with only the opened VI in /proj and skips the whole staging loop on a
+# hit. Keyed identically to _render's cached_render, so a hit here guarantees
+# the same slot _render would return.
+def _probe(vi_path):
+    return lookup_render(
+        Path(vi_path),
+        "html",
+        render_options_tag("html", "auto", None),
+        __version__,
+    ) or ""
+
 def _diff(before, after, before_ref, after_ref):
     Path("/tmp/before.vi").write_bytes(bytes(before.to_py()))
     Path("/tmp/after.vi").write_bytes(bytes(after.to_py()))
@@ -626,30 +673,36 @@ def _diff(before, after, before_ref, after_ref):
         after_ref=(after_ref or None),
     ) or ""
 
-# Host-side staging BFS (stageDependencyClosure below) calls this once per
-# newly-staged file to discover the next level of the transitive dependency
-# closure — the SAME resolution lvkit's graph loader uses (see
-# lvkit.list_deps's module docstring), so the closure staged into /proj is
-# never missing a file the desktop loader would have used. Returns a JSON
-# array of paths relative to /proj (the host re-joins them against the real
-# workspace root to read the next batch).
-def _list_deps(vi_path):
+# Progressive dependency staging (stageDependencyClosure below calls this each
+# pass): MINIMAL-load the opened VI against whatever is currently in /proj and
+# return the file path of EVERY dependency that load reached — present-and-
+# loaded or absent-and-stubbed alike. The loader knows each dep's path from the
+# referencing VI's LinkSavePathRef (get_dependency_paths), so an absent file
+# still yields its intended path: the first pass, with only the opened VI in
+# /proj, already names its direct deps. The host fetches the absent ones and
+# calls again; the next load walks a level deeper, until the set stops growing.
+# No reinvented walk — this reports exactly what the MINIMAL loader itself
+# resolved, so /proj ends byte-parity with the desktop loader. Paths are
+# returned relative to /proj (the host re-joins them against the workspace).
+def _deps(vi_path):
+    g = InMemoryVIGraph()
     try:
-        deps = list_deps(vi_path)
+        name = g.load_vi(vi_path, LoadMode.MINIMAL)
     except Exception:
-        deps = []
+        return json.dumps([])
     proj = Path("/proj")
     rels = []
-    for d in deps:
+    for p in g.get_dependency_paths(name or vi_path):
         try:
-            rels.append(str(Path(d).relative_to(proj)))
+            rels.append(str(p.resolve().relative_to(proj)))
         except ValueError:
-            pass  # shouldn't happen -- everything staged lives under /proj
+            pass  # outside /proj (e.g. a <vilib> path with no local root) — skip
     return json.dumps(rels)
 \`);
     renderFn = pyodide.globals.get("_render");
     diffFn = pyodide.globals.get("_diff");
-    listDepsFn = pyodide.globals.get("_list_deps");
+    depsFn = pyodide.globals.get("_deps");
+    probeFn = pyodide.globals.get("_probe");
     status("ready");
     S.textContent = "LVKit runs here in the background to draw your VIs. You can hide this panel — it keeps working.";
     api.postMessage({ type: "engineReady" });
@@ -675,24 +728,35 @@ window.addEventListener("message", ev => {
       const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "");
       log("diffed via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
       api.postMessage({ type: "result", id: m.id, html });
-    } else if (m.type === "stageDeps") {
-      // One BFS level of the host's dependency-closure walk (see
-      // stageDependencyClosure): write this batch into /proj, then ask lvkit
-      // for each file's own direct deps so the host can read+send the next
-      // level. Reply carries a JSON array of /proj-relative paths in the
-      // 'html' field (reusing the generic job/result field — it is just the
-      // response body, not markup, for this job type).
-      for (const f of m.files) { writeFile("/proj/" + f.rel, u8(f.b64)); }
-      const nextRels = [];
-      for (const f of m.files) {
-        try {
-          const rels = JSON.parse(listDepsFn("/proj/" + f.rel));
-          for (const r of rels) nextRels.push(r);
-        } catch (e) {
-          log("list_deps failed for " + f.rel + " — " + (e && e.message ? e.message : e));
-        }
+    } else if (m.type === "probe") {
+      // Cache probe before any staging (see the open flow): write just the
+      // opened VI, then look up its render slot. A hit returns the cached HTML
+      // and the host skips the whole dependency-staging loop; a miss returns
+      // "" and the host proceeds to stage + render.
+      for (const f of (m.files || [])) { writeFile("/proj/" + f.rel, u8(f.b64)); }
+      let html = "";
+      try {
+        html = probeFn("/proj/" + m.renderRel);
+      } catch (e) {
+        log("probe failed for " + m.renderRel + " — " + (e && e.message ? e.message : e));
       }
-      api.postMessage({ type: "result", id: m.id, html: JSON.stringify(nextRels) });
+      api.postMessage({ type: "result", id: m.id, html });
+    } else if (m.type === "stageDeps") {
+      // One pass of the host's progressive staging loop (see
+      // stageDependencyClosure): write this batch into /proj, then MINIMAL-load
+      // the opened VI and report EVERY dependency path that load reached
+      // (present-and-loaded or absent-and-stubbed alike — the loader names
+      // absent deps from the referencing VI's LinkSavePathRef). Reply carries a
+      // JSON array of /proj-relative paths in the 'html' field (reused as the
+      // generic response body for this job type — it is data, not markup).
+      for (const f of m.files) { writeFile("/proj/" + f.rel, u8(f.b64)); }
+      let deps = "[]";
+      try {
+        deps = depsFn("/proj/" + m.renderRel);
+      } catch (e) {
+        log("deps failed for " + m.renderRel + " — " + (e && e.message ? e.message : e));
+      }
+      api.postMessage({ type: "result", id: m.id, html: deps });
     }
   } catch (e) { api.postMessage({ type: "jobError", id: m.id, error: String(e && e.message ? e.message : e) }); }
 });

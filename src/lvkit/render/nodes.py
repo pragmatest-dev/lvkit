@@ -708,7 +708,7 @@ def _event_data_glyph(
     # terminal's own VCTP type is preferred, so this rarely fires).
     own_fields, dep_fields = _nmux_field_sources(node.vi, agg, graph)
     fields = (
-        graph.get_type_fields(agg.lv_type) or []
+        graph.get_type_fields(agg.lv_type, caller_vi_key=node.vi) or []
         if agg is not None and agg.lv_type is not None
         else []
     )

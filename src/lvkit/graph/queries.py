@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 from ..models import ClusterField, FPTerminal, Operation, Terminal
+from ..parser.models import ParsedDependencyRef
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .interface_order import ordered_interface
@@ -52,6 +53,30 @@ if TYPE_CHECKING:
     from .core import InMemoryVIGraph
 
 
+def _real_member_path(path: Path) -> Path | None:
+    """The on-disk FILE path for a dependency's intended path, or None when it
+    denotes no standalone file. A ``.lvclass``/``.lvlib`` is a container FILE,
+    never a directory, so an INTERIOR container component means the ref names a
+    MEMBER embedded in that container (e.g. a class's virtual private-data
+    ``.ctl`` — a real graph node, but its bytes live inside the ``.lvclass``,
+    not in a file of its own). Members are stored BESIDE their container, so
+    flatten interior container components to the sibling and return it only if
+    it is a real file; an embedded member (no sibling file) returns None. A
+    CLEAN path (no interior container) is returned untouched WITHOUT an
+    existence check — a genuinely absent-but-real dep (the web stages it into
+    ``/proj`` on a later pass) must still be named."""
+    parts = path.parts
+    flat = [
+        seg
+        for i, seg in enumerate(parts)
+        if i == len(parts) - 1 or not seg.lower().endswith((".lvclass", ".lvlib"))
+    ]
+    if len(flat) == len(parts):
+        return path  # no interior container — a normal file path
+    sibling = Path(*flat)
+    return sibling if sibling.is_file() else None
+
+
 class AmbiguousVIReferenceError(Exception):
     """A bare name/qname lookup (``resolve_vi_name``) matched two or more
     on-disk VIs that are genuinely DIFFERENT (distinct qualified identity),
@@ -82,6 +107,7 @@ class QueryMixin:
     _search_paths: list[Path]
     _vilib_root: Path | None
     _userlib_root: Path | None
+    _instrlib_root: Path | None
     _vi_file_index: dict[str, Path] | None
 
     if TYPE_CHECKING:
@@ -91,7 +117,13 @@ class QueryMixin:
         def get_class_fields(
             self,
             classname: str,
+            caller_vi_key: str | None = None,
         ) -> list[ClusterField] | None: ...
+        def _dep_key_for_ref(
+            self, ref: str, caller_vi_key: str | None = None
+        ) -> str | None: ...
+        def _class_fields_by_key(self, node_key: str) -> list[ClusterField] | None: ...
+        def _parent_class_key(self, node_key: str) -> str | None: ...
 
     # === Dependency Graph Queries ===
 
@@ -263,6 +295,7 @@ class QueryMixin:
         for token, root in (
             ("<vilib>", self._vilib_root),
             ("<userlib>", self._userlib_root),
+            ("<instrlib>", self._instrlib_root),
         ):
             if qualified_path.startswith(token) and root is not None:
                 rel = qualified_path[len(token) :].lstrip("/\\")
@@ -349,6 +382,68 @@ class QueryMixin:
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.successors(vi_name))
+
+    def _dependency_file_path(self, node_key: str) -> Path | None:
+        """On-disk path of one dependency — whether it was found and loaded or
+        is ABSENT and stubbed. Every dep node is PATH-keyed (finishes #26): its
+        key IS the resolved (or intended-local) path, so a loaded dep returns
+        its ``_source_paths`` file and a local absent stub returns ``Path(key)``
+        directly. Only a pseudo-root ref (``<vilib>``/``<userlib>``/
+        ``<instrlib>`` with no configured root) stays qname-keyed — for those
+        the recorded ``LinkSavePathRef`` tokens are resolved against a caller by
+        pure path math (no root -> None, never in the workspace)."""
+        loaded = self._source_paths.get(node_key)
+        if loaded is not None:
+            return loaded
+        if node_key not in self._dep_graph:
+            return None
+        # Path-keyed stub: the key already IS the intended local path.
+        if Path(node_key).is_absolute():
+            return _real_member_path(Path(node_key))
+        # Qname-keyed pseudo-root stub: resolve its path_tokens against a caller.
+        tokens = self._dep_graph.nodes[node_key].get("path_tokens")
+        if not tokens:
+            return None
+        leaf = node_key.rsplit(":", 1)[-1]
+        ref = ParsedDependencyRef(name=leaf, path_tokens=list(tokens))
+        for caller in self._dep_graph.predecessors(node_key):
+            caller_file = self._source_paths.get(caller)
+            if caller_file is None:
+                continue
+            cand = ref.resolve_against(
+                caller_file,
+                vilib_root=self._vilib_root,
+                userlib_root=self._userlib_root,
+                instrlib_root=self._instrlib_root,
+            )
+            if cand is None:
+                continue
+            # A class/library MEMBER (.vi OR .ctl) names its OWNING container;
+            # the member's own file sits beside it (see _resolve_dependency_path).
+            if cand.suffix.lower() in (".lvclass", ".lvlib") and leaf != cand.name:
+                cand = cand.with_name(leaf)
+            return _real_member_path(cand)
+        return None
+
+    def get_dependency_paths(self, vi_name: str) -> set[Path]:
+        """On-disk file path of every dependency of ``vi_name`` the current
+        load reached — loaded or absent-and-stubbed alike (see
+        ``_dependency_file_path``). The set is bounded by the load's
+        ``LoadMode``: a MINIMAL load's dep graph holds only the MINIMAL
+        closure, so this returns exactly that. Powers the web extension's
+        progressive staging loop — load MINIMAL against the files present in
+        ``/proj``, fetch these paths (the absent ones) from the workspace,
+        reload, repeat until the set stops growing — with no reinvented
+        dependency walk: the paths are the ones the loader itself recorded."""
+        root = self.resolve_vi_name(vi_name)
+        if root not in self._dep_graph:
+            return set()
+        paths: set[Path] = set()
+        for qname in nx.descendants(self._dep_graph, root):
+            p = self._dependency_file_path(qname)
+            if p is not None:
+                paths.add(p)
+        return paths
 
     def get_vi_dependents(self, vi_name: str) -> list[str]:
         """Get VIs that depend on this VI (VIs that call it)."""
@@ -1033,9 +1128,13 @@ class QueryMixin:
     # parsed by ``structure.parse_lvclass()``.
 
     def list_classes(self) -> list[str]:
-        """List all loaded (non-stub) class names in the dependency graph."""
+        """List all loaded (non-stub) class QNAMES in the dependency graph.
+
+        The node KEY is the path (identity); the qname is the node's display
+        identity, read straight off the node (``qname`` attribute) — no side
+        table."""
         return sorted(
-            n
+            d.get("qname", n)
             for n, d in self._dep_graph.nodes(data=True)
             if d.get("node_type") == "class" and n not in self._stubs
         )
@@ -1045,14 +1144,21 @@ class QueryMixin:
 
         Returns None if ``vi_name`` isn't a class method VI.
         """
-        vi_name = self.resolve_vi_name(vi_name)
-        if vi_name not in self._dep_graph:
+        key = self._owning_class_key(self.resolve_vi_name(vi_name))
+        if key is None:
             return None
-        for pred in self._dep_graph.predecessors(vi_name):
+        return self._dep_graph.nodes[key].get("qname", key)  # display qname
+
+    def _owning_class_key(self, vi_key: str) -> str | None:
+        """PATH key of the class that owns this method VI, via its "owns" edge,
+        or None. Returns the KEY (path) for edge/attr lookups — distinct from
+        :meth:`get_owning_class`, which returns the display qname."""
+        if vi_key not in self._dep_graph:
+            return None
+        for pred in self._dep_graph.predecessors(vi_key):
             if self._dep_graph.nodes[pred].get("node_type") != "class":
                 continue
-            edata = self._dep_graph.get_edge_data(pred, vi_name) or {}
-            if edata.get("rel") == "owns":
+            if (self._dep_graph.get_edge_data(pred, vi_key) or {}).get("rel") == "owns":
                 return pred
         return None
 
@@ -1069,11 +1175,12 @@ class QueryMixin:
         if vi_name not in self._dep_graph:
             return None
         for pred in self._dep_graph.predecessors(vi_name):
-            if self._dep_graph.nodes[pred].get("node_type") != "library":
+            pdata = self._dep_graph.nodes[pred]
+            if pdata.get("node_type") != "library":
                 continue
             edata = self._dep_graph.get_edge_data(pred, vi_name) or {}
             if edata.get("rel") == "owns":
-                return pred
+                return pdata.get("qname", pred)  # display qname, keyed by path
         return None
 
     def get_class_hierarchy(self, classname: str) -> ClassHierarchyInfo | None:
@@ -1082,33 +1189,37 @@ class QueryMixin:
 
         Returns None if ``classname`` isn't a loaded (non-stub) class node.
         """
-        if not self._dep_graph.has_node(classname) or classname in self._stubs:
+        # Resolve the class reference to its PATH-key node (the key is the path;
+        # the caller passes a qname/name).
+        node_key = self._dep_key_for_ref(classname)
+        if (
+            node_key is None
+            or node_key in self._stubs
+            or self._dep_graph.nodes[node_key].get("node_type") != "class"
+        ):
             return None
-        data = self._dep_graph.nodes[classname]
-        if data.get("node_type") != "class":
-            return None
+        data = self._dep_graph.nodes[node_key]
+        own_qname = data.get("qname", classname)
 
         # parent_class is recorded as the bare ancestor name (no ".lvclass",
-        # no library qualification — see structure._parent_from_link_info).
-        # Re-qualify and only surface it if that class is itself loaded — this
-        # is the DOCS contract (html_generator links the parent page, so a
-        # not-loaded parent must not dangle). The INDEX, which wants the
-        # authoritative parent regardless of what's loaded, uses
-        # ``get_class_parent`` instead.
-        parent_raw: str | None = data.get("parent_class")
-        parent_class: str | None = None
-        if parent_raw and parent_raw != "LabVIEW Object":
-            candidate = parent_raw + ".lvclass"
-            if self._dep_graph.has_node(candidate) and candidate not in self._stubs:
-                parent_class = candidate
+        # no library qualification — see structure._parent_from_link_info). Only
+        # surface it if the parent is itself loaded (DOCS contract: a not-loaded
+        # parent must not dangle) — follow the recorded parent_key (PATH), and
+        # report the parent's display QNAME.
+        parent_key = self._parent_class_key(node_key)
+        parent_class: str | None = (
+            self._dep_graph.nodes[parent_key].get("qname", parent_key)
+            if parent_key is not None
+            else None
+        )
 
         # Children: invert parent_class across every loaded class. Compare
         # against the bare (unqualified) leaf of our own name, matching how
-        # parent_class is recorded.
-        leaf = classname.rsplit(":", 1)[-1]
+        # parent_class is recorded. Report each child's display QNAME.
+        leaf = own_qname.rsplit(":", 1)[-1]
         own_bare = leaf[: -len(".lvclass")] if leaf.endswith(".lvclass") else leaf
         child_classes = sorted(
-            node
+            ndata.get("qname", node)
             for node, ndata in self._dep_graph.nodes(data=True)
             if ndata.get("node_type") == "class"
             and node not in self._stubs
@@ -1116,31 +1227,47 @@ class QueryMixin:
         )
 
         # Methods: VI nodes owned by this class that are actually documented
-        # (present in list_vis() — excludes stub/unresolved method VIs).
+        # (present in list_vis() — excludes stub/unresolved method VIs). Report
+        # each method's display qname.
         vis = set(self.list_vis())
         methods = sorted(
-            succ
-            for succ in self._dep_graph.successors(classname)
-            if succ in vis
-            and (self._dep_graph.get_edge_data(classname, succ) or {}).get("rel")
+            self.vi_display_name(succ)
+            for succ in self._dep_graph.successors(node_key)
+            if self.vi_display_name(succ) in vis
+            and (self._dep_graph.get_edge_data(node_key, succ) or {}).get("rel")
             == "owns"
         )
 
         own_fields: list[ClusterField] = data.get("fields") or []
         inherited_fields: list[ClusterField] = (
-            self.get_class_fields(parent_class) or [] if parent_class else []
+            self._class_fields_by_key(parent_key) or []
+            if parent_class and parent_key is not None
+            else []
         )
         fields = [
             ClassFieldEntry(field=f, inherited=True) for f in inherited_fields
         ] + [ClassFieldEntry(field=f, inherited=False) for f in own_fields]
 
         return ClassHierarchyInfo(
-            classname=classname,
+            classname=own_qname,
             parent_class=parent_class,
             child_classes=child_classes,
             methods=methods,
             fields=fields,
         )
+
+    def _class_node_key(self, classname: str) -> str | None:
+        """Resolve a class reference to its LOADED class-node PATH key, or None
+        (stub, unresolved, or not a class). The KEY is the path; ``classname``
+        is a name, resolved via :meth:`_dep_key_for_ref`. Shared by every
+        class-attribute query so they all look up by identity, not by a name
+        that no longer keys the graph."""
+        key = self._dep_key_for_ref(classname)
+        if key is None or key in self._stubs:
+            return None
+        if self._dep_graph.nodes[key].get("node_type") != "class":
+            return None
+        return key
 
     def get_class_parent(self, classname: str) -> str | None:
         """The AUTHORITATIVE parent class of ``classname`` (bare name +
@@ -1155,12 +1282,10 @@ class QueryMixin:
         paths — no spurious NULL beside the real value (the WaitOnTestComplete
         duplicate). Docs keep the link-safe, load-gated ``get_class_hierarchy``.
         """
-        if not self._dep_graph.has_node(classname) or classname in self._stubs:
+        key = self._class_node_key(classname)
+        if key is None:
             return None
-        data = self._dep_graph.nodes[classname]
-        if data.get("node_type") != "class":
-            return None
-        parent_raw = data.get("parent_class")
+        parent_raw = self._dep_graph.nodes[key].get("parent_class")
         if parent_raw and parent_raw != "LabVIEW Object":
             return parent_raw + ".lvclass"
         return None
@@ -1172,12 +1297,10 @@ class QueryMixin:
         Straight passthrough of ``structure.LVClass.version``, recorded on
         the class node at load time (``loading.load_lvclass``).
         """
-        if not self._dep_graph.has_node(classname) or classname in self._stubs:
+        key = self._class_node_key(classname)
+        if key is None:
             return None
-        data = self._dep_graph.nodes[classname]
-        if data.get("node_type") != "class":
-            return None
-        version = data.get("version")
+        version = self._dep_graph.nodes[key].get("version")
         return version if isinstance(version, str) else None
 
     def get_class_ancestors(self, classname: str) -> list[str]:
@@ -1189,12 +1312,10 @@ class QueryMixin:
         ``structure._build_ancestor_chain``); may be a PREFIX of the true
         chain when an ancestor's ``.lvclass`` isn't present in this checkout.
         """
-        if not self._dep_graph.has_node(classname) or classname in self._stubs:
+        key = self._class_node_key(classname)
+        if key is None:
             return []
-        data = self._dep_graph.nodes[classname]
-        if data.get("node_type") != "class":
-            return []
-        ancestors = data.get("ancestors")
+        ancestors = self._dep_graph.nodes[key].get("ancestors")
         return list(ancestors) if ancestors else []
 
     def get_method_access(self, vi_name: str) -> MethodAccessInfo | None:
@@ -1204,10 +1325,11 @@ class QueryMixin:
         edge predates the scope/accessor attrs (should not happen for
         anything loaded via ``load_lvclass()``).
         """
-        owner = self.get_owning_class(vi_name)
-        if owner is None:
+        method_key = self.resolve_vi_name(vi_name)
+        owner_key = self._owning_class_key(method_key)
+        if owner_key is None:
             return None
-        edata = self._dep_graph.get_edge_data(owner, vi_name) or {}
+        edata = self._dep_graph.get_edge_data(owner_key, method_key) or {}
         scope = edata.get("scope")
         if scope is None:
             return None

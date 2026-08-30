@@ -214,9 +214,10 @@ class InMemoryVIGraph(
         # Compile-health (emergent state, not a user setting) -- a SIBLING
         # facet to _vi_properties, never nested inside it.
         self._vi_health: dict[str, VIHealth] = {}
-        # Optional disk roots for <vilib> / <userlib> path token resolution
+        # Optional disk roots for <vilib> / <userlib> / <instrlib> path tokens
         self._vilib_root: Path | None = None
         self._userlib_root: Path | None = None
+        self._instrlib_root: Path | None = None
         # Per-VI block-diagram geometry, populated only when load_vi(layout=True)
         # (rendering). Empty for codegen loads — geometry is decoded from the
         # same parse (see parse_vi layout=), never a second heap read.
@@ -234,12 +235,13 @@ class InMemoryVIGraph(
         self,
         vilib_root: Path | None = None,
         userlib_root: Path | None = None,
+        instrlib_root: Path | None = None,
     ) -> None:
-        """Set disk roots for <vilib> and <userlib> path token resolution.
+        """Set disk roots for <vilib>, <userlib> and <instrlib> path tokens.
 
         Call before loading any VIs. When set, dependency refs with
-        <vilib> or <userlib> tokens resolve to real .vi files on disk
-        instead of falling through to JSON-only lookup.
+        <vilib>, <userlib> or <instrlib> tokens resolve to real .vi files on
+        disk instead of falling through to JSON-only lookup.
 
         Also feeds the same roots to the extraction cache so a VI's cache
         namespace is chosen by prefix-matching its resolved path against these
@@ -249,6 +251,7 @@ class InMemoryVIGraph(
         """
         self._vilib_root = vilib_root
         self._userlib_root = userlib_root
+        self._instrlib_root = instrlib_root
         # The run's library roots feed the cache classifier; set them on the
         # stdlib-only cache_paths module (no pylabview pulled in, no cycle).
         from lvkit import cache_paths
@@ -328,76 +331,121 @@ class InMemoryVIGraph(
 
         return lv_type
 
-    def _resolve_class_node_key(self, classname: str) -> str | None:
-        """Case-insensitive fallback lookup for a class dep_graph node key.
+    def _dep_key_for_ref(
+        self,
+        ref: str,
+        caller_vi_key: str | None = None,
+    ) -> str | None:
+        """Resolve a class/typedef reference to its dep-graph PATH key.
 
-        LabVIEW class names are effectively case-insensitive: a type
-        reference's casing (e.g. from a TypeDesc ``Item``) can differ from
-        the casing the class was actually loaded/qualified under. Exact
-        match is tried first by the caller (the common, cheap case) — this
-        scan runs only on a miss, and only over ``class``-kind nodes.
+        ``ref`` may already BE a path key (returned as-is). Otherwise it is a
+        NAME from a caller VI's ``type_map`` — a name is NOT unique (built vs
+        source twins share a qname; two libraries share a ``Do.vi`` leaf), so it
+        is resolved by CALLER-SCOPED graph query: among the caller VI's OWN dep
+        successors (its actual edges, O(degree)), the node whose ``qname`` (or,
+        failing that, bare ``name``) — identifying info stored ON the node —
+        confirms this reference. A caller links exactly one path per dependency,
+        so within the caller the match is unambiguous. Only that scoped match,
+        an alias recorded from the caller's exact reference, or a qname that maps
+        to exactly ONE node counts — NEVER a bare-name guess across the graph.
+        Returns None rather than guess when nothing pins it to one node.
         """
-        target = classname.lower()
-        for node, data in self._dep_graph.nodes(data=True):
-            if (
-                isinstance(node, str)
-                and data.get("node_type") == "class"
-                and node.lower() == target
-            ):
-                return node
-        return None
+        if self._dep_graph.has_node(ref):
+            return ref
+        if caller_vi_key is not None and self._dep_graph.has_node(caller_vi_key):
+            succs = list(self._dep_graph.successors(caller_vi_key))
+            nodes = self._dep_graph.nodes
+            by_qname = [s for s in succs if nodes[s].get("qname") == ref]
+            if len(by_qname) == 1:
+                return by_qname[0]
+            leaf = ref.rsplit(":", 1)[-1]
+            by_name = [s for s in succs if self._dep_graph.nodes[s].get("name") == leaf]
+            if len(by_name) == 1:
+                return by_name[0]
+        # No caller context: the alias recorded from a caller's exact reference,
+        # then a qname that maps to exactly ONE node. No bare-name fallback.
+        aliased = self._qualified_aliases.get(ref)
+        if aliased is not None and self._dep_graph.has_node(aliased):
+            return aliased
+        keys = self._qname_to_keys.get(ref)
+        if keys is None:
+            target = ref.lower()
+            for qname, qkeys in self._qname_to_keys.items():
+                if qname.lower() == target:
+                    keys = qkeys
+                    break
+        return keys[0] if keys and len(keys) == 1 else None
 
     def get_class_fields(
         self,
         classname: str,
+        caller_vi_key: str | None = None,
     ) -> list[ClusterField] | None:
-        """Get complete field list for a class including inherited parent fields.
+        """Complete field list for a class INCLUDING inherited parent fields.
 
         LabVIEW nMux field indices are into the combined (parent + own) field
-        list, with parent fields first. Walks the inheritance chain recursively.
-        Returns None if the class is not in dep_graph.
+        list, parent first — so the inheritance chain is walked. ``classname``
+        is resolved to its PATH-key node via :meth:`_dep_key_for_ref` (pass the
+        CALLER VI key so a duplicated class name resolves by the caller's edge);
+        the parent chain is then followed by ``parent_key`` (the parent's PATH,
+        recorded on the node) — never by name. Returns None if unresolved.
         """
-        node_key = classname
-        if not self._dep_graph.has_node(node_key):
-            # A reference's casing that resolved to a differently-cased
-            # on-disk class file is recorded as an alias at load time (see
-            # ``LoadingMixin._load_dependency``'s ``.lvclass`` branch) —
-            # cheap exact lookup before the broader case-insensitive scan.
-            aliased = self._qualified_aliases.get(classname)
-            if aliased is not None and self._dep_graph.has_node(aliased):
-                node_key = aliased
-            else:
-                resolved = self._resolve_class_node_key(classname)
-                if resolved is None:
-                    return None
-                node_key = resolved
+        node_key = self._dep_key_for_ref(classname, caller_vi_key)
+        if node_key is None or not self._dep_graph.has_node(node_key):
+            return None
+        return self._class_fields_by_key(node_key)
+
+    def _parent_class_key(self, node_key: str) -> str | None:
+        """PATH key of a class node's parent, or None. Prefer the ``parent_key``
+        recorded at load time (the parent's PATH found by walk-up); fall back to
+        resolving the recorded parent NAME among loaded classes — the parent may
+        have been loaded SEPARATELY (a sibling dir), so walk-up never saw it. The
+        class file names its parent by name only, so this is a legitimate
+        name-boundary; it resolves to one node or None, never a guess."""
+        data = self._dep_graph.nodes[node_key]
+        pk: str | None = data.get("parent_key")
+        if pk is not None and self._dep_graph.has_node(pk) and pk not in self._stubs:
+            return pk
+        parent_raw = data.get("parent_class")
+        if parent_raw and parent_raw != "LabVIEW Object":
+            cand = self._dep_key_for_ref(parent_raw + ".lvclass")
+            if (
+                cand is not None
+                and cand not in self._stubs
+                and self._dep_graph.nodes[cand].get("node_type") == "class"
+            ):
+                return cand
+        return None
+
+    def _class_fields_by_key(self, node_key: str) -> list[ClusterField] | None:
+        """Own + inherited fields for the class/typedef node at PATH ``node_key``.
+        Inheritance follows the parent's PATH key (:meth:`_parent_class_key`) by
+        IDENTITY."""
         data = self._dep_graph.nodes[node_key]
         own_fields: list[ClusterField] = data.get("fields") or []
-        parent_name: str | None = data.get("parent_class")
-
-        if parent_name and parent_name != "LabVIEW Object":
-            parent_classname = parent_name + ".lvclass"
-            parent_fields = self.get_class_fields(parent_classname)
+        parent_key = self._parent_class_key(node_key)
+        if parent_key is not None:
+            parent_fields = self._class_fields_by_key(parent_key)
             if parent_fields:
                 return parent_fields + own_fields
-
         return own_fields
 
     def get_type_fields(
         self,
         lv_type: LVType,
+        caller_vi_key: str | None = None,
     ) -> list[ClusterField] | None:
         """Get fields for any type. One API, all cases.
 
-        Class types use dep_graph (authoritative, includes inheritance chain).
-        Typedef/cluster types prefer inline fields from the VI's own type_map —
-        these are ground truth for that VI's dataflow and may be newer than the
-        dep_graph version (e.g. typedef with added fields). Fall back to dep_graph
-        when no inline fields are present.
+        Class types use dep_graph (authoritative, includes inheritance chain) —
+        resolved by the CALLER's edge (``caller_vi_key``) so a duplicated class
+        name maps to the right path. Typedef/cluster types prefer inline fields
+        from the VI's own type_map (ground truth for that VI's dataflow, possibly
+        newer than dep_graph); fall back to dep_graph when no inline fields.
         """
         if lv_type.classname:
             # OOP class: dep_graph with full inheritance chain is authoritative
-            return self.get_class_fields(lv_type.classname)
+            return self.get_class_fields(lv_type.classname, caller_vi_key)
 
         if lv_type.fields:
             # Inline fields from VI's own type_map take priority for non-class
@@ -408,7 +456,7 @@ class InMemoryVIGraph(
         if lv_type.typedef_name:
             # No inline fields: fall back to dep_graph (handles typedef_ref
             # types loaded from .ctl files, NI/DCAF types, etc.)
-            return self.get_class_fields(lv_type.typedef_name)
+            return self.get_class_fields(lv_type.typedef_name, caller_vi_key)
 
         return None
 

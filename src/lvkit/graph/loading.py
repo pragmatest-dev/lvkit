@@ -228,6 +228,7 @@ class LoadingMixin:
     _vi_health: dict[str, VIHealth]
     _vilib_root: Path | None
     _userlib_root: Path | None
+    _instrlib_root: Path | None
     _layouts: dict[str, Layout]
     _want_layout: bool
     _parse_cache: dict[str, ParsedVI] | None
@@ -359,14 +360,54 @@ class LoadingMixin:
 
         return loaded_key
 
+    def _register_dep_node(
+        self, key: str, source_file: Path, name: str, qname: str
+    ) -> None:
+        """Register a dependency node's IDENTITY: its resolved source-path
+        ``key`` plus the ``_source_paths`` entry and the bare-name/qname reverse
+        indexes ``resolve_vi_name`` walks. Shared by the ``.vi`` loader and the
+        ``.lvclass``/``.ctl``/``.lvlib`` loaders so EVERY dep-graph node is keyed
+        by path, not qname (finishes #26): path is unique on disk where a qname
+        is not (a built copy beside its source twin share a qname), so a class /
+        typedef / library resolves to a file exactly as a VI does. The qname is
+        recorded as the human-facing display name (never a lookup key)."""
+        self._source_paths[key] = source_file
+        self._vi_display_names[key] = qname
+        # Reverse indexes: bare-name / qname -> [key]. List-valued: genuine
+        # on-disk duplicates share a name/qname across distinct keys.
+        self._register_dep_name(key, name, qname)
+
+    def _register_dep_name(self, key: str, name: str, qname: str) -> None:
+        """Index a dep node's bare-name and qname to its ``key`` for
+        ``resolve_vi_name`` — WITHOUT a ``_source_paths`` entry. Used for STUBS
+        (absent files): the intended path is known and used as the key so the
+        node upgrades by identity when the file appears, but ``_source_paths``
+        stays the set of LOADED files (its single job).
+
+        Also records ``name``/``qname`` AS NODE ATTRIBUTES (the key is the path;
+        the name/qname ride on the node for display and for CALLER-SCOPED
+        confirmation — a caller-scoped edge query reads ``qname`` to confirm
+        which of a caller's dep edges a reference names, never a global lookup).
+        """
+        if key not in self._name_to_keys.setdefault(name, []):
+            self._name_to_keys[name].append(key)
+        if key not in self._qname_to_keys.setdefault(qname, []):
+            self._qname_to_keys[qname].append(key)
+        if self._dep_graph.has_node(key):
+            node = self._dep_graph.nodes[key]
+            node["qname"] = qname
+            node["name"] = name
+
     def load_lvlib(
         self,
         lvlib_path: Path | str,
         mode: LoadMode = LoadMode.FULL,
         search_paths: list[Path] | None = None,
         owner_chain: list[str] | None = None,
-    ) -> None:
-        """Load all VIs from a .lvlib file."""
+    ) -> str:
+        """Load all VIs from a .lvlib file. Returns the dep-graph KEY (the
+        resolved ``.lvlib`` path) it was registered under — callers add
+        ownership/reference edges to THIS key, never to the qname."""
         lvlib_path = Path(lvlib_path)
         lib = parse_lvlib(lvlib_path)
 
@@ -377,8 +418,15 @@ class LoadingMixin:
         lib_name = lib.name + ".lvlib"
         lib_qname = ":".join(chain + [lib_name]) if chain else lib_name
 
-        # Add library node to dep_graph
-        self._dep_graph.add_node(lib_qname, node_type="library")
+        # PATH is the library's identity (finishes #26): key the node by the
+        # resolved .lvlib path, and index its qname/bare-name so a reference
+        # resolves to this key. Ownership edges use loader RETURN keys, never a
+        # rebuilt member qname (the member VI's own qname may not equal
+        # lib_qname + ":" + name — dynamic dispatch, owner-chain nesting).
+        lib_path_r = lvlib_path.resolve()
+        lib_key = str(lib_path_r)
+        self._dep_graph.add_node(lib_key, node_type="library")
+        self._register_dep_node(lib_key, lib_path_r, lib_name, lib_qname)
 
         for member in lib.members:
             if member.member_type == "VI":
@@ -394,16 +442,22 @@ class LoadingMixin:
                         if found:
                             ctl_path = found
                     if ctl_path.exists():
-                        self.load_typedef(
+                        ctl_key = self.load_typedef(
                             ctl_path,
                             typedef_qname=typedef_qname,
                             search_paths=search_paths,
                         )
-                    elif not self._dep_graph.has_node(typedef_qname):
-                        self._dep_graph.add_node(typedef_qname, node_type="typedef")
-                        self._stubs.add(typedef_qname)
-                    if self._dep_graph.has_node(typedef_qname):
-                        self._dep_graph.add_edge(lib_qname, typedef_qname, rel="owns")
+                        self._dep_graph.add_edge(lib_key, ctl_key, rel="owns")
+                    else:
+                        # Absent .ctl: key the stub by its INTENDED resolved path
+                        # (computable without the file), so it stages/upgrades by
+                        # identity. Index the qname so refs resolve here.
+                        ctl_key = str(ctl_path.resolve())
+                        if not self._dep_graph.has_node(ctl_key):
+                            self._dep_graph.add_node(ctl_key, node_type="typedef")
+                            self._stubs.add(ctl_key)
+                        self._register_dep_name(ctl_key, member_name, typedef_qname)
+                        self._dep_graph.add_edge(lib_key, ctl_key, rel="owns")
                 else:
                     vi_path = lvlib_path.parent / member.url
                     if not vi_path.exists():
@@ -414,11 +468,12 @@ class LoadingMixin:
                             lvlib_path.parent,
                         )
                     if vi_path and vi_path.exists():
-                        self.load_vi(vi_path, mode, search_paths)
-                        # Ownership edge
-                        vi_qname = lib_qname + ":" + member_name
-                        if vi_qname in self._dep_graph:
-                            self._dep_graph.add_edge(lib_qname, vi_qname, rel="owns")
+                        member_key = self.load_vi(vi_path, mode, search_paths)
+                        # Ownership edge — to the member's RETURN key (its path).
+                        if member_key and member_key in self._dep_graph:
+                            self._dep_graph.add_edge(
+                                lib_key, member_key, rel="owns"
+                            )
             elif member.member_type == "LVClass":
                 class_path = lvlib_path.parent / member.url
                 if not class_path.exists():
@@ -467,6 +522,8 @@ class LoadingMixin:
                         search_paths,
                         owner_chain=chain + [lib.name + ".lvlib"],
                     )
+
+        return lib_key
 
     def load_lvclass(
         self,
@@ -538,31 +595,46 @@ class LoadingMixin:
                 )
                 pd_fields = []
             fields = [private_data_field_to_cluster_field(f) for f in pd_fields]
+        # PATH is the class's identity (finishes #26): key the node by the
+        # resolved .lvclass path and index its qname/bare-name so a type
+        # reference resolves to this key. The qname stays the DISPLAY name.
+        cls_path_r = lvclass_path.resolve()
+        cls_key = str(cls_path_r)
+        # The parent class's PATH (its key) — found by walk-up from this class's
+        # own dir. Recorded on the node so inheritance walks follow it by
+        # IDENTITY (a name lookup can hit duplicates; a path can't). None when
+        # the parent isn't on disk (best-effort name fallback then).
+        parent = cls.parent_class
+        parent_file = (
+            self._walk_up_find(lvclass_path.parent, parent + ".lvclass")
+            if parent and parent != "LabVIEW Object"
+            else None
+        )
+        parent_key = str(parent_file.resolve()) if parent_file is not None else None
         self._dep_graph.add_node(
-            cls_qname,
+            cls_key,
             node_type="class",
             fields=fields,
             parent_class=cls.parent_class,
+            parent_key=parent_key,
             fields_only=fields_only,
             version=cls.version,
             ancestors=cls.ancestors,
         )
+        self._register_dep_node(cls_key, cls_path_r, cls_name, cls_qname)
 
         if fields_only:
-            # Resolve inherited fields by field-loading the parent chain (found
-            # via walk-up from this class's own dir), then STOP — no methods.
-            parent = cls.parent_class
-            if parent and parent != "LabVIEW Object":
-                parent_key = parent + ".lvclass"
-                if not self._dep_graph.has_node(parent_key):
-                    parent_file = self._walk_up_find(lvclass_path.parent, parent_key)
-                    if parent_file is not None:
-                        self.load_lvclass(
-                            parent_file,
-                            LoadMode.MINIMAL,
-                            search_paths=search_paths,
-                        )
-            return cls_qname
+            # Field-load the parent chain (no methods) so inherited nMux field
+            # indices resolve; dedup on the parent's PATH key.
+            if parent_file is not None and not self._dep_graph.has_node(
+                str(parent_file.resolve())
+            ):
+                self.load_lvclass(
+                    parent_file,
+                    LoadMode.MINIMAL,
+                    search_paths=search_paths,
+                )
+            return cls_key
 
         for method in cls.methods:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
@@ -575,7 +647,7 @@ class LoadingMixin:
                 # (path identity subsumes the old #18 source-path fallback).
                 if method_key and method_key in self._dep_graph:
                     self._dep_graph.add_edge(
-                        cls_qname,
+                        cls_key,
                         method_key,
                         rel="owns",
                         scope=method.scope,
@@ -587,7 +659,7 @@ class LoadingMixin:
                         must_call_parent=method.must_call_parent,
                     )
 
-        return cls_qname
+        return cls_key
 
     def _walk_up_find(
         self,
@@ -846,17 +918,7 @@ class LoadingMixin:
 
         visited.add(vi_key)
 
-        self._source_paths[vi_key] = source_file
-        # vi_key -> its qualified DISPLAY name (qname, else bare filename). Never a
-        # lookup key (vi_key/path is the identity); this is the human-facing title
-        # only, so the render/viewer shows "Class.lvclass:vi.vi" not the abspath.
-        self._vi_display_names[vi_key] = own_qname
-        # Reverse indexes: display-name / qname -> [vi_key], for resolve_vi_name.
-        # List-valued: on-disk duplicates share a name/qname across distinct keys.
-        if vi_key not in self._name_to_keys.setdefault(unqualified_name, []):
-            self._name_to_keys[unqualified_name].append(vi_key)
-        if vi_key not in self._qname_to_keys.setdefault(own_qname, []):
-            self._qname_to_keys[own_qname].append(vi_key)
+        self._register_dep_node(vi_key, source_file, unqualified_name, own_qname)
 
         # Retain geometry decoded during this parse (layout=True loads only).
         if vi.layout is not None:
@@ -916,6 +978,18 @@ class LoadingMixin:
             all_dep_qnames = collect_direct_dep_qnames(
                 metadata.subvi_qualified_names, type_map, own_qname
             )
+            # Union the recorded LinkSavePathRef deps too. The call table
+            # (subvi_qualified_names) / type_map can be EMPTY on some VIs — e.g.
+            # a file whose VITS block doesn't decode (issue #29's Test.vi) — yet
+            # the diagram still references those SubVIs and the render resolves +
+            # reads each one. dependency_refs is LabVIEW's own complete record of
+            # what the file references, so enumerating only the call table lets a
+            # referenced SubVI vanish from _dep_graph entirely (never even a
+            # stub) and the render degrades to a bare box. Progressive load then
+            # resolves each as usual: present -> path-keyed node, absent -> qname
+            # stub carrying its path_tokens (as good as known until we know
+            # better). Guards test_issue_corpus.py::…issue29….
+            all_dep_qnames.update(dep_ref_map)
 
             # Sorted: dependency load ORDER decides which same-named candidate
             # file claims a name first, so a hash-ordered set here made the
@@ -1006,27 +1080,36 @@ class LoadingMixin:
         ctl_path: Path | str,
         typedef_qname: str | None = None,
         search_paths: list[Path] | None = None,
-    ) -> None:
+    ) -> str:
         """Load a .ctl typedef and add it to the dep_graph with its fields.
+        Returns the dep-graph KEY (the resolved .ctl path) it registered under.
 
-        Mirrors load_vi / load_lvclass / load_lvlib for consistency.
+        Mirrors load_vi / load_lvclass / load_lvlib for consistency: PATH is the
+        typedef's identity (finishes #26), and the qname/bare-name index to that
+        key so a type reference resolves here.
         """
         ctl_path = Path(ctl_path)
         if search_paths is None:
             search_paths = [ctl_path.parent]
 
         qname = typedef_qname or ctl_path.name
-        if self._dep_graph.has_node(qname):
-            return
+        # PATH-keyed even when absent: the intended resolved path is computable
+        # and lets the stub upgrade by identity when the file appears.
+        ctl_path_r = ctl_path.resolve()
+        ctl_key = str(ctl_path_r)
+        if self._dep_graph.has_node(ctl_key):
+            return ctl_key
 
         if not ctl_path.exists():
-            self._dep_graph.add_node(qname, node_type="typedef")
-            self._stubs.add(qname)
-            return
+            self._dep_graph.add_node(ctl_key, node_type="typedef")
+            self._stubs.add(ctl_key)
+            self._register_dep_name(ctl_key, ctl_path.name, qname)
+            return ctl_key
 
         fields, type_map = self._ctl_root_fields(ctl_path)
         if type_map:
-            self._dep_graph.add_node(qname, node_type="typedef", fields=fields)
+            self._dep_graph.add_node(ctl_key, node_type="typedef", fields=fields)
+            self._register_dep_node(ctl_key, ctl_path_r, ctl_path.name, qname)
 
             # Recurse: load any class/typedef deps referenced in this ctl's
             # type_map (e.g. a cluster field whose type is an lvclass or ctl).
@@ -1037,7 +1120,7 @@ class LoadingMixin:
                         None,
                         ctl_path,
                         search_paths,
-                        caller_qname=qname,
+                        caller_qname=ctl_key,
                     )
                 if lv_type.typedef_name:
                     self._load_dependency(
@@ -1045,12 +1128,14 @@ class LoadingMixin:
                         None,
                         ctl_path,
                         search_paths,
-                        caller_qname=qname,
+                        caller_qname=ctl_key,
                     )
         else:
             # XML not produced — stub with what we know
-            self._dep_graph.add_node(qname, node_type="typedef")
-            self._stubs.add(qname)
+            self._dep_graph.add_node(ctl_key, node_type="typedef")
+            self._stubs.add(ctl_key)
+            self._register_dep_name(ctl_key, ctl_path.name, qname)
+        return ctl_key
 
     def _resolve_dependency_path(
         self,
@@ -1080,6 +1165,7 @@ class LoadingMixin:
                 caller_file,
                 vilib_root=self._vilib_root,
                 userlib_root=self._userlib_root,
+                instrlib_root=self._instrlib_root,
             )
             if candidate is not None:
                 if candidate.exists():
@@ -1099,10 +1185,15 @@ class LoadingMixin:
         # their container file — redirect to the actual sibling ``.vi`` so it
         # leaf-loads and its param names resolve. If the sibling isn't there,
         # drop to None and let the name-based search below find it.
+        # Applies to ANY member leaf — a .vi member AND a .ctl typedef owned by
+        # a class (its ref also names the .lvclass container) — not just .vi, so
+        # a member .ctl doesn't get joined INTO the class file (the
+        # Class.lvclass/Class.ctl NotADirectoryError). The redirect fires only
+        # when the resolved container isn't the leaf itself.
         if (
             resolved is not None
-            and leaf.endswith(".vi")
             and resolved.suffix.lower() in (".lvclass", ".lvlib")
+            and leaf != resolved.name
         ):
             member = resolved.with_name(leaf)
             resolved = member if member.exists() else None
@@ -1114,6 +1205,36 @@ class LoadingMixin:
                 resolved = self._find_file(leaf, search_paths, caller_file.parent)
 
         return resolved
+
+    def _intended_dep_path(
+        self,
+        qualified_name: str,
+        dep_ref: ParsedDependencyRef | None,
+        caller_file: Path,
+    ) -> Path | None:
+        """The resolved-or-INTENDED absolute path of a dependency, even when the
+        file is ABSENT — used to key a STUB by identity so it upgrades
+        progressively (inv. 3) and the web loop learns the path to fetch. Pure
+        path math (``resolve_against``), no file need exist. Returns None for a
+        pseudo-root ref (``<vilib>``/``<userlib>``/``<instrlib>`` with no
+        configured root): those have no local path and must never be staged into
+        ``/proj``. Applies the same member-beside-container redirect (G1) as
+        ``_resolve_dependency_path`` so a member ``.ctl``/``.vi`` sits beside its
+        container, not joined into it."""
+        if dep_ref is None:
+            return None
+        cand = dep_ref.resolve_against(
+            caller_file,
+            vilib_root=self._vilib_root,
+            userlib_root=self._userlib_root,
+            instrlib_root=self._instrlib_root,
+        )
+        if cand is None:
+            return None
+        leaf = qualified_name.rsplit(":", 1)[-1]
+        if cand.suffix.lower() in (".lvclass", ".lvlib") and leaf != cand.name:
+            cand = cand.with_name(leaf)
+        return cand.resolve()
 
     def _load_dependency(
         self,
@@ -1136,50 +1257,49 @@ class LoadingMixin:
         LabVIEW's one-qname-per-memory invariant means the dep_graph node check
         at the top is the definitive dedup — resolution only runs on first visit.
         """
-        if self._dep_graph.has_node(qualified_name):
-            if caller_qname:
-                self._dep_graph.add_edge(caller_qname, qualified_name)
-            # A fields-only class placeholder (walk-up interface load) is NOT the
-            # definitive dedup — if THIS reference can resolve the class on disk,
-            # fall through so a full load (with methods) upgrades it.
-            if not self._dep_graph.nodes[qualified_name].get("fields_only"):
-                return
-
         leaf = qualified_name.rsplit(":", 1)[-1]
         resolved = self._resolve_dependency_path(
             qualified_name, dep_ref, caller_file, search_paths
         )
 
-        if resolved is None:
-            # A class referenced only by TYPE whose .lvclass isn't on a search
-            # path (e.g. a member VI in a subfolder, class one dir up) would stub
-            # with no fields -> unbundle-by-name shows [0]/[1]. Walk up to find it
-            # and INTERFACE-load its fields (no methods) so the names resolve. A
-            # later resolvable reference still upgrades it to a full load.
+        # PATH is the identity (finishes #26). The dep-graph key is ALWAYS the
+        # resolved file path — never the qname or the bare name. A built copy
+        # beside its source twin shares a qname; two genuinely different VIs
+        # share a bare name (Lib1/Do.vi vs Lib2/Do.vi); ONLY the path is unique,
+        # so ONLY the path dedups. Dedup on has_node(<path>).
+        if resolved is not None:
+            dep_key = str(resolved.resolve())
+            if self._dep_graph.has_node(dep_key):
+                if caller_qname:
+                    self._dep_graph.add_edge(caller_qname, dep_key)
+                # A fields-only class placeholder can be UPGRADED by a resolvable
+                # ref — fall through to a full load; otherwise it's done.
+                if not self._dep_graph.nodes[dep_key].get("fields_only"):
+                    return
+            # else fall through to the dispatch below, which loads and keys by
+            # this same path (idempotently).
+        else:
+            # UNRESOLVED on disk. A .lvclass referenced only by type (its file
+            # sits one dir up from a member VI) is field-loaded via walk-up so
+            # by-name field names resolve; anything else stubs by its INTENDED
+            # path so it upgrades by identity when the file appears (progressive
+            # loading). A pseudo-root ref (<vilib>/... with no configured root)
+            # has no local path -> keyed by qname, carrying its path_tokens.
             if leaf.endswith(".lvclass"):
-                if self._dep_graph.has_node(qualified_name):
-                    return  # already field-loaded, still unresolvable — done
                 found = self._walk_up_find(caller_file.parent, leaf)
                 if found is not None:
-                    parts = qualified_name.split(":")
-                    owner_chain = parts[:-1] if len(parts) > 1 else None
-                    loaded_qname = self.load_lvclass(
-                        found,
-                        LoadMode.MINIMAL,
-                        search_paths=search_paths,
-                        owner_chain=owner_chain,
-                    )
+                    found_key = str(found.resolve())
+                    if not self._dep_graph.has_node(found_key):
+                        parts = qualified_name.split(":")
+                        owner_chain = parts[:-1] if len(parts) > 1 else None
+                        self.load_lvclass(
+                            found,
+                            LoadMode.MINIMAL,
+                            search_paths=search_paths,
+                            owner_chain=owner_chain,
+                        )
                     if caller_qname:
-                        self._dep_graph.add_edge(caller_qname, loaded_qname)
-                    # The reference's casing can differ from the on-disk
-                    # file's own stem casing (found via case-insensitive
-                    # walk-up) — alias it to the REAL qname rather than
-                    # letting the edge below create a second, empty,
-                    # never-populated dep_graph node under the reference's
-                    # casing (get_class_fields would then match THAT one
-                    # first and always see no fields).
-                    if qualified_name != loaded_qname:
-                        self._qualified_aliases[qualified_name] = loaded_qname
+                        self._dep_graph.add_edge(caller_qname, found_key)
                     return
             node_type = (
                 "class"
@@ -1190,20 +1310,21 @@ class LoadingMixin:
                 if leaf.endswith(".lvlib")
                 else "vi"
             )
-            # Carry path_tokens from the parser so downstream consumers
-            # (export, diagnostics) know what `<vilib>/...` family the
-            # missing dep belongs to. Purely additive node attr.
+            computed = self._intended_dep_path(qualified_name, dep_ref, caller_file)
+            stub_key = str(computed) if computed is not None else qualified_name
             path_tokens = (
                 list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
             )
-            self._dep_graph.add_node(
-                qualified_name,
-                node_type=node_type,
-                path_tokens=path_tokens,
-            )
-            self._stubs.add(qualified_name)
+            if not self._dep_graph.has_node(stub_key):
+                self._dep_graph.add_node(
+                    stub_key,
+                    node_type=node_type,
+                    path_tokens=path_tokens,
+                )
+                self._stubs.add(stub_key)
+                self._register_dep_name(stub_key, leaf, qualified_name)
             if caller_qname:
-                self._dep_graph.add_edge(caller_qname, qualified_name)
+                self._dep_graph.add_edge(caller_qname, stub_key)
             return
 
         # Dispatch by extension to the matching public loader.
@@ -1240,6 +1361,7 @@ class LoadingMixin:
                     qualified_name,
                     caller_qname or "",
                     dep_ref=dep_ref,
+                    key=str(resolved.resolve()),
                 )
         elif leaf.endswith(".lvclass"):
             parts = qualified_name.split(":")
@@ -1260,51 +1382,66 @@ class LoadingMixin:
             if qualified_name != loaded_qname:
                 self._qualified_aliases[qualified_name] = loaded_qname
         elif leaf.endswith(".lvlib"):
-            self.load_lvlib(resolved, mode, search_paths=search_paths)
+            lib_key = self.load_lvlib(resolved, mode, search_paths=search_paths)
             if caller_qname:
-                self._dep_graph.add_edge(caller_qname, qualified_name)
+                self._dep_graph.add_edge(caller_qname, lib_key)
+            if qualified_name != lib_key:
+                self._qualified_aliases[qualified_name] = lib_key
         elif leaf.endswith(".ctl"):
-            self.load_typedef(
+            ctl_key = self.load_typedef(
                 resolved,
                 typedef_qname=qualified_name,
                 search_paths=search_paths,
             )
             if caller_qname:
-                self._dep_graph.add_edge(caller_qname, qualified_name)
+                self._dep_graph.add_edge(caller_qname, ctl_key)
+            if qualified_name != ctl_key:
+                self._qualified_aliases[qualified_name] = ctl_key
         else:
-            # Unknown extension — stub rather than guess.
+            # Unknown extension — stub rather than guess, but key by the resolved
+            # file path (it exists here) so it is identified consistently.
+            unknown_key = str(resolved.resolve())
             path_tokens = (
                 list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
             )
-            self._dep_graph.add_node(
-                qualified_name,
-                node_type="unknown",
-                path_tokens=path_tokens,
-            )
-            self._stubs.add(qualified_name)
+            if not self._dep_graph.has_node(unknown_key):
+                self._dep_graph.add_node(
+                    unknown_key,
+                    node_type="unknown",
+                    path_tokens=path_tokens,
+                )
+                self._stubs.add(unknown_key)
+                self._register_dep_name(unknown_key, leaf, qualified_name)
             if caller_qname:
-                self._dep_graph.add_edge(caller_qname, qualified_name)
+                self._dep_graph.add_edge(caller_qname, unknown_key)
 
     def _stub_subvi(
         self,
         name: str,
         _parent_vi: str,
         dep_ref: ParsedDependencyRef | None = None,
+        key: str | None = None,
     ) -> None:
         """Record a SubVI reference that could not be resolved as a stub.
 
         Carries path_tokens from the parser's LinkSavePathRef when
-        available — diagnostics-only, never gates code generation.
+        available — diagnostics-only, never gates code generation. When the
+        file exists but failed to parse, ``key`` is its resolved path so the
+        stub is PATH-keyed (upgrades by identity) and the qname/name index to
+        it; otherwise the qname is the key (a truly unresolvable ref).
         """
-        self._stubs.add(name)
+        node_key = key or name
+        self._stubs.add(node_key)
         path_tokens = (
             list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
         )
         self._dep_graph.add_node(
-            name,
+            node_key,
             node_type="vi",
             path_tokens=path_tokens,
         )
+        if key is not None:
+            self._register_dep_name(node_key, name.rsplit(":", 1)[-1], name)
 
     def _cache_vilib_terminal_layout(
         self,

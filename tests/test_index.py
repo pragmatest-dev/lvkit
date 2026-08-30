@@ -509,13 +509,14 @@ class TestLoadLvlibClassMember:
         assert _MYLIBRARY_CLASS_NAME in graph.list_classes()
 
         # The class's methods loaded as real VI nodes, owned by the class
-        # (not left as a dead/unreachable member).
+        # (not left as a dead/unreachable member). The class node is keyed by
+        # PATH now, so resolve the qname to its key before walking edges.
+        class_key = graph._dep_key_for_ref(_MYLIBRARY_CLASS_NAME)
+        assert class_key is not None
         owned = {
             succ
-            for succ in graph._dep_graph.successors(_MYLIBRARY_CLASS_NAME)
-            if (graph._dep_graph.get_edge_data(_MYLIBRARY_CLASS_NAME, succ) or {}).get(
-                "rel"
-            )
+            for succ in graph._dep_graph.successors(class_key)
+            if (graph._dep_graph.get_edge_data(class_key, succ) or {}).get("rel")
             == "owns"
         }
         # Method VIs are keyed by their file path (identity) now, so the owns
