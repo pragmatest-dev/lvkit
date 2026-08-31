@@ -4000,6 +4000,33 @@ def test_interactive_false_drops_script_and_root_id_keeps_data_attrs():
         assert "data-path" in svg
 
 
+def test_id_less_renders_have_collision_free_clip_ids():
+    """Two ``interactive=False`` SVGs inlined on ONE page (the diff viewer's
+    before/after panes) must not share any ``<clipPath>`` id. If they did, the
+    second pane's ``clip-path="url(#id)"`` would bind to the FIRST pane's
+    clipPath and clip its structures to the wrong geometry -- the diff viewer's
+    "white voids". An id-less render carries no ``root_id`` scope, so the
+    backend derives the clip-id prefix from the SVG's own content; two distinct
+    diagrams then get distinct prefixes. The sibling test above asserts the
+    docstring's "zero id collision" claim only for the ROOT ``<svg id>`` -- it
+    never checked the clip ids, which is exactly how the collision shipped."""
+    a = _load_graph(CASE_VI)
+    b = _load_graph(NESTED_CASE_VI)
+    if a is None or b is None:
+        pytest.skip("sample structure VIs not available")
+    svg_a = render_vi(a[0], a[1], interactive=False)
+    svg_b = render_vi(b[0], b[1], interactive=False)
+    assert svg_a is not None and svg_b is not None
+    ids_a = set(re.findall(r'<clipPath id="([^"]+)"', svg_a))
+    ids_b = set(re.findall(r'<clipPath id="([^"]+)"', svg_b))
+    # both fixtures contain structures, so each emits content-clip <defs>
+    assert ids_a and ids_b, "expected both structure VIs to emit <clipPath> defs"
+    # no shared id -> inlining both panes on one page cannot collide
+    assert ids_a.isdisjoint(ids_b), (
+        f"clip-path id collision across id-less renders: {sorted(ids_a & ids_b)}"
+    )
+
+
 def test_dark_palette_covers_every_wire_color():
     """Every wire_* (and other themed) color in the Theme must have a dark-mode
     entry in DARK_PALETTE, else theme_style_block() raises and the web/gallery

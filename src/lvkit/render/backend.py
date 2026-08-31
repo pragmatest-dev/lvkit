@@ -8,6 +8,7 @@ heuristic: it needs to match whatever backend eventually renders the text.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Protocol, runtime_checkable
 from xml.sax.saxutils import escape, quoteattr
 
@@ -484,11 +485,28 @@ class SvgBackend:
         title_el = None
         style_el = f"<style>{style}</style>" if style else None
         # Content-clip <defs>: one <clipPath> per distinct structure rect, ids
-        # prefixed with the per-SVG root scope so many inlined SVGs on one page
-        # don't collide on url(#id). begin_group emitted __LVCLIP{idx}__
-        # placeholders in the group tags; resolve them to the final ids here
-        # (per element, so the element/newline structure is unchanged).
-        prefix = root_id if root_id is not None else "lv"
+        # prefixed with a per-SVG scope so many inlined SVGs on one page don't
+        # collide on url(#id). begin_group emitted __LVCLIP{idx}__ placeholders
+        # in the group tags; resolve them to the final ids here (per element, so
+        # the element/newline structure is unchanged).
+        #
+        # When a caller gives no ``root_id`` (e.g. the diff viewer renders both
+        # panes id-less), the SVG must STILL be self-contained: fall back to a
+        # scope DERIVED FROM THIS SVG'S OWN CONTENT, never a shared constant.
+        # A constant fallback made two id-less SVGs on one page share
+        # ``lv-c0…`` — so the second pane's ``url(#lv-c0)`` bound to the FIRST
+        # pane's clipPath, clipping its structures to the wrong geometry (the
+        # diff viewer's "white voids"). The content hash is deterministic
+        # (renders stay byte-reproducible) yet differs whenever the content
+        # does, so distinct diagrams — including a diff's before/after revs —
+        # never collide.
+        if root_id is not None:
+            prefix = root_id
+        else:
+            digest = hashlib.sha256(
+                "\x00".join(self._elements).encode("utf-8")
+            ).hexdigest()[:8]
+            prefix = f"lv{digest}"
         defs_el = None
         elements = self._elements
         if self._clip_ids:
