@@ -108,7 +108,11 @@ class StructureBodyGlyph(ABC):
         kind's own ``border_color``/``border_width``)."""
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill="none",
+            x1,
+            y1,
+            x2,
+            y2,
+            fill="none",
             stroke=self.border_color or theme.struct_border,
             stroke_width=self.border_width,
         )

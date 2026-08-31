@@ -13,14 +13,10 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import CaseStructureNode, PrimitiveNode, WireEnd
 from lvkit.models import (
     CaseFrame,
-    CaseOperation,
     ClusterField,
-    InvokeOperation,
     LVType,
     LVTypeKind,
-    PrimitiveOperation,
     PropertyDef,
-    PropertyOperation,
     Terminal,
 )
 from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
@@ -200,11 +196,11 @@ class TestErrorInputNotBound:
 class TestNMuxRoles:
     """nMux codegen uses terminal roles (agg/list) instead of index guessing."""
 
-    def _make_nmux_op(self, terminals: list[Terminal]) -> PrimitiveOperation:
-        return PrimitiveOperation(
+    def _make_nmux_op(self, terminals: list[Terminal]) -> PrimitiveNode:
+        return PrimitiveNode(
             id="nmux_1",
+            vi_path="test.vi",
             name="Node Multiplexer",
-            kind="primitive",
             node_type="nMux",
             terminals=terminals,
         )
@@ -284,10 +280,10 @@ class TestPropertyDedup:
             dest=WireEnd(terminal_id="out_1", node_id=nid_out),
         )
 
-        op = PropertyOperation(
+        op = PrimitiveNode(
             id="prop_1",
+            vi_path="test.vi",
             name="Property Node",
-            kind="primitive",
             node_type="propNode",
             terminals=[
                 Terminal(id="ref_in", index=0, direction="input"),
@@ -333,12 +329,12 @@ class TestPassthroughElimination:
         hint = {"output": "in_0"}
         input_map = {"in_0": "my_input"}
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="prim_1",
+            vi_path="test.vi",
             name="Passthrough",
-            kind="primitive",
             node_type="prim",
-            primResID=9999,
+            prim_id=9999,
             terminals=[
                 Terminal(id="in_t", index=0, direction="input"),
                 Terminal(id="out_t", index=0, direction="output"),
@@ -431,29 +427,29 @@ class TestSelectorTopoSort:
         )
 
         # Build operations
-        producer_op = PrimitiveOperation(
+        producer_op = PrimitiveNode(
             id="equal_1",
+            vi_path="test.vi",
             name="Equal?",
-            kind="primitive",
             node_type="prim",
-            primResID=1091,
+            prim_id=1091,
             terminals=[
                 Terminal(id="eq_in", index=0, direction="input"),
                 Terminal(id="eq_out", index=0, direction="output"),
             ],
         )
-        case_op = CaseOperation(
+        case_op = CaseStructureNode(
             id="case_1",
+            vi_path="test.vi",
             name="Case",
-            kind="caseStruct",
             node_type="caseStruct",
             terminals=[
                 Terminal(id="sel_in", index=0, direction="input", name="selector"),
             ],
             selector_terminal="sel_in",
             frames=[
-                CaseFrame(selector_value="True", operations=[]),
-                CaseFrame(selector_value="False", operations=[]),
+                CaseFrame(selector_value="True"),
+                CaseFrame(selector_value="False"),
             ],
         )
 
@@ -511,10 +507,10 @@ class TestInvokeErrorSkip:
         ctx.bind("err_t", "error_in")
         ctx.bind("data_t", "my_data")
 
-        op = InvokeOperation(
+        op = PrimitiveNode(
             id="invoke_1",
+            vi_path="test.vi",
             name="Invoke",
-            kind="primitive",
             node_type="invokeNode",
             terminals=[
                 Terminal(id="ref_t_in", index=0, direction="input"),

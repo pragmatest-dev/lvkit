@@ -10,8 +10,8 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.primitive import _emit_unknown
 from lvkit.codegen.nodes.subvi import _emit_vilib_resolution
-from lvkit.graph.models import VIContext, VINode
-from lvkit.models import Operation, PrimitiveOperation, SubVIOperation, Terminal
+from lvkit.graph.models import PrimitiveNode, VIContext, VINode
+from lvkit.models import Terminal
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from lvkit.vilib_resolver import (
     ResolutionContext,
@@ -75,17 +75,6 @@ def test_vinode_qualified_path_field_exists() -> None:
     assert node.qualified_path == "<vilib>/Foo/bar.vi"
 
 
-def test_operation_qualified_path_field_exists() -> None:
-    """Operation accepts and stores qualified_path."""
-    op = Operation(
-        id="op_1",
-        name="something",
-        kind="vi",
-        qualified_path="<vilib>/Utility/foo.llb/Bar.vi",
-    )
-    assert op.qualified_path == "<vilib>/Utility/foo.llb/Bar.vi"
-
-
 # ============================================================
 # Soft mode: primitive emits inline raise
 # ============================================================
@@ -93,10 +82,10 @@ def test_operation_qualified_path_field_exists() -> None:
 
 def test_soft_mode_primitive_emits_raise_statement() -> None:
     """Soft mode emits `raise PrimitiveResolutionNeeded(...)` for unknown prims."""
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="prim_unknown_1",
+        vi_path="test.vi",
         name="Mystery",
-        kind="primitive",
         terminals=[
             Terminal(
                 id="t0",
@@ -105,7 +94,7 @@ def test_soft_mode_primitive_emits_raise_statement() -> None:
                 name="result",
             ),
         ],
-        primResID=99999,
+        prim_id=99999,
     )
     ctx = CodeGenContext(soft_unresolved=True, vi_name="Caller.vi")
     fragment = _emit_unknown(node, prim_id=99999, ctx=ctx)
@@ -132,12 +121,12 @@ def test_soft_mode_primitive_emits_raise_statement() -> None:
 
 def test_hard_mode_primitive_still_raises() -> None:
     """Default mode (soft_unresolved=False) still raises immediately."""
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="prim_unknown_2",
+        vi_path="test.vi",
         name="Mystery",
-        kind="primitive",
         terminals=[],
-        primResID=99999,
+        prim_id=99999,
     )
     ctx = CodeGenContext(soft_unresolved=False, vi_name="Caller.vi")
     with pytest.raises(PrimitiveResolutionNeeded) as exc_info:
@@ -152,10 +141,10 @@ def test_hard_mode_primitive_still_raises() -> None:
 
 def test_soft_mode_vilib_emits_raise_statement() -> None:
     """Soft mode emits `raise VILibResolutionNeeded(...)` for unknown vi.lib VIs."""
-    node = SubVIOperation(
+    node = VINode(
         id="subvi_1",
+        vi_path="test.vi",
         name="Imaginary VI.vi",
-        kind="vi",
         terminals=[
             Terminal(
                 id="t1",
@@ -198,10 +187,10 @@ def test_soft_mode_vilib_emits_raise_statement() -> None:
 
 def test_hard_mode_vilib_still_raises() -> None:
     """Default mode raises VILibResolutionNeeded immediately."""
-    node = SubVIOperation(
+    node = VINode(
         id="subvi_2",
+        vi_path="test.vi",
         name="Imaginary VI.vi",
-        kind="vi",
         terminals=[],
         node_type="iUse",
     )
@@ -218,10 +207,10 @@ def test_hard_mode_vilib_still_raises() -> None:
 
 def test_soft_mode_generated_code_runs_and_raises() -> None:
     """Generated code with soft-mode raise actually raises at runtime."""
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="prim_runtime",
+        vi_path="test.vi",
         name="Mystery",
-        kind="primitive",
         terminals=[
             Terminal(
                 id="t_out",
@@ -230,7 +219,7 @@ def test_soft_mode_generated_code_runs_and_raises() -> None:
                 name="result",
             ),
         ],
-        primResID=88888,
+        prim_id=88888,
     )
     ctx = CodeGenContext(
         soft_unresolved=True,
@@ -274,7 +263,6 @@ def test_build_module_accepts_soft_unresolved() -> None:
     # Empty VI context (no operations) — verify no crash and the flag is set.
     vi_ctx = VIContext(
         name="empty_vi",
-        operations=[],
         inputs=[],
         outputs=[],
     )
@@ -301,12 +289,12 @@ def test_emit_soft_unresolved_rejects_non_literal_kwarg() -> None:
     class NotALiteral:
         pass
 
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="prim_guard",
+        vi_path="test.vi",
         name="X",
-        kind="primitive",
         terminals=[],
-        primResID=1,
+        prim_id=1,
     )
     ctx = CodeGenContext(soft_unresolved=True, vi_name="Foo.vi")
 
@@ -327,12 +315,12 @@ def test_emit_soft_unresolved_rejects_non_literal_positional_arg() -> None:
     class NotALiteral:
         pass
 
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="prim_guard_pos",
+        vi_path="test.vi",
         name="X",
-        kind="primitive",
         terminals=[],
-        primResID=1,
+        prim_id=1,
     )
     ctx = CodeGenContext(soft_unresolved=True, vi_name="Foo.vi")
 
@@ -376,12 +364,12 @@ def test_emit_soft_unresolved_source_kwargs_unchecked() -> None:
     """
     from lvkit.codegen.unresolved import emit_soft_unresolved
 
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="prim_src_kw",
+        vi_path="test.vi",
         name="X",
-        kind="primitive",
         terminals=[],
-        primResID=1,
+        prim_id=1,
     )
     ctx = CodeGenContext(soft_unresolved=True, vi_name="Foo.vi")
 
@@ -404,17 +392,19 @@ def test_emit_soft_unresolved_source_kwargs_unchecked() -> None:
 
 
 def test_primitive_operation_has_no_qualified_path() -> None:
-    """Primitives don't have file paths — qualified_path stays None.
+    """Primitives don't have file paths — ``PrimitiveNode`` carries no
+    ``qualified_path`` field at all.
 
     They're identified by primResID, not by an on-disk source file.
-    The qualified_path field exists on the base Operation class because
-    SubVI operations DO have it, but primitives never set it.
+    ``qualified_path`` exists only on ``VINode`` (a SubVI call DOES have a
+    file); every other graph node lacks the attribute entirely, which is why
+    ``operations.py`` reads it via ``getattr(gnode, "qualified_path", None)``.
     """
-    op = PrimitiveOperation(
+    op = PrimitiveNode(
         id="prim_no_path",
+        vi_path="test.vi",
         name="Add",
-        kind="primitive",
         terminals=[],
-        primResID=1419,
+        prim_id=1419,
     )
-    assert op.qualified_path is None
+    assert not hasattr(op, "qualified_path")

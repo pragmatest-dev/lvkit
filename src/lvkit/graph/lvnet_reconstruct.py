@@ -246,9 +246,7 @@ def _index_handles(
             assert item.handle is not None and item.component is not None
             name = _derive_instance_name(item.kind, item.handle, item.component)
             _, uid = _handle_base_and_suffix(item.handle)
-            registry[item.handle] = _HandleTarget(
-                name=name, uid=uid, is_constant=False
-            )
+            registry[item.handle] = _HandleTarget(name=name, uid=uid, is_constant=False)
         elif isinstance(item, ParsedLocalVariable):
             # Same base+uid derivation as a plain node (no ``component`` to
             # feed ``_derive_instance_name`` with -- a local-variable's own
@@ -256,14 +254,10 @@ def _index_handles(
             # ``_render_lvnet_local_variable``, so the handle's own text is
             # enough).
             base, uid = _handle_base_and_suffix(item.handle)
-            registry[item.handle] = _HandleTarget(
-                name=base, uid=uid, is_constant=False
-            )
+            registry[item.handle] = _HandleTarget(name=base, uid=uid, is_constant=False)
         elif isinstance(item, ParsedConstant):
             base, uid = _handle_base_and_suffix(item.handle)
-            registry[item.handle] = _HandleTarget(
-                name=base, uid=uid, is_constant=True
-            )
+            registry[item.handle] = _HandleTarget(name=base, uid=uid, is_constant=True)
         elif isinstance(item, ParsedFeedback):
             pass  # referenced by its own bare `fbK` net text, never a handle
         elif isinstance(item, ParsedScope):

@@ -109,35 +109,21 @@ def make_ctx(*terminal_ids: str) -> CodeGenContext:
     return CodeGenContext(graph=graph)
 
 
-def graph_from_vi_context(vi_context, vi_name: str):
-    """Build an InMemoryVIGraph equivalent to a hand-built ``VIContext``'s
-    projected ``operations`` + ``data_flow`` + FP terminals, so a ``build_module``
-    unit test can pass a real graph now that ``build_module`` walks
-    ``graph.top_level_nodes`` instead of ``vi_context.operations``.
+def build_graph(vi_context, vi_name: str, nodes: list):
+    """Build an InMemoryVIGraph for a codegen unit test: stub FP terminals for
+    ``vi_context``'s inputs/outputs/constants, register the given (already
+    graph-native) ``GraphNode``s as ``vi_name``'s node set, and wire up
+    ``vi_context.data_flow`` — so a ``build_module`` unit test can pass a real
+    graph, since ``build_module`` walks ``graph.top_level_nodes`` (there is no
+    more projected ``vi_context.operations`` to build one from).
 
-    Converts each projected ``Operation`` back to the typed graph node it came
-    from (Loop/Case/Sequence/SubVI/Primitive/Constant, base → a generic
-    StructureNode that dispatches to the unknown-node path), recursing into
-    ``inner_nodes``/frames, then adds the data-flow wires as edges.
+    Callers build the typed graph nodes directly (``LoopNode``/
+    ``CaseStructureNode``/``VINode``/``PrimitiveNode``/... — set ``.parent``/
+    ``.frame`` on children before passing them in here; ``register_nodes``
+    derives each parent's forward ``children`` list from those back-links).
     """
     from lvkit.graph import InMemoryVIGraph
-    from lvkit.graph.models import (
-        CaseStructureNode,
-        ConstantNode,
-        LoopNode,
-        PrimitiveNode,
-        SequenceNode,
-        StructureNode,
-        VINode,
-        WireEnd,
-    )
-    from lvkit.models import (
-        CaseOperation,
-        LoopOperation,
-        PrimitiveOperation,
-        SequenceOperation,
-        SubVIOperation,
-    )
+    from lvkit.graph.models import PrimitiveNode, WireEnd
 
     graph = InMemoryVIGraph()
     graph._vi_nodes.setdefault(vi_name, set())
@@ -167,72 +153,7 @@ def graph_from_vi_context(vi_context, vi_name: str):
         if const.id:
             _stub(const.id, "output")
 
-    def _convert(op, parent, frame):
-        common: dict[str, Any] = dict(
-            id=op.id,
-            vi_path=vi_name,
-            name=op.name,
-            label=op.label,
-            caption=op.caption,
-            node_type=op.node_type,
-            terminals=list(op.terminals),
-            parent=parent,
-            frame=frame,
-        )
-        struct_terms = {
-            **common,
-            "terminals": [*tunnel_terminals(op.tunnels or []), *op.terminals],
-        }
-        if isinstance(op, LoopOperation):
-            return LoopNode(
-                **struct_terms,
-                loop_type=op.loop_type,
-                stop_condition_terminal=op.stop_condition_terminal,
-                stop_condition_inverted=op.stop_condition_inverted,
-                parallel=op.parallel,
-                parallel_static_workers=op.parallel_static_workers,
-            )
-        if isinstance(op, CaseOperation):
-            return CaseStructureNode(
-                **struct_terms,
-                selector_terminal=op.selector_terminal,
-                frames=op.frames,
-            )
-        if isinstance(op, SequenceOperation):
-            return SequenceNode(
-                **struct_terms,
-                frames=op.frames,
-                is_flat=op.is_flat,
-            )
-        if isinstance(op, SubVIOperation) or op.kind == "vi":
-            return VINode(**common, poly_variant_name=op.poly_variant_name)
-        if isinstance(op, PrimitiveOperation):
-            return PrimitiveNode(**common, prim_id=op.primResID, operation=op.operation)
-        if op.kind == "constant":
-            return ConstantNode(**common)
-        # base Operation / unknown kind → generic structure (dispatch → unknown)
-        return StructureNode(**common)
-
-    registered: list = []
-
-    def _walk(op, parent, frame):
-        node = _convert(op, parent, frame)
-        registered.append(node)
-        for child in getattr(op, "inner_nodes", []) or []:
-            _walk(child, op.id, None)
-        for f in getattr(op, "frames", []) or []:
-            key = (
-                f.selector_value
-                if hasattr(f, "selector_value")
-                else str(getattr(f, "index", ""))
-            )
-            for child in f.operations or []:
-                _walk(child, op.id, key)
-
-    for op in vi_context.operations:
-        _walk(op, None, None)
-
-    register_nodes(graph, registered, vi_name=vi_name)
+    register_nodes(graph, nodes, vi_name=vi_name)
 
     for wire in vi_context.data_flow:
         src_tid = wire.from_terminal_id

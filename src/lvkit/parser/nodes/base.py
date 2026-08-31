@@ -52,6 +52,7 @@ def parse_displayed_frame(
     d = int(d_idx_text)
     return d if 0 <= d < num_frames else None
 
+
 # zPlaneList element classes a frame OWNS beyond its nodeList — structures
 # (incl. the disable ``commentNode``) and free labels. LabVIEW places a free
 # label inside the diagram it belongs to, so one in a frame's zPlaneList is

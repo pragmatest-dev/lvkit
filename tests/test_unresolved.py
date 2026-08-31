@@ -9,7 +9,8 @@ import pytest
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.primitive import _emit_placeholder, _emit_unknown
 from lvkit.codegen.nodes.subvi import _emit_vilib_resolution
-from lvkit.models import PrimitiveOperation, SubVIOperation, Terminal
+from lvkit.graph.models import PrimitiveNode, VINode
+from lvkit.models import Terminal
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded, ResolvedPrimitive
 from lvkit.unresolved import (
     UnresolvedItem,
@@ -25,12 +26,12 @@ from lvkit.vilib_resolver import VILibResolutionNeeded
 
 def test_sink_collects_unknown_primitive() -> None:
     """An unresolved_sink collects the primitive gap and does not raise."""
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="p",
+        vi_path="test.vi",
         name="Mystery",
-        kind="primitive",
         terminals=[Terminal(id="t0", index=0, direction="output", name="result")],
-        primResID=99999,
+        prim_id=99999,
     )
     sink: list[Exception] = []
     ctx = CodeGenContext(
@@ -47,10 +48,10 @@ def test_sink_collects_unknown_primitive() -> None:
 
 def test_sink_collects_unmapped_vilib() -> None:
     """An unresolved_sink collects the vi.lib gap and does not raise."""
-    node = SubVIOperation(
+    node = VINode(
         id="s",
+        vi_path="test.vi",
         name="Imaginary VI.vi",
-        kind="vi",
         terminals=[Terminal(id="t1", index=0, direction="input", name="in1")],
         node_type="iUse",
     )
@@ -68,12 +69,12 @@ def test_sink_collects_unmapped_vilib() -> None:
 
 def test_sink_collects_placeholder_primitive_tagged() -> None:
     """A placeholder primitive is collected and tagged distinctly from unknown."""
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="p",
+        vi_path="test.vi",
         name="Wait on Notification",
-        kind="primitive",
         terminals=[Terminal(id="t0", index=0, direction="input", name="notifier")],
-        primResID=9105,
+        prim_id=9105,
     )
     resolved = ResolvedPrimitive(
         prim_id="9105",
@@ -94,12 +95,12 @@ def test_sink_collects_placeholder_primitive_tagged() -> None:
 
 def test_sink_absent_preserves_hard_raise() -> None:
     """With no sink and hard mode, the gap still raises (unchanged behavior)."""
-    node = PrimitiveOperation(
+    node = PrimitiveNode(
         id="p",
+        vi_path="test.vi",
         name="Mystery",
-        kind="primitive",
         terminals=[],
-        primResID=99999,
+        prim_id=99999,
     )
     ctx = CodeGenContext(soft_unresolved=False, vi_name="Caller.vi")
     with pytest.raises(PrimitiveResolutionNeeded):

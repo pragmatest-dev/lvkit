@@ -459,12 +459,12 @@ class TestNetlistFormDiffOnJKIPair:
 # We can't author .vi files (no LabVIEW), so the constant-modified and
 # frame-set diff paths are driven through a REAL ``InMemoryVIGraph`` populated
 # with synthetic ``GraphNode``s — no binary fixture, no licence entanglement.
-# ``diff_uid`` reads these through the ordinary graph API (``get_operations``/
+# ``diff_uid`` reads these through the ordinary graph API (``top_level_nodes``/
 # ``get_constants`` project the nodes exactly as a loaded VI would), and its
 # tree-order pass now walks the graph natively via ``build_netlist_from_graph``
 # (``get_operation_order``/``iter_nodes``/``get_graph_node``/``_graph``), so the
-# fixture builds those same real structures rather than shimming an Operation
-# list. Mirrors the real corpus case (JKI-VI-Tester build.vi, a Path constant
+# fixture builds those same real structures rather than shimming a projected
+# node list. Mirrors the real corpus case (JKI-VI-Tester build.vi, a Path constant
 # edited in place at a stable UID).
 
 
@@ -1376,20 +1376,19 @@ class TestSelectContractionPhantom:
 
 
 def test_operation_display_name_qualifies_by_ownership_chain():
-    """``Operation.display_name`` reads the class-qualified label when the op
-    carries an ownership chain (its own / its callee's ``<LIBN>``), else the bare
-    name. DISPLAY only — identity/resolution is unaffected. ``_elem_label`` uses
-    it so two classes' same-named methods are distinct in the diff."""
-    from lvkit.models import Operation
-
-    qualified = Operation(
+    """``GraphNode.display_name`` reads the class-qualified label when the
+    node carries an ownership chain (its own / its callee's ``<LIBN>``), else
+    the bare name. DISPLAY only — identity/resolution is unaffected.
+    ``_elem_label`` uses it so two classes' same-named methods are distinct
+    in the diff."""
+    qualified = VINode(
         id="V::1",
+        vi_path="V::1",
         name="run.vi",
-        kind="vi",
         owning_libraries=["Foo.lvlib", "Bar.lvclass"],
     )
     assert qualified.display_name == "Foo.lvlib:Bar.lvclass:run.vi"
-    bare = Operation(id="V::2", name="run.vi", kind="vi")
+    bare = VINode(id="V::2", vi_path="V::2", name="run.vi")
     assert bare.display_name == "run.vi"
 
 
@@ -1413,7 +1412,7 @@ class TestQualifiedSubVINames:
         vn = g.resolve_vi_name(self.SAMPLE.name)
         calls = [
             op
-            for op in g.get_operations(vn)
+            for op in g.top_level_nodes(vn)
             if op.node_type
             and ("iUse" in op.node_type or op.node_type in ("dynIUse", "polyIUse"))
         ]

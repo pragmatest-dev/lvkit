@@ -21,7 +21,12 @@ class LoopCountTerminalGlyph(BorderTerminalGlyph):
         x1, y1, x2, y2 = bounds
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         backend.rect(
-            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=theme.loop_term,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.loop_term_fill,
+            stroke=theme.loop_term,
             stroke_width=1.5,
         )
         backend.text(

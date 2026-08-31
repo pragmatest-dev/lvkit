@@ -12,7 +12,6 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import SequenceNode, VINode, WireEnd
 from lvkit.models import (
     SequenceFrame,
-    SequenceOperation,
     Terminal,
     Tunnel,
     TunnelTerminal,
@@ -77,12 +76,10 @@ class TestSequenceFrameModel:
         assert frame.uid == "f1"
         assert frame.index == 0
         assert frame.inner_node_uids == ["n1", "n2"]
-        assert frame.operations == []
 
     def test_sequence_frame_defaults(self):
         frame = SequenceFrame(index=0)
         assert frame.inner_node_uids == []
-        assert frame.operations == []
         assert frame.uid is None
 
     def test_flat_sequence_structure(self):
@@ -428,17 +425,19 @@ class TestSequenceInMemoryGraph:
         graph_with_sequence: InMemoryVIGraph,
     ):
         """Flat sequence appears as an operation."""
-        ops = graph_with_sequence.get_operations("Seq.vi")
+        from lvkit.graph.core import _graph_node_to_op_kind
+
+        ops = graph_with_sequence.top_level_nodes("Seq.vi")
         seq_ops = [op for op in ops if op.node_type == "flatSequence"]
         assert len(seq_ops) == 1
-        assert seq_ops[0].kind == "flatSequence"
+        assert _graph_node_to_op_kind(seq_ops[0]) == "flatSequence"
 
     def test_inner_nodes_excluded_from_top_level(
         self,
         graph_with_sequence: InMemoryVIGraph,
     ):
         """Inner nodes of sequence frames don't appear at top level."""
-        ops = graph_with_sequence.get_operations("Seq.vi")
+        ops = graph_with_sequence.top_level_nodes("Seq.vi")
         op_ids = {op.id for op in ops}
         assert "write1" not in op_ids
         assert "write2" not in op_ids
@@ -448,19 +447,20 @@ class TestSequenceInMemoryGraph:
         graph_with_sequence: InMemoryVIGraph,
     ):
         """Sequence operation has tunnel info."""
-        ops = graph_with_sequence.get_operations("Seq.vi")
+        ops = graph_with_sequence.top_level_nodes("Seq.vi")
         seq_op = [op for op in ops if op.node_type == "flatSequence"][0]
-        assert len(seq_op.tunnels) == 1
-        assert seq_op.tunnels[0].tunnel_type == "seqTun"
+        tunnels = InMemoryVIGraph._tunnels_from_terminals(seq_op.terminals)
+        assert len(tunnels) == 1
+        assert tunnels[0].tunnel_type == "seqTun"
 
     def test_sequence_has_frames(
         self,
         graph_with_sequence: InMemoryVIGraph,
     ):
         """Sequence frames are stored as frames."""
-        ops = graph_with_sequence.get_operations("Seq.vi")
+        ops = graph_with_sequence.top_level_nodes("Seq.vi")
         seq_op = [op for op in ops if op.node_type == "flatSequence"][0]
-        assert isinstance(seq_op, SequenceOperation)
+        assert isinstance(seq_op, SequenceNode)
         assert len(seq_op.frames) == 2
         assert seq_op.frames[0].index == 0
         assert seq_op.frames[1].index == 1
@@ -470,7 +470,7 @@ class TestSequenceInMemoryGraph:
         graph_with_sequence: InMemoryVIGraph,
     ):
         """Sequence appears after nodes that feed into it."""
-        ops = graph_with_sequence.get_operations("Seq.vi")
+        ops = graph_with_sequence.top_level_nodes("Seq.vi")
         op_ids = [op.id for op in ops]
         start_idx = op_ids.index("start")
         seq_idx = op_ids.index("seq1")

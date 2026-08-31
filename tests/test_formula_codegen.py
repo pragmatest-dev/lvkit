@@ -1,6 +1,6 @@
 """Tests for Formula Node codegen.
 
-Self-contained (no .vi fixture): builds a FormulaOperation directly, runs the
+Self-contained (no .vi fixture): builds a FormulaNode directly, runs the
 node generator, and checks that it injects a module-level Python helper
 function, emits a call to it, and binds the outputs — no C artifact, no FFI.
 """
@@ -13,7 +13,8 @@ import pytest
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import formula
-from lvkit.models import FormulaOperation, LVType, LVTypeKind, Terminal
+from lvkit.graph.models import FormulaNode
+from lvkit.models import LVType, LVTypeKind, Terminal
 
 
 def _dbl() -> LVType:
@@ -27,11 +28,11 @@ def _i16() -> LVType:
 def _op(
     script: str = "y = a + 2**3;",
     y_type: LVType | None = None,
-) -> FormulaOperation:
-    return FormulaOperation(
+) -> FormulaNode:
+    return FormulaNode(
         id="my_vi.vi::42",
+        vi_path="my_vi.vi",
         name="Formula Node",
-        kind="formula",
         node_type="fBox",
         script=script,
         terminals=[
@@ -96,10 +97,10 @@ def test_formula_does_not_mutate_callers_array():
     branching change re-introduces aliasing, the caller's list gets mutated and
     this fails. This is the exact failure mode that corrupted Himmelt's VI."""
     arr = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=_dbl())
-    op = FormulaOperation(
+    op = FormulaNode(
         id="vi::9",
+        vi_path="vi",
         name="Formula Node",
-        kind="formula",
         node_type="fBox",
         script="int32 i=0;\nfor (i=0; i<n; i++) buf[i] = buf[i] + 1;",
         terminals=[

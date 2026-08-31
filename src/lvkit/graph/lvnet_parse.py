@@ -235,8 +235,7 @@ def _scan_quoted_literal(text: str, start: int) -> int:
         if ch == "\\":
             if i + 1 >= n:
                 raise LvnetParseError(
-                    f"unterminated escape at end of quoted literal: "
-                    f"{text[start:]!r}"
+                    f"unterminated escape at end of quoted literal: {text[start:]!r}"
                 )
             i += 2
             continue
@@ -288,8 +287,7 @@ def _unescape_lvnet_string(token: str) -> str:
         real = _LVNET_STRING_UNESCAPES.get(esc)
         if real is None:
             raise LvnetParseError(
-                f"unrecognized escape '\\{esc}' in lvnet string literal: "
-                f"{token!r}"
+                f"unrecognized escape '\\{esc}' in lvnet string literal: {token!r}"
             )
         out.append(real)
         i += 2
@@ -503,9 +501,7 @@ def _split_node_terminal_tail(
         type_str = " ".join(text[:eq_pos].split())
         driver = text[eq_pos + len(_LVNET_DRIVER_OP) :]
         if not driver:
-            raise LvnetParseError(
-                f"line {line_no}: '=' with no driver value: {line!r}"
-            )
+            raise LvnetParseError(f"line {line_no}: '=' with no driver value: {line!r}")
         _validate_if_quoted(driver, line_no)
     elif def_pos != -1:
         type_str = " ".join(text[:def_pos].split())
@@ -807,8 +803,7 @@ def _expect_kv_line(
     if line is None or line.strip() == "" or _indent_len(line) != indent:
         if required:
             raise LvnetParseError(
-                f"line {cursor.line_no}: expected a {prefix!r} line, "
-                f"found end of block"
+                f"line {cursor.line_no}: expected a {prefix!r} line, found end of block"
             )
         return None
     content = line[indent:]
@@ -940,8 +935,7 @@ def _parse_local_variable(content: str, line_no: int) -> ParsedLocalVariable:
     source = tail[len(write_prefix) :]
     if not source:
         raise LvnetParseError(
-            f"line {line_no}: local-variable write has an empty source: "
-            f"{content!r}"
+            f"line {line_no}: local-variable write has an empty source: {content!r}"
         )
     return ParsedLocalVariable(handle=handle, is_write=True, source=source)
 
@@ -977,8 +971,7 @@ def _parse_feedback(
     rest = content[len("feedback-node ") :]
     if not rest.endswith(_LVNET_BLOCK_OPEN):
         raise LvnetParseError(
-            f"line {line_no}: feedback-node header must end with ' :' (§7): "
-            f"{content!r}"
+            f"line {line_no}: feedback-node header must end with ' :' (§7): {content!r}"
         )
     rest = rest[: -len(_LVNET_BLOCK_OPEN)]
     open_paren = rest.find(" (")
@@ -1312,9 +1305,7 @@ def _parse_inplace_scope(
             f"line {line_no}: an in-place-element body must not contain bare "
             f"'net = source' drive lines (§8): {drives!r}"
         )
-    return ParsedScope(
-        kind=_LVNET_INPLACE_SCOPE_KEYWORD, body=tuple(body), uid=uid
-    )
+    return ParsedScope(kind=_LVNET_INPLACE_SCOPE_KEYWORD, body=tuple(body), uid=uid)
 
 
 def _parse_event_scope(
@@ -1327,8 +1318,7 @@ def _parse_event_scope(
     )
     if not frames:
         raise LvnetParseError(
-            f"line {line_no}: event-structure scope has no frames (§8): "
-            f"{content!r}"
+            f"line {line_no}: event-structure scope has no frames (§8): {content!r}"
         )
     return ParsedScope(kind="event-structure", frames=tuple(frames), uid=uid)
 
@@ -1852,9 +1842,7 @@ def _parse_lossless_members(body: str) -> tuple[tuple[str, int], ...]:
         # The ordinal (an int) never contains `` = ``, so the LAST `` = `` is
         # always the name/ordinal separator even when a QUOTED name embeds one.
         name, _, ordinal_text = part.rpartition(_LVNET_DRIVER_OP)
-        members.append(
-            (_unquote_name_token(name), int(ordinal_text.strip()))
-        )
+        members.append((_unquote_name_token(name), int(ordinal_text.strip())))
     return tuple(sorted(members, key=lambda kv: kv[1]))
 
 
@@ -2049,43 +2037,47 @@ def boundary_signature(
     # line, on- or off-pane, uniformly from ``ParsedLvnet.boundary``).
     off_panes = pane_terminals[n_in + n_out :]
 
-    entries: list[tuple[str, TypeShape, str, str | None, str | None, int | None]] = [
-        (
-            inp.name,
-            _lv_type_comparison_shape(inp.lv_type, ambiguous=ambiguous)
-            if inp.lv_type is not None
-            else ("leaf", inp.type_descriptor),
-            "in",
-            _lvnet_requirement_trailing(pane),
-            _module_default_token(pane.default),
-            pane.index,
-        )
-        for inp, pane in zip(module.inputs, input_panes, strict=True)
-    ] + [
-        (
-            o.name,
-            _lv_type_comparison_shape(o.lv_type, ambiguous=ambiguous)
-            if o.lv_type is not None
-            else ("leaf", o.type_descriptor),
-            "out",
-            _lvnet_requirement_trailing(pane),
-            _module_default_token(pane.default),
-            pane.index,
-        )
-        for o, pane in zip(module.outputs, output_panes, strict=True)
-    ] + [
-        (
-            pane.name,
-            _lv_type_comparison_shape(pane.lv_type, ambiguous=ambiguous)
-            if pane.lv_type is not None
-            else ("leaf", pane.type),
-            "in" if pane.direction == "input" else "out",
-            _lvnet_requirement_trailing(pane),
-            _module_default_token(pane.default),
-            pane.index,
-        )
-        for pane in off_panes
-    ]
+    entries: list[tuple[str, TypeShape, str, str | None, str | None, int | None]] = (
+        [
+            (
+                inp.name,
+                _lv_type_comparison_shape(inp.lv_type, ambiguous=ambiguous)
+                if inp.lv_type is not None
+                else ("leaf", inp.type_descriptor),
+                "in",
+                _lvnet_requirement_trailing(pane),
+                _module_default_token(pane.default),
+                pane.index,
+            )
+            for inp, pane in zip(module.inputs, input_panes, strict=True)
+        ]
+        + [
+            (
+                o.name,
+                _lv_type_comparison_shape(o.lv_type, ambiguous=ambiguous)
+                if o.lv_type is not None
+                else ("leaf", o.type_descriptor),
+                "out",
+                _lvnet_requirement_trailing(pane),
+                _module_default_token(pane.default),
+                pane.index,
+            )
+            for o, pane in zip(module.outputs, output_panes, strict=True)
+        ]
+        + [
+            (
+                pane.name,
+                _lv_type_comparison_shape(pane.lv_type, ambiguous=ambiguous)
+                if pane.lv_type is not None
+                else ("leaf", pane.type),
+                "in" if pane.direction == "input" else "out",
+                _lvnet_requirement_trailing(pane),
+                _module_default_token(pane.default),
+                pane.index,
+            )
+            for pane in off_panes
+        ]
+    )
     return tuple(entries)
 
 
@@ -2362,8 +2354,7 @@ def _module_body_signature(
                 out.append(_module_inplace_scope_signature(item, handles, ambiguous))
             else:
                 raise LvnetUnsupportedConstructError(
-                    f"netlist_signature does not yet cover scope kind "
-                    f"{item.kind!r}"
+                    f"netlist_signature does not yet cover scope kind {item.kind!r}"
                 )
         elif isinstance(item, NetlistFeedback):
             out.append(_module_feedback_signature(item, handles))
@@ -2430,8 +2421,7 @@ def _parsed_item_signature(
                 (
                     _quoted_frame_label(f.label) if item.kind == "case" else f.label,
                     tuple(
-                        _parsed_item_signature(i, types_dict, ambiguous)
-                        for i in f.body
+                        _parsed_item_signature(i, types_dict, ambiguous) for i in f.body
                     ),
                     tuple((d.net, d.source) for d in f.drives),
                 )

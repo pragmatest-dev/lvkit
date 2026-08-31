@@ -21,12 +21,12 @@ from ..models import (
     DisableStructureKind,
     EventFrame,
     LVType,
-    Operation,
     PropertyDef,
     ScalarValue,
     SequenceFrame,
     Terminal,
 )
+from ..parser.node_types import get_display_name
 
 # ============================================================
 # Graph node types (Pydantic) — stored on nx.MultiDiGraph
@@ -66,6 +66,25 @@ class GraphNode(BaseModel):
     # containment — the render layer applies zPlaneList PAINT order separately
     # (a draw concern that never enters the graph). Empty for leaf nodes.
     children: list[str] = []
+
+    @property
+    def display_name(self) -> str:
+        """IDENTITY-first human label — the graph-native mirror of the removed
+        ``Operation.display_name``: a subVI's class-qualified name
+        (``owning_libraries:name``, so two classes' same-named methods
+        disambiguate), else the bare ``name``, else ``caption``/``label``,
+        else the node-type word. Only :class:`VINode` carries
+        ``owning_libraries``; every other node falls straight through."""
+        libs = getattr(self, "owning_libraries", None) or []
+        if libs and self.name:
+            return ":".join([*libs, self.name])
+        if self.name:
+            return self.name
+        if self.caption:
+            return self.caption
+        if self.label:
+            return self.label
+        return get_display_name(self.node_type) if self.node_type else "node"
 
 
 class VINode(GraphNode):
@@ -832,7 +851,6 @@ class VIContext(BaseModel):
     outputs: list[Terminal] = []
     constants: list[Constant] = []
     labels: list[Label] = []
-    operations: list[Operation] = []
     has_parallel_branches: bool = False
     terminals: list[TerminalRef] = []
     data_flow: list[Wire] = []

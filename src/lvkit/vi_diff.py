@@ -108,9 +108,9 @@ def diff_vi_files(
     # vi_key prefix) are left untouched; the viewer keys on ``uid``, not full_id.
     for c in cmap.changes:
         if c.full_id.startswith(f"{name_a}::"):
-            c.full_id = display_a + c.full_id[len(name_a):]
+            c.full_id = display_a + c.full_id[len(name_a) :]
         elif c.full_id.startswith(f"{name_b}::"):
-            c.full_id = display_b + c.full_id[len(name_b):]
+            c.full_id = display_b + c.full_id[len(name_b) :]
 
     def _label(name: str, ref: str | None) -> str:
         return f"{name} ({ref})" if ref else name

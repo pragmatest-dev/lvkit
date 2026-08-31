@@ -39,9 +39,7 @@ class WhileLoopGlyph(StructureBodyGlyph):
         # reads as a loop-back. The arrow is unstroked, so it is NOT auto-inset.
         a = w * 1.75  # arrow leg, scaled with the border
         ax, ay = x2, y2
-        backend.polygon(
-            [(ax, ay - a), (ax, ay), (ax - a, ay - a)], fill=c, stroke=None
-        )
+        backend.polygon([(ax, ay - a), (ax, ay), (ax - a, ay - a)], fill=c, stroke=None)
         gap = w * 0.5  # erase a short border segment above the arrow, back to canvas
         backend.rect(
             x2 - w, ay - a - gap, x2 + w, ay - a, fill=theme.canvas, stroke=None

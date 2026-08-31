@@ -15,12 +15,10 @@ from enum import Enum
 from ..models import (
     DisableStructureKind,
     LVType,
-    Operation,
     ScalarValue,
-    Terminal,
 )
 from .interface_order import WiringRequirement
-from .models import Constant, VIHealth, VIProperties
+from .models import VIHealth, VIProperties
 from .op_walk import ComponentPort
 from .queries import ClassContext
 
@@ -554,50 +552,6 @@ class NetlistComponent:
     name: str
     inputs: list[ComponentPort]
     outputs: list[ComponentPort]
-
-
-@dataclass(frozen=True)
-class _BuildCtx:
-    """Per-VI lookups threaded through the build walk (bundled so adding a
-    new lookup doesn't ripple through every function signature).
-
-    ``occurrence_by_uid``: ``#n`` disambiguator for repeated node display
-    names, keyed by trailing node UID (see ``_assign_occurrences``).
-    ``const_by_id``: every constant in the VI, keyed by its graph node id
-    (``Constant.id``, matching a wire source's ``WireEnd.node_id``) -- lets
-    ``_resolve_source`` join a wire's real constant VALUE instead of just
-    the producing node's uid.terminal.
-
-    ``case_id_by_uid``: deterministic ``case0``, ``case1``, … id per
-    ``CaseOperation``, keyed by trailing node UID (see
-    ``_assign_sequential_ids``) -- used ONLY to name a case's gamma-merge
-    output nets (``case{id}.out{k}``), never as a scope-header ``#n`` tag.
-
-    ``loop_id_by_uid``: deterministic ``loop0``, ``loop1``, … id per
-    ``LoopOperation``, keyed by trailing node UID (see
-    ``_assign_sequential_ids``) -- the loop analogue of ``case_id_by_uid``,
-    used ONLY to name a loop's mu/eta-merge nets (``loop{id}.shift{k}`` /
-    ``loop{id}.out{k}``).
-    """
-
-    occurrence_by_uid: dict[str, int]
-    const_by_id: dict[str, Constant]
-    case_id_by_uid: dict[str, int]
-    loop_id_by_uid: dict[str, int]
-    # ``fb0``, ``fb1``, … id per Feedback Node MASTER, keyed by trailing node
-    # UID (see ``_assign_sequential_ids``) -- names the ``fb{k}`` mu net a
-    # consumer reading the Feedback Node's output resolves to.
-    feedback_id_by_uid: dict[str, int]
-    # Every operation keyed by its full ``op.id`` -- lets a Feedback Node
-    # master reach its linked write side (``FeedbackOperation.partner_uid``)
-    # to resolve the mu ``recur`` source. Built once via ``_walk_flat``.
-    op_by_uid: dict[str, Operation]
-    # Every terminal id -> its owning ``(op, terminal)``, built ONCE (see
-    # ``op_walk.index_terminal_owners``). ``_resolve_source`` does an O(1)
-    # lookup here instead of re-scanning the whole op tree per wire -- that
-    # linear rescan was an O(n^2) hot spot (6.4M ``_find_op_owning_terminal``
-    # calls on a 1k-node VI, ~half of build_netlist's time).
-    owner_by_terminal: dict[str, tuple[Operation, Terminal]]
 
 
 @dataclass

@@ -6,7 +6,8 @@ import ast
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import compound
-from lvkit.models import LVType, LVTypeKind, PrimitiveOperation, Terminal
+from lvkit.graph.models import PrimitiveNode
+from lvkit.models import LVType, LVTypeKind, Terminal
 from tests.helpers import make_ctx
 
 
@@ -53,10 +54,10 @@ class TestCompoundArithGenerate:
         ctx.bind("term1", "flag_a")
         ctx.bind("term2", "flag_b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Or",
-            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -85,10 +86,10 @@ class TestCompoundArithGenerate:
         ctx.bind("term1", "cond_a")
         ctx.bind("term2", "cond_b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound And",
-            kind="primitive",
             node_type="cpdArith",
             operation="and",
             terminals=[
@@ -109,10 +110,10 @@ class TestCompoundArithGenerate:
         ctx.bind("t1", "a")
         ctx.bind("t2", "b")
         u32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd",
+            vi_path="test.vi",
             name="Compound",
-            kind="primitive",
             node_type="cpdArith",
             operation=operation,
             terminals=[
@@ -162,10 +163,10 @@ class TestCompoundArithGenerate:
         ctx.bind("term2", "y")
         ctx.bind("term3", "z")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Add",
-            kind="primitive",
             node_type="cpdArith",
             operation="add",
             terminals=[
@@ -188,10 +189,10 @@ class TestCompoundArithGenerate:
         ctx = make_ctx("term1", "term_out")
         ctx.bind("term1", "only_value")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Or",
-            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -210,10 +211,10 @@ class TestCompoundArithGenerate:
         """Test that no inputs produces default value."""
         ctx = CodeGenContext()
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Or",
-            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -233,10 +234,10 @@ class TestCompoundArithGenerate:
         """Test that no output terminal returns empty fragment."""
         ctx = CodeGenContext()
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Or",
-            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -267,10 +268,10 @@ class TestCompoundArithResolvesThroughDataflow:
         ctx.bind("src1", "error_in.status")
         ctx.bind("src2", "timeout_occurred")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Or",
-            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -306,10 +307,10 @@ class TestCompoundArithExecutable:
         ctx.bind("term1", "flag_a")
         ctx.bind("term2", "flag_b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Or",
-            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -340,10 +341,10 @@ class TestCompoundArithExecutable:
         ctx.bind("term1", "cond_a")
         ctx.bind("term2", "cond_b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound And",
-            kind="primitive",
             node_type="cpdArith",
             operation="and",
             terminals=[
@@ -375,10 +376,10 @@ class TestCompoundArithExecutable:
         ctx.bind("term2", "b")
         ctx.bind("term3", "c")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Add",
-            kind="primitive",
             node_type="cpdArith",
             operation="add",
             terminals=[
@@ -407,10 +408,10 @@ class TestCompoundArithInvert:
         ctx.bind("term1", "hasTensPlace")
         ctx.bind("term2", "isTeen")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Add",
-            kind="primitive",
             node_type="cpdArith",
             operation="add",
             terminals=[
@@ -468,10 +469,10 @@ class TestCompoundArithInvert:
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Add",
-            kind="primitive",
             node_type="cpdArith",
             operation="add",
             terminals=[
@@ -496,10 +497,10 @@ class TestCompoundArithInvert:
         ctx.bind("term1", "flag_a")
         ctx.bind("term2", "flag_b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Or",
-            kind="primitive",
             node_type="cpdArith",
             operation="or",
             terminals=[
@@ -534,10 +535,10 @@ class TestCompoundArithInvert:
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name=f"Compound {operation}",
-            kind="primitive",
             node_type="cpdArith",
             operation=operation,
             terminals=[
@@ -578,10 +579,10 @@ class TestCompoundArithInvert:
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound ?",
-            kind="primitive",
             node_type="cpdArith",
             operation="unsupported",
             terminals=[
@@ -600,10 +601,10 @@ class TestCompoundArithInvert:
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Multiply",
-            kind="primitive",
             node_type="cpdArith",
             operation="multiply",
             terminals=[
@@ -625,10 +626,10 @@ class TestCompoundArithInvert:
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Multiply",
-            kind="primitive",
             node_type="cpdArith",
             operation="multiply",
             terminals=[
@@ -651,10 +652,10 @@ class TestCompoundArithInvert:
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Xor",
-            kind="primitive",
             node_type="cpdArith",
             operation="xor",
             terminals=[
@@ -676,10 +677,10 @@ class TestCompoundArithInvert:
         ctx.bind("term1", "a")
         ctx.bind("term2", "b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="cpd1",
+            vi_path="test.vi",
             name="Compound Xor",
-            kind="primitive",
             node_type="cpdArith",
             operation="xor",
             terminals=[
@@ -737,10 +738,10 @@ class TestArrayBuildGenerate:
         ctx.bind("term2", "val2")
         ctx.bind("term3", "val3")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term1", index=0, direction="input"),
@@ -766,10 +767,10 @@ class TestArrayBuildGenerate:
         ctx.bind("term1", "val1")
         # term2 is not bound
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term1", index=0, direction="input"),
@@ -788,10 +789,10 @@ class TestArrayBuildGenerate:
         """Test that no output terminal returns empty fragment."""
         ctx = CodeGenContext()
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term1", index=0, direction="input"),
@@ -807,10 +808,10 @@ class TestArrayBuildGenerate:
         """Test generating empty array when no inputs."""
         ctx = CodeGenContext()
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_out", index=0, direction="output"),
@@ -842,10 +843,10 @@ class TestArrayBuildExecutable:
         ctx.bind("term2", "second")
         ctx.bind("term3", "third")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term1", index=0, direction="input"),
@@ -874,10 +875,10 @@ class TestArrayBuildExecutable:
         ctx.bind("term_1", "one")
         ctx.bind("term_2", "two")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_2", index=2, direction="input"),  # Out of order
@@ -901,10 +902,10 @@ class TestArrayBuildExecutable:
         """Test that empty array build produces empty list."""
         ctx = CodeGenContext()
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_out", index=0, direction="output"),
@@ -937,10 +938,10 @@ class TestArrayBuildWithArrayInputs:
         ctx = make_ctx("term_arr", "term_out")
         ctx.bind("term_arr", "existing_list")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_arr", index=0, direction="input", lv_type=array_type),
@@ -968,10 +969,10 @@ class TestArrayBuildWithArrayInputs:
         ctx = make_ctx("term_scalar", "term_out")
         ctx.bind("term_scalar", "my_val")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 # no lv_type → treated as scalar
@@ -998,10 +999,10 @@ class TestArrayBuildWithArrayInputs:
         ctx.bind("term_arr", "head_list")
         ctx.bind("term_scalar", "new_item")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_arr", index=0, direction="input", lv_type=array_type),
@@ -1026,10 +1027,10 @@ class TestArrayBuildWithArrayInputs:
         ctx.bind("term_a", "list_a")
         ctx.bind("term_b", "list_b")
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="build1",
+            vi_path="test.vi",
             name="Build Array",
-            kind="primitive",
             node_type="aBuild",
             terminals=[
                 Terminal(id="term_a", index=0, direction="input", lv_type=array_type),

@@ -14,7 +14,7 @@ __version__ = "0.7.6"
 if TYPE_CHECKING:  # eager only for type-checkers / IDE completion
     from .graph.models import Constant as GraphConstant
     from .graph.models import Wire as GraphWire
-    from .models import Operation, Terminal, Tunnel
+    from .models import Terminal, Tunnel
     from .parser import (
         ParsedBlockDiagram,
         ParsedConnectorPane,
@@ -42,7 +42,6 @@ if TYPE_CHECKING:  # eager only for type-checkers / IDE completion
 _LAZY: dict[str, tuple[str, str]] = {
     "GraphConstant": (".graph.models", "Constant"),
     "GraphWire": (".graph.models", "Wire"),
-    "Operation": (".models", "Operation"),
     "Terminal": (".models", "Terminal"),
     "Tunnel": (".models", "Tunnel"),
     "parse_vi": (".parser", "parse_vi"),
@@ -85,7 +84,6 @@ __all__ = [
     "ParsedFrontPanel",
     "ParsedFPControl",
     "Terminal",
-    "Operation",
     "Tunnel",
     "GraphConstant",
     "GraphWire",

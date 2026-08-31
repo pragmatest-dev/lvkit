@@ -19,7 +19,6 @@ from lvkit.codegen.nodes.loop import (
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import LoopNode, PrimitiveNode, Wire, WireEnd
 from lvkit.models import (
-    LoopOperation,
     LVType,
     LVTypeKind,
     Terminal,
@@ -707,12 +706,10 @@ class TestWhileLoopDoWhileSemantics:
         ctx = make_ctx("stop_flag")
         ctx.bind("stop_flag", "should_stop")
 
-        node = LoopOperation(
+        node = _mk_loop(
             id="loop1",
             name="While Loop",
             loop_type="whileLoop",
-            tunnels=[],
-            inner_nodes=[],
             stop_condition_terminal="stop_flag",
             stop_condition_inverted=False,  # Stop-if-True
         )
@@ -733,12 +730,10 @@ class TestWhileLoopDoWhileSemantics:
         ctx = make_ctx("stop_flag")
         ctx.bind("stop_flag", "should_stop")
 
-        node = LoopOperation(
+        node = _mk_loop(
             id="loop1",
             name="While Loop",
             loop_type="whileLoop",
-            tunnels=[],
-            inner_nodes=[],
             stop_condition_terminal="stop_flag",
             stop_condition_inverted=False,  # Stop-if-True
         )
@@ -766,12 +761,10 @@ class TestWhileLoopDoWhileSemantics:
         ctx = make_ctx("continue_flag")
         ctx.bind("continue_flag", "keep_going")
 
-        node = LoopOperation(
+        node = _mk_loop(
             id="loop1",
             name="While Loop",
             loop_type="whileLoop",
-            tunnels=[],
-            inner_nodes=[],
             stop_condition_terminal="continue_flag",
             stop_condition_inverted=True,  # Continue-if-True
         )
@@ -954,7 +947,7 @@ class TestUninitializedShiftRegister:
         ctx.bind("new_val_src", "new_value")
         return ctx, loop_terminals
 
-    def _loop_op(self, terminals: list) -> LoopOperation:
+    def _loop_op(self, terminals: list) -> LoopNode:
         return _mk_loop(
             None,
             id="loop1",

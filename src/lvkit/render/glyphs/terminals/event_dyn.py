@@ -26,5 +26,6 @@ class EventDynTerminalGlyph(BorderTerminalGlyph):
         ah = (y2 - y1) * 0.26
         backend.polygon(
             [(cx - aw, cy - ah), (cx - aw, cy + ah), (cx + aw, cy)],
-            fill=col, stroke=None,
+            fill=col,
+            stroke=None,
         )

@@ -135,8 +135,8 @@ class TestMemoryGraph:
         assert len(deps) > 0
 
     def test_vi_context_has_operations(self, graph):
-        ctx = graph.get_vi_context("GraphicalTestRunner.lvlib:Get Settings Path.vi")
-        assert len(ctx.operations) > 0
+        nodes = graph.top_level_nodes("GraphicalTestRunner.lvlib:Get Settings Path.vi")
+        assert len(nodes) > 0
 
     def test_vi_context_has_inputs(self, graph):
         ctx = graph.get_vi_context("GraphicalTestRunner.lvlib:Get Settings Path.vi")

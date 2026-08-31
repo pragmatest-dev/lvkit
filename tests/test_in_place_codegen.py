@@ -4,9 +4,11 @@ IPES (decomposeRecomposeStructure) decomposes data into fields, lets
 inner operations modify them, then recomposes. In Python this is transparent:
 decompose → field access bindings, recompose → write-back assignments.
 
-decompose_ops and recompose_ops are boundary operations stored on
-InPlaceOperation directly (not in inner_nodes). Classification happens at
-the operations layer (_classify_ipes_ops in graph/operations.py).
+decompose/recompose children are graph nodes carrying a ``poser_uid`` graph
+attribute (border nodes of the InPlaceNode, not its ordinary body) --
+classified by list-terminal direction (list-out-only = decompose,
+list-in-only = recompose) wherever a consumer needs the split (see
+describe.py's ``_is_ipes_border_node``).
 """
 
 from __future__ import annotations
@@ -15,12 +17,10 @@ import ast
 
 from lvkit.codegen.nodes import in_place
 from lvkit.graph.models import InPlaceNode, PrimitiveNode
-from lvkit.graph.operations import _classify_ipes_ops
 from lvkit.models import (
     ClusterField,
     LVType,
     LVTypeKind,
-    PrimitiveOperation,
     Terminal,
     Tunnel,
 )
@@ -139,31 +139,6 @@ def _rec_op(
         vi_path="test.vi",
         name="Recompose",
         terminals=terminals,
-    )
-
-
-def _dec_pop(poser_uid, agg_id, *field_out_ids, lv_type=None):
-    """Operation-flavoured decompose op for the graph-side classify tests
-    (which still exercise ``_classify_ipes_ops`` over ``PrimitiveOperation``)."""
-    n = _dec_op(poser_uid, agg_id, *field_out_ids, lv_type=lv_type)
-    return PrimitiveOperation(
-        id=n.id,
-        name=n.name,
-        kind="primitive",
-        poser_uid=poser_uid,
-        terminals=n.terminals,
-    )
-
-
-def _rec_pop(poser_uid, agg_out_id, *field_in_ids, lv_type=None):
-    """Operation-flavoured recompose op for the graph-side classify tests."""
-    n = _rec_op(poser_uid, agg_out_id, *field_in_ids, lv_type=lv_type)
-    return PrimitiveOperation(
-        id=n.id,
-        name=n.name,
-        kind="primitive",
-        poser_uid=poser_uid,
-        terminals=n.terminals,
     )
 
 
@@ -605,70 +580,3 @@ class TestIPESFallbackData:
         frag = in_place.generate(node, ctx)
 
         assert "cluster_out" not in frag.bindings
-
-
-# ---------------------------------------------------------------------------
-# _classify_ipes_ops (operations layer, not codegen)
-# ---------------------------------------------------------------------------
-
-
-class TestClassifyIpesOps:
-    """_classify_ipes_ops in operations.py separates decompose/recompose/regular."""
-
-    def test_classify_decompose_has_list_out(self):
-        dec = _dec_pop("p1", "agg_in", "f_out")
-        decompose, recompose, regular = _classify_ipes_ops([dec])
-        assert len(decompose) == 1
-        assert not recompose
-        assert not regular
-
-    def test_classify_recompose_has_list_in(self):
-        rec = _rec_pop("p1", "agg_out", "f_in")
-        decompose, recompose, regular = _classify_ipes_ops([rec])
-        assert not decompose
-        assert len(recompose) == 1
-        assert not regular
-
-    def test_classify_no_poser_uid_is_regular(self):
-        op = PrimitiveOperation(
-            id="op1",
-            name="Add",
-            kind="primitive",
-            poser_uid=None,
-            terminals=[Terminal(id="t1", index=0, direction="input")],
-        )
-        decompose, recompose, regular = _classify_ipes_ops([op])
-        assert not decompose
-        assert not recompose
-        assert len(regular) == 1
-
-    def test_classify_passthrough_list_both_directions_is_regular(self):
-        """Op with list_in AND list_out is ambiguous — treated as regular."""
-        op = PrimitiveOperation(
-            id="op1",
-            name="PassThrough",
-            kind="primitive",
-            poser_uid="p1",
-            terminals=[
-                Terminal(id="t_in", index=0, direction="input", nmux_role="list"),
-                Terminal(id="t_out", index=1, direction="output", nmux_role="list"),
-            ],
-        )
-        decompose, recompose, regular = _classify_ipes_ops([op])
-        assert not decompose
-        assert not recompose
-        assert len(regular) == 1
-
-    def test_classify_mixed_set(self):
-        dec = _dec_pop("p1", "agg_in", "f_out")
-        rec = _rec_pop("p1", "agg_out", "f_in")
-        regular_op = PrimitiveOperation(
-            id="op1",
-            name="Add",
-            kind="primitive",
-            terminals=[],
-        )
-        decompose, recompose, regular = _classify_ipes_ops([dec, rec, regular_op])
-        assert len(decompose) == 1
-        assert len(recompose) == 1
-        assert len(regular) == 1

@@ -381,11 +381,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                     "index": p.index,
                     "required": p.is_required,
                     "default": p.default,
-                    **(
-                        {"wiring_rule": p.wiring_requirement.value}
-                        if verbose
-                        else {}
-                    ),
+                    **({"wiring_rule": p.wiring_requirement.value} if verbose else {}),
                     **(
                         {"lv_type": _lv_type_to_dict(p.lv_type)}
                         if verbose and p.lv_type is not None

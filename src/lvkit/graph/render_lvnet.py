@@ -425,8 +425,7 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
         and lv_type.element_type is not None
     ):
         return (
-            f"{lv_type.ref_type} refnum{{"
-            f"{_lvnet_type_inline(lv_type.element_type)}}}"
+            f"{lv_type.ref_type} refnum{{{_lvnet_type_inline(lv_type.element_type)}}}"
         )
     if _lvnet_named_stem(lv_type) is not None:
         return lv_type.type_descriptor(expand_named=False)
@@ -699,8 +698,7 @@ def _lv_type_comparison_shape(
         # (``"Error"``), an empty/unresolved composite, a class -- stays an
         # opaque leaf, exactly as ``_lvnet_type_inline`` leaves it.
         expands = (
-            lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
-            and bool(lv_type.values)
+            lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING) and bool(lv_type.values)
         ) or (
             lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF)
             and bool(lv_type.fields)
@@ -1687,7 +1685,9 @@ def _render_lvnet_front_panel(
     lines.append(_FRONT_PANEL_HEADER_LINE)
     content_indent = _LVNET_INDENT * 2
     if pattern_id is not None:
-        lines.append(f"{content_indent}{_LVNET_PATTERN_KEYWORD}{_LVNET_TYPE_SEP}{pattern_id}")
+        lines.append(
+            f"{content_indent}{_LVNET_PATTERN_KEYWORD}{_LVNET_TYPE_SEP}{pattern_id}"
+        )
     if boundary_entries:
         lines.extend(_render_term_group(boundary_entries, content_indent))
     if off_pane_entries:

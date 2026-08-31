@@ -12,7 +12,7 @@ import ast
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.case import _pre_declare_outputs
 from lvkit.graph.models import CaseStructureNode
-from lvkit.models import CaseOperation, Terminal, Tunnel
+from lvkit.models import Terminal, Tunnel
 from tests.helpers import make_ctx, make_graph_with_edge, tunnel_terminals
 
 # ---------------------------------------------------------------------------
@@ -27,8 +27,8 @@ def _case_node(
     input_tunnel_inner: str | None = None,
     output_tunnel_inner: str | None = None,
     extra_terminals: list[Terminal] | None = None,
-) -> CaseOperation:
-    """Build a minimal CaseOperation for _pre_declare_outputs tests."""
+) -> CaseStructureNode:
+    """Build a minimal CaseStructureNode for _pre_declare_outputs tests."""
     terminals: list[Terminal] = []
     tunnels: list[Tunnel] = []
 
@@ -340,19 +340,24 @@ class TestPreDeclareOutputsTypeDefault:
             direction="output",
             boundary="outer",
             tunnel_type="csTun",
+            paired_id="i",
             lv_type=_lv(underlying),
         )
-        node = CaseOperation(
+        inner = TunnelTerminal(
+            id="i",
+            index=1,
+            direction="input",
+            boundary="inner",
+            tunnel_type="csTun",
+            paired_id="o",
+        )
+        node = CaseStructureNode(
             id="c",
+            vi_path="test.vi",
             name="Case",
-            kind="caseStruct",
+            node_type="caseStruct",
             selector_terminal=None,
-            terminals=[outer],
-            tunnels=[
-                Tunnel(
-                    outer_terminal_uid="o", inner_terminal_uid="i", tunnel_type="csTun"
-                )
-            ],
+            terminals=[outer, inner],
         )
         ctx = make_ctx()
         stmts = _pre_declare_outputs(node, {"o": "result"}, ctx)

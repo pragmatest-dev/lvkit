@@ -156,9 +156,6 @@ from .netlist_models import (
 from .netlist_models import (
     NetRef as NetRef,  # noqa: F401 -- re-exported for external callers
 )
-from .netlist_models import (
-    _BuildCtx as _BuildCtx,  # noqa: F401 -- re-exported for external callers
-)
 from .render_lvnet import (
     render_lvnet as render_lvnet,  # noqa: F401 -- re-exported for external callers
 )

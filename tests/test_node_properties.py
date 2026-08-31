@@ -1,7 +1,7 @@
 """Tests for the three decoded loop/tunnel node properties (vi-node-properties
 branch): tunnel aggregation mode (``Tunnel.mode``), shift-register
 init/stacked-depth (``Tunnel.sr_initialized`` / ``Tunnel.sr_stack_depth``),
-and for-loop parallelism (``LoopOperation.parallel`` /
+and for-loop parallelism (``LoopNode.parallel`` /
 ``.parallel_static_workers``).
 
 Corpus-backed, mirroring the ``InMemoryVIGraph().load_vi(...)`` pattern in
@@ -25,8 +25,9 @@ import pytest
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
+from lvkit.graph.models import AnyGraphNode, LoopNode
 from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
-from lvkit.models import LoopOperation, Operation, Tunnel, TunnelMode
+from lvkit.models import Tunnel, TunnelMode
 from lvkit.parser.nodes.base import extract_tunnel_mapping
 
 # ---------------------------------------------------------------------------
@@ -64,35 +65,34 @@ def _load(path: Path) -> tuple[InMemoryVIGraph, str]:
     return g, vi_name
 
 
-def _find_op(operations: list[Operation], uid: str) -> Operation | None:
-    """Recursively find an operation by its trailing node uid (matches
-    ``op.id``'s ``"<vi>::<uid>"`` suffix), searching inner_nodes and every
-    frame-bearing structure's frame bodies -- same shape as
-    describe.py::_find_operation, re-derived here to keep this test file
-    self-contained."""
-    for op in operations:
+def _find_op(
+    graph: InMemoryVIGraph, vi_name: str, nodes: list[AnyGraphNode], uid: str
+) -> AnyGraphNode | None:
+    """Recursively find a graph node by its trailing node uid (matches
+    ``op.id``'s ``"<vi>::<uid>"`` suffix), searching every child (frame
+    bodies and loop/IPES bodies alike -- ``child_nodes`` reaches both) --
+    same shape as describe.py::_find_node, re-derived here to keep this test
+    file self-contained."""
+    for op in nodes:
         if op.id == uid or op.id.endswith(f"::{uid}"):
             return op
-        found = _find_op(op.inner_nodes, uid)
+        found = _find_op(graph, vi_name, graph.child_nodes(op.id, vi_name), uid)
         if found is not None:
             return found
-        for frame in getattr(op, "frames", []):
-            found = _find_op(frame.operations, uid)
-            if found is not None:
-                return found
     return None
 
 
-def _loop_op(path: Path, uid: str) -> LoopOperation:
+def _loop_op(path: Path, uid: str) -> LoopNode:
     g, vi_name = _load(path)
-    op = _find_op(g.get_operations(vi_name), uid)
-    assert isinstance(op, LoopOperation), f"expected a LoopOperation, got {op!r}"
+    op = _find_op(g, vi_name, g.top_level_nodes(vi_name), uid)
+    assert isinstance(op, LoopNode), f"expected a LoopNode, got {op!r}"
     return op
 
 
-def _tunnel_by_outer(op: LoopOperation, outer_uid_suffix: str) -> Tunnel:
+def _tunnel_by_outer(op: LoopNode, outer_uid_suffix: str) -> Tunnel:
+    tunnels = InMemoryVIGraph._tunnels_from_terminals(op.terminals)
     matches = [
-        t for t in op.tunnels if t.outer_terminal_uid.endswith(f"::{outer_uid_suffix}")
+        t for t in tunnels if t.outer_terminal_uid.endswith(f"::{outer_uid_suffix}")
     ]
     assert len(matches) == 1, (
         f"expected exactly one tunnel with outer uid {outer_uid_suffix},"
@@ -165,7 +165,7 @@ class TestTunnelMode:
         from lvkit.graph.describe import describe_structure
 
         g, vi_name = _load(BUILD_VI)
-        op = _find_op(g.get_operations(vi_name), "287")
+        op = _find_op(g, vi_name, g.top_level_nodes(vi_name), "287")
         assert op is not None
         text = describe_structure(g, vi_name, op.id)
         assert "mode=INDEXING" in text
@@ -329,13 +329,12 @@ class TestShiftRegister:
         536 (outer terminal uid 550) lists 20 lSR uids in its lsrDCOList."""
         _skip_if_missing(FILTER_MPA_VI)
         g, vi_name = _load(FILTER_MPA_VI)
-        ops = g.get_operations(vi_name)
-        loops: list[LoopOperation] = []
-        _collect_loops(ops, loops)
+        loops: list[LoopNode] = []
+        _collect_loops(g, vi_name, g.top_level_nodes(vi_name), loops)
         rsr_tunnels = [
             t
             for lo in loops
-            for t in lo.tunnels
+            for t in _loop_tunnels(lo)
             if t.tunnel_type == "rSR" and t.outer_terminal_uid.endswith("::550")
         ]
         assert len(rsr_tunnels) == 1
@@ -347,20 +346,21 @@ class TestShiftRegister:
         against uid 553, the first lSR in the stack)."""
         _skip_if_missing(FILTER_MPA_VI)
         g, vi_name = _load(FILTER_MPA_VI)
-        ops = g.get_operations(vi_name)
-        loops: list[LoopOperation] = []
-        _collect_loops(ops, loops)
+        loops: list[LoopNode] = []
+        _collect_loops(g, vi_name, g.top_level_nodes(vi_name), loops)
         lsr_tunnels = [
             t
             for lo in loops
-            for t in lo.tunnels
+            for t in _loop_tunnels(lo)
             if t.tunnel_type == "lSR" and t.outer_terminal_uid.endswith("::553")
         ]
         assert len(lsr_tunnels) == 1
         assert lsr_tunnels[0].sr_initialized is False
         # Every lSR feeding this rSR's stack is uninitialized (not just the
         # one spot-checked above).
-        all_lsr = [t for lo in loops for t in lo.tunnels if t.tunnel_type == "lSR"]
+        all_lsr = [
+            t for lo in loops for t in _loop_tunnels(lo) if t.tunnel_type == "lSR"
+        ]
         assert len(all_lsr) == 20
         assert all(t.sr_initialized is False for t in all_lsr)
 
@@ -372,9 +372,8 @@ class TestShiftRegister:
         from lvkit.graph.describe import describe_structure
 
         g, vi_name = _load(FILTER_MPA_VI)
-        ops = g.get_operations(vi_name)
-        loops: list[LoopOperation] = []
-        _collect_loops(ops, loops)
+        loops: list[LoopNode] = []
+        _collect_loops(g, vi_name, g.top_level_nodes(vi_name), loops)
         assert len(loops) == 1
         text = describe_structure(g, vi_name, loops[0].id)
         assert "initialized=False" in text
@@ -393,13 +392,20 @@ class TestShiftRegister:
         assert any(t["sr_stack_depth"] == 20 for t in rsr_entries)
 
 
-def _collect_loops(operations: list[Operation], acc: list[LoopOperation]) -> None:
-    for op in operations:
-        if isinstance(op, LoopOperation):
+def _collect_loops(
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    nodes: list[AnyGraphNode],
+    acc: list[LoopNode],
+) -> None:
+    for op in nodes:
+        if isinstance(op, LoopNode):
             acc.append(op)
-        _collect_loops(op.inner_nodes, acc)
-        for frame in getattr(op, "frames", []):
-            _collect_loops(frame.operations, acc)
+        _collect_loops(graph, vi_name, graph.child_nodes(op.id, vi_name), acc)
+
+
+def _loop_tunnels(loop: LoopNode) -> list[Tunnel]:
+    return InMemoryVIGraph._tunnels_from_terminals(loop.terminals)
 
 
 # ---------------------------------------------------------------------------
@@ -431,7 +437,7 @@ class TestForLoopParallelism:
         from lvkit.graph.describe import describe_structure
 
         g, vi_name = _load(RUN_SERVICE_VI)
-        op = _find_op(g.get_operations(vi_name), "2090")
+        op = _find_op(g, vi_name, g.top_level_nodes(vi_name), "2090")
         assert op is not None
         text = describe_structure(g, vi_name, op.id)
         assert "(parallel, 8 workers)" in text

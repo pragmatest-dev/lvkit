@@ -22,7 +22,12 @@ class AutoIndexTerminalGlyph(BorderTerminalGlyph):
         x1, y1, x2, y2 = bounds
         col = self.color or "#333333"
         backend.rect(
-            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=theme.tunnel_border,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.loop_term_fill,
+            stroke=theme.tunnel_border,
             stroke_width=1.2,
         )
         side = min(x2 - x1, y2 - y1) * (1 - 2 * 0.26)
@@ -32,9 +37,11 @@ class AutoIndexTerminalGlyph(BorderTerminalGlyph):
         sr = side * 0.40  # long serifs: [ and ] nearly close at top/bottom
         backend.path(
             [(lx + sr, ty), (lx, ty), (lx, by2), (lx + sr, by2)],
-            stroke=col, stroke_width=1.3,
+            stroke=col,
+            stroke_width=1.3,
         )
         backend.path(
             [(rx - sr, ty), (rx, ty), (rx, by2), (rx - sr, by2)],
-            stroke=col, stroke_width=1.3,
+            stroke=col,
+            stroke_width=1.3,
         )

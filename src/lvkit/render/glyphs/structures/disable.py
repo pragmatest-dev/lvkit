@@ -25,7 +25,11 @@ class DisableGlyph(SelectableStructureGlyph):
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill="none",
+            x1,
+            y1,
+            x2,
+            y2,
+            fill="none",
             stroke=self.border_color or theme.struct_border,
             stroke_width=self.border_width,
             stroke_dasharray="1.5,2.5",
@@ -56,6 +60,11 @@ class TypeSpecGlyph(SelectableStructureGlyph):
         backend.rect(ix1, cy, cx, iy2, fill=theme.wire_string, stroke="none")  # BL
         backend.rect(cx, cy, ix2, iy2, fill=theme.wire_bool, stroke="none")  # BR
         backend.rect(
-            ix1, iy1, ix2, iy2, fill="none", stroke=theme.struct_border,
+            ix1,
+            iy1,
+            ix2,
+            iy2,
+            fill="none",
+            stroke=theme.struct_border,
             stroke_width=0.5,
         )

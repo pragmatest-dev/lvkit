@@ -156,8 +156,8 @@ class InMemoryVIGraph(
         # Process VIs in dependency order (handles recursive VIs)
         for vi_group in graph.get_generation_order():
             for vi_name in vi_group:
-                # Get operations (topologically ordered)
-                for op in graph.get_operations(vi_name):
+                # Get nodes (topologically ordered)
+                for node in graph.top_level_nodes(vi_name):
                     # ... generate code ...
     """
 

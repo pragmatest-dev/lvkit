@@ -1,7 +1,7 @@
 """Node-specific code generators.
 
-generate(node, ctx) is the single entry point. Match narrows the
-Operation subtype, dispatches to the appropriate module function.
+generate(node, ctx) is the single entry point. isinstance dispatch narrows
+the GraphNode subtype, dispatches to the appropriate module function.
 No classes — each module exposes generate(node, ctx) + helpers.
 """
 
@@ -52,12 +52,9 @@ from .base import CodeGenError, MissingDependencyError, UnknownNodeError
 def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a graph node.
 
-    isinstance-based dispatch on the typed ``GraphNode`` subtype (the same
-    split ``_build_operation`` / the old ``Operation`` subtypes encoded),
-    calling the right module. A ``PrimitiveNode`` fans out to
-    property/invoke/primitive by its own fields, matching how
-    ``_build_operation`` chose ``PropertyOperation``/``InvokeOperation``/
-    ``PrimitiveOperation``.
+    isinstance-based dispatch on the typed ``GraphNode`` subtype, calling the
+    right module. A ``PrimitiveNode`` fans out to property/invoke/primitive
+    by its own fields (``.properties``/``.method_name``/plain primitive).
     """
     # Structures first (StructureNode subtypes). DisableStructureNode is left
     # to the unknown fallback (no dedicated generator yet) — it is NOT a

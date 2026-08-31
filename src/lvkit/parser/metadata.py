@@ -465,9 +465,7 @@ def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
         # VI/class name never has -- left in, it corrupts the ``class:member``
         # qualified identity and, downstream, splits a lvnet ``uses :`` line.
         qual_parts = [
-            s.text.strip()
-            for s in qual_name_strings
-            if s.text and s.text.strip()
+            s.text.strip() for s in qual_name_strings if s.text and s.text.strip()
         ]
         if not qual_parts:
             continue

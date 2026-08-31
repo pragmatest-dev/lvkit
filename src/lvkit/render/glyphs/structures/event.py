@@ -49,10 +49,20 @@ class EventGlyph(SelectableStructureGlyph):
         backend.rect(x1, y1 + w, x1 + w, y2 - w, fill=fill, stroke="none")  # left
         backend.rect(x2 - w, y1 + w, x2, y2 - w, fill=fill, stroke="none")  # right
         backend.rect(
-            x1, y1, x2, y2, fill="none", stroke=theme.event_border,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill="none",
+            stroke=theme.event_border,
             stroke_width=_RULE_W,
         )
         backend.rect(
-            x1 + w, y1 + w, x2 - w, y2 - w, fill="none", stroke=theme.event_border,
+            x1 + w,
+            y1 + w,
+            x2 - w,
+            y2 - w,
+            fill="none",
+            stroke=theme.event_border,
             stroke_width=_RULE_W,
         )

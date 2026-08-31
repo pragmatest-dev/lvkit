@@ -3,13 +3,16 @@
 Two groups of types:
 - Primitive / wiring types (dataclasses): LVType, EnumValue, ClusterField
 - Flow types (Pydantic BaseModel): Terminal hierarchy, Tunnel, PropertyDef,
-  Frame hierarchy, Operation hierarchy
+  Frame hierarchy
 
-The Frame ↔ Operation types are co-located here because they form a Pydantic
-circular reference (Frame.operations → Operation, CaseOperation.frames →
-CaseFrame) that must be resolved within a single module via model_rebuild().
-The parser constructs CaseFrame/SequenceFrame instances directly, so the whole
-cluster must live in a parser-importable module — not inside graph/.
+The Frame hierarchy (CaseFrame/SequenceFrame/EventFrame) lives here because
+the parser constructs these instances directly, so they must live in a
+parser-importable module — not inside graph/. Frame metadata (selector
+values, ranges, …) is a pure projection out of the graph; a frame's actual
+contents are read from ``InMemoryVIGraph.child_nodes``/``top_level_nodes``,
+never stored on the Frame itself (see the removed ``Operation`` hierarchy —
+graph/models.py's ``GraphNode`` subclasses are now the single source of
+truth for node structure).
 """
 
 from __future__ import annotations
@@ -583,10 +586,6 @@ class PropertyDef(BaseModel):
 
 # ============================================================
 # Frame types (Pydantic) — shared between graph nodes and codegen
-# Must live with Operation due to Pydantic circular reference:
-#   Frame.operations → Operation
-#   CaseOperation.frames → CaseFrame
-#   SequenceOperation.frames → SequenceFrame
 # ============================================================
 
 
@@ -617,7 +616,6 @@ class Frame(BaseModel):
 
     uid: str | None = None
     inner_node_uids: list[str] = []
-    operations: list[Operation] = []
 
 
 class CaseFrame(Frame):
@@ -669,250 +667,6 @@ class EventFrame(Frame):
     # frame-paths line up with the SVG's ``data-path`` for cross-pane lookup.
     index: int = 0
     event_label: str = ""
-
-
-# ============================================================
-# Codegen types (Pydantic) — consumed by code generation
-# Converted from graph nodes by lvkit.graph (InMemoryVIGraph.get_operations())
-# ============================================================
-
-
-class Operation(BaseModel):
-    """Base operation node for code generation."""
-
-    model_config = {"arbitrary_types_allowed": True}
-
-    id: str
-    name: str | None
-    label: str | None = None  # LabVIEW label (partID 16), see extract_label
-    caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
-    # The node's classification kind, e.g. "vi"/"loop"/"constant".
-    kind: str = "operation"
-    terminals: list[Terminal] = []
-    node_type: str | None = None
-    tunnels: list[Tunnel] = []
-    inner_nodes: list[Operation] = []
-    description: str | None = None
-    poly_variant_name: str | None = None
-    # Fully qualified on-disk path joined with /, e.g.
-    # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
-    # Set on SubVI call operations from the parser path_tokens. Always
-    # None for primitives (they're identified by primResID, not by file)
-    # and for structures (loops, cases, sequences). Used by resolution
-    # diagnostics to point an LLM at the real source file.
-    qualified_path: str | None = None
-    # DISPLAY ownership chain (owning .lvlib/.lvclass, outermost first) from the
-    # VI's own ``<LIBN>`` — for a SubVI-call op it's the CALLEE's chain. Lets a
-    # label read ``Class.lvclass:method`` to disambiguate same-named methods of
-    # different classes; never a resolution key. Empty for primitives/structures.
-    owning_libraries: list[str] = []
-    # The callee's RESOLUTION identity: its class/library-qualified name
-    # (e.g. "TestResult.lvclass:addError.vi"; for a dynamic-dispatch call the
-    # DECLARING PARENT class's method). Populated from the graph ``VINode``.
-    # EVERY named node has one — a node with no library to qualify with (a loose
-    # VI, or a primitive) falls back to its own ``name``, so it is the same as
-    # ``name`` there and NEVER absent/erroring; only a nameless structure is
-    # None. Distinct from ``display_name`` (which composes ``owning_libraries``):
-    # this is the key a consumer resolves to a VI.
-    qualified_name: str | None = None
-
-    @property
-    def display_name(self) -> str:
-        """Shared "best human label" convenience — NOT a mandate every
-        consumer must route through (each view is still free to compose its
-        own display from the truth fields below when it needs to). Precedence
-        is IDENTITY-FIRST:
-        ``<qualified identity> or name or caption or label or
-        get_display_name(node_type)``.
-
-        The codegen/resolution identity ``name`` wins — qualified with
-        ``owning_libraries`` (from the callee's own ``<LIBN>``) as
-        ``…lvlib:Class.lvclass:method`` when both are present, so two classes'
-        same-named methods stay distinct. Only an identity-LESS node (a
-        structure or constant, ``name is None``) falls back to its OWN author
-        text ``caption or label`` (partID 82/16) — which is why a labeled loop
-        reads its label but a subVI keeps its qualified identity, not a
-        decorative node label. ``get_display_name(node_type)`` is the final
-        fallback: the one human type-word table, so an unlabeled, unnamed
-        structure (loop/case/sequence/event/in-place/disable) still reads e.g.
-        "For Loop" instead of the raw XML class.
-
-        Deferred import: ``lvkit.parser`` imports ``lvkit.models`` (Frame/
-        Operation live here so the parser can construct them directly — see
-        module docstring), so importing the parser back at module scope here
-        would be circular.
-        """
-        from .parser.node_types import get_display_name
-
-        if self.owning_libraries and self.name:
-            return ":".join([*self.owning_libraries, self.name])
-        if self.name:
-            return self.name
-        if self.caption:
-            return self.caption
-        if self.label:
-            return self.label
-        return get_display_name(self.node_type) if self.node_type else "node"
-
-
-class PrimitiveOperation(Operation):
-    """A primitive (Add, Subtract, etc.)."""
-
-    primResID: int | None = None
-    operation: str | None = None  # cpdArith: "add", "or"
-    poser_uid: str | None = None  # Decompose/recompose pair UID (IPES)
-
-
-class FeedbackOperation(Operation):
-    """A LabVIEW Feedback Node (z^-N state element) -- a standalone Gated-SSA
-    mu, exactly like a loop shift register: it carries a value from one loop
-    iteration (or VI call) to the next.
-
-    Serialized as a MASTER/SLAVE pair (see parser ``FeedbackNode``). The
-    MASTER (``is_master=True``, class ``hiddenFBNode``) owns the OUTPUT (read)
-    and INITIALIZER terminals; the SLAVE (``is_master=False``, class
-    ``slaveFBInputNode``) owns the single INPUT (written value) terminal.
-    ``partner_uid`` is the fully qualified id of the other side; ``delay`` is
-    the z^-N depth (``feedbackNodeDelay``), present on the master only. The
-    netlist projects the master as one ``fb{k}`` mu net and dissolves the
-    slave into it (its written value becomes the mu ``recur``). Codegen is not
-    yet supported and fails loud.
-    """
-
-    is_master: bool = True
-    partner_uid: str | None = None
-    delay: int | None = None
-
-
-class SubVIOperation(Operation):
-    """A SubVI call."""
-
-
-class PropertyOperation(Operation):
-    """Property node read/write."""
-
-    object_name: str | None = None
-    object_method_id: str | None = None
-    properties: list[PropertyDef] = []
-    # ``properties[i]`` correlates to the terminal whose id is
-    # ``value_terminal_ids[i]`` (matches a ``terminals[j].id``). See
-    # ``graph.op_walk.correlate_property_terminals`` and
-    # ``graph.models.PrimitiveNode.property_value_terminal_ids`` for why this
-    # is a structural (dcoList-based) correlation, not a type-based guess.
-    value_terminal_ids: list[str] = []
-
-
-class InvokeOperation(Operation):
-    """Invoke node method call."""
-
-    object_name: str | None = None
-    object_method_id: str | None = None
-    method_name: str | None = None
-    method_code: int | None = None
-
-
-class CaseOperation(Operation):
-    """Case structure with selector-driven frames."""
-
-    frames: list[CaseFrame] = []
-    selector_terminal: str | None = None
-
-
-class LoopOperation(Operation):
-    """While or for loop."""
-
-    loop_type: str | None = None
-    stop_condition_terminal: str | None = None
-    # While loop conditional-terminal polarity. True = Continue-if-True,
-    # False = Stop-if-True (default). See ParsedLoopStructure for the
-    # data evidence backing this polarity mapping.
-    stop_condition_inverted: bool = False
-    # For-loop parallelism (LabVIEW's "Configure Parallelism..." dialog) --
-    # True when the forLoop element has a child <ParForWorkers>. Always False
-    # for while loops (they have no such element). See ParsedLoopStructure.
-    parallel: bool = False
-    # <ParForNumStaticWorkers> (hex text, e.g. "08" -> 8), when set and
-    # nonzero; None otherwise (absent, or "00" -- no static worker count
-    # configured). <ParForIndexDistribution> is deliberately NOT modeled --
-    # "00" in every corpus occurrence, so its other values are unconfirmed.
-    parallel_static_workers: int | None = None
-
-
-class SequenceOperation(Operation):
-    """Flat or stacked sequence."""
-
-    frames: list[SequenceFrame] = []
-    # EXPLICIT flat-vs-stacked discriminator (see ``graph.models.SequenceNode
-    # .is_flat``'s docstring for why this is not inferred from a
-    # ``displayed_frame`` proxy). True = Flat Sequence, False = Stacked
-    # Sequence.
-    is_flat: bool = True
-
-
-class EventOperation(Operation):
-    """Event Structure with one frame per registered event.
-
-    Frame-bearing like a case (one subdiagram per frame), but the active
-    frame is chosen at RUNTIME by whichever event fires -- there is no
-    selector wire, unlike CaseOperation. Wired through
-    describe/diff/netlist/render so its content stays visible. Codegen emits an
-    explicit ``raise NotImplementedError`` (see codegen/nodes/event.py): an
-    asynchronous UI event loop has no headless runtime analog, so it fails
-    loudly rather than silently dropping the VI's event behaviour.
-    """
-
-    frames: list[EventFrame] = []
-
-
-class DisableStructureOperation(Operation):
-    """Diagram/Conditional Disable structure -- frame-bearing like a case,
-    but the active frame is fixed at compile/edit time (no runtime
-    selector_terminal -- unlike CaseOperation). Kept as a distinct type so it
-    does NOT enter case codegen (a match/case over a selector that doesn't
-    exist); codegen has no dedicated generator for it yet, so it falls
-    through to the existing "unknown node type" comment fallback. Render
-    draws it like a case (see render/scene.py, render/draw.py).
-    """
-
-    frames: list[CaseFrame] = []
-    # Which disable-family structure this is (Diagram / Conditional / Type
-    # Specialization -- see ``graph.models.DisableStructureNode.kind``, whose
-    # value this mirrors). Named ``disable_kind`` here, NOT ``kind`` --
-    # ``Operation.kind`` already holds the operation-classification
-    # discriminator (e.g. ``"disabled"``) and must not be shadowed.
-    disable_kind: DisableStructureKind = DisableStructureKind.DIAGRAM
-
-
-class InPlaceOperation(Operation):
-    """In Place Element Structure (decompose/recompose).
-
-    IPES takes data in, decomposes at the input boundary (creating field
-    access expressions), lets inner ops modify fields, then recomposes at
-    the output boundary (writing fields back). Same data, no copies.
-
-    decompose_ops and recompose_ops are boundary operations — they sit on
-    the structure border like special tunnels, not inside the body.
-    They do not go through generate_body().
-    """
-
-    decompose_ops: list[PrimitiveOperation] = []
-    recompose_ops: list[PrimitiveOperation] = []
-
-
-class FormulaOperation(Operation):
-    """A Formula Node (fBox): an embedded C-like script over typed terminals.
-
-    The ``script`` is compiled to native code and invoked via FFI in the
-    generated Python. Terminals carry the script's input/output variables
-    (name, LVType, direction) on the base Operation.
-    """
-
-    script: str | None = None
-
-
-# Resolve forward references for self-referential types
-Operation.model_rebuild()
-Frame.model_rebuild()
 
 
 # ============================================================

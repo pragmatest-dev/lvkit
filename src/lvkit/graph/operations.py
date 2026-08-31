@@ -1,34 +1,23 @@
 """Operations mixin for InMemoryVIGraph.
 
-Methods: _build_operation, _tunnels_from_terminals, _enrich_subvi_terminals_typed,
-_get_slot_to_name, _sort_inner_uids, _build_inner_nodes,
-_get_children_of, _build_frames_from_parent, _build_sequence_frames_from_parent.
+Methods: top_level_nodes, child_nodes, enriched_terminals,
+_tunnels_from_terminals, _enrich_subvi_terminals_typed, _get_slot_to_name,
+_sort_inner_uids, _get_children_of, _group_children_by_frame.
+
+These are the graph-native tree-walk ergonomics that replaced the projected
+``Operation`` tree (``get_operations``/``_build_operation`` and friends,
+removed) -- a generator walks ``top_level_nodes`` -> ``child_nodes`` and
+reads ``enriched_terminals``, consuming ``GraphNode``s directly.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import networkx as nx
 
 from ..models import (
-    CaseFrame,
-    CaseOperation,
-    DisableStructureOperation,
-    EventFrame,
-    EventOperation,
-    FeedbackOperation,
-    FormulaOperation,
     FPTerminal,
-    InPlaceOperation,
-    InvokeOperation,
-    LoopOperation,
-    Operation,
-    PrimitiveOperation,
-    PropertyOperation,
-    SequenceFrame,
-    SequenceOperation,
-    SubVIOperation,
     Terminal,
     Tunnel,
     TunnelTerminal,
@@ -40,26 +29,13 @@ from .core import (
 )
 from .models import (
     AnyGraphNode,
-    CaseStructureNode,
-    DisableStructureNode,
-    EventStructureNode,
-    InPlaceNode,
-    LoopNode,
     PolyInfo,
-    SequenceNode,
-    StructureNode,
     VINode,
-)
-from .models import (
-    FormulaNode as GraphFormulaNode,
-)
-from .models import (
-    PrimitiveNode as GraphPrimitiveNode,
 )
 
 
 class OperationsMixin:
-    """Mixin providing operation building and inner-node methods."""
+    """Mixin providing graph-native node-tree walk methods."""
 
     # These attributes are defined on InMemoryVIGraph in core.py
     _graph: nx.MultiDiGraph
@@ -72,216 +48,6 @@ class OperationsMixin:
         def get_poly_variants(self, vi_name: str) -> list[str]: ...
         def get_operation_order(self, vi_name: str) -> list[str]: ...
 
-    def _build_operation(
-        self,
-        uid: str,
-        vi_name: str,
-    ) -> Operation:
-        """Build a single Operation dataclass from a typed graph node.
-
-        This is the ONE place that constructs Operation objects.
-        """
-        gnode = self._graph.nodes[uid].get("node")
-        if gnode is None:
-            return Operation(id=uid, name=None, kind="operation")
-
-        op_kind = _graph_node_to_op_kind(gnode)
-        kind = op_kind
-
-        # Build terminals, enriching SubVI terminals with callee param names
-        terminals = list(gnode.terminals)
-        if isinstance(gnode, VINode) and gnode.id != gnode.vi_path:
-            # SubVI call — enrich with callee param names via
-            # _enrich_subvi_terminals_typed. Resolve by the callee's
-            # QUALIFIED name (e.g. "TestSuite.lvclass:run.vi"), never the bare
-            # ``gnode.name`` ("run.vi") -- a bare-name lookup collides across
-            # every same-named override in a dynamic-dispatch class hierarchy
-            # (every class's override of a method is literally "run.vi").
-            terminals = self._enrich_subvi_terminals_typed(
-                terminals, gnode.qualified_name or gnode.name, vi_name
-            )
-
-        # Structure-specific fields
-        tunnels: list[Tunnel] = []
-        inner_nodes: list[Operation] = []
-        loop_type: str | None = None
-        stop_cond: str | None = None
-        stop_cond_inverted = False
-        parallel = False
-        parallel_static_workers: int | None = None
-        case_frames: list[CaseFrame] = []
-        seq_frames: list[SequenceFrame] = []
-        event_frames: list[EventFrame] = []
-        selector_terminal: str | None = None
-        decompose: list[PrimitiveOperation] = []
-        recompose: list[PrimitiveOperation] = []
-        node_type = gnode.node_type or ""
-
-        if isinstance(gnode, StructureNode):
-            # Reconstruct Tunnel objects from terminal metadata
-            tunnels = self._tunnels_from_terminals(gnode.terminals)
-
-            # Query inner nodes by parent
-            child_uids = self._get_children_of(uid, vi_name)
-
-            # `kind` already equals _graph_node_to_op_kind(gnode) from above
-            # for every structure type (that helper's isinstance/node_type
-            # checks mirror these branches exactly) — this switch only
-            # handles the frames= / tunnels= / inner_nodes= fields, not kind.
-            if isinstance(gnode, LoopNode):
-                loop_type = gnode.loop_type
-                inner_nodes = self._build_inner_nodes(
-                    child_uids,
-                    vi_name,
-                )
-                stop_cond = gnode.stop_condition_terminal
-                stop_cond_inverted = gnode.stop_condition_inverted
-                parallel = gnode.parallel
-                parallel_static_workers = gnode.parallel_static_workers
-
-            elif isinstance(gnode, DisableStructureNode):
-                case_frames = self._populate_frame_operations(  # type: ignore[assignment]
-                    gnode.frames,
-                    vi_name,
-                    child_uids,
-                )
-
-            elif isinstance(gnode, CaseStructureNode):
-                selector_terminal = gnode.selector_terminal
-                case_frames = self._populate_frame_operations(  # type: ignore[assignment]
-                    gnode.frames,
-                    vi_name,
-                    child_uids,
-                )
-
-            elif isinstance(gnode, SequenceNode):
-                seq_frames = self._populate_frame_operations(  # type: ignore[assignment]
-                    gnode.frames,
-                    vi_name,
-                    child_uids,
-                )
-
-            elif isinstance(gnode, InPlaceNode):
-                all_inner = self._build_inner_nodes(child_uids, vi_name)
-                decompose, recompose, inner_nodes = _classify_ipes_ops(all_inner)
-
-            elif isinstance(gnode, EventStructureNode):
-                event_frames = self._populate_frame_operations(  # type: ignore[assignment]
-                    gnode.frames,
-                    vi_name,
-                    child_uids,
-                )
-
-        # Structures have no codegen identity; name stays None (see
-        # Operation.display_name for how the type word is composed at the
-        # point of use, not stored here).
-        node_name = gnode.name
-
-        # Common kwargs for all operation types
-        common = {
-            "id": uid,
-            "name": node_name,
-            "label": gnode.label,
-            "caption": gnode.caption,
-            "kind": kind,
-            "terminals": terminals,
-            "node_type": node_type or None,
-            "tunnels": tunnels,
-            "inner_nodes": inner_nodes,
-            "description": gnode.description,
-            "qualified_path": getattr(gnode, "qualified_path", None),
-            "owning_libraries": list(getattr(gnode, "owning_libraries", []) or []),
-            # Every named node carries its resolution identity; a node with no
-            # library to qualify with falls back to its own name (never absent).
-            "qualified_name": getattr(gnode, "qualified_name", None) or node_name,
-        }
-
-        # Build the right operation subtype
-        if isinstance(gnode, InPlaceNode):
-            return InPlaceOperation(
-                **common,
-                decompose_ops=decompose,
-                recompose_ops=recompose,
-            )
-        if isinstance(gnode, DisableStructureNode):
-            return DisableStructureOperation(
-                **common,
-                frames=case_frames,
-                disable_kind=gnode.kind,
-            )
-        if isinstance(gnode, CaseStructureNode):
-            return CaseOperation(
-                **common,
-                frames=case_frames,
-                selector_terminal=selector_terminal,
-            )
-        if isinstance(gnode, SequenceNode):
-            return SequenceOperation(
-                **common,
-                frames=seq_frames,
-                is_flat=gnode.is_flat,
-            )
-        if isinstance(gnode, EventStructureNode):
-            return EventOperation(
-                **common,
-                frames=event_frames,
-            )
-        if isinstance(gnode, LoopNode):
-            return LoopOperation(
-                **common,
-                loop_type=loop_type,
-                stop_condition_terminal=stop_cond,
-                stop_condition_inverted=stop_cond_inverted,
-                parallel=parallel,
-                parallel_static_workers=parallel_static_workers,
-            )
-        if isinstance(gnode, VINode):
-            return SubVIOperation(
-                **common,
-                poly_variant_name=gnode.poly_variant_name,
-            )
-        if isinstance(gnode, GraphFormulaNode):
-            return FormulaOperation(**common, script=gnode.script)
-        if isinstance(gnode, GraphPrimitiveNode):
-            # Feedback Node: the graph node is a GraphPrimitiveNode carrying
-            # the master/slave link + delay as node attributes (see
-            # construction.py). Lift them onto a FeedbackOperation so the
-            # netlist can project it as a mu net and dissolve the write side.
-            fb_is_master = self._graph.nodes[uid].get("feedback_is_master")
-            if fb_is_master is not None:
-                return FeedbackOperation(
-                    **common,
-                    is_master=fb_is_master,
-                    partner_uid=self._graph.nodes[uid].get("feedback_partner"),
-                    delay=self._graph.nodes[uid].get("feedback_delay"),
-                )
-            if gnode.properties:
-                return PropertyOperation(
-                    **common,
-                    object_name=gnode.object_name,
-                    object_method_id=gnode.object_method_id,
-                    properties=list(gnode.properties),
-                    value_terminal_ids=list(gnode.property_value_terminal_ids),
-                )
-            if gnode.method_name:
-                return InvokeOperation(
-                    **common,
-                    object_name=gnode.object_name,
-                    object_method_id=gnode.object_method_id,
-                    method_name=gnode.method_name,
-                    method_code=gnode.method_code,
-                )
-            poser_uid = self._graph.nodes[uid].get("poser_uid")
-            return PrimitiveOperation(
-                **common,
-                primResID=gnode.prim_id,
-                operation=gnode.operation,
-                poser_uid=poser_uid,
-            )
-
-        # Fallback: base Operation
-        return Operation(**common)
-
     # ------------------------------------------------------------------ #
     # Graph-native ergonomic helpers -- the tree-walk convenience that
     # ``get_operations``/``Operation`` provided, but single-sourced from the
@@ -292,11 +58,9 @@ class OperationsMixin:
     def top_level_nodes(self, vi_name: str) -> list[AnyGraphNode]:
         """Top-level graph nodes of a VI in dataflow execution order.
 
-        The SAME node selection + ordering ``get_operations`` uses, but yields
-        the ``GraphNode``s themselves (single source of truth) instead of
-        projected ``Operation``s. Walk a structure's contents with
-        :meth:`child_nodes`; get a subVI's callee-resolved terminals with
-        :meth:`enriched_terminals`.
+        Yields the ``GraphNode``s themselves (single source of truth). Walk a
+        structure's contents with :meth:`child_nodes`; get a subVI's
+        callee-resolved terminals with :meth:`enriched_terminals`.
         """
         vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
@@ -322,8 +86,7 @@ class OperationsMixin:
     def child_nodes(self, parent_uid: str, vi_name: str) -> list[AnyGraphNode]:
         """Operation-kind graph nodes directly contained in a structure, in
         deterministic order -- the graph-native tree step
-        (``GraphNode.children`` via ``_get_children_of``), matching
-        ``_build_inner_nodes``' selection but returning ``GraphNode``s.
+        (``GraphNode.children`` via ``_get_children_of``).
         """
         out: list[AnyGraphNode] = []
         uids = self._sort_inner_uids(
@@ -337,13 +100,9 @@ class OperationsMixin:
                 out.append(g)
         return out
 
-    def enriched_terminals(
-        self, node: AnyGraphNode, vi_name: str
-    ) -> list[Terminal]:
+    def enriched_terminals(self, node: AnyGraphNode, vi_name: str) -> list[Terminal]:
         """A node's terminals with subVI-call terminals enriched with the
-        callee's parameter names (resolved by the callee's QUALIFIED name) --
-        the same enrichment ``get_operations`` bakes into
-        ``Operation.terminals``, exposed for callers walking ``GraphNode``s.
+        callee's parameter names (resolved by the callee's QUALIFIED name).
         """
         terminals = list(node.terminals)
         if isinstance(node, VINode) and node.id != node.vi_path:
@@ -539,25 +298,6 @@ class OperationsMixin:
 
         return result
 
-    def _build_inner_nodes(
-        self,
-        uids: list[str],
-        vi_name: str,
-    ) -> list[Operation]:
-        """Build Operation dataclasses for nodes inside a structure."""
-        sorted_uids = self._sort_inner_uids(uids, vi_name)
-        results = []
-        for uid in sorted_uids:
-            if uid not in self._graph:
-                continue
-            gnode = self._graph.nodes[uid].get("node")
-            if gnode is None:
-                continue
-            op_kind = _graph_node_to_op_kind(gnode)
-            if op_kind in _OPERATION_KINDS:
-                results.append(self._build_operation(uid, vi_name))
-        return results
-
     def _get_children_of(
         self,
         parent_uid: str,
@@ -585,50 +325,6 @@ class OperationsMixin:
                 children.append(uid)
         return sorted(children, key=_node_order_key)
 
-    def _populate_frame_operations(
-        self,
-        frames: list[CaseFrame] | list[SequenceFrame] | list[EventFrame],
-        vi_name: str,
-        child_uids: list[str],
-    ) -> list[CaseFrame] | list[SequenceFrame] | list[EventFrame]:
-        """Build a view of ``frames`` with operations populated.
-
-        Returns FRESH frame copies for the Operation tree — the incoming
-        ``frames`` (persistent state on the structure's graph node) are never
-        mutated. A getter must not have side effects on the graph.
-        """
-        frame_to_uids = self._group_children_by_frame(child_uids)
-
-        result: list[CaseFrame | SequenceFrame | EventFrame] = []
-        for list_position, frame in enumerate(frames):
-            # Match by selector_value (cases), index (sequences), or list
-            # POSITION (events -- there's no runtime selector_value/index of
-            # its own; construction.py stamps children with str(idx) in the
-            # same diagram order the parser built es.frames in).
-            if isinstance(frame, CaseFrame):
-                key = frame.selector_value
-            elif isinstance(frame, SequenceFrame):
-                key = str(frame.index)
-            elif isinstance(frame, EventFrame):
-                key = str(list_position)
-            else:
-                result.append(frame)
-                continue
-            uids = frame_to_uids.get(key, [])
-            result.append(
-                frame.model_copy(
-                    update={
-                        "inner_node_uids": uids,
-                        "operations": self._build_inner_nodes(uids, vi_name),
-                    }
-                )
-            )
-
-        return cast(
-            "list[CaseFrame] | list[SequenceFrame] | list[EventFrame]",
-            result,
-        )
-
     def _group_children_by_frame(
         self,
         child_uids: list[str],
@@ -644,40 +340,3 @@ class OperationsMixin:
                 frame_to_uids[fv] = []
             frame_to_uids[fv].append(uid)
         return frame_to_uids
-
-
-def _classify_ipes_ops(
-    inner: list[Operation],
-) -> tuple[list[PrimitiveOperation], list[PrimitiveOperation], list[Operation]]:
-    """Split IPES inner ops into decompose, recompose, and regular.
-
-    Decompose ops: PrimitiveOperation with poser_uid and list OUTPUT terminals
-    only (they unbundle the data into field values at the input boundary).
-    Recompose ops: PrimitiveOperation with poser_uid and list INPUT terminals
-    only (they rebundle field values into the data at the output boundary).
-    Regular ops: everything else (including ops with list terminals in BOTH
-    directions, or poser_uid ops with no list terminals) — passed to
-    generate_body() as normal.
-    """
-    decompose: list[PrimitiveOperation] = []
-    recompose: list[PrimitiveOperation] = []
-    regular: list[Operation] = []
-
-    for op in inner:
-        if not isinstance(op, PrimitiveOperation) or not op.poser_uid:
-            regular.append(op)
-            continue
-        has_list_out = any(
-            t.nmux_role == "list" and t.direction == "output" for t in op.terminals
-        )
-        has_list_in = any(
-            t.nmux_role == "list" and t.direction == "input" for t in op.terminals
-        )
-        if has_list_out and not has_list_in:
-            decompose.append(op)
-        elif has_list_in and not has_list_out:
-            recompose.append(op)
-        else:
-            regular.append(op)
-
-    return decompose, recompose, regular

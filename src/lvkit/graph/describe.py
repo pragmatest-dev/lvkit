@@ -265,7 +265,7 @@ def describe_structure(
         case SequenceNode():
             _describe_sequence(graph, vi_name, node, lines)
         case _:
-            lines.append(f"Operation {operation_id}: {_node_display_name(node)}")
+            lines.append(f"Operation {operation_id}: {node.display_name}")
             node_word = (
                 get_display_name(node.node_type) if node.node_type else "unknown"
             )
@@ -405,24 +405,6 @@ def _terminal_type_label(t: Terminal) -> str:
 # small helpers replicate the ``Operation``-side conveniences describe used to
 # lean on -- ``Operation.display_name``, ``op_walk._has_output_tunnel``, and
 # ``op_walk.index_terminal_owners`` -- reading the ``GraphNode`` fields instead.
-
-
-def _node_display_name(node: AnyGraphNode) -> str:
-    """A ``GraphNode``'s best human label -- the graph-native mirror of
-    ``Operation.display_name`` (IDENTITY-first: qualified name, else name,
-    else caption/label, else the type-word). Only a subVI carries
-    ``owning_libraries``; every other node type falls straight through to its
-    own name/author text."""
-    libs = getattr(node, "owning_libraries", None) or []
-    if libs and node.name:
-        return ":".join([*libs, node.name])
-    if node.name:
-        return node.name
-    if node.caption:
-        return node.caption
-    if node.label:
-        return node.label
-    return get_display_name(node.node_type) if node.node_type else "node"
 
 
 def _node_has_output_tunnel(node: AnyGraphNode) -> bool:
@@ -732,7 +714,7 @@ def _gated_source(node: AnyGraphNode) -> str:
     dropped in favour of a free-text label. Uses only clean truth fields (the
     ``name`` split), never a string comparison against a type word."""
     if node.name:
-        return _node_display_name(node)
+        return node.display_name
     author = node.caption or node.label
     type_word = get_display_name(node.node_type) if node.node_type else "node"
     return f'{type_word} "{author}"' if author else type_word
@@ -1039,10 +1021,10 @@ def _describe_single_op(
         case InPlaceNode() | DisableStructureNode() | EventStructureNode():
             # These structures have no codegen identity (``name`` is None) --
             # compose the faithful human label from caption/label/type-word
-            # (``_node_display_name``) instead of the raw internal XML class
+            # (``node.display_name``) instead of the raw internal XML class
             # ("decomposeRecomposeStructure", "commentNode", "eventStruct")
             # the way the generic case below does for truly unhandled kinds.
-            return _node_display_name(node)
+            return node.display_name
         case _:
             node_word = (
                 get_display_name(node.node_type) if node.node_type else "unknown"

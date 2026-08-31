@@ -1,6 +1,6 @@
 """Query mixin for InMemoryVIGraph.
 
-Methods: get_inputs, get_outputs, get_constants, get_operations, get_wires,
+Methods: get_inputs, get_outputs, get_constants, get_wires,
 get_operation_order, get_dataflow_graph (test-only), get_vi_context,
 get_subvi_calls, resolve_vi_name, list_vis, get_vi_source_path, is_stub_vi,
 get_stub_vi_info, dependency graph queries, polymorphic VI methods.
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
-from ..models import ClusterField, FPTerminal, Operation, Terminal
+from ..models import ClusterField, FPTerminal, Terminal
 from ..parser.models import ParsedDependencyRef
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
@@ -112,7 +112,6 @@ class QueryMixin:
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
-        def _build_operation(self, uid: str, vi_name: str) -> Operation: ...
         def has_parallel_branches(self, vi_name: str) -> bool: ...
         def get_class_fields(
             self,
@@ -716,50 +715,6 @@ class QueryMixin:
             )
         return results
 
-    def get_operations(self, vi_name: str) -> list[Operation]:
-        """Get all operations (SubVIs, primitives) in a VI.
-
-        Returns operations in dataflow execution order.
-        Only returns top-level operations -- inner operations (parent != None)
-        are nested inside their structure's inner_nodes/frames lists.
-        """
-        vi_name = self.resolve_vi_name(vi_name)
-        node_uids = self._vi_nodes.get(vi_name)
-        if node_uids is None:
-            return []
-
-        # Top-level = parent is None (not inside any structure)
-        top_level_op_uids: set[str] = set()
-        for uid in node_uids:
-            if uid == vi_name:
-                continue
-            if uid not in self._graph:
-                continue
-            gnode = self._graph.nodes[uid].get("node")
-            if gnode is None:
-                continue
-            op_kind = _graph_node_to_op_kind(gnode)
-            if op_kind in _OPERATION_KINDS and gnode.parent is None:
-                top_level_op_uids.add(uid)
-
-        # Get operations in dataflow order, keeping only top-level
-        ordered_ids = [
-            uid for uid in self.get_operation_order(vi_name) if uid in top_level_op_uids
-        ]
-        op_set = set(ordered_ids)
-
-        # Add any top-level ops not in the sorted order (disconnected) in a
-        # deterministic order — top_level_op_uids is a hash-randomized set.
-        for uid in sorted(top_level_op_uids, key=_node_order_key):
-            if uid not in op_set:
-                ordered_ids.append(uid)
-
-        return [
-            self._build_operation(uid, vi_name)
-            for uid in ordered_ids
-            if uid in self._graph
-        ]
-
     def get_operation_order(
         self, vi_name: str, extra_kinds: tuple[str, ...] = ()
     ) -> list[str]:
@@ -775,7 +730,7 @@ class QueryMixin:
 
         ``extra_kinds`` widens the "real operation" gate (``_OPERATION_KINDS``)
         for ONE call, without touching the shared constant every other caller
-        (codegen's ``get_operations``, this method's own default) relies on.
+        (``top_level_nodes``, this method's own default) relies on.
         The ONLY current use is ``netlist_build._top_level_nodes_gn`` passing
         ``("local_variable",)`` so a top-level local-variable read/write
         (lvnet-only; codegen never sees it) participates in the SAME
@@ -787,9 +742,13 @@ class QueryMixin:
         if node_uids is None:
             return []
 
-        allowed_kinds = _OPERATION_KINDS if not extra_kinds else (
-            *_OPERATION_KINDS,
-            *extra_kinds,
+        allowed_kinds = (
+            _OPERATION_KINDS
+            if not extra_kinds
+            else (
+                *_OPERATION_KINDS,
+                *extra_kinds,
+            )
         )
 
         # Get top-level operation node IDs only
@@ -1052,7 +1011,6 @@ class QueryMixin:
         outputs = list(self.get_outputs(vi_name))
         constants = list(self.get_constants(vi_name))
         labels = list(self.get_labels(vi_name))
-        operations = list(self.get_operations(vi_name))
         data_flow = list(self.get_wires(vi_name))
 
         vi_meta = self._vi_metadata.get(vi_name, VIMetadata())
@@ -1075,7 +1033,6 @@ class QueryMixin:
             outputs=outputs,
             constants=constants,
             labels=labels,
-            operations=operations,
             terminals=terminals,
             data_flow=data_flow,
             subvi_calls=subvi_calls,

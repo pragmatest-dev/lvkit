@@ -427,9 +427,7 @@ class ConstructionMixin:
             # VI's own parsed metadata so EVERY node has one; the later call-node
             # resolution passes only touch CALL nodes (id != vi_key), not this.
             qualified_name=(
-                _meta.qualified_name
-                if _meta and _meta.qualified_name
-                else display_name
+                _meta.qualified_name if _meta and _meta.qualified_name else display_name
             ),
             terminals=vi_terminals,
             description=_meta.description if _meta else None,
