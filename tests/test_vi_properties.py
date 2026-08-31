@@ -685,12 +685,12 @@ class TestVIPropertiesCorpus:
         SEPARATE top-level ``health`` key (VIHealth is a sibling facet,
         never nested under ``properties``)."""
         _skip_if_missing(PASSWORD_PROTECTED_VI)
-        from lvkit.graph.netlist import build_netlist, netlist_to_dict
+        from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 
         g = InMemoryVIGraph()
         g.load_vi(str(PASSWORD_PROTECTED_VI), mode=LoadMode.NONE)
         vi_name = g.resolve_vi_name(PASSWORD_PROTECTED_VI.name)
-        d = netlist_to_dict(build_netlist(g, vi_name))
+        d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
         assert d["properties"]["lock_state"] == "password_protected"
         assert d["properties"]["execution"]["reentrancy"] == "preallocated_clone"
         assert "window" in d["properties"]

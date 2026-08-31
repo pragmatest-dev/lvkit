@@ -39,7 +39,7 @@ from .netlist import (
     NetlistItem,
     NetlistScope,
     ambiguous_bares,
-    build_netlist,
+    build_netlist_from_graph,
     index_module,
     instance_line,
     scope_header,
@@ -356,9 +356,7 @@ def _collect_elements(
 _FUZZY_MIN = 0.5  # min Jaccard of dataflow edges for a fuzzy (modified) match
 
 
-def _incident(
-    wires: list[Wire], vi_self: str
-) -> dict[str, list[tuple[str, str, str]]]:
+def _incident(wires: list[Wire], vi_self: str) -> dict[str, list[tuple[str, str, str]]]:
     """UID -> list of (role, neighbour-UID, neighbour-TERMINAL) over every wire it
     touches. Routes are irrelevant — only who-connects-to-which-terminal — so wire
     straightening is invisible. The neighbour terminal (a stable UID on the
@@ -1968,9 +1966,7 @@ def diff_uid(
     # (task #10); we do not fake it as a node modification here.
     wires_a = graph_a.get_wires(va)
     wires_b = graph_b.get_wires(vb)
-    exact, fuzzy = _match_elements(
-        a, b, _incident(wires_a, va), _incident(wires_b, vb)
-    )
+    exact, fuzzy = _match_elements(a, b, _incident(wires_a, va), _incident(wires_b, vb))
     matched_a = exact.keys() | fuzzy.keys()
     matched_b = set(exact.values()) | set(fuzzy.values())
 
@@ -2431,8 +2427,8 @@ def _netlist_diff(
     ``_uid_sort`` for determinism when a uid has no netlist position at all
     (e.g. a wire change keyed by its own terminal uid, not a node/scope uid).
     """
-    mod_b = build_netlist(graph_b, vb)
-    mod_a = build_netlist(graph_a, va)
+    mod_b = build_netlist_from_graph(graph_b, vb)
+    mod_a = build_netlist_from_graph(graph_a, va)
     inst_b, scope_b = index_module(mod_b)
     inst_a, scope_a = index_module(mod_a)
     amb_b = ambiguous_bares(mod_b)

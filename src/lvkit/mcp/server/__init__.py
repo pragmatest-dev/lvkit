@@ -77,7 +77,7 @@ from urllib.parse import unquote, urlparse
 from ... import __version__, primitive_resolver, vilib_resolver
 from ...cache_paths import _project_root_for
 from ...graph import InMemoryVIGraph, load_vi_by_path
-from ...graph.netlist import build_netlist, netlist_to_dict
+from ...graph.netlist import netlist_to_dict
 from ...index import sql as isql
 from ...index.build import (
     build_index,
@@ -257,7 +257,6 @@ __all__ = [
     "_project_root_for",
     "InMemoryVIGraph",
     "load_vi_by_path",
-    "build_netlist",
     "netlist_to_dict",
     "isql",
     "build_index",

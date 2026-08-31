@@ -16,8 +16,8 @@ for backward compatibility, so every existing ``from ...graph.netlist
 import X`` call site keeps working unchanged while the actual code lives in
 focused modules:
 
-- ``netlist_build.py`` -- builds the IR (``build_netlist``,
-  ``build_netlist_from_graph``, ``index_module``).
+- ``netlist_build.py`` -- builds the IR (``build_netlist_from_graph``,
+  ``index_module``).
 - ``netlist_models.py`` -- the IR dataclasses/enums.
 - ``netlist_diff_helpers.py`` -- shared netlist-diff text helpers
   (``ambiguous_bares``/``instance_line``/``scope_header``).
@@ -33,16 +33,13 @@ instantiations. ``describe.py`` renders it as ``## Components``.
 
 from __future__ import annotations
 
-# The IR-building code (``build_netlist``, ``build_netlist_from_graph``,
-# ``index_module``, and every private helper) lives in ``netlist_build.py``
-# (kept there so the graph-walk machinery is importable/editable without
-# pulling in this facade). Re-exported here so every existing ``from
-# ...graph.netlist import build_netlist`` (etc.) call site keeps working
-# unchanged. ``netlist_build.py`` must never import from this module (that
-# would be a fragile, import-order-dependent circular import).
-from .netlist_build import (
-    build_netlist as build_netlist,  # noqa: F401 -- re-exported for external callers
-)
+# The IR-building code (``build_netlist_from_graph``, ``index_module``, and
+# every private helper) lives in ``netlist_build.py`` (kept there so the
+# graph-walk machinery is importable/editable without pulling in this facade).
+# Re-exported here so every existing ``from ...graph.netlist import
+# build_netlist_from_graph`` (etc.) call site keeps working unchanged.
+# ``netlist_build.py`` must never import from this module (that would be a
+# fragile, import-order-dependent circular import).
 from .netlist_build import (
     build_netlist_from_graph as build_netlist_from_graph,  # noqa: F401 -- re-exported for external callers
 )

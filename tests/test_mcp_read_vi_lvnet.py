@@ -74,12 +74,10 @@ def test_read_vi_default_format_unchanged() -> None:
     just pins the default value itself)."""
     if not _GOLDEN_VI.exists():
         pytest.skip("JKI-VI-Tester sample corpus not present")
-    from lvkit.graph.netlist import build_netlist, netlist_to_dict
+    from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 
     graph, vi_name = srv._load_one(str(_GOLDEN_VI), [str(_JKI_SOURCE_ROOT)])
-    expected = netlist_to_dict(build_netlist(graph, vi_name))
+    expected = netlist_to_dict(build_netlist_from_graph(graph, vi_name))
 
-    result = _run(
-        srv.read_vi(str(_GOLDEN_VI), search_paths=[str(_JKI_SOURCE_ROOT)])
-    )
+    result = _run(srv.read_vi(str(_GOLDEN_VI), search_paths=[str(_JKI_SOURCE_ROOT)]))
     assert result == expected

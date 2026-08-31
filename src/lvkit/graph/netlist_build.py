@@ -126,7 +126,6 @@ from .op_walk import (
     _subvi_ports,
     _terminal_display_name,
     correlate_property_terminals,
-    index_terminal_owners,
 )
 from .queries import ClassContext, collect_class_context
 from .render_lvnet import (
@@ -1412,86 +1411,6 @@ def _build_class_context(
     (``_describe_class_context``) builds on the SAME collector, so the two
     surfaces can't drift on what "the class context" means."""
     return collect_class_context(graph, ctx)
-
-
-def build_netlist(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
-    """Walk a VI's operations into a ``NetlistModule`` IR.
-
-    Deterministic: ``ctx.operations`` (and every nested ``inner_nodes`` /
-    ``frames[].operations``) are already produced in ``_node_order_key``
-    order by the graph layer, so no re-sorting is needed here -- only the
-    occurrence counter, which walks in that same given order.
-    """
-    vi_name = graph.resolve_vi_name(vi_name)
-    ctx = graph.get_vi_context(vi_name)
-    root_ops = ctx.operations
-    # Flattened once, reused everywhere a flat node-order walk is needed
-    # (each id-assignment pass, ``op_by_uid``, ``_build_components``) --
-    # previously each of those re-walked the tree independently.
-    flat = _walk_flat(root_ops)
-
-    build_ctx = _BuildCtx(
-        occurrence_by_uid=_assign_occurrences(flat),
-        const_by_id={c.id: c for c in ctx.constants},
-        case_id_by_uid=_assign_sequential_ids(
-            flat,
-            lambda op: isinstance(op, CaseOperation),
-        ),
-        loop_id_by_uid=_assign_sequential_ids(
-            flat,
-            lambda op: isinstance(op, LoopOperation),
-        ),
-        feedback_id_by_uid=_assign_sequential_ids(
-            flat,
-            lambda op: isinstance(op, FeedbackOperation) and op.is_master,
-        ),
-        op_by_uid={op.id: op for op in flat},
-        owner_by_terminal=index_terminal_owners(root_ops),
-    )
-
-    inputs = [
-        NetlistBoundaryInput(
-            name=t.name or "input",
-            type_descriptor=t.lv_type.type_descriptor() if t.lv_type else "Any",
-            lv_type=t.lv_type,
-        )
-        for t in ctx.inputs
-    ]
-    outputs = [
-        BoundaryOutput(
-            name=t.name or "output",
-            type_descriptor=t.lv_type.type_descriptor() if t.lv_type else "Any",
-            lv_type=t.lv_type,
-            # An indicator is a sink; its incoming edge traces to the producing
-            # net exactly like an input terminal does.
-            source=_resolve_source(graph, ctx, t.id, build_ctx),
-        )
-        for t in ctx.outputs
-    ]
-
-    # The authored connector pane (canonical order already applied by get_inputs/
-    # get_outputs): input terminals first, then outputs -- each self-tags
-    # direction.
-    connector_pane = ConnectorPane(
-        pattern_id=ctx.connector_pattern_id,
-        terminals=[_pane_terminal(t, "input") for t in ctx.inputs]
-        + [_pane_terminal(t, "output") for t in ctx.outputs],
-    )
-
-    body = _build_items(graph, ctx, root_ops, build_ctx)
-    components = _build_components(graph, flat)
-
-    return NetlistModule(
-        vi_name=vi_name,
-        inputs=inputs,
-        outputs=outputs,
-        body=body,
-        components=components,
-        properties=ctx.properties,
-        health=ctx.health,
-        class_context=_build_class_context(graph, ctx),
-        connector_pane=connector_pane,
-    )
 
 
 def _pane_terminal(

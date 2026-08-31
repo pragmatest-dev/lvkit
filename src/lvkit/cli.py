@@ -1178,22 +1178,13 @@ def cmd_describe(args: argparse.Namespace) -> int:
             # -v/--verbose additionally surfaces the `uses :` dependency
             # manifest (+ each subVI's interface) and every terminal's
             # structured type -- the JSON counterpart of `--format lvnet`'s
-            # verbose elements (see `netlist_to_dict`'s docstring). Those
-            # facts only exist on `build_netlist_from_graph`'s module (the
-            # OLD `build_netlist` never populates them), so verbose switches
-            # builders; non-verbose stays on the OLD builder, byte-identical
-            # to before.
+            # verbose elements (see `netlist_to_dict`'s docstring).
             from .graph.netlist import (
-                build_netlist,
                 build_netlist_from_graph,
                 netlist_to_dict,
             )
 
-            module = (
-                build_netlist_from_graph(graph, vi_name)
-                if args.verbose
-                else build_netlist(graph, vi_name)
-            )
+            module = build_netlist_from_graph(graph, vi_name)
             print(json.dumps(netlist_to_dict(module, verbose=args.verbose), indent=2))
         elif fmt == "lvnet":
             # The lvnet text surface (see docs/_internal/design/netlist-

@@ -25,7 +25,7 @@ import pytest
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from lvkit.graph.netlist import build_netlist, netlist_to_dict
+from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 from lvkit.models import LoopOperation, Operation, Tunnel, TunnelMode
 from lvkit.parser.nodes.base import extract_tunnel_mapping
 
@@ -175,7 +175,7 @@ class TestTunnelMode:
         the tunnel mode through as the enum's string value."""
         _skip_if_missing(BUILD_VI)
         g, vi_name = _load(BUILD_VI)
-        d = netlist_to_dict(build_netlist(g, vi_name))
+        d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
         scope = _find_scope(d["body"], "287")
         assert scope is not None
         modes = {t["tunnel_type"]: t["mode"] for t in scope["tunnels"]}
@@ -383,7 +383,7 @@ class TestShiftRegister:
     def test_get_context_json_shows_sr_facts(self) -> None:
         _skip_if_missing(FILTER_MPA_VI)
         g, vi_name = _load(FILTER_MPA_VI)
-        d = netlist_to_dict(build_netlist(g, vi_name))
+        d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
         rsr_entries = [
             t
             for scope in _iter_scopes(d["body"])
@@ -439,7 +439,7 @@ class TestForLoopParallelism:
     def test_get_context_json_shows_parallel(self) -> None:
         _skip_if_missing(RUN_SERVICE_VI)
         g, vi_name = _load(RUN_SERVICE_VI)
-        d = netlist_to_dict(build_netlist(g, vi_name))
+        d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
         scope = _find_scope(d["body"], "2090")
         assert scope is not None
         assert scope["parallel"] is True
