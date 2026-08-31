@@ -39,6 +39,7 @@ from .core import (
     _node_order_key,
 )
 from .models import (
+    AnyGraphNode,
     CaseStructureNode,
     DisableStructureNode,
     EventStructureNode,
@@ -69,6 +70,7 @@ class OperationsMixin:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def resolve_vi_name(self, vi_name: str) -> str: ...
         def get_poly_variants(self, vi_name: str) -> list[str]: ...
+        def get_operation_order(self, vi_name: str) -> list[str]: ...
 
     def _build_operation(
         self,
@@ -279,6 +281,76 @@ class OperationsMixin:
 
         # Fallback: base Operation
         return Operation(**common)
+
+    # ------------------------------------------------------------------ #
+    # Graph-native ergonomic helpers -- the tree-walk convenience that
+    # ``get_operations``/``Operation`` provided, but single-sourced from the
+    # graph (no projected ``Operation`` snapshot). A generator walks
+    # ``top_level_nodes`` -> ``child_nodes`` and reads ``enriched_terminals``,
+    # consuming ``GraphNode``s directly. See docs: the Operation-removal work.
+    # ------------------------------------------------------------------ #
+    def top_level_nodes(self, vi_name: str) -> list[AnyGraphNode]:
+        """Top-level graph nodes of a VI in dataflow execution order.
+
+        The SAME node selection + ordering ``get_operations`` uses, but yields
+        the ``GraphNode``s themselves (single source of truth) instead of
+        projected ``Operation``s. Walk a structure's contents with
+        :meth:`child_nodes`; get a subVI's callee-resolved terminals with
+        :meth:`enriched_terminals`.
+        """
+        vi_name = self.resolve_vi_name(vi_name)
+        node_uids = self._vi_nodes.get(vi_name)
+        if node_uids is None:
+            return []
+        top: dict[str, AnyGraphNode] = {}
+        for uid in node_uids:
+            if uid == vi_name or uid not in self._graph:
+                continue
+            gnode = self._graph.nodes[uid].get("node")
+            if gnode is None:
+                continue
+            if (
+                _graph_node_to_op_kind(gnode) in _OPERATION_KINDS
+                and gnode.parent is None
+            ):
+                top[uid] = gnode
+        ordered = [u for u in self.get_operation_order(vi_name) if u in top]
+        seen = set(ordered)
+        ordered += [u for u in sorted(top, key=_node_order_key) if u not in seen]
+        return [top[u] for u in ordered]
+
+    def child_nodes(self, parent_uid: str, vi_name: str) -> list[AnyGraphNode]:
+        """Operation-kind graph nodes directly contained in a structure, in
+        deterministic order -- the graph-native tree step
+        (``GraphNode.children`` via ``_get_children_of``), matching
+        ``_build_inner_nodes``' selection but returning ``GraphNode``s.
+        """
+        out: list[AnyGraphNode] = []
+        uids = self._sort_inner_uids(
+            self._get_children_of(parent_uid, vi_name), vi_name
+        )
+        for uid in uids:
+            if uid not in self._graph:
+                continue
+            g = self._graph.nodes[uid].get("node")
+            if g is not None and _graph_node_to_op_kind(g) in _OPERATION_KINDS:
+                out.append(g)
+        return out
+
+    def enriched_terminals(
+        self, node: AnyGraphNode, vi_name: str
+    ) -> list[Terminal]:
+        """A node's terminals with subVI-call terminals enriched with the
+        callee's parameter names (resolved by the callee's QUALIFIED name) --
+        the same enrichment ``get_operations`` bakes into
+        ``Operation.terminals``, exposed for callers walking ``GraphNode``s.
+        """
+        terminals = list(node.terminals)
+        if isinstance(node, VINode) and node.id != node.vi_path:
+            terminals = self._enrich_subvi_terminals_typed(
+                terminals, node.qualified_name or node.name, vi_name
+            )
+        return terminals
 
     @staticmethod
     def _tunnels_from_terminals(terminals: list[Terminal]) -> list[Tunnel]:
