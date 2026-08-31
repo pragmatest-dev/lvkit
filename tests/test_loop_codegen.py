@@ -17,17 +17,49 @@ from lvkit.codegen.nodes.loop import (
     _singularize,
 )
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import PrimitiveNode, Wire, WireEnd
+from lvkit.graph.models import LoopNode, PrimitiveNode, Wire, WireEnd
 from lvkit.models import (
     LoopOperation,
     LVType,
     LVTypeKind,
-    PrimitiveOperation,
     Terminal,
     Tunnel,
     TunnelTerminal,
 )
 from tests.conftest import make_ctx
+from tests.helpers import register_nodes, tunnel_terminals
+
+
+def _mk_loop(
+    ctx=None,
+    *,
+    id="loop1",
+    name="Loop",
+    loop_type="whileLoop",
+    tunnels=(),
+    terminals=(),
+    inner_nodes=(),
+    stop_condition_terminal=None,
+    stop_condition_inverted=False,
+):
+    """Build a LoopNode from the fields the old LoopOperation tests supplied,
+    expressing ``tunnels`` as TunnelTerminals and registering any inner nodes
+    (parent-linked) into ``ctx``'s graph so ``ctx.child_nodes`` finds them."""
+    node = LoopNode(
+        id=id,
+        vi_path="test.vi",
+        name=name,
+        node_type=loop_type,
+        loop_type=loop_type,
+        stop_condition_terminal=stop_condition_terminal,
+        stop_condition_inverted=stop_condition_inverted,
+        terminals=[*tunnel_terminals(tunnels), *terminals],
+    )
+    if inner_nodes:
+        for op in inner_nodes:
+            op.parent = id
+        register_nodes(ctx.graph, [node, *inner_nodes])
+    return node
 
 
 class TestMakeVarName:
@@ -349,10 +381,10 @@ class TestLoopCodeGenGenerate:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("input_arr", "items")
 
-        loop_op = LoopOperation(
+        loop_op = _mk_loop(
+            ctx,
             id="loop1",
             name="For Loop",
-            kind="loop",
             loop_type="forLoop",
             tunnels=[
                 Tunnel(
@@ -397,10 +429,10 @@ class TestLoopCodeGenGenerate:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("count_src", "10")
 
-        loop_op = LoopOperation(
+        loop_op = _mk_loop(
+            ctx,
             id="loop1",
             name="For Loop",
-            kind="loop",
             loop_type="forLoop",
             tunnels=[
                 # lMax with no incoming flow to inner = N terminal
@@ -442,10 +474,10 @@ class TestLoopCodeGenGenerate:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("init_val", "0")
 
-        loop_op = LoopOperation(
+        loop_op = _mk_loop(
+            ctx,
             id="loop1",
             name="While Loop",
-            kind="loop",
             loop_type="whileLoop",
             tunnels=[
                 Tunnel(
@@ -481,10 +513,10 @@ class TestLoopCodeGenGenerate:
         # Outer loop at depth 0
         ctx_outer = CodeGenContext(loop_depth=0)
 
-        outer_loop = LoopOperation(
+        outer_loop = _mk_loop(
+            ctx_outer,
             id="outer",
             name="Outer For",
-            kind="loop",
             loop_type="forLoop",
             tunnels=[],
             inner_nodes=[],
@@ -495,10 +527,10 @@ class TestLoopCodeGenGenerate:
         # Inner loop at depth 1
         ctx_inner = CodeGenContext(loop_depth=1)
 
-        inner_loop = LoopOperation(
+        inner_loop = _mk_loop(
+            ctx_inner,
             id="inner",
             name="Inner For",
-            kind="loop",
             loop_type="forLoop",
             tunnels=[],
             inner_nodes=[],
@@ -558,10 +590,10 @@ class TestLoopCodeGenExecutable:
         ctx = CodeGenContext.from_wires(data_flow)
         ctx.bind("arr_src", "test_items")
 
-        loop_op = LoopOperation(
+        loop_op = _mk_loop(
+            ctx,
             id="loop1",
             name="For Loop",
-            kind="loop",
             loop_type="forLoop",
             tunnels=[
                 Tunnel(
@@ -603,21 +635,21 @@ class TestLoopCodeGenExecutable:
         ctx.bind("seed_src", "0")
         ctx.bind("one_src", "1")
 
-        add = PrimitiveOperation(
+        add = PrimitiveNode(
+            vi_path="test.vi",
             id="add",
             name="Add",
-            kind="primitive",
-            primResID=1050,
+            prim_id=1050,
             terminals=[
                 Terminal(id="add_x", index=1, direction="input", name="x"),
                 Terminal(id="add_y", index=2, direction="input", name="y"),
                 Terminal(id="add_out", index=0, direction="output", name="result"),
             ],
         )
-        loop_op = LoopOperation(
+        loop_op = _mk_loop(
+            ctx,
             id="loop1",
             name="For Loop",
-            kind="loop",
             loop_type="forLoop",
             tunnels=[
                 Tunnel(
@@ -678,7 +710,6 @@ class TestWhileLoopDoWhileSemantics:
         node = LoopOperation(
             id="loop1",
             name="While Loop",
-            kind="loop",
             loop_type="whileLoop",
             tunnels=[],
             inner_nodes=[],
@@ -705,7 +736,6 @@ class TestWhileLoopDoWhileSemantics:
         node = LoopOperation(
             id="loop1",
             name="While Loop",
-            kind="loop",
             loop_type="whileLoop",
             tunnels=[],
             inner_nodes=[],
@@ -739,7 +769,6 @@ class TestWhileLoopDoWhileSemantics:
         node = LoopOperation(
             id="loop1",
             name="While Loop",
-            kind="loop",
             loop_type="whileLoop",
             tunnels=[],
             inner_nodes=[],
@@ -763,10 +792,10 @@ class TestWhileLoopDoWhileSemantics:
         ctx = make_ctx("stop_flag")
         ctx.bind("stop_flag", "should_stop")
 
-        loop_op = LoopOperation(
+        loop_op = _mk_loop(
+            ctx,
             id="loop1",
             name="While Loop",
-            kind="loop",
             loop_type="whileLoop",
             tunnels=[],
             inner_nodes=[],
@@ -809,10 +838,10 @@ class TestForLoopConditionalTerminal:
         ctx.bind("count_src", "10")
         if stop is not None:
             ctx.bind("cond_calc", "should_stop")
-        loop_op = LoopOperation(
+        loop_op = _mk_loop(
+            ctx,
             id="loop1",
             name="For Loop",
-            kind="loop",
             loop_type="forLoop",
             tunnels=[
                 Tunnel(
@@ -926,10 +955,10 @@ class TestUninitializedShiftRegister:
         return ctx, loop_terminals
 
     def _loop_op(self, terminals: list) -> LoopOperation:
-        return LoopOperation(
+        return _mk_loop(
+            None,
             id="loop1",
             name="While Loop",
-            kind="loop",
             loop_type="whileLoop",
             terminals=terminals,
             tunnels=[

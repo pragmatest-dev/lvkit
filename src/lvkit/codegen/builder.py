@@ -8,8 +8,8 @@ from collections import deque
 from collections.abc import Callable
 
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import VIContext
-from lvkit.models import Operation, Terminal
+from lvkit.graph.models import AnyGraphNode, VIContext
+from lvkit.models import Terminal
 
 from .ast_optimizer import optimize_module
 from .ast_utils import (
@@ -73,9 +73,16 @@ def build_module(
     ctx.soft_unresolved = soft_unresolved
     ctx.unresolved_sink = unresolved_sink
 
+    # Top-level diagram nodes in dataflow order — the graph-native replacement
+    # for the projected ``vi_context.operations``. Emitters walk structure
+    # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
+    top_nodes: list[AnyGraphNode] = (
+        ctx.graph.top_level_nodes(vi_name) if ctx.graph is not None else []
+    )
+
     # Determine if we need error handling infrastructure (graph-driven).
-    # True only if Merge Errors (prim 2147) exists in the VI's operations.
-    use_error_handling = needs_error_handling(vi_context.operations, vi_context)
+    # True only if Merge Errors (prim 2147) exists in the VI's node tree.
+    use_error_handling = needs_error_handling(top_nodes, ctx)
     ctx.use_held_error_model = use_error_handling
 
     # Generate function body
@@ -86,7 +93,7 @@ def build_module(
         body.append(build_held_error_init())
 
     # Generate operation code
-    body.extend(generate_body(vi_context.operations, ctx))
+    body.extend(generate_body(top_nodes, ctx))
 
     # Final pass: broadcast numeric operators over array-valued operands that
     # were inlined (single-use) past the per-node element-wise hook.
@@ -113,7 +120,9 @@ def build_module(
     return ast.unparse(module)
 
 
-def generate_body(operations: list[Operation], ctx: CodeGenContext) -> list[ast.stmt]:
+def generate_body(
+    operations: list[AnyGraphNode], ctx: CodeGenContext
+) -> list[ast.stmt]:
     """Generate function body statements from operations.
 
     Uses tiered topological sort to identify parallel groups. Single-op
@@ -179,8 +188,8 @@ def generate_body(operations: list[Operation], ctx: CodeGenContext) -> list[ast.
 
 
 def _apply_clear_wrapping(
-    clear_op: Operation,
-    all_ops: list[Operation],
+    clear_op: AnyGraphNode,
+    all_ops: list[AnyGraphNode],
     ctx: CodeGenContext,
     tagged: list[tuple[set[str], ast.stmt]],
 ) -> None:
@@ -222,7 +231,7 @@ def _apply_clear_wrapping(
 
 
 def _generate_parallel_tier(
-    tier: list[Operation], ctx: CodeGenContext
+    tier: list[AnyGraphNode], ctx: CodeGenContext
 ) -> list[ast.stmt]:
     """Generate ThreadPoolExecutor block for parallel operations.
 
@@ -451,8 +460,8 @@ def _build_submit(callable_expr: ast.expr) -> ast.Call:
 
 
 def topological_sort_tiered(
-    operations: list[Operation], ctx: CodeGenContext
-) -> list[list[Operation]]:
+    operations: list[AnyGraphNode], ctx: CodeGenContext
+) -> list[list[AnyGraphNode]]:
     """Sort operations by data dependencies, returning parallel tiers.
 
     Returns a list of tiers. Each tier contains operations that have no
@@ -504,7 +513,7 @@ def topological_sort_tiered(
                 current = src_term
 
     # Tiered Kahn's algorithm — drain all ready ops per iteration
-    tiers: list[list[Operation]] = []
+    tiers: list[list[AnyGraphNode]] = []
     ready: deque[str] = deque(op_id for op_id, deps in dependencies.items() if not deps)
     remaining = {op_id: set(deps) for op_id, deps in dependencies.items() if deps}
 

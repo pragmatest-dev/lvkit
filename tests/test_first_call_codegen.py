@@ -11,17 +11,19 @@ from __future__ import annotations
 import ast
 
 from lvkit.codegen.nodes import first_call
-from lvkit.models import PrimitiveOperation, Terminal
+from lvkit.graph.models import PrimitiveNode
+from lvkit.models import Terminal
 from tests.helpers import make_ctx
 
 
-def _first_call_op(node_id: str = "fc1") -> PrimitiveOperation:
-    return PrimitiveOperation(
+def _first_call_op(node_id: str = "fc1") -> PrimitiveNode:
+    return PrimitiveNode(
+        vi_path="test.vi",
         id=node_id,
         name="First Call?",
         kind="primitive",
         node_type="prim",
-        primResID=first_call.FIRST_CALL_PRIM_ID,
+        prim_id=first_call.FIRST_CALL_PRIM_ID,
         terminals=[
             Terminal(id=f"{node_id}.first_call", index=0, direction="output"),
         ],

@@ -2798,29 +2798,32 @@ def test_inplace_border_name_other_types_untouched():
 
 def test_describe_in_place_operation_never_shows_raw_node_type():
     """``describe._describe_single_op``'s generic ``case _:`` fallback prints
-    ``f"{name} [{node_type}]"`` for any operation kind without a dedicated
+    ``f"{name} [{node_type}]"`` for any node kind without a dedicated
     one-liner — which used to leak "decomposeRecomposeStructure" verbatim for
-    an unlabeled In Place Element Structure. InPlaceOperation (and
-    DisableStructureOperation/EventOperation, same catch-all) now get their
+    an unlabeled In Place Element Structure. InPlaceNode (and
+    DisableStructureNode/EventStructureNode, same catch-all) now get their
     own case that returns the already-faithful ``name`` untouched."""
+    from lvkit.graph.core import InMemoryVIGraph
     from lvkit.graph.describe import _describe_single_op
-    from lvkit.models import InPlaceOperation
+    from lvkit.graph.models import InPlaceNode
 
-    unlabeled = InPlaceOperation(
+    graph = InMemoryVIGraph()
+
+    unlabeled = InPlaceNode(
         id="V::1",
+        vi_path="V",
         name="In Place Element",
         node_type="decomposeRecomposeStructure",
-        kind="inPlaceStruct",
     )
-    assert _describe_single_op(unlabeled) == "In Place Element"
+    assert _describe_single_op(graph, "V", unlabeled) == "In Place Element"
 
-    labeled = InPlaceOperation(
+    labeled = InPlaceNode(
         id="V::2",
+        vi_path="V",
         name="write multiple elements.vi",
         node_type="decomposeRecomposeStructure",
-        kind="inPlaceStruct",
     )
-    result = _describe_single_op(labeled)
+    result = _describe_single_op(graph, "V", labeled)
     assert result == "write multiple elements.vi"
     assert "decompose" not in result.lower()
 

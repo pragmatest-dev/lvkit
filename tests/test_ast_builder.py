@@ -19,6 +19,7 @@ from lvkit.models import (
     Terminal,
     Tunnel,
 )
+from tests.helpers import graph_from_vi_context
 
 
 def test_build_module_minimal():
@@ -245,7 +246,8 @@ def test_build_module_with_subvi():
         ],
     )
 
-    result = build_module(vi_context, "Call Helper.vi")
+    graph = graph_from_vi_context(vi_context, "Call Helper.vi")
+    result = build_module(vi_context, "Call Helper.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -422,7 +424,8 @@ def test_build_module_with_while_loop():
         ],
     )
 
-    result = build_module(vi_context, "Loop Counter.vi")
+    graph = graph_from_vi_context(vi_context, "Loop Counter.vi")
+    result = build_module(vi_context, "Loop Counter.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -447,7 +450,8 @@ def test_build_module_with_for_loop():
         ],
     )
 
-    result = build_module(vi_context, "Iterate Array.vi")
+    graph = graph_from_vi_context(vi_context, "Iterate Array.vi")
+    result = build_module(vi_context, "Iterate Array.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -481,7 +485,7 @@ def test_build_module_real_vi():
     assert len(ctx.operations) > 0
 
     # Build module (terminal names are now on Terminal objects directly)
-    result = build_module(ctx, vi_name)
+    result = build_module(ctx, vi_name, graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -510,7 +514,8 @@ def test_unknown_primitive_raises_at_runtime():
     )
 
     with pytest.raises(PrimitiveResolutionNeeded) as exc_info:
-        build_module(vi_context, "Unknown Prim.vi")
+        _g = graph_from_vi_context(vi_context, "Unknown Prim.vi")
+        build_module(vi_context, "Unknown Prim.vi", graph=_g)
 
     assert "99999" in str(exc_info.value)
 
@@ -526,7 +531,8 @@ def test_unknown_node_type_emits_warning():
         ],
     )
 
-    result = build_module(vi_context, "Unknown Node.vi")
+    graph = graph_from_vi_context(vi_context, "Unknown Node.vi")
+    result = build_module(vi_context, "Unknown Node.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -1114,7 +1120,8 @@ def test_build_module_with_nested_loops():
         ],
     )
 
-    result = build_module(vi_context, "Nested Loops.vi")
+    graph = graph_from_vi_context(vi_context, "Nested Loops.vi")
+    result = build_module(vi_context, "Nested Loops.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)

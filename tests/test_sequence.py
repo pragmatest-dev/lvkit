@@ -11,7 +11,6 @@ from lvkit.codegen.nodes import sequence
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import SequenceNode, VINode, WireEnd
 from lvkit.models import (
-    Operation,
     SequenceFrame,
     SequenceOperation,
     Terminal,
@@ -23,6 +22,45 @@ from lvkit.parser.models import (
     ParsedFlatSequenceStructure,
 )
 from lvkit.parser.nodes.sequence import extract_flat_sequences
+from tests.helpers import register_nodes, tunnel_terminals
+
+
+def _mk_seq(
+    ctx=None,
+    *,
+    id="seq1",
+    name="Flat Sequence",
+    kind=None,
+    node_type="flatSequence",
+    is_flat=True,
+    frames=(),
+    frame_ops=None,
+    tunnels=(),
+):
+    """Build a SequenceNode from the fields the old SequenceOperation tests
+    used: frame metadata stays on the node, and ``frame_ops`` (index -> child
+    graph nodes) are registered as parent/frame-linked children so
+    ``ctx.frame_children`` finds them."""
+    frame_ops = frame_ops or {}
+    children = []
+    for f in frames:
+        for op in frame_ops.get(f.index, []):
+            op.parent = id
+            op.frame = str(f.index)
+            children.append(op)
+    node = SequenceNode(
+        id=id,
+        vi_path="test.vi",
+        name=name,
+        node_type=node_type,
+        is_flat=is_flat,
+        frames=list(frames),
+        terminals=list(tunnel_terminals(tunnels)),
+    )
+    if ctx is not None and ctx.graph is not None:
+        register_nodes(ctx.graph, [node, *children])
+    return node
+
 
 # === Parser Tests ===
 
@@ -447,12 +485,7 @@ class TestFlatSequenceCodeGen:
 
     def test_empty_frames(self):
         """No frames produces empty fragment."""
-        op = SequenceOperation(
-            id="seq1",
-            name="Flat Sequence",
-            kind="flatSequence",
-            frames=[],
-        )
+        op = _mk_seq(None, id="seq1", name="Flat Sequence", frames=[])
         ctx = CodeGenContext()
         fragment = sequence.generate(op, ctx)
         assert fragment.statements == []
@@ -462,29 +495,22 @@ class TestFlatSequenceCodeGen:
     ):
         """Frames generate sequential code."""
         # Inner operation that generates a simple assignment
-        inner_op = Operation(
+        inner_op = VINode(
             id="prim1",
+            vi_path="test.vi",
             name="Add",
-            kind="vi",
             node_type="iUse",
             terminals=[],
         )
 
-        op = SequenceOperation(
+        ctx = CodeGenContext(graph=InMemoryVIGraph())
+        op = _mk_seq(
+            ctx,
             id="seq1",
             name="Flat Sequence",
-            kind="flatSequence",
-            node_type="flatSequence",
-            frames=[
-                SequenceFrame(
-                    index=0,
-                    inner_node_uids=["prim1"],
-                    operations=[inner_op],
-                ),
-            ],
-            tunnels=[],
+            frames=[SequenceFrame(index=0, inner_node_uids=["prim1"])],
+            frame_ops={0: [inner_op]},
         )
-        ctx = CodeGenContext()
         fragment = sequence.generate(op, ctx)
 
         # Should produce some statements (even if just a comment
@@ -506,11 +532,10 @@ class TestFlatSequenceCodeGen:
         ctx = CodeGenContext(graph=graph)
         ctx.bind("src", "task_ref")
 
-        op = SequenceOperation(
+        op = _mk_seq(
+            ctx,
             id="seq1",
             name="Flat Sequence",
-            kind="flatSequence",
-            node_type="flatSequence",
             frames=[
                 SequenceFrame(
                     index=0,
@@ -541,11 +566,10 @@ class TestFlatSequenceCodeGen:
         # Pre-bind what an inner operation would produce
         ctx.bind("tun_inner", "result_val")
 
-        op = SequenceOperation(
+        op = _mk_seq(
+            ctx,
             id="seq1",
             name="Flat Sequence",
-            kind="flatSequence",
-            node_type="flatSequence",
             frames=[
                 SequenceFrame(
                     index=0,
@@ -575,12 +599,7 @@ class TestCodeGenRegistry:
     def test_flat_sequence_dispatches_to_sequence_module(self):
         from lvkit.codegen.nodes import generate as generate_node
 
-        op = SequenceOperation(
-            id="1",
-            name="Flat Sequence",
-            kind="flatSequence",
-            node_type="flatSequence",
-        )
+        op = _mk_seq(None, id="1", name="Flat Sequence", node_type="flatSequence")
         ctx = CodeGenContext()
         result = generate_node(op, ctx)
         # No frames → empty fragment
@@ -590,11 +609,8 @@ class TestCodeGenRegistry:
     def test_stacked_sequence_dispatches_to_sequence_module(self):
         from lvkit.codegen.nodes import generate as generate_node
 
-        op = SequenceOperation(
-            id="1",
-            name="Stacked Sequence",
-            kind="flatSequence",
-            node_type="seq",
+        op = _mk_seq(
+            None, id="1", name="Stacked Sequence", node_type="seq", is_flat=False
         )
         ctx = CodeGenContext()
         result = generate_node(op, ctx)

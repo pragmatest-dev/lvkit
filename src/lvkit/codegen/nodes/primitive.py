@@ -5,7 +5,8 @@ from __future__ import annotations
 import ast
 import re
 
-from lvkit.models import LVTypeKind, PrimitiveOperation, Terminal
+from lvkit.graph.models import PrimitiveNode
+from lvkit.models import LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.primitive_resolver import (
     PrimitiveResolutionNeeded,
@@ -27,7 +28,7 @@ from ..fragment import CodeFragment
 from ..unresolved import emit_soft_unresolved
 
 
-def _has_array_input(node: PrimitiveOperation) -> bool:
+def _has_array_input(node: PrimitiveNode) -> bool:
     """True if any wired input terminal carries an array type."""
     return any(
         t.direction == "input"
@@ -66,7 +67,7 @@ def _paren_if_compound(expr: str) -> str:
     return expr
 
 
-def _int_input_terminal(node: PrimitiveOperation) -> Terminal | None:
+def _int_input_terminal(node: PrimitiveNode) -> Terminal | None:
     """First input terminal carrying a LabVIEW integer type, else None.
 
     LabVIEW's boolean-logic prims (And/Or/Not) are BITWISE on integer operands;
@@ -80,9 +81,9 @@ def _int_input_terminal(node: PrimitiveOperation) -> Terminal | None:
     return None
 
 
-def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a primitive node."""
-    prim_id = node.primResID
+    prim_id = node.prim_id
 
     # Merge Errors (prim 2147; not 2401, which is Swap Values -- #59) is a
     # structural signal, not a code node. In the exception model, error
@@ -247,7 +248,7 @@ def _expandable_base(term_index: int, expandable_indices: set[int]) -> int | Non
 
 
 def _build_input_map(
-    node: PrimitiveOperation, ctx: CodeGenContext, resolved: ResolvedPrimitive | None
+    node: PrimitiveNode, ctx: CodeGenContext, resolved: ResolvedPrimitive | None
 ) -> dict[str, str]:
     """Build mapping from terminal names to resolved variable names.
 
@@ -320,7 +321,7 @@ def _build_input_map(
         else:
             # Unwired terminal — use default from JSON or type-based default
             ut = (term.lv_type.underlying_type or "") if term.lv_type else ""
-            if ut == "Refnum" and node.primResID in (8010, 8011, 8003, 8005):
+            if ut == "Refnum" and node.prim_id in (8010, 8011, 8003, 8005):
                 vi_short = (
                     (ctx.vi_name or "output")
                     .replace(".vi", "")
@@ -329,7 +330,7 @@ def _build_input_map(
                 )
                 resolved_value = f"open(Path(__file__).parent / '{vi_short}.txt', 'a+')"
                 ctx.imports.add("from pathlib import Path")
-            elif ut == "Path" and node.primResID in (9101,):
+            elif ut == "Path" and node.prim_id in (9101,):
                 resolved_value = "Path(__file__)"
                 ctx.imports.add("from pathlib import Path")
             else:
@@ -384,7 +385,7 @@ def _build_input_map(
 
 
 def _detect_passthroughs(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     hint: dict[str, str],
     input_map: dict[str, str],
     ctx: CodeGenContext,
@@ -466,7 +467,7 @@ def _detect_passthroughs(
 
 
 def _get_wired_outputs(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     resolved: ResolvedPrimitive | None,
     ctx: CodeGenContext,
     skip_term_ids: set[str] | None = None,
@@ -724,7 +725,7 @@ def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
 
 
 def _terminal_signature(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     ctx: CodeGenContext,
 ) -> list[dict[str, str | int | bool | None]]:
     """The FULL connector pane (every terminal, wired AND unwired) as the
@@ -742,7 +743,7 @@ def _terminal_signature(
 
 
 def _emit_placeholder(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     resolved: ResolvedPrimitive,
     ctx: CodeGenContext,
 ) -> CodeFragment:
@@ -779,7 +780,7 @@ def _emit_placeholder(
 
 
 def _emit_unknown(
-    node: PrimitiveOperation, prim_id: int, ctx: CodeGenContext
+    node: PrimitiveNode, prim_id: int, ctx: CodeGenContext
 ) -> CodeFragment:
     """Handle an unknown primitive.
 
@@ -829,7 +830,7 @@ def _emit_unknown(
 
 
 def _raise_terminal_resolution(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     term: Terminal,
     resolved: ResolvedPrimitive | None,
     ctx: CodeGenContext,
@@ -848,7 +849,7 @@ def _raise_terminal_resolution(
         if rt.direction == direction and rt.index not in assigned_indices
     ]
     raise TerminalResolutionNeeded(
-        prim_id=node.primResID or 0,
+        prim_id=node.prim_id or 0,
         prim_name=node.name or "unknown",
         terminal_direction=term.direction,
         terminal_type=(term.lv_type.underlying_type if term.lv_type else None),

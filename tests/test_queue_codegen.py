@@ -15,6 +15,7 @@ import pytest
 
 import lvkit.labview_queue as labview_queue
 from lvkit.codegen.nodes import queue_ops
+from lvkit.graph.models import PrimitiveNode
 from lvkit.labview_queue import (
     dequeue_element,
     enqueue_element,
@@ -23,7 +24,7 @@ from lvkit.labview_queue import (
     obtain_queue,
     release_queue,
 )
-from lvkit.models import PrimitiveOperation, Terminal
+from lvkit.models import Terminal
 from tests.helpers import make_ctx
 
 
@@ -72,7 +73,7 @@ def _obtain_op(
     with_create: bool = False,
     with_max: bool = False,
     with_created: bool = False,
-) -> PrimitiveOperation:
+) -> PrimitiveNode:
     terminals = []
     if with_name:
         terminals.append(_terminal(f"{node_id}.name", 0, "input"))
@@ -83,12 +84,13 @@ def _obtain_op(
     terminals.append(_terminal(f"{node_id}.queue_out", 8, "output"))
     if with_created:
         terminals.append(_terminal(f"{node_id}.created", 10, "output"))
-    return PrimitiveOperation(
+    return PrimitiveNode(
+        vi_path="test.vi",
         id=node_id,
         name="Obtain Queue",
         kind="primitive",
         node_type="prim",
-        primResID=9108,
+        prim_id=9108,
         terminals=terminals,
     )
 
@@ -98,7 +100,7 @@ def _enqueue_op(
     *,
     opposite_end: bool = False,
     with_timed_out: bool = True,
-) -> PrimitiveOperation:
+) -> PrimitiveNode:
     terminals = [
         _terminal(f"{node_id}.queue", 0, "input"),
         _terminal(f"{node_id}.element", 1, "input"),
@@ -107,17 +109,18 @@ def _enqueue_op(
     ]
     if with_timed_out:
         terminals.append(_terminal(f"{node_id}.timed_out", 10, "output"))
-    return PrimitiveOperation(
+    return PrimitiveNode(
+        vi_path="test.vi",
         id=node_id,
         name="Enqueue Element At Opposite End" if opposite_end else "Enqueue Element",
         kind="primitive",
         node_type="prim",
-        primResID=9129 if opposite_end else 9111,
+        prim_id=9129 if opposite_end else 9111,
         terminals=terminals,
     )
 
 
-def _dequeue_op(node_id: str = "dequeue") -> PrimitiveOperation:
+def _dequeue_op(node_id: str = "dequeue") -> PrimitiveNode:
     terminals = [
         _terminal(f"{node_id}.queue", 0, "input"),
         _terminal(f"{node_id}.timeout_ms", 2, "input"),
@@ -125,17 +128,18 @@ def _dequeue_op(node_id: str = "dequeue") -> PrimitiveOperation:
         _terminal(f"{node_id}.element", 9, "output"),
         _terminal(f"{node_id}.timed_out", 10, "output"),
     ]
-    return PrimitiveOperation(
+    return PrimitiveNode(
+        vi_path="test.vi",
         id=node_id,
         name="Dequeue Element",
         kind="primitive",
         node_type="prim",
-        primResID=9113,
+        prim_id=9113,
         terminals=terminals,
     )
 
 
-def _release_op(node_id: str = "release", *, force: bool = False) -> PrimitiveOperation:
+def _release_op(node_id: str = "release", *, force: bool = False) -> PrimitiveNode:
     """Release Queue pane (observed): in idx0=queue, idx2=force destroy?;
     out idx8=queue name, idx9=remaining elements (error terminals omitted, as
     in the other builders)."""
@@ -146,12 +150,13 @@ def _release_op(node_id: str = "release", *, force: bool = False) -> PrimitiveOp
         _terminal(f"{node_id}.queue_name", 8, "output"),
         _terminal(f"{node_id}.remaining", 9, "output"),
     ]
-    return PrimitiveOperation(
+    return PrimitiveNode(
+        vi_path="test.vi",
         id=node_id,
         name="Release Queue",
         kind="primitive",
         node_type="prim",
-        primResID=9109,
+        prim_id=9109,
         terminals=terminals,
     )
 
@@ -172,7 +177,7 @@ class TestDispatch:
             (9109, _release_op()),
             (9110, _status_op()),
         ):
-            assert op.primResID == prim_id
+            assert op.prim_id == prim_id
             ctx = make_ctx(*(t.id for t in op.terminals))
             fragment = generate_node(op, ctx)
             assert fragment.statements, f"prim {prim_id} produced no statements"
@@ -387,17 +392,18 @@ class TestReleaseQueue:
         assert frag.bindings["release.queue_name"] == "q.name"
 
 
-def _status_op(node_id: str = "status") -> PrimitiveOperation:
+def _status_op(node_id: str = "status") -> PrimitiveNode:
     """Get Queue Status pane (resolved via the NI connector-pane image + wiring
     anchors + geometry): in idx0=queue; out idx4=max size, idx5=elements,
     idx6=name, idx7=# elements, idx8=queue out, idx9=# pending remove,
     idx10=# pending insert (error terminals omitted, as in the other builders)."""
-    return PrimitiveOperation(
+    return PrimitiveNode(
+        vi_path="test.vi",
         id=node_id,
         name="Get Queue Status",
         kind="primitive",
         node_type="prim",
-        primResID=9110,
+        prim_id=9110,
         terminals=[
             _terminal(f"{node_id}.queue", 0, "input"),
             _terminal(f"{node_id}.max_size", 4, "output"),

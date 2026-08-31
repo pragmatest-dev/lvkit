@@ -11,8 +11,9 @@ import ast
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.case import _pre_declare_outputs
+from lvkit.graph.models import CaseStructureNode
 from lvkit.models import CaseOperation, Terminal, Tunnel
-from tests.helpers import make_ctx, make_graph_with_edge
+from tests.helpers import make_ctx, make_graph_with_edge, tunnel_terminals
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -53,12 +54,15 @@ def _case_node(
 
     terminals.extend(extra_terminals or [])
 
-    return CaseOperation(
+    # tunnel_terminals give the outer/inner PAIRING (paired_id) ctx.tunnels
+    # reconstructs from; the plain direction-bearing terminals above win in the
+    # id->terminal lookup (listed last), preserving each outer's real direction.
+    return CaseStructureNode(
         id="case1",
+        vi_path="test.vi",
         name="Case",
-        kind="caseStruct",
-        terminals=terminals,
-        tunnels=tunnels,
+        node_type="caseStruct",
+        terminals=[*tunnel_terminals(tunnels), *terminals],
         selector_terminal=None,
     )
 

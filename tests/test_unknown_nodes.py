@@ -62,14 +62,14 @@ class TestGenericNodeCapture:
 
 class TestUnknownNodeCodegenFailsLoudly:
     def _op(self, node_type):
-        from lvkit.models import PrimitiveOperation
+        from lvkit.graph.models import PrimitiveNode
 
-        return PrimitiveOperation(
+        return PrimitiveNode(
             id="vi::n",
+            vi_path="test.vi",
             node_type=node_type,
-            primResID=None,
+            prim_id=None,
             name=node_type,
-            kind="primitive",
             terminals=[],
         )
 

@@ -460,9 +460,7 @@ def _compare_items(
     ctx: _IdentityCtx,
 ) -> None:
     if len(a_items) != len(b_items):
-        errors.append(
-            f"{path}: item count mismatch: {len(a_items)} vs {len(b_items)}"
-        )
+        errors.append(f"{path}: item count mismatch: {len(a_items)} vs {len(b_items)}")
         return
     for i, (a, b) in enumerate(zip(a_items, b_items)):
         item_path = f"{path}[{i}]"

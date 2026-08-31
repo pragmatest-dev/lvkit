@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import InvokeOperation
+from lvkit.graph.models import PrimitiveNode
 
 from ..ast_utils import to_var_name
 from ..context import CodeGenContext
@@ -16,7 +16,7 @@ from ..fragment import CodeFragment
 from .base import resolve_ref_input
 
 
-def generate(node: InvokeOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for an invoke node.
 
     Produces: result = ref.method_name(args...)

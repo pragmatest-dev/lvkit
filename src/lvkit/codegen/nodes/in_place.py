@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.graph.models import AnyGraphNode, InPlaceNode, PrimitiveNode
 from lvkit.models import (
     ClusterField,
-    InPlaceOperation,
-    PrimitiveOperation,
     Terminal,
+    Tunnel,
 )
 
 from ..ast_utils import parse_expr
@@ -28,29 +28,71 @@ from ..fragment import CodeFragment
 from .nmux import _field_expr, _field_name
 
 
-def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
+def _classify_ipes(
+    children: list[AnyGraphNode],
+    ctx: CodeGenContext,
+) -> tuple[list[PrimitiveNode], list[PrimitiveNode], list[AnyGraphNode]]:
+    """Split IPES inner graph nodes into decompose, recompose, and regular.
+
+    Graph-native mirror of ``graph.operations._classify_ipes_ops``:
+    decompose = poser prim with list OUTPUT terminals only (unbundles field
+    values at the input boundary); recompose = poser prim with list INPUT
+    terminals only (rebundles at the output boundary); everything else is
+    regular body. ``poser_uid`` lives as a graph attribute, read via
+    ``ctx.poser_uid``.
+    """
+    decompose: list[PrimitiveNode] = []
+    recompose: list[PrimitiveNode] = []
+    regular: list[AnyGraphNode] = []
+
+    for op in children:
+        if not isinstance(op, PrimitiveNode) or not ctx.poser_uid(op):
+            regular.append(op)
+            continue
+        has_list_out = any(
+            t.nmux_role == "list" and t.direction == "output" for t in op.terminals
+        )
+        has_list_in = any(
+            t.nmux_role == "list" and t.direction == "input" for t in op.terminals
+        )
+        if has_list_out and not has_list_in:
+            decompose.append(op)
+        elif has_list_in and not has_list_out:
+            recompose.append(op)
+        else:
+            regular.append(op)
+
+    return decompose, recompose, regular
+
+
+def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for an In Place Element Structure."""
     all_stmts: list[ast.stmt] = []
     all_bindings: dict[str, str] = {}
     all_imports: set[str] = set()
 
+    tunnels = ctx.tunnels(node)
+    decompose_ops, recompose_ops, inner_nodes = _classify_ipes(
+        ctx.child_nodes(node), ctx
+    )
+
     # --- Input boundary ---
-    _bind_input_tunnels(node, ctx)
+    _bind_input_tunnels(node, tunnels, ctx)
 
     # Find the ONE data variable flowing through this IPES.
     # Same data in and out — no copies.
-    tunnel_outer_uids = {t.outer_terminal_uid for t in node.tunnels}
+    tunnel_outer_uids = {t.outer_terminal_uid for t in tunnels}
     data_var = _find_data_var(node, tunnel_outer_uids, ctx)
 
     # Decompose: bind field output terminals to data.field expressions.
-    _bind_decompose_fields(node.decompose_ops, data_var, ctx)
+    _bind_decompose_fields(decompose_ops, data_var, ctx)
 
     # Pre-bind recompose agg outputs to the data variable so BFS
     # from parent structures can find the (same) data through recompose.
-    _prebind_recompose_agg(node.recompose_ops, data_var, ctx)
+    _prebind_recompose_agg(recompose_ops, data_var, ctx)
 
     # --- Body (regular inner ops only) ---
-    body_stmts = ctx.generate_body(node.inner_nodes)
+    body_stmts = ctx.generate_body(inner_nodes)
     for stmt in body_stmts:
         ast.fix_missing_locations(stmt)
     all_stmts.extend(body_stmts)
@@ -58,15 +100,15 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
 
     # --- Output boundary ---
     # Recompose (special output boundary): emit data.field = modified_value.
-    all_stmts.extend(_emit_recompose_writebacks(node.recompose_ops, data_var, ctx))
+    all_stmts.extend(_emit_recompose_writebacks(recompose_ops, data_var, ctx))
 
     # Regular field-value tunnels: inner → outer (output direction only).
-    _bind_output_tunnels(node, ctx, all_bindings)
+    _bind_output_tunnels(node, tunnels, ctx, all_bindings)
 
     # Cluster output terminals (decomposeClusterDCO) have no graph edges —
     # LabVIEW's implicit connection. Bind them to the data variable so
     # parent structures can resolve the modified data via BFS.
-    _bind_data_outputs(node, data_var, all_bindings)
+    _bind_data_outputs(node, tunnels, data_var, all_bindings)
 
     return CodeFragment(
         statements=all_stmts,
@@ -80,10 +122,12 @@ def generate(node: InPlaceOperation, ctx: CodeGenContext) -> CodeFragment:
 # ---------------------------------------------------------------------------
 
 
-def _bind_input_tunnels(node: InPlaceOperation, ctx: CodeGenContext) -> None:
+def _bind_input_tunnels(
+    node: InPlaceNode, tunnels: list[Tunnel], ctx: CodeGenContext
+) -> None:
     """Propagate outer → inner for input-direction tunnels only."""
     outer_id_to_term = {t.id: t for t in node.terminals}
-    for tunnel in node.tunnels:
+    for tunnel in tunnels:
         outer_term = outer_id_to_term.get(tunnel.outer_terminal_uid)
         if not outer_term or outer_term.direction != "input":
             continue
@@ -93,7 +137,7 @@ def _bind_input_tunnels(node: InPlaceOperation, ctx: CodeGenContext) -> None:
 
 
 def _bind_decompose_fields(
-    decompose_ops: list[PrimitiveOperation],
+    decompose_ops: list[PrimitiveNode],
     data_var: str | None,
     ctx: CodeGenContext,
 ) -> None:
@@ -110,7 +154,7 @@ def _bind_decompose_fields(
 
 
 def _prebind_recompose_agg(
-    recompose_ops: list[PrimitiveOperation],
+    recompose_ops: list[PrimitiveNode],
     data_var: str | None,
     ctx: CodeGenContext,
 ) -> None:
@@ -133,7 +177,7 @@ def _prebind_recompose_agg(
 
 
 def _emit_recompose_writebacks(
-    recompose_ops: list[PrimitiveOperation],
+    recompose_ops: list[PrimitiveNode],
     data_var: str | None,
     ctx: CodeGenContext,
 ) -> list[ast.stmt]:
@@ -169,13 +213,14 @@ def _emit_recompose_writebacks(
 
 
 def _bind_output_tunnels(
-    node: InPlaceOperation,
+    node: InPlaceNode,
+    tunnels: list[Tunnel],
     ctx: CodeGenContext,
     bindings: dict[str, str],
 ) -> None:
     """Propagate inner → outer for output-direction tunnels only."""
     outer_id_to_term = {t.id: t for t in node.terminals}
-    for tunnel in node.tunnels:
+    for tunnel in tunnels:
         outer_term = outer_id_to_term.get(tunnel.outer_terminal_uid)
         if not outer_term or outer_term.direction != "output":
             continue
@@ -185,7 +230,8 @@ def _bind_output_tunnels(
 
 
 def _bind_data_outputs(
-    node: InPlaceOperation,
+    node: InPlaceNode,
+    tunnels: list[Tunnel],
     data_var: str | None,
     bindings: dict[str, str],
 ) -> None:
@@ -196,8 +242,8 @@ def _bind_data_outputs(
     """
     if data_var is None:
         return
-    tunnel_inner_uids = {t.inner_terminal_uid for t in node.tunnels}
-    tunnel_outer_uids = {t.outer_terminal_uid for t in node.tunnels}
+    tunnel_inner_uids = {t.inner_terminal_uid for t in tunnels}
+    tunnel_outer_uids = {t.outer_terminal_uid for t in tunnels}
     for t in node.terminals:
         if (
             t.direction == "output"
@@ -213,7 +259,7 @@ def _bind_data_outputs(
 
 
 def _find_data_var(
-    node: InPlaceOperation,
+    node: InPlaceNode,
     tunnel_outer_uids: set[str],
     ctx: CodeGenContext,
 ) -> str | None:
@@ -231,7 +277,7 @@ def _find_data_var(
     return None
 
 
-def _agg_terminal(op: PrimitiveOperation, direction: str) -> Terminal | None:
+def _agg_terminal(op: PrimitiveNode, direction: str) -> Terminal | None:
     """Find the aggregate terminal for the given direction."""
     for t in op.terminals:
         if t.nmux_role == "agg" and t.direction == direction:
@@ -239,7 +285,7 @@ def _agg_terminal(op: PrimitiveOperation, direction: str) -> Terminal | None:
     return None
 
 
-def _field_terminals(op: PrimitiveOperation, direction: str) -> list[Terminal]:
+def _field_terminals(op: PrimitiveNode, direction: str) -> list[Terminal]:
     """Get list-role field terminals for the given direction, sorted by index."""
     return sorted(
         [t for t in op.terminals if t.nmux_role == "list" and t.direction == direction],

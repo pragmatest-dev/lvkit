@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import Operation, PrimitiveOperation
+from lvkit.graph.models import AnyGraphNode, PrimitiveNode
 
 from .ast_utils import parse_expr
 from .context import CodeGenContext
@@ -43,7 +43,7 @@ NOT_PRIMITIVES: set[int] = {1064}  # Not
 def build_condition_expr(
     stop_terminal: str,
     ctx: CodeGenContext,
-    inner_ops: list[Operation],
+    inner_ops: list[AnyGraphNode],
 ) -> ast.expr | None:
     """Build AST expression for a while loop stop condition.
 
@@ -59,7 +59,7 @@ def build_condition_expr(
         AST expression node or None if can't build a compound expression
     """
     # Build lookup map: terminal_uid -> Operation that outputs to it
-    output_to_op: dict[str, Operation] = {}
+    output_to_op: dict[str, AnyGraphNode] = {}
     for op in inner_ops:
         for term in op.terminals:
             if term.direction == "output":
@@ -96,9 +96,9 @@ def _trace_source(terminal_uid: str, ctx: CodeGenContext) -> str | None:
 
 
 def _build_expr_from_op(
-    op: Operation,
+    op: AnyGraphNode,
     ctx: CodeGenContext,
-    output_to_op: dict[str, Operation],
+    output_to_op: dict[str, AnyGraphNode],
 ) -> ast.expr | None:
     """Build AST expression from an operation.
 
@@ -114,14 +114,10 @@ def _build_expr_from_op(
     """
     # Check for compound arithmetic (cpdArith) first - these have no primResID
     # but we can still build expressions from them
-    if (
-        isinstance(op, PrimitiveOperation)
-        and op.node_type == "cpdArith"
-        and op.operation
-    ):
+    if isinstance(op, PrimitiveNode) and op.node_type == "cpdArith" and op.operation:
         return _build_cpd_arith(op, ctx, output_to_op)
 
-    prim_id = op.primResID if isinstance(op, PrimitiveOperation) else None
+    prim_id = op.prim_id if isinstance(op, PrimitiveNode) else None
     if prim_id is None:
         return None
 
@@ -141,7 +137,7 @@ def _build_expr_from_op(
 
 
 def _build_comparison(
-    op: Operation,
+    op: AnyGraphNode,
     prim_id: int,
     ctx: CodeGenContext,
 ) -> ast.expr | None:
@@ -182,10 +178,10 @@ def _build_comparison(
 
 
 def _build_boolean_op(
-    op: Operation,
+    op: AnyGraphNode,
     prim_id: int,
     ctx: CodeGenContext,
-    output_to_op: dict[str, Operation],
+    output_to_op: dict[str, AnyGraphNode],
 ) -> ast.expr | None:
     """Build AST BoolOp node from boolean primitive.
 
@@ -231,9 +227,9 @@ def _build_boolean_op(
 
 
 def _build_not(
-    op: Operation,
+    op: AnyGraphNode,
     ctx: CodeGenContext,
-    output_to_op: dict[str, Operation],
+    output_to_op: dict[str, AnyGraphNode],
 ) -> ast.expr | None:
     """Build AST UnaryOp (Not) from NOT primitive.
 
@@ -267,9 +263,9 @@ def _build_not(
 
 
 def _build_cpd_arith(
-    op: PrimitiveOperation,
+    op: PrimitiveNode,
     ctx: CodeGenContext,
-    output_to_op: dict[str, Operation],
+    output_to_op: dict[str, AnyGraphNode],
 ) -> ast.expr | None:
     """Build AST expression from compound arithmetic node.
 

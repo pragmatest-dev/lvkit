@@ -45,7 +45,7 @@ _GOLDEN_VI = _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCas
 # graph (captured by actually running the renderer against the real corpus VI,
 # then hand-annotated below with every place it diverges from §16's literal
 # markdown text -- see the module docstring and the implementation report).
-_GOLDEN_LVNET = '''\
+_GOLDEN_LVNET = """\
 vi loadTestsFromTestCase.vi :
   uses :
     class TestCase.lvclass                       ; ./Classes/TestCase/TestCase.lvclass
@@ -101,7 +101,7 @@ vi loadTestsFromTestCase.vi :
     TestLoader out = case_139::out1
     TestSuite = case_139::out2
     error out = case_139::out0\
-'''
+"""
 # Divergences from §16's literal markdown text (each verified against the real
 # graph, not guessed) -- captured by ACTUALLY running the renderer against the
 # real corpus VI (`.tmp/render_golden.py`), never hand-edited to "look nicer":
@@ -317,9 +317,7 @@ def test_golden_verbose_boundary_shows_recommended_and_omits_unknown() -> None:
         pytest.skip("JKI-VI-Tester sample corpus not present")
     graph, vi_name = loaded
     module = build_netlist_from_graph(graph, vi_name)
-    text = render_lvnet(
-        module, display_name="loadTestsFromTestCase.vi", verbose=True
-    )
+    text = render_lvnet(module, display_name="loadTestsFromTestCase.vi", verbose=True)
     # Everything up to (not including) the "block-diagram :" section --
     # Phase 2 dropped the blank-line separators, so slice on the next
     # section header instead of the old "\n\n" boundary/body split.
@@ -500,7 +498,9 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
         for kw in _STILL_OPEN_KEYWORDS:
             if stripped.startswith(kw + " "):
                 counts[kw] += 1
-                assert " : " in stripped, f"{kw!r} header missing its component: {stripped!r}"
+                assert " : " in stripped, (
+                    f"{kw!r} header missing its component: {stripped!r}"
+                )
                 header_indent = len(line) - len(line.lstrip(" "))
                 block: list[str] = []
                 j = i + 1
@@ -513,7 +513,9 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
                         break
                     block.append(candidate.strip())
                     j += 1
-                assert block, f"{kw!r} header has no following terminal block: {stripped!r}"
+                assert block, (
+                    f"{kw!r} header has no following terminal block: {stripped!r}"
+                )
                 todo_lines = [ln for ln in block if ln.startswith("# TODO(lvnet):")]
                 assert len(todo_lines) == 1, (
                     f"{kw!r} block must carry exactly one TODO, got {todo_lines!r}"
@@ -574,7 +576,9 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     assert counts["feedback-node"] > 0, "expected at least one feedback-node"
 
     lines = text.splitlines()
-    idx = next(i for i, ln in enumerate(lines) if ln.strip().startswith("feedback-node "))
+    idx = next(
+        i for i, ln in enumerate(lines) if ln.strip().startswith("feedback-node ")
+    )
     assert lines[idx].strip() == "feedback-node fb0 (1 iteration) :"
     assert lines[idx + 1].strip() == "init = 0.0"
     assert lines[idx + 2].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
@@ -625,9 +629,9 @@ def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
     assert "case Params_1480::Params :" in stripped_lines
     # The Bundle/Unbundle By Name input likewise resolves through the
     # Continuous read node, never the bare "Continuous" boundary terminal.
-    assert any(
-        ln.endswith("Continuous_1109::Continuous") for ln in stripped_lines
-    ), "Bundle/Unbundle By Name input should resolve through the local-variable read"
+    assert any(ln.endswith("Continuous_1109::Continuous") for ln in stripped_lines), (
+        "Bundle/Unbundle By Name input should resolve through the local-variable read"
+    )
 
 
 @pytest.mark.needs_samples

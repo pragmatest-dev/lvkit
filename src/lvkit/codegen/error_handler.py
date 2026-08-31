@@ -48,14 +48,12 @@ import ast
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from lvkit.graph.models import VIContext
-from lvkit.models import (
-    CaseOperation,
-    Operation,
-    PrimitiveOperation,
-    SequenceOperation,
-    _is_error_cluster,
+from lvkit.graph.models import (
+    AnyGraphNode,
+    CaseStructureNode,
+    PrimitiveNode,
 )
+from lvkit.models import _is_error_cluster
 
 if TYPE_CHECKING:
     from lvkit.codegen.context import CodeGenContext
@@ -70,14 +68,14 @@ class ErrorHandlingPattern(Enum):
     CASE_HANDLE = auto()
 
 
-def classify_error_node(op: Operation) -> ErrorHandlingPattern:
-    """Classify an operation by its error handling role.
+def classify_error_node(op: AnyGraphNode) -> ErrorHandlingPattern:
+    """Classify a graph node by its error handling role.
 
-    Checks the operation itself — not its downstream connections.
+    Checks the node itself — not its downstream connections.
     This is a structural check based on node identity.
     """
     # Merge Errors primitive (prim 2147; not 2401, which is Swap Values -- #59)
-    if isinstance(op, PrimitiveOperation) and op.primResID == 2147:
+    if isinstance(op, PrimitiveNode) and op.prim_id == 2147:
         return ErrorHandlingPattern.MERGE
 
     # Clear Errors VI
@@ -85,7 +83,7 @@ def classify_error_node(op: Operation) -> ErrorHandlingPattern:
         return ErrorHandlingPattern.CLEAR
 
     # Error case structure: selector terminal carries error cluster type
-    if isinstance(op, CaseOperation) and op.selector_terminal:
+    if isinstance(op, CaseStructureNode) and op.selector_terminal:
         for term in op.terminals:
             if term.id == op.selector_terminal and term.lv_type:
                 if _is_error_cluster(term.lv_type):
@@ -95,31 +93,30 @@ def classify_error_node(op: Operation) -> ErrorHandlingPattern:
 
 
 def needs_error_handling(
-    operations: list[Operation],
-    vi_context: VIContext | None = None,
+    operations: list[AnyGraphNode],
+    ctx: CodeGenContext,
 ) -> bool:
     """Determine if a VI needs _held_error infrastructure.
 
-    Graph-driven: True only if Merge Errors (prim 2147) exists
-    in the VI's operations. Clear Errors and error case structures
-    don't need _held_error — they use different patterns.
+    Graph-driven: True only if Merge Errors (prim 2147) exists anywhere in
+    the VI's node tree. Clear Errors and error case structures don't need
+    _held_error — they use different patterns. Recurses into every structure
+    via ``ctx.child_nodes`` (which returns all inner operation-kind nodes
+    across every frame, and [] for a leaf), so one uniform walk covers loops,
+    case/sequence frames, IPES, etc.
     """
     for op in operations:
         if classify_error_node(op) == ErrorHandlingPattern.MERGE:
             return True
-        # Recurse into structures (case frames, sequence frames)
-        if isinstance(op, CaseOperation | SequenceOperation):
-            for frame in op.frames:
-                if needs_error_handling(frame.operations):
-                    return True
-        if needs_error_handling(op.inner_nodes):
+        children = ctx.child_nodes(op)
+        if children and needs_error_handling(children, ctx):
             return True
     return False
 
 
 def find_error_path_ops(
-    clear_op: Operation,
-    all_ops: list[Operation],
+    clear_op: AnyGraphNode,
+    all_ops: list[AnyGraphNode],
     ctx: CodeGenContext,
 ) -> set[str]:
     """Find all operation IDs upstream of a Clear Errors on the error wire.
@@ -133,7 +130,7 @@ def find_error_path_ops(
     """
     # Build output terminal → operation ID mapping
     output_to_op: dict[str, str] = {}
-    op_by_id: dict[str, Operation] = {}
+    op_by_id: dict[str, AnyGraphNode] = {}
     for op in all_ops:
         op_by_id[op.id] = op
         for term in op.terminals:

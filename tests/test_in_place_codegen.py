@@ -14,17 +14,52 @@ from __future__ import annotations
 import ast
 
 from lvkit.codegen.nodes import in_place
+from lvkit.graph.models import InPlaceNode, PrimitiveNode
 from lvkit.graph.operations import _classify_ipes_ops
 from lvkit.models import (
     ClusterField,
-    InPlaceOperation,
     LVType,
     LVTypeKind,
     PrimitiveOperation,
     Terminal,
     Tunnel,
 )
-from tests.helpers import make_ctx
+from tests.helpers import make_ctx, register_nodes, tunnel_terminals
+
+
+def _mk_ipes(
+    ctx,
+    *,
+    id="ipes",
+    name="IPES",
+    kind=None,
+    terminals=(),
+    tunnels=(),
+    decompose_ops=(),
+    recompose_ops=(),
+    inner_nodes=(),
+):
+    """Build an InPlaceNode + register its decompose/recompose/regular children
+    (parent-linked, with a ``poser_uid`` graph attribute on the decompose and
+    recompose ops) so ``in_place.generate`` re-derives the same split via
+    ``ctx.child_nodes`` / ``ctx.poser_uid`` that the old ``InPlaceOperation``
+    fields carried directly."""
+    node = InPlaceNode(
+        id=id,
+        vi_path="test.vi",
+        name=name,
+        node_type="decomposeRecomposeStructure",
+        terminals=[*tunnel_terminals(tunnels), *terminals],
+    )
+    posers = [*decompose_ops, *recompose_ops]
+    children = [*posers, *inner_nodes]
+    for c in children:
+        c.parent = id
+    register_nodes(ctx.graph, [node, *children])
+    for c in posers:
+        ctx.graph._graph.nodes[c.id]["poser_uid"] = c.id
+    return node
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -43,7 +78,7 @@ def _dec_op(
     agg_id: str,
     *field_out_ids: str,
     lv_type: LVType | None = None,
-) -> PrimitiveOperation:
+) -> PrimitiveNode:
     """Build a decompose op: agg input + list outputs (input boundary)."""
     terminals = [
         Terminal(
@@ -64,11 +99,10 @@ def _dec_op(
                 nmux_field_index=i,
             )
         )
-    return PrimitiveOperation(
+    return PrimitiveNode(
         id=f"dec_{poser_uid}",
+        vi_path="test.vi",
         name="Decompose",
-        kind="primitive",
-        poser_uid=poser_uid,
         terminals=terminals,
     )
 
@@ -78,7 +112,7 @@ def _rec_op(
     agg_out_id: str,
     *field_in_ids: str,
     lv_type: LVType | None = None,
-) -> PrimitiveOperation:
+) -> PrimitiveNode:
     """Build a recompose op: list inputs + agg output (output boundary)."""
     terminals: list[Terminal] = []
     for i, fid in enumerate(field_in_ids):
@@ -100,12 +134,36 @@ def _rec_op(
             lv_type=lv_type,
         )
     )
-    return PrimitiveOperation(
+    return PrimitiveNode(
         id=f"rec_{poser_uid}",
+        vi_path="test.vi",
         name="Recompose",
+        terminals=terminals,
+    )
+
+
+def _dec_pop(poser_uid, agg_id, *field_out_ids, lv_type=None):
+    """Operation-flavoured decompose op for the graph-side classify tests
+    (which still exercise ``_classify_ipes_ops`` over ``PrimitiveOperation``)."""
+    n = _dec_op(poser_uid, agg_id, *field_out_ids, lv_type=lv_type)
+    return PrimitiveOperation(
+        id=n.id,
+        name=n.name,
         kind="primitive",
         poser_uid=poser_uid,
-        terminals=terminals,
+        terminals=n.terminals,
+    )
+
+
+def _rec_pop(poser_uid, agg_out_id, *field_in_ids, lv_type=None):
+    """Operation-flavoured recompose op for the graph-side classify tests."""
+    n = _rec_op(poser_uid, agg_out_id, *field_in_ids, lv_type=lv_type)
+    return PrimitiveOperation(
+        id=n.id,
+        name=n.name,
+        kind="primitive",
+        poser_uid=poser_uid,
+        terminals=n.terminals,
     )
 
 
@@ -121,7 +179,8 @@ class TestIPESInputTunnels:
         ctx = make_ctx("outer_in", "inner_in")
         ctx.bind("outer_in", "my_var")
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -147,7 +206,8 @@ class TestIPESInputTunnels:
         ctx = make_ctx("outer_in", "inner_in")
         ctx.bind("outer_in", "my_var")
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -168,7 +228,8 @@ class TestIPESInputTunnels:
         """If outer is not bound, inner stays unbound — no phantom bindings."""
         ctx = make_ctx("outer_in", "inner_in")
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -198,7 +259,8 @@ class TestIPESOutputTunnels:
         ctx = make_ctx("outer_out", "inner_out")
         ctx.bind("inner_out", "computed_val")
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -219,7 +281,8 @@ class TestIPESOutputTunnels:
         """If inner terminal has no value, outer is not added to bindings."""
         ctx = make_ctx("outer_out", "inner_out")
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -242,7 +305,8 @@ class TestIPESOutputTunnels:
         ctx.bind("in_outer", "pass_val")
         ctx.bind("out_inner", "result_val")
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -284,7 +348,8 @@ class TestIPESDecomposeFieldBinding:
         ctx.bind("cluster_in", "my_cluster")
 
         dec = _dec_op("p1", "dec_agg", "dec_field_x", lv_type=lv_type)
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -302,7 +367,8 @@ class TestIPESDecomposeFieldBinding:
         ctx.bind("cluster_in", "obj")
 
         dec = _dec_op("p1", "dec_agg", "f0", "f1", "f2", lv_type=lv_type)
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -323,7 +389,8 @@ class TestIPESDecomposeFieldBinding:
         # cluster_in deliberately not bound
 
         dec = _dec_op("p1", "dec_agg", "dec_field_x", lv_type=lv_type)
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -353,7 +420,8 @@ class TestIPESRecomposeWriteBack:
         dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=lv_type)
         rec = _rec_op("p1", "rec_agg_out", "rec_f", lv_type=lv_type)
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -378,7 +446,8 @@ class TestIPESRecomposeWriteBack:
         dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=lv_type)
         rec = _rec_op("p1", "rec_agg_out", "rec_f", lv_type=lv_type)
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -399,7 +468,8 @@ class TestIPESRecomposeWriteBack:
 
         rec = _rec_op("p1", "rec_agg_out", "rec_f", lv_type=lv_type)
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -429,7 +499,8 @@ class TestIPESRecomposeWriteBack:
         dec = _dec_op("p1", "dec_agg", "dec_a", "dec_b", lv_type=lv_type)
         rec = _rec_op("p1", "rec_agg_out", "rec_a", "rec_b", lv_type=lv_type)
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -463,7 +534,8 @@ class TestIPESFallbackData:
 
         dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=lv_type)
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -494,7 +566,8 @@ class TestIPESFallbackData:
 
         dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=lv_type)
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -521,7 +594,8 @@ class TestIPESFallbackData:
         """Without any decompose op, data_var is None — nothing bound."""
         ctx = make_ctx("cluster_out")
 
-        node = InPlaceOperation(
+        node = _mk_ipes(
+            ctx,
             id="ipes",
             name="IPES",
             kind="inPlaceStruct",
@@ -542,14 +616,14 @@ class TestClassifyIpesOps:
     """_classify_ipes_ops in operations.py separates decompose/recompose/regular."""
 
     def test_classify_decompose_has_list_out(self):
-        dec = _dec_op("p1", "agg_in", "f_out")
+        dec = _dec_pop("p1", "agg_in", "f_out")
         decompose, recompose, regular = _classify_ipes_ops([dec])
         assert len(decompose) == 1
         assert not recompose
         assert not regular
 
     def test_classify_recompose_has_list_in(self):
-        rec = _rec_op("p1", "agg_out", "f_in")
+        rec = _rec_pop("p1", "agg_out", "f_in")
         decompose, recompose, regular = _classify_ipes_ops([rec])
         assert not decompose
         assert len(recompose) == 1
@@ -586,8 +660,8 @@ class TestClassifyIpesOps:
         assert len(regular) == 1
 
     def test_classify_mixed_set(self):
-        dec = _dec_op("p1", "agg_in", "f_out")
-        rec = _rec_op("p1", "agg_out", "f_in")
+        dec = _dec_pop("p1", "agg_in", "f_out")
+        rec = _rec_pop("p1", "agg_out", "f_in")
         regular_op = PrimitiveOperation(
             id="op1",
             name="Add",

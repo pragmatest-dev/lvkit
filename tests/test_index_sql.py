@@ -341,9 +341,7 @@ def test_nodes_round_trip(tmp_path: Path):
     assert ordered.rows == [["loop0"], ["ev0"], ["enq"], ["sub"]]
 
     # (2) prim_id is the robust primitive filter.
-    prim = sql.run_query(
-        tmp_path, "SELECT kind, name FROM node WHERE prim_id = 1234"
-    )
+    prim = sql.run_query(tmp_path, "SELECT kind, name FROM node WHERE prim_id = 1234")
     assert prim.rows == [["primitive", "Enqueue Element"]]
 
     # (3) a SubVI producer via kind='vi' + qualified_name/callee_path.

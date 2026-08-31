@@ -19,13 +19,13 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import EventOperation
+from lvkit.graph.models import EventStructureNode
 
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 
-def generate(node: EventOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: EventStructureNode, ctx: CodeGenContext) -> CodeFragment:
     """Emit an explicit ``raise NotImplementedError`` for an Event Structure.
 
     Headless Python has no UI to raise the events, so the structure has no

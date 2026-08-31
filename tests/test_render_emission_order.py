@@ -37,6 +37,7 @@ def _load(vi: Path) -> tuple[InMemoryVIGraph, str]:
 
 # ---- Pin 1: clipPath ids number by draw-call ARRIVAL order -------------------
 
+
 def test_pin_clip_ids_number_by_arrival_order():
     """``SvgBackend`` assigns each distinct clip rect an id ``…-cN`` where N is
     'how many distinct clips have been opened so far' (backend.py: ``setdefault(
@@ -66,6 +67,7 @@ def test_pin_clip_ids_number_by_arrival_order():
 
 
 # ---- Pin 2: interactive-structure menu overlays emit LAST, in BUILD order ----
+
 
 def test_pin_menus_emit_after_content_in_build_order():
     """Dropdown menus are an overlay pass drawn AFTER the whole composite, and in
@@ -99,6 +101,7 @@ def test_pin_menus_emit_after_content_in_build_order():
 
 
 # ---- Pin 3: sibling paint order is a stable reverse sort by z-rank -----------
+
 
 def test_pin_sibling_order_stable_reverse_by_rank():
     """A container's children draw back-to-front = descending z-rank (zPlaneList

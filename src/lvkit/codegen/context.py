@@ -12,14 +12,25 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.core import _OPERATION_KINDS, _graph_node_to_op_kind
 from lvkit.graph.models import (
+    AnyGraphNode,
     Constant,
     DestinationInfo,
     PrimitiveNode,
     SourceInfo,
     VIContext,
 )
-from lvkit.models import Operation, Terminal, TunnelTerminal
+from lvkit.graph.operations import OperationsMixin
+from lvkit.models import (
+    CaseFrame,
+    EventFrame,
+    Frame,
+    SequenceFrame,
+    Terminal,
+    Tunnel,
+    TunnelTerminal,
+)
 from lvkit.vilib_resolver import derive_python_name
 
 from .ast_utils import to_function_name, to_var_name
@@ -97,10 +108,10 @@ class CodeGenContext:
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
     _body_generator: (
-        Callable[[list[Operation], CodeGenContext], list[ast.stmt]] | None
+        Callable[[list[AnyGraphNode], CodeGenContext], list[ast.stmt]] | None
     ) = field(default=None, repr=False)
 
-    def generate_body(self, operations: list[Operation]) -> list[ast.stmt]:
+    def generate_body(self, operations: list[AnyGraphNode]) -> list[ast.stmt]:
         """Generate code for a list of operations.
 
         Delegates to the registered body generator (set by builder.py).
@@ -315,6 +326,97 @@ class CodeGenContext:
         """Set var_name on terminals from handler output."""
         for tid, vname in bindings.items():
             self.bind(tid, vname)
+
+    # ------------------------------------------------------------------ #
+    # Graph-native structural accessors — the tree-walk convenience the
+    # emitters used to read off the projected ``Operation`` (``inner_nodes``,
+    # enriched ``terminals``, ``tunnels``, populated ``frames``), single-sourced
+    # from the graph so codegen consumes ``GraphNode``s directly. See the
+    # Operation-removal work.
+    # ------------------------------------------------------------------ #
+    def child_nodes(self, node: AnyGraphNode) -> list[AnyGraphNode]:
+        """Operation-kind graph nodes directly contained in ``node`` (a
+        structure), in the same deterministic order the old
+        ``Operation.inner_nodes`` used. Empty for a leaf node or when there is
+        no graph."""
+        if self.graph is None:
+            return []
+        return self.graph.child_nodes(node.id, self.vi_name or "")
+
+    def enriched_terminals(self, node: AnyGraphNode) -> list[Terminal]:
+        """``node``'s terminals with SubVI-call terminals enriched with the
+        callee's parameter names — the same enrichment the old
+        ``Operation.terminals`` carried."""
+        if self.graph is None:
+            return list(node.terminals)
+        return self.graph.enriched_terminals(node, self.vi_name or "")
+
+    @staticmethod
+    def tunnels(node: AnyGraphNode) -> list[Tunnel]:
+        """Reconstruct ``Tunnel`` objects from a structure node's terminal
+        metadata — the same set the old ``Operation.tunnels`` carried. Pure
+        function of the node's ``TunnelTerminal``s (no graph needed)."""
+        return OperationsMixin._tunnels_from_terminals(list(node.terminals))
+
+    def frame_children(
+        self, node: AnyGraphNode
+    ) -> list[tuple[Frame, list[AnyGraphNode]]]:
+        """Pair each of a frame-bearing structure's frames with the
+        operation-kind graph nodes contained in it, in deterministic order.
+
+        Replaces the old ``Operation.frames`` whose ``.operations`` were
+        populated ``Operation``s: here each frame's metadata is the node's own
+        ``CaseFrame``/``SequenceFrame``/``EventFrame`` and the children are
+        ``GraphNode``s. Mirrors ``graph._populate_frame_operations`` +
+        ``_build_inner_nodes`` exactly (same per-frame ``_sort_inner_uids`` and
+        ``_OPERATION_KINDS`` filter) so the emitted order is byte-identical.
+        """
+        frames: list[Frame] = list(getattr(node, "frames", []) or [])
+        g = self.graph
+        if g is None:
+            return [(f, []) for f in frames]
+        child_uids = g._get_children_of(node.id, self.vi_name or "")
+        by_frame = g._group_children_by_frame(child_uids)
+        out: list[tuple[Frame, list[AnyGraphNode]]] = []
+        for pos, frame in enumerate(frames):
+            if isinstance(frame, CaseFrame):
+                key: str | int | None = frame.selector_value
+            elif isinstance(frame, SequenceFrame):
+                key = str(frame.index)
+            elif isinstance(frame, EventFrame):
+                key = str(pos)
+            else:
+                out.append((frame, []))
+                continue
+            uids = by_frame.get(key, [])
+            gnodes: list[AnyGraphNode] = []
+            for uid in g._sort_inner_uids(uids, self.vi_name or ""):
+                if uid not in g._graph:
+                    continue
+                gnode = g._graph.nodes[uid].get("node")
+                if (
+                    gnode is not None
+                    and _graph_node_to_op_kind(gnode) in _OPERATION_KINDS
+                ):
+                    gnodes.append(gnode)
+            out.append((frame, gnodes))
+        return out
+
+    def feedback_is_master(self, node: AnyGraphNode) -> bool | None:
+        """``feedback_is_master`` graph attribute for a Feedback Node, else
+        None (not a feedback node / no graph). Lifted off the graph the same
+        way ``_build_operation`` did."""
+        if self.graph is None:
+            return None
+        return self.graph._graph.nodes.get(node.id, {}).get("feedback_is_master")
+
+    def poser_uid(self, node: AnyGraphNode) -> str | None:
+        """The IPES decompose/recompose pair UID (``poser_uid`` graph
+        attribute), else None. Lifted off the graph the same way
+        ``_build_operation`` did for ``PrimitiveOperation.poser_uid``."""
+        if self.graph is None:
+            return None
+        return self.graph._graph.nodes.get(node.id, {}).get("poser_uid")
 
     def child(self, increment_loop_depth: bool = False) -> CodeGenContext:
         """Create a child context. var_name lives on the graph — no scoping."""

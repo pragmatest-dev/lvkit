@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from lvkit.models import Operation
+from lvkit.graph.models import ConstantNode
 
 from ..ast_utils import to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 
-def generate(node: Operation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: ConstantNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a constant node.
 
     Usually constants are already bound in context, so this may produce

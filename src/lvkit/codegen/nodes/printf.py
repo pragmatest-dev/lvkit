@@ -5,14 +5,14 @@ from __future__ import annotations
 import ast
 import re
 
-from lvkit.models import PrimitiveOperation
+from lvkit.graph.models import PrimitiveNode
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 
-def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a printf (Format String) node."""
     inputs = sorted(
         [t for t in node.terminals if t.direction == "input"],

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import LoopOperation, LVType, LVTypeKind, Operation, Tunnel
+from lvkit.graph.models import AnyGraphNode, LoopNode
+from lvkit.models import LVType, LVTypeKind, Tunnel
 
 from ..ast_utils import (
     build_assign,
@@ -17,11 +18,11 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 
-def generate(node: LoopOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a loop structure."""
     loop_type = node.loop_type or "whileLoop"
-    tunnels = node.tunnels
-    inner_nodes = node.inner_nodes
+    tunnels = ctx.tunnels(node)
+    inner_nodes = ctx.child_nodes(node)
 
     pre_loop_stmts: list[ast.stmt] = []
     bindings: dict[str, str] = {}
@@ -607,14 +608,14 @@ def _get_terminal_type(
 
 
 def _generate_inner(
-    inner_nodes: list[Operation], ctx: CodeGenContext
+    inner_nodes: list[AnyGraphNode], ctx: CodeGenContext
 ) -> list[ast.stmt]:
     """Generate code for inner loop nodes."""
     return ctx.generate_body(inner_nodes)
 
 
 def _build_while_loop(
-    node: LoopOperation, body: list[ast.stmt], ctx: CodeGenContext
+    node: LoopNode, body: list[ast.stmt], ctx: CodeGenContext
 ) -> tuple[ast.While, str | None]:
     """Build a while loop AST node.
 
@@ -674,7 +675,7 @@ def _build_while_loop(
 
 
 def _build_for_loop(
-    node: LoopOperation,
+    node: LoopNode,
     body: list[ast.stmt],
     ctx: CodeGenContext,
     tunnels: list[Tunnel],
