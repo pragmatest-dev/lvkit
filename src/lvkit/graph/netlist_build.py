@@ -58,11 +58,9 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
-from ..parser import parse_vi
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _uid_of
 from .interface_order import ordered_interface, requirement_state
-from .loading import build_dep_ref_map, collect_direct_dep_qnames
 from .lvnet_grammar import (
     _LVNET_TYPEDEF_NAV_PREFIX,
 )
@@ -3353,79 +3351,102 @@ def _dependency_kind_for(
 def _build_dependency_manifest(
     graph: InMemoryVIGraph, vi_name: str
 ) -> list[NetlistDependency]:
-    """The lvnet §7 ``uses :`` manifest: every external file this VI
-    directly depends on (subVI calls, referenced classes, referenced
-    typedefs) -- built with the SAME primitives the loader itself walks a
-    VI's dependencies with (``collect_direct_dep_qnames``/
-    ``build_dep_ref_map``, ``graph/loading.py``) and the SAME path-resolution
-    ``lvkit.list_deps`` reuses (``InMemoryVIGraph._resolve_dependency_path``
-    plus its ``.lvclass`` walk-up fallback) -- never a separate,
-    reimplemented mechanism.
-
-    Needs the VI's own on-disk ``.vi`` file (``graph.get_vi_source_path``) to
-    re-derive its ``subvi_qualified_names``/``type_map``/``dependency_refs``:
-    the already-loaded graph does not retain these PER VI once loading
-    finishes (they are a transient, load-time-only projection consumed
-    inside ``_load_vi_recursive`` and then discarded). Returns ``[]`` when
-    the source file can't be found or re-parsed (e.g. a graph built straight
-    from BD-heap XML with no ``.vi`` sibling) -- never a guess.
+    """The lvnet §7 ``uses :`` manifest: every external file this VI directly
+    depends on (subVI calls, referenced classes, referenced typedefs) -- read
+    ENTIRELY from the resolved dependency graph, never a re-parse. Direct deps
+    come from ``graph.get_vi_dependencies`` (the path-keyed ``_dep_graph``
+    successors the loader already resolved, #26); each dep's on-disk path from
+    ``graph._dependency_file_path`` (loaded / absent-stub / pseudo-root cases
+    all handled); its display qname from the dep node's own ``qname`` or, for a
+    minimal-load bare stub, from the caller's own subVI node
+    (``iter_nodes`` -> ``owning_libraries``/``name`` -- the SAME identity the
+    block-diagram prints); its interface from the graph. Empty only when the VI
+    has no dependencies -- never a guess, never a filesystem re-resolution.
     """
-    source_path = graph.get_vi_source_path(vi_name)
-    if source_path is None or not source_path.exists():
+    vi_name = graph.resolve_vi_name(vi_name)
+    dep_keys = graph.get_vi_dependencies(vi_name)
+    if not dep_keys:
         return []
 
-    try:
-        vi = parse_vi(source_path)
-    except (RuntimeError, OSError, ValueError):
-        return []
+    # Caller-scoped subVI identities straight off the graph's own nodes -- the
+    # SAME qualified-name + owning-library chain the block-diagram prints. Keyed
+    # by the on-disk subpath they imply (``Lib1/Class/Do.vi``), so each resolved
+    # dependency path can be given its display qname even when a minimal-load
+    # dep node is a bare path-keyed stub with no qname attribute of its own.
+    def _subpath(ol: list[str], name: str) -> str:
+        return "/".join([*(Path(p).stem for p in ol), name])
 
-    metadata = vi.metadata
-    own_qname = metadata.qualified_name or source_path.name
-    all_dep_qnames = collect_direct_dep_qnames(
-        metadata.subvi_qualified_names, metadata.type_map, own_qname
-    )
-    if not all_dep_qnames:
-        return []
+    subvi_qname_by_subpath: dict[str, str] = {}
+    for n in graph.iter_nodes(vi_name):
+        if getattr(n, "node_type", None) != "iUse":
+            continue
+        ol = list(getattr(n, "owning_libraries", None) or [])
+        name = getattr(n, "name", None) or ""
+        if not name:
+            continue
+        # Full qualified name from the owning chain (the bare ``qualified_name``
+        # field is only partially qualified for some intra-project callees).
+        qname = ":".join([*ol, name]) if ol else (
+            getattr(n, "qualified_name", None) or name
+        )
+        subvi_qname_by_subpath[_subpath(ol, name)] = qname
 
-    dep_ref_map = build_dep_ref_map(metadata.dependency_refs)
-    search_paths = graph._search_paths or [source_path.parent]
-    rel_base = search_paths[0]
+    own = graph.get_vi_source_path(vi_name)
+    search = graph._search_paths or ([own.parent] if own is not None else [])
+    rel_base = search[0] if search else Path.cwd()
 
-    # Which of the VI's own dependency tables each qname came from -- the
-    # data-driven kind used when the qname carries no file extension (see
-    # ``_dependency_kind_for``). SubVI calls win over a type reference for a
-    # qname that is somehow in both (a called subVI is the stronger signal).
-    subvi_qnames = {q for q in metadata.subvi_qualified_names if q}
-    class_qnames = {
-        t.classname
-        for t in metadata.type_map.values()
-        if t.classname and t.classname != "LabVIEW Object"
-    }
-    typedef_qnames = {
-        t.typedef_name for t in metadata.type_map.values() if t.typedef_name
-    }
-
-    def _source_hint(qname: str) -> DependencyKind | None:
-        if qname in subvi_qnames:
-            return DependencyKind.SUBVI
-        if qname in class_qnames:
-            return DependencyKind.CLASS
-        if qname in typedef_qnames:
-            return DependencyKind.TYPEDEF
-        return None
+    # A class/library member .vi lives in the SAME directory as its owning
+    # .lvclass/.lvlib -- so a member whose own node came out unqualified is
+    # qualified by the class dependency sitting beside it (both are already in
+    # this manifest's dep set). Graph-native: no path re-resolution.
+    class_qname_by_dir: dict[str, str] = {}
+    for key in dep_keys:
+        n = graph._dep_graph.nodes.get(key, {})
+        if n.get("node_type") in ("library", "class"):
+            p = graph._dependency_file_path(key)
+            if p is not None and n.get("qname"):
+                class_qname_by_dir[str(p.parent)] = n["qname"]
 
     manifest: list[NetlistDependency] = []
-    for qname in sorted(all_dep_qnames):
-        leaf = qname.rsplit(":", 1)[-1]
-        resolved = graph._resolve_dependency_path(
-            qname, dep_ref_map.get(qname), source_path, search_paths
-        )
-        if resolved is None and leaf.endswith(".lvclass"):
-            # Mirrors lvkit.list_deps._resolve_one's caller-side walk-up
-            # fallback: a class referenced only by TYPE, whose .lvclass sits
-            # one directory up rather than on a search path.
-            resolved = graph._walk_up_find(source_path.parent, leaf)
-        kind = _dependency_kind_for(qname, _source_hint(qname))
+    seen: set[str] = set()
+    for key in dep_keys:
+        node = graph._dep_graph.nodes.get(key, {})
+        resolved = graph._dependency_file_path(key)
+        # qname: the dep node's own (typedefs/classes/loaded VIs carry it);
+        # else the caller's subVI node matched by on-disk subpath; else the leaf.
+        qname = node.get("qname")
+        if not qname:
+            kpath = str(resolved or key)
+            qname = next(
+                (q for sp, q in subvi_qname_by_subpath.items() if kpath.endswith(sp)),
+                None,
+            ) or (resolved.name if resolved else Path(key).name)
+        # A bare subVI-member name is qualified by the class beside it on disk
+        # (only .vi members -- never the .lvclass/.lvlib node itself, nor a
+        # typedef, which stay on their own bare name).
+        if (
+            ":" not in qname
+            and resolved is not None
+            and resolved.suffix.lower() == ".vi"
+        ):
+            owner = class_qname_by_dir.get(str(resolved.parent))
+            if owner:
+                qname = f"{owner}:{resolved.name}"
+        if qname in seen:
+            continue
+        seen.add(qname)
+
+        nt = node.get("node_type")
+        hint: DependencyKind | None = None
+        if nt == "typedef":
+            hint = DependencyKind.TYPEDEF
+        elif nt in ("library", "class"):
+            hint = DependencyKind.CLASS
+        elif qname in subvi_qname_by_subpath.values() or (
+            resolved is not None and resolved.suffix.lower() == ".vi"
+        ):
+            hint = DependencyKind.SUBVI
+        kind = _dependency_kind_for(qname, hint)
         manifest.append(
             NetlistDependency(
                 kind=kind,
@@ -3434,7 +3455,7 @@ def _build_dependency_manifest(
                 interface=_dependency_interface(graph, kind, qname),
             )
         )
-    return manifest
+    return sorted(manifest, key=lambda d: d.qualified)
 
 
 def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
