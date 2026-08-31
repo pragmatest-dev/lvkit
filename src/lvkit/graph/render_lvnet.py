@@ -1,16 +1,15 @@
 """The lvnet text-surface RENDERER -- graph/NetlistModule IR -> lvnet text.
 
-Split out of ``netlist.py`` (which still holds the IR build and the OLD
-``render_netlist``/``netlist_to_dict`` projections). This module owns ONLY
-``render_lvnet`` and everything it exclusively depends on: see
+Split out of ``netlist.py`` (the facade that still re-exports the IR build
+and ``netlist_to_dict``). This module owns ONLY ``render_lvnet`` and
+everything it exclusively depends on: see
 ``docs/_internal/design/netlist-language.md`` §2-§10 for the CLOSED grammar
 every character here traces to (an OPEN construct, §17, emits its header
 keyword plus a literal ``# TODO(lvnet): ...`` and no invented inner syntax).
 
-``_quoted_frame_label`` is also here even though ``render_netlist`` (which
-stays in ``netlist.py``) calls it too -- ``netlist.py`` imports it back from
-here rather than this module reaching into ``netlist.py`` (this direction
-only, no cycle).
+``_quoted_frame_label`` is used internally by this module's frame-label
+rendering, and imported by ``lvnet_parse.py`` so parsing lvnet text back
+applies the identical quoting convention.
 """
 
 from __future__ import annotations
@@ -81,11 +80,6 @@ from .netlist_models import (
 )
 from .op_walk import _format_error_cluster
 
-# ============================================================
-# Shared with the OLD ``render_netlist`` (netlist.py) -- moved here anyway
-# per module ownership; netlist.py imports it back.
-# ============================================================
-
 
 def _quoted_frame_label(label: str) -> str:
     """Wrap a case/disabled frame label in ONE pair of quotes for netlist
@@ -107,11 +101,10 @@ def _quoted_frame_label(label: str) -> str:
 # ============================================================
 # render_lvnet -- the lvnet surface (docs/_internal/design/netlist-language.md)
 #
-# NEW renderer, sibling of ``render_netlist`` -- see the module's Phase A
-# docstring notes throughout this file. Emits ONLY the §2-§10 CLOSED
-# grammar; every character traces to a rule in that spec. An OPEN construct
-# (§17) gets its header keyword plus a literal ``# TODO(lvnet): ...`` and
-# NO invented inner syntax -- see ``_OPEN_INSTANCE_KINDS``.
+# Emits ONLY the §2-§10 CLOSED grammar; every character traces to a rule in
+# that spec. An OPEN construct (§17) gets its header keyword plus a literal
+# ``# TODO(lvnet): ...`` and NO invented inner syntax -- see
+# ``_OPEN_INSTANCE_TRAILING_TODO``.
 # ============================================================
 
 
@@ -205,9 +198,9 @@ def _lvnet_default_token(dv: DefaultValue) -> str:
     default (``_default_literal`` returned something other than the honest
     ``"?"``) shows just that literal (``""``, ``0``, ``False``, ...) -- the
     ``: <Type>`` on the SAME line already names the type, so repeating it
-    here (the OLD inline-annotation form's ``"0 (I32 default)"``, still used
-    by ``_render_merge_source`` for a gamma/mu/eta merge) would be
-    redundant. A type with NO literal default (a class/refnum reference --
+    here (the OLD inline-annotation form's ``"0 (I32 default)"`` shape --
+    see ``DefaultValue.render``) would be redundant. A type with NO literal
+    default (a class/refnum reference --
     ``_default_literal`` fell through to ``"?"``) instead shows
     ``(default <Type>)`` -- the golden's ``(default TestSuite.lvclass)`` --
     naming what LabVIEW substitutes, since there is no bare literal to show.
@@ -250,11 +243,10 @@ def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
     ``_lv_type_comparison_shape``'s so the round-trip compares equal).
 
     Falls back to the already-flattened ``type_str`` untouched when
-    ``lv_type`` isn't available -- the Operation-based (non-``_gn``)
-    builder's terminals never carry one (``render_lvnet`` only ever
-    consumes ``build_netlist_from_graph``'s output, so this is a defensive
-    fallback, never an expected path) -- and NEVER guesses a name from the
-    string alone (the no-string-matching law).
+    ``lv_type`` isn't available (``render_lvnet`` only ever consumes
+    ``build_netlist_from_graph``'s output, which always sets it, so this is
+    a defensive fallback, never an expected path) -- and NEVER guesses a
+    name from the string alone (the no-string-matching law).
     """
     if lv_type is None:
         return type_str
@@ -425,8 +417,7 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
         and lv_type.element_type is not None
     ):
         return (
-            f"{lv_type.ref_type} refnum{{"
-            f"{_lvnet_type_inline(lv_type.element_type)}}}"
+            f"{lv_type.ref_type} refnum{{{_lvnet_type_inline(lv_type.element_type)}}}"
         )
     if _lvnet_named_stem(lv_type) is not None:
         return lv_type.type_descriptor(expand_named=False)
@@ -699,8 +690,7 @@ def _lv_type_comparison_shape(
         # (``"Error"``), an empty/unresolved composite, a class -- stays an
         # opaque leaf, exactly as ``_lvnet_type_inline`` leaves it.
         expands = (
-            lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
-            and bool(lv_type.values)
+            lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING) and bool(lv_type.values)
         ) or (
             lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF)
             and bool(lv_type.fields)
@@ -837,8 +827,8 @@ def _lvnet_net_separator(bare: str) -> str:
     string this same module deterministically constructs in exactly this
     shape (``_tunnel_net_name_gn``/``_mu_net_name_gn``/``_frame_net_name_gn``);
     the model's own
-    stored string is never mutated, so ``render_netlist``/``netlist_to_dict``
-    (which must keep ``.``) are untouched. A boundary control's bare name or
+    stored string is never mutated, so ``netlist_to_dict`` (which must keep
+    ``.``) is untouched. A boundary control's bare name or
     an ``fbK`` feedback net (neither ever contains this shape) pass through
     unchanged.
     """
@@ -864,8 +854,8 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
       ``source.node`` is ``None`` for every constant reference).
     - A node-terminal reference (``source.node is not None``) ALWAYS renders
       fully qualified as ``<handle>::<terminal>`` (never a bare, unqualified
-      form -- unlike ``render_netlist``'s ambiguity-gated qualification;
-      lvnet §9 names every node-terminal net this one way). Phase 3:
+      form, regardless of ambiguity -- lvnet §9 names every node-terminal
+      net this one way). Phase 3:
       ``source.producer_uid`` resolves straight to the producer's handle via
       ``handles.by_uid`` -- the SAME mechanism a labeled constant uses via
       ``constant_uid`` -- rather than re-deriving it from ``(node,
@@ -915,8 +905,8 @@ def _is_void_type(type_descriptor: str) -> bool:
     """The stored-``type``-string counterpart of ``_is_real_terminal`` --
     used by ``render_lvnet`` (the one consumer that must drop a dead pane
     slot) directly off ``NetlistTerminalBinding.type``/``NetlistOutput.type``,
-    since Phase A's STORED model keeps every terminal Void-included (to
-    match the Operation-based builder 1:1 -- see ``_build_instance_gn``)."""
+    since Phase A's STORED model keeps every terminal Void-included -- see
+    ``_build_instance_gn``."""
     return type_descriptor == "Void"
 
 
@@ -1063,8 +1053,8 @@ def _render_lvnet_constant(
     exactly one, so there's no evidence a peer group of constants aligns
     with each other). ``<handle>`` (§7/§9's ``_N`` suffix, e.g. ``GUID_1``)
     replaces the OLD ``#N`` occurrence tag. Uses ``const.lvnet_value``
-    (lvnet-escaped, md §4/§10) rather than ``const.value`` (the OLD
-    ``render_netlist``/``netlist_to_dict``-parity text, unescaped)."""
+    (lvnet-escaped, md §4/§10) rather than ``const.value`` (the
+    ``netlist_to_dict``-parity text, unescaped)."""
     handle = handles.by_uid[const.uid]
     lines.append(
         f"{indent}constant {handle}{_LVNET_TYPE_SEP}{const.type}"
@@ -1112,9 +1102,9 @@ def _render_lvnet_loop_scope(
     would go; see the implementation report's open-items list.
 
     ``merge.net`` (``MuMerge``/``EtaMerge``) is the model's OWN stored
-    string (shared verbatim with ``render_netlist``, which must keep its
-    ``.`` separator) -- ``_lvnet_net_separator`` reformats it to ``::`` for
-    THIS render only, never mutating the stored field (§9).
+    string (shared verbatim with other consumers, e.g. ``netlist_to_dict``,
+    which must keep its ``.`` separator) -- ``_lvnet_net_separator`` reformats
+    it to ``::`` for THIS render only, never mutating the stored field (§9).
     """
     header_kw = "while-loop" if scope.kind == "while" else "for-loop"
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
@@ -1225,9 +1215,9 @@ def _render_lvnet_sequence_scope(
     """``flat-sequence :`` / ``stacked-sequence :`` (§8), ``frame [i] :`` per
     frame -- picked from ``scope.sequence_is_flat``, the EXPLICIT
     flat-vs-stacked discriminator surfaced from the parser's own XML class
-    (``SequenceNode.is_flat`` / ``SequenceOperation.is_flat``), never
-    inferred from the ambiguous ``displayed_frame`` proxy (None for both a
-    flat sequence and an out-of-range legacy stacked one)."""
+    (``SequenceNode.is_flat``), never inferred from the ambiguous
+    ``displayed_frame`` proxy (None for both a flat sequence and an
+    out-of-range legacy stacked one)."""
     keyword = "flat-sequence" if scope.sequence_is_flat else "stacked-sequence"
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
     lines.append(f"{indent}{keyword}{id_suffix}{_LVNET_BLOCK_OPEN}")
@@ -1249,8 +1239,8 @@ def _render_lvnet_disabled_scope(
 ) -> None:
     """``diagram-disable :`` / ``conditional-disable :`` / ``type-
     specialization :`` (§8) -- picked from ``scope.disable_kind``, sourced
-    from ``DisableStructureNode.kind`` / ``DisableStructureOperation
-    .disable_kind`` (never a hard-coded default). Frame-label quoting also
+    from ``DisableStructureNode.kind`` (never a hard-coded default).
+    Frame-label quoting also
     follows §8's own table: a Diagram Disable frame (``Enabled``/
     ``Disabled``) and a Type Specialization frame (``[i]``) render BARE (no
     quotes -- ``_frame_labels`` in parser/nodes/disable.py already produces
@@ -1472,9 +1462,9 @@ def _lvnet_literal_token(value: ScalarValue) -> str:
     (``ConnectorPaneTerminal.default``), a wired-constant driver, or a
     labeled ``constant`` node's own value (see ``_lvnet_const_value_str``,
     which feeds the last two through this for their plain-scalar case).
-    Replaces the old ``_lvnet_scalar_value_token``, which quoted a string
-    with NO escaping at all -- the bug this closes (md §4/§10/§17 item 5's
-    "scalar string escaping" note): a raw control char (a CRLF, a bare
+    Escapes a string value rather than quoting it verbatim with NO escaping
+    at all -- the bug this closes (md §4/§10/§17 item 5's "scalar string
+    escaping" note): a raw control char (a CRLF, a bare
     ``"``) rendered VERBATIM inside the quotes, so the literal's own text
     could span multiple physical lines and break ``parse_lvnet``'s line-
     oriented grammar (the ``Graphical Test Runner - Main UI - .vi`` xfail).
@@ -1503,7 +1493,7 @@ def _lvnet_literal_token(value: ScalarValue) -> str:
 
 def _lvnet_const_value_str(c: Constant) -> str:
     """``render_lvnet``-ONLY sibling of ``op_walk._const_value_str`` (kept
-    byte-parity, untouched, for ``render_netlist``/``netlist_to_dict``): the
+    byte-parity, untouched, for ``netlist_to_dict``): the
     SAME error-cluster and numeric-display-format special cases (a radix/
     precision string is already correct display text, never re-escaped),
     but the plain-SCALAR fallthrough (``lv_type.kind is PRIMITIVE`` -- a
@@ -1687,7 +1677,9 @@ def _render_lvnet_front_panel(
     lines.append(_FRONT_PANEL_HEADER_LINE)
     content_indent = _LVNET_INDENT * 2
     if pattern_id is not None:
-        lines.append(f"{content_indent}{_LVNET_PATTERN_KEYWORD}{_LVNET_TYPE_SEP}{pattern_id}")
+        lines.append(
+            f"{content_indent}{_LVNET_PATTERN_KEYWORD}{_LVNET_TYPE_SEP}{pattern_id}"
+        )
     if boundary_entries:
         lines.extend(_render_term_group(boundary_entries, content_indent))
     if off_pane_entries:
@@ -1789,14 +1781,10 @@ def render_lvnet(
     only; an OPEN construct, §17, emits its header keyword plus a literal
     ``# TODO(lvnet): ...`` and no invented inner syntax).
 
-    NEW sibling of ``render_netlist`` (which still emits the OLD ``gamma``/
-    ``mu``/``eta`` form) -- see the module's Phase A docstring notes
-    throughout this file for exactly what changed underneath both.
-
-    ``display_name`` mirrors ``render_netlist``'s own parameter (same
-    reason: ``module.vi_name`` is the resolved ``vi_key`` -- a source-path
-    identity, not fit for display, per ``NetlistModule.vi_name``'s own
-    docstring). Defaults to ``module.vi_name`` when omitted.
+    ``display_name`` exists because ``module.vi_name`` is the resolved
+    ``vi_key`` -- a source-path identity, not fit for display, per
+    ``NetlistModule.vi_name``'s own docstring. Defaults to ``module.vi_name``
+    when omitted.
 
     ``verbose`` (default ``False``, lvnet §11) is the terse/lossless switch:
     terse (default) renders IDENTICALLY to before this parameter existed

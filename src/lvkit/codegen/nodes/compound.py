@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import LVType, LVTypeKind, PrimitiveOperation, Terminal
+from lvkit.graph.models import PrimitiveNode
+from lvkit.models import LVType, LVTypeKind, Terminal
 
 from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name, uint_mask
 from ..context import CodeGenContext
@@ -77,7 +78,7 @@ def _invert_expr(
 
 
 def generate_compound_arith(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for compound arithmetic (cpdArith).
@@ -233,7 +234,7 @@ def _make_arith_var_name(operation: str, input_names: list[str]) -> str:
 
 
 def generate_array_build(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for array building (aBuild).
@@ -312,7 +313,7 @@ def _make_array_var_name(input_names: list[str]) -> str:
 
 
 def generate_array_init(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for Initialize Array (aInit).
@@ -404,7 +405,7 @@ def generate_array_init(
 
 
 def generate_array_replace(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for Replace Array Subset (aReplace).
@@ -471,7 +472,7 @@ def _is_array_type(term: Terminal | None) -> bool:
 
 
 def generate_array_insert(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for Insert Into Array (aInsert).
@@ -557,7 +558,7 @@ def generate_array_insert(
 
 
 def generate_array_reshape(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for Reshape Array (aReshape).

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.core import InMemoryVIGraph, _node_order_key
 from lvkit.graph.diff import (
     diff_to_dict,
     diff_uid,
@@ -18,24 +18,24 @@ from lvkit.graph.diff import (
 )
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
-    Constant,
+    CaseStructureNode,
+    ConstantNode,
     ExecutionProps,
     KindProps,
     LockState,
+    PrimitiveNode,
     Reentrancy,
+    SequenceNode,
     TypedefStatus,
-    VIContext,
+    VINode,
     VIProperties,
 )
 from lvkit.models import (
     CaseFrame,
-    CaseOperation,
     LVType,
     LVTypeKind,
-    PrimitiveOperation,
     SelectorRange,
     SequenceFrame,
-    SequenceOperation,
 )
 from lvkit.parser.layout import Layout
 
@@ -454,67 +454,60 @@ class TestNetlistFormDiffOnJKIPair:
         assert digests[0] == digests[1]
 
 
-# ── UID change-map: constant "modified" (#11) ─────────────────────────
+# ── UID change-map: synthetic-graph fixtures (constants #11 / frames) ──
 #
-# A minimal stub graph exposes only the five accessors ``diff_uid`` reads, so we
-# can drive the modified-constant path directly — no binary fixture, no licence
-# entanglement. Mirrors the real corpus case (JKI-VI-Tester build.vi, a Path
-# constant edited in place at a stable UID).
+# We can't author .vi files (no LabVIEW), so the constant-modified and
+# frame-set diff paths are driven through a REAL ``InMemoryVIGraph`` populated
+# with synthetic ``GraphNode``s — no binary fixture, no licence entanglement.
+# ``diff_uid`` reads these through the ordinary graph API (``top_level_nodes``/
+# ``get_constants`` project the nodes exactly as a loaded VI would), and its
+# tree-order pass now walks the graph natively via ``build_netlist_from_graph``
+# (``get_operation_order``/``iter_nodes``/``get_graph_node``/``_graph``), so the
+# fixture builds those same real structures rather than shimming a projected
+# node list. Mirrors the real corpus case (JKI-VI-Tester build.vi, a Path constant
+# edited in place at a stable UID).
 
 
-class _StubGraph:
-    def __init__(
-        self,
-        constants: list[Constant],
-        layout: Layout | None = None,
-        operations: list | None = None,
-    ):
-        self._constants = constants
-        self._layout = layout
-        self._operations = operations if operations is not None else []
+def _real_graph(
+    nodes: list,
+    *,
+    layout: Layout | None = None,
+    vi_name: str = "vi",
+) -> InMemoryVIGraph:
+    """Build a minimal but REAL ``InMemoryVIGraph`` from synthetic graph nodes.
 
-    def resolve_vi_name(self, vi_name: str) -> str:
-        return vi_name
-
-    def get_operations(self, _vi: str) -> list:
-        return self._operations
-
-    def get_wires(self, _vi: str, include_internal: bool = False) -> list:
-        return []
-
-    def get_constants(self, _vi: str) -> list[Constant]:
-        return self._constants
-
-    def get_layout(self, _vi: str) -> Layout | None:
-        return self._layout
-
-    def get_inputs(self, _vi: str, *, public_only: bool = True) -> list:
-        return []
-
-    def get_outputs(self, _vi: str, *, public_only: bool = True) -> list:
-        return []
-
-    def get_vi_context(self, vi_name: str) -> VIContext:
-        # Minimal VIContext — just enough for build_netlist (used by
-        # diff.py's tree-order pass, see _reorder_by_tree) to walk this
-        # stub's operations/constants without touching a real graph.
-        return VIContext(
-            name=vi_name,
-            inputs=self.get_inputs(vi_name),
-            outputs=self.get_outputs(vi_name),
-            constants=self.get_constants(vi_name),
-            operations=self.get_operations(vi_name),
-        )
-
-    def incoming_edges(self, _terminal_id: str) -> list:
-        # No wires in this stub (get_wires is always []), so no terminal
-        # ever has an incoming edge either.
-        return []
+    Registers a ``VINode`` at ``vi_name`` plus every supplied child node into
+    the same networkx ``_graph`` / ``_vi_nodes`` index the loader populates, so
+    the full diff path — including ``build_netlist_from_graph``'s graph walk —
+    reads real nodes. ``nodes`` may include structure children (``parent`` set):
+    only ``parent is None`` nodes become the VI's top-level operations; each
+    structure carries its own frame children in ``.children``.
+    """
+    graph = InMemoryVIGraph()
+    g = graph._graph
+    vi_node = VINode(id=vi_name, vi_path=vi_name, name=vi_name)
+    g.add_node(vi_name, node=vi_node)
+    uids: set[str] = {vi_name}
+    top_level: list[str] = []
+    for node in nodes:
+        node.vi_path = vi_name
+        g.add_node(node.id, node=node)
+        uids.add(node.id)
+        for t in node.terminals:
+            graph._term_to_node[t.id] = node.id
+        if node.parent is None:
+            top_level.append(node.id)
+    vi_node.children = sorted(top_level, key=_node_order_key)
+    graph._vi_nodes[vi_name] = uids
+    if layout is not None:
+        graph._layouts[vi_name] = layout
+    return graph
 
 
-def _const(uid: str, value, underlying: str = "NumInt32") -> Constant:
-    return Constant(
+def _const(uid: str, value, underlying: str = "NumInt32") -> ConstantNode:
+    return ConstantNode(
         id=f"vi::{uid}",
+        vi_path="vi",
         value=value,
         lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=underlying),
     )
@@ -556,11 +549,11 @@ class TestSelfDiffIsEmpty:
 
 class TestModifiedConstant:
     def test_value_change_at_stable_uid_is_modified(self):
-        ga = _StubGraph(
+        ga = _real_graph(
             [_const("100", 5)],
             layout=Layout(node_bounds={"100": (5.0, 6.0, 7.0, 8.0)}),
         )
-        gb = _StubGraph(
+        gb = _real_graph(
             [_const("100", 10)],
             layout=Layout(node_bounds={"100": (1.0, 2.0, 3.0, 4.0)}),
         )
@@ -578,23 +571,23 @@ class TestModifiedConstant:
         assert c.bounds_before == (5.0, 6.0, 7.0, 8.0)
 
     def test_unchanged_value_is_no_change(self):
-        ga = _StubGraph([_const("100", 5)])
-        gb = _StubGraph([_const("100", 5)])
+        ga = _real_graph([_const("100", 5)])
+        gb = _real_graph([_const("100", 5)])
         assert diff_uid(ga, gb, "vi", "vi").changes == []
 
     def test_type_change_is_not_a_modification(self):
         # Same UID but a different type is a LabVIEW UID recycle, not an in-place
         # edit — must NOT be reported as modified.
-        ga = _StubGraph([_const("100", 5, "NumInt32")])
-        gb = _StubGraph([_const("100", "hi", "String")])
+        ga = _real_graph([_const("100", 5, "NumInt32")])
+        gb = _real_graph([_const("100", "hi", "String")])
         assert diff_uid(ga, gb, "vi", "vi").changes == []
 
     def test_string_detail_has_no_repr_quotes(self):
         # A string value change's detail shows the strings as-is (no repr quote
         # noise). The value lives in detail (JSON + --verbose); the viewer list
         # omits it, and the type label never carries the value.
-        ga = _StubGraph([_const("7", "old", "String")])
-        gb = _StubGraph([_const("7", "new", "String")])
+        ga = _real_graph([_const("7", "old", "String")])
+        gb = _real_graph([_const("7", "new", "String")])
         c = diff_uid(ga, gb, "vi", "vi").changes[0]
         assert c.change == "modified"
         assert c.kind == "constant"
@@ -664,14 +657,14 @@ class TestLocalityStamping:
 # ── Frame set diff: added/removed/value-changed frames ──────────────────
 #
 # We cannot author .vi files (no LabVIEW), so these drive a synthetic
-# CaseOperation/SequenceOperation straight through diff_uid via a stub graph
+# CaseStructureNode/SequenceNode straight through diff_uid via a stub graph
 # -- the lightest-weight route, mirroring TestModifiedConstant's _StubGraph
 # pattern above.
 
 
 class TestFrameSetChanges:
     def test_case_structure_frame_added_removed_and_value_changed(self):
-        # One CaseOperation (uid "500"), matched across versions by its own
+        # One CaseStructureNode (uid "500"), matched across versions by its own
         # (common) uid, whose FRAME SET differs by exactly:
         #   - frame "1": base-only -> REMOVED
         #   - frame "2": present both sides, key-matched by FALLBACK (its
@@ -684,11 +677,11 @@ class TestFrameSetChanges:
         #     AND is_default change while the frame's identity is preserved)
         #     -> VALUE changed, "2 → Default".
         #   - frame "4": head-only -> ADDED
-        case_a = CaseOperation(
+        case_a = CaseStructureNode(
             id="vi::500",
+            vi_path="vi",
             name="Case",
-            kind="caseStruct",
-            node_type="caseStructure",
+            node_type="caseStruct",
             frames=[
                 CaseFrame(selector_value="1"),
                 CaseFrame(
@@ -698,11 +691,11 @@ class TestFrameSetChanges:
                 CaseFrame(uid="900", selector_value="2", is_default=False),
             ],
         )
-        case_b = CaseOperation(
+        case_b = CaseStructureNode(
             id="vi::500",
+            vi_path="vi",
             name="Case",
-            kind="caseStruct",
-            node_type="caseStructure",
+            node_type="caseStruct",
             frames=[
                 CaseFrame(
                     selector_value="2",
@@ -715,8 +708,8 @@ class TestFrameSetChanges:
                 CaseFrame(selector_value="4"),
             ],
         )
-        ga = _StubGraph([], operations=[case_a])
-        gb = _StubGraph([], operations=[case_b])
+        ga = _real_graph([case_a])
+        gb = _real_graph([case_b])
         cmap = diff_uid(ga, gb, "vi", "vi")
 
         frame_changes = {c.uid: c for c in cmap.changes if c.kind in ("frame", "value")}
@@ -751,22 +744,22 @@ class TestFrameSetChanges:
         assert value_by_uid.frame_path == "500=Default"
 
     def test_unchanged_case_frame_set_has_no_frame_changes(self):
-        case_a = CaseOperation(
+        case_a = CaseStructureNode(
             id="vi::500",
+            vi_path="vi",
             name="Case",
-            kind="caseStruct",
-            node_type="caseStructure",
+            node_type="caseStruct",
             frames=[CaseFrame(selector_value="1"), CaseFrame(selector_value="2")],
         )
-        case_b = CaseOperation(
+        case_b = CaseStructureNode(
             id="vi::500",
+            vi_path="vi",
             name="Case",
-            kind="caseStruct",
-            node_type="caseStructure",
+            node_type="caseStruct",
             frames=[CaseFrame(selector_value="1"), CaseFrame(selector_value="2")],
         )
-        ga = _StubGraph([], operations=[case_a])
-        gb = _StubGraph([], operations=[case_b])
+        ga = _real_graph([case_a])
+        gb = _real_graph([case_b])
         cmap = diff_uid(ga, gb, "vi", "vi")
         assert [c for c in cmap.changes if c.kind in ("frame", "value")] == []
 
@@ -777,29 +770,44 @@ class TestFrameSetChanges:
         # SAME node, so content-overlap pairs them into ONE value modification
         # ("1 -> 0"), NOT remove "1" + add "0". (The reality-grounded MainUI
         # 36:1->0 case; the shared node itself stays unchanged, not reported.)
-        node = PrimitiveOperation(
-            id="vi::700",
-            name="Add",
-            kind="primitive",
-            node_type="prim",
-        )
-        case_a = CaseOperation(
+        # The shared node lives in the frame as a real child graph node
+        # (parent=the case uid, frame=the selector value) — the SAME
+        # containment construction.py stamps; _populate_frame_operations then
+        # projects it back into the frame's operations for the content-overlap
+        # matcher. A fresh node per side (same uid) so the two graphs don't
+        # share mutable frame state.
+        def _add_child():
+            return PrimitiveNode(
+                id="vi::700",
+                vi_path="vi",
+                name="Add",
+                node_type="prim",
+                parent="vi::500",
+            )
+
+        node_a = _add_child()
+        node_a.frame = "1"
+        case_a = CaseStructureNode(
             id="vi::500",
+            vi_path="vi",
             name="Case",
-            kind="caseStruct",
-            node_type="caseStructure",
-            frames=[CaseFrame(selector_value="1", operations=[node])],
+            node_type="caseStruct",
+            frames=[CaseFrame(selector_value="1")],
+            children=["vi::700"],
         )
-        case_b = CaseOperation(
+        node_b = _add_child()
+        node_b.frame = "0"
+        case_b = CaseStructureNode(
             id="vi::500",
+            vi_path="vi",
             name="Case",
-            kind="caseStruct",
-            node_type="caseStructure",
-            frames=[CaseFrame(selector_value="0", operations=[node])],
+            node_type="caseStruct",
+            frames=[CaseFrame(selector_value="0")],
+            children=["vi::700"],
         )
         cmap = diff_uid(
-            _StubGraph([], operations=[case_a]),
-            _StubGraph([], operations=[case_b]),
+            _real_graph([case_a, node_a]),
+            _real_graph([case_b, node_b]),
             "vi",
             "vi",
         )
@@ -820,28 +828,34 @@ class TestFrameSetChanges:
         # (node_type != "flatSequence") is INTERACTIVE (render/scene.py wraps
         # it in a togglable lv-frame group), so its frame changes extend the
         # frame_path with their own segment.
-        seq_a = SequenceOperation(
+        # A stacked sequence's real parser class is "seq"/"sequence" (is_flat
+        # False), NOT "flatSequence" — that's what makes it interactive
+        # (_is_interactive_struct: a SequenceNode with node_type !=
+        # "flatSequence").
+        seq_a = SequenceNode(
             id="vi::700",
+            vi_path="vi",
             name="Sequence",
-            kind="flatSequence",
-            node_type="stackedSequence",
+            node_type="seq",
+            is_flat=False,
             frames=[
                 SequenceFrame(uid="10", index=0),
                 SequenceFrame(uid="11", index=1),
             ],
         )
-        seq_b = SequenceOperation(
+        seq_b = SequenceNode(
             id="vi::700",
+            vi_path="vi",
             name="Sequence",
-            kind="flatSequence",
-            node_type="stackedSequence",
+            node_type="seq",
+            is_flat=False,
             frames=[
                 SequenceFrame(uid="11", index=0),
                 SequenceFrame(uid="12", index=1),
             ],
         )
-        ga = _StubGraph([], operations=[seq_a])
-        gb = _StubGraph([], operations=[seq_b])
+        ga = _real_graph([seq_a])
+        gb = _real_graph([seq_b])
         cmap = diff_uid(ga, gb, "vi", "vi")
 
         frame_changes = {c.uid: c for c in cmap.changes if c.kind in ("frame", "value")}
@@ -864,25 +878,27 @@ class TestFrameSetChanges:
         # lv-frame group (_is_interactive_struct is False for it). Its frame
         # changes still get a real container_uid (the structure exists) but
         # must NOT gain a frame_path segment nothing in the SVG would match.
-        seq_a = SequenceOperation(
+        seq_a = SequenceNode(
             id="vi::800",
+            vi_path="vi",
             name="Flat Sequence",
-            kind="flatSequence",
             node_type="flatSequence",
+            is_flat=True,
             frames=[SequenceFrame(uid="20", index=0)],
         )
-        seq_b = SequenceOperation(
+        seq_b = SequenceNode(
             id="vi::800",
+            vi_path="vi",
             name="Flat Sequence",
-            kind="flatSequence",
             node_type="flatSequence",
+            is_flat=True,
             frames=[
                 SequenceFrame(uid="20", index=0),
                 SequenceFrame(uid="21", index=1),
             ],
         )
-        ga = _StubGraph([], operations=[seq_a])
-        gb = _StubGraph([], operations=[seq_b])
+        ga = _real_graph([seq_a])
+        gb = _real_graph([seq_b])
         cmap = diff_uid(ga, gb, "vi", "vi")
 
         frame_changes = [c for c in cmap.changes if c.kind in ("frame", "value")]
@@ -1083,10 +1099,10 @@ class TestConnectorPaneRequalification:
 class TestDisableStructureInnerChange:
     """A change INSIDE a Diagram/Conditional-Disable structure's frame must be
     reported by the diff, exactly as the netlist renders that body. A disable
-    structure carries its body in ``.frames[].operations`` (like a case), so
+    structure carries its body in its frames (like a case), so
     ``_collect_elements`` has to recurse frames for it, not just ``inner_nodes``.
     Regression guard for the diff/netlist disagreement fixed by adding
-    ``DisableStructureOperation`` to the frame-recursion branch."""
+    ``DisableStructureNode`` to the frame-recursion branch."""
 
     def _xml(self, extra_inner: str) -> str:
         return f"""<?xml version='1.0' encoding='utf-8'?>
@@ -1360,20 +1376,19 @@ class TestSelectContractionPhantom:
 
 
 def test_operation_display_name_qualifies_by_ownership_chain():
-    """``Operation.display_name`` reads the class-qualified label when the op
-    carries an ownership chain (its own / its callee's ``<LIBN>``), else the bare
-    name. DISPLAY only — identity/resolution is unaffected. ``_elem_label`` uses
-    it so two classes' same-named methods are distinct in the diff."""
-    from lvkit.models import Operation
-
-    qualified = Operation(
+    """``GraphNode.display_name`` reads the class-qualified label when the
+    node carries an ownership chain (its own / its callee's ``<LIBN>``), else
+    the bare name. DISPLAY only — identity/resolution is unaffected.
+    ``_elem_label`` uses it so two classes' same-named methods are distinct
+    in the diff."""
+    qualified = VINode(
         id="V::1",
+        vi_path="V::1",
         name="run.vi",
-        kind="vi",
         owning_libraries=["Foo.lvlib", "Bar.lvclass"],
     )
     assert qualified.display_name == "Foo.lvlib:Bar.lvclass:run.vi"
-    bare = Operation(id="V::2", name="run.vi", kind="vi")
+    bare = VINode(id="V::2", vi_path="V::2", name="run.vi")
     assert bare.display_name == "run.vi"
 
 
@@ -1397,12 +1412,12 @@ class TestQualifiedSubVINames:
         vn = g.resolve_vi_name(self.SAMPLE.name)
         calls = [
             op
-            for op in g.get_operations(vn)
+            for op in g.top_level_nodes(vn)
             if op.node_type
             and ("iUse" in op.node_type or op.node_type in ("dynIUse", "polyIUse"))
         ]
         qualified = [op for op in calls if ".lvclass:" in op.display_name]
         assert qualified, "expected a class-qualified subVI call display_name"
         for op in qualified:
-            assert op.display_name.endswith(op.name)  # display ends in the leaf
+            assert op.name and op.display_name.endswith(op.name)  # ends in the leaf
             assert ".lvclass" not in (op.name or "")  # bare name unqualified

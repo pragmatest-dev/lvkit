@@ -23,7 +23,12 @@ class ConcatenateTerminalGlyph(BorderTerminalGlyph):
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         col = self.color or theme.wire_default
         backend.rect(
-            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=theme.tunnel_border,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.loop_term_fill,
+            stroke=theme.tunnel_border,
             stroke_width=1.2,
         )
         sq = min(x2 - x1, y2 - y1) * 0.30

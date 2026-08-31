@@ -3,22 +3,28 @@
 from __future__ import annotations
 
 import ast
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
 
-from lvkit.graph.models import Constant, VIContext, Wire
+from lvkit.graph.models import (
+    Constant,
+    LoopNode,
+    PrimitiveNode,
+    StructureNode,
+    VIContext,
+    VINode,
+    Wire,
+)
 from lvkit.models import (
     FPTerminal,
-    LoopOperation,
     LVType,
     LVTypeKind,
-    Operation,
-    PrimitiveOperation,
-    SubVIOperation,
     Terminal,
     Tunnel,
 )
+from tests.helpers import build_graph, tunnel_terminals
 
 
 def test_build_module_minimal():
@@ -91,9 +97,6 @@ def test_build_module_with_constant():
         constants=[
             Constant(id="const:1", value=42, label="MyConst"),
         ],
-        operations=[
-            Operation(id="op:1", name="Constant", kind="constant"),
-        ],
         data_flow=[
             Wire.from_terminals(
                 from_terminal_id="const:1",
@@ -148,19 +151,6 @@ def test_build_module_with_primitive():
                 lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
             ),
         ],
-        operations=[
-            PrimitiveOperation(
-                id="op:1",
-                name="Add",
-                kind="primitive",
-                primResID=1050,
-                terminals=[
-                    Terminal(id="term:1", index=1, direction="input", name="x"),
-                    Terminal(id="term:2", index=2, direction="input", name="y"),
-                    Terminal(id="term:3", index=0, direction="output", name="result"),
-                ],
-            ),
-        ],
         data_flow=[
             Wire.from_terminals(
                 from_terminal_id="inp:1",
@@ -183,7 +173,19 @@ def test_build_module_with_primitive():
         ],
     )
 
-    result = build_module(vi_context, "Add Numbers.vi")
+    prim_node = PrimitiveNode(
+        id="op:1",
+        vi_path="Add Numbers.vi",
+        name="Add",
+        prim_id=1050,
+        terminals=[
+            Terminal(id="term:1", index=1, direction="input", name="x"),
+            Terminal(id="term:2", index=2, direction="input", name="y"),
+            Terminal(id="term:3", index=0, direction="output", name="result"),
+        ],
+    )
+    graph = build_graph(vi_context, "Add Numbers.vi", [prim_node])
+    result = build_module(vi_context, "Add Numbers.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -218,17 +220,6 @@ def test_build_module_with_subvi():
                 lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
             ),
         ],
-        operations=[
-            SubVIOperation(
-                id="op:1",
-                name="Helper VI.vi",
-                kind="vi",
-                terminals=[
-                    Terminal(id="term:1", index=0, direction="input", name="input"),
-                    Terminal(id="term:2", index=1, direction="output", name="output"),
-                ],
-            ),
-        ],
         data_flow=[
             Wire.from_terminals(
                 from_terminal_id="inp:1",
@@ -245,7 +236,17 @@ def test_build_module_with_subvi():
         ],
     )
 
-    result = build_module(vi_context, "Call Helper.vi")
+    subvi_node = VINode(
+        id="op:1",
+        vi_path="Call Helper.vi",
+        name="Helper VI.vi",
+        terminals=[
+            Terminal(id="term:1", index=0, direction="input", name="input"),
+            Terminal(id="term:2", index=1, direction="output", name="output"),
+        ],
+    )
+    graph = build_graph(vi_context, "Call Helper.vi", [subvi_node])
+    result = build_module(vi_context, "Call Helper.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -386,26 +387,6 @@ def test_build_module_with_while_loop():
                 is_public=True,
             ),
         ],
-        operations=[
-            LoopOperation(
-                id="loop:1",
-                name="While Loop",
-                kind="loop",
-                loop_type="whileLoop",
-                tunnels=[
-                    Tunnel(
-                        tunnel_type="lpTun",
-                        outer_terminal_uid="tun:outer1",
-                        inner_terminal_uid="tun:inner1",
-                    ),
-                    Tunnel(
-                        tunnel_type="lMax",
-                        outer_terminal_uid="tun:outer2",
-                        inner_terminal_uid="tun:inner2",
-                    ),
-                ],
-            ),
-        ],
         data_flow=[
             Wire.from_terminals(
                 from_terminal_id="inp:1",
@@ -422,7 +403,28 @@ def test_build_module_with_while_loop():
         ],
     )
 
-    result = build_module(vi_context, "Loop Counter.vi")
+    loop_node = LoopNode(
+        id="loop:1",
+        vi_path="Loop Counter.vi",
+        name="While Loop",
+        loop_type="whileLoop",
+        terminals=tunnel_terminals(
+            [
+                Tunnel(
+                    tunnel_type="lpTun",
+                    outer_terminal_uid="tun:outer1",
+                    inner_terminal_uid="tun:inner1",
+                ),
+                Tunnel(
+                    tunnel_type="lMax",
+                    outer_terminal_uid="tun:outer2",
+                    inner_terminal_uid="tun:inner2",
+                ),
+            ]
+        ),
+    )
+    graph = build_graph(vi_context, "Loop Counter.vi", [loop_node])
+    result = build_module(vi_context, "Loop Counter.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -437,17 +439,16 @@ def test_build_module_with_for_loop():
 
     vi_context = VIContext(
         name="Iterate Array.vi",
-        operations=[
-            LoopOperation(
-                id="loop:1",
-                name="For Loop",
-                kind="loop",
-                loop_type="forLoop",
-            ),
-        ],
     )
 
-    result = build_module(vi_context, "Iterate Array.vi")
+    loop_node = LoopNode(
+        id="loop:1",
+        vi_path="Iterate Array.vi",
+        name="For Loop",
+        loop_type="forLoop",
+    )
+    graph = build_graph(vi_context, "Iterate Array.vi", [loop_node])
+    result = build_module(vi_context, "Iterate Array.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -478,10 +479,10 @@ def test_build_module_real_vi():
     ctx = graph.get_vi_context(vi_name)
 
     # Should have operations
-    assert len(ctx.operations) > 0
+    assert len(graph.top_level_nodes(vi_name)) > 0
 
     # Build module (terminal names are now on Terminal objects directly)
-    result = build_module(ctx, vi_name)
+    result = build_module(ctx, vi_name, graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -499,18 +500,18 @@ def test_unknown_primitive_raises_at_runtime():
 
     vi_context = VIContext(
         name="Unknown Prim.vi",
-        operations=[
-            PrimitiveOperation(
-                id="op:1",
-                name="Mystery Primitive",
-                kind="primitive",
-                primResID=99999,
-            ),
-        ],
+    )
+
+    prim_node = PrimitiveNode(
+        id="op:1",
+        vi_path="Unknown Prim.vi",
+        name="Mystery Primitive",
+        prim_id=99999,
     )
 
     with pytest.raises(PrimitiveResolutionNeeded) as exc_info:
-        build_module(vi_context, "Unknown Prim.vi")
+        _g = build_graph(vi_context, "Unknown Prim.vi", [prim_node])
+        build_module(vi_context, "Unknown Prim.vi", graph=_g)
 
     assert "99999" in str(exc_info.value)
 
@@ -521,12 +522,16 @@ def test_unknown_node_type_emits_warning():
 
     vi_context = VIContext(
         name="Unknown Node.vi",
-        operations=[
-            Operation(id="op:1", name="Weird Node", kind="SomethingWeird"),
-        ],
     )
 
-    result = build_module(vi_context, "Unknown Node.vi")
+    weird_node = StructureNode(
+        id="op:1",
+        vi_path="Unknown Node.vi",
+        name="Weird Node",
+        node_type="SomethingWeird",
+    )
+    graph = build_graph(vi_context, "Unknown Node.vi", [weird_node])
+    result = build_module(vi_context, "Unknown Node.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)
@@ -764,7 +769,7 @@ def test_dataflow_tracer_wired_inputs():
     vi_context = {
         "terminals": [],
         "operations": [
-            Operation(
+            SimpleNamespace(
                 id="op1",
                 name="Test Op",
                 kind="operation",
@@ -808,7 +813,7 @@ def test_dataflow_tracer_wired_outputs():
     vi_context = {
         "terminals": [],
         "operations": [
-            Operation(
+            SimpleNamespace(
                 id="op1",
                 name="Test Op",
                 kind="operation",
@@ -980,9 +985,6 @@ def test_build_module_with_case_structure():
                 is_public=True,
             ),
         ],
-        operations=[
-            Operation(id="case:1", name="Case Structure", kind="Case"),
-        ],
     )
 
     result = build_module(vi_context, "Case Test.vi")
@@ -1096,25 +1098,23 @@ def test_build_module_with_nested_loops():
 
     vi_context = VIContext(
         name="Nested Loops.vi",
-        operations=[
-            LoopOperation(
-                id="outer:1",
-                name="Outer For",
-                kind="loop",
-                loop_type="forLoop",
-                inner_nodes=[
-                    LoopOperation(
-                        id="inner:1",
-                        name="Inner While",
-                        kind="loop",
-                        loop_type="whileLoop",
-                    ),
-                ],
-            ),
-        ],
     )
 
-    result = build_module(vi_context, "Nested Loops.vi")
+    outer_loop = LoopNode(
+        id="outer:1",
+        vi_path="Nested Loops.vi",
+        name="Outer For",
+        loop_type="forLoop",
+    )
+    inner_loop = LoopNode(
+        id="inner:1",
+        vi_path="Nested Loops.vi",
+        name="Inner While",
+        loop_type="whileLoop",
+        parent="outer:1",
+    )
+    graph = build_graph(vi_context, "Nested Loops.vi", [outer_loop, inner_loop])
+    result = build_module(vi_context, "Nested Loops.vi", graph=graph)
 
     # Should be valid Python
     ast.parse(result)

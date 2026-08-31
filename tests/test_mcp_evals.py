@@ -121,8 +121,7 @@ class TestQ1ClassHierarchy:
         subclasses = {
             f.class_fact.owning_class
             for f in jki_index.facts
-            if f.class_fact is not None
-            and f.class_fact.parent == "TestCase.lvclass"
+            if f.class_fact is not None and f.class_fact.parent == "TestCase.lvclass"
         }
         assert len(subclasses) == 14
         # No grandchildren: nothing lists one of the 14 as its parent.

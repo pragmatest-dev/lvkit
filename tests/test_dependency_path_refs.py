@@ -15,11 +15,7 @@ import pytest
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from lvkit.models import (
-    CaseOperation,
-    Operation,
-    SequenceOperation,
-)
+from lvkit.graph.models import AnyGraphNode
 
 SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 DAQMX_CALLER_VI = Path(
@@ -55,14 +51,12 @@ def testcase_graph() -> InMemoryVIGraph:
     return g
 
 
-def _walk_ops(ops: list[Operation]):
-    """Yield every operation, recursing into structure frames + inner nodes."""
-    for op in ops:
-        yield op
-        if isinstance(op, (CaseOperation, SequenceOperation)):
-            for frame in op.frames:
-                yield from _walk_ops(frame.operations)
-        yield from _walk_ops(op.inner_nodes)
+def _walk_ops(graph: InMemoryVIGraph, vi_name: str, nodes: list[AnyGraphNode]):
+    """Yield every graph node, recursing into structure children (frame
+    bodies and loop/IPES bodies alike -- ``child_nodes`` reaches both)."""
+    for node in nodes:
+        yield node
+        yield from _walk_ops(graph, vi_name, graph.child_nodes(node.id, vi_name))
 
 
 def test_stub_deps_carry_path_tokens(testcase_graph):
@@ -88,8 +82,13 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
 def test_vilib_iuses_carry_qualified_path(daqmx_graph):
     """DAQmx (vilib) iuses carry qualified_path via the LIbd/BDHP parser fix."""
     g = daqmx_graph
-    ctx = g.get_vi_context(g.resolve_vi_name("DAQ AO.vi"))
-    paths = [op.qualified_path for op in _walk_ops(ctx.operations) if op.qualified_path]
+    vn = g.resolve_vi_name("DAQ AO.vi")
+    top = g.top_level_nodes(vn)
+    paths = [
+        op.qualified_path
+        for op in _walk_ops(g, vn, top)
+        if getattr(op, "qualified_path", None)
+    ]
     assert paths, "expected at least one operation with a qualified_path"
     rooted = [p for p in paths if p.startswith("<vilib>") or p.startswith("<userlib>")]
     assert rooted, f"expected a <vilib>/<userlib> qualified_path, got {paths}"

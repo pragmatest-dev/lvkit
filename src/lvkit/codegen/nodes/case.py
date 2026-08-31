@@ -7,7 +7,8 @@ import keyword
 import logging
 
 from lvkit.graph.core import kind_display
-from lvkit.models import CaseFrame, CaseOperation, _is_error_cluster
+from lvkit.graph.models import AnyGraphNode, CaseStructureNode
+from lvkit.models import CaseFrame, _is_error_cluster
 
 from ..ast_utils import (
     build_assign,
@@ -20,14 +21,25 @@ from ..fragment import CodeFragment
 
 logger = logging.getLogger(__name__)
 
+# A per-frame view: the frame metadata paired with the graph nodes it contains.
+_OpsByFrame = dict[int, list[AnyGraphNode]]
 
-def generate(node: CaseOperation, ctx: CodeGenContext) -> CodeFragment:
+
+def _ops_by_frame(node: CaseStructureNode, ctx: CodeGenContext) -> _OpsByFrame:
+    """Map each frame (by identity) to the operation-kind graph nodes it
+    contains."""
+    return {id(frame): ops for frame, ops in ctx.frame_children(node)}
+
+
+def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a case structure node."""
     if not node.frames:
         return CodeFragment.empty()
 
+    ops_by_frame = _ops_by_frame(node, ctx)
+
     if _is_error_selector_by_type(node, ctx):
-        return _generate_error_case(node, ctx)
+        return _generate_error_case(node, ctx, ops_by_frame)
 
     selector_var = None
     if node.selector_terminal:
@@ -37,8 +49,8 @@ def generate(node: CaseOperation, ctx: CodeGenContext) -> CodeFragment:
         selector_var = _fallback_selector(node, ctx)
 
     if _is_boolean_selector(node.frames):
-        return _generate_if_else(node, selector_var, ctx)
-    return _generate_match_case(node, selector_var, ctx)
+        return _generate_if_else(node, selector_var, ctx, ops_by_frame)
+    return _generate_match_case(node, selector_var, ctx, ops_by_frame)
 
 
 def _is_boolean_selector(frames: list[CaseFrame]) -> bool:
@@ -49,9 +61,10 @@ def _is_boolean_selector(frames: list[CaseFrame]) -> bool:
 
 
 def _generate_if_else(
-    node: CaseOperation,
+    node: CaseStructureNode,
     selector_var: str,
     ctx: CodeGenContext,
+    ops_by_frame: _OpsByFrame,
 ) -> CodeFragment:
     """Generate if-else statement for boolean selector."""
     statements: list[ast.stmt] = []
@@ -75,7 +88,7 @@ def _generate_if_else(
 
     if_body: list[ast.stmt] = []
     if true_frame:
-        inner_fragment = _generate_frame_body(true_frame, ctx)
+        inner_fragment = _generate_frame_body(ops_by_frame.get(id(true_frame), []), ctx)
         if_body = inner_fragment.statements or [ast.Pass()]
         bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
@@ -85,7 +98,7 @@ def _generate_if_else(
     else_body: list[ast.stmt] = []
     else_frame = false_frame or default_frame
     if else_frame:
-        inner_fragment = _generate_frame_body(else_frame, ctx)
+        inner_fragment = _generate_frame_body(ops_by_frame.get(id(else_frame), []), ctx)
         else_body = inner_fragment.statements or [ast.Pass()]
         bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
@@ -128,9 +141,10 @@ def _generate_if_else(
 
 
 def _generate_match_case(
-    node: CaseOperation,
+    node: CaseStructureNode,
     selector_var: str,
     ctx: CodeGenContext,
+    ops_by_frame: _OpsByFrame,
 ) -> CodeFragment:
     """Generate match-case statement (Python 3.10+)."""
     bindings: dict[str, str] = {}
@@ -148,7 +162,7 @@ def _generate_match_case(
         else:
             pattern, guard = _build_frame_pattern(frame, selector_var)
 
-        inner_fragment = _generate_frame_body(frame, ctx)
+        inner_fragment = _generate_frame_body(ops_by_frame.get(id(frame), []), ctx)
         body = inner_fragment.statements or [ast.Pass()]
         bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
@@ -218,14 +232,14 @@ def _build_frame_pattern(
 
 
 def _generate_frame_body(
-    frame: CaseFrame,
+    operations: list[AnyGraphNode],
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Generate code for a single case frame."""
-    body = ctx.generate_body(frame.operations)
+    """Generate code for a single case frame's contained operations."""
+    body = ctx.generate_body(operations)
 
     bindings: dict[str, str] = {}
-    for op in frame.operations:
+    for op in operations:
         for term in op.terminals:
             if term.direction == "output":
                 var = ctx.resolve(term.id)
@@ -240,7 +254,7 @@ def _generate_frame_body(
 
 
 def _fallback_selector(
-    node: CaseOperation,
+    node: CaseStructureNode,
     ctx: CodeGenContext,
 ) -> str:
     """Try to derive a meaningful selector name when resolve() fails."""
@@ -256,7 +270,7 @@ def _fallback_selector(
 
 
 def _is_error_selector_by_type(
-    node: CaseOperation,
+    node: CaseStructureNode,
     ctx: CodeGenContext,
 ) -> bool:
     """Check if the selector terminal carries an error cluster type."""
@@ -270,8 +284,9 @@ def _is_error_selector_by_type(
 
 
 def _generate_error_case(
-    node: CaseOperation,
+    node: CaseStructureNode,
     ctx: CodeGenContext,
+    ops_by_frame: _OpsByFrame,
 ) -> CodeFragment:
     """Generate code for an error-cluster case structure.
 
@@ -297,15 +312,14 @@ def _generate_error_case(
 
     statements: list[ast.stmt] = []
 
-    if (
-        error_frame is not None
-        and error_frame.operations
-        and len(error_frame.operations) > 0
-    ):
-        op_names = ", ".join(op.display_name for op in error_frame.operations)
+    error_ops = ops_by_frame.get(id(error_frame), []) if error_frame else []
+    if error_ops:
+        op_names = ", ".join(_op_display(op) for op in error_ops)
         logger.info("LV error frame omitted in %s: %s", node.id, op_names)
 
-    no_error_fragment = _generate_frame_body(no_error_frame, ctx)
+    no_error_fragment = _generate_frame_body(
+        ops_by_frame.get(id(no_error_frame), []), ctx
+    )
     statements.extend(no_error_fragment.statements or [])
 
     output_bindings = _bind_output_tunnels(node, ctx)
@@ -319,8 +333,13 @@ def _generate_error_case(
     )
 
 
+def _op_display(op: AnyGraphNode) -> str:
+    """Best human label for a contained node, for a log line only."""
+    return op.name or op.caption or op.label or op.node_type or "node"
+
+
 def _pre_declare_outputs(
-    node: CaseOperation,
+    node: CaseStructureNode,
     output_bindings: dict[str, str],
     ctx: CodeGenContext,
 ) -> list[ast.stmt]:
@@ -332,7 +351,7 @@ def _pre_declare_outputs(
     # "already defined", suppressing needed pre-declarations.
     input_vars: set[str] = set()
     outer_id_to_term = {t.id: t for t in node.terminals}
-    for tunnel in node.tunnels:
+    for tunnel in ctx.tunnels(node):
         outer_uid = tunnel.outer_terminal_uid
         outer_term = outer_id_to_term.get(outer_uid)
         if outer_term and outer_term.direction != "input":
@@ -369,11 +388,11 @@ def _pre_declare_outputs(
 
 
 def _bind_input_tunnels(
-    node: CaseOperation,
+    node: CaseStructureNode,
     ctx: CodeGenContext,
 ) -> None:
     """Bind input tunnel inner terminals to their outer values."""
-    for tunnel in node.tunnels:
+    for tunnel in ctx.tunnels(node):
         outer_term = tunnel.outer_terminal_uid
         inner_term = tunnel.inner_terminal_uid
         if not outer_term or not inner_term:
@@ -384,13 +403,13 @@ def _bind_input_tunnels(
 
 
 def _bind_output_tunnels(
-    node: CaseOperation,
+    node: CaseStructureNode,
     ctx: CodeGenContext,
 ) -> dict[str, str]:
     """Bind output tunnel terminals to variable names."""
     bindings: dict[str, str] = {}
 
-    for tunnel in node.tunnels:
+    for tunnel in ctx.tunnels(node):
         outer_term = tunnel.outer_terminal_uid
         inner_term = tunnel.inner_terminal_uid
         if not outer_term or not inner_term:

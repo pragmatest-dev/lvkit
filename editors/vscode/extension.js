@@ -330,6 +330,48 @@ function errorHtml(title, message) {
   return `<body style="color:#ddd;background:#1e1e1e;font:14px sans-serif;padding:24px">` +
     `<b>${esc(title)}</b><pre style="white-space:pre-wrap;color:#f88">${esc(message)}</pre></body>`;
 }
+// Line-based lvnet syntax highlighter. Wraps the FIRST token of each line
+// (section header / direction / ref keyword) plus quoted strings and @index
+// markers in class-tagged spans — precise (no false matches on names/paths,
+// which would happen with a global keyword regex) and script-free. The colors
+// come from the editor's own token-color theme vars (see textHtml's CSS).
+const _LVNET_HDR = new Set(['vi', 'uses', 'front-panel', 'block-diagram', 'case', 'frame', 'types']);
+const _LVNET_DIR = new Set(['in', 'out']);
+const _LVNET_REF = new Set(['subVI', 'typedef']);
+function highlightLvnet(text) {
+  return String(text).split('\n').map((line) => {
+    const m = line.match(/^(\s*)(\S+)(.*)$/);
+    if (!m) return esc(line);
+    const [, ws, first, rest0] = m;
+    const rest = esc(rest0)
+      .replace(/(&quot;[^&]*?&quot;|"[^"]*")/g, '<span class="lv-str">$1</span>')
+      .replace(/(@\d+)/g, '<span class="lv-idx">$1</span>');
+    const cls = _LVNET_HDR.has(first) ? 'lv-hdr'
+      : _LVNET_DIR.has(first) ? 'lv-dir'
+      : _LVNET_REF.has(first) ? 'lv-kw' : '';
+    const f = cls ? `<span class="${cls}">${esc(first)}</span>` : esc(first);
+    return ws + f + rest;
+  }).join('\n');
+}
+// Read-only text surface (the "LVKit VI Text" custom editor): the `lvkit
+// describe` output, lvnet-highlighted, in a monospace <pre> themed to the
+// editor. No scripts — a static CSP that only allows inline styles keeps the
+// webview warning-free.
+function textHtml(text) {
+  return `<!doctype html><html><head><meta charset="utf-8">` +
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">` +
+    `<style>body{margin:0;padding:12px 16px;` +
+    `background:var(--vscode-editor-background);color:var(--vscode-editor-foreground);` +
+    `font-family:var(--vscode-editor-font-family,monospace);` +
+    `font-size:var(--vscode-editor-font-size,13px);line-height:1.5}` +
+    `pre{margin:0;white-space:pre;overflow:auto}` +
+    `.lv-hdr{color:var(--vscode-symbolIcon-keywordForeground,#c586c0);font-weight:600}` +
+    `.lv-kw{color:var(--vscode-symbolIcon-functionForeground,#dcdcaa)}` +
+    `.lv-dir{color:var(--vscode-symbolIcon-variableForeground,#9cdcfe)}` +
+    `.lv-str{color:var(--vscode-debugTokenExpression-string,#ce9178)}` +
+    `.lv-idx{color:var(--vscode-descriptionForeground,#888);opacity:.75}</style></head>` +
+    `<body><pre>${highlightLvnet(text)}</pre></body></html>`;
+}
 
 // ---- read-only VI preview (replaces the "binary file" notice) ---------------
 class ViPreviewProvider {
@@ -391,6 +433,45 @@ class ViPreviewProvider {
       wireSubVINavigation(panel.webview, document);
     } catch (e) {
       panel.webview.html = errorHtml('lvkit render failed', e.message);
+    }
+  }
+}
+
+// ---- read-only VI text view (lvkit describe --format lvnet) -----------------
+// Same document/URI handling as the preview (working-tree file: renders in place;
+// a git: side of a native diff is materialized to a temp .vi first), but shows
+// the lvnet TEXT surface instead of the HTML diagram. Registered as a NON-default
+// custom editor, so a .vi still opens as the diagram and this is reachable via
+// "Reopen Editor With… → LVKit VI Text".
+class ViTextProvider {
+  async openCustomDocument(uri) { return { uri, dispose() {} }; }
+  async resolveCustomEditor(document, panel) {
+    panel.webview.options = { enableScripts: false };
+    const origPath = document.uri.fsPath;
+    const root = gitRootOr(path.dirname(origPath));
+    checkLvkitVersion(root);
+    try {
+      const cmd = lvkitCmd(root);
+      let file = origPath;
+      if (document.uri.scheme !== 'file') {
+        const bytes = await vscode.workspace.fs.readFile(document.uri);
+        if (!bytes || bytes.length === 0) {
+          panel.webview.html = errorHtml(
+            'No version to show',
+            'This .vi has no committed content on this side (it is newly added).'
+          );
+          return;
+        }
+        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
+        file = path.join(tmp, path.basename(origPath)); // keep the .vi extension
+        fs.writeFileSync(file, Buffer.from(bytes));
+      }
+      const text = run(
+        `${cmd} describe "${file}" ${searchArgs(root)} --format lvnet`, { cwd: root }
+      ).toString();
+      panel.webview.html = textHtml(text);
+    } catch (e) {
+      panel.webview.html = errorHtml('lvkit describe failed', e.message);
     }
   }
 }
@@ -510,6 +591,10 @@ function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand('lvkit.diffVI', diffVI));
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(
     'lvkit.viPreview', new ViPreviewProvider(),
+    { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false }
+  ));
+  context.subscriptions.push(vscode.window.registerCustomEditorProvider(
+    'lvkit.viText', new ViTextProvider(),
     { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false }
   ));
   registerMcpProvider(context);

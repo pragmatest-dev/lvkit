@@ -24,7 +24,7 @@ import lvkit.mcp.server as _facade
 
 from ... import __version__
 from ...graph import InMemoryVIGraph, load_vi_by_path
-from ...graph.netlist import build_netlist, netlist_to_dict
+from ...graph.netlist import build_netlist_from_graph, netlist_to_dict, render_lvnet
 from ...index.build import warm_all_loaded
 from ...load_mode import LoadMode
 from ...output_cache import (
@@ -124,27 +124,16 @@ async def read_vi(
 
     def _work() -> dict[str, Any]:
         graph, vi_name = _load_one(vi_path, search_paths)
+        module = build_netlist_from_graph(graph, vi_name)
         if format == "lvnet":
-            from ...graph.netlist import build_netlist_from_graph, render_lvnet
-
-            module = build_netlist_from_graph(graph, vi_name)
-            display_name = graph.vi_display_name(vi_name)
             return {
                 "lvnet": render_lvnet(
-                    module, display_name=display_name, verbose=verbose
+                    module,
+                    display_name=graph.vi_display_name(vi_name),
+                    verbose=verbose,
                 )
             }
-        # verbose's `dependencies` + structured `lv_type` facts only exist
-        # on `build_netlist_from_graph`'s module (the OLD `build_netlist`
-        # never populates them) -- non-verbose stays on the OLD builder,
-        # byte-identical to before.
-        if verbose:
-            from ...graph.netlist import build_netlist_from_graph
-
-            return netlist_to_dict(
-                build_netlist_from_graph(graph, vi_name), verbose=True
-            )
-        return netlist_to_dict(build_netlist(graph, vi_name))
+        return netlist_to_dict(module, verbose=verbose)
 
     return await asyncio.to_thread(_work)
 

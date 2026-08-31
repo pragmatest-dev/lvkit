@@ -2,9 +2,9 @@
 
 Extracted from ``netlist.py`` (see that module's docstring for the overall
 graph -> netlist pipeline). This module holds the ``to_dict`` cluster: the
-structured, JSON-able counterpart to ``render_netlist``/``render_lvnet``'s
-text projections. Self-contained -- it only calls model types and its own
-helpers, never ``netlist.py``'s render/build machinery.
+structured, JSON-able counterpart to ``render_lvnet``'s text projection.
+Self-contained -- it only calls model types and its own helpers, never
+``netlist.py``'s render/build machinery.
 """
 
 from __future__ import annotations
@@ -57,8 +57,7 @@ def _frame_to_dict(frame: NetlistFrame, *, verbose: bool = False) -> dict[str, A
         # ``_item_to_dict`` returns ``None`` for a Phase A ``NetlistConstant``
         # -- invisible to this OLD JSON shape, exactly as it was before
         # Phase A (see ``_item_to_dict``'s docstring) -- filtered here so
-        # the Operation-based builder's JSON (which never produces one)
-        # stays byte-identical.
+        # the JSON output never shows one.
         "body": [
             d
             for i in frame.body
@@ -135,7 +134,8 @@ def _property_access_to_dict(access: NetlistPropertyAccess) -> dict[str, Any]:
 
 def _feedback_to_dict(fb: NetlistFeedback) -> dict[str, Any]:
     """A standalone Feedback Node body item -- the JSON counterpart of
-    ``_feedback_definition_line``'s ``fb{k} := mu[z^-N](...)`` text. ``net``
+    ``render_lvnet``'s ``feedback-node <handle> (<N> iteration[s]) :`` text
+    (see ``_render_lvnet_feedback``). ``net``
     leads (matching ``_gamma_to_dict``/``_mu_to_dict``/``_eta_to_dict``'s key
     order -- a Feedback Node IS a standalone mu merge, see ``NetlistFeedback``'s
     docstring), then the ``kind`` discriminator (here always ``"feedback"``,
@@ -270,8 +270,8 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     erase it). Returns ``None`` for a Phase A ``NetlistConstant`` -- this OLD
     JSON shape never surfaced a constant before Phase A either (only
     ``render_lvnet`` does); callers filter the ``None`` out (see
-    ``_frame_to_dict``/``netlist_to_dict``) so the Operation-based builder's
-    JSON (which never produces one) stays byte-identical.
+    ``_frame_to_dict``/``netlist_to_dict``) so the JSON output never shows
+    one.
 
     ``verbose`` (default ``False``, threaded from ``netlist_to_dict``)
     additionally nests each wired input/output's own structured ``lv_type``
@@ -282,9 +282,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     if isinstance(item, NetlistInstance):
         # Phase A: ``item.inputs`` now carries EVERY real terminal, wired or
         # not (see ``NetlistTerminalBinding``) -- this OLD JSON shape only ever
-        # showed wired ones, so filter back down to keep it byte-identical
-        # to the Operation-based builder (which never produces an unwired
-        # binding).
+        # showed wired ones, so filter back down to only the wired bindings.
         wired_inputs = [b for b in item.inputs if b.net is not None]
         return {
             "kind": "instance",
@@ -341,7 +339,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
 
 def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str, Any]:
     """The netlist IR as a faithful JSON-able tree — the STRUCTURED counterpart
-    to :func:`render_netlist`'s ASCII projection.
+    to :func:`render_lvnet`'s text projection.
 
     One canonical structure for every ``format="json"`` surface (describe, diff,
     the MCP tools) so they never drift into per-command ad-hoc shapes. Lossless
@@ -381,11 +379,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                     "index": p.index,
                     "required": p.is_required,
                     "default": p.default,
-                    **(
-                        {"wiring_rule": p.wiring_requirement.value}
-                        if verbose
-                        else {}
-                    ),
+                    **({"wiring_rule": p.wiring_requirement.value} if verbose else {}),
                     **(
                         {"lv_type": _lv_type_to_dict(p.lv_type)}
                         if verbose and p.lv_type is not None
@@ -437,11 +431,10 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
         ),
     }
     if verbose:
-        # The lvnet §7 ``uses :`` dependency manifest -- populated ONLY by
+        # The lvnet §7 ``uses :`` dependency manifest -- populated by
         # ``build_netlist_from_graph`` (``NetlistModule.dependencies``
-        # docstring); the OLD Operation-based ``build_netlist`` always
-        # leaves this empty, so gating on ``verbose`` (never unconditional)
-        # keeps non-verbose output byte-identical for EITHER builder.
+        # docstring); gated on ``verbose`` so non-verbose output stays
+        # unaffected.
         result["dependencies"] = [
             _dependency_to_dict(dep) for dep in module.dependencies
         ]

@@ -72,6 +72,12 @@
         "displayName": "LVKit VI Preview",
         "selector": [{ "filenamePattern": "*.vi" }],
         "priority": "default"
+      },
+      {
+        "viewType": "lvkit.viText",
+        "displayName": "LVKit VI Text (lvnet)",
+        "selector": [{ "filenamePattern": "*.vi" }],
+        "priority": "option"
       }
     ],
     "viewsContainers": {

@@ -19,16 +19,23 @@ class EventTimeoutTerminalGlyph(BorderTerminalGlyph):
         x1, y1, x2, y2 = bounds
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         backend.rect(
-            x1, y1, x2, y2, fill=theme.loop_term_fill, stroke=theme.wire_int,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.loop_term_fill,
+            stroke=theme.wire_int,
             stroke_width=1.2,
         )
         hw = (x2 - x1) * 0.30
         hh = (y2 - y1) * 0.34
         backend.polygon(
             [(cx - hw, cy - hh), (cx + hw, cy - hh), (cx, cy)],
-            fill=theme.wire_int, stroke=None,
+            fill=theme.wire_int,
+            stroke=None,
         )
         backend.polygon(
             [(cx - hw, cy + hh), (cx + hw, cy + hh), (cx, cy)],
-            fill=theme.wire_int, stroke=None,
+            fill=theme.wire_int,
+            stroke=None,
         )

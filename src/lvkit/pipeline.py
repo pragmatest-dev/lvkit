@@ -696,7 +696,7 @@ def {func_name}(*args, **kwargs) -> Any:
         for method in lvclass.methods:
             qualified_name = f"{lvclass.name}.lvclass:{method.name}.vi"
             ctx = graph.get_vi_context(qualified_name)
-            if ctx.inputs or ctx.outputs or ctx.operations:
+            if ctx.inputs or ctx.outputs or graph.top_level_nodes(qualified_name):
                 method_contexts[method.name] = ctx
 
         # Build class wrapper with context lookup for SubVI resolution

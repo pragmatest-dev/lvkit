@@ -58,11 +58,11 @@ class _MethodBuilderMixin:
         # Use existing build_args() - handles types and error filtering
         args_obj = build_args(filtered_inputs)
 
-        # Generate method body from operations
-        operations = vi_context.operations
+        # Generate method body from the method VI's top-level graph nodes.
         ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
         ctx.vi_name = vi_context.name
         ctx.import_resolver = self._import_resolver
+        operations = self._graph.top_level_nodes(vi_context.name) if self._graph else []
         body = generate_body(operations, ctx)
         self._collected_imports.update(ctx.imports)
 
@@ -126,11 +126,11 @@ class _MethodBuilderMixin:
         # Prepend self
         args_obj.args.insert(0, ast.arg(arg="self", annotation=None))
 
-        # Generate method body from operations
-        operations = vi_context.operations
+        # Generate method body from the method VI's top-level graph nodes.
         ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
         ctx.vi_name = vi_context.name
         ctx.import_resolver = self._import_resolver
+        operations = self._graph.top_level_nodes(vi_context.name) if self._graph else []
         body = generate_body(operations, ctx)
         self._collected_imports.update(ctx.imports)
 

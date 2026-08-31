@@ -13,7 +13,7 @@ from lvkit.codegen.condition_builder import (
 from lvkit.codegen.context import CodeGenContext
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
-from lvkit.models import PrimitiveOperation, Terminal
+from lvkit.models import Terminal
 
 
 def _make_wired_ctx(
@@ -69,11 +69,12 @@ class TestComparisonPrimitives:
         )
 
         # Equal? primitive (1102)
-        cmp_op = PrimitiveOperation(
+        cmp_op = PrimitiveNode(
+            vi_path="test.vi",
             id="cmp1",
             name="Equal?",
             kind="primitive",
-            primResID=1102,
+            prim_id=1102,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
                 Terminal(id="cmp_in2", index=1, direction="input"),
@@ -98,11 +99,12 @@ class TestComparisonPrimitives:
         )
 
         # Greater Or Equal? primitive (1103)
-        cmp_op = PrimitiveOperation(
+        cmp_op = PrimitiveNode(
+            vi_path="test.vi",
             id="cmp1",
             name="Greater Or Equal?",
             kind="primitive",
-            primResID=1103,
+            prim_id=1103,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
                 Terminal(id="cmp_in2", index=1, direction="input"),
@@ -124,11 +126,12 @@ class TestComparisonPrimitives:
         )
 
         # Less? primitive (1111)
-        cmp_op = PrimitiveOperation(
+        cmp_op = PrimitiveNode(
+            vi_path="test.vi",
             id="cmp1",
             name="Less?",
             kind="primitive",
-            primResID=1111,
+            prim_id=1111,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
                 Terminal(id="cmp_in2", index=1, direction="input"),
@@ -154,11 +157,12 @@ class TestBooleanPrimitives:
         )
 
         # And primitive (1061)
-        and_op = PrimitiveOperation(
+        and_op = PrimitiveNode(
+            vi_path="test.vi",
             id="and1",
             name="And",
             kind="primitive",
-            primResID=1061,
+            prim_id=1061,
             terminals=[
                 Terminal(id="and_in1", index=0, direction="input"),
                 Terminal(id="and_in2", index=1, direction="input"),
@@ -180,11 +184,12 @@ class TestBooleanPrimitives:
         )
 
         # Or primitive (1062)
-        or_op = PrimitiveOperation(
+        or_op = PrimitiveNode(
+            vi_path="test.vi",
             id="or1",
             name="Or",
             kind="primitive",
-            primResID=1062,
+            prim_id=1062,
             terminals=[
                 Terminal(id="or_in1", index=0, direction="input"),
                 Terminal(id="or_in2", index=1, direction="input"),
@@ -210,11 +215,12 @@ class TestNotPrimitive:
         )
 
         # Not primitive (1064)
-        not_op = PrimitiveOperation(
+        not_op = PrimitiveNode(
+            vi_path="test.vi",
             id="not1",
             name="Not",
             kind="primitive",
-            primResID=1064,
+            prim_id=1064,
             terminals=[
                 Terminal(id="not_in", index=0, direction="input"),
                 Terminal(id="not_out", index=1, direction="output"),
@@ -252,11 +258,12 @@ class TestNestedExpressions:
         )
 
         # Greater Or Equal? (1103)
-        cmp1 = PrimitiveOperation(
+        cmp1 = PrimitiveNode(
+            vi_path="test.vi",
             id="cmp1",
             name="Greater Or Equal?",
             kind="primitive",
-            primResID=1103,
+            prim_id=1103,
             terminals=[
                 Terminal(id="cmp1_in1", index=0, direction="input"),
                 Terminal(id="cmp1_in2", index=1, direction="input"),
@@ -265,11 +272,12 @@ class TestNestedExpressions:
         )
 
         # Equal? (1102)
-        cmp2 = PrimitiveOperation(
+        cmp2 = PrimitiveNode(
+            vi_path="test.vi",
             id="cmp2",
             name="Equal?",
             kind="primitive",
-            primResID=1102,
+            prim_id=1102,
             terminals=[
                 Terminal(id="cmp2_in1", index=0, direction="input"),
                 Terminal(id="cmp2_in2", index=1, direction="input"),
@@ -278,11 +286,12 @@ class TestNestedExpressions:
         )
 
         # Or (1062)
-        or_op = PrimitiveOperation(
+        or_op = PrimitiveNode(
+            vi_path="test.vi",
             id="or1",
             name="Or",
             kind="primitive",
-            primResID=1062,
+            prim_id=1062,
             terminals=[
                 Terminal(id="or_in1", index=0, direction="input"),
                 Terminal(id="or_in2", index=1, direction="input"),
@@ -311,11 +320,12 @@ class TestNestedExpressions:
         )
 
         # Less? (1111)
-        cmp_op = PrimitiveOperation(
+        cmp_op = PrimitiveNode(
+            vi_path="test.vi",
             id="cmp1",
             name="Less?",
             kind="primitive",
-            primResID=1111,
+            prim_id=1111,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
                 Terminal(id="cmp_in2", index=1, direction="input"),
@@ -324,11 +334,12 @@ class TestNestedExpressions:
         )
 
         # Not (1064)
-        not_op = PrimitiveOperation(
+        not_op = PrimitiveNode(
+            vi_path="test.vi",
             id="not1",
             name="Not",
             kind="primitive",
-            primResID=1064,
+            prim_id=1064,
             terminals=[
                 Terminal(id="not_in", index=0, direction="input"),
                 Terminal(id="not_out", index=1, direction="output"),
@@ -355,7 +366,8 @@ class TestCpdArithConditions:
         )
 
         # cpdArith with OR operation (no primResID)
-        cpd_op = PrimitiveOperation(
+        cpd_op = PrimitiveNode(
+            vi_path="test.vi",
             id="cpd1",
             name="Compound Or",
             kind="primitive",
@@ -381,7 +393,8 @@ class TestCpdArithConditions:
             {"src_a": "condition_1", "src_b": "condition_2"},
         )
 
-        cpd_op = PrimitiveOperation(
+        cpd_op = PrimitiveNode(
+            vi_path="test.vi",
             id="cpd1",
             name="Compound And",
             kind="primitive",
@@ -428,11 +441,12 @@ class TestEdgeCases:
         )
 
         # Unknown primitive ID
-        unknown_op = PrimitiveOperation(
+        unknown_op = PrimitiveNode(
+            vi_path="test.vi",
             id="unk1",
             name="Unknown",
             kind="primitive",
-            primResID=99999,
+            prim_id=99999,
             terminals=[
                 Terminal(id="prim_out", index=0, direction="output"),
             ],
@@ -450,11 +464,12 @@ class TestEdgeCases:
         )
 
         # Equal? primitive needs 2 inputs
-        cmp_op = PrimitiveOperation(
+        cmp_op = PrimitiveNode(
+            vi_path="test.vi",
             id="cmp1",
             name="Equal?",
             kind="primitive",
-            primResID=1102,
+            prim_id=1102,
             terminals=[
                 Terminal(id="cmp_in1", index=0, direction="input"),
                 Terminal(id="cmp_in2", index=1, direction="input"),

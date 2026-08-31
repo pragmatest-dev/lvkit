@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.op_walk import _flatten_fields
 from lvkit.models import (
     ClusterField,
-    PrimitiveOperation,
     Terminal,
     TypeResolutionNeeded,
     _is_error_cluster,
@@ -22,7 +22,7 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 
-def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for nMux (bundle/unbundle at structure boundaries).
 
     Terminals have roles set by graph construction:

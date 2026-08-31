@@ -10,20 +10,21 @@ import ast
 import pytest
 
 from lvkit.codegen.nodes import generate
-from lvkit.models import EventFrame, EventOperation
+from lvkit.graph.models import EventStructureNode
+from lvkit.models import EventFrame
 from tests.helpers import make_ctx
 
 
-def _event_node(labels: list[str]) -> EventOperation:
-    return EventOperation(
+def _event_node(labels: list[str]) -> EventStructureNode:
+    return EventStructureNode(
         id="es1",
+        vi_path="test.vi",
         name="Event Structure",
-        kind="eventStruct",
         frames=[EventFrame(event_label=label) for label in labels],
     )
 
 
-def _source(node: EventOperation) -> str:
+def _source(node: EventStructureNode) -> str:
     frag = generate(node, make_ctx())
     return "\n".join(ast.unparse(s) for s in frag.statements)
 

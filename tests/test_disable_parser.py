@@ -112,9 +112,7 @@ def _build_disable_xml(
                 attrib={"class": "SelectorInfoElement"},
             )
             ET.SubElement(sie, "Tag0000")  # leading empty tag (parser ignores)
-            expr = ET.SubElement(
-                sie, "activeDiag", attrib={"class": "ExpressionInfo"}
-            )
+            expr = ET.SubElement(sie, "activeDiag", attrib={"class": "ExpressionInfo"})
             tag = ET.SubElement(expr, "Tag0000")
             for tok in tokens:
                 ET.SubElement(tag, "SL__arrayElement").text = (

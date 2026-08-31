@@ -15,7 +15,7 @@ from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from lvkit.models import CaseOperation, SequenceOperation
+from lvkit.graph.models import VINode
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.icons import resolve_icon_png
 from lvkit.structure import parse_lvclass, parse_lvlib
@@ -119,17 +119,6 @@ def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
     return icon_map
 
 
-def _collect_subvi_names(operations: list) -> list[str]:
-    """Recursively collect SubVI names from operations including inner nodes."""
-    names: list[str] = []
-    for op in operations:
-        if op.kind == "vi" and op.name:
-            names.append(op.name)
-        if op.inner_nodes:
-            names.extend(_collect_subvi_names(op.inner_nodes))
-    return names
-
-
 def _prepare_vi_documentation_data(
     vi_name: str,
     graph: InMemoryVIGraph,
@@ -139,7 +128,7 @@ def _prepare_vi_documentation_data(
     """Prepare all data needed for one VI documentation page."""
     inputs_dc = graph.get_inputs(vi_name)
     outputs_dc = graph.get_outputs(vi_name)
-    operations_dc = graph.get_operations(vi_name)
+    operations_dc = graph.top_level_nodes(vi_name)
     constants_dc = graph.get_constants(vi_name)
     dataflow_dc = graph.get_wires(vi_name)
 
@@ -183,15 +172,12 @@ def _prepare_vi_documentation_data(
 
     qualified_deps = set(graph.get_vi_dependencies(vi_name))
 
-    def _extract_subvi_names(ops):
+    def _extract_subvi_names(nodes):
         names = []
-        for op in ops:
-            if op.kind == "vi" and op.name:
-                names.append(op.name)
-            names.extend(_extract_subvi_names(op.inner_nodes))
-            if isinstance(op, CaseOperation | SequenceOperation):
-                for frame in op.frames:
-                    names.extend(_extract_subvi_names(frame.operations))
+        for node in nodes:
+            if isinstance(node, VINode) and node.name:
+                names.append(node.name)
+            names.extend(_extract_subvi_names(graph.child_nodes(node.id, vi_name)))
         return names
 
     op_names = set(_extract_subvi_names(operations_dc))

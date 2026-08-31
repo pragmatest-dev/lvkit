@@ -152,6 +152,7 @@ def _truncate_to_width(
         s = s[:-1]
     return (s + "…") if s else ""
 
+
 # One FIXED font size for every operator-symbol glyph — arithmetic/comparison
 # triangles, Select, comparison-to-0, and the boolean logic gates — so the
 # symbols are identical in size everywhere on the diagram, independent of each
@@ -268,6 +269,7 @@ def draw_split_box(
         fill=getattr(theme, text_attr),
     )
 
+
 # Compound Arithmetic operator -> symbol (raw ``PrimitiveNode.operation``
 # strings, lowercase — not yet boolean-translated by codegen; for rendering
 # we just show the operator's own symbol). An unmapped operation (e.g. the
@@ -378,6 +380,7 @@ def _draw_node_tile(
         stroke=getattr(theme, stroke_attr),
         stroke_width=max(1.0, min(x2 - x1, y2 - y1) * 0.05),
     )
+
 
 # Shared drawer-row geometry for PropertyNodeGlyph and InvokeNodeGlyph: a
 # fixed left gutter wide enough for one arrow, so a row's label starts at the

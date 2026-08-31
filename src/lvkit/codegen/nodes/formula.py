@@ -13,7 +13,8 @@ import re
 from typing import TYPE_CHECKING
 
 from lvkit.formula.emit import VarSpec, transpile
-from lvkit.models import FormulaOperation, LVTypeKind
+from lvkit.graph.models import FormulaNode
+from lvkit.models import LVTypeKind
 
 from ..fragment import CodeFragment
 from .base import CodeGenError
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
     from ..context import CodeGenContext
 
 
-def _varspecs(op: FormulaOperation) -> list[VarSpec]:
+def _varspecs(op: FormulaNode) -> list[VarSpec]:
     """Build deduped VarSpecs from the node's terminals.
 
     A variable wired on both sides appears as two terminals (input + output)
@@ -58,7 +59,7 @@ def _varspecs(op: FormulaOperation) -> list[VarSpec]:
     return specs
 
 
-def generate(node: FormulaOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     if not node.script:
         raise CodeGenError(f"Formula Node {node.id} has no script")
 

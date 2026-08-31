@@ -11,39 +11,37 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from ..models import (
-    CaseOperation,
-    DisableStructureOperation,
-    EventOperation,
-    InPlaceOperation,
-    LoopOperation,
     LVType,
-    Operation,
-    PrimitiveOperation,
     ScalarValue,
-    SequenceOperation,
     Terminal,
 )
 from ..parser.node_types import get_display_name
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
-from .core import kind_display
 from .interface_order import is_required
 from .models import (
+    AnyGraphNode,
+    CaseStructureNode,
     Constant,
+    DisableStructureNode,
+    EventStructureNode,
     ExecutionProps,
+    InPlaceNode,
     InstanceProps,
     KindProps,
     Label,
+    LoopNode,
+    PrimitiveNode,
+    SequenceNode,
     ToolbarProps,
     VIContext,
+    VINode,
     WindowProps,
     bool_str,
 )
 from .op_walk import (
     _const_value_str,
-    _has_output_tunnel,
     _render_ports,
     _subvi_ports,
-    index_terminal_owners,
 )
 from .queries import collect_class_context
 
@@ -71,7 +69,7 @@ def describe_vi(
     typed terminal detail -- it never swaps in a different section shape.
     The dataflow NETLIST (the declare-then-wire ``## Components`` +
     node-first wiring body) is a SEPARATE output entirely -- see
-    ``lvkit.graph.netlist`` and the CLI's ``describe --format netlist``.
+    ``lvkit.graph.netlist`` and the CLI's ``describe --format lvnet``.
     """
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
@@ -146,7 +144,8 @@ def describe_vi(
     # Dependencies: SubVI calls with their signatures and descriptions.
     # Same shape verbose or not -- verbose only deepens Properties/Health/
     # pane detail above; it never swaps this section out.
-    subvi_names = _collect_subvi_names(ctx.operations)
+    top_nodes = graph.top_level_nodes(vi_name)
+    subvi_names = _collect_subvi_names(graph, top_nodes, vi_name)
     if subvi_names:
         lines.append("## Dependencies")
         for name in sorted(subvi_names):
@@ -166,8 +165,8 @@ def describe_vi(
     structures = _collect_structures(
         graph,
         ctx,
-        ctx.operations,
-        index_terminal_owners(ctx.operations),
+        top_nodes,
+        _index_terminal_owners(graph, vi_name),
     )
     if structures:
         lines.append("## Control Flow")
@@ -177,117 +176,7 @@ def describe_vi(
 
     # Operations
     lines.append("## Operations")
-    _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
-
-    return "\n".join(lines)
-
-
-def describe_operations(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-) -> str:
-    """Describe a VI's operations in execution order."""
-    vi_name = graph.resolve_vi_name(vi_name)
-    ctx = graph.get_vi_context(vi_name)
-
-    lines: list[str] = []
-    lines.append(f"Operations for {vi_name}:")
-    lines.append("")
-
-    _describe_op_list(ctx.operations, ctx.constants, lines, indent=0)
-
-    if ctx.outputs:
-        lines.append("")
-        lines.append("Returns:")
-        for out in ctx.outputs:
-            lines.append(f"  {out.name}: {_terminal_type_label(out)}")
-
-    return "\n".join(lines)
-
-
-def describe_dataflow(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    operation_id: str | None = None,
-) -> str:
-    """Describe data flow -- where values come from and go to."""
-    vi_name = graph.resolve_vi_name(vi_name)
-    wires = list(graph.get_wires(vi_name))
-
-    if operation_id:
-        wires = [
-            w
-            for w in wires
-            if w.source.node_id == operation_id or w.dest.node_id == operation_id
-        ]
-
-    lines: list[str] = []
-    lines.append(
-        f"Dataflow for {vi_name}"
-        + (f" (operation {operation_id})" if operation_id else "")
-        + ":"
-    )
-    lines.append("")
-
-    for wire in wires:
-        src_name = wire.source.name or wire.source.node_id.split("::")[-1]
-        dst_name = wire.dest.name or wire.dest.node_id.split("::")[-1]
-        lines.append(f"  {src_name} -> {dst_name}")
-
-    if not wires:
-        lines.append("  (no wires)")
-
-    return "\n".join(lines)
-
-
-def describe_structure(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    operation_id: str,
-) -> str:
-    """Describe a structure node (case, loop, sequence) in detail."""
-    vi_name = graph.resolve_vi_name(vi_name)
-    ctx = graph.get_vi_context(vi_name)
-
-    op = _find_operation(ctx.operations, operation_id)
-    if op is None:
-        return f"Operation {operation_id} not found in {vi_name}"
-
-    lines: list[str] = []
-
-    match op:
-        case CaseOperation():
-            _describe_case_structure(op, list(ctx.constants), lines)
-        case LoopOperation():
-            _describe_loop(op, lines)
-        case SequenceOperation():
-            _describe_sequence(op, lines)
-        case _:
-            lines.append(f"Operation {operation_id}: {op.display_name}")
-            node_word = get_display_name(op.node_type) if op.node_type else "unknown"
-            lines.append(f"  Type: {node_word}")
-            lines.append(f"  Kind: {kind_display(op.kind)}")
-
-    return "\n".join(lines)
-
-
-def describe_constants(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-) -> str:
-    """List all constants used in a VI."""
-    vi_name = graph.resolve_vi_name(vi_name)
-    constants = list(graph.get_constants(vi_name))
-
-    lines = [f"Constants in {vi_name}:", ""]
-    for c in constants:
-        line = f"  {_describe_constant_line(c)}"
-        if c.parent is not None:
-            line += f"  [{c.parent.split('::')[-1]} frame {c.frame}]"
-        lines.append(line)
-
-    if not constants:
-        lines.append("  (none)")
+    _describe_op_list(graph, vi_name, top_nodes, ctx.constants, lines, indent=0)
 
     return "\n".join(lines)
 
@@ -341,28 +230,27 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
     return line
 
 
-def _collect_subvi_names(operations: list[Operation]) -> set[str]:
+def _collect_subvi_names(
+    graph: InMemoryVIGraph,
+    nodes: list[AnyGraphNode],
+    vi_name: str,
+) -> set[str]:
     """Collect all SubVI callees' QUALIFIED names recursively — the
     class/lib-qualified identity (e.g. ``TestResult.lvclass:addError.vi``), so a
     dynamic-dispatch call reports its declaring parent class rather than a bare
     ``addError.vi``. resolve_vi_name accepts the qualified form, so the ports /
-    description lookups below still resolve (to the correct copy)."""
+    description lookups below still resolve (to the correct copy).
+
+    Walks the graph directly (``child_nodes`` reaches every nested node —
+    a structure's frame bodies AND a loop/IPES body alike — in one
+    recursion)."""
     names: set[str] = set()
-    for op in operations:
-        if op.kind == "vi" and op.qualified_name:
-            names.add(op.qualified_name)
-        match op:
-            case (
-                CaseOperation()
-                | SequenceOperation()
-                | EventOperation()
-                | DisableStructureOperation()
-            ):
-                for frame in op.frames:
-                    names.update(_collect_subvi_names(frame.operations))
-            case _:
-                pass
-        names.update(_collect_subvi_names(op.inner_nodes))
+    for node in nodes:
+        if isinstance(node, VINode) and node.id != node.vi_path and node.qualified_name:
+            names.add(node.qualified_name)
+        names.update(
+            _collect_subvi_names(graph, graph.child_nodes(node.id, vi_name), vi_name)
+        )
     return names
 
 
@@ -393,6 +281,99 @@ def _terminal_type_label(t: Terminal) -> str:
     codegen-target annotation); the KIND word when the type didn't resolve,
     ``unknown`` when even that is absent."""
     return t.type_label()
+
+
+# === Graph-native operation-walk helpers ===
+#
+# describe consumes the graph directly (``top_level_nodes`` / ``child_nodes`` /
+# ``enriched_terminals``), reading the ``GraphNode`` fields.
+
+
+def _node_has_output_tunnel(node: AnyGraphNode) -> bool:
+    """True if the structure routes any value out (so an empty frame is a
+    pass-through, not truly empty). Reads terminal directions off the
+    ``GraphNode``."""
+    return any(t.direction == "output" for t in node.terminals)
+
+
+def _is_feedback_node(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
+    """True for a Feedback Node's graph node -- a ``PrimitiveNode`` carrying
+    the ``feedback_is_master`` graph attribute. Such nodes take the generic
+    ``[type-word]`` one-liner rather than a ``[prim N]`` label."""
+    return graph.is_feedback_master(node.id)
+
+
+def _frame_child_nodes(
+    graph: InMemoryVIGraph,
+    node: AnyGraphNode,
+    vi_name: str,
+) -> dict[object, list[AnyGraphNode]]:
+    """Group a structure's child ``GraphNode``s by their ``frame`` key. Keyed
+    by the raw ``child.frame`` value, matched against a case frame's
+    ``selector_value`` / a sequence frame's ``str(index)`` / an event frame's
+    ``str(position)``."""
+    out: dict[object, list[AnyGraphNode]] = {}
+    for child in graph.child_nodes(node.id, vi_name):
+        out.setdefault(child.frame, []).append(child)
+    return out
+
+
+def _is_ipes_border_node(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
+    """True for an In Place Element Structure's decompose/recompose BORDER
+    node -- a ``poser_uid``-carrying node with list terminals in ONE direction
+    only (list-out only = decompose, list-in only = recompose), so describe's
+    IPES body omits the border nodes -- they sit on the structure boundary
+    like tunnels, not in its body."""
+    if graph._graph.nodes.get(node.id, {}).get("poser_uid") is None:
+        return False
+    has_list_out = any(
+        t.nmux_role == "list" and t.direction == "output" for t in node.terminals
+    )
+    has_list_in = any(
+        t.nmux_role == "list" and t.direction == "input" for t in node.terminals
+    )
+    return (has_list_out and not has_list_in) or (has_list_in and not has_list_out)
+
+
+def _body_child_nodes(
+    graph: InMemoryVIGraph,
+    node: AnyGraphNode,
+    vi_name: str,
+) -> list[AnyGraphNode]:
+    """A structure's frame-LESS body nodes (``frame is None``): a loop's body
+    (and an IPES's inner nodes) carry no frame, while a frame-bearing
+    structure's children all sit in a frame and are walked via
+    :func:`_frame_child_nodes` instead. An In Place Element Structure's
+    decompose/recompose border nodes are excluded
+    (:func:`_is_ipes_border_node`) rather than treated as body."""
+    body = [c for c in graph.child_nodes(node.id, vi_name) if c.frame is None]
+    if isinstance(node, InPlaceNode):
+        body = [c for c in body if not _is_ipes_border_node(graph, c)]
+    return body
+
+
+def _index_terminal_owners(
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    nodes: list[AnyGraphNode] | None = None,
+    out: dict[str, tuple[AnyGraphNode, Terminal]] | None = None,
+) -> dict[str, tuple[AnyGraphNode, Terminal]]:
+    """Map every terminal id -> its owning ``(node, terminal)`` in ONE walk --
+    the graph-native mirror of ``op_walk.index_terminal_owners``, built once so
+    selector tracing (:func:`_resolve_selector`) is an O(1) lookup that reaches
+    any node at any nesting depth (``child_nodes`` covers frame bodies and
+    loop/IPES bodies alike). Uses ``enriched_terminals`` so a subVI terminal's
+    callee-resolved name is the one recorded."""
+    if out is None:
+        out = {}
+    if nodes is None:
+        nodes = graph.top_level_nodes(vi_name)
+    for node in nodes:
+        for t in graph.enriched_terminals(node, vi_name):
+            if t.id not in out:
+                out[t.id] = (node, t)
+        _index_terminal_owners(graph, vi_name, graph.child_nodes(node.id, vi_name), out)
+    return out
 
 
 _FlagGroup = ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
@@ -549,15 +530,15 @@ def _describe_class_context(
 def _resolve_selector(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    owner_by_terminal: dict[str, tuple[Operation, Terminal]],
+    owner_by_terminal: dict[str, tuple[AnyGraphNode, Terminal]],
     selector_terminal: str | None,
 ) -> str | None:
     """Trace a selector/stop wire back one hop to identify what gates it.
 
     Returns a short ``Node.terminal`` label, a front-panel input name, or
     None when the wire source can't be located. ``owner_by_terminal`` is the
-    VI-wide terminal->owner index (``op_walk.index_terminal_owners``, built
-    once) -- an O(1) lookup instead of re-scanning the whole op tree per call.
+    VI-wide terminal->owner index (:func:`_index_terminal_owners`, built
+    once) -- an O(1) lookup instead of re-scanning the whole node tree per call.
     """
     if not selector_terminal:
         return None
@@ -571,12 +552,12 @@ def _resolve_selector(
             if t.id == src.terminal_id:
                 return t.name
         return None
-    op, term = hit
+    node, term = hit
     term_name = term.name or f"idx={term.index}"
-    return f"{_gated_source(op)}.{term_name}"
+    return f"{_gated_source(node)}.{term_name}"
 
 
-def _gated_source(op: Operation) -> str:
+def _gated_source(node: AnyGraphNode) -> str:
     """Name a selector/stop wire's source for a ``gated on …`` line, composed
     for THIS view's intent — keep the structure TYPE visible. An identity-
     bearing source (subVI/primitive) shows its identity (``display_name``); an
@@ -585,93 +566,96 @@ def _gated_source(op: Operation) -> str:
     Control"`` and an unlabeled one reads ``For Loop`` — the type is never
     dropped in favour of a free-text label. Uses only clean truth fields (the
     ``name`` split), never a string comparison against a type word."""
-    if op.name:
-        return op.display_name
-    author = op.caption or op.label
-    type_word = get_display_name(op.node_type) if op.node_type else "node"
+    if node.name:
+        return node.display_name
+    author = node.caption or node.label
+    type_word = get_display_name(node.node_type) if node.node_type else "node"
     return f'{type_word} "{author}"' if author else type_word
 
 
 def _collect_structures(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    operations: list[Operation],
-    owner_by_terminal: dict[str, tuple[Operation, Terminal]],
+    nodes: list[AnyGraphNode],
+    owner_by_terminal: dict[str, tuple[AnyGraphNode, Terminal]],
 ) -> list[str]:
     """Summarize control flow structures.
 
     Case/loop entries are annotated with what gates them -- the selector
-    (or stop-condition) wire traced back one hop to its source operation
+    (or stop-condition) wire traced back one hop to its source node
     or front-panel input. ``owner_by_terminal`` is the VI-wide terminal->owner
     index (built once at the top-level call), kept constant through recursion
     so selector tracing is an O(1) lookup that reaches any node regardless of
-    nesting depth -- never an O(n) op-tree rescan per structure.
+    nesting depth -- never an O(n) node-tree rescan per structure.
+
+    A frame-bearing structure recurses each frame's grouped child nodes; the
+    trailing recursion covers a loop/IPES body (frame-less children).
     """
     structures: list[str] = []
-    for op in operations:
-        match op:
-            case CaseOperation():
-                n_frames = len(op.frames)
+    for node in nodes:
+        match node:
+            case CaseStructureNode():
                 gated = _resolve_selector(
                     graph,
                     ctx,
                     owner_by_terminal,
-                    op.selector_terminal,
+                    node.selector_terminal,
                 )
                 if gated:
                     sel = f", gated on {gated}"
-                elif op.selector_terminal:
-                    sel = f", selector: {op.selector_terminal}"
+                elif node.selector_terminal:
+                    sel = f", selector: {node.selector_terminal}"
                 else:
                     sel = ""
-                structures.append(f"Case structure ({n_frames} frames{sel})")
-                for frame in op.frames:
+                structures.append(f"Case structure ({len(node.frames)} frames{sel})")
+                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
-                        frame.operations,
+                        fmap.get(frame.selector_value, []),
                         owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
-            case LoopOperation():
-                kind = "While loop" if op.loop_type == "whileLoop" else "For loop"
+            case LoopNode():
+                kind = "While loop" if node.loop_type == "whileLoop" else "For loop"
                 gated = _resolve_selector(
                     graph,
                     ctx,
                     owner_by_terminal,
-                    op.stop_condition_terminal,
+                    node.stop_condition_terminal,
                 )
                 structures.append(f"{kind} (stops when {gated})" if gated else kind)
-            case SequenceOperation():
-                n_frames = len(op.frames)
-                structures.append(f"Flat sequence ({n_frames} frames)")
-                for frame in op.frames:
+            case SequenceNode():
+                structures.append(f"Flat sequence ({len(node.frames)} frames)")
+                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
-                        frame.operations,
+                        fmap.get(str(frame.index), []),
                         owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
-            case EventOperation():
-                n_frames = len(op.frames)
-                structures.append(f"Event structure ({n_frames} frames)")
-                for frame in op.frames:
+            case EventStructureNode():
+                structures.append(f"Event structure ({len(node.frames)} frames)")
+                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                for i in range(len(node.frames)):
                     for s in _collect_structures(
                         graph,
                         ctx,
-                        frame.operations,
+                        fmap.get(str(i), []),
                         owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
-            case DisableStructureOperation():
-                n_frames = len(op.frames)
-                structures.append(f"Disable structure ({n_frames} frames)")
-                for frame in op.frames:
+            case DisableStructureNode():
+                structures.append(f"Disable structure ({len(node.frames)} frames)")
+                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
-                        frame.operations,
+                        fmap.get(frame.selector_value, []),
                         owner_by_terminal,
                     ):
                         structures.append(f"  \\ {s}")
@@ -679,7 +663,12 @@ def _collect_structures(
                 pass
         structures.extend(
             f"  \\ {s}"
-            for s in _collect_structures(graph, ctx, op.inner_nodes, owner_by_terminal)
+            for s in _collect_structures(
+                graph,
+                ctx,
+                _body_child_nodes(graph, node, ctx.name),
+                owner_by_terminal,
+            )
         )
     return structures
 
@@ -716,7 +705,9 @@ def _frame_constants(
 
 
 def _describe_frame_body(
-    frame_ops: list[Operation],
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    frame_nodes: list[AnyGraphNode],
     frame_consts: list[Constant],
     all_constants: list[Constant],
     lines: list[str],
@@ -725,10 +716,12 @@ def _describe_frame_body(
     *,
     passthrough: bool,
 ) -> None:
-    """Render a frame's operations + attributed constants, or a placeholder."""
-    if frame_ops or frame_consts:
-        if frame_ops:
-            _describe_op_list(frame_ops, all_constants, lines, indent + 2)
+    """Render a frame's nodes + attributed constants, or a placeholder."""
+    if frame_nodes or frame_consts:
+        if frame_nodes:
+            _describe_op_list(
+                graph, vi_name, frame_nodes, all_constants, lines, indent + 2
+            )
         for c in frame_consts:
             lines.append(f"{prefix}    {_describe_constant_line(c)}")
     elif passthrough:
@@ -738,65 +731,79 @@ def _describe_frame_body(
 
 
 def _describe_op_list(
-    operations: list[Operation],
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    nodes: list[AnyGraphNode],
     constants: list[Constant],
     lines: list[str],
     indent: int,
 ) -> None:
-    """Describe a list of operations with indentation."""
+    """Describe a list of graph nodes with indentation."""
     prefix = "  " * indent
 
-    for op in operations:
-        op_desc = _describe_single_op(op)
+    for node in nodes:
+        op_desc = _describe_single_op(graph, vi_name, node)
         lines.append(f"{prefix}{op_desc}")
 
-        match op:
-            case CaseOperation():
-                passthrough = _has_output_tunnel(op)
-                for frame in op.frames:
+        match node:
+            case CaseStructureNode():
+                passthrough = _node_has_output_tunnel(node)
+                fmap = _frame_child_nodes(graph, node, vi_name)
+                for frame in node.frames:
                     default = " (default)" if frame.is_default else ""
                     lines.append(f'{prefix}  Frame "{frame.selector_value}"{default}:')
                     _describe_frame_body(
-                        frame.operations,
-                        _frame_constants(constants, op.id, frame.selector_value),
+                        graph,
+                        vi_name,
+                        fmap.get(frame.selector_value, []),
+                        _frame_constants(constants, node.id, frame.selector_value),
                         constants,
                         lines,
                         prefix,
                         indent,
                         passthrough=passthrough,
                     )
-            case SequenceOperation():
-                for i, frame in enumerate(op.frames):
+            case SequenceNode():
+                fmap = _frame_child_nodes(graph, node, vi_name)
+                for i, frame in enumerate(node.frames):
                     lines.append(f"{prefix}  Frame {i}:")
                     _describe_frame_body(
-                        frame.operations,
-                        _frame_constants(constants, op.id, i),
+                        graph,
+                        vi_name,
+                        fmap.get(str(frame.index), []),
+                        _frame_constants(constants, node.id, i),
                         constants,
                         lines,
                         prefix,
                         indent,
                         passthrough=False,
                     )
-            case EventOperation():
-                for frame in op.frames:
+            case EventStructureNode():
+                fmap = _frame_child_nodes(graph, node, vi_name)
+                for i, frame in enumerate(node.frames):
                     lines.append(f"{prefix}  Frame {frame.event_label}:")
                     _describe_frame_body(
-                        frame.operations,
-                        _frame_constants(constants, op.id, frame.index),
+                        graph,
+                        vi_name,
+                        fmap.get(str(i), []),
+                        _frame_constants(constants, node.id, frame.index),
                         constants,
                         lines,
                         prefix,
                         indent,
                         passthrough=False,
                     )
-            case DisableStructureOperation():
-                passthrough = _has_output_tunnel(op)
-                for frame in op.frames:
+            case DisableStructureNode():
+                passthrough = _node_has_output_tunnel(node)
+                fmap = _frame_child_nodes(graph, node, vi_name)
+                for frame in node.frames:
                     default = " (default)" if frame.is_default else ""
                     lines.append(f'{prefix}  Frame "{frame.selector_value}"{default}:')
                     _describe_frame_body(
-                        frame.operations,
-                        _frame_constants(constants, op.id, frame.selector_value),
+                        graph,
+                        vi_name,
+                        fmap.get(frame.selector_value, []),
+                        _frame_constants(constants, node.id, frame.selector_value),
                         constants,
                         lines,
                         prefix,
@@ -804,182 +811,78 @@ def _describe_op_list(
                         passthrough=passthrough,
                     )
             case _:
-                if op.inner_nodes:
+                body = _body_child_nodes(graph, node, vi_name)
+                if body:
                     _describe_op_list(
-                        op.inner_nodes,
+                        graph,
+                        vi_name,
+                        body,
                         constants,
                         lines,
                         indent + 1,
                     )
-                for c in (c for c in constants if c.parent == op.id):
+                for c in (c for c in constants if c.parent == node.id):
                     lines.append(f"{prefix}  {_describe_constant_line(c)}")
 
 
-def _describe_single_op(op: Operation) -> str:
-    """One-line description of an operation."""
-    name = op.name or "unnamed"
+def _describe_single_op(
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    node: AnyGraphNode,
+) -> str:
+    """One-line description of a graph node."""
+    name = node.name or "unnamed"
 
-    if op.kind == "vi":
-        # Qualified callee identity (``op.qualified_name`` — the resolution
-        # identity, e.g. ``TestResult.lvclass:addError.vi``; a dispatch call reads
-        # its declaring parent class). The SAME field the ## Dependencies section
-        # uses (_collect_subvi_names), so a subVI is labeled identically on both.
-        label = op.qualified_name or name
-        named_inputs = [
-            t.name for t in op.terminals if t.direction == "input" and t.name
-        ]
-        named_outputs = [
-            t.name for t in op.terminals if t.direction == "output" and t.name
-        ]
+    if isinstance(node, VINode):
+        # Class-qualified identity (``node.display_name`` -- owning_libraries
+        # chain + name, so a dispatch call reads its declaring parent class,
+        # e.g. ``TestResult.lvclass:addError.vi``). Unified with
+        # ``diff._elem_label``'s identical use of ``display_name`` for a
+        # SubVI-call node (verified empirically: identical text to the old
+        # ``node.qualified_name or name`` on every describe-exercising test
+        # and corpus VI checked, including a real dynamic-dispatch call --
+        # JKI-VI-Tester's ``loadTestsFromTestCase.vi`` calling
+        # ``TestCase.lvclass:listAllTestMethods.vi``).
+        label = node.display_name
+        terms = graph.enriched_terminals(node, vi_name)
+        named_inputs = [t.name for t in terms if t.direction == "input" and t.name]
+        named_outputs = [t.name for t in terms if t.direction == "output" and t.name]
         if named_inputs or named_outputs:
             in_str = ", ".join(named_inputs)
             out_str = ", ".join(named_outputs)
             return f"{label}({in_str}) -> {out_str}"
         return label
 
-    match op:
-        case PrimitiveOperation():
-            prim_desc = name
-            if op.primResID:
-                prim_desc = f"{name} [prim {op.primResID}]"
-            return prim_desc
-        case CaseOperation():
-            return f"Case Structure ({len(op.frames)} frames)"
-        case LoopOperation():
-            if op.loop_type == "whileLoop":
+    match node:
+        case PrimitiveNode():
+            # Property/Invoke/Feedback nodes are also ``PrimitiveNode``s --
+            # keep them on the generic ``[type-word]`` one-liner, only a
+            # genuine primitive gets a ``[prim N]`` label.
+            if node.properties or node.method_name or _is_feedback_node(graph, node):
+                node_word = (
+                    get_display_name(node.node_type) if node.node_type else "unknown"
+                )
+                return f"{name} [{node_word}]"
+            if node.prim_id is not None:
+                return f"{name} [prim {node.prim_id}]"
+            return name
+        case CaseStructureNode():
+            return f"Case Structure ({len(node.frames)} frames)"
+        case LoopNode():
+            if node.loop_type == "whileLoop":
                 return "While Loop"
             return "For Loop"
-        case SequenceOperation():
+        case SequenceNode():
             return "Flat Sequence"
-        case InPlaceOperation() | DisableStructureOperation() | EventOperation():
+        case InPlaceNode() | DisableStructureNode() | EventStructureNode():
             # These structures have no codegen identity (``name`` is None) --
             # compose the faithful human label from caption/label/type-word
-            # (``display_name``) instead of the old baked-in ``name`` --
-            # never fall back to the raw internal XML class
+            # (``node.display_name``) instead of the raw internal XML class
             # ("decomposeRecomposeStructure", "commentNode", "eventStruct")
-            # the way the generic case below does for truly unhandled
-            # operation kinds.
-            return op.display_name
+            # the way the generic case below does for truly unhandled kinds.
+            return node.display_name
         case _:
-            node_word = get_display_name(op.node_type) if op.node_type else "unknown"
-            return f"{name} [{node_word}]"
-
-
-def _find_operation(
-    operations: list[Operation],
-    op_id: str,
-) -> Operation | None:
-    """Find an operation by ID, searching recursively."""
-    for op in operations:
-        if op.id == op_id:
-            return op
-        match op:
-            case CaseOperation() | SequenceOperation():
-                for frame in op.frames:
-                    found = _find_operation(frame.operations, op_id)
-                    if found:
-                        return found
-            case _:
-                pass
-        found = _find_operation(op.inner_nodes, op_id)
-        if found:
-            return found
-    return None
-
-
-def _describe_case_structure(
-    op: CaseOperation,
-    constants: list[Constant],
-    lines: list[str],
-) -> None:
-    """Describe a case structure in detail."""
-    lines.append(f"Case Structure: {op.id}")
-    if op.selector_terminal:
-        lines.append(f"  Selector terminal: {op.selector_terminal}")
-
-    for t in op.terminals:
-        if t.id == op.selector_terminal and t.lv_type:
-            lines.append(f"  Selector type: {t.lv_type.type_descriptor()}")
-            break
-
-    passthrough = _has_output_tunnel(op)
-    lines.append(f"  Frames: {len(op.frames)}")
-    for frame in op.frames:
-        default = " (default)" if frame.is_default else ""
-        frame_consts = _frame_constants(constants, op.id, frame.selector_value)
-        lines.append(
-            f'  Frame "{frame.selector_value}"{default}:'
-            f" {len(frame.operations)} operations,"
-            f" {len(frame_consts)} constants"
-        )
-        for fop in frame.operations:
-            lines.append(f"    - {_describe_single_op(fop)}")
-        for c in frame_consts:
-            lines.append(f"    - constant {_describe_constant_line(c)}")
-        if not frame.operations and not frame_consts and passthrough:
-            lines.append("    - (pass-through)")
-
-
-def _describe_loop(op: LoopOperation, lines: list[str]) -> None:
-    """Describe a loop in detail."""
-    loop_kind = "While Loop" if op.loop_type == "whileLoop" else "For Loop"
-    # Terse, non-default-only: a serial loop (the overwhelming common case)
-    # prints nothing extra; a parallelized for-loop appends "(parallel)" or
-    # "(parallel, N workers)" when LabVIEW's static worker count is set.
-    parallel_note = ""
-    if op.parallel:
-        workers = (
-            f", {op.parallel_static_workers} workers"
-            if op.parallel_static_workers
-            else ""
-        )
-        parallel_note = f" (parallel{workers})"
-    lines.append(f"{loop_kind}{parallel_note}: {op.id}")
-
-    if op.stop_condition_terminal:
-        lines.append(f"  Stop condition: {op.stop_condition_terminal}")
-
-    if op.tunnels:
-        lines.append("  Tunnels:")
-        for tunnel in op.tunnels:
-            detail = ""
-            if tunnel.mode is not None:
-                detail += f" mode={tunnel.mode.value}"
-            # The orthogonal Conditional modifier (output tunnels) -- only
-            # surfaced when set, since most tunnels are unconditional.
-            if tunnel.conditional:
-                detail += " conditional=True"
-            if tunnel.sr_initialized is not None:
-                detail += f" initialized={tunnel.sr_initialized}"
-            # 1 is a normal (unstacked) shift register -- the ubiquitous
-            # case; only call it out when it's genuinely stacked.
-            if tunnel.sr_stack_depth is not None and tunnel.sr_stack_depth != 1:
-                detail += f" stack_depth={tunnel.sr_stack_depth}"
-            lines.append(
-                f"    {tunnel.tunnel_type}:"
-                f" outer={tunnel.outer_terminal_uid}"
-                f" -> inner={tunnel.inner_terminal_uid}{detail}"
+            node_word = (
+                get_display_name(node.node_type) if node.node_type else "unknown"
             )
-
-    if op.inner_nodes:
-        lines.append(f"  Body: {len(op.inner_nodes)} operations")
-        for inner in op.inner_nodes:
-            lines.append(f"    - {_describe_single_op(inner)}")
-
-
-def _describe_sequence(
-    op: SequenceOperation,
-    lines: list[str],
-) -> None:
-    """Describe a flat sequence."""
-    lines.append(f"Flat Sequence: {op.id}")
-    if op.frames:
-        lines.append(f"  Frames: {len(op.frames)}")
-        for i, frame in enumerate(op.frames):
-            lines.append(f"  Frame {i}: {len(frame.operations)} operations")
-            for fop in frame.operations:
-                lines.append(f"    - {_describe_single_op(fop)}")
-    elif op.inner_nodes:
-        lines.append(f"  Operations: {len(op.inner_nodes)}")
-        for inner in op.inner_nodes:
-            lines.append(f"    - {_describe_single_op(inner)}")
+            return f"{name} [{node_word}]"

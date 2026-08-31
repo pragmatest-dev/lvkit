@@ -537,8 +537,7 @@ def project_vi_facts(
             uid=gn.id,
             kind=_node_kind(gn),
             name=(
-                gn.name
-                or (get_display_name(gn.node_type) if gn.node_type else None)
+                gn.name or (get_display_name(gn.node_type) if gn.node_type else None)
             ),
             prim_id=gn.prim_id if isinstance(gn, GraphPrimitiveNode) else None,
             qualified_name=gn.qualified_name if isinstance(gn, VINode) else None,

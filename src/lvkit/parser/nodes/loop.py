@@ -98,7 +98,7 @@ def _wired_terminal_uids(root: ET.Element) -> set[str]:
 def _parse_hex_int(text: str | None) -> int | None:
     """Parse a 2-digit hex byte string (e.g. ``ParForNumStaticWorkers``'s
     ``"08"`` -> 8). None when absent, unparseable, or 0 (LabVIEW's "not
-    configured" sentinel -- see LoopOperation.parallel_static_workers)."""
+    configured" sentinel -- see ParsedLoopStructure.parallel_static_workers)."""
     if not text:
         return None
     try:

@@ -1,7 +1,7 @@
 """Tests for array-op code generation (aInit, aReplace, aInsert, aReshape).
 
 Mirrors the pattern in tests/test_compound_codegen.py: build a
-PrimitiveOperation + CodeGenContext by hand, generate the fragment, then
+``PrimitiveNode`` + ``CodeGenContext`` by hand, generate the fragment, then
 COMPILE AND EXECUTE the resulting statements and assert on the real
 output values (not just that the code parses).
 """
@@ -12,7 +12,8 @@ import ast
 import copy
 
 from lvkit.codegen.nodes import compound
-from lvkit.models import LVType, LVTypeKind, PrimitiveOperation, Terminal
+from lvkit.graph.models import PrimitiveNode
+from lvkit.models import LVType, LVTypeKind, Terminal
 from tests.helpers import make_ctx
 
 ARRAY_TYPE = LVType(kind=LVTypeKind.ARRAY)
@@ -36,7 +37,7 @@ def _compile_and_run(statements: list, local_vars: dict) -> dict:
 # ── Initialize Array (aInit) ────────────────────────────────────────
 
 
-def _init_op(*dim_ids: str) -> PrimitiveOperation:
+def _init_op(*dim_ids: str) -> PrimitiveNode:
     terminals = [
         Terminal(id="elem", index=0, direction="input"),
         Terminal(id="out", index=1, direction="output"),
@@ -45,10 +46,10 @@ def _init_op(*dim_ids: str) -> PrimitiveOperation:
         Terminal(id=did, index=2 + i, direction="input")
         for i, did in enumerate(dim_ids)
     ]
-    return PrimitiveOperation(
+    return PrimitiveNode(
         id="init1",
+        vi_path="test.vi",
         name="Initialize Array",
-        kind="primitive",
         node_type="aInit",
         terminals=terminals,
     )
@@ -157,10 +158,10 @@ class TestArrayInitMutableElement:
             Terminal(id="out", index=1, direction="output"),
             Terminal(id="dim0", index=2, direction="input"),
         ]
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="init1",
+            vi_path="test.vi",
             name="Initialize Array",
-            kind="primitive",
             node_type="aInit",
             terminals=terminals,
         )
@@ -179,11 +180,11 @@ class TestArrayInitMutableElement:
 # ── Replace Array Subset (aReplace) ─────────────────────────────────
 
 
-def _replace_op(new_elem_type: LVType | None = None) -> PrimitiveOperation:
-    return PrimitiveOperation(
+def _replace_op(new_elem_type: LVType | None = None) -> PrimitiveNode:
+    return PrimitiveNode(
         id="rep1",
+        vi_path="test.vi",
         name="Replace Array Subset",
-        kind="primitive",
         node_type="aReplace",
         terminals=[
             Terminal(id="arr", index=0, direction="input"),
@@ -348,11 +349,11 @@ class TestArrayReplaceSubset:
 # matching the array's element type (String, in the real sample).
 
 
-def _insert_op(elem_type: LVType | None = None) -> PrimitiveOperation:
-    return PrimitiveOperation(
+def _insert_op(elem_type: LVType | None = None) -> PrimitiveNode:
+    return PrimitiveNode(
         id="ins1",
+        vi_path="test.vi",
         name="Insert Into Array",
-        kind="primitive",
         node_type="aInsert",
         terminals=[
             Terminal(id="arr", index=0, direction="input"),
@@ -452,7 +453,7 @@ class TestArrayInsertSubarray:
 INT_TYPE = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
 
-def _reshape_op(source_ndim: int, *dim_ids: str) -> PrimitiveOperation:
+def _reshape_op(source_ndim: int, *dim_ids: str) -> PrimitiveNode:
     array_type = LVType(
         kind=LVTypeKind.ARRAY, element_type=INT_TYPE, dimensions=source_ndim
     )
@@ -464,10 +465,10 @@ def _reshape_op(source_ndim: int, *dim_ids: str) -> PrimitiveOperation:
         Terminal(id=did, index=2 + i, direction="input")
         for i, did in enumerate(dim_ids)
     ]
-    return PrimitiveOperation(
+    return PrimitiveNode(
         id="rshp1",
+        vi_path="test.vi",
         name="Reshape Array",
-        kind="primitive",
         node_type="aReshape",
         terminals=terminals,
     )

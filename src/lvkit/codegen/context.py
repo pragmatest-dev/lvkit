@@ -13,13 +13,20 @@ from typing import Any
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
+    AnyGraphNode,
     Constant,
     DestinationInfo,
     PrimitiveNode,
     SourceInfo,
     VIContext,
 )
-from lvkit.models import Operation, Terminal, TunnelTerminal
+from lvkit.graph.operations import OperationsMixin, frame_key
+from lvkit.models import (
+    Frame,
+    Terminal,
+    Tunnel,
+    TunnelTerminal,
+)
 from lvkit.vilib_resolver import derive_python_name
 
 from .ast_utils import to_function_name, to_var_name
@@ -97,10 +104,10 @@ class CodeGenContext:
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
     _body_generator: (
-        Callable[[list[Operation], CodeGenContext], list[ast.stmt]] | None
+        Callable[[list[AnyGraphNode], CodeGenContext], list[ast.stmt]] | None
     ) = field(default=None, repr=False)
 
-    def generate_body(self, operations: list[Operation]) -> list[ast.stmt]:
+    def generate_body(self, operations: list[AnyGraphNode]) -> list[ast.stmt]:
         """Generate code for a list of operations.
 
         Delegates to the registered body generator (set by builder.py).
@@ -315,6 +322,74 @@ class CodeGenContext:
         """Set var_name on terminals from handler output."""
         for tid, vname in bindings.items():
             self.bind(tid, vname)
+
+    # ------------------------------------------------------------------ #
+    # Structural accessors — tree-walk convenience methods emitters use to
+    # get a structure node's children, enriched terminals, tunnels, and
+    # frame contents, all read directly off the graph as ``GraphNode``s.
+    # ------------------------------------------------------------------ #
+    def child_nodes(self, node: AnyGraphNode) -> list[AnyGraphNode]:
+        """Graph nodes directly contained in ``node`` (a structure), in
+        deterministic order. Empty for a leaf node or when there is no
+        graph."""
+        if self.graph is None:
+            return []
+        return self.graph.child_nodes(node.id, self.vi_name or "")
+
+    def enriched_terminals(self, node: AnyGraphNode) -> list[Terminal]:
+        """``node``'s terminals with SubVI-call terminals enriched with the
+        callee's parameter names."""
+        if self.graph is None:
+            return list(node.terminals)
+        return self.graph.enriched_terminals(node, self.vi_name or "")
+
+    @staticmethod
+    def tunnels(node: AnyGraphNode) -> list[Tunnel]:
+        """Reconstruct ``Tunnel`` objects from a structure node's terminal
+        metadata. Pure function of the node's ``TunnelTerminal``s (no graph
+        needed)."""
+        return OperationsMixin._tunnels_from_terminals(list(node.terminals))
+
+    def frame_children(
+        self, node: AnyGraphNode
+    ) -> list[tuple[Frame, list[AnyGraphNode]]]:
+        """Pair each of a frame-bearing structure's frames with the graph
+        nodes contained in it, in deterministic order.
+
+        Each frame's metadata is the node's own
+        ``CaseFrame``/``SequenceFrame``/``EventFrame``. Children come from
+        ONE call to :meth:`child_nodes` (the same single, whole-structure
+        dataflow sort every other structural walk uses) grouped by the frame
+        each child belongs to (:func:`frame_key`) -- NOT a per-frame sort of
+        each frame's subset in isolation, which would let a frame's internal
+        order diverge from ``describe``'s identical
+        ``describe._frame_child_nodes`` grouping.
+        """
+        frames: list[Frame] = list(getattr(node, "frames", []) or [])
+        if self.graph is None:
+            return [(f, []) for f in frames]
+        by_frame: dict[object, list[AnyGraphNode]] = {}
+        for child in self.child_nodes(node):
+            by_frame.setdefault(child.frame, []).append(child)
+        return [
+            (frame, by_frame.get(frame_key(frame, pos), []))
+            for pos, frame in enumerate(frames)
+        ]
+
+    def is_feedback_node(self, node: AnyGraphNode) -> bool:
+        """True if ``node`` is a Feedback Node graph node (either side of the
+        master/slave pair) -- see
+        ``QueryMixin.is_feedback_master``. False when there is no graph."""
+        if self.graph is None:
+            return False
+        return self.graph.is_feedback_master(node.id)
+
+    def poser_uid(self, node: AnyGraphNode) -> str | None:
+        """The IPES decompose/recompose pair UID (``poser_uid`` graph
+        attribute), else None."""
+        if self.graph is None:
+            return None
+        return self.graph._graph.nodes.get(node.id, {}).get("poser_uid")
 
     def child(self, increment_loop_depth: bool = False) -> CodeGenContext:
         """Create a child context. var_name lives on the graph — no scoping."""

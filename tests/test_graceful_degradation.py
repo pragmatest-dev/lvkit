@@ -15,7 +15,6 @@ any of these paths, these tests fail.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -23,12 +22,7 @@ import pytest
 from lvkit import primitive_resolver, vilib_resolver
 from lvkit.docs.generate import generate_documents
 from lvkit.graph.core import InMemoryVIGraph
-from lvkit.graph.describe import (
-    describe_constants,
-    describe_dataflow,
-    describe_operations,
-    describe_vi,
-)
+from lvkit.graph.describe import describe_vi
 from lvkit.graph.diff import format_diff
 from lvkit.graph.loading import LoadMode
 
@@ -90,31 +84,15 @@ def loaded_graph(empty_resolvers) -> tuple[InMemoryVIGraph, str]:
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "describe_func,keyword",
-    [
-        (describe_vi, "## Operations"),
-        (describe_operations, "Operations"),
-        (describe_dataflow, "Dataflow"),
-        (describe_constants, "Constants"),
-    ],
-    ids=[
-        "describe_vi",
-        "describe_operations",
-        "describe_dataflow",
-        "describe_constants",
-    ],
-)
-def test_describe_with_no_resolutions(
-    loaded_graph,
-    describe_func: Callable[[InMemoryVIGraph, str], str],
-    keyword: str,
-) -> None:
-    """Each describe entry point produces output with empty resolvers."""
+def test_describe_with_no_resolutions(loaded_graph) -> None:
+    """describe_vi (the only wired describe entry point -- describe_operations/
+    describe_dataflow/describe_structure/describe_constants were dead code with
+    no CLI/MCP consumer and were removed) produces output with empty
+    resolvers."""
     graph, vi_name = loaded_graph
-    text = describe_func(graph, vi_name)
+    text = describe_vi(graph, vi_name)
     assert text
-    assert keyword in text
+    assert "## Operations" in text
 
 
 # ============================================================

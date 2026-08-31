@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lvkit.models import Operation
+from lvkit.graph.models import AnyGraphNode
 
 from ..ast_utils import to_var_name
 from ..context import CodeGenContext
@@ -11,7 +11,7 @@ from ..context import CodeGenContext
 class CodeGenError(Exception):
     """Raised when code generation fails for a node."""
 
-    def __init__(self, message: str, node: Operation | None = None):
+    def __init__(self, message: str, node: AnyGraphNode | None = None):
         self.node = node
         self.node_id = node.id if node else None
         self.node_name = node.name if node else None
@@ -30,7 +30,7 @@ class MissingDependencyError(CodeGenError):
     pass
 
 
-def resolve_ref_input(node: Operation, ctx: CodeGenContext) -> str:
+def resolve_ref_input(node: AnyGraphNode, ctx: CodeGenContext) -> str:
     """Resolve the object reference input (typically terminal index 0).
 
     Used by property_node and invoke_node modules.

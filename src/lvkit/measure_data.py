@@ -92,8 +92,7 @@ def _load_table() -> dict[str, dict[int, str]]:
                 resolved[int(idx)] = field
             except ValueError:
                 raise ValueError(
-                    f"measure_data.json: layout {name!r} has non-integer "
-                    f"index {idx!r}"
+                    f"measure_data.json: layout {name!r} has non-integer index {idx!r}"
                 ) from None
         layouts[name] = resolved
 

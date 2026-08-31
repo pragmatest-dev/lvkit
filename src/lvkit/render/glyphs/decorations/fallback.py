@@ -19,7 +19,10 @@ class FallbackGlyph(DecorationGlyph):
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2,
+            x1,
+            y1,
+            x2,
+            y2,
             fill="none",
             stroke=theme.struct_border,
             stroke_width=THIN_W,

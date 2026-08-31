@@ -13,15 +13,10 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import CaseStructureNode, PrimitiveNode, WireEnd
 from lvkit.models import (
     CaseFrame,
-    CaseOperation,
     ClusterField,
-    InvokeOperation,
     LVType,
     LVTypeKind,
-    Operation,
-    PrimitiveOperation,
     PropertyDef,
-    PropertyOperation,
     Terminal,
 )
 from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
@@ -46,8 +41,8 @@ def _make_case_op(
     selector_id: str,
     selector_type: LVType | None = None,
     frames: list[CaseFrame] | None = None,
-) -> CaseOperation:
-    """Build a case structure Operation with a selector terminal."""
+) -> CaseStructureNode:
+    """Build a case structure graph node with a selector terminal."""
     terminals = [
         Terminal(
             id=selector_id,
@@ -57,17 +52,17 @@ def _make_case_op(
             lv_type=selector_type,
         ),
     ]
-    return CaseOperation(
+    return CaseStructureNode(
         id="case_1",
+        vi_path="test.vi",
         name="Case Structure",
-        kind="caseStruct",
         node_type="caseStruct",
         terminals=terminals,
         selector_terminal=selector_id,
         frames=frames
         or [
-            CaseFrame(selector_value="True", operations=[]),
-            CaseFrame(selector_value="False", operations=[]),
+            CaseFrame(selector_value="True"),
+            CaseFrame(selector_value="False"),
         ],
     )
 
@@ -133,22 +128,28 @@ class TestErrorCaseUnwrap:
         assert fragment.statements == []
 
     def test_nonempty_error_frame_logs(self, caplog):
-        inner_op = Operation(
+        from lvkit.graph.models import VINode
+        from tests.helpers import register_nodes
+
+        inner_op = VINode(
             id="cleanup",
+            vi_path="test.vi",
             name="cleanup.vi",
-            kind="vi",
             node_type="iUse",
             terminals=[],
+            parent="case_1",
+            frame="True",
         )
         op = _make_case_op(
             "sel_1",
             _error_cluster_type(),
             frames=[
-                CaseFrame(selector_value="False", operations=[]),
-                CaseFrame(selector_value="True", operations=[inner_op]),
+                CaseFrame(selector_value="False"),
+                CaseFrame(selector_value="True"),
             ],
         )
         ctx = _make_ctx_with_binding("sel_1", "err")
+        register_nodes(ctx.graph, [op, inner_op])
         with caplog.at_level(logging.INFO):
             case.generate(op, ctx)
         assert any("error frame omitted" in r.message for r in caplog.records)
@@ -195,11 +196,11 @@ class TestErrorInputNotBound:
 class TestNMuxRoles:
     """nMux codegen uses terminal roles (agg/list) instead of index guessing."""
 
-    def _make_nmux_op(self, terminals: list[Terminal]) -> PrimitiveOperation:
-        return PrimitiveOperation(
+    def _make_nmux_op(self, terminals: list[Terminal]) -> PrimitiveNode:
+        return PrimitiveNode(
             id="nmux_1",
+            vi_path="test.vi",
             name="Node Multiplexer",
-            kind="primitive",
             node_type="nMux",
             terminals=terminals,
         )
@@ -279,10 +280,10 @@ class TestPropertyDedup:
             dest=WireEnd(terminal_id="out_1", node_id=nid_out),
         )
 
-        op = PropertyOperation(
+        op = PrimitiveNode(
             id="prop_1",
+            vi_path="test.vi",
             name="Property Node",
-            kind="primitive",
             node_type="propNode",
             terminals=[
                 Terminal(id="ref_in", index=0, direction="input"),
@@ -328,12 +329,12 @@ class TestPassthroughElimination:
         hint = {"output": "in_0"}
         input_map = {"in_0": "my_input"}
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
             id="prim_1",
+            vi_path="test.vi",
             name="Passthrough",
-            kind="primitive",
             node_type="prim",
-            primResID=9999,
+            prim_id=9999,
             terminals=[
                 Terminal(id="in_t", index=0, direction="input"),
                 Terminal(id="out_t", index=0, direction="output"),
@@ -386,7 +387,7 @@ class TestSelectorTopoSort:
     """Case structure selector terminal creates a topo sort dependency."""
 
     def test_selector_source_ordered_before_case(self):
-        """Operation producing the selector should be in an earlier tier."""
+        """The node producing the selector should be in an earlier tier."""
         graph = InMemoryVIGraph()
 
         # Producer: Equal? primitive with output terminal
@@ -426,29 +427,29 @@ class TestSelectorTopoSort:
         )
 
         # Build operations
-        producer_op = PrimitiveOperation(
+        producer_op = PrimitiveNode(
             id="equal_1",
+            vi_path="test.vi",
             name="Equal?",
-            kind="primitive",
             node_type="prim",
-            primResID=1091,
+            prim_id=1091,
             terminals=[
                 Terminal(id="eq_in", index=0, direction="input"),
                 Terminal(id="eq_out", index=0, direction="output"),
             ],
         )
-        case_op = CaseOperation(
+        case_op = CaseStructureNode(
             id="case_1",
+            vi_path="test.vi",
             name="Case",
-            kind="caseStruct",
             node_type="caseStruct",
             terminals=[
                 Terminal(id="sel_in", index=0, direction="input", name="selector"),
             ],
             selector_terminal="sel_in",
             frames=[
-                CaseFrame(selector_value="True", operations=[]),
-                CaseFrame(selector_value="False", operations=[]),
+                CaseFrame(selector_value="True"),
+                CaseFrame(selector_value="False"),
             ],
         )
 
@@ -506,10 +507,10 @@ class TestInvokeErrorSkip:
         ctx.bind("err_t", "error_in")
         ctx.bind("data_t", "my_data")
 
-        op = InvokeOperation(
+        op = PrimitiveNode(
             id="invoke_1",
+            vi_path="test.vi",
             name="Invoke",
-            kind="primitive",
             node_type="invokeNode",
             terminals=[
                 Terminal(id="ref_t_in", index=0, direction="input"),

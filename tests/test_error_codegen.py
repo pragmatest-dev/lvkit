@@ -24,16 +24,21 @@ from lvkit.codegen.error_handler import (
 )
 from lvkit.codegen.nodes import primitive
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import SourceInfo, VIContext
+from lvkit.graph.models import (
+    AnyGraphNode,
+    CaseStructureNode,
+    PrimitiveNode,
+    SourceInfo,
+    VIContext,
+    VINode,
+)
 from lvkit.models import (
     CaseFrame,
-    CaseOperation,
     LVType,
     LVTypeKind,
-    Operation,
-    PrimitiveOperation,
     Terminal,
 )
+from tests.helpers import register_nodes
 
 
 def _make_op(
@@ -44,30 +49,37 @@ def _make_op(
     prim_res_id: int | None = None,
     terminals: list[Terminal] | None = None,
     frames: list[CaseFrame] | None = None,
-    inner_nodes: list[Operation] | None = None,
     selector_terminal: str | None = None,
-) -> Operation:
-    """Helper to create the right Operation subtype for testing."""
+    parent: str | None = None,
+    frame: str | int | None = None,
+) -> AnyGraphNode:
+    """Helper to create the right graph node subtype for testing."""
     common = {
         "id": op_id,
+        "vi_path": "test.vi",
         "name": name,
-        "kind": kind or "vi",
         "node_type": node_type,
         "terminals": terminals or [],
-        "inner_nodes": inner_nodes or [],
+        "parent": parent,
+        "frame": frame,
     }
     if frames is not None or selector_terminal is not None:
-        return CaseOperation(
+        return CaseStructureNode(
             **common,
             frames=frames or [],
             selector_terminal=selector_terminal,
         )
-    if prim_res_id is not None:
-        return PrimitiveOperation(
-            **common,
-            primResID=prim_res_id,
-        )
-    return Operation(**common)
+    if prim_res_id is not None or kind == "primitive":
+        return PrimitiveNode(**common, prim_id=prim_res_id)
+    return VINode(**common)
+
+
+def _ctx_for(nodes: list[AnyGraphNode]) -> CodeGenContext:
+    """A CodeGenContext over a graph that has ``nodes`` registered (with
+    parent/children wired), so ``needs_error_handling`` can walk structures."""
+    graph = InMemoryVIGraph()
+    register_nodes(graph, nodes)
+    return CodeGenContext(graph=graph, vi_name="test.vi")
 
 
 def _make_terminal(
@@ -132,40 +144,40 @@ class TestNeedsErrorHandling:
     """needs_error_handling is graph-driven — only True for Merge Errors."""
 
     def test_no_ops_returns_false(self):
-        assert needs_error_handling([]) is False
+        assert needs_error_handling([], _ctx_for([])) is False
 
     def test_regular_ops_returns_false(self):
         ops = [_make_op("a"), _make_op("b")]
-        assert needs_error_handling(ops) is False
+        assert needs_error_handling(ops, _ctx_for(ops)) is False
 
     def test_merge_errors_returns_true(self):
         ops = [
             _make_op("a"),
             _make_op("m", prim_res_id=2147, kind="primitive"),
         ]
-        assert needs_error_handling(ops) is True
+        assert needs_error_handling(ops, _ctx_for(ops)) is True
 
     def test_clear_errors_alone_returns_false(self):
         """Clear Errors doesn't need _held_error infrastructure."""
         ops = [_make_op("c", name="Clear Errors.vi", kind="vi")]
-        assert needs_error_handling(ops) is False
+        assert needs_error_handling(ops, _ctx_for(ops)) is False
 
     def test_merge_errors_in_case_frame(self):
         """Merge Errors nested in a case frame is detected."""
-        inner_op = _make_op("m", prim_res_id=2147, kind="primitive")
-        frame = CaseFrame(
-            selector_value="default",
-            is_default=True,
-            operations=[inner_op],
+        inner_op = _make_op(
+            "m", prim_res_id=2147, kind="primitive", parent="cs", frame="default"
         )
+        frame = CaseFrame(selector_value="default", is_default=True)
         outer = _make_op("cs", frames=[frame])
-        assert needs_error_handling([outer]) is True
+        ctx = _ctx_for([outer, inner_op])
+        assert needs_error_handling([outer], ctx) is True
 
     def test_merge_errors_in_inner_nodes(self):
-        """Merge Errors in inner_nodes is detected."""
-        inner_op = _make_op("m", prim_res_id=2147, kind="primitive")
-        outer = _make_op("loop", inner_nodes=[inner_op])
-        assert needs_error_handling([outer]) is True
+        """Merge Errors nested inside a structure is detected."""
+        inner_op = _make_op("m", prim_res_id=2147, kind="primitive", parent="loop")
+        outer = _make_op("loop", frames=[])
+        ctx = _ctx_for([outer, inner_op])
+        assert needs_error_handling([outer], ctx) is True
 
 
 # =============================================================
@@ -184,7 +196,7 @@ class TestMergeErrorsNoOp:
             kind="primitive",
             node_type="prim",
         )
-        assert isinstance(merge_op, PrimitiveOperation)
+        assert isinstance(merge_op, PrimitiveNode)
         ctx = CodeGenContext()
         fragment = primitive.generate(merge_op, ctx)
         assert fragment.statements == []
@@ -200,8 +212,10 @@ class TestFutureResultWrapping:
     """Parallel branches wrap future.result() in try/except
     when held-error model is active."""
 
-    def _make_parallel_vi_context(self, include_merge: bool = False) -> VIContext:
-        """Build a VIContext with two independent operations (parallel tier)."""
+    def _make_parallel_vi_context(
+        self, include_merge: bool = False
+    ) -> tuple[VIContext, InMemoryVIGraph]:
+        """Build a VIContext + graph with two independent ops (parallel tier)."""
         a_out = _make_terminal("a_out", "output", index=0, name="result_a")
         b_out = _make_terminal("b_out", "output", index=0, name="result_b")
 
@@ -213,23 +227,26 @@ class TestFutureResultWrapping:
         if include_merge:
             ops.append(_make_op("M", prim_res_id=2147, kind="primitive"))
 
-        return VIContext(
+        graph = InMemoryVIGraph()
+        register_nodes(graph, ops, vi_name="test_vi")
+        vi_ctx = VIContext(
             name="test_vi",
-            operations=ops,
+            operations=[],
             has_parallel_branches=True,
         )
+        return vi_ctx, graph
 
     def test_no_merge_no_wrapping(self):
         """Without Merge Errors, future.result() calls are plain assignments."""
-        vi_ctx = self._make_parallel_vi_context(include_merge=False)
-        code = build_module(vi_ctx, "test_vi")
+        vi_ctx, graph = self._make_parallel_vi_context(include_merge=False)
+        code = build_module(vi_ctx, "test_vi", graph=graph)
         assert "_held_error" not in code
         assert "except" not in code
 
     def test_with_merge_has_held_error(self):
         """With Merge Errors, _held_error infrastructure is present."""
-        vi_ctx = self._make_parallel_vi_context(include_merge=True)
-        code = build_module(vi_ctx, "test_vi")
+        vi_ctx, graph = self._make_parallel_vi_context(include_merge=True)
+        code = build_module(vi_ctx, "test_vi", graph=graph)
         assert "_held_error = None" in code
         assert "if _held_error:" in code
         assert "raise _held_error" in code
@@ -246,13 +263,15 @@ class TestFutureResultWrapping:
             _make_op("M", prim_res_id=2147, kind="primitive"),
         ]
 
+        graph = InMemoryVIGraph()
+        register_nodes(graph, ops, vi_name="test_vi")
         vi_ctx = VIContext(
             name="test_vi",
-            operations=ops,
+            operations=[],
             has_parallel_branches=True,
         )
 
-        code = build_module(vi_ctx, "test_vi")
+        code = build_module(vi_ctx, "test_vi", graph=graph)
         # The code should contain try/except around .result() calls
         # and _held_error = _held_error or e
         assert "_held_error = _held_error or e" in code or "_held_error" in code
@@ -356,8 +375,10 @@ class TestClearErrorsWrapping:
                 terminals=[cl_in],
             ),
         ]
-        vi_ctx = VIContext(name="test_vi", operations=ops)
-        code = build_module(vi_ctx, "test_vi")
+        graph = InMemoryVIGraph()
+        register_nodes(graph, ops, vi_name="test_vi")
+        vi_ctx = VIContext(name="test_vi", operations=[])
+        code = build_module(vi_ctx, "test_vi", graph=graph)
         assert "except" not in code
 
     def test_clear_scoped_wrapping(self):
@@ -530,7 +551,8 @@ class TestErrorBundleRaise:
             nmux_field_index=2,
         )
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
+            vi_path="test.vi",
             id="nmux_err",
             name="Bundle",
             kind="primitive",
@@ -594,7 +616,8 @@ class TestErrorBundleRaise:
             nmux_field_index=1,
         )
 
-        op = PrimitiveOperation(
+        op = PrimitiveNode(
+            vi_path="test.vi",
             id="nmux_err",
             name="Bundle",
             kind="primitive",

@@ -489,9 +489,7 @@ def test_issue35_structures_occlude_by_zorder():
     # AFTER the backmost, so its opaque body occludes the backmost's corner.
     tree = build_render_tree(scene)
     order = [
-        c.rs.raw_uid
-        for c in tree.content.children
-        if isinstance(c, StructureObject)
+        c.rs.raw_uid for c in tree.content.children if isinstance(c, StructureObject)
     ]
     assert set(order) == {a.raw_uid, b.raw_uid}
     a_front = scene.z_order[a.raw_uid] < scene.z_order[b.raw_uid]

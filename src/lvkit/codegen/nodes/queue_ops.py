@@ -31,7 +31,8 @@ from __future__ import annotations
 import ast
 from enum import IntEnum
 
-from lvkit.models import PrimitiveOperation, Terminal
+from lvkit.graph.models import PrimitiveNode
+from lvkit.models import Terminal
 
 from ..ast_utils import build_multi_assign, parse_expr
 from ..context import CodeGenContext
@@ -40,7 +41,7 @@ from ..fragment import CodeFragment
 
 class QueueOp(IntEnum):
     """LabVIEW queue-operation ``primResID`` codes. ``IntEnum`` because the code
-    IS the raw int carried on ``PrimitiveOperation.primResID`` -- a member
+    IS the raw int carried on ``PrimitiveNode.prim_id`` -- a member
     compares equal to it and lives in the ``QUEUE_PRIM_IDS`` membership set."""
 
     OBTAIN = 9108
@@ -62,10 +63,10 @@ _QUEUE_IMPORT = (
 )
 
 
-def generate(node: PrimitiveOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Dispatch a queue primitive to its handler by primResID."""
     by_index: dict[int, Terminal] = {t.index: t for t in node.terminals}
-    prim_id = node.primResID
+    prim_id = node.prim_id
 
     if prim_id == QueueOp.OBTAIN:
         return _generate_obtain_queue(node, by_index, ctx)
@@ -101,7 +102,7 @@ def _resolve_input(term: Terminal | None, ctx: CodeGenContext, default: str) -> 
 
 
 def _emit_call(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     ctx: CodeGenContext,
     func_name: str,
     arg_exprs: list[str],
@@ -142,7 +143,7 @@ def _emit_call(
 
 
 def _generate_obtain_queue(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
 ) -> CodeFragment:
@@ -167,7 +168,7 @@ def _generate_obtain_queue(
 
 
 def _generate_enqueue(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
     func_name: str,
@@ -197,7 +198,7 @@ def _generate_enqueue(
 
 
 def _generate_dequeue(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
 ) -> CodeFragment:
@@ -224,7 +225,7 @@ def _generate_dequeue(
 
 
 def _generate_release_queue(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
 ) -> CodeFragment:
@@ -257,7 +258,7 @@ def _generate_release_queue(
 
 
 def _generate_get_queue_status(
-    node: PrimitiveOperation,
+    node: PrimitiveNode,
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
 ) -> CodeFragment:

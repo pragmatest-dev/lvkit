@@ -6,7 +6,8 @@ import ast
 import re
 from typing import NoReturn
 
-from lvkit.models import LVTypeKind, Operation, SubVIOperation, Terminal
+from lvkit.graph.models import VINode
+from lvkit.models import LVTypeKind, Terminal
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
     ResolutionContext,
@@ -22,7 +23,7 @@ from ..fragment import CodeFragment
 from ..unresolved import emit_soft_unresolved
 
 
-def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a SubVI call."""
     subvi_name = node.name or ""
     if not subvi_name:
@@ -99,7 +100,7 @@ def generate(node: SubVIOperation, ctx: CodeGenContext) -> CodeFragment:
 
 
 def _generate_inline(
-    node: Operation, ctx: CodeGenContext, vilib_vi: VIEntry
+    node: VINode, ctx: CodeGenContext, vilib_vi: VIEntry
 ) -> CodeFragment:
     """Generate inline Python code instead of function call.
 
@@ -137,7 +138,7 @@ def _generate_inline(
                 vilib_defaults[param_key] = default
 
     # Substitute input placeholders with wired values
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction != "input":
             continue
 
@@ -173,7 +174,7 @@ def _generate_inline(
             if passthrough_spec.startswith("passthrough_from:"):
                 in_param = passthrough_spec[len("passthrough_from:") :]
                 # Find the input variable that was substituted
-                for term in node.terminals:
+                for term in ctx.enriched_terminals(node):
                     if term.direction != "input":
                         continue
                     if term.index in vilib_inputs:
@@ -188,7 +189,7 @@ def _generate_inline(
     bindings = {}
     output_var_map: dict[str, str] = {}  # param_key -> generated var name
 
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction != "output":
             continue
         # Skip error cluster outputs — Python uses exceptions
@@ -242,7 +243,7 @@ def _generate_inline(
     )
 
 
-def _resolve_poly_variant(base_name: str, node: Operation) -> VIEntry | None:
+def _resolve_poly_variant(base_name: str, node: VINode) -> VIEntry | None:
     """Resolve a polymorphic VI to its specific variant.
 
     Uses poly_variant_name (edit-time selection extracted from the VI's
@@ -256,7 +257,7 @@ def _resolve_poly_variant(base_name: str, node: Operation) -> VIEntry | None:
 
 
 def _get_vilib_vi(
-    subvi_name: str, node: Operation | None = None, ctx: CodeGenContext | None = None
+    subvi_name: str, node: VINode | None = None, ctx: CodeGenContext | None = None
 ) -> VIEntry | None:
     """Look up SubVI in vilib resolver.
 
@@ -284,7 +285,7 @@ def _get_vilib_vi(
         if has_terminals and node and ctx:
             # Get indices the caller is actually wiring (not just connector slots)
             caller_indices = set()
-            for term in node.terminals:
+            for term in ctx.enriched_terminals(node):
                 term_id = term.id
                 term_index = term.index
                 # Only count terminals that have wires connected
@@ -301,8 +302,8 @@ def _get_vilib_vi(
             # Auto-update vilib JSON with observed terminals
             # Filter to only wired terminals
             wired_node_terminals = (
-                [term for term in node.terminals if ctx and ctx.is_wired(term.id)]
-                if node
+                [term for term in ctx.enriched_terminals(node) if ctx.is_wired(term.id)]
+                if node and ctx
                 else []
             )
 
@@ -340,7 +341,7 @@ def _raise_terminal_resolution(
 
 
 def _build_arguments(
-    node: Operation,
+    node: VINode,
     ctx: CodeGenContext,
     vilib_vi: VIEntry | None,
 ) -> tuple[list[str], dict[str, str]]:
@@ -355,7 +356,7 @@ def _build_arguments(
     args = []
     keywords: dict[str, str] = {}
 
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction != "input":
             continue
 
@@ -496,7 +497,7 @@ def _build_vilib_terminal_map(
 
 
 def _build_output_bindings(
-    node: Operation,
+    node: VINode,
     result_var: str,
     vilib_vi: VIEntry | None,
     ctx: CodeGenContext,
@@ -510,7 +511,7 @@ def _build_output_bindings(
     )
 
     bindings = {}
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction != "output":
             continue
 
@@ -554,7 +555,7 @@ def _to_ast_value(value: str) -> ast.expr:
     return ast.Name(id=value, ctx=ast.Load())
 
 
-def _generate_dynamic_dispatch(node: Operation, ctx: CodeGenContext) -> CodeFragment:
+def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate obj.method(args) for dynamic dispatch calls."""
     subvi_name = node.name or ""
     method_name = to_function_name(subvi_name)
@@ -563,7 +564,7 @@ def _generate_dynamic_dispatch(node: Operation, ctx: CodeGenContext) -> CodeFrag
     receiver_term = None
     other_inputs: list[tuple[int, str]] = []  # (index, value)
 
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction != "input":
             continue
         # Skip error cluster inputs — Python uses exceptions
@@ -580,7 +581,7 @@ def _generate_dynamic_dispatch(node: Operation, ctx: CodeGenContext) -> CodeFrag
     # Fallback: use lowest-indexed wired input as receiver
     if receiver_term is None:
         all_wired_inputs = []
-        for term in node.terminals:
+        for term in ctx.enriched_terminals(node):
             if term.direction == "input" and ctx.resolve(term.id) is not None:
                 all_wired_inputs.append(term)
         if all_wired_inputs:
@@ -621,7 +622,7 @@ def _generate_dynamic_dispatch(node: Operation, ctx: CodeGenContext) -> CodeFrag
     result_var = f"{method_name}_result"
     has_non_class_output = False
 
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction != "output":
             continue
         # Skip error cluster outputs — Python uses exceptions
@@ -652,7 +653,7 @@ def _generate_dynamic_dispatch(node: Operation, ctx: CodeGenContext) -> CodeFrag
 
 
 def _generate_call_by_ref(
-    node: Operation,
+    node: VINode,
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate vi_ref(args...) for Call By Reference nodes.
@@ -666,7 +667,7 @@ def _generate_call_by_ref(
 
     # Find VI reference input terminal: frame (index < 0), input, not error
     vi_ref_var: str | None = None
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if (
             term.direction == "input"
             and term.index is not None
@@ -690,7 +691,7 @@ def _generate_call_by_ref(
 
     # Collect callee input arguments (index >= 0, not error)
     call_args: list[tuple[int, str]] = []
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction != "input":
             continue
         if term.index is None or term.index < 0:
@@ -713,7 +714,7 @@ def _generate_call_by_ref(
     # Output bindings: callee outputs (index >= 0, not error)
     bindings: dict[str, str] = {}
     has_output = False
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction != "output":
             continue
         if term.index is None or term.index < 0:
@@ -737,7 +738,7 @@ def _generate_call_by_ref(
 
 
 def _generate_static_fallback(
-    node: Operation, ctx: CodeGenContext, func_name: str
+    node: VINode, ctx: CodeGenContext, func_name: str
 ) -> CodeFragment:
     """Fallback for dynIUse with no inputs — generate as static function call."""
     result_var = f"{func_name}_result"
@@ -751,7 +752,7 @@ def _generate_static_fallback(
         value=call,
     )
     bindings: dict[str, str] = {}
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         if term.direction == "output":
             if term.is_error_cluster:
                 continue
@@ -776,7 +777,7 @@ def _is_class_terminal(term: Terminal) -> bool:
 
 
 def _emit_vilib_resolution(
-    node: Operation,
+    node: VINode,
     ctx: CodeGenContext,
     vilib_vi: VIEntry | None,
 ) -> CodeFragment:
@@ -830,7 +831,7 @@ def _emit_vilib_resolution(
 
 
 def _build_resolution_context(
-    node: Operation,
+    node: VINode,
     ctx: CodeGenContext,
     vilib_vi: VIEntry | None,
 ) -> ResolutionContext:
@@ -844,7 +845,7 @@ def _build_resolution_context(
 
     # Collect wire types from dataflow (actual indices being used)
     wire_types: list[str] = []
-    for term in node.terminals:
+    for term in ctx.enriched_terminals(node):
         term_id = term.id
         term_index = term.index
         direction = term.direction or "?"

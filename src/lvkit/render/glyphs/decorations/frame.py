@@ -32,10 +32,20 @@ class FrameGlyph(DecorationGlyph):
         color = theme.struct_border
         h = THIN_W / 2
         backend.rect(
-            x1 + h, y1 + h, x2 - h, y2 - h,
-            fill="none", stroke=color, stroke_width=THIN_W,
+            x1 + h,
+            y1 + h,
+            x2 - h,
+            y2 - h,
+            fill="none",
+            stroke=color,
+            stroke_width=THIN_W,
         )
         backend.rect(
-            x1 + w, y1 + w, x2 - w, y2 - w,
-            fill="none", stroke=color, stroke_width=THIN_W,
+            x1 + w,
+            y1 + w,
+            x2 - w,
+            y2 - w,
+            fill="none",
+            stroke=color,
+            stroke_width=THIN_W,
         )

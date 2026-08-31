@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import PropertyOperation
+from lvkit.graph.models import PrimitiveNode
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
@@ -16,7 +16,7 @@ from ..fragment import CodeFragment
 from .base import resolve_ref_input
 
 
-def generate(node: PropertyOperation, ctx: CodeGenContext) -> CodeFragment:
+def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a property node.
 
     Produces attribute access:

@@ -11,6 +11,7 @@ from ..ast_utils import to_var_name
 from ._shared import _EMPTY_VI_CONTEXT
 
 if TYPE_CHECKING:
+    from lvkit.graph import InMemoryVIGraph
     from lvkit.graph.models import VIContext
 
 
@@ -22,6 +23,7 @@ class _PropertyBuilderMixin:
         # (type-check only, zero runtime effect) so pyright can resolve
         # cross-mixin access.
         _method_contexts: dict[str, VIContext]
+        _graph: InMemoryVIGraph | None
 
     def _is_simple_accessor(
         self,
@@ -43,7 +45,7 @@ class _PropertyBuilderMixin:
             # No VI context - assume simple accessor
             return True
 
-        operations = vi_context.operations
+        operations = self._graph.top_level_nodes(vi_context.name) if self._graph else []
         if not operations:
             # No operations - simple accessor
             return True
@@ -75,7 +77,7 @@ class _PropertyBuilderMixin:
 
         for op in operations:
             node_type = getattr(op, "node_type", "") or ""
-            prim_id = getattr(op, "primResID", 0) or 0
+            prim_id = getattr(op, "prim_id", 0) or 0
 
             if node_type in simple_node_types:
                 continue

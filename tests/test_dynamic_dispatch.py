@@ -10,7 +10,8 @@ import ast
 import xml.etree.ElementTree as ET
 
 from lvkit.codegen.nodes import subvi
-from lvkit.models import LVType, LVTypeKind, SubVIOperation, Terminal
+from lvkit.graph.models import VINode
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.vi import _extract_subvi_info, _resolve_qualified_name
 from tests.helpers import make_ctx
 
@@ -131,13 +132,13 @@ def _make_dynIUse_node(
     name: str = "addSuccess.vi",
     inputs: list[Terminal] | None = None,
     outputs: list[Terminal] | None = None,
-) -> SubVIOperation:
-    """Create a dynIUse Operation node."""
+) -> VINode:
+    """Create a dynIUse SubVI-call graph node."""
     terminals = list(inputs or []) + list(outputs or [])
-    return SubVIOperation(
+    return VINode(
         id="node_1",
+        vi_path="test.vi",
         name=name,
-        kind="vi",
         node_type="dynIUse",
         terminals=terminals,
     )

@@ -2608,9 +2608,7 @@ def test_decompose_cluster_node_graph_name_is_direction_aware():
     """``graph/construction.py`` renames a ``decomposeClusterNode`` graph node
     to the direction-correct Bundle/Unbundle By Name AFTER nMux-style
     terminal-role enrichment — the same ``graph_node.name`` describe/netlist
-    read (``Operation.name`` comes straight from it, see
-    ``graph/operations.py``), so those surfaces never see "Decompose
-    Cluster" either."""
+    read, so those surfaces never see "Decompose Cluster" either."""
     from lvkit.models import Terminal, bundle_unbundle_name
 
     decompose_half = PrimitiveNode(
@@ -2798,29 +2796,32 @@ def test_inplace_border_name_other_types_untouched():
 
 def test_describe_in_place_operation_never_shows_raw_node_type():
     """``describe._describe_single_op``'s generic ``case _:`` fallback prints
-    ``f"{name} [{node_type}]"`` for any operation kind without a dedicated
+    ``f"{name} [{node_type}]"`` for any node kind without a dedicated
     one-liner — which used to leak "decomposeRecomposeStructure" verbatim for
-    an unlabeled In Place Element Structure. InPlaceOperation (and
-    DisableStructureOperation/EventOperation, same catch-all) now get their
+    an unlabeled In Place Element Structure. InPlaceNode (and
+    DisableStructureNode/EventStructureNode, same catch-all) now get their
     own case that returns the already-faithful ``name`` untouched."""
+    from lvkit.graph.core import InMemoryVIGraph
     from lvkit.graph.describe import _describe_single_op
-    from lvkit.models import InPlaceOperation
+    from lvkit.graph.models import InPlaceNode
 
-    unlabeled = InPlaceOperation(
+    graph = InMemoryVIGraph()
+
+    unlabeled = InPlaceNode(
         id="V::1",
+        vi_path="V",
         name="In Place Element",
         node_type="decomposeRecomposeStructure",
-        kind="inPlaceStruct",
     )
-    assert _describe_single_op(unlabeled) == "In Place Element"
+    assert _describe_single_op(graph, "V", unlabeled) == "In Place Element"
 
-    labeled = InPlaceOperation(
+    labeled = InPlaceNode(
         id="V::2",
+        vi_path="V",
         name="write multiple elements.vi",
         node_type="decomposeRecomposeStructure",
-        kind="inPlaceStruct",
     )
-    result = _describe_single_op(labeled)
+    result = _describe_single_op(graph, "V", labeled)
     assert result == "write multiple elements.vi"
     assert "decompose" not in result.lower()
 
@@ -3997,6 +3998,33 @@ def test_interactive_false_drops_script_and_root_id_keeps_data_attrs():
         assert "data-lv-frames" in svg
         assert "data-lv-default" in svg
         assert "data-path" in svg
+
+
+def test_id_less_renders_have_collision_free_clip_ids():
+    """Two ``interactive=False`` SVGs inlined on ONE page (the diff viewer's
+    before/after panes) must not share any ``<clipPath>`` id. If they did, the
+    second pane's ``clip-path="url(#id)"`` would bind to the FIRST pane's
+    clipPath and clip its structures to the wrong geometry -- the diff viewer's
+    "white voids". An id-less render carries no ``root_id`` scope, so the
+    backend derives the clip-id prefix from the SVG's own content; two distinct
+    diagrams then get distinct prefixes. The sibling test above asserts the
+    docstring's "zero id collision" claim only for the ROOT ``<svg id>`` -- it
+    never checked the clip ids, which is exactly how the collision shipped."""
+    a = _load_graph(CASE_VI)
+    b = _load_graph(NESTED_CASE_VI)
+    if a is None or b is None:
+        pytest.skip("sample structure VIs not available")
+    svg_a = render_vi(a[0], a[1], interactive=False)
+    svg_b = render_vi(b[0], b[1], interactive=False)
+    assert svg_a is not None and svg_b is not None
+    ids_a = set(re.findall(r'<clipPath id="([^"]+)"', svg_a))
+    ids_b = set(re.findall(r'<clipPath id="([^"]+)"', svg_b))
+    # both fixtures contain structures, so each emits content-clip <defs>
+    assert ids_a and ids_b, "expected both structure VIs to emit <clipPath> defs"
+    # no shared id -> inlining both panes on one page cannot collide
+    assert ids_a.isdisjoint(ids_b), (
+        f"clip-path id collision across id-less renders: {sorted(ids_a & ids_b)}"
+    )
 
 
 def test_dark_palette_covers_every_wire_color():

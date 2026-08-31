@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..graph import InMemoryVIGraph
-from ..graph.models import VIContext
+from ..graph.models import AnyGraphNode, VIContext, VINode
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 
 
@@ -40,7 +40,7 @@ def generate_dependency_description(subvi_name: str, graph: InMemoryVIGraph) -> 
     # For loaded VIs, try to infer from context
     try:
         vi_context = graph.get_vi_context(subvi_name)
-        return _infer_from_context(subvi_name, vi_context)
+        return _infer_from_context(subvi_name, vi_context, graph)
     except Exception:
         return _infer_from_name(subvi_name)
 
@@ -82,14 +82,23 @@ def _infer_from_name(vi_name: str) -> str:
     return f"Performs {name.lower()} operation (no I/O)"
 
 
-def _infer_from_context(vi_name: str, vi_context: VIContext) -> str:
+def _infer_from_context(
+    vi_name: str, vi_context: VIContext, graph: InMemoryVIGraph
+) -> str:
     """Infer description from VI inputs/outputs."""
     inputs = vi_context.inputs
     outputs = vi_context.outputs
-    operations = vi_context.operations
 
-    # Count SubVI calls
-    subvi_count = sum(1 for op in operations if op.kind == "vi")
+    def _count_subvis(nodes: list[AnyGraphNode]) -> int:
+        count = 0
+        for node in nodes:
+            if isinstance(node, VINode):
+                count += 1
+            count += _count_subvis(graph.child_nodes(node.id, vi_name))
+        return count
+
+    # Count SubVI calls (recursively, at any nesting depth)
+    subvi_count = _count_subvis(graph.top_level_nodes(vi_name))
 
     # Build description based on I/O
     parts = []

@@ -114,9 +114,7 @@ class TestSmallClassBuild:
         result = build_index(root, vi_paths)
         indexed = {f.path for f in result.facts}
 
-        vi_nodes = [
-            n for f in result.facts for n in f.nodes if n.kind is NodeKind.VI
-        ]
+        vi_nodes = [n for f in result.facts for n in f.nodes if n.kind is NodeKind.VI]
         resolved = [n for n in vi_nodes if n.callee_path is not None]
         assert resolved, "no SubVI-call node resolved to an in-repo callee path"
         # Every resolved callee_path is a real indexed VI (never a guess).

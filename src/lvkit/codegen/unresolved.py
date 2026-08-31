@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import Operation
+from lvkit.graph.models import AnyGraphNode
 
 from .ast_utils import build_assign, to_var_name
 from .context import CodeGenContext
@@ -37,7 +37,7 @@ from .fragment import CodeFragment
 
 
 def emit_soft_unresolved(
-    node: Operation,
+    node: AnyGraphNode,
     ctx: CodeGenContext,
     exception_module: str,
     exception_class: str,
@@ -52,7 +52,7 @@ def emit_soft_unresolved(
     pattern in one place.
 
     Args:
-        node: The unresolved Operation. Output terminals are pre-bound to
+        node: The unresolved graph node. Output terminals are pre-bound to
             ``None`` so downstream codegen still sees a value.
         ctx: Active CodeGenContext. Used for output variable allocation
             and terminal binding.
@@ -92,9 +92,9 @@ def emit_soft_unresolved(
 
     # Pre-bind output terminals to None so downstream dataflow has a
     # defined name to read. The runtime raise will fire before any
-    # consumer actually reads the value. Operation.Terminal.direction
-    # is always "input" or "output" (the parser-side "out"/"in" form
-    # only appears on resolver-side PrimitiveTerminal/VITerminal).
+    # consumer actually reads the value. Terminal.direction is always
+    # "input" or "output" (the parser-side "out"/"in" form only appears
+    # on resolver-side PrimitiveTerminal/VITerminal).
     for term in node.terminals:
         if term.direction != "output":
             continue

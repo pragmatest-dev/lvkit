@@ -1,11 +1,12 @@
-"""Small shared operation-tree helpers used by both ``describe`` and
-``netlist``.
+"""Small shared graph-node helpers used by both ``describe`` and ``netlist``.
 
-Split out to avoid a circular import: ``netlist.py`` needs these to trace
-wires back to their producing operation, and ``describe.py`` walks the same
-operation tree for its own ``## Dependencies``/``## Control Flow``/
-``## Operations`` sections. Neither module may import the other at module
-level, so the shared walk helpers live here instead.
+Split out to avoid a circular import between the two. Covers: nMux/decompose
+field-name resolution (``stamp_nmux_lane_names``), property-node value-
+terminal correlation (``stamp_property_value_names``), constant/selector
+text formatting, and the typed SubVI/component port-declaration lookup
+(``_subvi_ports``) shared by describe's ``## Dependencies`` and netlist's
+``## Components``. Neither ``describe.py`` nor ``netlist*.py`` may import
+the other at module level, so these shared helpers live here instead.
 """
 
 from __future__ import annotations
@@ -20,20 +21,12 @@ from ..extractor import extract_vi_xml
 from ..measure_data import measure_data_field_name
 from ..models import (
     CaseFrame,
-    CaseOperation,
     ClusterField,
-    DisableStructureOperation,
-    EventOperation,
-    LoopOperation,
     LVType,
     LVTypeKind,
-    Operation,
     PropertyDef,
     SelectorRange,
-    SequenceOperation,
     Terminal,
-    Tunnel,
-    TunnelTerminal,
     _is_error_cluster,
 )
 from ..num_format import format_numeric_const
@@ -46,230 +39,6 @@ if TYPE_CHECKING:
     from .core import InMemoryVIGraph
 
 logger = logging.getLogger(__name__)
-
-
-def _find_op_owning_terminal(
-    operations: list[Operation],
-    terminal_id: str | None,
-) -> tuple[Operation, Terminal] | None:
-    """Recursively find the operation that owns the given terminal."""
-    if terminal_id is None:
-        return None
-    for op in operations:
-        for t in op.terminals:
-            if t.id == terminal_id:
-                return op, t
-        hit = _find_op_owning_terminal(op.inner_nodes, terminal_id)
-        if hit:
-            return hit
-        if isinstance(
-            op,
-            (
-                CaseOperation,
-                SequenceOperation,
-                DisableStructureOperation,
-                EventOperation,
-            ),
-        ):
-            for frame in op.frames:
-                hit = _find_op_owning_terminal(frame.operations, terminal_id)
-                if hit:
-                    return hit
-    return None
-
-
-def index_terminal_owners(
-    operations: list[Operation],
-    out: dict[str, tuple[Operation, Terminal]] | None = None,
-) -> dict[str, tuple[Operation, Terminal]]:
-    """Map every terminal id -> its owning ``(op, terminal)``, in ONE walk.
-
-    A precomputed form of ``_find_op_owning_terminal``: build this once per pass
-    and do O(1) lookups instead of re-scanning the whole op tree per wire (that
-    linear rescan is an O(n^2) hot spot in ``netlist.build_netlist`` --
-    ``_resolve_source`` traces many wires). Recurses IDENTICALLY to
-    ``_find_op_owning_terminal`` (``inner_nodes`` always, plus frames for
-    case/sequence/disable/event structures) so the map and the scan never
-    disagree. Terminal ids are unique, so first-writer-wins is moot; kept for
-    safety.
-
-    SHARED INVARIANT with ``netlist._walk_flat``: that walk branches
-    case/sequence/disable/event structures to frames-ONLY instead of
-    recursing ``inner_nodes`` always like this does. The two recursions only
-    agree because a structure op never populates BOTH ``inner_nodes`` and
-    ``frames`` at once, so either branching visits the same set of ops.
-    """
-    if out is None:
-        out = {}
-    for op in operations:
-        for t in op.terminals:
-            if t.id not in out:
-                out[t.id] = (op, t)
-        index_terminal_owners(op.inner_nodes, out)
-        if isinstance(
-            op,
-            (
-                CaseOperation,
-                SequenceOperation,
-                DisableStructureOperation,
-                EventOperation,
-            ),
-        ):
-            for frame in op.frames:
-                index_terminal_owners(frame.operations, out)
-    return out
-
-
-def _has_output_tunnel(op: Operation) -> bool:
-    """True if the structure routes any value out (so an empty frame is a
-    pass-through, not truly empty -- LV requires output tunnels wired in
-    every frame)."""
-    return any(t.direction == "output" for t in op.terminals)
-
-
-def _paired_tunnel_id(op: Operation, term: Terminal) -> str | None:
-    """Hop across a structure's tunnel: given ``term`` (an outer or inner
-    ``TunnelTerminal`` owned by structure ``op``), return the terminal id
-    on the OTHER side (``op.tunnels`` -- the same outer/inner pairing table
-    ``codegen/nodes/case.py::_bind_input_tunnels``/``_bind_output_tunnels``
-    and ``CodeGenContext.resolve`` use), or ``None`` if ``term`` isn't a
-    tunnel endpoint on this op.
-    """
-    if not isinstance(term, TunnelTerminal):
-        return None
-    for tunnel in op.tunnels:
-        if tunnel.inner_terminal_uid == term.id:
-            return tunnel.outer_terminal_uid
-        if tunnel.outer_terminal_uid == term.id:
-            return tunnel.inner_terminal_uid
-    return None
-
-
-def _case_output_tunnel_outers(op: Operation) -> list[Terminal]:
-    """Every OUTER tunnel terminal on a case structure that carries a value
-    OUT of the case (``direction == "output"``), in ``op.terminals`` order --
-    the canonical 0-based numbering ``netlist.py`` uses to name a case's
-    gamma-merge output nets (``case{id}.out{k}``, see that module's finding
-    #1). Not itself gated to ``CaseOperation`` (mirrors ``_paired_tunnel_id``'s
-    own shape) -- callers only call this for a ``CaseOperation``.
-    """
-    return [
-        t
-        for t in op.terminals
-        if isinstance(t, TunnelTerminal)
-        and t.boundary == "outer"
-        and t.direction == "output"
-    ]
-
-
-def _is_gamma_output_tunnel(op: Operation, term: Terminal) -> bool:
-    """True when ``term`` is a CASE structure's output tunnel OUTER terminal
-    paired to MORE THAN ONE inner terminal (one per frame) -- the shape
-    ``netlist._resolve_source`` must stop at and resolve as a named
-    gamma-merge net, never hop through to a single frame's producer (finding
-    #1: which frame supplies the value is selector-dependent, so hopping
-    through via ``_paired_tunnel_id`` silently picks one frame arbitrarily).
-
-    Scoped to ``CaseOperation`` only, by design -- loops/sequences/disable/
-    event structures keep their existing single-hop ``_paired_tunnel_id``
-    behavior unconditionally, even where their own output-tunnel shape might
-    coincidentally satisfy the same "> 1 paired inner" test (out of scope
-    for this pass -- see netlist.py's module docstring).
-    """
-    if not isinstance(op, CaseOperation) or not isinstance(term, TunnelTerminal):
-        return False
-    if term.boundary != "outer" or term.direction != "output":
-        return False
-    inners = {
-        tunnel.inner_terminal_uid
-        for tunnel in op.tunnels
-        if tunnel.outer_terminal_uid == term.id
-    }
-    return len(inners) > 1
-
-
-def _loop_output_tunnel_outers(op: Operation) -> list[Terminal]:
-    """Every OUTER ``lpTun`` terminal on a loop structure that carries a
-    value OUT of the loop (``direction == "output"``), in ``op.terminals``
-    order -- the canonical 0-based numbering ``netlist.py`` uses to name a
-    loop's eta-merge output nets (``loop{id}.out{k}``). Direction is the
-    authoritative signal here, NOT ``mode``: a real VI's ``lpTun`` carries a
-    base ``TunnelMode`` (``INDEXING``/``LAST_VALUE``/``PASSTHROUGH``/...) on
-    INPUT-direction tunnels too, so filtering by ``direction == "output"`` --
-    mirroring ``_case_output_tunnel_outers`` -- is what isolates the genuine
-    loop outputs. (construction.py already re-labels an input tunnel's
-    "indexing off" as ``PASSTHROUGH`` rather than ``LAST_VALUE``.)
-    """
-    return [
-        t
-        for t in op.terminals
-        if isinstance(t, TunnelTerminal)
-        and t.tunnel_type == "lpTun"
-        and t.boundary == "outer"
-        and t.direction == "output"
-    ]
-
-
-def _is_eta_output_tunnel(op: Operation, term: Terminal) -> bool:
-    """True when ``term`` is a LOOP structure's output tunnel OUTER
-    terminal -- the shape ``netlist._resolve_source`` must stop at and
-    resolve as a named eta-merge net (Gated-SSA eta: the value LEAVING the
-    loop, aggregated across every iteration -- auto-indexed into an array,
-    concatenated, conditionally indexed, or only the final iteration's
-    value), never hop through to the inner PER-ITERATION scalar producer
-    (the loop analogue of ``_is_gamma_output_tunnel``'s case finding: a
-    loop output tunnel's real value is the WHOLE aggregation, not one
-    iteration's producer).
-
-    Scoped to ``LoopOperation`` only, by design -- case/sequence/disable/
-    event structures keep their existing tunnel-hop behavior (gamma is
-    handled separately, by ``_is_gamma_output_tunnel``).
-    """
-    if not isinstance(op, LoopOperation) or not isinstance(term, TunnelTerminal):
-        return False
-    return (
-        term.tunnel_type == "lpTun"
-        and term.boundary == "outer"
-        and term.direction == "output"
-    )
-
-
-def _loop_shift_register_pairs(
-    op: Operation,
-) -> list[tuple[Tunnel, Tunnel | None]]:
-    """Pair each ``lSR`` tunnel with its ``rSR`` tunnel by ORDER of
-    appearance in ``op.tunnels`` -- LabVIEW lists left/right shift-register
-    tunnels in matching order, and the graph builder never populates
-    ``Tunnel.paired_terminal_uid`` (only the legacy parser path does) -- the
-    SAME positional heuristic ``codegen/nodes/loop.py``'s ``rsr_to_lsr_outer``
-    correlation uses. Returns one entry per ``lSR`` tunnel, in tunnel order
-    -- this IS the canonical 0-based ``shift{k}`` numbering (mirrors
-    ``_case_output_tunnel_outers``'s role for ``case{id}.out{k}``). The
-    paired ``rSR`` is ``None`` when a shift register genuinely has no
-    matching right terminal (defensive; not expected on a well-formed VI).
-    """
-    lsrs = [t for t in op.tunnels if t.tunnel_type == "lSR"]
-    rsrs = [t for t in op.tunnels if t.tunnel_type == "rSR"]
-    return [(lsr, rsrs[i] if i < len(rsrs) else None) for i, lsr in enumerate(lsrs)]
-
-
-def _is_mu_shift_register_read(op: Operation, term: Terminal) -> bool:
-    """True when ``term`` is a LOOP shift-register terminal whose value IS
-    the Gated-SSA mu recurrence itself: the INNER ``lSR`` terminal (read by
-    a node inside the loop body every iteration) or the OUTER ``rSR``
-    terminal (the rarer direct read of a shift register's final value from
-    OUTSIDE the loop -- the mirror of a ``LAST_VALUE`` loop-output tunnel,
-    since the value sitting on the right terminal after the loop exits IS
-    the final recurrence value). ``netlist._resolve_source`` stops here and
-    resolves to the named mu-merge net (``loop{id}.shift{k}``) instead of
-    hopping straight to the INIT value via ``_paired_tunnel_id`` and losing
-    the recurrence (the loop analogue of the case gamma-merge finding).
-    """
-    if not isinstance(op, LoopOperation) or not isinstance(term, TunnelTerminal):
-        return False
-    if term.tunnel_type == "lSR" and term.boundary == "inner":
-        return True
-    return term.tunnel_type == "rSR" and term.boundary == "outer"
 
 
 def _flatten_fields(
@@ -443,14 +212,8 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
     Walks ``graph.iter_nodes(vi_name)`` -- the FLAT per-VI node list (every
     node under a VI, including loop-body/frame-nested nodes and an In Place
     Element Structure's border decompose/recompose nodes, regardless of
-    containment depth) -- rather than the ``Operation`` tree ``get_operations``
-    builds: ``iter_nodes`` is the plain flat read this needs, reaching every
-    node at any depth without materializing the Operation/frame hierarchy.
-    (``get_operations`` became side-effect-free in ``b460375`` --
-    ``operations.py``'s ``_populate_frame_operations`` now returns fresh
-    ``model_copy`` frames instead of mutating ``inner_node_uids`` -- so the
-    historical hazard of calling it mid-load no longer applies; ``iter_nodes``
-    remains preferred as the cheaper, direct walk.)
+    containment depth): the plain flat read this needs, reaching every node
+    at any depth with no tree materialization at all.
 
     Idempotent: only sets ``display_name`` when it is still unset AND a real
     field name resolves -- never clobbers an already-resolved name, and
@@ -489,10 +252,9 @@ def correlate_property_terminals(
     terminals: list[Terminal],
     value_terminal_ids: list[str],
 ) -> list[tuple[PropertyDef, Terminal | None]]:
-    """Pair each accessed property (``PropertyOperation.properties`` /
-    ``PrimitiveNode.properties``) with its VALUE terminal, in index order,
-    via ``value_terminal_ids`` (``PropertyOperation.value_terminal_ids`` /
-    ``PrimitiveNode.property_value_terminal_ids`` -- the parser's real
+    """Pair each accessed property (``PrimitiveNode.properties``) with its
+    VALUE terminal, in index order, via ``value_terminal_ids``
+    (``PrimitiveNode.property_value_terminal_ids`` -- the parser's real
     dcoList, re-expressed as terminal ids, see
     ``parser.node_types._dco_list_terminal_uids``).
 

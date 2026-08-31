@@ -19,8 +19,8 @@ import pytest
 from lvkit.codegen.ast_optimizer import eliminate_dead_code
 from lvkit.codegen.context import _format_constant
 from lvkit.graph.loading import LoadMode
-from lvkit.graph.models import Constant
-from lvkit.models import LVType, LVTypeKind, SubVIOperation
+from lvkit.graph.models import Constant, VINode
+from lvkit.models import LVType, LVTypeKind
 
 # =============================================================
 # Boolean constant formatting
@@ -206,19 +206,16 @@ class TestWaitMsPrimitive:
 DAQMX_CALLER_VI = ".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
 
 
-def _walk_ops(ops):
-    """Yield every operation, recursing into structure frames + inner nodes.
+def _walk_ops(graph, vi_name, nodes):
+    """Yield every graph node, recursing into structure children.
 
     DAQ AO.vi's DAQmx calls live inside Case structures (an event-loop
     pattern), so unlike the old flat-sequence In.vi they aren't top-level —
-    the plain top-level ``get_operations()`` list won't contain them.
+    the plain top-level ``top_level_nodes()`` list won't contain them.
     """
-    for op in ops:
+    for op in nodes:
         yield op
-        if hasattr(op, "frames"):
-            for frame in op.frames:
-                yield from _walk_ops(frame.operations)
-        yield from _walk_ops(getattr(op, "inner_nodes", []))
+        yield from _walk_ops(graph, vi_name, graph.child_nodes(op.id, vi_name))
 
 
 @pytest.mark.needs_samples
@@ -232,10 +229,9 @@ class TestPolyVariantExtraction:
         mg = connect()
         mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
-        for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
+        for op in _walk_ops(mg, "DAQ AO.vi", mg.top_level_nodes("DAQ AO.vi")):
             is_target = (
-                isinstance(op, SubVIOperation)
-                and op.name == "DAQmx Create Virtual Channel.vi"
+                isinstance(op, VINode) and op.name == "DAQmx Create Virtual Channel.vi"
             )
             if is_target:
                 assert op.poly_variant_name == "AO Voltage"
@@ -249,8 +245,8 @@ class TestPolyVariantExtraction:
         mg = connect()
         mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
-        for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
-            if isinstance(op, SubVIOperation) and op.name == "DAQmx Write.vi":
+        for op in _walk_ops(mg, "DAQ AO.vi", mg.top_level_nodes("DAQ AO.vi")):
+            if isinstance(op, VINode) and op.name == "DAQmx Write.vi":
                 assert op.poly_variant_name is not None
                 assert "Analog" in op.poly_variant_name
                 return
@@ -263,8 +259,8 @@ class TestPolyVariantExtraction:
         mg = connect()
         mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
 
-        for op in _walk_ops(mg.get_operations("DAQ AO.vi")):
-            if isinstance(op, SubVIOperation) and op.name == "DAQmx Start Task.vi":
+        for op in _walk_ops(mg, "DAQ AO.vi", mg.top_level_nodes("DAQ AO.vi")):
+            if isinstance(op, VINode) and op.name == "DAQmx Start Task.vi":
                 assert op.poly_variant_name is None
                 return
         raise AssertionError("DAQmx Start Task.vi not found")

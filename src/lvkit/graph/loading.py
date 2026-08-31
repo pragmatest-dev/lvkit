@@ -471,9 +471,7 @@ class LoadingMixin:
                         member_key = self.load_vi(vi_path, mode, search_paths)
                         # Ownership edge — to the member's RETURN key (its path).
                         if member_key and member_key in self._dep_graph:
-                            self._dep_graph.add_edge(
-                                lib_key, member_key, rel="owns"
-                            )
+                            self._dep_graph.add_edge(lib_key, member_key, rel="owns")
             elif member.member_type == "LVClass":
                 class_path = lvlib_path.parent / member.url
                 if not class_path.exists():

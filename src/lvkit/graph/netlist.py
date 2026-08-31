@@ -16,12 +16,11 @@ for backward compatibility, so every existing ``from ...graph.netlist
 import X`` call site keeps working unchanged while the actual code lives in
 focused modules:
 
-- ``netlist_build.py`` -- builds the IR (``build_netlist``,
-  ``build_netlist_from_graph``, ``index_module``).
+- ``netlist_build.py`` -- builds the IR (``build_netlist_from_graph``,
+  ``index_module``).
 - ``netlist_models.py`` -- the IR dataclasses/enums.
-- ``netlist_render_deprecated.py`` -- the OLD ASCII ``render_netlist`` text
-  renderer (plus ``ambiguous_bares``/``instance_line``/``scope_header``/
-  ``component_line``).
+- ``netlist_diff_helpers.py`` -- shared netlist-diff text helpers
+  (``ambiguous_bares``/``instance_line``/``scope_header``).
 - ``netlist_json.py`` -- the JSON serializer (``netlist_to_dict``).
 - ``render_lvnet.py`` -- the current verbose ``lvnet`` text renderer
   (``render_lvnet``).
@@ -34,21 +33,34 @@ instantiations. ``describe.py`` renders it as ``## Components``.
 
 from __future__ import annotations
 
-# The IR-building code (``build_netlist``, ``build_netlist_from_graph``,
-# ``index_module``, and every private helper) lives in ``netlist_build.py``
-# (kept there so the graph-walk machinery is importable/editable without
-# pulling in this facade). Re-exported here so every existing ``from
-# ...graph.netlist import build_netlist`` (etc.) call site keeps working
-# unchanged. ``netlist_build.py`` must never import from this module (that
-# would be a fragile, import-order-dependent circular import).
-from .netlist_build import (
-    build_netlist as build_netlist,  # noqa: F401 -- re-exported for external callers
-)
+# The IR-building code (``build_netlist_from_graph``, ``index_module``, and
+# every private helper) lives in ``netlist_build.py`` (kept there so the
+# graph-walk machinery is importable/editable without pulling in this facade).
+# Re-exported here so every existing ``from ...graph.netlist import
+# build_netlist_from_graph`` (etc.) call site keeps working unchanged.
+# ``netlist_build.py`` must never import from this module (that would be a
+# fragile, import-order-dependent circular import).
 from .netlist_build import (
     build_netlist_from_graph as build_netlist_from_graph,  # noqa: F401 -- re-exported for external callers
 )
 from .netlist_build import (
     index_module as index_module,  # noqa: F401 -- re-exported for external callers
+)
+
+# ``ambiguous_bares``/``instance_line``/``scope_header`` -- the shared netlist
+# helpers ``diff.py`` imports and calls -- live in ``netlist_diff_helpers.py``
+# (which must never import from this module, to avoid a fragile
+# import-order-dependent cycle). Re-exported here so every existing ``from
+# ...graph.netlist import ambiguous_bares`` (etc.) call site keeps working
+# unchanged.
+from .netlist_diff_helpers import (
+    ambiguous_bares as ambiguous_bares,  # noqa: F401 -- re-exported for external callers
+)
+from .netlist_diff_helpers import (
+    instance_line as instance_line,  # noqa: F401 -- re-exported for external callers
+)
+from .netlist_diff_helpers import (
+    scope_header as scope_header,  # noqa: F401 -- re-exported for external callers
 )
 
 # The JSON serializer (``netlist_to_dict``) lives in ``netlist_json.py`` (kept
@@ -141,35 +153,6 @@ from .netlist_models import (
 )
 from .netlist_models import (
     NetRef as NetRef,  # noqa: F401 -- re-exported for external callers
-)
-from .netlist_models import (
-    _BuildCtx as _BuildCtx,  # noqa: F401 -- re-exported for external callers
-)
-
-# The OLD ASCII text renderer (gamma/mu/eta ``:=`` netlist syntax) --
-# DEPRECATED, superseded by ``render_lvnet`` -- lives in
-# ``netlist_render_deprecated.py`` along with its exclusive helpers.
-# ``ambiguous_bares``/``instance_line``/``scope_header``/``component_line``
-# moved there too even though ``diff.py`` also imports and calls some of
-# them: ``render_netlist``'s own call graph needs the first three, and
-# ``netlist_render_deprecated.py`` must never import from this module (that
-# would be a fragile, import-order-dependent circular import). Re-exported
-# here so every existing ``from ...graph.netlist import ambiguous_bares``
-# (etc.) call site keeps working unchanged.
-from .netlist_render_deprecated import (
-    ambiguous_bares as ambiguous_bares,  # noqa: F401 -- re-exported for external callers
-)
-from .netlist_render_deprecated import (
-    component_line as component_line,  # noqa: F401 -- re-exported for external callers
-)
-from .netlist_render_deprecated import (
-    instance_line as instance_line,  # noqa: F401 -- re-exported for external callers
-)
-from .netlist_render_deprecated import (
-    render_netlist as render_netlist,  # noqa: F401 -- re-exported for external callers
-)
-from .netlist_render_deprecated import (
-    scope_header as scope_header,  # noqa: F401 -- re-exported for external callers
 )
 from .render_lvnet import (
     render_lvnet as render_lvnet,  # noqa: F401 -- re-exported for external callers

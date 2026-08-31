@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 import traceback
@@ -369,24 +368,22 @@ def main() -> int:
             "Health, connector-pattern/pane-slot annotations, typed "
             "terminals); with --format lvnet, also inline each direct "
             "SubVI's connector-pane interface and a trailing `types :` "
-            "appendix; with --format netlist, also emit a typed "
-            "## Components section before the netlist body."
+            "appendix, making the render type-rehydratable."
         ),
     )
     desc_parser.add_argument(
         "--format",
-        choices=["text", "netlist", "lvnet", "json"],
+        choices=["text", "lvnet", "json"],
         default="text",
         help=(
             "'text' (default) prints the human-readable description; "
             "'lvnet' prints the VI as the lvnet text surface (terse by "
             "default; -v/--verbose inlines each direct SubVI's connector-"
             "pane interface plus a trailing `types :` appendix, making the "
-            "render type-rehydratable); 'netlist' (DEPRECATED — use 'lvnet') "
-            "prints the old dataflow netlist body — still the git-textconv-"
-            "friendly form (see `lvkit setup --git-textconv`); "
-            "'json' emits the canonical netlist IR — the same structured "
-            "payload the MCP read_vi tool returns — for a program to parse."
+            "render type-rehydratable — also the git-textconv form, see "
+            "`lvkit setup --git-textconv`); 'json' emits the canonical netlist "
+            "IR — the same structured payload the MCP read_vi tool returns — "
+            "for a program to parse."
         ),
     )
     _add_project_root_arg(desc_parser)
@@ -655,11 +652,11 @@ def main() -> int:
     )
     setup_parser.add_argument(
         "--textconv-format",
-        choices=["netlist", "text", "json"],
-        default="netlist",
+        choices=["lvnet", "text", "json"],
+        default="lvnet",
         help=(
             "Which `describe` format `--git-textconv` renders in a `git diff`: "
-            "'netlist' (default, the dataflow netlist — most diff-friendly), "
+            "'lvnet' (default, the lvnet text surface — most diff-friendly), "
             "'text' (the human summary), or 'json' (the structured IR). The VS "
             "Code extension sets this from the `lvkit.viTextFormat` setting."
         ),
@@ -1141,26 +1138,6 @@ def cmd_query(args: argparse.Namespace) -> int:
     return 0
 
 
-def _repo_relative_path(source: Path | None, base: Path) -> str | None:
-    """Best-effort repo/project-relative display path for ``source`` against
-    ``base`` -- for the ``-- <path>`` comment on each SubVI in a verbose
-    ``describe --format netlist`` ``## Components`` line, so a VS Code terminal
-    can click straight to the dependency instead of showing an absolute path.
-
-    Defensive by design: ``None`` when ``source`` is unresolvable (unknown/
-    unloaded VI) or ``os.path.relpath`` itself fails (e.g. a cross-drive path
-    on Windows, which raises ``ValueError``) -- a describe path annotation is
-    decoration, never load-bearing, so it silently falls back rather than
-    crashing the command.
-    """
-    if source is None:
-        return None
-    try:
-        return os.path.relpath(source.resolve(), base.resolve())
-    except (OSError, ValueError):
-        return None
-
-
 def cmd_describe(args: argparse.Namespace) -> int:
     """Handle the describe command - human-readable VI description."""
     from .graph.describe import describe_vi
@@ -1201,89 +1178,26 @@ def cmd_describe(args: argparse.Namespace) -> int:
             # -v/--verbose additionally surfaces the `uses :` dependency
             # manifest (+ each subVI's interface) and every terminal's
             # structured type -- the JSON counterpart of `--format lvnet`'s
-            # verbose elements (see `netlist_to_dict`'s docstring). Those
-            # facts only exist on `build_netlist_from_graph`'s module (the
-            # OLD `build_netlist` never populates them), so verbose switches
-            # builders; non-verbose stays on the OLD builder, byte-identical
-            # to before.
+            # verbose elements (see `netlist_to_dict`'s docstring).
             from .graph.netlist import (
-                build_netlist,
                 build_netlist_from_graph,
                 netlist_to_dict,
             )
 
-            module = (
-                build_netlist_from_graph(graph, vi_name)
-                if args.verbose
-                else build_netlist(graph, vi_name)
-            )
-            print(
-                json.dumps(netlist_to_dict(module, verbose=args.verbose), indent=2)
-            )
+            module = build_netlist_from_graph(graph, vi_name)
+            print(json.dumps(netlist_to_dict(module, verbose=args.verbose), indent=2))
         elif fmt == "lvnet":
             # The lvnet text surface (see docs/_internal/design/netlist-
-            # language.md) — the NEW replacement for --format netlist below.
-            # Terse (default) is the compact form; -v/--verbose inlines each
-            # direct SubVI's connector-pane interface (MINIMAL-load-friendly)
-            # plus a trailing `types :` appendix, making the render type-
-            # rehydratable. Display name mirrors --format netlist: the VI's
+            # language.md). Terse (default) is the compact form; -v/--verbose
+            # inlines each direct SubVI's connector-pane interface
+            # (MINIMAL-load-friendly) plus a trailing `types :` appendix,
+            # making the render type-rehydratable. Display name is the VI's
             # qualified/display name, never an abspath.
             from .graph.netlist import build_netlist_from_graph, render_lvnet
 
             module = build_netlist_from_graph(graph, vi_name)
             display_name = graph.vi_display_name(vi_name)
-            print(
-                render_lvnet(module, display_name=display_name, verbose=args.verbose)
-            )
-        elif fmt == "netlist":
-            # DEPRECATED — use --format lvnet. Kept byte-for-byte unchanged
-            # (this is also the `lvkit setup --git-textconv` command; don't
-            # touch its output here).
-            print(
-                "lvkit: 'netlist' format is deprecated; use 'lvnet'.",
-                file=sys.stderr,
-            )
-            # The dataflow netlist body alone — the git-textconv-friendly
-            # form (`lvkit setup --git-textconv`): a diff of two commits'
-            # `.vi` blobs through this render is a meaningful, near-source-
-            # stable text diff. The VI-line always uses the qualified display
-            # name (never an abspath — that would make every clone's diff
-            # differ), IDENTICAL in base and verbose. Verbose adds only a
-            # `## Components` declaration table with each SubVI's repo-relative
-            # path as a clickable `-- ` comment (paths never touch the semantic
-            # lines, and don't resolve under textconv's isolated blob anyway).
-            from .graph.netlist import build_netlist, component_line, render_netlist
-
-            module = build_netlist(graph, vi_name)
-            # SubVI paths are resolved relative to — the first auto-detected
-            # search path (explicit --search-path wins, else the input's own
-            # enclosing .lvkit/ project root), falling back to the input's own
-            # directory. So a VS Code terminal can click straight to the dep.
-            rel_base = search_paths[0] if search_paths else input_path.parent
-
-            # The VI signature line always uses the QUALIFIED name — identical in
-            # base and verbose, so the netlist body diffs the same either way.
-            # Paths live only in verbose, and only as COMMENTS (never in the
-            # semantic lines): each called SubVI's repo-relative path as a
-            # trailing `-- ` comment on its ## Components declaration (clickable),
-            # skipped for primitives / unresolved SubVIs.
-            display_name = graph.vi_display_name(vi_name)
-
-            out_lines: list[str] = []
-            if args.verbose and module.components:
-                out_lines.append("## Components")
-                for c in module.components:
-                    line = f"  {component_line(c)}"
-                    comp_rel = _repo_relative_path(
-                        graph.get_vi_source_path(c.name), rel_base
-                    )
-                    if comp_rel is not None:
-                        line += f"  -- {comp_rel}"
-                    out_lines.append(line)
-                out_lines.append("")
-
-            out_lines.append(render_netlist(module, display_name=display_name))
-            print("\n".join(out_lines))
+            print(render_lvnet(module, display_name=display_name, verbose=args.verbose))
         else:
             print(describe_vi(graph, vi_name, verbose=args.verbose))
 
@@ -1314,10 +1228,10 @@ def _detect_ai_editors(root: Path) -> list[str]:
     return editors
 
 
-def _setup_git_textconv(root: Path, fmt: str = "netlist") -> int:
+def _setup_git_textconv(root: Path, fmt: str = "lvnet") -> int:
     """Wire up ``git diff``/``git show`` on ``.vi`` files to render lvkit's
-    ``describe`` text (``lvkit describe --format <fmt>``, default the dataflow
-    ``netlist``) instead of the raw binary blob — the ``lvkit setup
+    ``describe`` text (``lvkit describe --format <fmt>``, default the
+    ``lvnet`` text surface) instead of the raw binary blob — the ``lvkit setup
     --git-textconv`` mode.
 
     Appends ``*.vi diff=lvkit`` to the repo's ``.gitattributes`` (creating it
@@ -1368,8 +1282,7 @@ def _setup_git_textconv(root: Path, fmt: str = "netlist") -> int:
         )
         if result.returncode != 0:
             print(
-                f"Error: `git config {key} {value!r}` failed: "
-                f"{result.stderr.strip()}",
+                f"Error: `git config {key} {value!r}` failed: {result.stderr.strip()}",
                 file=sys.stderr,
             )
             return 1
@@ -1389,7 +1302,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
         if not root.is_dir():
             print(f"Error: Not a directory: {root}", file=sys.stderr)
             return 1
-        return _setup_git_textconv(root, getattr(args, "textconv_format", "netlist"))
+        return _setup_git_textconv(root, getattr(args, "textconv_format", "lvnet"))
 
     # `directory` and `skills` are both optional positionals, so a lone
     # `lvkit setup copilot` binds "copilot" to `directory`. If the only

@@ -16,23 +16,41 @@ from lvkit.codegen.builder import (
     topological_sort_tiered,
 )
 from lvkit.codegen.context import CodeGenContext
-from lvkit.graph.models import Wire
-from lvkit.models import Operation, SequenceFrame, SequenceOperation, Terminal
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import SequenceNode, VINode, Wire
+from lvkit.models import SequenceFrame, Terminal
+from tests.helpers import register_nodes
 
 
 def _make_op(
     op_id: str,
     name: str = "op",
     terminals: list[Terminal] | None = None,
-) -> Operation:
-    """Helper to create a minimal Operation."""
-    return Operation(
+) -> VINode:
+    """Helper to create a minimal graph node (a subVI call)."""
+    return VINode(
         id=op_id,
+        vi_path="test.vi",
         name=name,
-        kind="vi",
         node_type="iUse",
         terminals=terminals or [],
     )
+
+
+def _mk_seq(ctx, *, id, name, frames, frame_ops):
+    """Build a SequenceNode + register each frame's child ops (parent/frame
+    linked) so ``ctx.frame_children`` yields them."""
+    children = []
+    for f in frames:
+        for op in frame_ops.get(f.index, []):
+            op.parent = id
+            op.frame = str(f.index)
+            children.append(op)
+    node = SequenceNode(
+        id=id, vi_path="test.vi", name=name, node_type="flatSequence", frames=frames
+    )
+    register_nodes(ctx.graph, [node, *children])
+    return node
 
 
 def _make_terminal(tid: str, direction: str, parent_id: str = "") -> Terminal:
@@ -234,21 +252,14 @@ class TestSequenceParallelIntegration:
         from lvkit.codegen.nodes import sequence
 
         inner = _make_op("write1")
-        op = SequenceOperation(
+        ctx = CodeGenContext(graph=InMemoryVIGraph())
+        op = _mk_seq(
+            ctx,
             id="seq1",
             name="Flat Sequence",
-            kind="flatSequence",
-            node_type="flatSequence",
-            frames=[
-                SequenceFrame(
-                    index=0,
-                    inner_node_uids=["write1"],
-                    operations=[inner],
-                ),
-            ],
-            tunnels=[],
+            frames=[SequenceFrame(index=0, inner_node_uids=["write1"])],
+            frame_ops={0: [inner]},
         )
-        ctx = CodeGenContext()
         fragment = sequence.generate(op, ctx)
         code = ast.unparse(ast.Module(body=fragment.statements, type_ignores=[]))
         assert "ThreadPoolExecutor" not in code
@@ -259,21 +270,14 @@ class TestSequenceParallelIntegration:
 
         op_a = _make_op("a")
         op_b = _make_op("b")
-        op = SequenceOperation(
+        ctx = CodeGenContext(graph=InMemoryVIGraph(), _body_generator=generate_body)
+        op = _mk_seq(
+            ctx,
             id="seq1",
             name="Flat Sequence",
-            kind="flatSequence",
-            node_type="flatSequence",
-            frames=[
-                SequenceFrame(
-                    index=0,
-                    inner_node_uids=["a", "b"],
-                    operations=[op_a, op_b],
-                ),
-            ],
-            tunnels=[],
+            frames=[SequenceFrame(index=0, inner_node_uids=["a", "b"])],
+            frame_ops={0: [op_a, op_b]},
         )
-        ctx = CodeGenContext(_body_generator=generate_body)
         fragment = sequence.generate(op, ctx)
         code = ast.unparse(ast.Module(body=fragment.statements, type_ignores=[]))
         assert "ThreadPoolExecutor" in code
@@ -284,26 +288,17 @@ class TestSequenceParallelIntegration:
 
         op_a = _make_op("a")
         op_b = _make_op("b")
-        op = SequenceOperation(
+        ctx = CodeGenContext(graph=InMemoryVIGraph())
+        op = _mk_seq(
+            ctx,
             id="seq1",
             name="Flat Sequence",
-            kind="flatSequence",
-            node_type="flatSequence",
             frames=[
-                SequenceFrame(
-                    index=0,
-                    inner_node_uids=["a"],
-                    operations=[op_a],
-                ),
-                SequenceFrame(
-                    index=1,
-                    inner_node_uids=["b"],
-                    operations=[op_b],
-                ),
+                SequenceFrame(index=0, inner_node_uids=["a"]),
+                SequenceFrame(index=1, inner_node_uids=["b"]),
             ],
-            tunnels=[],
+            frame_ops={0: [op_a], 1: [op_b]},
         )
-        ctx = CodeGenContext()
         fragment = sequence.generate(op, ctx)
         # Both frames generate something
         assert len(fragment.statements) > 0

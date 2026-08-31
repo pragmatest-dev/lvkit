@@ -123,8 +123,13 @@ class SelectableStructureGlyph(StructureBodyGlyph):
         # One enclosing box (case-bar fill), with vertical dividers between the
         # flanking arrow cells and the central value cell.
         backend.rect(
-            ox1, oy1, ox2, oy2, fill=theme.case_bar_fill,
-            stroke=theme.struct_border, stroke_width=0.75,
+            ox1,
+            oy1,
+            ox2,
+            oy2,
+            fill=theme.case_bar_fill,
+            stroke=theme.struct_border,
+            stroke_width=0.75,
         )
         backend.line(vc1, oy1, vc1, oy2, stroke=theme.struct_border, stroke_width=0.5)
         backend.line(vc2, oy1, vc2, oy2, stroke=theme.struct_border, stroke_width=0.5)
@@ -194,8 +199,13 @@ class SelectableStructureGlyph(StructureBodyGlyph):
                 data={"lv-struct": struct, "lv-value": v},
             )
             backend.rect(
-                bx1, ry1, bx2, ry2, fill=theme.case_bar_fill,
-                stroke="#999999", stroke_width=0.5,
+                bx1,
+                ry1,
+                bx2,
+                ry2,
+                fill=theme.case_bar_fill,
+                stroke="#999999",
+                stroke_width=0.5,
             )
             label = state.display[v]
             text = (
@@ -206,7 +216,9 @@ class SelectableStructureGlyph(StructureBodyGlyph):
             backend.text(
                 (bx1 + bx2) / 2,
                 ry1 + _MENU_ROW_H / 2 + _SELECTOR_SIZE * 0.34,
-                text, _SELECTOR_SIZE, fill=theme.case_bar_text,
+                text,
+                _SELECTOR_SIZE,
+                fill=theme.case_bar_text,
             )
             backend.end_group()
         backend.end_group()

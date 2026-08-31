@@ -96,9 +96,7 @@ def _selector_state(rs: RenderStructure, scene: Scene) -> SelectorState:
     else:
         labels = scene.frame_labels.get(raw, {})
         display = {v: labels.get(v, v) for v in values}
-    return SelectorState(
-        raw_uid=raw, values=values, default=default, display=display
-    )
+    return SelectorState(raw_uid=raw, values=values, default=default, display=display)
 
 
 def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -> None:
@@ -301,7 +299,12 @@ class StructureObject(RenderObject):
             if err_color is not None:
                 bx1, by1, bx2, by2 = rs.bounds
                 backend.rect(
-                    bx1, by1, bx2, by2, fill="none", stroke=err_color,
+                    bx1,
+                    by1,
+                    bx2,
+                    by2,
+                    fill="none",
+                    stroke=err_color,
                     stroke_width=ERROR_BORDER_W,
                 )
             backend.end_group()
@@ -369,11 +372,11 @@ def build_render_tree(scene: Scene) -> DiagramObject:
     # innermost interactive ancestor); () → root diagram.
     fps_by_cf: dict[tuple[str | None, str | None], list[RenderFPTerminal]] = {}
     for fp in scene.fp_terminals:
-        fkey = (fp.frame_path[-1] if fp.frame_path else (None, None))
+        fkey = fp.frame_path[-1] if fp.frame_path else (None, None)
         fps_by_cf.setdefault(fkey, []).append(fp)
     dots_by_cf: dict[tuple[str | None, str | None], list[Point]] = {}
     for d in scene.coercion_dots:
-        dkey = (d.frame_path[-1] if d.frame_path else (None, None))
+        dkey = d.frame_path[-1] if d.frame_path else (None, None)
         dots_by_cf.setdefault(dkey, []).append(d.point)
 
     interactive_structures: list[StructureObject] = []
@@ -426,6 +429,7 @@ def build_render_tree(scene: Scene) -> DiagramObject:
             for net in nets_by_container.get(container, [])
             if not interactive or _wire_frame(net, container) == frame
         ]
+
         # Draw wires in LabVIEW's signalList paint order (Scene.wire_z, keyed by
         # source terminal). Like zPlaneList, signalList is FRONT-to-back: a LOWER
         # rank is more forward, so it must draw LAST and its casing breaks the

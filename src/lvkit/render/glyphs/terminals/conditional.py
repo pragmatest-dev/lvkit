@@ -37,7 +37,8 @@ class ConditionalTerminalGlyph(BorderTerminalGlyph):
                     (cx + a, cy - a),
                     (cx + a, cy + a),
                 ],
-                stroke="#ffffff", stroke_width=1.2,
+                stroke="#ffffff",
+                stroke_width=1.2,
             )
             backend.polygon(
                 [
@@ -45,7 +46,8 @@ class ConditionalTerminalGlyph(BorderTerminalGlyph):
                     (cx + a + 1.6, cy + a - 1.8),
                     (cx + a, cy + a + 1.4),
                 ],
-                fill="#ffffff", stroke=None,
+                fill="#ffffff",
+                stroke=None,
             )
         else:
             backend.circle(cx, cy, r, fill=theme.cond_stop)

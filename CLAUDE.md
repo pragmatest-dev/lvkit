@@ -40,6 +40,10 @@ This is not "try harder." It is a hard gate: unverified → unsaid; unwritten co
 - **Investigation means:** parse/grep/read to find the real root cause and where the correct data actually lives in the pipeline. Report that. Then STOP and wait.
 - This is a hard gate, same standing as VERIFY BEFORE CLAIMING. Persisted in memory: `feedback_bugs_investigate_then_discuss`.
 
+## ⛔ NEVER REFERENCE A REMOVED/OLD DESIGN IN CODE (READ THIS FIRST)
+
+When we remove or replace something, **strip every mention of the old thing from code, docstrings, and comments** — describe what the code does NOW, on its own terms. NO "graph-native mirror of the removed `Operation.X`", NO "byte-identical to the old builder", NO "used to be `inner_nodes`", NO "replaces the old `build_netlist`", NO "Phase 2 swaps that". **No one knows the old design; git history is the only record and anyone who cares reads it there.** This includes references *I* author during the same refactor — those are the exact violation. Doing this cleanup is part of FINISHING the refactor, never an optional follow-up. Keep only CURRENT identifiers that happen to share a word (a surviving `OperationsMixin`), never a docstring that *explains* current code via the deleted thing. Persisted in memory: `feedback_no_old_design_references`.
+
 ## Commands
 
 Always use `uv run` — it automatically activates the project venv without a separate activation step.

@@ -46,34 +46,41 @@ _IDEMPOTENCE_CASES = [
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCase.vi",
         _JKI_SOURCE_ROOT,
-        id="loadTestsFromTestCase",    ),
+        id="loadTestsFromTestCase",
+    ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestCase" / "run.vi",
         _JKI_SOURCE_ROOT,
-        id="TestCase_run",    ),
+        id="TestCase_run",
+    ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestSuite" / "run.vi",
         _JKI_SOURCE_ROOT,
-        id="TestSuite_run",    ),
+        id="TestSuite_run",
+    ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TextTestRunner" / "run.vi",
         _JKI_SOURCE_ROOT,
-        id="TextTestRunner_run",    ),
+        id="TextTestRunner_run",
+    ),
     pytest.param(
         _FLEX_ROOT / "WaveGen" / "WaveGen.vi",
         _FLEX_ROOT / "WaveGen",
-        id="WaveGen",    ),
+        id="WaveGen",
+    ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Menu Launch" / "VI Tester Menu Launch.vi",
         _JKI_SOURCE_ROOT,
-        id="VI_Tester_Menu_Launch",    ),
+        id="VI_Tester_Menu_Launch",
+    ),
     pytest.param(
         _JKI_SOURCE_ROOT
         / "User Interfaces"
         / "Graphical Test Runner"
         / "Graphical Test Runner - Main UI - .vi",
         _JKI_SOURCE_ROOT,
-        id="Graphical_Test_Runner_Main_UI",    ),
+        id="Graphical_Test_Runner_Main_UI",
+    ),
 ]
 
 
@@ -102,7 +109,7 @@ def _first_line_diff(a: str, b: str) -> str:
             f"line count differs: original has {len(a_lines)}, "
             f"reconstructed has {len(b_lines)} "
             f"(first extra line: "
-            f"{(b_lines[len(a_lines):] or a_lines[len(b_lines):])[0]!r})"
+            f"{(b_lines[len(a_lines) :] or a_lines[len(b_lines) :])[0]!r})"
         )
     return "<no diff found -- texts equal?>"  # pragma: no cover
 

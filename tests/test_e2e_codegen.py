@@ -20,7 +20,7 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from lvkit.models import InPlaceOperation
+from lvkit.graph.models import InPlaceNode
 
 SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 DCAF_SEARCH_PATHS = [
@@ -249,7 +249,7 @@ class TestTestCaseLvclass:
         failures = []
         for vi_name in tc_vis:
             ctx = testcase_graph.get_vi_context(vi_name)
-            if not ctx.operations:
+            if not testcase_graph.top_level_nodes(vi_name):
                 continue
             try:
                 code = build_module(ctx, vi_name, graph=testcase_graph)
@@ -272,7 +272,7 @@ class TestTestCaseLvclass:
 
         for vi_name in tc_vis:
             ctx = testcase_graph.get_vi_context(vi_name)
-            if not ctx.operations:
+            if not testcase_graph.top_level_nodes(vi_name):
                 continue
             try:
                 code = build_module(ctx, vi_name, graph=testcase_graph)
@@ -296,19 +296,39 @@ def delete_line_graph() -> InMemoryVIGraph:
     return g
 
 
-def _find_ipes_ops(ops: list) -> list[InPlaceOperation]:
-    """Recursively find all InPlaceOperation instances in the op tree."""
-    found: list[InPlaceOperation] = []
-    for op in ops:
-        if isinstance(op, InPlaceOperation):
-            found.append(op)
-        for inner in op.inner_nodes:
-            if isinstance(inner, InPlaceOperation):
-                found.append(inner)
-        if hasattr(op, "frames"):
-            for frame in op.frames:
-                found.extend(_find_ipes_ops(frame.operations))
+def _find_ipes_nodes(graph, vi_name, nodes) -> list[InPlaceNode]:
+    """Recursively find all InPlaceNode instances under ``nodes``."""
+    found: list[InPlaceNode] = []
+    for node in nodes:
+        if isinstance(node, InPlaceNode):
+            found.append(node)
+        found.extend(
+            _find_ipes_nodes(graph, vi_name, graph.child_nodes(node.id, vi_name))
+        )
     return found
+
+
+def _ipes_decompose_recompose(graph, vi_name, ipes_node):
+    """The decompose/recompose BORDER children of an IPES -- a ``poser_uid``-
+    carrying child with list terminals in ONE direction only (list-out only =
+    decompose, list-in only = recompose). Mirrors the removed
+    ``operations._classify_ipes_ops``."""
+    decompose = []
+    recompose = []
+    for child in graph.child_nodes(ipes_node.id, vi_name):
+        if graph._graph.nodes.get(child.id, {}).get("poser_uid") is None:  # noqa: SLF001
+            continue
+        has_list_out = any(
+            t.nmux_role == "list" and t.direction == "output" for t in child.terminals
+        )
+        has_list_in = any(
+            t.nmux_role == "list" and t.direction == "input" for t in child.terminals
+        )
+        if has_list_out and not has_list_in:
+            decompose.append(child)
+        elif has_list_in and not has_list_out:
+            recompose.append(child)
+    return decompose, recompose
 
 
 class TestIPESDeleteLine:
@@ -317,23 +337,29 @@ class TestIPESDeleteLine:
     VI_NAME = "Delete Line.vi"
 
     def test_graph_has_ipes_operation(self, delete_line_graph):
-        """Parser → graph → InPlaceOperation with boundary ops."""
-        ops = delete_line_graph.get_operations(self.VI_NAME)
-        ipes_ops = _find_ipes_ops(ops)
-        assert len(ipes_ops) >= 1, "Expected at least one IPES"
+        """Parser → graph → InPlaceNode with boundary children."""
+        top = delete_line_graph.top_level_nodes(self.VI_NAME)
+        ipes_nodes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)
+        assert len(ipes_nodes) >= 1, "Expected at least one IPES"
 
     def test_ipes_has_decompose_and_recompose(self, delete_line_graph):
-        """IPES must have decompose and recompose boundary ops."""
-        ops = delete_line_graph.get_operations(self.VI_NAME)
-        ipes = _find_ipes_ops(ops)[0]
-        assert len(ipes.decompose_ops) >= 1
-        assert len(ipes.recompose_ops) >= 1
+        """IPES must have decompose and recompose boundary children."""
+        top = delete_line_graph.top_level_nodes(self.VI_NAME)
+        ipes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)[0]
+        decompose, recompose = _ipes_decompose_recompose(
+            delete_line_graph, self.VI_NAME, ipes
+        )
+        assert len(decompose) >= 1
+        assert len(recompose) >= 1
 
     def test_decompose_has_agg_and_list_terminals(self, delete_line_graph):
         """Decompose op must have agg input + list outputs."""
-        ops = delete_line_graph.get_operations(self.VI_NAME)
-        ipes = _find_ipes_ops(ops)[0]
-        dec = ipes.decompose_ops[0]
+        top = delete_line_graph.top_level_nodes(self.VI_NAME)
+        ipes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)[0]
+        decompose, _recompose = _ipes_decompose_recompose(
+            delete_line_graph, self.VI_NAME, ipes
+        )
+        dec = decompose[0]
         agg = [t for t in dec.terminals if t.nmux_role == "agg"]
         fields = [t for t in dec.terminals if t.nmux_role == "list"]
         assert len(agg) >= 1, "Decompose needs an agg terminal"

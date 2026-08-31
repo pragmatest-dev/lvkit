@@ -525,9 +525,7 @@ class ExtractedIconResolver:
             )
             return None
 
-        icon_path = resolve_icon_png(
-            bd_xml.parent, bd_xml.stem.replace("_BDHb", "")
-        )
+        icon_path = resolve_icon_png(bd_xml.parent, bd_xml.stem.replace("_BDHb", ""))
         if icon_path is None:
             return None
         glyph = _vectorized_icon(str(icon_path), icon_path.stat().st_mtime)

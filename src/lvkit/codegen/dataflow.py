@@ -85,13 +85,10 @@ class DataFlowTracer:
                 type_hint=term_type,
             )
 
-        # Also capture terminals embedded in operations (Operation dataclasses)
+        # Also capture terminals embedded in operations
         for op in self._context.get("operations", []):
-            # Check if op is an Operation dataclass or a dict. The dict/
-            # .get(...) path only serves legacy/test skeleton input built
-            # directly as plain dicts — the typed VIContext always passes
-            # real Operation/Terminal objects, so hasattr(op, 'terminals')
-            # is true in production.
+            # Support both a typed object exposing terminals/id/kind as
+            # attributes and a plain dict (used by test skeleton input).
             if hasattr(op, "terminals"):
                 op_id = op.id
                 op_kind = op.kind
