@@ -126,8 +126,8 @@ class NetlistTerminalBinding:
     ``pane_rank`` is a ``render_lvnet``-ONLY presentation hint -- this
     terminal's 0-based position in the LabVIEW connector-pane's canonical
     reading order (``graph.interface_order.ordered_interface``), which for a
-    SubVI CALL differs from ``_call_terminals_gn``'s raw physical-pane-index
-    order (the call node itself never carries its own
+    SubVI CALL differs from ``graph.enriched_terminals``'s raw
+    physical-pane-index order (the call node itself never carries its own
     ``connector_pattern_id`` -- verified empirically -- so the CALLEE's own
     top-level definition's pattern must be used; see
     ``_ordered_real_terminals_gn``). Stored SEPARATELY from list order (never

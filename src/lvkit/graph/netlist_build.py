@@ -101,6 +101,7 @@ from .op_walk import (
     _terminal_display_name,
     correlate_property_terminals,
 )
+from .operations import frame_key
 from .queries import ClassContext, collect_class_context
 from .render_lvnet import (
     _lvnet_const_value_str,
@@ -399,7 +400,18 @@ class _GraphBuildCtx:
 
 def _display_name_gn(node: AnyGraphNode) -> str:
     """A node's display name -- falls back from ``name`` to the node-type's
-    human word to ``"Node"``."""
+    human word to ``"Node"``.
+
+    INTENTIONALLY DIVERGES from ``GraphNode.display_name`` (see its
+    docstring): a netlist SubVI instance name is the caller-side call-site
+    label (LabVIEW's own diagram name, e.g. ``listAllTestMethods_359``) --
+    the CALLEE's class-qualified identity already has its own separate
+    field (``NetlistInstance.qualified_name``), so prefixing the instance
+    name too would duplicate it and change every class-method-call golden
+    (verified empirically -- swapping in ``display_name`` here changes
+    ``test_render_lvnet.py``'s golden SubVI lines from
+    ``listAllTestMethods_359`` to ``TestCase.lvclass:listAllTestMethods_359``).
+    """
     node_word = get_display_name(node.node_type) if node.node_type else None
     return node.name or node_word or "Node"
 
@@ -791,7 +803,7 @@ def _resolve_source_gn(
             next(
                 (
                     t
-                    for t in _call_terminals_gn(graph, vi_name, owner)
+                    for t in graph.enriched_terminals(owner, vi_name)
                     if t.id == src.terminal_id
                 ),
                 None,
@@ -965,26 +977,6 @@ def _build_property_accesses_gn(
     return accesses
 
 
-def _call_terminals_gn(
-    graph: InMemoryVIGraph, vi_name: str, node: AnyGraphNode
-) -> list[Terminal]:
-    """The displayed/wired terminal list for ``node`` -- for a SubVI CALL
-    (``VINode`` with ``id != vi``), the CALLEE's real parameter names
-    enriched in via ``OperationsMixin._enrich_subvi_terminals_typed`` (it
-    reads only graph state); every other node kind's own ``terminals``
-    unchanged. Without this, a SubVI call's INPUT/OUTPUT terminal names
-    would show the caller-side placeholder name instead of the callee's
-    real parameter name (e.g. ``start path`` misread as ``error out``)."""
-    if isinstance(node, VINode) and node.id != node.vi_path:
-        # Resolve by the callee's QUALIFIED name, never the bare ``node.name``
-        # ("run.vi") -- a bare-name lookup collides across every same-named
-        # override in a dynamic-dispatch class hierarchy.
-        return graph._enrich_subvi_terminals_typed(  # noqa: SLF001
-            list(node.terminals), node.qualified_name or node.name, vi_name
-        )
-    return node.terminals
-
-
 def _is_real_terminal(t: Terminal) -> bool:
     """Excludes a dead connector-pane pattern slot -- LabVIEW's own
     ``Void`` type marking a physical pane cell with no real callee
@@ -1002,12 +994,12 @@ def _is_real_terminal(t: Terminal) -> bool:
 def _ordered_real_terminals_gn(
     graph: InMemoryVIGraph, vi_name: str, node: AnyGraphNode
 ) -> list[Terminal]:
-    """``_call_terminals_gn``'s terminals, Void-filtered (see
+    """``graph.enriched_terminals``'s terminals, Void-filtered (see
     ``_is_real_terminal``) and reordered into the LabVIEW connector-pane's
     canonical reading order (``graph.interface_order.ordered_interface``) --
     inputs first, then outputs, each in its own canonical order.
 
-    Required for a SubVI CALL: ``_call_terminals_gn`` carries the CALLEE's
+    Required for a SubVI CALL: ``enriched_terminals`` carries the CALLEE's
     real parameter NAMES but stays in the CALL NODE's own raw physical
     pane-slot order, and a call node never carries its own
     ``connector_pattern_id`` (verified empirically -- always ``None``), so
@@ -1019,9 +1011,9 @@ def _ordered_real_terminals_gn(
     This is a PRESENTATION-only helper -- ``render_lvnet`` uses it to sort
     by ``NetlistTerminalBinding``/``NetlistOutput.pane_rank``; the STORED
     ``NetlistInstance.inputs``/``.outputs`` order (built from
-    ``_call_terminals_gn`` directly, unreordered) never changes.
+    ``enriched_terminals`` directly, unreordered) never changes.
     """
-    real = [t for t in _call_terminals_gn(graph, vi_name, node) if _is_real_terminal(t)]
+    real = [t for t in graph.enriched_terminals(node, vi_name) if _is_real_terminal(t)]
     if not (isinstance(node, VINode) and node.id != node.vi_path and node.name):
         return real
     # Resolve the CALLEE by its own qualified identity (``node.qualified_name``,
@@ -1092,7 +1084,7 @@ def _build_instance_gn(
     uid = _uid_of(node.id)
     name = _display_name_gn(node)
     occurrence = build_ctx.occurrence_by_uid.get(uid)
-    terminals = _call_terminals_gn(graph, vi_name, node)
+    terminals = graph.enriched_terminals(node, vi_name)
     pane_rank_by_id = {
         t.id: i for i, t in enumerate(_ordered_real_terminals_gn(graph, vi_name, node))
     }
@@ -1219,45 +1211,25 @@ def _resolve_op_nodes_gn(graph: InMemoryVIGraph, uids: list[str]) -> list[AnyGra
 
 
 def _top_level_nodes_gn(graph: InMemoryVIGraph, vi_name: str) -> list[AnyGraphNode]:
-    """Top-level nodes in dataflow order -- ``graph.get_operation_order`` is
-    a dataflow-topological, ``_node_order_key``-tie-broken sort, reused
-    directly rather than re-deriving the order (a pure graph-level
-    function). ``extra_kinds=("local_variable",)`` widens ONLY this call's
+    """Top-level nodes in dataflow order -- ``graph.top_level_nodes`` is the
+    shared tree-walk helper (``OperationsMixin``) every generator uses,
+    reused directly rather than duplicating its ``get_operation_order``-based
+    walk here. ``extra_kinds=("local_variable",)`` widens ONLY this call's
     own top-level scan -- codegen's default call keeps seeing none, so a
     top-level local-variable read/write joins the SAME dataflow-topological
     sort as every other node (a read orders before its consumer via the
     real wire edge between them) instead of being dropped before ordering
     even starts."""
-    return _resolve_op_nodes_gn(
-        graph, graph.get_operation_order(vi_name, extra_kinds=("local_variable",))
-    )
+    return graph.top_level_nodes(vi_name, extra_kinds=("local_variable",))
 
 
 def _body_nodes_gn(
     graph: InMemoryVIGraph, vi_name: str, node: AnyGraphNode
 ) -> list[AnyGraphNode]:
-    """``node.children`` (the forward containment adjacency, already in
-    ``_node_order_key`` order) topologically re-sorted by dataflow via
-    ``graph._sort_inner_uids`` -- reused directly rather than re-derived,
-    for the identical reason ``_top_level_nodes_gn`` reuses
-    ``get_operation_order``."""
-    if not node.children:
-        return []
-    sorted_uids = graph._sort_inner_uids(node.children, vi_name)  # noqa: SLF001
-    return _resolve_op_nodes_gn(graph, sorted_uids)
-
-
-def _frame_key_gn(
-    frame: CaseFrame | SequenceFrame | EventFrame, position: int
-) -> str | int:
-    """The per-frame match key: a case/disable frame's own
-    ``selector_value``, a sequence frame's ``str(index)``, an event frame's
-    list POSITION (there is no selector_value/index of its own)."""
-    if isinstance(frame, CaseFrame):
-        return frame.selector_value
-    if isinstance(frame, SequenceFrame):
-        return str(frame.index)
-    return str(position)
+    """``graph.child_nodes`` -- the shared tree-walk helper -- widened the
+    same way ``_top_level_nodes_gn`` widens ``top_level_nodes``, so a
+    top-level-style local-variable node nested in a structure is kept too."""
+    return graph.child_nodes(node.id, vi_name, extra_kinds=("local_variable",))
 
 
 def _frame_child_uids_gn(
@@ -1267,13 +1239,13 @@ def _frame_child_uids_gn(
     position: int,
 ) -> list[str]:
     """RAW child uids of ``node`` belonging to ONE frame (matching each
-    child's own ``.frame`` attribute -- the SAME field ``_group_children_by_
-    frame`` groups by), unsorted/unfiltered-by-kind. Split out of
-    ``_frame_nodes_gn`` so ``_build_items_gn``'s labeled-constant extraction
+    child's own ``.frame`` attribute against :func:`frame_key`),
+    unsorted/unfiltered-by-kind. Split out of ``_frame_nodes_gn`` so
+    ``_build_items_gn``'s labeled-constant extraction
     (``_labeled_constant_items_gn``) can find a constant child the SAME way
     an instance child is found, without ``_resolve_op_nodes_gn``'s
     ``_OPERATION_KINDS`` gate dropping it first."""
-    key = _frame_key_gn(frame, position)
+    key = frame_key(frame, position)
     return [
         uid
         for uid in node.children
@@ -1289,9 +1261,8 @@ def _frame_nodes_gn(
     position: int,
 ) -> list[AnyGraphNode]:
     """The nodes belonging to ONE frame: ``node.children`` filtered to this
-    frame's key (matching each child's own ``.frame`` attribute -- the SAME
-    field ``_group_children_by_frame`` groups by), then dataflow-sorted
-    exactly like ``_body_nodes_gn``.
+    frame's key (matching each child's own ``.frame`` attribute against
+    :func:`frame_key`), then dataflow-sorted exactly like ``_body_nodes_gn``.
     """
     child_uids = _frame_child_uids_gn(graph, node, frame, position)
     if not child_uids:
@@ -1946,7 +1917,7 @@ def _synthesize_ports_gn(
     """Build a component's declared input/output port lists from its
     terminals, sorted by pane index -- takes the
     terminal list directly (rather than a node) so a SubVI-call fallback can
-    pass ``_call_terminals_gn``'s CALLEE-enriched names, same as
+    pass ``graph.enriched_terminals``'s CALLEE-enriched names, same as
     ``_build_instance_gn``."""
     ins: list[ComponentPort] = []
     outs: list[ComponentPort] = []
@@ -2028,7 +1999,7 @@ def _build_components_gn(
             ins, outs = ports
         else:
             rep = subvi_reps[key]
-            ins, outs = _synthesize_ports_gn(_call_terminals_gn(graph, vi_name, rep))
+            ins, outs = _synthesize_ports_gn(graph.enriched_terminals(rep, vi_name))
         components.append(NetlistComponent(name=key, inputs=ins, outputs=outs))
     for instances in groups.values():
         components.extend(_dedupe_primitive_group_gn(instances))

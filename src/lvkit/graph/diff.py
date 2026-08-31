@@ -51,6 +51,7 @@ from .op_walk import (
     _selector_label,
     _terminal_display_name,
 )
+from .operations import frame_key
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout, Point, Rect
@@ -320,23 +321,6 @@ def _frame_value(frame: Frame) -> object:
     return None
 
 
-def _frame_match_key(frame: Frame, position: int) -> object:
-    """The key ``_frame_child_nodes`` groups a structure's children under for
-    ``frame`` -- a case/disable frame's ``selector_value`` (raw), a sequence
-    frame's ``str(index)``, an event frame's ``str(position)`` (its LIST
-    POSITION, not its own ``.index`` -- an event frame carries no selector,
-    so ``construction.py``'s ``_stamp`` calls key its children by diagram-
-    order position instead; matches ``describe.py``'s own frame/child
-    matching exactly)."""
-    if isinstance(frame, SequenceFrame):
-        return str(frame.index)
-    if isinstance(frame, EventFrame):
-        return str(position)
-    if isinstance(frame, CaseFrame):
-        return frame.selector_value
-    return None
-
-
 def _collect_elements(
     graph: InMemoryVIGraph,
     vi_name: str,
@@ -348,7 +332,7 @@ def _collect_elements(
     """Map trailing-UID -> ``_ElemInfo`` for every graph node, recursing
     structures directly off the graph: a structure's frame children come
     from ``_frame_child_nodes`` (grouped by
-    frame, matched via :func:`_frame_match_key`), and its frame-LESS body
+    frame, matched via :func:`operations.frame_key`), and its frame-LESS body
     (a loop body, an IPES's inner nodes) from ``_body_child_nodes`` -- the
     same two helpers ``describe.py`` uses for its own graph-native walk.
 
@@ -378,7 +362,7 @@ def _collect_elements(
                 _collect_elements(
                     graph,
                     vi_name,
-                    frame_children.get(_frame_match_key(frame, i), []),
+                    frame_children.get(frame_key(frame, i), []),
                     out,
                     child_container,
                     child_path,
@@ -1413,8 +1397,8 @@ def _struct_frame_changes(
     # Frame -> its graph-child-lookup key (case/disable selector_value,
     # sequence str(index), event str(list position)) -- needed to fetch each
     # leftover frame's contained-node identity via _frame_node_uids below.
-    keys_a = {id(f): _frame_match_key(f, i) for i, f in enumerate(frames_a)}
-    keys_b = {id(f): _frame_match_key(f, i) for i, f in enumerate(frames_b)}
+    keys_a = {id(f): frame_key(f, i) for i, f in enumerate(frames_a)}
+    keys_b = {id(f): frame_key(f, i) for i, f in enumerate(frames_b)}
 
     def value_change(fa: Frame, fb: Frame) -> ElementChange:
         # The change is stamped on the AFTER frame (fb); its before-side twin

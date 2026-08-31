@@ -156,20 +156,6 @@ class TestTunnelMode:
             assert tunnel.mode == TunnelMode.INDEXING
             assert tunnel.conditional is True
 
-    def test_describe_shows_tunnel_mode(self) -> None:
-        """describe_structure's per-loop tunnel line surfaces ``mode=``
-        terse text -- the CLI/MCP-visible text path (``describe_structure``,
-        NOT describe_vi's top-level page -- loop tunnel detail is a
-        per-operation drill-down, see describe.py::describe_structure)."""
-        _skip_if_missing(BUILD_VI)
-        from lvkit.graph.describe import describe_structure
-
-        g, vi_name = _load(BUILD_VI)
-        op = _find_op(g, vi_name, g.top_level_nodes(vi_name), "287")
-        assert op is not None
-        text = describe_structure(g, vi_name, op.id)
-        assert "mode=INDEXING" in text
-
     def test_get_context_json_shows_tunnel_mode(self) -> None:
         """netlist_to_dict (the MCP get_context tool's JSON shape) carries
         the tunnel mode through as the enum's string value."""
@@ -364,21 +350,6 @@ class TestShiftRegister:
         assert len(all_lsr) == 20
         assert all(t.sr_initialized is False for t in all_lsr)
 
-    def test_describe_shows_sr_facts(self) -> None:
-        """describe_structure's per-loop tunnel line surfaces
-        ``initialized=`` / ``stack_depth=`` terse text (stack_depth only
-        when != 1)."""
-        _skip_if_missing(FILTER_MPA_VI)
-        from lvkit.graph.describe import describe_structure
-
-        g, vi_name = _load(FILTER_MPA_VI)
-        loops: list[LoopNode] = []
-        _collect_loops(g, vi_name, g.top_level_nodes(vi_name), loops)
-        assert len(loops) == 1
-        text = describe_structure(g, vi_name, loops[0].id)
-        assert "initialized=False" in text
-        assert "stack_depth=20" in text
-
     def test_get_context_json_shows_sr_facts(self) -> None:
         _skip_if_missing(FILTER_MPA_VI)
         g, vi_name = _load(FILTER_MPA_VI)
@@ -431,16 +402,6 @@ class TestForLoopParallelism:
         op = _loop_op(BUILD_VI, "287")
         assert op.parallel is False
         assert op.parallel_static_workers is None
-
-    def test_describe_shows_parallel(self) -> None:
-        _skip_if_missing(RUN_SERVICE_VI)
-        from lvkit.graph.describe import describe_structure
-
-        g, vi_name = _load(RUN_SERVICE_VI)
-        op = _find_op(g, vi_name, g.top_level_nodes(vi_name), "2090")
-        assert op is not None
-        text = describe_structure(g, vi_name, op.id)
-        assert "(parallel, 8 workers)" in text
 
     def test_get_context_json_shows_parallel(self) -> None:
         _skip_if_missing(RUN_SERVICE_VI)

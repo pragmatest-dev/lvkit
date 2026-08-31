@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.core import _OPERATION_KINDS, _graph_node_to_op_kind
 from lvkit.graph.models import (
     AnyGraphNode,
     Constant,
@@ -21,12 +20,9 @@ from lvkit.graph.models import (
     SourceInfo,
     VIContext,
 )
-from lvkit.graph.operations import OperationsMixin
+from lvkit.graph.operations import OperationsMixin, frame_key
 from lvkit.models import (
-    CaseFrame,
-    EventFrame,
     Frame,
-    SequenceFrame,
     Terminal,
     Tunnel,
     TunnelTerminal,
@@ -361,47 +357,32 @@ class CodeGenContext:
         nodes contained in it, in deterministic order.
 
         Each frame's metadata is the node's own
-        ``CaseFrame``/``SequenceFrame``/``EventFrame``, and the children are
-        ``GraphNode``s grouped per frame and ordered via
-        ``_sort_inner_uids``, filtered to ``_OPERATION_KINDS``.
+        ``CaseFrame``/``SequenceFrame``/``EventFrame``. Children come from
+        ONE call to :meth:`child_nodes` (the same single, whole-structure
+        dataflow sort every other structural walk uses) grouped by the frame
+        each child belongs to (:func:`frame_key`) -- NOT a per-frame sort of
+        each frame's subset in isolation, which would let a frame's internal
+        order diverge from ``describe``'s identical
+        ``describe._frame_child_nodes`` grouping.
         """
         frames: list[Frame] = list(getattr(node, "frames", []) or [])
-        g = self.graph
-        if g is None:
-            return [(f, []) for f in frames]
-        child_uids = g._get_children_of(node.id, self.vi_name or "")
-        by_frame = g._group_children_by_frame(child_uids)
-        out: list[tuple[Frame, list[AnyGraphNode]]] = []
-        for pos, frame in enumerate(frames):
-            if isinstance(frame, CaseFrame):
-                key: str | int | None = frame.selector_value
-            elif isinstance(frame, SequenceFrame):
-                key = str(frame.index)
-            elif isinstance(frame, EventFrame):
-                key = str(pos)
-            else:
-                out.append((frame, []))
-                continue
-            uids = by_frame.get(key, [])
-            gnodes: list[AnyGraphNode] = []
-            for uid in g._sort_inner_uids(uids, self.vi_name or ""):
-                if uid not in g._graph:
-                    continue
-                gnode = g._graph.nodes[uid].get("node")
-                if (
-                    gnode is not None
-                    and _graph_node_to_op_kind(gnode) in _OPERATION_KINDS
-                ):
-                    gnodes.append(gnode)
-            out.append((frame, gnodes))
-        return out
-
-    def feedback_is_master(self, node: AnyGraphNode) -> bool | None:
-        """``feedback_is_master`` graph attribute for a Feedback Node, else
-        None (not a feedback node / no graph)."""
         if self.graph is None:
-            return None
-        return self.graph._graph.nodes.get(node.id, {}).get("feedback_is_master")
+            return [(f, []) for f in frames]
+        by_frame: dict[object, list[AnyGraphNode]] = {}
+        for child in self.child_nodes(node):
+            by_frame.setdefault(child.frame, []).append(child)
+        return [
+            (frame, by_frame.get(frame_key(frame, pos), []))
+            for pos, frame in enumerate(frames)
+        ]
+
+    def is_feedback_node(self, node: AnyGraphNode) -> bool:
+        """True if ``node`` is a Feedback Node graph node (either side of the
+        master/slave pair) -- see
+        ``QueryMixin.is_feedback_master``. False when there is no graph."""
+        if self.graph is None:
+            return False
+        return self.graph.is_feedback_master(node.id)
 
     def poser_uid(self, node: AnyGraphNode) -> str | None:
         """The IPES decompose/recompose pair UID (``poser_uid`` graph

@@ -73,7 +73,17 @@ class GraphNode(BaseModel):
         (``owning_libraries:name``, so two classes' same-named methods
         disambiguate), else the bare ``name``, else ``caption``/``label``,
         else the node-type word. Only :class:`VINode` carries
-        ``owning_libraries``; every other node falls straight through."""
+        ``owning_libraries``; every other node falls straight through.
+
+        The graph-native netlist builder's ``_display_name_gn``
+        (``netlist_build.py``) INTENTIONALLY does NOT use this for a SubVI
+        CALL instance's name -- there the instance name is the caller-side
+        call-site label (LabVIEW's own diagram name), while the callee's
+        class-qualified identity already lives in its own separate field
+        (``NetlistInstance.qualified_name``); using this property there
+        would duplicate that qualification into the instance name too and
+        change every class-method-call netlist golden. See
+        ``_display_name_gn``'s docstring for the verified diff."""
         libs = getattr(self, "owning_libraries", None) or []
         if libs and self.name:
             return ":".join([*libs, self.name])

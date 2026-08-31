@@ -50,7 +50,7 @@ _KIND_TO_TAGS: dict[str, str] = {
     "primitive": "Primitive",
     "caseStruct": "CaseStructure",
     "loop": "Loop",
-    "operation": "Operation",
+    "operation": "Structure",
     "constant": "Constant",
     "formula": "FormulaNode",
     "local_variable": "LocalVariable",

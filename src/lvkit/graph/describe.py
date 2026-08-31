@@ -17,7 +17,6 @@ from ..models import (
 )
 from ..parser.node_types import get_display_name
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
-from .core import _graph_node_to_op_kind, kind_display
 from .interface_order import is_required
 from .models import (
     AnyGraphNode,
@@ -182,120 +181,6 @@ def describe_vi(
     return "\n".join(lines)
 
 
-def describe_operations(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-) -> str:
-    """Describe a VI's operations in execution order."""
-    vi_name = graph.resolve_vi_name(vi_name)
-    ctx = graph.get_vi_context(vi_name)
-
-    lines: list[str] = []
-    lines.append(f"Operations for {vi_name}:")
-    lines.append("")
-
-    _describe_op_list(
-        graph, vi_name, graph.top_level_nodes(vi_name), ctx.constants, lines, indent=0
-    )
-
-    if ctx.outputs:
-        lines.append("")
-        lines.append("Returns:")
-        for out in ctx.outputs:
-            lines.append(f"  {out.name}: {_terminal_type_label(out)}")
-
-    return "\n".join(lines)
-
-
-def describe_dataflow(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    operation_id: str | None = None,
-) -> str:
-    """Describe data flow -- where values come from and go to."""
-    vi_name = graph.resolve_vi_name(vi_name)
-    wires = list(graph.get_wires(vi_name))
-
-    if operation_id:
-        wires = [
-            w
-            for w in wires
-            if w.source.node_id == operation_id or w.dest.node_id == operation_id
-        ]
-
-    lines: list[str] = []
-    lines.append(
-        f"Dataflow for {vi_name}"
-        + (f" (operation {operation_id})" if operation_id else "")
-        + ":"
-    )
-    lines.append("")
-
-    for wire in wires:
-        src_name = wire.source.name or wire.source.node_id.split("::")[-1]
-        dst_name = wire.dest.name or wire.dest.node_id.split("::")[-1]
-        lines.append(f"  {src_name} -> {dst_name}")
-
-    if not wires:
-        lines.append("  (no wires)")
-
-    return "\n".join(lines)
-
-
-def describe_structure(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    operation_id: str,
-) -> str:
-    """Describe a structure node (case, loop, sequence) in detail."""
-    vi_name = graph.resolve_vi_name(vi_name)
-    ctx = graph.get_vi_context(vi_name)
-
-    node = _find_node(graph, vi_name, operation_id)
-    if node is None:
-        return f"Operation {operation_id} not found in {vi_name}"
-
-    lines: list[str] = []
-
-    match node:
-        case CaseStructureNode():
-            _describe_case_structure(graph, vi_name, node, list(ctx.constants), lines)
-        case LoopNode():
-            _describe_loop(graph, vi_name, node, lines)
-        case SequenceNode():
-            _describe_sequence(graph, vi_name, node, lines)
-        case _:
-            lines.append(f"Operation {operation_id}: {node.display_name}")
-            node_word = (
-                get_display_name(node.node_type) if node.node_type else "unknown"
-            )
-            lines.append(f"  Type: {node_word}")
-            lines.append(f"  Kind: {kind_display(_graph_node_to_op_kind(node))}")
-
-    return "\n".join(lines)
-
-
-def describe_constants(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-) -> str:
-    """List all constants used in a VI."""
-    vi_name = graph.resolve_vi_name(vi_name)
-    constants = list(graph.get_constants(vi_name))
-
-    lines = [f"Constants in {vi_name}:", ""]
-    for c in constants:
-        line = f"  {_describe_constant_line(c)}"
-        if c.parent is not None:
-            line += f"  [{c.parent.split('::')[-1]} frame {c.frame}]"
-        lines.append(line)
-
-    if not constants:
-        lines.append("  (none)")
-
-    return "\n".join(lines)
-
-
 # === Helpers ===
 
 
@@ -415,7 +300,7 @@ def _is_feedback_node(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
     """True for a Feedback Node's graph node -- a ``PrimitiveNode`` carrying
     the ``feedback_is_master`` graph attribute. Such nodes take the generic
     ``[type-word]`` one-liner rather than a ``[prim N]`` label."""
-    return graph._graph.nodes.get(node.id, {}).get("feedback_is_master") is not None
+    return graph.is_feedback_master(node.id)
 
 
 def _frame_child_nodes(
@@ -489,25 +374,6 @@ def _index_terminal_owners(
                 out[t.id] = (node, t)
         _index_terminal_owners(graph, vi_name, graph.child_nodes(node.id, vi_name), out)
     return out
-
-
-def _find_node(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    op_id: str,
-    nodes: list[AnyGraphNode] | None = None,
-) -> AnyGraphNode | None:
-    """Find a node by its full uid, searching top-level nodes then every
-    nested body/frame child recursively."""
-    if nodes is None:
-        nodes = graph.top_level_nodes(vi_name)
-    for node in nodes:
-        if node.id == op_id:
-            return node
-        found = _find_node(graph, vi_name, op_id, graph.child_nodes(node.id, vi_name))
-        if found is not None:
-            return found
-    return None
 
 
 _FlagGroup = ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
@@ -968,11 +834,16 @@ def _describe_single_op(
     name = node.name or "unnamed"
 
     if isinstance(node, VINode):
-        # Qualified callee identity (``node.qualified_name`` — the resolution
-        # identity, e.g. ``TestResult.lvclass:addError.vi``; a dispatch call reads
-        # its declaring parent class). The SAME field the ## Dependencies section
-        # uses (_collect_subvi_names), so a subVI is labeled identically on both.
-        label = node.qualified_name or name
+        # Class-qualified identity (``node.display_name`` -- owning_libraries
+        # chain + name, so a dispatch call reads its declaring parent class,
+        # e.g. ``TestResult.lvclass:addError.vi``). Unified with
+        # ``diff._elem_label``'s identical use of ``display_name`` for a
+        # SubVI-call node (verified empirically: identical text to the old
+        # ``node.qualified_name or name`` on every describe-exercising test
+        # and corpus VI checked, including a real dynamic-dispatch call --
+        # JKI-VI-Tester's ``loadTestsFromTestCase.vi`` calling
+        # ``TestCase.lvclass:listAllTestMethods.vi``).
+        label = node.display_name
         terms = graph.enriched_terminals(node, vi_name)
         named_inputs = [t.name for t in terms if t.direction == "input" and t.name]
         named_outputs = [t.name for t in terms if t.direction == "output" and t.name]
@@ -1015,119 +886,3 @@ def _describe_single_op(
                 get_display_name(node.node_type) if node.node_type else "unknown"
             )
             return f"{name} [{node_word}]"
-
-
-def _describe_case_structure(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    node: CaseStructureNode,
-    constants: list[Constant],
-    lines: list[str],
-) -> None:
-    """Describe a case structure in detail."""
-    lines.append(f"Case Structure: {node.id}")
-    if node.selector_terminal:
-        lines.append(f"  Selector terminal: {node.selector_terminal}")
-
-    for t in node.terminals:
-        if t.id == node.selector_terminal and t.lv_type:
-            lines.append(f"  Selector type: {t.lv_type.type_descriptor()}")
-            break
-
-    passthrough = _node_has_output_tunnel(node)
-    fmap = _frame_child_nodes(graph, node, vi_name)
-    lines.append(f"  Frames: {len(node.frames)}")
-    for frame in node.frames:
-        default = " (default)" if frame.is_default else ""
-        frame_consts = _frame_constants(constants, node.id, frame.selector_value)
-        frame_nodes = fmap.get(frame.selector_value, [])
-        lines.append(
-            f'  Frame "{frame.selector_value}"{default}:'
-            f" {len(frame_nodes)} operations,"
-            f" {len(frame_consts)} constants"
-        )
-        for fnode in frame_nodes:
-            lines.append(f"    - {_describe_single_op(graph, vi_name, fnode)}")
-        for c in frame_consts:
-            lines.append(f"    - constant {_describe_constant_line(c)}")
-        if not frame_nodes and not frame_consts and passthrough:
-            lines.append("    - (pass-through)")
-
-
-def _describe_loop(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    node: LoopNode,
-    lines: list[str],
-) -> None:
-    """Describe a loop in detail."""
-    loop_kind = "While Loop" if node.loop_type == "whileLoop" else "For Loop"
-    # Terse, non-default-only: a serial loop (the overwhelming common case)
-    # prints nothing extra; a parallelized for-loop appends "(parallel)" or
-    # "(parallel, N workers)" when LabVIEW's static worker count is set.
-    parallel_note = ""
-    if node.parallel:
-        workers = (
-            f", {node.parallel_static_workers} workers"
-            if node.parallel_static_workers
-            else ""
-        )
-        parallel_note = f" (parallel{workers})"
-    lines.append(f"{loop_kind}{parallel_note}: {node.id}")
-
-    if node.stop_condition_terminal:
-        lines.append(f"  Stop condition: {node.stop_condition_terminal}")
-
-    # Reconstruct Tunnel objects from the loop's terminal metadata.
-    tunnels = graph._tunnels_from_terminals(node.terminals)
-    if tunnels:
-        lines.append("  Tunnels:")
-        for tunnel in tunnels:
-            detail = ""
-            if tunnel.mode is not None:
-                detail += f" mode={tunnel.mode.value}"
-            # The orthogonal Conditional modifier (output tunnels) -- only
-            # surfaced when set, since most tunnels are unconditional.
-            if tunnel.conditional:
-                detail += " conditional=True"
-            if tunnel.sr_initialized is not None:
-                detail += f" initialized={tunnel.sr_initialized}"
-            # 1 is a normal (unstacked) shift register -- the ubiquitous
-            # case; only call it out when it's genuinely stacked.
-            if tunnel.sr_stack_depth is not None and tunnel.sr_stack_depth != 1:
-                detail += f" stack_depth={tunnel.sr_stack_depth}"
-            lines.append(
-                f"    {tunnel.tunnel_type}:"
-                f" outer={tunnel.outer_terminal_uid}"
-                f" -> inner={tunnel.inner_terminal_uid}{detail}"
-            )
-
-    body = _body_child_nodes(graph, node, vi_name)
-    if body:
-        lines.append(f"  Body: {len(body)} operations")
-        for inner in body:
-            lines.append(f"    - {_describe_single_op(graph, vi_name, inner)}")
-
-
-def _describe_sequence(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    node: SequenceNode,
-    lines: list[str],
-) -> None:
-    """Describe a flat sequence."""
-    lines.append(f"Flat Sequence: {node.id}")
-    if node.frames:
-        fmap = _frame_child_nodes(graph, node, vi_name)
-        lines.append(f"  Frames: {len(node.frames)}")
-        for i, frame in enumerate(node.frames):
-            frame_nodes = fmap.get(str(frame.index), [])
-            lines.append(f"  Frame {i}: {len(frame_nodes)} operations")
-            for fnode in frame_nodes:
-                lines.append(f"    - {_describe_single_op(graph, vi_name, fnode)}")
-    else:
-        body = _body_child_nodes(graph, node, vi_name)
-        if body:
-            lines.append(f"  Operations: {len(body)}")
-            for inner in body:
-                lines.append(f"    - {_describe_single_op(graph, vi_name, inner)}")

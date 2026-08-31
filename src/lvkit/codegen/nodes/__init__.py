@@ -77,7 +77,7 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         # A Feedback Node is a PrimitiveNode carrying feedback attrs on the
         # graph. Faithful Python codegen isn't implemented yet -- fail loud
         # rather than emit a silently wrong body (describe/netlist DO model it).
-        if ctx.feedback_is_master(node) is not None:
+        if ctx.is_feedback_node(node):
             raise UnknownNodeError(
                 f"Feedback Node codegen not yet supported "
                 f"(id={node.id}, name={node.name or 'Feedback Node'})"

@@ -2,7 +2,8 @@
 
 Methods: top_level_nodes, child_nodes, enriched_terminals,
 _tunnels_from_terminals, _enrich_subvi_terminals_typed, _get_slot_to_name,
-_sort_inner_uids, _get_children_of, _group_children_by_frame.
+_sort_inner_uids, _get_children_of. Also exports the module-level
+``frame_key`` helper.
 
 These are the graph-native tree-walk ergonomics a generator uses to walk
 ``top_level_nodes`` -> ``child_nodes`` and read ``enriched_terminals``,
@@ -16,7 +17,11 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..models import (
+    CaseFrame,
+    EventFrame,
     FPTerminal,
+    Frame,
+    SequenceFrame,
     Terminal,
     Tunnel,
     TunnelTerminal,
@@ -45,46 +50,56 @@ class OperationsMixin:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def resolve_vi_name(self, vi_name: str) -> str: ...
         def get_poly_variants(self, vi_name: str) -> list[str]: ...
-        def get_operation_order(self, vi_name: str) -> list[str]: ...
+        def get_operation_order(
+            self, vi_name: str, extra_kinds: tuple[str, ...] = ()
+        ) -> list[str]: ...
 
     # ------------------------------------------------------------------ #
     # Graph-native ergonomic helpers -- single-sourced from the graph. A
     # generator walks ``top_level_nodes`` -> ``child_nodes`` and reads
     # ``enriched_terminals``, consuming ``GraphNode``s directly.
     # ------------------------------------------------------------------ #
-    def top_level_nodes(self, vi_name: str) -> list[AnyGraphNode]:
+    def top_level_nodes(
+        self, vi_name: str, extra_kinds: tuple[str, ...] = ()
+    ) -> list[AnyGraphNode]:
         """Top-level graph nodes of a VI in dataflow execution order.
 
         Yields the ``GraphNode``s themselves (single source of truth). Walk a
         structure's contents with :meth:`child_nodes`; get a subVI's
         callee-resolved terminals with :meth:`enriched_terminals`.
+
+        The order (and the ``_OPERATION_KINDS`` gate, widened by
+        ``extra_kinds``) is single-sourced in ``get_operation_order`` -- this
+        just maps its ordered uids straight to their ``GraphNode``s, with no
+        separate scan or unreachable fallback (``get_operation_order`` already
+        includes every top-level node the old manual scan did, via the
+        identical ``op_kind in allowed_kinds and parent is None`` filter).
         """
         vi_name = self.resolve_vi_name(vi_name)
-        node_uids = self._vi_nodes.get(vi_name)
-        if node_uids is None:
-            return []
-        top: dict[str, AnyGraphNode] = {}
-        for uid in node_uids:
-            if uid == vi_name or uid not in self._graph:
+        nodes: list[AnyGraphNode] = []
+        for uid in self.get_operation_order(vi_name, extra_kinds=extra_kinds):
+            if uid not in self._graph:
                 continue
             gnode = self._graph.nodes[uid].get("node")
-            if gnode is None:
-                continue
-            if (
-                _graph_node_to_op_kind(gnode) in _OPERATION_KINDS
-                and gnode.parent is None
-            ):
-                top[uid] = gnode
-        ordered = [u for u in self.get_operation_order(vi_name) if u in top]
-        seen = set(ordered)
-        ordered += [u for u in sorted(top, key=_node_order_key) if u not in seen]
-        return [top[u] for u in ordered]
+            if gnode is not None:
+                nodes.append(gnode)
+        return nodes
 
-    def child_nodes(self, parent_uid: str, vi_name: str) -> list[AnyGraphNode]:
+    def child_nodes(
+        self,
+        parent_uid: str,
+        vi_name: str,
+        extra_kinds: tuple[str, ...] = (),
+    ) -> list[AnyGraphNode]:
         """Graph nodes directly contained in a structure whose kind is in
-        ``_OPERATION_KINDS``, in deterministic order -- the tree step over
-        ``GraphNode.children`` (via ``_get_children_of``).
+        ``_OPERATION_KINDS`` (widened by ``extra_kinds``, mirroring
+        ``get_operation_order``'s own parameter -- e.g. netlist widening to
+        also keep a top-level local-variable node), in deterministic order --
+        the tree step over ``GraphNode.children`` (via ``_get_children_of``).
         """
+        allowed_kinds = (
+            _OPERATION_KINDS if not extra_kinds else (*_OPERATION_KINDS, *extra_kinds)
+        )
         out: list[AnyGraphNode] = []
         uids = self._sort_inner_uids(
             self._get_children_of(parent_uid, vi_name), vi_name
@@ -93,7 +108,7 @@ class OperationsMixin:
             if uid not in self._graph:
                 continue
             g = self._graph.nodes[uid].get("node")
-            if g is not None and _graph_node_to_op_kind(g) in _OPERATION_KINDS:
+            if g is not None and _graph_node_to_op_kind(g) in allowed_kinds:
                 out.append(g)
         return out
 
@@ -322,18 +337,27 @@ class OperationsMixin:
                 children.append(uid)
         return sorted(children, key=_node_order_key)
 
-    def _group_children_by_frame(
-        self,
-        child_uids: list[str],
-    ) -> dict[str | int | None, list[str]]:
-        """Group child UIDs by their frame attribute."""
-        frame_to_uids: dict[str | int | None, list[str]] = {}
-        for uid in child_uids:
-            gnode = self._graph.nodes[uid].get("node")
-            if gnode is None:
-                continue
-            fv = gnode.frame
-            if fv not in frame_to_uids:
-                frame_to_uids[fv] = []
-            frame_to_uids[fv].append(uid)
-        return frame_to_uids
+
+def frame_key(frame: Frame, position: int) -> str | int | None:
+    """The match key a structure's children are grouped by, for pairing a
+    given ``Frame`` object with the ``GraphNode``s that live inside it: a
+    case/disable frame's raw ``selector_value``, a sequence frame's
+    ``str(index)``, an event frame's ``str(position)`` (its LIST POSITION,
+    not its own ``.index`` -- an event frame carries no selector of its own,
+    so ``construction.py``'s ``_stamp`` keys its children by diagram-order
+    position instead). ``None`` for any other ``Frame`` subtype (there are
+    currently only these three -- see ``models.Frame``).
+
+    Single-sourced here so ``codegen.context.CodeGenContext.frame_children``,
+    ``graph.describe``'s frame/child matching, ``graph.diff``'s element
+    correlation, and the netlist builder's frame-child lookup all group a
+    structure's children the SAME way -- this used to be reimplemented (with
+    subtly different fallback ordering) in all four places.
+    """
+    if isinstance(frame, CaseFrame):
+        return frame.selector_value
+    if isinstance(frame, SequenceFrame):
+        return str(frame.index)
+    if isinstance(frame, EventFrame):
+        return str(position)
+    return None

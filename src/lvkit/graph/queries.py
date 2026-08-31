@@ -930,6 +930,22 @@ class QueryMixin:
             return None
         return is_master, data.get("feedback_partner"), data.get("feedback_delay")
 
+    def is_feedback_master(self, node_id: str) -> bool:
+        """True if ``node_id`` is a Feedback Node graph node -- EITHER side
+        (master or slave) of the pair, i.e. it carries a
+        ``feedback_is_master`` graph attribute at all.
+
+        Despite the name (kept for symmetry with the ``feedback_is_master``
+        attribute it reads), this does NOT distinguish master from slave --
+        every current caller (``describe``'s generic one-liner styling,
+        codegen's not-yet-supported gate) only ever needs "is this a Feedback
+        Node", never the master/slave value itself. Reuses
+        :meth:`get_feedback_info` (presence-only) rather than duplicating its
+        node/attribute lookup; use that method directly when the actual
+        master/slave/partner/delay facts are needed.
+        """
+        return self.get_feedback_info(node_id) is not None
+
     def get_poser_uid(self, node_id: str) -> str | None:
         """The In-Place-Element-Structure decompose/recompose pairing id for
         ``node_id``, or ``None`` when ``node_id`` isn't an IPES border node.
