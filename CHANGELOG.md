@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+
+## [0.8.0] - 2026-08-31
 - **lvnet — a lossless, graph-native text view of a VI** — `lvkit describe --format lvnet` prints the block diagram as netlist text (parts + nets, structures, typed dependency interfaces), the single text surface; the old ASCII netlist format is removed (#70).
 - **VS Code: open a VI as lvnet text** — Reopen Editor With… → "LVKit VI Text (lvnet)" renders any `.vi` as its lvnet.
 - **Baseline import of VI-Scripting primitive definitions** — a large batch of primitive IDs is now recognized (unverified baseline, no codegen yet) (#59, #69).
