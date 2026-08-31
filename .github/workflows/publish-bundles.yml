@@ -360,6 +360,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Checkout is needed so the release body can quote CHANGELOG.md for this tag.
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: binary-*
@@ -368,6 +370,49 @@ jobs:
       - name: List assets
         shell: bash
         run: ls -la bins
+      # Build the release notes: the tagged version's CHANGELOG section ("what's
+      # new") on top, then the static install instructions. The tag is
+      # ``ext-vX.Y.Z``; CHANGELOG uses ``## [X.Y.Z]`` -- extract from that header
+      # to the next ``## [``. If the version has no dated section (a release-process
+      # slip -- the runbook dates the changelog BEFORE tagging), the notes still
+      # ship with just the install block.
+      - name: Build release notes (CHANGELOG section + install)
+        shell: bash
+        run: |
+          ver="${GITHUB_REF_NAME#ext-v}"
+          {
+            section="$(awk -v v="$ver" '
+              $0 ~ ("^## \\[" v "\\]") {p=1; print; next}
+              p && /^## \[/ {exit}
+              p {print}
+            ' CHANGELOG.md)"
+            if [ -n "$section" ]; then
+              echo "## What's new"
+              echo
+              echo "$section"
+              echo
+              echo "---"
+              echo
+            fi
+            cat <<'INSTALL'
+          lvkit __REF__ — install for your app, no Python/uv/pip.
+
+          **One-click (recommended)**
+          - **Claude Desktop** — download `lvkit-<target>.mcpb`, double-click, pick your VI folder.
+          - **Claude Code** — `claude plugin marketplace add pragmatest-dev/claude-plugins` then
+            `claude plugin install lvkit-mac-arm64@pragmatest` (or `-mac-intel` / `-windows` / `-linux`).
+          - **VS Code** — install the LVKit extension from the Marketplace.
+
+          **Manual (any MCP client)** — download `lvkit-mcp-<version>-<target>.zip`, unzip, and
+          point your client at the binary:
+
+          ```json
+          { "mcpServers": { "lvkit": { "command": "/abs/path/to/lvkit/lvkit", "args": ["mcp"] } } }
+          ```
+          (`lvkit\lvkit.exe` on Windows.)
+          INSTALL
+          } > RELEASE_NOTES.md
+          sed -i "s/__REF__/${GITHUB_REF_NAME}/g" RELEASE_NOTES.md
       - name: Attach all bundles to the release
         uses: softprops/action-gh-release@v2
         with:
@@ -377,22 +422,7 @@ jobs:
             bins/lvkit-*.mcpb
             bins/*.sha256
           fail_on_unmatched_files: true
-          body: |
-            lvkit ${{ github.ref_name }} — install for your app, no Python/uv/pip.
-
-            **One-click (recommended)**
-            - **Claude Desktop** — download `lvkit-<target>.mcpb`, double-click, pick your VI folder.
-            - **Claude Code** — `claude plugin marketplace add pragmatest-dev/claude-plugins` then
-              `claude plugin install lvkit-mac-arm64@pragmatest` (or `-mac-intel` / `-windows` / `-linux`).
-            - **VS Code** — install the LVKit extension from the Marketplace.
-
-            **Manual (any MCP client)** — download `lvkit-mcp-<version>-<target>.zip`, unzip, and
-            point your client at the binary:
-
-            ```json
-            { "mcpServers": { "lvkit": { "command": "/abs/path/to/lvkit/lvkit", "args": ["mcp"] } } }
-            ```
-            (`lvkit\lvkit.exe` on Windows.)
+          body_path: RELEASE_NOTES.md
 
             Each asset has a `.sha256` sidecar.
 

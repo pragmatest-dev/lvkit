@@ -3,6 +3,14 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **lvnet — a lossless, graph-native text view of a VI** — `lvkit describe --format lvnet` prints the block diagram as netlist text (parts + nets, structures, typed dependency interfaces), the single text surface; the old ASCII netlist format is removed (#70).
+- **VS Code: open a VI as lvnet text** — Reopen Editor With… → "LVKit VI Text (lvnet)" renders any `.vi` as its lvnet.
+- **Baseline import of VI-Scripting primitive definitions** — a large batch of primitive IDs is now recognized (unverified baseline, no codegen yet) (#59, #69).
+- **More primitives resolve now.**
+- **Fix: the visual diff no longer blanks a structure's contents** — the two inlined diagram panes shared clip-path ids, so one pane clipped the other to the wrong region (white "voids"); each render now self-namespaces its clips.
+- **Fix: render** — no diagonal structure-tunnel wires, and single-source outline insets (#68, #73).
+- **Correct VI identity by file path** so name-colliding VIs resolve to the right one (#26).
+- **Faster web extension** — the opened VI's dependencies are staged just-in-time, so VIs open quicker on hosted editors (#71).
 
 ## [0.7.6] - 2026-08-26
 - **Web VI open is fast again (seconds, not minutes)** — stage only the opened VI's dependency closure, in parallel, not the whole workspace; render stays byte-identical to desktop.
