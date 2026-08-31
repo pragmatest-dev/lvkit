@@ -68,7 +68,7 @@ function toBase64(bytes) {
 // changes (and publish that lvkit to PyPI); it MUST name a version that exists on
 // PyPI. networkx/pylabview are likewise pinned to match the render (uv.lock).
 const CDN_PYODIDE = "https://cdn.jsdelivr.net/pyodide/v314.0.5/full/";
-const LVKIT_WHEEL = "lvkit==0.7.6";
+const LVKIT_WHEEL = "lvkit==0.8.0";
 const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2", LVKIT_WHEEL];
 
 // The web extension runs ONLY in hosted editors (vscode.dev, GitLab Web IDE,
