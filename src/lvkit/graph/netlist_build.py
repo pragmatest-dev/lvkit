@@ -2272,9 +2272,7 @@ def _ordered_real_terminals_gn(
     # the callee's -- see ``GraphNode.vi``/``SubVIBuildHandler``).
     resolved = graph.resolve_vi_name(node.qualified_name or node.name)
     callee = graph.get_graph_node(resolved)
-    pattern_id = (
-        callee.connector_pattern_id if isinstance(callee, VINode) else None
-    )
+    pattern_id = callee.connector_pattern_id if isinstance(callee, VINode) else None
     ins = [t for t in real if t.direction == "input"]
     outs = [t for t in real if t.direction == "output"]
     return ordered_interface(ins, "input", pattern_id) + ordered_interface(
@@ -3386,8 +3384,10 @@ def _build_dependency_manifest(
             continue
         # Full qualified name from the owning chain (the bare ``qualified_name``
         # field is only partially qualified for some intra-project callees).
-        qname = ":".join([*ol, name]) if ol else (
-            getattr(n, "qualified_name", None) or name
+        qname = (
+            ":".join([*ol, name])
+            if ol
+            else (getattr(n, "qualified_name", None) or name)
         )
         subvi_qname_by_subpath[_subpath(ol, name)] = qname
 
@@ -3563,7 +3563,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
 # Not part of either text renderer's call graph -- used only by ``diff.py``
 # to look up a changed node/structure's full instance/scope by uid.
 # ``component_line`` (the CLI's ``## Components`` table line) lives in
-# ``netlist_render_deprecated.py`` instead -- it renders, it doesn't build.
+# ``netlist_diff_helpers.py`` (the OLD render_netlist that lived there is struck).
 
 
 def index_module(
