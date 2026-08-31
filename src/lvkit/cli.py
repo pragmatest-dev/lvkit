@@ -1188,11 +1188,10 @@ def cmd_describe(args: argparse.Namespace) -> int:
             print(json.dumps(netlist_to_dict(module, verbose=args.verbose), indent=2))
         elif fmt == "lvnet":
             # The lvnet text surface (see docs/_internal/design/netlist-
-            # language.md) — the NEW replacement for --format netlist below.
-            # Terse (default) is the compact form; -v/--verbose inlines each
-            # direct SubVI's connector-pane interface (MINIMAL-load-friendly)
-            # plus a trailing `types :` appendix, making the render type-
-            # rehydratable. Display name mirrors --format netlist: the VI's
+            # language.md). Terse (default) is the compact form; -v/--verbose
+            # inlines each direct SubVI's connector-pane interface
+            # (MINIMAL-load-friendly) plus a trailing `types :` appendix,
+            # making the render type-rehydratable. Display name is the VI's
             # qualified/display name, never an abspath.
             from .graph.netlist import build_netlist_from_graph, render_lvnet
 

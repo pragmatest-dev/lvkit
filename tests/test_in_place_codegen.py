@@ -42,8 +42,7 @@ def _mk_ipes(
     """Build an InPlaceNode + register its decompose/recompose/regular children
     (parent-linked, with a ``poser_uid`` graph attribute on the decompose and
     recompose ops) so ``in_place.generate`` re-derives the same split via
-    ``ctx.child_nodes`` / ``ctx.poser_uid`` that the old ``InPlaceOperation``
-    fields carried directly."""
+    ``ctx.child_nodes`` / ``ctx.poser_uid``."""
     node = InPlaceNode(
         id=id,
         vi_path="test.vi",

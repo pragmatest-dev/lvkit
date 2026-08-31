@@ -69,8 +69,7 @@ class GraphNode(BaseModel):
 
     @property
     def display_name(self) -> str:
-        """IDENTITY-first human label — the graph-native mirror of the removed
-        ``Operation.display_name``: a subVI's class-qualified name
+        """IDENTITY-first human label: a subVI's class-qualified name
         (``owning_libraries:name``, so two classes' same-named methods
         disambiguate), else the bare ``name``, else ``caption``/``label``,
         else the node-type word. Only :class:`VINode` carries

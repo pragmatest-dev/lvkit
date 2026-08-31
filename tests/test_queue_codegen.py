@@ -1,7 +1,7 @@
 """Tests for Queue Operations codegen (Obtain/Enqueue/Dequeue/Release/Status).
 
 Mirrors the pattern in tests/test_array_ops_codegen.py: build
-PrimitiveOperation + CodeGenContext by hand for each node in a small
+``PrimitiveNode`` + ``CodeGenContext`` by hand for each node in a small
 chain, generate each fragment, then COMPILE AND EXECUTE the combined
 statements and assert on the real runtime output (queue contents,
 timed_out flags, ordering) -- not just that the code parses.

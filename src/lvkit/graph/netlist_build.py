@@ -1,9 +1,8 @@
 """Graph -> netlist IR builder.
 
-Builds the ``NetlistModule`` IR directly from an ``InMemoryVIGraph`` (never
-a projected ``Operation`` tree -- that hierarchy is gone; the graph is the
-single source of truth) -- see ``netlist.py``'s module docstring for the
-full pipeline this feeds into::
+Builds the ``NetlistModule`` IR directly from an ``InMemoryVIGraph`` --
+the graph is the single source of truth -- see ``netlist.py``'s module
+docstring for the full pipeline this feeds into::
 
     graph (truth)  ->  NetlistModule (IR)  ->  { text render, diff render, viewer }
 
@@ -242,7 +241,7 @@ def _port_signature(ins: list[ComponentPort], outs: list[ComponentPort]) -> str:
 def _disambiguate_cross_group_names(components: list[NetlistComponent]) -> None:
     """Second disambiguation pass, ACROSS identity groups (mutates in place).
 
-    ``_dedupe_primitive_group`` only disambiguates repeats WITHIN one
+    ``_dedupe_primitive_group_gn`` only disambiguates repeats WITHIN one
     identity group (the same primitive, different resolved types). Two
     DIFFERENT primitives can still share a generic display name -- e.g. an
     Add and an Or ``cpdArith`` node are different identities (``operation``
@@ -328,12 +327,10 @@ def _off_pane_terminals(
 # build_netlist_from_graph
 # ============================================================
 #
-# The netlist IR builder: walks the ``GraphNode`` graph directly (never a
-# projected ``Operation`` tree -- that hierarchy, and the ``build_netlist``
-# entry point that once walked it, are gone; every helper below is the sole
-# builder now, kept with a ``_gn`` suffix for historical continuity with
-# ``tests/test_netlist_from_graph_parity.py``'s naming). The model
-# dataclasses and both serializers (``render_netlist``/``netlist_to_dict``)
+# The netlist IR builder: walks the ``GraphNode`` graph directly. Every
+# helper below is the builder, kept with a ``_gn`` suffix matching
+# ``tests/test_netlist_from_graph_parity.py``'s naming. The model
+# dataclasses and every serializer (``netlist_to_dict``, ``render_lvnet``)
 # are shared VERBATIM -- nothing below this point defines a new IR shape,
 # only how it's built.
 #
@@ -401,14 +398,15 @@ class _GraphBuildCtx:
 
 
 def _display_name_gn(node: AnyGraphNode) -> str:
-    """The graph-node analogue of ``_display_name`` -- same fallback chain
-    (``name`` -> the node-type's human word -> ``"Node"``)."""
+    """A node's display name -- falls back from ``name`` to the node-type's
+    human word to ``"Node"``."""
     node_word = get_display_name(node.node_type) if node.node_type else None
     return node.name or node_word or "Node"
 
 
 def _has_output_tunnel_gn(node: AnyGraphNode) -> bool:
-    """The graph-node analogue of ``op_walk._has_output_tunnel``."""
+    """True if the structure routes any value out through an output tunnel
+    terminal."""
     return any(t.direction == "output" for t in node.terminals)
 
 
@@ -416,12 +414,12 @@ def _tunnels_from_terminals_gn(terminals: list[Terminal]) -> list[Tunnel]:
     """Reconstruct ``Tunnel`` objects from a structure's own terminal
     metadata -- a deliberate, purely-terminal-based DUPLICATE of
     ``OperationsMixin._tunnels_from_terminals`` (that method is a
-    ``@staticmethod`` operating ONLY on ``terminals: list[Terminal]``, no
-    Operation involved -- but importing ``InMemoryVIGraph`` for real at
-    module level here would add a real (non-``TYPE_CHECKING``) import this
-    module has deliberately avoided; duplicating this small, pure helper is
-    cheaper than that risk). Keep in sync with that method if the tunnel
-    reconstruction rule ever changes.
+    ``@staticmethod`` operating ONLY on ``terminals: list[Terminal]`` --
+    but importing ``InMemoryVIGraph`` for real at module level here would
+    add a real (non-``TYPE_CHECKING``) import this module has deliberately
+    avoided; duplicating this small, pure helper is cheaper than that
+    risk). Keep in sync with that method if the tunnel reconstruction rule
+    ever changes.
     """
     tunnels: list[Tunnel] = []
     seen_pairs: set[tuple[str, str]] = set()
@@ -457,7 +455,8 @@ def _tunnels_from_terminals_gn(terminals: list[Terminal]) -> list[Tunnel]:
 
 
 def _case_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
-    """The graph-node analogue of ``op_walk._case_output_tunnel_outers``."""
+    """Every OUTER-boundary output tunnel terminal on a case structure --
+    one per case output (gamma) merge."""
     return [
         t
         for t in node.terminals
@@ -468,10 +467,10 @@ def _case_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
 
 
 def _is_gamma_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
-    """The graph-node analogue of ``op_walk._is_gamma_output_tunnel`` --
-    finds the ">1 paired inner" shape directly off ``node.terminals``
-    (inner tunnel terminals whose ``paired_id`` names this outer), rather
-    than off a reconstructed ``op.tunnels`` list."""
+    """True when ``term`` is a case output tunnel genuinely fed by MORE THAN
+    ONE frame (a real gamma merge, not a single-source hop-through) -- finds
+    the ">1 paired inner" shape directly off ``node.terminals`` (inner
+    tunnel terminals whose ``paired_id`` names this outer)."""
     if not isinstance(node, CaseStructureNode) or not isinstance(term, TunnelTerminal):
         return False
     if term.boundary != "outer" or term.direction != "output":
@@ -487,7 +486,8 @@ def _is_gamma_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
 
 
 def _loop_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
-    """The graph-node analogue of ``op_walk._loop_output_tunnel_outers``."""
+    """Every OUTER-boundary output loop tunnel terminal on a loop -- one per
+    loop output (eta) merge."""
     return [
         t
         for t in node.terminals
@@ -499,7 +499,8 @@ def _loop_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
 
 
 def _is_eta_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
-    """The graph-node analogue of ``op_walk._is_eta_output_tunnel``."""
+    """True when ``term`` is a loop's OUTER-boundary output tunnel -- an eta
+    merge (the value carried out of the loop past its final iteration)."""
     if not isinstance(node, LoopNode) or not isinstance(term, TunnelTerminal):
         return False
     return (
@@ -510,7 +511,9 @@ def _is_eta_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
 
 
 def _is_mu_shift_register_read_gn(node: AnyGraphNode, term: Terminal) -> bool:
-    """The graph-node analogue of ``op_walk._is_mu_shift_register_read``."""
+    """True when ``term`` reads a shift register's mu-merged net directly --
+    the INNER left (``lSR``) terminal (read INSIDE the loop) or the OUTER
+    right (``rSR``) terminal (read OUTSIDE it, the rarer case)."""
     if not isinstance(node, LoopNode) or not isinstance(term, TunnelTerminal):
         return False
     if term.tunnel_type == "lSR" and term.boundary == "inner":
@@ -521,7 +524,9 @@ def _is_mu_shift_register_read_gn(node: AnyGraphNode, term: Terminal) -> bool:
 def _loop_shift_register_pairs_gn(
     node: AnyGraphNode,
 ) -> list[tuple[Tunnel, Tunnel | None]]:
-    """The graph-node analogue of ``op_walk._loop_shift_register_pairs``."""
+    """Every shift register on a loop, paired left (``lSR``) terminal with
+    its matching right (``rSR``) terminal by position (``None`` when a
+    left has no matching right)."""
     tunnels = _tunnels_from_terminals_gn(node.terminals)
     lsrs = [t for t in tunnels if t.tunnel_type == "lSR"]
     rsrs = [t for t in tunnels if t.tunnel_type == "rSR"]
@@ -529,9 +534,8 @@ def _loop_shift_register_pairs_gn(
 
 
 def _paired_tunnel_id_gn(term: Terminal) -> str | None:
-    """The graph-node analogue of ``op_walk._paired_tunnel_id`` -- reads
-    ``TunnelTerminal.paired_id`` directly rather than re-deriving it from a
-    reconstructed ``op.tunnels`` list. Equivalent to that lookup for every
+    """A tunnel terminal's paired terminal id -- reads
+    ``TunnelTerminal.paired_id`` directly. This is the paired id for every
     terminal actually reached here: a >1-paired case output-tunnel OUTER is
     always intercepted earlier by ``_is_gamma_output_tunnel_gn`` (same for
     the loop eta/mu equivalents), so by the time this is called ``term`` is
@@ -550,12 +554,9 @@ def _tunnel_net_name_gn(
     outers_fn: Callable[[AnyGraphNode], list[Terminal]],
     prefix: str,
 ) -> str:
-    """The graph-node analogue of ``_tunnel_net_name`` -- Phase 3: the
+    """A tunnel merge's net name (``<prefix>_<uid>.out<k>``) -- the
     structure's own stable BD uid (``_uid_of``, the SAME id
-    ``NetlistScope.uid`` already uses) names the net directly, replacing the
-    small per-structure sequential counter (``case_id_by_uid``/
-    ``loop_id_by_uid``, still used by the OLD Operation-based ``build_
-    netlist`` -- this graph-node path never reads those maps anymore)."""
+    ``NetlistScope.uid`` already uses) names the net directly."""
     uid = _uid_of(node.id)
     outers = outers_fn(node)
     k = next(i for i, t in enumerate(outers) if t.id == term.id)
@@ -685,10 +686,9 @@ def _inplace_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
 def _is_feedback_output_read_gn(
     graph: InMemoryVIGraph, node: AnyGraphNode, term: Terminal
 ) -> bool:
-    """The graph-node analogue of ``_is_feedback_output_read`` -- ``graph.
-    get_feedback_info`` replaces ``isinstance(op, FeedbackOperation) and
-    op.is_master`` (the Operation-layer reclassification of a Feedback Node
-    master; at the graph level it's still a plain ``PrimitiveNode``)."""
+    """True when ``term`` reads a Feedback Node's output -- reads
+    Feedback Node master/slave identity via ``graph.get_feedback_info``;
+    at the graph level the node itself is still a plain ``PrimitiveNode``."""
     if not isinstance(node, GraphPrimitiveNode) or term.direction != "output":
         return False
     info = graph.get_feedback_info(node.id)
@@ -698,20 +698,15 @@ def _is_feedback_output_read_gn(
 def _is_ipes_border_node_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
     """True when ``node`` is an In-Place-Element-Structure DECOMPOSE or
     RECOMPOSE border node (``graph.get_poser_uid`` set, and its own
-    terminals carry list fields in only ONE direction -- the same per-node
-    test ``operations._classify_ipes_ops`` applies; a poser_uid'd node with
-    list terminals in BOTH directions, or none, is "regular", i.e. NOT a
-    border node here).
+    terminals carry list fields in only ONE direction; a poser_uid'd node
+    with list terminals in BOTH directions, or none, is "regular", i.e.
+    NOT a border node here).
 
-    These border nodes are deliberately excluded from ``InPlaceOperation.
-    inner_nodes`` (see ``_classify_ipes_ops`` -- they're lifted onto
-    ``decompose_ops``/``recompose_ops`` instead), so ``index_terminal_owners``
-    (which only walks ``inner_nodes``/frames) never registers their
-    terminals either -- a wire sourced there falls all the way through
-    ``_resolve_source`` to the raw ``uid.index`` structural fallback. This is
-    the graph-level mirror of that exclusion, checked directly off the
-    node's own terminals (no sibling/IPES context needed -- the classification
-    is per-node)."""
+    These border nodes sit on the structure's boundary, not its body, so a
+    wire sourced there falls all the way through ``_resolve_source_gn`` to the
+    raw ``uid.index`` structural fallback. Checked directly off the node's
+    own terminals (no sibling/IPES context needed -- the classification is
+    per-node)."""
     if not isinstance(node, GraphPrimitiveNode):
         return False
     if not graph.get_poser_uid(node.id):
@@ -726,13 +721,12 @@ def _is_ipes_border_node_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
 
 
 # The graph-native netlist builder's OWN "real node" gate -- ``_OPERATION_
-# KINDS`` (core.py, shared with codegen/``get_operations``) PLUS
-# ``"local_variable"``. A local-variable read/write is a genuine lvnet §7
-# node (a distinct producer/sink the netlist must name), but it is NOT a
-# codegen "operation" (codegen still resolves it however it already does,
-# untouched) -- so this widening lives here, netlist-build-local, rather than
-# in the shared ``_OPERATION_KINDS`` constant every other consumer
-# (``operations.py``'s ``get_operations``/``_build_inner_nodes``,
+# KINDS`` (core.py, shared with codegen) PLUS ``"local_variable"``. A
+# local-variable read/write is a genuine lvnet §7 node (a distinct
+# producer/sink the netlist must name), but it is NOT a codegen "operation"
+# (codegen still resolves it however it already does, untouched) -- so this
+# widening lives here, netlist-build-local, rather than in the shared
+# ``_OPERATION_KINDS`` constant every other consumer (``operations.py``,
 # ``analysis.py``, ``queries.py``'s own top-level scan) relies on. Used by
 # ``_owning_node_gn`` (a local-variable node becomes a resolvable WIRE-SOURCE
 # owner, so a downstream reader's ``NetRef`` points at the read node itself --
@@ -835,8 +829,8 @@ def _resolve_source_gn(
             # straight to the producer's ``<base>_<uid>`` handle via
             # ``_LvnetHandles.by_uid`` -- the SAME mechanism a labeled
             # constant already uses via ``constant_uid``. ``occurrence``
-            # stays populated unchanged (``render_netlist``/``netlist_to_
-            # dict`` parity -- neither reads ``producer_uid``).
+            # stays populated unchanged (``netlist_to_dict`` parity -- it
+            # never reads ``producer_uid``).
             return replace(
                 _term_ref(node_name, occurrence, term),
                 producer_uid=_uid_of(owner.id),
@@ -850,8 +844,7 @@ def _resolve_source_gn(
         const = build_ctx.const_by_id.get(src.node_id)
         if const is not None:
             # ``bare``/``node``/``terminal`` stay the inlined literal VALUE --
-            # unchanged behavior, so ``render_netlist``/``netlist_to_dict``
-            # (and the graph<->Operation parity test) never see a
+            # unchanged behavior, so ``netlist_to_dict`` never sees a
             # difference. ``constant_uid`` tags the PRODUCER (the SAME
             # trailing uid ``NetlistConstant.uid`` uses, not the full
             # qualified id -- see ``_build_constant_gn``) for
@@ -861,8 +854,8 @@ def _resolve_source_gn(
             # inlined literal or the LABELED constant's own ``<handle>``
             # net name -- lvnet §7. ``lvnet_value`` is the SAME value,
             # escaped for lvnet's own grammar (``NetRef.lvnet_value``'s
-            # docstring) -- ``render_lvnet`` prefers it; ``render_netlist``/
-            # ``netlist_to_dict`` never read it, so ``bare`` stays untouched.
+            # docstring) -- ``render_lvnet`` prefers it; ``netlist_to_dict``
+            # never reads it, so ``bare`` stays untouched.
             value_str = _const_value_str(const)
             return NetRef(
                 node=None,
@@ -891,7 +884,9 @@ def _resolve_or_default_gn(
     terminal_id: str | None,
     *fallback_terminals: Terminal | None,
 ) -> NetRef | DefaultValue:
-    """The graph-node analogue of ``_resolve_or_default``."""
+    """Resolve ``terminal_id`` to its driving net, or -- when unwired -- the
+    type default from the first fallback terminal that carries a resolved
+    type."""
     source: NetRef | None = None
     if terminal_id is not None:
         source = _resolve_source_gn(graph, ctx, vi_name, terminal_id, build_ctx)
@@ -915,7 +910,7 @@ def _input_ref_gn(
     build_ctx: _GraphBuildCtx,
     terminal: Terminal,
 ) -> NetRef | None:
-    """The graph-node analogue of ``_input_ref``."""
+    """The net driving an input terminal, or ``None`` when unwired."""
     return _resolve_source_gn(graph, ctx, vi_name, terminal.id, build_ctx)
 
 
@@ -926,7 +921,8 @@ def _selector_ref_gn(
     build_ctx: _GraphBuildCtx,
     terminal_id: str | None,
 ) -> NetRef | None:
-    """The graph-node analogue of ``_selector_ref``."""
+    """The net driving a structure's selector terminal, or ``None`` when
+    there is no selector terminal or it is unwired."""
     if not terminal_id:
         return None
     return _resolve_source_gn(graph, ctx, vi_name, terminal_id, build_ctx)
@@ -941,10 +937,9 @@ def _build_property_accesses_gn(
     name: str,
     occurrence: int | None,
 ) -> list[NetlistPropertyAccess]:
-    """The graph-node analogue of ``_build_property_accesses`` -- ``node.
-    properties``/``node.property_value_terminal_ids`` are already the SAME
-    fields ``PropertyOperation`` copies them from (see ``_build_operation``),
-    so ``op_walk.correlate_property_terminals`` is reused verbatim."""
+    """Every accessed property on a Property Node, built straight off
+    ``node.properties``/``node.property_value_terminal_ids``, so
+    ``op_walk.correlate_property_terminals`` is reused verbatim."""
     accesses: list[NetlistPropertyAccess] = []
     correlated = correlate_property_terminals(
         node.properties,
@@ -975,14 +970,11 @@ def _call_terminals_gn(
 ) -> list[Terminal]:
     """The displayed/wired terminal list for ``node`` -- for a SubVI CALL
     (``VINode`` with ``id != vi``), the CALLEE's real parameter names
-    enriched in via ``OperationsMixin._enrich_subvi_terminals_typed`` (the
-    SAME graph-native method ``_build_operation`` calls to build a
-    ``SubVIOperation``'s terminals -- it reads only graph state, no
-    ``Operation`` involved, so reusing it directly is exact rather than
-    re-derived); every other node kind's own ``terminals`` unchanged.
-    Without this, a SubVI call's INPUT/OUTPUT terminal names would show the
-    caller-side placeholder name instead of the callee's real parameter name
-    (e.g. ``start path`` misread as ``error out``)."""
+    enriched in via ``OperationsMixin._enrich_subvi_terminals_typed`` (it
+    reads only graph state); every other node kind's own ``terminals``
+    unchanged. Without this, a SubVI call's INPUT/OUTPUT terminal names
+    would show the caller-side placeholder name instead of the callee's
+    real parameter name (e.g. ``start path`` misread as ``error out``)."""
     if isinstance(node, VINode) and node.id != node.vi_path:
         # Resolve by the callee's QUALIFIED name, never the bare ``node.name``
         # ("run.vi") -- a bare-name lookup collides across every same-named
@@ -1027,9 +1019,7 @@ def _ordered_real_terminals_gn(
     This is a PRESENTATION-only helper -- ``render_lvnet`` uses it to sort
     by ``NetlistTerminalBinding``/``NetlistOutput.pane_rank``; the STORED
     ``NetlistInstance.inputs``/``.outputs`` order (built from
-    ``_call_terminals_gn`` directly, unreordered) never changes, so
-    ``render_netlist``/``netlist_to_dict`` -- and the parity test -- stay
-    byte-identical to the Operation-based builder.
+    ``_call_terminals_gn`` directly, unreordered) never changes.
     """
     real = [t for t in _call_terminals_gn(graph, vi_name, node) if _is_real_terminal(t)]
     if not (isinstance(node, VINode) and node.id != node.vi_path and node.name):
@@ -1083,8 +1073,8 @@ def _build_instance_gn(
     node: AnyGraphNode,
     build_ctx: _GraphBuildCtx,
 ) -> NetlistInstance:
-    """The graph-node analogue of ``_build_instance``. Reached only for
-    genuine leaf/instance nodes -- ``_build_items_gn`` dispatches Feedback
+    """Build the ``NetlistInstance`` for a leaf/instance node. Reached only
+    for genuine leaf/instance nodes -- ``_build_items_gn`` dispatches Feedback
     Node masters/slaves to ``_build_feedback_gn``/dissolution before this is
     ever called, so a Feedback Node is never mistaken for a plain primitive
     here.
@@ -1093,15 +1083,11 @@ def _build_instance_gn(
     unwired input carries its type's faithful ``default`` instead of a
     driver; see ``NetlistTerminalBinding``). Deliberately does NOT drop a dead
     ``Void`` pane slot HERE (unlike ``_ordered_real_terminals_gn``, a
-    presentation-only helper) -- ``_call_terminals_gn``'s terminal list, and
-    the Void ones among them, are exactly what the Operation-based ``op.
-    terminals`` already carries too, so stored counts must match it 1:1 for
-    the graph<->Operation parity test. ``render_netlist``/``netlist_to_dict``
-    stay byte-identical to the Operation-based builder by filtering back
-    down to wired-only bindings at THEIR two read sites (see the module's
-    Phase A docstring note there); ``render_lvnet`` is the one consumer that
-    drops a Void binding (by its own ``type`` field, at render time -- see
-    ``_is_void_binding``) and shows an unwired one.
+    presentation-only helper) -- ``netlist_to_dict`` filters back down to
+    wired-only input bindings at its own read site (see the module's
+    Phase A docstring note there); ``render_lvnet`` is the one consumer
+    that drops a Void binding (by its own ``type`` field, at render
+    time -- see ``_is_void_type``) and shows an unwired one.
     """
     uid = _uid_of(node.id)
     name = _display_name_gn(node)
@@ -1181,10 +1167,9 @@ def _build_feedback_gn(
     node: AnyGraphNode,
     build_ctx: _GraphBuildCtx,
 ) -> NetlistFeedback:
-    """The graph-node analogue of ``_build_feedback`` -- ``graph.
-    get_feedback_info`` replaces ``op.partner_uid``/``op.delay``, and the
-    linked write side is fetched via ``graph.get_graph_node`` instead of
-    ``build_ctx.op_by_uid``."""
+    """Build the ``NetlistFeedback`` body item for a Feedback Node master --
+    ``graph.get_feedback_info`` supplies the partner uid and delay, and the
+    linked write (slave) side is fetched via ``graph.get_graph_node``."""
     fb = graph.get_feedback_info(node.id)
     assert fb is not None
     _, partner_uid, delay = fb
@@ -1221,11 +1206,8 @@ def _build_feedback_gn(
 def _resolve_op_nodes_gn(graph: InMemoryVIGraph, uids: list[str]) -> list[AnyGraphNode]:
     """Resolve ``uids`` to typed graph nodes, keeping only the graph-native
     netlist builder's "real node" kinds (``_GRAPH_NETLIST_NODE_KINDS`` --
-    excludes constants/labels), in the given order. The graph-node analogue
-    of the ``op_kind in _OPERATION_KINDS`` filter ``_build_inner_nodes``/
-    ``get_operations``/``get_operation_order`` apply before constructing an
-    ``Operation`` for a uid, widened here (netlist-only) to also keep a
-    local-variable node."""
+    excludes constants/labels), in the given order, widened here
+    (netlist-only) to also keep a local-variable node."""
     nodes: list[AnyGraphNode] = []
     for uid in uids:
         node = graph.get_graph_node(uid)
@@ -1237,17 +1219,15 @@ def _resolve_op_nodes_gn(graph: InMemoryVIGraph, uids: list[str]) -> list[AnyGra
 
 
 def _top_level_nodes_gn(graph: InMemoryVIGraph, vi_name: str) -> list[AnyGraphNode]:
-    """The graph-node analogue of ``ctx.operations``'s top-level ordering --
-    ``graph.get_operation_order`` IS the same dataflow-topological,
-    ``_node_order_key``-tie-broken sort ``get_operations`` (which builds
-    ``ctx.operations``) itself sorts by; this reuses it directly rather than
-    re-deriving the order (a pure graph-level function already, no
-    ``Operation`` involved). ``extra_kinds=("local_variable",)`` widens ONLY
-    this call's own top-level scan -- ``get_operations``/codegen's default
-    call keeps seeing none, so a top-level local-variable read/write joins
-    the SAME dataflow-topological sort as every other node (a read orders
-    before its consumer via the real wire edge between them) instead of
-    being dropped before ordering even starts."""
+    """Top-level nodes in dataflow order -- ``graph.get_operation_order`` is
+    a dataflow-topological, ``_node_order_key``-tie-broken sort, reused
+    directly rather than re-deriving the order (a pure graph-level
+    function). ``extra_kinds=("local_variable",)`` widens ONLY this call's
+    own top-level scan -- codegen's default call keeps seeing none, so a
+    top-level local-variable read/write joins the SAME dataflow-topological
+    sort as every other node (a read orders before its consumer via the
+    real wire edge between them) instead of being dropped before ordering
+    even starts."""
     return _resolve_op_nodes_gn(
         graph, graph.get_operation_order(vi_name, extra_kinds=("local_variable",))
     )
@@ -1256,12 +1236,11 @@ def _top_level_nodes_gn(graph: InMemoryVIGraph, vi_name: str) -> list[AnyGraphNo
 def _body_nodes_gn(
     graph: InMemoryVIGraph, vi_name: str, node: AnyGraphNode
 ) -> list[AnyGraphNode]:
-    """The graph-node analogue of ``_build_inner_nodes`` -- ``node.children``
-    (the forward containment adjacency, already in ``_node_order_key`` order)
-    topologically re-sorted by dataflow via ``graph._sort_inner_uids`` (the
-    SAME pure graph-level tie-break ``_build_inner_nodes`` itself calls --
-    reused directly rather than re-derived, for the identical reason
-    ``_top_level_nodes_gn`` reuses ``get_operation_order``)."""
+    """``node.children`` (the forward containment adjacency, already in
+    ``_node_order_key`` order) topologically re-sorted by dataflow via
+    ``graph._sort_inner_uids`` -- reused directly rather than re-derived,
+    for the identical reason ``_top_level_nodes_gn`` reuses
+    ``get_operation_order``."""
     if not node.children:
         return []
     sorted_uids = graph._sort_inner_uids(node.children, vi_name)  # noqa: SLF001
@@ -1271,10 +1250,9 @@ def _body_nodes_gn(
 def _frame_key_gn(
     frame: CaseFrame | SequenceFrame | EventFrame, position: int
 ) -> str | int:
-    """The graph-node analogue of ``_populate_frame_operations``'s per-frame
-    match key: a case/disable frame's own ``selector_value``, a sequence
-    frame's ``str(index)``, an event frame's list POSITION (there is no
-    selector_value/index of its own -- see ``_populate_frame_operations``)."""
+    """The per-frame match key: a case/disable frame's own
+    ``selector_value``, a sequence frame's ``str(index)``, an event frame's
+    list POSITION (there is no selector_value/index of its own)."""
     if isinstance(frame, CaseFrame):
         return frame.selector_value
     if isinstance(frame, SequenceFrame):
@@ -1310,10 +1288,10 @@ def _frame_nodes_gn(
     frame: CaseFrame | SequenceFrame | EventFrame,
     position: int,
 ) -> list[AnyGraphNode]:
-    """The graph-node analogue of ``_populate_frame_operations`` for ONE
-    frame: ``node.children`` filtered to this frame's key (matching each
-    child's own ``.frame`` attribute -- the SAME field ``_group_children_by_
-    frame`` groups by), then dataflow-sorted exactly like ``_body_nodes_gn``.
+    """The nodes belonging to ONE frame: ``node.children`` filtered to this
+    frame's key (matching each child's own ``.frame`` attribute -- the SAME
+    field ``_group_children_by_frame`` groups by), then dataflow-sorted
+    exactly like ``_body_nodes_gn``.
     """
     child_uids = _frame_child_uids_gn(graph, node, frame, position)
     if not child_uids:
@@ -1326,13 +1304,12 @@ def _ipes_regular_nodes_gn(
     graph: InMemoryVIGraph, vi_name: str, node: AnyGraphNode
 ) -> list[AnyGraphNode]:
     """The "regular" (non decompose/recompose) children of an In-Place-
-    Element Structure -- the graph-node analogue of
-    ``InPlaceOperation.inner_nodes`` (``_walk_flat``/``_build_items`` only
-    ever recurse into THIS subset; decompose/recompose ops are dropped from
-    the flat walk/body entirely, matching ``build_netlist``'s existing gap --
-    see the module's Phase 1 docstring). Filters via ``_is_ipes_border_node_gn``
-    -- the SAME per-node classification ``_owning_node_gn`` uses to exclude a
-    border node's terminals from wire-source resolution."""
+    Element Structure (``_walk_flat_gn``/``_build_items_gn`` only ever
+    recurse into THIS subset; decompose/recompose nodes are dropped from the
+    flat walk/body entirely -- see the module's Phase 1 docstring). Filters via
+    ``_is_ipes_border_node_gn`` -- the SAME per-node classification
+    ``_owning_node_gn`` uses to exclude a border node's terminals from
+    wire-source resolution."""
     all_nodes = _body_nodes_gn(graph, vi_name, node)
     return [n for n in all_nodes if not _is_ipes_border_node_gn(graph, n)]
 
@@ -1340,11 +1317,10 @@ def _ipes_regular_nodes_gn(
 def _walk_flat_nodes_gn(
     graph: InMemoryVIGraph, vi_name: str, nodes: list[AnyGraphNode]
 ) -> list[AnyGraphNode]:
-    """The graph-node analogue of ``_walk_flat`` -- SAME recursion shape
-    (frame-structures recurse per-frame, an In-Place Element Structure
-    recurses into its "regular" children only, everything else recurses into
-    its (dataflow-sorted) children), applied to freshly-resolved node lists
-    instead of an already-built ``Operation`` tree."""
+    """Flatten ``nodes`` into a single depth-first list: frame-structures
+    recurse per-frame, an In-Place Element Structure recurses into its
+    "regular" children only, and everything else recurses into its
+    (dataflow-sorted) children."""
     flat: list[AnyGraphNode] = []
     for node in nodes:
         flat.append(node)
@@ -1380,7 +1356,9 @@ _OCCURRENCE_EXCLUDED_TYPES = _STRUCTURE_NODE_TYPES
 def _assign_occurrences_gn(
     graph: InMemoryVIGraph, flat: list[AnyGraphNode]
 ) -> dict[str, int]:
-    """The graph-node analogue of ``_assign_occurrences``."""
+    """Assign an ``#n`` occurrence tag to each instance whose display name
+    repeats among the flat node list (§9), in source order. Excludes
+    structures and Feedback Node masters/slaves, which never take one."""
     insts = [
         node
         for node in flat
@@ -1406,7 +1384,8 @@ def _assign_sequential_ids_gn(
     flat: list[AnyGraphNode],
     predicate: Callable[[AnyGraphNode], bool],
 ) -> dict[str, int]:
-    """The graph-node analogue of ``_assign_sequential_ids``."""
+    """A 0-based sequential id per node matching ``predicate``, in flat
+    source order."""
     ids: dict[str, int] = {}
     next_id = 0
     for node in flat:
@@ -1508,7 +1487,9 @@ def _build_case_outputs_gn(
     selector: NetRef | None,
     frames: list[NetlistFrame],
 ) -> list[GammaMerge]:
-    """The graph-node analogue of ``_build_case_outputs``."""
+    """Build one ``GammaMerge`` per case output tunnel, with one
+    ``GammaCase`` per frame (the source that tunnel resolves to when that
+    frame runs)."""
     outers = _case_output_tunnel_outers_gn(node)
     gammas: list[GammaMerge] = []
     for k, outer in enumerate(outers):
@@ -1545,7 +1526,8 @@ def _build_case_outputs_gn(
 def _selector_lv_type_gn(
     node: AnyGraphNode, selector_terminal: str | None
 ) -> LVType | None:
-    """The graph-node analogue of ``_selector_lv_type``."""
+    """The selector terminal's own resolved ``LVType``, or ``None`` when
+    there is no selector terminal or it has no resolved type."""
     if not selector_terminal:
         return None
     for t in node.terminals:
@@ -1561,7 +1543,8 @@ def _build_case_scope_gn(
     node: CaseStructureNode,
     build_ctx: _GraphBuildCtx,
 ) -> NetlistScope:
-    """The graph-node analogue of ``_build_case_scope``."""
+    """Build the ``NetlistScope`` for a case structure: one frame per case,
+    plus the case output (gamma) merges."""
     selector = _selector_ref_gn(graph, ctx, vi_name, build_ctx, node.selector_terminal)
     passthrough = _has_output_tunnel_gn(node)
     lv_type = _selector_lv_type_gn(node, node.selector_terminal)
@@ -1605,7 +1588,8 @@ def _build_disabled_scope_gn(
     node: DisableStructureNode,
     build_ctx: _GraphBuildCtx,
 ) -> NetlistScope:
-    """The graph-node analogue of ``_build_disabled_scope``."""
+    """Build the ``NetlistScope`` for a Diagram/Conditional/Type-
+    Specialization Disable structure: one frame per disable branch."""
     passthrough = _has_output_tunnel_gn(node)
     frames = [
         NetlistFrame(
@@ -1640,7 +1624,8 @@ def _build_event_scope_gn(
     node: EventStructureNode,
     build_ctx: _GraphBuildCtx,
 ) -> NetlistScope:
-    """The graph-node analogue of ``_build_event_scope``."""
+    """Build the ``NetlistScope`` for an Event structure: one frame per
+    event case."""
     passthrough = _has_output_tunnel_gn(node)
     frames = [
         NetlistFrame(
@@ -1671,7 +1656,8 @@ def _build_sequence_scope_gn(
     node: SequenceNode,
     build_ctx: _GraphBuildCtx,
 ) -> NetlistScope:
-    """The graph-node analogue of ``_build_sequence_scope``."""
+    """Build the ``NetlistScope`` for a Sequence structure: one frame per
+    sequence frame, in index order."""
     frames = [
         NetlistFrame(
             label=str(frame.index),
@@ -1707,7 +1693,8 @@ def _build_loop_shift_registers_gn(
     loop_uid: str,
     term_by_id: dict[str, Terminal],
 ) -> list[MuMerge]:
-    """The graph-node analogue of ``_build_loop_shift_registers``."""
+    """Build one ``MuMerge`` per shift register on a loop, pairing each
+    left/right terminal into its ``init``/``recur`` sources."""
     merges: list[MuMerge] = []
     for k, (lsr, rsr) in enumerate(_loop_shift_register_pairs_gn(node)):
         outer_t = term_by_id.get(lsr.outer_terminal_uid)
@@ -1739,7 +1726,7 @@ def _build_loop_outputs_gn(
     loop_uid: str,
     term_by_id: dict[str, Terminal],
 ) -> list[EtaMerge]:
-    """The graph-node analogue of ``_build_loop_outputs``."""
+    """Build one ``EtaMerge`` per loop output tunnel."""
     tunnels = _tunnels_from_terminals_gn(node.terminals)
     tunnel_by_outer = {
         t.outer_terminal_uid: t for t in tunnels if t.tunnel_type == "lpTun"
@@ -1770,7 +1757,9 @@ def _build_loop_scope_gn(
     node: LoopNode,
     build_ctx: _GraphBuildCtx,
 ) -> NetlistScope:
-    """The graph-node analogue of ``_build_loop_scope``."""
+    """Build the ``NetlistScope`` for a For/While loop: its single implicit
+    body frame, plus its shift-register (mu) and output-tunnel (eta)
+    merges."""
     kind = "while" if node.loop_type == "whileLoop" else "for"
     selector = _selector_ref_gn(
         graph, ctx, vi_name, build_ctx, node.stop_condition_terminal
@@ -1875,7 +1864,9 @@ def _build_items_gn(
     build_ctx: _GraphBuildCtx,
     owner_children: list[str] | tuple[str, ...] = (),
 ) -> list[NetlistItem]:
-    """The graph-node analogue of ``_build_items``.
+    """Build the body items (instances, scopes, feedback nodes, promoted
+    labeled constants) for one container -- a VI's top level or a
+    structure's frame.
 
     ``owner_children`` is this SAME scope's raw (unfiltered-by-kind) child
     uid list -- ``nodes`` has already been filtered to
@@ -1913,8 +1904,7 @@ def _build_items_gn(
         ):
             # The MASTER becomes one ``fb{k}`` mu item; the SLAVE is dissolved
             # (its written value is captured as the master's ``recur`` in
-            # ``_build_feedback_gn``) -- mirrors ``_build_items``'s
-            # ``FeedbackOperation`` branch.
+            # ``_build_feedback_gn``).
             if fb[0]:
                 items.append(_build_feedback_gn(graph, ctx, vi_name, node, build_ctx))
         else:
@@ -1923,7 +1913,7 @@ def _build_items_gn(
 
 
 def _is_subvi_call_gn(node: AnyGraphNode) -> bool:
-    """The graph-node analogue of ``_is_subvi_call``. Every ``VINode``
+    """True when ``node`` is a genuine SubVI CALL. Every ``VINode``
     reached by the flat walk is inherently a SubVI CALL (``node.id !=
     node.vi_path``) -- the VI's own definition node is never part of it (see
     ``_owning_node_gn``/``get_operation_order``)."""
@@ -1931,12 +1921,8 @@ def _is_subvi_call_gn(node: AnyGraphNode) -> bool:
 
 
 def _is_primitive_component_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
-    """True when ``node`` becomes its own declared component -- the
-    graph-node analogue of ``isinstance(op, PrimitiveOperation)`` in
-    ``_build_components``: a plain primitive, NEVER a property/invoke node
-    (those become ``PropertyOperation``/``InvokeOperation`` at the Operation
-    layer, which are not ``PrimitiveOperation`` subclasses either) and NEVER
-    a Feedback Node (which becomes ``FeedbackOperation`` instead)."""
+    """True when ``node`` becomes its own declared component: a plain
+    primitive, NEVER a property/invoke node, and NEVER a Feedback Node."""
     return (
         isinstance(node, GraphPrimitiveNode)
         and not node.properties
@@ -1946,9 +1932,9 @@ def _is_primitive_component_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bo
 
 
 def _component_identity_gn(node: AnyGraphNode) -> tuple[object, ...]:
-    """The graph-node analogue of ``_component_identity`` -- ``PrimitiveNode.
-    prim_id`` is the SAME value ``PrimitiveOperation.primResID`` copies it
-    from (see ``_build_operation``)."""
+    """A primitive's component-identity key -- keyed off
+    ``PrimitiveNode.prim_id``, distinguishing e.g. an And from an Or
+    cpdArith so they never collide as the same declared component."""
     prim_res_id = node.prim_id if isinstance(node, GraphPrimitiveNode) else None
     operation = node.operation if isinstance(node, GraphPrimitiveNode) else None
     return (node.node_type or "unknown", prim_res_id, operation)
@@ -1957,7 +1943,8 @@ def _component_identity_gn(node: AnyGraphNode) -> tuple[object, ...]:
 def _synthesize_ports_gn(
     terminals: list[Terminal],
 ) -> tuple[list[ComponentPort], list[ComponentPort]]:
-    """The graph-node analogue of ``_synthesize_ports`` -- takes the
+    """Build a component's declared input/output port lists from its
+    terminals, sorted by pane index -- takes the
     terminal list directly (rather than a node) so a SubVI-call fallback can
     pass ``_call_terminals_gn``'s CALLEE-enriched names, same as
     ``_build_instance_gn``."""
@@ -1975,7 +1962,10 @@ def _synthesize_ports_gn(
 def _dedupe_primitive_group_gn(
     instances: list[tuple[AnyGraphNode, list[ComponentPort], list[ComponentPort]]],
 ) -> list[NetlistComponent]:
-    """The graph-node analogue of ``_dedupe_primitive_group``."""
+    """Collapse a group of instances sharing one component identity into its
+    declared ``NetlistComponent``(s) -- one per distinct typed port
+    signature, disambiguated by a `` (n)`` suffix when a polymorphic
+    primitive genuinely has more than one signature within the group."""
     by_signature: dict[
         str, tuple[AnyGraphNode, list[ComponentPort], list[ComponentPort]]
     ] = {}
@@ -2002,7 +1992,9 @@ def _dedupe_primitive_group_gn(
 def _build_components_gn(
     graph: InMemoryVIGraph, vi_name: str, flat: list[AnyGraphNode]
 ) -> list[NetlistComponent]:
-    """The graph-node analogue of ``_build_components``."""
+    """Build the module's declared ``NetlistComponent`` list: one entry per
+    distinct subVI or primitive/nMux/cpdArith component actually used,
+    grouped by component identity and deduped by typed port signature."""
     subvi_order: list[str] = []
     seen_subvi: set[str] = set()
     subvi_reps: dict[str, AnyGraphNode] = {}
@@ -2050,9 +2042,7 @@ def _project_relative_display(resolved: Path | None, base: Path) -> str | None:
     """A ``./``-prefixed, forward-slash project-relative display path for the
     lvnet §6 ``; ./path`` annotation. Best-effort, never fabricated: ``None``
     when ``resolved`` is ``None`` or ``os.path.relpath`` itself fails (e.g. a
-    cross-drive path on Windows) -- mirrors ``cli.py``'s ``_repo_relative_path``,
-    the existing precedent for this exact annotation on the OLD ``describe
-    --format netlist``'s ``## Components`` path comment.
+    cross-drive path on Windows).
     """
     if resolved is None:
         return None
@@ -2228,17 +2218,12 @@ def _build_dependency_manifest(
 
 
 def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
-    """Walk a VI's ``GraphNode`` graph directly into a ``NetlistModule`` IR --
-    the PHASE 1 sibling of ``build_netlist`` (see the module docstring section
-    above): same IR, same net names, same byte-for-byte text/JSON output
-    (``tests/test_netlist_from_graph_parity.py``).
+    """Walk a VI's ``GraphNode`` graph directly into a ``NetlistModule`` IR:
+    same IR, same net names, same byte-for-byte text/JSON output.
 
-    The netlist *body* is built by walking the graph nodes; it never reads the
-    ``Operation`` projection. Facets (inputs/outputs/constants/connector
-    pattern/properties/health) still come from ``get_vi_context``, which builds
-    the ``Operation`` list as a side effect -- Phase 2 swaps that for the
-    per-facet getters (``get_inputs``/``get_outputs``/``get_constants``/
-    ``get_vi_properties``/``get_vi_health``) so no projection is built at all.
+    The netlist *body* is built by walking the graph nodes directly. Facets
+    (inputs/outputs/constants/connector pattern/properties/health) come from
+    ``get_vi_context``.
     """
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
@@ -2331,8 +2316,6 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
 #
 # Not part of either text renderer's call graph -- used only by ``diff.py``
 # to look up a changed node/structure's full instance/scope by uid.
-# ``component_line`` (the CLI's ``## Components`` table line) lives in
-# ``netlist_diff_helpers.py`` (the OLD render_netlist that lived there is struck).
 
 
 def index_module(

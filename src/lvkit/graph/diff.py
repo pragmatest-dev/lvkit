@@ -326,8 +326,8 @@ def _frame_match_key(frame: Frame, position: int) -> object:
     frame's ``str(index)``, an event frame's ``str(position)`` (its LIST
     POSITION, not its own ``.index`` -- an event frame carries no selector,
     so ``construction.py``'s ``_stamp`` calls key its children by diagram-
-    order position instead; matches ``operations._populate_frame_operations``
-    and ``describe.py``'s own frame/child matching exactly)."""
+    order position instead; matches ``describe.py``'s own frame/child
+    matching exactly)."""
     if isinstance(frame, SequenceFrame):
         return str(frame.index)
     if isinstance(frame, EventFrame):
@@ -346,8 +346,8 @@ def _collect_elements(
     frame_path: str | None = None,
 ) -> None:
     """Map trailing-UID -> ``_ElemInfo`` for every graph node, recursing
-    structures GRAPH-NATIVELY (there is no more projected ``Operation`` tree):
-    a structure's frame children come from ``_frame_child_nodes`` (grouped by
+    structures directly off the graph: a structure's frame children come
+    from ``_frame_child_nodes`` (grouped by
     frame, matched via :func:`_frame_match_key`), and its frame-LESS body
     (a loop body, an IPES's inner nodes) from ``_body_child_nodes`` -- the
     same two helpers ``describe.py`` uses for its own graph-native walk.
@@ -894,8 +894,8 @@ def _wire_changes(
         return found or None
 
     # Constant sources render by their VALUE (e.g. "5"), matching how the
-    # netlist's ``_resolve_source`` renders the same wire -- diff and netlist
-    # must read a constant-fed wire identically.
+    # netlist's ``_resolve_source_gn`` renders the same wire -- diff and
+    # netlist must read a constant-fed wire identically.
     consts_a = {
         c.id: (c.label or _const_value_str(c)) for c in graph_a.get_constants(va)
     }
@@ -918,8 +918,8 @@ def _wire_changes(
     ) -> str:
         """Human label for a wire endpoint. ``Wire.end.name`` is the owning
         NODE's display name (see ``get_wires``), not the per-terminal name,
-        so recover the real terminal display name from the owning
-        Operation's (or the VI's own connector-pane's) terminal list."""
+        so recover the real terminal display name from the owning node's
+        (or the VI's own connector-pane's) terminal list."""
         term_key = end.index if end.index is not None else end.name
         terminals: list[Terminal] = []
         owner_label: str | None = None
@@ -1177,16 +1177,17 @@ def _frame_display(frame: Frame, op: AnyGraphNode) -> str:
     """Human label for one frame — the SAME faithful, enum-aware text the
     netlist/tree produces. A case frame goes through ``op_walk._selector_label``
     (resolving the owning structure's selector ``lv_type`` exactly as
-    ``netlist._build_case_scope`` does, so an enum value reads as its item name,
-    an error cluster as ``No Error``/``Error``, etc.); a sequence frame is its
-    index. This keeps the flat-list label (``ElementChange.label``) and the tree
-    frame label (rendered via ``_selector_label`` too) in agreement."""
+    ``netlist_build._build_case_scope_gn`` does, so an enum value reads as its
+    item name, an error cluster as ``No Error``/``Error``, etc.); a sequence
+    frame is its index. This keeps the flat-list label (``ElementChange.label``)
+    and the tree frame label (rendered via ``_selector_label`` too) in
+    agreement."""
     if isinstance(op, DisableStructureNode) and isinstance(frame, CaseFrame):
         # Disable frames ARE CaseFrames, but their selector_value already IS the
         # display text ("Enabled"/"Disabled"/"Frame N") and their is_default
         # means "the active/compiled-in frame", not a catch-all default — so
         # they must NOT go through _selector_label's is_default→"Default" branch
-        # (mirror netlist._build_disabled_scope, which bypasses it for the same
+        # (mirror ``_build_disabled_scope_gn``, which bypasses it for the same
         # reason).
         return str(frame.selector_value)
     if isinstance(frame, CaseFrame):
@@ -1512,10 +1513,7 @@ def _matched_struct_pairs(
 # nesting depth — added/removed/modified alike — so a constant added inside a new
 # case frame highlights on the diagram (box + numbered badge), lists in the flat
 # CHANGES/JSON with a count, and places in the netlist tree at its true
-# containment, exactly like a node change. This REPLACES the old split where only
-# a MODIFIED constant entered the map (as a fake ``kind="node"``) and added/
-# removed constants went through a separate top-level-only, geometry-less text
-# pass (``_diff_constants``/``ConstantChange``, since removed).
+# containment, exactly like a node change.
 #
 # A constant carries no stable UID (LabVIEW re-keys it), so identity is
 # reconstructed like the node fuzzy-matcher: exact-UID first, then leftovers
@@ -1992,7 +1990,7 @@ def diff_uid(
     on top of this (see tasks #10/#11). This is the single source of truth
     for the visual overlay (``--format html``/``json``) AND the ``diff``
     TEXT report (both the concise default and ``--verbose`` -- see
-    ``format_diff``/``_composition_tree``).
+    ``format_diff``/``_netlist_diff``).
     """
     va = graph_a.resolve_vi_name(vi_name_a)
     vb = graph_b.resolve_vi_name(vi_name_b)
@@ -2425,7 +2423,7 @@ def _ascii_arrows(detail: str) -> str:
 def _walk_netlist_order(items: list[NetlistItem]) -> list[str]:
     """Pre-order uids of every instance/scope in ``items``, recursing into
     each scope's frame bodies -- i.e. the VI's own source/dataflow order
-    (``_build_items`` walks operations in ``_node_order_key`` order, see
+    (``_build_items_gn`` walks operations in ``_node_order_key`` order, see
     the deterministic-node-order rule). Feeds ``_netlist_diff``'s
     ``source_order`` so siblings at a container render interleaved in this
     order instead of structures-first/leaves-second."""
@@ -2448,17 +2446,13 @@ def _netlist_diff(
     detailed: bool,
 ) -> list[NetlistDiffRow]:
     """The recursive containment tree, rendered in NETLIST form (see
-    ``.tmp/netlist-spec.md`` Phase 2) as STRUCTURED rows (Phase 3) -- replaces
-    the earlier unicode-glyph tree (``_composition_tree``, since deleted).
-    Kept the SAME grouping skeleton (``by_path``/``child_uids``/
-    ``values_of``, over ``_segments(frame_path)``) -- containment locality is
-    proven and unchanged; only the emitted TYPE changed (a ``NetlistDiffRow``
-    instead of a pre-formatted ``str``), plus Phase 2's own addition: every
-    struct_uid at a path (whether it changed itself or merely contains
-    changes) gets its own ``scope_header`` row, so nested changes always show
-    their enclosing ``case (selector):``/``while (...):``/etc. context -- the
-    old tree jumped straight to a bare frame sub-header with no case line
-    above it.
+    ``.tmp/netlist-spec.md`` Phase 2) as STRUCTURED rows (Phase 3), grouped
+    by ``by_path``/``child_uids``/``values_of`` over ``_segments(frame_path)``
+    -- containment locality is proven and unchanged; the emitted TYPE is a
+    ``NetlistDiffRow`` (not a pre-formatted ``str``), and every struct_uid
+    at a path (whether it changed itself or merely contains changes) gets
+    its own ``scope_header`` row, so nested changes always show their
+    enclosing ``case (selector):``/``while (...):``/etc. context.
 
     Both netlists are built fresh from the two graphs (the SAME projection
     ``describe --verbose`` uses) and indexed by uid so a changed node/
@@ -2527,7 +2521,7 @@ def _netlist_diff(
         """A node change leaf's content: the real netlist instance line for
         THIS change's own side (head for added/modified, base for removed),
         falling back to the change-map's own label when the uid isn't a
-        netlist Operation at all (a modified CONSTANT -- constants aren't
+        netlist instance at all (a modified CONSTANT -- constants aren't
         netlist instances; this also sidesteps the unicode ``→`` a
         constant's ``detail`` carries, since the fallback never uses it)."""
         if c.change == "removed":

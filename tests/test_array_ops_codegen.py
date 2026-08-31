@@ -1,7 +1,7 @@
 """Tests for array-op code generation (aInit, aReplace, aInsert, aReshape).
 
 Mirrors the pattern in tests/test_compound_codegen.py: build a
-PrimitiveOperation + CodeGenContext by hand, generate the fragment, then
+``PrimitiveNode`` + ``CodeGenContext`` by hand, generate the fragment, then
 COMPILE AND EXECUTE the resulting statements and assert on the real
 output values (not just that the code parses).
 """

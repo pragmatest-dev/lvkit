@@ -53,12 +53,12 @@ def build_condition_expr(
     Args:
         stop_terminal: Terminal UID that receives the stop condition boolean
         ctx: Code generation context with bindings and data flow
-        inner_ops: Operations inside the loop
+        inner_ops: Graph nodes inside the loop
 
     Returns:
         AST expression node or None if can't build a compound expression
     """
-    # Build lookup map: terminal_uid -> Operation that outputs to it
+    # Build lookup map: terminal_uid -> graph node that outputs to it
     output_to_op: dict[str, AnyGraphNode] = {}
     for op in inner_ops:
         for term in op.terminals:
@@ -100,14 +100,14 @@ def _build_expr_from_op(
     ctx: CodeGenContext,
     output_to_op: dict[str, AnyGraphNode],
 ) -> ast.expr | None:
-    """Build AST expression from an operation.
+    """Build AST expression from a graph node.
 
     Handles comparison primitives, boolean operations, and recursion.
 
     Args:
-        op: Operation to convert
+        op: Graph node to convert
         ctx: Code generation context
-        output_to_op: Map from output terminal UIDs to operations
+        output_to_op: Map from output terminal UIDs to graph nodes
 
     Returns:
         AST expression or None

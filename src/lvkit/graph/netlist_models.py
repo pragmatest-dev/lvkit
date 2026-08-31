@@ -48,8 +48,8 @@ class NetRef:
     # TRAILING uid -- the SAME id ``NetlistConstant.uid`` uses) when this
     # net's driver is a constant -- labeled or not. ``bare``/``node``/
     # ``terminal`` stay the literal VALUE text either way
-    # (unchanged, so ``NetRef.render``/``render_netlist``/``netlist_to_dict``
-    # -- and the graph<->Operation parity test -- are completely unaffected).
+    # (unchanged, so ``NetRef.render``/``netlist_to_dict`` are completely
+    # unaffected).
     # Only ``render_lvnet`` reads this, to decide whether a LABELED
     # ("shared/named", see ``NetlistConstant``) constant should render as
     # ``= <name>#<n>`` instead of the inlined literal -- see
@@ -59,8 +59,8 @@ class NetRef:
     # ALREADY lvnet-escaped literal text (``_lvnet_const_value_str``, md
     # §4/§10) for a constant-driven net -- set alongside ``constant_uid`` in
     # ``_resolve_source_gn``'s constant branch. ``bare`` stays the OLD
-    # ``op_walk._const_value_str`` text (unescaped strings, ``render_netlist``/
-    # ``netlist_to_dict`` parity); ``render_lvnet`` prefers this field so a
+    # ``op_walk._const_value_str`` text (unescaped strings, ``netlist_to_dict``
+    # parity); ``render_lvnet`` prefers this field so a
     # control-char string constant escapes to one physical line instead of
     # breaking ``parse_lvnet``'s line-oriented grammar (closes the
     # ``Graphical Test Runner - Main UI - .vi`` round-trip xfail). ``None``
@@ -73,10 +73,9 @@ class NetRef:
     # ``_LvnetHandles.by_uid`` (the identical mechanism a labeled constant
     # already uses via ``constant_uid``), instead of re-deriving it from
     # ``node``/``occurrence``. ``None`` for a boundary control, a structure-
-    # scoped net, a constant, or a literal -- and for every ``NetRef`` the
-    # OLD (Operation-based) ``build_netlist`` builds. ``node``/``occurrence``
-    # stay populated exactly as before (``render_netlist``/``netlist_to_dict``
-    # parity is unaffected -- neither ever reads this field).
+    # scoped net, a constant, or a literal. ``node``/``occurrence``
+    # stay populated exactly as before (``netlist_to_dict`` parity is
+    # unaffected -- it never reads this field).
     producer_uid: str | None = None
 
     def render(self, *, qualified: bool) -> str:
@@ -101,11 +100,10 @@ class NetlistTerminalBinding:
     carries the type's faithful substitute value).
 
     Verilog ``.port(net)`` / VHDL ``port => signal`` / Python-kwargs named-
-    terminal association -- the OLD ``render_netlist``'s rendered form is
-    ``terminal=net`` (see ``instance_line``, which only ever sees a wired
-    binding -- ``net is not None`` -- since that renderer/``netlist_to_dict``
-    filter to those, to stay byte-identical to the Operation-based builder;
-    the NEW ``render_lvnet`` renders every binding, wired or not, per §3/§4).
+    terminal association -- rendered as ``terminal=net`` (see
+    ``instance_line``, which only ever sees a wired binding -- ``net is not
+    None`` -- since that helper/``netlist_to_dict`` filter to those;
+    ``render_lvnet`` renders every binding, wired or not, per §3/§4).
     ``terminal`` is the input terminal's own name (the same naming rule as
     everywhere else in this module: ``display_name or name or str(index)`` --
     for an nMux/decompose LIST terminal ``display_name`` IS the real field
@@ -133,9 +131,8 @@ class NetlistTerminalBinding:
     ``connector_pattern_id`` -- verified empirically -- so the CALLEE's own
     top-level definition's pattern must be used; see
     ``_ordered_real_terminals_gn``). Stored SEPARATELY from list order (never
-    reorders ``inputs`` itself) so ``render_netlist``/``netlist_to_dict``
-    stay byte-identical to the Operation-based builder, which has no
-    equivalent pane-order concept -- only ``render_lvnet`` sorts by it.
+    reorders ``inputs`` itself) -- only ``render_lvnet`` sorts by it;
+    ``netlist_to_dict`` never reads this field.
     """
 
     terminal: str
@@ -148,12 +145,10 @@ class NetlistTerminalBinding:
     # from -- ``render_lvnet``-ONLY (lvnet §10/§11): lets it tell a NAMED
     # enum/cluster/typedef from an anonymous one (``LVType.type_descriptor(
     # expand_named=False)``) without string-guessing the already-flattened
-    # ``type`` label, which the no-string-matching law forbids. ``None``
-    # only for the Operation-based (non-``_gn``) builder, which never
-    # populates this -- ``render_lvnet`` only ever consumes
-    # ``build_netlist_from_graph``'s output, so that path always sets it;
-    # ``render_netlist``/``netlist_to_dict`` never read this field, so their
-    # byte-identical output is untouched either way.
+    # ``type`` label, which the no-string-matching law forbids.
+    # ``render_lvnet`` only ever consumes ``build_netlist_from_graph``'s
+    # output, which always sets it; ``netlist_to_dict`` never reads this
+    # field.
     lv_type: LVType | None = None
 
 
@@ -190,9 +185,9 @@ class NetlistOutput:
     faithful type (lvnet §3/§10 -- a type is shown on EVERY terminal, wired
     or not, output ports included). Split out of a bare ``NetRef`` (Phase A)
     so ``render_lvnet`` can show ``out <terminal> : <Type>`` the same way an
-    input terminal line does; ``render_netlist``/``netlist_to_dict`` keep
-    reading only ``.net`` (see ``_collect_refs``/``instance_line``/
-    ``netlist_to_dict``), so their OLD byte-identical output is untouched.
+    input terminal line does; ``netlist_to_dict`` keeps reading only ``.net``
+    (see ``_collect_refs``/``instance_line``/``netlist_to_dict``), so its
+    output is untouched.
 
     ``pane_rank`` mirrors ``NetlistTerminalBinding.pane_rank`` -- see there.
     """
@@ -206,7 +201,7 @@ class NetlistOutput:
 
 class NetlistInstanceKind(str, Enum):
     """Which §7 node-kind keyword an INSTANCE renders as in ``render_lvnet``
-    -- an explicit discriminator off the ``GraphNode``/``Operation``
+    -- an explicit discriminator off the ``GraphNode``
     SUBCLASS (``VINode``/``PrimitiveNode``/property-bearing/invoke-bearing/
     ``LocalVariableNode``/``InPlaceNode``/``FormulaNode``), never off
     ``qualified_name`` (which is set even for a plain primitive -- see
@@ -236,29 +231,25 @@ class NetlistInstance:
     inputs: list[NetlistTerminalBinding]
     outputs: list[NetlistOutput]  # one entry per output terminal, in terminal order
     # Which §7 keyword this instance renders as in ``render_lvnet`` -- see
-    # ``NetlistInstanceKind``. Defaults to ``FUNCTION`` (the Operation-based
-    # ``_build_instance`` path's fallback; ``render_lvnet`` never consumes
-    # that path, so a coarse default there is harmless).
+    # ``NetlistInstanceKind``. Defaults to ``FUNCTION``.
     kind: NetlistInstanceKind = NetlistInstanceKind.FUNCTION
     # cpdArith's mode (add/multiply/and/or/xor) -- ``None`` for every other
     # instance. Annotation ONLY: rendered as a display suffix by
     # ``instance_line`` and carried as its own JSON key by ``_item_to_dict``,
     # but never folds into ``name``/``NetRef`` -- net names and occurrence
     # tags must stay exactly what they are today (see module docstring on
-    # ``_component_identity``: an And and an Or cpdArith are different
+    # ``_component_identity_gn``: an And and an Or cpdArith are different
     # COMPONENTS but must not become different NET-naming identities here).
     operation: str | None = None
-    # A Property Node's target object CLASS (``PropertyOperation.
-    # object_name``, e.g. "Bool", "Numeric", "VI" -- LabVIEW's own label
-    # under the node's icon) -- ``None`` for every other instance kind.
-    # An Invoke Node's target object CLASS (``InvokeOperation.object_name``,
-    # e.g. "Library", "VI Server") reuses this SAME field -- a
-    # ``PropertyOperation`` is never an ``InvokeOperation``, so the two never
-    # co-occur. Annotation ONLY, same rendering/JSON treatment as
-    # ``operation`` above.
+    # A Property Node's target object CLASS (e.g. "Bool", "Numeric", "VI" --
+    # LabVIEW's own label under the node's icon) -- ``None`` for every other
+    # instance kind. An Invoke Node's target object CLASS (e.g. "Library",
+    # "VI Server") reuses this SAME field -- a Property Node is never an
+    # Invoke Node, so the two never co-occur. Annotation ONLY, same
+    # rendering/JSON treatment as ``operation`` above.
     object_name: str | None = None
-    # An Invoke Node's method name (``InvokeOperation.method_name``) -- the
-    # entire meaning of the node -- ``None`` for every other instance kind.
+    # An Invoke Node's method name -- the entire meaning of the node --
+    # ``None`` for every other instance kind.
     # A distinct concept from cpdArith's ``operation``, so it gets its own
     # field rather than overloading it. Parameter terminal NAMES are never
     # available (they live in the method's VI-server signature, not the VI
@@ -269,8 +260,8 @@ class NetlistInstance:
     # The callee's class/lib-qualified identity (``op.qualified_name``, e.g.
     # "TestResult.lvclass:addError.vi"; a dynamic-dispatch call = its declaring
     # parent class). Pass-THROUGH for consumers (render/diff/JSON) that want the
-    # qualified label -- ``name`` stays BARE because it is this instance's lookup
-    # convenience (``_find_instance``) and ``uid`` is the real identity key.
+    # qualified label -- ``name`` stays BARE because it is this instance's
+    # by-name lookup convenience and ``uid`` is the real identity key.
     # Annotation ONLY, same treatment as ``operation``/``object_name`` above;
     # never folds into ``name`` or net identities.
     qualified_name: str | None = None
@@ -287,7 +278,7 @@ class NetlistFrame:
     # Faithful DISPLAY text -- "No Error"/enum item name(s)/range(s)/quoted
     # string/"True"/"False"/"Default" for a case frame (via
     # ``op_walk._selector_label``, the same labeler the renderer uses), the
-    # raw index for a sequence frame. What ``render_netlist`` prints.
+    # raw index for a sequence frame. What ``render_lvnet`` prints.
     label: str
     # The raw selector value (case) / index (sequence), always ``str()``.
     # Kept SEPARATE from ``label`` because ``diff.py`` keys frames across two
@@ -300,7 +291,7 @@ class NetlistFrame:
     # When ``body`` is empty: True -> render "(pass-through)" (the structure
     # has an output tunnel, so LabVIEW still routes a value through even
     # though this frame has no operations); False -> "(empty)". Computed at
-    # build time via ``_has_output_tunnel`` since render_netlist only sees
+    # build time via ``_has_output_tunnel_gn`` since the renderer only sees
     # the IR, not the original graph operation.
     passthrough: bool = False
 
@@ -308,9 +299,9 @@ class NetlistFrame:
 @dataclass(frozen=True)
 class NetlistTunnelInfo:
     """One loop tunnel's structural facts -- JSON-only (``netlist_to_dict``
-    / the MCP ``get_context`` tool), never rendered by ``render_netlist``'s
-    ASCII text (tunnels are otherwise dissolved into wire resolution, not
-    surfaced as their own items -- see ``_build_loop_scope``). Mirrors
+    / the MCP ``get_context`` tool), never rendered as text (tunnels are
+    otherwise dissolved into wire resolution, not surfaced as their own
+    items -- see ``_build_loop_scope_gn``). Mirrors
     ``models.Tunnel``'s new fields directly; ``mode`` is the enum's string
     VALUE (JSON-serializable), not the raw ``TunnelMode``.
     """
@@ -366,8 +357,8 @@ class GammaMerge:
     supplies the value is selector-dependent at runtime, so a case output
     tunnel is a genuine multi-producer merge, not a single wire). ``net`` is
     the SAME string a downstream consumer's ``NetlistTerminalBinding``/
-    ``BoundaryOutput`` resolves to via ``_resolve_source`` -- see
-    ``_gamma_net_name``, the one place that name is assembled.
+    ``BoundaryOutput`` resolves to via ``_resolve_source_gn`` -- see
+    ``_gamma_net_name_gn``, the one place that name is assembled.
     """
 
     net: str
@@ -381,10 +372,10 @@ class MuMerge:
     named net (``loop{id}.shift{k}``) carrying the recurrence across
     iterations -- ``init`` (the value before the first iteration) and
     ``recur`` (the value fed back for the NEXT iteration). ``net`` is the
-    SAME string a downstream reference resolves to via ``_resolve_source``
+    SAME string a downstream reference resolves to via ``_resolve_source_gn``
     -- a node INSIDE the loop reading the LEFT (``lSR``) terminal, or --
     rarer -- a consumer OUTSIDE the loop reading the RIGHT (``rSR``)
-    terminal directly (see ``op_walk._is_mu_shift_register_read``).
+    terminal directly (see ``_is_mu_shift_register_read_gn``).
 
     ``init`` is the outer source when the SR is initialized
     (``Tunnel.sr_initialized``), else the type ``DefaultValue`` -- LabVIEW
@@ -442,8 +433,8 @@ class NetlistScope:
     frames: list[NetlistFrame]
     # Sequence-only (kind == "sequence") sub-kind: the EXPLICIT flat-vs-
     # stacked discriminator surfaced from the parser's XML class
-    # (``SequenceNode.is_flat`` / ``SequenceOperation.is_flat``) -- never
-    # inferred from the ambiguous ``displayed_frame`` proxy (None for both a
+    # (``SequenceNode.is_flat``) -- never inferred from the ambiguous
+    # ``displayed_frame`` proxy (None for both a
     # flat sequence and an out-of-range legacy stacked one). Meaningless for
     # every other scope kind; the default (True/Flat) is also the lvnet
     # renderer's pre-existing hard-coded fallback, so an unpopulated
@@ -451,22 +442,21 @@ class NetlistScope:
     sequence_is_flat: bool = True
     # Disabled-only (kind == "disabled") sub-kind: WHICH disable-family
     # structure this is (Diagram / Conditional / Type Specialization),
-    # straight from ``DisableStructureNode.kind`` /
-    # ``DisableStructureOperation.disable_kind``. Meaningless for every other
-    # scope kind; the default (DIAGRAM) is also the lvnet renderer's
+    # straight from ``DisableStructureNode.kind``. Meaningless for every
+    # other scope kind; the default (DIAGRAM) is also the lvnet renderer's
     # pre-existing hard-coded fallback.
     disable_kind: DisableStructureKind = DisableStructureKind.DIAGRAM
     # Loop-only (kind in ("for", "while")) -- False/None/empty for every
-    # other scope kind. JSON-only surface (see ``_item_to_dict``); the ASCII
-    # renderer (``scope_header``/``render_netlist``) never reads these.
+    # other scope kind. JSON-only surface (see ``_item_to_dict``);
+    # ``scope_header`` never reads these.
     parallel: bool = False
     parallel_static_workers: int | None = None
     tunnels: list[NetlistTunnelInfo] = field(default_factory=list)
     # One merge per structural value-merge point on this scope: a case
     # (kind == "case") carries one ``GammaMerge`` per output tunnel (see
-    # ``_build_case_outputs``); a loop (kind in ("for", "while")) carries
+    # ``_build_case_outputs_gn``); a loop (kind in ("for", "while")) carries
     # one ``MuMerge`` per shift register and one ``EtaMerge`` per output
-    # tunnel (see ``_build_loop_shift_registers``/``_build_loop_outputs``,
+    # tunnel (see ``_build_loop_shift_registers_gn``/``_build_loop_outputs_gn``,
     # shift registers first). Empty for every other scope kind (sequence/
     # disabled/event have no such merge).
     outputs: list[GammaMerge | MuMerge | EtaMerge] = field(default_factory=list)
@@ -490,8 +480,8 @@ class NetlistFeedback:
     Feedback Node is genuinely never written to (a real, faithful state, not
     an unresolved placeholder). ``delay`` is the z^-N depth
     (``feedbackNodeDelay``); ``None`` when absent. A downstream consumer
-    reading the output resolves to ``fb{k}`` via ``_resolve_source`` -- see
-    ``_is_feedback_output_read``. ``uid`` is the master node's trailing UID.
+    reading the output resolves to ``fb{k}`` via ``_resolve_source_gn`` -- see
+    ``_is_feedback_output_read_gn``. ``uid`` is the master node's trailing UID.
     """
 
     uid: str
@@ -516,8 +506,8 @@ class NetlistConstant:
     constant_occurrence_by_uid`` (built once over ``ctx.constants``, the
     same list ``const_by_id`` is keyed from). ``value`` is the faithful
     display text (``op_walk._const_value_str``), NEVER a Python literal --
-    kept BYTE-IDENTICAL to before this pass for ``render_netlist``/
-    ``netlist_to_dict`` parity. ``lvnet_value`` is ``render_lvnet``-ONLY
+    kept BYTE-IDENTICAL to before this pass for ``netlist_to_dict`` parity.
+    ``lvnet_value`` is ``render_lvnet``-ONLY
     (``_lvnet_const_value_str``, md §4/§10): the SAME faithful value, but
     with a string escaped for lvnet's own grammar (a control char can't
     survive unescaped in a line-oriented text surface) -- see
@@ -546,7 +536,7 @@ class NetlistComponent:
     display name for a leaf op -- with a `` (n)`` disambiguator suffix in
     the rare case where two instances sharing the same underlying
     primitive genuinely have different typed interfaces (a real
-    polymorphic collision, not a merge bug -- see ``_dedupe_primitive_group``).
+    polymorphic collision, not a merge bug -- see ``_dedupe_primitive_group_gn``).
     """
 
     name: str
@@ -686,12 +676,12 @@ class NetlistModule:
     outputs: list[BoundaryOutput]
     body: list[NetlistItem] = field(default_factory=list)
     # Every distinct component (subVI or primitive/nMux/cpdArith) actually
-    # used in the VI, declared once -- see ``_build_components``. Sorted by
+    # used in the VI, declared once -- see ``_build_components_gn``. Sorted by
     # name for a deterministic ``## Components`` rendering.
     components: list[NetlistComponent] = field(default_factory=list)
     # User-settable VI Properties (Protection/Execution/…) -- carried through
     # for ``netlist_to_dict`` (the MCP ``get_context`` tool's JSON shape).
-    # NOT rendered by ``render_netlist``'s ASCII text -- ``describe.py`` has
+    # NOT rendered as netlist text -- ``describe.py`` has
     # its own faithful ``## Properties`` section.
     properties: VIProperties = field(default_factory=VIProperties)
     # Compile-health -- a SIBLING facet to ``properties``, never nested
@@ -707,15 +697,13 @@ class NetlistModule:
     # The VI's authored connector pane: its pattern + every terminal
     # (canonically ordered). A SIBLING facet to the connectivity ``inputs``/
     # ``outputs`` above -- carried through for ``netlist_to_dict`` (get_context);
-    # ``render_netlist``'s ASCII stays pure connectivity, ``describe.py`` renders
+    # the netlist text stays pure connectivity, ``describe.py`` renders
     # the pane's ``## Inputs``/``## Outputs``.
     connector_pane: ConnectorPane = field(
         default_factory=lambda: ConnectorPane(pattern_id=None)
     )
     # The lvnet §7 ``uses :`` dependency manifest -- see ``NetlistDependency``.
-    # Populated ONLY by ``build_netlist_from_graph`` (see
-    # ``_build_dependency_manifest``); the OLD Operation-based ``build_netlist``
-    # leaves this at its empty default, and ``render_netlist``/``netlist_to_dict``
-    # never read it -- ``render_lvnet`` is its only consumer, so the old
-    # render/JSON surfaces stay byte-unchanged (test_netlist_from_graph_parity).
+    # Populated by ``build_netlist_from_graph`` (see
+    # ``_build_dependency_manifest``); ``netlist_to_dict`` never reads it --
+    # ``render_lvnet`` is its only consumer.
     dependencies: list[NetlistDependency] = field(default_factory=list)

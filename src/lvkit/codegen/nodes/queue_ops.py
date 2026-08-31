@@ -41,7 +41,7 @@ from ..fragment import CodeFragment
 
 class QueueOp(IntEnum):
     """LabVIEW queue-operation ``primResID`` codes. ``IntEnum`` because the code
-    IS the raw int carried on ``PrimitiveOperation.primResID`` -- a member
+    IS the raw int carried on ``PrimitiveNode.prim_id`` -- a member
     compares equal to it and lives in the ``QUEUE_PRIM_IDS`` membership set."""
 
     OBTAIN = 9108

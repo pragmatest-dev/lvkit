@@ -4,10 +4,9 @@ Methods: top_level_nodes, child_nodes, enriched_terminals,
 _tunnels_from_terminals, _enrich_subvi_terminals_typed, _get_slot_to_name,
 _sort_inner_uids, _get_children_of, _group_children_by_frame.
 
-These are the graph-native tree-walk ergonomics that replaced the projected
-``Operation`` tree (``get_operations``/``_build_operation`` and friends,
-removed) -- a generator walks ``top_level_nodes`` -> ``child_nodes`` and
-reads ``enriched_terminals``, consuming ``GraphNode``s directly.
+These are the graph-native tree-walk ergonomics a generator uses to walk
+``top_level_nodes`` -> ``child_nodes`` and read ``enriched_terminals``,
+consuming ``GraphNode``s directly.
 """
 
 from __future__ import annotations
@@ -49,11 +48,9 @@ class OperationsMixin:
         def get_operation_order(self, vi_name: str) -> list[str]: ...
 
     # ------------------------------------------------------------------ #
-    # Graph-native ergonomic helpers -- the tree-walk convenience that
-    # ``get_operations``/``Operation`` provided, but single-sourced from the
-    # graph (no projected ``Operation`` snapshot). A generator walks
-    # ``top_level_nodes`` -> ``child_nodes`` and reads ``enriched_terminals``,
-    # consuming ``GraphNode``s directly. See docs: the Operation-removal work.
+    # Graph-native ergonomic helpers -- single-sourced from the graph. A
+    # generator walks ``top_level_nodes`` -> ``child_nodes`` and reads
+    # ``enriched_terminals``, consuming ``GraphNode``s directly.
     # ------------------------------------------------------------------ #
     def top_level_nodes(self, vi_name: str) -> list[AnyGraphNode]:
         """Top-level graph nodes of a VI in dataflow execution order.
@@ -84,9 +81,9 @@ class OperationsMixin:
         return [top[u] for u in ordered]
 
     def child_nodes(self, parent_uid: str, vi_name: str) -> list[AnyGraphNode]:
-        """Operation-kind graph nodes directly contained in a structure, in
-        deterministic order -- the graph-native tree step
-        (``GraphNode.children`` via ``_get_children_of``).
+        """Graph nodes directly contained in a structure whose kind is in
+        ``_OPERATION_KINDS``, in deterministic order -- the tree step over
+        ``GraphNode.children`` (via ``_get_children_of``).
         """
         out: list[AnyGraphNode] = []
         uids = self._sort_inner_uids(

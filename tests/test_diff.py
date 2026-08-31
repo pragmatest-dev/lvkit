@@ -657,14 +657,14 @@ class TestLocalityStamping:
 # ── Frame set diff: added/removed/value-changed frames ──────────────────
 #
 # We cannot author .vi files (no LabVIEW), so these drive a synthetic
-# CaseOperation/SequenceOperation straight through diff_uid via a stub graph
+# CaseStructureNode/SequenceNode straight through diff_uid via a stub graph
 # -- the lightest-weight route, mirroring TestModifiedConstant's _StubGraph
 # pattern above.
 
 
 class TestFrameSetChanges:
     def test_case_structure_frame_added_removed_and_value_changed(self):
-        # One CaseOperation (uid "500"), matched across versions by its own
+        # One CaseStructureNode (uid "500"), matched across versions by its own
         # (common) uid, whose FRAME SET differs by exactly:
         #   - frame "1": base-only -> REMOVED
         #   - frame "2": present both sides, key-matched by FALLBACK (its
@@ -830,7 +830,7 @@ class TestFrameSetChanges:
         # frame_path with their own segment.
         # A stacked sequence's real parser class is "seq"/"sequence" (is_flat
         # False), NOT "flatSequence" — that's what makes it interactive
-        # (_is_interactive_struct: SequenceOperation with node_type !=
+        # (_is_interactive_struct: a SequenceNode with node_type !=
         # "flatSequence").
         seq_a = SequenceNode(
             id="vi::700",
@@ -1099,10 +1099,10 @@ class TestConnectorPaneRequalification:
 class TestDisableStructureInnerChange:
     """A change INSIDE a Diagram/Conditional-Disable structure's frame must be
     reported by the diff, exactly as the netlist renders that body. A disable
-    structure carries its body in ``.frames[].operations`` (like a case), so
+    structure carries its body in its frames (like a case), so
     ``_collect_elements`` has to recurse frames for it, not just ``inner_nodes``.
     Regression guard for the diff/netlist disagreement fixed by adding
-    ``DisableStructureOperation`` to the frame-recursion branch."""
+    ``DisableStructureNode`` to the frame-recursion branch."""
 
     def _xml(self, extra_inner: str) -> str:
         return f"""<?xml version='1.0' encoding='utf-8'?>

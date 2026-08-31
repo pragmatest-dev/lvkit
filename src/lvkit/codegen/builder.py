@@ -46,7 +46,7 @@ def build_module(
     """Build complete Python module from VI context.
 
     Args:
-        vi_context: VIContext with operations, inputs, outputs, etc.
+        vi_context: VIContext with inputs, outputs, etc.
         vi_name: Name of the VI (used for function name)
         import_resolver: Optional callable (subvi_name) -> import statement string
         has_parallel_branches: If True, enable held error model for parallel
@@ -73,8 +73,7 @@ def build_module(
     ctx.soft_unresolved = soft_unresolved
     ctx.unresolved_sink = unresolved_sink
 
-    # Top-level diagram nodes in dataflow order — the graph-native replacement
-    # for the projected ``vi_context.operations``. Emitters walk structure
+    # Top-level diagram nodes in dataflow order. Emitters walk structure
     # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
     top_nodes: list[AnyGraphNode] = (
         ctx.graph.top_level_nodes(vi_name) if ctx.graph is not None else []
@@ -133,7 +132,7 @@ def generate_body(
     Clear Errors can scope its try/except to only the error-path ops.
 
     Args:
-        operations: List of Operation nodes
+        operations: List of graph nodes to generate code for
         ctx: Code generation context
 
     Returns:
@@ -146,7 +145,8 @@ def generate_body(
     # Tagged statements: (set of op IDs, statement)
     tagged: list[tuple[set[str], ast.stmt]] = []
 
-    # All operations passed here are top-level (inner loop ops are in inner_nodes)
+    # All operations passed here are top-level (nested structure contents
+    # are fetched separately via ctx.child_nodes)
     tiers = topological_sort_tiered(operations, ctx)
 
     for tier in tiers:

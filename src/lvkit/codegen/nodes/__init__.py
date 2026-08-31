@@ -92,7 +92,7 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
     return _generate_unknown(node)
 
 
-# node_type -> codegen function, for a PrimitiveOperation. The bodies already
+# node_type -> codegen function, for a primitive node. The bodies already
 # live in per-type modules (compound/nmux/printf); this registry replaces the
 # inlined match so a new prim node type registers here instead of editing a
 # switch. The default (primitive.generate) is the "GenericHandler" of this stage.

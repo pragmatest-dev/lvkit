@@ -36,10 +36,9 @@ def _mk_seq(
     frame_ops=None,
     tunnels=(),
 ):
-    """Build a SequenceNode from the fields the old SequenceOperation tests
-    used: frame metadata stays on the node, and ``frame_ops`` (index -> child
-    graph nodes) are registered as parent/frame-linked children so
-    ``ctx.frame_children`` finds them."""
+    """Build a SequenceNode: frame metadata stays on the node, and
+    ``frame_ops`` (index -> child graph nodes) are registered as
+    parent/frame-linked children so ``ctx.frame_children`` finds them."""
     frame_ops = frame_ops or {}
     children = []
     for f in frames:

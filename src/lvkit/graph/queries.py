@@ -919,10 +919,8 @@ class QueryMixin:
         model itself (the graph node stays a plain ``PrimitiveNode`` so
         render/codegen treat it exactly as before). This is the one
         graph-level accessor for them, letting a graph-only consumer (e.g.
-        ``netlist.build_netlist_from_graph``) resolve a Feedback Node's linked
-        write side without going through the ``Operation`` projection
-        (``_build_operation`` reads the same attributes to build a
-        ``FeedbackOperation``).
+        ``netlist.build_netlist_from_graph``) resolve a Feedback Node's
+        linked write side directly.
         """
         if node_id not in self._graph:
             return None
@@ -934,8 +932,7 @@ class QueryMixin:
 
     def get_poser_uid(self, node_id: str) -> str | None:
         """The In-Place-Element-Structure decompose/recompose pairing id for
-        ``node_id`` (``PrimitiveOperation.poser_uid``'s graph-level source),
-        or ``None`` when ``node_id`` isn't an IPES border node.
+        ``node_id``, or ``None`` when ``node_id`` isn't an IPES border node.
 
         Stashed as an extra networkx node attribute (``poser_uid`` -- see
         ``construction.py``) rather than a ``PrimitiveNode`` model field, for
@@ -964,7 +961,7 @@ class QueryMixin:
     def get_vi_context(self, vi_name: str) -> VIContext:
         """Get complete VI context for code generation.
 
-        Returns a VIContext with inputs, outputs, constants, operations, etc.
+        Returns a VIContext with inputs, outputs, constants, etc.
         Builds from typed graph nodes.
         """
         vi_name = self.resolve_vi_name(vi_name)

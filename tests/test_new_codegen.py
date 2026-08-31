@@ -387,7 +387,7 @@ class TestSelectorTopoSort:
     """Case structure selector terminal creates a topo sort dependency."""
 
     def test_selector_source_ordered_before_case(self):
-        """Operation producing the selector should be in an earlier tier."""
+        """The node producing the selector should be in an earlier tier."""
         graph = InMemoryVIGraph()
 
         # Producer: Equal? primitive with output terminal

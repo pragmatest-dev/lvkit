@@ -27,7 +27,7 @@ _OpsByFrame = dict[int, list[AnyGraphNode]]
 
 def _ops_by_frame(node: CaseStructureNode, ctx: CodeGenContext) -> _OpsByFrame:
     """Map each frame (by identity) to the operation-kind graph nodes it
-    contains — the graph-native replacement for ``CaseFrame.operations``."""
+    contains."""
     return {id(frame): ops for frame, ops in ctx.frame_children(node)}
 
 

@@ -138,7 +138,7 @@ vi loadTestsFromTestCase.vi :
 #    for-loop's shift-register net), NOT `listAllTestMethods_1::error out`
 #    as §16 shows -- verified against the REAL wire (an incoming edge on
 #    that terminal), and independently corroborated by the ALREADY-SHIPPED,
-#    already-tested `render_netlist`/`build_netlist` (Operation-based) path,
+#    already-tested `render_netlist`/`build_netlist` path,
 #    untouched this session, which resolves the SAME net (modulo the ``.``
 #    vs ``::`` separator). §16's text does not match the real VI's
 #    dataflow here.

@@ -690,9 +690,9 @@ class ConstructionMixin:
                     build_ctx,
                 )
             else:
-                # Operation node (formula box, primitive, cpdArith, property/
-                # invoke) — built by a registered handler off the ordinary
-                # node_terminals, else the default primitive handler.
+                # Non-structure node (formula box, primitive, cpdArith,
+                # property/invoke) — built by a registered handler off the
+                # ordinary node_terminals, else the default primitive handler.
                 op_handler = NODE_BUILD_HANDLERS.get(
                     node.node_type,
                     DEFAULT_NODE_BUILD_HANDLER,
@@ -755,10 +755,10 @@ class ConstructionMixin:
 
             # Feedback Node (hiddenFBNode master / slaveFBInputNode write side):
             # stash the master<->slave link + z^-N delay as node attributes so
-            # _build_operation can lift them onto a FeedbackOperation. The graph
-            # node itself stays a GraphPrimitiveNode, so render/codegen treat it
-            # exactly as before — only the Operation layer gains feedback
-            # identity. See parser FeedbackNode and models.FeedbackOperation.
+            # queries/codegen can read feedback identity straight off the
+            # graph (feedback_is_master / feedback_partner / feedback_delay).
+            # The graph node itself stays a GraphPrimitiveNode. See parser
+            # FeedbackNode.
             if isinstance(node, FeedbackNode):
                 g.add_node(
                     q_node_uid,

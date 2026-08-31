@@ -70,7 +70,7 @@ def describe_vi(
     typed terminal detail -- it never swaps in a different section shape.
     The dataflow NETLIST (the declare-then-wire ``## Components`` +
     node-first wiring body) is a SEPARATE output entirely -- see
-    ``lvkit.graph.netlist`` and the CLI's ``describe --format netlist``.
+    ``lvkit.graph.netlist`` and the CLI's ``describe --format lvnet``.
     """
     vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
@@ -357,8 +357,8 @@ def _collect_subvi_names(
     description lookups below still resolve (to the correct copy).
 
     Walks the graph directly (``child_nodes`` reaches every nested node —
-    a structure's frame bodies AND a loop/IPES body alike — in one recursion)
-    rather than a projected ``Operation`` tree."""
+    a structure's frame bodies AND a loop/IPES body alike — in one
+    recursion)."""
     names: set[str] = set()
     for node in nodes:
         if isinstance(node, VINode) and node.id != node.vi_path and node.qualified_name:
@@ -401,26 +401,20 @@ def _terminal_type_label(t: Terminal) -> str:
 # === Graph-native operation-walk helpers ===
 #
 # describe consumes the graph directly (``top_level_nodes`` / ``child_nodes`` /
-# ``enriched_terminals``) rather than a projected ``Operation`` tree. These
-# small helpers replicate the ``Operation``-side conveniences describe used to
-# lean on -- ``Operation.display_name``, ``op_walk._has_output_tunnel``, and
-# ``op_walk.index_terminal_owners`` -- reading the ``GraphNode`` fields instead.
+# ``enriched_terminals``), reading the ``GraphNode`` fields.
 
 
 def _node_has_output_tunnel(node: AnyGraphNode) -> bool:
     """True if the structure routes any value out (so an empty frame is a
-    pass-through, not truly empty). Graph-native mirror of
-    ``op_walk._has_output_tunnel`` -- reads the same terminal directions off
-    the ``GraphNode`` that structure's ``Operation`` copied from."""
+    pass-through, not truly empty). Reads terminal directions off the
+    ``GraphNode``."""
     return any(t.direction == "output" for t in node.terminals)
 
 
 def _is_feedback_node(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
     """True for a Feedback Node's graph node -- a ``PrimitiveNode`` carrying
-    the ``feedback_is_master`` graph attribute (the same signal
-    ``operations._build_operation`` keys ``FeedbackOperation`` on). Such nodes
-    were ``FeedbackOperation``, NOT ``PrimitiveOperation``, so they take the
-    generic ``[type-word]`` one-liner rather than a ``[prim N]`` label."""
+    the ``feedback_is_master`` graph attribute. Such nodes take the generic
+    ``[type-word]`` one-liner rather than a ``[prim N]`` label."""
     return graph._graph.nodes.get(node.id, {}).get("feedback_is_master") is not None
 
 
@@ -429,12 +423,10 @@ def _frame_child_nodes(
     node: AnyGraphNode,
     vi_name: str,
 ) -> dict[object, list[AnyGraphNode]]:
-    """Group a structure's child ``GraphNode``s by their ``frame`` key -- the
-    graph-native equivalent of a frame's populated ``operations`` list. Keyed
+    """Group a structure's child ``GraphNode``s by their ``frame`` key. Keyed
     by the raw ``child.frame`` value, matched against a case frame's
     ``selector_value`` / a sequence frame's ``str(index)`` / an event frame's
-    ``str(position)`` exactly as ``operations._populate_frame_operations``
-    does."""
+    ``str(position)``."""
     out: dict[object, list[AnyGraphNode]] = {}
     for child in graph.child_nodes(node.id, vi_name):
         out.setdefault(child.frame, []).append(child)
@@ -444,11 +436,9 @@ def _frame_child_nodes(
 def _is_ipes_border_node(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
     """True for an In Place Element Structure's decompose/recompose BORDER
     node -- a ``poser_uid``-carrying node with list terminals in ONE direction
-    only (list-out only = decompose, list-in only = recompose). Mirrors
-    ``operations._classify_ipes_ops`` exactly (``poser_uid`` is the same graph
-    attribute ``_build_operation`` reads) so describe's IPES body omits the
-    border ops just as the ``Operation.inner_nodes`` projection did -- they sit
-    on the structure boundary like tunnels, not in its body."""
+    only (list-out only = decompose, list-in only = recompose), so describe's
+    IPES body omits the border nodes -- they sit on the structure boundary
+    like tunnels, not in its body."""
     if graph._graph.nodes.get(node.id, {}).get("poser_uid") is None:
         return False
     has_list_out = any(
@@ -465,14 +455,12 @@ def _body_child_nodes(
     node: AnyGraphNode,
     vi_name: str,
 ) -> list[AnyGraphNode]:
-    """A structure's frame-LESS body nodes (``frame is None``) -- the
-    graph-native equivalent of ``Operation.inner_nodes``: a loop's body (and an
-    IPES's inner nodes) carry no frame, while a frame-bearing structure's
-    children all sit in a frame and are walked via :func:`_frame_child_nodes`
-    instead. An In Place Element Structure's decompose/recompose border nodes
-    are excluded (:func:`_is_ipes_border_node`) -- the same ops
-    ``Operation.inner_nodes`` split out into ``decompose_ops``/``recompose_ops``
-    rather than the body."""
+    """A structure's frame-LESS body nodes (``frame is None``): a loop's body
+    (and an IPES's inner nodes) carry no frame, while a frame-bearing
+    structure's children all sit in a frame and are walked via
+    :func:`_frame_child_nodes` instead. An In Place Element Structure's
+    decompose/recompose border nodes are excluded
+    (:func:`_is_ipes_border_node`) rather than treated as body."""
     body = [c for c in graph.child_nodes(node.id, vi_name) if c.frame is None]
     if isinstance(node, InPlaceNode):
         body = [c for c in body if not _is_ipes_border_node(graph, c)]
@@ -510,8 +498,7 @@ def _find_node(
     nodes: list[AnyGraphNode] | None = None,
 ) -> AnyGraphNode | None:
     """Find a node by its full uid, searching top-level nodes then every
-    nested body/frame child recursively -- the graph-native mirror of the old
-    ``_find_operation``."""
+    nested body/frame child recursively."""
     if nodes is None:
         nodes = graph.top_level_nodes(vi_name)
     for node in nodes:
@@ -736,8 +723,7 @@ def _collect_structures(
     nesting depth -- never an O(n) node-tree rescan per structure.
 
     A frame-bearing structure recurses each frame's grouped child nodes; the
-    trailing recursion covers a loop/IPES body (frame-less children) -- the
-    graph-native split of what ``Operation.frames`` vs ``inner_nodes`` held.
+    trailing recursion covers a loop/IPES body (frame-less children).
     """
     structures: list[str] = []
     for node in nodes:
@@ -998,10 +984,9 @@ def _describe_single_op(
 
     match node:
         case PrimitiveNode():
-            # Property/Invoke/Feedback nodes are also ``PrimitiveNode``s but
-            # were NOT ``PrimitiveOperation`` (they projected to their own
-            # Operation subtypes) -- keep them on the generic ``[type-word]``
-            # one-liner, only a genuine primitive gets a ``[prim N]`` label.
+            # Property/Invoke/Feedback nodes are also ``PrimitiveNode``s --
+            # keep them on the generic ``[type-word]`` one-liner, only a
+            # genuine primitive gets a ``[prim N]`` label.
             if node.properties or node.method_name or _is_feedback_node(graph, node):
                 node_word = (
                     get_display_name(node.node_type) if node.node_type else "unknown"
@@ -1093,8 +1078,7 @@ def _describe_loop(
     if node.stop_condition_terminal:
         lines.append(f"  Stop condition: {node.stop_condition_terminal}")
 
-    # Reconstruct Tunnel objects from the loop's terminal metadata -- the same
-    # pure helper ``operations._build_operation`` uses to fill ``op.tunnels``.
+    # Reconstruct Tunnel objects from the loop's terminal metadata.
     tunnels = graph._tunnels_from_terminals(node.terminals)
     if tunnels:
         lines.append("  Tunnels:")

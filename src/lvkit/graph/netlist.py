@@ -48,13 +48,11 @@ from .netlist_build import (
 )
 
 # ``ambiguous_bares``/``instance_line``/``scope_header`` -- the shared netlist
-# helpers ``diff.py`` imports and calls -- live in
-# ``netlist_render_deprecated.py`` (which must never import from this module,
-# to avoid a fragile import-order-dependent cycle). Re-exported here so every
-# existing ``from ...graph.netlist import ambiguous_bares`` (etc.) call site
-# keeps working unchanged. (The OLD ASCII ``render_netlist``/``component_line``
-# text renderer these once accompanied has been STRUCK -- superseded entirely
-# by ``render_lvnet``.)
+# helpers ``diff.py`` imports and calls -- live in ``netlist_diff_helpers.py``
+# (which must never import from this module, to avoid a fragile
+# import-order-dependent cycle). Re-exported here so every existing ``from
+# ...graph.netlist import ambiguous_bares`` (etc.) call site keeps working
+# unchanged.
 from .netlist_diff_helpers import (
     ambiguous_bares as ambiguous_bares,  # noqa: F401 -- re-exported for external callers
 )

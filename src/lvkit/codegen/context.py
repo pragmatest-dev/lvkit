@@ -328,25 +328,21 @@ class CodeGenContext:
             self.bind(tid, vname)
 
     # ------------------------------------------------------------------ #
-    # Graph-native structural accessors — the tree-walk convenience the
-    # emitters used to read off the projected ``Operation`` (``inner_nodes``,
-    # enriched ``terminals``, ``tunnels``, populated ``frames``), single-sourced
-    # from the graph so codegen consumes ``GraphNode``s directly. See the
-    # Operation-removal work.
+    # Structural accessors — tree-walk convenience methods emitters use to
+    # get a structure node's children, enriched terminals, tunnels, and
+    # frame contents, all read directly off the graph as ``GraphNode``s.
     # ------------------------------------------------------------------ #
     def child_nodes(self, node: AnyGraphNode) -> list[AnyGraphNode]:
-        """Operation-kind graph nodes directly contained in ``node`` (a
-        structure), in the same deterministic order the old
-        ``Operation.inner_nodes`` used. Empty for a leaf node or when there is
-        no graph."""
+        """Graph nodes directly contained in ``node`` (a structure), in
+        deterministic order. Empty for a leaf node or when there is no
+        graph."""
         if self.graph is None:
             return []
         return self.graph.child_nodes(node.id, self.vi_name or "")
 
     def enriched_terminals(self, node: AnyGraphNode) -> list[Terminal]:
         """``node``'s terminals with SubVI-call terminals enriched with the
-        callee's parameter names — the same enrichment the old
-        ``Operation.terminals`` carried."""
+        callee's parameter names."""
         if self.graph is None:
             return list(node.terminals)
         return self.graph.enriched_terminals(node, self.vi_name or "")
@@ -354,22 +350,20 @@ class CodeGenContext:
     @staticmethod
     def tunnels(node: AnyGraphNode) -> list[Tunnel]:
         """Reconstruct ``Tunnel`` objects from a structure node's terminal
-        metadata — the same set the old ``Operation.tunnels`` carried. Pure
-        function of the node's ``TunnelTerminal``s (no graph needed)."""
+        metadata. Pure function of the node's ``TunnelTerminal``s (no graph
+        needed)."""
         return OperationsMixin._tunnels_from_terminals(list(node.terminals))
 
     def frame_children(
         self, node: AnyGraphNode
     ) -> list[tuple[Frame, list[AnyGraphNode]]]:
-        """Pair each of a frame-bearing structure's frames with the
-        operation-kind graph nodes contained in it, in deterministic order.
+        """Pair each of a frame-bearing structure's frames with the graph
+        nodes contained in it, in deterministic order.
 
-        Replaces the old ``Operation.frames`` whose ``.operations`` were
-        populated ``Operation``s: here each frame's metadata is the node's own
-        ``CaseFrame``/``SequenceFrame``/``EventFrame`` and the children are
-        ``GraphNode``s. Mirrors ``graph._populate_frame_operations`` +
-        ``_build_inner_nodes`` exactly (same per-frame ``_sort_inner_uids`` and
-        ``_OPERATION_KINDS`` filter) so the emitted order is byte-identical.
+        Each frame's metadata is the node's own
+        ``CaseFrame``/``SequenceFrame``/``EventFrame``, and the children are
+        ``GraphNode``s grouped per frame and ordered via
+        ``_sort_inner_uids``, filtered to ``_OPERATION_KINDS``.
         """
         frames: list[Frame] = list(getattr(node, "frames", []) or [])
         g = self.graph
@@ -404,16 +398,14 @@ class CodeGenContext:
 
     def feedback_is_master(self, node: AnyGraphNode) -> bool | None:
         """``feedback_is_master`` graph attribute for a Feedback Node, else
-        None (not a feedback node / no graph). Lifted off the graph the same
-        way ``_build_operation`` did."""
+        None (not a feedback node / no graph)."""
         if self.graph is None:
             return None
         return self.graph._graph.nodes.get(node.id, {}).get("feedback_is_master")
 
     def poser_uid(self, node: AnyGraphNode) -> str | None:
         """The IPES decompose/recompose pair UID (``poser_uid`` graph
-        attribute), else None. Lifted off the graph the same way
-        ``_build_operation`` did for ``PrimitiveOperation.poser_uid``."""
+        attribute), else None."""
         if self.graph is None:
             return None
         return self.graph._graph.nodes.get(node.id, {}).get("poser_uid")

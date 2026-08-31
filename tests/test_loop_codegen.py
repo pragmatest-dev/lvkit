@@ -41,9 +41,9 @@ def _mk_loop(
     stop_condition_terminal=None,
     stop_condition_inverted=False,
 ):
-    """Build a LoopNode from the fields the old LoopOperation tests supplied,
-    expressing ``tunnels`` as TunnelTerminals and registering any inner nodes
-    (parent-linked) into ``ctx``'s graph so ``ctx.child_nodes`` finds them."""
+    """Build a LoopNode, expressing ``tunnels`` as TunnelTerminals and
+    registering any inner nodes (parent-linked) into ``ctx``'s graph so
+    ``ctx.child_nodes`` finds them."""
     node = LoopNode(
         id=id,
         vi_path="test.vi",

@@ -1,6 +1,6 @@
 """Tests for First Call? (primResID 1083) code generation.
 
-Mirrors tests/test_queue_codegen.py's pattern: build a PrimitiveOperation
+Mirrors tests/test_queue_codegen.py's pattern: build a ``PrimitiveNode``
 by hand, generate + COMPILE AND EXECUTE the fragment (plus its registered
 module-level global), and assert on real runtime behavior across
 multiple calls -- not just that the code parses.

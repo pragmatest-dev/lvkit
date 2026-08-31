@@ -3,10 +3,7 @@
 The small text helpers ``diff.py``'s node-first text diff needs off a
 ``NetlistModule``: ``ambiguous_bares`` (bare net names that collide across
 instances), ``instance_line`` and ``scope_header`` (one-line renderers for an
-instance / a scope header). These were co-located with the OLD ``render_netlist``
-gamma/mu/eta ASCII renderer, which has since been STRUCK -- superseded entirely
-by ``render_lvnet``; the renderer (and ``component_line``) are gone, these
-shared helpers remain.
+instance / a scope header).
 
 This module must NEVER import from ``.netlist`` -- ``netlist.py`` imports these
 names back from here for re-export, and a reverse import would be a fragile,
@@ -27,10 +24,6 @@ from .netlist_models import (
     NetlistTerminalBinding,
     NetRef,
 )
-
-# ============================================================
-# render_netlist
-# ============================================================
 
 
 def _collect_refs(items: list[NetlistItem]) -> list[NetRef]:
@@ -96,8 +89,8 @@ def _instance_name_display(instance: NetlistInstance) -> str:
 
     A Property Node's ``object_name`` (its target CLASS, e.g. "Bool") gets
     the same bracket-suffix treatment as ``operation`` -- the two never
-    co-occur (a ``PropertyOperation`` is never a ``PrimitiveOperation``), so
-    one visual slot serves both without collision: ``Property Node#1 [Bool]``.
+    co-occur (a property node is never a primitive node), so one visual slot
+    serves both without collision: ``Property Node#1 [Bool]``.
 
     An Invoke Node's ``method_name`` gets the SAME bracket suffix slot,
     rendered ``object:method`` (``Invoke Node#1 [Library:Open Project]``) --
@@ -129,9 +122,9 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     Node-first is the real netlist convention: SPICE (``R1 n1 n2 1k``) and
     Verilog (``and2 u1 (.a(w1), .b(w2))``) both lead with the COMPONENT, then
     its connections. The node is the subject; wires are its attributes. It also
-    makes a VI and each node inside it read the SAME shape (``NAME(ins) -> outs``,
-    matching the ``render_netlist`` signature line) and keeps a diff node-centric
-    -- the changed node's name sits right after the ``+/-/~`` gutter. The
+    makes a VI and each node inside it read the SAME shape (``NAME(ins) -> outs``)
+    and keeps a diff node-centric -- the changed node's name sits right after
+    the ``+/-/~`` gutter. The
     header itself (``name``/``#n``/bracket suffixes) is ``_instance_name_display``.
 
     Inputs use NAMED-TERMINAL association (Verilog ``.port(net)`` / VHDL
@@ -140,8 +133,8 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
     inverted input (``NetlistTerminalBinding.inverted`` -- the "Not" bubble
     LabVIEW draws directly on that input, negating it before the node's own
     operation runs) renders ``terminal=not(net)``: a function-form wrapper around
-    the net, ASCII and arrow-safe (``->`` only, never ``<-``), the same idiom
-    ``_render_merge_source``/the module docstring already reserve arrows for.
+    the net, ASCII and arrow-safe (``->`` only, never ``<-``), the same
+    convention ``_ascii_arrows`` reserves arrows for elsewhere in a diff.
     A non-inverted input is unchanged from before this flag existed.
 
     Each accessed property's terminal is already labelled by its real NAME (not
@@ -169,9 +162,8 @@ def instance_line(instance: NetlistInstance, ambiguous: set[str]) -> str:
         return f"{b.terminal}={f'not({net})' if b.inverted else net}"
 
     # Phase A: ``instance.inputs`` now carries EVERY real terminal, wired or
-    # not (see ``NetlistTerminalBinding``) -- this OLD renderer only ever showed
-    # wired ones, so filter back down to keep it byte-identical to the
-    # Operation-based builder (which never produces an unwired binding).
+    # not (see ``NetlistTerminalBinding``) -- this renderer only ever shows
+    # wired ones, so filter back down to only the wired bindings.
     wired_inputs = [b for b in instance.inputs if b.net is not None]
     ins = ", ".join(_bind(b) for b in wired_inputs)
     base = f"{name_disp}({ins})"

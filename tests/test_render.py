@@ -2608,9 +2608,7 @@ def test_decompose_cluster_node_graph_name_is_direction_aware():
     """``graph/construction.py`` renames a ``decomposeClusterNode`` graph node
     to the direction-correct Bundle/Unbundle By Name AFTER nMux-style
     terminal-role enrichment — the same ``graph_node.name`` describe/netlist
-    read (``Operation.name`` comes straight from it, see
-    ``graph/operations.py``), so those surfaces never see "Decompose
-    Cluster" either."""
+    read, so those surfaces never see "Decompose Cluster" either."""
     from lvkit.models import Terminal, bundle_unbundle_name
 
     decompose_half = PrimitiveNode(

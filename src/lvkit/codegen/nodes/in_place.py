@@ -34,7 +34,6 @@ def _classify_ipes(
 ) -> tuple[list[PrimitiveNode], list[PrimitiveNode], list[AnyGraphNode]]:
     """Split IPES inner graph nodes into decompose, recompose, and regular.
 
-    Graph-native mirror of ``graph.operations._classify_ipes_ops``:
     decompose = poser prim with list OUTPUT terminals only (unbundles field
     values at the input boundary); recompose = poser prim with list INPUT
     terminals only (rebundles at the output boundary); everything else is
@@ -266,7 +265,7 @@ def _find_data_var(
     """Find the data variable from non-tunnel IPES input terminals.
 
     The data flows into the IPES via decomposeClusterDCO terminals, stored
-    as plain input terminals on the InPlaceOperation (not in node.tunnels).
+    as plain input terminals on the node (not in node.tunnels).
     If no wired input exists, returns None and the IPES is a no-op.
     """
     for t in node.terminals:

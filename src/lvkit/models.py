@@ -10,9 +10,8 @@ the parser constructs these instances directly, so they must live in a
 parser-importable module — not inside graph/. Frame metadata (selector
 values, ranges, …) is a pure projection out of the graph; a frame's actual
 contents are read from ``InMemoryVIGraph.child_nodes``/``top_level_nodes``,
-never stored on the Frame itself (see the removed ``Operation`` hierarchy —
-graph/models.py's ``GraphNode`` subclasses are now the single source of
-truth for node structure).
+never stored on the Frame itself — graph/models.py's ``GraphNode``
+subclasses are the single source of truth for node structure.
 """
 
 from __future__ import annotations

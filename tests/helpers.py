@@ -176,8 +176,8 @@ def tunnel_terminals(tunnels):
     """Express a list of ``Tunnel`` objects as the paired outer/inner
     ``TunnelTerminal``s a ``StructureNode`` carries, so ``ctx.tunnels`` (which
     reconstructs tunnels from a node's terminals) yields the same set. Lets a
-    codegen unit test that used to hand a structure ``Operation`` an explicit
-    ``tunnels=[...]`` list build an equivalent structure ``GraphNode`` instead.
+    codegen unit test build a structure ``GraphNode`` with an equivalent
+    ``tunnels=[...]`` list.
     """
     from lvkit.models import TunnelTerminal
 
@@ -220,8 +220,7 @@ def register_nodes(graph, nodes, vi_name: str = "test.vi") -> None:
     back-links (sorted by ``_node_order_key``, like the real builder).
 
     Lets a codegen unit test hand structure emitters real graph nodes to walk
-    via ``ctx.child_nodes`` / ``ctx.frame_children`` instead of the removed
-    ``Operation.inner_nodes`` / ``frames[].operations``.
+    via ``ctx.child_nodes`` / ``ctx.frame_children``.
     """
     from collections import defaultdict
 
