@@ -32,6 +32,13 @@ When stuck: do MORE of 1–4, or write a `"placeholder": true` primitive entry. 
 
 This is not "try harder." It is a hard gate: unverified → unsaid; unwritten commitment → didn't happen.
 
+## ⛔ ARCHITECTURE LIVES IN `ARCHITECTURE.md` — READ IT BEFORE ANY ARCHITECTURAL CLAIM (READ THIS FIRST)
+
+**All architecture — the one progressively-built graph that is the substrate for EVERY command, the pipeline, how each view (render/describe/lvnet/diff/codegen) PROJECTS from that graph, and the CLI/desktop/web frontends — lives in `ARCHITECTURE.md` at the repo root.** It is the canonical reference, every claim cited to `file:line`.
+
+- **Before making ANY architectural claim, or proposing ANY solution that touches the graph, the pipeline, or a VI view, READ `ARCHITECTURE.md` first and cite it.** Do not reason about the tool's shape from memory — memory is the part that's unreliable. Unverified architecture → unsaid (same hard gate as VERIFY BEFORE CLAIMING). Do NOT flail or guess out loud on architecture (this session's web-`viText` failure — proposing lvnet through the SVG renderer, then questioning whether graphs are even built — is exactly the banned behavior).
+- **Memory (`MEMORY.md` and `memory/*`) is BEHAVIORS ONLY** — how-we-work, feedback, hard constraints. NEVER put architecture/code facts in memory (they rot and it bloats the index). When you get architecture wrong or learn a new architecture fact, **ADD/CORRECT it in `ARCHITECTURE.md` in the same turn** — never a new memory file. Keep `ARCHITECTURE.md` filled with what you keep forgetting.
+
 ## ⛔ BUGS — INVESTIGATE ONLY; THE MAINTAINER DECIDES THE FIX (READ THIS FIRST)
 
 **For any bug, independent decision-making on the FIX is revoked.** The workflow is: **investigate → present findings → the maintainer decides → only then implement, exactly as agreed.** Do NOT write code — not a "small" fix, not an "obvious" one, not a docstring — until the maintainer has explicitly approved the approach.
@@ -237,6 +244,8 @@ Wire types from dataflow:
 The "Wire types from dataflow" section shows what terminal indices the caller is actually using. Match these to the terminal names and add `"index": N` to each terminal in the JSON.
 
 ## Code Style
+
+**The full coding-style rules live in `docs/_internal/design/code-style.md`** — read and follow them when writing lvkit code (KISS/DRY, no god-modules, one decomposed class hierarchy per variant, types-over-dicts, module-level imports, no inline `python -c`, qualified type names, deterministic/sorted order at every order-materializing site, no string-matching (use graph indices), single-job fields, unknown-node = error not silent warning, no heuristic guessing). The essentials:
 
 - Python 3.10+ required
 - Ruff for linting (rules: E, F, I, UP)
