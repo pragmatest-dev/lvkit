@@ -52,6 +52,12 @@ class LVClass:
     name: str
     path: Path
     parent_class: str | None = None
+    # The parent's recorded relative URL from the class's ``Parent`` Item
+    # (e.g. ``"../../Layer/Layer.lvclass"``) when declared that way — a DIRECT
+    # path to the parent file, so the loader follows it without any name-search
+    # (the parent often sits in a sibling subtree, not up-tree). None when the
+    # parent came only from the binary ``ParentClassLinkInfo`` (no URL there).
+    parent_url: str | None = None
     is_vilib_parent: bool = False
     private_data_ctl: str | None = None
     methods: list[LVMethod] = field(default_factory=list)
@@ -560,19 +566,27 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     private_data_ctl = None
     methods: list[LVMethod] = []
 
-    # Authoritative parent: decoded from NI.LVClass.ParentClassLinkInfo (see
-    # _parent_from_link_info). Absence of the property means this class is a
-    # root (no parent) -- confirmed against the full JKI-VI-Tester corpus
-    # (32/32 classes: every non-root class carries this property, every root
-    # class lacks it).
-    link_info = _parent_from_link_info(root)
-    parent_class = link_info[0] if link_info is not None else None
-    is_vilib_parent = link_info[1] if link_info is not None else False
+    # Parent class. Two on-disk shapes carry it, and NOT every non-root class
+    # has both: the plain-XML ``Parent`` Item carries the name AND a relative
+    # URL to the parent file (preferred — a DIRECT path the loader follows with
+    # no search); the binary ``NI.LVClass.ParentClassLinkInfo`` property carries
+    # only the name (older/other saves). A class with the Item but no property
+    # (e.g. the LabVIEW-Icon-Editor classes) would otherwise be mis-read as a
+    # root, dropping its whole inherited-method surface.
+    parent_url: str | None = None
+    item_parent = _parent_from_item(root)
+    if item_parent is not None:
+        parent_class, parent_url = item_parent
+        is_vilib_parent = "<vilib>" in (parent_url or "")
+    else:
+        link_info = _parent_from_link_info(root)
+        parent_class = link_info[0] if link_info is not None else None
+        is_vilib_parent = link_info[1] if link_info is not None else False
 
     # Full ancestor chain, nearest-first -- best-effort on-disk resolution of
     # each ancestor's own .lvclass file (see _build_ancestor_chain). Never
     # decodes NI.LVClass.Geneology (opaque, leaks siblings).
-    ancestors = _build_ancestor_chain(lvclass_path, parent_class)
+    ancestors = _build_ancestor_chain(lvclass_path, parent_class, parent_url)
 
     # NI.Lib.Version -- verbatim dotted-quad string, same convention as
     # parse_lvlib's version property below.
@@ -597,6 +611,7 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         name=class_name,
         path=lvclass_path,
         parent_class=parent_class,
+        parent_url=parent_url,
         is_vilib_parent=is_vilib_parent,
         private_data_ctl=private_data_ctl,
         methods=methods,
@@ -699,6 +714,26 @@ def _lv_base64_decode(text: str) -> bytes:
 
 _PRINTABLE_RUN_RE = re.compile(rb"[ -~]{4,}")
 _LVCLASS_TOKEN_RE = re.compile(r"([^\\/<>]+\.lvclass)$")
+
+
+def _parent_from_item(root: ET.Element) -> tuple[str, str | None] | None:
+    """The parent class from the plain-XML ``Parent`` Item, if declared there.
+
+    A ``.lvclass`` records inheritance as
+    ``<Item Name="X.lvclass" Type="Parent" URL="../../X/X.lvclass"/>`` (inside a
+    ``Parent Libraries`` group). This is the richest source — it carries the
+    parent's name AND a relative URL straight to the parent file — so the loader
+    follows the URL with no name-search (the parent commonly lives in a sibling
+    subtree, unreachable by an up-tree walk). Returns
+    ``(parent_name_without_suffix, url_or_None)`` or ``None`` when absent.
+    """
+    for item in root.findall(".//Item"):
+        if item.get("Type") != "Parent":
+            continue
+        name = item.get("Name", "")
+        if name.endswith(".lvclass"):
+            return name[: -len(".lvclass")], item.get("URL")
+    return None
 
 
 def _parent_from_link_info(root: ET.Element) -> tuple[str, bool] | None:
@@ -820,24 +855,28 @@ def _resolve_ancestor_lvclass(
 def _build_ancestor_chain(
     lvclass_path: Path,
     parent_class: str | None,
+    parent_url: str | None = None,
 ) -> list[str]:
-    """The FULL ancestor chain, nearest-first, by recursively following
-    ``NI.LVClass.ParentClassLinkInfo`` (via ``_parent_from_link_info``) up
-    from ``lvclass_path``.
+    """The FULL ancestor chain, nearest-first, by following each class's own
+    recorded parent up from ``lvclass_path``.
+
+    Prefers the parent's DIRECT recorded URL (relative to the class file, which
+    LabVIEW treats as a directory): a hit parses that ancestor and continues via
+    ITS url; a URL whose file is absent stops the chain at the bare name and does
+    NOT fall back to a filesystem search — the URL is authoritative, so a
+    missing file just means the ancestor isn't vendored here. Only a class with
+    NO url (older binary-only ``ParentClassLinkInfo`` saves) uses the climb-and-
+    ``rglob`` ``_resolve_ancestor_lvclass`` fallback — which must never run for a
+    class in a throwaway/tmp tree (it would rglob a giant unrelated root).
 
     Deliberately does NOT decode ``NI.LVClass.Geneology`` (an opaque base64
-    type-descriptor that also leaks sibling classes) -- this walks the SAME
-    authoritative per-class link a child already resolves its own immediate
-    parent from, just repeated up the tree. Each ancestor's ``.lvclass`` file
-    is located with ``_resolve_ancestor_lvclass``; when that lookup misses (the
-    ancestor's file isn't present in this checkout), the chain stops there --
-    tolerated, not an error, since the caller only has ``parent_class``'s bare
-    name to go on for that ancestor and cannot keep walking without its file.
+    type-descriptor that also leaks sibling classes).
     """
     ancestors: list[str] = []
     seen = {lvclass_path.stem}
-    current_dir = lvclass_path.parent
+    current_path = lvclass_path
     current_parent = parent_class
+    current_url = parent_url
     while (
         current_parent
         and current_parent != "LabVIEW Object"
@@ -845,16 +884,27 @@ def _build_ancestor_chain(
     ):
         ancestors.append(current_parent)
         seen.add(current_parent)
-        parent_file = _resolve_ancestor_lvclass(current_dir, current_parent)
+        if current_url:
+            cand = (current_path / current_url).resolve()
+            if not cand.exists():
+                break  # URL authoritative; ancestor simply not vendored here
+            parent_file: Path | None = cand
+        else:
+            parent_file = _resolve_ancestor_lvclass(current_path.parent, current_parent)
         if parent_file is None:
             break
         try:
             parent_root = ET.parse(parent_file).getroot()
         except ET.ParseError:
             break
-        link = _parent_from_link_info(parent_root)
-        current_parent = link[0] if link is not None else None
-        current_dir = parent_file.parent
+        item = _parent_from_item(parent_root)
+        if item is not None:
+            current_parent, current_url = item
+        else:
+            link = _parent_from_link_info(parent_root)
+            current_parent = link[0] if link is not None else None
+            current_url = None
+        current_path = parent_file
     return ancestors
 
 

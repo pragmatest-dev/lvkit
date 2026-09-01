@@ -526,6 +526,19 @@ class ParsedVIMetadata:
     dependency_refs: list[ParsedDependencyRef] = field(
         default_factory=list,
     )  # Dependency path refs from LIvi LinkSavePathRef (all file types)
+    # SubVI callee records recovered from the ``_LIvi.bin`` VIPI table — the ONLY
+    # record of the dynamic-dispatch (``dynIUse``) methods the diagram calls (they
+    # leave no IUVI in ``_LIbd.bin``). ``name`` is the method leaf (e.g.
+    # ``"GET_LayerData.vi"``); its concrete file is resolved against the owning
+    # class's member list at load time (the VIPI's own PTH0 names the call-site
+    # class, not where a cross-class method lives). See ``parse_vipi_from_livi``.
+    subvi_method_refs: list[ParsedDependencyRef] = field(default_factory=list)
+    # A leaf-filename -> recorded-path INDEX for every file the VI's link tables
+    # (_LIvi/_LIbd/_LIfp PTH0 records) reference — classes, typedefs, VIs. The
+    # loader consults it to give a type-derived class/typedef dep a recorded path
+    # instead of a name-search (path-driven closure, web == desktop). SEPARATE
+    # from ``dependency_refs`` so it never adds a dep, only supplies a path.
+    link_path_refs: list[ParsedDependencyRef] = field(default_factory=list)
 
 
 @dataclass

@@ -25,6 +25,7 @@ from ..parser import (
     ParsedDependencyRef,
     ParsedFrontPanel,
     ParsedVI,
+    ParsedVIMetadata,
     parse_connector_pane_types,
     parse_vi,
     parse_vi_metadata,
@@ -598,17 +599,39 @@ class LoadingMixin:
         # reference resolves to this key. The qname stays the DISPLAY name.
         cls_path_r = lvclass_path.resolve()
         cls_key = str(cls_path_r)
-        # The parent class's PATH (its key) — found by walk-up from this class's
-        # own dir. Recorded on the node so inheritance walks follow it by
-        # IDENTITY (a name lookup can hit duplicates; a path can't). None when
-        # the parent isn't on disk (best-effort name fallback then).
+        # The parent class's PATH (its key). PREFER the parent's own recorded URL
+        # (a DIRECT relative path — the parent commonly lives in a sibling subtree
+        # an up-tree walk can't reach, e.g. ``../../Layer/Layer.lvclass``); fall
+        # back to a walk-up by name only when no URL was recorded. Kept on the
+        # node so inheritance walks follow it by IDENTITY (a name can hit
+        # duplicates; a path can't). None when the parent isn't on disk.
         parent = cls.parent_class
-        parent_file = (
-            self._walk_up_find(lvclass_path.parent, parent + ".lvclass")
-            if parent and parent != "LabVIEW Object"
-            else None
-        )
+        parent_file = None
+        if parent and parent != "LabVIEW Object":
+            if cls.parent_url:
+                # LabVIEW ``.lvclass`` URLs are relative to the class FILE treated
+                # as a directory (members read ``../X.vi``), so resolve against
+                # ``lvclass_path`` itself — that absorbs the leading ``..``.
+                cand = (lvclass_path / cls.parent_url).resolve()
+                if cand.exists():
+                    parent_file = cand
+            if parent_file is None:
+                parent_file = self._walk_up_find(
+                    lvclass_path.parent, parent + ".lvclass"
+                )
         parent_key = str(parent_file.resolve()) if parent_file is not None else None
+        # The class's member VIs as a ``method-leaf -> resolved .vi path`` map,
+        # keyed by the ``.vi`` filename (e.g. ``"GET_LayerData.vi"``) so a caller's
+        # dynamic-dispatch call resolves to its file by member-list membership —
+        # the authoritative owner (the VIPI/VCTP name only the CALL-SITE class).
+        # Recorded even under a MINIMAL field-load (it's just names + paths, no
+        # bodies), so the class can supply a called method's path without loading
+        # all 27 members. See ``_load_subvi_method_deps``.
+        method_paths: dict[str, str] = {}
+        for method in cls.methods:
+            vp = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
+            if vp is not None:
+                method_paths[Path(method.vi_path).name] = str(vp.resolve())
         self._dep_graph.add_node(
             cls_key,
             node_type="class",
@@ -618,20 +641,23 @@ class LoadingMixin:
             fields_only=fields_only,
             version=cls.version,
             ancestors=cls.ancestors,
+            method_paths=method_paths,
         )
         self._register_dep_node(cls_key, cls_path_r, cls_name, cls_qname)
 
         if fields_only:
             # Field-load the parent chain (no methods) so inherited nMux field
-            # indices resolve; dedup on the parent's PATH key.
-            if parent_file is not None and not self._dep_graph.has_node(
-                str(parent_file.resolve())
-            ):
-                self.load_lvclass(
-                    parent_file,
-                    LoadMode.MINIMAL,
-                    search_paths=search_paths,
-                )
+            # indices AND inherited-method calls resolve; dedup on the parent's
+            # PATH key. Edge class -> parent so the parent (and thus the render's
+            # inherited surface) is reachable in the dep graph and gets staged.
+            if parent_file is not None:
+                if not self._dep_graph.has_node(parent_key):
+                    self.load_lvclass(
+                        parent_file,
+                        LoadMode.MINIMAL,
+                        search_paths=search_paths,
+                    )
+                self._dep_graph.add_edge(cls_key, parent_key)
             return cls_key
 
         for method in cls.methods:
@@ -989,19 +1015,35 @@ class LoadingMixin:
             # better). Guards test_issue_corpus.py::…issue29….
             all_dep_qnames.update(dep_ref_map)
 
+            # A leaf-filename -> recorded-path index from LabVIEW's link tables:
+            # supplies a recorded PATH for a type-derived class/typedef dep that
+            # carries no LinkSavePathRef of its own, so it resolves by path
+            # instead of a name-search (path-driven closure, web == desktop). It
+            # only ENRICHES deps already in all_dep_qnames — never adds one — so a
+            # library-prefixed dep's bare leaf can't shadow it into a duplicate.
+            link_index = {r.name: r for r in metadata.link_path_refs}
+
             # Sorted: dependency load ORDER decides which same-named candidate
             # file claims a name first, so a hash-ordered set here made the
             # loaded VI SET non-deterministic across runs (146 vs 109 on the
             # JKI Programmatic API tree). Deterministic order → reproducible docs.
             for qname in sorted(all_dep_qnames):
+                dep_ref = dep_ref_map.get(qname) or link_index.get(
+                    qname.rsplit(":", 1)[-1]
+                )
                 self._load_dependency(
                     qname,
-                    dep_ref_map.get(qname),
+                    dep_ref,
                     caller_file,
                     search_paths,
                     caller_qname=vi_key,
                     mode=mode,
                 )
+
+            # Resolve SubVI CALLEES (incl. dynamic-dispatch methods absent from
+            # _LIbd.bin) to their files via the now-loaded class member lists —
+            # AFTER the class deps above are in the graph. See the method.
+            self._load_subvi_method_deps(vi_key, metadata, search_paths, mode)
 
         # Build map of iUse uid → fully qualified on-disk path for diagnostics.
         iuse_to_qpath: dict[str, str] = {}
@@ -1327,40 +1369,9 @@ class LoadingMixin:
 
         # Dispatch by extension to the matching public loader.
         if leaf.endswith(".vi"):
-            try:
-                bd_xml, fp_xml, main_xml = extract_vi_xml(resolved)
-                # MINIMAL leaf-loads a SubVI: its own connector pane (for the
-                # caller's param-name hovers) but NOT its own SubVIs (child NONE)
-                # — so the transitive tree is never walked. FULL recurses fully.
-                child_mode = LoadMode.FULL if mode is LoadMode.FULL else LoadMode.NONE
-                loaded_name = self._load_vi_recursive(
-                    bd_xml,
-                    fp_xml,
-                    main_xml,
-                    search_paths=search_paths,
-                    visited=set(),
-                    source_dir=resolved.parent,
-                    mode=child_mode,
-                )
-                if loaded_name:
-                    if caller_qname:
-                        self._dep_graph.add_edge(caller_qname, loaded_name)
-                    if qualified_name != loaded_name:
-                        self._qualified_aliases[qualified_name] = loaded_name
-                    # Auto-cache terminal layout for vilib VIs loaded from disk
-                    if (
-                        dep_ref is not None
-                        and dep_ref.path_tokens
-                        and dep_ref.path_tokens[0] == "<vilib>"
-                    ):
-                        self._cache_vilib_terminal_layout(loaded_name, dep_ref)
-            except (RuntimeError, OSError):
-                self._stub_subvi(
-                    qualified_name,
-                    caller_qname or "",
-                    dep_ref=dep_ref,
-                    key=str(resolved.resolve()),
-                )
+            self._leaf_load_vi(
+                resolved, qualified_name, caller_qname, dep_ref, search_paths, mode
+            )
         elif leaf.endswith(".lvclass"):
             parts = qualified_name.split(":")
             owner_chain = parts[:-1] if len(parts) > 1 else None
@@ -1412,6 +1423,132 @@ class LoadingMixin:
                 self._register_dep_name(unknown_key, leaf, qualified_name)
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, unknown_key)
+
+    def _leaf_load_vi(
+        self,
+        resolved: Path,
+        qualified_name: str,
+        caller_qname: str | None,
+        dep_ref: ParsedDependencyRef | None,
+        search_paths: list[Path],
+        mode: LoadMode,
+    ) -> str | None:
+        """Leaf-load one SubVI file and edge it to its caller — the shared body of
+        ``_load_dependency``'s ``.vi`` branch and the class-method resolver.
+
+        MINIMAL leaf-loads: the SubVI's own connector pane (for the caller's
+        param-name hovers + icon) but NOT its own SubVIs (child NONE), so the
+        transitive tree is never walked; FULL recurses fully. On a parse failure
+        the SubVI is stubbed PATH-keyed so it upgrades by identity later.
+        """
+        try:
+            bd_xml, fp_xml, main_xml = extract_vi_xml(resolved)
+            child_mode = LoadMode.FULL if mode is LoadMode.FULL else LoadMode.NONE
+            loaded_name = self._load_vi_recursive(
+                bd_xml,
+                fp_xml,
+                main_xml,
+                search_paths=search_paths,
+                visited=set(),
+                source_dir=resolved.parent,
+                mode=child_mode,
+            )
+            if loaded_name:
+                if caller_qname:
+                    self._dep_graph.add_edge(caller_qname, loaded_name)
+                if qualified_name != loaded_name:
+                    self._qualified_aliases[qualified_name] = loaded_name
+                if (
+                    dep_ref is not None
+                    and dep_ref.path_tokens
+                    and dep_ref.path_tokens[0] == "<vilib>"
+                ):
+                    self._cache_vilib_terminal_layout(loaded_name, dep_ref)
+            return loaded_name
+        except (RuntimeError, OSError):
+            self._stub_subvi(
+                qualified_name,
+                caller_qname or "",
+                dep_ref=dep_ref,
+                key=str(resolved.resolve()),
+            )
+            return None
+
+    def _load_subvi_method_deps(
+        self,
+        vi_key: str,
+        metadata: ParsedVIMetadata,
+        search_paths: list[Path],
+        mode: LoadMode,
+    ) -> None:
+        """Resolve the VI's class-method SubVI CALLEES — including the dispatch
+        methods the ``_LIbd.bin`` IUVI table omits — to their files by MEMBER-LIST
+        membership over the classes this VI already depends on, and edge each to
+        the caller so the render draws its icon + interface.
+
+        A callee name (from the ``_LIvi.bin`` VIPI table + the IUVI map) resolves
+        against the ``method_paths`` of the VI's class deps: the owner is the class
+        whose member list HAS the method. A CROSS-CLASS dynamic-dispatch call —
+        a method whose owner is a class this VI does NOT path-record (its object
+        was derived mid-diagram, so nothing stores that class's path) — is left
+        UNRESOLVED on purpose: MINIMAL does not follow into it (its ``dynLink``
+        carries no static path, only the wire's class resolves it), so the render
+        draws a named box and a later click loads it as its own root.
+        """
+        called: set[str] = {ref.name for ref in metadata.subvi_method_refs}
+        for qname in metadata.iuse_to_qualified_name.values():
+            called.add(qname.rsplit(":", 1)[-1])
+        if not called:
+            return
+
+        # Most-derived class first, then by path: when a method is OVERRIDDEN
+        # (declared in a child and its parent, both loaded), the child's copy is
+        # the icon that would actually run, and the tie-break is deterministic.
+        class_keys = sorted(
+            (
+                s
+                for s in self._dep_graph.successors(vi_key)
+                if self._dep_graph.nodes[s].get("node_type") == "class"
+            ),
+            key=lambda s: (-len(self._dep_graph.nodes[s].get("ancestors", [])), s),
+        )
+        for name in sorted(called):
+            if self._resolve_method_in_hierarchy(
+                name, class_keys, vi_key, search_paths, mode
+            ):
+                continue
+
+    def _resolve_method_in_hierarchy(
+        self,
+        name: str,
+        class_keys: list[str],
+        vi_key: str,
+        search_paths: list[Path],
+        mode: LoadMode,
+    ) -> bool:
+        """Resolve one callee against each class dep AND its ANCESTOR chain (a
+        dispatch method not declared on the wire's class is INHERITED from a
+        parent — that owner's file is the icon to show), then leaf-load + edge it.
+        The ancestor hop follows the parent's recorded ``parent_key`` — a direct
+        path link, never a name-search. Returns whether it resolved."""
+        for cls_key in class_keys:
+            k: str | None = cls_key
+            seen: set[str] = set()
+            while k is not None and k not in seen and self._dep_graph.has_node(k):
+                seen.add(k)
+                path_str = self._dep_graph.nodes[k].get("method_paths", {}).get(name)
+                if path_str is not None:
+                    self._leaf_load_vi(
+                        Path(path_str),
+                        f"{Path(k).name}:{name}",
+                        vi_key,
+                        None,
+                        search_paths,
+                        mode,
+                    )
+                    return True
+                k = self._dep_graph.nodes[k].get("parent_key")
+        return False
 
     def _stub_subvi(
         self,
