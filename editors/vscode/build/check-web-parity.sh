@@ -22,6 +22,22 @@ FIXTURES=(
   tests/corpus/issues/39/zorder-not-respected.vi
 )
 
+# LOCAL-ONLY class coverage: the committed fixtures above exercise no class,
+# inheritance, or cross-class dispatch — the path a caller takes to stage a
+# SubVI it calls by INHERITANCE (a parent class's dispatch method). That lives
+# in the icon-editor sample, a gitignored corpus CI runners don't pull. Append
+# it ONLY when it's on disk (mirrors tests' `needs_samples`): a local run gates
+# the class path byte-for-byte, CI renders the same 5 and never sees these.
+ICON_DIR=".lvkit/cache/samples/ni-labview-icon-editor/vi.lib/LabVIEW Icon API/lv_icon/Classes"
+if [ -d "$ICON_DIR" ]; then
+  FIXTURES+=(
+    "$ICON_DIR/Icon Framework/Apply Body Text.vi" # inherited Layer dispatch + 6 SubVIs
+    "$ICON_DIR/Layer/GET_LayerData.vi"            # cross-class dispatch target
+    "$ICON_DIR/Icon/GET_IconTextClass.vi"         # Icon class method
+    "$ICON_DIR/Icon Framework/CreateBodyText.vi"  # own-class static call
+  )
+fi
+
 OUT="$(mktemp -d)"
 # Case-INSENSITIVE char class: the id embeds the source PATH slug, which
 # preserves case (JKI-VI-Tester, Test LVKit). Must stay identical to

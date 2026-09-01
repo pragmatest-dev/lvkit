@@ -606,20 +606,25 @@ class LoadingMixin:
         # node so inheritance walks follow it by IDENTITY (a name can hit
         # duplicates; a path can't). None when the parent isn't on disk.
         parent = cls.parent_class
-        parent_file = None
+        parent_file = None  # the parent's file when it's actually present
+        parent_intended: Path | None = None  # its recorded path, present or not
         if parent and parent != "LabVIEW Object":
             if cls.parent_url:
                 # LabVIEW ``.lvclass`` URLs are relative to the class FILE treated
                 # as a directory (members read ``../X.vi``), so resolve against
                 # ``lvclass_path`` itself — that absorbs the leading ``..``.
-                cand = (lvclass_path / cls.parent_url).resolve()
-                if cand.exists():
-                    parent_file = cand
-            if parent_file is None:
+                parent_intended = (lvclass_path / cls.parent_url).resolve()
+                if parent_intended.exists():
+                    parent_file = parent_intended
+            if parent_file is None and parent_intended is None:
                 parent_file = self._walk_up_find(
                     lvclass_path.parent, parent + ".lvclass"
                 )
-        parent_key = str(parent_file.resolve()) if parent_file is not None else None
+        # The parent's KEY is its recorded path whether or not the file is staged
+        # yet — so progressive (web) staging can NAME + fetch a not-yet-present
+        # parent (an ``.exists()`` gate would drop the whole inherited surface).
+        parent_ref = parent_file or parent_intended
+        parent_key = str(parent_ref.resolve()) if parent_ref is not None else None
         # The class's member VIs as a ``method-leaf -> resolved .vi path`` map,
         # keyed by the ``.vi`` filename (e.g. ``"GET_LayerData.vi"``) so a caller's
         # dynamic-dispatch call resolves to its file by member-list membership —
@@ -627,11 +632,21 @@ class LoadingMixin:
         # Recorded even under a MINIMAL field-load (it's just names + paths, no
         # bodies), so the class can supply a called method's path without loading
         # all 27 members. See ``_load_subvi_method_deps``.
+        # Record the member's path even when the file is NOT present yet: the
+        # ``.lvclass`` URL (``../X.vi``, the class-as-directory quirk) gives its
+        # INTENDED path, which is what progressive (web) staging needs to NAME +
+        # fetch a not-yet-staged member. An ``.exists()``-gated resolve would name
+        # nothing until the file is already staged — chicken-and-egg — so the web
+        # closure would converge WITHOUT the SubVIs (they'd never be fetched).
         method_paths: dict[str, str] = {}
         for method in cls.methods:
             vp = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
-            if vp is not None:
-                method_paths[Path(method.vi_path).name] = str(vp.resolve())
+            if vp is None:
+                rel = method.vi_path
+                while rel.startswith("../"):
+                    rel = rel[3:]
+                vp = cls_path_r.parent / rel
+            method_paths[Path(method.vi_path).name] = str(vp)
         self._dep_graph.add_node(
             cls_key,
             node_type="class",
@@ -651,12 +666,31 @@ class LoadingMixin:
             # PATH key. Edge class -> parent so the parent (and thus the render's
             # inherited surface) is reachable in the dep graph and gets staged.
             if parent_file is not None:
-                if not self._dep_graph.has_node(parent_key):
+                assert parent_key is not None  # parent_file present => key set
+                # Load when absent OR when a prior round left it a STUB (present
+                # now — upgrade it so its method_paths populate; the has_node
+                # guard alone would leave the stub un-upgraded and its inherited
+                # methods forever unresolvable).
+                if (
+                    not self._dep_graph.has_node(parent_key)
+                    or parent_key in self._stubs
+                ):
                     self.load_lvclass(
                         parent_file,
                         LoadMode.MINIMAL,
                         search_paths=search_paths,
                     )
+                    self._stubs.discard(parent_key)
+                self._dep_graph.add_edge(cls_key, parent_key)
+            elif parent_key is not None:
+                # Parent recorded but not staged yet (web round 1): stub it by its
+                # intended path so the closure NAMES it and staging fetches it; a
+                # later round loads it for real and its methods become resolvable.
+                if not self._dep_graph.has_node(parent_key):
+                    self._dep_graph.add_node(
+                        parent_key, node_type="class", fields_only=True
+                    )
+                    self._stubs.add(parent_key)
                 self._dep_graph.add_edge(cls_key, parent_key)
             return cls_key
 
@@ -1466,12 +1500,17 @@ class LoadingMixin:
                     self._cache_vilib_terminal_layout(loaded_name, dep_ref)
             return loaded_name
         except (RuntimeError, OSError):
+            # The file isn't present (e.g. web round 1: it hasn't been staged
+            # yet). Stub it BY PATH and EDGE it to the caller, so the recorded
+            # path surfaces in get_dependency_paths — otherwise the extension has
+            # nothing to stage and the SubVI never appears. A later round finds
+            # the file and this upgrades to a real leaf-load.
+            stub_key = str(resolved.resolve())
             self._stub_subvi(
-                qualified_name,
-                caller_qname or "",
-                dep_ref=dep_ref,
-                key=str(resolved.resolve()),
+                qualified_name, caller_qname or "", dep_ref=dep_ref, key=stub_key
             )
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, stub_key)
             return None
 
     def _load_subvi_method_deps(
