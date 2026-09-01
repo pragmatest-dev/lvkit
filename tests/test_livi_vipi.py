@@ -43,8 +43,8 @@ def _vipi(count: int, names: bytes, pth0: bytes) -> bytes:
 
 def test_parse_vipi_static_and_dynamic_callees(tmp_path: Path) -> None:
     """A count=0 own-context record is skipped; a count=1 record yields a bare
-    method (class only via its PTH0); a count=2 record yields a class-qualified
-    method."""
+    method name; a count=2 record yields the method name too (the class hint
+    is not decoded — see the function docstring on why it's unreliable)."""
     own_ctx = _vipi(0, b"", _pth0(["", "Icon Framework.lvclass"]))
     rec1 = _vipi(
         1,
@@ -59,16 +59,8 @@ def test_parse_vipi_static_and_dynamic_callees(tmp_path: Path) -> None:
     path = tmp_path / "sample_LIvi.bin"
     path.write_bytes(own_ctx + rec1 + rec2)
 
-    refs = {r.name: r for r in parse_vipi_from_livi(path)}
-    assert set(refs) == {"GET_IconTextClass.vi", "SET_BodyText.vi"}
-
-    got = refs["GET_IconTextClass.vi"]
-    assert got.path_tokens == ["", "", "Icon", "Icon.lvclass"]
-    assert got.qualified_name is None  # class known only via the PTH0 hint
-
-    body = refs["SET_BodyText.vi"]
-    assert body.qualified_name == "Icon Framework.lvclass:SET_BodyText.vi"
-    assert body.path_tokens == ["", "Icon Framework.lvclass"]
+    names = set(parse_vipi_from_livi(path))
+    assert names == {"GET_IconTextClass.vi", "SET_BodyText.vi"}
 
 
 def test_parse_vipi_missing_file_returns_empty(tmp_path: Path) -> None:
@@ -96,7 +88,7 @@ def test_parse_vipi_real_apply_body_text() -> None:
     if not livi.exists():
         pytest.skip("no _LIvi.bin extracted for this VI")
 
-    names = {r.name for r in parse_vipi_from_livi(livi)}
+    names = set(parse_vipi_from_livi(livi))
     assert {
         "GET_IconTextClass.vi",
         "SET_IconTextClass.vi",

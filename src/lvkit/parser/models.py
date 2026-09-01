@@ -448,10 +448,6 @@ class ParsedDependencyRef:
         return (base / Path(*rest)).resolve()
 
 
-# Backward compatibility alias — all new code uses ParsedDependencyRef
-ParsedSubVIPathRef = ParsedDependencyRef
-
-
 @dataclass
 class ParsedFPDCOType:
     """Type info for a front panel DCO (data container object)."""
@@ -526,13 +522,14 @@ class ParsedVIMetadata:
     dependency_refs: list[ParsedDependencyRef] = field(
         default_factory=list,
     )  # Dependency path refs from LIvi LinkSavePathRef (all file types)
-    # SubVI callee records recovered from the ``_LIvi.bin`` VIPI table — the ONLY
-    # record of the dynamic-dispatch (``dynIUse``) methods the diagram calls (they
-    # leave no IUVI in ``_LIbd.bin``). ``name`` is the method leaf (e.g.
-    # ``"GET_LayerData.vi"``); its concrete file is resolved against the owning
-    # class's member list at load time (the VIPI's own PTH0 names the call-site
-    # class, not where a cross-class method lives). See ``parse_vipi_from_livi``.
-    subvi_method_refs: list[ParsedDependencyRef] = field(default_factory=list)
+    # SubVI callee METHOD NAMES recovered from the ``_LIvi.bin`` VIPI table —
+    # the ONLY record of the dynamic-dispatch (``dynIUse``) methods the diagram
+    # calls (they leave no IUVI in ``_LIbd.bin``). Each entry is a method leaf
+    # (e.g. ``"GET_LayerData.vi"``); its concrete file is resolved against the
+    # owning class's member list at load time (the VIPI's own PTH0 class hint
+    # is unreliable for a cross-class dynamic dispatch, so it is never used).
+    # See ``parse_vipi_from_livi``.
+    subvi_method_names: list[str] = field(default_factory=list)
     # A leaf-filename -> recorded-path INDEX for every file the VI's link tables
     # (_LIvi/_LIbd/_LIfp PTH0 records) reference — classes, typedefs, VIs. The
     # loader consults it to give a type-derived class/typedef dep a recorded path

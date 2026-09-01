@@ -7,6 +7,7 @@ with a proper graph (required since bind/resolve store var_names on the graph).
 from __future__ import annotations
 
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,57 @@ def transitive_closure(
     if include_entry:
         closure.add(entry)
     return closure
+
+
+def progressive_closure(entry: Path, root: Path, proj: Path) -> set[Path]:
+    """The dependency closure reached by REPLAYING the web extension's
+    progressive staging loop against an initially-empty ``/proj`` — the ACTUAL
+    absent-then-fetch path, not a single load over the full on-disk tree.
+
+    Desktop/native tests load with every file already present, so they never
+    exercise the loader's ABSENT branches (a dep must be NAMED by its recorded
+    path AND EDGED to its caller while its file is missing, and its stub key must
+    match the key a later present load produces). Those branches are what the web
+    depends on and what silently regresses. This mirrors ``stageDependencyClosure``:
+    stage only ``entry`` into ``proj``, MINIMAL-load it with ``search_paths=[proj]``,
+    fetch every newly-named dependency from ``root`` into ``proj`` preserving
+    layout, and repeat until the set stops growing.
+
+    Returns the staged deps as their ORIGINAL ``root`` resolved paths (same shape
+    as ``transitive_closure`` for direct comparison) — a converged progressive
+    run MUST equal the single-pass closure, or the absent-path logic is broken.
+    """
+    entry, root = entry.resolve(), root.resolve()
+    rel_entry = entry.relative_to(root)
+    staged: set[Path] = set()
+
+    def fetch(rel: Path) -> bool:
+        src = root / rel
+        dst = proj / rel
+        if rel in staged or not src.exists():
+            return False
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        staged.add(rel)
+        return True
+
+    fetch(rel_entry)
+    entry_in_proj = proj / rel_entry
+    for _ in range(20):  # bounded; real closures converge in a handful of passes
+        graph = InMemoryVIGraph()
+        name = graph.load_vi(entry_in_proj, LoadMode.MINIMAL, search_paths=[proj])
+        added = 0
+        for dep in graph.get_dependency_paths(name or str(entry_in_proj)):
+            try:
+                rel = dep.resolve().relative_to(proj.resolve())
+            except ValueError:
+                continue  # a dep that didn't resolve under /proj — skip
+            if fetch(rel):
+                added += 1
+        if added == 0:
+            break
+
+    return {(root / rel).resolve() for rel in staged if rel != rel_entry}
 
 
 _RENDER_ID_RE = re.compile(r"lv-[a-z0-9-]*-vi", re.IGNORECASE)

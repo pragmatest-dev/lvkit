@@ -8,7 +8,7 @@ from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.parser import ParsedVI, ParsedVIMetadata, parse_vi
-from lvkit.parser.metadata import parse_subvi_paths, parse_vi_metadata
+from lvkit.parser.metadata import parse_vi_metadata
 from lvkit.parser.type_mapping import parse_type_map_rich
 
 # Regression suite over the local-only sample corpus.
@@ -108,15 +108,11 @@ class TestMetadata:
 
 
 class TestSubVIPaths:
-    def test_refs_not_empty(self, extracted_xml):
-        _, _, main_xml = extracted_xml
-        refs = parse_subvi_paths(main_xml)
-        assert len(refs) > 0
+    def test_refs_not_empty(self, parsed_metadata):
+        assert len(parsed_metadata.dependency_refs) > 0
 
-    def test_refs_have_qualified_names(self, extracted_xml):
-        _, _, main_xml = extracted_xml
-        refs = parse_subvi_paths(main_xml)
-        for ref in refs:
+    def test_refs_have_qualified_names(self, parsed_metadata):
+        for ref in parsed_metadata.dependency_refs:
             assert ref.qualified_name is not None
 
 

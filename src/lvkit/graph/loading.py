@@ -7,6 +7,7 @@ _resolve_class_vi_path, _resolve_through_llb.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import xml.etree.ElementTree as ET
@@ -32,6 +33,7 @@ from ..parser import (
 )
 from ..parser.type_mapping import parse_type_map_rich
 from ..structure import (
+    LVClass,
     get_project_classes,
     get_project_libraries,
     get_project_vis,
@@ -91,6 +93,28 @@ def _case_insensitive_match(directory: Path, filename: str) -> Path | None:
     except OSError:
         return None
     return None
+
+
+def _redirect_member_beside_container(cand: Path, leaf: str) -> Path:
+    """Redirect a resolved dependency path from its OWNING container to the
+    member's actual on-disk sibling.
+
+    A class/library MEMBER's LinkSavePathRef tokens describe the owning
+    container (e.g. ``['', 'TestCase.lvclass']``); the member's own filename
+    is carried separately as ``leaf``, NOT in the tokens. So resolving those
+    tokens yields the ``.lvclass``/``.lvlib`` file itself — dispatching that
+    as the member's own file fails (e.g. a ``.vi`` member fails
+    ``extract_vi_xml``, a ``NotADirectoryError`` joining a ``.ctl`` member
+    INTO the class file). Member files are stored BESIDE their container, so
+    when ``cand`` resolved to a ``.lvclass``/``.lvlib`` that isn't ``leaf``
+    itself, redirect to the sibling ``container_dir/leaf``. Returns ``cand``
+    unchanged otherwise. Pure path math — does not check existence; callers
+    that need an existence gate (only a resolved sibling counts) apply it
+    themselves.
+    """
+    if cand.suffix.lower() in (".lvclass", ".lvlib") and leaf != cand.name:
+        return cand.with_name(leaf)
+    return cand
 
 
 def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
@@ -399,6 +423,43 @@ class LoadingMixin:
             node["qname"] = qname
             node["name"] = name
 
+    def _add_stub(
+        self,
+        key: str,
+        node_type: str,
+        name: str,
+        qname: str | None,
+        path_tokens: list[str] | None,
+        caller: str | None,
+        rel: str | None = None,
+    ) -> None:
+        """Add one path-keyed STUB node for a dependency whose file is absent
+        (or unresolved) -- the single shape shared by every stub-creation site
+        in this module: the dep is still NAMED by its recorded/intended path
+        (``key``) so a progressive (web) load can see + fetch it, and a later
+        real load upgrades it in place (paired with a ``self._stubs.discard``
+        at the matching real-load site -- see e.g. ``load_lvclass``,
+        ``load_typedef``, ``_load_vi_recursive``).
+
+        Never overwrites an already-loaded (non-stub) node: guarded by
+        ``has_node``, so a stub call that races a real load is a no-op on the
+        node/``_stubs`` side. ``caller`` is optional -- when given, edges
+        ``caller -> key`` (with ``rel`` when one is passed, e.g. ``"owns"``
+        for a class/library member; no ``rel`` attribute for a plain SubVI/
+        type reference); when None, no edge is added (a caller with no
+        dep_graph node of its own, e.g. a ``.lvproj`` member, cannot be
+        edged from).
+        """
+        if not self._dep_graph.has_node(key):
+            self._dep_graph.add_node(key, node_type=node_type, path_tokens=path_tokens)
+            self._stubs.add(key)
+        self._register_dep_name(key, name, qname if qname is not None else name)
+        if caller:
+            if rel:
+                self._dep_graph.add_edge(caller, key, rel=rel)
+            else:
+                self._dep_graph.add_edge(caller, key)
+
     def load_lvlib(
         self,
         lvlib_path: Path | str,
@@ -428,6 +489,7 @@ class LoadingMixin:
         lib_key = str(lib_path_r)
         self._dep_graph.add_node(lib_key, node_type="library")
         self._register_dep_node(lib_key, lib_path_r, lib_name, lib_qname)
+        self._stubs.discard(lib_key)
 
         for member in lib.members:
             if member.member_type == "VI":
@@ -454,12 +516,17 @@ class LoadingMixin:
                         # (computable without the file), so it stages/upgrades by
                         # identity. Index the qname so refs resolve here.
                         ctl_key = str(ctl_path.resolve())
-                        if not self._dep_graph.has_node(ctl_key):
-                            self._dep_graph.add_node(ctl_key, node_type="typedef")
-                            self._stubs.add(ctl_key)
-                        self._register_dep_name(ctl_key, member_name, typedef_qname)
-                        self._dep_graph.add_edge(lib_key, ctl_key, rel="owns")
+                        self._add_stub(
+                            ctl_key,
+                            "typedef",
+                            member_name,
+                            typedef_qname,
+                            path_tokens=None,
+                            caller=lib_key,
+                            rel="owns",
+                        )
                 else:
+                    member_qname = lib_qname + ":" + member_name
                     vi_path = lvlib_path.parent / member.url
                     if not vi_path.exists():
                         # Relative path doesn't resolve — search by filename
@@ -473,10 +540,25 @@ class LoadingMixin:
                         # Ownership edge — to the member's RETURN key (its path).
                         if member_key and member_key in self._dep_graph:
                             self._dep_graph.add_edge(lib_key, member_key, rel="owns")
+                    else:
+                        # Absent .vi member: key the stub by its INTENDED
+                        # resolved path (computable without the file), so it
+                        # stages/upgrades by identity. Mirrors the absent-.ctl
+                        # branch above.
+                        vi_key = str((lvlib_path.parent / member.url).resolve())
+                        self._add_stub(
+                            vi_key,
+                            "vi",
+                            member_name,
+                            member_qname,
+                            path_tokens=None,
+                            caller=lib_key,
+                            rel="owns",
+                        )
             elif member.member_type == "LVClass":
+                class_name = Path(member.url).name
                 class_path = lvlib_path.parent / member.url
                 if not class_path.exists():
-                    class_name = Path(member.url).name
                     found = self._find_file(
                         class_name,
                         search_paths,
@@ -497,16 +579,31 @@ class LoadingMixin:
                     # load_lvclass) to land on the real VI node. Dropping
                     # owner_chain here silently loses that ownership
                     # attribution instead of fixing anything.
-                    self.load_lvclass(
+                    member_key = self.load_lvclass(
                         class_path,
                         mode,
                         search_paths,
                         owner_chain=chain + [lib.name + ".lvlib"],
                     )
+                    if member_key:
+                        self._dep_graph.add_edge(lib_key, member_key, rel="owns")
+                else:
+                    # Absent .lvclass member: same path-keyed stub treatment.
+                    class_key = str((lvlib_path.parent / member.url).resolve())
+                    class_qname = lib_qname + ":" + class_name
+                    self._add_stub(
+                        class_key,
+                        "class",
+                        class_name,
+                        class_qname,
+                        path_tokens=None,
+                        caller=lib_key,
+                        rel="owns",
+                    )
             elif member.member_type == "Library":
+                lib_name_file = Path(member.url).name
                 nested_path = lvlib_path.parent / member.url
                 if not nested_path.exists():
-                    lib_name_file = Path(member.url).name
                     found = self._find_file(
                         lib_name_file,
                         search_paths,
@@ -515,11 +612,27 @@ class LoadingMixin:
                     if found:
                         nested_path = found
                 if nested_path.exists():
-                    self.load_lvlib(
+                    nested_key = self.load_lvlib(
                         nested_path,
                         mode,
                         search_paths,
                         owner_chain=chain + [lib.name + ".lvlib"],
+                    )
+                    if nested_key:
+                        self._dep_graph.add_edge(lib_key, nested_key, rel="owns")
+                else:
+                    # Absent nested .lvlib member: same path-keyed stub
+                    # treatment.
+                    nested_key = str((lvlib_path.parent / member.url).resolve())
+                    nested_qname = lib_qname + ":" + lib_name_file
+                    self._add_stub(
+                        nested_key,
+                        "library",
+                        lib_name_file,
+                        nested_qname,
+                        path_tokens=None,
+                        caller=lib_key,
+                        rel="owns",
                     )
 
         return lib_key
@@ -559,67 +672,18 @@ class LoadingMixin:
         cls_name = cls.name + ".lvclass"
         cls_qname = ":".join(chain + [cls_name]) if chain else cls_name
 
-        # Add class node to dep_graph with field info. The LVPrivateDataField
-        # -> ClusterField conversion (incl. nested sub-field typing) is
-        # shared with the render resolver's VI-own-inline-copy fallback —
-        # see structure.py::private_data_field_to_cluster_field.
-        fields = [
-            private_data_field_to_cluster_field(f) for f in cls.private_data_fields
-        ]
-        if not fields:
-            # No inline "class private data" cluster found in a method VI's VCTP
-            # (structure.py::_parse_private_data_fields) — this class stores its
-            # private data as a control (.ctl) typedef instead. Read the fields
-            # straight from that control (same .ctl extraction as load_typedef);
-            # its file may differ from the class's recorded logical name.
-            ctl = self._find_private_data_ctl(lvclass_path.parent, cls.private_data_ctl)
-            if ctl is not None:
-                ctl_fields, _ = self._ctl_root_fields(ctl)
-                if ctl_fields:
-                    fields = ctl_fields
-        if not fields:
-            # Source-only .lvclass: neither a method VI's VCTP nor a .ctl file
-            # on disk carries the cluster (e.g. the pre-refactor layout where
-            # the private data is embedded ONLY as the flattened
-            # NI.LVClass.FlattenedPrivateDataCTL property in the class XML).
-            # Recover the field layout straight from that property. Best-effort:
-            # a malformed/older embedded control must never break class loading.
-            try:
-                pd_fields = private_data_from_lvclass_xml(lvclass_path)
-            except Exception:
-                logger.debug(
-                    "flattened private-data recovery failed for %s",
-                    lvclass_path,
-                    exc_info=True,
-                )
-                pd_fields = []
-            fields = [private_data_field_to_cluster_field(f) for f in pd_fields]
+        # Add class node to dep_graph with field info.
+        fields = self._class_private_data_fields(cls, lvclass_path)
         # PATH is the class's identity (finishes #26): key the node by the
         # resolved .lvclass path and index its qname/bare-name so a type
         # reference resolves to this key. The qname stays the DISPLAY name.
         cls_path_r = lvclass_path.resolve()
         cls_key = str(cls_path_r)
-        # The parent class's PATH (its key). PREFER the parent's own recorded URL
-        # (a DIRECT relative path — the parent commonly lives in a sibling subtree
-        # an up-tree walk can't reach, e.g. ``../../Layer/Layer.lvclass``); fall
-        # back to a walk-up by name only when no URL was recorded. Kept on the
-        # node so inheritance walks follow it by IDENTITY (a name can hit
-        # duplicates; a path can't). None when the parent isn't on disk.
+        # The parent class's PATH (its key). Kept on the node so inheritance
+        # walks follow it by IDENTITY (a name can hit duplicates; a path
+        # can't). None when the parent isn't on disk.
         parent = cls.parent_class
-        parent_file = None  # the parent's file when it's actually present
-        parent_intended: Path | None = None  # its recorded path, present or not
-        if parent and parent != "LabVIEW Object":
-            if cls.parent_url:
-                # LabVIEW ``.lvclass`` URLs are relative to the class FILE treated
-                # as a directory (members read ``../X.vi``), so resolve against
-                # ``lvclass_path`` itself — that absorbs the leading ``..``.
-                parent_intended = (lvclass_path / cls.parent_url).resolve()
-                if parent_intended.exists():
-                    parent_file = parent_intended
-            if parent_file is None and parent_intended is None:
-                parent_file = self._walk_up_find(
-                    lvclass_path.parent, parent + ".lvclass"
-                )
+        parent_file, parent_intended = self._resolve_parent(cls, lvclass_path)
         # The parent's KEY is its recorded path whether or not the file is staged
         # yet — so progressive (web) staging can NAME + fetch a not-yet-present
         # parent (an ``.exists()`` gate would drop the whole inherited surface).
@@ -642,10 +706,7 @@ class LoadingMixin:
         for method in cls.methods:
             vp = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
             if vp is None:
-                rel = method.vi_path
-                while rel.startswith("../"):
-                    rel = rel[3:]
-                vp = cls_path_r.parent / rel
+                vp = self._intended_class_vi_path(lvclass_path.parent, method.vi_path)
             method_paths[Path(method.vi_path).name] = str(vp)
         self._dep_graph.add_node(
             cls_key,
@@ -659,39 +720,51 @@ class LoadingMixin:
             method_paths=method_paths,
         )
         self._register_dep_node(cls_key, cls_path_r, cls_name, cls_qname)
+        self._stubs.discard(cls_key)
+
+        # Field-load the parent chain (no methods) so inherited nMux field
+        # indices AND inherited-method calls resolve; dedup on the parent's
+        # PATH key. Edge class -> parent so the parent (and thus the render's
+        # inherited surface) is reachable in the dep graph and gets staged.
+        # Runs for BOTH a fields_only (MINIMAL) and a FULL class load — a FULL
+        # load's method-loading loop below still needs the inheritance edge
+        # (and the parent's method_paths) for dispatch resolution, so the
+        # parent is never skipped just because this load went deeper.
+        if parent_file is not None:
+            assert parent_key is not None  # parent_file present => key set
+            # Load when absent OR when a prior round left it a STUB (present
+            # now — upgrade it so its method_paths populate; the has_node
+            # guard alone would leave the stub un-upgraded and its inherited
+            # methods forever unresolvable).
+            if not self._dep_graph.has_node(parent_key) or parent_key in self._stubs:
+                self.load_lvclass(
+                    parent_file,
+                    LoadMode.MINIMAL,
+                    search_paths=search_paths,
+                )
+                self._stubs.discard(parent_key)
+            self._dep_graph.add_edge(cls_key, parent_key)
+        elif parent_key is not None:
+            # Parent recorded but not staged yet (web round 1): stub it by its
+            # intended path so the closure NAMES it and staging fetches it; a
+            # later round loads it for real and its methods become resolvable.
+            # Not routed through _add_stub: this stub carries a ``fields_only``
+            # node attribute the shared helper doesn't set, so it stays manual
+            # (kept shape-consistent with the other stub sites: an explicit
+            # ``path_tokens=None`` and the same register/edge order).
+            assert parent is not None  # parent_key set => parent name is known
+            if not self._dep_graph.has_node(parent_key):
+                self._dep_graph.add_node(
+                    parent_key,
+                    node_type="class",
+                    fields_only=True,
+                    path_tokens=None,
+                )
+                self._stubs.add(parent_key)
+                self._register_dep_name(parent_key, parent + ".lvclass", parent)
+            self._dep_graph.add_edge(cls_key, parent_key)
 
         if fields_only:
-            # Field-load the parent chain (no methods) so inherited nMux field
-            # indices AND inherited-method calls resolve; dedup on the parent's
-            # PATH key. Edge class -> parent so the parent (and thus the render's
-            # inherited surface) is reachable in the dep graph and gets staged.
-            if parent_file is not None:
-                assert parent_key is not None  # parent_file present => key set
-                # Load when absent OR when a prior round left it a STUB (present
-                # now — upgrade it so its method_paths populate; the has_node
-                # guard alone would leave the stub un-upgraded and its inherited
-                # methods forever unresolvable).
-                if (
-                    not self._dep_graph.has_node(parent_key)
-                    or parent_key in self._stubs
-                ):
-                    self.load_lvclass(
-                        parent_file,
-                        LoadMode.MINIMAL,
-                        search_paths=search_paths,
-                    )
-                    self._stubs.discard(parent_key)
-                self._dep_graph.add_edge(cls_key, parent_key)
-            elif parent_key is not None:
-                # Parent recorded but not staged yet (web round 1): stub it by its
-                # intended path so the closure NAMES it and staging fetches it; a
-                # later round loads it for real and its methods become resolvable.
-                if not self._dep_graph.has_node(parent_key):
-                    self._dep_graph.add_node(
-                        parent_key, node_type="class", fields_only=True
-                    )
-                    self._stubs.add(parent_key)
-                self._dep_graph.add_edge(cls_key, parent_key)
             return cls_key
 
         for method in cls.methods:
@@ -719,6 +792,81 @@ class LoadingMixin:
 
         return cls_key
 
+    def _class_private_data_fields(
+        self, cls: LVClass, lvclass_path: Path
+    ) -> list[ClusterField]:
+        """The class's private-data fields, tried in fallback order.
+
+        The LVPrivateDataField -> ClusterField conversion (incl. nested
+        sub-field typing) is shared with the render resolver's
+        VI-own-inline-copy fallback — see
+        structure.py::private_data_field_to_cluster_field. Three sources, in
+        order:
+
+        1. An inline "class private data" cluster found in a method VI's VCTP
+           (structure.py::_parse_private_data_fields).
+        2. A separate control (.ctl) typedef this class stores its private
+           data as instead (same .ctl extraction as load_typedef); its file
+           may differ from the class's recorded logical name.
+        3. A source-only .lvclass: neither of the above carries the cluster
+           (e.g. the pre-refactor layout where the private data is embedded
+           ONLY as the flattened NI.LVClass.FlattenedPrivateDataCTL property
+           in the class XML) — recovered straight from that property.
+           Best-effort: a malformed/older embedded control must never break
+           class loading.
+        """
+        fields = [
+            private_data_field_to_cluster_field(f) for f in cls.private_data_fields
+        ]
+        if not fields:
+            ctl = self._find_private_data_ctl(lvclass_path.parent, cls.private_data_ctl)
+            if ctl is not None:
+                ctl_fields, _ = self._ctl_root_fields(ctl)
+                if ctl_fields:
+                    fields = ctl_fields
+        if not fields:
+            try:
+                pd_fields = private_data_from_lvclass_xml(lvclass_path)
+            except Exception:
+                logger.debug(
+                    "flattened private-data recovery failed for %s",
+                    lvclass_path,
+                    exc_info=True,
+                )
+                pd_fields = []
+            fields = [private_data_field_to_cluster_field(f) for f in pd_fields]
+        return fields
+
+    def _resolve_parent(
+        self, cls: LVClass, lvclass_path: Path
+    ) -> tuple[Path | None, Path | None]:
+        """The parent class's file (when present) and its INTENDED path
+        (present or not) -> ``(parent_file, parent_intended)``.
+
+        PREFERS the parent's own recorded URL (a DIRECT relative path — the
+        parent commonly lives in a sibling subtree an up-tree walk can't
+        reach, e.g. ``../../Layer/Layer.lvclass``); falls back to a walk-up
+        by name only when no URL was recorded. Both None when the class has
+        no parent (or its parent is the root ``LabVIEW Object``).
+        """
+        parent = cls.parent_class
+        parent_file: Path | None = None
+        parent_intended: Path | None = None
+        if parent and parent != "LabVIEW Object":
+            if cls.parent_url:
+                # LabVIEW ``.lvclass`` URLs are relative to the class FILE
+                # treated as a directory (members read ``../X.vi``), so
+                # resolve against ``lvclass_path`` itself — that absorbs the
+                # leading ``..``.
+                parent_intended = (lvclass_path / cls.parent_url).resolve()
+                if parent_intended.exists():
+                    parent_file = parent_intended
+            if parent_file is None and parent_intended is None:
+                parent_file = self._walk_up_find(
+                    lvclass_path.parent, parent + ".lvclass"
+                )
+        return parent_file, parent_intended
+
     def _walk_up_find(
         self,
         start_dir: Path,
@@ -744,20 +892,32 @@ class LoadingMixin:
             d = d.parent
         return None
 
+    def _intended_class_vi_path(self, cls_dir: Path, relative_path: str) -> Path:
+        """The resolved INTENDED path of a class-method VI from its recorded
+        ``.lvclass`` relative URL — WITHOUT requiring the file to exist, so an
+        ABSENT member's stub key and a later PRESENT load's key are the SAME
+        resolved string. A ``.lvclass`` treats its OWN file as a directory, so a
+        member URL ``../Member.vi`` actually lives IN the class dir (the leading
+        ``..`` is that quirk, not a real level-up): strip it and resolve against
+        ``cls_dir``. This is the form ``_resolve_class_vi_path`` returns for a
+        PRESENT member, so absent stubs upgrade in place. Shared by the
+        absent-member branch of ``load_lvclass``'s ``method_paths`` loop."""
+        rel = relative_path
+        while rel.startswith("../"):
+            rel = rel[3:]
+        return (cls_dir / rel).resolve()
+
     def _resolve_class_vi_path(self, cls_dir: Path, relative_path: str) -> Path | None:
-        """Resolve VI path from lvclass relative URL."""
-        direct = cls_dir / relative_path
-        if direct.exists():
-            return direct.resolve()
-
-        stripped = relative_path
-        while stripped.startswith("../"):
-            stripped = stripped[3:]
-        if stripped != relative_path:
-            from_cls = cls_dir / stripped
-            if from_cls.exists():
-                return from_cls.resolve()
-
+        """Resolve a class member VI from its ``.lvclass`` relative URL. Prefers
+        the INTENDED (class-as-directory) path — the same key the absent-member
+        stub uses, so they never diverge — then the literal ``..``-preserving
+        path as a fallback for the rare member that truly lives one level up."""
+        intended = self._intended_class_vi_path(cls_dir, relative_path)
+        if intended.exists():
+            return intended
+        direct = (cls_dir / relative_path).resolve()
+        if direct != intended and direct.exists():
+            return direct
         return None
 
     def load_lvproj(
@@ -774,17 +934,44 @@ class LoadingMixin:
         if search_paths is None:
             search_paths = [proj_dir]
 
+        # Absent project members are stubbed by their INTENDED resolved path
+        # (mirroring load_lvlib's absent-member branches) so they're still
+        # NAMED — get_dependency_paths / is_stub_vi / progressive staging can
+        # see them and upgrade by identity when the file appears. UNLIKE
+        # load_lvlib's members, there is no ownership edge: a ``.lvproj`` is a
+        # build/reference manifest, not itself a dep_graph node — load_lvproj
+        # creates no project node to edge these members FROM.
         for lib_name, lib_path in get_project_libraries(proj):
             if lib_path.exists():
                 self.load_lvlib(lib_path, mode, search_paths)
+            else:
+                key = str(lib_path.resolve())
+                self._add_stub(
+                    key, "library", lib_name, lib_name, path_tokens=None, caller=None
+                )
 
         for class_name, class_path in get_project_classes(proj):
             if class_path.exists():
                 self.load_lvclass(class_path, mode, search_paths)
+            else:
+                key = str(class_path.resolve())
+                self._add_stub(
+                    key,
+                    "class",
+                    class_name,
+                    class_name,
+                    path_tokens=None,
+                    caller=None,
+                )
 
         for vi_name, vi_path in get_project_vis(proj):
             if vi_path.exists():
                 self.load_vi(vi_path, mode, search_paths)
+            else:
+                key = str(vi_path.resolve())
+                self._add_stub(
+                    key, "vi", vi_name, vi_name, path_tokens=None, caller=None
+                )
 
     def load_directory(
         self,
@@ -879,6 +1066,33 @@ class LoadingMixin:
                 member_path = cache_dir / Path(*parts[i + 1 :])
                 return member_path if member_path.exists() else None
         return None
+
+    def _pick_link_ref(
+        self,
+        candidates: list[ParsedDependencyRef] | None,
+        caller_file: Path,
+    ) -> ParsedDependencyRef | None:
+        """Pick the best link-table ref for a leaf-filename lookup out of
+        several candidates that share the leaf.
+
+        ``parse_link_path_refs`` dedups on ``(leaf, *path_tokens)`` and
+        deliberately keeps distinct same-leaf refs — different link records
+        can name the same on-disk leaf via DIFFERENT recorded paths. Prefer
+        the one whose recorded path actually resolves to an EXISTING file
+        against ``caller_file``; otherwise fall back to the first candidate
+        (list order — deterministic, unlike a set)."""
+        if not candidates:
+            return None
+        for ref in candidates:
+            resolved = ref.resolve_against(
+                caller_file,
+                vilib_root=self._vilib_root,
+                userlib_root=self._userlib_root,
+                instrlib_root=self._instrlib_root,
+            )
+            if resolved is not None and resolved.exists():
+                return ref
+        return candidates[0]
 
     def _load_vi_recursive(
         self,
@@ -1015,6 +1229,7 @@ class LoadingMixin:
         # recursing forever. Recording it after the walk would reintroduce the
         # infinite recursion the old unconditional _loaded_vis check prevented.
         self._loaded_vis.add(vi_key)
+        self._stubs.discard(vi_key)
         self._dep_load_mode[vi_key] = mode
 
         # Build dep_ref_map from recorded LinkSavePathRef data.
@@ -1055,15 +1270,21 @@ class LoadingMixin:
             # instead of a name-search (path-driven closure, web == desktop). It
             # only ENRICHES deps already in all_dep_qnames — never adds one — so a
             # library-prefixed dep's bare leaf can't shadow it into a duplicate.
-            link_index = {r.name: r for r in metadata.link_path_refs}
+            # List-valued: parse_link_path_refs dedups on (leaf, *path_tokens),
+            # so several refs can legitimately share a leaf via DISTINCT recorded
+            # paths — grouping (not last-wins) keeps every one available to
+            # _pick_link_ref below.
+            link_index: dict[str, list[ParsedDependencyRef]] = {}
+            for r in metadata.link_path_refs:
+                link_index.setdefault(r.name, []).append(r)
 
             # Sorted: dependency load ORDER decides which same-named candidate
             # file claims a name first, so a hash-ordered set here made the
             # loaded VI SET non-deterministic across runs (146 vs 109 on the
             # JKI Programmatic API tree). Deterministic order → reproducible docs.
             for qname in sorted(all_dep_qnames):
-                dep_ref = dep_ref_map.get(qname) or link_index.get(
-                    qname.rsplit(":", 1)[-1]
+                dep_ref = dep_ref_map.get(qname) or self._pick_link_ref(
+                    link_index.get(qname.rsplit(":", 1)[-1]), caller_file
                 )
                 self._load_dependency(
                     qname,
@@ -1171,11 +1392,15 @@ class LoadingMixin:
         # and lets the stub upgrade by identity when the file appears.
         ctl_path_r = ctl_path.resolve()
         ctl_key = str(ctl_path_r)
-        if self._dep_graph.has_node(ctl_key):
+        if self._dep_graph.has_node(ctl_key) and ctl_key not in self._stubs:
             return ctl_key
 
         if not ctl_path.exists():
-            self._dep_graph.add_node(ctl_key, node_type="typedef")
+            # Not routed through _add_stub: load_typedef returns the key and
+            # is edged by its CALLER, not internally (unlike a caller-edging
+            # stub site) — kept shape-consistent (explicit path_tokens) with
+            # the other stub sites regardless.
+            self._dep_graph.add_node(ctl_key, node_type="typedef", path_tokens=None)
             self._stubs.add(ctl_key)
             self._register_dep_name(ctl_key, ctl_path.name, qname)
             return ctl_key
@@ -1184,6 +1409,7 @@ class LoadingMixin:
         if type_map:
             self._dep_graph.add_node(ctl_key, node_type="typedef", fields=fields)
             self._register_dep_node(ctl_key, ctl_path_r, ctl_path.name, qname)
+            self._stubs.discard(ctl_key)
 
             # Recurse: load any class/typedef deps referenced in this ctl's
             # type_map (e.g. a cluster field whose type is an lvclass or ctl).
@@ -1206,7 +1432,7 @@ class LoadingMixin:
                     )
         else:
             # XML not produced — stub with what we know
-            self._dep_graph.add_node(ctl_key, node_type="typedef")
+            self._dep_graph.add_node(ctl_key, node_type="typedef", path_tokens=None)
             self._stubs.add(ctl_key)
             self._register_dep_name(ctl_key, ctl_path.name, qname)
         return ctl_key
@@ -1249,28 +1475,16 @@ class LoadingMixin:
                     if llb_resolved is not None:
                         resolved = llb_resolved
 
-        # A class/library MEMBER VI's LinkSavePathRef tokens describe the OWNING
-        # container (e.g. ['', 'TestCase.lvclass']); the member's own filename is
-        # carried in ``dep_ref.name`` (== ``leaf``), NOT in the tokens. So
-        # ``resolve_against`` yields the ``.lvclass``/``.lvlib`` file itself, and
-        # dispatching that as a ``.vi`` fails ``extract_vi_xml`` → the SubVI gets
-        # stubbed with no connector pane, so its call terminals lose their real
-        # names (render falls back to "terminal N"). Member VIs are stored beside
-        # their container file — redirect to the actual sibling ``.vi`` so it
-        # leaf-loads and its param names resolve. If the sibling isn't there,
-        # drop to None and let the name-based search below find it.
-        # Applies to ANY member leaf — a .vi member AND a .ctl typedef owned by
-        # a class (its ref also names the .lvclass container) — not just .vi, so
-        # a member .ctl doesn't get joined INTO the class file (the
-        # Class.lvclass/Class.ctl NotADirectoryError). The redirect fires only
-        # when the resolved container isn't the leaf itself.
-        if (
-            resolved is not None
-            and resolved.suffix.lower() in (".lvclass", ".lvlib")
-            and leaf != resolved.name
-        ):
-            member = resolved.with_name(leaf)
-            resolved = member if member.exists() else None
+        # Member VIs (and .ctl typedefs) are stored beside their owning class/
+        # library container, not inside it (see
+        # _redirect_member_beside_container) — redirect so a resolved
+        # container path becomes the actual sibling file. If the sibling
+        # isn't there, drop to None and let the name-based search below find
+        # it.
+        if resolved is not None:
+            redirected = _redirect_member_beside_container(resolved, leaf)
+            if redirected != resolved:
+                resolved = redirected if redirected.exists() else None
 
         if resolved is None:
             if leaf.endswith(".vi"):
@@ -1306,8 +1520,7 @@ class LoadingMixin:
         if cand is None:
             return None
         leaf = qualified_name.rsplit(":", 1)[-1]
-        if cand.suffix.lower() in (".lvclass", ".lvlib") and leaf != cand.name:
-            cand = cand.with_name(leaf)
+        cand = _redirect_member_beside_container(cand, leaf)
         return cand.resolve()
 
     def _load_dependency(
@@ -1389,16 +1602,14 @@ class LoadingMixin:
             path_tokens = (
                 list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
             )
-            if not self._dep_graph.has_node(stub_key):
-                self._dep_graph.add_node(
-                    stub_key,
-                    node_type=node_type,
-                    path_tokens=path_tokens,
-                )
-                self._stubs.add(stub_key)
-                self._register_dep_name(stub_key, leaf, qualified_name)
-            if caller_qname:
-                self._dep_graph.add_edge(caller_qname, stub_key)
+            self._add_stub(
+                stub_key,
+                node_type,
+                leaf,
+                qualified_name,
+                path_tokens=path_tokens,
+                caller=caller_qname,
+            )
             return
 
         # Dispatch by extension to the matching public loader.
@@ -1447,16 +1658,14 @@ class LoadingMixin:
             path_tokens = (
                 list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
             )
-            if not self._dep_graph.has_node(unknown_key):
-                self._dep_graph.add_node(
-                    unknown_key,
-                    node_type="unknown",
-                    path_tokens=path_tokens,
-                )
-                self._stubs.add(unknown_key)
-                self._register_dep_name(unknown_key, leaf, qualified_name)
-            if caller_qname:
-                self._dep_graph.add_edge(caller_qname, unknown_key)
+            self._add_stub(
+                unknown_key,
+                "unknown",
+                leaf,
+                qualified_name,
+                path_tokens=path_tokens,
+                caller=caller_qname,
+            )
 
     def _leaf_load_vi(
         self,
@@ -1506,9 +1715,7 @@ class LoadingMixin:
             # nothing to stage and the SubVI never appears. A later round finds
             # the file and this upgrades to a real leaf-load.
             stub_key = str(resolved.resolve())
-            self._stub_subvi(
-                qualified_name, caller_qname or "", dep_ref=dep_ref, key=stub_key
-            )
+            self._stub_subvi(qualified_name, dep_ref=dep_ref, key=stub_key)
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, stub_key)
             return None
@@ -1534,7 +1741,7 @@ class LoadingMixin:
         carries no static path, only the wire's class resolves it), so the render
         draws a named box and a later click loads it as its own root.
         """
-        called: set[str] = {ref.name for ref in metadata.subvi_method_refs}
+        called: set[str] = set(metadata.subvi_method_names)
         for qname in metadata.iuse_to_qualified_name.values():
             called.add(qname.rsplit(":", 1)[-1])
         if not called:
@@ -1592,30 +1799,29 @@ class LoadingMixin:
     def _stub_subvi(
         self,
         name: str,
-        _parent_vi: str,
+        key: str,
         dep_ref: ParsedDependencyRef | None = None,
-        key: str | None = None,
     ) -> None:
         """Record a SubVI reference that could not be resolved as a stub.
 
         Carries path_tokens from the parser's LinkSavePathRef when
-        available — diagnostics-only, never gates code generation. When the
-        file exists but failed to parse, ``key`` is its resolved path so the
-        stub is PATH-keyed (upgrades by identity) and the qname/name index to
-        it; otherwise the qname is the key (a truly unresolvable ref).
+        available — diagnostics-only, never gates code generation. ``key`` is
+        the SubVI's resolved (intended) path, so the stub is PATH-keyed
+        (upgrades by identity) and the qname/name index to it. Edging to the
+        caller is the caller's job (``_leaf_load_vi``'s except branch), not
+        this method's — so ``caller`` is None here.
         """
-        node_key = key or name
-        self._stubs.add(node_key)
         path_tokens = (
             list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
         )
-        self._dep_graph.add_node(
-            node_key,
-            node_type="vi",
+        self._add_stub(
+            key,
+            "vi",
+            name.rsplit(":", 1)[-1],
+            name,
             path_tokens=path_tokens,
+            caller=None,
         )
-        if key is not None:
-            self._register_dep_name(node_key, name.rsplit(":", 1)[-1], name)
 
     def _cache_vilib_terminal_layout(
         self,
@@ -1629,8 +1835,6 @@ class LoadingMixin:
         Skips VIs already in the bundled JSON with complete terminals.
         Safe to call repeatedly — overwrites stale entries.
         """
-        import json as _json
-
         from ..project_store import find_project_store
         from ..vilib_resolver import get_resolver as get_vilib_resolver
 
@@ -1696,8 +1900,8 @@ class LoadingMixin:
         category_file = vilib_dir / f"{category}.json"
         if category_file.exists():
             try:
-                existing_data = _json.loads(category_file.read_text(encoding="utf-8"))
-            except (_json.JSONDecodeError, OSError):
+                existing_data = json.loads(category_file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
                 existing_data = {"entries": []}
         else:
             existing_data = {"entries": []}
@@ -1715,15 +1919,15 @@ class LoadingMixin:
             entries.append(entry)
 
         category_file.write_text(
-            _json.dumps({"entries": entries}, indent=2), encoding="utf-8"
+            json.dumps({"entries": entries}, indent=2), encoding="utf-8"
         )
 
         # Update _index.json
         index_file = vilib_dir / "_index.json"
         if index_file.exists():
             try:
-                index_data = _json.loads(index_file.read_text(encoding="utf-8"))
-            except (_json.JSONDecodeError, OSError):
+                index_data = json.loads(index_file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
                 index_data = {"categories": {}}
         else:
             index_data = {"categories": {}}
@@ -1731,7 +1935,7 @@ class LoadingMixin:
         categories: dict[str, str] = index_data.get("categories", {})
         categories[category] = f"{category}.json"
         index_data["categories"] = categories
-        index_file.write_text(_json.dumps(index_data, indent=2), encoding="utf-8")
+        index_file.write_text(json.dumps(index_data, indent=2), encoding="utf-8")
 
     def _find_file(
         self,
