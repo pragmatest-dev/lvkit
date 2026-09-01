@@ -41,7 +41,12 @@ from .front_panel import (
     parse_connector_pane_labels,
 )
 from .layout import Layout, _icon_for_heap, build_layout_from_root
-from .metadata import parse_iuse_from_libd
+from .metadata import (
+    _decode_pth0_components,
+    parse_iuse_from_libd,
+    parse_link_path_refs,
+    parse_vipi_from_livi,
+)
 from .models import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
@@ -294,6 +299,31 @@ def _parse_metadata(
         if libd_bin.exists():
             iuse_to_qualified_name = parse_iuse_from_libd(libd_bin)
 
+    # Recover the FULL subVI callee list from the VI-level _LIvi.bin link table.
+    # It records EVERY callee — including the dynamic-dispatch (dynIUse) methods
+    # that leave no IUVI in _LIbd.bin — so it is the only place those callees are
+    # named. Their concrete files are resolved against the owning class at load.
+    livi_bin = main_xml.with_name(main_xml.stem + "_LIvi.bin")
+    subvi_method_names = parse_vipi_from_livi(livi_bin) if livi_bin.exists() else []
+
+    # Recover a recorded PATH for EVERY referenced file (classes + typedefs + VIs)
+    # from LabVIEW's link tables (_LIvi/_LIbd/_LIfp PTH0 records) — a leaf -> path
+    # INDEX the loader consults to give the type-derived class/typedef deps a
+    # recorded path instead of a name-search, making the closure path-driven and
+    # identical on web and desktop. Kept SEPARATE from dependency_refs (never
+    # unioned as new deps) so a library-prefixed dep's leaf can't shadow it.
+    link_path_refs: list[ParsedDependencyRef] = []
+    seen_refs: set[tuple[str, ...]] = set()
+    for suffix in ("_LIvi.bin", "_LIbd.bin", "_LIfp.bin"):
+        link_bin = main_xml.with_name(main_xml.stem + suffix)
+        if not link_bin.exists():
+            continue
+        for ref in parse_link_path_refs(link_bin):
+            key = (ref.name, *ref.path_tokens)
+            if key not in seen_refs:
+                seen_refs.add(key)
+                link_path_refs.append(ref)
+
     # Parse type map
     type_map = parse_type_map_rich(main_xml)
 
@@ -305,6 +335,8 @@ def _parse_metadata(
         subvi_qualified_names=subvi_qualified_names,
         iuse_to_qualified_name=iuse_to_qualified_name,
         dependency_refs=dependency_refs,
+        subvi_method_names=subvi_method_names,
+        link_path_refs=link_path_refs,
     )
 
 
@@ -1376,25 +1408,16 @@ def _decode_default_data(
 def _walk_path(data: bytes) -> tuple[str | None, int]:
     """Walk a ``PTH0`` path DefaultData blob ONCE -> ``(value, bytes_consumed)``.
 
-    The single source for both the path string AND the byte count, so a path
-    field inside a cluster stays aligned with the following field (previously the
-    value and the consumed count were walked by two divergent loops). Returns
-    ``(None, 0)`` when ``data`` is not a ``PTH0`` blob.
+    Delegates the pascal-string component decode to
+    ``metadata._decode_pth0_components`` (the single source of the ``PTH0``
+    component walk, shared with the link-table ``PTH0`` scan), keeping only
+    the ``Path("…")`` string formatting local -- so a path field inside a
+    cluster stays aligned with the following field. Returns ``(None, 0)``
+    when ``data`` is not a ``PTH0`` blob.
     """
     if not data.startswith(b"PTH0"):
         return None, 0
-    idx = 12  # PTH0 header
-    parts: list[str] = []
-    try:
-        while idx < len(data):
-            str_len = data[idx]
-            idx += 1
-            if str_len == 0 or idx + str_len > len(data):
-                break
-            parts.append(decode_labview_text(data[idx : idx + str_len]))
-            idx += str_len
-    except (IndexError, ValueError):
-        pass
+    parts, idx = _decode_pth0_components(data, 0, len(data))
     return (f'Path("{"/".join(parts)}")' if parts else None), idx
 
 

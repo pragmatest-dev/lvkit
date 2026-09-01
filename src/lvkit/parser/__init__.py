@@ -13,7 +13,6 @@ from .front_panel import (
 )
 from .metadata import (
     parse_polymorphic_info,
-    parse_subvi_paths,
     parse_vi_metadata,
 )
 from .models import (
@@ -29,7 +28,6 @@ from .models import (
     ParsedLoopStructure,
     ParsedNode,
     ParsedResolvedTypeDefValue,
-    ParsedSubVIPathRef,  # backward-compat alias for ParsedDependencyRef
     ParsedTerminalInfo,
     ParsedTypeDefRef,
     ParsedVI,
@@ -69,7 +67,6 @@ __all__ = [
     "ParsedNode",
     "ParsedResolvedTypeDefValue",
     "ParsedDependencyRef",
-    "ParsedSubVIPathRef",  # backward-compat alias
     "ParsedTerminalInfo",
     "Tunnel",
     "TunnelMapping",  # Backward compat alias for Tunnel
@@ -82,7 +79,6 @@ __all__ = [
     "parse_connector_pane_types",
     # Metadata
     "parse_polymorphic_info",
-    "parse_subvi_paths",
     "parse_vi_metadata",
     # Types
     "load_enum_reference",

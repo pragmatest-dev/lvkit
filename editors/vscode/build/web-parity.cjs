@@ -36,16 +36,58 @@ os.environ["LVKIT_CACHE_DIR"] = "/tmp/lvkit-parity-cache"
 from pathlib import Path
 from lvkit.render import render_vi_file_titled
 def _r(p):
-    # Bare render, default theme — must match \`lvkit render --format svg
-    # --theme light\` on the native side.
-    svg, _ = render_vi_file_titled(Path(p))
+    # Render from the STAGED /proj tree with /proj as the search root, exactly
+    # as the shipped web extension does — must match \`lvkit render --format svg
+    # --theme light\` on the native side (which reads the same files off disk).
+    svg, _ = render_vi_file_titled(Path(p), search_paths=[Path("/proj")])
     return svg or ""
 _r`);
 
+  // Report the MINIMAL dependency closure of a staged VI (the /proj paths the
+  // loader resolved) so we can stage its callees, one layer at a time.
+  const depsOf = pyodide.runPython(`
+import json
+from pathlib import Path
+from lvkit.graph import InMemoryVIGraph
+from lvkit.load_mode import LoadMode
+def _deps(p):
+    g = InMemoryVIGraph()
+    n = g.load_vi(Path(p), LoadMode.MINIMAL, search_paths=[Path("/proj")])
+    return json.dumps([str(x) for x in g.get_dependency_paths(n)])
+_deps`);
+
+  // Mirror a VI's whole dependency closure into the Pyodide FS under /proj,
+  // preserving each file's native absolute path (so recorded RELATIVE paths —
+  // e.g. a parent class at ../../Layer/Layer.lvclass — resolve), staging one
+  // layer per pass until the set stops growing. This is the SAME progressive
+  // MINIMAL-load → get_dependency_paths → fetch loop the web extension runs.
+  function stageClosure(viNative) {
+    const abs = path.resolve(viNative);
+    const staged = new Set();
+    const put = (nativePath) => {
+      const proj = "/proj" + nativePath;
+      if (staged.has(proj) || !fs.existsSync(nativePath)) return false;
+      pyodide.FS.mkdirTree(path.posix.dirname(proj));
+      pyodide.FS.writeFile(proj, fs.readFileSync(nativePath));
+      staged.add(proj);
+      return true;
+    };
+    put(abs);
+    const entryProj = "/proj" + abs;
+    for (let round = 0; round < 20; round++) {
+      const deps = JSON.parse(depsOf(entryProj));
+      let added = 0;
+      for (const dp of deps) {
+        if (dp.startsWith("/proj/") && put(dp.slice("/proj".length))) added++;
+      }
+      if (added === 0) break;
+    }
+    return entryProj;
+  }
+
   for (const vi of FIXTURES) {
-    const dst = `/vi/${slug(vi)}.vi`;
-    pyodide.FS.writeFile(dst, fs.readFileSync(vi));
-    const svg = render(dst);
+    const entry = stageClosure(vi);
+    const svg = render(entry);
     fs.writeFileSync(path.join(OUT, `${slug(vi)}.wasm.svg`), svg);
     console.log(`  wasm rendered ${vi} (${svg.length} bytes)`);
   }

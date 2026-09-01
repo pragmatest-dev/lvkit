@@ -20,6 +20,7 @@ from ..parser.models import ParsedDependencyRef
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .interface_order import ordered_interface
+from .loading import _redirect_member_beside_container
 from .models import (
     AnyGraphNode,
     ClassFieldEntry,
@@ -418,9 +419,9 @@ class QueryMixin:
             if cand is None:
                 continue
             # A class/library MEMBER (.vi OR .ctl) names its OWNING container;
-            # the member's own file sits beside it (see _resolve_dependency_path).
-            if cand.suffix.lower() in (".lvclass", ".lvlib") and leaf != cand.name:
-                cand = cand.with_name(leaf)
+            # the member's own file sits beside it (see
+            # _redirect_member_beside_container).
+            cand = _redirect_member_beside_container(cand, leaf)
             return _real_member_path(cand)
         return None
 

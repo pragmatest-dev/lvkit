@@ -431,74 +431,6 @@ def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
     return result
 
 
-def parse_subvi_paths(xml_path: Path | str) -> list[ParsedDependencyRef]:
-    """Parse dependency path references from the main VI XML (VIVI only).
-
-    .. deprecated::
-        This function only walks VIVI elements and is retained for test
-        introspection.  Production code should use ``parse_vi()`` which
-        calls ``_extract_subvi_info`` and returns the full
-        ``ParsedVIMetadata.dependency_refs`` list (covering all LIvi link
-        element types: VIVI, VIPI, VILB, FPPI, DDPI, VICC, etc.).
-
-    Args:
-        xml_path: Path to the main .xml file (not BDHb)
-
-    Returns:
-        List of ParsedDependencyRef with path hints for each VIVI dependency
-    """
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    refs: list[ParsedDependencyRef] = []
-    seen: set[tuple[str, tuple[str, ...]]] = set()
-
-    for vivi in root.findall(".//LIvi//VIVI"):
-        # Extract qualified name from all strings in LinkSaveQualName
-        qual_name_strings = vivi.findall("LinkSaveQualName/String")
-        if not qual_name_strings:
-            continue
-
-        # Strip each component: a LinkSaveQualName String can carry a spurious
-        # leading/trailing whitespace char from the binary (a real corpus case:
-        # a class-member name decoded as ``"\nToTable.vi"``), which a legitimate
-        # VI/class name never has -- left in, it corrupts the ``class:member``
-        # qualified identity and, downstream, splits a lvnet ``uses :`` line.
-        qual_parts = [
-            s.text.strip() for s in qual_name_strings if s.text and s.text.strip()
-        ]
-        if not qual_parts:
-            continue
-        qualified_name = ":".join(qual_parts)
-        name = qual_parts[-1]
-
-        path_ref = vivi.find("LinkSavePathRef")
-        if path_ref is None:
-            continue
-
-        # Preserve empty strings — they are the '..' navigation markers.
-        path_tokens = [
-            s.text if s.text is not None else "" for s in path_ref.findall("String")
-        ]
-        if not path_tokens:
-            continue
-
-        key: tuple[str, tuple[str, ...]] = (qualified_name, tuple(path_tokens))
-        if key in seen:
-            continue
-        seen.add(key)
-
-        refs.append(
-            ParsedDependencyRef(
-                name=name,
-                path_tokens=path_tokens,
-                qualified_name=qualified_name,
-            )
-        )
-
-    return refs
-
-
 def parse_iuse_from_libd(libd_path: Path) -> dict[str, str]:
     """Parse iUse UID → qualified VI name from a _LIbd.bin binary.
 
@@ -571,3 +503,153 @@ def parse_iuse_from_libd(libd_path: Path) -> dict[str, str]:
             result[str(uid)] = qualified
 
     return result
+
+
+def _decode_pth0_components(
+    data: bytes, pth0_offset: int, end: int
+) -> tuple[list[str], int]:
+    """Decode one ``PTH0`` record's pascal-string path components ->
+    ``(tokens, next_idx)``.
+
+    ``pth0_offset`` is the byte offset of the ``b"PTH0"`` tag within ``data``;
+    ``end`` bounds how far the decode may read (exclusive) -- either
+    ``len(data)`` for a whole-file scan or a caller-defined record boundary.
+    Reads the component count at ``pth0_offset+10:+12`` (guarded to
+    ``0 < ncomp <= 64`` -- a sanity bound against a garbage length), then
+    decodes each component as a pascal string (1-byte length prefix + native
+    text). Returns ``([], pth0_offset)`` if the record is truncated (would read
+    past ``end``) or the count is out of range -- a partial token list is never
+    returned, so a truncated record reads as "no components" to every caller.
+    ``next_idx`` is the byte offset just past the last decoded component --
+    the single source of both the decoded tokens AND the consumed-byte count,
+    shared by every caller that needs to keep reading past this record (e.g.
+    ``vi.py``'s ``_walk_path``, which uses it to stay aligned with a
+    following cluster field).
+    """
+    if pth0_offset + 12 > end:
+        return [], pth0_offset
+    ncomp = int.from_bytes(data[pth0_offset + 10 : pth0_offset + 12], "big")
+    if not (0 < ncomp <= 64):
+        return [], pth0_offset
+    idx = pth0_offset + 12
+    tokens: list[str] = []
+    for _ in range(ncomp):
+        if idx >= end:
+            return [], pth0_offset
+        ln = data[idx]
+        idx += 1
+        if idx + ln > end:
+            return [], pth0_offset
+        tokens.append(decode_labview_text(data[idx : idx + ln]))
+        idx += ln
+    return tokens, idx
+
+
+def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
+    """A recorded PATH for EVERY file a link binary references, from its ``PTH0``
+    path records. LabVIEW stores a ``PTH0`` for each dependency it tracks (it is
+    what LabVIEW uses to relink / to prompt "find <this file>" when one is
+    missing) across ``_LIvi.bin`` (VI-level), ``_LIbd.bin`` (block diagram) and
+    ``_LIfp.bin`` (front panel). Each ``PTH0``'s components ARE the path
+    (caller-relative; a leading empty pops one level, per
+    ``ParsedDependencyRef.resolve_against``) and its LAST component is the
+    referenced file's leaf (``*.vi`` / ``*.lvclass`` / ``*.ctl`` / ``*.lvlib``).
+
+    Recovering these gives the loader a recorded path for the referenced CLASSES
+    and TYPEDEFS too — not just SubVIs — so the whole dependency closure resolves
+    by PATH with no name-search, identically on web and desktop.
+    """
+    try:
+        data = link_bin.read_bytes()
+    except OSError:
+        return []
+
+    refs: list[ParsedDependencyRef] = []
+    seen: set[tuple[str, ...]] = set()
+    for m in re.finditer(b"PTH0", data):
+        tokens, _next_idx = _decode_pth0_components(data, m.start(), len(data))
+        if not tokens:
+            continue
+        leaf = tokens[-1]
+        if not leaf.endswith((".vi", ".lvclass", ".ctl", ".lvlib")):
+            continue
+        key = (leaf, *tokens)
+        if key in seen:
+            continue
+        seen.add(key)
+        refs.append(
+            ParsedDependencyRef(name=leaf, path_tokens=tokens, qualified_name=leaf)
+        )
+    return refs
+
+
+def parse_vipi_from_livi(livi_path: Path) -> list[str]:
+    """Parse subVI callee METHOD NAMES from a ``_LIvi.bin`` (VI-level link
+    identity).
+
+    ``_LIvi.bin`` is LabVIEW's VI-LEVEL link table — distinct from the
+    ``_LIbd.bin`` block-diagram table read by ``parse_iuse_from_libd``. It
+    carries a ``VIPI`` record for EVERY subVI the diagram calls, including the
+    dynamic-dispatch (``dynIUse``) calls that leave NO ``IUVI`` in ``_LIbd.bin``
+    — so it is the only record that names those callees. Each record:
+
+        VIPI [uint32 count] [count name strings] [PTH0 path hint] [trailer]
+
+    ``count`` name strings: 0 = the VI's own class-context record (no callee,
+    skipped); 1 = a bare method name whose class is the ``PTH0``'s own class;
+    2 = an explicit ``"<Class>.lvclass"`` + method pair. A method name is a
+    wrapped pascal string ``[len][0x01][inner_len][text]``; a class name is a
+    plain ``[len][text]`` (its text never starts with ``0x01``, so the wrapper
+    is detected by the first byte).
+
+    The record's ``PTH0`` locates the class the call is ROOTED ON (the static
+    type at the call site) — for a cross-class dynamic dispatch that is NOT
+    where the method file lives, so it is an unreliable hint, not a guaranteed
+    owner. It is not decoded here: the caller resolves each returned method
+    name's owning file against the classes the VI already depends on (see
+    ``graph.loading._load_subvi_method_deps``), never from this record's own
+    class hint. Returns the ``.vi`` leaf name of each callee.
+    """
+    try:
+        data = livi_path.read_bytes()
+    except OSError:
+        return []
+
+    names_out: list[str] = []
+    starts = [m.start() for m in re.finditer(b"VIPI", data)]
+    starts.append(len(data))
+
+    for i in range(len(starts) - 1):
+        rec_start, rec_end = starts[i], starts[i + 1]
+        p = rec_start + 4  # past the 'VIPI' tag
+        if p + 4 > rec_end:
+            continue
+        count = struct.unpack(">I", data[p : p + 4])[0]
+        p += 4
+        if count == 0 or count > 4:  # 0 = own-context record; >4 = misparse
+            continue
+
+        names: list[str] = []
+        for _ in range(count):
+            if p >= rec_end:
+                break
+            slen = data[p]
+            p += 1
+            if slen == 0 or p + slen > rec_end:
+                break
+            raw = data[p : p + slen]
+            p += slen
+            # A method name is wrapped [0x01][inner_len][text]; a class name is
+            # a plain pascal string (never starts with 0x01).
+            if raw[0] == 0x01 and slen >= 2:
+                inner = raw[1]
+                text = decode_labview_text(raw[2 : 2 + inner])
+            else:
+                text = decode_labview_text(raw)
+            names.append(text.strip())
+
+        method = next((n for n in names if n.endswith(".vi")), None)
+        if method:
+            names_out.append(method)
+
+    return names_out

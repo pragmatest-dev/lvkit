@@ -13,17 +13,16 @@ from lvkit.parser import (
     ParsedConnectorPane,
     ParsedConnectorPaneSlot,
     ParsedConstant,
+    ParsedDependencyRef,
     ParsedFPTerminal,
     ParsedLoopStructure,
     ParsedNode,
-    ParsedSubVIPathRef,
     ParsedTerminalInfo,
     ParsedWire,
     ParsedWiringRule,
     TunnelMapping,
     parse_connector_pane,
     parse_polymorphic_info,
-    parse_subvi_paths,
     parse_vi,
     parse_vi_metadata,
 )
@@ -636,12 +635,12 @@ class TestConnectorPane:
         assert "dco2" in connected
 
 
-class TestSubVIPathRef:
-    """Tests for the ParsedSubVIPathRef dataclass."""
+class TestDependencyRef:
+    """Tests for the ParsedDependencyRef dataclass."""
 
     def test_vilib_path_ref(self):
         """Test a vi.lib path reference."""
-        ref = ParsedSubVIPathRef(
+        ref = ParsedDependencyRef(
             name="File Exists.vi",
             path_tokens=["<vilib>", "Utility", "file.llb", "File Exists.vi"],
         )
@@ -651,7 +650,7 @@ class TestSubVIPathRef:
 
     def test_userlib_path_ref(self):
         """Test a user.lib path reference."""
-        ref = ParsedSubVIPathRef(
+        ref = ParsedDependencyRef(
             name="MyHelper.vi",
             path_tokens=["<userlib>", "MyLib", "MyHelper.vi"],
         )
@@ -660,7 +659,7 @@ class TestSubVIPathRef:
 
     def test_local_path_ref(self):
         """Test a local path reference."""
-        ref = ParsedSubVIPathRef(
+        ref = ParsedDependencyRef(
             name="Local.vi",
             path_tokens=["SubFolder", "Local.vi"],
         )
@@ -1011,11 +1010,16 @@ class TestParseConnectorPane:
 
 
 class TestParseSubviPaths:
-    """Tests for parse_subvi_paths function."""
+    """Tests for VIVI-ref extraction via parse_vi(...).metadata.dependency_refs."""
+
+    _MIN_BD = """<?xml version="1.0"?>
+<root>
+    <signalList></signalList>
+</root>"""
 
     def test_parse_vilib_subvi(self, tmp_path: Path):
         """Test parsing a vi.lib SubVI reference."""
-        xml_content = """<?xml version="1.0"?>
+        main_xml_content = """<?xml version="1.0"?>
 <root>
     <LIvi>
         <Section>
@@ -1031,10 +1035,12 @@ class TestParseSubviPaths:
         </Section>
     </LIvi>
 </root>"""
-        xml_file = tmp_path / "test.xml"
-        xml_file.write_text(xml_content)
+        bd_file = tmp_path / "test_BDHb.xml"
+        bd_file.write_text(self._MIN_BD)
+        main_file = tmp_path / "test.xml"
+        main_file.write_text(main_xml_content)
 
-        refs = parse_subvi_paths(xml_file)
+        refs = parse_vi(bd_xml=bd_file, main_xml=main_file).metadata.dependency_refs
         assert len(refs) == 1
         ref = refs[0]
         assert ref.name == "File Exists.vi"
@@ -1042,7 +1048,7 @@ class TestParseSubviPaths:
 
     def test_parse_userlib_subvi(self, tmp_path: Path):
         """Test parsing a user.lib SubVI reference."""
-        xml_content = """<?xml version="1.0"?>
+        main_xml_content = """<?xml version="1.0"?>
 <root>
     <LIvi>
         <Section>
@@ -1057,10 +1063,12 @@ class TestParseSubviPaths:
         </Section>
     </LIvi>
 </root>"""
-        xml_file = tmp_path / "test.xml"
-        xml_file.write_text(xml_content)
+        bd_file = tmp_path / "test_BDHb.xml"
+        bd_file.write_text(self._MIN_BD)
+        main_file = tmp_path / "test.xml"
+        main_file.write_text(main_xml_content)
 
-        refs = parse_subvi_paths(xml_file)
+        refs = parse_vi(bd_xml=bd_file, main_xml=main_file).metadata.dependency_refs
         assert len(refs) == 1
         ref = refs[0]
         assert ref.name == "MyHelper__ogtk.vi"
