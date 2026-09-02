@@ -235,16 +235,27 @@ class WireLineStyle(IntEnum):
 
 @dataclass(frozen=True)
 class WireStyle:
-    """How a wire draws — its ``color``, pixel ``width``, and dash ``line_style``.
+    """Everything a wire needs to draw itself — the ONE style object the ONE wire
+    lookup (``render.style.wire_style``) returns and every drawing site renders.
     A type's OWN style (``LVType.wire_style``) overrides the default per-family
-    color/width at the one wire lookup (``render.style.wire_style``); most types
-    have none (that lookup derives their style from the type family), but a
-    LabVIEW class carries one decoded from its ``.lvclass``. The single knob that
-    makes wire color/style data-driven instead of a fixed table."""
+    color/width there; most types have none (the lookup derives theirs from the
+    family), but a LabVIEW class carries one decoded from its ``.lvclass``.
+
+    ``color``/``width``/``line_style`` describe a flat wire. ``edge_color`` +
+    ``core_width`` add the class two-band look — an outer ``edge_color`` band at
+    ``width`` with a ``color`` center of ``core_width`` on top; both None for a
+    flat wire (``width`` is then the single stroke). New wire styles (e.g. a fill
+    pattern) are added HERE, once, and every site renders them."""
 
     color: str
     width: float
     line_style: WireLineStyle = WireLineStyle.SOLID
+    edge_color: str | None = None
+    core_width: float | None = None
+    # The center pen's 8-row fill-pattern bitmap (one byte per row). On the thin
+    # center band it reads as a dash along the wire — the class "chain" — with the
+    # solid edge band showing through the gaps. () for a solid/flat wire.
+    fill_pattern: tuple[int, ...] = ()
 
 
 @dataclass

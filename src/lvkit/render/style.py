@@ -11,11 +11,13 @@ from __future__ import annotations
 import dataclasses
 import re
 from dataclasses import dataclass
+from itertools import groupby
 
 from ..models import (
     _NUMERIC_TYPE_DESCRIPTOR,
     LVType,
     LVTypeKind,
+    WireLineStyle,
     WireStyle,
     _is_error_cluster,
 )
@@ -99,7 +101,10 @@ class Theme:
     wire_bool: str = "#4a9c3e"  # green — boolean
     wire_string: str = "#e05fa0"  # pink — string
     wire_path: str = "#1f8a8a"  # teal — path
-    wire_cluster: str = "#8a5a2b"  # brown — clusters / typedefs
+    wire_cluster: str = "#8a5a2b"  # brown — all-numeric (fixed-size) clusters
+    # pink — a mixed/"common" cluster (any string/array/refnum/... field). Same
+    # NI pink family as the string wire; a mixed cluster reads pink in LabVIEW.
+    wire_cluster_mixed: str = "#e05fa0"
     wire_refnum: str = "#1f6b2e"  # dark green — refnums (VI refs, driver/DAQ/
     #                                VISA sessions, queues, notifiers, controls);
     #                                LabVIEW's generic reference wire color
@@ -275,10 +280,26 @@ _FAMILY_COLOR = {
     "string": "wire_string",
     "path": "wire_path",
     "cluster": "wire_cluster",
+    "cluster_mixed": "wire_cluster_mixed",
     "error_cluster": "wire_error",
     "variant": "wire_variant",
     "refnum": "wire_refnum",
 }
+
+
+def _cluster_all_numeric(lv_type: LVType) -> bool:
+    """True when every field of a cluster is numeric/boolean (or a nested cluster
+    that is itself all-numeric) — a fixed-size "numeric cluster" (brown). False
+    when any field is a string/array/refnum/variant/etc. (variable-size, pink).
+    Fields unknown (None — resolved lazily elsewhere) -> True, keeping the prior
+    brown default rather than guessing pink."""
+    fields = lv_type.fields
+    if not fields:
+        return True
+    return all(
+        type_family(f.type) in ("int", "float", "bool", "enum", "cluster")
+        for f in fields
+    )
 
 
 def type_family(lv_type: LVType | None) -> str:
@@ -294,7 +315,13 @@ def type_family(lv_type: LVType | None) -> str:
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "enum"
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
-        return "error_cluster" if _is_error_cluster(lv_type) else "cluster"
+        if _is_error_cluster(lv_type):
+            return "error_cluster"
+        # A cluster is BROWN only when every field is numeric/boolean (a fixed-
+        # size "numeric cluster"); any string/path/array/refnum/variant field
+        # makes it a variable-size "common cluster" -> PINK. Fields unknown
+        # (resolved lazily) -> brown, matching the prior default.
+        return "cluster" if _cluster_all_numeric(lv_type) else "cluster_mixed"
     if lv_type.kind == LVTypeKind.PRIMITIVE:
         ut = lv_type.underlying_type or ""
         if ut in _FLOAT_TYPES or ut in _COMPLEX_TYPES:
@@ -380,15 +407,58 @@ def wire_style(
         return lv_type.wire_style
 
     if lv_type.kind == LVTypeKind.ARRAY:
+        # An array draws in its element's style, thicker per dimension — so an
+        # array OF a class keeps the class color AND its two-band border.
         inner = wire_style(lv_type.element_type, theme)
-        return WireStyle(
-            inner.color,
-            inner.width + _ARRAY_W_PER_DIM * (lv_type.dimensions or 1),
+        extra = _ARRAY_W_PER_DIM * (lv_type.dimensions or 1)
+        return dataclasses.replace(
+            inner,
+            width=inner.width + extra,
+            core_width=(
+                inner.core_width + extra if inner.core_width is not None else None
+            ),
         )
 
     family = type_family(lv_type)
     color = getattr(theme, _FAMILY_COLOR.get(family, ""), theme.wire_default)
     return WireStyle(color, _LINE_W)
+
+
+# A wire's line style -> SVG ``stroke-dasharray`` (in stroke-width units), or None
+# for a solid stroke. Read at every wire-drawing site off the one WireStyle.
+_LINE_STYLE_DASH: dict[WireLineStyle, str | None] = {
+    WireLineStyle.SOLID: None,
+    WireLineStyle.DASH: "6,4",
+    WireLineStyle.DOT: "1,3",
+    WireLineStyle.DASH_DOT: "6,3,1,3",
+    WireLineStyle.DASH_DOT_DOT: "6,3,1,3,1,3",
+}
+
+
+def wire_dasharray(style: WireStyle) -> str | None:
+    """The SVG ``stroke-dasharray`` for a wire style's line style (None = solid).
+    The one place a line style becomes a dash pattern."""
+    return _LINE_STYLE_DASH.get(style.line_style)
+
+
+def core_dasharray(style: WireStyle) -> str | None:
+    """The dash the wire's CENTER band draws with: the class fill pattern read as
+    a 1-px dash along the wire (the "chain" — solid edge shows through the gaps),
+    else the line-style dash, else solid. The one place a fill pattern becomes a
+    dash. A row byte's set bits are the on-runs; the periodic run-lengths (rotated
+    to start on an on-run) are the dash array."""
+    pattern = style.fill_pattern
+    if pattern:
+        row = pattern[len(pattern) // 2]  # the band rides the pattern's center row
+        if row not in (0x00, 0xFF):
+            bits = [(row >> (7 - i)) & 1 for i in range(8)]  # MSB = leftmost pixel
+            start = next(
+                (i for i in range(8) if bits[i] and not bits[(i - 1) % 8]), 0
+            )
+            seq = [bits[(start + k) % 8] for k in range(8)]
+            runs = [len(list(g)) for _, g in groupby(seq)]
+            return ",".join(str(r) for r in runs)
+    return wire_dasharray(style)
 
 
 # --------------------------------------------------------------------- #

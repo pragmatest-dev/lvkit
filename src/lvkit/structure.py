@@ -765,11 +765,39 @@ def _pen_fragment(prop_text: str) -> ET.Element | None:
         return None
 
 
+def _pen_width(frag: ET.Element | None) -> float | None:
+    """A pen fragment's ``Width`` in pixels, or None."""
+    val = _named_val(frag, "Width") if frag is not None else None
+    return float(val) if val is not None else None
+
+
+def _pen_fill_pattern(frag: ET.Element) -> tuple[int, ...]:
+    """A pen fragment's 8-row ``Fill Pattern`` bitmap (one byte per row), or ()
+    when absent or solid (all rows 0x00/0xFF — a flat fill, no chain)."""
+    for child in frag:
+        if child.findtext("Name") != "Fill Pattern":
+            continue
+        rows: list[int] = []
+        for row in child:
+            v = row.findtext("Val")
+            if v is not None:
+                try:
+                    rows.append(int(v) & 0xFF)
+                except ValueError:
+                    return ()
+        if all(r == 0x00 for r in rows) or all(r == 0xFF for r in rows):
+            return ()  # solid fill
+        return tuple(rows)
+    return ()
+
+
 def _parse_wire_style(root: ET.Element) -> WireStyle | None:
     """The class's own wire style from its ``CoreWirePen`` + ``EdgeWirePen``
-    properties: color from the core (center) pen, total width from the edge pen,
-    line style from the core pen. None when the class sets no custom pen (uses the
-    default/inherited look — the properties are absent)."""
+    properties. Color/line-style come from the core (center) pen; total width and
+    the outer band come from the edge pen. When the edge foreground differs from
+    the core the wire has a visible two-band border, so ``edge_color`` + the
+    narrower ``core_width`` are carried. None when the class sets no custom pen
+    (uses the default/inherited look — the properties are absent)."""
     core_text = edge_text = None
     for prop in root.findall("Property"):
         name = prop.get("Name")
@@ -784,7 +812,8 @@ def _parse_wire_style(root: ET.Element) -> WireStyle | None:
     if fg is None:
         return None
     edge = _pen_fragment(edge_text) if edge_text else None
-    width = _named_val(edge if edge is not None else core, "Width")
+    core_w = _pen_width(core)
+    total_w = _pen_width(edge) or core_w or 1.0
     style = _named_val(core, "Style")
     try:
         line_style = (
@@ -792,10 +821,22 @@ def _parse_wire_style(root: ET.Element) -> WireStyle | None:
         )
     except ValueError:
         line_style = WireLineStyle.SOLID
+    color = _lv_color_hex(int(fg))
+    edge_fg = _named_val(edge, "Foreground Color") if edge is not None else None
+    edge_color = _lv_color_hex(int(edge_fg)) if edge_fg is not None else None
+    has_border = (
+        edge_color is not None
+        and edge_color != color
+        and core_w is not None
+        and core_w < total_w
+    )
     return WireStyle(
-        color=_lv_color_hex(int(fg)),
-        width=float(width) if width is not None else 1.0,
+        color=color,
+        width=total_w,
         line_style=line_style,
+        edge_color=edge_color if has_border else None,
+        core_width=core_w if has_border else None,
+        fill_pattern=_pen_fill_pattern(core),
     )
 
 

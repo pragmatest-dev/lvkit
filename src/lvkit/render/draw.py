@@ -1188,7 +1188,11 @@ def draw_fp_terminal(
     lv_type = terminal.lv_type
     is_array = lv_type is not None and lv_type.kind == LVTypeKind.ARRAY
     scalar_type = lv_type.element_type if lv_type is not None and is_array else lv_type
-    color = wire_style(scalar_type, theme).color
+    # Box border from the one wire lookup: a class terminal takes its edge-band
+    # color (LabVIEW borders the class terminal with the edge pen), any other
+    # type its wire color.
+    style = wire_style(scalar_type, theme)
+    color = style.edge_color or style.color
     stroke_width = 1.5 if terminal.is_indicator else 3.0
 
     backend.rect(

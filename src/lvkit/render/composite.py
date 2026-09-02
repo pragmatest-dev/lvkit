@@ -50,7 +50,7 @@ from .scene import (
     _is_default_visible,
     encode_frame_path,
 )
-from .style import DEFAULT_THEME, Theme
+from .style import DEFAULT_THEME, Theme, wire_dasharray
 
 
 def _raw(qualified: str | None) -> str | None:
@@ -102,20 +102,90 @@ def _selector_state(rs: RenderStructure, scene: Scene) -> SelectorState:
 def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -> None:
     """One diagram's wires: per-net casing (canvas halo) then colour then
     junctions — so a net's own trunk stays solid while the NEXT net's casing
-    breaks the prior net's colour at an orthogonal crossing."""
+    breaks the prior net's colour at an orthogonal crossing.
+
+    Everything a wire draws — its width, dash, and (for a class) its two-band
+    edge/core border — is read off ``net.style`` (the one WireStyle); a flat wire
+    has no ``edge_color`` and draws as a single stroke."""
     casing = theme.wire_casing
     for net in nets:
+        style = net.style
+        dash = wire_dasharray(style)  # solid for a class pen (line style is solid)
         if casing > 0:
             for branch in net.branches:
                 backend.path(
                     branch,
                     stroke=theme.canvas,
-                    stroke_width=net.style.width + 2 * casing,
+                    stroke_width=style.width + 2 * casing,
                 )
         for branch in net.branches:
-            backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
+            if style.edge_color is not None and style.core_width is not None:
+                # Two-band class wire: solid outer edge band, then the narrower
+                # center on top.
+                backend.path(branch, stroke=style.edge_color, stroke_width=style.width)
+                if style.fill_pattern:
+                    # The class fill pattern is the actual bitmap tiled along the
+                    # wire in the center color (the "chain"), over the edge band.
+                    _draw_wire_pattern(
+                        branch, backend, style.fill_pattern, style.color, style.width
+                    )
+                else:
+                    backend.path(
+                        branch, stroke=style.color, stroke_width=style.core_width
+                    )
+            elif style.fill_pattern:
+                _draw_wire_pattern(
+                    branch, backend, style.fill_pattern, style.color, style.width
+                )
+            else:
+                backend.path(
+                    branch,
+                    stroke=style.color,
+                    stroke_width=style.width,
+                    stroke_dasharray=dash,
+                )
         for jx, jy in net.junctions:
-            backend.circle(jx, jy, 3.0, fill=net.style.color)
+            backend.circle(jx, jy, 3.0, fill=style.color)
+
+
+def _draw_wire_pattern(
+    branch: list[Point],
+    backend: Backend,
+    rows: tuple[int, ...],
+    color: str,
+    width: float,
+) -> None:
+    """Draw the class wire's actual fill-pattern bitmap tiled along the wire — the
+    real texture (chain/dash/bars) from the ``.lvclass`` bitmap, in the pen color,
+    NOT an approximated dash. The 8-row bitmap is scaled to the wire's ``width``
+    (each row a ``width/8`` band, each column a ``width/8`` step along the length)
+    and tiled along each axis-aligned segment, oriented per horizontal/vertical
+    run — a set bit is a filled cell, a clear bit lets the edge band show
+    through."""
+    n = len(rows)
+    if n == 0:
+        return
+    cell = width / n
+    for (x0, y0), (x1, y1) in zip(branch, branch[1:], strict=False):
+        horizontal = abs(x1 - x0) >= abs(y1 - y0)
+        a0, a1 = (x0, x1) if horizontal else (y0, y1)
+        lo, hi = min(a0, a1), max(a0, a1)
+        cross = (y0 + y1) / 2 if horizontal else (x0 + x1) / 2
+        t = lo
+        while t < hi:
+            for r, byte in enumerate(rows):
+                for c in range(8):
+                    if not (byte >> (7 - c)) & 1:
+                        continue
+                    along = t + c * cell
+                    if along >= hi:
+                        continue
+                    perp = cross - width / 2 + r * cell
+                    bx, by = (along, perp) if horizontal else (perp, along)
+                    backend.rect(
+                        bx, by, bx + cell, by + cell, fill=color, stroke="none"
+                    )
+            t += 8 * cell
 
 
 class RenderObject(ABC):
