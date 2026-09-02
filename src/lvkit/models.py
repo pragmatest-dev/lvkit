@@ -17,8 +17,8 @@ subclasses are the single source of truth for node structure.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
-from enum import Enum
+from dataclasses import dataclass, field
+from enum import Enum, IntEnum
 from typing import Literal
 
 from pydantic import BaseModel
@@ -71,6 +71,12 @@ class LVType:
     # opaque built-in structures with no VCTP children, so their component names
     # come from a built-in table keyed by this flavor (see measure_data.py).
     measure_flavor: str | None = None
+    # This type's OWN wire style, when it has one — read by the one wire lookup
+    # (``render.style.wire_style``) so wire color/style is data-driven, not a
+    # fixed per-family table. None for a type that uses the family default (every
+    # built-in today); a LabVIEW class fills it from its ``.lvclass``.
+    # ``compare=False`` — presentation, never type identity/coercion.
+    wire_style: WireStyle | None = field(default=None, compare=False)
 
     def to_python(self) -> str:
         """Render as Python type annotation string."""
@@ -212,6 +218,33 @@ class LVType:
                 self.underlying_type or "", self.underlying_type or "?"
             )
         return "?"
+
+
+class WireLineStyle(IntEnum):
+    """A wire pen's ``Style`` — Solid/Dash/Dot/DashDot/DashDotDot. ``SOLID`` is
+    the default and the only style built-in wires use; a LabVIEW class can pick
+    another in its ``.lvclass``. ``IntEnum`` so a member equals the raw 0–4 the
+    binary stores, drop-in."""
+
+    SOLID = 0
+    DASH = 1
+    DOT = 2
+    DASH_DOT = 3
+    DASH_DOT_DOT = 4
+
+
+@dataclass(frozen=True)
+class WireStyle:
+    """How a wire draws — its ``color``, pixel ``width``, and dash ``line_style``.
+    A type's OWN style (``LVType.wire_style``) overrides the default per-family
+    color/width at the one wire lookup (``render.style.wire_style``); most types
+    have none (that lookup derives their style from the type family), but a
+    LabVIEW class carries one decoded from its ``.lvclass``. The single knob that
+    makes wire color/style data-driven instead of a fixed table."""
+
+    color: str
+    width: float
+    line_style: WireLineStyle = WireLineStyle.SOLID
 
 
 @dataclass

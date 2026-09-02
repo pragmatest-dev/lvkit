@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..load_mode import LoadMode
-from ..models import ClusterField, LVType, LVTypeKind
+from ..models import ClusterField, LVType, LVTypeKind, WireStyle
 from ..parser.models import ParsedType, ParsedVI
 
 if TYPE_CHECKING:
@@ -330,6 +330,13 @@ class InMemoryVIGraph(
         # Class/typedef fields: codegen queries dep_graph or vilib_resolver
         # by classname/typedef_name. No copies.
 
+        # A class instance carries its OWN wire style (color/width/line style),
+        # resolved from its .lvclass, so the one render lookup draws every class
+        # wire in the class's style with no graph — see LVType.wire_style /
+        # render.style.wire_style.
+        if parsed_type.classname:
+            lv_type.wire_style = self.get_class_wire_style(parsed_type.classname)
+
         return lv_type
 
     def _dep_key_for_ref(
@@ -430,6 +437,37 @@ class InMemoryVIGraph(
             if parent_fields:
                 return parent_fields + own_fields
         return own_fields
+
+    def get_class_wire_style(
+        self,
+        classname: str,
+        caller_vi_key: str | None = None,
+    ) -> WireStyle | None:
+        """A class's own wire style, or None when it (and every ancestor) uses the
+        default/generic look.
+
+        ``classname`` is resolved to its PATH-key node via :meth:`_dep_key_for_ref`
+        (pass the CALLER VI key so a duplicated class name resolves by the
+        caller's edge). A class with no custom pen inherits its parent's (LabVIEW's
+        "use parent's/default design"), so the parent chain is walked by
+        ``parent_key`` (:meth:`_parent_class_key`) until a custom style is found.
+        """
+        node_key = self._dep_key_for_ref(classname, caller_vi_key)
+        if node_key is None or not self._dep_graph.has_node(node_key):
+            return None
+        return self._class_wire_style_by_key(node_key)
+
+    def _class_wire_style_by_key(self, node_key: str) -> WireStyle | None:
+        """This class's own wire style, else the nearest ancestor's — the
+        inherited case. Follows the parent's PATH key by IDENTITY
+        (:meth:`_parent_class_key`), same as :meth:`_class_fields_by_key`."""
+        style: WireStyle | None = self._dep_graph.nodes[node_key].get("wire_style")
+        if style is not None:
+            return style
+        parent_key = self._parent_class_key(node_key)
+        if parent_key is not None:
+            return self._class_wire_style_by_key(parent_key)
+        return None
 
     def get_type_fields(
         self,

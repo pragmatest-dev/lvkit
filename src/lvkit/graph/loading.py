@@ -718,6 +718,7 @@ class LoadingMixin:
             version=cls.version,
             ancestors=cls.ancestors,
             method_paths=method_paths,
+            wire_style=cls.wire_style,
         )
         self._register_dep_node(cls_key, cls_path_r, cls_name, cls_qname)
         self._stubs.discard(cls_key)

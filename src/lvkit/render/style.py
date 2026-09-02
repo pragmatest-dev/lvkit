@@ -12,7 +12,13 @@ import dataclasses
 import re
 from dataclasses import dataclass
 
-from ..models import _NUMERIC_TYPE_DESCRIPTOR, LVType, LVTypeKind, _is_error_cluster
+from ..models import (
+    _NUMERIC_TYPE_DESCRIPTOR,
+    LVType,
+    LVTypeKind,
+    WireStyle,
+    _is_error_cluster,
+)
 
 # LabVIEW help/description strings carry rich-text tags (<B>..</B>, <BR>, ...).
 _HELP_TAG_RE = re.compile(r"<[^>]+>")
@@ -144,12 +150,6 @@ _LINE_W = 1.2
 # Extra stroke width per array dimension — an array wire is drawn markedly
 # bolder than its scalar element (1D ~2.8px vs 1.2px), thicker still for 2D+.
 _ARRAY_W_PER_DIM = 1.6
-
-
-@dataclass(frozen=True)
-class WireStyle:
-    color: str
-    width: float
 
 
 _INT_TYPES = {
@@ -363,15 +363,21 @@ def wire_style(
     lv_type: LVType | None,
     theme: Theme = DEFAULT_THEME,
 ) -> WireStyle:
-    """Color/width for a wire, from the SOURCE terminal's LVType.
+    """Color/width/style for a wire, from the SOURCE terminal's LVType — the ONE
+    lookup every wire/tunnel/terminal drawing site calls.
 
-    Branches on ``kind`` then ``underlying_type``: DBL orange (default),
-    ints blue, bool green, string pink, path teal, cluster brown, error
-    cluster dark, array thicker (by ``dimensions``, color inherited from
-    the element type).
+    First it ASKS THE TYPE: a type that carries its OWN ``wire_style`` (a LabVIEW
+    class, whose style is decoded from its ``.lvclass``) draws in that. Otherwise
+    the per-family default: DBL orange, ints blue, bool green, string pink, path
+    teal, cluster brown, error cluster dark; an array is thicker (by
+    ``dimensions``, color inherited from the element type — so an array OF a class
+    keeps the class color).
     """
     if lv_type is None:
         return WireStyle(theme.wire_default, _LINE_W)
+
+    if lv_type.wire_style is not None:
+        return lv_type.wire_style
 
     if lv_type.kind == LVTypeKind.ARRAY:
         inner = wire_style(lv_type.element_type, theme)
