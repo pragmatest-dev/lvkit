@@ -280,7 +280,6 @@ _FAMILY_COLOR = {
     "string": "wire_string",
     "path": "wire_path",
     "cluster": "wire_cluster",
-    "cluster_mixed": "wire_cluster_mixed",
     "error_cluster": "wire_error",
     "variant": "wire_variant",
     "refnum": "wire_refnum",
@@ -315,13 +314,10 @@ def type_family(lv_type: LVType | None) -> str:
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "enum"
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
-        if _is_error_cluster(lv_type):
-            return "error_cluster"
-        # A cluster is BROWN only when every field is numeric/boolean (a fixed-
-        # size "numeric cluster"); any string/path/array/refnum/variant field
-        # makes it a variable-size "common cluster" -> PINK. Fields unknown
-        # (resolved lazily) -> brown, matching the prior default.
-        return "cluster" if _cluster_all_numeric(lv_type) else "cluster_mixed"
+        # One "cluster" family (so every cluster glyph/constant path keeps
+        # working); brown-vs-pink is decided in ``wire_style`` from field
+        # homogeneity, not by a separate family.
+        return "error_cluster" if _is_error_cluster(lv_type) else "cluster"
     if lv_type.kind == LVTypeKind.PRIMITIVE:
         ut = lv_type.underlying_type or ""
         if ut in _FLOAT_TYPES or ut in _COMPLEX_TYPES:
@@ -420,6 +416,10 @@ def wire_style(
         )
 
     family = type_family(lv_type)
+    if family == "cluster" and not _cluster_all_numeric(lv_type):
+        # A cluster with any non-numeric field is a variable-size "common"
+        # cluster -> pink (else the all-numeric brown).
+        return WireStyle(theme.wire_cluster_mixed, _LINE_W)
     color = getattr(theme, _FAMILY_COLOR.get(family, ""), theme.wire_default)
     return WireStyle(color, _LINE_W)
 

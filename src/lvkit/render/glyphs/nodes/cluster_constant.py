@@ -53,7 +53,10 @@ class ClusterConstantGlyph:
             stroke_width=1.5,
         )
         if not self.fields:
-            return  # a genuinely empty cluster (no elements) — box only
+            # No resolved fields (or a genuinely empty cluster): the generic
+            # cluster icon, never a raw value repr.
+            self._draw_generic_icon(backend, bounds, theme)
+            return
         pad = 3.0
         label_size = 7.0
         row_h = (y2 - y1 - 2 * pad) / len(self.fields)

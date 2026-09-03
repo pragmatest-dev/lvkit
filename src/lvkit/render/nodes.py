@@ -1124,9 +1124,12 @@ class GeneratedGlyphResolver:
                 composed = _cluster_const_glyph(node, is_error=fam == "error_cluster")
                 if composed is not None:
                     return composed
-                # No field info to compose from — keep the old schematic.
+                # No field info to compose from: an error cluster keeps its
+                # schematic; any other cluster draws the generic cluster ICON
+                # (never the raw dict/list value repr).
                 if fam == "error_cluster":
                     return ErrorClusterGlyph()
+                return ClusterConstantGlyph(fields=())
             raw = node.raw_value if node.value is None else node.value
             return _leaf_const_glyph(node.lv_type, raw, node.display_format)
         if isinstance(node, FormulaNode):
