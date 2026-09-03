@@ -336,13 +336,20 @@ def type_family(lv_type: LVType | None) -> str:
             return "path"
         if ut in ("Variant", "LVVariant"):
             return "variant"
-        if ut == "Refnum" and not lv_type.classname:
-            # Generic refnum — VI reference, DAQmx/VISA driver session, queue,
-            # notifier, control refnum, etc. LabVIEW draws all of these in the
-            # same dark-green reference-wire color. An LVOOP class instance is
-            # ALSO carried as a Refnum but has a ``classname`` (its wire is the
-            # class's own colour, not the generic reference green), so exclude it.
+        if ut == "Tag":
+            # LabVIEW I/O-name types (DAQmx physical channel / task name, VISA
+            # resource name, …) — reference-family wires, LV's dark green.
             return "refnum"
+        if ut == "Refnum":
+            # Generic refnum — VI reference, DAQmx/VISA driver session, queue,
+            # notifier, control refnum, etc. — draws LabVIEW's dark-green
+            # reference wire. An LVOOP class instance is ALSO carried as a Refnum
+            # but with a ``classname``: when its class (or an ancestor) sets a
+            # wire style, ``wire_style`` returns that before reaching here, so we
+            # only see a class refnum with NO style in its whole ancestry — which
+            # falls back to the same generic reference green, never grey.
+            if not lv_type.classname or lv_type.wire_style is None:
+                return "refnum"
     return "unknown"
 
 
