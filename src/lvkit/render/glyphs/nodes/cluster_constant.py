@@ -58,20 +58,40 @@ class ClusterConstantGlyph:
         label_size = 7.0
         row_h = (y2 - y1 - 2 * pad) / len(self.fields)
         if row_h < self._MIN_ROW_H or (x2 - x1 - 2 * pad) < self._MIN_FIELD_W:
-            # Too small for labeled rows: draw just the field VALUES, stacked
-            # and scaled to fit, so the box is never blank. Names on hover.
-            vpad = 1.0
-            vrow = (y2 - y1 - 2 * vpad) / len(self.fields)
-            for i, (_name, field_glyph) in enumerate(self.fields):
-                ry1 = y1 + vpad + i * vrow
-                ry2 = ry1 + vrow
-                if x2 - vpad > x1 + vpad and ry2 - 0.5 > ry1 + 0.5:
-                    field_glyph.draw(
-                        backend,
-                        (x1 + vpad, ry1 + 0.5, x2 - vpad, ry2 - 0.5),
-                        theme,
-                    )
+            # Icon size: too small for a labeled/value grid, so draw LabVIEW's
+            # generic cluster-constant ICON — the shell already drawn above, plus
+            # a couple of small element squares (as the standard shared icon
+            # shows), NOT a garbled stack of the real field values. Names on hover.
+            self._draw_generic_icon(backend, bounds, theme)
             return
+        self._draw_labeled_rows(backend, bounds, theme, border, pad, label_size)
+
+    def _draw_generic_icon(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        """LabVIEW's generic cluster-constant icon: the cluster shell (already
+        drawn) with a couple of small element squares inside — the standard
+        shared look, independent of the real field values."""
+        x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        s = max(2.0, min(w, h) * 0.22)  # element-square size
+        gap = s * 0.5
+        # two element squares (a string-pink + an int-blue), the mixed-element
+        # motif of the standard icon; positioned upper-left with a small margin.
+        colors = (theme.wire_string, theme.wire_int)
+        ex = x1 + w * 0.22
+        ey = y1 + h * 0.28
+        for i, col in enumerate(colors):
+            bx = ex + i * (s + gap)
+            backend.rect(bx, ey, bx + s, ey + s, fill=col, stroke="none")
+        # a third (bool-green) square below the first, per the icon's layout
+        backend.rect(ex, ey + s + gap, ex + s, ey + 2 * s + gap,
+                     fill=theme.wire_bool, stroke="none")
+
+    def _draw_labeled_rows(
+        self, backend: Backend, bounds: Rect, theme: Theme,
+        border: str, pad: float, label_size: float,
+    ) -> None:
+        x1, y1, x2, y2 = bounds
+        row_h = (y2 - y1 - 2 * pad) / len(self.fields)
         label_w = min(
             0.4 * (x2 - x1),
             max(backend.measure_text(nm, label_size) for nm, _ in self.fields) + 4.0,

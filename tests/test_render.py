@@ -503,11 +503,12 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     small = SvgBackend()
     glyph.draw(small, (0.0, 0.0, 17.0, 42.0), DEFAULT_THEME)
     small_svg = small.render((0.0, 0.0, 17.0, 42.0))
-    # Too small for labeled rows: field NAMES are dropped, but both field
-    # VALUE glyphs (the _Dot "V") are still drawn — never a blank box.
+    # Icon size: LabVIEW's generic cluster icon — the shell plus a few element
+    # squares — NOT the field names or the real field VALUE glyphs (no "V").
     assert "Horizontal" not in small_svg and "Vertical" not in small_svg
-    assert "<rect" in small_svg
-    assert small_svg.count(">V<") == 2
+    assert ">V<" not in small_svg
+    # shell + element squares (the generic icon)
+    assert small_svg.count("<rect") >= 4
 
 
 def test_local_variable_glyph_badge_and_read_write_border_weight():
