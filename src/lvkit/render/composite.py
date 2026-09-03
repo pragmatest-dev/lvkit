@@ -118,25 +118,16 @@ def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -
                     stroke=theme.canvas,
                     stroke_width=style.width + 2 * casing,
                 )
+        # A patterned class pen draws as a CHAIN (hollow links + connectors) in
+        # the edge foreground — one pattern for the whole wire, not a solid band.
+        chain_color = style.edge_color or style.color
         for branch in net.branches:
-            if style.edge_color is not None and style.core_width is not None:
-                # Two-band class wire: solid outer edge band, then the narrower
-                # center on top.
+            if style.fill_pattern:
+                _draw_wire_pattern(branch, backend, chain_color, style.width)
+            elif style.edge_color is not None and style.core_width is not None:
+                # Two-band solid class wire: outer edge band, narrower center.
                 backend.path(branch, stroke=style.edge_color, stroke_width=style.width)
-                if style.fill_pattern:
-                    # The class fill pattern is the actual bitmap tiled along the
-                    # wire in the center color (the "chain"), over the edge band.
-                    _draw_wire_pattern(
-                        branch, backend, style.fill_pattern, style.color, style.width
-                    )
-                else:
-                    backend.path(
-                        branch, stroke=style.color, stroke_width=style.core_width
-                    )
-            elif style.fill_pattern:
-                _draw_wire_pattern(
-                    branch, backend, style.fill_pattern, style.color, style.width
-                )
+                backend.path(branch, stroke=style.color, stroke_width=style.core_width)
             else:
                 backend.path(
                     branch,
@@ -148,24 +139,28 @@ def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -
             backend.circle(jx, jy, 3.0, fill=style.color)
 
 
+# A class "chain" wire: hollow rounded-rectangle LINK, short LINE connector, link,
+# line, … repeated along the wire (as seen in every LabVIEW class-wire example).
+_LINK_LEN = 6.0  # length of one hollow link along the wire
+_LINK_CONN = 3.0  # length of the solid connector line between links
+
+
 def _draw_wire_pattern(
     branch: list[Point],
     backend: Backend,
-    rows: tuple[int, ...],
     color: str,
     width: float,
 ) -> None:
-    """Draw the class wire's actual fill-pattern bitmap tiled along the wire — the
-    real texture (chain/dash/bars) from the ``.lvclass`` bitmap, in the pen color,
-    NOT an approximated dash. The 8-row bitmap is scaled to the wire's ``width``
-    (each row a ``width/8`` band, each column a ``width/8`` step along the length)
-    and tiled along each axis-aligned segment, oriented per horizontal/vertical
-    run — a set bit is a filled cell, a clear bit lets the edge band show
-    through."""
-    n = len(rows)
-    if n == 0:
-        return
-    cell = width / n
+    """Draw a patterned class wire as a CHAIN: a hollow rounded-rectangle link,
+    then a short solid connector line, then a link, then a line — repeated along
+    each axis-aligned segment and oriented with it (horizontal links on a
+    horizontal run, vertical on a vertical run), in the pen color. This is
+    LabVIEW's chain wire look; a class whose pen carries a non-solid fill pattern
+    draws its wire this way rather than solid."""
+    lw = max(1.0, width * 0.4)  # link outline weight
+    conn_w = max(1.0, width * 0.5)  # connector line weight
+    half = width / 2
+    step = _LINK_LEN + _LINK_CONN
     for (x0, y0), (x1, y1) in zip(branch, branch[1:], strict=False):
         horizontal = abs(x1 - x0) >= abs(y1 - y0)
         a0, a1 = (x0, x1) if horizontal else (y0, y1)
@@ -173,19 +168,25 @@ def _draw_wire_pattern(
         cross = (y0 + y1) / 2 if horizontal else (x0 + x1) / 2
         t = lo
         while t < hi:
-            for r, byte in enumerate(rows):
-                for c in range(8):
-                    if not (byte >> (7 - c)) & 1:
-                        continue
-                    along = t + c * cell
-                    if along >= hi:
-                        continue
-                    perp = cross - width / 2 + r * cell
-                    bx, by = (along, perp) if horizontal else (perp, along)
-                    backend.rect(
-                        bx, by, bx + cell, by + cell, fill=color, stroke="none"
-                    )
-            t += 8 * cell
+            end = min(t + _LINK_LEN, hi)
+            if horizontal:
+                backend.rect(
+                    t, cross - half, end, cross + half,
+                    fill="none", stroke=color, stroke_width=lw, rx=half,
+                )
+            else:
+                backend.rect(
+                    cross - half, t, cross + half, end,
+                    fill="none", stroke=color, stroke_width=lw, rx=half,
+                )
+            # connector line to the next link
+            c0, c1 = end, min(end + _LINK_CONN, hi)
+            if c1 > c0:
+                lx0, ly0, lx1, ly1 = (
+                    (c0, cross, c1, cross) if horizontal else (cross, c0, cross, c1)
+                )
+                backend.line(lx0, ly0, lx1, ly1, stroke=color, stroke_width=conn_w)
+            t += step
 
 
 class RenderObject(ABC):

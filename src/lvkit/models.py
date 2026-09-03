@@ -252,9 +252,8 @@ class WireStyle:
     line_style: WireLineStyle = WireLineStyle.SOLID
     edge_color: str | None = None
     core_width: float | None = None
-    # The center pen's 8-row fill-pattern bitmap (one byte per row). On the thin
-    # center band it reads as a dash along the wire — the class "chain" — with the
-    # solid edge band showing through the gaps. () for a solid/flat wire.
+    # The pen's 8-row fill-pattern bitmap (one byte per row). Non-empty => the
+    # class wire is patterned (drawn as a chain) rather than solid; () => solid.
     fill_pattern: tuple[int, ...] = ()
 
 
