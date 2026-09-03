@@ -1193,7 +1193,10 @@ def draw_fp_terminal(
     # type its wire color.
     style = wire_style(scalar_type, theme)
     color = style.edge_color or style.color
-    stroke_width = 1.5 if terminal.is_indicator else 3.0
+    # A control's box border is a touch heavier than an indicator's, but NOT bold
+    # — the wire-port arrow already carries the direction, so a heavy control
+    # outline just adds noise (and fights the type label).
+    stroke_width = 1.5 if terminal.is_indicator else 2.0
 
     backend.rect(
         x1, y1, x2, y2, fill=theme.fp_panel, stroke=color, stroke_width=stroke_width

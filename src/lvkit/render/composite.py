@@ -123,11 +123,14 @@ def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -
         # selector bytes pick the preset: uniform rows = the CHAIN, otherwise
         # the DIAGONAL (the only two non-solid presets in the corpus).
         pat_color = style.edge_color or style.color
+        core_w = style.core_width or style.width
         for branch in net.branches:
             if style.fill_pattern:
                 if len(set(style.fill_pattern)) > 1:
-                    _draw_wire_diagonal(branch, backend, pat_color, style.width)
+                    # diagonal reads better at the narrower CORE width
+                    _draw_wire_diagonal(branch, backend, pat_color, core_w)
                 else:
+                    # chain rectangles need the full TOTAL width to stay hollow
                     _draw_wire_pattern(branch, backend, pat_color, style.width)
             elif style.edge_color is not None and style.core_width is not None:
                 # Two-band solid class wire: outer edge band, narrower center.

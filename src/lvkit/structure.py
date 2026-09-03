@@ -835,7 +835,10 @@ def _parse_wire_style(root: ET.Element) -> WireStyle | None:
         width=total_w,
         line_style=line_style,
         edge_color=edge_color if has_border else None,
-        core_width=core_w if has_border else None,
+        # Core (center) width is always carried — the fill pattern draws at the
+        # CORE band width, not the wider total (edge) width. The two-band solid
+        # look still keys off edge_color being present.
+        core_width=core_w,
         fill_pattern=_pen_fill_pattern(core),
     )
 

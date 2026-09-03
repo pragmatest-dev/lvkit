@@ -1932,7 +1932,8 @@ def test_control_border_thicker_than_indicator_border():
         LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
         is_indicator=True,
     )
-    assert 'stroke-width="3.0"' in control_svg
+    # Control is heavier than an indicator, but no longer bold (2.0 vs 1.5).
+    assert 'stroke-width="2.0"' in control_svg
     assert 'stroke-width="1.5"' in indicator_svg
 
 
