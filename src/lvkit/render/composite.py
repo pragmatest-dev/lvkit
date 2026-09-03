@@ -144,7 +144,7 @@ def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -
             backend.circle(jx, jy, 3.0, fill=style.color)
 
 
-# A class "chain" wire: hollow rounded-rectangle LINK, short LINE connector, link,
+# A class "chain" wire: hollow hard-corner rectangle LINK, short LINE connector, link,
 # line, … repeated along the wire (as seen in every LabVIEW class-wire example).
 _LINK_LEN = 6.0  # length of one hollow link along the wire
 _LINK_CONN = 3.0  # length of the solid connector line between links
@@ -156,7 +156,7 @@ def _draw_wire_pattern(
     color: str,
     width: float,
 ) -> None:
-    """Draw a patterned class wire as a CHAIN: a hollow rounded-rectangle link,
+    """Draw a patterned class wire as a CHAIN: a hollow hard-corner rectangle link,
     then a short solid connector line, then a link, then a line — repeated along
     each axis-aligned segment and oriented with it (horizontal links on a
     horizontal run, vertical on a vertical run), in the pen color. This is
@@ -177,12 +177,12 @@ def _draw_wire_pattern(
             if horizontal:
                 backend.rect(
                     t, cross - half, end, cross + half,
-                    fill="none", stroke=color, stroke_width=lw, rx=half,
+                    fill="none", stroke=color, stroke_width=lw,
                 )
             else:
                 backend.rect(
                     cross - half, t, cross + half, end,
-                    fill="none", stroke=color, stroke_width=lw, rx=half,
+                    fill="none", stroke=color, stroke_width=lw,
                 )
             # connector line to the next link
             c0, c1 = end, min(end + _LINK_CONN, hi)
