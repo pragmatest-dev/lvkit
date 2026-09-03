@@ -26,6 +26,9 @@ class ClusterConstantGlyph:
     fields: tuple[tuple[str, Glyph], ...]
     is_error: bool = False
     fill_attr: str = "const_fill"
+    # The cluster's own wire color (brown for an all-numeric cluster, pink for a
+    # mixed/common one) — the icon border matches the wire. None -> brown.
+    border_color: str | None = None
     # ``name: value`` per field, for a hover tooltip — useful when the cluster
     # is drawn small/collapsed and the inline values aren't legible.
     value_summary: str = ""
@@ -42,7 +45,10 @@ class ClusterConstantGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        border = theme.wire_error if self.is_error else theme.wire_cluster
+        if self.is_error:
+            border = theme.wire_error
+        else:
+            border = self.border_color or theme.wire_cluster
         backend.rect(
             x1,
             y1,

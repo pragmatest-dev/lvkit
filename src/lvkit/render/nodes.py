@@ -1083,7 +1083,12 @@ def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
     summary = "\n".join(
         f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}" for f in fields
     )
-    return ClusterConstantGlyph(composed, is_error=is_error, value_summary=summary)
+    return ClusterConstantGlyph(
+        composed,
+        is_error=is_error,
+        value_summary=summary,
+        border_color=wire_style(node.lv_type).color,
+    )
 
 
 def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
@@ -1129,7 +1134,9 @@ class GeneratedGlyphResolver:
                 # (never the raw dict/list value repr).
                 if fam == "error_cluster":
                     return ErrorClusterGlyph()
-                return ClusterConstantGlyph(fields=())
+                return ClusterConstantGlyph(
+                    fields=(), border_color=wire_style(node.lv_type).color
+                )
             raw = node.raw_value if node.value is None else node.value
             return _leaf_const_glyph(node.lv_type, raw, node.display_format)
         if isinstance(node, FormulaNode):
