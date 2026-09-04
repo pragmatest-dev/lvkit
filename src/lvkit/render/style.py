@@ -158,6 +158,12 @@ _LINE_W = 1.2
 # bolder than its scalar element (1D ~2.8px vs 1.2px), thicker still for 2D+.
 _ARRAY_W_PER_DIM = 1.6
 
+# Fill pattern for an UNRESOLVED class wire's default grey CHAIN. Any non-empty,
+# UNIFORM 8-row pattern selects the chain preset (uniform -> chain, mixed rows ->
+# diagonal; see render/composite.py); the exact bytes don't affect the drawn
+# hollow-link chain, only chain-vs-diagonal selection.
+_CLASS_CHAIN_PATTERN: tuple[int, ...] = (0xC3,) * 8
+
 
 _INT_TYPES = {
     "NumInt8",
@@ -342,16 +348,14 @@ def type_family(lv_type: LVType | None) -> str:
             # LabVIEW I/O-name types (DAQmx physical channel / task name, VISA
             # resource name, …) — reference-family wires, LV's dark green.
             return "refnum"
-        if ut == "Refnum":
-            # Generic refnum — VI reference, DAQmx/VISA driver session, queue,
-            # notifier, control refnum, etc. — draws LabVIEW's dark-green
-            # reference wire. An LVOOP class instance is ALSO carried as a Refnum
-            # but with a ``classname``: when its class (or an ancestor) sets a
-            # wire style, ``wire_style`` returns that before reaching here, so we
-            # only see a class refnum with NO style in its whole ancestry — which
-            # falls back to the same generic reference green, never grey.
-            if not lv_type.classname or lv_type.wire_style is None:
-                return "refnum"
+        if ut == "Refnum" and not lv_type.classname:
+            # GENERIC refnum only — VI reference, DAQmx/VISA driver session,
+            # queue, notifier, control refnum, etc. — draws LabVIEW's reference
+            # wire. An LVOOP class instance is ALSO carried as a Refnum but with a
+            # ``classname``: it is NOT a refnum wire. ``wire_style`` handles it
+            # (its own/inherited pen, else the default GREY CHAIN for an
+            # unresolved class), returning before the family is consulted.
+            return "refnum"
     return "unknown"
 
 
@@ -422,6 +426,17 @@ def wire_style(
             core_width=(
                 inner.core_width + extra if inner.core_width is not None else None
             ),
+        )
+
+    # An LVOOP class refnum with no pen anywhere in its ancestry — an UNRESOLVED
+    # class (its ``.lvclass`` or a parent is unfound, often a ``<vilib>`` class
+    # with no configured root) — is NOT a refnum wire. LabVIEW draws every class
+    # with the CHAIN pattern, so draw a GREY CHAIN: grey = unresolved, chain =
+    # still visibly a class (an array OF such a class inherits it, thicker, via
+    # the array branch above).
+    if lv_type.underlying_type == "Refnum" and lv_type.classname:
+        return WireStyle(
+            theme.wire_default, _LINE_W, fill_pattern=_CLASS_CHAIN_PATTERN
         )
 
     family = type_family(lv_type)

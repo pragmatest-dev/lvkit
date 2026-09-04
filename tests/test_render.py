@@ -823,11 +823,10 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     draws its CLASS NAME — wrapped-and-shrunk to fill the box (``fit``) — never
     the parser's placeholder raw value (``"Refnum(1)"``) and never a generic
     "Refnum". The constant/label path keys on ``underlying_type`` +
-    ``classname``, independent of the wire family. A class refnum with no wire
-    style anywhere in its ancestry is the ``refnum`` family (reference-green
-    wire, like any driver/session ref) — a class that sets its own style draws
-    that instead. Same class-name rule shared with terminal labels —
-    ``style.lv_type_label``."""
+    ``classname``, independent of the wire family. A class refnum is NOT the
+    ``refnum`` family (that is reserved for GENERIC refs); with no custom wire
+    style it draws the default grey class chain, not a reference wire. Same
+    class-name rule shared with terminal labels — ``style.lv_type_label``."""
     from lvkit.models import LVType
     from lvkit.render.glyph import ConstantGlyph
     from lvkit.render.nodes import _leaf_const_glyph
@@ -839,8 +838,7 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
         ref_type="UDClassInst",
         classname="NI DAQmx.lvlib:DAQmx Module Configuration.lvclass",
     )
-    # No custom wire style -> the generic reference-green refnum wire, never grey.
-    assert type_family(cls) == "refnum"
+    assert type_family(cls) == "unknown"  # a class refnum is NOT the refnum family
     assert lv_type_label(cls) == "DAQmx Module Configuration.lvclass"
 
     glyph = _leaf_const_glyph(cls, raw="Refnum(1)")
@@ -859,13 +857,14 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     assert _leaf_const_glyph(gen, raw="Refnum(1)").value == "Occurrence Refnum"
 
 
-def test_io_name_tag_and_pen_less_class_are_reference_green():
-    """LabVIEW I/O-name types (``Tag`` — DAQmx physical channel / task name,
-    VISA resource name) and a class refnum with no wire style in its ancestry
-    both draw the dark-green reference wire, never grey ``unknown``. An array of
-    a ``Tag`` inherits that green (thicker per dimension). A class that DOES set
-    a wire style keeps it — that path returns from ``wire_style`` before family
-    is consulted."""
+def test_io_name_tag_is_reference_wire_and_unresolved_class_is_grey_chain():
+    """A LabVIEW I/O-name type (``Tag`` — DAQmx physical channel / task name,
+    VISA resource name) draws the reference wire. But an UNRESOLVED class refnum
+    (a ``classname`` with no wire style anywhere in its ancestry — its
+    ``.lvclass``/parent unfound) is NOT a refnum wire: it draws the default GREY
+    CHAIN (grey = unresolved, chain = still visibly a class), thicker per array
+    dimension. A class that DOES set a wire style keeps it (``wire_style``
+    returns before the family/default is consulted)."""
     import dataclasses
 
     from lvkit.models import LVType, WireStyle
@@ -878,14 +877,22 @@ def test_io_name_tag_and_pen_less_class_are_reference_green():
     tag_arr = LVType(kind=LVTypeKind.ARRAY, element_type=tag)
     assert wire_style(tag_arr).color == DEFAULT_THEME.wire_refnum
 
-    pen_less_class = LVType(
+    unresolved_class = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", classname="Foo.lvclass"
     )
-    assert type_family(pen_less_class) == "refnum"
-    assert wire_style(pen_less_class).color == DEFAULT_THEME.wire_refnum
+    ws = wire_style(unresolved_class)
+    assert ws.color == DEFAULT_THEME.wire_default  # grey, not refnum
+    assert ws.fill_pattern and len(set(ws.fill_pattern)) == 1  # a (uniform) CHAIN
+    assert type_family(unresolved_class) == "unknown"  # NOT the refnum family
+
+    # An array OF the unresolved class inherits the grey chain, thicker.
+    arr = LVType(kind=LVTypeKind.ARRAY, element_type=unresolved_class)
+    arr_ws = wire_style(arr)
+    assert arr_ws.color == DEFAULT_THEME.wire_default and bool(arr_ws.fill_pattern)
+    assert arr_ws.width > ws.width
 
     styled = dataclasses.replace(
-        pen_less_class, wire_style=WireStyle(color="#abcdef", width=2.0)
+        unresolved_class, wire_style=WireStyle(color="#abcdef", width=2.0)
     )
     assert wire_style(styled).color == "#abcdef"
 
@@ -4066,10 +4073,10 @@ def test_node_type_flavor_carries_doc_url():
 
 def test_refnum_wire_is_dark_green_not_grey():
     """Generic refnums (VI reference, driver/DAQ/VISA session, queue, ...) use
-    LabVIEW's dark-green reference-wire color — not the grey "unresolved" color.
-    An LVOOP class instance is also a Refnum but carries a classname: a class
-    that sets its own wire style draws in that, and a class with NO style in its
-    ancestry falls back to the SAME generic green (a reference wire), never grey."""
+    LabVIEW's reference-wire color. An LVOOP class instance is also a Refnum but
+    carries a classname: it is NOT a reference wire — a class that sets its own
+    wire style draws in that, and an UNRESOLVED class (no style in its ancestry)
+    draws the default grey class chain, never the reference wire."""
     import dataclasses
 
     from lvkit.models import WireStyle
@@ -4088,11 +4095,12 @@ def test_refnum_wire_is_dark_green_not_grey():
         ref_type="UDClassInst",
         classname="Camera.lvclass",
     )
-    # No wire style anywhere in its ancestry -> generic reference green, not grey.
-    assert type_family(lvoop) == "refnum"
-    assert wire_style(lvoop).color == DEFAULT_THEME.wire_refnum
+    # Unresolved class -> the default grey class chain, NOT the reference wire.
+    assert type_family(lvoop) == "unknown"
+    lvoop_ws = wire_style(lvoop)
+    assert lvoop_ws.color == DEFAULT_THEME.wire_default and bool(lvoop_ws.fill_pattern)
 
-    # A class that DOES carry a wire style draws in that, not the generic green.
+    # A class that DOES carry a wire style draws in that, not the grey chain.
     styled = dataclasses.replace(
         lvoop, wire_style=WireStyle(color="#123456", width=2.0)
     )
