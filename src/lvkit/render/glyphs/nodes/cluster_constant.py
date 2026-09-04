@@ -59,39 +59,54 @@ class ClusterConstantGlyph:
             stroke_width=1.5,
         )
         if not self.fields:
-            # No resolved fields (or a genuinely empty cluster): the generic
-            # cluster icon, never a raw value repr.
+            # Genuinely unresolved / empty cluster (no field info to compose):
+            # the generic shell icon, never a raw value repr.
             self._draw_generic_icon(backend, bounds, theme)
             return
         pad = 3.0
         label_size = 7.0
         row_h = (y2 - y1 - 2 * pad) / len(self.fields)
         if row_h < self._MIN_ROW_H or (x2 - x1 - 2 * pad) < self._MIN_FIELD_W:
-            # Icon size: too small for a labeled/value grid, so draw LabVIEW's
-            # generic cluster-constant ICON — the shell already drawn above, plus
-            # a couple of small element squares (as the standard shared icon
-            # shows), NOT a garbled stack of the real field values. Names on hover.
-            self._draw_generic_icon(backend, bounds, theme)
+            # Too small for name+value rows: draw the field VALUE glyphs alone,
+            # fit to the box. A one-boolean cluster shows its boolean; a small
+            # multi-field cluster shows its members' value glyphs — the REAL
+            # content and field count, never a generic mixed-element icon that
+            # misstates them. Names stay on the hover tooltip. Fits inside the
+            # given box, so it also composes into an array-of-clusters' per-
+            # element cell (LabVIEW lays the element cluster out in that box).
+            self._draw_value_cells(backend, bounds, theme)
             return
         self._draw_labeled_rows(backend, bounds, theme, border, pad, label_size)
 
+    def _draw_value_cells(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        """Stack each field's VALUE glyph (no name label) to fill the box — one
+        equal-height row per field. The field glyphs draw themselves at whatever
+        size the cell gives, so this fits any box down to a single-member
+        square."""
+        x1, y1, x2, y2 = bounds
+        pad = 1.5
+        n = len(self.fields)
+        cell_h = (y2 - y1 - 2 * pad) / n
+        for i, (_name, field_glyph) in enumerate(self.fields):
+            cy1 = y1 + pad + i * cell_h
+            field_glyph.draw(backend, (x1 + pad, cy1, x2 - pad, cy1 + cell_h), theme)
+
     def _draw_generic_icon(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
-        """LabVIEW's generic cluster-constant icon: the cluster shell (already
-        drawn) with a couple of small element squares inside — the standard
-        shared look, independent of the real field values."""
+        """The fallback shell icon for a cluster whose fields could NOT be
+        resolved (no composed field glyphs) — a couple of small element squares
+        inside the shell, so an unresolved cluster still reads as a cluster
+        rather than an empty box. A cluster WITH fields draws its real members
+        (:meth:`_draw_value_cells`) instead."""
         x1, y1, x2, y2 = bounds
         w, h = x2 - x1, y2 - y1
         s = max(2.0, min(w, h) * 0.22)  # element-square size
         gap = s * 0.5
-        # two element squares (a string-pink + an int-blue), the mixed-element
-        # motif of the standard icon; positioned upper-left with a small margin.
         colors = (theme.wire_string, theme.wire_int)
         ex = x1 + w * 0.22
         ey = y1 + h * 0.28
         for i, col in enumerate(colors):
             bx = ex + i * (s + gap)
             backend.rect(bx, ey, bx + s, ey + s, fill=col, stroke="none")
-        # a third (bool-green) square below the first, per the icon's layout
         backend.rect(ex, ey + s + gap, ex + s, ey + 2 * s + gap,
                      fill=theme.wire_bool, stroke="none")
 
