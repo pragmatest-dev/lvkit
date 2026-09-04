@@ -1173,6 +1173,18 @@ def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
         return _format_const(0 if raw is None else raw)
     if fam == "string":
         return string_const_display(raw) if raw is not None else ""
+    if fam in ("cluster", "error_cluster") and lv_type and lv_type.fields:
+        # Recurse so a nested cluster reads as LABELED sub-fields
+        # ``{Idle State: False}`` in the hover, not a raw Python dict
+        # ``{'Idle State': False}``.
+        vals = _cluster_field_values(raw)
+        inner = ", ".join(
+            f"{f.name}: {_field_summary_value(f.type, vals.get(f.name))}"
+            for f in lv_type.fields
+        )
+        return "{" + inner + "}"
+    if fam == "array" and isinstance(raw, (list, tuple)):
+        return f"[{len(raw)} element{'s' if len(raw) != 1 else ''}]"
     return str(raw) if raw is not None else ""
 
 
