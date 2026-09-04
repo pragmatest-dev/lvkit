@@ -105,9 +105,11 @@ class Theme:
     # pink — a mixed/"common" cluster (any string/array/refnum/... field). Same
     # NI pink family as the string wire; a mixed cluster reads pink in LabVIEW.
     wire_cluster_mixed: str = "#e05fa0"
-    wire_refnum: str = "#1f6b2e"  # dark green — refnums (VI refs, driver/DAQ/
-    #                                VISA sessions, queues, notifiers, controls);
-    #                                LabVIEW's generic reference wire color
+    # dark teal — refnums (VI refs, driver/DAQ/VISA sessions, queues, notifiers,
+    # controls). LabVIEW's generic "Refnum Wire" user-color default is
+    # 0x00007F7F (per the LabVIEW Wiki Color reference) — a dark teal, NOT green.
+    # Sits near ``wire_path`` (also teal) as it does in LabVIEW itself.
+    wire_refnum: str = "#007f7f"
     wire_error: str = "#a88d1e"  # mustard/dark-yellow — error clusters (LV 8.2+)
     wire_variant: str = "#840984"  # purple — Variant (NI rgb(132,9,132))
     # Unresolved / unknown-type wires — a DISTINCT dark grey, NOT the float
