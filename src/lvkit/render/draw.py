@@ -474,9 +474,16 @@ def _node_doc_url(node: AnyGraphNode) -> str | None:
 
 def _terminal_label(t: Terminal) -> str:
     """A terminal's display label: the resolved def name (``display_name``,
-    e.g. "x"/"difference"), else a caller-side ``name`` if any, else
-    ``terminal N`` from its connector-pane index."""
-    return _terminal_display_name(t) or f"terminal {t.index}"
+    e.g. "x"/"difference"), else a caller-side ``name`` if any, else — for a
+    Bundle/Unbundle aggregate terminal — "input cluster"/"output cluster"
+    (LabVIEW's own names for the whole-cluster port), else ``terminal N`` from
+    its connector-pane index."""
+    name = _terminal_display_name(t)
+    if name:
+        return name
+    if getattr(t, "nmux_role", None) == "agg":
+        return "output cluster" if t.direction == "output" else "input cluster"
+    return f"terminal {t.index}"
 
 
 def _terminal_is_informative(t: Terminal) -> bool:
