@@ -163,6 +163,12 @@ _ARRAY_W_PER_DIM = 1.6
 # diagonal; see render/composite.py); the exact bytes don't affect the drawn
 # hollow-link chain, only chain-vs-diagonal selection.
 _CLASS_CHAIN_PATTERN: tuple[int, ...] = (0xC3,) * 8
+# Total/core widths for the default class chain — matched to what REAL class
+# pens decode to across the corpus (edge ``Width`` 3.0, core 1.0; see
+# structure._parse_wire_style / _pen_width), so an UNRESOLVED class wire is the
+# same size as a resolved one, not the thin scalar ``_LINE_W``.
+_CLASS_WIRE_W = 3.0
+_CLASS_WIRE_CORE_W = 1.0
 
 
 _INT_TYPES = {
@@ -436,7 +442,10 @@ def wire_style(
     # the array branch above).
     if lv_type.underlying_type == "Refnum" and lv_type.classname:
         return WireStyle(
-            theme.wire_default, _LINE_W, fill_pattern=_CLASS_CHAIN_PATTERN
+            theme.wire_default,
+            _CLASS_WIRE_W,
+            core_width=_CLASS_WIRE_CORE_W,
+            fill_pattern=_CLASS_CHAIN_PATTERN,
         )
 
     family = type_family(lv_type)

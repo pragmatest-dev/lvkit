@@ -884,12 +884,27 @@ def test_io_name_tag_is_reference_wire_and_unresolved_class_is_grey_chain():
     assert ws.color == DEFAULT_THEME.wire_default  # grey, not refnum
     assert ws.fill_pattern and len(set(ws.fill_pattern)) == 1  # a (uniform) CHAIN
     assert type_family(unresolved_class) == "unknown"  # NOT the refnum family
+    # Gauge matched to what REAL class pens decode to across the corpus (total
+    # ``Width`` 3.0, core 1.0) so an unresolved class is the same size as a
+    # resolved one, not the thin scalar wire.
+    assert ws.width == pytest.approx(3.0)
+    assert ws.core_width == pytest.approx(1.0)
 
-    # An array OF the unresolved class inherits the grey chain, thicker.
+    # An array OF the unresolved class inherits the grey chain, widened the same
+    # per-dimension amount EVERY array gets (generic bolding, chain preserved) —
+    # no class-specific branch: each dimension adds a fixed step to width & core.
     arr = LVType(kind=LVTypeKind.ARRAY, element_type=unresolved_class)
     arr_ws = wire_style(arr)
-    assert arr_ws.color == DEFAULT_THEME.wire_default and bool(arr_ws.fill_pattern)
-    assert arr_ws.width > ws.width
+    assert arr_ws.color == DEFAULT_THEME.wire_default
+    assert arr_ws.fill_pattern == ws.fill_pattern  # element pattern carried through
+    step = arr_ws.width - ws.width
+    assert step > 0
+    assert arr_ws.core_width == pytest.approx((ws.core_width or 0.0) + step)
+
+    arr2 = LVType(kind=LVTypeKind.ARRAY, element_type=arr)  # 2-D
+    arr2_ws = wire_style(arr2)
+    assert arr2_ws.width == pytest.approx(ws.width + 2 * step)  # one step per dim
+    assert arr2_ws.fill_pattern == ws.fill_pattern
 
     styled = dataclasses.replace(
         unresolved_class, wire_style=WireStyle(color="#abcdef", width=2.0)
