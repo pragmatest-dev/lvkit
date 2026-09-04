@@ -38,6 +38,7 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
 from ..parser.layout import Layout, Point, Rect, build_layout
 from ..parser.wire_table import FAITHFUL_WIRE_TABLE
 from .backend import SvgBackend
@@ -717,6 +718,46 @@ def _formula_border_centers(
             if center is None:
                 continue
             out[key] = (x1 if t.direction != "output" else x2, center[1])
+    return out
+
+
+# How far below the node's top edge the Bundle "input cluster" terminal sits.
+_BUNDLE_AGG_TOP_INSET = 5.0
+
+
+def _bundle_agg_centers(
+    by_id: dict[str, AnyGraphNode],
+    vi_name: str,
+    layout: Layout,
+) -> dict[str, tuple[float, float]]:
+    """Re-anchor a Bundle-By-Name's INPUT-cluster terminal to the TOP of the
+    aggregate's right column. The aggregate is a FULL-HEIGHT right column whose
+    input ("input cluster") attaches at its TOP while the output exits mid-right;
+    both share one heap DCO, so the layout collapses them onto the single mid
+    center and the input wire wrongly lands at mid. Move the INPUT up to the
+    column top (x kept at the aggregate column, y at the node top) — matching
+    LabVIEW's split cluster column. Only a Bundle (an aggregate INPUT *and*
+    OUTPUT both present) is touched; an Unbundle (aggregate input only) is left
+    alone."""
+    out: dict[str, tuple[float, float]] = {}
+    for node in by_id.values():
+        if getattr(node, "node_type", None) not in NMUX_BY_NAME_NODE_CLASSES:
+            continue
+        aggs = [
+            t
+            for t in getattr(node, "terminals", [])
+            if getattr(t, "nmux_role", None) == "agg"
+        ]
+        agg_out = next((t for t in aggs if t.direction == "output"), None)
+        agg_in = next((t for t in aggs if t.direction == "input"), None)
+        if agg_out is None or agg_in is None:
+            continue
+        raw = _strip_prefix(node.id, vi_name)
+        nb = layout.node_bounds.get(raw)
+        oc = layout.terminal_centers.get(_strip_prefix(agg_out.id, vi_name))
+        if nb is None or oc is None:
+            continue
+        out[_strip_prefix(agg_in.id, vi_name)] = (oc[0], nb[1] + _BUNDLE_AGG_TOP_INSET)
     return out
 
 
@@ -1809,6 +1850,14 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         layout = replace(
             layout,
             terminal_centers={**layout.terminal_centers, **fbox_centers},
+        )
+    # A Bundle-By-Name's "input cluster" attaches at the TOP of the aggregate's
+    # right column, not the mid where the layout collapses it (see the helper).
+    agg_centers = _bundle_agg_centers(by_id, vi_name, layout)
+    if agg_centers:
+        layout = replace(
+            layout,
+            terminal_centers={**layout.terminal_centers, **agg_centers},
         )
     default_frame, frame_values, frame_labels, error_frame_no_error = _frame_info(
         all_nodes,

@@ -511,6 +511,33 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     assert ">V<" in small_svg  # the field value glyphs are drawn, fit to the box
 
 
+def test_bundle_input_cluster_terminal_reanchored_to_column_top():
+    """A Bundle-By-Name's aggregate is a full-height right column: the OUTPUT
+    exits mid-right, but the INPUT ("input cluster") attaches at the column TOP.
+    Both share one heap DCO so the layout collapses them to the mid center;
+    ``_bundle_agg_centers`` pulls the input up to the node top (x kept)."""
+    from lvkit.graph.models import PrimitiveNode
+    from lvkit.models import Terminal
+    from lvkit.parser.layout import Layout
+    from lvkit.render.scene import _bundle_agg_centers
+
+    agg_in = Terminal(id="ai", index=0, direction="input", nmux_role="agg")
+    agg_out = Terminal(id="ao", index=1, direction="output", nmux_role="agg")
+    node = PrimitiveNode(
+        id="n", vi_path="v", node_type="nMux", terminals=[agg_in, agg_out]
+    )
+    layout = Layout()
+    layout.node_bounds["n"] = (100.0, 200.0, 226.0, 269.0)  # top y=200
+    layout.terminal_centers["ai"] = (222.0, 234.0)  # both collapsed to mid
+    layout.terminal_centers["ao"] = (222.0, 234.0)
+
+    out = _bundle_agg_centers({node.id: node}, "v", layout)
+    assert "ai" in out and "ao" not in out  # only the INPUT is moved
+    x, y = out["ai"]
+    assert x == 222.0  # column x kept
+    assert 200.0 <= y < 215.0  # pulled to the column top, not the mid (234)
+
+
 def test_collapsed_cluster_constant_draws_icon_not_members():
     """A cluster constant flagged COLLAPSED ("View As Icon", DDO objFlags bit
     0x10000000) draws the compact cluster icon, never its members — LabVIEW
