@@ -365,6 +365,11 @@ class Terminal(BaseModel):
     # this must never change generated code. Used by the renderer's connector-
     # pane hover / tooltip and by describe. See graph/construction.py.
     display_name: str | None = None
+    # Full dotted navigation path to a NESTED Bundle/Unbundle-By-Name field
+    # (e.g. "Strain Config.strain gage information.poisson ratio") — tooltip-only
+    # detail beside the terse leaf ``display_name`` the glyph shows. None for a
+    # top-level or leaf-only field. Set at the ``stamp_nmux_lane_names`` seam.
+    field_path: str | None = None
     lv_type: LVType | None = None
     var_name: str | None = None  # set during codegen
     nmux_role: str | None = None  # "agg" or "list"

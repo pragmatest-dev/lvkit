@@ -506,7 +506,11 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
 
     def fmt(t: Terminal) -> str:
         ty = lv_type_label(t.lv_type)
-        return f"  {_terminal_label(t)}: {ty}"
+        # A nested Bundle/Unbundle-By-Name field shows its FULL dotted path here
+        # (the tooltip never truncates), while the glyph row + connector panel
+        # keep the terse leaf ``display_name``.
+        label = t.field_path or _terminal_label(t)
+        return f"  {label}: {ty}"
 
     ins = sorted((t for t in terms if t.direction == "input"), key=lambda t: t.index)
     outs = sorted((t for t in terms if t.direction == "output"), key=lambda t: t.index)

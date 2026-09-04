@@ -3256,6 +3256,44 @@ def test_resolve_nmux_field_name_full_mode_addresses_whole_subclusters():
     assert _nmux_index_leaf_only("eventDataNode", agg(None)) is True
 
 
+def test_nested_bundle_field_tooltip_shows_dotted_path():
+    """A NESTED Bundle/Unbundle-By-Name field carries its FULL dotted path for
+    the hover ``<title>`` tooltip (which never truncates), while the terse leaf
+    label the glyph row + connector panel show is unchanged. A top-level field
+    (the sub-cluster itself) gets no path."""
+    from lvkit.graph.op_walk import _resolve_nmux_field_path
+    from lvkit.models import ClusterField, Terminal
+    from lvkit.render.draw import _terminal_help_lines, _terminal_label
+
+    inner = LVType(
+        kind=LVTypeKind.CLUSTER, fields=[ClusterField(name="leaf", type=None)]
+    )
+    fields = [ClusterField(name="Sub", type=inner)]
+    # Full mode: the nested leaf keeps its dotted path; the sub-cluster itself
+    # (a top-level slot) has none.
+    assert _resolve_nmux_field_path(1, fields, leaf_only=False) == "Sub.leaf"
+    assert _resolve_nmux_field_path(0, fields, leaf_only=False) is None
+    # Leaf-only mode (decompose/event): the sub-cluster is not a slot, but its
+    # leaf at 0 still carries its full nested path for the tooltip.
+    assert _resolve_nmux_field_path(0, fields, leaf_only=True) == "Sub.leaf"
+
+    t = Terminal(
+        id="f",
+        index=0,
+        direction="output",
+        nmux_role="list",
+        nmux_field_index=1,
+        display_name="leaf",
+        field_path="Sub.leaf",
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+    )
+    node = PrimitiveNode(id="n", vi_path="v", node_type="nMux", terminals=[t])
+    # Tooltip lines show the FULL dotted path...
+    assert any("Sub.leaf" in ln for ln in _terminal_help_lines(node))
+    # ...while the terse label (glyph row / connector panel) stays the leaf.
+    assert _terminal_label(t) == "leaf"
+
+
 def test_resolve_nmux_field_name_falls_through_multiple_sources():
     """Each row is resolved independently across BOTH sources in priority
     order: the first source that has a name for THIS index wins, even if

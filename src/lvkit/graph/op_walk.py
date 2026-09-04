@@ -178,6 +178,31 @@ def _resolve_nmux_field_name(
     return None
 
 
+def _resolve_nmux_field_path(
+    field_index: int | None,
+    *field_sources: list[ClusterField],
+    leaf_only: bool,
+) -> str | None:
+    """The full dotted navigation PATH to a NESTED field for a resolved nmux
+    index (e.g. ``Strain Config.strain gage information.poisson ratio``), or
+    None for a top-level field or when nothing resolves. Same flatten/source
+    order as :func:`_resolve_nmux_field_name` (which returns only the leaf) — the
+    flatten already carries the path per slot; this just keeps it for the
+    tooltip. Only a genuinely nested path (more than one segment) is returned."""
+    if field_index is None:
+        return None
+    flatten = _flatten_leaf_fields if leaf_only else _flatten_fields
+    for fields in field_sources:
+        if not fields:
+            continue
+        flat = flatten(fields)
+        if 0 <= field_index < len(flat):
+            path, field = flat[field_index]
+            if field.name and len(path) > 1:
+                return ".".join(path)
+    return None
+
+
 def _nmux_field_sources(
     vi_name: str,
     agg: Terminal | None,
@@ -228,12 +253,17 @@ def _nmux_lane_name(
         if name:
             return name
     own_fields, dep_fields = _nmux_field_sources(vi_name, agg, graph)
-    return _resolve_nmux_field_name(
-        term.nmux_field_index,
-        own_fields,
-        dep_fields,
-        leaf_only=_nmux_index_leaf_only(node_type, agg),
+    leaf_only = _nmux_index_leaf_only(node_type, agg)
+    name = _resolve_nmux_field_name(
+        term.nmux_field_index, own_fields, dep_fields, leaf_only=leaf_only
     )
+    if name is not None:
+        # Also keep the full dotted path (nested fields only) for the tooltip —
+        # the glyph shows the terse leaf ``name``.
+        term.field_path = _resolve_nmux_field_path(
+            term.nmux_field_index, own_fields, dep_fields, leaf_only=leaf_only
+        )
+    return name
 
 
 def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
