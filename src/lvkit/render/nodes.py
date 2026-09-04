@@ -57,6 +57,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
     ArrayBuildGlyph,
+    ArrayConstantGlyph,
     ArrayReverseGlyph,
     ArraySearchGlyph,
     ArraySizeGlyph,
@@ -1105,6 +1106,58 @@ def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
     )
 
 
+def _array_const_values(value: object) -> list[object]:
+    """An array constant's values as a Python list. The graph stores the value
+    as its ``repr`` string (``"[0, 0, 1, ...]"`` / ``"['a', 'b']"``); parse it
+    back with ``ast.literal_eval`` the same way the cluster path does."""
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    if isinstance(value, str) and value:
+        try:
+            parsed = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return []
+        if isinstance(parsed, (list, tuple)):
+            return list(parsed)
+    return []
+
+
+def _element_glyph(element_type: LVType | None, value: object) -> Glyph:
+    """One array element's glyph, from the element TYPE + its value. A cluster
+    element composes its fields (so an array of clusters draws each cluster in
+    its cell); anything else is a leaf constant glyph."""
+    fam = type_family(element_type)
+    if fam in ("cluster", "error_cluster") and element_type and element_type.fields:
+        vals = _cluster_field_values(value)
+        composed = tuple(
+            (f.name, _leaf_const_glyph(f.type, vals.get(f.name)))
+            for f in element_type.fields
+        )
+        return ClusterConstantGlyph(
+            composed,
+            is_error=fam == "error_cluster",
+            border_color=wire_style(element_type).color,
+        )
+    return _leaf_const_glyph(element_type, value)
+
+
+def _array_const_glyph(node: ConstantNode) -> Glyph:
+    """Compose an array constant: one element glyph per value (from the element
+    type), drawn by :class:`ArrayConstantGlyph` as an indexed, scrollable column
+    of cells — never the raw ``[…]`` list repr."""
+    lv_type = node.lv_type
+    element_type = lv_type.element_type if lv_type is not None else None
+    raw = node.raw_value if node.value is None else node.value
+    values = _array_const_values(raw)
+    elements = tuple(_element_glyph(element_type, v) for v in values)
+    return ArrayConstantGlyph(
+        elements=elements,
+        element_color=wire_style(lv_type).color,
+        struct_uid=node.id,
+        dimensions=(lv_type.dimensions if lv_type is not None else 1) or 1,
+    )
+
+
 def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
     """A cluster field's value as short text for the hover tooltip — mirrors
     what ``_leaf_const_glyph`` draws (type defaults for an unset field)."""
@@ -1151,6 +1204,8 @@ class GeneratedGlyphResolver:
                 return ClusterConstantGlyph(
                     fields=(), border_color=wire_style(node.lv_type).color
                 )
+            if fam == "array":
+                return _array_const_glyph(node)
             raw = node.raw_value if node.value is None else node.value
             return _leaf_const_glyph(node.lv_type, raw, node.display_format)
         if isinstance(node, FormulaNode):

@@ -511,6 +511,43 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     assert ">V<" in small_svg  # the field value glyphs are drawn, fit to the box
 
 
+def test_array_constant_renders_indexed_cells_not_raw_repr():
+    """An array constant draws an index control + a column of the elements' own
+    value glyphs (the indexed element at top), with a greyed past-end cell and
+    the interactive ``lv-array`` carrier — never the raw ``[…]`` Python list."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.glyph import ArrayConstantGlyph, ConstantGlyph
+    from lvkit.render.nodes import _array_const_values
+    from lvkit.render.style import DEFAULT_THEME
+
+    # Value parsing: the repr string is parsed back to a list.
+    assert _array_const_values("['a', 'b', 'c']") == ["a", "b", "c"]
+    assert _array_const_values("[0, 1, 2]") == [0, 1, 2]
+    assert _array_const_values("not-a-list") == []
+
+    elems = tuple(
+        ConstantGlyph(s, "#e05fa0", multiline=True) for s in ("Alpha", "Beta")
+    )
+    glyph = ArrayConstantGlyph(
+        elements=elems, element_color="#e05fa0", struct_uid="v::9"
+    )
+    b = SvgBackend()
+    bounds = (0.0, 0.0, 140.0, 90.0)
+    glyph.draw(b, bounds, DEFAULT_THEME)
+    svg = b.render(bounds)
+    assert "Alpha" in svg and "Beta" in svg  # real element value glyphs
+    assert ">0<" in svg  # the index readout
+    assert "['" not in svg and "[0," not in svg  # never the raw list repr
+    # The interactive contract the array controller JS reads: the carrier's
+    # length + per-row height, the translatable column, the index readout, and
+    # the ▲/▼ prev/next click targets — all keyed by the same struct uid.
+    assert 'data-lv-len="2"' in svg and "data-lv-cellh" in svg
+    assert 'class="lv-array-col"' in svg
+    assert 'class="lv-array-index"' in svg
+    assert 'data-lv-action="prev"' in svg and 'data-lv-action="next"' in svg
+    assert svg.count('data-lv-struct="v::9"') >= 3  # carrier + col + index all keyed
+
+
 def test_local_variable_glyph_badge_and_read_write_border_weight():
     """A Local Variable node draws the ▶ badge (a filled triangle polygon) that
     tells it apart from a same-shaped constant box, with a BOLD border on both

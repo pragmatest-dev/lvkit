@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .glyphs.nodes.arith import ArithGlyph
 from .glyphs.nodes.array_build import ArrayBuildGlyph
+from .glyphs.nodes.array_constant import ArrayConstantGlyph
 from .glyphs.nodes.array_reverse import ArrayReverseGlyph
 from .glyphs.nodes.array_search import ArraySearchGlyph
 from .glyphs.nodes.array_size import ArraySizeGlyph
@@ -75,6 +76,7 @@ __all__ = [
     "BundleByNameGlyph",
     "BundleGlyph",
     "CenteredSvgGlyph",
+    "ArrayConstantGlyph",
     "ClusterConstantGlyph",
     "CompoundArithGlyph",
     "ConstantGlyph",
