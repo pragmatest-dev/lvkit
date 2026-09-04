@@ -511,6 +511,37 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     assert ">V<" in small_svg  # the field value glyphs are drawn, fit to the box
 
 
+def test_collapsed_cluster_constant_draws_icon_not_members():
+    """A cluster constant flagged COLLAPSED ("View As Icon", DDO objFlags bit
+    0x10000000) draws the compact cluster icon, never its members — LabVIEW
+    can't shrink a value's natural height, so a small box is a collapse, not
+    squashed content. An expanded cluster still draws its members."""
+    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
+
+    fields = (("a", _Dot()), ("b", _Dot()), ("c", _Dot()))
+    box = (0.0, 0.0, 90.0, 60.0)
+
+    collapsed = SvgBackend()
+    ClusterConstantGlyph(fields=fields, collapsed=True).draw(
+        collapsed, box, DEFAULT_THEME
+    )
+    csvg = collapsed.render(box)
+    assert ">V<" not in csvg  # members NOT drawn when collapsed
+    assert csvg.count("<rect") >= 3  # shell + element squares (the icon)
+
+    expanded = SvgBackend()
+    ClusterConstantGlyph(fields=fields, collapsed=False).draw(
+        expanded, box, DEFAULT_THEME
+    )
+    assert ">V<" in expanded.render(box)  # members ARE drawn when expanded
+
+
 def test_array_constant_renders_indexed_cells_not_raw_repr():
     """An array constant draws an index control + a column of the elements' own
     value glyphs (the indexed element at top), with a greyed past-end cell and

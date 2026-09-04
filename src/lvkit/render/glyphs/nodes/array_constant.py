@@ -126,10 +126,10 @@ class ArrayConstantGlyph:
         )
         arrow_w = 8.0
         mid = (iy1 + iy2) / 2
-        # ▲ = previous (index - 1), ▼ = next (index + 1).
+        # ▲ (top) = index UP / next (index + 1); ▼ (bottom) = index down / prev.
         backend.begin_group(
             cls="lv-selector lv-clickable",
-            data={"lv-action": "prev", "lv-struct": self.struct_uid},
+            data={"lv-action": "next", "lv-struct": self.struct_uid},
         )
         backend.rect(ix1, iy1, ix1 + arrow_w, mid, fill="transparent", stroke="none")
         backend.polygon(
@@ -143,7 +143,7 @@ class ArrayConstantGlyph:
         backend.end_group()
         backend.begin_group(
             cls="lv-selector lv-clickable",
-            data={"lv-action": "next", "lv-struct": self.struct_uid},
+            data={"lv-action": "prev", "lv-struct": self.struct_uid},
         )
         backend.rect(ix1, mid, ix1 + arrow_w, iy2, fill="transparent", stroke="none")
         backend.polygon(

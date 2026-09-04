@@ -312,6 +312,10 @@ class ConstantNode(GraphNode):
     # (``ParsedConstant.display_format``, e.g. ``%.0x`` for hex), threaded
     # through unchanged — render/nodes.py is where it's interpreted.
     display_format: str | None = None
+    # True when this cluster/array constant is drawn COLLAPSED ("View As Icon",
+    # ``ParsedConstant.collapsed``): render shows a compact icon, not its
+    # members/elements (LabVIEW never shrinks a value's natural height).
+    collapsed: bool = False
 
 
 class LabelNode(GraphNode):

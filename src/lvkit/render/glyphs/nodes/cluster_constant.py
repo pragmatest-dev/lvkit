@@ -25,6 +25,11 @@ class ClusterConstantGlyph:
 
     fields: tuple[tuple[str, Glyph], ...]
     is_error: bool = False
+    # Drawn COLLAPSED ("View As Icon") — show the compact cluster icon, never the
+    # members. A collapsed constant's box is deliberately too small for content;
+    # LabVIEW cannot shrink a value's natural height, so a small box is always a
+    # collapse, never squashed members. (``ConstantNode.collapsed``.)
+    collapsed: bool = False
     fill_attr: str = "const_fill"
     # The cluster's own wire color (brown for an all-numeric cluster, pink for a
     # mixed/common one) — the icon border matches the wire. None -> brown.
@@ -58,9 +63,10 @@ class ClusterConstantGlyph:
             stroke=border,
             stroke_width=1.5,
         )
-        if not self.fields:
-            # Genuinely unresolved / empty cluster (no field info to compose):
-            # the generic shell icon, never a raw value repr.
+        if self.collapsed or not self.fields:
+            # COLLAPSED ("View As Icon"), or a genuinely unresolved / empty
+            # cluster (no field info): the compact cluster icon, never squashed
+            # members or a raw value repr.
             self._draw_generic_icon(backend, bounds, theme)
             return
         pad = 3.0

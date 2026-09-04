@@ -92,6 +92,26 @@ def _extract_caption(dco: ET.Element) -> str | None:
     return caption or None
 
 
+_COLLAPSED_FLAG = 0x10000000  # DDO objFlags bit: "View As Icon" (collapsed)
+
+
+def _extract_collapsed(dco: ET.Element) -> bool:
+    """Whether a cluster/array constant is drawn COLLAPSED (as a compact icon),
+    from its DDO ``objFlags`` bit ``0x10000000``. Verified on DCAF
+    ``Create Test Configuration.vi``: the collapsed 4/5/7-field cluster
+    constants carry ``0x10601024`` (bit set) while the expanded ones (incl. a
+    one-boolean cluster that renders its member fine) carry ``0x00601004`` (bit
+    clear). Only meaningful for a composite (``stdClust``/``indArr``) ddo."""
+    ddo = dco.find("ddo")
+    if ddo is None or ddo.get("class") not in ("stdClust", "indArr"):
+        return False
+    try:
+        flags = int((ddo.findtext("objFlags") or "0").strip())
+    except ValueError:
+        return False
+    return bool(flags & _COLLAPSED_FLAG)
+
+
 def extract_constants(root: ET.Element) -> list[ParsedConstant]:
     """Extract constants from the block diagram.
 
@@ -126,6 +146,7 @@ def extract_constants(root: ET.Element) -> list[ParsedConstant]:
                     value=value_hex,
                     label=label,
                     display_format=_extract_display_format(dco),
+                    collapsed=_extract_collapsed(dco),
                 )
             )
 

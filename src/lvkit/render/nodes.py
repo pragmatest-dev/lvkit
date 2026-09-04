@@ -1101,6 +1101,7 @@ def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
     return ClusterConstantGlyph(
         composed,
         is_error=is_error,
+        collapsed=node.collapsed,
         value_summary=summary,
         border_color=wire_style(node.lv_type).color,
     )
