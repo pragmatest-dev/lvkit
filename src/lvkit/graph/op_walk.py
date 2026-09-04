@@ -30,7 +30,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..num_format import format_numeric_const
-from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES, NODE_CLASS_NMUX
 from ..structure import _fields_from_xml, private_data_field_to_cluster_field
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant
@@ -125,26 +125,52 @@ def _own_class_private_data_fields(
     return [private_data_field_to_cluster_field(f) for f in fields]
 
 
+def _nmux_index_leaf_only(node_type: str | None, agg: Terminal | None) -> bool:
+    """How a node's flat ``<i>`` field index counts a NESTED cluster's fields.
+
+    FULL depth-first flatten (an intermediate sub-cluster is itself an
+    addressable slot) applies to exactly ONE case: a Bundle/Unbundle By Name
+    (``nMux``) over a plain typedef/cluster aggregate. Class private data —
+    accessed by ``nMux`` OR the IPES cluster border ``decomposeClusterNode`` —
+    and event data index LEAF fields only. Verified: ``nMux`` on
+    ``Parameters.ctl`` uses ``<i>``=40 for the whole ``PWM Config`` sub-cluster
+    (slot 40 of the full flatten; leaf-only has no such slot); ``nMux`` on a
+    class's own private data resolves ``pin_map_id`` (leaf); and a
+    ``decomposeClusterNode`` on ``Daqmx Module runtime`` private data uses
+    7/1/9/3 -> the leaf fields DI Index/AO Task/PWM Freq Index/DO Task. So the
+    private-data (``classname``-bearing) aggregate stays leaf even under
+    ``nMux``."""
+    if node_type != NODE_CLASS_NMUX:
+        return True
+    return not (
+        agg is not None
+        and agg.lv_type is not None
+        and agg.lv_type.classname is None
+    )
+
+
 def _resolve_nmux_field_name(
     field_index: int | None,
     *field_sources: list[ClusterField],
+    leaf_only: bool,
 ) -> str | None:
     """Resolve a field-index's LabVIEW field name, trying each of
     ``field_sources`` (in priority order) in turn — each row resolved
     independently, so one source can cover a row another source misses.
 
-    Each source is flattened LEAF-first (``_flatten_leaf_fields``):
-    LabVIEW's flat ``<i>`` index for a NESTED cluster (e.g. a class
-    private-data cluster whose own fields are themselves sub-clusters) runs
-    over leaves only — an intermediate sub-cluster is never itself an
-    addressable flat slot.
+    ``leaf_only`` picks how each source is flattened for a NESTED cluster (see
+    :func:`_nmux_index_leaf_only`): ``True`` counts LEAF fields only
+    (``_flatten_leaf_fields`` — IPES decompose / event data), ``False`` counts
+    every node depth-first so a whole sub-cluster is its own addressable slot
+    (``_flatten_fields`` — Bundle/Unbundle By Name).
     """
     if field_index is None:
         return None
+    flatten = _flatten_leaf_fields if leaf_only else _flatten_fields
     for fields in field_sources:
         if not fields:
             continue
-        flat = _flatten_leaf_fields(fields)
+        flat = flatten(fields)
         if 0 <= field_index < len(flat):
             name = flat[field_index][1].name
             if name:
@@ -183,13 +209,15 @@ def _nmux_lane_name(
     agg: Terminal | None,
     vi_name: str,
     graph: InMemoryVIGraph,
+    node_type: str | None,
 ) -> str | None:
     """THE canonical field-name resolution for an nMux/decompose LIST
     terminal, via ``term.nmux_field_index`` into the aggregate's field list
-    (``_nmux_field_sources``, then ``_resolve_nmux_field_name``). Returns
-    None when neither source resolves a name — callers keep their own
-    index/name fallback (a bracketed index or the terminal's own name is
-    display-only, never worth pinning onto ``display_name``)."""
+    (``_nmux_field_sources``, then ``_resolve_nmux_field_name`` — flattened per
+    ``node_type``, see :func:`_nmux_index_leaf_only`). Returns None when neither
+    source resolves a name — callers keep their own index/name fallback (a
+    bracketed index or the terminal's own name is display-only, never worth
+    pinning onto ``display_name``)."""
     # A MeasureData aggregate (waveform / digital data) has no VCTP fields — its
     # component names come from the built-in flavor table, keyed directly by the
     # drawer's field index (no leaf-flatten).
@@ -200,7 +228,12 @@ def _nmux_lane_name(
         if name:
             return name
     own_fields, dep_fields = _nmux_field_sources(vi_name, agg, graph)
-    return _resolve_nmux_field_name(term.nmux_field_index, own_fields, dep_fields)
+    return _resolve_nmux_field_name(
+        term.nmux_field_index,
+        own_fields,
+        dep_fields,
+        leaf_only=_nmux_index_leaf_only(node_type, agg),
+    )
 
 
 def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
@@ -242,7 +275,7 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
             for term in node.terminals:
                 if term.nmux_role != "list" or term.display_name is not None:
                     continue
-                name = _nmux_lane_name(term, agg, vi_name, graph)
+                name = _nmux_lane_name(term, agg, vi_name, graph, node.node_type)
                 if name:
                     term.display_name = name
 

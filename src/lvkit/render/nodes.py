@@ -43,6 +43,7 @@ from ..graph.models import (
 )
 from ..graph.op_walk import (
     _nmux_field_sources,
+    _nmux_index_leaf_only,
     _resolve_nmux_field_name,
     correlate_property_terminals,
 )
@@ -594,6 +595,7 @@ class JsonGlyphResolver:
 def _resolve_bundle_by_name_labels(
     field_terms: list[Terminal],
     *field_sources: list[ClusterField],
+    leaf_only: bool,
 ) -> tuple[str, ...]:
     """Resolve each By-Name field terminal's label via the fall-through
     chain (``_resolve_nmux_field_name`` over ``field_sources``, then the
@@ -621,7 +623,9 @@ def _resolve_bundle_by_name_labels(
     names: list[str] = []
     for t in field_terms:
         fi = t.nmux_field_index
-        name = t.display_name or _resolve_nmux_field_name(fi, *field_sources)
+        name = t.display_name or _resolve_nmux_field_name(
+            fi, *field_sources, leaf_only=leaf_only
+        )
         if name:
             t.display_name = name
             names.append(name)
@@ -671,7 +675,12 @@ def _bundle_by_name_glyph(
     # its terminal's ``display_name`` so the hover connector-panel (which has
     # room to show the name untruncated) shows the SAME resolved name as this
     # glyph row, not a generic "terminal N".
-    names = _resolve_bundle_by_name_labels(field_terms, own_fields, dep_fields)
+    names = _resolve_bundle_by_name_labels(
+        field_terms,
+        own_fields,
+        dep_fields,
+        leaf_only=_nmux_index_leaf_only(node.node_type, agg),
+    )
     # Direction comes from the FIELD terminals, not the aggregate — there can
     # be TWO aggregate terminals (an input source cluster and an output
     # assembled cluster) sharing one DCO, so ``agg.direction`` is ambiguous.
@@ -719,7 +728,12 @@ def _event_data_glyph(
     rows: list[tuple[str, LVType | None]] = []
     for t in field_terms:
         fi = t.nmux_field_index
-        name = t.display_name or _resolve_nmux_field_name(fi, own_fields, dep_fields)
+        name = t.display_name or _resolve_nmux_field_name(
+            fi,
+            own_fields,
+            dep_fields,
+            leaf_only=_nmux_index_leaf_only(node.node_type, agg),
+        )
         if name:
             t.display_name = name
         elif t.name:

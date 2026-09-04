@@ -3158,12 +3158,14 @@ def test_parse_private_data_fields_is_authoritative_to_the_class():
 
 
 def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
-    """``_resolve_nmux_field_name`` (backing ``_bundle_by_name_glyph``) must
-    flatten a NESTED private-data cluster LEAF-first — an intermediate
-    sub-cluster (``DAQ Tasks``, ``Channel Indeces``) is never itself an
-    addressable flat slot. Reproduces the exact corpus shape/indices (task:
-    DAQmx Module Runtime, indices 7/1/9/3 -> DI Index/AO Task/PWM Freq
-    Index/DO Task) without needing the sample VI on disk."""
+    """In LEAF-only mode (IPES ``decomposeClusterNode`` / event data),
+    ``_resolve_nmux_field_name`` flattens a NESTED private-data cluster
+    LEAF-first — an intermediate sub-cluster (``DAQ Tasks``, ``Channel
+    Indeces``) is never itself an addressable flat slot. Reproduces the exact
+    corpus shape/indices (task: DAQmx Module Runtime decompose, indices 7/1/9/3
+    -> DI Index/AO Task/PWM Freq Index/DO Task) without needing the sample VI on
+    disk. Bundle-By-Name (``nMux``) counts sub-clusters too — see the full-mode
+    assertions below and ``test_resolve_nmux_field_name_full_mode_...``."""
     from lvkit.graph.op_walk import _resolve_nmux_field_name
     from lvkit.models import ClusterField
 
@@ -3205,14 +3207,53 @@ def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
     )
     fields = [daq_tasks, channel_indeces]
 
-    assert _resolve_nmux_field_name(7, fields) == "DI Index"
-    assert _resolve_nmux_field_name(1, fields) == "AO Task"
-    assert _resolve_nmux_field_name(9, fields) == "PWM Freq Index"
-    assert _resolve_nmux_field_name(3, fields) == "DO Task"
+    assert _resolve_nmux_field_name(7, fields, leaf_only=True) == "DI Index"
+    assert _resolve_nmux_field_name(1, fields, leaf_only=True) == "AO Task"
+    assert _resolve_nmux_field_name(9, fields, leaf_only=True) == "PWM Freq Index"
+    assert _resolve_nmux_field_name(3, fields, leaf_only=True) == "DO Task"
     # Out of range (beyond every leaf) -> no name, caller falls back further.
-    assert _resolve_nmux_field_name(99, fields) is None
+    assert _resolve_nmux_field_name(99, fields, leaf_only=True) is None
     # No field index at all -> no name.
-    assert _resolve_nmux_field_name(None, fields) is None
+    assert _resolve_nmux_field_name(None, fields, leaf_only=True) is None
+
+
+def test_resolve_nmux_field_name_full_mode_addresses_whole_subclusters():
+    """In FULL mode (Bundle/Unbundle By Name ``nMux``) the flat ``<i>`` index
+    counts EVERY node depth-first, so a whole sub-cluster is its own addressable
+    slot — the same shape a LEAF-only flatten cannot reach. Mirrors the DCAF
+    ``Create Test Configuration`` Bundle node: index 0 is the first sub-cluster
+    itself, and its own leaf is index 1 (leaf-only would put that leaf at 0)."""
+    from lvkit.graph.op_walk import _nmux_index_leaf_only, _resolve_nmux_field_name
+    from lvkit.models import ClusterField, Terminal
+
+    inner = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="leaf", type=None)],
+    )
+    fields = [ClusterField(name="Sub", type=inner)]
+    # FULL: slot 0 = the sub-cluster, slot 1 = its leaf.
+    assert _resolve_nmux_field_name(0, fields, leaf_only=False) == "Sub"
+    assert _resolve_nmux_field_name(1, fields, leaf_only=False) == "leaf"
+    # LEAF-only: the sub-cluster is NOT a slot — only its leaf, at 0.
+    assert _resolve_nmux_field_name(0, fields, leaf_only=True) == "leaf"
+    assert _resolve_nmux_field_name(1, fields, leaf_only=True) is None
+
+    # The discriminator: full-mode is ONLY an ``nMux`` over a plain (non-class)
+    # cluster/typedef. Class private data (``classname``) stays leaf even under
+    # ``nMux``; IPES decompose / event data are always leaf.
+    def agg(classname: str | None) -> Terminal:
+        return Terminal(
+            id="a",
+            index=0,
+            direction="input",
+            nmux_role="agg",
+            lv_type=LVType(kind=LVTypeKind.CLUSTER, classname=classname),
+        )
+
+    assert _nmux_index_leaf_only("nMux", agg(None)) is False
+    assert _nmux_index_leaf_only("nMux", agg("Foo.lvclass")) is True
+    assert _nmux_index_leaf_only("decomposeClusterNode", agg(None)) is True
+    assert _nmux_index_leaf_only("eventDataNode", agg(None)) is True
 
 
 def test_resolve_nmux_field_name_falls_through_multiple_sources():
@@ -3229,13 +3270,13 @@ def test_resolve_nmux_field_name_falls_through_multiple_sources():
         ClusterField(name="second", type=None),
     ]
     # index 0 resolves from the first (own) source.
-    assert _resolve_nmux_field_name(0, own, dep) == "onlyInOwn"
+    assert _resolve_nmux_field_name(0, own, dep, leaf_only=True) == "onlyInOwn"
     # index 1 is out of range for own, falls through to dep.
-    assert _resolve_nmux_field_name(1, own, dep) == "second"
+    assert _resolve_nmux_field_name(1, own, dep, leaf_only=True) == "second"
     # Empty own source -> straight to dep.
-    assert _resolve_nmux_field_name(1, [], dep) == "second"
+    assert _resolve_nmux_field_name(1, [], dep, leaf_only=True) == "second"
     # Neither source covers it.
-    assert _resolve_nmux_field_name(5, own, dep) is None
+    assert _resolve_nmux_field_name(5, own, dep, leaf_only=True) is None
 
 
 def test_bundle_by_name_resolves_nested_class_private_data_field_names():
@@ -3441,7 +3482,7 @@ def test_resolve_bundle_by_name_labels_only_attaches_real_names():
     )
     field_terms = [resolved, named_by_terminal, unresolved]
 
-    names = _resolve_bundle_by_name_labels(field_terms, fields)
+    names = _resolve_bundle_by_name_labels(field_terms, fields, leaf_only=False)
     assert names == ("widgetCount", "caller side name", "[5]")
     assert resolved.display_name == "widgetCount"
     assert named_by_terminal.display_name is None
