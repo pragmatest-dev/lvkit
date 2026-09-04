@@ -96,14 +96,27 @@ _COLLAPSED_FLAG = 0x10000000  # DDO objFlags bit: "View As Icon" (collapsed)
 
 
 def _extract_collapsed(dco: ET.Element) -> bool:
-    """Whether a cluster/array constant is drawn COLLAPSED (as a compact icon),
-    from its DDO ``objFlags`` bit ``0x10000000``. Verified on DCAF
-    ``Create Test Configuration.vi``: the collapsed 4/5/7-field cluster
-    constants carry ``0x10601024`` (bit set) while the expanded ones (incl. a
-    one-boolean cluster that renders its member fine) carry ``0x00601004`` (bit
-    clear). Only meaningful for a composite (``stdClust``/``indArr``) ddo."""
+    """Whether a cluster/array constant is drawn COLLAPSED (View As Icon / the
+    smaller collapsed form) — its display DDO's ``objFlags`` bit ``0x10000000``.
+    Verified on DCAF ``Create Test Configuration.vi``: the collapsed cluster
+    constants carry the bit (``0x10601024`` for the smaller rectangular form,
+    ``0x11600024`` for the square View-As-Icon form) while expanded ones (incl.
+    a one-boolean cluster that renders its member fine) carry ``0x00601004``.
+
+    A TYPEDEF'd cluster/array constant wraps its display DDO in a ``typeDef``
+    ddo whose own flags never carry the bit — the ``stdClust``/``indArr`` nested
+    INSIDE it does, so descend into it first (the outermost nested composite,
+    document order = the cluster itself, not a member sub-cluster)."""
     ddo = dco.find("ddo")
-    if ddo is None or ddo.get("class") not in ("stdClust", "indArr"):
+    if ddo is None:
+        return False
+    if ddo.get("class") == "typeDef":
+        inner = ddo.find(".//SL__arrayElement[@class='stdClust']")
+        if inner is None:
+            inner = ddo.find(".//SL__arrayElement[@class='indArr']")
+        if inner is not None:
+            ddo = inner
+    if ddo.get("class") not in ("stdClust", "indArr"):
         return False
     try:
         flags = int((ddo.findtext("objFlags") or "0").strip())
