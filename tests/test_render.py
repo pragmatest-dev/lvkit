@@ -3079,12 +3079,14 @@ def test_bundle_by_name_glyph_draws_field_names():
     svg = b.render(bounds)
     for name in ("level", "parent name", "xml index"):
         assert name in svg
-    assert "▶" in svg  # By Name carries the same direction arrow as positional
+    # The direction arrow is a filled triangle (polygon), not a text glyph.
+    assert "<polygon" in svg
 
 
 def test_bundle_by_name_arrow_side_follows_direction():
-    """The arrow cell sits on the cluster side: RIGHT for Bundle By Name
-    (fields in -> cluster out), LEFT for Unbundle By Name (task #89)."""
+    """The cluster arrow sits on the cluster side: RIGHT for Bundle By Name
+    (fields in -> cluster out), LEFT for Unbundle By Name (task #89). The arrow
+    is a filled triangle (polygon) in the narrow cluster column."""
     from lvkit.render.glyph import BundleByNameGlyph
 
     bounds = (0.0, 0.0, 100.0, 40.0)
@@ -3094,9 +3096,10 @@ def test_bundle_by_name_arrow_side_follows_direction():
         BundleByNameGlyph(names=("a", "b"), bundling=bundling).draw(
             b, bounds, DEFAULT_THEME
         )
-        m = re.search(r'<text x="([\d.]+)"[^>]*>▶</text>', b.render(bounds))
+        m = re.search(r'<polygon points="([^"]+)"', b.render(bounds))
         assert m is not None
-        return float(m.group(1))
+        xs = [float(p.split(",")[0]) for p in m.group(1).split()]
+        return sum(xs) / len(xs)  # mean x of the arrow triangle
 
     assert arrow_x(True) > 50.0  # Bundle By Name -> arrow on the RIGHT half
     assert arrow_x(False) < 50.0  # Unbundle By Name -> arrow on the LEFT half
