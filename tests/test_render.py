@@ -2092,18 +2092,33 @@ def test_string_control_glyph_present():
     assert "abc" in svg
 
 
-def test_control_border_thicker_than_indicator_border():
-    control_svg = _render_fp_terminal(
-        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
-        is_indicator=False,
-    )
-    indicator_svg = _render_fp_terminal(
-        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
-        is_indicator=True,
-    )
-    # Control is heavier than an indicator, but no longer bold (2.0 vs 1.5).
-    assert 'stroke-width="2.0"' in control_svg
-    assert 'stroke-width="1.5"' in indicator_svg
+def test_control_and_indicator_share_border_and_differ_by_port_arrow():
+    """A control and an indicator draw the SAME double thin (1.0) border — the
+    old heavy-control / thin-indicator distinction is gone. DIRECTION is carried
+    only by the solid wire-port arrow: a control's sits at its RIGHT edge, an
+    indicator's at its LEFT, both pointing right (issue #85)."""
+    import re
+
+    ty = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+    control_svg = _render_fp_terminal(ty, is_indicator=False)
+    indicator_svg = _render_fp_terminal(ty, is_indicator=True)
+
+    for svg in (control_svg, indicator_svg):
+        # No heavy control outline; the box is a DOUBLE thin border (outer +
+        # inner, both 1.0) — identical for control and indicator.
+        assert 'stroke-width="2.0"' not in svg
+        assert svg.count('stroke-width="1.0"') >= 2
+
+    def arrow_cx(svg: str) -> float:
+        m = re.search(r'<polygon points="([^"]+)"', svg)
+        assert m is not None, "no wire-port arrow polygon drawn"
+        xs = [float(p.split(",")[0]) for p in m.group(1).split()]
+        return sum(xs) / len(xs)
+
+    # Same 40-wide box: the control's arrow is on the RIGHT half, the
+    # indicator's on the LEFT — that alone tells them apart.
+    assert arrow_cx(control_svg) > 20.0
+    assert arrow_cx(indicator_svg) < 20.0
 
 
 # --------------------------------------------------------------------------- #

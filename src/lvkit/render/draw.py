@@ -1241,14 +1241,23 @@ def draw_fp_terminal(
     # type its wire color.
     style = wire_style(scalar_type, theme)
     color = style.edge_color or style.color
-    # A control's box border is a touch heavier than an indicator's, but NOT bold
-    # — the wire-port arrow already carries the direction, so a heavy control
-    # outline just adds noise (and fights the type label).
-    stroke_width = 1.5 if terminal.is_indicator else 2.0
-
-    backend.rect(
-        x1, y1, x2, y2, fill=theme.fp_panel, stroke=color, stroke_width=stroke_width
-    )
+    # LabVIEW draws a control/indicator as a DOUBLE-lined box — an outer border
+    # and a thin inner border in the type color, the SAME for a control and an
+    # indicator. Direction is carried by the wire-port arrow, never by border
+    # weight, so both lines stay thin (a heavy single outline just fights the
+    # centered type label).
+    backend.rect(x1, y1, x2, y2, fill=theme.fp_panel, stroke=color, stroke_width=1.0)
+    inset = min(1.6, (x2 - x1) / 4, (y2 - y1) / 4)
+    if inset > 0.3:
+        backend.rect(
+            x1 + inset,
+            y1 + inset,
+            x2 - inset,
+            y2 - inset,
+            fill="none",
+            stroke=color,
+            stroke_width=1.0,
+        )
 
     label = terminal.name or ""
     if label and label_visible:
@@ -1292,41 +1301,62 @@ def draw_fp_terminal(
             # overflowing the terminal width, never truncated.
             backend.text((x1 + x2) / 2, y1 - 4, label, 8.0, fill=theme.text)
 
-    type_label = _fp_type_label(terminal, scalar_type)
     compact = x2 - x1 < _FP_MIN_ICON_SIZE or y2 - y1 < _FP_MIN_ICON_SIZE
-    if type_label:
-        # COMPACT view: too small for the index-column chrome that normally
-        # signals an array, so bracket an array's element type — "[DBL]" — to
-        # keep the array-ness obvious. The icon view leaves it bare (its index
-        # column already reads as the brackets).
-        shown = f"[{type_label}]" if compact and is_array else type_label
-        backend.text((x1 + x2) / 2, y2 - 2, shown, 7, fill=color, bold=True)
+    cy_mid = (y1 + y2) / 2
+
+    # The wire-port triangle — the dataflow-direction marker LabVIEW draws in
+    # BOTH the compact and full icon views: a control's points right at its
+    # RIGHT inner edge (data exits), an indicator's at its LEFT inner edge (data
+    # enters). Filled in the diagram text color (a small solid black arrow),
+    # sized to the box so it stays a marker at either scale, and tucked just
+    # inside the double border.
+    tri = min(4.0, (x2 - x1) * 0.22, (y2 - y1) * 0.42)
+    half_h = tri * 1.2  # base half-height (full height = 2*half_h)
+    tri_w = half_h * (2 / 3)  # axial width = 33% of the height — a slim arrowhead
+    # Both point RIGHT (dataflow direction). Indicator: base at the LEFT inner
+    # edge, tip toward center. Control: base inset from the RIGHT inner edge, tip
+    # AT it — so the arrow sits on the side its wire meets.
+    if terminal.is_indicator:
+        bx = x1 + inset
+        port = [(bx, cy_mid - half_h), (bx, cy_mid + half_h), (bx + tri_w, cy_mid)]
+    else:
+        tipx = x2 - inset
+        port = [
+            (tipx - tri_w, cy_mid - half_h),
+            (tipx - tri_w, cy_mid + half_h),
+            (tipx, cy_mid),
+        ]
+    backend.polygon(port, fill=theme.text)
+
+    type_label = _fp_type_label(terminal, scalar_type)
 
     if compact:
-        return  # too small for the wire port / index / value cells
+        # Compact view: no value cell — just the type mnemonic, centered
+        # HORIZONTALLY and VERTICALLY. An array brackets its element type
+        # ("[DBL]") since there's no index column to signal array-ness.
+        if type_label:
+            shown = f"[{type_label}]" if is_array else type_label
+            backend.text(
+                (x1 + x2) / 2, cy_mid + 7 * 0.35, shown, 7, fill=color, bold=True
+            )
+        return
 
-    tri = 5.5
-    cy_mid = (y1 + y2) / 2
-    # The wire-port triangle sits INSIDE the box (LabVIEW draws it within the
-    # control/indicator border, not poking out), always pointing right in the
-    # dataflow direction: an indicator's arrow is tucked against the left inner
-    # edge (data enters), a control's against the right inner edge (data exits).
-    if terminal.is_indicator:
-        port = [(x1, cy_mid - tri * 0.6), (x1, cy_mid + tri * 0.6), (x1 + tri, cy_mid)]
-    else:
-        port = [
-            (x2 - tri, cy_mid - tri * 0.6),
-            (x2 - tri, cy_mid + tri * 0.6),
-            (x2, cy_mid),
-        ]
-    backend.polygon(port, fill="#ffffff", stroke=color, stroke_width=1.0)
-
+    # Icon view: the value-display cell and the type mnemonic are stacked and
+    # centered AS A BLOCK in the box (the double border + the same centered
+    # wire-port arrow are already drawn above).
     margin = 5.0  # padding from the box border to the inner cells (per GT)
-    value_h = 10.0  # display cells occupy only the upper strip (GT ~10px)
+    value_h = 10.0  # display cell height (GT ~10px)
+    type_h = 8.0  # type-mnemonic row height
+    gap = 2.0  # between the display row and the type row
     idx_w = 8.0  # index-column width
     idx_cell_h = 7.0  # per index row
-    value_x1, value_y1 = x1 + margin, y1 + margin
-    value_x2 = x2 - margin
+    # The display ROW is the value cell, or — for an array — the taller i/j/k
+    # index column beside it. Center [display row | gap | type mnemonic] as one
+    # block on the box's vertical mid (the port arrow shares that mid).
+    row_h = idx_cell_h * _ARRAY_INDEX_ROWS if is_array else value_h
+    block_top = cy_mid - (row_h + gap + type_h) / 2
+    value_x1, value_x2 = x1 + margin, x2 - margin
+    value_y1 = block_top
     value_y2 = value_y1 + value_h
 
     if is_array:
@@ -1353,6 +1383,17 @@ def draw_fp_terminal(
     else:
         sample = numeric_sample(scalar_type)
         _draw_fp_value_cell(value_bounds, sample, backend, theme)
+
+    if type_label:
+        # Type mnemonic centered just below the display row (block's lower row).
+        backend.text(
+            (x1 + x2) / 2,
+            block_top + row_h + gap + type_h * 0.7,
+            type_label,
+            7,
+            fill=color,
+            bold=True,
+        )
 
 
 def _draw_layer_coercion_dots(
