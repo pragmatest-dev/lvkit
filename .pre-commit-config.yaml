@@ -26,6 +26,10 @@ repos:
       - id: check-toml
       - id: check-added-large-files
         args: ["--maxkb=500"]
+        # Issue #82's regression fixture embeds a real ~3.6MB photograph (the
+        # bug is an embedded PICTURE decoration), so it can't fit the 500KB cap.
+        # Whitelist just that one file — the cap still guards every other fixture.
+        exclude: ^tests/corpus/issues/82/Pictures And Decorations\.vi$
       - id: check-merge-conflict
       - id: mixed-line-ending
         args: ["--fix=lf"]

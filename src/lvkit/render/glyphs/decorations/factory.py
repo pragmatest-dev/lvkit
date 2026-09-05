@@ -4,9 +4,12 @@ The block-diagram Decorations palette is a small CLOSED set (Flat Frame, Thin/
 Thick Line, Thin/Thick Line with Arrow — see the LabVIEW Wiki). The map below is
 grounded in real data, NOT aspect-ratio guesses: ``-35``/``-502`` are confirmed
 by issue #32's reporter image (frame + thick arrow); ``-233`` is a Thin Line by
-its 1px-tall bounds; ``-303`` shares ``-35``'s grey-box signature. Any id not in
-the map draws a neutral placeholder (``FallbackGlyph``) and is logged once, so
-the table extends from evidence as new ids appear.
+its 1px-tall bounds; ``-303`` shares ``-35``'s grey-box signature; ``-770`` is a
+``class="attachment"`` label leader confirmed by issue #82's reference image
+(a thin arrow from the label to its attached object — see
+labview-binary-format.md). Any id not in the map draws a neutral placeholder
+(``FallbackGlyph``) and is logged once, so the table extends from evidence as
+new ids appear.
 """
 
 from __future__ import annotations
@@ -14,7 +17,7 @@ from __future__ import annotations
 import logging
 
 from .arrow import ArrowGlyph
-from .base import DecorationGlyph
+from .base import DecorationGlyph, Point
 from .fallback import FallbackGlyph
 from .frame import FrameGlyph
 from .line import LineGlyph
@@ -24,18 +27,33 @@ logger = logging.getLogger(__name__)
 _FRAME_IDS = frozenset({"-35", "-303"})
 _THIN_LINE_IDS = frozenset({"-233"})
 _THICK_ARROW_IDS = frozenset({"-502"})
+# A label-to-object leader's own ImageResID (attachment, not cosm) — drawn
+# thin (not the Decorations palette's THICK "-502" arrow): visually a normal
+# callout weight against the issue #82 reference image, never confirmed
+# thick/thin from the data itself (there's no bounds-derived signature for an
+# attachment the way -233's 1px-tall box gives one for a line).
+_THIN_ARROW_IDS = frozenset({"-770"})
 
 _warned: set[str] = set()
 
 
-def decoration_glyph(image_res_id: str) -> DecorationGlyph:
-    """The clean-room glyph for a decoration ``ImageResID``."""
+def decoration_glyph(
+    image_res_id: str, *, points: tuple[Point, ...] = ()
+) -> DecorationGlyph:
+    """The clean-room glyph for a decoration ``ImageResID``. ``points`` are the
+    decoration's real per-instance endpoints (decoded from its
+    ``ImageInternalsResID`` PICC section by the caller) — passed through to a
+    Line/Arrow glyph so it draws its actual diagonal instead of guessing one
+    from ``bounds``; ignored by shape kinds that don't use it (Frame,
+    Fallback)."""
     if image_res_id in _FRAME_IDS:
         return FrameGlyph()
     if image_res_id in _THIN_LINE_IDS:
-        return LineGlyph(thick=False)
+        return LineGlyph(thick=False, points=points)
     if image_res_id in _THICK_ARROW_IDS:
-        return ArrowGlyph(thick=True)
+        return ArrowGlyph(thick=True, points=points)
+    if image_res_id in _THIN_ARROW_IDS:
+        return ArrowGlyph(thick=False, points=points)
     if image_res_id not in _warned:
         _warned.add(image_res_id)
         logger.warning(

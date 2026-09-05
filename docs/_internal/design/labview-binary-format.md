@@ -532,3 +532,109 @@ unrelated root (it climbs 6 levels then `rglob`s) — a real hang seen in
 `_build_ancestor_chain`. URL-following keeps class/parent resolution fully
 path-driven and IDENTICAL on web and desktop (no file scans). Related:
 [[feedback_path_is_the_node_key]], [[feedback_no_heuristics]].
+
+## A decoration's positive ``ImageResID`` names a DSIM (embedded-picture) resource section; the top-level `<stem>.xml`'s `<PICC>`/`<DSIM>` blocks map Section Index -> file (issue #82)
+
+A block-diagram decoration (`class="cosm"`, and `class="attachment"` — see
+below) carries an `<image><ImageResID>N</ImageResID></image>`. The
+Decorations-palette shapes (Flat Frame, Thin/Thick Line, Thin/Thick Line with
+Arrow) always use NEGATIVE ids (`-35`, `-233`, `-502`, ...). A **positive** id
+is a different thing entirely: a resource **Section Index** into the VI's own
+extracted top-level `<stem>.xml` (the sibling of `<stem>_BDHb.xml`), which
+records index -> file for two resource kinds:
+
+```xml
+<PICC><Section Index="2" File="..._PICC2.bin"/><Section Index="3" File="..._PICC3.bin"/></PICC>
+<DSIM><Section Index="4" File="..._DSIM.bin"/></DSIM>
+```
+
+- **DSIM** ("Dynamic Size Image") sections hold an embedded PICTURE the
+  developer pasted onto the diagram (LabVIEW's Picture decoration / a picture
+  control's default, on the BD it's the "cosm" catch-all). The section's raw
+  bytes are a small binary preamble (size/scaling fields LabVIEW itself needs)
+  followed by a standard PNG. The PNG payload is found by its own signature
+  (`\x89PNG\r\n\x1a\n`) and ends at the first `IEND` chunk's CRC (+8 bytes past
+  the `IEND` tag) — verified on issue #82's repro: PNG at DSIM offset 46,
+  1402x1122 RGB, carving reproduces the embedded picture byte-for-byte.
+- **PICC** ("Generic block") sections hold per-instance geometry a decoration's
+  `<ImageInternalsResID>` names — see the next entry for the byte layout.
+
+The drawn footprint is the decoration's own on-diagram `<bounds>`, NOT the
+PNG's intrinsic size (issue #82's repro: a 1402x1122 PNG scaled into an
+803x643 box) — LabVIEW always stretches a pasted picture to whatever box the
+developer sized it to. Implementation: `parser/image_resources.py`
+(`resource_sections`/`resources_for_heap`, `carve_png`), threaded into
+`parser/layout.py`'s `_LayoutBuilder` as an optional `resources` map (default
+`None` -> no picture/PICC resolution, today's behavior for every caller that
+doesn't pass one) and carried on `Layout.images: dict[uid, bytes]`; rendered by
+`render/glyphs/decorations/picture.py`'s `PictureGlyph` (a plain `<image>`,
+smooth-scaled — NOT the `.lv-raster`/`pixelated` treatment connector-pane icon
+pixel art gets, since this is arbitrary photographic artwork).
+
+## PICC section byte layout: a 4-byte header then BE-int16 `(y, x)` point pairs — absolute LabVIEW pixels, same frame as the owning element's `<bounds>` (issue #82)
+
+A PICC section (see above) named by a decoration's `<ImageInternalsResID>`
+decodes as: a 4-byte header (purpose not yet decoded — every sample seen so
+far is a distinct 4-byte value, `00 02 01 02` / `00 92 09 02`, so it likely
+carries a style/type discriminator, not a length) followed by
+`(len(data) - 4) / 4` points, each **two big-endian signed int16 in `(y, x)`
+order**. Verified byte-for-byte on issue #82's repro:
+
+- `PICC3 = 00 02 01 02 | 02 3d 06 78 | 03 1c 04 ce` decodes to `(y=573,
+  x=1656)` then `(y=796, x=1230)` — i.e. `(x, y)` points `(1656, 573)` and
+  `(1230, 796)`, the real endpoints of a Thick-Line-With-Arrow (`cosm`
+  `ImageResID -502`) whose own `<bounds>` is `(572, 1230, 797, 1657)`
+  (top/left/bottom/right) — the TOP-RIGHT/BOTTOM-LEFT diagonal, not the
+  main (top-left/bottom-right) diagonal `line_endpoints()`'s bounds-only
+  guess draws.
+- `PICC2 = 00 92 09 02 | 01 01 01 7c | 02 5c 02 63` decodes to `(y=257,
+  x=380)` then `(y=604, x=611)` — the endpoints of a `class="attachment"`
+  label leader, running from the label's own corner to the target picture's
+  top edge. Note these points do **not** lie on the attachment element's own
+  (small, unrelated) `<bounds>` — an attachment's `<bounds>` is a hit-test
+  rect, not the leader's drawn extent; the real line is wherever the PICC
+  points say, absolute.
+
+These are ABSOLUTE LabVIEW-pixel coordinates in the SAME frame as the owning
+element's own `<bounds>` (`_rect()`'s `(top, left, bottom, right)` ->
+`(x1, y1, x2, y2)`) — decode with the identical walk offset (`ox, oy`) the
+element's bounds gets in `_LayoutBuilder._visit`, never the element's own
+`(ax1, ay1)` (which already has the offset baked in). Implementation:
+`parser/image_resources.decode_picc_points`.
+
+**Head/tail convention (inferred from the two samples above, not from the
+4-byte header):** in BOTH decoded pairs, the FIRST point sits at the
+originating label's edge and the SECOND at the target's edge, and in both
+cases LabVIEW draws the arrowhead at the target end (confirmed against the
+issue #82 reference image) — so `points[0]` is the tail, `points[-1]` is the
+head. This is a positional-order fact read off real data on two independent
+decorations, not a "closest to X" geometric heuristic; if a future sample
+contradicts it, the 4-byte header is the next place to look for an explicit
+head/tail flag.
+
+## `class="attachment"` is a distinct heap element from `class="cosm"` — a label-to-object leader/pushpin, only drawable when it carries an `ImageInternalsResID` (issue #82)
+
+Besides `class="cosm"` (Decorations-palette shapes + embedded pictures, see
+above), a diagram's `zPlaneList` can hold `class="attachment"` elements — the
+leader LabVIEW draws from a free label to the object it's attached to (the
+"pushpin"). Two different roles show up under the same class, distinguished by
+which optional children are present:
+
+- **A drawable leader**: carries `<ImageInternalsResID>` (a PICC section, see
+  above) and an `<attachedObject uid="..."/>` naming the target node. Decode
+  its PICC exactly like a `cosm` arrow's; draw a leader line/arrowhead at the
+  decoded absolute endpoints. Issue #82's repro has one (uid 947, `ImageResID
+  -770`, internals PICC2, target uid 842 — the embedded picture).
+- **A bare marker**: NO `<ImageInternalsResID>` and no `<attachedObject>` — a
+  tiny (12x12px in the repro) placeholder with `ImageResID -771`. It has no
+  decodable line geometry and (checked against the issue #82 reference image)
+  draws NO visible mark at all in the static diagram — it's LabVIEW's
+  invisible drag-handle for the label's attachment behavior, not something
+  with its own paint. Render as **nothing** (never a `FallbackGlyph` dashed
+  box — a box there is pure noise no reference image ever shows).
+
+This is a SEPARATE mechanism from a free label's own `<attachment uid="X"/>`
+CHILD element (`ParsedFreeLabel.attach_uid`, `parser/nodes/free_label.py`) —
+that's the label pointing AT one of these `class="attachment"` elements by
+uid; the `class="attachment"` element itself is the thing this section
+describes, with its own bounds/image/internals in `zPlaneList`.

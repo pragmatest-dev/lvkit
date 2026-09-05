@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..extractor import extract_vi_xml
+from .image_resources import carve_png, decode_picc_points, resources_for_heap
 
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
@@ -78,17 +79,36 @@ _TAG_TO_GLYPH_KIND = {
 @dataclass(frozen=True)
 class LayoutDecoration:
     """A block-diagram decoration — LabVIEW's ``class="cosm"`` shape (Flat Frame,
-    Thin/Thick Line, Thin/Thick Line with Arrow). PURE VISUAL: no data, no
-    dataflow, never a graph node. ``image_res_id`` selects the shape kind (see
-    render/glyphs/decorations); ``container_uid`` is the raw uid of the structure
-    whose frame diagram this decoration lives in (None at the root diagram), so
-    it paints inside that structure. Its bounds + paint rank are looked up from
+    Thin/Thick Line, Thin/Thick Line with Arrow, or an embedded picture), OR a
+    ``class="attachment"`` label-to-object leader/pushpin (``is_attachment``).
+    PURE VISUAL: no data, no dataflow, never a graph node. ``image_res_id``
+    selects the shape kind (see render/glyphs/decorations) when POSITIVE it
+    instead names a DSIM picture section — see ``Layout.images``;
+    ``container_uid`` is the raw uid of the structure whose frame diagram this
+    decoration lives in (None at the root diagram), so it paints inside that
+    structure. Its bounds + paint rank are looked up from
     ``Layout.node_bounds``/``z_order`` by ``uid`` like any other element."""
 
     uid: str
     image_res_id: str
     bg_color: str | None = None
     container_uid: str | None = None
+    # Absolute (already walk-offset) endpoints decoded from the heap's
+    # ImageInternalsResID PICC section, when present -- see
+    # image_resources.decode_picc_points. ``()`` when no PICC decoded (a plain
+    # cosm shape with no internals, or resolution failed) -- glyphs fall back
+    # to computing endpoints from `bounds` (line_endpoints). points[0] is the
+    # tail, points[-1] the head (see labview-binary-format.md).
+    points: tuple[Point, ...] = ()
+    # True for a ``class="attachment"`` heap element (a label leader/pushpin),
+    # False for a ``class="cosm"`` decoration. An attachment with no decoded
+    # `points` has no drawable geometry (see render/glyphs/decorations/factory)
+    # and is dropped rather than drawn as a placeholder box.
+    is_attachment: bool = False
+    # The uid an attachment's ``<attachedObject uid="..."/>`` child names --
+    # the node this leader points AT. None for a plain cosm shape, or an
+    # attachment with no recorded target (see labview-binary-format.md).
+    attached_uid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -158,6 +178,11 @@ class Layout:
     # Block-diagram decorations (cosm shapes) — visual only, drawn z-ordered with
     # nodes (never graph nodes). Bounds/rank come from node_bounds/z_order by uid.
     decorations: list[LayoutDecoration] = field(default_factory=list)
+    # Embedded-picture PNG bytes (carved from a DSIM resource section by
+    # ``image_resources.carve_png``), keyed by the owning decoration's raw uid.
+    # Only present for a decoration whose ``image_res_id`` is a POSITIVE DSIM
+    # section index that resolved to a real PNG (issue #82).
+    images: dict[str, bytes] = field(default_factory=dict)
     icon_png: Path | None = None
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
@@ -260,7 +285,13 @@ def _fp_label_box(term: ET.Element) -> Rect | None:
 
 
 class _LayoutBuilder:
-    def __init__(self) -> None:
+    def __init__(self, resources: dict[int, Path] | None = None) -> None:
+        # Section Index -> resource file (PICC/DSIM), for resolving a
+        # decoration's ImageResID (embedded picture) — see image_resources.py.
+        # Empty when the caller has no resource map (today's behavior).
+        self.resources: dict[int, Path] = resources or {}
+        # Embedded-picture PNG bytes, keyed by the owning decoration's uid.
+        self.images: dict[str, bytes] = {}
         self.node_bounds: dict[str, Rect] = {}
         self.label_bounds: dict[str, Rect] = {}
         self.terminal_centers: dict[str, Point] = {}
@@ -690,6 +721,87 @@ class _LayoutBuilder:
                 by_uid[sink_uid] = [src, *mid, self.terminal_centers[sink_uid]]
         return by_uid
 
+    def _resolve_embedded_picture(self, uid: str, res_id: str) -> None:
+        """A POSITIVE ``ImageResID`` on a decoration names a DSIM picture
+        section (an embedded image the developer pasted onto the diagram), not
+        a Decorations-palette shape id (those are always negative — see
+        ``render/glyphs/decorations/factory.py``). Carve its PNG and stash it
+        in ``self.images`` keyed by the owning uid; no-op (never raises) when
+        the id isn't a positive int, has no resource map, or doesn't carve."""
+        try:
+            index = int(res_id)
+        except ValueError:
+            return
+        if index <= 0:
+            return
+        section = self.resources.get(index)
+        if section is None or not section.exists():
+            return
+        png = carve_png(section.read_bytes())
+        if png is not None:
+            self.images[uid] = png
+
+    def _resolve_picc_points(
+        self, internals_res_id: str | None, ox: float, oy: float
+    ) -> tuple[Point, ...]:
+        """The decoration's real per-instance endpoints from its
+        ``ImageInternalsResID`` PICC section, offset into absolute coordinates
+        by the SAME walk offset (``ox, oy``) the element's own ``<bounds>``
+        gets (see labview-binary-format.md — the PICC points are pre-offset,
+        exactly like ``bb`` in ``_visit``). ``()`` when there's no internals id,
+        no resource map, or the section doesn't resolve/decode."""
+        if internals_res_id is None:
+            return ()
+        try:
+            index = int(internals_res_id)
+        except ValueError:
+            return ()
+        section = self.resources.get(index)
+        if section is None or not section.exists():
+            return ()
+        raw = decode_picc_points(section.read_bytes())
+        return tuple((ox + x, oy + y) for x, y in raw)
+
+    def _record_decoration(
+        self,
+        elem: ET.Element,
+        uid: str,
+        ox: float,
+        oy: float,
+        container_uid: str | None,
+        *,
+        is_attachment: bool,
+    ) -> None:
+        """Record one ``cosm`` or ``attachment`` element as a
+        :class:`LayoutDecoration`: its shape id, any embedded-picture PNG
+        (``self.images``), any decoded PICC endpoints, and — for an
+        ``attachment`` only — the uid its ``<attachedObject>`` names. No-op
+        when the element carries no ``<image><ImageResID>`` at all (every
+        sample seen has one, but this stays defensive)."""
+        res_id = elem.findtext("image/ImageResID")
+        if res_id is None:
+            return
+        res_id = res_id.strip()
+        bg = elem.findtext("bgColor")
+        self._resolve_embedded_picture(uid, res_id)
+        internals_id = elem.findtext("image/ImageInternalsResID")
+        points = self._resolve_picc_points(internals_id, ox, oy)
+        attached_uid = None
+        if is_attachment:
+            target = elem.find("attachedObject")
+            attached_uid = target.get("uid") if target is not None else None
+        self.decorations.append(
+            LayoutDecoration(
+                uid=uid,
+                image_res_id=res_id,
+                bg_color=bg.strip() if bg else None,
+                container_uid=container_uid,
+                points=points,
+                is_attachment=is_attachment,
+                attached_uid=attached_uid,
+            )
+        )
+
     def _visit(
         self, elem: ET.Element, ox: float, oy: float, container_uid: str | None = None
     ) -> None:
@@ -703,21 +815,16 @@ class _LayoutBuilder:
         self._record_label_hidden(elem, uid)
         if uid:
             self.node_bounds.setdefault(uid, (ax1, ay1, ax2, ay2))
-            # A block-diagram decoration (cosm shape): a pure-visual Flat Frame /
-            # Line / Arrow. Record its shape id + owning container; bounds + paint
-            # rank were just recorded above (uid-keyed) like any element.
-            if elem.get("class") == "cosm":
-                res_id = elem.findtext("image/ImageResID")
-                if res_id is not None:
-                    bg = elem.findtext("bgColor")
-                    self.decorations.append(
-                        LayoutDecoration(
-                            uid=uid,
-                            image_res_id=res_id.strip(),
-                            bg_color=bg.strip() if bg else None,
-                            container_uid=container_uid,
-                        )
-                    )
+            # A block-diagram decoration: a pure-visual Flat Frame / Line /
+            # Arrow / embedded picture (``cosm``), or a label-to-object
+            # leader/pushpin (``attachment``). Record its shape id + owning
+            # container; bounds + paint rank were just recorded above (uid-keyed)
+            # like any element.
+            cls = elem.get("class")
+            if cls in ("cosm", "attachment"):
+                self._record_decoration(
+                    elem, uid, ox, oy, container_uid, is_attachment=cls == "attachment"
+                )
             # First-sight paint rank (see Layout.z_order): the walk reaches
             # elements in zPlaneList back-to-front order at each level, so the
             # rank captures LabVIEW's occlusion order for free.
@@ -794,6 +901,7 @@ def build_layout_from_root(
     root_elem: ET.Element,
     *,
     icon_png: Path | None = None,
+    resources: dict[int, Path] | None = None,
 ) -> Layout:
     """Build a ``Layout`` from an ALREADY-PARSED heap root element.
 
@@ -803,13 +911,17 @@ def build_layout_from_root(
     the heap wrapper (with a ``<root>`` child) or the ``<root>`` diagram itself;
     both are handled, exactly as :func:`build_layout` did. ``icon_png`` is the
     connector-pane icon path (derived from the heap path by the caller, which a
-    bare root can't know) or None.
+    bare root can't know) or None. ``resources`` is the Section Index -> file
+    map (``image_resources.resources_for_heap``) for resolving an embedded
+    picture's ``ImageResID``; ``None`` (the default) reproduces today's
+    behavior with no picture/PICC resolution — every existing caller with no
+    resource map keeps working unchanged.
     """
     root = root_elem.find("root")
     if root is None:
         root = root_elem
 
-    builder = _LayoutBuilder()
+    builder = _LayoutBuilder(resources)
     builder.walk(root, 0.0, 0.0)
     # Correct the position-less Bundle input aggregate anchor BEFORE the wires
     # are decoded, so the faithful blob re-forms onto the interior column.
@@ -828,6 +940,7 @@ def build_layout_from_root(
         z_order=builder.z_order,
         wire_z=builder.wire_z,
         decorations=builder.decorations,
+        images=builder.images,
         icon_png=icon_png,
     )
 
@@ -842,7 +955,7 @@ def build_layout(vi_or_bd: Path) -> Layout:
     """Build a ``Layout`` from a ``.vi`` file or a ``_BDHb.xml`` heap path.
 
     Thin I/O wrapper: it does the read (extract for a ``.vi``, ``ET.parse`` the
-    heap, locate the icon) and hands the parsed root to
+    heap, locate the icon + resource map) and hands the parsed root to
     :func:`build_layout_from_root`. Prefer ``parse_vi(..., layout=True)`` when a
     graph is already being built — that reuses its single parse instead of
     reading the heap a second time.
@@ -853,4 +966,6 @@ def build_layout(vi_or_bd: Path) -> Layout:
     else:
         bd = vi_or_bd
     root_elem = ET.parse(bd).getroot()
-    return build_layout_from_root(root_elem, icon_png=_icon_for_heap(bd))
+    return build_layout_from_root(
+        root_elem, icon_png=_icon_for_heap(bd), resources=resources_for_heap(bd)
+    )

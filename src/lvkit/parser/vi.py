@@ -40,6 +40,7 @@ from .front_panel import (
     parse_connector_pane,
     parse_connector_pane_labels,
 )
+from .image_resources import resource_sections, resources_for_heap
 from .layout import Layout, _icon_for_heap, build_layout_from_root
 from .metadata import (
     _decode_pth0_components,
@@ -201,6 +202,7 @@ def parse_vi(
         metadata.type_map,
         selector_tables,
         want_layout=layout,
+        main_xml=main_xml,
     )
 
     # Parse front panel
@@ -359,6 +361,7 @@ def _parse_block_diagram(
     selector_tables: list[SelectorTable] | None = None,
     *,
     want_layout: bool = False,
+    main_xml: Path | str | None = None,
 ) -> tuple[ParsedBlockDiagram, Layout | None]:
     """Parse block diagram from BD XML.
 
@@ -412,7 +415,15 @@ def _parse_block_diagram(
         srn_to_structure=srn_to_structure,
     )
     layout = (
-        build_layout_from_root(root, icon_png=_icon_for_heap(Path(bd_xml)))
+        build_layout_from_root(
+            root,
+            icon_png=_icon_for_heap(Path(bd_xml)),
+            resources=(
+                resource_sections(Path(main_xml))
+                if main_xml is not None
+                else resources_for_heap(Path(bd_xml))
+            ),
+        )
         if want_layout
         else None
     )
