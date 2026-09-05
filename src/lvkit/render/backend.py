@@ -111,6 +111,7 @@ class Backend(Protocol):
         stroke: str,
         stroke_width: float,
         fill: str = "none",
+        stroke_dasharray: str | None = None,
     ) -> None: ...
 
     def text(
@@ -278,11 +279,15 @@ class SvgBackend:
         stroke: str,
         stroke_width: float,
         fill: str = "none",
+        stroke_dasharray: str | None = None,
     ) -> None:
         d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in points)
+        dash = f' stroke-dasharray="{stroke_dasharray}"' if stroke_dasharray else ""
+        # miter (sharp) corners: LabVIEW wires bend at right angles — "round"
+        # rounds the corner visibly on a thick (class/array) wire.
         self._elements.append(
             f'<path d="{d}" fill="{fill}" stroke="{stroke}" '
-            f'stroke-width="{stroke_width}" stroke-linejoin="round"/>'
+            f'stroke-width="{stroke_width}" stroke-linejoin="miter"{dash}/>'
         )
 
     def text(

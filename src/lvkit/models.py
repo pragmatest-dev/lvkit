@@ -17,8 +17,8 @@ subclasses are the single source of truth for node structure.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
-from enum import Enum
+from dataclasses import dataclass, field
+from enum import Enum, IntEnum
 from typing import Literal
 
 from pydantic import BaseModel
@@ -71,6 +71,12 @@ class LVType:
     # opaque built-in structures with no VCTP children, so their component names
     # come from a built-in table keyed by this flavor (see measure_data.py).
     measure_flavor: str | None = None
+    # This type's OWN wire style, when it has one — read by the one wire lookup
+    # (``render.style.wire_style``) so wire color/style is data-driven, not a
+    # fixed per-family table. None for a type that uses the family default (every
+    # built-in today); a LabVIEW class fills it from its ``.lvclass``.
+    # ``compare=False`` — presentation, never type identity/coercion.
+    wire_style: WireStyle | None = field(default=None, compare=False)
 
     def to_python(self) -> str:
         """Render as Python type annotation string."""
@@ -214,6 +220,43 @@ class LVType:
         return "?"
 
 
+class WireLineStyle(IntEnum):
+    """A wire pen's ``Style`` — Solid/Dash/Dot/DashDot/DashDotDot. ``SOLID`` is
+    the default and the only style built-in wires use; a LabVIEW class can pick
+    another in its ``.lvclass``. ``IntEnum`` so a member equals the raw 0–4 the
+    binary stores, drop-in."""
+
+    SOLID = 0
+    DASH = 1
+    DOT = 2
+    DASH_DOT = 3
+    DASH_DOT_DOT = 4
+
+
+@dataclass(frozen=True)
+class WireStyle:
+    """Everything a wire needs to draw itself — the ONE style object the ONE wire
+    lookup (``render.style.wire_style``) returns and every drawing site renders.
+    A type's OWN style (``LVType.wire_style``) overrides the default per-family
+    color/width there; most types have none (the lookup derives theirs from the
+    family), but a LabVIEW class carries one decoded from its ``.lvclass``.
+
+    ``color``/``width``/``line_style`` describe a flat wire. ``edge_color`` +
+    ``core_width`` add the class two-band look — an outer ``edge_color`` band at
+    ``width`` with a ``color`` center of ``core_width`` on top; both None for a
+    flat wire (``width`` is then the single stroke). New wire styles (e.g. a fill
+    pattern) are added HERE, once, and every site renders them."""
+
+    color: str
+    width: float
+    line_style: WireLineStyle = WireLineStyle.SOLID
+    edge_color: str | None = None
+    core_width: float | None = None
+    # The pen's 8-row fill-pattern bitmap (one byte per row). Non-empty => the
+    # class wire is patterned (drawn as a chain) rather than solid; () => solid.
+    fill_pattern: tuple[int, ...] = ()
+
+
 @dataclass
 class EnumValue:
     """A single value in an enum typedef."""
@@ -322,6 +365,11 @@ class Terminal(BaseModel):
     # this must never change generated code. Used by the renderer's connector-
     # pane hover / tooltip and by describe. See graph/construction.py.
     display_name: str | None = None
+    # Full dotted navigation path to a NESTED Bundle/Unbundle-By-Name field
+    # (e.g. "Strain Config.strain gage information.poisson ratio") — tooltip-only
+    # detail beside the terse leaf ``display_name`` the glyph shows. None for a
+    # top-level or leaf-only field. Set at the ``stamp_nmux_lane_names`` seam.
+    field_path: str | None = None
     lv_type: LVType | None = None
     var_name: str | None = None  # set during codegen
     nmux_role: str | None = None  # "agg" or "list"

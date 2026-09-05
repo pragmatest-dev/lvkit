@@ -190,6 +190,37 @@ def _draw_formula_tunnel(
         )
 
 
+def _draw_bundle_by_name(
+    node: RenderNode,
+    bounds: tuple[float, float, float, float],
+    backend: Backend,
+    theme: Theme,
+) -> None:
+    """Draw a Bundle/Unbundle By Name, sizing its cluster column from the
+    aggregate terminals' REAL heap ``termBounds`` — their union: the interior
+    input column plus the output box for a Bundle, the single box for an
+    Unbundle (see ``scene._reposition_mux_terminals``). So the drawn columns line
+    up with where the aggregate wires actually anchor, never an invented width."""
+    glyph = node.glyph
+    if not isinstance(glyph, BundleByNameGlyph):
+        return
+    agg = [
+        rt.bounds
+        for rt in node.terminals
+        if rt.terminal.nmux_role == "agg" and rt.bounds is not None
+    ]
+    if agg:
+        glyph.draw(
+            backend,
+            bounds,
+            theme,
+            agg_x1=min(b[0] for b in agg),
+            agg_x2=max(b[2] for b in agg),
+        )
+    else:
+        glyph.draw(backend, bounds, theme)
+
+
 # A primitive whose glyph is drawn as one of these keeps its own aspect ratio
 # (a real extracted raster icon or a declared/procedural SVG designed for a
 # fixed shape), or is a cluster-mux drawer whose heap ``bounds`` IS its true
@@ -334,6 +365,12 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         # tunnels together (the script inset depends on the tunnel column
         # widths), so it takes the whole draw rather than the generic glyph.
         _draw_formula_node(node, bounds, backend, theme)
+    elif isinstance(node.glyph, BundleByNameGlyph):
+        # The Bundle/Unbundle glyph sizes its cluster column from the aggregate
+        # terminal's REAL heap rect (never an invented width), so its drawn
+        # column lines up with the aggregate wire's own anchor.
+        _draw_bundle_by_name(node, bounds, backend, theme)
+        _draw_invert_bubbles(node, backend, theme)
     else:
         node.glyph.draw(backend, bounds, theme)
         _draw_invert_bubbles(node, backend, theme)
@@ -474,9 +511,16 @@ def _node_doc_url(node: AnyGraphNode) -> str | None:
 
 def _terminal_label(t: Terminal) -> str:
     """A terminal's display label: the resolved def name (``display_name``,
-    e.g. "x"/"difference"), else a caller-side ``name`` if any, else
-    ``terminal N`` from its connector-pane index."""
-    return _terminal_display_name(t) or f"terminal {t.index}"
+    e.g. "x"/"difference"), else a caller-side ``name`` if any, else — for a
+    Bundle/Unbundle aggregate terminal — "input cluster"/"output cluster"
+    (LabVIEW's own names for the whole-cluster port), else ``terminal N`` from
+    its connector-pane index."""
+    name = _terminal_display_name(t)
+    if name:
+        return name
+    if getattr(t, "nmux_role", None) == "agg":
+        return "output cluster" if t.direction == "output" else "input cluster"
+    return f"terminal {t.index}"
 
 
 def _terminal_is_informative(t: Terminal) -> bool:
@@ -506,7 +550,11 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
 
     def fmt(t: Terminal) -> str:
         ty = lv_type_label(t.lv_type)
-        return f"  {_terminal_label(t)}: {ty}"
+        # A nested Bundle/Unbundle-By-Name field shows its FULL dotted path here
+        # (the tooltip never truncates), while the glyph row + connector panel
+        # keep the terse leaf ``display_name``.
+        label = t.field_path or _terminal_label(t)
+        return f"  {label}: {ty}"
 
     ins = sorted((t for t in terms if t.direction == "input"), key=lambda t: t.index)
     outs = sorted((t for t in terms if t.direction == "output"), key=lambda t: t.index)
@@ -1188,8 +1236,15 @@ def draw_fp_terminal(
     lv_type = terminal.lv_type
     is_array = lv_type is not None and lv_type.kind == LVTypeKind.ARRAY
     scalar_type = lv_type.element_type if lv_type is not None and is_array else lv_type
-    color = wire_style(scalar_type, theme).color
-    stroke_width = 1.5 if terminal.is_indicator else 3.0
+    # Box border from the one wire lookup: a class terminal takes its edge-band
+    # color (LabVIEW borders the class terminal with the edge pen), any other
+    # type its wire color.
+    style = wire_style(scalar_type, theme)
+    color = style.edge_color or style.color
+    # A control's box border is a touch heavier than an indicator's, but NOT bold
+    # — the wire-port arrow already carries the direction, so a heavy control
+    # outline just adds noise (and fights the type label).
+    stroke_width = 1.5 if terminal.is_indicator else 2.0
 
     backend.rect(
         x1, y1, x2, y2, fill=theme.fp_panel, stroke=color, stroke_width=stroke_width

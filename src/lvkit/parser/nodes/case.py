@@ -29,6 +29,15 @@ ALL_TUNNEL_CLASSES = ("csTun", "selTun", "commentTun")
 # objFlags bit marking a string case structure as "Case Insensitive Match".
 _CASE_INSENSITIVE_BIT = 24
 
+# LabVIEW writes INT_MIN/INT_MAX as the SYMBOLIC filler for an unbounded range
+# side — an error-cluster's status frames encode "No Error" as (INT_MIN, INT_MIN)
+# and "Error" as the full domain (INT_MIN, INT_MAX). A nonzero start/end range
+# type marks filler ONLY when the value actually is one of these sentinels; a
+# nonzero type on a REAL value (e.g. an enum member 0 in a multi-member range) is
+# a genuine match value.
+_I32_MIN = -(2**31)
+_I32_MAX = 2**31 - 1
+
 
 def _objflags_bit(elem: ET.Element, bit: int) -> bool:
     """Whether ``elem``'s ``objFlags`` integer has ``bit`` set."""
@@ -259,16 +268,26 @@ def _extract_one_case_structure(
 
         if len(entries) == 1:
             s, e, st, et = entries[0]
-            if st != 0 and et != 0:
+            s_fill = st != 0 and s in (_I32_MIN, _I32_MAX)
+            e_fill = et != 0 and e in (_I32_MIN, _I32_MAX)
+            if s_fill and e_fill:
                 if s == e:
-                    # Symbolic degenerate point — error-cluster "No Error".
+                    # Degenerate symbolic point — error-cluster "No Error".
                     no_error_diags.add(diag_idx)
                 else:
-                    # Symbolic full-domain span — the catch-all
-                    # "Error"/default frame.
+                    # Full INT_MIN..INT_MAX domain — error-cluster catch-all
+                    # (displayed "Error"; a real "Default" comes only from
+                    # SelectDefaultCase, never from a range).
                     default_symbolic_diags.add(diag_idx)
                 continue
-            if (st != 0) != (et != 0):
+            if st != 0 and et != 0:
+                # Nonzero range types but REAL endpoint values (not the sentinel)
+                # — a genuine multi-value range of the selector's own type (e.g.
+                # two adjacent enum members). Keep it as a real range so the type
+                # resolves the endpoints to member names like any other frame.
+                ranges_by_diag[diag_idx] = [SelectorRange(start=s, end=e)]
+                continue
+            if s_fill != e_fill:
                 # One-sided symbolic — a genuine open integer range. Keep
                 # only the literal endpoint's value; the symbolic side is
                 # filler and must never be surfaced.
@@ -276,8 +295,8 @@ def _extract_one_case_structure(
                     SelectorRange(
                         start=s,
                         end=e,
-                        open_start=st != 0,
-                        open_end=et != 0,
+                        open_start=s_fill,
+                        open_end=e_fill,
                     )
                 ]
                 continue

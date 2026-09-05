@@ -1,4 +1,9 @@
-"""Parse LabVIEW library and class files for structural mapping."""
+"""Parse LabVIEW library, class, and project files (``.lvlib`` / ``.lvclass`` /
+``.lvproj``) — the single reader of those container files. Extracts what each
+file records: a class's methods, inheritance, private-data fields and version,
+plus its block-diagram wire appearance (Wire Appearance page). NOT block-diagram
+"structures" (while/for/case/sequence) — those are graph nodes parsed elsewhere.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +16,14 @@ from pathlib import Path
 from typing import Any
 
 from lvkit.extractor import extract_vi_xml
-from lvkit.models import _LV_TO_PYTHON_TYPE, ClusterField, LVType, LVTypeKind
+from lvkit.models import (
+    _LV_TO_PYTHON_TYPE,
+    ClusterField,
+    LVType,
+    LVTypeKind,
+    WireLineStyle,
+    WireStyle,
+)
 
 
 @dataclass
@@ -72,6 +84,11 @@ class LVClass:
     # located, so it may be a PREFIX of the true chain for a class whose
     # ancestor tree isn't fully present in this checkout.
     ancestors: list[str] = field(default_factory=list)
+    # The class's own wire style (Class Properties -> Wire Appearance), decoded
+    # from its CoreWirePen/EdgeWirePen properties. None when the class uses the
+    # default/inherited look (no pen properties) -- callers then fall back to the
+    # parent chain or the generic per-family wire color.
+    wire_style: WireStyle | None = None
 
 
 @dataclass
@@ -618,6 +635,7 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         private_data_fields=private_data_fields,
         version=version,
         ancestors=ancestors,
+        wire_style=_parse_wire_style(root),
     )
 
 
@@ -714,6 +732,115 @@ def _lv_base64_decode(text: str) -> bytes:
 
 _PRINTABLE_RUN_RE = re.compile(rb"[ -~]{4,}")
 _LVCLASS_TOKEN_RE = re.compile(r"([^\\/<>]+\.lvclass)$")
+
+
+def _lv_color_hex(val: int) -> str:
+    """A LabVIEW 24-bit ``0x00RRGGBB`` color int -> ``#RRGGBB``."""
+    return f"#{val & 0xFFFFFF:06X}"
+
+
+def _named_val(cluster: ET.Element, name: str) -> str | None:
+    """The ``<Val>`` text of the direct child of ``cluster`` whose ``<Name>`` is
+    ``name`` (the wire-pen fragment is a flat ``<Cluster>`` of named scalar
+    elements). None if absent."""
+    for child in cluster:
+        if child.findtext("Name") == name:
+            return child.findtext("Val")
+    return None
+
+
+def _pen_fragment(prop_text: str) -> ET.Element | None:
+    """The self-describing ``<Cluster>`` XML fragment inside a LabVIEW-base64
+    ``CoreWirePen``/``EdgeWirePen`` property (Foreground Color, Width, Style, …).
+    None if missing/malformed."""
+    decoded = _lv_base64_decode(prop_text)
+    start = decoded.find(b"<Cluster>")
+    end = decoded.rfind(b"</Cluster>")
+    if start == -1 or end == -1:
+        return None
+    fragment = decoded[start : end + len(b"</Cluster>")].decode("ascii", "replace")
+    try:
+        return ET.fromstring(fragment)  # noqa: S314 -- our own decoded blob
+    except ET.ParseError:
+        return None
+
+
+def _pen_width(frag: ET.Element | None) -> float | None:
+    """A pen fragment's ``Width`` in pixels, or None."""
+    val = _named_val(frag, "Width") if frag is not None else None
+    return float(val) if val is not None else None
+
+
+def _pen_fill_pattern(frag: ET.Element) -> tuple[int, ...]:
+    """A pen fragment's 8-row ``Fill Pattern`` bitmap (one byte per row), or ()
+    when absent or solid (all rows 0x00/0xFF — a flat fill, no chain)."""
+    for child in frag:
+        if child.findtext("Name") != "Fill Pattern":
+            continue
+        rows: list[int] = []
+        for row in child:
+            v = row.findtext("Val")
+            if v is not None:
+                try:
+                    rows.append(int(v) & 0xFF)
+                except ValueError:
+                    return ()
+        if all(r == 0x00 for r in rows) or all(r == 0xFF for r in rows):
+            return ()  # solid fill
+        return tuple(rows)
+    return ()
+
+
+def _parse_wire_style(root: ET.Element) -> WireStyle | None:
+    """The class's own wire style from its ``CoreWirePen`` + ``EdgeWirePen``
+    properties. Color/line-style come from the core (center) pen; total width and
+    the outer band come from the edge pen. When the edge foreground differs from
+    the core the wire has a visible two-band border, so ``edge_color`` + the
+    narrower ``core_width`` are carried. None when the class sets no custom pen
+    (uses the default/inherited look — the properties are absent)."""
+    core_text = edge_text = None
+    for prop in root.findall("Property"):
+        name = prop.get("Name")
+        if name == "NI.LVClass.CoreWirePen":
+            core_text = "".join(prop.itertext())
+        elif name == "NI.LVClass.EdgeWirePen":
+            edge_text = "".join(prop.itertext())
+    core = _pen_fragment(core_text) if core_text else None
+    if core is None:
+        return None
+    fg = _named_val(core, "Foreground Color")
+    if fg is None:
+        return None
+    edge = _pen_fragment(edge_text) if edge_text else None
+    core_w = _pen_width(core)
+    total_w = _pen_width(edge) or core_w or 1.0
+    style = _named_val(core, "Style")
+    try:
+        line_style = (
+            WireLineStyle(int(style)) if style is not None else WireLineStyle.SOLID
+        )
+    except ValueError:
+        line_style = WireLineStyle.SOLID
+    color = _lv_color_hex(int(fg))
+    edge_fg = _named_val(edge, "Foreground Color") if edge is not None else None
+    edge_color = _lv_color_hex(int(edge_fg)) if edge_fg is not None else None
+    has_border = (
+        edge_color is not None
+        and edge_color != color
+        and core_w is not None
+        and core_w < total_w
+    )
+    return WireStyle(
+        color=color,
+        width=total_w,
+        line_style=line_style,
+        edge_color=edge_color if has_border else None,
+        # Core (center) width is always carried — the fill pattern draws at the
+        # CORE band width, not the wider total (edge) width. The two-band solid
+        # look still keys off edge_color being present.
+        core_width=core_w,
+        fill_pattern=_pen_fill_pattern(core),
+    )
 
 
 def _parent_from_item(root: ET.Element) -> tuple[str, str | None] | None:

@@ -274,6 +274,9 @@ class LoadingMixin:
             iuse_to_qpath: dict[str, str] | None = None,
         ) -> None: ...
         def resolve_dispatch_qnames(self) -> None: ...
+        def _dep_key_for_ref(
+            self, ref: str, caller_vi_key: str | None = None
+        ) -> str | None: ...
 
     def load_vi(
         self,
@@ -718,6 +721,7 @@ class LoadingMixin:
             version=cls.version,
             ancestors=cls.ancestors,
             method_paths=method_paths,
+            wire_style=cls.wire_style,
         )
         self._register_dep_node(cls_key, cls_path_r, cls_name, cls_qname)
         self._stubs.discard(cls_key)
@@ -1588,6 +1592,19 @@ class LoadingMixin:
                     if caller_qname:
                         self._dep_graph.add_edge(caller_qname, found_key)
                     return
+            # Before stubbing: a SIBLING reference may already have resolved this
+            # same file by path (e.g. a type_map's BARE ``typedef_name`` —
+            # ``Parameters.ctl`` — duplicating the VICC-linked, path-resolved
+            # qualified ref ``…lvclass:Parameters.ctl``). Route this ref's edge
+            # onto that resolved node via the caller-scoped resolver instead of
+            # spawning a second, empty bare-name stub node beside it. Caller-
+            # scoped + unique-match (``_dep_key_for_ref``) so it can never point
+            # at a same-leaf file from a different library.
+            existing = self._dep_key_for_ref(qualified_name, caller_qname)
+            if existing is not None and existing not in self._stubs:
+                if caller_qname:
+                    self._dep_graph.add_edge(caller_qname, existing)
+                return
             node_type = (
                 "class"
                 if leaf.endswith(".lvclass")

@@ -11,8 +11,16 @@ from __future__ import annotations
 import dataclasses
 import re
 from dataclasses import dataclass
+from itertools import groupby
 
-from ..models import _NUMERIC_TYPE_DESCRIPTOR, LVType, LVTypeKind, _is_error_cluster
+from ..models import (
+    _NUMERIC_TYPE_DESCRIPTOR,
+    LVType,
+    LVTypeKind,
+    WireLineStyle,
+    WireStyle,
+    _is_error_cluster,
+)
 
 # LabVIEW help/description strings carry rich-text tags (<B>..</B>, <BR>, ...).
 _HELP_TAG_RE = re.compile(r"<[^>]+>")
@@ -93,10 +101,15 @@ class Theme:
     wire_bool: str = "#4a9c3e"  # green — boolean
     wire_string: str = "#e05fa0"  # pink — string
     wire_path: str = "#1f8a8a"  # teal — path
-    wire_cluster: str = "#8a5a2b"  # brown — clusters / typedefs
-    wire_refnum: str = "#1f6b2e"  # dark green — refnums (VI refs, driver/DAQ/
-    #                                VISA sessions, queues, notifiers, controls);
-    #                                LabVIEW's generic reference wire color
+    wire_cluster: str = "#8a5a2b"  # brown — all-numeric (fixed-size) clusters
+    # pink — a mixed/"common" cluster (any string/array/refnum/... field). Same
+    # NI pink family as the string wire; a mixed cluster reads pink in LabVIEW.
+    wire_cluster_mixed: str = "#e05fa0"
+    # dark teal — refnums (VI refs, driver/DAQ/VISA sessions, queues, notifiers,
+    # controls). LabVIEW's generic "Refnum Wire" user-color default is
+    # 0x00007F7F (per the LabVIEW Wiki Color reference) — a dark teal, NOT green.
+    # Sits near ``wire_path`` (also teal) as it does in LabVIEW itself.
+    wire_refnum: str = "#007f7f"
     wire_error: str = "#a88d1e"  # mustard/dark-yellow — error clusters (LV 8.2+)
     wire_variant: str = "#840984"  # purple — Variant (NI rgb(132,9,132))
     # Unresolved / unknown-type wires — a DISTINCT dark grey, NOT the float
@@ -145,11 +158,17 @@ _LINE_W = 1.2
 # bolder than its scalar element (1D ~2.8px vs 1.2px), thicker still for 2D+.
 _ARRAY_W_PER_DIM = 1.6
 
-
-@dataclass(frozen=True)
-class WireStyle:
-    color: str
-    width: float
+# Fill pattern for an UNRESOLVED class wire's default grey CHAIN. Any non-empty,
+# UNIFORM 8-row pattern selects the chain preset (uniform -> chain, mixed rows ->
+# diagonal; see render/composite.py); the exact bytes don't affect the drawn
+# hollow-link chain, only chain-vs-diagonal selection.
+_CLASS_CHAIN_PATTERN: tuple[int, ...] = (0xC3,) * 8
+# Total/core widths for the default class chain — matched to what REAL class
+# pens decode to across the corpus (edge ``Width`` 3.0, core 1.0; see
+# structure._parse_wire_style / _pen_width), so an UNRESOLVED class wire is the
+# same size as a resolved one, not the thin scalar ``_LINE_W``.
+_CLASS_WIRE_W = 3.0
+_CLASS_WIRE_CORE_W = 1.0
 
 
 _INT_TYPES = {
@@ -281,6 +300,21 @@ _FAMILY_COLOR = {
 }
 
 
+def _cluster_all_numeric(lv_type: LVType) -> bool:
+    """True when every field of a cluster is numeric/boolean (or a nested cluster
+    that is itself all-numeric) — a fixed-size "numeric cluster" (brown). False
+    when any field is a string/array/refnum/variant/etc. (variable-size, pink).
+    Fields unknown (None — resolved lazily elsewhere) -> True, keeping the prior
+    brown default rather than guessing pink."""
+    fields = lv_type.fields
+    if not fields:
+        return True
+    return all(
+        type_family(f.type) in ("int", "float", "bool", "enum", "cluster")
+        for f in fields
+    )
+
+
 def type_family(lv_type: LVType | None) -> str:
     """Coarse family bucket for an LVType: "float", "int", "bool",
     "string", "path", "enum", "cluster", "error_cluster", "variant",
@@ -294,6 +328,9 @@ def type_family(lv_type: LVType | None) -> str:
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "enum"
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
+        # One "cluster" family (so every cluster glyph/constant path keeps
+        # working); brown-vs-pink is decided in ``wire_style`` from field
+        # homogeneity, not by a separate family.
         return "error_cluster" if _is_error_cluster(lv_type) else "cluster"
     if lv_type.kind == LVTypeKind.PRIMITIVE:
         ut = lv_type.underlying_type or ""
@@ -313,12 +350,17 @@ def type_family(lv_type: LVType | None) -> str:
             return "path"
         if ut in ("Variant", "LVVariant"):
             return "variant"
+        if ut == "Tag":
+            # LabVIEW I/O-name types (DAQmx physical channel / task name, VISA
+            # resource name, …) — reference-family wires, LV's dark green.
+            return "refnum"
         if ut == "Refnum" and not lv_type.classname:
-            # Generic refnum — VI reference, DAQmx/VISA driver session, queue,
-            # notifier, control refnum, etc. LabVIEW draws all of these in the
-            # same dark-green reference-wire color. An LVOOP class instance is
-            # ALSO carried as a Refnum but has a ``classname`` (its wire is the
-            # class's own colour, not the generic reference green), so exclude it.
+            # GENERIC refnum only — VI reference, DAQmx/VISA driver session,
+            # queue, notifier, control refnum, etc. — draws LabVIEW's reference
+            # wire. An LVOOP class instance is ALSO carried as a Refnum but with a
+            # ``classname``: it is NOT a refnum wire. ``wire_style`` handles it
+            # (its own/inherited pen, else the default GREY CHAIN for an
+            # unresolved class), returning before the family is consulted.
             return "refnum"
     return "unknown"
 
@@ -363,26 +405,93 @@ def wire_style(
     lv_type: LVType | None,
     theme: Theme = DEFAULT_THEME,
 ) -> WireStyle:
-    """Color/width for a wire, from the SOURCE terminal's LVType.
+    """Color/width/style for a wire, from the SOURCE terminal's LVType — the ONE
+    lookup every wire/tunnel/terminal drawing site calls.
 
-    Branches on ``kind`` then ``underlying_type``: DBL orange (default),
-    ints blue, bool green, string pink, path teal, cluster brown, error
-    cluster dark, array thicker (by ``dimensions``, color inherited from
-    the element type).
+    First it ASKS THE TYPE: a type that carries its OWN ``wire_style`` (a LabVIEW
+    class, whose style is decoded from its ``.lvclass``) draws in that. Otherwise
+    the per-family default: DBL orange, ints blue, bool green, string pink, path
+    teal, cluster brown, error cluster dark; an array is thicker (by
+    ``dimensions``, color inherited from the element type — so an array OF a class
+    keeps the class color).
     """
     if lv_type is None:
         return WireStyle(theme.wire_default, _LINE_W)
 
+    if lv_type.wire_style is not None:
+        return lv_type.wire_style
+
     if lv_type.kind == LVTypeKind.ARRAY:
+        # An array draws in its element's style, thicker per dimension — so an
+        # array OF a class keeps the class color AND its two-band border.
         inner = wire_style(lv_type.element_type, theme)
+        extra = _ARRAY_W_PER_DIM * (lv_type.dimensions or 1)
+        return dataclasses.replace(
+            inner,
+            width=inner.width + extra,
+            core_width=(
+                inner.core_width + extra if inner.core_width is not None else None
+            ),
+        )
+
+    # An LVOOP class refnum with no pen anywhere in its ancestry — an UNRESOLVED
+    # class (its ``.lvclass`` or a parent is unfound, often a ``<vilib>`` class
+    # with no configured root) — is NOT a refnum wire. LabVIEW draws every class
+    # with the CHAIN pattern, so draw a GREY CHAIN: grey = unresolved, chain =
+    # still visibly a class (an array OF such a class inherits it, thicker, via
+    # the array branch above).
+    if lv_type.underlying_type == "Refnum" and lv_type.classname:
         return WireStyle(
-            inner.color,
-            inner.width + _ARRAY_W_PER_DIM * (lv_type.dimensions or 1),
+            theme.wire_default,
+            _CLASS_WIRE_W,
+            core_width=_CLASS_WIRE_CORE_W,
+            fill_pattern=_CLASS_CHAIN_PATTERN,
         )
 
     family = type_family(lv_type)
+    if family == "cluster" and not _cluster_all_numeric(lv_type):
+        # A cluster with any non-numeric field is a variable-size "common"
+        # cluster -> pink (else the all-numeric brown).
+        return WireStyle(theme.wire_cluster_mixed, _LINE_W)
     color = getattr(theme, _FAMILY_COLOR.get(family, ""), theme.wire_default)
     return WireStyle(color, _LINE_W)
+
+
+# A wire's line style -> SVG ``stroke-dasharray`` (in stroke-width units), or None
+# for a solid stroke. Read at every wire-drawing site off the one WireStyle.
+_LINE_STYLE_DASH: dict[WireLineStyle, str | None] = {
+    WireLineStyle.SOLID: None,
+    WireLineStyle.DASH: "6,4",
+    WireLineStyle.DOT: "1,3",
+    WireLineStyle.DASH_DOT: "6,3,1,3",
+    WireLineStyle.DASH_DOT_DOT: "6,3,1,3,1,3",
+}
+
+
+def wire_dasharray(style: WireStyle) -> str | None:
+    """The SVG ``stroke-dasharray`` for a wire style's line style (None = solid).
+    The one place a line style becomes a dash pattern."""
+    return _LINE_STYLE_DASH.get(style.line_style)
+
+
+def core_dasharray(style: WireStyle) -> str | None:
+    """The dash the wire's CENTER band draws with: the class fill pattern read as
+    a 1-px dash along the wire (the "chain" — solid edge shows through the gaps),
+    else the line-style dash, else solid. The one place a fill pattern becomes a
+    dash. A row byte's set bits are the on-runs; the periodic run-lengths (rotated
+    to start on an on-run) are the dash array."""
+    pattern = style.fill_pattern
+    if pattern:
+        row = pattern[len(pattern) // 2]  # the band rides the pattern's center row
+        if row not in (0x00, 0xFF):
+            bits = [(row >> (7 - i)) & 1 for i in range(8)]  # MSB = leftmost pixel
+            start = next(
+                (i for i in range(8) if bits[i] and not bits[(i - 1) % 8]), 0
+            )
+            seq = [bits[(start + k) % 8] for k in range(8)]
+            runs = [len(list(g)) for _, g in groupby(seq)]
+            return ",".join(str(r) for r in runs)
+    return wire_dasharray(style)
 
 
 # --------------------------------------------------------------------- #

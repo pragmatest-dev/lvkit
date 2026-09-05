@@ -43,6 +43,7 @@ from ..graph.models import (
 )
 from ..graph.op_walk import (
     _nmux_field_sources,
+    _nmux_index_leaf_only,
     _resolve_nmux_field_name,
     correlate_property_terminals,
 )
@@ -56,6 +57,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .glyph import (
     ArithGlyph,
     ArrayBuildGlyph,
+    ArrayConstantGlyph,
     ArrayReverseGlyph,
     ArraySearchGlyph,
     ArraySizeGlyph,
@@ -594,6 +596,7 @@ class JsonGlyphResolver:
 def _resolve_bundle_by_name_labels(
     field_terms: list[Terminal],
     *field_sources: list[ClusterField],
+    leaf_only: bool,
 ) -> tuple[str, ...]:
     """Resolve each By-Name field terminal's label via the fall-through
     chain (``_resolve_nmux_field_name`` over ``field_sources``, then the
@@ -621,7 +624,9 @@ def _resolve_bundle_by_name_labels(
     names: list[str] = []
     for t in field_terms:
         fi = t.nmux_field_index
-        name = t.display_name or _resolve_nmux_field_name(fi, *field_sources)
+        name = t.display_name or _resolve_nmux_field_name(
+            fi, *field_sources, leaf_only=leaf_only
+        )
         if name:
             t.display_name = name
             names.append(name)
@@ -671,7 +676,12 @@ def _bundle_by_name_glyph(
     # its terminal's ``display_name`` so the hover connector-panel (which has
     # room to show the name untruncated) shows the SAME resolved name as this
     # glyph row, not a generic "terminal N".
-    names = _resolve_bundle_by_name_labels(field_terms, own_fields, dep_fields)
+    names = _resolve_bundle_by_name_labels(
+        field_terms,
+        own_fields,
+        dep_fields,
+        leaf_only=_nmux_index_leaf_only(node.node_type, agg),
+    )
     # Direction comes from the FIELD terminals, not the aggregate — there can
     # be TWO aggregate terminals (an input source cluster and an output
     # assembled cluster) sharing one DCO, so ``agg.direction`` is ambiguous.
@@ -719,7 +729,12 @@ def _event_data_glyph(
     rows: list[tuple[str, LVType | None]] = []
     for t in field_terms:
         fi = t.nmux_field_index
-        name = t.display_name or _resolve_nmux_field_name(fi, own_fields, dep_fields)
+        name = t.display_name or _resolve_nmux_field_name(
+            fi,
+            own_fields,
+            dep_fields,
+            leaf_only=_nmux_index_leaf_only(node.node_type, agg),
+        )
         if name:
             t.display_name = name
         elif t.name:
@@ -1083,7 +1098,65 @@ def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
     summary = "\n".join(
         f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}" for f in fields
     )
-    return ClusterConstantGlyph(composed, is_error=is_error, value_summary=summary)
+    return ClusterConstantGlyph(
+        composed,
+        is_error=is_error,
+        collapsed=node.collapsed,
+        value_summary=summary,
+        border_color=wire_style(node.lv_type).color,
+    )
+
+
+def _array_const_values(value: object) -> list[object]:
+    """An array constant's values as a Python list. The graph stores the value
+    as its ``repr`` string (``"[0, 0, 1, ...]"`` / ``"['a', 'b']"``); parse it
+    back with ``ast.literal_eval`` the same way the cluster path does."""
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    if isinstance(value, str) and value:
+        try:
+            parsed = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return []
+        if isinstance(parsed, (list, tuple)):
+            return list(parsed)
+    return []
+
+
+def _element_glyph(element_type: LVType | None, value: object) -> Glyph:
+    """One array element's glyph, from the element TYPE + its value. A cluster
+    element composes its fields (so an array of clusters draws each cluster in
+    its cell); anything else is a leaf constant glyph."""
+    fam = type_family(element_type)
+    if fam in ("cluster", "error_cluster") and element_type and element_type.fields:
+        vals = _cluster_field_values(value)
+        composed = tuple(
+            (f.name, _leaf_const_glyph(f.type, vals.get(f.name)))
+            for f in element_type.fields
+        )
+        return ClusterConstantGlyph(
+            composed,
+            is_error=fam == "error_cluster",
+            border_color=wire_style(element_type).color,
+        )
+    return _leaf_const_glyph(element_type, value)
+
+
+def _array_const_glyph(node: ConstantNode) -> Glyph:
+    """Compose an array constant: one element glyph per value (from the element
+    type), drawn by :class:`ArrayConstantGlyph` as an indexed, scrollable column
+    of cells — never the raw ``[…]`` list repr."""
+    lv_type = node.lv_type
+    element_type = lv_type.element_type if lv_type is not None else None
+    raw = node.raw_value if node.value is None else node.value
+    values = _array_const_values(raw)
+    elements = tuple(_element_glyph(element_type, v) for v in values)
+    return ArrayConstantGlyph(
+        elements=elements,
+        element_color=wire_style(lv_type).color,
+        struct_uid=node.id,
+        dimensions=(lv_type.dimensions if lv_type is not None else 1) or 1,
+    )
 
 
 def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
@@ -1100,6 +1173,18 @@ def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
         return _format_const(0 if raw is None else raw)
     if fam == "string":
         return string_const_display(raw) if raw is not None else ""
+    if fam in ("cluster", "error_cluster") and lv_type and lv_type.fields:
+        # Recurse so a nested cluster reads as LABELED sub-fields
+        # ``{Idle State: False}`` in the hover, not a raw Python dict
+        # ``{'Idle State': False}``.
+        vals = _cluster_field_values(raw)
+        inner = ", ".join(
+            f"{f.name}: {_field_summary_value(f.type, vals.get(f.name))}"
+            for f in lv_type.fields
+        )
+        return "{" + inner + "}"
+    if fam == "array" and isinstance(raw, (list, tuple)):
+        return f"[{len(raw)} element{'s' if len(raw) != 1 else ''}]"
     return str(raw) if raw is not None else ""
 
 
@@ -1124,9 +1209,16 @@ class GeneratedGlyphResolver:
                 composed = _cluster_const_glyph(node, is_error=fam == "error_cluster")
                 if composed is not None:
                     return composed
-                # No field info to compose from — keep the old schematic.
+                # No field info to compose from: an error cluster keeps its
+                # schematic; any other cluster draws the generic cluster ICON
+                # (never the raw dict/list value repr).
                 if fam == "error_cluster":
                     return ErrorClusterGlyph()
+                return ClusterConstantGlyph(
+                    fields=(), border_color=wire_style(node.lv_type).color
+                )
+            if fam == "array":
+                return _array_const_glyph(node)
             raw = node.raw_value if node.value is None else node.value
             return _leaf_const_glyph(node.lv_type, raw, node.display_format)
         if isinstance(node, FormulaNode):

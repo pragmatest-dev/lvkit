@@ -92,6 +92,39 @@ def _extract_caption(dco: ET.Element) -> str | None:
     return caption or None
 
 
+_COLLAPSED_FLAG = 0x10000000  # DDO objFlags bit: "View As Icon" (collapsed)
+
+
+def _extract_collapsed(dco: ET.Element) -> bool:
+    """Whether a cluster/array constant is drawn COLLAPSED (View As Icon / the
+    smaller collapsed form) — its display DDO's ``objFlags`` bit ``0x10000000``.
+    Verified on DCAF ``Create Test Configuration.vi``: the collapsed cluster
+    constants carry the bit (``0x10601024`` for the smaller rectangular form,
+    ``0x11600024`` for the square View-As-Icon form) while expanded ones (incl.
+    a one-boolean cluster that renders its member fine) carry ``0x00601004``.
+
+    A TYPEDEF'd cluster/array constant wraps its display DDO in a ``typeDef``
+    ddo whose own flags never carry the bit — the ``stdClust``/``indArr`` nested
+    INSIDE it does, so descend into it first (the outermost nested composite,
+    document order = the cluster itself, not a member sub-cluster)."""
+    ddo = dco.find("ddo")
+    if ddo is None:
+        return False
+    if ddo.get("class") == "typeDef":
+        inner = ddo.find(".//SL__arrayElement[@class='stdClust']")
+        if inner is None:
+            inner = ddo.find(".//SL__arrayElement[@class='indArr']")
+        if inner is not None:
+            ddo = inner
+    if ddo.get("class") not in ("stdClust", "indArr"):
+        return False
+    try:
+        flags = int((ddo.findtext("objFlags") or "0").strip())
+    except ValueError:
+        return False
+    return bool(flags & _COLLAPSED_FLAG)
+
+
 def extract_constants(root: ET.Element) -> list[ParsedConstant]:
     """Extract constants from the block diagram.
 
@@ -126,6 +159,7 @@ def extract_constants(root: ET.Element) -> list[ParsedConstant]:
                     value=value_hex,
                     label=label,
                     display_format=_extract_display_format(dco),
+                    collapsed=_extract_collapsed(dco),
                 )
             )
 

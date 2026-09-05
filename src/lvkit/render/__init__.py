@@ -113,7 +113,7 @@ _FRAME_CONTROLLER_JS = """(function() {
     var val = t.getAttribute("data-lv-value");
     var action = t.getAttribute("data-lv-action");
     if (val !== null) { state[s] = val; apply(); closeMenus(null); }
-    else if (action === "prev" || action === "next") {
+    else if ((action === "prev" || action === "next") && config[s]) {
       var f = config[s].frames, idx = f.indexOf(state[s]);
       state[s] = f[(idx + (action === "next" ? 1 : f.length - 1)) % f.length];
       apply(); closeMenus(null);
@@ -127,6 +127,54 @@ _FRAME_CONTROLLER_JS = """(function() {
     }
   });
   apply();
+})();"""
+
+
+# Array-constant index controller — the sibling of the frame controller, for
+# array constants (``ArrayConstantGlyph``). Each array carries an ``lv-array``
+# element with its length + per-row height; the ``▲``/``▼`` targets share the
+# ``lv-action`` prev/next + ``lv-struct`` convention the frame controller uses
+# (guarded there by ``config[s]`` so a non-frame array struct is ignored). The
+# index is clamped to the array (``[0, len-1]``) — you can't page before the
+# first element or past the last. Scrolling translates the inner ``lv-array-col``
+# column so the indexed element sits at the top of its clipped viewport (rows
+# past the array end stay greyed) and updates the ``lv-array-index`` readout.
+_ARRAY_CONTROLLER_JS = """(function() {
+  var root = document.getElementById(__ROOT_ID__);
+  if (!root || root.__lvArrInit) return;
+  root.__lvArrInit = true;
+  var cfg = {}, cur = {};
+  var cs = root.querySelectorAll("[data-lv-len]");
+  for (var i = 0; i < cs.length; i++) {
+    var el = cs[i], s = el.getAttribute("data-lv-struct");
+    cfg[s] = { len: parseInt(el.getAttribute("data-lv-len"), 10) || 0,
+               h: parseFloat(el.getAttribute("data-lv-cellh")) || 18 };
+    cur[s] = 0;
+  }
+  function apply(s) {
+    var cols = root.querySelectorAll(".lv-array-col");
+    for (var i = 0; i < cols.length; i++)
+      if (cols[i].getAttribute("data-lv-struct") === s)
+        cols[i].setAttribute("transform", "translate(0 " + (-cur[s] * cfg[s].h) + ")");
+    var labs = root.querySelectorAll(".lv-array-index");
+    for (var j = 0; j < labs.length; j++)
+      if (labs[j].getAttribute("data-lv-struct") === s) {
+        var tx = labs[j].querySelector("text");
+        if (tx) tx.textContent = "" + cur[s];
+      }
+  }
+  root.addEventListener("click", function(e) {
+    var t = e.target;
+    while (t && t !== root && t.getAttribute &&
+           t.getAttribute("data-lv-action") === null) t = t.parentNode;
+    if (!t || t === root || !t.getAttribute) return;
+    var s = t.getAttribute("data-lv-struct"), a = t.getAttribute("data-lv-action");
+    if (!cfg[s]) return;
+    if (a === "prev") cur[s] = Math.max(0, cur[s] - 1);
+    else if (a === "next") cur[s] = Math.min(Math.max(0, cfg[s].len - 1), cur[s] + 1);
+    else return;
+    apply(s);
+  });
 })();"""
 
 
@@ -496,6 +544,7 @@ def _render_scene_svg(
             scripts.append(_FRAME_CONTROLLER_JS)
         if scene.nodes:
             scripts.append(_HOVER_PANEL_JS)
+            scripts.append(_ARRAY_CONTROLLER_JS)
     if scripts:
         root_id = _root_id(vi_name)
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))

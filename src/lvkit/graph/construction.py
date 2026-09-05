@@ -463,6 +463,7 @@ class ConstructionMixin:
                 raw_value=const.value,
                 label=const.label,
                 display_format=const.display_format,
+                collapsed=const.collapsed,
                 terminals=[const_terminal],
             )
             g.add_node(q_const_uid, node=const_node)

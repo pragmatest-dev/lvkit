@@ -68,6 +68,11 @@ class ParsedConstant:
     # default decimal display). Interpreted at render time — the parser
     # does not decide what it means.
     display_format: str | None = None
+    # True when a cluster/array constant is drawn COLLAPSED ("View As Icon") —
+    # its DDO ``objFlags`` bit 0x10000000. A collapsed constant shows a compact
+    # icon, NOT its members/elements (LabVIEW cannot shrink a value's natural
+    # height, so a small box is a collapse, never squashed content).
+    collapsed: bool = False
 
 
 @dataclass

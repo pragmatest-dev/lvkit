@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Class wires render in the class's own color** — an LVOOP class instance's wire now draws in the color (and width/line-style) set in the class's Wire Appearance, decoded from the `.lvclass`, instead of the generic default (#43).
 
 ## [0.8.1] - 2026-08-31
 - **Fix: a VI's SubVIs now render on the web** — their icons and interfaces stage on hosted editors, including methods a class inherits (#77).

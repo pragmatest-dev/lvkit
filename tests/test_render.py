@@ -104,10 +104,17 @@ def test_selector_label_enum_names_ranges_and_list():
     names = ["Digital Input", "Digital Output", "Voltage Input", "PWM"]
     t = _enum_type(names)
     assert _selector_label(_frame("3", [(3, 3)]), t, False) == "PWM"
+    # Two contiguous values have no middle to elide -> list both, comma-separated.
     assert (
         _selector_label(_frame("0", [(0, 1)]), t, False)
-        == "Digital Input..Digital Output"
+        == "Digital Input, Digital Output"
     )
+    # Three-plus contiguous -> "first..last" (the middle member is elided).
+    assert (
+        _selector_label(_frame("0", [(0, 2)]), t, False)
+        == "Digital Input..Voltage Input"
+    )
+    # Non-contiguous match values are always comma-listed.
     assert (
         _selector_label(_frame("0", [(0, 0), (2, 2)]), t, False)
         == "Digital Input, Voltage Input"
@@ -503,11 +510,117 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     small = SvgBackend()
     glyph.draw(small, (0.0, 0.0, 17.0, 42.0), DEFAULT_THEME)
     small_svg = small.render((0.0, 0.0, 17.0, 42.0))
-    # Too small for labeled rows: field NAMES are dropped, but both field
-    # VALUE glyphs (the _Dot "V") are still drawn — never a blank box.
+    # Too small for name+value rows: the field NAME labels drop off (names move
+    # to the hover tooltip), but the real field VALUE glyphs are STILL drawn —
+    # a cluster shows its members (a one-boolean cluster shows its boolean),
+    # never a generic mixed-element icon that misstates the field count/types.
     assert "Horizontal" not in small_svg and "Vertical" not in small_svg
-    assert "<rect" in small_svg
-    assert small_svg.count(">V<") == 2
+    assert ">V<" in small_svg  # the field value glyphs are drawn, fit to the box
+
+
+def test_bundle_aggregate_split_into_interior_input_and_edge_output():
+    """A Bundle-By-Name's input + output aggregate terminals share ONE heap DCO
+    box (the output owns it; the input aliases it). ``_reposition_mux_terminals``
+    splits that real box in half so the connector panel can tell them apart: the
+    OUTPUT keeps the exposed EDGE half (right, here), the INPUT takes the
+    INTERIOR half — which ``_term_side_and_frac`` then reads as the TOP entry.
+    The wire endpoints (centers) are left at the real heap anchor: the on-diagram
+    aggregate wire is drawn from LabVIEW's own decoded geometry, never moved."""
+    from lvkit.models import Terminal
+    from lvkit.render.scene import RenderTerminal, _reposition_mux_terminals
+
+    node_bounds = (100.0, 200.0, 226.0, 269.0)  # left..right = 100..226
+    shared = (218.0, 200.0, 226.0, 269.0)  # 8px column flush to the RIGHT edge
+
+    def rt(direction):
+        return RenderTerminal(
+            terminal=Terminal(
+                id=direction, index=0, direction=direction, nmux_role="agg"
+            ),
+            center=(222.0, 234.5),  # both collapsed onto the shared box center
+            bounds=shared,
+        )
+
+    out = {
+        t.terminal.direction: t
+        for t in _reposition_mux_terminals([rt("input"), rt("output")], node_bounds)
+    }
+    # Output keeps its own recorded box (edge column); the input takes the
+    # equal-width interior column immediately to its left (the empty gap).
+    assert out["output"].bounds == (218.0, 200.0, 226.0, 269.0)
+    assert out["input"].bounds == (210.0, 200.0, 218.0, 269.0)
+    # Centers here are untouched; the wire-anchor correction lives in layout
+    # (``_reanchor_nmux_aggregate_inputs``), applied before wire decode.
+    assert out["input"].center == (222.0, 234.5)
+    assert out["output"].center == (222.0, 234.5)
+
+
+def test_collapsed_cluster_constant_draws_icon_not_members():
+    """A cluster constant flagged COLLAPSED ("View As Icon", DDO objFlags bit
+    0x10000000) draws the compact cluster icon, never its members — LabVIEW
+    can't shrink a value's natural height, so a small box is a collapse, not
+    squashed content. An expanded cluster still draws its members."""
+    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
+
+    fields = (("a", _Dot()), ("b", _Dot()), ("c", _Dot()))
+    box = (0.0, 0.0, 90.0, 60.0)
+
+    collapsed = SvgBackend()
+    ClusterConstantGlyph(fields=fields, collapsed=True).draw(
+        collapsed, box, DEFAULT_THEME
+    )
+    csvg = collapsed.render(box)
+    assert ">V<" not in csvg  # members NOT drawn when collapsed
+    assert csvg.count("<rect") >= 3  # shell + element squares (the icon)
+
+    expanded = SvgBackend()
+    ClusterConstantGlyph(fields=fields, collapsed=False).draw(
+        expanded, box, DEFAULT_THEME
+    )
+    assert ">V<" in expanded.render(box)  # members ARE drawn when expanded
+
+
+def test_array_constant_renders_indexed_cells_not_raw_repr():
+    """An array constant draws an index control + a column of the elements' own
+    value glyphs (the indexed element at top), with a greyed past-end cell and
+    the interactive ``lv-array`` carrier — never the raw ``[…]`` Python list."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.glyph import ArrayConstantGlyph, ConstantGlyph
+    from lvkit.render.nodes import _array_const_values
+    from lvkit.render.style import DEFAULT_THEME
+
+    # Value parsing: the repr string is parsed back to a list.
+    assert _array_const_values("['a', 'b', 'c']") == ["a", "b", "c"]
+    assert _array_const_values("[0, 1, 2]") == [0, 1, 2]
+    assert _array_const_values("not-a-list") == []
+
+    elems = tuple(
+        ConstantGlyph(s, "#e05fa0", multiline=True) for s in ("Alpha", "Beta")
+    )
+    glyph = ArrayConstantGlyph(
+        elements=elems, element_color="#e05fa0", struct_uid="v::9"
+    )
+    b = SvgBackend()
+    bounds = (0.0, 0.0, 140.0, 90.0)
+    glyph.draw(b, bounds, DEFAULT_THEME)
+    svg = b.render(bounds)
+    assert "Alpha" in svg and "Beta" in svg  # real element value glyphs
+    assert ">0<" in svg  # the index readout
+    assert "['" not in svg and "[0," not in svg  # never the raw list repr
+    # The interactive contract the array controller JS reads: the carrier's
+    # length + per-row height, the translatable column, the index readout, and
+    # the ▲/▼ prev/next click targets — all keyed by the same struct uid.
+    assert 'data-lv-len="2"' in svg and "data-lv-cellh" in svg
+    assert 'class="lv-array-col"' in svg
+    assert 'class="lv-array-index"' in svg
+    assert 'data-lv-action="prev"' in svg and 'data-lv-action="next"' in svg
+    assert svg.count('data-lv-struct="v::9"') >= 3  # carrier + col + index all keyed
 
 
 def test_local_variable_glyph_badge_and_read_write_border_weight():
@@ -726,10 +839,11 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     """A CLASS/LVObject constant (underlying ``Refnum`` WITH a ``classname``)
     draws its CLASS NAME — wrapped-and-shrunk to fill the box (``fit``) — never
     the parser's placeholder raw value (``"Refnum(1)"``) and never a generic
-    "Refnum". A class refnum is ``type_family=="unknown"`` (that family reserves
-    "refnum" for GENERIC refs whose wire is reference-green), so the constant
-    path keys on ``underlying_type``. Same class-name rule shared with terminal
-    labels — ``style.lv_type_label``."""
+    "Refnum". The constant/label path keys on ``underlying_type`` +
+    ``classname``, independent of the wire family. A class refnum is NOT the
+    ``refnum`` family (that is reserved for GENERIC refs); with no custom wire
+    style it draws the default grey class chain, not a reference wire. Same
+    class-name rule shared with terminal labels — ``style.lv_type_label``."""
     from lvkit.models import LVType
     from lvkit.render.glyph import ConstantGlyph
     from lvkit.render.nodes import _leaf_const_glyph
@@ -741,7 +855,7 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
         ref_type="UDClassInst",
         classname="NI DAQmx.lvlib:DAQmx Module Configuration.lvclass",
     )
-    assert type_family(cls) == "unknown"  # NOT the "refnum" family
+    assert type_family(cls) == "unknown"  # a class refnum is NOT the refnum family
     assert lv_type_label(cls) == "DAQmx Module Configuration.lvclass"
 
     glyph = _leaf_const_glyph(cls, raw="Refnum(1)")
@@ -758,6 +872,61 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     assert type_family(gen) == "refnum"
     assert lv_type_label(gen) == "Occurrence Refnum"
     assert _leaf_const_glyph(gen, raw="Refnum(1)").value == "Occurrence Refnum"
+
+
+def test_io_name_tag_is_reference_wire_and_unresolved_class_is_grey_chain():
+    """A LabVIEW I/O-name type (``Tag`` — DAQmx physical channel / task name,
+    VISA resource name) draws the reference wire. But an UNRESOLVED class refnum
+    (a ``classname`` with no wire style anywhere in its ancestry — its
+    ``.lvclass``/parent unfound) is NOT a refnum wire: it draws the default GREY
+    CHAIN (grey = unresolved, chain = still visibly a class), thicker per array
+    dimension. A class that DOES set a wire style keeps it (``wire_style``
+    returns before the family/default is consulted)."""
+    import dataclasses
+
+    from lvkit.models import LVType, WireStyle
+    from lvkit.render.style import DEFAULT_THEME, type_family, wire_style
+
+    tag = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Tag")
+    assert type_family(tag) == "refnum"
+    assert wire_style(tag).color == DEFAULT_THEME.wire_refnum
+
+    tag_arr = LVType(kind=LVTypeKind.ARRAY, element_type=tag)
+    assert wire_style(tag_arr).color == DEFAULT_THEME.wire_refnum
+
+    unresolved_class = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", classname="Foo.lvclass"
+    )
+    ws = wire_style(unresolved_class)
+    assert ws.color == DEFAULT_THEME.wire_default  # grey, not refnum
+    assert ws.fill_pattern and len(set(ws.fill_pattern)) == 1  # a (uniform) CHAIN
+    assert type_family(unresolved_class) == "unknown"  # NOT the refnum family
+    # Gauge matched to what REAL class pens decode to across the corpus (total
+    # ``Width`` 3.0, core 1.0) so an unresolved class is the same size as a
+    # resolved one, not the thin scalar wire.
+    assert ws.width == pytest.approx(3.0)
+    assert ws.core_width == pytest.approx(1.0)
+
+    # An array OF the unresolved class inherits the grey chain, widened the same
+    # per-dimension amount EVERY array gets (generic bolding, chain preserved) —
+    # no class-specific branch: each dimension adds a fixed step to width & core.
+    arr = LVType(kind=LVTypeKind.ARRAY, element_type=unresolved_class)
+    arr_ws = wire_style(arr)
+    assert arr_ws.color == DEFAULT_THEME.wire_default
+    assert arr_ws.fill_pattern == ws.fill_pattern  # element pattern carried through
+    step = arr_ws.width - ws.width
+    assert step > 0
+    assert arr_ws.core_width == pytest.approx((ws.core_width or 0.0) + step)
+
+    arr2 = LVType(kind=LVTypeKind.ARRAY, element_type=arr)  # 2-D
+    arr2_ws = wire_style(arr2)
+    assert arr2_ws.width == pytest.approx(ws.width + 2 * step)  # one step per dim
+    assert arr2_ws.fill_pattern == ws.fill_pattern
+
+    styled = dataclasses.replace(
+        unresolved_class, wire_style=WireStyle(color="#abcdef", width=2.0)
+    )
+    assert wire_style(styled).color == "#abcdef"
 
 
 def test_builtin_reference_constants_render():
@@ -1932,7 +2101,8 @@ def test_control_border_thicker_than_indicator_border():
         LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
         is_indicator=True,
     )
-    assert 'stroke-width="3.0"' in control_svg
+    # Control is heavier than an indicator, but no longer bold (2.0 vs 1.5).
+    assert 'stroke-width="2.0"' in control_svg
     assert 'stroke-width="1.5"' in indicator_svg
 
 
@@ -2390,45 +2560,33 @@ def test_single_field_bundle_is_not_dropped():
     assert glyph.num_fields == 1
 
 
-def test_mux_field_terminals_snap_to_node_edge():
-    """Bundle/Unbundle FIELD (``list``) terminals attach at the node EDGE on
-    their dataflow side — input fields (Bundle) at the LEFT edge, output fields
-    (Unbundle) at the RIGHT edge — keeping their row Y. Regression for the
-    "every bundle node crosses its input and output terminals" bug: field
-    terminals' heap centers sit by the field-name label (mid-box, near the
-    divider), so an input wire attached there ran into the middle of the box
-    and crossed the assembled output exiting the right edge."""
+def test_reposition_mux_leaves_fields_and_lone_unbundle_aggregate_alone():
+    """``_reposition_mux_terminals`` touches ONLY a Bundle's two shared-box
+    aggregate terminals (splitting them into interior-input / edge-output
+    halves). FIELD (``list``) terminals — whose wires are drawn from LabVIEW's
+    own faithful geometry and covered by the opaque name cells — and a lone
+    Unbundle aggregate, which already lines an edge on its own, are returned
+    unchanged. Nothing here moves an on-diagram wire endpoint."""
     from lvkit.models import Terminal
     from lvkit.render.scene import RenderTerminal, _reposition_mux_terminals
 
-    bounds = (100.0, 400.0, 200.0, 460.0)  # left, top, right, bottom (mid_y=430)
+    bounds = (100.0, 400.0, 200.0, 460.0)
 
-    def rt(direction, role, cx, cy):
+    def rt(direction, role, box):
         return RenderTerminal(
             terminal=Terminal(id="t", index=0, direction=direction, nmux_role=role),
-            center=(cx, cy),
-            bounds=None,
+            center=((box[0] + box[2]) / 2, (box[1] + box[3]) / 2),
+            bounds=box,
         )
 
-    # A Bundle: two field INPUTS whose heap centers sit near the right/divider
-    # (the WRONG side), plus the assembled aggregate OUTPUT.
-    out = _reposition_mux_terminals(
-        [
-            rt("input", "list", 190.0, 415.0),
-            rt("input", "list", 188.0, 445.0),
-            rt("output", "agg", 150.0, 430.0),
-        ],
-        bounds,
-    )
-    fins = [t for t in out if t.terminal.nmux_role == "list"]
-    assert [t.center[0] for t in fins] == [100.0, 100.0]  # snapped to LEFT edge
-    assert [t.center[1] for t in fins] == [415.0, 445.0]  # row Y preserved
-    agg = next(t for t in out if t.terminal.nmux_role == "agg")
-    assert agg.center == (200.0, 430.0)  # cluster exits right-mid
-
-    # An Unbundle field OUTPUT snaps to the RIGHT edge (mirror).
-    ub = _reposition_mux_terminals([rt("output", "list", 140.0, 430.0)], bounds)
-    assert ub[0].center[0] == 200.0
+    # A single Unbundle aggregate (input at the LEFT edge) + a field output:
+    # only two aggs sharing a box trigger the split, so both are untouched.
+    lone = rt("input", "agg", (100.0, 400.0, 116.0, 460.0))
+    field = rt("output", "list", (116.0, 405.0, 200.0, 422.0))
+    out = _reposition_mux_terminals([lone, field], bounds)
+    assert out[0].bounds == lone.bounds  # lone aggregate not split
+    assert out[1].bounds == field.bounds  # field terminal untouched
+    assert out[1].center == field.center
 
 
 def test_cluster_constant_compacted_to_natural_rows():
@@ -2948,27 +3106,45 @@ def test_bundle_by_name_glyph_draws_field_names():
     svg = b.render(bounds)
     for name in ("level", "parent name", "xml index"):
         assert name in svg
-    assert "▶" in svg  # By Name carries the same direction arrow as positional
+    # The direction arrow is a proper rightward arrow: a triangular head
+    # (<polygon>) OVER a shaft (<line>). The shaft is what keeps it from reading
+    # as a bare "play" triangle.
+    assert "<polygon" in svg
+    assert "<line" in svg
 
 
-def test_bundle_by_name_arrow_side_follows_direction():
-    """The arrow cell sits on the cluster side: RIGHT for Bundle By Name
-    (fields in -> cluster out), LEFT for Unbundle By Name (task #89)."""
+def test_bundle_by_name_arrow_sits_on_cluster_column_and_points_right():
+    """The direction arrow sits in the cluster column — RIGHT for Bundle By Name
+    (fields in -> cluster out), LEFT for Unbundle By Name — and points RIGHT in
+    BOTH cases (data assembles/extracts left-to-right). The head is a filled
+    ``<polygon>`` triangle whose apex (max x) is to the right of its base."""
     from lvkit.render.glyph import BundleByNameGlyph
 
     bounds = (0.0, 0.0, 100.0, 40.0)
 
-    def arrow_x(bundling: bool) -> float:
+    def head_pts(bundling: bool) -> list[tuple[float, float]]:
         b = SvgBackend()
         BundleByNameGlyph(names=("a", "b"), bundling=bundling).draw(
             b, bounds, DEFAULT_THEME
         )
-        m = re.search(r'<text x="([\d.]+)"[^>]*>▶</text>', b.render(bounds))
+        m = re.search(r'<polygon points="([^"]+)"', b.render(bounds))
         assert m is not None
-        return float(m.group(1))
+        return [
+            (float(x), float(y))
+            for x, y in re.findall(r"([-\d.]+),([-\d.]+)", m.group(1))
+        ]
 
-    assert arrow_x(True) > 50.0  # Bundle By Name -> arrow on the RIGHT half
-    assert arrow_x(False) < 50.0  # Unbundle By Name -> arrow on the LEFT half
+    for bundling, side in ((True, "right"), (False, "left")):
+        pts = head_pts(bundling)
+        xs = [p[0] for p in pts]
+        apex_x = max(xs)  # the single rightmost vertex is the tip
+        base_x = min(xs)
+        assert apex_x > base_x  # points RIGHT for both directions
+        mean_x = sum(xs) / len(xs)
+        if side == "right":
+            assert mean_x > 50.0  # Bundle: cluster column on the RIGHT
+        else:
+            assert mean_x < 50.0  # Unbundle: cluster column on the LEFT
 
 
 def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
@@ -3122,12 +3298,14 @@ def test_parse_private_data_fields_is_authoritative_to_the_class():
 
 
 def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
-    """``_resolve_nmux_field_name`` (backing ``_bundle_by_name_glyph``) must
-    flatten a NESTED private-data cluster LEAF-first — an intermediate
-    sub-cluster (``DAQ Tasks``, ``Channel Indeces``) is never itself an
-    addressable flat slot. Reproduces the exact corpus shape/indices (task:
-    DAQmx Module Runtime, indices 7/1/9/3 -> DI Index/AO Task/PWM Freq
-    Index/DO Task) without needing the sample VI on disk."""
+    """In LEAF-only mode (IPES ``decomposeClusterNode`` / event data),
+    ``_resolve_nmux_field_name`` flattens a NESTED private-data cluster
+    LEAF-first — an intermediate sub-cluster (``DAQ Tasks``, ``Channel
+    Indeces``) is never itself an addressable flat slot. Reproduces the exact
+    corpus shape/indices (task: DAQmx Module Runtime decompose, indices 7/1/9/3
+    -> DI Index/AO Task/PWM Freq Index/DO Task) without needing the sample VI on
+    disk. Bundle-By-Name (``nMux``) counts sub-clusters too — see the full-mode
+    assertions below and ``test_resolve_nmux_field_name_full_mode_...``."""
     from lvkit.graph.op_walk import _resolve_nmux_field_name
     from lvkit.models import ClusterField
 
@@ -3169,14 +3347,91 @@ def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
     )
     fields = [daq_tasks, channel_indeces]
 
-    assert _resolve_nmux_field_name(7, fields) == "DI Index"
-    assert _resolve_nmux_field_name(1, fields) == "AO Task"
-    assert _resolve_nmux_field_name(9, fields) == "PWM Freq Index"
-    assert _resolve_nmux_field_name(3, fields) == "DO Task"
+    assert _resolve_nmux_field_name(7, fields, leaf_only=True) == "DI Index"
+    assert _resolve_nmux_field_name(1, fields, leaf_only=True) == "AO Task"
+    assert _resolve_nmux_field_name(9, fields, leaf_only=True) == "PWM Freq Index"
+    assert _resolve_nmux_field_name(3, fields, leaf_only=True) == "DO Task"
     # Out of range (beyond every leaf) -> no name, caller falls back further.
-    assert _resolve_nmux_field_name(99, fields) is None
+    assert _resolve_nmux_field_name(99, fields, leaf_only=True) is None
     # No field index at all -> no name.
-    assert _resolve_nmux_field_name(None, fields) is None
+    assert _resolve_nmux_field_name(None, fields, leaf_only=True) is None
+
+
+def test_resolve_nmux_field_name_full_mode_addresses_whole_subclusters():
+    """In FULL mode (Bundle/Unbundle By Name ``nMux``) the flat ``<i>`` index
+    counts EVERY node depth-first, so a whole sub-cluster is its own addressable
+    slot — the same shape a LEAF-only flatten cannot reach. Mirrors the DCAF
+    ``Create Test Configuration`` Bundle node: index 0 is the first sub-cluster
+    itself, and its own leaf is index 1 (leaf-only would put that leaf at 0)."""
+    from lvkit.graph.op_walk import _nmux_index_leaf_only, _resolve_nmux_field_name
+    from lvkit.models import ClusterField, Terminal
+
+    inner = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="leaf", type=None)],
+    )
+    fields = [ClusterField(name="Sub", type=inner)]
+    # FULL: slot 0 = the sub-cluster, slot 1 = its leaf.
+    assert _resolve_nmux_field_name(0, fields, leaf_only=False) == "Sub"
+    assert _resolve_nmux_field_name(1, fields, leaf_only=False) == "leaf"
+    # LEAF-only: the sub-cluster is NOT a slot — only its leaf, at 0.
+    assert _resolve_nmux_field_name(0, fields, leaf_only=True) == "leaf"
+    assert _resolve_nmux_field_name(1, fields, leaf_only=True) is None
+
+    # The discriminator: full-mode is ONLY an ``nMux`` over a plain (non-class)
+    # cluster/typedef. Class private data (``classname``) stays leaf even under
+    # ``nMux``; IPES decompose / event data are always leaf.
+    def agg(classname: str | None) -> Terminal:
+        return Terminal(
+            id="a",
+            index=0,
+            direction="input",
+            nmux_role="agg",
+            lv_type=LVType(kind=LVTypeKind.CLUSTER, classname=classname),
+        )
+
+    assert _nmux_index_leaf_only("nMux", agg(None)) is False
+    assert _nmux_index_leaf_only("nMux", agg("Foo.lvclass")) is True
+    assert _nmux_index_leaf_only("decomposeClusterNode", agg(None)) is True
+    assert _nmux_index_leaf_only("eventDataNode", agg(None)) is True
+
+
+def test_nested_bundle_field_tooltip_shows_dotted_path():
+    """A NESTED Bundle/Unbundle-By-Name field carries its FULL dotted path for
+    the hover ``<title>`` tooltip (which never truncates), while the terse leaf
+    label the glyph row + connector panel show is unchanged. A top-level field
+    (the sub-cluster itself) gets no path."""
+    from lvkit.graph.op_walk import _resolve_nmux_field_path
+    from lvkit.models import ClusterField, Terminal
+    from lvkit.render.draw import _terminal_help_lines, _terminal_label
+
+    inner = LVType(
+        kind=LVTypeKind.CLUSTER, fields=[ClusterField(name="leaf", type=None)]
+    )
+    fields = [ClusterField(name="Sub", type=inner)]
+    # Full mode: the nested leaf keeps its dotted path; the sub-cluster itself
+    # (a top-level slot) has none.
+    assert _resolve_nmux_field_path(1, fields, leaf_only=False) == "Sub.leaf"
+    assert _resolve_nmux_field_path(0, fields, leaf_only=False) is None
+    # Leaf-only mode (decompose/event): the sub-cluster is not a slot, but its
+    # leaf at 0 still carries its full nested path for the tooltip.
+    assert _resolve_nmux_field_path(0, fields, leaf_only=True) == "Sub.leaf"
+
+    t = Terminal(
+        id="f",
+        index=0,
+        direction="output",
+        nmux_role="list",
+        nmux_field_index=1,
+        display_name="leaf",
+        field_path="Sub.leaf",
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64"),
+    )
+    node = PrimitiveNode(id="n", vi_path="v", node_type="nMux", terminals=[t])
+    # Tooltip lines show the FULL dotted path...
+    assert any("Sub.leaf" in ln for ln in _terminal_help_lines(node))
+    # ...while the terse label (glyph row / connector panel) stays the leaf.
+    assert _terminal_label(t) == "leaf"
 
 
 def test_resolve_nmux_field_name_falls_through_multiple_sources():
@@ -3193,13 +3448,13 @@ def test_resolve_nmux_field_name_falls_through_multiple_sources():
         ClusterField(name="second", type=None),
     ]
     # index 0 resolves from the first (own) source.
-    assert _resolve_nmux_field_name(0, own, dep) == "onlyInOwn"
+    assert _resolve_nmux_field_name(0, own, dep, leaf_only=True) == "onlyInOwn"
     # index 1 is out of range for own, falls through to dep.
-    assert _resolve_nmux_field_name(1, own, dep) == "second"
+    assert _resolve_nmux_field_name(1, own, dep, leaf_only=True) == "second"
     # Empty own source -> straight to dep.
-    assert _resolve_nmux_field_name(1, [], dep) == "second"
+    assert _resolve_nmux_field_name(1, [], dep, leaf_only=True) == "second"
     # Neither source covers it.
-    assert _resolve_nmux_field_name(5, own, dep) is None
+    assert _resolve_nmux_field_name(5, own, dep, leaf_only=True) is None
 
 
 def test_bundle_by_name_resolves_nested_class_private_data_field_names():
@@ -3405,7 +3660,7 @@ def test_resolve_bundle_by_name_labels_only_attaches_real_names():
     )
     field_terms = [resolved, named_by_terminal, unresolved]
 
-    names = _resolve_bundle_by_name_labels(field_terms, fields)
+    names = _resolve_bundle_by_name_labels(field_terms, fields, leaf_only=False)
     assert names == ("widgetCount", "caller side name", "[5]")
     assert resolved.display_name == "widgetCount"
     assert named_by_terminal.display_name is None
@@ -3853,9 +4108,13 @@ def test_node_type_flavor_carries_doc_url():
 
 def test_refnum_wire_is_dark_green_not_grey():
     """Generic refnums (VI reference, driver/DAQ/VISA session, queue, ...) use
-    LabVIEW's dark-green reference-wire color — not the grey "unresolved" color.
-    An LVOOP class instance is also a Refnum but carries a classname; it must NOT
-    take the generic green (its wire is the class's own colour)."""
+    LabVIEW's reference-wire color. An LVOOP class instance is also a Refnum but
+    carries a classname: it is NOT a reference wire — a class that sets its own
+    wire style draws in that, and an UNRESOLVED class (no style in its ancestry)
+    draws the default grey class chain, never the reference wire."""
+    import dataclasses
+
+    from lvkit.models import WireStyle
     from lvkit.render.style import type_family
 
     generic_ref = LVType(
@@ -3871,7 +4130,16 @@ def test_refnum_wire_is_dark_green_not_grey():
         ref_type="UDClassInst",
         classname="Camera.lvclass",
     )
-    assert type_family(lvoop) != "refnum"
+    # Unresolved class -> the default grey class chain, NOT the reference wire.
+    assert type_family(lvoop) == "unknown"
+    lvoop_ws = wire_style(lvoop)
+    assert lvoop_ws.color == DEFAULT_THEME.wire_default and bool(lvoop_ws.fill_pattern)
+
+    # A class that DOES carry a wire style draws in that, not the grey chain.
+    styled = dataclasses.replace(
+        lvoop, wire_style=WireStyle(color="#123456", width=2.0)
+    )
+    assert wire_style(styled).color == "#123456"
 
 
 def test_property_node_glyph_shows_named_rows_with_read_write():

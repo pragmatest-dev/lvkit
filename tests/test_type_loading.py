@@ -160,3 +160,42 @@ class TestFindFile:
         graph = InMemoryVIGraph()
         result = graph._find_file("nowhere.ctl", [tmp_path], tmp_path)
         assert result is None
+
+
+DCAF_VI = (
+    SAMPLES
+    / "DCAF-DAQModule"
+    / "source"
+    / "testing"
+    / "Create Test Configuration.vi"
+)
+
+
+@pytest.mark.skipif(
+    not DCAF_VI.exists(),
+    reason="DCAF-DAQModule samples not available",
+)
+class TestTypedefRefDoesNotDuplicateStub:
+    """A typedef the VI links by a qualified VICC ref (recorded caller-relative
+    path) AND also carries as a BARE ``typedef_name`` in its type_map must
+    resolve to ONE path-keyed node — never a second bare-name stub node beside
+    the resolved one. Regression: PATH is the dep-graph identity, so a
+    path-less bare ref must route onto the already-resolved node, not spawn a
+    duplicate (``_load_dependency``'s pre-stub caller-scoped guard)."""
+
+    def test_resolvable_typedef_has_no_bare_name_duplicate(self):
+        graph = InMemoryVIGraph()
+        graph.load_vi(DCAF_VI, mode=LoadMode.MINIMAL)
+        dg = graph._dep_graph
+        for leaf in ("Parameters.ctl", "Line.ctl", "Measurement Type.ctl"):
+            resolved = [
+                n
+                for n in dg.nodes
+                if n.endswith(leaf) and "/" in n and n not in graph._stubs
+            ]
+            assert len(resolved) >= 1, f"{leaf}: no resolved path node"
+            # The BARE name must NOT exist as its own (stub) node beside it.
+            assert not dg.has_node(leaf), (
+                f"{leaf}: bare-name duplicate stub node exists beside the "
+                f"resolved path node(s) {resolved}"
+            )

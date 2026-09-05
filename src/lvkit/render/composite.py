@@ -50,7 +50,7 @@ from .scene import (
     _is_default_visible,
     encode_frame_path,
 )
-from .style import DEFAULT_THEME, Theme
+from .style import DEFAULT_THEME, Theme, wire_dasharray
 
 
 def _raw(qualified: str | None) -> str | None:
@@ -102,20 +102,131 @@ def _selector_state(rs: RenderStructure, scene: Scene) -> SelectorState:
 def _draw_wire_nets(nets: list[RenderWireNet], backend: Backend, theme: Theme) -> None:
     """One diagram's wires: per-net casing (canvas halo) then colour then
     junctions — so a net's own trunk stays solid while the NEXT net's casing
-    breaks the prior net's colour at an orthogonal crossing."""
+    breaks the prior net's colour at an orthogonal crossing.
+
+    Everything a wire draws — its width, dash, and (for a class) its two-band
+    edge/core border — is read off ``net.style`` (the one WireStyle); a flat wire
+    has no ``edge_color`` and draws as a single stroke."""
     casing = theme.wire_casing
     for net in nets:
+        style = net.style
+        dash = wire_dasharray(style)  # solid for a class pen (line style is solid)
         if casing > 0:
             for branch in net.branches:
                 backend.path(
                     branch,
                     stroke=theme.canvas,
-                    stroke_width=net.style.width + 2 * casing,
+                    stroke_width=style.width + 2 * casing,
                 )
+        # A patterned class pen draws in the edge foreground as its selected
+        # SVG preset — one pattern for the whole wire, not a solid band. The
+        # selector bytes pick the preset: uniform rows = the CHAIN, otherwise
+        # the DIAGONAL (the only two non-solid presets in the corpus).
+        pat_color = style.edge_color or style.color
+        core_w = style.core_width or style.width
         for branch in net.branches:
-            backend.path(branch, stroke=net.style.color, stroke_width=net.style.width)
+            if style.fill_pattern:
+                if len(set(style.fill_pattern)) > 1:
+                    # diagonal reads better at the narrower CORE width
+                    _draw_wire_diagonal(branch, backend, pat_color, core_w)
+                else:
+                    # chain rectangles need the full TOTAL width to stay hollow
+                    _draw_wire_pattern(branch, backend, pat_color, style.width)
+            elif style.edge_color is not None and style.core_width is not None:
+                # Two-band solid class wire: outer edge band, narrower center.
+                backend.path(branch, stroke=style.edge_color, stroke_width=style.width)
+                backend.path(branch, stroke=style.color, stroke_width=style.core_width)
+            else:
+                backend.path(
+                    branch,
+                    stroke=style.color,
+                    stroke_width=style.width,
+                    stroke_dasharray=dash,
+                )
         for jx, jy in net.junctions:
-            backend.circle(jx, jy, 3.0, fill=net.style.color)
+            backend.circle(jx, jy, 3.0, fill=style.color)
+
+
+# A class "chain" wire: hollow hard-corner rectangle LINK, short LINE connector, link,
+# line, … repeated along the wire (as seen in every LabVIEW class-wire example).
+_LINK_LEN = 6.0  # length of one hollow link along the wire
+_LINK_CONN = 3.0  # length of the solid connector line between links
+
+
+def _draw_wire_pattern(
+    branch: list[Point],
+    backend: Backend,
+    color: str,
+    width: float,
+) -> None:
+    """Draw a patterned class wire as a CHAIN: a hollow hard-corner rectangle link,
+    then a short solid connector line, then a link, then a line — repeated along
+    each axis-aligned segment and oriented with it (horizontal links on a
+    horizontal run, vertical on a vertical run), in the pen color. This is
+    LabVIEW's chain wire look; a class whose pen carries a non-solid fill pattern
+    draws its wire this way rather than solid."""
+    lw = max(1.0, width * 0.4)  # link outline weight
+    conn_w = max(1.0, width * 0.5)  # connector line weight
+    half = width / 2
+    step = _LINK_LEN + _LINK_CONN
+    for (x0, y0), (x1, y1) in zip(branch, branch[1:], strict=False):
+        horizontal = abs(x1 - x0) >= abs(y1 - y0)
+        a0, a1 = (x0, x1) if horizontal else (y0, y1)
+        lo, hi = min(a0, a1), max(a0, a1)
+        cross = (y0 + y1) / 2 if horizontal else (x0 + x1) / 2
+        t = lo
+        while t < hi:
+            end = min(t + _LINK_LEN, hi)
+            if horizontal:
+                backend.rect(
+                    t, cross - half, end, cross + half,
+                    fill="none", stroke=color, stroke_width=lw,
+                )
+            else:
+                backend.rect(
+                    cross - half, t, cross + half, end,
+                    fill="none", stroke=color, stroke_width=lw,
+                )
+            # connector line to the next link
+            c0, c1 = end, min(end + _LINK_CONN, hi)
+            if c1 > c0:
+                lx0, ly0, lx1, ly1 = (
+                    (c0, cross, c1, cross) if horizontal else (cross, c0, cross, c1)
+                )
+                backend.line(lx0, ly0, lx1, ly1, stroke=color, stroke_width=conn_w)
+            t += step
+
+
+_DIAG_STEP = 3.0  # spacing between diagonal strokes along the wire
+
+
+def _draw_wire_diagonal(
+    branch: list[Point], backend: Backend, color: str, width: float
+) -> None:
+    """Draw a patterned class wire as the DIAGONAL preset — short parallel
+    diagonal strokes across the wire, repeated along each axis-aligned segment
+    (oriented per run), in the pen color."""
+    lw = max(1.0, width * 0.35)
+    half = width / 2
+    for (x0, y0), (x1, y1) in zip(branch, branch[1:], strict=False):
+        horizontal = abs(x1 - x0) >= abs(y1 - y0)
+        a0, a1 = (x0, x1) if horizontal else (y0, y1)
+        lo, hi = min(a0, a1), max(a0, a1)
+        cross = (y0 + y1) / 2 if horizontal else (x0 + x1) / 2
+        t = lo
+        while t + width <= hi:
+            # a "\" stroke spanning the wire width over one step of length
+            if horizontal:
+                backend.line(
+                    t, cross - half, t + width, cross + half,
+                    stroke=color, stroke_width=lw,
+                )
+            else:
+                backend.line(
+                    cross - half, t, cross + half, t + width,
+                    stroke=color, stroke_width=lw,
+                )
+            t += _DIAG_STEP
 
 
 class RenderObject(ABC):
