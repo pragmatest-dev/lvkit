@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..extractor import extract_vi_xml
-from .image_resources import carve_png, resources_for_heap
+from .image_resources import carve_png, decode_picc_points, resources_for_heap
 
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
@@ -92,6 +92,13 @@ class LayoutDecoration:
     image_res_id: str
     bg_color: str | None = None
     container_uid: str | None = None
+    # Absolute (already walk-offset) endpoints decoded from the heap's
+    # ImageInternalsResID PICC section, when present -- see
+    # image_resources.decode_picc_points. ``()`` when no PICC decoded (a plain
+    # cosm shape with no internals, or resolution failed) -- glyphs fall back
+    # to computing endpoints from `bounds` (line_endpoints). points[0] is the
+    # tail, points[-1] the head (see labview-binary-format.md).
+    points: tuple[Point, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -724,6 +731,27 @@ class _LayoutBuilder:
         if png is not None:
             self.images[uid] = png
 
+    def _resolve_picc_points(
+        self, internals_res_id: str | None, ox: float, oy: float
+    ) -> tuple[Point, ...]:
+        """The decoration's real per-instance endpoints from its
+        ``ImageInternalsResID`` PICC section, offset into absolute coordinates
+        by the SAME walk offset (``ox, oy``) the element's own ``<bounds>``
+        gets (see labview-binary-format.md — the PICC points are pre-offset,
+        exactly like ``bb`` in ``_visit``). ``()`` when there's no internals id,
+        no resource map, or the section doesn't resolve/decode."""
+        if internals_res_id is None:
+            return ()
+        try:
+            index = int(internals_res_id)
+        except ValueError:
+            return ()
+        section = self.resources.get(index)
+        if section is None or not section.exists():
+            return ()
+        raw = decode_picc_points(section.read_bytes())
+        return tuple((ox + x, oy + y) for x, y in raw)
+
     def _visit(
         self, elem: ET.Element, ox: float, oy: float, container_uid: str | None = None
     ) -> None:
@@ -746,12 +774,15 @@ class _LayoutBuilder:
                 if res_id is not None:
                     bg = elem.findtext("bgColor")
                     self._resolve_embedded_picture(uid, res_id.strip())
+                    internals_id = elem.findtext("image/ImageInternalsResID")
+                    points = self._resolve_picc_points(internals_id, ox, oy)
                     self.decorations.append(
                         LayoutDecoration(
                             uid=uid,
                             image_res_id=res_id.strip(),
                             bg_color=bg.strip() if bg else None,
                             container_uid=container_uid,
+                            points=points,
                         )
                     )
             # First-sight paint rank (see Layout.z_order): the walk reaches

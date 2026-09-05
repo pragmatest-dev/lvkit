@@ -570,3 +570,44 @@ doesn't pass one) and carried on `Layout.images: dict[uid, bytes]`; rendered by
 `render/glyphs/decorations/picture.py`'s `PictureGlyph` (a plain `<image>`,
 smooth-scaled — NOT the `.lv-raster`/`pixelated` treatment connector-pane icon
 pixel art gets, since this is arbitrary photographic artwork).
+
+## PICC section byte layout: a 4-byte header then BE-int16 `(y, x)` point pairs — absolute LabVIEW pixels, same frame as the owning element's `<bounds>` (issue #82)
+
+A PICC section (see above) named by a decoration's `<ImageInternalsResID>`
+decodes as: a 4-byte header (purpose not yet decoded — every sample seen so
+far is a distinct 4-byte value, `00 02 01 02` / `00 92 09 02`, so it likely
+carries a style/type discriminator, not a length) followed by
+`(len(data) - 4) / 4` points, each **two big-endian signed int16 in `(y, x)`
+order**. Verified byte-for-byte on issue #82's repro:
+
+- `PICC3 = 00 02 01 02 | 02 3d 06 78 | 03 1c 04 ce` decodes to `(y=573,
+  x=1656)` then `(y=796, x=1230)` — i.e. `(x, y)` points `(1656, 573)` and
+  `(1230, 796)`, the real endpoints of a Thick-Line-With-Arrow (`cosm`
+  `ImageResID -502`) whose own `<bounds>` is `(572, 1230, 797, 1657)`
+  (top/left/bottom/right) — the TOP-RIGHT/BOTTOM-LEFT diagonal, not the
+  main (top-left/bottom-right) diagonal `line_endpoints()`'s bounds-only
+  guess draws.
+- `PICC2 = 00 92 09 02 | 01 01 01 7c | 02 5c 02 63` decodes to `(y=257,
+  x=380)` then `(y=604, x=611)` — the endpoints of a `class="attachment"`
+  label leader, running from the label's own corner to the target picture's
+  top edge. Note these points do **not** lie on the attachment element's own
+  (small, unrelated) `<bounds>` — an attachment's `<bounds>` is a hit-test
+  rect, not the leader's drawn extent; the real line is wherever the PICC
+  points say, absolute.
+
+These are ABSOLUTE LabVIEW-pixel coordinates in the SAME frame as the owning
+element's own `<bounds>` (`_rect()`'s `(top, left, bottom, right)` ->
+`(x1, y1, x2, y2)`) — decode with the identical walk offset (`ox, oy`) the
+element's bounds gets in `_LayoutBuilder._visit`, never the element's own
+`(ax1, ay1)` (which already has the offset baked in). Implementation:
+`parser/image_resources.decode_picc_points`.
+
+**Head/tail convention (inferred from the two samples above, not from the
+4-byte header):** in BOTH decoded pairs, the FIRST point sits at the
+originating label's edge and the SECOND at the target's edge, and in both
+cases LabVIEW draws the arrowhead at the target end (confirmed against the
+issue #82 reference image) — so `points[0]` is the tail, `points[-1]` is the
+head. This is a positional-order fact read off real data on two independent
+decorations, not a "closest to X" geometric heuristic; if a future sample
+contradicts it, the 4-byte header is the next place to look for an explicit
+head/tail flag.

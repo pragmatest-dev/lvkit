@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 
 from .arrow import ArrowGlyph
-from .base import DecorationGlyph
+from .base import DecorationGlyph, Point
 from .fallback import FallbackGlyph
 from .frame import FrameGlyph
 from .line import LineGlyph
@@ -28,14 +28,21 @@ _THICK_ARROW_IDS = frozenset({"-502"})
 _warned: set[str] = set()
 
 
-def decoration_glyph(image_res_id: str) -> DecorationGlyph:
-    """The clean-room glyph for a decoration ``ImageResID``."""
+def decoration_glyph(
+    image_res_id: str, *, points: tuple[Point, ...] = ()
+) -> DecorationGlyph:
+    """The clean-room glyph for a decoration ``ImageResID``. ``points`` are the
+    decoration's real per-instance endpoints (decoded from its
+    ``ImageInternalsResID`` PICC section by the caller) — passed through to a
+    Line/Arrow glyph so it draws its actual diagonal instead of guessing one
+    from ``bounds``; ignored by shape kinds that don't use it (Frame,
+    Fallback)."""
     if image_res_id in _FRAME_IDS:
         return FrameGlyph()
     if image_res_id in _THIN_LINE_IDS:
-        return LineGlyph(thick=False)
+        return LineGlyph(thick=False, points=points)
     if image_res_id in _THICK_ARROW_IDS:
-        return ArrowGlyph(thick=True)
+        return ArrowGlyph(thick=True, points=points)
     if image_res_id not in _warned:
         _warned.add(image_res_id)
         logger.warning(

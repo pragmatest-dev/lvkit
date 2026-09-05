@@ -9,16 +9,20 @@ mapping::
     <PICC><Section Index="2" File="..._PICC2.bin"/><Section Index="3" .../></PICC>
     <DSIM><Section Index="4" File="..._DSIM.bin"/></DSIM>
 
-This module resolves that map (``resource_sections``/``resources_for_heap``)
-and carves the embedded PNG out of a DSIM section's raw bytes (``carve_png``).
-See ``docs/_internal/design/labview-binary-format.md`` for the verified byte
-layout (issue #82).
+This module resolves that map (``resource_sections``/``resources_for_heap``),
+carves the embedded PNG out of a DSIM section's raw bytes (``carve_png``), and
+decodes a PICC section's absolute endpoint list (``decode_picc_points``). See
+``docs/_internal/design/labview-binary-format.md`` for the verified byte layout
+of both sections (issue #82).
 """
 
 from __future__ import annotations
 
+import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+Point = tuple[float, float]
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -77,3 +81,23 @@ def carve_png(data: bytes) -> bytes | None:
     if iend < 0:
         return None
     return data[start : iend + 8]
+
+
+def decode_picc_points(data: bytes) -> list[Point]:
+    """Absolute ``(x, y)`` endpoints from a PICC section's raw bytes.
+
+    Layout (verified on the issue #82 repro's PICC2/PICC3): a 4-byte header
+    (purpose not yet decoded — see labview-binary-format.md) followed by
+    ``(len(data) - 4) / 4`` points, each two big-endian signed int16 in
+    ``(y, x)`` order. These are the SAME absolute LabVIEW-pixel frame as a heap
+    element's own ``<bounds>`` — callers apply the identical walk offset.
+    Malformed data (not a whole number of points after the header) -> ``[]``.
+    """
+    body = data[4:]
+    if len(body) < 4 or len(body) % 4 != 0:
+        return []
+    points: list[Point] = []
+    for i in range(0, len(body), 4):
+        y, x = struct.unpack_from(">hh", body, i)
+        points.append((float(x), float(y)))
+    return points

@@ -402,6 +402,28 @@ def test_issue82_embedded_picture_renders_as_image():
     assert svg is not None and "<image" in svg and "data:image/png;base64," in svg
 
 
+@needs_issue82_repro
+def test_issue82_arrow_uses_decoded_picc_endpoints():
+    """#82 (bug B): a cosm arrow's real per-instance endpoints live in its
+    ``ImageInternalsResID`` PICC section, not a guess from its bounding box's
+    main diagonal (``line_endpoints``) -- decode PICC3 and use its exact
+    points, which run the OPPOSITE diagonal (top-right -> bottom-left) from
+    the bounds-only guess."""
+    from lvkit.render import build_scene
+    from lvkit.render.glyphs.decorations import ArrowGlyph
+
+    graph, vi = _load_issue82()
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    arrows = [d for d in scene.decorations if isinstance(d.glyph, ArrowGlyph)]
+    assert len(arrows) == 1, [type(d.glyph).__name__ for d in scene.decorations]
+    glyph = arrows[0].glyph
+    assert isinstance(glyph, ArrowGlyph)
+    # PICC3 decode (verified byte-for-byte, see labview-binary-format.md):
+    # tail near the label (top-right), head near the picture (bottom-left).
+    assert glyph.points == ((1656.0, 573.0), (1230.0, 796.0))
+
+
 @pytest.mark.parametrize("vi,issue_dir", _fixture_vis())
 def test_issue_fixture_renders(vi: Path, issue_dir: Path):
     """Every committed issue-repro VI loads and renders to a non-empty SVG --

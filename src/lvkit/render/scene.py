@@ -2014,7 +2014,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             glyph=(
                 PictureGlyph(layout.images[d.uid])
                 if d.uid in layout.images
-                else decoration_glyph(d.image_res_id)
+                else decoration_glyph(d.image_res_id, points=d.points)
             ),
             container_uid=d.container_uid,
         )
