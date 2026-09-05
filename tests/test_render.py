@@ -104,10 +104,17 @@ def test_selector_label_enum_names_ranges_and_list():
     names = ["Digital Input", "Digital Output", "Voltage Input", "PWM"]
     t = _enum_type(names)
     assert _selector_label(_frame("3", [(3, 3)]), t, False) == "PWM"
+    # Two contiguous values have no middle to elide -> list both, comma-separated.
     assert (
         _selector_label(_frame("0", [(0, 1)]), t, False)
-        == "Digital Input..Digital Output"
+        == "Digital Input, Digital Output"
     )
+    # Three-plus contiguous -> "first..last" (the middle member is elided).
+    assert (
+        _selector_label(_frame("0", [(0, 2)]), t, False)
+        == "Digital Input..Voltage Input"
+    )
+    # Non-contiguous match values are always comma-listed.
     assert (
         _selector_label(_frame("0", [(0, 0), (2, 2)]), t, False)
         == "Digital Input, Voltage Input"

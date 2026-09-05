@@ -419,6 +419,11 @@ def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> st
             parts.append(f"{fmt(r.start)}..")
         elif r.is_single:
             parts.append(fmt(r.start))
+        elif r.end == r.start + 1:
+            # Exactly two values — nothing lies between them to elide, so list
+            # both ("a, b"). ".." means the contiguous middle is skipped, which
+            # only applies to a span of three or more values.
+            parts.append(f"{fmt(r.start)}, {fmt(r.end)}")
         else:
             parts.append(f"{fmt(r.start)}..{fmt(r.end)}")
     return ", ".join(parts)
