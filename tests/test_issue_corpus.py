@@ -4,9 +4,9 @@ Each test renders / describes / inspects a minimal repro that a user attached to
 a GitHub issue (kept under ``tests/corpus/issues/<N>/``, Apache-2.0 — see that
 dir's README) and asserts the corrected behaviour, so a fixed bug stays fixed.
 These fixtures are IN-REPO, so unlike the ``needs_samples`` corpus tests they
-always run — EXCEPT issue #82's repro, which embeds a real ~3.6MB photograph
-and so exceeds the repo's large-file hook cap; its tests are gated on the
-file's local presence instead (see ``needs_issue82_repro``).
+always run. (Issue #82's repro embeds a real ~3.6MB photograph and so is
+whitelisted past the large-file hook for that one file — see
+``.pre-commit-config.yaml``.)
 """
 
 from __future__ import annotations
@@ -50,21 +50,16 @@ def _load(rel: str) -> tuple[InMemoryVIGraph, str]:
 
 
 # Issue #82's repro embeds a real ~3.6MB photograph (the whole point of the
-# bug — an embedded PICTURE decoration) and so exceeds the repo's pre-commit
-# check-added-large-files cap (500KB) — it can't join the committed corpus
-# like the other issue fixtures above. Gated on presence instead (mirrors the
-# `needs_samples` pattern in conftest.py): local-only, skipped on a fresh
-# clone/CI. See the issue for the reporter's original attachment.
+# bug — an embedded PICTURE decoration), so it exceeds the repo's pre-commit
+# check-added-large-files cap (500KB). It is committed to the corpus anyway,
+# whitelisted for that one file in .pre-commit-config.yaml, so these regression
+# tests run in CI like every other issue fixture.
 _ISSUE82_VI = (
-    Path(__file__).resolve().parent.parent
-    / ".tmp"
-    / "pics_deco"
+    Path(__file__).resolve().parent
+    / "corpus"
+    / "issues"
+    / "82"
     / "Pictures And Decorations.vi"
-)
-needs_issue82_repro = pytest.mark.skipif(
-    not _ISSUE82_VI.is_file(),
-    reason=f"issue #82 repro not present at {_ISSUE82_VI} (local-only, too "
-    "large to commit — see tests/test_issue_corpus.py)",
 )
 
 
@@ -380,7 +375,6 @@ def test_issue32_decorations_are_rendered():
     assert svg is not None and "<polygon" in svg
 
 
-@needs_issue82_repro
 def test_issue82_embedded_picture_renders_as_image():
     """#82 (bug A): a decoration with a POSITIVE ``ImageResID`` is an embedded
     picture (a DSIM resource section carved to a real PNG), not one of the
@@ -402,7 +396,6 @@ def test_issue82_embedded_picture_renders_as_image():
     assert svg is not None and "<image" in svg and "data:image/png;base64," in svg
 
 
-@needs_issue82_repro
 def test_issue82_arrow_uses_decoded_picc_endpoints():
     """#82 (bug B): a cosm arrow's real per-instance endpoints live in its
     ``ImageInternalsResID`` PICC section, not a guess from its bounding box's
@@ -429,7 +422,6 @@ def test_issue82_arrow_uses_decoded_picc_endpoints():
     assert glyph.points == ((1656.0, 573.0), (1230.0, 796.0))
 
 
-@needs_issue82_repro
 def test_issue82_attachment_leader_renders_at_decoded_endpoints():
     """#82 (bug C): a ``class="attachment"`` label leader (uid 947, dropped
     entirely before this fix -- issue82_3.png shows it missing) decodes its
