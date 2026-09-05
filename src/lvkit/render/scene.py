@@ -48,7 +48,7 @@ from ..parser.layout import (
 from ..parser.wire_table import FAITHFUL_WIRE_TABLE
 from .backend import SvgBackend
 from .glyph import ArithGlyph, CompoundArithGlyph, Glyph, wrap_label
-from .glyphs.decorations import DecorationGlyph, decoration_glyph
+from .glyphs.decorations import DecorationGlyph, PictureGlyph, decoration_glyph
 from .lane_pass import BranchCtx, apply_lane_pass
 from .nodes import (
     _CLUSTER_MUX_TYPES,
@@ -2007,7 +2007,15 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         RenderDecoration(
             dom_id=d.uid,
             bounds=layout.node_bounds[d.uid],
-            glyph=decoration_glyph(d.image_res_id),
+            # An embedded picture (a positive ImageResID whose PNG was carved
+            # into layout.images) is drawn directly from its own bytes — it's
+            # arbitrary per-VI artwork, not one of the fixed Decorations-palette
+            # shapes ``decoration_glyph`` maps.
+            glyph=(
+                PictureGlyph(layout.images[d.uid])
+                if d.uid in layout.images
+                else decoration_glyph(d.image_res_id)
+            ),
             container_uid=d.container_uid,
         )
         for d in layout.decorations

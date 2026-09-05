@@ -10,6 +10,7 @@ from .factory import decoration_glyph
 from .fallback import FallbackGlyph
 from .frame import FrameGlyph
 from .line import LineGlyph
+from .picture import PictureGlyph
 
 __all__ = [
     "ArrowGlyph",
@@ -17,5 +18,6 @@ __all__ = [
     "FallbackGlyph",
     "FrameGlyph",
     "LineGlyph",
+    "PictureGlyph",
     "decoration_glyph",
 ]

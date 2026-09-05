@@ -4,7 +4,9 @@ Each test renders / describes / inspects a minimal repro that a user attached to
 a GitHub issue (kept under ``tests/corpus/issues/<N>/``, Apache-2.0 — see that
 dir's README) and asserts the corrected behaviour, so a fixed bug stays fixed.
 These fixtures are IN-REPO, so unlike the ``needs_samples`` corpus tests they
-always run.
+always run — EXCEPT issue #82's repro, which embeds a real ~3.6MB photograph
+and so exceeds the repo's large-file hook cap; its tests are gated on the
+file's local presence instead (see ``needs_issue82_repro``).
 """
 
 from __future__ import annotations
@@ -45,6 +47,36 @@ def _load(rel: str) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(vi, mode=LoadMode.MINIMAL, search_paths=[vi.parent], layout=True)
     return graph, graph.resolve_vi_name(vi.name)
+
+
+# Issue #82's repro embeds a real ~3.6MB photograph (the whole point of the
+# bug — an embedded PICTURE decoration) and so exceeds the repo's pre-commit
+# check-added-large-files cap (500KB) — it can't join the committed corpus
+# like the other issue fixtures above. Gated on presence instead (mirrors the
+# `needs_samples` pattern in conftest.py): local-only, skipped on a fresh
+# clone/CI. See the issue for the reporter's original attachment.
+_ISSUE82_VI = (
+    Path(__file__).resolve().parent.parent
+    / ".tmp"
+    / "pics_deco"
+    / "Pictures And Decorations.vi"
+)
+needs_issue82_repro = pytest.mark.skipif(
+    not _ISSUE82_VI.is_file(),
+    reason=f"issue #82 repro not present at {_ISSUE82_VI} (local-only, too "
+    "large to commit — see tests/test_issue_corpus.py)",
+)
+
+
+def _load_issue82() -> tuple[InMemoryVIGraph, str]:
+    graph = InMemoryVIGraph()
+    graph.load_vi(
+        _ISSUE82_VI,
+        mode=LoadMode.MINIMAL,
+        search_paths=[_ISSUE82_VI.parent],
+        layout=True,
+    )
+    return graph, graph.resolve_vi_name(_ISSUE82_VI.name)
 
 
 def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
@@ -346,6 +378,28 @@ def test_issue32_decorations_are_rendered():
     vi_path = _CORPUS / "32" / "comments-and-decorations.vi"
     svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
     assert svg is not None and "<polygon" in svg
+
+
+@needs_issue82_repro
+def test_issue82_embedded_picture_renders_as_image():
+    """#82 (bug A): a decoration with a POSITIVE ``ImageResID`` is an embedded
+    picture (a DSIM resource section carved to a real PNG), not one of the
+    Decorations-palette shapes -- it must render as an ``<image>``, not a
+    ``FallbackGlyph`` placeholder box."""
+    from lvkit.render import build_scene
+    from lvkit.render.glyphs.decorations import PictureGlyph
+
+    graph, vi = _load_issue82()
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    pictures = [d for d in scene.decorations if isinstance(d.glyph, PictureGlyph)]
+    assert len(pictures) == 1, [type(d.glyph).__name__ for d in scene.decorations]
+    # cosm uid=842's heap bounds (604, 425, 1247, 1228) = (top, left, bottom,
+    # right) -> (x1, y1, x2, y2).
+    assert pictures[0].bounds == (425.0, 604.0, 1228.0, 1247.0)
+
+    svg = render_vi_file(_ISSUE82_VI, search_paths=[_ISSUE82_VI.parent])
+    assert svg is not None and "<image" in svg and "data:image/png;base64," in svg
 
 
 @pytest.mark.parametrize("vi,issue_dir", _fixture_vis())

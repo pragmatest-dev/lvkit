@@ -137,6 +137,7 @@ class Backend(Protocol):
         h: float,
         *,
         opacity: float | None = None,
+        pixelated: bool = True,
     ) -> None: ...
 
     def polygon(
@@ -323,14 +324,18 @@ class SvgBackend:
         h: float,
         *,
         opacity: float | None = None,
+        pixelated: bool = True,
     ) -> None:
         a = self._attrs(opacity=opacity)
         # LabVIEW icons are small (32x32-ish) pixel art scaled up to a
         # node's on-diagram bounds — the .lv-raster rule (image-rendering:
         # pixelated, in _BASE_CSS) keeps them crisp; without it browsers
         # smooth-scale them into a blurry smudge instead of crisp pixels.
+        # Arbitrary embedded artwork (a pasted picture, not palette pixel art)
+        # opts out with pixelated=False so it smooth-scales instead.
+        cls = ' class="lv-raster"' if pixelated else ""
         self._elements.append(
-            f'<image class="lv-raster" href="{href}" x="{x:.1f}" y="{y:.1f}" '
+            f'<image{cls} href="{href}" x="{x:.1f}" y="{y:.1f}" '
             f'width="{w:.1f}" height="{h:.1f}" {a}/>'
         )
 

@@ -532,3 +532,41 @@ unrelated root (it climbs 6 levels then `rglob`s) — a real hang seen in
 `_build_ancestor_chain`. URL-following keeps class/parent resolution fully
 path-driven and IDENTICAL on web and desktop (no file scans). Related:
 [[feedback_path_is_the_node_key]], [[feedback_no_heuristics]].
+
+## A decoration's positive ``ImageResID`` names a DSIM (embedded-picture) resource section; the top-level `<stem>.xml`'s `<PICC>`/`<DSIM>` blocks map Section Index -> file (issue #82)
+
+A block-diagram decoration (`class="cosm"`, and `class="attachment"` — see
+below) carries an `<image><ImageResID>N</ImageResID></image>`. The
+Decorations-palette shapes (Flat Frame, Thin/Thick Line, Thin/Thick Line with
+Arrow) always use NEGATIVE ids (`-35`, `-233`, `-502`, ...). A **positive** id
+is a different thing entirely: a resource **Section Index** into the VI's own
+extracted top-level `<stem>.xml` (the sibling of `<stem>_BDHb.xml`), which
+records index -> file for two resource kinds:
+
+```xml
+<PICC><Section Index="2" File="..._PICC2.bin"/><Section Index="3" File="..._PICC3.bin"/></PICC>
+<DSIM><Section Index="4" File="..._DSIM.bin"/></DSIM>
+```
+
+- **DSIM** ("Dynamic Size Image") sections hold an embedded PICTURE the
+  developer pasted onto the diagram (LabVIEW's Picture decoration / a picture
+  control's default, on the BD it's the "cosm" catch-all). The section's raw
+  bytes are a small binary preamble (size/scaling fields LabVIEW itself needs)
+  followed by a standard PNG. The PNG payload is found by its own signature
+  (`\x89PNG\r\n\x1a\n`) and ends at the first `IEND` chunk's CRC (+8 bytes past
+  the `IEND` tag) — verified on issue #82's repro: PNG at DSIM offset 46,
+  1402x1122 RGB, carving reproduces the embedded picture byte-for-byte.
+- **PICC** ("Generic block") sections hold per-instance geometry a decoration's
+  `<ImageInternalsResID>` names — see the next entry for the byte layout.
+
+The drawn footprint is the decoration's own on-diagram `<bounds>`, NOT the
+PNG's intrinsic size (issue #82's repro: a 1402x1122 PNG scaled into an
+803x643 box) — LabVIEW always stretches a pasted picture to whatever box the
+developer sized it to. Implementation: `parser/image_resources.py`
+(`resource_sections`/`resources_for_heap`, `carve_png`), threaded into
+`parser/layout.py`'s `_LayoutBuilder` as an optional `resources` map (default
+`None` -> no picture/PICC resolution, today's behavior for every caller that
+doesn't pass one) and carried on `Layout.images: dict[uid, bytes]`; rendered by
+`render/glyphs/decorations/picture.py`'s `PictureGlyph` (a plain `<image>`,
+smooth-scaled — NOT the `.lv-raster`/`pixelated` treatment connector-pane icon
+pixel art gets, since this is arbitrary photographic artwork).
