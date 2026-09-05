@@ -221,6 +221,37 @@ def _draw_bundle_by_name(
         glyph.draw(backend, bounds, theme)
 
 
+def _draw_panel_icon_glyph(
+    node: RenderNode,
+    diagram_bounds: tuple[float, float, float, float],
+    icon_bounds: tuple[float, float, float, float],
+    backend: Backend,
+    theme: Theme,
+) -> None:
+    """Draw the node's glyph into the hover panel's scaled ICON rect. A
+    Bundle/Unbundle's aggregate cluster column is mapped from its real diagram
+    position into the icon PROPORTIONALLY — same relative width and wire offset
+    as the diagram glyph (the panel icon is grown, not the columns distorted, so
+    the aggregate stays legible — see ``_draw_connector_panel``). Every other
+    glyph draws at the icon rect as-is."""
+    glyph = node.glyph
+    if isinstance(glyph, BundleByNameGlyph):
+        agg = [
+            rt.bounds
+            for rt in node.terminals
+            if rt.terminal.nmux_role == "agg" and rt.bounds is not None
+        ]
+        nx1, _, nx2, _ = diagram_bounds
+        ix1, _, ix2, _ = icon_bounds
+        if agg and nx2 > nx1 and ix2 > ix1:
+            iw = ix2 - ix1
+            cx1 = ix1 + (min(b[0] for b in agg) - nx1) / (nx2 - nx1) * iw
+            cx2 = ix1 + (max(b[2] for b in agg) - nx1) / (nx2 - nx1) * iw
+            glyph.draw(backend, icon_bounds, theme, agg_x1=cx1, agg_x2=cx2)
+            return
+    glyph.draw(backend, icon_bounds, theme)
+
+
 # A primitive whose glyph is drawn as one of these keeps its own aspect ratio
 # (a real extracted raster icon or a declared/procedural SVG designed for a
 # fixed shape), or is a cluster-mux drawer whose heap ``bounds`` IS its true
@@ -617,6 +648,10 @@ _PANE_ROW_HALF = _PANE_LABEL_SIZE / 2 + 2.0  # vertical pad around a label row
 _PANE_ICON_CELL = 32.0
 _PANE_ICON_TARGET = 48.0
 _PANE_ICON_MAX = 72.0  # cap so an oversized icon can't dominate the panel
+# A Bundle/Unbundle's aggregate cluster column is a thin real sliver; the panel
+# icon is grown (proportions kept) until the aggregate reaches at least this
+# width, so it stays legible without distorting the columns or the name cells.
+_PANE_BUNDLE_AGG_MIN = 16.0
 
 # fx/fy classification -> the outward unit normal a terminal's stub exits on.
 _SIDE_NORMAL: dict[str, Point] = {
@@ -811,6 +846,22 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     if max(icon_w, icon_h) > _PANE_ICON_MAX:
         s = _PANE_ICON_MAX / max(icon_w, icon_h)
         icon_w, icon_h = icon_w * s, icon_h * s
+    # A Bundle/Unbundle's aggregate column would shrink below legibility at that
+    # scale; grow the WHOLE icon (proportions — and so the name cells — kept)
+    # until the aggregate reaches _PANE_BUNDLE_AGG_MIN. The columns and wire
+    # offsets then match the diagram glyph exactly, never a distorted floor.
+    if isinstance(node.glyph, BundleByNameGlyph):
+        agg = [
+            rt.bounds
+            for rt in node.terminals
+            if rt.terminal.nmux_role == "agg" and rt.bounds is not None
+        ]
+        if agg:
+            agg_w = max(b[2] for b in agg) - min(b[0] for b in agg)
+            agg_in_icon = agg_w / bw * icon_w
+            if 0.0 < agg_in_icon < _PANE_BUNDLE_AGG_MIN:
+                grow = _PANE_BUNDLE_AGG_MIN / agg_in_icon
+                icon_w, icon_h = icon_w * grow, icon_h * grow
 
     # Terminals sharing an identical ``termBounds`` rect occupy ONE connector-
     # pane slot: a growable node (e.g. Scan From String) stores the slot once on
@@ -973,7 +1024,9 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
             stroke_width=0.5,
         )
 
-    node.glyph.draw(backend, (icon_x1, icon_y1, icon_x2, icon_y2), theme)
+    _draw_panel_icon_glyph(
+        node, bounds, (icon_x1, icon_y1, icon_x2, icon_y2), backend, theme
+    )
 
     def _draw_term(t: _PaneTerm) -> None:
         lb = t.lb

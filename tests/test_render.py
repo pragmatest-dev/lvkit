@@ -518,6 +518,67 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     assert ">V<" in small_svg  # the field value glyphs are drawn, fit to the box
 
 
+def test_bundle_connector_panel_aggregate_column_is_legible():
+    """The hover connector panel keeps a Bundle's aggregate cluster column at the
+    diagram glyph's real proportion (no distortion), and grows the WHOLE panel
+    ICON so that thin sliver is still legible. Regression for the "context-help
+    columns too small" report — asserts the drawn aggregate column reaches the
+    _PANE_BUNDLE_AGG_MIN width instead of collapsing to a ~2px sliver."""
+    import re
+
+    from lvkit.graph.models import PrimitiveNode
+    from lvkit.models import LVType, LVTypeKind, Terminal
+    from lvkit.render.draw import _PANE_BUNDLE_AGG_MIN, _draw_connector_panel
+    from lvkit.render.glyph import BundleByNameGlyph
+    from lvkit.render.scene import RenderNode, RenderTerminal
+    from lvkit.render.style import DEFAULT_THEME
+
+    diagram = (0.0, 0.0, 126.0, 69.0)  # a real DCAF-proportioned Bundle node
+    agg_box = (110.0, 0.0, 126.0, 69.0)  # 16px aggregate region, flush right
+    clust = LVType(kind=LVTypeKind.CLUSTER)
+
+    def rt(direction: str, bounds, name: str) -> RenderTerminal:
+        return RenderTerminal(
+            terminal=Terminal(
+                id=name,
+                index=0,
+                direction=direction,
+                nmux_role="agg",
+                lv_type=clust,
+                name=name,
+            ),
+            center=((bounds[0] + bounds[2]) / 2, 34.5),
+            bounds=bounds,
+        )
+
+    node = RenderNode(
+        node=PrimitiveNode(id="n", vi_path="v", node_type="nMux"),
+        bounds=diagram,
+        glyph=BundleByNameGlyph(names=("a", "b"), bundling=True),
+        terminals=[rt("input", agg_box, "in"), rt("output", agg_box, "out")],
+    )
+    b = SvgBackend()
+    _draw_connector_panel(node, b, DEFAULT_THEME)
+    svg = b.render((0.0, 0.0, 400.0, 200.0))
+    # The aggregate column is the tan (prim_fill) rect; the name cells are the
+    # canvas-filled ones. It must reach the legibility floor.
+    agg_widths = [
+        float(w)
+        for w in re.findall(
+            r'<rect [^>]* width="([-\d.]+)"[^>]* fill="#fff6d8"', svg
+        )
+    ] or [
+        float(w)
+        for w in re.findall(
+            r'<rect [^>]* fill="#fff6d8"[^>]* width="([-\d.]+)"', svg
+        )
+    ]
+    assert agg_widths, "no aggregate cluster column drawn in the panel"
+    assert max(agg_widths) >= _PANE_BUNDLE_AGG_MIN - 1.0, (
+        f"panel aggregate column too thin: {agg_widths}"
+    )
+
+
 def test_bundle_aggregate_split_into_interior_input_and_edge_output():
     """A Bundle-By-Name's input + output aggregate terminals share ONE heap DCO
     box (the output owns it; the input aliases it). ``_reposition_mux_terminals``
