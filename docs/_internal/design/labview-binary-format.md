@@ -611,3 +611,30 @@ head. This is a positional-order fact read off real data on two independent
 decorations, not a "closest to X" geometric heuristic; if a future sample
 contradicts it, the 4-byte header is the next place to look for an explicit
 head/tail flag.
+
+## `class="attachment"` is a distinct heap element from `class="cosm"` — a label-to-object leader/pushpin, only drawable when it carries an `ImageInternalsResID` (issue #82)
+
+Besides `class="cosm"` (Decorations-palette shapes + embedded pictures, see
+above), a diagram's `zPlaneList` can hold `class="attachment"` elements — the
+leader LabVIEW draws from a free label to the object it's attached to (the
+"pushpin"). Two different roles show up under the same class, distinguished by
+which optional children are present:
+
+- **A drawable leader**: carries `<ImageInternalsResID>` (a PICC section, see
+  above) and an `<attachedObject uid="..."/>` naming the target node. Decode
+  its PICC exactly like a `cosm` arrow's; draw a leader line/arrowhead at the
+  decoded absolute endpoints. Issue #82's repro has one (uid 947, `ImageResID
+  -770`, internals PICC2, target uid 842 — the embedded picture).
+- **A bare marker**: NO `<ImageInternalsResID>` and no `<attachedObject>` — a
+  tiny (12x12px in the repro) placeholder with `ImageResID -771`. It has no
+  decodable line geometry and (checked against the issue #82 reference image)
+  draws NO visible mark at all in the static diagram — it's LabVIEW's
+  invisible drag-handle for the label's attachment behavior, not something
+  with its own paint. Render as **nothing** (never a `FallbackGlyph` dashed
+  box — a box there is pure noise no reference image ever shows).
+
+This is a SEPARATE mechanism from a free label's own `<attachment uid="X"/>`
+CHILD element (`ParsedFreeLabel.attach_uid`, `parser/nodes/free_label.py`) —
+that's the label pointing AT one of these `class="attachment"` elements by
+uid; the `class="attachment"` element itself is the thing this section
+describes, with its own bounds/image/internals in `zPlaneList`.

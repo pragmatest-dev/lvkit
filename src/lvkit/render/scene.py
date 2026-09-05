@@ -2020,6 +2020,11 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         )
         for d in layout.decorations
         if d.uid in layout.node_bounds
+        # A `class="attachment"` leader with no decoded PICC points has no
+        # drawable geometry (its own <bounds> is a hit-test rect, not a line
+        # extent — see labview-binary-format.md) — drop it rather than draw a
+        # FallbackGlyph placeholder box no reference image ever shows.
+        and not (d.is_attachment and not d.points)
     ]
 
     view_bounds = (

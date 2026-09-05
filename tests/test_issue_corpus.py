@@ -415,13 +415,47 @@ def test_issue82_arrow_uses_decoded_picc_endpoints():
     graph, vi = _load_issue82()
     scene = build_scene(graph, vi)
     assert scene is not None
-    arrows = [d for d in scene.decorations if isinstance(d.glyph, ArrowGlyph)]
-    assert len(arrows) == 1, [type(d.glyph).__name__ for d in scene.decorations]
+    # dom_id "53" is the cosm arrow (uid=53); a class="attachment" leader
+    # (bug C) also resolves to ArrowGlyph, so select this one by uid, not by
+    # "the only ArrowGlyph".
+    arrows = [d for d in scene.decorations if d.dom_id == "53"]
+    assert len(arrows) == 1, [
+        (d.dom_id, type(d.glyph).__name__) for d in scene.decorations
+    ]
     glyph = arrows[0].glyph
     assert isinstance(glyph, ArrowGlyph)
     # PICC3 decode (verified byte-for-byte, see labview-binary-format.md):
     # tail near the label (top-right), head near the picture (bottom-left).
     assert glyph.points == ((1656.0, 573.0), (1230.0, 796.0))
+
+
+@needs_issue82_repro
+def test_issue82_attachment_leader_renders_at_decoded_endpoints():
+    """#82 (bug C): a ``class="attachment"`` label leader (uid 947, dropped
+    entirely before this fix -- issue82_3.png shows it missing) decodes its
+    own PICC section (PICC2) and draws a leader from the label's corner to the
+    picture's top edge. A bare attachment marker with no ``ImageInternalsResID``
+    (uid 54/75, ImageResID -771) has no drawable geometry and must draw
+    NOTHING -- never a FallbackGlyph placeholder box."""
+    from lvkit.render import build_scene
+    from lvkit.render.glyphs.decorations import ArrowGlyph
+
+    graph, vi = _load_issue82()
+    scene = build_scene(graph, vi)
+    assert scene is not None
+    dom_ids = {d.dom_id for d in scene.decorations}
+    assert {"54", "75"}.isdisjoint(dom_ids), dom_ids
+
+    leaders = [d for d in scene.decorations if d.dom_id == "947"]
+    assert len(leaders) == 1, dom_ids
+    glyph = leaders[0].glyph
+    assert isinstance(glyph, ArrowGlyph)
+    # PICC2 decode (verified byte-for-byte, see labview-binary-format.md):
+    # tail at the label's bottom edge, head at the picture's top edge.
+    assert glyph.points == ((380.0, 257.0), (611.0, 604.0))
+
+    svg = render_vi_file(_ISSUE82_VI, search_paths=[_ISSUE82_VI.parent])
+    assert svg is not None and "<polygon" in svg
 
 
 @pytest.mark.parametrize("vi,issue_dir", _fixture_vis())

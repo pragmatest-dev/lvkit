@@ -79,14 +79,15 @@ _TAG_TO_GLYPH_KIND = {
 @dataclass(frozen=True)
 class LayoutDecoration:
     """A block-diagram decoration — LabVIEW's ``class="cosm"`` shape (Flat Frame,
-    Thin/Thick Line, Thin/Thick Line with Arrow, or an embedded picture). PURE
-    VISUAL: no data, no dataflow, never a graph node. ``image_res_id`` selects
-    the shape kind (see render/glyphs/decorations) when POSITIVE it instead
-    names a DSIM picture section — see ``Layout.images``; ``container_uid`` is
-    the raw uid of the structure whose frame diagram this decoration lives in
-    (None at the root diagram), so it paints inside that structure. Its bounds +
-    paint rank are looked up from ``Layout.node_bounds``/``z_order`` by ``uid``
-    like any other element."""
+    Thin/Thick Line, Thin/Thick Line with Arrow, or an embedded picture), OR a
+    ``class="attachment"`` label-to-object leader/pushpin (``is_attachment``).
+    PURE VISUAL: no data, no dataflow, never a graph node. ``image_res_id``
+    selects the shape kind (see render/glyphs/decorations) when POSITIVE it
+    instead names a DSIM picture section — see ``Layout.images``;
+    ``container_uid`` is the raw uid of the structure whose frame diagram this
+    decoration lives in (None at the root diagram), so it paints inside that
+    structure. Its bounds + paint rank are looked up from
+    ``Layout.node_bounds``/``z_order`` by ``uid`` like any other element."""
 
     uid: str
     image_res_id: str
@@ -99,6 +100,15 @@ class LayoutDecoration:
     # to computing endpoints from `bounds` (line_endpoints). points[0] is the
     # tail, points[-1] the head (see labview-binary-format.md).
     points: tuple[Point, ...] = ()
+    # True for a ``class="attachment"`` heap element (a label leader/pushpin),
+    # False for a ``class="cosm"`` decoration. An attachment with no decoded
+    # `points` has no drawable geometry (see render/glyphs/decorations/factory)
+    # and is dropped rather than drawn as a placeholder box.
+    is_attachment: bool = False
+    # The uid an attachment's ``<attachedObject uid="..."/>`` child names --
+    # the node this leader points AT. None for a plain cosm shape, or an
+    # attachment with no recorded target (see labview-binary-format.md).
+    attached_uid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -752,6 +762,46 @@ class _LayoutBuilder:
         raw = decode_picc_points(section.read_bytes())
         return tuple((ox + x, oy + y) for x, y in raw)
 
+    def _record_decoration(
+        self,
+        elem: ET.Element,
+        uid: str,
+        ox: float,
+        oy: float,
+        container_uid: str | None,
+        *,
+        is_attachment: bool,
+    ) -> None:
+        """Record one ``cosm`` or ``attachment`` element as a
+        :class:`LayoutDecoration`: its shape id, any embedded-picture PNG
+        (``self.images``), any decoded PICC endpoints, and — for an
+        ``attachment`` only — the uid its ``<attachedObject>`` names. No-op
+        when the element carries no ``<image><ImageResID>`` at all (every
+        sample seen has one, but this stays defensive)."""
+        res_id = elem.findtext("image/ImageResID")
+        if res_id is None:
+            return
+        res_id = res_id.strip()
+        bg = elem.findtext("bgColor")
+        self._resolve_embedded_picture(uid, res_id)
+        internals_id = elem.findtext("image/ImageInternalsResID")
+        points = self._resolve_picc_points(internals_id, ox, oy)
+        attached_uid = None
+        if is_attachment:
+            target = elem.find("attachedObject")
+            attached_uid = target.get("uid") if target is not None else None
+        self.decorations.append(
+            LayoutDecoration(
+                uid=uid,
+                image_res_id=res_id,
+                bg_color=bg.strip() if bg else None,
+                container_uid=container_uid,
+                points=points,
+                is_attachment=is_attachment,
+                attached_uid=attached_uid,
+            )
+        )
+
     def _visit(
         self, elem: ET.Element, ox: float, oy: float, container_uid: str | None = None
     ) -> None:
@@ -765,26 +815,16 @@ class _LayoutBuilder:
         self._record_label_hidden(elem, uid)
         if uid:
             self.node_bounds.setdefault(uid, (ax1, ay1, ax2, ay2))
-            # A block-diagram decoration (cosm shape): a pure-visual Flat Frame /
-            # Line / Arrow / embedded picture. Record its shape id + owning
+            # A block-diagram decoration: a pure-visual Flat Frame / Line /
+            # Arrow / embedded picture (``cosm``), or a label-to-object
+            # leader/pushpin (``attachment``). Record its shape id + owning
             # container; bounds + paint rank were just recorded above (uid-keyed)
             # like any element.
-            if elem.get("class") == "cosm":
-                res_id = elem.findtext("image/ImageResID")
-                if res_id is not None:
-                    bg = elem.findtext("bgColor")
-                    self._resolve_embedded_picture(uid, res_id.strip())
-                    internals_id = elem.findtext("image/ImageInternalsResID")
-                    points = self._resolve_picc_points(internals_id, ox, oy)
-                    self.decorations.append(
-                        LayoutDecoration(
-                            uid=uid,
-                            image_res_id=res_id.strip(),
-                            bg_color=bg.strip() if bg else None,
-                            container_uid=container_uid,
-                            points=points,
-                        )
-                    )
+            cls = elem.get("class")
+            if cls in ("cosm", "attachment"):
+                self._record_decoration(
+                    elem, uid, ox, oy, container_uid, is_attachment=cls == "attachment"
+                )
             # First-sight paint rank (see Layout.z_order): the walk reaches
             # elements in zPlaneList back-to-front order at each level, so the
             # rank captures LabVIEW's occlusion order for free.
