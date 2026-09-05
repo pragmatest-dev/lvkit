@@ -190,6 +190,37 @@ def _draw_formula_tunnel(
         )
 
 
+def _draw_bundle_by_name(
+    node: RenderNode,
+    bounds: tuple[float, float, float, float],
+    backend: Backend,
+    theme: Theme,
+) -> None:
+    """Draw a Bundle/Unbundle By Name, sizing its cluster column from the
+    aggregate terminals' REAL heap ``termBounds`` — their union: the interior
+    input column plus the output box for a Bundle, the single box for an
+    Unbundle (see ``scene._reposition_mux_terminals``). So the drawn columns line
+    up with where the aggregate wires actually anchor, never an invented width."""
+    glyph = node.glyph
+    if not isinstance(glyph, BundleByNameGlyph):
+        return
+    agg = [
+        rt.bounds
+        for rt in node.terminals
+        if rt.terminal.nmux_role == "agg" and rt.bounds is not None
+    ]
+    if agg:
+        glyph.draw(
+            backend,
+            bounds,
+            theme,
+            agg_x1=min(b[0] for b in agg),
+            agg_x2=max(b[2] for b in agg),
+        )
+    else:
+        glyph.draw(backend, bounds, theme)
+
+
 # A primitive whose glyph is drawn as one of these keeps its own aspect ratio
 # (a real extracted raster icon or a declared/procedural SVG designed for a
 # fixed shape), or is a cluster-mux drawer whose heap ``bounds`` IS its true
@@ -334,6 +365,12 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
         # tunnels together (the script inset depends on the tunnel column
         # widths), so it takes the whole draw rather than the generic glyph.
         _draw_formula_node(node, bounds, backend, theme)
+    elif isinstance(node.glyph, BundleByNameGlyph):
+        # The Bundle/Unbundle glyph sizes its cluster column from the aggregate
+        # terminal's REAL heap rect (never an invented width), so its drawn
+        # column lines up with the aggregate wire's own anchor.
+        _draw_bundle_by_name(node, bounds, backend, theme)
+        _draw_invert_bubbles(node, backend, theme)
     else:
         node.glyph.draw(backend, bounds, theme)
         _draw_invert_bubbles(node, backend, theme)

@@ -33,6 +33,29 @@ from ..extractor import extract_vi_xml
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
 
+
+def bundle_aggregate_columns(box: Rect, node: Rect) -> tuple[Rect, Rect]:
+    """The two cluster columns of a Bundle-By-Name, from its shared aggregate
+    ``box`` (the one the OUTPUT owns) and the ``node`` bounds.
+
+    Returns ``(interior_input_column, edge_output_column)``. The output keeps its
+    own ``box`` — the EDGE column, flush to whichever node side it lines (right
+    for the usual right-hand aggregate). The INPUT — which the heap gives no box
+    of its own — takes the equal-width column immediately on the field-facing
+    side of that box (the empty band the heap leaves between the field cells and
+    the box). The single source of this rule: ``layout`` anchors the input
+    wire's endpoint to the interior column's top before wire decode, and
+    ``scene`` gives the two terminals these boxes for the glyph/hover panel — so
+    both agree by construction rather than by two hand-kept copies."""
+    ax1, ay1, ax2, ay2 = box
+    nx1, _, nx2, _ = node
+    w = ax2 - ax1
+    if (nx2 - ax2) <= (ax1 - nx1):  # box lines the node's RIGHT edge
+        interior = (ax1 - w, ay1, ax1, ay2)
+    else:  # left-hand aggregate: interior column on the box's right
+        interior = (ax2, ay1, ax2 + w, ay2)
+    return interior, box
+
 # Structure border DCOs that live OUTSIDE their owning node's termList (loop
 # count/index/test terminals, case selector) — each has its own uid + bounds,
 # but the graph doesn't model them as full Terminal objects. Geometry only.
@@ -579,6 +602,59 @@ class _LayoutBuilder:
                     self._wire_z_seq += 1
                 self.raw_signals.append((uids, cw.text.strip()))
 
+    def _reanchor_nmux_aggregate_inputs(self, root: ET.Element) -> None:
+        """Anchor a Bundle-By-Name's INPUT aggregate terminal to the interior
+        cluster column, BEFORE wire geometry is resolved.
+
+        A Bundle's input and output cluster terminals SHARE one aggregate DCO:
+        the output OWNS it (a ``<dco class="nmxDCO" ...>`` carrying the
+        ``termBounds``), the input is a bare ``<dco uid=.../>`` REFERENCE with no
+        box of its own — a fixed fact of the heap format (verified across Bundle
+        nodes). So the generic term walk collapses the input onto the output's
+        box centre, and the input cluster wire then terminates INSIDE the output
+        box. LabVIEW draws the two as adjacent equal-width columns: the output on
+        its own box (flush to the node's right edge), the input in the column
+        immediately to its left — the empty band between the field cells and the
+        box. Move the input's centre to that column's top.
+
+        This runs on ``terminal_centers`` BEFORE ``_resolve_wire_geometry``, so
+        the faithful wire is DECODED against the corrected anchor — its blob is
+        re-formed onto the interior column, never re-routed or overridden. Only
+        the position-less INPUT moves; the output keeps its real recorded box.
+        An Unbundle (a single aggregate that owns its own box) has no alias term
+        and is left untouched.
+        """
+        for nmux in root.iter("SL__arrayElement"):
+            if nmux.get("class") != "nMux":
+                continue
+            agg_el = nmux.find("dcoAgg")
+            tl = nmux.find("termList")
+            nmux_uid = nmux.get("uid")
+            if agg_el is None or tl is None or not nmux_uid:
+                continue
+            agg_uid = agg_el.get("uid")
+            owner_uid: str | None = None
+            alias_uid: str | None = None
+            for term in tl.findall("SL__arrayElement"):
+                if term.get("class") != "term":
+                    continue
+                dco = term.find("dco")
+                if dco is None or dco.get("uid") != agg_uid:
+                    continue
+                if dco.get("class") == "nmxDCO":
+                    owner_uid = term.get("uid")  # output: owns the box
+                else:
+                    alias_uid = term.get("uid")  # input: bare reference, no box
+            if owner_uid is None or alias_uid is None:
+                continue  # Unbundle / single aggregate — nothing to split
+            box = self.node_bounds.get(owner_uid)
+            node = self.node_bounds.get(nmux_uid)
+            if box is None or node is None:
+                continue
+            # Anchor the position-less input to the TOP of its interior column.
+            (ix1, iy1, ix2, _), _ = bundle_aggregate_columns(box, node)
+            self.terminal_centers[alias_uid] = ((ix1 + ix2) / 2, iy1)
+
     def _resolve_wire_geometry(self) -> dict[str, list[tuple[float, float]]]:
         """Decode every ``raw_signal`` into ``Layout.wire_by_uid``: each branch's
         FULL polyline (LabVIEW's own source anchor + bend points + sink anchor)
@@ -735,6 +811,9 @@ def build_layout_from_root(
 
     builder = _LayoutBuilder()
     builder.walk(root, 0.0, 0.0)
+    # Correct the position-less Bundle input aggregate anchor BEFORE the wires
+    # are decoded, so the faithful blob re-forms onto the interior column.
+    builder._reanchor_nmux_aggregate_inputs(root)
 
     return Layout(
         node_bounds=builder.node_bounds,

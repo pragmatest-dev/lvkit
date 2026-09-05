@@ -38,8 +38,13 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
-from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
-from ..parser.layout import Layout, Point, Rect, build_layout
+from ..parser.layout import (
+    Layout,
+    Point,
+    Rect,
+    build_layout,
+    bundle_aggregate_columns,
+)
 from ..parser.wire_table import FAITHFUL_WIRE_TABLE
 from .backend import SvgBackend
 from .glyph import ArithGlyph, CompoundArithGlyph, Glyph, wrap_label
@@ -721,46 +726,6 @@ def _formula_border_centers(
     return out
 
 
-# How far below the node's top edge the Bundle "input cluster" terminal sits.
-_BUNDLE_AGG_TOP_INSET = 5.0
-
-
-def _bundle_agg_centers(
-    by_id: dict[str, AnyGraphNode],
-    vi_name: str,
-    layout: Layout,
-) -> dict[str, tuple[float, float]]:
-    """Re-anchor a Bundle-By-Name's INPUT-cluster terminal to the TOP of the
-    aggregate's right column. The aggregate is a FULL-HEIGHT right column whose
-    input ("input cluster") attaches at its TOP while the output exits mid-right;
-    both share one heap DCO, so the layout collapses them onto the single mid
-    center and the input wire wrongly lands at mid. Move the INPUT up to the
-    column top (x kept at the aggregate column, y at the node top) — matching
-    LabVIEW's split cluster column. Only a Bundle (an aggregate INPUT *and*
-    OUTPUT both present) is touched; an Unbundle (aggregate input only) is left
-    alone."""
-    out: dict[str, tuple[float, float]] = {}
-    for node in by_id.values():
-        if getattr(node, "node_type", None) not in NMUX_BY_NAME_NODE_CLASSES:
-            continue
-        aggs = [
-            t
-            for t in getattr(node, "terminals", [])
-            if getattr(t, "nmux_role", None) == "agg"
-        ]
-        agg_out = next((t for t in aggs if t.direction == "output"), None)
-        agg_in = next((t for t in aggs if t.direction == "input"), None)
-        if agg_out is None or agg_in is None:
-            continue
-        raw = _strip_prefix(node.id, vi_name)
-        nb = layout.node_bounds.get(raw)
-        oc = layout.terminal_centers.get(_strip_prefix(agg_out.id, vi_name))
-        if nb is None or oc is None:
-            continue
-        out[_strip_prefix(agg_in.id, vi_name)] = (oc[0], nb[1] + _BUNDLE_AGG_TOP_INSET)
-    return out
-
-
 def _render_terminals(
     node: AnyGraphNode,
     layout: Layout,
@@ -790,43 +755,40 @@ def _reposition_mux_terminals(
     terminals: list[RenderTerminal],
     node_bounds: Rect,
 ) -> list[RenderTerminal]:
-    """Snap a Bundle/Unbundle node's terminals to the node edges.
+    """Give a Bundle's two aggregate terminals DISTINCT connector-pane boxes.
 
-    A ``nMux``/``mux``/``demux`` node has up to TWO aggregate terminals (an
-    input source cluster and an output assembled cluster) that share one DCO
-    uid. In the heap, the agg-input often carries no ``termBounds`` of its
-    own, so both aggregate terminals resolve to the SAME center point —
-    collapsing the incoming and outgoing cluster wires onto one spot. LabVIEW
-    draws the input (source) cluster entering at the TOP-CENTER of the node and
-    the assembled output cluster exiting at the right edge.
+    A Bundle-By-Name ``nMux`` has TWO aggregate terminals — the input source
+    cluster and the output assembled cluster — that share ONE heap DCO box (the
+    output owns it; the input aliases it with no box of its own). Left as-is they
+    resolve to the SAME rect, so the hover connector-panel treats them as one
+    shared slot and cannot tell input from output — it then draws the input
+    cluster entering on the same side as the output (the reported tooltip
+    "double-drive"). Give each its own column: the OUTPUT keeps its real box (the
+    EDGE column, flush to the node's exposed side — right for the usual
+    right-hand aggregate); the INPUT takes the equal-width column immediately on
+    the field-facing side of it — the empty band the heap leaves between the
+    field cells and the box. ``draw._term_side_and_frac`` then reads the edge box
+    as its exposed side and the interior column as TOP — LabVIEW's connector pane
+    (input cluster in at the top, output cluster out at the exposed side), and
+    the two boxes' union is the full aggregate width the glyph draws its two
+    columns across.
 
-    The FIELD (``nmux_role=="list"``) terminals' heap centers sit by their
-    field-name label (mid-box, near the divider), NOT on the node edge — so a
-    wire to a Bundle input field would run into the middle of the box and cross
-    the assembled output exiting the right edge (the reported "bundle terminals
-    cross" bug). LabVIEW attaches each field wire at the node EDGE on its
-    dataflow side, matching the glyph's element rows (``draw_split_box``):
-    input fields (Bundle) at the LEFT edge, output fields (Unbundle) at the
-    RIGHT edge. The heap-derived row Y already lines up with the drawn rows, so
-    snap only the X.
+    This sets only the panel/glyph geometry (``bounds``). The on-diagram wire
+    endpoint of the position-less input is corrected separately, before wire
+    decode, in ``layout._reanchor_nmux_aggregate_inputs`` (keep the two in step);
+    the wires themselves are LabVIEW's own decoded geometry, never re-routed. An
+    Unbundle (a single aggregate that already owns its edge box) is left alone.
     """
-    left_x, top_y, right_x, bottom_y = node_bounds
-    mid_x = (left_x + right_x) / 2
-    mid_y = (top_y + bottom_y) / 2
+    aggs = [rt for rt in terminals if rt.terminal.nmux_role == "agg"]
+    agg_box = next((rt.bounds for rt in aggs if rt.bounds is not None), None)
+    if agg_box is None or len(aggs) < 2:
+        return terminals
+    interior, edge = bundle_aggregate_columns(agg_box, node_bounds)
     out: list[RenderTerminal] = []
     for rt in terminals:
-        role = rt.terminal.nmux_role
-        if role == "agg":
-            if rt.terminal.direction == "output":
-                center = (right_x, mid_y)  # assembled cluster exits right-middle
-            else:
-                center = (mid_x, top_y)  # source cluster enters top-center
-            out.append(replace(rt, center=center))
-        elif role == "list":
-            # Field wire attaches at the node edge on its dataflow side —
-            # Bundle inputs LEFT, Unbundle outputs RIGHT — keeping the row Y.
-            edge_x = left_x if rt.terminal.direction == "input" else right_x
-            out.append(replace(rt, center=(edge_x, rt.center[1])))
+        if rt.terminal.nmux_role == "agg" and rt.bounds == agg_box:
+            box = edge if rt.terminal.direction == "output" else interior
+            out.append(replace(rt, bounds=box))
         else:
             out.append(rt)
     return out
@@ -1850,14 +1812,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         layout = replace(
             layout,
             terminal_centers={**layout.terminal_centers, **fbox_centers},
-        )
-    # A Bundle-By-Name's "input cluster" attaches at the TOP of the aggregate's
-    # right column, not the mid where the layout collapses it (see the helper).
-    agg_centers = _bundle_agg_centers(by_id, vi_name, layout)
-    if agg_centers:
-        layout = replace(
-            layout,
-            terminal_centers={**layout.terminal_centers, **agg_centers},
         )
     default_frame, frame_values, frame_labels, error_frame_no_error = _frame_info(
         all_nodes,

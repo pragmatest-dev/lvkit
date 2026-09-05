@@ -518,31 +518,41 @@ def test_cluster_constant_collapses_when_box_too_small_for_field_rows():
     assert ">V<" in small_svg  # the field value glyphs are drawn, fit to the box
 
 
-def test_bundle_input_cluster_terminal_reanchored_to_column_top():
-    """A Bundle-By-Name's aggregate is a full-height right column: the OUTPUT
-    exits mid-right, but the INPUT ("input cluster") attaches at the column TOP.
-    Both share one heap DCO so the layout collapses them to the mid center;
-    ``_bundle_agg_centers`` pulls the input up to the node top (x kept)."""
-    from lvkit.graph.models import PrimitiveNode
+def test_bundle_aggregate_split_into_interior_input_and_edge_output():
+    """A Bundle-By-Name's input + output aggregate terminals share ONE heap DCO
+    box (the output owns it; the input aliases it). ``_reposition_mux_terminals``
+    splits that real box in half so the connector panel can tell them apart: the
+    OUTPUT keeps the exposed EDGE half (right, here), the INPUT takes the
+    INTERIOR half — which ``_term_side_and_frac`` then reads as the TOP entry.
+    The wire endpoints (centers) are left at the real heap anchor: the on-diagram
+    aggregate wire is drawn from LabVIEW's own decoded geometry, never moved."""
     from lvkit.models import Terminal
-    from lvkit.parser.layout import Layout
-    from lvkit.render.scene import _bundle_agg_centers
+    from lvkit.render.scene import RenderTerminal, _reposition_mux_terminals
 
-    agg_in = Terminal(id="ai", index=0, direction="input", nmux_role="agg")
-    agg_out = Terminal(id="ao", index=1, direction="output", nmux_role="agg")
-    node = PrimitiveNode(
-        id="n", vi_path="v", node_type="nMux", terminals=[agg_in, agg_out]
-    )
-    layout = Layout()
-    layout.node_bounds["n"] = (100.0, 200.0, 226.0, 269.0)  # top y=200
-    layout.terminal_centers["ai"] = (222.0, 234.0)  # both collapsed to mid
-    layout.terminal_centers["ao"] = (222.0, 234.0)
+    node_bounds = (100.0, 200.0, 226.0, 269.0)  # left..right = 100..226
+    shared = (218.0, 200.0, 226.0, 269.0)  # 8px column flush to the RIGHT edge
 
-    out = _bundle_agg_centers({node.id: node}, "v", layout)
-    assert "ai" in out and "ao" not in out  # only the INPUT is moved
-    x, y = out["ai"]
-    assert x == 222.0  # column x kept
-    assert 200.0 <= y < 215.0  # pulled to the column top, not the mid (234)
+    def rt(direction):
+        return RenderTerminal(
+            terminal=Terminal(
+                id=direction, index=0, direction=direction, nmux_role="agg"
+            ),
+            center=(222.0, 234.5),  # both collapsed onto the shared box center
+            bounds=shared,
+        )
+
+    out = {
+        t.terminal.direction: t
+        for t in _reposition_mux_terminals([rt("input"), rt("output")], node_bounds)
+    }
+    # Output keeps its own recorded box (edge column); the input takes the
+    # equal-width interior column immediately to its left (the empty gap).
+    assert out["output"].bounds == (218.0, 200.0, 226.0, 269.0)
+    assert out["input"].bounds == (210.0, 200.0, 218.0, 269.0)
+    # Centers here are untouched; the wire-anchor correction lives in layout
+    # (``_reanchor_nmux_aggregate_inputs``), applied before wire decode.
+    assert out["input"].center == (222.0, 234.5)
+    assert out["output"].center == (222.0, 234.5)
 
 
 def test_collapsed_cluster_constant_draws_icon_not_members():
@@ -2550,45 +2560,33 @@ def test_single_field_bundle_is_not_dropped():
     assert glyph.num_fields == 1
 
 
-def test_mux_field_terminals_snap_to_node_edge():
-    """Bundle/Unbundle FIELD (``list``) terminals attach at the node EDGE on
-    their dataflow side — input fields (Bundle) at the LEFT edge, output fields
-    (Unbundle) at the RIGHT edge — keeping their row Y. Regression for the
-    "every bundle node crosses its input and output terminals" bug: field
-    terminals' heap centers sit by the field-name label (mid-box, near the
-    divider), so an input wire attached there ran into the middle of the box
-    and crossed the assembled output exiting the right edge."""
+def test_reposition_mux_leaves_fields_and_lone_unbundle_aggregate_alone():
+    """``_reposition_mux_terminals`` touches ONLY a Bundle's two shared-box
+    aggregate terminals (splitting them into interior-input / edge-output
+    halves). FIELD (``list``) terminals — whose wires are drawn from LabVIEW's
+    own faithful geometry and covered by the opaque name cells — and a lone
+    Unbundle aggregate, which already lines an edge on its own, are returned
+    unchanged. Nothing here moves an on-diagram wire endpoint."""
     from lvkit.models import Terminal
     from lvkit.render.scene import RenderTerminal, _reposition_mux_terminals
 
-    bounds = (100.0, 400.0, 200.0, 460.0)  # left, top, right, bottom (mid_y=430)
+    bounds = (100.0, 400.0, 200.0, 460.0)
 
-    def rt(direction, role, cx, cy):
+    def rt(direction, role, box):
         return RenderTerminal(
             terminal=Terminal(id="t", index=0, direction=direction, nmux_role=role),
-            center=(cx, cy),
-            bounds=None,
+            center=((box[0] + box[2]) / 2, (box[1] + box[3]) / 2),
+            bounds=box,
         )
 
-    # A Bundle: two field INPUTS whose heap centers sit near the right/divider
-    # (the WRONG side), plus the assembled aggregate OUTPUT.
-    out = _reposition_mux_terminals(
-        [
-            rt("input", "list", 190.0, 415.0),
-            rt("input", "list", 188.0, 445.0),
-            rt("output", "agg", 150.0, 430.0),
-        ],
-        bounds,
-    )
-    fins = [t for t in out if t.terminal.nmux_role == "list"]
-    assert [t.center[0] for t in fins] == [100.0, 100.0]  # snapped to LEFT edge
-    assert [t.center[1] for t in fins] == [415.0, 445.0]  # row Y preserved
-    agg = next(t for t in out if t.terminal.nmux_role == "agg")
-    assert agg.center == (200.0, 430.0)  # cluster exits right-mid
-
-    # An Unbundle field OUTPUT snaps to the RIGHT edge (mirror).
-    ub = _reposition_mux_terminals([rt("output", "list", 140.0, 430.0)], bounds)
-    assert ub[0].center[0] == 200.0
+    # A single Unbundle aggregate (input at the LEFT edge) + a field output:
+    # only two aggs sharing a box trigger the split, so both are untouched.
+    lone = rt("input", "agg", (100.0, 400.0, 116.0, 460.0))
+    field = rt("output", "list", (116.0, 405.0, 200.0, 422.0))
+    out = _reposition_mux_terminals([lone, field], bounds)
+    assert out[0].bounds == lone.bounds  # lone aggregate not split
+    assert out[1].bounds == field.bounds  # field terminal untouched
+    assert out[1].center == field.center
 
 
 def test_cluster_constant_compacted_to_natural_rows():
@@ -3108,30 +3106,45 @@ def test_bundle_by_name_glyph_draws_field_names():
     svg = b.render(bounds)
     for name in ("level", "parent name", "xml index"):
         assert name in svg
-    # The direction arrow is a filled triangle (polygon), not a text glyph.
+    # The direction arrow is a proper rightward arrow: a triangular head
+    # (<polygon>) OVER a shaft (<line>). The shaft is what keeps it from reading
+    # as a bare "play" triangle.
     assert "<polygon" in svg
+    assert "<line" in svg
 
 
-def test_bundle_by_name_arrow_side_follows_direction():
-    """The cluster arrow sits on the cluster side: RIGHT for Bundle By Name
-    (fields in -> cluster out), LEFT for Unbundle By Name (task #89). The arrow
-    is a filled triangle (polygon) in the narrow cluster column."""
+def test_bundle_by_name_arrow_sits_on_cluster_column_and_points_right():
+    """The direction arrow sits in the cluster column — RIGHT for Bundle By Name
+    (fields in -> cluster out), LEFT for Unbundle By Name — and points RIGHT in
+    BOTH cases (data assembles/extracts left-to-right). The head is a filled
+    ``<polygon>`` triangle whose apex (max x) is to the right of its base."""
     from lvkit.render.glyph import BundleByNameGlyph
 
     bounds = (0.0, 0.0, 100.0, 40.0)
 
-    def arrow_x(bundling: bool) -> float:
+    def head_pts(bundling: bool) -> list[tuple[float, float]]:
         b = SvgBackend()
         BundleByNameGlyph(names=("a", "b"), bundling=bundling).draw(
             b, bounds, DEFAULT_THEME
         )
         m = re.search(r'<polygon points="([^"]+)"', b.render(bounds))
         assert m is not None
-        xs = [float(p.split(",")[0]) for p in m.group(1).split()]
-        return sum(xs) / len(xs)  # mean x of the arrow triangle
+        return [
+            (float(x), float(y))
+            for x, y in re.findall(r"([-\d.]+),([-\d.]+)", m.group(1))
+        ]
 
-    assert arrow_x(True) > 50.0  # Bundle By Name -> arrow on the RIGHT half
-    assert arrow_x(False) < 50.0  # Unbundle By Name -> arrow on the LEFT half
+    for bundling, side in ((True, "right"), (False, "left")):
+        pts = head_pts(bundling)
+        xs = [p[0] for p in pts]
+        apex_x = max(xs)  # the single rightmost vertex is the tip
+        base_x = min(xs)
+        assert apex_x > base_x  # points RIGHT for both directions
+        mean_x = sum(xs) / len(xs)
+        if side == "right":
+            assert mean_x > 50.0  # Bundle: cluster column on the RIGHT
+        else:
+            assert mean_x < 50.0  # Unbundle: cluster column on the LEFT
 
 
 def test_nmux_renders_as_bundle_by_name_and_skips_boundary_mux():
