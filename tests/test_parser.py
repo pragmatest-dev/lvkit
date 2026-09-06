@@ -128,6 +128,161 @@ def test_fp_terminal_label_position_captured():
     assert _fp_label_box(bare) is None
 
 
+# A synthetic cluster-constant ddo, structurally identical to the real
+# corpus shape (verified against the "SMUI Template App Data" cluster in the
+# Graphical Test Runner Main UI VI, ddo uid 13666): a `stdClust` ddo whose
+# `paneHierarchy`/`zPlaneList` holds each field as its own std*-classed
+# element, each with a `partsList` caption ("label" part) + value part(s).
+# Field bounds are in a typedef-editor canvas scale UNRELATED to the pane's
+# own tiny content-area frame (real corpus fact — see `_cluster_field_geoms`)
+# — this fixture reproduces that mismatch (field coords in the thousands,
+# pane/ddo bounds in the tens) rather than a toy same-scale layout, so the
+# extent-normalize mapping is exercised the same way it is on real VIs.
+# "note"'s caption sits to the LEFT of its value part (not the common
+# caption-above placement); "inner" is a genuinely NESTED cluster field with
+# its own paneHierarchy + 2 sub-fields ("a", "b").
+_CLUSTER_CONST_FIXTURE = """
+<ddo class="stdClust" uid="100">
+  <bounds>(0, 0, 100, 50)</bounds>
+  <paneHierarchy class="pane" uid="101">
+    <bounds>(5, 5, 95, 45)</bounds>
+    <zPlaneList elements="3">
+      <SL__arrayElement class="stdNum" uid="200">
+        <bounds>(2000, 1000, 2020, 1040)</bounds>
+        <partsList elements="2">
+          <SL__arrayElement class="label" uid="201">
+            <objFlags>0</objFlags>
+            <bounds>(-15, 0, 0, 40)</bounds>
+            <textRec class="textHair"><text>"count"</text></textRec>
+          </SL__arrayElement>
+          <SL__arrayElement class="cosm" uid="202">
+            <bounds>(0, 0, 20, 40)</bounds>
+          </SL__arrayElement>
+        </partsList>
+      </SL__arrayElement>
+      <SL__arrayElement class="stdString" uid="210">
+        <bounds>(2050, 1000, 2085, 1050)</bounds>
+        <partsList elements="2">
+          <SL__arrayElement class="label" uid="211">
+            <objFlags>0</objFlags>
+            <bounds>(0, 0, 35, 15)</bounds>
+            <textRec class="textHair"><text>"note"</text></textRec>
+          </SL__arrayElement>
+          <SL__arrayElement class="cosm" uid="212">
+            <bounds>(0, 15, 35, 50)</bounds>
+          </SL__arrayElement>
+        </partsList>
+      </SL__arrayElement>
+      <SL__arrayElement class="stdClust" uid="220">
+        <bounds>(2000, 1100, 2060, 1140)</bounds>
+        <partsList elements="1">
+          <SL__arrayElement class="label" uid="221">
+            <objFlags>0</objFlags>
+            <bounds>(-15, 0, 0, 40)</bounds>
+            <textRec class="textHair"><text>"inner"</text></textRec>
+          </SL__arrayElement>
+        </partsList>
+        <paneHierarchy class="pane" uid="222">
+          <bounds>(2, 2, 58, 38)</bounds>
+          <zPlaneList elements="2">
+            <SL__arrayElement class="stdBool" uid="230">
+              <bounds>(9000, 5000, 9020, 5030)</bounds>
+              <partsList elements="2">
+                <SL__arrayElement class="label" uid="231">
+                  <objFlags>0</objFlags>
+                  <bounds>(-15, 0, 0, 30)</bounds>
+                  <textRec class="textHair"><text>"a"</text></textRec>
+                </SL__arrayElement>
+                <SL__arrayElement class="cosm" uid="232">
+                  <bounds>(0, 0, 20, 30)</bounds>
+                </SL__arrayElement>
+              </partsList>
+            </SL__arrayElement>
+            <SL__arrayElement class="stdNum" uid="240">
+              <bounds>(9030, 5000, 9060, 5030)</bounds>
+              <partsList elements="2">
+                <SL__arrayElement class="label" uid="241">
+                  <objFlags>0</objFlags>
+                  <bounds>(-15, 0, 0, 30)</bounds>
+                  <textRec class="textHair"><text>"b"</text></textRec>
+                </SL__arrayElement>
+                <SL__arrayElement class="cosm" uid="242">
+                  <bounds>(0, 0, 30, 30)</bounds>
+                </SL__arrayElement>
+              </partsList>
+            </SL__arrayElement>
+          </zPlaneList>
+        </paneHierarchy>
+      </SL__arrayElement>
+    </zPlaneList>
+  </paneHierarchy>
+</ddo>
+"""
+
+
+def _inside(inner: tuple[float, float, float, float],
+            outer: tuple[float, float, float, float]) -> bool:
+    tol = 1e-6
+    return (
+        outer[0] - tol <= inner[0]
+        and inner[2] <= outer[2] + tol
+        and outer[1] - tol <= inner[1]
+        and inner[3] <= outer[3] + tol
+    )
+
+
+def test_cluster_field_geoms_maps_real_field_geometry():
+    """``_cluster_field_geoms`` extracts a cluster constant's REAL per-field
+    geometry (issue #45 reopened: the old fix synthesized a uniform-row
+    layout instead of reading the heap's own field rects). Assert exactly
+    what the render depends on: (a) fields come back in heap order, (b) every
+    mapped field rect lies inside the cluster's drawn box, (c) value-box
+    heights are NOT all equal (proves no uniform-row stretch), (d) a field
+    whose caption sits left of its value keeps that relationship, and a
+    genuinely nested cluster field's own sub-fields map inside ITS mapped
+    box too (recursion doesn't escape the parent rect)."""
+    from lvkit.parser.layout import _cluster_field_geoms, _rect
+
+    ddo = ET.fromstring(_CLUSTER_CONST_FIXTURE)
+    drawn_box = (-399.0, -201.0, -275.0, 830.0)  # an arbitrary REAL drawn box
+    fields = _cluster_field_geoms(ddo, drawn_box)
+
+    # (a) heap order preserved.
+    assert [f.name for f in fields] == ["count", "note", "inner"]
+
+    # (b) every field's value rect lies inside the drawn box.
+    assert all(_inside(f.value_rect, drawn_box) for f in fields)
+
+    # (c) heights vary — not a uniform-row stretch.
+    heights = {round(f.value_rect[3] - f.value_rect[1], 6) for f in fields}
+    assert len(heights) > 1
+
+    # (d) "note"'s caption is to the LEFT of its value box.
+    note = next(f for f in fields if f.name == "note")
+    assert note.label_rect is not None
+    assert note.label_rect[2] <= note.value_rect[0] + 1e-6
+
+    # "count"'s caption is ABOVE (not left of) its value box — both real
+    # placements the heap can carry are represented, not just one.
+    count = next(f for f in fields if f.name == "count")
+    assert count.label_rect is not None
+    assert count.label_rect[3] <= count.value_rect[1] + 1e-6
+
+    # Nested cluster field "inner" recurses into its own 2 sub-fields, both
+    # mapped INSIDE inner's own (already-mapped) value rect.
+    inner = next(f for f in fields if f.name == "inner")
+    assert [nf.name for nf in inner.nested] == ["a", "b"]
+    assert all(_inside(nf.value_rect, inner.value_rect) for nf in inner.nested)
+
+    # No paneHierarchy at all -> no geometry, not a crash.
+    leaf = ET.fromstring(
+        '<ddo class="stdNum" uid="5"><bounds>(0,0,10,10)</bounds></ddo>'
+    )
+    assert _cluster_field_geoms(leaf, (0.0, 0.0, 10.0, 10.0)) == ()
+    # Sanity: fixture rects parse as expected (top,left,bottom,right -> x1,y1,x2,y2).
+    assert _rect(leaf) == (0.0, 0.0, 10.0, 10.0)
+
+
 def test_fp_default_with_null_bytes_not_corrupted():
     """Task #78: an FP control's ``DefaultData`` is a length-prefixed binary
     blob whose null/control bytes are serialized as ``&#xNN;``. It must reach

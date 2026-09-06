@@ -638,3 +638,59 @@ CHILD element (`ParsedFreeLabel.attach_uid`, `parser/nodes/free_label.py`) —
 that's the label pointing AT one of these `class="attachment"` elements by
 uid; the `class="attachment"` element itself is the thing this section
 describes, with its own bounds/image/internals in `zPlaneList`.
+
+## A cluster constant's `paneHierarchy`/`zPlaneList` carries every field's REAL geometry, in the front-panel typedef-editor's OWN (unrelated-scale) coordinate space — recovered by extent-normalizing, not by the pane's own `<origin>` (issue #45 reopened)
+
+A block-diagram cluster constant's `dco class="bDConstDCO"` → `ddo
+class="stdClust"` carries its own `<bounds>` (the real drawn box) and a
+`<paneHierarchy class="pane">` child. That pane's OWN `<partsList>` (5-6
+entries) is chrome only — a "Pane" caption + scrollbar-corner `cosm` parts —
+**not** the fields. The fields live in the pane's `<zPlaneList>`, one
+`SL__arrayElement` per field, `class` naming the field's control kind
+(`stdString` / `stdRefNum` / `stdBool` / `stdNum` / `stdPath` / `absTime` /
+`indArr` / `stdClust` for a NESTED cluster field / …). Each field element has
+the exact same shape as any top-level constant DDO: a `<bounds>` (the field's
+full box, caption included) and a `<partsList>` whose non-`label` parts union
+to the VALUE box (`_const_value_box`) and whose first `class="label"` part is
+the name caption (`_const_label_box`) — hidden when its `<objFlags>` bit
+`0x8` is set, exactly like `_LayoutBuilder._record_label_hidden`. Verified on
+Graphical Test Runner "Main UI" ddo uid 13666 ("SMUI Template App Data", 23
+fields): only 6 of 23 fields have a visible caption; the other 17 have their
+caption hidden and draw value-only.
+
+**The coordinate trap:** a field's own `<bounds>` are numbered in the
+typedef front-panel EDITOR's coordinate space (e.g. `(2000, 1000, 2020,
+1040)`, hundreds to thousands) — a completely different scale from the
+pane's own `<bounds>` (tens, e.g. `(3, 3, 121, 1028)` relative to the ddo's
+own origin) or its `<origin>` (a scroll-position field, `(334, -317)` on the
+verified example) — `<origin>` is NOT a translation offset into the field
+coordinate space and using it directly misplaces every field. The two
+spaces reconcile only through NORMALIZATION: the verified example's 23
+fields' COLLECTIVE extent (min/max over every field's value-box AND
+label-box rect) is **exactly** `118 × 1025` px — identical, to the pixel, to
+the pane's own real inner content area (`<bounds>` inset from the ddo's own
+origin: `121-3=118`, `1028-3=1025`). I.e. a cluster constant never scrolls;
+every field is shown, and the extent-to-pane-area ratio is the correct
+mapping scale (1.0 in every verified case — pure translation; implemented as
+`min(inner_w/extent_l, inner_h/extent_t)` so a future mismatched extent falls
+back to a uniform, non-distorting scale rather than a per-axis stretch).
+
+**Nested cluster fields recurse identically.** A field with `class="stdClust"`
+carries its OWN `<paneHierarchy>`/`<zPlaneList>`, structurally identical to
+the top-level ddo's — verified two levels deep in the same VI (heap-uid
+chain 752→769→903: a `typeDef`-wrapped constant's inner `stdClust` PART 769
+has a field "test error" (uid 903, itself `class="stdClust"`) with its own 3
+sub-fields status/code/source). The one subtlety: at a nested level, the
+RESCALE factor for the pane inset must be taken from `drawn_box`'s actual
+(already-mapped, parent-scaled) size over `cluster_el`'s own NATIVE
+`<bounds>` size — reusing the top level's `inner_w`/`inner_h` (computed from
+`cluster_el`'s native-scale `<bounds>` directly) at a nested level places
+sub-fields OUTSIDE the parent's mapped box, since the parent's uniform scale
+never gets applied to the pane inset. See
+`lvkit.parser.layout._cluster_field_geoms` for the working recursive
+implementation and `tests/test_parser.py::test_cluster_field_geoms_maps_real_field_geometry`
+for a synthetic fixture exercising both the coordinate mismatch and the
+nested case. A `typeDef`-wrapped cluster constant (ddo `class="typeDef"`
+with the `stdClust` shape embedded as a `partsList` PART rather than being
+the ddo itself) is a separate heap shape this extraction does NOT special-case
+— it falls back to the glyph's own uniform-row draw, same as before.

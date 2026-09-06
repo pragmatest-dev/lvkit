@@ -588,15 +588,6 @@ def _frame_info(
 _CONST_TEXT_SIZE = 9.0
 _CONST_PAD = 2.5
 _CONST_LINE_H = _CONST_TEXT_SIZE + 2.0
-# A cluster constant draws one "name: value" row per field. LabVIEW stores the
-# oversized TYPEDEF front-panel layout on the heap (elements carry .ctl-editor
-# coords), so trusting that box height stretches each row to ~45px. Compact it
-# to a natural row height instead — matching LabVIEW's own block-diagram
-# constant, which shrink-wraps to its contents. ``_CLUSTER_GLYPH_PAD`` mirrors
-# ClusterConstantGlyph.draw's internal pad so the glyph's own
-# ``row_h = (h - 2*pad)/n`` lands exactly on ``_CLUSTER_ROW_H``.
-_CLUSTER_ROW_H = 15.0
-_CLUSTER_GLYPH_PAD = 3.0
 
 
 def _string_const_lines(display: str, box_w: float, measure: SvgBackend) -> int:
@@ -655,46 +646,6 @@ def _trim_string_const_geom(
         # shrunk box. Re-anchor it to the NEW box: right edge (x2), vertical
         # middle of the shrunk rect — so the wire attaches to the box's right
         # edge, not empty space. (Output exits right, so x2 is the attach x.)
-        centers_out[raw] = (x2, (y1 + new_bottom) / 2)
-    return bounds_out, centers_out
-
-
-def _compact_cluster_const_geom(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    layout: Layout,
-) -> tuple[dict[str, Rect], dict[str, Point]]:
-    """Compact geometry for cluster-constant boxes. Same top-left-anchored,
-    shrink-only contract as :func:`_trim_string_const_geom`: keep x1/y1 and the
-    width; move the bottom edge UP to ``n`` natural rows (one per field). The
-    heap box is the typedef's front-panel layout (elements carry .ctl-editor
-    coords), so it stretches each field row to ~45px and buries the constant
-    under a giant column; compacting to ``_CLUSTER_ROW_H`` per field makes the
-    glyph's own per-row split land at a natural, legible height with no glyph
-    change. Only shrinks — a constant already smaller than its content is left
-    alone (the glyph's own small-box fallback handles it).
-
-    Returns (raw uid -> compact bounds, raw uid -> output-terminal center
-    re-anchored to the shrunk box's right-edge middle), merged into the layout
-    so obstacle, drawn box, and wire attach point stay in agreement."""
-    bounds_out: dict[str, Rect] = {}
-    centers_out: dict[str, Point] = {}
-    for node in graph.iter_nodes(vi_name):
-        if not isinstance(node, ConstantNode):
-            continue
-        fields = getattr(node.lv_type, "fields", None)
-        if not fields:
-            continue
-        raw = _strip_prefix(node.id, vi_name)
-        b = layout.node_bounds.get(raw)
-        if b is None:
-            continue
-        x1, y1, x2, y2 = b
-        needed = 2 * _CLUSTER_GLYPH_PAD + len(fields) * _CLUSTER_ROW_H
-        new_bottom = min(y2, y1 + needed)
-        if new_bottom >= y2:
-            continue  # already at or below its natural height — nothing to trim
-        bounds_out[raw] = (x1, y1, x2, new_bottom)
         centers_out[raw] = (x2, (y1 + new_bottom) / 2)
     return bounds_out, centers_out
 
@@ -1787,18 +1738,11 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     # (top-left anchored) BEFORE anything consumes geometry, so the drawn box,
     # the router obstacle, and the wire attach point all use the trimmed rect.
     trim_bounds, trim_centers = _trim_string_const_geom(graph, vi_name, layout)
-    # Compact cluster-constant boxes the same way: the heap carries the typedef
-    # front-panel layout, which stretches each field row into a giant column.
-    clust_bounds, clust_centers = _compact_cluster_const_geom(graph, vi_name, layout)
-    if trim_bounds or clust_bounds:
+    if trim_bounds:
         layout = replace(
             layout,
-            node_bounds={**layout.node_bounds, **trim_bounds, **clust_bounds},
-            terminal_centers={
-                **layout.terminal_centers,
-                **trim_centers,
-                **clust_centers,
-            },
+            node_bounds={**layout.node_bounds, **trim_bounds},
+            terminal_centers={**layout.terminal_centers, **trim_centers},
         )
     all_nodes = graph.iter_nodes(vi_name)
     by_id: dict[str, AnyGraphNode] = {n.id: n for n in all_nodes}
@@ -1824,7 +1768,9 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     wired_dest = frozenset(
         w.dest.terminal_id for w in graph.get_wires(vi_name, include_internal=True)
     )
-    glyph_ctx = GlyphContext(graph=graph, vi_name=vi_name)
+    glyph_ctx = GlyphContext(
+        graph=graph, vi_name=vi_name, cluster_field_geom=layout.cluster_field_geom
+    )
 
     render_nodes: list[RenderNode] = []
     structures: list[RenderStructure] = []

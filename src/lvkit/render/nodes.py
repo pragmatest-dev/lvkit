@@ -24,7 +24,8 @@ import ast
 import functools
 import logging
 import re
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -50,6 +51,7 @@ from ..graph.op_walk import (
 from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..parser.layout import ClusterFieldGeom
 from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
@@ -338,12 +340,21 @@ class GlyphContext:
 
     Deliberately small: resolvers work off the graph node itself plus the
     owning graph/VI (to look up a SubVI's own source path). They never see
-    the ``Scene``/``RenderNode`` or heap geometry — a glyph's shape doesn't
-    depend on where it sits on the diagram.
+    the ``Scene``/``RenderNode`` — a glyph's shape doesn't depend on where it
+    sits on the diagram.
+
+    ``cluster_field_geom`` is the one exception: a cluster constant's own
+    INTERNAL shape (each field's real value/label rect) comes from the heap,
+    keyed by the constant's raw uid (``node.id`` with the ``"{vi}::"``
+    qualifier stripped) — not its position, so it fits the same "shape, not
+    placement" contract as ``node.lv_type``/``node.value``.
     """
 
     graph: InMemoryVIGraph
     vi_name: str
+    cluster_field_geom: Mapping[str, tuple[ClusterFieldGeom, ...]] = field(
+        default_factory=dict
+    )
 
 
 class NodeGlyphResolver(Protocol):
@@ -1085,9 +1096,17 @@ def _cluster_field_values(value: object) -> dict[str, object]:
     return {}
 
 
-def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
+def _cluster_const_glyph(
+    node: ConstantNode,
+    is_error: bool,
+    field_geom: tuple[ClusterFieldGeom, ...] = (),
+) -> Glyph | None:
     """Compose a cluster constant from its fields' own leaf glyphs. None when
-    the cluster type carries no field info (nothing to compose from)."""
+    the cluster type carries no field info (nothing to compose from).
+    ``field_geom`` is the constant's real per-field heap geometry (keyed by
+    name for the glyph), when the heap carried a decodable
+    ``paneHierarchy`` — empty for anything else, and the glyph falls back to
+    its own small-box/uniform-row draw."""
     fields = getattr(node.lv_type, "fields", None) or []
     if not fields:
         return None
@@ -1101,6 +1120,7 @@ def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
     return ClusterConstantGlyph(
         composed,
         is_error=is_error,
+        field_geom={g.name: g for g in field_geom},
         collapsed=node.collapsed,
         value_summary=summary,
         border_color=wire_style(node.lv_type).color,
@@ -1206,7 +1226,12 @@ class GeneratedGlyphResolver:
         if isinstance(node, ConstantNode):
             fam = type_family(node.lv_type)
             if fam in ("cluster", "error_cluster"):
-                composed = _cluster_const_glyph(node, is_error=fam == "error_cluster")
+                raw_uid = node.id.removeprefix(f"{ctx.vi_name}::")
+                composed = _cluster_const_glyph(
+                    node,
+                    is_error=fam == "error_cluster",
+                    field_geom=ctx.cluster_field_geom.get(raw_uid, ()),
+                )
                 if composed is not None:
                     return composed
                 # No field info to compose from: an error cluster keeps its

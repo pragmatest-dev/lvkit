@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 
-from ....parser.layout import Rect
+from ....parser.layout import ClusterFieldGeom, Rect
 from ...backend import Backend
 from ...style import Theme
 from .base import Glyph
@@ -13,15 +14,14 @@ class ClusterConstantGlyph:
     """A cluster constant drawn by COMPOSING each field's own constant glyph
     (boolean / numeric / string / …) inside a cluster box.
 
-    Fields are laid out here as a vertical stack — each row a small field-name
-    label beside that field's value glyph. (The heap DOES carry the typedef's
-    front-panel element arrangement, but in oversized .ctl-editor coords;
-    ``scene._compact_cluster_const_geom`` shrinks the node box to one natural
-    row per field so this per-row split lands compact instead of stretching to
-    the ~1031px typedef column. Honoring the true horizontal/hand-placed
-    arrangements is a follow-up.) Error clusters get the mustard border
-    (``wire_error``) and the stored status / code / source field order; any
-    other cluster gets the generic cluster brown."""
+    When ``field_geom`` carries every field's real heap geometry (see
+    ``ClusterFieldGeom`` / ``layout._cluster_field_geoms``), each field draws
+    at its own REAL value/label rect — its real size, real position, no
+    stretching. Otherwise (no geometry — an older ``Layout``, or a heap shape
+    this pass couldn't decode) fields fall back to a vertical stack of equal-
+    height "name: value" rows fit to the box. Error clusters get the mustard
+    border (``wire_error``) and the stored status / code / source field
+    order; any other cluster gets the generic cluster brown."""
 
     fields: tuple[tuple[str, Glyph], ...]
     is_error: bool = False
@@ -37,6 +37,10 @@ class ClusterConstantGlyph:
     # ``name: value`` per field, for a hover tooltip — useful when the cluster
     # is drawn small/collapsed and the inline values aren't legible.
     value_summary: str = ""
+    # Field name -> its REAL heap geometry (see class docstring). Empty for a
+    # cluster the heap-geometry pass couldn't decode — the equal-height-row
+    # fallback below then applies to every field.
+    field_geom: Mapping[str, ClusterFieldGeom] = field(default_factory=dict)
 
     # Below these, a stacked "name: value" row can't fit both a name AND a
     # value cell, so we drop the field-NAME labels and draw the field VALUES
@@ -69,6 +73,9 @@ class ClusterConstantGlyph:
             # members or a raw value repr.
             self._draw_generic_icon(backend, bounds, theme)
             return
+        if self.field_geom and all(name in self.field_geom for name, _ in self.fields):
+            self._draw_real_geometry(backend, theme, border)
+            return
         pad = 3.0
         label_size = 7.0
         row_h = (y2 - y1 - 2 * pad) / len(self.fields)
@@ -83,6 +90,29 @@ class ClusterConstantGlyph:
             self._draw_value_cells(backend, bounds, theme)
             return
         self._draw_labeled_rows(backend, bounds, theme, border, pad, label_size)
+
+    def _draw_real_geometry(self, backend: Backend, theme: Theme, border: str) -> None:
+        """Draw each field at its OWN real heap rect — real size, real
+        position, no row stretch. A field's name draws at its real label
+        rect (skipped when the heap has the caption hidden, i.e.
+        ``label_rect is None``)."""
+        label_size = 7.0
+        for name, field_glyph in self.fields:
+            geom = self.field_geom[name]
+            vx1, vy1, vx2, vy2 = geom.value_rect
+            if vx2 > vx1 and vy2 > vy1:
+                field_glyph.draw(backend, geom.value_rect, theme)
+            if geom.label_rect is not None:
+                lx1, ly1, lx2, ly2 = geom.label_rect
+                if lx2 > lx1 and ly2 > ly1:
+                    backend.text(
+                        lx1 + 1.0,
+                        (ly1 + ly2) / 2 + label_size * 0.34,
+                        name,
+                        label_size,
+                        anchor="start",
+                        fill=border,
+                    )
 
     def _draw_value_cells(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """Stack each field's VALUE glyph (no name label) to fill the box — one

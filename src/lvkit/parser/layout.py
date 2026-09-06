@@ -112,6 +112,23 @@ class LayoutDecoration:
 
 
 @dataclass(frozen=True)
+class ClusterFieldGeom:
+    """One field's REAL geometry inside a drawn cluster constant, decoded from
+    the heap's own front-panel-editor layout (the cluster ddo's
+    ``paneHierarchy``/``zPlaneList``) and mapped into the constant's drawn box
+    — see ``_cluster_field_geoms``. ``value_rect`` is the field's value-box
+    rect; ``label_rect`` is its name caption's rect, or None when the caption
+    is hidden (objFlags bit 0x8) or the field carries none. A field whose own
+    value is itself a cluster (``class="stdClust"``) carries its own
+    sub-fields in ``nested``, mapped the same way into ITS ``value_rect``."""
+
+    name: str
+    value_rect: Rect
+    label_rect: Rect | None
+    nested: tuple[ClusterFieldGeom, ...] = ()
+
+
+@dataclass(frozen=True)
 class Layout:
     """Pure geometry extracted from a VI's heap XML — no semantics.
 
@@ -184,6 +201,15 @@ class Layout:
     # section index that resolved to a real PNG (issue #82).
     images: dict[str, bytes] = field(default_factory=dict)
     icon_png: Path | None = None
+    # A cluster-constant's raw uid -> its top-level fields' REAL heap geometry
+    # (see ClusterFieldGeom), for the glyph to draw each field at its actual
+    # value/label rect instead of a uniform-row stretch. Present only for a
+    # constant whose ddo is ``class="stdClust"`` and carries a decodable
+    # ``paneHierarchy`` — absent (empty) for anything else, and the glyph
+    # falls back to its own small-box/uniform-row draw.
+    cluster_field_geom: dict[str, tuple[ClusterFieldGeom, ...]] = field(
+        default_factory=dict
+    )
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
         """Bounding box over every known rect, padded — the SVG viewBox."""
@@ -284,6 +310,152 @@ def _fp_label_box(term: ET.Element) -> Rect | None:
     return _rect(lab)
 
 
+def _field_name(field_el: ET.Element) -> str | None:
+    """A cluster field's own name — its caption's ``textRec/text`` — or None
+    when the field carries no caption part to read a name from at all (a
+    field with no name can't be joined to the graph's ``ClusterField.name``,
+    so callers skip it)."""
+    lab = field_el.find("partsList/SL__arrayElement[@class='label']")
+    if lab is None:
+        return None
+    text = lab.findtext("textRec/text")
+    return text.strip('"') if text else None
+
+
+def _field_label_hidden(field_el: ET.Element) -> bool:
+    """True when a cluster field's caption is hidden (objFlags bit 0x8,
+    mirroring ``_LayoutBuilder._record_label_hidden``) or the field carries no
+    caption part at all — either way, nothing to draw a label rect for."""
+    lab = field_el.find("partsList/SL__arrayElement[@class='label']")
+    if lab is None:
+        return True
+    try:
+        flags = int((lab.findtext("objFlags") or "0").strip())
+    except ValueError:
+        return False
+    return bool(flags & 0x8)
+
+
+def _map_field_rect(
+    rect: Rect, min_l: float, min_t: float, scale: float, bx1: float, by1: float
+) -> Rect:
+    """Map one field rect from the typedef front-panel-editor's canvas frame
+    (``min_l``/``min_t`` = the collective extent's own top-left, see
+    :func:`_cluster_field_geoms`) into the cluster's drawn box, by a single
+    translate-then-uniform-scale (never a per-axis stretch)."""
+    x1, y1, x2, y2 = rect
+    return (
+        bx1 + (x1 - min_l) * scale,
+        by1 + (y1 - min_t) * scale,
+        bx1 + (x2 - min_l) * scale,
+        by1 + (y2 - min_t) * scale,
+    )
+
+
+def _cluster_field_geoms(
+    cluster_el: ET.Element, drawn_box: Rect
+) -> tuple[ClusterFieldGeom, ...]:
+    """A cluster's real per-field geometry, decoded from its own
+    ``paneHierarchy``/``zPlaneList`` and mapped into ``drawn_box`` — the box
+    this cluster is ACTUALLY drawn at (the constant's real heap box at the top
+    level, or a nested field's own mapped ``value_rect`` one recursion level
+    down). ``cluster_el`` is whichever heap element carries the cluster's
+    shape — a constant's own ``<ddo class="stdClust">``, or a nested field of
+    the same class — both carry an identical ``<bounds>`` + ``paneHierarchy``
+    shape, so the same extraction applies to either.
+
+    The field rects live in the typedef front-panel-editor's OWN (much
+    larger, unrelated-scale) coordinate space, not the pane's own tiny
+    content-area frame — verified on the corpus: a field's raw ``<bounds>``
+    numbers (e.g. in the hundreds) bear no relation to the pane's own
+    ``<bounds>`` (tens), yet the fields' COLLECTIVE extent exactly equals the
+    pane's real inner content area (both axes, to the pixel) — i.e. clusters
+    never scroll, every field is shown. So this NORMALIZES by that collective
+    extent (preserving every field's real relative position and size) and
+    fits it into the pane's real inner area with a SINGLE uniform scale (the
+    verified case is pure translation, scale 1.0; a uniform scale is the
+    documented fallback for a future cluster whose extent doesn't match).
+
+    ``cluster_el``'s own ``<bounds>`` (and everything inside it, including
+    ``paneHierarchy``'s own ``<bounds>``) is in that element's NATIVE heap
+    scale — which for a NESTED field differs from its already-mapped
+    ``drawn_box`` (the parent recursion level applied its own uniform scale
+    to get there). So the pane's inset from ``cluster_el``'s own origin is
+    RESCALED by ``drawn_box``'s actual size over the native size before being
+    applied to ``drawn_box`` — at the top level ``drawn_box`` IS the native
+    box (translated, never scaled), so this rescale is exactly 1.0 and the
+    top-level math is unchanged.
+
+    Returns ``()`` when there's no field-level geometry to extract (no
+    ``paneHierarchy``/``zPlaneList``, or no field has both a name and a value
+    box) — callers fall back to the glyph's own uniform-row draw.
+    """
+    pane = cluster_el.find("paneHierarchy")
+    if pane is None:
+        return ()
+    zp = pane.find("zPlaneList")
+    if zp is None:
+        return ()
+    native_box = _rect(cluster_el)
+    pane_local = _rect(pane)
+    if native_box is None or pane_local is None:
+        return ()
+    native_w = native_box[2] - native_box[0]
+    native_h = native_box[3] - native_box[1]
+    if native_w <= 0 or native_h <= 0:
+        return ()
+    rescale_x = (drawn_box[2] - drawn_box[0]) / native_w
+    rescale_y = (drawn_box[3] - drawn_box[1]) / native_h
+    pane_abs = (
+        drawn_box[0] + pane_local[0] * rescale_x,
+        drawn_box[1] + pane_local[1] * rescale_y,
+        drawn_box[0] + pane_local[2] * rescale_x,
+        drawn_box[1] + pane_local[3] * rescale_y,
+    )
+    inner_w = pane_abs[2] - pane_abs[0]
+    inner_h = pane_abs[3] - pane_abs[1]
+    if inner_w <= 0 or inner_h <= 0:
+        return ()
+
+    entries: list[tuple[str, Rect, Rect | None, ET.Element]] = []
+    extent_rects: list[Rect] = []
+    for f in zp.findall("SL__arrayElement"):
+        name = _field_name(f)
+        value_box = _const_value_box(f)
+        if name is None or value_box is None:
+            continue
+        label_box = None if _field_label_hidden(f) else _const_label_box(f)
+        entries.append((name, value_box, label_box, f))
+        extent_rects.append(value_box)
+        if label_box is not None:
+            extent_rects.append(label_box)
+    if not entries:
+        return ()
+
+    min_l = min(r[0] for r in extent_rects)
+    min_t = min(r[1] for r in extent_rects)
+    extent_l = max(r[2] for r in extent_rects) - min_l
+    extent_t = max(r[3] for r in extent_rects) - min_t
+    if extent_l <= 0 or extent_t <= 0:
+        return ()
+    scale = min(inner_w / extent_l, inner_h / extent_t)
+    bx1, by1 = pane_abs[0], pane_abs[1]
+
+    result = []
+    for name, value_box, label_box, f in entries:
+        mapped_value = _map_field_rect(value_box, min_l, min_t, scale, bx1, by1)
+        mapped_label = (
+            _map_field_rect(label_box, min_l, min_t, scale, bx1, by1)
+            if label_box is not None
+            else None
+        )
+        nested: tuple[ClusterFieldGeom, ...] = ()
+        if f.get("class") == "stdClust":
+            nested = _cluster_field_geoms(f, mapped_value)
+        result.append(ClusterFieldGeom(name, mapped_value, mapped_label, nested))
+    return tuple(result)
+
+
 class _LayoutBuilder:
     def __init__(self, resources: dict[int, Path] | None = None) -> None:
         # Section Index -> resource file (PICC/DSIM), for resolving a
@@ -294,6 +466,9 @@ class _LayoutBuilder:
         self.images: dict[str, bytes] = {}
         self.node_bounds: dict[str, Rect] = {}
         self.label_bounds: dict[str, Rect] = {}
+        # A cluster-constant's raw uid -> its fields' real geometry (see
+        # ClusterFieldGeom / _cluster_field_geoms).
+        self.cluster_field_geom: dict[str, tuple[ClusterFieldGeom, ...]] = {}
         self.terminal_centers: dict[str, Point] = {}
         self.border_terminals: dict[str, Rect] = {}
         self.border_terminal_kind: dict[str, str] = {}
@@ -536,6 +711,12 @@ class _LayoutBuilder:
                             ox + capb[2] + off_x,
                             oy + capb[3] + off_y,
                         )
+                    # A cluster constant: its fields' REAL per-field geometry,
+                    # mapped into this SAME drawn box (issue #45).
+                    if ddo is not None and ddo.get("class") == "stdClust":
+                        geoms = _cluster_field_geoms(ddo, abs_cb)
+                        if geoms:
+                            self.cluster_field_geom[term_uid] = geoms
                 cx = (abs_cb[0] + abs_cb[2]) / 2
                 cy = (abs_cb[1] + abs_cb[3]) / 2
             # termHotPoint: LabVIEW's EXPLICIT per-terminal wire-attach offset
@@ -942,6 +1123,7 @@ def build_layout_from_root(
         decorations=builder.decorations,
         images=builder.images,
         icon_png=icon_png,
+        cluster_field_geom=builder.cluster_field_geom,
     )
 
 

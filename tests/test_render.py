@@ -1034,6 +1034,57 @@ def test_builtin_reference_constants_render():
         assert rn.terminals, f"built-in ref {ref.name} drawn without a terminal"
 
 
+# The GTR Main UI's "SMUI Template App Data" cluster constant — a 23-field
+# private-data cluster whose heap box (issue #45) is the typedef's oversized
+# front-panel layout, ~1031px tall. Identified by its TERM uid (stable across
+# reparses; the constant itself carries no name).
+_SMUI_CLUSTER_TERM_UID = "14625"
+
+
+def test_cluster_constant_scene_uses_real_field_geometry():
+    """The SMUI cluster constant's scene node carries REAL per-field geometry
+    (issue #45 reopened): every field maps inside the constant's own drawn
+    box, heights vary (no uniform-row stretch), and the output terminal sits
+    at that REAL box's own center — where the heap's wire actually
+    attaches — because the box is no longer synthetically compacted."""
+    from lvkit.render.glyph import ClusterConstantGlyph
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (rn for rn in scene.nodes if rn.node.id == f"{vi}::{_SMUI_CLUSTER_TERM_UID}"),
+        None,
+    )
+    assert target is not None, "SMUI Template App Data cluster constant not in scene"
+    assert isinstance(target.glyph, ClusterConstantGlyph)
+    assert target.glyph.field_geom, "no real field geometry reached the glyph"
+    assert set(target.glyph.field_geom) == {name for name, _ in target.glyph.fields}
+
+    bx1, by1, bx2, by2 = target.bounds
+    for g in target.glyph.field_geom.values():
+        vx1, vy1, vx2, vy2 = g.value_rect
+        assert bx1 - 1e-6 <= vx1 and vx2 <= bx2 + 1e-6, g
+        assert by1 - 1e-6 <= vy1 and vy2 <= by2 + 1e-6, g
+
+    heights = {
+        round(g.value_rect[3] - g.value_rect[1], 3)
+        for g in target.glyph.field_geom.values()
+    }
+    assert len(heights) > 1  # real field heights vary — not a uniform row stretch
+
+    # The box is the REAL heap box (~1031px tall for 23 fields) — no longer
+    # shrunk to a synthetic n * row_height stack.
+    assert (by2 - by1) > 900
+
+    output_term = next(t for t in target.terminals if t.terminal.direction == "output")
+    assert output_term.center == ((bx1 + bx2) / 2, (by1 + by2) / 2)
+
+
 def test_wire_color_from_source_terminal_type():
     graph, vi = _require_ground_truth()
     scene = build_scene(graph, vi)
@@ -2665,61 +2716,50 @@ def test_reposition_mux_leaves_fields_and_lone_unbundle_aggregate_alone():
     assert out[1].center == field.center
 
 
-def test_cluster_constant_compacted_to_natural_rows():
-    """A cluster constant's heap box is the typedef's front-panel layout, which
-    stretches each field row into a giant column (e.g. a 23-field private-data
-    cluster at 1031px). _compact_cluster_const_geom shrinks it (top-left
-    anchored, shrink-only) to one natural row per field and re-anchors the
-    output terminal to the shrunk box, so obstacle/box/wire agree."""
-    from lvkit.graph.models import ConstantNode
-    from lvkit.models import ClusterField, LVType
-    from lvkit.parser.layout import Layout
-    from lvkit.render.scene import (
-        _CLUSTER_GLYPH_PAD,
-        _CLUSTER_ROW_H,
-        _compact_cluster_const_geom,
-    )
+def test_cluster_constant_draws_real_field_geometry_not_uniform_rows():
+    """``ClusterConstantGlyph`` with real per-field geometry (``field_geom``,
+    keyed by field name) draws each field at its OWN heap rect — real size,
+    real position — instead of the equal-height-row fallback (issue #45
+    reopened: the box used to be SHRUNK to a synthetic
+    ``n * row_height`` stack, disconnecting it from its real wire)."""
+    from lvkit.parser.layout import ClusterFieldGeom
+    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
 
-    def cluster_const(n_fields):
-        return ConstantNode(
-            id="V::5",
-            vi_path="V",
-            name="c",
-            lv_type=LVType(
-                kind=LVTypeKind.CLUSTER,
-                fields=[ClusterField(name=f"f{i}") for i in range(n_fields)],
-            ),
-        )
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
 
-    class _Graph:
-        def __init__(self, nodes):
-            self._nodes = nodes
+    fields = (("Alpha", _Dot()), ("Beta", _Dot()))
+    box = (0.0, 0.0, 100.0, 200.0)  # a REAL, uncompacted heap box
+    geom = {
+        "Alpha": ClusterFieldGeom(
+            "Alpha",
+            value_rect=(5.0, 10.0, 90.0, 40.0),
+            label_rect=(5.0, 0.0, 40.0, 9.0),
+        ),
+        # A hidden caption (label_rect None) draws NO label text.
+        "Beta": ClusterFieldGeom(
+            "Beta", value_rect=(5.0, 120.0, 90.0, 190.0), label_rect=None
+        ),
+    }
+    glyph = ClusterConstantGlyph(fields=fields, field_geom=geom)
 
-        def iter_nodes(self, vi_name):
-            return self._nodes
+    backend = SvgBackend()
+    glyph.draw(backend, box, DEFAULT_THEME)
+    svg = backend.render(box)
+    assert "Alpha" in svg  # visible caption drawn
+    assert "Beta" not in svg  # hidden caption NOT drawn
+    assert svg.count(">V<") == 2  # both field values drawn, at their own rects
 
-    # Oversized heap box (300px tall for 3 fields) → compacted to 3 rows.
-    layout = Layout(node_bounds={"5": (0.0, 0.0, 100.0, 300.0)})
-    bounds, centers = _compact_cluster_const_geom(
-        _Graph([cluster_const(3)]),
-        "V",
-        layout,
-    )
-    expected_h = 2 * _CLUSTER_GLYPH_PAD + 3 * _CLUSTER_ROW_H
-    assert bounds["5"] == (0.0, 0.0, 100.0, expected_h)  # top-left kept, width kept
-    assert centers["5"] == (100.0, expected_h / 2)  # output re-anchored right-mid
-
-    # Shrink-only: a box already shorter than its natural height is untouched.
-    small = Layout(node_bounds={"5": (0.0, 0.0, 100.0, 10.0)})
-    b2, _ = _compact_cluster_const_geom(_Graph([cluster_const(3)]), "V", small)
-    assert "5" not in b2
-
-    # A non-cluster constant (no fields) is ignored.
-    scalar = ConstantNode(
-        id="V::5", vi_path="V", name="c", lv_type=LVType(kind=LVTypeKind.PRIMITIVE)
-    )
-    b3, _ = _compact_cluster_const_geom(_Graph([scalar]), "V", layout)
-    assert b3 == {}
+    # Missing geometry for ANY field falls back to the equal-height rows
+    # (never a partial mix of real + guessed positions).
+    partial = ClusterConstantGlyph(fields=fields, field_geom={"Alpha": geom["Alpha"]})
+    fb_backend = SvgBackend()
+    partial.draw(fb_backend, box, DEFAULT_THEME)
+    fb_svg = fb_backend.render(box)
+    assert "Alpha" in fb_svg and "Beta" in fb_svg  # fallback still shows both
 
 
 def test_pass_through_mux_is_not_a_bundle_glyph():
