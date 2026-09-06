@@ -1062,19 +1062,21 @@ def test_cluster_constant_scene_uses_real_field_geometry():
     )
     assert target is not None, "SMUI Template App Data cluster constant not in scene"
     assert isinstance(target.glyph, ClusterConstantGlyph)
-    assert target.glyph.field_geom, "no real field geometry reached the glyph"
-    assert set(target.glyph.field_geom) == {name for name, _ in target.glyph.fields}
+    cg = target.glyph.cluster_geom
+    assert cg is not None, "no real cluster geometry reached the glyph"
+    assert {f.name for f in cg.fields} == {name for name, _ in target.glyph.fields}
 
     bx1, by1, bx2, by2 = target.bounds
-    for g in target.glyph.field_geom.values():
+    # The constant is drawn at its own real box, so the fit-scale is 1.0 —
+    # a field's on-screen rect is its (0, 0)-relative rect plus the box origin.
+    assert cg.width == bx2 - bx1
+    assert cg.height == by2 - by1
+    for g in cg.fields:
         vx1, vy1, vx2, vy2 = g.value_rect
-        assert bx1 - 1e-6 <= vx1 and vx2 <= bx2 + 1e-6, g
-        assert by1 - 1e-6 <= vy1 and vy2 <= by2 + 1e-6, g
+        assert bx1 - 1e-6 <= bx1 + vx1 and bx1 + vx2 <= bx2 + 1e-6, g
+        assert by1 - 1e-6 <= by1 + vy1 and by1 + vy2 <= by2 + 1e-6, g
 
-    heights = {
-        round(g.value_rect[3] - g.value_rect[1], 3)
-        for g in target.glyph.field_geom.values()
-    }
+    heights = {round(g.value_rect[3] - g.value_rect[1], 3) for g in cg.fields}
     assert len(heights) > 1  # real field heights vary — not a uniform row stretch
 
     # The box is the REAL heap box (~1031px tall for 23 fields) — no longer
@@ -1083,6 +1085,143 @@ def test_cluster_constant_scene_uses_real_field_geometry():
 
     output_term = next(t for t in target.terminals if t.terminal.direction == "output")
     assert output_term.center == ((bx1 + bx2) / 2, (by1 + by2) / 2)
+
+
+def test_refnum_field_nested_event_cluster_renders_as_real_box_in_box():
+    """The SMUI cluster's "ResultChangedRef" field — a User Event refnum
+    (``class="stdRefNum"``, real box height ~206px) showing its REGISTERED
+    event-data cluster type inline — is the THIRD recursion trigger (issue
+    #45): the nested cluster lives inside a NON-cluster field, found via
+    ``_nested_cluster_shape`` and composed as a real nested
+    ``ClusterConstantGlyph`` (5 fields, including the DOUBLY-nested
+    "test error" cluster) — not left as a blank/generic box."""
+    from lvkit.render.glyph import ClusterConstantGlyph
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (rn for rn in scene.nodes if rn.node.id == f"{vi}::{_SMUI_CLUSTER_TERM_UID}"),
+        None,
+    )
+    assert target is not None
+    assert isinstance(target.glyph, ClusterConstantGlyph)
+
+    result_changed_ref = next(
+        g for name, g in target.glyph.fields if name == "ResultChangedRef"
+    )
+    assert isinstance(result_changed_ref, ClusterConstantGlyph), (
+        "ResultChangedRef must compose as a real nested cluster, not a "
+        "flattened/blank refnum box"
+    )
+    cg = result_changed_ref.cluster_geom
+    assert cg is not None
+    assert {f.name for f in cg.fields} == {
+        "test", "resultStatus", "TestResult", "test error", "execution time (sec)",
+    }
+
+    # "test error" is a genuinely DOUBLY-nested cluster (status/code/source).
+    error_field = next(fg for fg in cg.fields if fg.name == "test error")
+    assert error_field.nested is not None
+    assert {nf.name for nf in error_field.nested.fields} == {
+        "status", "code", "source",
+    }
+    error_glyph = next(
+        g for name, g in result_changed_ref.fields if name == "test error"
+    )
+    assert isinstance(error_glyph, ClusterConstantGlyph)
+    assert error_glyph.cluster_geom is error_field.nested
+
+    # A refnum field with NO nested cluster (e.g. "TextStream", a Queue
+    # refnum) keeps drawing as a plain (non-cluster) glyph — the trigger
+    # doesn't over-fire on every refnum field.
+    text_stream = next(g for name, g in target.glyph.fields if name == "TextStream")
+    assert not isinstance(text_stream, ClusterConstantGlyph)
+
+
+# TestResult_Init.vi's array-of-clusters constant: a "failure" cluster array
+# (heap ddo uid 502, indArr -> typeDef 569 -> stdClust 573), with a NESTED
+# cluster field ("error" -> status/code/source) — see issue #45's array-of-
+# clusters extension. Identified by its TERM uid (graph node id "...::633").
+_ARRAY_OF_CLUSTER_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult/"
+    "TestResult_Init.vi"
+)
+_ARRAY_OF_CLUSTER_TERM_UID = "633"
+
+
+def test_array_of_cluster_constant_uses_real_element_geometry():
+    """An array constant whose ELEMENT is a cluster gets the element's REAL
+    heap geometry reaching the glyph (issue #45's array extension):
+    ``ArrayConstantGlyph.cell_w``/``cell_h`` are the element's own real
+    natural size (54x110, verified against the heap — ``typeDef`` ddo 569 /
+    ``stdClust`` 573's own ``<bounds>``), not the synthetic fixed row height.
+
+    This VI's array constant is its default/initializer value — genuinely
+    EMPTY (``node.value == "[]"``, verified: TestResult_Init.vi initializes
+    an empty failures array) — LabVIEW itself shows an empty array constant
+    as blank/greyed rows, so ``elements`` is correctly empty here too; the
+    COMPOSITION of a non-empty element (real nested box-in-box, not
+    flattened text) is exercised directly below since the corpus has no
+    array-of-cluster constant with populated default data to render."""
+    from lvkit.render.glyph import ArrayConstantGlyph, ClusterConstantGlyph
+    from lvkit.render.nodes import _array_const_glyph
+
+    loaded = _load_graph(_ARRAY_OF_CLUSTER_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {_ARRAY_OF_CLUSTER_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if rn.node.id == f"{vi}::{_ARRAY_OF_CLUSTER_TERM_UID}"
+        ),
+        None,
+    )
+    assert target is not None, "array-of-cluster constant not in scene"
+    assert isinstance(target.glyph, ArrayConstantGlyph)
+    assert target.glyph.cell_w == 54.0
+    assert target.glyph.cell_h == 110.0
+    assert target.glyph.elements == ()  # genuinely empty default value
+
+    array_node = target.node
+    assert isinstance(array_node, ConstantNode)
+    layout = build_layout(_ARRAY_OF_CLUSTER_VI)
+    real_cluster_geom = layout.array_element_cluster.get(_ARRAY_OF_CLUSTER_TERM_UID)
+    assert real_cluster_geom is not None
+
+    # Simulate ONE populated element (default field values, like an "unset"
+    # cluster field elsewhere) to exercise composition with the SAME real
+    # geometry the (empty) real constant carries.
+    populated = array_node.model_copy(update={"value": "[{}]"})
+    glyph = _array_const_glyph(populated, real_cluster_geom)
+    assert isinstance(glyph, ArrayConstantGlyph)
+    assert len(glyph.elements) == 1
+    elem = glyph.elements[0]
+    assert isinstance(elem, ClusterConstantGlyph)
+    assert elem.cluster_geom is real_cluster_geom
+    assert {f.name for f in real_cluster_geom.fields} == {
+        name for name, _ in elem.fields
+    }
+
+    # The "error" field is a genuinely NESTED cluster (status/code/source) —
+    # its glyph must be a real nested ClusterConstantGlyph, not flattened text.
+    error_field = next(fg for fg in real_cluster_geom.fields if fg.name == "error")
+    assert error_field.nested is not None
+    assert {nf.name for nf in error_field.nested.fields} == {
+        "status", "code", "source",
+    }
+    error_glyph = next(g for name, g in elem.fields if name == "error")
+    assert isinstance(error_glyph, ClusterConstantGlyph)
+    assert error_glyph.cluster_geom is error_field.nested
 
 
 def test_wire_color_from_source_terminal_type():
@@ -2717,12 +2856,16 @@ def test_reposition_mux_leaves_fields_and_lone_unbundle_aggregate_alone():
 
 
 def test_cluster_constant_draws_real_field_geometry_not_uniform_rows():
-    """``ClusterConstantGlyph`` with real per-field geometry (``field_geom``,
-    keyed by field name) draws each field at its OWN heap rect — real size,
-    real position — instead of the equal-height-row fallback (issue #45
-    reopened: the box used to be SHRUNK to a synthetic
-    ``n * row_height`` stack, disconnecting it from its real wire)."""
-    from lvkit.parser.layout import ClusterFieldGeom
+    """``ClusterConstantGlyph`` with real geometry (``cluster_geom``) draws
+    each field at its OWN heap rect — real size, real position — instead of
+    the equal-height-row fallback (issue #45 reopened: the box used to be
+    SHRUNK to a synthetic ``n * row_height`` stack, disconnecting it from its
+    real wire). ``cluster_geom``'s field rects are relative to the cluster's
+    own (0, 0) origin at its NATIVE (``width``/``height``) size — here that
+    size exactly matches the drawn box, so the fit-scale is 1.0 (pure
+    translation); ``test_nested_cluster_field_draws_as_real_box_in_box``
+    covers the scale != 1.0 case."""
+    from lvkit.parser.layout import ClusterFieldGeom, ClusterGeom
     from lvkit.render.glyph import ClusterConstantGlyph
     from lvkit.render.style import DEFAULT_THEME
 
@@ -2733,18 +2876,22 @@ def test_cluster_constant_draws_real_field_geometry_not_uniform_rows():
 
     fields = (("Alpha", _Dot()), ("Beta", _Dot()))
     box = (0.0, 0.0, 100.0, 200.0)  # a REAL, uncompacted heap box
-    geom = {
-        "Alpha": ClusterFieldGeom(
-            "Alpha",
-            value_rect=(5.0, 10.0, 90.0, 40.0),
-            label_rect=(5.0, 0.0, 40.0, 9.0),
+    cg = ClusterGeom(
+        width=100.0,
+        height=200.0,
+        fields=(
+            ClusterFieldGeom(
+                "Alpha",
+                value_rect=(5.0, 10.0, 90.0, 40.0),
+                label_rect=(5.0, 0.0, 40.0, 9.0),
+            ),
+            # A hidden caption (label_rect None) draws NO label text.
+            ClusterFieldGeom(
+                "Beta", value_rect=(5.0, 120.0, 90.0, 190.0), label_rect=None
+            ),
         ),
-        # A hidden caption (label_rect None) draws NO label text.
-        "Beta": ClusterFieldGeom(
-            "Beta", value_rect=(5.0, 120.0, 90.0, 190.0), label_rect=None
-        ),
-    }
-    glyph = ClusterConstantGlyph(fields=fields, field_geom=geom)
+    )
+    glyph = ClusterConstantGlyph(fields=fields, cluster_geom=cg)
 
     backend = SvgBackend()
     glyph.draw(backend, box, DEFAULT_THEME)
@@ -2755,11 +2902,161 @@ def test_cluster_constant_draws_real_field_geometry_not_uniform_rows():
 
     # Missing geometry for ANY field falls back to the equal-height rows
     # (never a partial mix of real + guessed positions).
-    partial = ClusterConstantGlyph(fields=fields, field_geom={"Alpha": geom["Alpha"]})
+    partial = ClusterConstantGlyph(
+        fields=fields,
+        cluster_geom=ClusterGeom(width=100.0, height=200.0, fields=(cg.fields[0],)),
+    )
     fb_backend = SvgBackend()
     partial.draw(fb_backend, box, DEFAULT_THEME)
     fb_svg = fb_backend.render(box)
     assert "Alpha" in fb_svg and "Beta" in fb_svg  # fallback still shows both
+
+
+def test_nested_cluster_field_draws_as_real_box_in_box():
+    """A cluster field that is ITSELF a ``ClusterConstantGlyph`` (a nested
+    cluster field, composed recursively by ``nodes._cluster_value_glyph``)
+    draws its OWN real box-in-box geometry, fit into whatever rect the
+    PARENT maps it to — a real scale != 1.0 case (the nested cluster's own
+    native size differs from the parent-assigned rect, e.g. a NESTED field
+    inside a cluster whose own extent-normalize scale isn't 1.0). Regression
+    for the pre-existing gap: composing a nested-cluster FIELD used to fall
+    through to a flattened text glyph instead of a real nested box."""
+    from lvkit.parser.layout import ClusterFieldGeom, ClusterGeom
+    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
+
+    # The nested cluster's OWN native size (20x40) is NOT the same as the
+    # rect the parent will map it to (10x20 below) — a real 0.5x fit-scale.
+    nested_geom = ClusterGeom(
+        width=20.0,
+        height=40.0,
+        fields=(
+            ClusterFieldGeom("x", value_rect=(0.0, 0.0, 20.0, 20.0), label_rect=None),
+            ClusterFieldGeom("y", value_rect=(0.0, 20.0, 20.0, 40.0), label_rect=None),
+        ),
+    )
+    nested_glyph = ClusterConstantGlyph(
+        fields=(("x", _Dot()), ("y", _Dot())), cluster_geom=nested_geom
+    )
+
+    outer_box = (0.0, 0.0, 100.0, 20.0)
+    outer_geom = ClusterGeom(
+        width=100.0,
+        height=20.0,
+        fields=(
+            ClusterFieldGeom(
+                "Inner",
+                value_rect=(50.0, 0.0, 60.0, 20.0),  # -> abs (50,0,60,20): 10x20
+                label_rect=None,
+                nested=nested_geom,
+            ),
+        ),
+    )
+    outer_glyph = ClusterConstantGlyph(
+        fields=(("Inner", nested_glyph),), cluster_geom=outer_geom
+    )
+
+    backend = SvgBackend()
+    outer_glyph.draw(backend, outer_box, DEFAULT_THEME)
+    svg = backend.render(outer_box)
+    # Both sub-field values of the NESTED cluster actually drew (real
+    # box-in-box, not flattened text) — a rect for the nested border plus
+    # two "V" texts, all inside the outer box.
+    assert svg.count(">V<") == 2
+    xs = [float(x) for x in re.findall(r'<rect[^>]*\sx="([-\d.]+)"', svg)]
+    widths = [float(w) for w in re.findall(r'<rect[^>]*\swidth="([-\d.]+)"', svg)]
+    assert xs and widths
+    # Every drawn rect (outer box + nested border) stays within [50, 60] on x
+    # for anything belonging to the nested cluster's OWN box — spot-check the
+    # narrowest rect (the nested cluster's own border) is <= 10px wide (its
+    # fitted width) and sits at x >= 50 (inside the parent's assigned slot).
+    nested_rects = [(x, w) for x, w in zip(xs, widths) if w <= 10.0 + 1e-6]
+    assert nested_rects
+    assert all(x >= 50.0 - 1e-6 for x, _ in nested_rects)
+
+
+def test_refnum_field_with_nested_cluster_type_composes_as_real_box():
+    """The THIRD recursion trigger (issue #45): a cluster FIELD whose own
+    type is NOT a cluster (a ``refnum``, e.g. a User Event) but whose
+    ``element_type`` IS one — the registered event-data type LabVIEW shows
+    inline — composes as a REAL nested ``ClusterConstantGlyph`` in
+    ``nodes._cluster_value_glyph``, exactly like a directly cluster-typed
+    field, PROVIDED the heap geometry pass also found a nested shape for it
+    (``field_geom.nested``). Both signals (graph type AND heap geometry)
+    must agree: an ordinary refnum field with no nested geometry keeps
+    drawing as a plain refnum constant, unchanged — never reinterpreted as a
+    cluster on the type alone."""
+    from lvkit.models import ClusterField
+    from lvkit.parser.layout import ClusterFieldGeom, ClusterGeom
+    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.nodes import _cluster_value_glyph
+
+    inner_cluster_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="status", type=LVType(kind=LVTypeKind.PRIMITIVE))],
+    )
+    refnum_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UserEvent",
+        element_type=inner_cluster_type,
+    )
+    outer_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="EventRef", type=refnum_type)],
+    )
+    nested_field_geom = ClusterGeom(
+        width=75.0,
+        height=196.0,
+        fields=(
+            ClusterFieldGeom(
+                "status", value_rect=(0.0, 0.0, 20.0, 20.0), label_rect=None
+            ),
+        ),
+    )
+    outer_geom = ClusterGeom(
+        width=111.0,
+        height=206.0,
+        fields=(
+            ClusterFieldGeom(
+                "EventRef",
+                value_rect=(0.0, 0.0, 111.0, 206.0),
+                label_rect=None,
+                nested=nested_field_geom,
+            ),
+        ),
+    )
+
+    # With BOTH signals present (type carries a cluster element_type, AND
+    # heap geometry found a nested shape): composes as a real nested cluster.
+    glyph = _cluster_value_glyph(outer_type, None, False, outer_geom)
+    assert isinstance(glyph, ClusterConstantGlyph)
+    (name, field_glyph), = glyph.fields
+    assert name == "EventRef"
+    assert isinstance(field_glyph, ClusterConstantGlyph)
+    assert field_glyph.cluster_geom is nested_field_geom
+
+    # Missing heap geometry for that SAME field (an ordinary refnum with no
+    # nested cluster) — falls back to the plain leaf glyph, NOT a cluster.
+    plain_geom = ClusterGeom(
+        width=111.0,
+        height=206.0,
+        fields=(
+            ClusterFieldGeom(
+                "EventRef", value_rect=(0.0, 0.0, 111.0, 206.0), label_rect=None
+            ),
+        ),
+    )
+    glyph2 = _cluster_value_glyph(outer_type, None, False, plain_geom)
+    assert isinstance(glyph2, ClusterConstantGlyph)
+    (name2, field_glyph2), = glyph2.fields
+    assert name2 == "EventRef"
+    assert not isinstance(field_glyph2, ClusterConstantGlyph)
 
 
 def test_pass_through_mux_is_not_a_bundle_glyph():

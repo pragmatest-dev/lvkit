@@ -1769,7 +1769,10 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         w.dest.terminal_id for w in graph.get_wires(vi_name, include_internal=True)
     )
     glyph_ctx = GlyphContext(
-        graph=graph, vi_name=vi_name, cluster_field_geom=layout.cluster_field_geom
+        graph=graph,
+        vi_name=vi_name,
+        cluster_field_geom=layout.cluster_field_geom,
+        array_element_cluster=layout.array_element_cluster,
     )
 
     render_nodes: list[RenderNode] = []

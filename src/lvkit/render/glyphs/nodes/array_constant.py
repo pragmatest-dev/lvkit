@@ -37,12 +37,23 @@ class ArrayConstantGlyph:
     """An array constant: an index control (one box per dimension) + a clipped,
     scrollable column of the element values' own glyphs. ``elements`` is one
     composed glyph per array value (built by the resolver from the element
-    type), so an array of clusters composes each cluster into its cell."""
+    type), so an array of clusters composes each cluster into its cell.
+
+    ``cell_h``/``cell_w`` override the default synthetic row size — set when
+    the element is a cluster with REAL heap geometry (``ClusterGeom``), so
+    every visible row draws that cluster at its own real, undistorted size
+    (arrays are homogeneous: one real shape serves every row) rather than
+    stretched into a guessed row height. ``cell_w`` clips the cell's width to
+    that real size (left-anchored in the viewport, never stretched to fill
+    it); ``None`` (the default, every non-cluster element) keeps today's
+    fixed ``_CELL_H`` row filling the full viewport width."""
 
     elements: tuple[Glyph, ...]
     element_color: str
     struct_uid: str
     dimensions: int = 1
+    cell_h: float | None = None
+    cell_w: float | None = None
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -67,14 +78,15 @@ class ArrayConstantGlyph:
         vx1, vy1, vx2, vy2 = idx_right, y1 + _PAD, x2 - _PAD, y2 - _PAD
         if vx2 - vx1 < 6.0 or vy2 - vy1 < 6.0:
             return
-        visible = max(1, int((vy2 - vy1) // _CELL_H))
+        cell_h = self.cell_h if self.cell_h is not None else _CELL_H
+        visible = max(1, int((vy2 - vy1) // cell_h))
         total = len(self.elements)
 
         # A FIXED clip viewport (outer group) holding a TRANSLATABLE column
         # (inner ``lv-array-col``): every element cell at its natural row, plus
         # up to ``visible - 1`` greyed past-end rows so scrolling near the end
         # reveals the "unset" cells. The controller JS translates the inner group
-        # by ``-index * _CELL_H`` so element[index] lands at the viewport top
+        # by ``-index * cell_h`` so element[index] lands at the viewport top
         # (the clip must stay on the OUTER group, or it would scroll too). With
         # no JS it shows rows [0, visible).
         backend.begin_group(clip=(vx1, vy1, vx2, vy2))
@@ -82,10 +94,13 @@ class ArrayConstantGlyph:
             cls="lv-array-col",
             data={"lv-struct": self.struct_uid},
         )
+        cell_right = vx2 - 1.0
+        if self.cell_w is not None:
+            cell_right = min(vx2, vx1 + self.cell_w) - 1.0
         for i in range(total + max(0, visible - 1)):
-            cy1 = vy1 + i * _CELL_H
-            cy2 = cy1 + _CELL_H
-            cell = (vx1 + 1.0, cy1 + 1.0, vx2 - 1.0, cy2 - 1.0)
+            cy1 = vy1 + i * cell_h
+            cy2 = cy1 + cell_h
+            cell = (vx1 + 1.0, cy1 + 1.0, cell_right, cy2 - 1.0)
             if i < total:
                 self.elements[i].draw(backend, cell, theme)
             else:
@@ -106,7 +121,7 @@ class ArrayConstantGlyph:
                 "lv-struct": self.struct_uid,
                 "lv-len": str(total),
                 "lv-visible": str(visible),
-                "lv-cellh": str(_CELL_H),
+                "lv-cellh": str(cell_h),
             },
         )
         backend.end_group()

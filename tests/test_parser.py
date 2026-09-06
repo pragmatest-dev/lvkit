@@ -231,56 +231,354 @@ def _inside(inner: tuple[float, float, float, float],
     )
 
 
+def _fit_into(box, native_w, native_h):
+    """Test helper mirroring ``ClusterConstantGlyph._draw_real_geometry``'s
+    fit-scale: maps a (0, 0)-relative rect at ``(native_w, native_h)`` scale
+    into a real ``box``, by a single uniform scale (never per-axis)."""
+    bx1, by1, bx2, by2 = box
+    scale = min((bx2 - bx1) / native_w, (by2 - by1) / native_h)
+
+    def mapper(rect):
+        x1, y1, x2, y2 = rect
+        return (
+            bx1 + x1 * scale, by1 + y1 * scale,
+            bx1 + x2 * scale, by1 + y2 * scale,
+        )
+
+    return mapper
+
+
 def test_cluster_field_geoms_maps_real_field_geometry():
-    """``_cluster_field_geoms`` extracts a cluster constant's REAL per-field
-    geometry (issue #45 reopened: the old fix synthesized a uniform-row
-    layout instead of reading the heap's own field rects). Assert exactly
-    what the render depends on: (a) fields come back in heap order, (b) every
-    mapped field rect lies inside the cluster's drawn box, (c) value-box
-    heights are NOT all equal (proves no uniform-row stretch), (d) a field
-    whose caption sits left of its value keeps that relationship, and a
-    genuinely nested cluster field's own sub-fields map inside ITS mapped
-    box too (recursion doesn't escape the parent rect)."""
+    """``_cluster_field_geoms`` extracts a cluster's REAL geometry (issue #45
+    reopened: the old fix synthesized a uniform-row layout instead of reading
+    the heap's own field rects) — a ``ClusterGeom`` whose fields are relative
+    to the cluster's own (0, 0) origin at its NATIVE size, fit into a real
+    drawn box by the caller (a single uniform scale, never per-axis — see
+    ``_fit_into``). Assert exactly what the render depends on: (a) fields
+    come back in heap order, (b) every mapped field rect lies inside the
+    cluster's drawn box, (c) value-box heights are NOT all equal (proves no
+    uniform-row stretch), (d) a field whose caption sits left of its value
+    keeps that relationship, and a genuinely nested cluster field's own
+    sub-fields map inside ITS mapped box too (recursion doesn't escape the
+    parent rect) — including through a SECOND fit-scale (the nested cluster's
+    own native size differs from the sliver of the parent box it lands in)."""
     from lvkit.parser.layout import _cluster_field_geoms, _rect
 
     ddo = ET.fromstring(_CLUSTER_CONST_FIXTURE)
+    cg = _cluster_field_geoms(ddo)
+    assert cg is not None
     drawn_box = (-399.0, -201.0, -275.0, 830.0)  # an arbitrary REAL drawn box
-    fields = _cluster_field_geoms(ddo, drawn_box)
+    fit = _fit_into(drawn_box, cg.width, cg.height)
+    mapped = {f.name: fit(f.value_rect) for f in cg.fields}
 
     # (a) heap order preserved.
-    assert [f.name for f in fields] == ["count", "note", "inner"]
+    assert [f.name for f in cg.fields] == ["count", "note", "inner"]
 
     # (b) every field's value rect lies inside the drawn box.
-    assert all(_inside(f.value_rect, drawn_box) for f in fields)
+    assert all(_inside(r, drawn_box) for r in mapped.values())
 
     # (c) heights vary — not a uniform-row stretch.
-    heights = {round(f.value_rect[3] - f.value_rect[1], 6) for f in fields}
+    heights = {round(r[3] - r[1], 6) for r in mapped.values()}
     assert len(heights) > 1
 
     # (d) "note"'s caption is to the LEFT of its value box.
-    note = next(f for f in fields if f.name == "note")
+    note = next(f for f in cg.fields if f.name == "note")
     assert note.label_rect is not None
-    assert note.label_rect[2] <= note.value_rect[0] + 1e-6
+    mapped_label = fit(note.label_rect)
+    assert mapped_label[2] <= mapped[note.name][0] + 1e-6
 
     # "count"'s caption is ABOVE (not left of) its value box — both real
     # placements the heap can carry are represented, not just one.
-    count = next(f for f in fields if f.name == "count")
+    count = next(f for f in cg.fields if f.name == "count")
     assert count.label_rect is not None
-    assert count.label_rect[3] <= count.value_rect[1] + 1e-6
+    assert fit(count.label_rect)[3] <= mapped[count.name][1] + 1e-6
 
-    # Nested cluster field "inner" recurses into its own 2 sub-fields, both
-    # mapped INSIDE inner's own (already-mapped) value rect.
-    inner = next(f for f in fields if f.name == "inner")
-    assert [nf.name for nf in inner.nested] == ["a", "b"]
-    assert all(_inside(nf.value_rect, inner.value_rect) for nf in inner.nested)
+    # Nested cluster field "inner" recurses into its own full ClusterGeom (2
+    # sub-fields), fit (its OWN native size, via a SECOND uniform scale) into
+    # inner's own mapped rect — both land INSIDE it.
+    inner = next(f for f in cg.fields if f.name == "inner")
+    assert inner.nested is not None
+    assert [nf.name for nf in inner.nested.fields] == ["a", "b"]
+    inner_box = mapped["inner"]
+    inner_fit = _fit_into(inner_box, inner.nested.width, inner.nested.height)
+    assert all(
+        _inside(inner_fit(nf.value_rect), inner_box) for nf in inner.nested.fields
+    )
 
     # No paneHierarchy at all -> no geometry, not a crash.
     leaf = ET.fromstring(
         '<ddo class="stdNum" uid="5"><bounds>(0,0,10,10)</bounds></ddo>'
     )
-    assert _cluster_field_geoms(leaf, (0.0, 0.0, 10.0, 10.0)) == ()
+    assert _cluster_field_geoms(leaf) is None
     # Sanity: fixture rects parse as expected (top,left,bottom,right -> x1,y1,x2,y2).
     assert _rect(leaf) == (0.0, 0.0, 10.0, 10.0)
+
+
+def test_cluster_shape_resolves_direct_and_typedef_wrapped_clusters():
+    """``_cluster_shape`` finds the ``stdClust`` element that defines a
+    cluster's shape, whether ``el`` IS the cluster (``class="stdClust"``
+    directly) or WRAPS one — a cluster used as a named ``.ctl`` typedef
+    control has ddo ``class="typeDef"`` with the real ``stdClust`` embedded
+    as one ``partsList`` PART (verified on the corpus: TestResult_Init's
+    array-of-clusters element, ddo 569/573). Identified by carrying its own
+    ``paneHierarchy`` — never by name/position — so an unrelated ``stdClust``-
+    classed part with no pane (shouldn't exist in practice, but proves this
+    isn't a blind first-match) is skipped."""
+    from lvkit.parser.layout import _cluster_shape
+
+    direct = ET.fromstring(
+        '<ddo class="stdClust" uid="1"><bounds>(0,0,10,10)</bounds></ddo>'
+    )
+    assert _cluster_shape(direct) is direct
+
+    wrapped = ET.fromstring(
+        '<ddo class="typeDef" uid="2"><bounds>(0,0,10,10)</bounds>'
+        '<partsList elements="2">'
+        '<SL__arrayElement class="label" uid="3">'
+        "<bounds>(0,0,5,5)</bounds></SL__arrayElement>"
+        '<SL__arrayElement class="stdClust" uid="4"><bounds>(0,0,10,10)</bounds>'
+        '<paneHierarchy class="pane" uid="5"><bounds>(1,1,9,9)</bounds>'
+        '<zPlaneList elements="0"/></paneHierarchy>'
+        "</SL__arrayElement>"
+        "</partsList>"
+        "</ddo>"
+    )
+    shape = _cluster_shape(wrapped)
+    assert shape is not None
+    assert shape.get("uid") == "4"
+
+    not_a_cluster = ET.fromstring(
+        '<ddo class="stdNum" uid="6"><bounds>(0,0,10,10)</bounds></ddo>'
+    )
+    assert _cluster_shape(not_a_cluster) is None
+    assert _cluster_shape(None) is None
+
+    # A typeDef with a stdClust PART that carries NO paneHierarchy (not a real
+    # cluster shape — never seen on the corpus, but must not false-positive).
+    no_pane = ET.fromstring(
+        '<ddo class="typeDef" uid="7"><bounds>(0,0,10,10)</bounds>'
+        '<partsList elements="1">'
+        '<SL__arrayElement class="stdClust" uid="8"><bounds>(0,0,10,10)</bounds>'
+        "</SL__arrayElement>"
+        "</partsList>"
+        "</ddo>"
+    )
+    assert _cluster_shape(no_pane) is None
+
+
+# A synthetic array-of-clusters CONSTANT ddo, structurally identical to the
+# real corpus shape (verified on TestResult_Init.vi's array constant, heap
+# ddo uid 502: `class="indArr"` with a DIRECT `<ddo class="typeDef">` child
+# — NOT inside its own `partsList` — wrapping the element's `stdClust`
+# shape). The element cluster ("failure") has 2 fields: "test" (a leaf) and
+# "error" (itself a NESTED cluster with 3 sub-fields), mirroring the real
+# TestResult_Init.vi "failure" cluster exactly (uid 573 -> field "error"
+# uid 594 -> status/code/source).
+_ARRAY_OF_CLUSTER_FIXTURE = """
+<ddo class="indArr" uid="502">
+  <bounds>(197, 22, 313, 114)</bounds>
+  <partsList elements="1">
+    <SL__arrayElement class="label" uid="629">
+      <bounds>(-17, 49, 0, 92)</bounds>
+    </SL__arrayElement>
+  </partsList>
+  <ddo class="typeDef" uid="569">
+    <bounds>(3, 35, 113, 89)</bounds>
+    <partsList elements="1">
+      <SL__arrayElement class="stdClust" uid="573">
+        <bounds>(0, 0, 110, 54)</bounds>
+        <paneHierarchy class="pane" uid="575">
+          <bounds>(3, 3, 107, 51)</bounds>
+          <zPlaneList elements="2">
+            <SL__arrayElement class="udClassDDO" uid="588">
+              <bounds>(-279, -396, -231, -348)</bounds>
+              <partsList elements="1">
+                <SL__arrayElement class="label" uid="590">
+                  <objFlags>0</objFlags>
+                  <bounds>(-17, 2, 0, 26)</bounds>
+                  <textRec class="textHair"><text>"test"</text></textRec>
+                </SL__arrayElement>
+              </partsList>
+            </SL__arrayElement>
+            <SL__arrayElement class="stdClust" uid="594">
+              <bounds>(-231, -396, -175, -374)</bounds>
+              <partsList elements="1">
+                <SL__arrayElement class="label" uid="627">
+                  <objFlags>0</objFlags>
+                  <bounds>(-17, 0, 0, 30)</bounds>
+                  <textRec class="textHair"><text>"error"</text></textRec>
+                </SL__arrayElement>
+              </partsList>
+              <paneHierarchy class="pane" uid="596">
+                <bounds>(3, 3, 53, 19)</bounds>
+                <zPlaneList elements="3">
+                  <SL__arrayElement class="stdBool" uid="943">
+                    <bounds>(-118, -3, -104, 13)</bounds>
+                    <partsList elements="1">
+                      <SL__arrayElement class="label" uid="944">
+                        <objFlags>0</objFlags>
+                        <bounds>(-17, 0, 0, 34)</bounds>
+                        <textRec class="textHair"><text>"status"</text></textRec>
+                      </SL__arrayElement>
+                    </partsList>
+                  </SL__arrayElement>
+                  <SL__arrayElement class="stdNum" uid="949">
+                    <bounds>(-104, -3, -85, 10)</bounds>
+                    <partsList elements="1">
+                      <SL__arrayElement class="label" uid="950">
+                        <objFlags>0</objFlags>
+                        <bounds>(-17, 0, 0, 29)</bounds>
+                        <textRec class="textHair"><text>"code"</text></textRec>
+                      </SL__arrayElement>
+                    </partsList>
+                  </SL__arrayElement>
+                  <SL__arrayElement class="stdString" uid="959">
+                    <bounds>(-87, -3, -68, 12)</bounds>
+                    <partsList elements="1">
+                      <SL__arrayElement class="label" uid="960">
+                        <objFlags>0</objFlags>
+                        <bounds>(-17, 0, 0, 19)</bounds>
+                        <textRec class="textHair"><text>"source"</text></textRec>
+                      </SL__arrayElement>
+                    </partsList>
+                  </SL__arrayElement>
+                </zPlaneList>
+              </paneHierarchy>
+            </SL__arrayElement>
+          </zPlaneList>
+        </paneHierarchy>
+      </SL__arrayElement>
+    </partsList>
+  </ddo>
+</ddo>
+"""
+
+
+def test_array_element_cluster_geometry_typedef_wrapped():
+    """The array-constant path: an ``indArr`` ddo's ELEMENT is its own DIRECT
+    ``<ddo>`` child (not a ``partsList`` part) — verified on TestResult_Init's
+    array-of-clusters constant. When that element resolves (via
+    ``_cluster_shape``, through the ``typeDef`` wrapper) to a cluster,
+    ``_cluster_field_geoms`` extracts its real geometry exactly like a
+    top-level cluster constant, including a genuinely NESTED cluster FIELD
+    (``error`` -> status/code/source) — the same recursion, reached through
+    the array path instead of a plain cluster constant."""
+    from lvkit.parser.layout import _cluster_field_geoms, _cluster_shape
+
+    indarr = ET.fromstring(_ARRAY_OF_CLUSTER_FIXTURE)
+    elem_ddo = indarr.find("ddo")
+    assert elem_ddo is not None
+    assert elem_ddo.get("class") == "typeDef"
+
+    shape = _cluster_shape(elem_ddo)
+    assert shape is not None
+    assert shape.get("uid") == "573"
+
+    cg = _cluster_field_geoms(shape)
+    assert cg is not None
+    assert [f.name for f in cg.fields] == ["test", "error"]
+
+    error = next(f for f in cg.fields if f.name == "error")
+    assert error.nested is not None
+    assert [nf.name for nf in error.nested.fields] == ["status", "code", "source"]
+
+    # Every field (and nested sub-field) lands inside the element's own
+    # native box when fit at scale 1.0 (its own real size) — same containment
+    # guarantee as a plain cluster constant.
+    fit = _fit_into((0.0, 0.0, cg.width, cg.height), cg.width, cg.height)
+    mapped = {f.name: fit(f.value_rect) for f in cg.fields}
+    assert all(_inside(r, (0.0, 0.0, cg.width, cg.height)) for r in mapped.values())
+    inner_fit = _fit_into(mapped["error"], error.nested.width, error.nested.height)
+    assert all(
+        _inside(inner_fit(nf.value_rect), mapped["error"]) for nf in error.nested.fields
+    )
+
+
+# A synthetic ``stdRefNum`` FIELD (inside some enclosing cluster's
+# zPlaneList) carrying a nested cluster as its own DIRECT ``<ddo>`` child —
+# structurally identical to the real corpus shape (verified on the "SMUI
+# Template App Data" cluster's "ResultChangedRef" field, a User Event refnum
+# showing its REGISTERED event-data cluster inline): the nested ddo's own
+# ``<bounds>`` sit at the FIELD's real coordinate scale (a simple offset),
+# never the typedef-canvas extent-normalize trap the cluster's OWN
+# sub-fields live in.
+_REFNUM_WITH_NESTED_CLUSTER_FIXTURE = """
+<SL__arrayElement class="stdRefNum" uid="900">
+  <bounds>(0, 0, 206, 111)</bounds>
+  <partsList elements="1">
+    <SL__arrayElement class="label" uid="901">
+      <objFlags>0</objFlags>
+      <bounds>(-17, 27, 0, 127)</bounds>
+      <textRec class="textHair"><text>"ResultChangedRef"</text></textRec>
+    </SL__arrayElement>
+  </partsList>
+  <ddo class="stdClust" uid="902">
+    <bounds>(5, 31, 201, 106)</bounds>
+    <paneHierarchy class="pane" uid="903">
+      <bounds>(3, 3, 72, 193)</bounds>
+      <zPlaneList elements="1">
+        <SL__arrayElement class="stdBool" uid="904">
+          <bounds>(1000, 2000, 1020, 2030)</bounds>
+          <partsList elements="1">
+            <SL__arrayElement class="label" uid="905">
+              <objFlags>0</objFlags>
+              <bounds>(-17, 0, 0, 34)</bounds>
+              <textRec class="textHair"><text>"status"</text></textRec>
+            </SL__arrayElement>
+          </partsList>
+        </SL__arrayElement>
+      </zPlaneList>
+    </paneHierarchy>
+  </ddo>
+</SL__arrayElement>
+"""
+
+
+def test_nested_cluster_shape_inside_a_non_cluster_field():
+    """The THIRD recursion trigger (issue #45): a field whose OWN class is
+    NOT a cluster shape (here ``stdRefNum``) can still carry a nested
+    cluster as its own DIRECT ``<ddo>`` child — a User Event refnum showing
+    its registered event-data cluster inline, verified on GTR's
+    "ResultChangedRef" field (heap ddo 14006, h=206). ``_nested_cluster_shape``
+    finds it generically (never string-matched on the field's name/class),
+    and ``_cluster_field_geoms`` recurses into it exactly like any other
+    nested cluster field."""
+    from lvkit.parser.layout import (
+        _cluster_field_geoms,
+        _nested_cluster_shape,
+        _rect,
+    )
+
+    field = ET.fromstring(_REFNUM_WITH_NESTED_CLUSTER_FIXTURE)
+    assert field.get("class") == "stdRefNum"  # not itself a cluster shape
+
+    shape = _nested_cluster_shape(field)
+    assert shape is not None
+    assert shape.get("uid") == "902"
+
+    cg = _cluster_field_geoms(shape)
+    assert cg is not None
+    assert [f.name for f in cg.fields] == ["status"]
+    # The nested ddo's own size is comparable to the FIELD's own real box
+    # (111x206) — the field's real coordinate scale, never the typedef-
+    # canvas extent-normalize trap the nested cluster's OWN sub-fields use.
+    shape_box = _rect(shape)
+    assert shape_box is not None
+    assert cg.width == shape_box[2] - shape_box[0]
+    assert cg.height == shape_box[3] - shape_box[1]
+    field_box = _rect(field)
+    assert field_box is not None
+    assert cg.width < field_box[2] - field_box[0]
+    assert cg.height < field_box[3] - field_box[1]
+
+    # A field with NO nested ddo at all resolves to nothing (an ordinary
+    # refnum keeps drawing as a plain refnum constant, unchanged).
+    plain = ET.fromstring(
+        '<SL__arrayElement class="stdRefNum" uid="910">'
+        "<bounds>(0,0,50,50)</bounds>"
+        "</SL__arrayElement>"
+    )
+    assert _nested_cluster_shape(plain) is None
 
 
 def test_fp_default_with_null_bytes_not_corrupted():

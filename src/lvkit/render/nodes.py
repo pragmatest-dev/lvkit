@@ -51,7 +51,7 @@ from ..graph.op_walk import (
 from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
-from ..parser.layout import ClusterFieldGeom
+from ..parser.layout import ClusterGeom
 from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
@@ -343,18 +343,19 @@ class GlyphContext:
     the ``Scene``/``RenderNode`` — a glyph's shape doesn't depend on where it
     sits on the diagram.
 
-    ``cluster_field_geom`` is the one exception: a cluster constant's own
-    INTERNAL shape (each field's real value/label rect) comes from the heap,
-    keyed by the constant's raw uid (``node.id`` with the ``"{vi}::"``
-    qualifier stripped) — not its position, so it fits the same "shape, not
-    placement" contract as ``node.lv_type``/``node.value``.
+    ``cluster_field_geom``/``array_element_cluster`` are the one exception: a
+    cluster's own INTERNAL shape (each field's real value/label rect) comes
+    from the heap, keyed by the owning constant's raw uid (``node.id`` with
+    the ``"{vi}::"`` qualifier stripped) — not its position, so it fits the
+    same "shape, not placement" contract as ``node.lv_type``/``node.value``.
+    ``array_element_cluster`` is the same geometry for an array constant's
+    cluster-typed ELEMENT (one shared shape — every visible row draws it).
     """
 
     graph: InMemoryVIGraph
     vi_name: str
-    cluster_field_geom: Mapping[str, tuple[ClusterFieldGeom, ...]] = field(
-        default_factory=dict
-    )
+    cluster_field_geom: Mapping[str, ClusterGeom] = field(default_factory=dict)
+    array_element_cluster: Mapping[str, ClusterGeom] = field(default_factory=dict)
 
 
 class NodeGlyphResolver(Protocol):
@@ -1096,34 +1097,102 @@ def _cluster_field_values(value: object) -> dict[str, object]:
     return {}
 
 
-def _cluster_const_glyph(
-    node: ConstantNode,
+def _cluster_value_glyph(
+    lv_type: LVType,
+    value: object,
     is_error: bool,
-    field_geom: tuple[ClusterFieldGeom, ...] = (),
-) -> Glyph | None:
-    """Compose a cluster constant from its fields' own leaf glyphs. None when
-    the cluster type carries no field info (nothing to compose from).
-    ``field_geom`` is the constant's real per-field heap geometry (keyed by
-    name for the glyph), when the heap carried a decodable
-    ``paneHierarchy`` — empty for anything else, and the glyph falls back to
-    its own small-box/uniform-row draw."""
-    fields = getattr(node.lv_type, "fields", None) or []
-    if not fields:
-        return None
-    values = _cluster_field_values(node.value)
-    composed = tuple(
-        (f.name, _leaf_const_glyph(f.type, values.get(f.name))) for f in fields
-    )
+    cluster_geom: ClusterGeom | None = None,
+    collapsed: bool = False,
+) -> Glyph:
+    """Compose ONE cluster-typed value's glyph from its fields' own glyphs —
+    shared by a top-level cluster CONSTANT (``_cluster_const_glyph``) and an
+    array's cluster-typed ELEMENT (``_element_glyph``), so both draw a
+    NESTED cluster field the same way: a field that carries a nested cluster
+    recurses into this SAME function (never flattened to raw text), carrying
+    that field's own ``ClusterFieldGeom.nested`` as ITS ``cluster_geom`` — a
+    true box-in-box, drawn recursively by ``ClusterConstantGlyph`` (each
+    level fits its own geometry into whatever rect its PARENT gives it).
+
+    A field nests TWO ways:
+    1. Its own type IS a cluster (``fam in ("cluster", "error_cluster")``) —
+       recurse using the field's OWN type + value.
+    2. Its type is something else (verified: a ``refnum``) whose
+       ``element_type`` IS a cluster AND the heap geometry pass found a real
+       nested shape for it (``field_geom.nested is not None``) — e.g. a User
+       Event refnum showing its REGISTERED event-data cluster inline. Both
+       the graph's type AND the heap's geometry must agree before
+       reinterpreting the field as a cluster, so an ordinary refnum (no
+       nested geometry) keeps drawing as a plain refnum constant, unchanged.
+       The reference itself carries no literal sub-values, so the nested
+       cluster draws its fields' type DEFAULTS (``value=None``).
+
+    ``cluster_geom`` is this cluster's real heap geometry (``None`` when the
+    heap-geometry pass couldn't decode one) — the glyph falls back to its own
+    small-box/uniform-row draw. ``collapsed`` only ever applies to a real
+    top-level ConstantNode ("View As Icon"); a nested field or array element
+    has no such flag and always draws expanded."""
+    fields = lv_type.fields or []
+    values = _cluster_field_values(value)
+    geom_by_name = {g.name: g for g in cluster_geom.fields} if cluster_geom else {}
+    composed = []
+    for f in fields:
+        field_value = values.get(f.name)
+        field_fam = type_family(f.type)
+        field_geom = geom_by_name.get(f.name)
+        nested_type: LVType | None = None
+        nested_value = field_value
+        if field_fam in ("cluster", "error_cluster") and f.type and f.type.fields:
+            nested_type = f.type
+        elif (
+            field_geom is not None
+            and field_geom.nested is not None
+            and f.type is not None
+            and f.type.element_type is not None
+            and f.type.element_type.fields
+            and type_family(f.type.element_type) in ("cluster", "error_cluster")
+        ):
+            nested_type = f.type.element_type
+            nested_value = None  # a reference carries no literal sub-values
+        if nested_type is not None:
+            composed.append((
+                f.name,
+                _cluster_value_glyph(
+                    nested_type,
+                    nested_value,
+                    type_family(nested_type) == "error_cluster",
+                    field_geom.nested if field_geom else None,
+                ),
+            ))
+        else:
+            composed.append((f.name, _leaf_const_glyph(f.type, field_value)))
     summary = "\n".join(
         f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}" for f in fields
     )
     return ClusterConstantGlyph(
-        composed,
+        tuple(composed),
         is_error=is_error,
-        field_geom={g.name: g for g in field_geom},
-        collapsed=node.collapsed,
+        collapsed=collapsed,
         value_summary=summary,
-        border_color=wire_style(node.lv_type).color,
+        border_color=wire_style(lv_type).color,
+        cluster_geom=cluster_geom,
+    )
+
+
+def _cluster_const_glyph(
+    node: ConstantNode,
+    is_error: bool,
+    cluster_geom: ClusterGeom | None = None,
+) -> Glyph | None:
+    """Compose a cluster constant from its fields' own leaf glyphs. None when
+    the cluster type carries no field info (nothing to compose from).
+    ``cluster_geom`` is the constant's real heap geometry, when the heap
+    carried a decodable ``paneHierarchy`` — None for anything else, and the
+    glyph falls back to its own small-box/uniform-row draw."""
+    lv_type = node.lv_type
+    if lv_type is None or not lv_type.fields:
+        return None
+    return _cluster_value_glyph(
+        lv_type, node.value, is_error, cluster_geom, node.collapsed
     )
 
 
@@ -1143,39 +1212,47 @@ def _array_const_values(value: object) -> list[object]:
     return []
 
 
-def _element_glyph(element_type: LVType | None, value: object) -> Glyph:
+def _element_glyph(
+    element_type: LVType | None,
+    value: object,
+    cluster_geom: ClusterGeom | None = None,
+) -> Glyph:
     """One array element's glyph, from the element TYPE + its value. A cluster
-    element composes its fields (so an array of clusters draws each cluster in
-    its cell); anything else is a leaf constant glyph."""
+    element composes its fields — recursing into any NESTED cluster field the
+    same way a top-level cluster constant does (``_cluster_value_glyph``), so
+    an array of clusters draws each cluster (and its own nested clusters) as
+    real box-in-box geometry, not flattened text; anything else is a leaf
+    constant glyph. ``cluster_geom`` is the element's real heap geometry
+    (shared by every element — arrays are homogeneous), when known."""
     fam = type_family(element_type)
     if fam in ("cluster", "error_cluster") and element_type and element_type.fields:
-        vals = _cluster_field_values(value)
-        composed = tuple(
-            (f.name, _leaf_const_glyph(f.type, vals.get(f.name)))
-            for f in element_type.fields
-        )
-        return ClusterConstantGlyph(
-            composed,
-            is_error=fam == "error_cluster",
-            border_color=wire_style(element_type).color,
+        return _cluster_value_glyph(
+            element_type, value, fam == "error_cluster", cluster_geom
         )
     return _leaf_const_glyph(element_type, value)
 
 
-def _array_const_glyph(node: ConstantNode) -> Glyph:
+def _array_const_glyph(
+    node: ConstantNode, cluster_geom: ClusterGeom | None = None
+) -> Glyph:
     """Compose an array constant: one element glyph per value (from the element
     type), drawn by :class:`ArrayConstantGlyph` as an indexed, scrollable column
-    of cells — never the raw ``[…]`` list repr."""
+    of cells — never the raw ``[…]`` list repr. ``cluster_geom`` is the
+    element's real heap geometry when it's a cluster (None otherwise); the
+    array glyph then draws every visible row at that fixed REAL size instead
+    of a synthetic fixed row height."""
     lv_type = node.lv_type
     element_type = lv_type.element_type if lv_type is not None else None
     raw = node.raw_value if node.value is None else node.value
     values = _array_const_values(raw)
-    elements = tuple(_element_glyph(element_type, v) for v in values)
+    elements = tuple(_element_glyph(element_type, v, cluster_geom) for v in values)
     return ArrayConstantGlyph(
         elements=elements,
         element_color=wire_style(lv_type).color,
         struct_uid=node.id,
         dimensions=(lv_type.dimensions if lv_type is not None else 1) or 1,
+        cell_w=cluster_geom.width if cluster_geom is not None else None,
+        cell_h=cluster_geom.height if cluster_geom is not None else None,
     )
 
 
@@ -1230,7 +1307,7 @@ class GeneratedGlyphResolver:
                 composed = _cluster_const_glyph(
                     node,
                     is_error=fam == "error_cluster",
-                    field_geom=ctx.cluster_field_geom.get(raw_uid, ()),
+                    cluster_geom=ctx.cluster_field_geom.get(raw_uid),
                 )
                 if composed is not None:
                     return composed
@@ -1243,7 +1320,10 @@ class GeneratedGlyphResolver:
                     fields=(), border_color=wire_style(node.lv_type).color
                 )
             if fam == "array":
-                return _array_const_glyph(node)
+                raw_uid = node.id.removeprefix(f"{ctx.vi_name}::")
+                return _array_const_glyph(
+                    node, ctx.array_element_cluster.get(raw_uid)
+                )
             raw = node.raw_value if node.value is None else node.value
             return _leaf_const_glyph(node.lv_type, raw, node.display_format)
         if isinstance(node, FormulaNode):

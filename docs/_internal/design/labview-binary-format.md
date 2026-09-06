@@ -675,22 +675,73 @@ mapping scale (1.0 in every verified case — pure translation; implemented as
 `min(inner_w/extent_l, inner_h/extent_t)` so a future mismatched extent falls
 back to a uniform, non-distorting scale rather than a per-axis stretch).
 
-**Nested cluster fields recurse identically.** A field with `class="stdClust"`
-carries its OWN `<paneHierarchy>`/`<zPlaneList>`, structurally identical to
-the top-level ddo's — verified two levels deep in the same VI (heap-uid
-chain 752→769→903: a `typeDef`-wrapped constant's inner `stdClust` PART 769
-has a field "test error" (uid 903, itself `class="stdClust"`) with its own 3
-sub-fields status/code/source). The one subtlety: at a nested level, the
-RESCALE factor for the pane inset must be taken from `drawn_box`'s actual
-(already-mapped, parent-scaled) size over `cluster_el`'s own NATIVE
-`<bounds>` size — reusing the top level's `inner_w`/`inner_h` (computed from
-`cluster_el`'s native-scale `<bounds>` directly) at a nested level places
-sub-fields OUTSIDE the parent's mapped box, since the parent's uniform scale
-never gets applied to the pane inset. See
-`lvkit.parser.layout._cluster_field_geoms` for the working recursive
-implementation and `tests/test_parser.py::test_cluster_field_geoms_maps_real_field_geometry`
-for a synthetic fixture exercising both the coordinate mismatch and the
-nested case. A `typeDef`-wrapped cluster constant (ddo `class="typeDef"`
-with the `stdClust` shape embedded as a `partsList` PART rather than being
-the ddo itself) is a separate heap shape this extraction does NOT special-case
-— it falls back to the glyph's own uniform-row draw, same as before.
+**Extracted geometry is relative, not absolute.** `_cluster_field_geoms`
+returns a `ClusterGeom` (`width`, `height` = the cluster's own real
+`_const_value_box` size; `fields` = each `ClusterFieldGeom`'s `value_rect`/
+`label_rect` relative to that box's OWN `(0, 0)` origin) — never pre-baked
+against a specific drawn position. A caller (the glyph, at draw time) fits
+this into whatever real box it's ACTUALLY drawing at via ONE uniform scale,
+`s = min(box_w / width, box_h / height)`, then translates: a field's
+on-screen rect is `(box_x1 + s*x1, box_y1 + s*y1, ...)`. At the top level
+(a cluster constant drawn at its own real heap box) `s` is always `1.0` —
+pure translation. This composes correctly across recursion levels without
+the extractor ever needing to know its caller's target box size.
+
+**Three heap shapes carry a nested cluster — `_nested_cluster_shape` finds
+all of them, generic over the field's own class:**
+
+1. **A field directly `class="stdClust"`** — recurse using the field
+   itself, into its own `<paneHierarchy>`/`<zPlaneList>` exactly like a
+   top-level ddo. Verified two levels deep in one VI (heap-uid chain
+   752→769→903: a `typeDef`-wrapped constant's inner `stdClust` PART 769 has
+   a field "test error", uid 903, itself `class="stdClust"`, with its own 3
+   sub-fields status/code/source).
+2. **A cluster used as a named `.ctl` typedef control** — the ddo's own
+   class is `"typeDef"`, and the real `stdClust` shape is embedded as ONE
+   `partsList` PART (identified by carrying its own `paneHierarchy`, never
+   by name/position) — `_cluster_shape` unwraps this transparently, so a
+   typedef-wrapped cluster constant gets full real geometry the same as a
+   bare one (no special-cased fallback).
+3. **A control whose own class is something else entirely** (verified:
+   `class="stdRefNum"`) **carrying a nested cluster as its own DIRECT
+   `<ddo>` CHILD** — not inside its `partsList`, a sibling of it — the SAME
+   convention an array ddo's element control uses (see below). Verified on
+   GTR's "SMUI Template App Data" cluster: a User Event refnum field (e.g.
+   `ResultChangedRef`, real box height 206px) shows its REGISTERED
+   event-data cluster type inline this way (nested ddo uid 14006, bounds
+   `(5, 31, 201, 106)` relative to the field's OWN origin — the field's real
+   coordinate scale, a simple offset, NOT the typedef-canvas extent-
+   normalize trap the nested cluster's OWN sub-fields live in). The graph's
+   own type system corroborates this independently: the field's `LVType`
+   has `underlying_type="Refnum"` with `element_type` set to the SAME
+   cluster type (`kind=CLUSTER`, matching field names) — the render only
+   composes this as a nested cluster when BOTH signals agree (real heap
+   geometry found AND the graph's `element_type` is a cluster), so an
+   ordinary refnum with no nested-cluster heap shape is never misinterpreted
+   on the type alone.
+
+See `lvkit.parser.layout._cluster_shape` / `_nested_cluster_shape` /
+`_cluster_field_geoms` for the implementation and
+`tests/test_parser.py::test_cluster_field_geoms_maps_real_field_geometry`,
+`test_array_element_cluster_geometry_typedef_wrapped`, and
+`test_nested_cluster_shape_inside_a_non_cluster_field` for fixtures covering
+all three triggers plus the coordinate mismatch.
+
+**An array ddo's ELEMENT control is its own direct `<ddo>` child, at the
+array's OWN real coordinate scale — not the field-extraction typedef-canvas
+trap.** A block-diagram array CONSTANT's ddo is verified `class="indArr"`
+on the corpus (the same class an array-typed field/indicator uses;
+`stdArray` is `parser.fp_heap_type`'s established name for the same control
+shape, kept as a second recognized class though unverified in this corpus).
+Its single visible element control is a DIRECT `<ddo>` child (a sibling of
+`indArr`'s own `<partsList>` chrome, never a part of it) — verified on
+`TestResult_Init.vi`'s array-of-clusters constant: `indArr` ddo 502
+(real box `92×116`) has a direct `<ddo class="typeDef" uid="569">` child
+(bounds `(3, 35, 113, 89)` relative to 502's own origin — width/height
+`54×110`, at the array's OWN scale) wrapping a `stdClust` shape (uid 573,
+own `<bounds>` also `110×54`, i.e. THE SAME size — a plain offset
+relationship, confirming this is NOT the typedef-canvas trap). Since an
+array is homogeneous (one element type for every value), the array glyph
+draws every visible row at this ONE real size (`ArrayConstantGlyph.cell_w`/
+`cell_h`) instead of stretching to a synthetic fixed row height — never
+scaled, since the cell IS the element's own real size.
