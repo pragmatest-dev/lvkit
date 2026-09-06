@@ -687,8 +687,9 @@ on-screen rect is `(box_x1 + s*x1, box_y1 + s*y1, ...)`. At the top level
 pure translation. This composes correctly across recursion levels without
 the extractor ever needing to know its caller's target box size.
 
-**Three heap shapes carry a nested cluster — `_nested_cluster_shape` finds
-all of them, generic over the field's own class:**
+**Two heap shapes carry a nested cluster that the RENDERER actually
+recurses into — `_cluster_shape` finds both, generic over the field's own
+class:**
 
 1. **A field directly `class="stdClust"`** — recurse using the field
    itself, into its own `<paneHierarchy>`/`<zPlaneList>` exactly like a
@@ -702,30 +703,56 @@ all of them, generic over the field's own class:**
    by name/position) — `_cluster_shape` unwraps this transparently, so a
    typedef-wrapped cluster constant gets full real geometry the same as a
    bare one (no special-cased fallback).
-3. **A control whose own class is something else entirely** (verified:
-   `class="stdRefNum"`) **carrying a nested cluster as its own DIRECT
-   `<ddo>` CHILD** — not inside its `partsList`, a sibling of it — the SAME
-   convention an array ddo's element control uses (see below). Verified on
-   GTR's "SMUI Template App Data" cluster: a User Event refnum field (e.g.
-   `ResultChangedRef`, real box height 206px) shows its REGISTERED
-   event-data cluster type inline this way (nested ddo uid 14006, bounds
-   `(5, 31, 201, 106)` relative to the field's OWN origin — the field's real
-   coordinate scale, a simple offset, NOT the typedef-canvas extent-
-   normalize trap the nested cluster's OWN sub-fields live in). The graph's
-   own type system corroborates this independently: the field's `LVType`
-   has `underlying_type="Refnum"` with `element_type` set to the SAME
-   cluster type (`kind=CLUSTER`, matching field names) — the render only
-   composes this as a nested cluster when BOTH signals agree (real heap
-   geometry found AND the graph's `element_type` is a cluster), so an
-   ordinary refnum with no nested-cluster heap shape is never misinterpreted
-   on the type alone.
 
-See `lvkit.parser.layout._cluster_shape` / `_nested_cluster_shape` /
-`_cluster_field_geoms` for the implementation and
-`tests/test_parser.py::test_cluster_field_geoms_maps_real_field_geometry`,
-`test_array_element_cluster_geometry_typedef_wrapped`, and
-`test_nested_cluster_shape_inside_a_non_cluster_field` for fixtures covering
-all three triggers plus the coordinate mismatch.
+See `lvkit.parser.layout._cluster_shape` / `_cluster_field_geoms` for the
+implementation and
+`tests/test_parser.py::test_cluster_field_geoms_maps_real_field_geometry`
+and `test_array_element_cluster_geometry_typedef_wrapped` for fixtures
+covering both triggers plus the coordinate mismatch.
+
+**A THIRD heap shape exists but is deliberately NOT recursed into: a
+data-typed refnum's own registered payload.** A control whose own class is
+something else entirely (verified: `class="stdRefNum"`) can carry a nested
+cluster as its own DIRECT `<ddo>` CHILD — not inside its `partsList`, a
+sibling of it — the SAME convention an array ddo's element control uses
+(see below). Verified on GTR's "SMUI Template App Data" cluster: a User
+Event refnum field (`ResultChangedRef`, real heap box height 206px) has a
+nested ddo (uid 14006, `<bounds>(5, 31, 201, 106)` relative to the field's
+own origin — bounds `75×196`) that decodes to the SAME cluster type as the
+field's graph-level `LVType.element_type` (`kind=CLUSTER`, matching field
+names) — a real, decodable heap shape.
+
+An EARLIER version of this renderer used that shape to compose the field as
+a fully-EXPANDED nested `ClusterConstantGlyph` (this doc's own prior
+revision documented it as "trigger 3"). A maintainer review against
+reference LabVIEW renders (a User Event control and a Queue control)
+corrected this: a data-typed refnum (queue / notifier / user event / …)
+draws COMPACT — a small icon-ish box plus a compact type-mnemonic BADGE for
+its registered payload — regardless of how complex that payload type is.
+LabVIEW never expands the payload's fields inline. The renderer now ignores
+this heap shape entirely for RENDERING and instead draws every refnum field
+via `render.nodes._leaf_const_glyph`'s `Refnum` branch, wrapped in a
+`RefnumDataTypeGlyph` badge keyed PURELY off the graph's own
+`LVType.element_type` (`style.type_repr` for a scalar payload's mnemonic,
+e.g. `"abc"` for a string queue — verified directly against a real
+Queue-of-string field, "TextStream"; an empty color-bordered badge for a
+cluster payload, which has no single-token mnemonic).
+
+**Open question this doc flags rather than guesses at:** is a data-typed
+refnum FIELD's real on-diagram footprint genuinely `75×196`-ish (icon +
+badge, matching a standalone refnum control) with the heap's `206`-tall
+`<bounds>` being descriptive/editor-only chrome around an "expanded type"
+preview that ISN'T actually shown — or does LabVIEW's cluster EDITOR
+specifically reserve the full expanded-type height for such a field
+regardless of the refnum's own compact on-diagram appearance? No heap
+flag was found distinguishing "this chrome is currently hidden" from
+"currently shown" for the `multiCosm`/`cosm` parts spanning the 206px
+height (their `<index>` selects between two BACKGROUND images, not an
+expand/collapse state). The renderer currently keeps the field's box at
+the heap's full recorded size (`_const_value_box`, unchanged) and only
+changed what's DRAWN inside it — shrinking the reserved box risks
+recomputing `_cluster_field_geoms`'s extent-normalize scale for every
+SIBLING field in the same cluster, which is unverified to be safe.
 
 **An array ddo's ELEMENT control is its own direct `<ddo>` child, at the
 array's OWN real coordinate scale — not the field-extraction typedef-canvas

@@ -59,6 +59,7 @@ from .glyphs.nodes.invoke_node import InvokeNodeGlyph
 from .glyphs.nodes.label import LabelGlyph
 from .glyphs.nodes.local_variable import LocalVariableGlyph
 from .glyphs.nodes.property_node import PropertyNodeGlyph
+from .glyphs.nodes.refnum_data_type import RefnumDataTypeGlyph
 from .glyphs.nodes.unbundle import UnbundleGlyph
 from .glyphs.nodes.variant import VariantGlyph
 from .glyphs.nodes.wrapped_box import WrappedBoxGlyph
@@ -93,6 +94,7 @@ __all__ = [
     "LabelGlyph",
     "LocalVariableGlyph",
     "PropertyNodeGlyph",
+    "RefnumDataTypeGlyph",
     "UnbundleGlyph",
     "VariantGlyph",
     "WrappedBoxGlyph",

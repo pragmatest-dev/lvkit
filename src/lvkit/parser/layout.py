@@ -395,32 +395,6 @@ def _cluster_shape(el: ET.Element | None) -> ET.Element | None:
     return None
 
 
-def _nested_cluster_shape(field_el: ET.Element) -> ET.Element | None:
-    """A field's nested cluster shape, wherever the heap carries one —
-    generic over the field's OWN class, never string-matched on a name.
-
-    Two heap shapes carry a nested cluster, both handled by ``_cluster_shape``
-    on the right starting point:
-
-    1. The field itself IS a cluster (directly ``class="stdClust"``, or a
-       typedef-wrapped one) — ``_cluster_shape(field_el)``.
-    2. The field is some OTHER control (verified: ``class="stdRefNum"``) that
-       carries a nested cluster as its own DIRECT ``<ddo>`` CHILD — the same
-       convention an array ddo's element control uses (see
-       ``_ARRAY_DDO_CLASSES``' extraction). Verified on GTR's "SMUI Template
-       App Data" cluster: a User Event refnum field (e.g.
-       ``ResultChangedRef``) shows its REGISTERED event-data cluster type
-       inline this way, at the field's OWN real coordinate scale (a simple
-       offset — NOT the typedef-canvas extent-normalize trap the cluster's
-       OWN sub-fields live in) — ``_cluster_shape(field_el.find("ddo"))``.
-
-    None when neither resolves."""
-    shape = _cluster_shape(field_el)
-    if shape is not None:
-        return shape
-    return _cluster_shape(field_el.find("ddo"))
-
-
 def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
     """A cluster's real geometry, decoded from its own ``paneHierarchy``/
     ``zPlaneList`` — see ``ClusterGeom`` for the coordinate contract (fields
@@ -448,13 +422,17 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
     always means the value box's own top-left, matching what a caller's
     assigned drawn box actually starts at.
 
-    A field that carries a nested cluster anywhere in its heap subtree (see
-    ``_nested_cluster_shape`` — a direct ``stdClust``, a typedef wrapper, or
-    a control like ``stdRefNum`` whose own DIRECT ``<ddo>`` child is a
-    cluster) recurses into its OWN full ``ClusterGeom``
-    (``ClusterFieldGeom.nested``) — self-contained, relative to ITS OWN
-    (0, 0), never scaled by this level's scale (the DRAWER composes scales
-    across levels, not the extractor).
+    A field whose OWN value is itself a cluster (``_cluster_shape`` — a
+    direct ``stdClust``, or a typedef-wrapped one) recurses into its OWN
+    full ``ClusterGeom`` (``ClusterFieldGeom.nested``) — self-contained,
+    relative to ITS OWN (0, 0), never scaled by this level's scale (the
+    DRAWER composes scales across levels, not the extractor). A field of
+    some OTHER type that merely carries a nested cluster elsewhere in its
+    heap subtree (e.g. a data-typed refnum's registered payload type) is
+    NOT recursed here — LabVIEW draws such a refnum compact regardless of
+    its payload's complexity, so the renderer draws it from the graph's own
+    type (a compact type-mnemonic badge), never this per-field geometry —
+    see ``render.nodes._leaf_const_glyph``'s ``Refnum`` branch.
 
     None when there's no field-level geometry to extract (no
     ``paneHierarchy``/``zPlaneList``, or no field has both a name and a value
@@ -520,7 +498,7 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
     for name, field_value_box, label_box, f in entries:
         mapped_value = _map(field_value_box)
         mapped_label = _map(label_box) if label_box is not None else None
-        nested_shape = _nested_cluster_shape(f)
+        nested_shape = _cluster_shape(f)
         nested = (
             _cluster_field_geoms(nested_shape) if nested_shape is not None else None
         )

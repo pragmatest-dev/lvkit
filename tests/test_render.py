@@ -1200,15 +1200,18 @@ def test_empty_scalar_array_constant_shows_disabled_default_element():
     assert isinstance(target.glyph.default_element, ConstantGlyph)
 
 
-def test_refnum_field_nested_event_cluster_renders_as_real_box_in_box():
+def test_data_typed_refnum_field_draws_compact_not_expanded_cluster():
     """The SMUI cluster's "ResultChangedRef" field — a User Event refnum
-    (``class="stdRefNum"``, real box height ~206px) showing its REGISTERED
-    event-data cluster type inline — is the THIRD recursion trigger (issue
-    #45): the nested cluster lives inside a NON-cluster field, found via
-    ``_nested_cluster_shape`` and composed as a real nested
-    ``ClusterConstantGlyph`` (5 fields, including the DOUBLY-nested
-    "test error" cluster) — not left as a blank/generic box."""
-    from lvkit.render.glyph import ClusterConstantGlyph
+    showing its REGISTERED event-data cluster type — draws COMPACT: LabVIEW
+    shows a data-typed refnum (queue/notifier/user-event) as its own small
+    box plus a type-mnemonic badge, NEVER the payload's expanded field
+    values (corrected after a maintainer reference-image review — the
+    earlier "third recursion trigger" wrongly composed this as a full
+    nested ``ClusterConstantGlyph``, issue #45). A cluster payload has no
+    single-token mnemonic, so its badge is an empty box in the payload's
+    own wire color."""
+    from lvkit.render.glyph import ClusterConstantGlyph, RefnumDataTypeGlyph
+    from lvkit.render.style import wire_style
 
     loaded = _load_graph(BUILTIN_REF_VI)
     if loaded is None:
@@ -1227,33 +1230,39 @@ def test_refnum_field_nested_event_cluster_renders_as_real_box_in_box():
     result_changed_ref = next(
         g for name, g in target.glyph.fields if name == "ResultChangedRef"
     )
-    assert isinstance(result_changed_ref, ClusterConstantGlyph), (
-        "ResultChangedRef must compose as a real nested cluster, not a "
-        "flattened/blank refnum box"
+    assert isinstance(result_changed_ref, RefnumDataTypeGlyph), (
+        "a data-typed refnum field must draw compact (icon + type badge), "
+        "never an expanded nested cluster"
     )
-    cg = result_changed_ref.cluster_geom
-    assert cg is not None
-    assert {f.name for f in cg.fields} == {
-        "test", "resultStatus", "TestResult", "test error", "execution time (sec)",
-    }
-
-    # "test error" is a genuinely DOUBLY-nested cluster (status/code/source).
-    error_field = next(fg for fg in cg.fields if fg.name == "test error")
-    assert error_field.nested is not None
-    assert {nf.name for nf in error_field.nested.fields} == {
-        "status", "code", "source",
-    }
-    error_glyph = next(
-        g for name, g in result_changed_ref.fields if name == "test error"
+    assert not isinstance(result_changed_ref.base, ClusterConstantGlyph)
+    # The registered payload is a cluster — no single-token mnemonic — so
+    # the badge shows no text, only the payload's own wire color.
+    assert result_changed_ref.badge_text == ""
+    smui_node = next(
+        n for n in graph.iter_nodes(vi) if n.id.endswith("::14625")
     )
-    assert isinstance(error_glyph, ClusterConstantGlyph)
-    assert error_glyph.cluster_geom is error_field.nested
+    assert isinstance(smui_node, ConstantNode)
+    assert smui_node.lv_type is not None and smui_node.lv_type.fields is not None
+    field = next(f for f in smui_node.lv_type.fields if f.name == "ResultChangedRef")
+    assert field.type is not None and field.type.element_type is not None
+    assert result_changed_ref.badge_color == wire_style(field.type.element_type).color
 
-    # A refnum field with NO nested cluster (e.g. "TextStream", a Queue
-    # refnum) keeps drawing as a plain (non-cluster) glyph — the trigger
-    # doesn't over-fire on every refnum field.
+    # A refnum field with NO registered payload (e.g. "Current VI's Refnum",
+    # a plain LVObjCtl refnum) keeps drawing as a plain refnum box — no
+    # badge, and never a ClusterConstantGlyph either.
+    current_vi_ref = next(
+        g for name, g in target.glyph.fields if name == "Current VI's Refnum"
+    )
+    assert not isinstance(current_vi_ref, RefnumDataTypeGlyph)
+    assert not isinstance(current_vi_ref, ClusterConstantGlyph)
+
+    # "TextStream" — a Queue of STRING — is the scalar-payload half of the
+    # same fix (matching the reference Queue-of-"abc" render): a compact
+    # badge with a real scalar mnemonic, never a cluster glyph.
     text_stream = next(g for name, g in target.glyph.fields if name == "TextStream")
+    assert isinstance(text_stream, RefnumDataTypeGlyph)
     assert not isinstance(text_stream, ClusterConstantGlyph)
+    assert text_stream.badge_text == "abc"
 
 
 # TestResult_Init.vi's array-of-clusters constant: a "failure" cluster array
@@ -3086,21 +3095,55 @@ def test_nested_cluster_field_draws_as_real_box_in_box():
     assert all(x >= 50.0 - 1e-6 for x, _ in nested_rects)
 
 
-def test_refnum_field_with_nested_cluster_type_composes_as_real_box():
-    """The THIRD recursion trigger (issue #45): a cluster FIELD whose own
-    type is NOT a cluster (a ``refnum``, e.g. a User Event) but whose
-    ``element_type`` IS one — the registered event-data type LabVIEW shows
-    inline — composes as a REAL nested ``ClusterConstantGlyph`` in
-    ``nodes._cluster_value_glyph``, exactly like a directly cluster-typed
-    field, PROVIDED the heap geometry pass also found a nested shape for it
-    (``field_geom.nested``). Both signals (graph type AND heap geometry)
-    must agree: an ordinary refnum field with no nested geometry keeps
-    drawing as a plain refnum constant, unchanged — never reinterpreted as a
-    cluster on the type alone."""
+def test_refnum_data_type_glyph_draws_base_plus_compact_badge():
+    """``RefnumDataTypeGlyph`` draws its ``base`` (the plain refnum box)
+    UNCHANGED, plus one small badge rect in the corner — a real mnemonic
+    when the payload has one, or an empty color-bordered box for a cluster
+    payload (no single-token mnemonic)."""
+    from lvkit.render.glyph import RefnumDataTypeGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Base:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.rect(
+                x1, y1, x2, y2, fill="none", stroke="#007f7f", stroke_width=1.0
+            )
+
+    bounds = (0.0, 0.0, 60.0, 50.0)
+
+    scalar = RefnumDataTypeGlyph(base=_Base(), badge_text="abc", badge_color="#e05fa0")
+    b1 = SvgBackend()
+    scalar.draw(b1, bounds, DEFAULT_THEME)
+    svg1 = b1.render(bounds)
+    assert ">abc<" in svg1
+    assert svg1.count("<rect") == 2  # base box + badge box, nothing else
+
+    cluster = RefnumDataTypeGlyph(base=_Base(), badge_text="", badge_color="#a88d1e")
+    b2 = SvgBackend()
+    cluster.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert "<text" not in svg2  # no mnemonic for a cluster payload
+    assert svg2.count("<rect") == 2
+    assert 'stroke="#a88d1e"' in svg2  # the badge's own wire color
+
+
+def test_refnum_field_with_cluster_element_type_draws_compact_badge():
+    """A cluster FIELD whose own type is NOT a cluster (a ``refnum``, e.g. a
+    User Event) but whose ``element_type`` IS one — the registered
+    event-data type LabVIEW shows for a data-typed refnum — draws COMPACT:
+    a ``RefnumDataTypeGlyph`` (the plain refnum box + a type-mnemonic
+    badge), NEVER a nested ``ClusterConstantGlyph`` expanding the payload's
+    fields (corrected after a maintainer reference-image review — issue
+    #45's refnum trigger). The cluster payload has no single-token
+    mnemonic, so the badge shows no text, only the payload's own wire
+    color. This holds regardless of whether the heap-geometry pass found a
+    nested shape for the field (``cluster_geom`` is no longer consulted for
+    this decision at all — it's purely type-driven)."""
     from lvkit.models import ClusterField
-    from lvkit.parser.layout import ClusterFieldGeom, ClusterGeom
-    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.glyph import ClusterConstantGlyph, RefnumDataTypeGlyph
     from lvkit.render.nodes import _cluster_value_glyph
+    from lvkit.render.style import wire_style
 
     inner_cluster_type = LVType(
         kind=LVTypeKind.CLUSTER,
@@ -3116,53 +3159,49 @@ def test_refnum_field_with_nested_cluster_type_composes_as_real_box():
         kind=LVTypeKind.CLUSTER,
         fields=[ClusterField(name="EventRef", type=refnum_type)],
     )
-    nested_field_geom = ClusterGeom(
-        width=75.0,
-        height=196.0,
-        fields=(
-            ClusterFieldGeom(
-                "status", value_rect=(0.0, 0.0, 20.0, 20.0), label_rect=None
-            ),
-        ),
-    )
-    outer_geom = ClusterGeom(
-        width=111.0,
-        height=206.0,
-        fields=(
-            ClusterFieldGeom(
-                "EventRef",
-                value_rect=(0.0, 0.0, 111.0, 206.0),
-                label_rect=None,
-                nested=nested_field_geom,
-            ),
-        ),
-    )
 
-    # With BOTH signals present (type carries a cluster element_type, AND
-    # heap geometry found a nested shape): composes as a real nested cluster.
-    glyph = _cluster_value_glyph(outer_type, None, False, outer_geom)
+    glyph = _cluster_value_glyph(outer_type, None, False, None)
     assert isinstance(glyph, ClusterConstantGlyph)
     (name, field_glyph), = glyph.fields
     assert name == "EventRef"
-    assert isinstance(field_glyph, ClusterConstantGlyph)
-    assert field_glyph.cluster_geom is nested_field_geom
+    assert isinstance(field_glyph, RefnumDataTypeGlyph)
+    assert not isinstance(field_glyph, ClusterConstantGlyph)
+    assert field_glyph.badge_text == ""
+    assert field_glyph.badge_color == wire_style(inner_cluster_type).color
 
-    # Missing heap geometry for that SAME field (an ordinary refnum with no
-    # nested cluster) — falls back to the plain leaf glyph, NOT a cluster.
-    plain_geom = ClusterGeom(
-        width=111.0,
-        height=206.0,
-        fields=(
-            ClusterFieldGeom(
-                "EventRef", value_rect=(0.0, 0.0, 111.0, 206.0), label_rect=None
-            ),
-        ),
+    # A registered SCALAR payload (e.g. a string) shows its real mnemonic.
+    string_refnum_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="Queue",
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
     )
-    glyph2 = _cluster_value_glyph(outer_type, None, False, plain_geom)
+    scalar_outer = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="Q", type=string_refnum_type)],
+    )
+    glyph2 = _cluster_value_glyph(scalar_outer, None, False, None)
     assert isinstance(glyph2, ClusterConstantGlyph)
     (name2, field_glyph2), = glyph2.fields
-    assert name2 == "EventRef"
-    assert not isinstance(field_glyph2, ClusterConstantGlyph)
+    assert name2 == "Q"
+    assert isinstance(field_glyph2, RefnumDataTypeGlyph)
+    assert field_glyph2.badge_text == "abc"
+
+    # An ordinary refnum with NO registered payload draws with no badge at
+    # all — never reinterpreted as a cluster or wrapped with an empty badge.
+    plain_refnum_type = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="LVObjCtl"
+    )
+    plain_outer = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="Plain", type=plain_refnum_type)],
+    )
+    glyph3 = _cluster_value_glyph(plain_outer, None, False, None)
+    assert isinstance(glyph3, ClusterConstantGlyph)
+    (name3, field_glyph3), = glyph3.fields
+    assert name3 == "Plain"
+    assert not isinstance(field_glyph3, RefnumDataTypeGlyph)
+    assert not isinstance(field_glyph3, ClusterConstantGlyph)
 
 
 def test_pass_through_mux_is_not_a_bundle_glyph():

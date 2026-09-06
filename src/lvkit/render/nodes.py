@@ -86,6 +86,7 @@ from .glyph import (
     LabelGlyph,
     LocalVariableGlyph,
     PropertyNodeGlyph,
+    RefnumDataTypeGlyph,
     UnbundleGlyph,
     VariantGlyph,
     WrappedBoxGlyph,
@@ -1069,7 +1070,22 @@ def _leaf_const_glyph(
         # "refnum" for GENERIC refs, whose wire is reference-green). Same rule as
         # a class refnum terminal — see style.lv_type_label. The name word-wraps
         # AND shrinks to fill the box (fit=True) instead of truncating.
-        return ConstantGlyph(lv_type_label(lv_type), color, fit=True)
+        base = ConstantGlyph(lv_type_label(lv_type), color, fit=True)
+        if lv_type.element_type is not None:
+            # A data-typed refnum (queue / notifier / user event / …) —
+            # LabVIEW draws it COMPACT with a small type-mnemonic badge for
+            # its REGISTERED payload, never the payload's expanded members,
+            # regardless of how complex the payload type is (verified
+            # against reference renders of a User Event and a Queue
+            # control — issue #45's refnum trigger corrected). A cluster
+            # payload has no single-token mnemonic (see ``type_repr``), so
+            # its badge is an empty box in the payload's own wire color.
+            return RefnumDataTypeGlyph(
+                base,
+                type_repr(lv_type.element_type),
+                wire_style(lv_type.element_type).color,
+            )
+        return base
     else:
         value = str(raw) if raw is not None else ""
     # String constants word-wrap to fill their (already content-sized) box.
@@ -1107,24 +1123,21 @@ def _cluster_value_glyph(
     """Compose ONE cluster-typed value's glyph from its fields' own glyphs —
     shared by a top-level cluster CONSTANT (``_cluster_const_glyph``) and an
     array's cluster-typed ELEMENT (``_element_glyph``), so both draw a
-    NESTED cluster field the same way: a field that carries a nested cluster
-    recurses into this SAME function (never flattened to raw text), carrying
-    that field's own ``ClusterFieldGeom.nested`` as ITS ``cluster_geom`` — a
-    true box-in-box, drawn recursively by ``ClusterConstantGlyph`` (each
-    level fits its own geometry into whatever rect its PARENT gives it).
+    NESTED cluster field the same way: a field whose OWN type IS a cluster
+    (``fam in ("cluster", "error_cluster")``) recurses into this SAME
+    function (never flattened to raw text), carrying that field's own
+    ``ClusterFieldGeom.nested`` as ITS ``cluster_geom`` — a true box-in-box,
+    drawn recursively by ``ClusterConstantGlyph`` (each level fits its own
+    geometry into whatever rect its PARENT gives it).
 
-    A field nests TWO ways:
-    1. Its own type IS a cluster (``fam in ("cluster", "error_cluster")``) —
-       recurse using the field's OWN type + value.
-    2. Its type is something else (verified: a ``refnum``) whose
-       ``element_type`` IS a cluster AND the heap geometry pass found a real
-       nested shape for it (``field_geom.nested is not None``) — e.g. a User
-       Event refnum showing its REGISTERED event-data cluster inline. Both
-       the graph's type AND the heap's geometry must agree before
-       reinterpreting the field as a cluster, so an ordinary refnum (no
-       nested geometry) keeps drawing as a plain refnum constant, unchanged.
-       The reference itself carries no literal sub-values, so the nested
-       cluster draws its fields' type DEFAULTS (``value=None``).
+    A field whose type is something ELSE (a ``refnum``) that happens to
+    carry a registered payload TYPE — e.g. a User Event refnum's event-data
+    cluster — is NOT recursed here: LabVIEW draws such a refnum COMPACT
+    regardless of its payload's complexity (a small icon + a type-mnemonic
+    badge, never the payload's expanded members — verified against
+    reference renders of a User Event and a Queue control). That compact
+    form is ``_leaf_const_glyph``'s job (see its ``Refnum`` branch), which
+    every non-cluster field already goes through below.
 
     ``cluster_geom`` is this cluster's real heap geometry (``None`` when the
     heap-geometry pass couldn't decode one) — the glyph falls back to its own
@@ -1138,28 +1151,14 @@ def _cluster_value_glyph(
     for f in fields:
         field_value = values.get(f.name)
         field_fam = type_family(f.type)
-        field_geom = geom_by_name.get(f.name)
-        nested_type: LVType | None = None
-        nested_value = field_value
         if field_fam in ("cluster", "error_cluster") and f.type and f.type.fields:
-            nested_type = f.type
-        elif (
-            field_geom is not None
-            and field_geom.nested is not None
-            and f.type is not None
-            and f.type.element_type is not None
-            and f.type.element_type.fields
-            and type_family(f.type.element_type) in ("cluster", "error_cluster")
-        ):
-            nested_type = f.type.element_type
-            nested_value = None  # a reference carries no literal sub-values
-        if nested_type is not None:
+            field_geom = geom_by_name.get(f.name)
             composed.append((
                 f.name,
                 _cluster_value_glyph(
-                    nested_type,
-                    nested_value,
-                    type_family(nested_type) == "error_cluster",
+                    f.type,
+                    field_value,
+                    field_fam == "error_cluster",
                     field_geom.nested if field_geom else None,
                 ),
             ))
