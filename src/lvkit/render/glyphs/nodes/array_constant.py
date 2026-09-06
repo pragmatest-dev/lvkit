@@ -46,7 +46,19 @@ class ArrayConstantGlyph:
     stretched into a guessed row height. ``cell_w`` clips the cell's width to
     that real size (left-anchored in the viewport, never stretched to fill
     it); ``None`` (the default, every non-cluster element) keeps today's
-    fixed ``_CELL_H`` row filling the full viewport width."""
+    fixed ``_CELL_H`` row filling the full viewport width.
+
+    ``default_element`` is the element TYPE's own glyph at its type-default
+    value (``value=None`` — the same "unset" convention every leaf/cluster
+    field already draws; see ``nodes._leaf_const_glyph``/
+    ``_cluster_value_glyph``) — LabVIEW shows a DISABLED default-valued
+    element for every unset/past-end row, never a blank rect, and an EMPTY
+    array (``elements == ()``) shows exactly one such row at index 0. Drawn
+    with the existing ``lv-disabled-mask`` wash (``theme.disabled_mask`` at
+    ~0.5 opacity — the same translucent-grey convention a disabled
+    subdiagram frame already uses, see ``composite.py``), not a new style.
+    ``None`` (an older caller, or an element type with no default glyph)
+    falls back to the old flat grey rect."""
 
     elements: tuple[Glyph, ...]
     element_color: str
@@ -54,6 +66,7 @@ class ArrayConstantGlyph:
     dimensions: int = 1
     cell_h: float | None = None
     cell_w: float | None = None
+    default_element: Glyph | None = None
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -89,6 +102,10 @@ class ArrayConstantGlyph:
         # by ``-index * cell_h`` so element[index] lands at the viewport top
         # (the clip must stay on the OUTER group, or it would scroll too). With
         # no JS it shows rows [0, visible).
+        #
+        # ``max(total, 1)`` (not bare ``total``) so a genuinely EMPTY array
+        # still draws its row 0 — LabVIEW always shows AT LEAST the disabled
+        # default element at index 0, never zero rows.
         backend.begin_group(clip=(vx1, vy1, vx2, vy2))
         backend.begin_group(
             cls="lv-array-col",
@@ -97,16 +114,26 @@ class ArrayConstantGlyph:
         cell_right = vx2 - 1.0
         if self.cell_w is not None:
             cell_right = min(vx2, vx1 + self.cell_w) - 1.0
-        for i in range(total + max(0, visible - 1)):
+        row_count = max(total, 1) + max(0, visible - 1)
+        for i in range(row_count):
             cy1 = vy1 + i * cell_h
             cy2 = cy1 + cell_h
             cell = (vx1 + 1.0, cy1 + 1.0, cell_right, cy2 - 1.0)
             if i < total:
                 self.elements[i].draw(backend, cell, theme)
+            elif self.default_element is not None:
+                # Past the array end (or the whole array is empty): the
+                # element type's own REAL default-valued glyph, washed with
+                # the disabled mask — real content, dimmed, never a blank
+                # rect (an empty array shows one such row at index 0).
+                self.default_element.draw(backend, cell, theme)
+                backend.begin_group(cls="lv-disabled-mask")
+                backend.rect(*cell, fill=theme.disabled_mask)
+                backend.end_group()
             else:
-                # Past the array end: a greyed, disabled cell.
+                # No default glyph available: the old flat grey cell.
                 backend.rect(*cell, fill=theme.fp_panel, stroke="none")
-            if i + 1 < total + max(0, visible - 1):
+            if i + 1 < row_count:
                 backend.line(
                     vx1, cy2, vx2, cy2, stroke=theme.struct_border, stroke_width=0.4
                 )

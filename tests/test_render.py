@@ -684,6 +684,85 @@ def test_array_constant_renders_indexed_cells_not_raw_repr():
     assert svg.count('data-lv-struct="v::9"') >= 3  # carrier + col + index all keyed
 
 
+def test_empty_array_shows_disabled_default_element_not_blank_rect():
+    """LabVIEW never shows a blank/greyed rect for an unset array row — it
+    shows the element TYPE's own DEFAULT-valued control, disabled. An EMPTY
+    array (``elements == ()``) therefore shows ONE disabled default element
+    at index 0 (plus further dimmed rows filling the viewport); a NON-empty
+    array's real elements are drawn normally (undimmed) and only rows PAST
+    the real elements get the disabled default. ``default_element=None``
+    (an older caller) keeps the old flat grey rect, unchanged."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.glyph import ArrayConstantGlyph, ConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    default = ConstantGlyph("", "#e05fa0", multiline=True)
+
+    class _Marked:
+        """A distinctive glyph so we can tell a REAL element apart from the
+        default in the rendered SVG."""
+
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "REAL", 7.0)
+
+    bounds = (0.0, 0.0, 140.0, 90.0)  # 90 / 18 = 5 visible rows
+
+    # An EMPTY array: default_element draws at index 0 (and further rows),
+    # washed with the existing lv-disabled-mask convention (never a blank
+    # theme.fp_panel rect).
+    empty_glyph = ArrayConstantGlyph(
+        elements=(), element_color="#e05fa0", struct_uid="v::1",
+        default_element=default,
+    )
+    b1 = SvgBackend()
+    empty_glyph.draw(b1, bounds, DEFAULT_THEME)
+    svg1 = b1.render(bounds)
+    assert 'class="lv-disabled-mask"' in svg1
+    assert DEFAULT_THEME.disabled_mask in svg1
+    assert DEFAULT_THEME.fp_panel not in svg1  # never the old blank-cell fill
+
+    # A NON-empty array: the real element is undimmed; rows past it get the
+    # disabled default.
+    populated_glyph = ArrayConstantGlyph(
+        elements=(_Marked(),), element_color="#e05fa0", struct_uid="v::2",
+        default_element=default,
+    )
+    b2 = SvgBackend()
+    populated_glyph.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert ">REAL<" in svg2
+    assert 'class="lv-disabled-mask"' in svg2  # past-end rows still disabled
+
+    # default_element=None (back-compat): old flat grey cell, unchanged.
+    legacy_glyph = ArrayConstantGlyph(
+        elements=(), element_color="#e05fa0", struct_uid="v::3"
+    )
+    b3 = SvgBackend()
+    legacy_glyph.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    assert 'class="lv-disabled-mask"' not in svg3
+    assert DEFAULT_THEME.fp_panel in svg3
+
+    # Regression: a box small enough for exactly ONE visible row (visible ==
+    # 1, e.g. GTR's "SuitesRunning") must still draw that one disabled
+    # default row — ``total + max(0, visible - 1)`` (0 + 0 == 0) used to
+    # draw ZERO rows for an empty array here; the fix is ``max(total, 1)``.
+    small_bounds = (0.0, 0.0, 80.0, 24.0)  # tiny box -> exactly 1 visible row
+    tiny_glyph = ArrayConstantGlyph(
+        elements=(), element_color="#e05fa0", struct_uid="v::4",
+        default_element=default,
+    )
+    b4 = SvgBackend()
+    tiny_glyph.draw(b4, small_bounds, DEFAULT_THEME)
+    svg4 = b4.render(small_bounds)
+    assert 'data-lv-visible="1"' in svg4  # confirms this exercises the bug
+    assert 'class="lv-disabled-mask"' in svg4, (
+        "an empty array with exactly 1 visible row must still draw its "
+        "disabled default element at index 0, not zero rows"
+    )
+
+
 def test_local_variable_glyph_badge_and_read_write_border_weight():
     """A Local Variable node draws the ▶ badge (a filled triangle polygon) that
     tells it apart from a same-shaped constant box, with a BOLD border on both
@@ -1087,6 +1166,40 @@ def test_cluster_constant_scene_uses_real_field_geometry():
     assert output_term.center == ((bx1 + bx2) / 2, (by1 + by2) / 2)
 
 
+# GTR Main UI's "SuitesRunning" — an EMPTY array of STRINGS (heap ddo uid
+# 14774, term uid 14773) — the scalar-element half of the disabled-default
+# extension (the array-of-cluster half is covered by
+# test_array_of_cluster_constant_uses_real_element_geometry).
+_SUITES_RUNNING_TERM_UID = "14773"
+
+
+def test_empty_scalar_array_constant_shows_disabled_default_element():
+    """"SuitesRunning" (an empty array of strings) must show a DISABLED
+    default-valued element — a real empty-string constant glyph, dimmed —
+    never a blank grey box (the disabled-default extension)."""
+    from lvkit.render.glyph import ArrayConstantGlyph, ConstantGlyph
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if rn.node.id == f"{vi}::{_SUITES_RUNNING_TERM_UID}"
+        ),
+        None,
+    )
+    assert target is not None, "SuitesRunning array constant not in scene"
+    assert isinstance(target.glyph, ArrayConstantGlyph)
+    assert target.glyph.elements == ()  # genuinely empty
+    assert isinstance(target.glyph.default_element, ConstantGlyph)
+
+
 def test_refnum_field_nested_event_cluster_renders_as_real_box_in_box():
     """The SMUI cluster's "ResultChangedRef" field — a User Event refnum
     (``class="stdRefNum"``, real box height ~206px) showing its REGISTERED
@@ -1164,12 +1277,12 @@ def test_array_of_cluster_constant_uses_real_element_geometry():
     This VI's array constant is its default/initializer value — genuinely
     EMPTY (``node.value == "[]"``, verified: TestResult_Init.vi initializes
     an empty failures array) — LabVIEW itself shows an empty array constant
-    as blank/greyed rows, so ``elements`` is correctly empty here too; the
-    COMPOSITION of a non-empty element (real nested box-in-box, not
-    flattened text) is exercised directly below since the corpus has no
-    array-of-cluster constant with populated default data to render."""
+    as a DISABLED default-valued element, never blank/greyed rows (the
+    disabled-default extension): ``default_element`` is a REAL nested
+    ``ClusterConstantGlyph`` at the same real geometry, with default field
+    values — including the genuinely NESTED "error" cluster
+    (status/code/source), a true box-in-box, not flattened text."""
     from lvkit.render.glyph import ArrayConstantGlyph, ClusterConstantGlyph
-    from lvkit.render.nodes import _array_const_glyph
 
     loaded = _load_graph(_ARRAY_OF_CLUSTER_VI)
     if loaded is None:
@@ -1192,24 +1305,17 @@ def test_array_of_cluster_constant_uses_real_element_geometry():
     assert target.glyph.cell_h == 110.0
     assert target.glyph.elements == ()  # genuinely empty default value
 
-    array_node = target.node
-    assert isinstance(array_node, ConstantNode)
-    layout = build_layout(_ARRAY_OF_CLUSTER_VI)
-    real_cluster_geom = layout.array_element_cluster.get(_ARRAY_OF_CLUSTER_TERM_UID)
+    default = target.glyph.default_element
+    assert isinstance(default, ClusterConstantGlyph), (
+        "an empty array-of-cluster constant must show a real disabled "
+        "default CLUSTER element, not a blank rect"
+    )
+    real_cluster_geom = default.cluster_geom
     assert real_cluster_geom is not None
-
-    # Simulate ONE populated element (default field values, like an "unset"
-    # cluster field elsewhere) to exercise composition with the SAME real
-    # geometry the (empty) real constant carries.
-    populated = array_node.model_copy(update={"value": "[{}]"})
-    glyph = _array_const_glyph(populated, real_cluster_geom)
-    assert isinstance(glyph, ArrayConstantGlyph)
-    assert len(glyph.elements) == 1
-    elem = glyph.elements[0]
-    assert isinstance(elem, ClusterConstantGlyph)
-    assert elem.cluster_geom is real_cluster_geom
+    assert real_cluster_geom.width == 54.0
+    assert real_cluster_geom.height == 110.0
     assert {f.name for f in real_cluster_geom.fields} == {
-        name for name, _ in elem.fields
+        name for name, _ in default.fields
     }
 
     # The "error" field is a genuinely NESTED cluster (status/code/source) —
@@ -1219,7 +1325,7 @@ def test_array_of_cluster_constant_uses_real_element_geometry():
     assert {nf.name for nf in error_field.nested.fields} == {
         "status", "code", "source",
     }
-    error_glyph = next(g for name, g in elem.fields if name == "error")
+    error_glyph = next(g for name, g in default.fields if name == "error")
     assert isinstance(error_glyph, ClusterConstantGlyph)
     assert error_glyph.cluster_geom is error_field.nested
 

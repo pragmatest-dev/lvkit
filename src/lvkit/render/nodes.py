@@ -1240,12 +1240,20 @@ def _array_const_glyph(
     of cells — never the raw ``[…]`` list repr. ``cluster_geom`` is the
     element's real heap geometry when it's a cluster (None otherwise); the
     array glyph then draws every visible row at that fixed REAL size instead
-    of a synthetic fixed row height."""
+    of a synthetic fixed row height.
+
+    ``default_element`` is ALWAYS built from the element TYPE at its type
+    default (``value=None``) — even when the array has ZERO elements —
+    exactly the same "unset" convention ``_leaf_const_glyph``/
+    ``_cluster_value_glyph`` already use for an unset scalar or cluster
+    field. LabVIEW shows a DISABLED default-valued element for every unset
+    row (an empty array shows one at index 0), never a blank rect."""
     lv_type = node.lv_type
     element_type = lv_type.element_type if lv_type is not None else None
     raw = node.raw_value if node.value is None else node.value
     values = _array_const_values(raw)
     elements = tuple(_element_glyph(element_type, v, cluster_geom) for v in values)
+    default_element = _element_glyph(element_type, None, cluster_geom)
     return ArrayConstantGlyph(
         elements=elements,
         element_color=wire_style(lv_type).color,
@@ -1253,6 +1261,7 @@ def _array_const_glyph(
         dimensions=(lv_type.dimensions if lv_type is not None else 1) or 1,
         cell_w=cluster_geom.width if cluster_geom is not None else None,
         cell_h=cluster_geom.height if cluster_geom is not None else None,
+        default_element=default_element,
     )
 
 
