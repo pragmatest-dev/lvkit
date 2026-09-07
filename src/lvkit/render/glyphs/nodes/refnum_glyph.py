@@ -52,18 +52,48 @@ _MINI_MAX_H = 32.0
 def _kind_user_event(
     backend: Backend, cx: float, cy: float, s: float, color: str
 ) -> None:
-    """User Event: a FILLED CIRCLE — verified directly against the
-    maintainer's reference images (57/59: both show a solid circular icon,
-    not an arc/radar mark, which the earlier version of this glyph wrongly
-    used). The small pale mark inside is our own clean-room differentiator
-    (the exact interior NI glyph isn't resolvable at reference-image
-    resolution — this doesn't claim to reproduce it, only that the OUTER
-    shape is a circle, which the reference clearly shows)."""
-    r = s * 0.42
-    backend.circle(cx, cy, r, fill=color, stroke="none")
-    backend.circle(
-        cx - r * 0.15, cy - r * 0.25, r * 0.24, fill="#ffffff", stroke="none"
+    """User Event: a GROUND RADAR DISH (a tilted parabolic dish on a post
+    over a pedestal base) set in a pale-blue disc — verified against the
+    maintainer's reference (img #65, a zoomed User Event glyph) and NI's
+    "Generate User Event" icon. Clean-room VECTOR redraw of the shape, not
+    NI raster; the disc/dish colors are the glyph's own (fixed), not the
+    refnum wire ``color`` (which the reference shows is constant across
+    payload types)."""
+    r = s * 0.48
+    disc = "#5cc2ef"  # pale-blue disc background
+    navy = "#16299a"  # the dish
+    edge = "#2f7fa0"  # disc rim
+    sw = max(0.9, s * 0.1)
+    backend.circle(cx, cy, r, fill=disc, stroke=edge, stroke_width=max(0.6, s * 0.05))
+    u = r * 0.86
+    # pedestal base (trapezoid, wide at the bottom)
+    backend.polygon(
+        [
+            (cx - 0.32 * u, cy + 0.72 * u),
+            (cx + 0.32 * u, cy + 0.72 * u),
+            (cx + 0.15 * u, cy + 0.40 * u),
+            (cx - 0.15 * u, cy + 0.40 * u),
+        ],
+        fill=navy,
+        stroke="none",
     )
+    # post rising from the base to the dish mount
+    backend.line(cx, cy + 0.40 * u, cx, cy - 0.02 * u, stroke=navy, stroke_width=sw)
+    # dish reflector: a shallow tilted bowl opening up-right (polyline arc)
+    backend.path(
+        [
+            (cx - 0.58 * u, cy + 0.04 * u),
+            (cx - 0.52 * u, cy - 0.40 * u),
+            (cx - 0.18 * u, cy - 0.62 * u),
+            (cx + 0.26 * u, cy - 0.52 * u),
+        ],
+        stroke=navy,
+        stroke_width=sw,
+        fill="none",
+    )
+    # feed at the dish focus
+    backend.circle(cx - 0.10 * u, cy - 0.24 * u, max(0.6, u * 0.11), fill=navy,
+                   stroke="none")
 
 
 def _kind_queue(backend: Backend, cx: float, cy: float, s: float, color: str) -> None:
