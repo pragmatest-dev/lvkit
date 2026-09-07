@@ -975,12 +975,10 @@ def test_build_scene_joins_graph_and_geometry():
             assert len(branch) >= 2
 
 
-def test_empty_string_field_draws_dimmed_abc_placeholder_not_blank_box():
-    """A genuinely empty/unset string constant/field still identifies its
-    type — a dimmed "abc" mnemonic — never a featureless colored rectangle
-    (LabVIEW is a visual language: every element needs a type-identifying
-    visual even when its value is empty). A SET string still shows its real
-    value, normal color, never the placeholder."""
+def test_empty_string_field_is_empty_not_a_watermark():
+    """An empty/unset string is genuinely EMPTY — an empty string control,
+    NOT a dimmed "abc" watermark (the maintainer: "empty string default
+    isn't a watermark, it's just empty"). A SET string shows its real value."""
     from lvkit.models import LVType
     from lvkit.render.glyph import ConstantGlyph
     from lvkit.render.nodes import _leaf_const_glyph
@@ -990,13 +988,15 @@ def test_empty_string_field_draws_dimmed_abc_placeholder_not_blank_box():
 
     empty = _leaf_const_glyph(string_type, raw=None)
     assert isinstance(empty, ConstantGlyph)
-    assert empty.value == "abc"
-    assert empty.dim is True
+    assert empty.value == ""
     backend = SvgBackend()
     empty.draw(backend, (0.0, 0.0, 40.0, 20.0), DEFAULT_THEME)
     svg = backend.render((0.0, 0.0, 40.0, 20.0))
-    assert ">abc<" in svg
-    assert f'fill="{DEFAULT_THEME.disabled_mask}"' in svg  # dimmed, not real data
+    assert ">abc<" not in svg  # no watermark
+
+    shown = _leaf_const_glyph(string_type, raw="'hi'")
+    assert isinstance(shown, ConstantGlyph)
+    assert shown.value == "hi"
 
     real = _leaf_const_glyph(string_type, raw="'hello'")
     assert isinstance(real, ConstantGlyph)
@@ -3417,30 +3417,22 @@ def test_path_glyph_draws_folder_mark_even_when_empty():
     assert "log.txt" in svg2  # and the real path text
 
 
-def test_empty_string_constant_shows_dimmed_type_placeholder():
-    """A genuinely empty/unset string constant draws the ``abc`` type
-    mnemonic, DIMMED (a TYPE placeholder, never mistaken for real data) —
-    never a blank colored box (acceptance-gate rule 4)."""
+def test_empty_string_constant_is_empty_not_placeholder():
+    """A genuinely empty/unset string constant is EMPTY (an empty string
+    control), never an "abc" watermark — the maintainer: "empty string
+    default isn't a watermark, it's just empty"."""
     from lvkit.render.glyph import ConstantGlyph
     from lvkit.render.nodes import _leaf_const_glyph
-    from lvkit.render.style import DEFAULT_THEME
 
     string_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     glyph = _leaf_const_glyph(string_type, raw=None)
     assert isinstance(glyph, ConstantGlyph)
-    assert glyph.value == "abc"
-    assert glyph.dim is True
+    assert glyph.value == ""
 
-    backend = SvgBackend()
-    glyph.draw(backend, (0.0, 0.0, 40.0, 20.0), DEFAULT_THEME)
-    svg = backend.render((0.0, 0.0, 40.0, 20.0))
-    assert f'fill="{DEFAULT_THEME.disabled_mask}"' in svg
-
-    # A SET string still shows its real value, full-strength (never dimmed).
+    # A SET string still shows its real value.
     real = _leaf_const_glyph(string_type, raw="'hello'")
     assert isinstance(real, ConstantGlyph)
     assert real.value == "hello"
-    assert real.dim is False
 
 
 def test_timestamp_constant_shows_numeric_value_not_blank_box():

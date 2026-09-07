@@ -1082,9 +1082,8 @@ def _leaf_const_glyph(
             lv_type, value_raw, display_format
         ) or _format_const(value_raw)
     elif fam == "string":
-        # Show the bare text (quotes/escapes are a codegen artifact); empty
-        # for an unset field — ConstantGlyph then falls back to a dimmed
-        # "abc" TYPE placeholder below (never a blank box).
+        # Show the bare text (quotes/escapes are a codegen artifact); an unset
+        # field is genuinely empty (an empty string control), drawn below.
         value = string_const_display(raw) if raw is not None else ""
     elif fam == "path":
         # A path control is visually identifiable even when unset — a
@@ -1164,12 +1163,9 @@ def _leaf_const_glyph(
         )
     else:
         value = str(raw) if raw is not None else ""
-    if fam == "string" and not value:
-        # A genuinely empty/unset string still identifies its type — the
-        # "abc" mnemonic (style.type_repr's own string token), dimmed since
-        # it's a TYPE placeholder, never mistaken for real data. Never a
-        # blank box.
-        return ConstantGlyph("abc", color, dim=True)
+    # An empty/unset string is just EMPTY — an empty string control, not a
+    # watermark. (Its type is identified elsewhere: the string wire color and
+    # the context-help field/type listing, never fake "abc" text in the box.)
     # String constants word-wrap to fill their (already content-sized) box.
     return ConstantGlyph(value or "", color, multiline=fam == "string")
 
