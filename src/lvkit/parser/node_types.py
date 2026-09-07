@@ -14,6 +14,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..models import LVType
 from .models import ParsedNode
 from .nodes.base import extract_label
 from .utils import clean_labview_string, extract_caption
@@ -630,7 +631,24 @@ def _dco_list_terminal_uids(elem: ET.Element) -> list[str]:
 
 @dataclass
 class PropertyNode(ParsedNode):
-    """A property node (class="propNode")."""
+    """A property node (class="propNode").
+
+    LabVIEW draws a property node in one of two forms, distinguished by
+    whether it is permanently bound to a specific front-panel control
+    (IMPLICIT — created by dragging a control's icon onto the diagram, or
+    Right-click control -> Create -> Property Node) or takes its identity
+    from a wired reference (EXPLICIT). The heap tells them apart cleanly: an
+    IMPLICIT node carries a direct ``<ddo uid="...">`` CHILD (a sibling of
+    its own ``<termList>``, never a part of it) naming the BOUND control's
+    own ddo in the front-panel heap, plus a ``<label>`` showing that
+    control's NAME (e.g. "Abort") instead of the generic node name; an
+    EXPLICIT node has NEITHER (verified on GTR's "Abort" boolean property
+    node, uid 16295, bound-control ddo uid 10449, vs. "Set Front Panel
+    Object Control Value.vi"'s explicit VI-reference property node, uid
+    1110, which has no ``<ddo>`` and no ``<label>`` at all). Independently
+    corroborated by wiring: the implicit node's reference-IN terminal is
+    UNWIRED (its identity needs no wire) while the explicit node's is wired.
+    """
 
     object_name: str = ""
     object_method_id: str = ""
@@ -641,6 +659,18 @@ class PropertyNode(ParsedNode):
     # ``_dco_list_terminal_uids``). Exact even when a property's value is
     # itself Refnum-typed, unlike a type-based (Refnum/error-cluster) filter.
     dco_terminal_uids: list[str] = field(default_factory=list)
+    # The BOUND control's own ddo uid (see class docstring) -- "" for an
+    # EXPLICIT property node (no such binding). The sole discriminator: never
+    # inferred from the label text or from wiring (those only corroborate).
+    bound_control_uid: str = ""
+    # The bound control's reconstructed LVType (via
+    # ``fp_heap_type.reconstruct_control_lvtype`` on ``bound_control_uid``'s
+    # ddo in the FRONT-PANEL heap -- resolved by ``_parse_block_diagram``,
+    # which has both heaps, never by ``render/`` reading heap XML itself).
+    # None for an explicit node, OR an implicit one whose control class this
+    # reconstructor doesn't model (see that function's own docstring) --
+    # never a guessed color in either case.
+    bound_control_type: LVType | None = None
 
 
 @dataclass
@@ -689,12 +719,20 @@ class PropertyNodeHandler(NodeTypeHandler):
                 code = 0
             properties.append({"name": name, "code": code})
 
+        # An IMPLICIT property node's DIRECT <ddo> CHILD (a sibling of its
+        # own <termList>, never a part of it) names the front-panel control
+        # it's permanently bound to (see PropertyNode's class docstring) --
+        # absent entirely for an EXPLICIT one.
+        bound_ddo = elem.find("ddo")
+        bound_control_uid = bound_ddo.get("uid", "") if bound_ddo is not None else ""
+
         return PropertyNode(
             **common,
             object_name=object_name,
             object_method_id=omid,
             properties=properties,
             dco_terminal_uids=_dco_list_terminal_uids(elem),
+            bound_control_uid=bound_control_uid,
         )
 
 

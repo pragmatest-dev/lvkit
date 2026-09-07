@@ -821,7 +821,22 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
             term.display_name = resolved
         rows.append((name, is_read))
     class_name = (getattr(node, "object_name", None) or "").strip()
-    return PropertyNodeGlyph(rows=tuple(rows), class_name=class_name)
+    # IMPLICIT vs EXPLICIT (task #51 / reference image #69) -- see
+    # parser.node_types.PropertyNode's class docstring for the heap
+    # discriminator: ``bound_control_uid`` is set ONLY when this propNode
+    # carries its own direct ``<ddo>`` child (permanently bound to a
+    # specific front-panel control), never inferred from the label text.
+    is_implicit = bool(getattr(node, "bound_control_uid", ""))
+    target_name = (node.label or "").strip() if is_implicit else ""
+    bound_type = getattr(node, "bound_control_type", None)
+    bar_color = wire_style(bound_type).color if bound_type is not None else None
+    return PropertyNodeGlyph(
+        rows=tuple(rows),
+        class_name=class_name,
+        is_implicit=is_implicit,
+        target_name=target_name,
+        bar_color=bar_color,
+    )
 
 
 def _row_terminal_present(term: Terminal | None) -> bool:

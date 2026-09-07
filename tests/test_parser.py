@@ -1354,6 +1354,95 @@ class TestParseVI:
         assert node.node_type == "iUse"
         assert node.name == "My Helper.vi"
 
+    def test_parse_property_node_implicit_vs_explicit(self, tmp_path: Path):
+        """A Property Node's ``bound_control_uid`` (task #51) comes ONLY from
+        its own DIRECT ``<ddo>`` CHILD -- a sibling of ``<termList>``, never a
+        part of it, never inferred from the ``<label>`` text. When present,
+        ``_parse_block_diagram`` resolves ``bound_control_type`` from that
+        uid's ddo in the FRONT-PANEL heap (never guessed, never done in
+        ``render/``). Absent entirely -> both fields stay empty/None, exactly
+        like the existing (unbound) propNode behavior."""
+        bd_xml = """<?xml version="1.0"?>
+<root>
+    <node class="propNode" uid="900">
+        <termList elements="3">
+            <SL__arrayElement class="term" uid="901">
+                <dco class="hGrowCItem" uid="911"><typeDesc>TypeID(1)</typeDesc></dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="902">
+                <dco class="hGrowCItem" uid="912"><typeDesc>TypeID(2)</typeDesc></dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="903">
+                <dco class="propItem" uid="913">
+                    <typeDesc>TypeID(3)</typeDesc>
+                    <propList elements="1">
+                        <SL__arrayElement class="propItemInfo" uid="914">
+                            <PropItemName>"Disabled"</PropItemName>
+                            <PropItemCode>1</PropItemCode>
+                        </SL__arrayElement>
+                    </propList>
+                </dco>
+            </SL__arrayElement>
+        </termList>
+        <label class="label" uid="920">
+            <textRec class="textHair"><text>"Abort"</text></textRec>
+        </label>
+        <dcoList elements="1"><SL__arrayElement uid="913" /></dcoList>
+        <nodeName>"Bool"</nodeName>
+        <oMId>0045</oMId>
+        <ddo uid="950" />
+    </node>
+    <node class="propNode" uid="800">
+        <termList elements="1">
+            <SL__arrayElement class="term" uid="801">
+                <dco class="propItem" uid="811">
+                    <typeDesc>TypeID(4)</typeDesc>
+                    <propList elements="1">
+                        <SL__arrayElement class="propItemInfo" uid="812">
+                            <PropItemName>"Name"</PropItemName>
+                            <PropItemCode>500</PropItemCode>
+                        </SL__arrayElement>
+                    </propList>
+                </dco>
+            </SL__arrayElement>
+        </termList>
+        <dcoList elements="1"><SL__arrayElement uid="811" /></dcoList>
+        <nodeName>"VI"</nodeName>
+        <oMId>0007</oMId>
+    </node>
+    <signalList></signalList>
+</root>"""
+        fp_xml = """<?xml version="1.0"?>
+<root>
+    <ddo class="stdBool" uid="950">
+        <bounds>(-2, 79, 38, 119)</bounds>
+    </ddo>
+</root>"""
+        bd_file = tmp_path / "test_BDHb.xml"
+        bd_file.write_text(bd_xml)
+        fp_file = tmp_path / "test_FPHb.xml"
+        fp_file.write_text(fp_xml)
+
+        vi = parse_vi(bd_xml=bd_file, fp_xml=fp_file)
+        nodes = {n.uid: n for n in vi.block_diagram.nodes}
+
+        from lvkit.models import LVTypeKind
+        from lvkit.parser.node_types import PropertyNode
+
+        implicit = nodes["900"]
+        assert isinstance(implicit, PropertyNode)
+        assert implicit.label == "Abort"
+        assert implicit.bound_control_uid == "950"
+        assert implicit.bound_control_type is not None
+        assert implicit.bound_control_type.kind == LVTypeKind.PRIMITIVE
+        assert implicit.bound_control_type.underlying_type == "Boolean"
+
+        explicit = nodes["800"]
+        assert isinstance(explicit, PropertyNode)
+        assert explicit.label is None
+        assert explicit.bound_control_uid == ""
+        assert explicit.bound_control_type is None
+
     def test_parse_with_wires(self, tmp_path: Path):
         """Test parsing a block diagram with wires."""
         xml_content = """<?xml version="1.0"?>

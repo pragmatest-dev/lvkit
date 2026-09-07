@@ -106,6 +106,8 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                 prim_kwargs["property_value_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.dco_terminal_uids
                 ]
+                prim_kwargs["bound_control_uid"] = node.bound_control_uid
+                prim_kwargs["bound_control_type"] = node.bound_control_type
             elif isinstance(node, InvokeNode):
                 prim_kwargs["method_name"] = node.method_name
                 prim_kwargs["method_code"] = node.method_code

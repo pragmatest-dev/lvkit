@@ -5181,6 +5181,198 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     assert _property_node_glyph(empty) is None
 
 
+def test_implicit_property_node_shows_target_name_and_type_color_bar():
+    """An IMPLICIT property node (task #51 / reference image #69) — one
+    permanently bound to a specific front-panel control, discriminated by
+    ``bound_control_uid`` (see ``parser.node_types.PropertyNode``'s class
+    docstring; NEVER inferred from the label text or wiring) — draws the
+    BOUND CONTROL's own name as its header (from the propNode's own heap
+    ``<label>``, never the object class) plus a TYPE-COLOR BAR in that
+    control's wire color. An EXPLICIT node (no ``bound_control_uid``) is
+    completely unaffected — same assertions as the sibling explicit test
+    above."""
+    from lvkit.models import PropertyDef, Terminal
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.nodes import _property_node_glyph
+    from lvkit.render.style import wire_style
+
+    def term(idx, direction, ut):
+        return Terminal(
+            id=f"VI::{idx}",
+            index=idx,
+            direction=direction,
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=ut),
+        )
+
+    bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    node = PrimitiveNode(
+        id="VI::16295",
+        vi_path="VI",
+        node_type="propNode",
+        name="Abort",
+        label="Abort",
+        object_name="Bool",
+        properties=[PropertyDef(name="Disabled")],
+        terminals=[
+            term(0, "input", "Refnum"),  # reference in (unwired, implicit)
+            term(1, "output", "Refnum"),  # reference out
+            term(2, "input", "NumUInt8"),  # Disabled -> write
+        ],
+        property_value_terminal_ids=["VI::2"],
+        bound_control_uid="10449",
+        bound_control_type=bool_type,
+    )
+    glyph = _property_node_glyph(node)
+    assert isinstance(glyph, PropertyNodeGlyph)
+    assert glyph.is_implicit is True
+    assert glyph.target_name == "Abort"
+    assert glyph.bar_color == wire_style(bool_type).color
+
+    # An implicit node whose bound control's class isn't reconstructible
+    # (bound_control_type is None) still shows the target name, just no bar
+    # — never a guessed color. PrimitiveNode is a pydantic model, not a
+    # dataclass -- model_copy(update=...) is its "replace".
+    unresolved = node.model_copy(update={"id": "VI::16296", "bound_control_type": None})
+    glyph2 = _property_node_glyph(unresolved)
+    assert isinstance(glyph2, PropertyNodeGlyph)
+    assert glyph2.is_implicit is True
+    assert glyph2.target_name == "Abort"
+    assert glyph2.bar_color is None
+
+    # EXPLICIT (no bound_control_uid): unaffected, same as the plain
+    # class-header form verified above.
+    explicit = node.model_copy(
+        update={
+            "id": "VI::1110",
+            "label": None,
+            "bound_control_uid": "",
+            "bound_control_type": None,
+        }
+    )
+    glyph3 = _property_node_glyph(explicit)
+    assert isinstance(glyph3, PropertyNodeGlyph)
+    assert glyph3.is_implicit is False
+    assert glyph3.target_name == ""
+    assert glyph3.bar_color is None
+    assert glyph3.class_name == "Bool"
+
+
+def test_property_node_glyph_draws_bar_only_when_implicit():
+    """``PropertyNodeGlyph.draw()`` draws the header text (target name when
+    implicit, ``⚙ <class>`` otherwise) and, ONLY for an implicit node with a
+    resolved ``bar_color``, a solid color bar under the header — never for
+    an explicit node, and never a guessed color when unresolved."""
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    bounds = (0.0, 0.0, 90.0, 68.0)
+
+    implicit = PropertyNodeGlyph(
+        rows=(("Disabled", False),),
+        class_name="Bool",
+        is_implicit=True,
+        target_name="Abort",
+        bar_color="#4a9c3e",
+    )
+    b1 = SvgBackend()
+    implicit.draw(b1, bounds, DEFAULT_THEME)
+    svg1 = b1.render(bounds)
+    assert ">Abort<" in svg1
+    assert "⚙" not in svg1  # target-name header, never the class gear icon
+    assert 'fill="#4a9c3e"' in svg1  # the type-color bar
+
+    explicit = PropertyNodeGlyph(
+        rows=(("Disabled", False),), class_name="Bool", is_implicit=False,
+    )
+    b2 = SvgBackend()
+    explicit.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert "⚙ Bool" in svg2
+    assert 'fill="#4a9c3e"' not in svg2
+
+    # Implicit but unresolved bar_color: target name shows, no bar drawn.
+    unresolved = PropertyNodeGlyph(
+        rows=(("Disabled", False),),
+        class_name="Bool",
+        is_implicit=True,
+        target_name="Abort",
+        bar_color=None,
+    )
+    b3 = SvgBackend()
+    unresolved.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    assert ">Abort<" in svg3
+    assert svg3.count("<rect") == 1  # the outer box only -- no bar rect drawn
+
+
+def test_gtr_abort_property_node_renders_implicit_with_color_bar():
+    """Real-corpus check (task #51 / reference image #69): GTR's "Abort"
+    boolean property node (heap uid 16295) renders IMPLICIT — header
+    "Abort" (the bound control's own name), a green (Boolean) type-color
+    bar, never the "⚙ Bool" class header."""
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+    from lvkit.render.style import wire_style
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::16295")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's Abort property node not in scene"
+    assert isinstance(target.glyph, PropertyNodeGlyph)
+    assert target.glyph.is_implicit is True
+    assert target.glyph.target_name == "Abort"
+    bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    assert target.glyph.bar_color == wire_style(bool_type).color
+    assert target.glyph.rows == (("Disabled", False),)
+
+
+def test_explicit_property_node_in_corpus_keeps_class_header():
+    """Real-corpus check: "Set Front Panel Object Control Value.vi"'s
+    VI-reference property node (heap uid 1110) is EXPLICIT (no bound-control
+    ``<ddo>``) and renders EXACTLY as before — "⚙ VI" class header, no
+    target name, no color bar."""
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+
+    explicit_vi = Path(
+        ".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/"
+        "Set Front Panel Object Control Value.vi"
+    )
+    loaded = _load_graph(explicit_vi)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {explicit_vi}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::1110")
+        ),
+        None,
+    )
+    assert target is not None, "explicit VI-reference property node not in scene"
+    assert isinstance(target.glyph, PropertyNodeGlyph)
+    assert target.glyph.is_implicit is False
+    assert target.glyph.target_name == ""
+    assert target.glyph.bar_color is None
+    assert target.glyph.class_name == "VI"
+
+
 def test_compact_array_terminal_brackets_element_type():
     """A COMPACT FP terminal (too small for the array index-column chrome)
     brackets the element type — "[DBL]" — so array-ness stays obvious; the
