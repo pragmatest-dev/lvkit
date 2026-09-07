@@ -16,6 +16,11 @@ from ...backend import Backend
 from ...style import Theme
 from .base import fit_label
 
+# Below this box size there's no room for a border + cube + name legibly —
+# LabVIEW-style MINI form: just the cube, scaled up, no chrome (see
+# refnum_glyph._MINI_MAX_W/_MINI_MAX_H for the same convention).
+_MINI_MAX = 28.0
+
 
 @dataclass(frozen=True)
 class ClassGlyph:
@@ -28,13 +33,21 @@ class ClassGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
+        w, h = x2 - x1, y2 - y1
+        if w < _MINI_MAX or h < _MINI_MAX:
+            # MINI form: just the cube, filling the box — no border, no
+            # name (there's no room to show either legibly).
+            pad = 1.5
+            cube = min(w, h) - 2 * pad
+            if cube > 3.0:
+                self._draw_cube(backend, x1 + pad, y1 + pad, cube, self.color)
+            return
         backend.rect(
             x1, y1, x2, y2,
             fill=theme.const_fill,
             stroke=self.color,
             stroke_width=1.2,
         )
-        w, h = x2 - x1, y2 - y1
         pad = 3.0
         cube = min(w - 2 * pad, h - 2 * pad, max(0.0, h * 0.55))
         text_y = y2 - pad

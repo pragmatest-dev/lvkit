@@ -110,6 +110,13 @@ class Theme:
     # 0x00007F7F (per the LabVIEW Wiki Color reference) — a dark teal, NOT green.
     # Sits near ``wire_path`` (also teal) as it does in LabVIEW itself.
     wire_refnum: str = "#007f7f"
+    # A refnum control's TYPE-TERMINAL chrome (the small badge showing the
+    # registered payload's mnemonic, e.g. "abc"/"OBJ") — a DASHED
+    # magenta/pink border, verified directly against the maintainer's
+    # reference images (57/58/59): both a string payload ("abc") and a
+    # class payload ("OBJ") draw the SAME dashed pink box, so this is fixed
+    # chrome, not colored by the payload's own wire color.
+    refnum_terminal_border: str = "#e05fa0"
     wire_error: str = "#a88d1e"  # mustard/dark-yellow — error clusters (LV 8.2+)
     wire_variant: str = "#840984"  # purple — Variant (NI rgb(132,9,132))
     # Unresolved / unknown-type wires — a DISTINCT dark grey, NOT the float

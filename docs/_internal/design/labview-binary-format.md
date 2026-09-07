@@ -794,6 +794,65 @@ the payload's own real per-field geometry, and composes real recursive
 element glyphs at every level instead of assuming a fixed answer or
 flattening to text.
 
+**Per-kind refnum symbol + terminal chrome are verified against the
+maintainer's reference images (57/59 User Event, 58 Queue) AND, for kinds no
+reference image covers, against NI's own public docs.** The User Event kind
+symbol is a FILLED CIRCLE (`refnum_glyph._kind_user_event`) — an earlier
+arc/radar mark was wrong; 57 and 59 both clearly show a solid circle, and
+NI's own "Generate User Event" function icon (fetched from
+`unofficial-lvdocs.github.io/glang/GenEvent.gif` — a public mirror of the
+same NI-published `docs-be.ni.com` content) independently shows a circle
+with a small interior mark, confirming the outer shape. The compact
+`TypeTerminalGlyph` badge draws a DASHED border in the FIXED
+`Theme.refnum_terminal_border` pink, NOT the payload's own wire color — 57
+(string payload, "abc") and 59 (class payload, "OBJ") both draw the SAME
+dashed pink box, so it's fixed terminal chrome; the payload wire color tints
+only the mnemonic TEXT.
+
+For kinds with NO maintainer reference image, the actual LabVIEW pictograph
+was fetched from NI's public docs (via the `unofficial-lvdocs.github.io`
+mirror of `docs-be.ni.com` content — same clean-room source class the
+codebase already cites elsewhere, e.g. `scripts/build_ni_function_catalog.
+py`) and re-drawn as a simplified clean-room motif, never traced pixel-for-
+pixel:
+- **Queue** (`_kind_queue`): a 3-compartment comb with a line entering left
+  and an arrow exiting right — from the "Obtain Queue" function icon
+  (`glang/creatque.gif`), whose own pictograph is exactly this comb+arrow
+  shape (a stack of separate bars, the earlier guess, was wrong).
+- **Notifier** (`_kind_notifier`): an exclamation mark in a ring — from the
+  "Obtain Notifier" function icon (`glang/creatnot.gif`), a circled "!" (a
+  pennant-on-a-pole, the earlier guess, was wrong).
+- **Menu** (`_kind_menu`): 3 stacked horizontal bars of decreasing width, no
+  enclosing box — from the "Types of Refnum Controls" page's Menu Refnum
+  icon (`lvhowto/noloc_env_menuref.gif`), a menu-item list with no border.
+- **Generic fallback** (`_kind_generic`, covers `LVObjCtl`/`EventReg`/
+  `DataLog`/anything unmapped): a 2x2 grid with one cell filled — from the
+  same page's VI Refnum icon (`lvhowto/noloc_env_viref.gif`), a 2x2 grid
+  with one cell highlighted (the earlier ring+dot guess is replaced).
+
+Every `noloc_env_*ref.gif` icon on that NI docs page independently confirms
+the DOG-EAR (folded top-right corner) shape this renderer already uses for
+every refnum, at every kind — cross-validating that choice too.
+
+**No value glyph is ever a blank/typeless rectangle** (a blank box was the
+issue-#45 regression). Every leaf field identifies its type even when
+empty/unset (`render.nodes._leaf_const_glyph`): an empty STRING draws a
+DIMMED "abc" type-placeholder (`ConstantGlyph.dim` → `Theme.disabled_mask`,
+never mistaken for real data); a PATH draws a clean-room folder mark
+(`render.glyphs.nodes.path_glyph.PathGlyph`) with or without path text; an
+unset TIMESTAMP (heap ddo class `absTime` → graph `underlying_type=
+"MeasureData"`, `measure_flavor="TimeStamp"`) draws `0.0` (LabVIEW's own
+epoch default, matching codegen's) rather than falling through to a blank
+box; an ARRAY-typed cluster FIELD composes a real `ArrayConstantGlyph` (index
+control + a real default element) instead of the generic leaf's empty box.
+
+**Small refnum/class boxes use a DISTINCT MINI form, not the full glyph
+shrunk** — LabVIEW's own small-control behavior. Below
+`refnum_glyph._MINI_MAX_W/_H` (`class_glyph._MINI_MAX`) a refnum drops the
+dog-ear + terminal and draws just a bordered box holding the kind symbol
+scaled up; a class drops the border + name and draws just the cube. Verified
+against GTR's real `menubar` field (21×27), too small for the full form.
+
 **An array ddo's ELEMENT control is its own direct `<ddo>` child, at the
 array's OWN real coordinate scale — not the field-extraction typedef-canvas
 trap.** A block-diagram array CONSTANT's ddo is verified `class="indArr"`

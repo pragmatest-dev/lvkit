@@ -60,6 +60,7 @@ from .glyphs.nodes.inline_svg import InlineSvgGlyph
 from .glyphs.nodes.invoke_node import InvokeNodeGlyph
 from .glyphs.nodes.label import LabelGlyph
 from .glyphs.nodes.local_variable import LocalVariableGlyph
+from .glyphs.nodes.path_glyph import PathGlyph
 from .glyphs.nodes.property_node import PropertyNodeGlyph
 from .glyphs.nodes.refnum_glyph import RefnumGlyph, TypeTerminalGlyph
 from .glyphs.nodes.unbundle import UnbundleGlyph
@@ -97,6 +98,7 @@ __all__ = [
     "InvokeNodeGlyph",
     "LabelGlyph",
     "LocalVariableGlyph",
+    "PathGlyph",
     "PropertyNodeGlyph",
     "RefnumGlyph",
     "TypeTerminalGlyph",

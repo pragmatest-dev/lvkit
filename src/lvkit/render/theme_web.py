@@ -72,6 +72,7 @@ DARK_PALETTE: dict[str, str] = {
     "wire_cluster": "#c8965a",
     "wire_cluster_mixed": "#f284bd",
     "wire_refnum": "#12b2b2",  # dark teal — LabVIEW refnum wire 0x007F7F, lightened
+    "refnum_terminal_border": "#f284bd",  # same lightened pink as wire_string
     "wire_error": "#cdb03e",
     "wire_variant": "#c452c4",
     "wire_default": "#8a8a8a",

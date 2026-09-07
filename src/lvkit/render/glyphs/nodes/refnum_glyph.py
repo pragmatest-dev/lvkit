@@ -3,9 +3,11 @@ menu / VI-Server / control reference / …), data-typed or not: a clean-room
 DOG-EAR reference frame (our own shape — LabVIEW's own icon is proprietary
 artwork we never reproduce, but a folded-corner box reads as "this is a
 reference", the same visual grammar LabVIEW itself uses), a small KIND
-SYMBOL naming the refnum's ``LVType.ref_type`` (a User Event's broadcast/
-radar mark, a Queue's stack mark, …, a generic reference mark for anything
-else), and a TERMINAL area showing the registered payload's TYPE:
+SYMBOL naming the refnum's ``LVType.ref_type`` — each verified against a
+real LabVIEW source (the maintainer's reference images 57/58/59, or NI's
+own public docs where no reference image was supplied — see each
+``_kind_*`` drawer's own docstring for its source) — and a TERMINAL area
+showing the registered payload's TYPE:
 
 - COMPACT (the heap's default state): a small type-mnemonic badge in the
   corner (``style.type_repr`` — ``abc``/``TF``/``OBJ``/a class short name),
@@ -28,7 +30,6 @@ trigger)."""
 
 from __future__ import annotations
 
-import math
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -39,77 +40,105 @@ from .base import Glyph
 
 _CUT_FRAC = 0.30  # dog-ear corner-cut, as a fraction of min(w, h)
 _CUT_MAX = 10.0
+# Below this box size, LabVIEW-style controls draw a distinct MINI form —
+# just the type mark, no full chrome — rather than the SAME glyph scaled
+# down (a real heap box this small can't legibly hold a dog-ear frame + a
+# corner kind symbol + a separate terminal badge anyway; verified against
+# GTR's real "menubar" field, 21x27, which is too small for the full form).
+_MINI_MAX_W = 32.0
+_MINI_MAX_H = 32.0
 
 
-def _arc_points(
-    cx: float, cy: float, r: float, a0: float, a1: float, n: int = 10
-) -> list[tuple[float, float]]:
-    """Sample a TRUE circular arc (center ``(cx, cy)``, radius ``r``, from
-    angle ``a0`` to ``a1`` radians) into ``n`` straight segments — ``Backend``
-    has no native arc op (see ``base._quad_bezier_points`` for the same
-    reasoning applied to a Bezier curve)."""
-    pts = []
-    for i in range(n + 1):
-        ang = a0 + (a1 - a0) * i / n
-        pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
-    return pts
-
-
-def _kind_broadcast(
+def _kind_user_event(
     backend: Backend, cx: float, cy: float, s: float, color: str
 ) -> None:
-    """User Event: a dot with 2 concentric arcs curving up-right — a
-    broadcast/radar mark (an event is "announced" outward)."""
-    ox, oy = cx - s * 0.3, cy + s * 0.3  # the dot sits at the lower-left
-    backend.circle(ox, oy, s * 0.12, fill=color, stroke="none")
-    for i, r in enumerate((s * 0.45, s * 0.75)):
-        backend.path(
-            _arc_points(ox, oy, r, -math.pi * 0.5, 0.0),
-            stroke=color, stroke_width=1.0,
-        )
+    """User Event: a FILLED CIRCLE — verified directly against the
+    maintainer's reference images (57/59: both show a solid circular icon,
+    not an arc/radar mark, which the earlier version of this glyph wrongly
+    used). The small pale mark inside is our own clean-room differentiator
+    (the exact interior NI glyph isn't resolvable at reference-image
+    resolution — this doesn't claim to reproduce it, only that the OUTER
+    shape is a circle, which the reference clearly shows)."""
+    r = s * 0.42
+    backend.circle(cx, cy, r, fill=color, stroke="none")
+    backend.circle(
+        cx - r * 0.15, cy - r * 0.25, r * 0.24, fill="#ffffff", stroke="none"
+    )
 
 
 def _kind_queue(backend: Backend, cx: float, cy: float, s: float, color: str) -> None:
-    """Queue: 3 small stacked bars (items waiting in line, FIFO)."""
-    w, h, gap = s * 0.8, s * 0.22, s * 0.12
-    x1 = cx - w / 2
-    top = cy - (3 * h + 2 * gap) / 2
-    for i in range(3):
-        y = top + i * (h + gap)
-        backend.rect(x1, y, x1 + w, y + h, fill="none", stroke=color, stroke_width=1.0)
+    """Queue: a 3-COMPARTMENT COMB with a line entering left and an arrow
+    exiting right — verified against NI's public docs (docs-be.ni.com's
+    "Obtain Queue" function icon, fetched via
+    unofficial-lvdocs.github.io/glang/creatque.gif, a mirror of the same
+    NI-published page content): the real LabVIEW Queue pictograph is a
+    3-slot rectangle (queued items in a line) with dataflow arrows either
+    side, not a stack of separate bars."""
+    w, h = s * 0.6, s * 0.42
+    x1, x2 = cx - w / 2, cx + w / 2
+    y1, y2 = cy - h / 2, cy + h / 2
+    backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.0)
+    for i in (1, 2):
+        x = x1 + (x2 - x1) * i / 3
+        backend.line(x, y1, x, y2, stroke=color, stroke_width=1.0)
+    backend.line(x1 - s * 0.18, cy, x1, cy, stroke=color, stroke_width=1.0)
+    ah = s * 0.1
+    backend.polygon(
+        [
+            (x2 + s * 0.2, cy), (x2, cy - ah), (x2, cy + ah),
+        ],
+        fill=color, stroke="none",
+    )
 
 
 def _kind_notifier(
     backend: Backend, cx: float, cy: float, s: float, color: str
 ) -> None:
-    """Notifier: a small pennant flag on a pole (a one-shot "notice")."""
-    pole_x = cx - s * 0.35
-    backend.line(
-        pole_x, cy - s * 0.5, pole_x, cy + s * 0.5, stroke=color, stroke_width=1.0
-    )
-    backend.polygon(
-        [
-            (pole_x, cy - s * 0.5), (pole_x + s * 0.6, cy - s * 0.22),
-            (pole_x, cy + s * 0.05),
-        ],
-        fill="none", stroke=color, stroke_width=1.0,
-    )
+    """Notifier: an EXCLAMATION MARK IN A RING — verified against NI's
+    public docs ("Obtain Notifier" function icon, unofficial-lvdocs.github.
+    io/glang/creatnot.gif, a mirror of NI-published content): the real
+    LabVIEW Notifier pictograph is a circled "!" (a one-shot alert), not a
+    flag on a pole."""
+    r = s * 0.4
+    backend.circle(cx, cy, r, fill="none", stroke=color, stroke_width=1.0)
+    backend.line(cx, cy - r * 0.5, cx, cy + r * 0.05, stroke=color, stroke_width=1.2)
+    backend.circle(cx, cy + r * 0.42, r * 0.1, fill=color, stroke="none")
 
 
 def _kind_menu(backend: Backend, cx: float, cy: float, s: float, color: str) -> None:
-    """Menu: a small box with 2 divider lines (a dropdown-menu look)."""
-    x1, y1, x2, y2 = cx - s * 0.4, cy - s * 0.4, cx + s * 0.4, cy + s * 0.4
-    backend.rect(x1, y1, x2, y2, fill="none", stroke=color, stroke_width=1.0)
-    for i in (1, 2):
-        y = y1 + (y2 - y1) * i / 3
-        backend.line(x1, y, x2, y, stroke=color, stroke_width=0.8)
+    """Menu: 3 short horizontal bars of varying width (a menu-item LIST) —
+    verified against NI's public docs (the "Types of Refnum Controls" page's
+    Menu Refnum icon, unofficial-lvdocs.github.io/lvhowto/
+    noloc_env_menuref.gif, a mirror of NI-published content): the real
+    LabVIEW Menu-refnum icon shows stacked horizontal list rows, no
+    enclosing box."""
+    w = s * 0.7
+    x1 = cx - w / 2
+    widths = (1.0, 0.85, 0.6)
+    top = cy - s * 0.28
+    for i, frac in enumerate(widths):
+        y = top + i * s * 0.28
+        backend.line(x1, y, x1 + w * frac, y, stroke=color, stroke_width=1.3)
 
 
 def _kind_generic(backend: Backend, cx: float, cy: float, s: float, color: str) -> None:
-    """Generic reference mark (VI/control/application refnum, or any kind
-    without a dedicated symbol): a ring with a center dot."""
-    backend.circle(cx, cy, s * 0.42, fill="none", stroke=color, stroke_width=1.0)
-    backend.circle(cx, cy, s * 0.1, fill=color, stroke="none")
+    """Generic reference mark (VI Server / application / control refnum, or
+    any kind without a dedicated symbol) — verified against NI's public
+    docs (the "Types of Refnum Controls" page's VI Refnum icon,
+    unofficial-lvdocs.github.io/lvhowto/noloc_env_viref.gif, a mirror of
+    NI-published content): a real LabVIEW VI-reference icon is a 2x2 grid
+    with one cell highlighted. Simplified here to a 2x2 grid of small
+    squares with one filled."""
+    half = s * 0.32
+    gap = s * 0.08
+    cell = half - gap / 2
+    for i, (dx, dy) in enumerate(((-1, -1), (1, -1), (-1, 1), (1, 1))):
+        x0 = cx + dx * gap / 2 + (0 if dx > 0 else -cell)
+        y0 = cy + dy * gap / 2 + (0 if dy > 0 else -cell)
+        backend.rect(
+            x0, y0, x0 + cell, y0 + cell,
+            fill=color if i == 0 else "none", stroke=color, stroke_width=0.9,
+        )
 
 
 # Keyed by the real ``LVType.ref_type`` strings the parser records (see
@@ -119,7 +148,7 @@ def _kind_generic(backend: Backend, cx: float, cy: float, s: float, color: str) 
 # including "LVObjCtl" (VI/control/application refnums, the broadest
 # catch-all) — draws the generic reference mark.
 _KIND_SYMBOLS: dict[str, Callable[[Backend, float, float, float, str], None]] = {
-    "UserEvent": _kind_broadcast,
+    "UserEvent": _kind_user_event,
     "Queue": _kind_queue,
     "NotifierRef": _kind_notifier,
     "Menu": _kind_menu,
@@ -145,6 +174,9 @@ class RefnumGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         w, h = x2 - x1, y2 - y1
+        if w < _MINI_MAX_W or h < _MINI_MAX_H:
+            self._draw_mini(backend, bounds, theme)
+            return
         cut = max(0.0, min(_CUT_MAX, w * _CUT_FRAC, h * _CUT_FRAC))
         self._draw_dogear(backend, bounds, cut, theme)
         sym = max(6.0, min(15.0, min(w, h) * 0.34))
@@ -155,6 +187,22 @@ class RefnumGlyph:
                 self.border_color,
             )
         self._draw_terminal(backend, bounds, theme)
+
+    def _draw_mini(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        """The MINI form (see ``_MINI_MAX_W``/``_MINI_MAX_H``): a plain
+        bordered box (no dog-ear cut, no terminal — there's no room to draw
+        either legibly) holding just the kind symbol, scaled to nearly fill
+        the box — LabVIEW's own small-size control behavior, not this
+        glyph's full form shrunk."""
+        x1, y1, x2, y2 = bounds
+        backend.rect(
+            x1, y1, x2, y2, fill=theme.const_fill, stroke=self.border_color,
+            stroke_width=1.0,
+        )
+        w, h = x2 - x1, y2 - y1
+        sym = max(4.0, min(w, h) * 0.72)
+        drawer = _KIND_SYMBOLS.get(self.kind or "", _kind_generic)
+        drawer(backend, (x1 + x2) / 2, (y1 + y2) / 2, sym, self.border_color)
 
     def _draw_dogear(
         self, backend: Backend, bounds: Rect, cut: float, theme: Theme
@@ -193,10 +241,14 @@ class RefnumGlyph:
 
 @dataclass(frozen=True)
 class TypeTerminalGlyph:
-    """The COMPACT terminal's content: a small color-bordered box holding a
-    type mnemonic (``style.type_repr`` — ``abc``/``TF``/``OBJ``/…), or an
-    empty color-bordered box when the payload has no single-token mnemonic
-    (e.g. a cluster payload whose heap geometry couldn't be resolved)."""
+    """The COMPACT terminal's content: a small box holding a type mnemonic
+    (``style.type_repr`` — ``abc``/``TF``/``OBJ``/…), bordered DASHED in the
+    FIXED ``theme.refnum_terminal_border`` pink — verified directly against
+    the maintainer's reference images (57/58/59): a string payload's "abc"
+    box and a class payload's "OBJ" box draw the SAME dashed pink border, so
+    this is fixed terminal chrome, never colored by the payload's own wire
+    color. ``color`` (the payload's own wire color) still tints the text
+    itself, for a scalar-type reading cue text alone can't carry."""
 
     text: str
     color: str
@@ -204,7 +256,9 @@ class TypeTerminalGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill=theme.const_fill, stroke=self.color, stroke_width=1.0,
+            x1, y1, x2, y2, fill=theme.const_fill,
+            stroke=theme.refnum_terminal_border, stroke_width=1.0,
+            stroke_dasharray="2,1.5",
         )
         if self.text:
             size = min(6.0, (y2 - y1) - 2.0)

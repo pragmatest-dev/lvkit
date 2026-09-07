@@ -87,6 +87,7 @@ from .glyph import (
     InvokeNodeGlyph,
     LabelGlyph,
     LocalVariableGlyph,
+    PathGlyph,
     PropertyNodeGlyph,
     RefnumGlyph,
     TypeTerminalGlyph,
@@ -1082,8 +1083,27 @@ def _leaf_const_glyph(
         ) or _format_const(value_raw)
     elif fam == "string":
         # Show the bare text (quotes/escapes are a codegen artifact); empty
-        # for an unset field.
+        # for an unset field — ConstantGlyph then falls back to a dimmed
+        # "abc" TYPE placeholder below (never a blank box).
         value = string_const_display(raw) if raw is not None else ""
+    elif fam == "path":
+        # A path control is visually identifiable even when unset — a
+        # folder mark, never a featureless colored rectangle.
+        return PathGlyph(string_const_display(raw) if raw is not None else "", color)
+    elif (
+        lv_type is not None
+        and lv_type.underlying_type == "MeasureData"
+        and lv_type.measure_flavor == "TimeStamp"
+    ):
+        # A Timestamp constant (heap ddo class "absTime", graph
+        # underlying_type "MeasureData" with measure_flavor "TimeStamp" —
+        # verified against GTR's "StartTestTime" field) used to fall through
+        # to the generic leaf and draw a blank box (raw is None for an
+        # unset field). Show it like a numeric constant — LabVIEW's own
+        # default for an unset timestamp is 0.0 (the epoch), the same
+        # default codegen emits (see type_defaults._python_default_for_type)
+        # — never a blank box.
+        value = _format_const(raw) if raw is not None else "0.0"
     elif lv_type is not None and lv_type.underlying_type == "Refnum":
         # A CLASS/LVObject refnum (``classname`` set) is a class instance,
         # never a "refnum" in LabVIEW's own visual sense (no dog-ear, no
@@ -1144,6 +1164,12 @@ def _leaf_const_glyph(
         )
     else:
         value = str(raw) if raw is not None else ""
+    if fam == "string" and not value:
+        # A genuinely empty/unset string still identifies its type — the
+        # "abc" mnemonic (style.type_repr's own string token), dimmed since
+        # it's a TYPE placeholder, never mistaken for real data. Never a
+        # blank box.
+        return ConstantGlyph("abc", color, dim=True)
     # String constants word-wrap to fill their (already content-sized) box.
     return ConstantGlyph(value or "", color, multiline=fam == "string")
 
@@ -1224,6 +1250,19 @@ def _cluster_value_glyph(
                     field_geom.nested if field_geom else None,
                 ),
             ))
+        elif field_fam == "array":
+            # An array-typed FIELD used to fall through to the generic leaf
+            # glyph (no array case there) and draw a blank box — real
+            # indexed element cells + a real default element now, same as a
+            # top-level array constant. No per-field element geometry is
+            # extracted for a NESTED array field, so this draws at the
+            # synthetic fixed row height (ArrayConstantGlyph's documented
+            # fallback), and its index-control click targets aren't
+            # uniquely scoped (no owning node uid available at this level) —
+            # a visual completeness fix, not new interactivity.
+            composed.append((
+                f.name, _array_value_glyph(f.type, field_value, "")
+            ))
         else:
             field_geom = geom_by_name.get(f.name)
             composed.append((
@@ -1302,15 +1341,24 @@ def _element_glyph(
     return _leaf_const_glyph(element_type, value)
 
 
-def _array_const_glyph(
-    node: ConstantNode, cluster_geom: ClusterGeom | None = None
+def _array_value_glyph(
+    lv_type: LVType | None,
+    raw: object,
+    struct_uid: str,
+    cluster_geom: ClusterGeom | None = None,
 ) -> Glyph:
-    """Compose an array constant: one element glyph per value (from the element
-    type), drawn by :class:`ArrayConstantGlyph` as an indexed, scrollable column
-    of cells — never the raw ``[…]`` list repr. ``cluster_geom`` is the
-    element's real heap geometry when it's a cluster (None otherwise); the
-    array glyph then draws every visible row at that fixed REAL size instead
-    of a synthetic fixed row height.
+    """Compose an array-typed VALUE's glyph: one element glyph per value
+    (from the element type), drawn by :class:`ArrayConstantGlyph` as an
+    indexed, scrollable column of cells — never the raw ``[…]`` list repr
+    and never a blank box. Shared by a top-level array CONSTANT
+    (``_array_const_glyph``) and a cluster FIELD whose own type is an array
+    (``_cluster_value_glyph`` — an array field used to fall through to the
+    generic leaf glyph, which has no array case, and drew an empty box).
+    ``cluster_geom`` is the element's real heap geometry when it's a cluster
+    (None otherwise, or when unavailable — e.g. a nested array field, whose
+    element geometry the layout pass doesn't extract); the array glyph then
+    draws every visible row at that fixed REAL size instead of a synthetic
+    fixed row height.
 
     ``default_element`` is ALWAYS built from the element TYPE at its type
     default (``value=None``) — even when the array has ZERO elements —
@@ -1318,21 +1366,27 @@ def _array_const_glyph(
     ``_cluster_value_glyph`` already use for an unset scalar or cluster
     field. LabVIEW shows a DISABLED default-valued element for every unset
     row (an empty array shows one at index 0), never a blank rect."""
-    lv_type = node.lv_type
     element_type = lv_type.element_type if lv_type is not None else None
-    raw = node.raw_value if node.value is None else node.value
     values = _array_const_values(raw)
     elements = tuple(_element_glyph(element_type, v, cluster_geom) for v in values)
     default_element = _element_glyph(element_type, None, cluster_geom)
     return ArrayConstantGlyph(
         elements=elements,
         element_color=wire_style(lv_type).color,
-        struct_uid=node.id,
+        struct_uid=struct_uid,
         dimensions=(lv_type.dimensions if lv_type is not None else 1) or 1,
         cell_w=cluster_geom.width if cluster_geom is not None else None,
         cell_h=cluster_geom.height if cluster_geom is not None else None,
         default_element=default_element,
     )
+
+
+def _array_const_glyph(
+    node: ConstantNode, cluster_geom: ClusterGeom | None = None
+) -> Glyph:
+    """A top-level array CONSTANT's glyph — see ``_array_value_glyph``."""
+    raw = node.raw_value if node.value is None else node.value
+    return _array_value_glyph(node.lv_type, raw, node.id, cluster_geom)
 
 
 def _field_summary_value(lv_type: LVType | None, raw: object) -> str:

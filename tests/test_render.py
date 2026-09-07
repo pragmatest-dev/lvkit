@@ -975,6 +975,60 @@ def test_build_scene_joins_graph_and_geometry():
             assert len(branch) >= 2
 
 
+def test_empty_string_field_draws_dimmed_abc_placeholder_not_blank_box():
+    """A genuinely empty/unset string constant/field still identifies its
+    type — a dimmed "abc" mnemonic — never a featureless colored rectangle
+    (LabVIEW is a visual language: every element needs a type-identifying
+    visual even when its value is empty). A SET string still shows its real
+    value, normal color, never the placeholder."""
+    from lvkit.models import LVType
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    string_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+
+    empty = _leaf_const_glyph(string_type, raw=None)
+    assert isinstance(empty, ConstantGlyph)
+    assert empty.value == "abc"
+    assert empty.dim is True
+    backend = SvgBackend()
+    empty.draw(backend, (0.0, 0.0, 40.0, 20.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 40.0, 20.0))
+    assert ">abc<" in svg
+    assert f'fill="{DEFAULT_THEME.disabled_mask}"' in svg  # dimmed, not real data
+
+    real = _leaf_const_glyph(string_type, raw="'hello'")
+    assert isinstance(real, ConstantGlyph)
+    assert real.value == "hello"
+    assert real.dim is False
+
+
+def test_path_field_draws_folder_mark_even_when_empty():
+    """A Path constant/field draws a ``PathGlyph`` — a folder mark, plus the
+    real path text when set — never a blank rectangle, even when unset."""
+    from lvkit.models import LVType
+    from lvkit.render.glyph import PathGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+    from lvkit.render.style import DEFAULT_THEME, wire_style
+
+    path_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+
+    empty = _leaf_const_glyph(path_type, raw=None)
+    assert isinstance(empty, PathGlyph)
+    assert empty.value == ""
+    backend = SvgBackend()
+    bounds = (0.0, 0.0, 21.0, 19.0)
+    empty.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert "<polygon" in svg  # the folder mark draws even though empty
+    assert empty.color == wire_style(path_type).color
+
+    real = _leaf_const_glyph(path_type, raw="'C:\\\\data.txt'")
+    assert isinstance(real, PathGlyph)
+    assert real.value == "C:\\data.txt"
+
+
 def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     """A CLASS/LVObject constant (underlying ``Refnum`` WITH a ``classname``)
     draws a ``ClassGlyph`` (cube + CLASS NAME) — never the parser's
@@ -3172,7 +3226,10 @@ def test_refnum_glyph_draws_dogear_kind_symbol_and_compact_terminal():
     assert ">abc<" in svg1  # the compact terminal badge
 
     # A cluster payload has no single-token mnemonic — an empty-text badge
-    # still draws its own color-bordered box, just no text.
+    # still draws its DASHED-pink chrome box, just no text. The border is
+    # the FIXED terminal chrome color (verified against 57/58/59 — both a
+    # string and a class payload draw the SAME dashed pink box), never the
+    # payload's own wire color.
     cluster = RefnumGlyph(
         kind="UserEvent",
         border_color="#007f7f",
@@ -3181,7 +3238,8 @@ def test_refnum_glyph_draws_dogear_kind_symbol_and_compact_terminal():
     b2 = SvgBackend()
     cluster.draw(b2, bounds, DEFAULT_THEME)
     svg2 = b2.render(bounds)
-    assert 'stroke="#a88d1e"' in svg2  # the badge's own wire color
+    assert f'stroke="{DEFAULT_THEME.refnum_terminal_border}"' in svg2
+    assert 'stroke-dasharray="2,1.5"' in svg2
 
     # No registered payload at all: the frame + kind symbol draw, no
     # terminal badge.
@@ -3264,6 +3322,60 @@ def test_class_glyph_draws_cube_and_short_name():
     assert "TestResult" in svg  # name drawn (possibly ellipsized)
 
 
+def test_class_glyph_mini_form_below_size_threshold():
+    """A ``ClassGlyph`` drawn into a SMALL box (below the legibility floor
+    for a border + cube + name) uses a distinct MINI form — just the cube,
+    scaled up, no border and no name — never the full-size glyph shrunk
+    (LabVIEW draws a genuinely different compact representation at small
+    sizes, not the same control squashed)."""
+    from lvkit.render.glyph import ClassGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    small_bounds = (0.0, 0.0, 20.0, 20.0)
+    backend = SvgBackend()
+    ClassGlyph("Foo.lvclass", "#555555").draw(backend, small_bounds, DEFAULT_THEME)
+    svg = backend.render(small_bounds)
+    assert svg.count("<polygon") >= 3  # the cube still draws
+    assert "<rect" not in svg  # no border chrome at mini size
+    assert "Foo" not in svg  # no name text at mini size
+
+    large_bounds = (0.0, 0.0, 60.0, 60.0)
+    backend2 = SvgBackend()
+    ClassGlyph("Foo.lvclass", "#555555").draw(backend2, large_bounds, DEFAULT_THEME)
+    svg2 = backend2.render(large_bounds)
+    assert "<rect" in svg2  # full form: border chrome present
+    assert "Foo" in svg2  # full form: name present
+
+
+def test_refnum_glyph_mini_form_below_size_threshold():
+    """A ``RefnumGlyph`` drawn into a SMALL box (e.g. GTR's real "menubar"
+    field, 21x27) uses a distinct MINI form — a plain bordered box holding
+    just the kind symbol, no dog-ear cut and no terminal — never the full
+    dog-ear+terminal glyph shrunk to fit."""
+    from lvkit.render.glyph import RefnumGlyph, TypeTerminalGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    small_bounds = (0.0, 0.0, 21.0, 27.0)  # GTR's real "menubar" field size
+    backend = SvgBackend()
+    RefnumGlyph(
+        kind="Menu", border_color="#007f7f", terminal=TypeTerminalGlyph("", "#e05fa0")
+    ).draw(backend, small_bounds, DEFAULT_THEME)
+    svg = backend.render(small_bounds)
+    assert "<polygon" not in svg  # no dog-ear cut-corner outline at mini size
+    assert "<rect" in svg  # the plain mini-form border still draws
+
+    large_bounds = (0.0, 0.0, 76.0, 48.0)  # GTR's real "TextStream" field size
+    backend2 = SvgBackend()
+    RefnumGlyph(
+        kind="Queue",
+        border_color="#007f7f",
+        terminal=TypeTerminalGlyph("abc", "#e05fa0"),
+    ).draw(backend2, large_bounds, DEFAULT_THEME)
+    svg2 = backend2.render(large_bounds)
+    assert "<polygon" in svg2  # the dog-ear cut-corner outline draws
+    assert ">abc<" in svg2  # the full terminal badge draws
+
+
 def test_dimmed_glyph_draws_inner_then_overlay_mask():
     """``DimmedGlyph`` draws ``inner``'s REAL content first, then the
     established ``lv-disabled-mask`` translucent wash over it — never a
@@ -3281,6 +3393,163 @@ def test_dimmed_glyph_draws_inner_then_overlay_mask():
     svg = backend.render(bounds)
     assert 'stroke="#4a9c3e"' in svg  # the real inner shape drew
     assert "lv-disabled-mask" in svg  # the overlay wash drew too
+
+
+def test_path_glyph_draws_folder_mark_even_when_empty():
+    """``PathGlyph`` always draws a folder-mark outline — a path control is
+    visually identifiable even with no path text set, never a featureless
+    colored rectangle (acceptance-gate rule 4: no blank boxes)."""
+    from lvkit.render.glyph import PathGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    empty = PathGlyph("", "#1f8a8a")
+    backend = SvgBackend()
+    empty.draw(backend, (0.0, 0.0, 21.0, 19.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 21.0, 19.0))
+    assert svg.count("<polygon") == 1  # the folder outline, even unset
+    assert "<text" not in svg  # no path text to show
+
+    full = PathGlyph("C:\\data\\log.txt", "#1f8a8a")
+    b2 = SvgBackend()
+    full.draw(b2, (0.0, 0.0, 120.0, 30.0), DEFAULT_THEME)
+    svg2 = b2.render((0.0, 0.0, 120.0, 30.0))
+    assert "<polygon" in svg2  # folder mark
+    assert "log.txt" in svg2  # and the real path text
+
+
+def test_empty_string_constant_shows_dimmed_type_placeholder():
+    """A genuinely empty/unset string constant draws the ``abc`` type
+    mnemonic, DIMMED (a TYPE placeholder, never mistaken for real data) —
+    never a blank colored box (acceptance-gate rule 4)."""
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    string_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    glyph = _leaf_const_glyph(string_type, raw=None)
+    assert isinstance(glyph, ConstantGlyph)
+    assert glyph.value == "abc"
+    assert glyph.dim is True
+
+    backend = SvgBackend()
+    glyph.draw(backend, (0.0, 0.0, 40.0, 20.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 40.0, 20.0))
+    assert f'fill="{DEFAULT_THEME.disabled_mask}"' in svg
+
+    # A SET string still shows its real value, full-strength (never dimmed).
+    real = _leaf_const_glyph(string_type, raw="'hello'")
+    assert isinstance(real, ConstantGlyph)
+    assert real.value == "hello"
+    assert real.dim is False
+
+
+def test_timestamp_constant_shows_numeric_value_not_blank_box():
+    """A Timestamp constant (heap ddo class ``absTime`` — the graph records
+    it as ``underlying_type="MeasureData"``, ``measure_flavor="TimeStamp"``,
+    verified against GTR's real "StartTestTime" field) used to fall through
+    to the generic leaf glyph and draw a BLANK box for an unset field (``raw
+    is None``) — it now shows a real numeric-style value, LabVIEW's own
+    unset-timestamp default (``0.0``, the epoch — the same default codegen
+    emits), never a featureless rectangle (acceptance-gate rule 4)."""
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+
+    ts_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="TimeStamp",
+    )
+    unset = _leaf_const_glyph(ts_type, raw=None)
+    assert isinstance(unset, ConstantGlyph)
+    assert unset.value == "0.0"
+
+    real = _leaf_const_glyph(ts_type, raw=1234.5)
+    assert isinstance(real, ConstantGlyph)
+    assert real.value == "1234.5"
+
+    # A DIFFERENT MeasureData flavor (a waveform, not a timestamp) is NOT
+    # touched by this branch — out of this fix's scope.
+    waveform_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="Float64Waveform",
+    )
+    wf = _leaf_const_glyph(waveform_type, raw=None)
+    assert isinstance(wf, ConstantGlyph)
+    assert wf.value != "0.0"
+
+
+def test_refnum_glyph_mini_form_for_small_boxes():
+    """A refnum drawn in a small box (below ``_MINI_MAX_W``/``_MINI_MAX_H`` —
+    e.g. GTR's real "menubar" field, 21x27) uses a DISTINCT MINI form (a
+    plain bordered box holding just the kind symbol, scaled up) — never the
+    full dog-ear+terminal glyph shrunk (acceptance-gate rule 4: compact
+    form, not the same glyph stretched/shrunk)."""
+    from lvkit.render.glyph import RefnumGlyph, TypeTerminalGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    small = RefnumGlyph(
+        kind="Menu",
+        border_color="#007f7f",
+        terminal=TypeTerminalGlyph("abc", "#e05fa0"),
+    )
+    bounds = (0.0, 0.0, 21.0, 27.0)
+    backend = SvgBackend()
+    small.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert "<polygon" not in svg  # no dog-ear cut, no kind-symbol polygon
+    assert "<text" not in svg  # no terminal badge text at this size
+
+    # The SAME glyph at a large box draws the full dog-ear form instead.
+    full_bounds = (0.0, 0.0, 76.0, 48.0)
+    b2 = SvgBackend()
+    small.draw(b2, full_bounds, DEFAULT_THEME)
+    svg2 = b2.render(full_bounds)
+    assert "<polygon" in svg2  # the dog-ear frame
+    assert ">abc<" in svg2  # the compact terminal badge
+
+
+def test_class_glyph_mini_form_for_small_boxes():
+    """A class field drawn in a small box uses the MINI form (just the cube,
+    no border rect, no name text) instead of the full form shrunk."""
+    from lvkit.render.glyph import ClassGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = ClassGlyph("TestResult.lvclass", "#555555")
+    small_bounds = (0.0, 0.0, 20.0, 20.0)
+    backend = SvgBackend()
+    glyph.draw(backend, small_bounds, DEFAULT_THEME)
+    svg = backend.render(small_bounds)
+    assert "<text" not in svg  # no name at this size
+    assert svg.count("<polygon") >= 3  # just the cube faces, no border rect
+    assert "<rect" not in svg
+
+
+def test_array_typed_cluster_field_draws_real_elements_not_blank_box():
+    """A cluster FIELD whose OWN type is an ARRAY used to fall through to
+    the generic leaf glyph (no array case there) and draw a blank box —
+    ``_cluster_value_glyph`` now composes it as a real ``ArrayConstantGlyph``
+    (index control + a real default element, e.g. a folder mark for an
+    array of paths), never a featureless rectangle."""
+    from lvkit.models import ClusterField
+    from lvkit.render.glyph import ArrayConstantGlyph, PathGlyph
+    from lvkit.render.nodes import _cluster_value_glyph
+
+    path_array_type = LVType(
+        kind=LVTypeKind.ARRAY,
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
+        dimensions=1,
+    )
+    outer_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="Paths", type=path_array_type)],
+    )
+    glyph = _cluster_value_glyph(outer_type, None, False, None)
+    (name, field_glyph), = glyph.fields
+    assert name == "Paths"
+    assert isinstance(field_glyph, ArrayConstantGlyph)
+    assert field_glyph.elements == ()  # unset field -> genuinely empty array
+    assert isinstance(field_glyph.default_element, PathGlyph)
 
 
 def test_refnum_field_with_cluster_element_type_draws_compact_badge():
