@@ -977,15 +977,17 @@ def test_build_scene_joins_graph_and_geometry():
 
 def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     """A CLASS/LVObject constant (underlying ``Refnum`` WITH a ``classname``)
-    draws its CLASS NAME — wrapped-and-shrunk to fill the box (``fit``) — never
-    the parser's placeholder raw value (``"Refnum(1)"``) and never a generic
-    "Refnum". The constant/label path keys on ``underlying_type`` +
-    ``classname``, independent of the wire family. A class refnum is NOT the
-    ``refnum`` family (that is reserved for GENERIC refs); with no custom wire
-    style it draws the default grey class chain, not a reference wire. Same
+    draws a ``ClassGlyph`` (cube + CLASS NAME) — never the parser's
+    placeholder raw value (``"Refnum(1)"``), never a generic "Refnum", and
+    never the ``RefnumGlyph`` dog-ear (a class isn't LabVIEW's visual
+    "reference" grammar — it's a class instance; issue #45's class-field
+    fix). The constant/label path keys on ``underlying_type`` + ``classname``,
+    independent of the wire family. A class refnum is NOT the ``refnum``
+    family (that is reserved for GENERIC refs); with no custom wire style it
+    draws the default grey class chain, not a reference wire. Same
     class-name rule shared with terminal labels — ``style.lv_type_label``."""
     from lvkit.models import LVType
-    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.glyph import ClassGlyph
     from lvkit.render.nodes import _leaf_const_glyph
     from lvkit.render.style import lv_type_label, type_family
 
@@ -999,19 +1001,25 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     assert lv_type_label(cls) == "DAQmx Module Configuration.lvclass"
 
     glyph = _leaf_const_glyph(cls, raw="Refnum(1)")
-    assert isinstance(glyph, ConstantGlyph)
-    assert glyph.value == "DAQmx Module Configuration.lvclass"
-    assert glyph.value != "Refnum(1)"
-    assert glyph.fit is True  # wrap + shrink, no truncation
+    assert isinstance(glyph, ClassGlyph)
+    # The class's real short name — never the parser's placeholder raw value.
+    assert glyph.name == "DAQmx Module Configuration.lvclass"
 
-    # A GENERIC refnum constant (no classname) keeps the "<ref_type> Refnum"
-    # label — still never the placeholder raw value.
+    # A GENERIC refnum constant (no classname) draws the RefnumGlyph dog-ear
+    # + kind symbol — LabVIEW's visual reference grammar — keyed by its own
+    # ``ref_type`` ("Occurrence" here), never the placeholder raw value or
+    # bare wrapped text.
+    from lvkit.render.glyph import RefnumGlyph
+
     gen = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence"
     )
     assert type_family(gen) == "refnum"
     assert lv_type_label(gen) == "Occurrence Refnum"
-    assert _leaf_const_glyph(gen, raw="Refnum(1)").value == "Occurrence Refnum"
+    gen_glyph = _leaf_const_glyph(gen, raw="Refnum(1)")
+    assert isinstance(gen_glyph, RefnumGlyph)
+    assert gen_glyph.kind == "Occurrence"
+    assert gen_glyph.terminal is None  # no registered payload
 
 
 def test_io_name_tag_is_reference_wire_and_unresolved_class_is_grey_chain():
@@ -1201,25 +1209,25 @@ def test_empty_scalar_array_constant_shows_disabled_default_element():
 
 
 def test_data_typed_refnum_field_draws_compact_or_expanded_type_never_value_cluster():
-    """The SMUI cluster's refnum fields never draw as a value
+    """EVERY refnum field draws as a ``RefnumGlyph`` (dog-ear + kind symbol +
+    a TERMINAL showing the registered payload's TYPE) — NEVER a value
     ``ClusterConstantGlyph`` (the payload is a TYPE, never editable field
-    VALUES — issue #45's refnum trigger). Which of the two TYPE displays a
-    given field gets is the heap's own recorded per-field state (``layout.
-    ClusterFieldGeom.refnum_expanded`` — real, verified BDHb bounds, never a
-    size guess or a re-flow):
+    VALUES — issue #45's refnum trigger). Which TERMINAL a given field gets
+    is the heap's own recorded per-field state (``layout.ClusterFieldGeom.
+    refnum_expanded``/``refnum_payload`` — real, verified BDHb bounds, never
+    a size guess or a re-flow):
 
-    - COMPACT (``RefnumDataTypeGlyph``): the refnum's own box plus a small
-      type-mnemonic badge — "TextStream" (Queue of STRING, ``badge_text ==
-      "abc"``) and "Current VI's Refnum" (no registered payload at all).
-    - EXPANDED (``RefnumExpandedTypeGlyph``): "ResultChangedRef", a User
-      Event refnum recorded in the heap at its real ~206px-tall expanded
-      size — filled with one DIMMED "name: type" row per top-level payload
-      field, never the payload's actual F/0/testPass VALUE glyphs."""
-    from lvkit.render.glyph import (
-        ClusterConstantGlyph,
-        RefnumDataTypeGlyph,
-        RefnumExpandedTypeGlyph,
-    )
+    - COMPACT: a ``TypeTerminalGlyph`` badge — "TextStream" (Queue of
+      STRING, ``text == "abc"``) and "Current VI's Refnum" (no registered
+      payload at all — ``terminal is None``, frame + kind symbol only).
+    - EXPANDED: "ResultChangedRef", a User Event refnum recorded in the
+      heap at its real ~206px-tall expanded size — its terminal is a
+      ``DimmedGlyph`` wrapping the payload's own REAL recursively-composed
+      ``ClusterConstantGlyph`` (real per-field elements, never flattened
+      "name: type" text and never the payload's actual F/0/testPass VALUE
+      glyphs), positioned at the heap's own recorded placement
+      (``terminal_rect``)."""
+    from lvkit.render.glyph import ClusterConstantGlyph, DimmedGlyph, RefnumGlyph
     from lvkit.render.style import wire_style
 
     loaded = _load_graph(BUILTIN_REF_VI)
@@ -1242,11 +1250,16 @@ def test_data_typed_refnum_field_draws_compact_or_expanded_type_never_value_clus
     result_changed_ref = next(
         g for name, g in target.glyph.fields if name == "ResultChangedRef"
     )
-    assert isinstance(result_changed_ref, RefnumExpandedTypeGlyph), (
-        "an EXPANDED data-typed refnum field must draw the payload's dimmed "
-        "TYPE schema, never a value cluster"
+    assert isinstance(result_changed_ref, RefnumGlyph), (
+        "every refnum field, expanded or compact, must draw as RefnumGlyph "
+        "(dog-ear + kind symbol + terminal), never a value cluster"
     )
     assert not isinstance(result_changed_ref, ClusterConstantGlyph)
+    assert isinstance(result_changed_ref.terminal, DimmedGlyph), (
+        "an EXPANDED refnum's terminal must be the payload's real elements, "
+        "dimmed — never a compact badge"
+    )
+    assert isinstance(result_changed_ref.terminal.inner, ClusterConstantGlyph)
     smui_node = next(
         n for n in graph.iter_nodes(vi) if n.id.endswith("::14625")
     )
@@ -1256,32 +1269,44 @@ def test_data_typed_refnum_field_draws_compact_or_expanded_type_never_value_clus
     assert field.type is not None and field.type.element_type is not None
     payload_fields = field.type.element_type.fields
     assert payload_fields is not None
-    assert [name for name, _ in result_changed_ref.fields] == [
+    assert [name for name, _ in result_changed_ref.terminal.inner.fields] == [
         f.name for f in payload_fields
     ]
-    # The border is the REFNUM's own wire color (it still reads as a refnum
-    # box) — not the payload cluster's color, which is reserved for
-    # RefnumDataTypeGlyph's compact badge.
+    assert result_changed_ref.terminal_rect is not None
+    # The dog-ear/kind-symbol border is the REFNUM's own wire color (it
+    # still reads as a refnum box).
     assert result_changed_ref.border_color == wire_style(field.type).color
+    # The payload cluster's own nested "test error" field is a GENUINE value
+    # cluster (its OWN kind is CLUSTER) — it still draws real box-in-box
+    # geometry inside the dimmed terminal, per rule 6 (TYPE-KIND CORRECT).
+    test_error = next(
+        g
+        for name, g in result_changed_ref.terminal.inner.fields
+        if name == "test error"
+    )
+    assert isinstance(test_error, ClusterConstantGlyph)
 
     # A refnum field with NO registered payload (e.g. "Current VI's Refnum",
-    # a plain LVObjCtl refnum) keeps drawing as a plain refnum box — no
-    # badge, never a ClusterConstantGlyph or an expanded TYPE display.
+    # a plain LVObjCtl refnum) still draws the dog-ear + kind-symbol frame
+    # (EVERY refnum reads as a refnum) but with no terminal at all — never a
+    # ClusterConstantGlyph.
     current_vi_ref = next(
         g for name, g in target.glyph.fields if name == "Current VI's Refnum"
     )
-    assert not isinstance(current_vi_ref, RefnumDataTypeGlyph)
-    assert not isinstance(current_vi_ref, RefnumExpandedTypeGlyph)
+    assert isinstance(current_vi_ref, RefnumGlyph)
+    assert current_vi_ref.terminal is None
     assert not isinstance(current_vi_ref, ClusterConstantGlyph)
 
     # "TextStream" — a Queue of STRING — is recorded COMPACT in the heap: a
-    # compact badge with a real scalar mnemonic, never a cluster glyph and
-    # never the expanded TYPE display (that's for cluster payloads only).
+    # compact TypeTerminalGlyph badge with a real scalar mnemonic, never a
+    # cluster glyph and never the expanded (DimmedGlyph) terminal — that's
+    # for cluster payloads only.
     text_stream = next(g for name, g in target.glyph.fields if name == "TextStream")
-    assert isinstance(text_stream, RefnumDataTypeGlyph)
+    assert isinstance(text_stream, RefnumGlyph)
     assert not isinstance(text_stream, ClusterConstantGlyph)
-    assert not isinstance(text_stream, RefnumExpandedTypeGlyph)
-    assert text_stream.badge_text == "abc"
+    assert not isinstance(text_stream.terminal, DimmedGlyph)
+    assert text_stream.terminal is not None
+    assert text_stream.terminal.text == "abc"
 
 
 # TestResult_Init.vi's array-of-clusters constant: a "failure" cluster array
@@ -3123,108 +3148,158 @@ def test_nested_cluster_field_draws_as_real_box_in_box():
     assert all(x >= 50.0 - 1e-6 for x, _ in nested_rects)
 
 
-def test_refnum_data_type_glyph_draws_base_plus_compact_badge():
-    """``RefnumDataTypeGlyph`` draws its ``base`` (the plain refnum box)
-    UNCHANGED, plus one small badge rect in the corner — a real mnemonic
-    when the payload has one, or an empty color-bordered box for a cluster
-    payload (no single-token mnemonic)."""
-    from lvkit.render.glyph import RefnumDataTypeGlyph
+def test_refnum_glyph_draws_dogear_kind_symbol_and_compact_terminal():
+    """``RefnumGlyph`` draws a dog-ear frame (a folded-corner box — LabVIEW's
+    own visual grammar for "this is a reference"), a kind symbol (from
+    ``ref_type`` — a distinct clean-room mark per known kind, generic
+    fallback otherwise), and — for a COMPACT refnum — a small
+    ``TypeTerminalGlyph`` badge in the corner holding the payload's type
+    mnemonic."""
+    from lvkit.render.glyph import RefnumGlyph, TypeTerminalGlyph
     from lvkit.render.style import DEFAULT_THEME
 
-    class _Base:
-        def draw(self, backend, bounds, theme):  # noqa: ANN001
-            x1, y1, x2, y2 = bounds
-            backend.rect(
-                x1, y1, x2, y2, fill="none", stroke="#007f7f", stroke_width=1.0
-            )
+    bounds = (0.0, 0.0, 76.0, 48.0)
 
-    bounds = (0.0, 0.0, 60.0, 50.0)
-
-    scalar = RefnumDataTypeGlyph(base=_Base(), badge_text="abc", badge_color="#e05fa0")
+    scalar = RefnumGlyph(
+        kind="Queue",
+        border_color="#007f7f",
+        terminal=TypeTerminalGlyph("abc", "#e05fa0"),
+    )
     b1 = SvgBackend()
     scalar.draw(b1, bounds, DEFAULT_THEME)
     svg1 = b1.render(bounds)
-    assert ">abc<" in svg1
-    assert svg1.count("<rect") == 2  # base box + badge box, nothing else
+    assert "<polygon" in svg1  # the dog-ear frame (corner-cut outline)
+    assert ">abc<" in svg1  # the compact terminal badge
 
-    cluster = RefnumDataTypeGlyph(base=_Base(), badge_text="", badge_color="#a88d1e")
+    # A cluster payload has no single-token mnemonic — an empty-text badge
+    # still draws its own color-bordered box, just no text.
+    cluster = RefnumGlyph(
+        kind="UserEvent",
+        border_color="#007f7f",
+        terminal=TypeTerminalGlyph("", "#a88d1e"),
+    )
     b2 = SvgBackend()
     cluster.draw(b2, bounds, DEFAULT_THEME)
     svg2 = b2.render(bounds)
-    assert "<text" not in svg2  # no mnemonic for a cluster payload
-    assert svg2.count("<rect") == 2
     assert 'stroke="#a88d1e"' in svg2  # the badge's own wire color
 
+    # No registered payload at all: the frame + kind symbol draw, no
+    # terminal badge.
+    plain = RefnumGlyph(kind=None, border_color="#007f7f", terminal=None)
+    b3 = SvgBackend()
+    plain.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    assert "<polygon" in svg3  # dog-ear still draws
+    # No terminal badge rect beyond the frame + kind-symbol shapes — no text
+    # at all (no mnemonic, no field content).
+    assert "<text" not in svg3
 
-def test_refnum_expanded_type_glyph_draws_dimmed_field_rows():
-    """``RefnumExpandedTypeGlyph`` draws its OWN bordered box (the refnum's
-    real, heap-recorded EXPANDED size) filled with one DIMMED "name: type"
-    row per top-level payload field — never the payload's actual VALUE
-    glyphs (F/0/testPass, issue #45's refnum trigger)."""
-    from lvkit.render.glyph import RefnumExpandedTypeGlyph
+
+def test_refnum_glyph_expanded_terminal_positions_at_real_heap_offset():
+    """An EXPANDED refnum's ``terminal_rect`` (0..1 FRACTIONS of the
+    refnum's own box — ``layout.RefnumPayload.offset``) places the terminal
+    content at the heap's own recorded sub-rect, not a centered/guessed
+    position — and the content itself (a ``DimmedGlyph``-wrapped real
+    ``ClusterConstantGlyph``) draws its real elements, never flattened
+    "name: type" text."""
+    from lvkit.render.glyph import ClusterConstantGlyph, DimmedGlyph, RefnumGlyph
     from lvkit.render.style import DEFAULT_THEME
 
-    glyph = RefnumExpandedTypeGlyph(
-        fields=(("test", "Class"), ("resultStatus", "Enum")),
-        border_color="#007f7f",
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
+
+    inner = ClusterConstantGlyph(
+        fields=(("a", _Dot()),), border_color="#007f7f",
     )
-    bounds = (0.0, 0.0, 100.0, 60.0)
+    bounds = (0.0, 0.0, 100.0, 200.0)
+    # The payload sits at a real heap sub-offset — e.g. left-inset, not
+    # filling the whole refnum box (matching GTR's real "ResultChangedRef":
+    # offset x∈[0.28, 0.95], y∈[0.02, 0.98] of its own native box).
+    terminal_rect = (0.28, 0.02, 0.95, 0.98)
+    glyph = RefnumGlyph(
+        kind="UserEvent",
+        border_color="#007f7f",
+        terminal=DimmedGlyph(inner),
+        terminal_rect=terminal_rect,
+    )
     backend = SvgBackend()
     glyph.draw(backend, bounds, DEFAULT_THEME)
     svg = backend.render(bounds)
+    assert ">V<" in svg  # the payload's real element glyph drew
+    assert "lv-disabled-mask" in svg  # dimmed, never full-strength
 
-    assert 'stroke="#007f7f"' in svg  # the refnum's own wire color, border only
-    assert ">test<" in svg and ">Class<" in svg
-    assert ">resultStatus<" in svg and ">Enum<" in svg
-    # Every field-row text draws DIMMED (never full-strength value color) —
-    # this is a TYPE display, not a settable value.
-    for text_fill in re.findall(r'<text[^>]*\sfill="([^"]+)"', svg):
-        assert text_fill == DEFAULT_THEME.disabled_mask
-
-    # No fields (an unresolved/empty payload schema) draws just the box.
-    empty = RefnumExpandedTypeGlyph(fields=(), border_color="#007f7f")
-    b2 = SvgBackend()
-    empty.draw(b2, bounds, DEFAULT_THEME)
-    svg2 = b2.render(bounds)
-    assert "<text" not in svg2
-    assert svg2.count("<rect") == 1
-
-    # A long field name and a long type mnemonic on the same row must not
-    # visually collide — each is ellipsized to its OWN budget instead of
-    # running into the other's text (regression: "startTimestamp" vs
-    # "MeasureData" overlapped in the middle of the row before this fit).
-    long_glyph = RefnumExpandedTypeGlyph(
-        fields=(("startTimestamp", "MeasureData"),), border_color="#007f7f"
+    fx1, fy1, fx2, fy2 = terminal_rect
+    expect_x1, expect_y1 = bounds[0] + fx1 * 100.0, bounds[1] + fy1 * 200.0
+    expect_x2, expect_y2 = bounds[0] + fx2 * 100.0, bounds[1] + fy2 * 200.0
+    # The DimmedGlyph's own mask rect sits at exactly the mapped terminal
+    # rect — the real heap-derived placement, not a centered guess.
+    mask_rect = re.search(
+        r'<g class="lv-disabled-mask">\s*<rect x="([-\d.]+)" y="([-\d.]+)" '
+        r'width="([-\d.]+)" height="([-\d.]+)"',
+        svg,
     )
-    b3 = SvgBackend()
-    long_glyph.draw(b3, bounds, DEFAULT_THEME)
-    svg3 = b3.render(bounds)
-    name_m = re.search(r'text-anchor="start"[^>]*>([^<]+)<', svg3)
-    type_m = re.search(r'text-anchor="end"[^>]*>([^<]+)<', svg3)
-    assert name_m is not None and type_m is not None
-    size = 8.0  # row_h=(60-6)/1=54 -> size = min(8, 27) = 8
-    name_w = backend.measure_text(name_m.group(1), size)
-    type_w = backend.measure_text(type_m.group(1), size)
-    pad = 3.0
-    # The name (left-anchored at x1+pad) must end before the type text
-    # (right-anchored at x2-pad) begins.
-    assert (bounds[0] + pad + name_w) <= (bounds[2] - pad - type_w) + 1e-6
+    assert mask_rect is not None
+    mx1, my1, mw, mh = (float(v) for v in mask_rect.groups())
+    assert abs(mx1 - expect_x1) < 0.5
+    assert abs(my1 - expect_y1) < 0.5
+    assert abs((mx1 + mw) - expect_x2) < 0.5
+    assert abs((my1 + mh) - expect_y2) < 0.5
+
+
+def test_class_glyph_draws_cube_and_short_name():
+    """``ClassGlyph`` draws a cube motif (LabVIEW draws a class as a cube)
+    plus the class's own short name — never bare text."""
+    from lvkit.render.glyph import ClassGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = ClassGlyph("TestResult.lvclass", "#555555")
+    bounds = (0.0, 0.0, 60.0, 60.0)
+    backend = SvgBackend()
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert svg.count("<polygon") >= 3  # the 3 cube faces
+    assert 'stroke="#555555"' in svg
+    assert "TestResult" in svg  # name drawn (possibly ellipsized)
+
+
+def test_dimmed_glyph_draws_inner_then_overlay_mask():
+    """``DimmedGlyph`` draws ``inner``'s REAL content first, then the
+    established ``lv-disabled-mask`` translucent wash over it — never a
+    substitute for the real shape."""
+    from lvkit.render.glyph import DimmedGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Marked:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            backend.rect(*bounds, fill="none", stroke="#4a9c3e", stroke_width=1.0)
+
+    bounds = (0.0, 0.0, 40.0, 20.0)
+    backend = SvgBackend()
+    DimmedGlyph(_Marked()).draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert 'stroke="#4a9c3e"' in svg  # the real inner shape drew
+    assert "lv-disabled-mask" in svg  # the overlay wash drew too
 
 
 def test_refnum_field_with_cluster_element_type_draws_compact_badge():
     """A cluster FIELD whose own type is NOT a cluster (a ``refnum``, e.g. a
     User Event) but whose ``element_type`` IS one — the registered
-    event-data type LabVIEW shows for a data-typed refnum — draws COMPACT:
-    a ``RefnumDataTypeGlyph`` (the plain refnum box + a type-mnemonic
-    badge), NEVER a nested ``ClusterConstantGlyph`` expanding the payload's
-    fields (corrected after a maintainer reference-image review — issue
-    #45's refnum trigger). The cluster payload has no single-token
-    mnemonic, so the badge shows no text, only the payload's own wire
-    color. This holds regardless of whether the heap-geometry pass found a
-    nested shape for the field (``cluster_geom`` is no longer consulted for
-    this decision at all — it's purely type-driven)."""
+    event-data type LabVIEW shows for a data-typed refnum — draws a
+    ``RefnumGlyph``, NEVER a nested ``ClusterConstantGlyph`` expanding the
+    payload's fields (issue #45's refnum trigger). With NO heap geometry to
+    consult (``cluster_geom=None`` — no ``ClusterFieldGeom.refnum_expanded``
+    bit available), the field is never treated as expanded, so its terminal
+    is always the COMPACT ``TypeTerminalGlyph`` badge. The cluster payload
+    has no single-token mnemonic, so the badge shows no text, only the
+    payload's own wire color."""
     from lvkit.models import ClusterField
-    from lvkit.render.glyph import ClusterConstantGlyph, RefnumDataTypeGlyph
+    from lvkit.render.glyph import (
+        ClusterConstantGlyph,
+        RefnumGlyph,
+        TypeTerminalGlyph,
+    )
     from lvkit.render.nodes import _cluster_value_glyph
     from lvkit.render.style import wire_style
 
@@ -3247,10 +3322,12 @@ def test_refnum_field_with_cluster_element_type_draws_compact_badge():
     assert isinstance(glyph, ClusterConstantGlyph)
     (name, field_glyph), = glyph.fields
     assert name == "EventRef"
-    assert isinstance(field_glyph, RefnumDataTypeGlyph)
+    assert isinstance(field_glyph, RefnumGlyph)
+    assert field_glyph.kind == "UserEvent"
     assert not isinstance(field_glyph, ClusterConstantGlyph)
-    assert field_glyph.badge_text == ""
-    assert field_glyph.badge_color == wire_style(inner_cluster_type).color
+    assert isinstance(field_glyph.terminal, TypeTerminalGlyph)
+    assert field_glyph.terminal.text == ""
+    assert field_glyph.terminal.color == wire_style(inner_cluster_type).color
 
     # A registered SCALAR payload (e.g. a string) shows its real mnemonic.
     string_refnum_type = LVType(
@@ -3267,11 +3344,13 @@ def test_refnum_field_with_cluster_element_type_draws_compact_badge():
     assert isinstance(glyph2, ClusterConstantGlyph)
     (name2, field_glyph2), = glyph2.fields
     assert name2 == "Q"
-    assert isinstance(field_glyph2, RefnumDataTypeGlyph)
-    assert field_glyph2.badge_text == "abc"
+    assert isinstance(field_glyph2, RefnumGlyph)
+    assert isinstance(field_glyph2.terminal, TypeTerminalGlyph)
+    assert field_glyph2.terminal.text == "abc"
 
-    # An ordinary refnum with NO registered payload draws with no badge at
-    # all — never reinterpreted as a cluster or wrapped with an empty badge.
+    # An ordinary refnum with NO registered payload draws the frame + kind
+    # symbol with no terminal at all — never reinterpreted as a cluster or
+    # wrapped with an empty badge.
     plain_refnum_type = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="LVObjCtl"
     )
@@ -3283,7 +3362,9 @@ def test_refnum_field_with_cluster_element_type_draws_compact_badge():
     assert isinstance(glyph3, ClusterConstantGlyph)
     (name3, field_glyph3), = glyph3.fields
     assert name3 == "Plain"
-    assert not isinstance(field_glyph3, RefnumDataTypeGlyph)
+    assert isinstance(field_glyph3, RefnumGlyph)
+    assert field_glyph3.kind == "LVObjCtl"
+    assert field_glyph3.terminal is None
     assert not isinstance(field_glyph3, ClusterConstantGlyph)
 
 

@@ -128,15 +128,25 @@ class ClusterFieldGeom:
     ``stdRefNum`` whose type-display background selects the EXPANDED image
     variant (heap-verified: its ``multiCosm`` carries ``<index>1</index>`` —
     see ``_refnum_type_display_expanded``); False for a compact refnum or
-    any non-refnum field. The renderer uses this to draw the registered
-    payload's TYPE (dimmed, filling the box) instead of a compact icon+badge
-    — never as a nested VALUE cluster, which ``nested`` is reserved for."""
+    any non-refnum field. The renderer uses this to decide whether to draw
+    the registered payload's TYPE filling the box (never as a nested VALUE
+    cluster, which ``nested`` is reserved for) — see ``refnum_payload`` for
+    WHERE, at real heap geometry, that payload actually goes.
+
+    ``refnum_payload`` is set only for a data-typed ``stdRefNum`` field whose
+    registered payload is itself a CLUSTER with decodable heap geometry (see
+    ``_refnum_payload_layout``) — the payload's own real per-field elements
+    and their real placement within THIS field's box, straight from the
+    heap's ``<ddo class="stdClust">`` (a DIRECT child of the refnum ddo, a
+    sibling of its own ``partsList`` — never a part of it, and never the
+    genuinely-nested-cluster-FIELD case ``nested`` already covers)."""
 
     name: str
     value_rect: Rect
     label_rect: Rect | None
     nested: ClusterGeom | None = None
     refnum_expanded: bool = False
+    refnum_payload: RefnumPayload | None = None
 
 
 @dataclass(frozen=True)
@@ -157,6 +167,26 @@ class ClusterGeom:
     width: float
     height: float
     fields: tuple[ClusterFieldGeom, ...]
+
+
+@dataclass(frozen=True)
+class RefnumPayload:
+    """Where a data-typed refnum's registered CLUSTER payload sits, and its
+    own real per-field geometry — see ``_refnum_payload_layout``.
+
+    ``offset`` is the payload's rect expressed as FRACTIONS (0..1) of the
+    refnum's OWN native (unscaled) box — not an absolute pixel rect — so it
+    survives any later uniform rescale of the refnum's drawn box (a nested
+    field, an array-of-refnums element, …) EXACTLY: every step in this
+    codebase composes rescales uniformly (never a per-axis stretch), so a
+    field's fraction-of-its-own-box position is preserved algebraically
+    identical to the heap's real absolute offset at every composed scale.
+    ``geom`` is the payload's own self-contained ``ClusterGeom`` (relative to
+    ITS OWN (0, 0) origin, at its native size — the SAME contract as any
+    other ``ClusterGeom``)."""
+
+    offset: Rect
+    geom: ClusterGeom
 
 
 @dataclass(frozen=True)
@@ -252,6 +282,13 @@ class Layout:
     # separately here since a bare refnum constant has no ``ClusterFieldGeom``
     # of its own to carry it on.
     refnum_expanded: set[str] = field(default_factory=set)
+    # Raw uids of TOP-LEVEL (not cluster-field) data-typed ``stdRefNum``
+    # constants whose registered payload is a CLUSTER with decodable heap
+    # geometry -> that payload's real placement + per-field geometry (see
+    # ``RefnumPayload`` / ``_refnum_payload_layout``) — the same data
+    # ``ClusterFieldGeom.refnum_payload`` carries for a cluster FIELD, kept
+    # separately here for the same reason ``refnum_expanded`` is.
+    refnum_payload: dict[str, RefnumPayload] = field(default_factory=dict)
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
         """Bounding box over every known rect, padded — the SVG viewBox."""
@@ -448,6 +485,53 @@ def _refnum_type_display_expanded(ddo: ET.Element) -> bool:
     return False
 
 
+def _refnum_payload_layout(ddo: ET.Element) -> RefnumPayload | None:
+    """A data-typed ``stdRefNum``'s registered CLUSTER payload's real
+    placement + geometry, both straight from the heap — see ``RefnumPayload``
+    for the coordinate contract.
+
+    The payload ddo (a DIRECT ``<ddo>`` CHILD of the refnum — a sibling of
+    its own ``<partsList>``, never a part of it, and never the
+    genuinely-nested-cluster-FIELD case ``_cluster_shape(field_el)`` covers)
+    carries its own ``<bounds>`` relative to the REFNUM's own raw-bounds
+    origin — the SAME "relative to the owning ddo's top-left" convention
+    every ``partsList`` part uses (see ``_const_value_box``), verified on
+    GTR's "ResultChangedRef" (nested ``<bounds>(5, 31, 201, 106)`` inside a
+    ``(521, 399, 727, 510)`` field — a 75x196 payload box at local offset
+    (31, 5) inside a 111x206 field).
+
+    None when ``ddo`` isn't a ``stdRefNum``, carries no nested ``<ddo>``, that
+    nested control isn't a cluster shape (``_cluster_shape``), or either
+    level's geometry can't be decoded (no ``paneHierarchy``, degenerate
+    extent, …) — callers then fall back to the COMPACT type-terminal
+    display, never an invented layout."""
+    if ddo.get("class") != "stdRefNum":
+        return None
+    nested = ddo.find("ddo")
+    if nested is None:
+        return None
+    shape = _cluster_shape(nested)
+    if shape is None:
+        return None
+    geom = _cluster_field_geoms(shape)
+    if geom is None:
+        return None
+    field_raw = _rect(ddo)
+    nested_local = _rect(nested)
+    if field_raw is None or nested_local is None:
+        return None
+    fw, fh = field_raw[2] - field_raw[0], field_raw[3] - field_raw[1]
+    if fw <= 0 or fh <= 0:
+        return None
+    offset = (
+        nested_local[0] / fw,
+        nested_local[1] / fh,
+        nested_local[2] / fw,
+        nested_local[3] / fh,
+    )
+    return RefnumPayload(offset=offset, geom=geom)
+
+
 def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
     """A cluster's real geometry, decoded from its own ``paneHierarchy``/
     ``zPlaneList`` — see ``ClusterGeom`` for the coordinate contract (fields
@@ -562,6 +646,7 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
                 mapped_label,
                 nested,
                 refnum_expanded=_refnum_type_display_expanded(f),
+                refnum_payload=_refnum_payload_layout(f),
             )
         )
     return ClusterGeom(
@@ -590,6 +675,11 @@ class _LayoutBuilder:
         # Raw uids of top-level data-typed stdRefNum constants whose
         # type-display is EXPANDED (see _refnum_type_display_expanded).
         self.refnum_expanded: set[str] = set()
+        # Top-level data-typed stdRefNum constants' registered CLUSTER
+        # payload real placement + geometry (see RefnumPayload /
+        # _refnum_payload_layout) — present only when the payload is a
+        # cluster with decodable heap geometry.
+        self.refnum_payload: dict[str, RefnumPayload] = {}
         self.terminal_centers: dict[str, Point] = {}
         self.border_terminals: dict[str, Rect] = {}
         self.border_terminal_kind: dict[str, str] = {}
@@ -849,9 +939,14 @@ class _LayoutBuilder:
                             if elem_cg is not None:
                                 self.array_element_cluster[term_uid] = elem_cg
                     # A bare (not cluster-field) data-typed refnum constant:
-                    # its own expanded/compact type-display state.
+                    # its own expanded/compact type-display state, and (when
+                    # expanded with a decodable cluster payload) that
+                    # payload's real placement + geometry.
                     elif ddo is not None and _refnum_type_display_expanded(ddo):
                         self.refnum_expanded.add(term_uid)
+                        payload = _refnum_payload_layout(ddo)
+                        if payload is not None:
+                            self.refnum_payload[term_uid] = payload
                 cx = (abs_cb[0] + abs_cb[2]) / 2
                 cy = (abs_cb[1] + abs_cb[3]) / 2
             # termHotPoint: LabVIEW's EXPLICIT per-terminal wire-attach offset
@@ -1261,6 +1356,7 @@ def build_layout_from_root(
         cluster_field_geom=builder.cluster_field_geom,
         array_element_cluster=builder.array_element_cluster,
         refnum_expanded=builder.refnum_expanded,
+        refnum_payload=builder.refnum_payload,
     )
 
 

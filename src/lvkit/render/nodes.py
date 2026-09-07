@@ -51,7 +51,7 @@ from ..graph.op_walk import (
 from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
-from ..parser.layout import ClusterGeom
+from ..parser.layout import ClusterGeom, RefnumPayload
 from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
@@ -70,11 +70,13 @@ from .glyph import (
     BundleByNameGlyph,
     BundleGlyph,
     CenteredSvgGlyph,
+    ClassGlyph,
     ClusterConstantGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
     ControlRefConstGlyph,
     ConvertGlyph,
+    DimmedGlyph,
     ErrorClusterGlyph,
     EventDataGlyph,
     FormulaNodeGlyph,
@@ -86,8 +88,8 @@ from .glyph import (
     LabelGlyph,
     LocalVariableGlyph,
     PropertyNodeGlyph,
-    RefnumDataTypeGlyph,
-    RefnumExpandedTypeGlyph,
+    RefnumGlyph,
+    TypeTerminalGlyph,
     UnbundleGlyph,
     VariantGlyph,
     WrappedBoxGlyph,
@@ -356,6 +358,10 @@ class GlyphContext:
     constants whose type-display is EXPANDED (see
     ``layout._refnum_type_display_expanded``) — a cluster FIELD carries the
     same signal on its own ``ClusterFieldGeom.refnum_expanded`` instead.
+    ``refnum_payload`` is the same idea for an EXPANDED refnum's registered
+    CLUSTER payload's real placement + geometry (``layout.RefnumPayload`` —
+    a cluster FIELD carries it on its own ``ClusterFieldGeom.
+    refnum_payload``).
     """
 
     graph: InMemoryVIGraph
@@ -363,6 +369,7 @@ class GlyphContext:
     cluster_field_geom: Mapping[str, ClusterGeom] = field(default_factory=dict)
     array_element_cluster: Mapping[str, ClusterGeom] = field(default_factory=dict)
     refnum_expanded: frozenset[str] = frozenset()
+    refnum_payload: Mapping[str, RefnumPayload] = field(default_factory=dict)
 
 
 class NodeGlyphResolver(Protocol):
@@ -1038,6 +1045,7 @@ def _leaf_const_glyph(
     raw: object,
     display_format: str | None = None,
     refnum_expanded: bool = False,
+    refnum_payload: RefnumPayload | None = None,
 ) -> Glyph:
     """One non-cluster constant's glyph, from its type + raw value. Shared by
     top-level constants and by each field of a composed cluster constant.
@@ -1051,7 +1059,9 @@ def _leaf_const_glyph(
     ``refnum_expanded`` is the heap's own recorded expanded/compact
     display state for a data-typed refnum (``layout.ClusterFieldGeom.
     refnum_expanded`` / ``Layout.refnum_expanded`` — never inferred here from
-    size)."""
+    size). ``refnum_payload`` is that refnum's registered CLUSTER payload's
+    real placement + geometry (``layout.ClusterFieldGeom.refnum_payload`` /
+    ``Layout.refnum_payload``) — consulted only when ``refnum_expanded``."""
     fam = type_family(lv_type)
     if fam == "variant":
         return VariantGlyph()
@@ -1075,47 +1085,63 @@ def _leaf_const_glyph(
         # for an unset field.
         value = string_const_display(raw) if raw is not None else ""
     elif lv_type is not None and lv_type.underlying_type == "Refnum":
-        # A refnum constant is a CLASS/LVObject constant (or a null refnum):
-        # label it by its class name, never the placeholder raw value the parser
-        # stores (e.g. "Refnum(1)"). Keyed on underlying_type, NOT the "refnum"
-        # family — a CLASS refnum has fam=="unknown" (type_family reserves
-        # "refnum" for GENERIC refs, whose wire is reference-green). Same rule as
-        # a class refnum terminal — see style.lv_type_label. The name word-wraps
-        # AND shrinks to fill the box (fit=True) instead of truncating.
-        base = ConstantGlyph(lv_type_label(lv_type), color, fit=True)
+        # A CLASS/LVObject refnum (``classname`` set) is a class instance,
+        # never a "refnum" in LabVIEW's own visual sense (no dog-ear, no
+        # kind symbol) — LabVIEW draws a class as a CUBE (issue #45's
+        # class-field bug: this used to be bare "LabVIEW Object"/class-name
+        # TEXT). Keyed on ``classname``, NOT the "refnum" family — a class
+        # refnum has fam=="unknown" (type_family reserves "refnum" for
+        # GENERIC refs, whose wire is reference-green; a class carries its
+        # OWN pen — see style.wire_style).
+        if lv_type.classname:
+            return ClassGlyph(lv_type_label(lv_type), color)
+        # EVERY generic refnum (queue / notifier / user event / menu / VI-
+        # Server / control ref / …) reads as a refnum — LabVIEW's own visual
+        # grammar for "this is a reference": a dog-ear frame + a kind symbol
+        # (from ``ref_type``) + a TERMINAL showing the registered payload's
+        # TYPE. A refnum's payload is a TYPE, never editable data — the
+        # payload only ever appears as real VALUES elsewhere (e.g. an Event
+        # Structure's own data node), so the terminal NEVER draws value
+        # glyphs (F/0/testPass) directly as a field's own value.
+        terminal: Glyph | None = None
+        terminal_rect: tuple[float, float, float, float] | None = None
         if lv_type.element_type is not None:
-            # A data-typed refnum (queue / notifier / user event / …). Its
-            # payload is a TYPE, never editable data — the payload only ever
-            # appears as real VALUES elsewhere (e.g. an Event Structure's own
-            # data node), so this NEVER draws value glyphs (F/0/testPass).
+            payload_fam = type_family(lv_type.element_type)
             if (
                 refnum_expanded
+                and refnum_payload is not None
                 and lv_type.element_type.fields
-                and type_family(lv_type.element_type) in ("cluster", "error_cluster")
+                and payload_fam in ("cluster", "error_cluster")
             ):
                 # EXPANDED (the heap's OWN recorded display state — see
-                # ClusterFieldGeom.refnum_expanded): the box is real heap-sized
-                # to show the payload cluster's TYPE inline — one dimmed
-                # "name: TYPE" row per field, filling it, never a value box-in-
-                # box (that's reserved for a field whose OWN kind is CLUSTER).
-                return RefnumExpandedTypeGlyph(
-                    fields=tuple(
-                        (f.name, type_repr(f.type) or lv_type_label(f.type))
-                        for f in lv_type.element_type.fields
-                    ),
-                    border_color=color,
+                # ClusterFieldGeom.refnum_expanded): the payload cluster's
+                # own REAL per-field elements (recursed through the SAME
+                # composer a genuine nested cluster field uses), at their
+                # real heap placement within this refnum's box
+                # (ClusterFieldGeom.refnum_payload) — dimmed (a TYPE
+                # display, not real data), never flattened "name: TYPE" text.
+                terminal = DimmedGlyph(
+                    _cluster_value_glyph(
+                        lv_type.element_type,
+                        None,
+                        payload_fam == "error_cluster",
+                        refnum_payload.geom,
+                    )
                 )
-            # COMPACT: a small type-mnemonic badge for the registered
-            # payload (verified against reference renders of a User Event
-            # and a Queue control). A cluster payload has no single-token
-            # mnemonic (see ``type_repr``), so its badge is an empty box in
-            # the payload's own wire color.
-            return RefnumDataTypeGlyph(
-                base,
-                type_repr(lv_type.element_type),
-                wire_style(lv_type.element_type).color,
-            )
-        return base
+                terminal_rect = refnum_payload.offset
+            else:
+                # COMPACT: a small type-mnemonic badge for the registered
+                # payload (verified against reference renders of a User
+                # Event and a Queue control). A cluster payload has no
+                # single-token mnemonic (see ``type_repr``), so its badge is
+                # an empty box in the payload's own wire color.
+                terminal = TypeTerminalGlyph(
+                    type_repr(lv_type.element_type),
+                    wire_style(lv_type.element_type).color,
+                )
+        return RefnumGlyph(
+            lv_type.ref_type, color, terminal=terminal, terminal_rect=terminal_rect
+        )
     else:
         value = str(raw) if raw is not None else ""
     # String constants word-wrap to fill their (already content-sized) box.
@@ -1162,15 +1188,18 @@ def _cluster_value_glyph(
 
     A field whose type is something ELSE (a ``refnum``) that happens to
     carry a registered payload TYPE — e.g. a User Event refnum's event-data
-    cluster — is NOT recursed here: a refnum's payload is a TYPE, not a
+    cluster — is NOT recursed HERE: a refnum's payload is a TYPE, not a
     value, so it's never drawn as an editable nested cluster (F/0/testPass
     value glyphs) regardless of whether the heap draws that refnum compact
-    (an icon + a type-mnemonic badge) or EXPANDED (the payload's TYPE
-    schema, dimmed, filling the real heap-recorded box — LabVIEW records
-    BOTH as genuine per-field states, see ``ClusterFieldGeom.
-    refnum_expanded``; neither is a value cluster). That's
-    ``_leaf_const_glyph``'s job (see its ``Refnum`` branch), which every
-    non-cluster field already goes through below.
+    (a dog-ear + kind symbol + type-mnemonic badge) or EXPANDED (the
+    payload's own REAL per-field elements, dimmed, at their real heap
+    placement — LabVIEW records BOTH as genuine per-field states, see
+    ``ClusterFieldGeom.refnum_expanded``/``refnum_payload``; neither is a
+    value cluster). That's ``_leaf_const_glyph``'s job (see its ``Refnum``
+    branch) — which, for an EXPANDED refnum, calls back into THIS function
+    to compose the payload's own elements, so the two functions form one
+    mutually-recursive element renderer keyed purely on type, not a
+    per-field special case.
 
     ``cluster_geom`` is this cluster's real heap geometry (``None`` when the
     heap-geometry pass couldn't decode one) — the glyph falls back to its own
@@ -1203,6 +1232,7 @@ def _cluster_value_glyph(
                     f.type,
                     field_value,
                     refnum_expanded=field_geom.refnum_expanded if field_geom else False,
+                    refnum_payload=field_geom.refnum_payload if field_geom else None,
                 ),
             ))
     summary = "\n".join(
@@ -1380,6 +1410,7 @@ class GeneratedGlyphResolver:
                 raw,
                 node.display_format,
                 refnum_expanded=raw_uid in ctx.refnum_expanded,
+                refnum_payload=ctx.refnum_payload.get(raw_uid),
             )
         if isinstance(node, FormulaNode):
             return FormulaNodeGlyph(node.script or "")

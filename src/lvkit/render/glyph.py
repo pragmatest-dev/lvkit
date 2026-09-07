@@ -25,6 +25,7 @@ from .glyphs.nodes.base import (
     _ROW_ARROW_W,
     _ROW_GUTTER,
     _ROW_LPAD,
+    DimmedGlyph,
     Glyph,
     _draw_arrow,
     _draw_drawer_row,
@@ -44,6 +45,7 @@ from .glyphs.nodes.boolean_gate import BooleanGateGlyph
 from .glyphs.nodes.bundle import BundleGlyph
 from .glyphs.nodes.bundle_by_name import BundleByNameGlyph
 from .glyphs.nodes.centered_svg import CenteredSvgGlyph
+from .glyphs.nodes.class_glyph import ClassGlyph
 from .glyphs.nodes.cluster_constant import ClusterConstantGlyph
 from .glyphs.nodes.compound_arith import CompoundArithGlyph
 from .glyphs.nodes.constant import ConstantGlyph
@@ -59,8 +61,7 @@ from .glyphs.nodes.invoke_node import InvokeNodeGlyph
 from .glyphs.nodes.label import LabelGlyph
 from .glyphs.nodes.local_variable import LocalVariableGlyph
 from .glyphs.nodes.property_node import PropertyNodeGlyph
-from .glyphs.nodes.refnum_data_type import RefnumDataTypeGlyph
-from .glyphs.nodes.refnum_expanded_type import RefnumExpandedTypeGlyph
+from .glyphs.nodes.refnum_glyph import RefnumGlyph, TypeTerminalGlyph
 from .glyphs.nodes.unbundle import UnbundleGlyph
 from .glyphs.nodes.variant import VariantGlyph
 from .glyphs.nodes.wrapped_box import WrappedBoxGlyph
@@ -78,12 +79,14 @@ __all__ = [
     "BundleByNameGlyph",
     "BundleGlyph",
     "CenteredSvgGlyph",
+    "ClassGlyph",
     "ArrayConstantGlyph",
     "ClusterConstantGlyph",
     "CompoundArithGlyph",
     "ConstantGlyph",
     "ControlRefConstGlyph",
     "ConvertGlyph",
+    "DimmedGlyph",
     "ErrorClusterGlyph",
     "EventDataGlyph",
     "FormulaNodeGlyph",
@@ -95,8 +98,8 @@ __all__ = [
     "LabelGlyph",
     "LocalVariableGlyph",
     "PropertyNodeGlyph",
-    "RefnumDataTypeGlyph",
-    "RefnumExpandedTypeGlyph",
+    "RefnumGlyph",
+    "TypeTerminalGlyph",
     "UnbundleGlyph",
     "VariantGlyph",
     "WrappedBoxGlyph",

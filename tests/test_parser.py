@@ -417,6 +417,127 @@ def test_refnum_type_display_expanded_reads_multicosm_index():
     assert not _refnum_type_display_expanded(not_refnum)
 
 
+# A data-typed EXPANDED refnum field (mirrors GTR's real "ResultChangedRef":
+# field raw bounds (521, 399, 727, 510) -> 111x206, nested payload <ddo>
+# bounds (5, 31, 201, 106) relative to the field's own origin -> 75x196 at
+# local offset (31, 5)), embedded in an outer cluster to also exercise
+# ``_cluster_field_geoms``'s threading of ``ClusterFieldGeom.refnum_payload``.
+_REFNUM_PAYLOAD_FIXTURE = """
+<ddo class="stdClust" uid="600">
+  <bounds>(0, 0, 206, 111)</bounds>
+  <paneHierarchy class="pane" uid="601">
+    <bounds>(2, 2, 204, 109)</bounds>
+    <zPlaneList elements="1">
+      <SL__arrayElement class="stdRefNum" uid="500">
+        <bounds>(1000, 2000, 1206, 2111)</bounds>
+        <partsList elements="2">
+          <SL__arrayElement class="label" uid="501">
+            <objFlags>0</objFlags>
+            <bounds>(-15, 0, 0, 60)</bounds>
+            <textRec class="textHair"><text>"ResultChangedRef"</text></textRec>
+          </SL__arrayElement>
+          <SL__arrayElement class="multiCosm" uid="502">
+            <index>1</index>
+          </SL__arrayElement>
+        </partsList>
+        <ddo class="stdClust" uid="510">
+          <bounds>(5, 31, 201, 106)</bounds>
+          <paneHierarchy class="pane" uid="511">
+            <bounds>(2, 2, 193, 72)</bounds>
+            <zPlaneList elements="2">
+              <SL__arrayElement class="udClassDDO" uid="520">
+                <bounds>(3000, 4000, 3048, 4048)</bounds>
+                <partsList elements="1">
+                  <SL__arrayElement class="label" uid="521">
+                    <objFlags>8</objFlags>
+                    <bounds>(-15, 0, 0, 40)</bounds>
+                    <textRec class="textHair"><text>"test"</text></textRec>
+                  </SL__arrayElement>
+                </partsList>
+              </SL__arrayElement>
+              <SL__arrayElement class="stdNum" uid="530">
+                <bounds>(3060, 4000, 3079, 4019)</bounds>
+                <partsList elements="1">
+                  <SL__arrayElement class="label" uid="531">
+                    <objFlags>8</objFlags>
+                    <bounds>(-15, 0, 0, 20)</bounds>
+                    <textRec class="textHair"><text>"execution time"</text></textRec>
+                  </SL__arrayElement>
+                </partsList>
+              </SL__arrayElement>
+            </zPlaneList>
+          </paneHierarchy>
+        </ddo>
+      </SL__arrayElement>
+    </zPlaneList>
+  </paneHierarchy>
+</ddo>
+"""
+
+
+def test_refnum_payload_layout_extracts_real_offset_and_geometry():
+    """``_refnum_payload_layout`` places an EXPANDED refnum's registered
+    CLUSTER payload at the heap's own recorded sub-rect within the refnum's
+    box (never a centered/invented placement) and recurses into the
+    payload's own real per-field geometry via the SAME
+    ``_cluster_field_geoms`` a genuine nested cluster field uses."""
+    from lvkit.parser.layout import (
+        _cluster_field_geoms,
+        _cluster_shape,
+        _refnum_payload_layout,
+    )
+
+    outer = ET.fromstring(_REFNUM_PAYLOAD_FIXTURE)
+    refnum_el = outer.find(
+        "paneHierarchy/zPlaneList/SL__arrayElement[@class='stdRefNum']"
+    )
+    assert refnum_el is not None
+
+    payload = _refnum_payload_layout(refnum_el)
+    assert payload is not None
+    # offset = nested <ddo>'s local (31, 5, 106, 201) as fractions of the
+    # refnum's own native (111, 206) box.
+    ox1, oy1, ox2, oy2 = payload.offset
+    assert ox1 == pytest.approx(31 / 111)
+    assert oy1 == pytest.approx(5 / 206)
+    assert ox2 == pytest.approx(106 / 111)
+    assert oy2 == pytest.approx(201 / 206)
+    assert payload.geom.width == pytest.approx(75.0)
+    assert payload.geom.height == pytest.approx(196.0)
+    assert [f.name for f in payload.geom.fields] == ["test", "execution time"]
+
+    # Threaded through _cluster_field_geoms onto the FIELD's own
+    # ClusterFieldGeom, exactly like refnum_expanded.
+    outer_cg = _cluster_field_geoms(_cluster_shape(outer))
+    assert outer_cg is not None
+    field = next(f for f in outer_cg.fields if f.name == "ResultChangedRef")
+    assert field.refnum_expanded is True
+    assert field.refnum_payload is not None
+    assert field.refnum_payload.offset == payload.offset
+    assert [f.name for f in field.refnum_payload.geom.fields] == [
+        "test", "execution time",
+    ]
+
+    # A COMPACT refnum (no <index>1</index>) still resolves no payload
+    # placement — nothing to place.
+    compact_xml = _REFNUM_PAYLOAD_FIXTURE.replace("<index>1</index>", "")
+    compact_outer = ET.fromstring(compact_xml)
+    compact_refnum = compact_outer.find(
+        "paneHierarchy/zPlaneList/SL__arrayElement[@class='stdRefNum']"
+    )
+    assert compact_refnum is not None
+    # _refnum_payload_layout itself doesn't gate on the expanded bit (that's
+    # the CALLER's job) — it still resolves real geometry when a payload
+    # <ddo> is present, compact or not.
+    assert _refnum_payload_layout(compact_refnum) is not None
+
+    # No nested <ddo> at all (a plain untyped refnum) -> no payload.
+    plain = ET.fromstring(
+        '<ddo class="stdRefNum" uid="700"><bounds>(0,0,48,36)</bounds></ddo>'
+    )
+    assert _refnum_payload_layout(plain) is None
+
+
 # A synthetic array-of-clusters CONSTANT ddo, structurally identical to the
 # real corpus shape (verified on TestResult_Init.vi's array constant, heap
 # ddo uid 502: `class="indArr"` with a DIRECT `<ddo class="typeDef">` child

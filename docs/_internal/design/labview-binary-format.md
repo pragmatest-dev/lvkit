@@ -732,34 +732,67 @@ real bounds, same as any other cluster field — `_cluster_field_geoms`,
 extent-normalize scale are UNCHANGED for a refnum field.
 
 **What DOES vary, and is the actual heap-recorded signal, is whether the
-box's CONTENT is drawn "compact" (icon + a small type-mnemonic badge) or
-"expanded" (the registered payload's TYPE — dimmed "name: type" rows per
-top-level field — filling the box).** This is `_refnum_type_display_expanded`
-in `parser/layout.py`: the refnum's own `partsList` carries a `multiCosm`
-part (drawing the type-display's background) whose `<index>` is the
-discriminator — verified on all 5 `stdRefNum` instances in this VI: every
-EXPANDED one (`ResultChangedRef`, `SuiteChangedRef`, `TestStartedEventRef`)
-has `<index>1</index>` on that `multiCosm`; every COMPACT one
-(`AbortEventRef`, `ExitEventReference`, `TextStream`) omits `<index>`
-entirely (LabVIEW's own default, 0). The field's real `<bounds>` height
-independently agrees with this bit on every verified instance (expanded
-ones are taller), but the renderer reads the `<index>` directly rather than
-inferring expand/compact from size. Either state renders the payload as a
-TYPE, never as editable VALUE glyphs (F/0/testPass) — a refnum's payload
-data only ever appears elsewhere (e.g. an Event Structure's own data node).
+box's CONTENT draws "compact" (a small type-mnemonic badge) or "expanded"
+(the registered payload's own REAL per-field elements, dimmed, filling the
+box).** This is `_refnum_type_display_expanded` in `parser/layout.py`: the
+refnum's own `partsList` carries a `multiCosm` part (drawing the
+type-display's background) whose `<index>` is the discriminator — verified
+on all 5 `stdRefNum` instances in this VI: every EXPANDED one
+(`ResultChangedRef`, `SuiteChangedRef`, `TestStartedEventRef`) has
+`<index>1</index>` on that `multiCosm`; every COMPACT one (`AbortEventRef`,
+`ExitEventReference`, `TextStream`) omits `<index>` entirely (LabVIEW's own
+default, 0). The field's real `<bounds>` height independently agrees with
+this bit on every verified instance (expanded ones are taller), but the
+renderer reads the `<index>` directly rather than inferring expand/compact
+from size. Either state renders the payload as a TYPE, never as editable
+VALUE glyphs (F/0/testPass) — a refnum's payload data only ever appears
+elsewhere (e.g. an Event Structure's own data node).
+
+**LabVIEW is a visual language: every refnum draws as a clean-room dog-ear
+frame (a folded-corner box) + a kind symbol (from `LVType.ref_type`) + a
+TERMINAL showing the payload's TYPE — `render.glyphs.nodes.refnum_glyph.
+RefnumGlyph`** — never bare wrapped text ("UserEvent Refnum"). For the
+COMPACT case the terminal is a small `TypeTerminalGlyph` badge (the
+payload's `style.type_repr` mnemonic). For the EXPANDED case the terminal is
+the payload's own REAL per-field elements — composed by the SAME recursive
+`render.nodes._cluster_value_glyph` a genuine nested cluster field uses,
+wrapped `DimmedGlyph` (the established `lv-disabled-mask` wash) — positioned
+at the heap's OWN recorded placement within the refnum's box, never
+centered or invented: `parser.layout._refnum_payload_layout` reads the
+payload `<ddo>`'s own `<bounds>` (verified relative to the REFNUM's raw-
+bounds origin, the same "relative to the owning ddo's top-left" convention
+every `partsList` part uses) and expresses it as 0..1 FRACTIONS of the
+refnum's own native box (`RefnumPayload.offset`) — fractions survive ANY
+later uniform rescale of the refnum's drawn box exactly, since every scale
+this renderer ever applies is uniform (never per-axis). `RefnumPayload.geom`
+is the payload's own self-contained `ClusterGeom` (`_cluster_field_geoms`
+applied to the payload `<ddo>`, recursing exactly like a genuine nested
+cluster field's `ClusterFieldGeom.nested` does — including a further-nested
+GENUINE value cluster inside the payload, e.g. `ResultChangedRef`'s "test
+error" field, which still draws real box-in-box VALUE glyphs per rule 6:
+only a field whose OWN kind is CLUSTER ever draws editable-looking value
+content, dimmed here only because its PARENT terminal is).
+
+A class-typed field (`LVType.classname` set — verified heap ddo class
+`udClassDDO`) is NOT a `RefnumGlyph` at all: LabVIEW draws a class as a
+CUBE, not a reference frame, so it gets its own `render.glyphs.nodes.
+class_glyph.ClassGlyph` (a clean-room isometric-cube outline + the class's
+short name) — replacing the earlier bare "LabVIEW Object" text box.
 
 An EARLIER revision of this renderer recursed into the nested `<ddo>` and
 composed the field as a fully-expanded nested `ClusterConstantGlyph`
 showing VALUE glyphs — wrong regardless of expanded/compact state, since a
 refnum's payload is a type, not data. A maintainer review against
 reference LabVIEW renders (a compact User Event control and a compact
-Queue control) first corrected this toward "always compact" — also wrong,
-since it doesn't match this VI's own heap, which genuinely records some
-refnums expanded (confirmed against the `.ctl` typedef). The current
-implementation reads the heap's own recorded bit (`<index>`) per field
-instead of assuming either fixed answer. See `render.glyphs.nodes.
-refnum_data_type.RefnumDataTypeGlyph` (compact) and `render.glyphs.nodes.
-refnum_expanded_type.RefnumExpandedTypeGlyph` (expanded).
+Queue control) first corrected this toward "always compact, flattened
+'name: type' text rows for the expanded case" — also wrong on two counts:
+it doesn't match this VI's own heap (which genuinely records some refnums
+expanded, confirmed against the `.ctl` typedef), and LabVIEW never draws a
+control as spaced text — every element is a real positioned glyph. The
+current implementation reads the heap's own recorded bit (`<index>`) AND
+the payload's own real per-field geometry, and composes real recursive
+element glyphs at every level instead of assuming a fixed answer or
+flattening to text.
 
 **An array ddo's ELEMENT control is its own direct `<ddo>` child, at the
 array's OWN real coordinate scale — not the field-extraction typedef-canvas
