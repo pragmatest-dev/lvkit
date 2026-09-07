@@ -82,7 +82,7 @@ class ClusterConstantGlyph:
         if cg is not None and cg.width > 0 and cg.height > 0:
             geom_names = {f.name for f in cg.fields}
             if all(name in geom_names for name, _ in self.fields):
-                self._draw_real_geometry(backend, bounds, theme, border)
+                self._draw_real_geometry(backend, bounds, theme)
                 return
         pad = 3.0
         label_size = 7.0
@@ -97,10 +97,10 @@ class ClusterConstantGlyph:
             # element cell (LabVIEW lays the element cluster out in that box).
             self._draw_value_cells(backend, bounds, theme)
             return
-        self._draw_labeled_rows(backend, bounds, theme, border, pad, label_size)
+        self._draw_labeled_rows(backend, bounds, theme, pad, label_size)
 
     def _draw_real_geometry(
-        self, backend: Backend, bounds: Rect, theme: Theme, border: str
+        self, backend: Backend, bounds: Rect, theme: Theme
     ) -> None:
         """Draw each field at its OWN real heap rect, fit into ``bounds`` by
         a single uniform scale (``cluster_geom``'s fields are relative to its
@@ -110,7 +110,9 @@ class ClusterConstantGlyph:
         an externally-assigned cell of a different size (an array-of-
         clusters element, drawn at the array's fixed real per-row cell). A
         field's name draws at its real label rect (skipped when the heap has
-        the caption hidden, i.e. ``label_rect is None``)."""
+        the caption hidden, i.e. ``label_rect is None``) in the normal LABEL
+        text color (``theme.text`` — a field NAME is a name, not a value; the
+        cluster's own wire color is reserved for the border/value chrome)."""
         cg = self.cluster_geom
         assert cg is not None  # only called when draw() already checked this
         bx1, by1, bx2, by2 = bounds
@@ -143,7 +145,7 @@ class ClusterConstantGlyph:
                         name,
                         label_size,
                         anchor="start",
-                        fill=border,
+                        fill=theme.text,
                     )
 
     def _draw_value_cells(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
@@ -180,7 +182,7 @@ class ClusterConstantGlyph:
 
     def _draw_labeled_rows(
         self, backend: Backend, bounds: Rect, theme: Theme,
-        border: str, pad: float, label_size: float,
+        pad: float, label_size: float,
     ) -> None:
         x1, y1, x2, y2 = bounds
         row_h = (y2 - y1 - 2 * pad) / len(self.fields)
@@ -197,7 +199,7 @@ class ClusterConstantGlyph:
                 name,
                 label_size,
                 anchor="start",
-                fill=border,
+                fill=theme.text,
             )
             cx1 = x1 + pad + label_w
             if x2 - pad > cx1 and ry2 - 1.0 > ry1 + 1.0:

@@ -1773,6 +1773,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         vi_name=vi_name,
         cluster_field_geom=layout.cluster_field_geom,
         array_element_cluster=layout.array_element_cluster,
+        refnum_expanded=frozenset(layout.refnum_expanded),
     )
 
     render_nodes: list[RenderNode] = []

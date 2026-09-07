@@ -710,49 +710,56 @@ implementation and
 and `test_array_element_cluster_geometry_typedef_wrapped` for fixtures
 covering both triggers plus the coordinate mismatch.
 
-**A THIRD heap shape exists but is deliberately NOT recursed into: a
-data-typed refnum's own registered payload.** A control whose own class is
-something else entirely (verified: `class="stdRefNum"`) can carry a nested
-cluster as its own DIRECT `<ddo>` CHILD — not inside its `partsList`, a
-sibling of it — the SAME convention an array ddo's element control uses
-(see below). Verified on GTR's "SMUI Template App Data" cluster: a User
-Event refnum field (`ResultChangedRef`, real heap box height 206px) has a
-nested ddo (uid 14006, `<bounds>(5, 31, 201, 106)` relative to the field's
-own origin — bounds `75×196`) that decodes to the SAME cluster type as the
-field's graph-level `LVType.element_type` (`kind=CLUSTER`, matching field
-names) — a real, decodable heap shape.
+**A THIRD heap shape exists: a data-typed refnum's own registered payload.**
+A control whose own class is something else entirely (verified:
+`class="stdRefNum"`) can carry a nested cluster (or scalar) as its own
+DIRECT `<ddo>` CHILD — not inside its `partsList`, a sibling of it — the
+SAME convention an array ddo's element control uses (see below). Verified
+on GTR's "SMUI Template App Data" cluster: a User Event refnum field
+(`ResultChangedRef`, real heap box height 206px) has a nested ddo (uid
+14006, `<bounds>(5, 31, 201, 106)` relative to the field's own origin —
+bounds `75×196`) that decodes to the SAME cluster type as the field's
+graph-level `LVType.element_type` (`kind=CLUSTER`, matching field names).
 
-An EARLIER version of this renderer used that shape to compose the field as
-a fully-EXPANDED nested `ClusterConstantGlyph` (this doc's own prior
-revision documented it as "trigger 3"). A maintainer review against
-reference LabVIEW renders (a User Event control and a Queue control)
-corrected this: a data-typed refnum (queue / notifier / user event / …)
-draws COMPACT — a small icon-ish box plus a compact type-mnemonic BADGE for
-its registered payload — regardless of how complex that payload type is.
-LabVIEW never expands the payload's fields inline. The renderer now ignores
-this heap shape entirely for RENDERING and instead draws every refnum field
-via `render.nodes._leaf_const_glyph`'s `Refnum` branch, wrapped in a
-`RefnumDataTypeGlyph` badge keyed PURELY off the graph's own
-`LVType.element_type` (`style.type_repr` for a scalar payload's mnemonic,
-e.g. `"abc"` for a string queue — verified directly against a real
-Queue-of-string field, "TextStream"; an empty color-bordered badge for a
-cluster payload, which has no single-token mnemonic).
+**The refnum's real per-field heap `<bounds>` is genuine, per-field, and
+NEVER a size to compact or re-flow** — cross-checked against the field's
+`.ctl` typedef: some User Event refnums are truly EXPANDED in this VI
+(`ResultChangedRef` h=206, `SuiteChangedRef`/`TestStartedEventRef` h=83),
+others genuinely COMPACT (`AbortEventRef`/`ExitEventReference`/`TextStream`,
+h=48 each). The field's box size and position come straight from these
+real bounds, same as any other cluster field — `_cluster_field_geoms`,
+`ClusterFieldGeom.value_rect`/`label_rect`, and the cluster's
+extent-normalize scale are UNCHANGED for a refnum field.
 
-**Open question this doc flags rather than guesses at:** is a data-typed
-refnum FIELD's real on-diagram footprint genuinely `75×196`-ish (icon +
-badge, matching a standalone refnum control) with the heap's `206`-tall
-`<bounds>` being descriptive/editor-only chrome around an "expanded type"
-preview that ISN'T actually shown — or does LabVIEW's cluster EDITOR
-specifically reserve the full expanded-type height for such a field
-regardless of the refnum's own compact on-diagram appearance? No heap
-flag was found distinguishing "this chrome is currently hidden" from
-"currently shown" for the `multiCosm`/`cosm` parts spanning the 206px
-height (their `<index>` selects between two BACKGROUND images, not an
-expand/collapse state). The renderer currently keeps the field's box at
-the heap's full recorded size (`_const_value_box`, unchanged) and only
-changed what's DRAWN inside it — shrinking the reserved box risks
-recomputing `_cluster_field_geoms`'s extent-normalize scale for every
-SIBLING field in the same cluster, which is unverified to be safe.
+**What DOES vary, and is the actual heap-recorded signal, is whether the
+box's CONTENT is drawn "compact" (icon + a small type-mnemonic badge) or
+"expanded" (the registered payload's TYPE — dimmed "name: type" rows per
+top-level field — filling the box).** This is `_refnum_type_display_expanded`
+in `parser/layout.py`: the refnum's own `partsList` carries a `multiCosm`
+part (drawing the type-display's background) whose `<index>` is the
+discriminator — verified on all 5 `stdRefNum` instances in this VI: every
+EXPANDED one (`ResultChangedRef`, `SuiteChangedRef`, `TestStartedEventRef`)
+has `<index>1</index>` on that `multiCosm`; every COMPACT one
+(`AbortEventRef`, `ExitEventReference`, `TextStream`) omits `<index>`
+entirely (LabVIEW's own default, 0). The field's real `<bounds>` height
+independently agrees with this bit on every verified instance (expanded
+ones are taller), but the renderer reads the `<index>` directly rather than
+inferring expand/compact from size. Either state renders the payload as a
+TYPE, never as editable VALUE glyphs (F/0/testPass) — a refnum's payload
+data only ever appears elsewhere (e.g. an Event Structure's own data node).
+
+An EARLIER revision of this renderer recursed into the nested `<ddo>` and
+composed the field as a fully-expanded nested `ClusterConstantGlyph`
+showing VALUE glyphs — wrong regardless of expanded/compact state, since a
+refnum's payload is a type, not data. A maintainer review against
+reference LabVIEW renders (a compact User Event control and a compact
+Queue control) first corrected this toward "always compact" — also wrong,
+since it doesn't match this VI's own heap, which genuinely records some
+refnums expanded (confirmed against the `.ctl` typedef). The current
+implementation reads the heap's own recorded bit (`<index>`) per field
+instead of assuming either fixed answer. See `render.glyphs.nodes.
+refnum_data_type.RefnumDataTypeGlyph` (compact) and `render.glyphs.nodes.
+refnum_expanded_type.RefnumExpandedTypeGlyph` (expanded).
 
 **An array ddo's ELEMENT control is its own direct `<ddo>` child, at the
 array's OWN real coordinate scale — not the field-extraction typedef-canvas

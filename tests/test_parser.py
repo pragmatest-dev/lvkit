@@ -366,6 +366,57 @@ def test_cluster_shape_resolves_direct_and_typedef_wrapped_clusters():
     assert _cluster_shape(no_pane) is None
 
 
+def test_refnum_type_display_expanded_reads_multicosm_index():
+    """``_refnum_type_display_expanded`` is the heap's OWN recorded
+    expanded/compact bit for a data-typed ``stdRefNum`` — its
+    ``partsList``'s ``multiCosm`` part's ``<index>`` (verified against 5 real
+    heap instances: ``ResultChangedRef``/``SuiteChangedRef`` have
+    ``<index>1</index>`` — EXPANDED; ``AbortEventRef``/``ExitEventReference``/
+    ``TextStream`` omit ``<index>`` entirely — COMPACT). Never a size
+    threshold or label match."""
+    from lvkit.parser.layout import _refnum_type_display_expanded
+
+    def _refnum(*, nested_ddo: bool, index: str | None) -> ET.Element:
+        multicosm = '<SL__arrayElement class="multiCosm" uid="20">'
+        if index is not None:
+            multicosm += f"<index>{index}</index>"
+        multicosm += "</SL__arrayElement>"
+        inner = (
+            '<ddo class="stdClust" uid="30"><bounds>(0,0,50,50)</bounds></ddo>'
+            if nested_ddo
+            else ""
+        )
+        xml = (
+            '<ddo class="stdRefNum" uid="10"><bounds>(0,0,48,60)</bounds>'
+            f"<partsList elements=\"1\">{multicosm}</partsList>{inner}</ddo>"
+        )
+        return ET.fromstring(xml)
+
+    # EXPANDED: registered payload + multiCosm index=1.
+    assert _refnum_type_display_expanded(
+        _refnum(nested_ddo=True, index="1")
+    )
+    # COMPACT: registered payload, but no <index> element (LabVIEW's own
+    # default, 0).
+    assert not _refnum_type_display_expanded(
+        _refnum(nested_ddo=True, index=None)
+    )
+    # COMPACT: registered payload with an explicit index=0.
+    assert not _refnum_type_display_expanded(
+        _refnum(nested_ddo=True, index="0")
+    )
+    # A plain untyped refnum (no nested <ddo> at all) is already compact —
+    # nothing to distinguish, even if a stray index=1 were present.
+    assert not _refnum_type_display_expanded(
+        _refnum(nested_ddo=False, index="1")
+    )
+    # Not a refnum at all.
+    not_refnum = ET.fromstring(
+        '<ddo class="stdClust" uid="40"><bounds>(0,0,10,10)</bounds></ddo>'
+    )
+    assert not _refnum_type_display_expanded(not_refnum)
+
+
 # A synthetic array-of-clusters CONSTANT ddo, structurally identical to the
 # real corpus shape (verified on TestResult_Init.vi's array constant, heap
 # ddo uid 502: `class="indArr"` with a DIRECT `<ddo class="typeDef">` child

@@ -1200,17 +1200,26 @@ def test_empty_scalar_array_constant_shows_disabled_default_element():
     assert isinstance(target.glyph.default_element, ConstantGlyph)
 
 
-def test_data_typed_refnum_field_draws_compact_not_expanded_cluster():
-    """The SMUI cluster's "ResultChangedRef" field — a User Event refnum
-    showing its REGISTERED event-data cluster type — draws COMPACT: LabVIEW
-    shows a data-typed refnum (queue/notifier/user-event) as its own small
-    box plus a type-mnemonic badge, NEVER the payload's expanded field
-    values (corrected after a maintainer reference-image review — the
-    earlier "third recursion trigger" wrongly composed this as a full
-    nested ``ClusterConstantGlyph``, issue #45). A cluster payload has no
-    single-token mnemonic, so its badge is an empty box in the payload's
-    own wire color."""
-    from lvkit.render.glyph import ClusterConstantGlyph, RefnumDataTypeGlyph
+def test_data_typed_refnum_field_draws_compact_or_expanded_type_never_value_cluster():
+    """The SMUI cluster's refnum fields never draw as a value
+    ``ClusterConstantGlyph`` (the payload is a TYPE, never editable field
+    VALUES — issue #45's refnum trigger). Which of the two TYPE displays a
+    given field gets is the heap's own recorded per-field state (``layout.
+    ClusterFieldGeom.refnum_expanded`` — real, verified BDHb bounds, never a
+    size guess or a re-flow):
+
+    - COMPACT (``RefnumDataTypeGlyph``): the refnum's own box plus a small
+      type-mnemonic badge — "TextStream" (Queue of STRING, ``badge_text ==
+      "abc"``) and "Current VI's Refnum" (no registered payload at all).
+    - EXPANDED (``RefnumExpandedTypeGlyph``): "ResultChangedRef", a User
+      Event refnum recorded in the heap at its real ~206px-tall expanded
+      size — filled with one DIMMED "name: type" row per top-level payload
+      field, never the payload's actual F/0/testPass VALUE glyphs."""
+    from lvkit.render.glyph import (
+        ClusterConstantGlyph,
+        RefnumDataTypeGlyph,
+        RefnumExpandedTypeGlyph,
+    )
     from lvkit.render.style import wire_style
 
     loaded = _load_graph(BUILTIN_REF_VI)
@@ -1227,17 +1236,17 @@ def test_data_typed_refnum_field_draws_compact_not_expanded_cluster():
     assert target is not None
     assert isinstance(target.glyph, ClusterConstantGlyph)
 
+    # "ResultChangedRef" is recorded EXPANDED in the heap (multiCosm
+    # index=1, h≈206) — its registered event-data cluster's TYPE draws
+    # inline, dimmed, never as a nested value cluster.
     result_changed_ref = next(
         g for name, g in target.glyph.fields if name == "ResultChangedRef"
     )
-    assert isinstance(result_changed_ref, RefnumDataTypeGlyph), (
-        "a data-typed refnum field must draw compact (icon + type badge), "
-        "never an expanded nested cluster"
+    assert isinstance(result_changed_ref, RefnumExpandedTypeGlyph), (
+        "an EXPANDED data-typed refnum field must draw the payload's dimmed "
+        "TYPE schema, never a value cluster"
     )
-    assert not isinstance(result_changed_ref.base, ClusterConstantGlyph)
-    # The registered payload is a cluster — no single-token mnemonic — so
-    # the badge shows no text, only the payload's own wire color.
-    assert result_changed_ref.badge_text == ""
+    assert not isinstance(result_changed_ref, ClusterConstantGlyph)
     smui_node = next(
         n for n in graph.iter_nodes(vi) if n.id.endswith("::14625")
     )
@@ -1245,23 +1254,33 @@ def test_data_typed_refnum_field_draws_compact_not_expanded_cluster():
     assert smui_node.lv_type is not None and smui_node.lv_type.fields is not None
     field = next(f for f in smui_node.lv_type.fields if f.name == "ResultChangedRef")
     assert field.type is not None and field.type.element_type is not None
-    assert result_changed_ref.badge_color == wire_style(field.type.element_type).color
+    payload_fields = field.type.element_type.fields
+    assert payload_fields is not None
+    assert [name for name, _ in result_changed_ref.fields] == [
+        f.name for f in payload_fields
+    ]
+    # The border is the REFNUM's own wire color (it still reads as a refnum
+    # box) — not the payload cluster's color, which is reserved for
+    # RefnumDataTypeGlyph's compact badge.
+    assert result_changed_ref.border_color == wire_style(field.type).color
 
     # A refnum field with NO registered payload (e.g. "Current VI's Refnum",
     # a plain LVObjCtl refnum) keeps drawing as a plain refnum box — no
-    # badge, and never a ClusterConstantGlyph either.
+    # badge, never a ClusterConstantGlyph or an expanded TYPE display.
     current_vi_ref = next(
         g for name, g in target.glyph.fields if name == "Current VI's Refnum"
     )
     assert not isinstance(current_vi_ref, RefnumDataTypeGlyph)
+    assert not isinstance(current_vi_ref, RefnumExpandedTypeGlyph)
     assert not isinstance(current_vi_ref, ClusterConstantGlyph)
 
-    # "TextStream" — a Queue of STRING — is the scalar-payload half of the
-    # same fix (matching the reference Queue-of-"abc" render): a compact
-    # badge with a real scalar mnemonic, never a cluster glyph.
+    # "TextStream" — a Queue of STRING — is recorded COMPACT in the heap: a
+    # compact badge with a real scalar mnemonic, never a cluster glyph and
+    # never the expanded TYPE display (that's for cluster payloads only).
     text_stream = next(g for name, g in target.glyph.fields if name == "TextStream")
     assert isinstance(text_stream, RefnumDataTypeGlyph)
     assert not isinstance(text_stream, ClusterConstantGlyph)
+    assert not isinstance(text_stream, RefnumExpandedTypeGlyph)
     assert text_stream.badge_text == "abc"
 
 
@@ -3006,7 +3025,9 @@ def test_cluster_constant_draws_real_field_geometry_not_uniform_rows():
             ),
         ),
     )
-    glyph = ClusterConstantGlyph(fields=fields, cluster_geom=cg)
+    glyph = ClusterConstantGlyph(
+        fields=fields, cluster_geom=cg, border_color="#ff00ff"
+    )
 
     backend = SvgBackend()
     glyph.draw(backend, box, DEFAULT_THEME)
@@ -3014,6 +3035,13 @@ def test_cluster_constant_draws_real_field_geometry_not_uniform_rows():
     assert "Alpha" in svg  # visible caption drawn
     assert "Beta" not in svg  # hidden caption NOT drawn
     assert svg.count(">V<") == 2  # both field values drawn, at their own rects
+    # A field NAME label is a name, not a value — it draws in the normal
+    # label text color, never the cluster's own wire/border color (issue #45
+    # extension: labels used to draw in ``border``, reading as cluster pink).
+    label_fill = re.search(r'fill="([^"]+)"[^>]*>Alpha<', svg)
+    assert label_fill is not None
+    assert label_fill.group(1) == DEFAULT_THEME.text
+    assert label_fill.group(1) != "#ff00ff"
 
     # Missing geometry for ANY field falls back to the equal-height rows
     # (never a partial mix of real + guessed positions).
@@ -3126,6 +3154,61 @@ def test_refnum_data_type_glyph_draws_base_plus_compact_badge():
     assert "<text" not in svg2  # no mnemonic for a cluster payload
     assert svg2.count("<rect") == 2
     assert 'stroke="#a88d1e"' in svg2  # the badge's own wire color
+
+
+def test_refnum_expanded_type_glyph_draws_dimmed_field_rows():
+    """``RefnumExpandedTypeGlyph`` draws its OWN bordered box (the refnum's
+    real, heap-recorded EXPANDED size) filled with one DIMMED "name: type"
+    row per top-level payload field — never the payload's actual VALUE
+    glyphs (F/0/testPass, issue #45's refnum trigger)."""
+    from lvkit.render.glyph import RefnumExpandedTypeGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = RefnumExpandedTypeGlyph(
+        fields=(("test", "Class"), ("resultStatus", "Enum")),
+        border_color="#007f7f",
+    )
+    bounds = (0.0, 0.0, 100.0, 60.0)
+    backend = SvgBackend()
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+
+    assert 'stroke="#007f7f"' in svg  # the refnum's own wire color, border only
+    assert ">test<" in svg and ">Class<" in svg
+    assert ">resultStatus<" in svg and ">Enum<" in svg
+    # Every field-row text draws DIMMED (never full-strength value color) —
+    # this is a TYPE display, not a settable value.
+    for text_fill in re.findall(r'<text[^>]*\sfill="([^"]+)"', svg):
+        assert text_fill == DEFAULT_THEME.disabled_mask
+
+    # No fields (an unresolved/empty payload schema) draws just the box.
+    empty = RefnumExpandedTypeGlyph(fields=(), border_color="#007f7f")
+    b2 = SvgBackend()
+    empty.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert "<text" not in svg2
+    assert svg2.count("<rect") == 1
+
+    # A long field name and a long type mnemonic on the same row must not
+    # visually collide — each is ellipsized to its OWN budget instead of
+    # running into the other's text (regression: "startTimestamp" vs
+    # "MeasureData" overlapped in the middle of the row before this fit).
+    long_glyph = RefnumExpandedTypeGlyph(
+        fields=(("startTimestamp", "MeasureData"),), border_color="#007f7f"
+    )
+    b3 = SvgBackend()
+    long_glyph.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    name_m = re.search(r'text-anchor="start"[^>]*>([^<]+)<', svg3)
+    type_m = re.search(r'text-anchor="end"[^>]*>([^<]+)<', svg3)
+    assert name_m is not None and type_m is not None
+    size = 8.0  # row_h=(60-6)/1=54 -> size = min(8, 27) = 8
+    name_w = backend.measure_text(name_m.group(1), size)
+    type_w = backend.measure_text(type_m.group(1), size)
+    pad = 3.0
+    # The name (left-anchored at x1+pad) must end before the type text
+    # (right-anchored at x2-pad) begins.
+    assert (bounds[0] + pad + name_w) <= (bounds[2] - pad - type_w) + 1e-6
 
 
 def test_refnum_field_with_cluster_element_type_draws_compact_badge():

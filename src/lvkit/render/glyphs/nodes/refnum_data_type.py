@@ -1,13 +1,17 @@
-"""``RefnumDataTypeGlyph`` — a data-typed refnum constant (queue / notifier /
-user event / …) drawn COMPACT: its own descriptive box plus a small
+"""``RefnumDataTypeGlyph`` — a COMPACT data-typed refnum constant (queue /
+notifier / user event / …): its own descriptive box plus a small
 type-mnemonic BADGE in the corner showing its REGISTERED payload type.
 
-LabVIEW draws these refnums compact regardless of how complex the payload
-type is — verified against reference renders of a User Event control and a
-Queue control, both a small box with a compact type badge in the corner,
-never the payload's expanded field values. This corrects an earlier render
-that composed a data-typed refnum's payload as a full nested cluster box
-(issue #45's refnum trigger).
+Verified against reference renders of a User Event control and a Queue
+control, both a small box with a compact type badge in the corner, never the
+payload's expanded field values. A data-typed refnum can ALSO be recorded
+EXPANDED in the heap (a genuinely larger box showing the payload's type
+schema inline, not just a corner badge) — see ``RefnumExpandedTypeGlyph`` in
+``refnum_expanded_type.py`` for that case; which one a given field is comes
+from the heap's own recorded state (``layout.ClusterFieldGeom.
+refnum_expanded``), never inferred here. Neither ever draws the payload's
+field VALUES (F/0/testPass) — a refnum's payload is a TYPE, not data (issue
+#45's refnum trigger).
 """
 
 from __future__ import annotations

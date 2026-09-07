@@ -122,12 +122,21 @@ class ClusterFieldGeom:
     not yet placed on the diagram. ``label_rect`` is None when the caption is
     hidden (objFlags bit 0x8) or the field carries none. A field whose own
     value is itself a cluster (``class="stdClust"``) carries that cluster's
-    full geometry in ``nested`` (None for a non-cluster field)."""
+    full geometry in ``nested`` (None for a non-cluster field).
+
+    ``refnum_expanded`` is True when this field is a data-typed
+    ``stdRefNum`` whose type-display background selects the EXPANDED image
+    variant (heap-verified: its ``multiCosm`` carries ``<index>1</index>`` —
+    see ``_refnum_type_display_expanded``); False for a compact refnum or
+    any non-refnum field. The renderer uses this to draw the registered
+    payload's TYPE (dimmed, filling the box) instead of a compact icon+badge
+    — never as a nested VALUE cluster, which ``nested`` is reserved for."""
 
     name: str
     value_rect: Rect
     label_rect: Rect | None
     nested: ClusterGeom | None = None
+    refnum_expanded: bool = False
 
 
 @dataclass(frozen=True)
@@ -236,6 +245,13 @@ class Layout:
     # this fixed real size — arrays are homogeneous, so one shape serves every
     # row). Absent for a non-cluster element or one that can't be resolved.
     array_element_cluster: dict[str, ClusterGeom] = field(default_factory=dict)
+    # Raw uids of TOP-LEVEL (not cluster-field) data-typed ``stdRefNum``
+    # constants whose type-display is EXPANDED (see
+    # ``_refnum_type_display_expanded``) — the same signal
+    # ``ClusterFieldGeom.refnum_expanded`` carries for a cluster FIELD, kept
+    # separately here since a bare refnum constant has no ``ClusterFieldGeom``
+    # of its own to carry it on.
+    refnum_expanded: set[str] = field(default_factory=set)
 
     def scene_bounds(self, pad: float = 30.0) -> Rect:
         """Bounding box over every known rect, padded — the SVG viewBox."""
@@ -395,6 +411,43 @@ def _cluster_shape(el: ET.Element | None) -> ET.Element | None:
     return None
 
 
+def _refnum_type_display_expanded(ddo: ET.Element) -> bool:
+    """True when a data-typed ``stdRefNum`` control's REAL heap state is
+    "expanded" — LabVIEW draws its registered payload TYPE inline, filling
+    a large box — rather than "compact" — an icon plus a small type badge.
+
+    A data-typed refnum (queue / notifier / user event / …) carries a
+    nested ``<ddo>`` CHILD recording its registered payload's TYPE (a
+    ``stdString``/``stdClust``/etc — a SIBLING of the refnum's own
+    ``<partsList>``, never a part of it), and a ``partsList`` ``multiCosm``
+    that draws the type-display's own background, selecting one of two
+    recorded background images via its own ``<index>``. Verified on 5
+    stdRefNum instances in one VI (same corpus this module already cites):
+    every EXPANDED one (``ResultChangedRef`` h=206, ``SuiteChangedRef``
+    h=83) has ``<index>1</index>`` on that multiCosm; every COMPACT one
+    (``AbortEventRef``/``ExitEventReference``/``TextStream``, h=48 each)
+    omits ``<index>`` entirely (LabVIEW's own default, 0). This is
+    LabVIEW's OWN recorded display-state bit for the control, not a size
+    threshold or a label/ImageResID match — the field's real ``<bounds>``
+    height independently agrees with it on every verified instance, but
+    this reads the authoritative signal directly rather than inferring it
+    from size.
+
+    False for a plain untyped refnum (no nested ``<ddo>`` at all — already
+    compact, nothing to distinguish) or anything that isn't a
+    ``stdRefNum``."""
+    if ddo.get("class") != "stdRefNum" or ddo.find("ddo") is None:
+        return False
+    parts = ddo.find("partsList")
+    if parts is None:
+        return False
+    for p in parts.findall("SL__arrayElement"):
+        if p.get("class") == "multiCosm":
+            idx = p.findtext("index")
+            return idx is not None and idx.strip() == "1"
+    return False
+
+
 def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
     """A cluster's real geometry, decoded from its own ``paneHierarchy``/
     ``zPlaneList`` — see ``ClusterGeom`` for the coordinate contract (fields
@@ -502,7 +555,15 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
         nested = (
             _cluster_field_geoms(nested_shape) if nested_shape is not None else None
         )
-        result.append(ClusterFieldGeom(name, mapped_value, mapped_label, nested))
+        result.append(
+            ClusterFieldGeom(
+                name,
+                mapped_value,
+                mapped_label,
+                nested,
+                refnum_expanded=_refnum_type_display_expanded(f),
+            )
+        )
     return ClusterGeom(
         width=value_box[2] - value_box[0],
         height=value_box[3] - value_box[1],
@@ -526,6 +587,9 @@ class _LayoutBuilder:
         # An array constant's raw uid -> its cluster-typed ELEMENT's real
         # geometry (same ClusterGeom, at the element's own natural size).
         self.array_element_cluster: dict[str, ClusterGeom] = {}
+        # Raw uids of top-level data-typed stdRefNum constants whose
+        # type-display is EXPANDED (see _refnum_type_display_expanded).
+        self.refnum_expanded: set[str] = set()
         self.terminal_centers: dict[str, Point] = {}
         self.border_terminals: dict[str, Rect] = {}
         self.border_terminal_kind: dict[str, str] = {}
@@ -784,6 +848,10 @@ class _LayoutBuilder:
                             elem_cg = _cluster_field_geoms(elem_shape)
                             if elem_cg is not None:
                                 self.array_element_cluster[term_uid] = elem_cg
+                    # A bare (not cluster-field) data-typed refnum constant:
+                    # its own expanded/compact type-display state.
+                    elif ddo is not None and _refnum_type_display_expanded(ddo):
+                        self.refnum_expanded.add(term_uid)
                 cx = (abs_cb[0] + abs_cb[2]) / 2
                 cy = (abs_cb[1] + abs_cb[3]) / 2
             # termHotPoint: LabVIEW's EXPLICIT per-terminal wire-attach offset
@@ -1192,6 +1260,7 @@ def build_layout_from_root(
         icon_png=icon_png,
         cluster_field_geom=builder.cluster_field_geom,
         array_element_cluster=builder.array_element_cluster,
+        refnum_expanded=builder.refnum_expanded,
     )
 
 
